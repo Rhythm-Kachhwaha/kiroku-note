@@ -94,16 +94,19 @@ The core mining pipeline is functional. Current work is focused on polishing, re
 - [x] Stage 3B.2.1: CardService multi-sense draft synthesis (`synthesize_default_meaning`, `synthesize_default_example`)
 - [ ] Stage 3B.2.2: CardService multi-dictionary integration & JLPT resolution handoff
 - [ ] Stage 3B.3: Side Panel declarative dictionary rendering & UI
+  - [x] Stage 3B.3.1a: Structured Dictionary Study View Renderer (`renderDetails`, sense-bound POS/tags, pitch, freq, JLPT, ruby markup)
+  - [x] Stage 3B.3.1b: Quick-Insert Actions & Progressive Disclosure Accordions (`insertSenseToMeaning`, `insertExampleToCard`, senses overflow accordion)
+  - [x] Stage 3B.3.2: Side Panel Design System & Visual Polish (Precision Dark Utility tokens, typography, spacing, surfaces, borders, buttons, inputs, badges)
 - [ ] Stage 3B.4: Multi-dictionary presentation polish & Anki template alignment
 
 ### Stage 4 — Frontend
 
-- [ ] Redesign Side Panel UI
-- [ ] Improve typography
-- [ ] Improve layout and spacing
-- [ ] Improve card editor
-- [ ] Improve responsive behavior
-- [ ] Preserve existing extension behavior and DOM contracts
+- [x] Redesign Side Panel UI (Precision Dark Utility design system)
+- [x] Improve typography (Noto Sans JP priority, reading accent, CJK word break, monospace data)
+- [x] Improve layout and spacing (4px micro-spacing scale, surface hierarchy, zero overflow)
+- [x] Improve card editor (token-based inputs, high-contrast focus rings, refined media previews)
+- [x] Improve responsive behavior (320px, 400px, 600px width support)
+- [x] Preserve existing extension behavior and DOM contracts (100% test compatibility)
 
 ### Stage 5 — Anki Cards
 

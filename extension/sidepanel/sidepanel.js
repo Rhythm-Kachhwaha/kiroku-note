@@ -530,6 +530,314 @@ function clearDictionaryView() {
   currentDictionaryEntries = [];
 }
 
+function getPitchCircleNumber(position) {
+  const circles = ["⓪", "①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", "⑪", "⑫", "⑬", "⑭", "⑮", "⑯", "⑰", "⑱", "⑲", "⑳"];
+  if (typeof position === "number" && position >= 0 && position < circles.length) {
+    return circles[position];
+  }
+  return `[${position}]`;
+}
+
+function formatPitchPatternName(patternName) {
+  if (!patternName) return "";
+  const lower = String(patternName).toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
+function formatFrequencyRank(freq) {
+  const dict = freq.dictionary || "Freq";
+  if (freq.display_value) {
+    const disp = String(freq.display_value).trim();
+    if (disp.startsWith("#") || disp.startsWith("★")) {
+      return `${dict} ${disp}`;
+    }
+    if (/^\d+$/.test(disp)) {
+      return `${dict} #${disp}`;
+    }
+    return `${dict} ${disp}`;
+  }
+  if (freq.rank != null && freq.rank > 0) {
+    return `${dict} #${freq.rank}`;
+  }
+  if (freq.frequency != null && freq.frequency > 0) {
+    return `${dict} #${freq.frequency}`;
+  }
+  return dict;
+}
+
+function formatJlptLevel(level) {
+  if (!level) return "";
+  const trimmed = String(level).trim();
+  if (trimmed.toUpperCase().startsWith("JLPT")) {
+    return trimmed;
+  }
+  return `JLPT ${trimmed}`;
+}
+
+function renderRubyText(container, text, rubyText) {
+  const source = rubyText || text || "";
+  if (!source) return;
+
+  // If no bracket furigana or ruby tags exist, append plain text safely
+  if (!source.includes("[") && !source.includes("<ruby>")) {
+    container.append(document.createTextNode(text || source));
+    return;
+  }
+
+  // Handle bracket notation: e.g. "朝[あさ]御[ご]飯[はん]を食[た]べる。"
+  if (source.includes("[")) {
+    const regex = /([^\s\[\]]+)\[([^\]]+)\]|([^\[\]]+)/g;
+    let match;
+    let foundRuby = false;
+
+    while ((match = regex.exec(source)) !== null) {
+      if (match[1] && match[2]) {
+        foundRuby = true;
+        const rubyEl = document.createElement("ruby");
+        rubyEl.append(document.createTextNode(match[1]));
+        const rtEl = document.createElement("rt");
+        rtEl.textContent = match[2];
+        rubyEl.append(rtEl);
+        container.append(rubyEl);
+      } else if (match[3]) {
+        container.append(document.createTextNode(match[3]));
+      }
+    }
+
+    if (!foundRuby && text) {
+      container.append(document.createTextNode(text));
+    }
+    return;
+  }
+
+  // Handle <ruby>...<rt>...</rt></ruby> markup safely without innerHTML
+  if (source.includes("<ruby>")) {
+    const rubyRegex = /<ruby>(.*?)<rt>(.*?)<\/rt><\/ruby>|([^<]+)/g;
+    let match;
+    while ((match = rubyRegex.exec(source)) !== null) {
+      if (match[1] && match[2]) {
+        const rubyEl = document.createElement("ruby");
+        rubyEl.append(document.createTextNode(match[1]));
+        const rtEl = document.createElement("rt");
+        rtEl.textContent = match[2];
+        rubyEl.append(rtEl);
+        container.append(rubyEl);
+      } else if (match[3]) {
+        container.append(document.createTextNode(match[3]));
+      }
+    }
+    return;
+  }
+
+  container.append(document.createTextNode(text || source));
+}
+
+function insertSenseToMeaning(glossesText, btn) {
+  if (!glossesText || !fieldMeaning) return;
+  const current = fieldMeaning.value ? fieldMeaning.value.trim() : "";
+  if (current && current !== glossesText.trim()) {
+    const ok = window.confirm("Replace current meaning with this dictionary sense?");
+    if (!ok) return;
+  }
+  fieldMeaning.value = glossesText;
+  fieldMeaning.dispatchEvent(new Event("input", { bubbles: true }));
+  fieldMeaning.dispatchEvent(new Event("change", { bubbles: true }));
+
+  if (btn) {
+    const originalText = btn.textContent;
+    btn.textContent = "Inserted!";
+    btn.classList.add("inserted");
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.classList.remove("inserted");
+    }, 1200);
+  }
+}
+
+function insertExampleToCard(japaneseText, translationText, btn) {
+  if (!japaneseText) return;
+  const currentSentence = fieldExampleSentence && fieldExampleSentence.value ? fieldExampleSentence.value.trim() : "";
+  if (currentSentence && currentSentence !== japaneseText.trim()) {
+    const ok = window.confirm("Replace current example sentence with this dictionary example?");
+    if (!ok) return;
+  }
+
+  if (fieldExampleSentence) {
+    fieldExampleSentence.value = japaneseText;
+    fieldExampleSentence.dispatchEvent(new Event("input", { bubbles: true }));
+    fieldExampleSentence.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  if (fieldExampleTranslation && translationText) {
+    fieldExampleTranslation.value = translationText;
+    fieldExampleTranslation.dispatchEvent(new Event("input", { bubbles: true }));
+    fieldExampleTranslation.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  if (optionalFields && optionalFields.hidden) {
+    optionalFields.hidden = false;
+    if (toggleOptionalBtn) {
+      toggleOptionalBtn.textContent = "Hide optional fields";
+    }
+  }
+
+  if (btn) {
+    const originalText = btn.textContent;
+    btn.textContent = "Inserted!";
+    btn.classList.add("inserted");
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.classList.remove("inserted");
+    }, 1200);
+  }
+}
+
+function renderStudySenseItem(sense, sIdx, entry, totalSensesCount) {
+  const li = document.createElement("li");
+  li.className = "study-sense-item study-sense";
+
+  // Sense number
+  const senseNum = sense.index || (sIdx + 1);
+  const numSpan = document.createElement("span");
+  numSpan.className = "study-sense-num sense-num";
+  numSpan.textContent = `${senseNum}.`;
+  li.append(numSpan);
+
+  const bodyDiv = document.createElement("div");
+  bodyDiv.className = "study-sense-body";
+
+  // Header line inside sense: POS, tags, and quick-insert button
+  const headerDiv = document.createElement("div");
+  headerDiv.className = "study-sense-header";
+
+  const sensePosList = Array.isArray(sense.parts_of_speech) && sense.parts_of_speech.length
+    ? sense.parts_of_speech
+    : (totalSensesCount === 1 && Array.isArray(entry.parts_of_speech) ? entry.parts_of_speech : []);
+
+  const senseTagsList = [
+    ...(Array.isArray(sense.tags) ? sense.tags : []),
+    ...(Array.isArray(sense.field_tags) ? sense.field_tags : []),
+    ...(totalSensesCount === 1 && Array.isArray(entry.tags) ? entry.tags : []),
+  ];
+
+  const metaDiv = document.createElement("div");
+  metaDiv.className = "study-sense-meta";
+
+  sensePosList.forEach(pos => {
+    if (pos && String(pos).trim()) {
+      const posSpan = document.createElement("span");
+      posSpan.className = "study-sense-pos study-pos-badge pos-tag";
+      posSpan.textContent = String(pos).trim();
+      metaDiv.append(posSpan);
+    }
+  });
+
+  senseTagsList.forEach(tag => {
+    if (tag && String(tag).trim()) {
+      const tagSpan = document.createElement("span");
+      tagSpan.className = "study-sense-tag study-tag-badge tag-badge";
+      tagSpan.textContent = String(tag).trim();
+      metaDiv.append(tagSpan);
+    }
+  });
+
+  headerDiv.append(metaDiv);
+
+  // Quick-Insert Sense Action Button
+  const insertSenseBtn = document.createElement("button");
+  insertSenseBtn.className = "btn-dict-insert btn-sense-insert";
+  insertSenseBtn.type = "button";
+  insertSenseBtn.textContent = "Insert";
+  insertSenseBtn.title = "Insert this sense into Meaning";
+  insertSenseBtn.onclick = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const glossesList = Array.isArray(sense.glosses) ? sense.glosses.filter(Boolean) : [];
+    insertSenseToMeaning(glossesList.join("; "), insertSenseBtn);
+  };
+  headerDiv.append(insertSenseBtn);
+
+  bodyDiv.append(headerDiv);
+
+  // Glosses
+  const glossesList = Array.isArray(sense.glosses) ? sense.glosses.filter(Boolean) : [];
+  if (glossesList.length) {
+    const glossesSpan = document.createElement("span");
+    glossesSpan.className = "study-glosses sense-glosses";
+    glossesSpan.textContent = glossesList.join("; ");
+    bodyDiv.append(glossesSpan);
+  }
+
+  // Notes
+  if (Array.isArray(sense.notes) && sense.notes.length) {
+    sense.notes.forEach(note => {
+      if (note && String(note).trim()) {
+        const pNote = document.createElement("p");
+        pNote.className = "study-sense-note note";
+        pNote.textContent = String(note).trim();
+        bodyDiv.append(pNote);
+      }
+    });
+  }
+
+  // Examples attached to this sense
+  if (Array.isArray(sense.examples) && sense.examples.length) {
+    const details = document.createElement("details");
+    details.className = "study-examples-accordion";
+
+    const summary = document.createElement("summary");
+    summary.className = "study-examples-summary";
+    summary.textContent = `Examples (${sense.examples.length})`;
+    details.append(summary);
+
+    const listDiv = document.createElement("div");
+    listDiv.className = "study-examples-list";
+
+    sense.examples.forEach(eg => {
+      if (eg && (eg.japanese || eg.reading)) {
+        const card = document.createElement("div");
+        card.className = "study-example-card example-card";
+
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "study-example-content";
+
+        const jaP = document.createElement("p");
+        jaP.className = "study-example-ja example";
+        renderRubyText(jaP, eg.japanese, eg.reading);
+        contentDiv.append(jaP);
+
+        if (eg.translation) {
+          const enP = document.createElement("p");
+          enP.className = "study-example-en translation";
+          enP.textContent = eg.translation;
+          contentDiv.append(enP);
+        }
+
+        card.append(contentDiv);
+
+        // Quick-Insert Example Button
+        const insertExampleBtn = document.createElement("button");
+        insertExampleBtn.className = "btn-dict-insert btn-example-insert";
+        insertExampleBtn.type = "button";
+        insertExampleBtn.textContent = "Insert";
+        insertExampleBtn.title = "Insert this example into card";
+        insertExampleBtn.onclick = (e) => {
+          if (e && e.stopPropagation) e.stopPropagation();
+          insertExampleToCard(eg.japanese || "", eg.translation || "", insertExampleBtn);
+        };
+        card.append(insertExampleBtn);
+
+        listDiv.append(card);
+      }
+    });
+
+    details.append(listDiv);
+    bodyDiv.append(details);
+  }
+
+  li.append(bodyDiv);
+  return li;
+}
+
 function renderDetails(body) {
   clearDictionaryView();
   const entries = Array.isArray(body?.entries) ? body.entries : [];
@@ -538,143 +846,137 @@ function renderDetails(body) {
 
   if (dictActionsBar) dictActionsBar.style.display = "flex";
 
-  // 1. Clean Study View rendered into #meanings
+  // 1. Structured Study View rendered into #meanings
   if (meanings) {
     const primaryEntry = entries.find(e => e.is_primary) || entries[0];
 
-    // Primary Attribution Header
-    const header = document.createElement("div");
-    header.className = "study-dict-header";
+    entries.forEach((entry, entryIdx) => {
+      const isPrimary = Boolean(entry.is_primary || entry === primaryEntry);
 
-    const dictPill = document.createElement("span");
-    dictPill.className = "dict-source-pill";
-    dictPill.textContent = primaryEntry.dictionary || "Dictionary";
-    header.append(dictPill);
+      // Entry Container
+      const entryContainer = document.createElement("div");
+      entryContainer.className = "study-entry";
 
-    if (primaryEntry.is_primary) {
-      const primaryBadge = document.createElement("span");
-      primaryBadge.className = "badge primary-badge";
-      primaryBadge.textContent = "Primary";
-      header.append(primaryBadge);
-    }
+      // Meta Strip / Header for this entry
+      const header = document.createElement("div");
+      header.className = "study-dict-header";
 
-    if (entries.length > 1) {
-      const moreCount = entries.length - 1;
-      const countPill = document.createElement("span");
-      countPill.className = "dict-count-pill";
-      countPill.textContent = `+${moreCount} more dict${moreCount > 1 ? "s" : ""}`;
-      header.append(countPill);
-    }
-    meanings.append(header);
+      // Dictionary source pill
+      const dictPill = document.createElement("span");
+      dictPill.className = "dict-source-pill pill-dict";
+      dictPill.textContent = entry.dictionary || "Dictionary";
+      header.append(dictPill);
 
-    // Compact Deduplicated POS Badges
-    const allPos = [];
-    const seenPos = new Set();
-    entries.forEach(e => {
-      (e.parts_of_speech || []).forEach(pos => {
-        const trimmed = (pos || "").trim();
-        if (trimmed && !seenPos.has(trimmed.toLowerCase())) {
-          seenPos.add(trimmed.toLowerCase());
-          allPos.push(trimmed);
-        }
-      });
-    });
+      // Primary badge
+      if (entry.is_primary) {
+        const primaryBadge = document.createElement("span");
+        primaryBadge.className = "badge primary-badge";
+        primaryBadge.textContent = "Primary";
+        header.append(primaryBadge);
+      }
 
-    if (allPos.length) {
-      const posRow = document.createElement("div");
-      posRow.className = "study-pos-row";
-      allPos.forEach(pos => {
-        add(posRow, "span", pos, "study-pos-badge");
-      });
-      meanings.append(posRow);
-    }
+      // If this is the primary entry and there are multiple entries, show count pill
+      if (isPrimary && entryIdx === 0 && entries.length > 1) {
+        const moreCount = entries.length - 1;
+        const countPill = document.createElement("span");
+        countPill.className = "dict-count-pill";
+        countPill.textContent = `+${moreCount} more dict${moreCount > 1 ? "s" : ""}`;
+        header.append(countPill);
+      }
 
-    // Numbered, Deduplicated Senses & Collected Examples
-    const seenSenseKeys = new Set();
-    const uniqueSenses = [];
-    const allExamples = [];
-
-    for (const entry of entries) {
-      for (const sense of (entry.senses || [])) {
-        const distinctGlosses = [];
-        const seenInSense = new Set();
-        for (const g of (sense.glosses || [])) {
-          const norm = (g || "").trim().toLowerCase();
-          if (norm && !seenInSense.has(norm)) {
-            seenInSense.add(norm);
-            distinctGlosses.push(g.trim());
+      // Pitch accent pills from entry.pitches
+      if (Array.isArray(entry.pitches) && entry.pitches.length) {
+        entry.pitches.forEach(pitch => {
+          if (pitch && typeof pitch.position === "number") {
+            const circle = getPitchCircleNumber(pitch.position);
+            const pat = formatPitchPatternName(pitch.pattern_name);
+            const text = pat ? `${circle} ${pat}` : circle;
+            const pill = document.createElement("span");
+            pill.className = "pill-pitch badge pitch-badge";
+            pill.textContent = text;
+            const desc = pat ? `${pat} (Downstep: ${pitch.position})` : `Downstep: ${pitch.position}`;
+            pill.title = pitch.dictionary ? `${desc} [${pitch.dictionary}]` : desc;
+            header.append(pill);
           }
-        }
-        if (!distinctGlosses.length) continue;
+        });
+      }
 
-        const senseKey = distinctGlosses.map(g => g.toLowerCase()).sort().join("|");
-        if (!seenSenseKeys.has(senseKey)) {
-          seenSenseKeys.add(senseKey);
-          uniqueSenses.push({
-            glosses: distinctGlosses,
-            tags: sense.tags || [],
-            notes: sense.notes || []
-          });
-        }
+      // JLPT level pill from body.jlpt_level (rendered on primary entry)
+      if (isPrimary && body?.jlpt_level) {
+        const jlptPill = document.createElement("span");
+        jlptPill.className = "pill-jlpt badge jlpt-badge";
+        jlptPill.textContent = formatJlptLevel(body.jlpt_level);
+        header.append(jlptPill);
+      }
 
-        if (sense.examples && sense.examples.length) {
-          for (const eg of sense.examples) {
-            if (eg.japanese && !allExamples.some(x => x.japanese === eg.japanese)) {
-              allExamples.push(eg);
+      // Frequency rank pills from entry.frequencies
+      if (Array.isArray(entry.frequencies) && entry.frequencies.length) {
+        entry.frequencies.forEach(freq => {
+          if (freq && (freq.dictionary || freq.rank != null || freq.display_value)) {
+            const freqText = formatFrequencyRank(freq);
+            const pill = document.createElement("span");
+            pill.className = "pill-freq badge freq-badge";
+            pill.textContent = freqText;
+            pill.title = `${freq.dictionary || "Frequency"} Rank`;
+            header.append(pill);
+          }
+        });
+      }
+
+      entryContainer.append(header);
+
+      // Senses list for this entry with Progressive Disclosure
+      const senses = Array.isArray(entry.senses) ? entry.senses : [];
+      if (senses.length) {
+        const PRIMARY_SENSES_LIMIT = 4;
+        const primarySenses = senses.slice(0, PRIMARY_SENSES_LIMIT);
+        const overflowSenses = senses.slice(PRIMARY_SENSES_LIMIT);
+
+        const ol = document.createElement("ol");
+        ol.className = "study-senses-list";
+
+        primarySenses.forEach((sense, sIdx) => {
+          ol.append(renderStudySenseItem(sense, sIdx, entry, senses.length));
+        });
+
+        entryContainer.append(ol);
+
+        if (overflowSenses.length > 0) {
+          const details = document.createElement("details");
+          details.className = "senses-overflow-accordion";
+
+          const summary = document.createElement("summary");
+          summary.className = "senses-overflow-summary";
+          const overflowCount = overflowSenses.length;
+          const countText = `${overflowCount} more sense${overflowCount === 1 ? "" : "s"}`;
+          summary.textContent = `Show ${countText}...`;
+
+          details.addEventListener("toggle", () => {
+            if (details.open) {
+              summary.textContent = "Show fewer senses";
+            } else {
+              summary.textContent = `Show ${countText}...`;
             }
-          }
+          });
+
+          details.append(summary);
+
+          const overflowOl = document.createElement("ol");
+          overflowOl.setAttribute("start", String(PRIMARY_SENSES_LIMIT + 1));
+          overflowOl.className = "study-senses-list senses-overflow-list";
+
+          overflowSenses.forEach((sense, offsetIdx) => {
+            const sIdx = PRIMARY_SENSES_LIMIT + offsetIdx;
+            overflowOl.append(renderStudySenseItem(sense, sIdx, entry, senses.length));
+          });
+
+          details.append(overflowOl);
+          entryContainer.append(details);
         }
       }
-    }
 
-    if (uniqueSenses.length) {
-      const ol = document.createElement("ol");
-      ol.className = "study-senses-list";
-      uniqueSenses.forEach((sense, index) => {
-        const li = document.createElement("li");
-        li.className = "study-sense-item";
-
-        if (uniqueSenses.length > 1) {
-          add(li, "span", `${index + 1}.`, "study-sense-num");
-        }
-
-        const bodyDiv = document.createElement("div");
-        bodyDiv.className = "study-sense-body";
-        add(bodyDiv, "span", sense.glosses.join("; "), "study-glosses");
-
-        if (sense.notes?.length) {
-          sense.notes.forEach(note => add(bodyDiv, "p", note, "study-sense-note"));
-        }
-        li.append(bodyDiv);
-        ol.append(li);
-      });
-      meanings.append(ol);
-    }
-
-    // Collapsible Examples Accordion (collapsed by default)
-    if (allExamples.length) {
-      const details = document.createElement("details");
-      details.className = "study-examples-accordion";
-
-      const summary = document.createElement("summary");
-      summary.className = "study-examples-summary";
-      summary.textContent = `Examples (${allExamples.length})`;
-      details.append(summary);
-
-      const listDiv = document.createElement("div");
-      listDiv.className = "study-examples-list";
-      allExamples.forEach(eg => {
-        const card = document.createElement("div");
-        card.className = "study-example-card";
-        add(card, "p", eg.japanese, "study-example-ja");
-        if (eg.translation) {
-          add(card, "p", eg.translation, "study-example-en");
-        }
-        listDiv.append(card);
-      });
-      details.append(listDiv);
-      meanings.append(details);
-    }
+      meanings.append(entryContainer);
+    });
   }
 
   // 2. Full Raw Unabridged Output rendered into #dict-raw-view
