@@ -12,7 +12,7 @@
     "offscreen"
   ],
   "host_permissions": [
-    "http://127.0.0.1:8000/*",
+    "http://127.0.0.1:21828/*",
     "*://*.youtube.com/*",
     "*://*.netflix.com/*",
     "<all_urls>"

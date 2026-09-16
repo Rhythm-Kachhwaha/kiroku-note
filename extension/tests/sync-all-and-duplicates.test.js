@@ -141,7 +141,7 @@ assert.ok(
     document: { addEventListener: () => {} },
     btnSyncAll: mockBtnSyncAll,
     syncAllStatus: mockSyncAllStatus,
-    API_CARD_SYNC_ALL_URL: "http://127.0.0.1:8000/api/cards/sync-all",
+    API_CARD_SYNC_ALL_URL: "http://127.0.0.1:21828/api/cards/sync-all",
     isSyncAllRunning: false,
     fetch: async (url, opts) => mockFetchResponse,
     formatErrorMessage: (e) => String(e.message || e),

@@ -261,8 +261,8 @@ const richData = {
   example_sentence: "壁[かべ]に絵[え]を掛[か]ける。",
   example_translation: "Hang a picture on the wall.",
   notes: "polite: かけます",
-  image: "http://127.0.0.1:8000/api/media/kakeru.jpg",
-  audio: "http://127.0.0.1:8000/api/media/kakeru.mp3",
+  image: "http://127.0.0.1:21828/api/media/kakeru.jpg",
+  audio: "http://127.0.0.1:21828/api/media/kakeru.mp3",
   pitch_badge: "[② Nakadaka]",
   entries: [
     {
@@ -326,10 +326,10 @@ const mediaDiv = mockCardPreviewCard.children.find(c => c.className === "kn-medi
 assert.ok(mediaDiv, ".kn-media container must exist");
 const imgEl = mediaDiv.children.find(c => c.className === "kn-image");
 assert.ok(imgEl, ".kn-image element must exist");
-assert.equal(imgEl.src, "http://127.0.0.1:8000/api/media/kakeru.jpg");
+assert.equal(imgEl.src, "http://127.0.0.1:21828/api/media/kakeru.jpg");
 const audEl = mediaDiv.children.find(c => c.className === "kn-audio-preview");
 assert.ok(audEl, ".kn-audio-preview element must exist");
-assert.equal(audEl.src, "http://127.0.0.1:8000/api/media/kakeru.mp3");
+assert.equal(audEl.src, "http://127.0.0.1:21828/api/media/kakeru.mp3");
 
 console.log("PASS 6: Back preview renders complete semantic hierarchy with ruby, badges, and media.");
 

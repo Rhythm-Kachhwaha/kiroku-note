@@ -392,4 +392,18 @@ New major features should generally be deferred unless they are necessary for th
   - 263/263 backend pytest tests passing (`python -m pytest -o pythonpath=backend backend/tests`).
   - 35/35 extension test suites passing (`node --test extension/tests/*.test.js`), including new dedicated `extension/tests/deck-aware-duplicate-ui.test.js` covering scenarios A through F.
 
+### Dedicated Backend Port Configuration (Port 21828)
+- **Change Delivered:**
+  - Migrated default backend listening port from generic dev port `8000` to dedicated unassigned port `21828` (`127.0.0.1:21828`).
+  - Added centralized configuration in `backend/app/config.py` with resolution order: `KIROKU_PORT` -> `PORT` -> `DEFAULT_KIROKU_PORT (21828)` with strict 1-65535 boundary validation.
+  - Wrapped `run_backend.py` with actionable error handling catching occupied-port socket bind failures (`OSError` / WinError 10048), printing clear guidance for `KIROKU_PORT`.
+  - Centralized extension backend URL in `sidepanel.js` via `BACKEND_BASE_URL = "http://127.0.0.1:21828"`, deriving all route constants and media resolution endpoints.
+  - Updated `sidepanel.html` CSP `connect-src`, `img-src`, and `media-src` to `http://127.0.0.1:21828`.
+  - Updated `manifest.json` `host_permissions` to `http://127.0.0.1:21828/*`.
+  - Maintained zero changes to Yomitan (`127.0.0.1:19633`) and AnkiConnect (`127.0.0.1:8765`).
+- **Verification:**
+  - 275/275 backend pytest tests passing (`python -m pytest tests` in `backend/`).
+  - 36/36 extension test suites passing (`node extension/tests/*.test.js`), including dedicated `backend-port-centralization.test.js`.
+
+
 

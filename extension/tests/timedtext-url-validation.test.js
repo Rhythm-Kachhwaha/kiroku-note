@@ -114,7 +114,7 @@ assert.ok(
 );
 
 assert.ok(
-  !isAllowedTimedtextUrl("http://127.0.0.1:8000/api/capture"),
+  !isAllowedTimedtextUrl("http://127.0.0.1:21828/api/capture"),
   "Loopback IP must be rejected"
 );
 

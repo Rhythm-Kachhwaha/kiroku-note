@@ -72,7 +72,7 @@ const mockFetch = async (url, options) => {
 const cardEditorMock = createMockEl("form");
 const testContext = {
   fetch: mockFetch,
-  API_SAVE_URL: "http://127.0.0.1:8000/api/cards/save",
+  API_SAVE_URL: "http://127.0.0.1:21828/api/cards/save",
   cardEditor: cardEditorMock,
   fieldCardId: { value: "" },
   fieldExpression: { value: "食べる" },

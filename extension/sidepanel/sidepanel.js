@@ -1,12 +1,13 @@
-const API_CAPTURE_URL = "http://127.0.0.1:8000/api/capture";
-const API_SAVE_URL = "http://127.0.0.1:8000/api/cards/save";
-const API_ANKI_STATUS_URL = "http://127.0.0.1:8000/api/anki/status";
-const API_ANKI_DECKS_URL = "http://127.0.0.1:8000/api/anki/decks";
-const API_ANKI_MODELS_URL = "http://127.0.0.1:8000/api/anki/models";
-const API_CARD_SYNC_URL = (id) => `http://127.0.0.1:8000/api/cards/${id}/sync`;
-const API_CARD_SYNC_ALL_URL = "http://127.0.0.1:8000/api/cards/sync-all";
-const API_CARDS_URL = "http://127.0.0.1:8000/api/cards";
-const API_CARD_DETAIL_URL = (id) => `http://127.0.0.1:8000/api/cards/${id}`;
+const BACKEND_BASE_URL = "http://127.0.0.1:21828";
+const API_CAPTURE_URL = `${BACKEND_BASE_URL}/api/capture`;
+const API_SAVE_URL = `${BACKEND_BASE_URL}/api/cards/save`;
+const API_ANKI_STATUS_URL = `${BACKEND_BASE_URL}/api/anki/status`;
+const API_ANKI_DECKS_URL = `${BACKEND_BASE_URL}/api/anki/decks`;
+const API_ANKI_MODELS_URL = `${BACKEND_BASE_URL}/api/anki/models`;
+const API_CARD_SYNC_URL = (id) => `${BACKEND_BASE_URL}/api/cards/${id}/sync`;
+const API_CARD_SYNC_ALL_URL = `${BACKEND_BASE_URL}/api/cards/sync-all`;
+const API_CARDS_URL = `${BACKEND_BASE_URL}/api/cards`;
+const API_CARD_DETAIL_URL = (id) => `${BACKEND_BASE_URL}/api/cards/${id}`;
 
 const toggle = document.querySelector("#mining-toggle");
 const mode = document.querySelector("#mode");
@@ -333,8 +334,8 @@ let currentModelCapabilities = {
 async function loadModelCapabilities(modelName) {
   try {
     const url = modelName
-      ? `http://127.0.0.1:8000/api/anki/model-capabilities?model_name=${encodeURIComponent(modelName)}`
-      : `http://127.0.0.1:8000/api/anki/model-capabilities`;
+      ? `${BACKEND_BASE_URL}/api/anki/model-capabilities?model_name=${encodeURIComponent(modelName)}`
+      : `${BACKEND_BASE_URL}/api/anki/model-capabilities`;
     const res = await fetch(url);
     if (res.ok) {
       const caps = await res.json();
@@ -524,7 +525,7 @@ function getCardPreviewData() {
   if (!resolvedImage && img) {
     resolvedImage = (img.startsWith("http://") || img.startsWith("https://") || img.startsWith("data:"))
       ? img
-      : `http://127.0.0.1:8000/api/media/${encodeURIComponent(img)}`;
+      : `${BACKEND_BASE_URL}/api/media/${encodeURIComponent(img)}`;
   }
 
   // Audio source resolution
@@ -532,7 +533,7 @@ function getCardPreviewData() {
   if (!resolvedAudio && aud) {
     resolvedAudio = (aud.startsWith("http://") || aud.startsWith("https://") || aud.startsWith("data:"))
       ? aud
-      : `http://127.0.0.1:8000/api/media/${encodeURIComponent(aud)}`;
+      : `${BACKEND_BASE_URL}/api/media/${encodeURIComponent(aud)}`;
   }
 
   // Pitch resolution from currentDictionaryEntries
@@ -996,7 +997,7 @@ function updateSessionCounter() {
 function formatErrorMessage(error, defaultMsg = "Backend unavailable.") {
   if (!error) return defaultMsg;
   if (error.message === "Failed to fetch" || error.name === "TypeError") {
-    return "Cannot connect to backend. Ensure FastAPI server is running on http://127.0.0.1:8000";
+    return `Cannot connect to backend. Ensure FastAPI server is running on ${BACKEND_BASE_URL}`;
   }
   return error.message || defaultMsg;
 }
@@ -2070,13 +2071,13 @@ async function identify(text) {
       if (body.image) {
         const imgSrc = body.image.startsWith("data:") || body.image.startsWith("http:") || body.image.startsWith("https:")
           ? body.image
-          : `http://127.0.0.1:8000/api/media/${body.image}`;
+          : `${BACKEND_BASE_URL}/api/media/${body.image}`;
         currentDraftMedia.imageBase64 = imgSrc;
       }
       if (body.audio) {
         const audioSrc = body.audio.startsWith("data:") || body.audio.startsWith("http:") || body.audio.startsWith("https:")
           ? body.audio
-          : `http://127.0.0.1:8000/api/media/${body.audio}`;
+          : `${BACKEND_BASE_URL}/api/media/${body.audio}`;
         currentDraftMedia.audioBase64 = audioSrc;
         currentDraftMedia.audioStatus = "available";
         currentDraftMedia.audioError = null;
@@ -2541,7 +2542,7 @@ if (cardEditor) {
         if (fieldAudio) fieldAudio.value = body.audio;
         const audioSrc = body.audio.startsWith("data:") || body.audio.startsWith("http:") || body.audio.startsWith("https:")
           ? body.audio
-          : `http://127.0.0.1:8000/api/media/${body.audio}`;
+          : `${BACKEND_BASE_URL}/api/media/${body.audio}`;
         currentDraftMedia.audioBase64 = audioSrc;
         currentDraftMedia.audioStatus = "available";
         currentDraftMedia.audioError = null;
@@ -2550,7 +2551,7 @@ if (cardEditor) {
         if (fieldImage) fieldImage.value = body.image;
         const imgSrc = body.image.startsWith("data:") || body.image.startsWith("http:") || body.image.startsWith("https:")
           ? body.image
-          : `http://127.0.0.1:8000/api/media/${body.image}`;
+          : `${BACKEND_BASE_URL}/api/media/${body.image}`;
         currentDraftMedia.imageBase64 = imgSrc;
       }
       updateMediaPreviews();
@@ -3026,13 +3027,13 @@ async function openSavedCard(cardId) {
       if (body.image) {
         const imgSrc = body.image.startsWith("data:") || body.image.startsWith("http:") || body.image.startsWith("https:")
           ? body.image
-          : `http://127.0.0.1:8000/api/media/${body.image}`;
+          : `${BACKEND_BASE_URL}/api/media/${body.image}`;
         currentDraftMedia.imageBase64 = imgSrc;
       }
       if (body.audio) {
         const audioSrc = body.audio.startsWith("data:") || body.audio.startsWith("http:") || body.audio.startsWith("https:")
           ? body.audio
-          : `http://127.0.0.1:8000/api/media/${body.audio}`;
+          : `${BACKEND_BASE_URL}/api/media/${body.audio}`;
         currentDraftMedia.audioBase64 = audioSrc;
         currentDraftMedia.audioStatus = "available";
         currentDraftMedia.audioError = null;

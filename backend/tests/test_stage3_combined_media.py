@@ -193,8 +193,8 @@ class TestStage3CombinedMediaLifecycle(unittest.TestCase):
             expression="桜",
             reading="さくら",
             meaning="cherry blossom (second update)",
-            image=f"http://127.0.0.1:8000/api/media/{orig_img}",
-            audio=f"http://127.0.0.1:8000/api/media/{orig_audio}"
+            image=f"http://127.0.0.1:21828/api/media/{orig_img}",
+            audio=f"http://127.0.0.1:21828/api/media/{orig_audio}"
         )
         card_edited_url = self.card_service.save_card(req_edit_url)
         self.assertEqual(card_edited_url.id, card.id)

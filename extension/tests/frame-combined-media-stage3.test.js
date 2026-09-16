@@ -568,8 +568,8 @@ async function testHistoryRestorationAndResave() {
   assert.equal(elements.fieldExpression.value, "桜");
   assert.equal(elements.fieldImage.value, "ankiminer_img_20260915_sakura.jpg");
   assert.equal(elements.fieldAudio.value, "ankiminer_audio_20260915_sakura.wav");
-  assert.equal(mockContext.currentDraftMedia.imageBase64, "http://127.0.0.1:8000/api/media/ankiminer_img_20260915_sakura.jpg");
-  assert.equal(mockContext.currentDraftMedia.audioBase64, "http://127.0.0.1:8000/api/media/ankiminer_audio_20260915_sakura.wav");
+  assert.equal(mockContext.currentDraftMedia.imageBase64, "http://127.0.0.1:21828/api/media/ankiminer_img_20260915_sakura.jpg");
+  assert.equal(mockContext.currentDraftMedia.audioBase64, "http://127.0.0.1:21828/api/media/ankiminer_audio_20260915_sakura.wav");
   assert.equal(mockContext.currentDraftMedia.audioStatus, "available");
   assert.equal(elements.imagePreview.hidden, false, "Image preview shown");
   assert.equal(elements.audioPreview.hidden, false, "Audio preview shown");
@@ -599,7 +599,7 @@ async function testHistoryRestorationAndResave() {
   assert.equal(String(elements.fieldCardId.value), "51");
   assert.equal(elements.fieldImage.value, "ankiminer_img_20260915_fuji.jpg");
   assert.equal(elements.fieldAudio.value, "");
-  assert.equal(mockContext.currentDraftMedia.imageBase64, "http://127.0.0.1:8000/api/media/ankiminer_img_20260915_fuji.jpg");
+  assert.equal(mockContext.currentDraftMedia.imageBase64, "http://127.0.0.1:21828/api/media/ankiminer_img_20260915_fuji.jpg");
   assert.equal(mockContext.currentDraftMedia.audioBase64, null);
   assert.equal(mockContext.currentDraftMedia.audioStatus, "idle");
   assert.equal(elements.imagePreview.hidden, false);
@@ -630,7 +630,7 @@ async function testHistoryRestorationAndResave() {
   assert.equal(elements.fieldImage.value, "");
   assert.equal(elements.fieldAudio.value, "ankiminer_audio_20260915_ame.wav");
   assert.equal(mockContext.currentDraftMedia.imageBase64, null);
-  assert.equal(mockContext.currentDraftMedia.audioBase64, "http://127.0.0.1:8000/api/media/ankiminer_audio_20260915_ame.wav");
+  assert.equal(mockContext.currentDraftMedia.audioBase64, "http://127.0.0.1:21828/api/media/ankiminer_audio_20260915_ame.wav");
   assert.equal(mockContext.currentDraftMedia.audioStatus, "available");
   assert.equal(elements.imagePreview.hidden, true);
   assert.equal(elements.audioPreview.hidden, false);
