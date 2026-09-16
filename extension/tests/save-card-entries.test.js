@@ -113,6 +113,16 @@ const testContext = {
       ],
     },
   ],
+  currentKanjiEntries: [
+    {
+      character: "食",
+      dictionary: "KANJIDIC",
+      onyomi: ["ショク"],
+      kunyomi: ["た.べる"],
+      meanings: ["eat"],
+      stats: { strokes: "9" },
+    },
+  ],
 };
 
 const submitSrc = jsContent.slice(submitStart, submitEnd);
@@ -132,15 +142,22 @@ vm.runInNewContext(submitSrc, testContext);
   assert.equal(capturedPayload.entries[0].dictionary, "Jitendex");
   assert.equal(capturedPayload.entries[0].term, "食べる");
 
-  console.log("PASS: Save Card payload includes currentDictionaryEntries verified.");
+  assert.ok("kanji_entries" in capturedPayload, "Save Card payload must include 'kanji_entries' property");
+  assert.equal(Array.isArray(capturedPayload.kanji_entries), true, "kanji_entries must be an array");
+  assert.equal(capturedPayload.kanji_entries.length, 1, "kanji_entries should contain the 1 captured kanji entry");
+  assert.equal(capturedPayload.kanji_entries[0].character, "食");
+
+  console.log("PASS: Save Card payload includes currentDictionaryEntries and currentKanjiEntries verified.");
 
   // Test empty currentDictionaryEntries defaults to []
   testContext.currentDictionaryEntries = [];
+  testContext.currentKanjiEntries = [];
   capturedPayload = null;
   await submitHandler({ preventDefault() {} });
   assert.ok(capturedPayload !== null);
   assert.ok("entries" in capturedPayload, "Save Card payload must include 'entries' property even when empty");
   assert.deepEqual(capturedPayload.entries, [], "empty currentDictionaryEntries should result in entries: []");
+  assert.deepEqual(capturedPayload.kanji_entries, [], "empty currentKanjiEntries should result in kanji_entries: []");
 
-  console.log("PASS: empty currentDictionaryEntries handled cleanly as [].");
+  console.log("PASS: empty currentDictionaryEntries and currentKanjiEntries handled cleanly as [].");
 })();

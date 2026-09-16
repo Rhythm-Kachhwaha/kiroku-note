@@ -223,8 +223,8 @@ assert.ok(
 
 // Verify openSavedCard restores entries
 assert.ok(
-  jsContent.includes("if (Array.isArray(body.entries) && body.entries.length) {\n        renderDetails({ entries: body.entries });\n      } else {\n        clearDictionaryView();\n      }") ||
-  jsContent.includes("renderDetails({ entries: body.entries })"),
+  jsContent.includes("renderDetails({") &&
+  jsContent.includes("entries: body.entries"),
   "openSavedCard must restore entries to renderDetails"
 );
 

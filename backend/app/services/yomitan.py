@@ -84,6 +84,20 @@ class DictionaryEntry:
 
 
 @dataclass(frozen=True)
+class KanjiEntry:
+    character: str
+    dictionary: str = "Unknown dictionary"
+    onyomi: list[str] = field(default_factory=list)
+    kunyomi: list[str] = field(default_factory=list)
+    nanori: list[str] = field(default_factory=list)
+    meanings: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    stats: dict[str, str] = field(default_factory=dict)
+    dictionary_alias: str | None = None
+    frequencies: list[FrequencyRank] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class EnrichedTerm:
     expression: str
     reading: str
@@ -92,6 +106,7 @@ class EnrichedTerm:
     entries: list[DictionaryEntry] = field(default_factory=list)
     dictionary_error: str | None = None
     jlpt_level: str | None = None
+    kanji_entries: list[KanjiEntry] = field(default_factory=list)
 
 class YomitanService:
     def __init__(self, endpoint: str | None = None, timeout_seconds: float = 3.0):
@@ -102,12 +117,46 @@ class YomitanService:
         return self.normalize_tokenize_response(self._post_json("/tokenize", {"text": text, "scanLength": 16, "parser": "scanning-parser"}), text)
 
     def enrich(self, term: IdentifiedTerm) -> EnrichedTerm:
+        term_error: str | None = None
+        entries: list[DictionaryEntry] = []
         try:
             entries = self.normalize_term_entries_response(self._post_json("/termEntries", {"term": term.expression}))
-            error = None if any(s.glosses for entry in entries for s in entry.senses) else "Dictionary returned no usable definitions."
-            return EnrichedTerm(term.expression, term.reading, term.source_text, term.deinflected_text, entries, error)
         except YomitanError as error:
-            return EnrichedTerm(term.expression, term.reading, term.source_text, term.deinflected_text, [], str(error))
+            term_error = str(error)
+
+        kanji_entries: list[KanjiEntry] = []
+        has_kanji = any(
+            "\u4e00" <= ch <= "\u9fff"
+            or "\u3400" <= ch <= "\u4dbf"
+            or "\uf900" <= ch <= "\ufaff"
+            for ch in term.expression
+        )
+        if has_kanji:
+            try:
+                raw_kanji = self._post_json("/kanjiEntries", {"character": term.expression})
+                kanji_entries = self.normalize_kanji_entries_response(raw_kanji)
+            except Exception:
+                pass
+
+        has_usable_terms = any(s.glosses for entry in entries for s in entry.senses)
+        has_usable_kanji = any(k.meanings or k.onyomi or k.kunyomi for k in kanji_entries)
+
+        if has_usable_terms or has_usable_kanji:
+            error = None
+        elif term_error:
+            error = term_error
+        else:
+            error = "Dictionary returned no usable definitions."
+
+        return EnrichedTerm(
+            expression=term.expression,
+            reading=term.reading,
+            source_text=term.source_text,
+            deinflected_text=term.deinflected_text,
+            entries=entries,
+            dictionary_error=error,
+            kanji_entries=kanji_entries,
+        )
 
     def _post_json(self, path: str, payload: dict[str, Any]) -> Any:
         request = Request(f"{self._endpoint}{path}", data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
@@ -540,3 +589,65 @@ class YomitanService:
                 seen.add(key)
                 unique.append(item)
         return unique
+
+    @staticmethod
+    def normalize_kanji_entries_response(payload: Any) -> list[KanjiEntry]:
+        if not isinstance(payload, list):
+            return []
+        normalized: list[KanjiEntry] = []
+        for raw in payload:
+            if not isinstance(raw, dict):
+                continue
+            try:
+                char = str(raw.get("character", "")).strip()
+                if not char:
+                    continue
+                dict_name = str(raw.get("dictionary") or "Unknown dictionary")
+                dict_alias = str(raw["dictionaryAlias"]) if raw.get("dictionaryAlias") else None
+
+                onyomi = YomitanService._unique([str(x).strip() for x in raw.get("onyomi", []) if isinstance(x, (str, int))])
+                kunyomi = YomitanService._unique([str(x).strip() for x in raw.get("kunyomi", []) if isinstance(x, (str, int))])
+                nanori = YomitanService._unique([str(x).strip() for x in raw.get("nanori", []) if isinstance(x, (str, int))])
+
+                raw_defs = raw.get("definitions") or raw.get("meanings") or []
+                meanings: list[str] = []
+                if isinstance(raw_defs, list):
+                    for item in raw_defs:
+                        if isinstance(item, str) and item.strip():
+                            meanings.append(item.strip())
+                        elif isinstance(item, dict):
+                            if text := YomitanService._plain_text(item):
+                                meanings.append(text)
+                elif isinstance(raw_defs, str) and raw_defs.strip():
+                    meanings.append(raw_defs.strip())
+
+                tags = YomitanService._tag_names(raw.get("tags"))
+
+                stats: dict[str, str] = {}
+                raw_stats = raw.get("stats")
+                if isinstance(raw_stats, dict):
+                    for cat, stat_items in raw_stats.items():
+                        if isinstance(stat_items, list):
+                            for s in stat_items:
+                                if isinstance(s, dict) and "name" in s and "value" in s:
+                                    stats[str(s["name"])] = str(s["value"])
+
+                frequencies = YomitanService._extract_frequencies(raw)
+
+                entry = KanjiEntry(
+                    character=char,
+                    dictionary=dict_name,
+                    onyomi=onyomi,
+                    kunyomi=kunyomi,
+                    nanori=nanori,
+                    meanings=YomitanService._unique(meanings),
+                    tags=tags,
+                    stats=stats,
+                    dictionary_alias=dict_alias,
+                    frequencies=frequencies,
+                )
+                normalized.append(entry)
+            except Exception:
+                continue
+        return normalized
+

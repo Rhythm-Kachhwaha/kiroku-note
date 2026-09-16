@@ -2285,6 +2285,281 @@ rt {
 }
 
 /* ==========================================================================
+   9.5. Structured Kanji Cards & Readings (Kanji-Bank / Multi-Dictionary)
+   ========================================================================== */
+
+.study-kanji-card {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.study-kanji-card.prominent {
+  background: var(--bg-surface-2);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.study-kanji-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-2);
+}
+
+.study-kanji-char-badge {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.study-kanji-character {
+  font-family: var(--font-japanese);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.study-kanji-dict {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-surface-3);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.kanji-stats-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.kanji-stat-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface-3);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.kanji-stat-badge.badge-jlpt {
+  background: var(--accent-jlpt-dim);
+  color: var(--accent-jlpt);
+  border-color: var(--accent-jlpt-border);
+}
+
+.kanji-reading-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kanji-reading-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: 12px;
+}
+
+.kanji-reading-label {
+  min-width: 58px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-top: 2px;
+}
+
+.kanji-reading-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.pill-reading {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  font-family: var(--font-japanese);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 6px;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.pill-reading:hover {
+  border-color: var(--accent-reading);
+  background: var(--accent-reading-dim);
+  color: var(--text-primary);
+}
+
+.pill-reading:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.pill-onyomi {
+  border-color: rgba(220, 165, 102, 0.3);
+  color: var(--accent-reading);
+}
+
+.pill-onyomi:hover {
+  background: var(--accent-reading-dim);
+  border-color: var(--accent-reading);
+}
+
+.pill-kunyomi {
+  border-color: rgba(122, 162, 247, 0.3);
+  color: #9ab8ff;
+}
+
+.pill-kunyomi:hover {
+  background: var(--accent-jlpt-dim);
+  border-color: var(--accent-jlpt);
+}
+
+.pill-nanori {
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.kanji-meanings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+}
+
+.kanji-meanings-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kanji-glosses {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.kanji-meanings-list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.kanji-meanings-list li {
+  margin-bottom: 2px;
+}
+
+.kanji-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+}
+
+.btn-kanji-insert {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-kanji-insert:hover {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.study-kanji-accordion {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-1);
+  margin-bottom: var(--space-3);
+  overflow: hidden;
+}
+
+.study-kanji-summary {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  user-select: none;
+  background: var(--bg-surface-2);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.study-kanji-summary:hover {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+}
+
+.study-kanji-list {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.raw-kanji-entry {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.raw-kanji-char {
+  font-family: var(--font-japanese);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.raw-kanji-reading {
+  color: var(--accent-reading);
+  font-family: var(--font-japanese);
+}
+
+.raw-kanji-meanings {
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
    10. First-Run Quick Setup Guide
    ========================================================================== */
 

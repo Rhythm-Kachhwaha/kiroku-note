@@ -92,8 +92,8 @@ The core mining pipeline is functional. Current work is focused on polishing, re
 - [x] Stage 3A: Dictionary architecture research & technical design (`V1/Stage3A.md`)
 - [x] Stage 3B.1: Backend AST normalizer & provider-neutral domain models (`V1/Stage3B1.md`)
 - [x] Stage 3B.2.1: CardService multi-sense draft synthesis (`synthesize_default_meaning`, `synthesize_default_example`)
-- [ ] Stage 3B.2.2: CardService multi-dictionary integration & JLPT resolution handoff
-- [ ] Stage 3B.3: Side Panel declarative dictionary rendering & UI
+- [x] Stage 3B.2.2: CardService multi-dictionary integration & JLPT resolution handoff
+- [x] Stage 3B.3: Side Panel declarative dictionary rendering & UI
   - [x] Stage 3B.3.1a: Structured Dictionary Study View Renderer (`renderDetails`, sense-bound POS/tags, pitch, freq, JLPT, ruby markup)
   - [x] Stage 3B.3.1b: Quick-Insert Actions & Progressive Disclosure Accordions (`insertSenseToMeaning`, `insertExampleToCard`, senses overflow accordion)
   - [x] Stage 3B.3.2: Side Panel Design System & Visual Polish (Precision Dark Utility tokens, typography, spacing, surfaces, borders, buttons, inputs, badges)
@@ -102,6 +102,12 @@ The core mining pipeline is functional. Current work is focused on polishing, re
   - [x] Step 2: Dedicated AnkiFormatter service (`app.services.anki_formatter`: meaning, ruby, example, basic back, media sanitization)
   - [x] Step 3: AnkiConnect field mapping integration (`map_card_to_fields` + `sync_card` consuming `AnkiFormatter`, preserving keyword matrix)
   - [x] Step 4: Final regression, multi-model verification & live AnkiConnect testing (212/212 backend tests passed, 27/27 extension suites passed)
+- [x] Stage 3B.5: Kanji Reading & Multi-Dictionary Expansion (Kanji-Bank / KANJIDIC / JPDB Integration)
+  - [x] Step 1: Root Cause Analysis — Yomitan separate `/kanjiEntries` endpoint (`{"character": "..."}`) vs `/termEntries` (`{"term": "..."}`).
+  - [x] Step 2: Backend `KanjiEntry` domain dataclass, Pydantic schema, and Yomitan normalization parsing Onyomi (katakana), Kunyomi (with okurigana formatting), Nanori, character meanings, tags, stats (`strokes`, `grade`, `jlpt`, `freq`).
+  - [x] Step 3: Persistence & Draft Synthesis — SQLite `meanings_json` serialization supporting both legacy arrays and `{ "entries": [...], "kanji_entries": [...] }` without SQLite schema migration.
+  - [x] Step 4: Frontend Side Panel UI — Dedicated `.study-kanji-card` with interactive Onyomi (`.pill-onyomi`) and Kunyomi (`.pill-kunyomi`) click-to-set reading pills, quick-insert meanings, stats badges, and progressive disclosure `<details class="study-kanji-accordion">` for multi-kanji vocabulary terms.
+  - [x] Step 5: Full verification — 241/241 backend pytest tests passing, 32/32 extension test suites passing.
 
 
 ### Stage 4 — Frontend

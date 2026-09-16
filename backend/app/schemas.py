@@ -86,6 +86,22 @@ class DictionaryEntry(BaseModel):
 DictionaryEntrySchema = DictionaryEntry
 
 
+class KanjiEntry(BaseModel):
+    character: str
+    dictionary: str = "Unknown dictionary"
+    dictionary_alias: Optional[str] = None
+    onyomi: list[str] = Field(default_factory=list)
+    kunyomi: list[str] = Field(default_factory=list)
+    nanori: list[str] = Field(default_factory=list)
+    meanings: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    stats: dict[str, str] = Field(default_factory=dict)
+    frequencies: list[FrequencyRank] = Field(default_factory=list)
+
+
+KanjiEntrySchema = KanjiEntry
+
+
 class CaptureResponse(BaseModel):
     id: Optional[int] = None
     expression: str
@@ -102,6 +118,7 @@ class CaptureResponse(BaseModel):
     deinflected_text: str = ""
     jlpt_level: Optional[str] = None
     entries: list[DictionaryEntry] = Field(default_factory=list)
+    kanji_entries: list[KanjiEntry] = Field(default_factory=list)
     dictionary_error: Optional[str] = None
     deck_name: str = "Default"
     model_name: str = ""
@@ -135,6 +152,7 @@ class SaveCardRequest(BaseModel):
     source_text: str = Field(default="", max_length=500)
     deinflected_text: str = Field(default="", max_length=500)
     entries: list[dict[str, Any]] = Field(default_factory=list)
+    kanji_entries: list[dict[str, Any]] = Field(default_factory=list)
 
     @field_validator("expression")
     @classmethod
@@ -172,6 +190,7 @@ class SaveCardResponse(BaseModel):
     created_at: str
     updated_at: str
     entries: list[dict[str, Any]] = Field(default_factory=list)
+    kanji_entries: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AnkiStatusResponse(BaseModel):
@@ -255,6 +274,7 @@ class CardDetailResponse(BaseModel):
     created_at: str
     updated_at: str
     entries: list[dict] = []
+    kanji_entries: list[dict] = []
 
 
 class DeleteCardResponse(BaseModel):

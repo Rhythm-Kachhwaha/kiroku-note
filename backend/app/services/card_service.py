@@ -20,6 +20,7 @@ from app.schemas import (
     CardSummary,
     DeleteCardResponse,
     DictionaryEntry,
+    KanjiEntry,
     SaveCardRequest,
     SaveCardResponse,
     SyncCardResponse,
@@ -29,7 +30,7 @@ from app.services.media_storage import MediaStorageService
 from app.services.yomitan import YomitanError, YomitanService
 
 
-def synthesize_default_meaning(entries: list[DictionaryEntry]) -> str:
+def synthesize_default_meaning(entries: list[DictionaryEntry], kanji_entries: list[Any] | None = None) -> str:
     """
     Synthesize an intelligent, multi-sense default meaning for the card editor.
     Takes senses from the primary dictionary entry (or top dictionary if none marked primary).
@@ -38,8 +39,14 @@ def synthesize_default_meaning(entries: list[DictionaryEntry]) -> str:
       2. motion picture
     Single-sense words are formatted cleanly without line numbers:
       movie, film
+    Falls back to kanji meanings for isolated single-character kanji when term senses are empty/sparse.
     """
     if not entries:
+        if kanji_entries:
+            for k in kanji_entries:
+                meanings = k.meanings if hasattr(k, "meanings") else (k.get("meanings") if isinstance(k, dict) else [])
+                if meanings:
+                    return ", ".join(meanings)
         return ""
 
     # Find the primary entry with non-empty glosses, or the first entry with non-empty glosses
@@ -49,6 +56,11 @@ def synthesize_default_meaning(entries: list[DictionaryEntry]) -> str:
     )
 
     if not target_entry:
+        if kanji_entries:
+            for k in kanji_entries:
+                meanings = k.meanings if hasattr(k, "meanings") else (k.get("meanings") if isinstance(k, dict) else [])
+                if meanings:
+                    return ", ".join(meanings)
         return ""
 
     valid_senses: list[list[str]] = []
@@ -58,6 +70,11 @@ def synthesize_default_meaning(entries: list[DictionaryEntry]) -> str:
             valid_senses.append(clean_glosses)
 
     if not valid_senses:
+        if kanji_entries:
+            for k in kanji_entries:
+                meanings = k.meanings if hasattr(k, "meanings") else (k.get("meanings") if isinstance(k, dict) else [])
+                if meanings:
+                    return ", ".join(meanings)
         return ""
 
     if len(valid_senses) == 1:
@@ -113,15 +130,17 @@ class CardService:
         # Step 2: Enrich via Yomitan
         enriched = self.yomitan.enrich(term)
 
-        # Step 3: Extract structured entries and examples
+        # Step 3: Extract structured entries, kanji entries, and examples
         serialized_entries: list[dict[str, Any]] = [asdict(entry) for entry in enriched.entries]
-        default_meaning = synthesize_default_meaning(enriched.entries)
+        serialized_kanji: list[dict[str, Any]] = [asdict(k) for k in enriched.kanji_entries]
+        default_meaning = synthesize_default_meaning(enriched.entries, enriched.kanji_entries)
         default_example_sentence, default_example_translation = synthesize_default_example(enriched.entries)
 
         # Step 4: Check if already exists in SQLite
         existing = self.repository.find_by_identity(enriched.expression, enriched.reading, deck_name)
         if existing:
             entries_data = existing.entries if existing.entries else serialized_entries
+            kanji_data = existing.kanji_entries if existing.kanji_entries else serialized_kanji
             return CaptureResponse(
                 id=existing.id,
                 expression=existing.expression,
@@ -138,6 +157,7 @@ class CardService:
                 deinflected_text=existing.deinflected_text or enriched.deinflected_text,
                 jlpt_level=enriched.jlpt_level,
                 entries=entries_data,
+                kanji_entries=kanji_data,
                 dictionary_error=enriched.dictionary_error,
                 deck_name=existing.deck_name,
                 model_name=existing.model_name,
@@ -168,6 +188,7 @@ class CardService:
             deinflected_text=enriched.deinflected_text,
             jlpt_level=enriched.jlpt_level,
             entries=serialized_entries,
+            kanji_entries=serialized_kanji,
             dictionary_error=enriched.dictionary_error,
             deck_name=deck_name,
             model_name="",
@@ -225,6 +246,7 @@ class CardService:
             deck_name=request.deck_name,
             model_name=request.model_name,
             entries=request.entries,
+            kanji_entries=request.kanji_entries,
             status="saved",
             id=request.id,
         )
@@ -259,6 +281,7 @@ class CardService:
             created_at=record.created_at,
             updated_at=record.updated_at,
             entries=record.entries,
+            kanji_entries=record.kanji_entries,
         )
 
     def capture_and_save(self, text: str, deck_name: str = "Default") -> CaptureResponse:
@@ -272,15 +295,16 @@ class CardService:
         # Step 2: Enrich via Yomitan
         enriched = self.yomitan.enrich(term)
 
-        # Step 3: Extract structured entries and examples
+        # Step 3: Extract structured entries, kanji entries, and examples
         serialized_entries: list[dict[str, Any]] = [asdict(entry) for entry in enriched.entries]
+        serialized_kanji: list[dict[str, Any]] = [asdict(k) for k in enriched.kanji_entries]
         serialized_examples: list[dict[str, Any]] = [
             asdict(example)
             for entry in enriched.entries
             for sense in entry.senses
             for example in sense.examples
         ]
-        default_meaning = synthesize_default_meaning(enriched.entries)
+        default_meaning = synthesize_default_meaning(enriched.entries, enriched.kanji_entries)
         default_example_sentence, default_example_translation = synthesize_default_example(enriched.entries)
 
         # Step 4: Construct card draft
@@ -295,6 +319,7 @@ class CardService:
             deck_name=deck_name,
             entries=serialized_entries,
             examples=serialized_examples,
+            kanji_entries=serialized_kanji,
             status="saved",
         )
 
@@ -303,6 +328,7 @@ class CardService:
 
         status = "saved" if is_new else "already_saved"
         entries_data = card_record.entries if card_record.entries else serialized_entries
+        kanji_data = card_record.kanji_entries if card_record.kanji_entries else serialized_kanji
 
         return CaptureResponse(
             id=card_record.id,
@@ -320,6 +346,7 @@ class CardService:
             deinflected_text=card_record.deinflected_text,
             jlpt_level=enriched.jlpt_level,
             entries=entries_data,
+            kanji_entries=kanji_data,
             dictionary_error=enriched.dictionary_error,
             deck_name=card_record.deck_name,
             model_name=card_record.model_name,
@@ -583,6 +610,7 @@ class CardService:
             created_at=record.created_at,
             updated_at=record.updated_at,
             entries=record.entries,
+            kanji_entries=record.kanji_entries,
         )
 
     def delete_card(self, card_id: int) -> bool:

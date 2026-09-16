@@ -25,6 +25,7 @@ const dictEmptyNotice = document.querySelector("#dict-empty-notice");
 const firstRunGuide = document.querySelector("#first-run-guide");
 const btnDismissFirstRun = document.querySelector("#btn-dismiss-first-run");
 let currentDictionaryEntries = [];
+let currentKanjiEntries = [];
 
 // Indicators
 const indicatorYomitan = document.querySelector("#indicator-yomitan");
@@ -811,39 +812,67 @@ function add(parent, tag, text, className = "") {
   return element;
 }
 
-function formatRawDictionaryText(entries) {
-  if (!Array.isArray(entries) || !entries.length) return "";
+function formatRawDictionaryText(entries, kanjiEntries) {
   const lines = [];
-  entries.forEach((entry, eIdx) => {
-    lines.push(`=== ${entry.dictionary || "Dictionary"}${entry.is_primary ? " (Primary)" : ""} ===`);
-    if (entry.term || entry.reading) {
-      lines.push(`Term: ${entry.term || ""}${entry.reading ? ` [${entry.reading}]` : ""}`);
-    }
-    if (entry.parts_of_speech && entry.parts_of_speech.length) {
-      lines.push(`POS: ${entry.parts_of_speech.join(", ")}`);
-    }
-    if (entry.tags && entry.tags.length) {
-      lines.push(`Tags: ${entry.tags.join(", ")}`);
-    }
-    if (entry.senses && entry.senses.length) {
-      lines.push("Senses:");
-      entry.senses.forEach((sense, sIdx) => {
-        const glosses = (sense.glosses || []).join("; ");
-        lines.push(`  ${sIdx + 1}. ${glosses}`);
-        if (sense.notes && sense.notes.length) {
-          lines.push(`     Notes: ${sense.notes.join("; ")}`);
-        }
-        if (sense.examples && sense.examples.length) {
-          lines.push("     Examples:");
-          sense.examples.forEach(eg => {
-            lines.push(`       - ${eg.japanese}${eg.translation ? ` : ${eg.translation}` : ""}`);
-          });
-        }
-      });
-    }
-    if (eIdx < entries.length - 1) lines.push("");
-  });
-  return lines.join("\n");
+  if (Array.isArray(kanjiEntries) && kanjiEntries.length) {
+    kanjiEntries.forEach((k) => {
+      lines.push(`=== Kanji: ${k.character || ""} [${k.dictionary || "Kanji Dictionary"}] ===`);
+      if (k.onyomi && k.onyomi.length) {
+        lines.push(`Onyomi: ${k.onyomi.join(", ")}`);
+      }
+      if (k.kunyomi && k.kunyomi.length) {
+        const formattedKun = k.kunyomi.map(formatKunyomi);
+        lines.push(`Kunyomi: ${formattedKun.join(", ")}`);
+      }
+      if (k.nanori && k.nanori.length) {
+        lines.push(`Nanori: ${k.nanori.join(", ")}`);
+      }
+      if (k.meanings && k.meanings.length) {
+        lines.push(`Meanings: ${k.meanings.join(", ")}`);
+      }
+      if (k.stats && Object.keys(k.stats).length) {
+        const statPairs = Object.entries(k.stats).map(([sk, sv]) => `${sk}: ${sv}`);
+        lines.push(`Stats: ${statPairs.join(", ")}`);
+      }
+      if (k.tags && k.tags.length) {
+        lines.push(`Tags: ${k.tags.join(", ")}`);
+      }
+      lines.push("");
+    });
+  }
+
+  if (Array.isArray(entries) && entries.length) {
+    entries.forEach((entry, eIdx) => {
+      lines.push(`=== ${entry.dictionary || "Dictionary"}${entry.is_primary ? " (Primary)" : ""} ===`);
+      if (entry.term || entry.reading) {
+        lines.push(`Term: ${entry.term || ""}${entry.reading ? ` [${entry.reading}]` : ""}`);
+      }
+      if (entry.parts_of_speech && entry.parts_of_speech.length) {
+        lines.push(`POS: ${entry.parts_of_speech.join(", ")}`);
+      }
+      if (entry.tags && entry.tags.length) {
+        lines.push(`Tags: ${entry.tags.join(", ")}`);
+      }
+      if (entry.senses && entry.senses.length) {
+        lines.push("Senses:");
+        entry.senses.forEach((sense, sIdx) => {
+          const glosses = (sense.glosses || []).join("; ");
+          lines.push(`  ${sIdx + 1}. ${glosses}`);
+          if (sense.notes && sense.notes.length) {
+            lines.push(`     Notes: ${sense.notes.join("; ")}`);
+          }
+          if (sense.examples && sense.examples.length) {
+            lines.push("     Examples:");
+            sense.examples.forEach(eg => {
+              lines.push(`       - ${eg.japanese}${eg.translation ? ` : ${eg.translation}` : ""}`);
+            });
+          }
+        });
+      }
+      if (eIdx < entries.length - 1) lines.push("");
+    });
+  }
+  return lines.join("\n").trim();
 }
 
 async function copyTextToClipboard(text) {
@@ -889,6 +918,7 @@ function clearDictionaryView() {
   if (typeof dictLoadingIndicator !== "undefined" && dictLoadingIndicator) dictLoadingIndicator.hidden = true;
   if (typeof dictEmptyNotice !== "undefined" && dictEmptyNotice) dictEmptyNotice.hidden = true;
   currentDictionaryEntries = [];
+  currentKanjiEntries = [];
 }
 
 function getPitchCircleNumber(position) {
@@ -1217,11 +1247,226 @@ function renderStudySenseItem(sense, sIdx, entry, totalSensesCount) {
   return li;
 }
 
+function formatKunyomi(kunStr) {
+  if (!kunStr) return "";
+  const s = String(kunStr).trim();
+  if (s.includes(".")) {
+    const parts = s.split(".");
+    if (parts.length === 2) {
+      return `${parts[0]}(${parts[1]})`;
+    }
+  }
+  return s;
+}
+
+function cleanReadingForInput(readingStr) {
+  if (!readingStr) return "";
+  return String(readingStr).replace(/[\.\-\(\)]/g, "").trim();
+}
+
+function renderKanjiCard(kanji, isProminent = false) {
+  const card = document.createElement("div");
+  card.className = isProminent ? "study-kanji-card prominent" : "study-kanji-card";
+
+  // Header: Character + Dictionary Pill + Stats Pills
+  const header = document.createElement("div");
+  header.className = "study-kanji-header";
+
+  const charSpan = document.createElement("span");
+  charSpan.className = "study-kanji-character";
+  charSpan.textContent = kanji.character || "";
+  header.append(charSpan);
+
+  const dictPill = document.createElement("span");
+  dictPill.className = "dict-source-pill pill-dict study-kanji-dict";
+  dictPill.textContent = kanji.dictionary || "Kanji";
+  header.append(dictPill);
+
+  // Stats pills
+  if (kanji.stats) {
+    if (kanji.stats.strokes) {
+      const strokePill = document.createElement("span");
+      strokePill.className = "badge kanji-stat-badge";
+      strokePill.textContent = `${kanji.stats.strokes} strokes`;
+      header.append(strokePill);
+    }
+    if (kanji.stats.grade) {
+      const gradePill = document.createElement("span");
+      gradePill.className = "badge kanji-stat-badge";
+      gradePill.textContent = `Grade ${kanji.stats.grade}`;
+      header.append(gradePill);
+    }
+    if (kanji.stats.jlpt) {
+      const jlptPill = document.createElement("span");
+      jlptPill.className = "badge jlpt-badge pill-jlpt kanji-stat-badge badge-jlpt";
+      const rawJlpt = String(kanji.stats.jlpt).trim();
+      jlptPill.textContent = rawJlpt.toUpperCase().startsWith("N") ? `JLPT ${rawJlpt.toUpperCase()}` : `JLPT N${rawJlpt}`;
+      header.append(jlptPill);
+    }
+    if (kanji.stats.freq) {
+      const freqPill = document.createElement("span");
+      freqPill.className = "badge freq-badge pill-freq kanji-stat-badge";
+      freqPill.textContent = `Freq #${kanji.stats.freq}`;
+      header.append(freqPill);
+    }
+  }
+
+  if (Array.isArray(kanji.tags) && kanji.tags.length) {
+    kanji.tags.forEach(tag => {
+      if (tag && String(tag).trim()) {
+        const tagBadge = document.createElement("span");
+        tagBadge.className = "badge study-tag-badge";
+        tagBadge.textContent = String(tag).trim();
+        header.append(tagBadge);
+      }
+    });
+  }
+
+  card.append(header);
+
+  const body = document.createElement("div");
+  body.className = "study-kanji-body";
+
+  // Onyomi Row
+  if (Array.isArray(kanji.onyomi) && kanji.onyomi.length) {
+    const onRow = document.createElement("div");
+    onRow.className = "kanji-reading-row onyomi-row";
+
+    const label = document.createElement("span");
+    label.className = "kanji-reading-label";
+    label.textContent = "Onyomi";
+    onRow.append(label);
+
+    const pillsDiv = document.createElement("div");
+    pillsDiv.className = "kanji-reading-pills";
+
+    kanji.onyomi.forEach(on => {
+      const pill = document.createElement("button");
+      pill.type = "button";
+      pill.className = "pill-reading pill-onyomi";
+      pill.textContent = on;
+      pill.title = `Click to set reading to ${on}`;
+      pill.onclick = (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (fieldReading) {
+          fieldReading.value = on;
+          fieldReading.dispatchEvent(new Event("input", { bubbles: true }));
+          fieldReading.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      };
+      pillsDiv.append(pill);
+    });
+
+    onRow.append(pillsDiv);
+    body.append(onRow);
+  }
+
+  // Kunyomi Row
+  if (Array.isArray(kanji.kunyomi) && kanji.kunyomi.length) {
+    const kunRow = document.createElement("div");
+    kunRow.className = "kanji-reading-row kunyomi-row";
+
+    const label = document.createElement("span");
+    label.className = "kanji-reading-label";
+    label.textContent = "Kunyomi";
+    kunRow.append(label);
+
+    const pillsDiv = document.createElement("div");
+    pillsDiv.className = "kanji-reading-pills";
+
+    kanji.kunyomi.forEach(kun => {
+      const formatted = formatKunyomi(kun);
+      const clean = cleanReadingForInput(kun);
+      const pill = document.createElement("button");
+      pill.type = "button";
+      pill.className = "pill-reading pill-kunyomi";
+      pill.textContent = formatted;
+      pill.title = `Click to set reading to ${clean}`;
+      pill.onclick = (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (fieldReading) {
+          fieldReading.value = clean;
+          fieldReading.dispatchEvent(new Event("input", { bubbles: true }));
+          fieldReading.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      };
+      pillsDiv.append(pill);
+    });
+
+    kunRow.append(pillsDiv);
+    body.append(kunRow);
+  }
+
+  // Nanori Row
+  if (Array.isArray(kanji.nanori) && kanji.nanori.length) {
+    const nanoriRow = document.createElement("div");
+    nanoriRow.className = "kanji-reading-row nanori-row";
+
+    const label = document.createElement("span");
+    label.className = "kanji-reading-label";
+    label.textContent = "Nanori";
+    nanoriRow.append(label);
+
+    const pillsDiv = document.createElement("div");
+    pillsDiv.className = "kanji-reading-pills";
+
+    kanji.nanori.forEach(nan => {
+      const pill = document.createElement("span");
+      pill.className = "pill-reading pill-nanori";
+      pill.textContent = nan;
+      pillsDiv.append(pill);
+    });
+
+    nanoriRow.append(pillsDiv);
+    body.append(nanoriRow);
+  }
+
+  // Meanings Row
+  if (Array.isArray(kanji.meanings) && kanji.meanings.length) {
+    const meaningRow = document.createElement("div");
+    meaningRow.className = "kanji-meanings-row";
+
+    const meaningHeader = document.createElement("div");
+    meaningHeader.className = "kanji-meanings-header";
+
+    const label = document.createElement("span");
+    label.className = "kanji-reading-label";
+    label.textContent = "Meanings";
+    meaningHeader.append(label);
+
+    const insertBtn = document.createElement("button");
+    insertBtn.className = "btn-dict-insert btn-sense-insert btn-kanji-insert";
+    insertBtn.type = "button";
+    insertBtn.textContent = "Insert";
+    insertBtn.title = "Insert kanji meanings into Meaning field";
+    insertBtn.onclick = (e) => {
+      if (e && e.stopPropagation) e.stopPropagation();
+      insertSenseToMeaning(kanji.meanings.join(", "), insertBtn);
+    };
+    meaningHeader.append(insertBtn);
+    meaningRow.append(meaningHeader);
+
+    const glossesSpan = document.createElement("span");
+    glossesSpan.className = "kanji-glosses";
+    glossesSpan.textContent = kanji.meanings.join(", ");
+    meaningRow.append(glossesSpan);
+
+    body.append(meaningRow);
+  }
+
+  card.append(body);
+  return card;
+}
+
 function renderDetails(body) {
   clearDictionaryView();
-  const entries = Array.isArray(body?.entries) ? body.entries : [];
+  const rawObj = body?.term || body;
+  const entries = Array.isArray(rawObj?.entries) ? rawObj.entries : [];
+  const kanjiEntries = Array.isArray(rawObj?.kanji_entries) ? rawObj.kanji_entries : [];
   currentDictionaryEntries = entries;
-  if (!entries.length) {
+  currentKanjiEntries = kanjiEntries;
+
+  if (!entries.length && !kanjiEntries.length) {
     if (typeof dictEmptyNotice !== "undefined" && dictEmptyNotice) dictEmptyNotice.hidden = false;
     return;
   }
@@ -1229,141 +1474,198 @@ function renderDetails(body) {
 
   if (dictActionsBar) dictActionsBar.style.display = "flex";
 
+  const expr = typeof rawObj?.expression === "string" ? rawObj.expression.trim() : (typeof fieldExpression !== "undefined" && fieldExpression?.value ? fieldExpression.value.trim() : "");
+  const isSingleKanji = kanjiEntries.length > 0 && (entries.length === 0 || expr.length === 1);
+
   // 1. Structured Study View rendered into #meanings
   if (meanings) {
-    const primaryEntry = entries.find(e => e.is_primary) || entries[0];
+    // For single isolated kanji, render prominent kanji card at the top
+    if (isSingleKanji) {
+      kanjiEntries.forEach(k => {
+        meanings.append(renderKanjiCard(k, true));
+      });
+    }
 
-    entries.forEach((entry, entryIdx) => {
-      const isPrimary = Boolean(entry.is_primary || entry === primaryEntry);
+    if (entries.length) {
+      const primaryEntry = entries.find(e => e.is_primary) || entries[0];
 
-      // Entry Container
-      const entryContainer = document.createElement("div");
-      entryContainer.className = "study-entry";
+      entries.forEach((entry, entryIdx) => {
+        const isPrimary = Boolean(entry.is_primary || entry === primaryEntry);
 
-      // Meta Strip / Header for this entry
-      const header = document.createElement("div");
-      header.className = "study-dict-header";
+        // Entry Container
+        const entryContainer = document.createElement("div");
+        entryContainer.className = "study-entry";
 
-      // Dictionary source pill
-      const dictPill = document.createElement("span");
-      dictPill.className = "dict-source-pill pill-dict";
-      dictPill.textContent = entry.dictionary || "Dictionary";
-      header.append(dictPill);
+        // Meta Strip / Header for this entry
+        const header = document.createElement("div");
+        header.className = "study-dict-header";
 
-      // Primary badge
-      if (entry.is_primary) {
-        const primaryBadge = document.createElement("span");
-        primaryBadge.className = "badge primary-badge";
-        primaryBadge.textContent = "Primary";
-        header.append(primaryBadge);
-      }
+        // Dictionary source pill
+        const dictPill = document.createElement("span");
+        dictPill.className = "dict-source-pill pill-dict";
+        dictPill.textContent = entry.dictionary || "Dictionary";
+        header.append(dictPill);
 
-      // If this is the primary entry and there are multiple entries, show count pill
-      if (isPrimary && entryIdx === 0 && entries.length > 1) {
-        const moreCount = entries.length - 1;
-        const countPill = document.createElement("span");
-        countPill.className = "dict-count-pill";
-        countPill.textContent = `+${moreCount} more dict${moreCount > 1 ? "s" : ""}`;
-        header.append(countPill);
-      }
+        // Primary badge
+        if (entry.is_primary) {
+          const primaryBadge = document.createElement("span");
+          primaryBadge.className = "badge primary-badge";
+          primaryBadge.textContent = "Primary";
+          header.append(primaryBadge);
+        }
 
-      // Pitch accent pills from entry.pitches
-      if (Array.isArray(entry.pitches) && entry.pitches.length) {
-        entry.pitches.forEach(pitch => {
-          if (pitch && typeof pitch.position === "number") {
-            const circle = getPitchCircleNumber(pitch.position);
-            const pat = formatPitchPatternName(pitch.pattern_name);
-            const text = pat ? `${circle} ${pat}` : circle;
-            const pill = document.createElement("span");
-            pill.className = "pill-pitch badge pitch-badge";
-            pill.textContent = text;
-            const desc = pat ? `${pat} (Downstep: ${pitch.position})` : `Downstep: ${pitch.position}`;
-            pill.title = pitch.dictionary ? `${desc} [${pitch.dictionary}]` : desc;
-            header.append(pill);
-          }
-        });
-      }
+        // If this is the primary entry and there are multiple entries, show count pill
+        if (isPrimary && entryIdx === 0 && entries.length > 1) {
+          const moreCount = entries.length - 1;
+          const countPill = document.createElement("span");
+          countPill.className = "dict-count-pill";
+          countPill.textContent = `+${moreCount} more dict${moreCount > 1 ? "s" : ""}`;
+          header.append(countPill);
+        }
 
-      // JLPT level pill from body.jlpt_level (rendered on primary entry)
-      if (isPrimary && body?.jlpt_level) {
-        const jlptPill = document.createElement("span");
-        jlptPill.className = "pill-jlpt badge jlpt-badge";
-        jlptPill.textContent = formatJlptLevel(body.jlpt_level);
-        header.append(jlptPill);
-      }
-
-      // Frequency rank pills from entry.frequencies
-      if (Array.isArray(entry.frequencies) && entry.frequencies.length) {
-        entry.frequencies.forEach(freq => {
-          if (freq && (freq.dictionary || freq.rank != null || freq.display_value)) {
-            const freqText = formatFrequencyRank(freq);
-            const pill = document.createElement("span");
-            pill.className = "pill-freq badge freq-badge";
-            pill.textContent = freqText;
-            pill.title = `${freq.dictionary || "Frequency"} Rank`;
-            header.append(pill);
-          }
-        });
-      }
-
-      entryContainer.append(header);
-
-      // Senses list for this entry with Progressive Disclosure
-      const senses = Array.isArray(entry.senses) ? entry.senses : [];
-      if (senses.length) {
-        const PRIMARY_SENSES_LIMIT = 4;
-        const primarySenses = senses.slice(0, PRIMARY_SENSES_LIMIT);
-        const overflowSenses = senses.slice(PRIMARY_SENSES_LIMIT);
-
-        const ol = document.createElement("ol");
-        ol.className = "study-senses-list";
-
-        primarySenses.forEach((sense, sIdx) => {
-          ol.append(renderStudySenseItem(sense, sIdx, entry, senses.length));
-        });
-
-        entryContainer.append(ol);
-
-        if (overflowSenses.length > 0) {
-          const details = document.createElement("details");
-          details.className = "senses-overflow-accordion";
-
-          const summary = document.createElement("summary");
-          summary.className = "senses-overflow-summary";
-          const overflowCount = overflowSenses.length;
-          const countText = `${overflowCount} more sense${overflowCount === 1 ? "" : "s"}`;
-          summary.textContent = `Show ${countText}...`;
-
-          details.addEventListener("toggle", () => {
-            if (details.open) {
-              summary.textContent = "Show fewer senses";
-            } else {
-              summary.textContent = `Show ${countText}...`;
+        // Pitch accent pills from entry.pitches
+        if (Array.isArray(entry.pitches) && entry.pitches.length) {
+          entry.pitches.forEach(pitch => {
+            if (pitch && typeof pitch.position === "number") {
+              const circle = getPitchCircleNumber(pitch.position);
+              const pat = formatPitchPatternName(pitch.pattern_name);
+              const text = pat ? `${circle} ${pat}` : circle;
+              const pill = document.createElement("span");
+              pill.className = "pill-pitch badge pitch-badge";
+              pill.textContent = text;
+              const desc = pat ? `${pat} (Downstep: ${pitch.position})` : `Downstep: ${pitch.position}`;
+              pill.title = pitch.dictionary ? `${desc} [${pitch.dictionary}]` : desc;
+              header.append(pill);
             }
           });
+        }
 
-          details.append(summary);
+        // JLPT level pill from body.jlpt_level (rendered on primary entry)
+        if (isPrimary && body?.jlpt_level) {
+          const jlptPill = document.createElement("span");
+          jlptPill.className = "pill-jlpt badge jlpt-badge";
+          jlptPill.textContent = formatJlptLevel(body.jlpt_level);
+          header.append(jlptPill);
+        }
 
-          const overflowOl = document.createElement("ol");
-          overflowOl.setAttribute("start", String(PRIMARY_SENSES_LIMIT + 1));
-          overflowOl.className = "study-senses-list senses-overflow-list";
+        // Frequency rank pills from entry.frequencies
+        if (Array.isArray(entry.frequencies) && entry.frequencies.length) {
+          entry.frequencies.forEach(freq => {
+            if (freq && (freq.dictionary || freq.rank != null || freq.display_value)) {
+              const freqText = formatFrequencyRank(freq);
+              const pill = document.createElement("span");
+              pill.className = "pill-freq badge freq-badge";
+              pill.textContent = freqText;
+              pill.title = `${freq.dictionary || "Frequency"} Rank`;
+              header.append(pill);
+            }
+          });
+        }
 
-          overflowSenses.forEach((sense, offsetIdx) => {
-            const sIdx = PRIMARY_SENSES_LIMIT + offsetIdx;
-            overflowOl.append(renderStudySenseItem(sense, sIdx, entry, senses.length));
+        entryContainer.append(header);
+
+        // Senses list for this entry with Progressive Disclosure
+        const senses = Array.isArray(entry.senses) ? entry.senses : [];
+        if (senses.length) {
+          const PRIMARY_SENSES_LIMIT = 4;
+          const primarySenses = senses.slice(0, PRIMARY_SENSES_LIMIT);
+          const overflowSenses = senses.slice(PRIMARY_SENSES_LIMIT);
+
+          const ol = document.createElement("ol");
+          ol.className = "study-senses-list";
+
+          primarySenses.forEach((sense, sIdx) => {
+            ol.append(renderStudySenseItem(sense, sIdx, entry, senses.length));
           });
 
-          details.append(overflowOl);
-          entryContainer.append(details);
-        }
-      }
+          entryContainer.append(ol);
 
-      meanings.append(entryContainer);
-    });
+          if (overflowSenses.length > 0) {
+            const details = document.createElement("details");
+            details.className = "senses-overflow-accordion";
+
+            const summary = document.createElement("summary");
+            summary.className = "senses-overflow-summary";
+            const overflowCount = overflowSenses.length;
+            const countText = `${overflowCount} more sense${overflowCount === 1 ? "" : "s"}`;
+            summary.textContent = `Show ${countText}...`;
+
+            details.addEventListener("toggle", () => {
+              if (details.open) {
+                summary.textContent = "Show fewer senses";
+              } else {
+                summary.textContent = `Show ${countText}...`;
+              }
+            });
+
+            details.append(summary);
+
+            const overflowOl = document.createElement("ol");
+            overflowOl.setAttribute("start", String(PRIMARY_SENSES_LIMIT + 1));
+            overflowOl.className = "study-senses-list senses-overflow-list";
+
+            overflowSenses.forEach((sense, offsetIdx) => {
+              const sIdx = PRIMARY_SENSES_LIMIT + offsetIdx;
+              overflowOl.append(renderStudySenseItem(sense, sIdx, entry, senses.length));
+            });
+
+            details.append(overflowOl);
+            entryContainer.append(details);
+          }
+        }
+
+        meanings.append(entryContainer);
+      });
+    }
+
+    // For multi-character vocabulary, render kanji entries in a collapsible accordion below term definitions
+    if (!isSingleKanji && kanjiEntries.length > 0) {
+      const kanjiAccordion = document.createElement("details");
+      kanjiAccordion.className = "study-kanji-accordion";
+
+      const summary = document.createElement("summary");
+      summary.className = "study-kanji-summary";
+      summary.textContent = `Kanji in this word (${kanjiEntries.length})`;
+      kanjiAccordion.append(summary);
+
+      const kanjiListDiv = document.createElement("div");
+      kanjiListDiv.className = "study-kanji-list";
+      kanjiEntries.forEach(k => {
+        kanjiListDiv.append(renderKanjiCard(k, false));
+      });
+      kanjiAccordion.append(kanjiListDiv);
+
+      meanings.append(kanjiAccordion);
+    }
   }
 
   // 2. Full Raw Unabridged Output rendered into #dict-raw-view
   if (dictRawView) {
+    if (kanjiEntries.length) {
+      kanjiEntries.forEach(k => {
+        const block = document.createElement("article");
+        block.className = "raw-dictionary-entry raw-kanji-entry";
+        const headerDiv = document.createElement("div");
+        headerDiv.className = "raw-entry-header";
+        add(headerDiv, "h3", `Kanji: ${k.character} [${k.dictionary || "Kanji"}]`);
+        block.append(headerDiv);
+
+        if (k.onyomi?.length) {
+          add(block, "p", `Onyomi: ${k.onyomi.join(", ")}`, "raw-kanji-reading");
+        }
+        if (k.kunyomi?.length) {
+          add(block, "p", `Kunyomi: ${k.kunyomi.join(", ")}`, "raw-kanji-reading");
+        }
+        if (k.nanori?.length) {
+          add(block, "p", `Nanori: ${k.nanori.join(", ")}`, "raw-kanji-reading");
+        }
+        if (k.meanings?.length) {
+          add(block, "p", `Meanings: ${k.meanings.join(", ")}`, "raw-kanji-meanings");
+        }
+        dictRawView.append(block);
+      });
+    }
+
     for (const entry of entries) {
       const block = document.createElement("article");
       block.className = "raw-dictionary-entry";
@@ -1417,7 +1719,7 @@ function renderDetails(body) {
 
 if (btnCopyRawDict) {
   btnCopyRawDict.addEventListener("click", async () => {
-    const rawText = formatRawDictionaryText(currentDictionaryEntries);
+    const rawText = formatRawDictionaryText(currentDictionaryEntries, currentKanjiEntries);
     if (!rawText) return;
     const ok = await copyTextToClipboard(rawText);
     if (ok) {
@@ -1883,6 +2185,7 @@ if (cardEditor) {
       source_text: fieldSourceText ? fieldSourceText.value.trim() : "",
       deinflected_text: fieldDeinflectedText ? fieldDeinflectedText.value.trim() : "",
       entries: Array.isArray(currentDictionaryEntries) ? currentDictionaryEntries : [],
+      kanji_entries: Array.isArray(currentKanjiEntries) ? currentKanjiEntries : [],
     };
 
     try {
@@ -2352,8 +2655,13 @@ async function openSavedCard(cardId) {
         updateSyncUI("pending");
       }
 
-      if (Array.isArray(body.entries) && body.entries.length) {
-        renderDetails({ entries: body.entries });
+      if ((Array.isArray(body.entries) && body.entries.length) || (Array.isArray(body.kanji_entries) && body.kanji_entries.length)) {
+        renderDetails({
+          entries: body.entries || [],
+          kanji_entries: body.kanji_entries || [],
+          expression: body.expression,
+          jlpt_level: body.jlpt_level,
+        });
       } else {
         clearDictionaryView();
       }

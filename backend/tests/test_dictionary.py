@@ -25,6 +25,7 @@ class DictionaryResponseTests(unittest.TestCase):
 
     def test_term_entries_request_uses_normalized_term(self):
         service=YomitanService(); calls=[]
-        service._post_json=lambda path,body:calls.append((path,body)) or {"dictionaryEntries":[]}
+        service._post_json=lambda path,body:calls.append((path,body)) or ({"dictionaryEntries":[]} if path == "/termEntries" else [])
         service.enrich(IdentifiedTerm("見る","みる","見た","見る"))
-        self.assertEqual(calls,[("/termEntries",{"term":"見る"})])
+        self.assertEqual(calls,[("/termEntries",{"term":"見る"}),("/kanjiEntries",{"character":"見る"})])
+
