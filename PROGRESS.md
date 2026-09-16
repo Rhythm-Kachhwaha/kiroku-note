@@ -381,4 +381,15 @@ New major features should generally be deferred unless they are necessary for th
 - **Verification:**
   - 262/262 backend pytest tests passed (`python -m pytest -o pythonpath=backend backend/tests`).
   - 34/34 extension test suites passed (`node --test extension/tests/*.test.js`).
+
+### Deck-Aware Duplicate UI State Fix
+- **Bug Fixed:** Switching the selected deck after capturing or saving a word previously left the Side Panel in a stale "ALREADY SAVED" state with the previous deck's card ID, preventing saving the word in a different deck without recapturing.
+- **Key Fixes & Architectural Alignment:**
+  - **Dynamic Deck-Scoped State Recalculation:** Added reactive `refreshDuplicateState()` / `scheduleDuplicateCheck()` listening to `change` and `input` events on `fieldDeckSelect`, `fieldDeckName`, `fieldExpression`, and `fieldReading`.
+  - **Uniqueness Tuple Integrity:** Duplicate evaluation evaluates `(normalized expression + normalized reading + normalized deck)`. When switching to an unsaved deck, `saveBadge` is hidden, status is reset to draft, `fieldCardId` is cleared, and `updateSyncUI` reflects ready status.
+  - **Reversible Duplicate Recognition:** Switching between decks (e.g. Deck A -> Deck B -> Deck A) accurately recognizes the corresponding card ID and duplicate state for each deck without overwriting or losing form edits.
+- **Verification:**
+  - 263/263 backend pytest tests passing (`python -m pytest -o pythonpath=backend backend/tests`).
+  - 35/35 extension test suites passing (`node --test extension/tests/*.test.js`), including new dedicated `extension/tests/deck-aware-duplicate-ui.test.js` covering scenarios A through F.
+
 

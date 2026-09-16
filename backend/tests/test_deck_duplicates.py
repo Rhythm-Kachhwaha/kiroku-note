@@ -221,3 +221,45 @@ class TestDeckDuplicates:
                 assert res3.json()["is_new"] is False
                 assert res3.json()["is_duplicate"] is True
                 assert res3.json()["id"] == res1.json()["id"]
+
+    def test_deck_switch_roundtrip_duplicate_checks(self, temp_db):
+        """End-to-end regression: Save in Deck A -> Save in Deck B -> check both recognized as duplicates in their respective decks."""
+        repo = CardRepository(temp_db)
+        service = CardService(card_repository=repo)
+
+        # 1. Save in Deck A
+        card_a = service.save_card(
+            SaveCardRequest(expression="食べる", reading="たべる", meaning="to eat", deck_name="Deck A")
+        )
+        assert card_a.is_new is True
+        assert card_a.id is not None
+
+        # 2. Check Deck A -> duplicate
+        dup_a1 = repo.find_by_identity("食べる", "たべる", "Deck A")
+        assert dup_a1 is not None
+        assert dup_a1.id == card_a.id
+
+        # 3. Check Deck B -> not duplicate yet
+        dup_b1 = repo.find_by_identity("食べる", "たべる", "Deck B")
+        assert dup_b1 is None
+
+        # 4. Save in Deck B
+        card_b = service.save_card(
+            SaveCardRequest(expression="食べる", reading="たべる", meaning="to eat", deck_name="Deck B")
+        )
+        assert card_b.is_new is True
+        assert card_b.id != card_a.id
+
+        # 5. Check Deck B -> now duplicate with card_b ID
+        dup_b2 = repo.find_by_identity("食べる", "たべる", "Deck B")
+        assert dup_b2 is not None
+        assert dup_b2.id == card_b.id
+
+        # 6. Switch back check Deck A -> still duplicate with card_a ID
+        dup_a2 = repo.find_by_identity("食べる", "たべる", "Deck A")
+        assert dup_a2 is not None
+        assert dup_a2.id == card_a.id
+
+        # 7. Total cards stored is 2
+        assert repo.count() == 2
+

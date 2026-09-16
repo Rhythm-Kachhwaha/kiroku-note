@@ -415,6 +415,16 @@ if (fieldDeckSelect) {
         localStorage.setItem("last_used_deck", val);
       }
     } catch (_) {}
+    scheduleDuplicateCheck(true);
+  });
+}
+
+if (fieldDeckName) {
+  fieldDeckName.addEventListener("input", () => {
+    scheduleDuplicateCheck(false);
+  });
+  fieldDeckName.addEventListener("change", () => {
+    scheduleDuplicateCheck(true);
   });
 }
 
@@ -437,12 +447,20 @@ if (fieldModelSelect) {
 if (fieldExpression) {
   fieldExpression.addEventListener("input", () => {
     if (expression) expression.textContent = fieldExpression.value || "—";
+    scheduleDuplicateCheck(false);
+  });
+  fieldExpression.addEventListener("change", () => {
+    scheduleDuplicateCheck(true);
   });
 }
 
 if (fieldReading) {
   fieldReading.addEventListener("input", () => {
     if (reading) reading.textContent = fieldReading.value || "";
+    scheduleDuplicateCheck(false);
+  });
+  fieldReading.addEventListener("change", () => {
+    scheduleDuplicateCheck(true);
   });
 }
 
@@ -2373,6 +2391,96 @@ if (toggleOptionalBtn && optionalFields) {
     toggleOptionalBtn.setAttribute("aria-expanded", String(!isExpanded));
     toggleOptionalBtn.textContent = isExpanded ? "+ Optional fields" : "- Optional fields";
   });
+}
+
+// Duplicate prevention and deck-scoped saved state management
+var duplicateCheckTimer = null;
+var duplicateCheckRequestId = 0;
+
+function scheduleDuplicateCheck(immediate = false) {
+  if (duplicateCheckTimer) {
+    clearTimeout(duplicateCheckTimer);
+    duplicateCheckTimer = null;
+  }
+  if (immediate) {
+    refreshDuplicateState();
+  } else {
+    duplicateCheckTimer = setTimeout(() => {
+      refreshDuplicateState();
+    }, 150);
+  }
+}
+
+async function refreshDuplicateState() {
+  const expr = fieldExpression ? fieldExpression.value.trim() : "";
+  const read = fieldReading ? fieldReading.value.trim() : "";
+  const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
+
+  if (!expr) {
+    if (saveBadge) {
+      saveBadge.hidden = true;
+      saveBadge.textContent = "";
+      saveBadge.className = "badge";
+    }
+    if (fieldCardId) fieldCardId.value = "";
+    return;
+  }
+
+  const reqId = ++duplicateCheckRequestId;
+
+  try {
+    const params = new URLSearchParams({
+      deck: targetDeck,
+      search: expr,
+      limit: "50",
+      offset: "0",
+    });
+    const res = await fetch(`${API_CARDS_URL}?${params.toString()}`);
+    if (!res.ok) return;
+    const data = await res.json().catch(() => ({}));
+    if (reqId !== duplicateCheckRequestId) return;
+
+    const cards = Array.isArray(data.cards) ? data.cards : [];
+    const normExpr = expr.trim().toLowerCase();
+    const normRead = read.trim().toLowerCase();
+    const normDeck = targetDeck.trim().toLowerCase();
+
+    const existingCard = cards.find(c => {
+      const cExpr = (c.expression || "").trim().toLowerCase();
+      const cRead = (c.reading || "").trim().toLowerCase();
+      const cDeck = (c.deck_name || "Default").trim().toLowerCase();
+      return cExpr === normExpr && cRead === normRead && cDeck === normDeck;
+    });
+
+    if (existingCard) {
+      if (fieldCardId) fieldCardId.value = String(existingCard.id);
+      if (saveBadge) {
+        saveBadge.textContent = "ALREADY SAVED";
+        saveBadge.className = "badge already-saved";
+        saveBadge.hidden = false;
+      }
+      setStatus("Card already saved.");
+      if (existingCard.sync_status === "synced") {
+        updateSyncUI("synced");
+      } else if (existingCard.sync_status === "failed") {
+        updateSyncUI("failed", existingCard.sync_error);
+      } else {
+        updateSyncUI("pending");
+      }
+    } else {
+      if (fieldCardId) fieldCardId.value = "";
+      if (saveBadge) {
+        saveBadge.hidden = true;
+        saveBadge.textContent = "";
+        saveBadge.className = "badge";
+      }
+      setStatus("Card draft ready. Edit and save.");
+      updateSyncUI(ankiConnected ? "ready" : "not_connected");
+    }
+    if (typeof scheduleCardPreviewUpdate === "function") scheduleCardPreviewUpdate();
+  } catch (err) {
+    // Fail-soft: if network or backend error occurs, do not block UI
+  }
 }
 
 // Card save form submission
