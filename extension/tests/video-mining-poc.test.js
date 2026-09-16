@@ -544,8 +544,8 @@ async function testHiAnimeFullscreenBehavior() {
   // Normal playback at 7.0s
   video.seek(7.0);
   assert.equal(subtitle.textContent, "フルスクリーンテスト");
-  assert.equal(container.parentElement, env.rootBody, "Normal playback mounts to body");
-  assert.equal(container.style.position, "fixed");
+  assert.equal(container.parentElement, playerWrapper, "Windowed mode mounts inside playerWrapper");
+  assert.equal(container.style.position, "absolute", "Uses absolute positioning relative to player container");
 
   // Enter Fullscreen on playerWrapper
   env.mockDocument.fullscreenElement = playerWrapper;
@@ -571,10 +571,10 @@ async function testHiAnimeFullscreenBehavior() {
   env.mockDocument.fullscreenElement = null;
   env.mockDocument.dispatchEvent({ type: "fullscreenchange" });
 
-  assert.equal(container.parentElement, env.rootBody, "Exiting fullscreen moves container back to document.body");
-  assert.equal(container.style.position, "fixed", "Exiting fullscreen restores fixed positioning");
+  assert.equal(container.parentElement, playerWrapper, "Exiting fullscreen maintains container in playerWrapper");
+  assert.equal(container.style.position, "absolute", "Exiting fullscreen maintains absolute positioning in player");
 
-  console.log("PASS: HiAnime fullscreen overlay attachment, repositioning, and exit handling verified.");
+  console.log("PASS: HiAnime fullscreen and windowed overlay attachment, repositioning, and exit handling verified.");
 }
 
 // -------------------------------------------------------------

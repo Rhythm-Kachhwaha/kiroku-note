@@ -181,6 +181,23 @@ The core mining pipeline is functional. Current work is focused on polishing, re
   - Backend: 236/236 unit and integration tests passing (`python -m pytest -o pythonpath=backend backend/tests`)
   - Extension: 30/30 test suites passing (`node --test extension/tests/*.test.js`)
 
+### Subtitle Overlay & Fullscreen Polish
+
+- [x] HiAnime External Subtitle Fullscreen Fix (`extension/content/video-mining-poc.js`)
+  - [x] Diagnosed fullscreen DOM container reparenting & z-index/stacking isolation on HiAnime embedded players
+  - [x] Hardened `getTargetContainer()` and `ensureMounted()` to re-attach overlay to active fullscreen player wrapper and bring overlay to the top of the stacking context
+  - [x] Added multi-stage delayed re-anchoring (0ms, 50ms, 150ms, 300ms, 600ms) on fullscreen transitions to reliably catch asynchronous player DOM updates
+- [x] Movable Subtitle Overlay with Normalized Position Model (`extension/content/video-mining-poc.js`, `extension/tests/movable-subtitle-overlay.test.js`)
+  - [x] Added dedicated drag affordance handle (`#ankiminer-video-subtitle-handle` with 6-dot SVG grip icon) separating drag interactions from text selection
+  - [x] Preserved 100% Japanese text selection and Yomitan/Kiroku hover scanning on subtitle text (`#ankiminer-video-subtitle`)
+  - [x] Implemented normalized relative coordinate system `{ relX, relY }` surviving fullscreen, window resize, and player reparenting with strict player boundary clamping
+  - [x] Preserved default bottom-center position (`{ relX: 0.5, relY: 0.78 }`) for seamless backward compatibility
+  - [x] Added local storage persistence (`subtitle_overlay_position` in `chrome.storage.local` & `localStorage`) and runtime message handlers (`SET_SUBTITLE_POSITION`, `GET_SUBTITLE_POSITION`, `RESET_SUBTITLE_POSITION`)
+  - [x] Strictly preserved playback invariants: 0 seeks, 0 currentTime changes, 0 play/pause modifications, 0 keyboard shortcuts added
+- [x] Verification:
+  - Extension: 31/31 test suites passing (`node --test extension/tests/*.test.js`) including dedicated `extension/tests/movable-subtitle-overlay.test.js`
+  - Backend: 236/236 unit and integration tests passing (`python -m pytest -o pythonpath=backend backend/tests`)
+
 
 ### Stage 8 — Documentation
 
@@ -316,3 +333,15 @@ The goal of V1 is not to add a large number of new features.
 The goal is to turn the existing working mining tool into a **polished, reliable, understandable, and easy-to-install public product**.
 
 New major features should generally be deferred unless they are necessary for the V1 experience.
+
+---
+
+## Recent Fixes
+
+### Windowed Mode Subtitle Overlay Fix
+- **Issue Fixed:** Subtitles loaded while the player was in windowed mode (non-fullscreen on HiAnime / iframe players) were not immediately visible until entering fullscreen and reloading subs.
+- **Root Cause:** `getTargetContainer()` fell back to `document.body` in windowed mode with `position: fixed`, which caused the overlay to render outside or behind player-specific stacking contexts / iframe boundaries.
+- **Solution:** Updated `getTargetContainer()` in `extension/content/video-mining-poc.js` to attach directly to the player wrapper (`.jwplayer, #player, .video-js, [class*='player'], etc.` or `video.parentElement`) in both windowed and fullscreen modes. Added `play`, `canplay`, `loadeddata`, and `seeked` listeners, and immediately triggered `ensureMounted()` and `updatePosition()` upon cue loading.
+- **Verification:**
+  - 31/31 extension tests passed (`node --test extension/tests/*.test.js`).
+  - 236/236 backend pytest tests passed (`python -m pytest -o pythonpath=backend backend/tests`).

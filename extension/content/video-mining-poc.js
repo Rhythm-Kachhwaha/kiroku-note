@@ -374,12 +374,21 @@
   class SubtitleOverlayRenderer {
     constructor() {
       this.container = null;
+      this.boxEl = null;
+      this.handleEl = null;
       this.subtitleEl = null;
       this.video = null;
       this.resizeObserver = null;
       this.onFileDropped = null;
+      this.onPositionChanged = null;
       this.isHoverLocked = false;
       this.pendingCue = undefined;
+      this.position = { relX: 0.5, relY: 0.78 };
+      this.isDragging = false;
+      this._dragStartX = 0;
+      this._dragStartY = 0;
+      this._initialClampedLeft = 0;
+      this._initialClampedTop = 0;
       this._hoverWordTimer = null;
       this._lastHoverWord = "";
       this._boundUpdatePosition = this.updatePosition.bind(this);
@@ -389,7 +398,9 @@
         this.setHoverLocked(true);
       };
       this._boundSubtitleMouseLeave = () => {
-        this.setHoverLocked(false);
+        if (!this.isDragging) {
+          this.setHoverLocked(false);
+        }
         if (this._hoverWordTimer) {
           clearTimeout(this._hoverWordTimer);
           this._hoverWordTimer = null;
@@ -397,6 +408,7 @@
         this._lastHoverWord = "";
       };
       this._boundSubtitleMouseMove = (e) => {
+        if (this.isDragging) return;
         if (typeof window !== "undefined" && window.getSelection) {
           const sel = window.getSelection();
           if (sel && sel.toString().trim().length > 0) return;
@@ -419,27 +431,163 @@
         }, 180);
       };
 
+      this._boundHandlePointerDown = (e) => {
+        if (e.button !== undefined && e.button !== 0) return; // Left button only
+        if (!this.video || !this.container) return;
+
+        const vRect = typeof this.video.getBoundingClientRect === "function"
+          ? this.video.getBoundingClientRect()
+          : { left: 0, top: 0, width: 800, height: 450 };
+        if (vRect.width <= 0 || vRect.height <= 0) return;
+
+        const boxRect = (this.boxEl && typeof this.boxEl.getBoundingClientRect === "function")
+          ? this.boxEl.getBoundingClientRect()
+          : (typeof this.container.getBoundingClientRect === "function" ? this.container.getBoundingClientRect() : null);
+        const boxWidth = (boxRect && Number.isFinite(boxRect.width) && boxRect.width > 0 && boxRect.width < vRect.width)
+          ? boxRect.width
+          : Math.min(vRect.width * 0.8, 200);
+        const boxHeight = (boxRect && Number.isFinite(boxRect.height) && boxRect.height > 0 && boxRect.height < vRect.height)
+          ? boxRect.height
+          : Math.max(30, Math.round(vRect.height * 0.08));
+
+        this.isDragging = true;
+        this._dragStartX = typeof e.clientX === "number" ? e.clientX : 0;
+        this._dragStartY = typeof e.clientY === "number" ? e.clientY : 0;
+
+        const relX = (typeof this.position?.relX === "number" && !isNaN(this.position.relX)) ? this.position.relX : 0.5;
+        const relY = (typeof this.position?.relY === "number" && !isNaN(this.position.relY)) ? this.position.relY : 0.78;
+        const desiredLeftInVideo = (relX * vRect.width) - (boxWidth / 2);
+        const desiredTopInVideo = relY * vRect.height;
+        const maxLeft = Math.max(0, vRect.width - boxWidth);
+        const maxTop = Math.max(0, vRect.height - boxHeight);
+
+        this._initialClampedLeft = Math.max(0, Math.min(maxLeft, desiredLeftInVideo));
+        this._initialClampedTop = Math.max(0, Math.min(maxTop, desiredTopInVideo));
+
+        this.setHoverLocked(true);
+
+        if (this.handleEl) {
+          setStyleProperty(this.handleEl, "cursor", "grabbing", "important");
+          setStyleProperty(this.handleEl, "color", "#cc785c", "important");
+        }
+
+        if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+          window.addEventListener("pointermove", this._boundHandlePointerMove, true);
+          window.addEventListener("pointerup", this._boundHandlePointerUp, true);
+          window.addEventListener("pointercancel", this._boundHandlePointerUp, true);
+          window.addEventListener("mousemove", this._boundHandlePointerMove, true);
+          window.addEventListener("mouseup", this._boundHandlePointerUp, true);
+        }
+
+        if (typeof e.preventDefault === "function") {
+          e.preventDefault();
+        }
+        if (typeof e.stopPropagation === "function") {
+          e.stopPropagation();
+        }
+      };
+
+      this._boundHandlePointerMove = (e) => {
+        if (!this.isDragging || !this.video || !this.container) return;
+
+        const vRect = typeof this.video.getBoundingClientRect === "function"
+          ? this.video.getBoundingClientRect()
+          : { left: 0, top: 0, width: 800, height: 450 };
+        if (vRect.width <= 0 || vRect.height <= 0) return;
+
+        const boxRect = (this.boxEl && typeof this.boxEl.getBoundingClientRect === "function")
+          ? this.boxEl.getBoundingClientRect()
+          : (typeof this.container.getBoundingClientRect === "function" ? this.container.getBoundingClientRect() : null);
+        const boxWidth = (boxRect && Number.isFinite(boxRect.width) && boxRect.width > 0 && boxRect.width < vRect.width)
+          ? boxRect.width
+          : Math.min(vRect.width * 0.8, 200);
+        const boxHeight = (boxRect && Number.isFinite(boxRect.height) && boxRect.height > 0 && boxRect.height < vRect.height)
+          ? boxRect.height
+          : Math.max(30, Math.round(vRect.height * 0.08));
+
+        const clientX = typeof e.clientX === "number" ? e.clientX : this._dragStartX;
+        const clientY = typeof e.clientY === "number" ? e.clientY : this._dragStartY;
+
+        const dx = clientX - this._dragStartX;
+        const dy = clientY - this._dragStartY;
+
+        const newLeftInVideo = this._initialClampedLeft + dx;
+        const newTopInVideo = this._initialClampedTop + dy;
+
+        const maxLeft = Math.max(0, vRect.width - boxWidth);
+        const maxTop = Math.max(0, vRect.height - boxHeight);
+        const clampedLeft = Math.max(0, Math.min(maxLeft, newLeftInVideo));
+        const clampedTop = Math.max(0, Math.min(maxTop, newTopInVideo));
+
+        const newRelX = vRect.width > 0 ? Math.max(0, Math.min(1.0, (clampedLeft + boxWidth / 2) / vRect.width)) : 0.5;
+        const newRelY = vRect.height > 0 ? Math.max(0, Math.min(1.0, clampedTop / vRect.height)) : 0.78;
+
+        this.position = { relX: newRelX, relY: newRelY };
+        this.updatePosition();
+      };
+
+      this._boundHandlePointerUp = (e) => {
+        if (!this.isDragging) return;
+        this.isDragging = false;
+
+        if (this.handleEl) {
+          setStyleProperty(this.handleEl, "cursor", "grab", "important");
+          setStyleProperty(this.handleEl, "color", "rgba(255, 255, 255, 0.5)", "important");
+        }
+
+        if (typeof window !== "undefined" && typeof window.removeEventListener === "function") {
+          window.removeEventListener("pointermove", this._boundHandlePointerMove, true);
+          window.removeEventListener("pointerup", this._boundHandlePointerUp, true);
+          window.removeEventListener("pointercancel", this._boundHandlePointerUp, true);
+          window.removeEventListener("mousemove", this._boundHandlePointerMove, true);
+          window.removeEventListener("mouseup", this._boundHandlePointerUp, true);
+        }
+
+        this.setHoverLocked(false);
+
+        if (typeof this.onPositionChanged === "function") {
+          this.onPositionChanged(this.position);
+        }
+      };
+
       this._boundDragOver = (e) => {
         e.preventDefault();
-        if (this.subtitleEl) {
-          this.subtitleEl.style.borderColor = "#cc785c";
+        if (this.boxEl) {
+          this.boxEl.style.borderColor = "#cc785c";
         }
       };
       this._boundDragLeave = () => {
-        if (this.subtitleEl) {
-          this.subtitleEl.style.borderColor = "rgba(255, 255, 255, 0.15)";
+        if (this.boxEl) {
+          this.boxEl.style.borderColor = "rgba(255, 255, 255, 0.2)";
         }
       };
       this._boundDrop = (e) => {
         e.preventDefault();
-        if (this.subtitleEl) {
-          this.subtitleEl.style.borderColor = "rgba(255, 255, 255, 0.15)";
+        if (this.boxEl) {
+          this.boxEl.style.borderColor = "rgba(255, 255, 255, 0.2)";
         }
         const file = e.dataTransfer?.files?.[0];
         if (file && typeof this.onFileDropped === "function") {
           this.onFileDropped(file);
         }
       };
+    }
+
+    setPosition(pos) {
+      if (!pos) return;
+      const relX = typeof pos.relX === "number" && !isNaN(pos.relX) ? Math.max(0, Math.min(1.0, pos.relX)) : 0.5;
+      const relY = typeof pos.relY === "number" && !isNaN(pos.relY) ? Math.max(0, Math.min(1.0, pos.relY)) : 0.78;
+      this.position = { relX, relY };
+      this.updatePosition();
+    }
+
+    getPosition() {
+      return { ...this.position };
+    }
+
+    resetPosition() {
+      this.position = { relX: 0.5, relY: 0.78 };
+      this.updatePosition();
     }
 
     getTargetContainer() {
@@ -456,9 +604,9 @@
         }
         return fsEl;
       }
-      // Windowed mode: Always attach to document.body so the overlay sits above player controls,
-      // transparent click shields (HiAnime MegaCloud/RapidCloud), and YouTube player overlays.
-      return (typeof document !== "undefined" ? document.body : null) || this.video.parentElement;
+      // Windowed mode: Find player container wrapper if present, else video.parentElement
+      const playerWrapper = (this.video.closest && this.video.closest(".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video")) || this.video.parentElement;
+      return playerWrapper || (typeof document !== "undefined" ? document.body : null);
     }
 
     ensureMounted() {
@@ -466,6 +614,9 @@
       const target = this.getTargetContainer();
       if (!target) return;
       if (!this.container.isConnected || this.container.parentElement !== target) {
+        target.appendChild(this.container);
+      } else if (target.lastElementChild !== this.container) {
+        // Bring to front in case player added control overlays after our container
         target.appendChild(this.container);
       }
     }
@@ -487,16 +638,84 @@
           "display: none !important",
           "visibility: hidden !important",
           "opacity: 0 !important",
-          "justify-content: center !important",
-          "align-items: center !important",
           "pointer-events: none !important",
           "z-index: 2147483647 !important",
           "box-sizing: border-box !important",
           "margin: 0 !important",
-          "padding: 0 16px !important",
-          "text-align: center !important",
+          "padding: 0 !important",
           "transition: opacity 0.15s ease !important"
         ].join("; ");
+
+        const box = document.createElement("div");
+        box.id = "ankiminer-video-subtitle-box";
+        box.className = "ankiminer-video-subtitle-box";
+        box.style.cssText = [
+          "display: inline-flex !important",
+          "flex-direction: row !important",
+          "align-items: center !important",
+          "position: relative !important",
+          "pointer-events: auto !important",
+          "background: rgba(18, 17, 15, 0.88) !important",
+          "backdrop-filter: blur(4px) !important",
+          "-webkit-backdrop-filter: blur(4px) !important",
+          "padding: 4px 12px 4px 8px !important",
+          "border-radius: 6px !important",
+          "border: 1px solid rgba(255, 255, 255, 0.2) !important",
+          "box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important",
+          "box-sizing: border-box !important",
+          "max-width: 100% !important",
+          "gap: 6px !important",
+          "user-select: none !important"
+        ].join("; ");
+
+        const handle = document.createElement("div");
+        handle.id = "ankiminer-video-subtitle-handle";
+        handle.className = "ankiminer-video-subtitle-handle";
+        handle.title = "Drag to reposition subtitles";
+        handle.setAttribute("aria-label", "Drag subtitle overlay");
+        handle.style.cssText = [
+          "display: flex !important",
+          "align-items: center !important",
+          "justify-content: center !important",
+          "cursor: grab !important",
+          "color: rgba(255, 255, 255, 0.5) !important",
+          "padding: 2px 4px !important",
+          "border-radius: 3px !important",
+          "user-select: none !important",
+          "-webkit-user-select: none !important",
+          "touch-action: none !important",
+          "flex-shrink: 0 !important",
+          "transition: color 0.15s ease, opacity 0.15s ease !important"
+        ].join("; ");
+
+        if (typeof document.createElementNS === "function") {
+          try {
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("width", "10");
+            svg.setAttribute("height", "14");
+            svg.setAttribute("viewBox", "0 0 10 14");
+            svg.setAttribute("fill", "none");
+            svg.style.cssText = "display: block; pointer-events: none;";
+            const circles = [
+              [3, 3], [7, 3],
+              [3, 7], [7, 7],
+              [3, 11], [7, 11]
+            ];
+            circles.forEach(([cx, cy]) => {
+              const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+              circle.setAttribute("cx", String(cx));
+              circle.setAttribute("cy", String(cy));
+              circle.setAttribute("r", "1.2");
+              circle.setAttribute("fill", "currentColor");
+              svg.appendChild(circle);
+            });
+            handle.appendChild(svg);
+          } catch (_) {
+            handle.textContent = "⋮⋮";
+          }
+        } else {
+          handle.textContent = "⋮⋮";
+        }
 
         const span = document.createElement("span");
         span.id = "ankiminer-video-subtitle";
@@ -508,28 +727,48 @@
           "pointer-events: auto !important",
           "cursor: text !important",
           "color: #ffffff !important",
-          "background: rgba(18, 17, 15, 0.85) !important",
-          "backdrop-filter: blur(2px) !important",
-          "-webkit-backdrop-filter: blur(2px) !important",
-          "padding: 6px 14px !important",
-          "border-radius: 6px !important",
-          "border: 1px solid rgba(255, 255, 255, 0.2) !important",
+          "background: transparent !important",
+          "border: none !important",
+          "padding: 0 !important",
           "font-family: 'Noto Sans JP', 'Noto Serif JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', Meiryo, sans-serif !important",
           "font-size: 24px !important",
           "font-weight: 500 !important",
           "line-height: 1.4 !important",
           "text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9) !important",
-          "max-width: 90% !important",
           "word-break: break-word !important",
-          "box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important"
+          "white-space: pre-wrap !important"
         ].join("; ");
 
-        container.appendChild(span);
-        this.subtitleEl = span;
+        box.appendChild(handle);
+        box.appendChild(span);
+        container.appendChild(box);
+
         this.container = container;
+        this.boxEl = box;
+        this.handleEl = handle;
+        this.subtitleEl = span;
       } else {
         this.container = container;
+        this.boxEl = container.querySelector("#ankiminer-video-subtitle-box") || container;
+        this.handleEl = container.querySelector("#ankiminer-video-subtitle-handle");
         this.subtitleEl = container.querySelector("#ankiminer-video-subtitle");
+        if (!this.handleEl && this.subtitleEl) {
+          const box = document.createElement("div");
+          box.id = "ankiminer-video-subtitle-box";
+          box.className = "ankiminer-video-subtitle-box";
+          const handle = document.createElement("div");
+          handle.id = "ankiminer-video-subtitle-handle";
+          handle.className = "ankiminer-video-subtitle-handle";
+          handle.title = "Drag to reposition subtitles";
+          handle.setAttribute("aria-label", "Drag subtitle overlay");
+          if (this.subtitleEl.parentElement) {
+            this.subtitleEl.parentElement.insertBefore(box, this.subtitleEl);
+          }
+          box.appendChild(handle);
+          box.appendChild(this.subtitleEl);
+          this.boxEl = box;
+          this.handleEl = handle;
+        }
       }
 
       this.ensureMounted();
@@ -539,6 +778,12 @@
         this.subtitleEl.addEventListener("mouseenter", this._boundSubtitleMouseEnter);
         this.subtitleEl.addEventListener("mouseleave", this._boundSubtitleMouseLeave);
         this.subtitleEl.addEventListener("mousemove", this._boundSubtitleMouseMove);
+      }
+
+      // Attach handle dragging listeners
+      if (this.handleEl && typeof this.handleEl.addEventListener === "function") {
+        this.handleEl.addEventListener("pointerdown", this._boundHandlePointerDown);
+        this.handleEl.addEventListener("mousedown", this._boundHandlePointerDown);
       }
 
       // Attach drag and drop listeners
@@ -554,6 +799,10 @@
         this.video.addEventListener("timeupdate", this._boundUpdatePosition);
         this.video.addEventListener("resize", this._boundUpdatePosition);
         this.video.addEventListener("loadedmetadata", this._boundUpdatePosition);
+        this.video.addEventListener("loadeddata", this._boundUpdatePosition);
+        this.video.addEventListener("canplay", this._boundUpdatePosition);
+        this.video.addEventListener("play", this._boundUpdatePosition);
+        this.video.addEventListener("seeked", this._boundUpdatePosition);
       }
 
       this.updatePosition();
@@ -575,7 +824,10 @@
       this.ensureMounted();
       this.updatePosition();
       if (typeof requestAnimationFrame === "function") {
-        requestAnimationFrame(() => this.updatePosition());
+        requestAnimationFrame(() => {
+          this.ensureMounted();
+          this.updatePosition();
+        });
       }
       setTimeout(() => {
         this.ensureMounted();
@@ -609,6 +861,34 @@
       const target = this.container.parentElement;
       const isBodyTarget = !target || target === document.body || target === document.documentElement;
 
+      if (this.subtitleEl) {
+        const baseSize = Math.max(16, Math.min(38, Math.round(vRect.height * 0.045)));
+        setStyleProperty(this.subtitleEl, "fontSize", `${baseSize}px`, "important");
+        setStyleProperty(this.subtitleEl, "font-size", `${baseSize}px`, "important");
+      }
+
+      const boxRect = (this.boxEl && typeof this.boxEl.getBoundingClientRect === "function")
+        ? this.boxEl.getBoundingClientRect()
+        : (typeof this.container.getBoundingClientRect === "function" ? this.container.getBoundingClientRect() : null);
+      const boxWidth = (boxRect && Number.isFinite(boxRect.width) && boxRect.width > 0 && boxRect.width < vRect.width)
+        ? boxRect.width
+        : Math.min(vRect.width * 0.8, 200);
+      const boxHeight = (boxRect && Number.isFinite(boxRect.height) && boxRect.height > 0 && boxRect.height < vRect.height)
+        ? boxRect.height
+        : Math.max(30, Math.round(vRect.height * 0.08));
+
+      const relX = (typeof this.position?.relX === "number" && !isNaN(this.position.relX)) ? this.position.relX : 0.5;
+      const relY = (typeof this.position?.relY === "number" && !isNaN(this.position.relY)) ? this.position.relY : 0.78;
+
+      const desiredLeftInVideo = (relX * vRect.width) - (boxWidth / 2);
+      const desiredTopInVideo = relY * vRect.height;
+
+      const maxLeft = Math.max(0, vRect.width - boxWidth);
+      const maxTop = Math.max(0, vRect.height - boxHeight);
+
+      const clampedLeftInVideo = Math.max(0, Math.min(maxLeft, desiredLeftInVideo));
+      const clampedTopInVideo = Math.max(0, Math.min(maxTop, desiredTopInVideo));
+
       if (!isBodyTarget) {
         // Ensure non-body target establishes a containing block
         const targetPos = typeof getComputedStyle === "function"
@@ -622,33 +902,27 @@
           ? target.getBoundingClientRect()
           : { top: 0, left: 0, width: vRect.width, height: vRect.height };
 
-        const relLeft = Math.round(vRect.left - tRect.left);
-        const relTop = Math.round(vRect.top - tRect.top);
-        const topOffset = Math.round(relTop + (vRect.height * 0.78));
+        const relLeft = Math.round(vRect.left - tRect.left + clampedLeftInVideo);
+        const relTop = Math.round(vRect.top - tRect.top + clampedTopInVideo);
 
         setStyleProperty(this.container, "position", "absolute", "important");
-        setStyleProperty(this.container, "top", `${topOffset}px`, "important");
+        setStyleProperty(this.container, "top", `${relTop}px`, "important");
         setStyleProperty(this.container, "left", `${relLeft}px`, "important");
-        setStyleProperty(this.container, "width", `${Math.round(vRect.width)}px`, "important");
+        setStyleProperty(this.container, "width", "auto", "important");
         setStyleProperty(this.container, "bottom", "auto", "important");
         setStyleProperty(this.container, "height", "auto", "important");
         setStyleProperty(this.container, "z-index", "2147483647", "important");
       } else {
-        const topOffset = Math.round(vRect.top + (vRect.height * 0.78));
+        const absLeft = Math.round(vRect.left + clampedLeftInVideo);
+        const absTop = Math.round(vRect.top + clampedTopInVideo);
 
         setStyleProperty(this.container, "position", "fixed", "important");
-        setStyleProperty(this.container, "top", `${topOffset}px`, "important");
-        setStyleProperty(this.container, "left", `${Math.round(vRect.left)}px`, "important");
-        setStyleProperty(this.container, "width", `${Math.round(vRect.width)}px`, "important");
+        setStyleProperty(this.container, "top", `${absTop}px`, "important");
+        setStyleProperty(this.container, "left", `${absLeft}px`, "important");
+        setStyleProperty(this.container, "width", "auto", "important");
         setStyleProperty(this.container, "bottom", "auto", "important");
         setStyleProperty(this.container, "height", "auto", "important");
         setStyleProperty(this.container, "z-index", "2147483647", "important");
-      }
-
-      if (this.subtitleEl) {
-        const baseSize = Math.max(16, Math.min(38, Math.round(vRect.height * 0.045)));
-        setStyleProperty(this.subtitleEl, "fontSize", `${baseSize}px`, "important");
-        setStyleProperty(this.subtitleEl, "font-size", `${baseSize}px`, "important");
       }
     }
 
@@ -664,7 +938,7 @@
     renderCue(cue) {
       if (!this.subtitleEl || !this.container) return;
       if (this.isHoverLocked) {
-        // If mouse is currently hovering over the subtitle to read/scan it with Yomitan:
+        // If mouse is currently hovering over the subtitle to read/scan it with Yomitan or dragging:
         // If cue is null (e.g. video timestamp barely crossed the end of cue before pause took effect),
         // keep displaying the current cue text stable under the cursor.
         if (!cue || !cue.text) {
@@ -695,6 +969,16 @@
     unmount() {
       this.isHoverLocked = false;
       this.pendingCue = undefined;
+      if (this.isDragging) {
+        this.isDragging = false;
+        if (typeof window !== "undefined" && typeof window.removeEventListener === "function") {
+          window.removeEventListener("pointermove", this._boundHandlePointerMove, true);
+          window.removeEventListener("pointerup", this._boundHandlePointerUp, true);
+          window.removeEventListener("pointercancel", this._boundHandlePointerUp, true);
+          window.removeEventListener("mousemove", this._boundHandlePointerMove, true);
+          window.removeEventListener("mouseup", this._boundHandlePointerUp, true);
+        }
+      }
       if (this.resizeObserver) {
         this.resizeObserver.disconnect();
         this.resizeObserver = null;
@@ -710,6 +994,10 @@
         this.subtitleEl.removeEventListener("mouseenter", this._boundSubtitleMouseEnter);
         this.subtitleEl.removeEventListener("mouseleave", this._boundSubtitleMouseLeave);
         this.subtitleEl.removeEventListener("mousemove", this._boundSubtitleMouseMove);
+      }
+      if (this.handleEl && typeof this.handleEl.removeEventListener === "function") {
+        this.handleEl.removeEventListener("pointerdown", this._boundHandlePointerDown);
+        this.handleEl.removeEventListener("mousedown", this._boundHandlePointerDown);
       }
       if (this._hoverWordTimer) {
         clearTimeout(this._hoverWordTimer);
@@ -729,12 +1017,18 @@
         this.video.removeEventListener("timeupdate", this._boundUpdatePosition);
         this.video.removeEventListener("resize", this._boundUpdatePosition);
         this.video.removeEventListener("loadedmetadata", this._boundUpdatePosition);
+        this.video.removeEventListener("loadeddata", this._boundUpdatePosition);
+        this.video.removeEventListener("canplay", this._boundUpdatePosition);
+        this.video.removeEventListener("play", this._boundUpdatePosition);
+        this.video.removeEventListener("seeked", this._boundUpdatePosition);
       }
 
       if (this.container && this.container.parentElement) {
         this.container.parentElement.removeChild(this.container);
       }
       this.container = null;
+      this.boxEl = null;
+      this.handleEl = null;
       this.subtitleEl = null;
       this.video = null;
     }
@@ -1344,6 +1638,12 @@
         await this.handleDroppedFile(file);
       };
 
+      // Wire up position persistence on drag end
+      this.renderer.onPositionChanged = (pos) => {
+        this.persistPosition(pos);
+        this.broadcastPosition(pos);
+      };
+
       this._boundMessageHandler = this.handleMessage.bind(this);
     }
 
@@ -1369,6 +1669,8 @@
         if (cues && cues.length > 0) {
           this.syncEngine.setCues(cues);
           this.activeFilename = file.name;
+          this.renderer.ensureMounted();
+          this.renderer.updatePosition();
           try {
             if (typeof chrome !== "undefined" && chrome.storage?.local) {
               chrome.storage.local.set({
@@ -1427,6 +1729,31 @@
       try {
         if (typeof localStorage !== "undefined") {
           localStorage.setItem("subtitle_timing_offset", String(offsetMs));
+        }
+      } catch (_) {}
+    }
+
+    broadcastPosition(pos) {
+      try {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({
+            type: "SUBTITLE_POSITION_CHANGED",
+            position: pos
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
+
+    persistPosition(pos) {
+      if (!pos || typeof pos.relX !== "number" || typeof pos.relY !== "number") return;
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          chrome.storage.local.set({ subtitle_overlay_position: pos });
+        }
+      } catch (_) {}
+      try {
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem("subtitle_overlay_position", JSON.stringify(pos));
         }
       } catch (_) {}
     }
@@ -1936,6 +2263,8 @@
       if (message?.type === "LOAD_SUBTITLE_CUES" && Array.isArray(message.cues)) {
         this.syncEngine.setCues(message.cues);
         if (message.filename) this.activeFilename = message.filename;
+        this.renderer.ensureMounted();
+        this.renderer.updatePosition();
         try {
           if (typeof chrome !== "undefined" && chrome.storage?.local) {
             chrome.storage.local.set({
@@ -1981,6 +2310,24 @@
         sendResponse?.({ ok: true, offset: offsetMs / 1000, offsetMs });
         return true;
       }
+      if (message?.type === "SET_SUBTITLE_POSITION" && message.position) {
+        this.renderer.setPosition(message.position);
+        this.persistPosition(message.position);
+        this.broadcastPosition(message.position);
+        sendResponse?.({ ok: true, position: this.renderer.getPosition() });
+        return true;
+      }
+      if (message?.type === "GET_SUBTITLE_POSITION") {
+        sendResponse?.({ ok: true, position: this.renderer.getPosition() });
+        return true;
+      }
+      if (message?.type === "RESET_SUBTITLE_POSITION") {
+        this.renderer.resetPosition();
+        this.persistPosition(this.renderer.getPosition());
+        this.broadcastPosition(this.renderer.getPosition());
+        sendResponse?.({ ok: true, position: this.renderer.getPosition() });
+        return true;
+      }
       if (message?.type === "SET_AUTO_PAUSE_ON_HOVER" && typeof message.enabled === "boolean") {
         this.autoPauseController.setEnabled(message.enabled);
         sendResponse?.({ ok: true, enabled: message.enabled });
@@ -1995,7 +2342,8 @@
           offsetMs: this.syncEngine.offsetMs,
           cueCount: this.syncEngine.cues.length,
           activeFilename: this.activeFilename,
-          autoPauseEnabled: this.autoPauseController.enabled
+          autoPauseEnabled: this.autoPauseController.enabled,
+          subtitlePosition: this.renderer.getPosition()
         });
         return true;
       }
@@ -2032,9 +2380,42 @@
                 } else if (newCues.length === 0) {
                   this.activeFilename = "";
                 }
+                this.renderer.ensureMounted();
+                this.renderer.updatePosition();
                 this.broadcastActiveCue(this.syncEngine.currentCue);
               }
             });
+          }
+        }
+      } catch (_) {}
+
+      // Initialize subtitle overlay position from storage
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          chrome.storage.local.get("subtitle_overlay_position", (result) => {
+            if (result?.subtitle_overlay_position && typeof result.subtitle_overlay_position.relX === "number" && typeof result.subtitle_overlay_position.relY === "number") {
+              this.renderer.setPosition(result.subtitle_overlay_position);
+            }
+          });
+          if (chrome.storage?.onChanged) {
+            chrome.storage.onChanged.addListener((changes, areaName) => {
+              if (areaName === "local" && changes?.subtitle_overlay_position?.newValue) {
+                const newPos = changes.subtitle_overlay_position.newValue;
+                if (newPos && typeof newPos.relX === "number" && typeof newPos.relY === "number") {
+                  this.renderer.setPosition(newPos);
+                }
+              }
+            });
+          }
+        } else if (typeof localStorage !== "undefined") {
+          const stored = localStorage.getItem("subtitle_overlay_position");
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              if (parsed && typeof parsed.relX === "number" && typeof parsed.relY === "number") {
+                this.renderer.setPosition(parsed);
+              }
+            } catch (_) {}
           }
         }
       } catch (_) {}
