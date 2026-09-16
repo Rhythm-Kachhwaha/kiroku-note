@@ -142,6 +142,7 @@ The core mining pipeline is functional. Current work is focused on polishing, re
   - [x] Live custom note models compatibility verified across installed user models (`Kaishi 1.5k`, `japanese mining`, `Core 2000`, `Japanese sentences`, `Basic`)
   - [x] Security & XSS escaping verified across script injection, iframe, SVG onload, and malicious media filename breakout attempts
   - [x] Side Panel preview vs Anki rendering semantic parity verified with intentional environment differences documented
+  - [x] Dictionary domain tag decluttering & sub-term isolation: stripped noisy domain tags (e.g. `stock market`, `card games`, `math`) from card meanings and previews, keeping only clean Part-of-Speech badges (`[noun]`, `[v1]`, etc.); prevented component sub-words from leaking into compound term cards
   - [x] Full automated test suites green: 231/231 backend tests passed (including dedicated `test_stage5_regression.py`), 28/28 extension suites passed
 
 ### Stage 6 — UX & Accessibility

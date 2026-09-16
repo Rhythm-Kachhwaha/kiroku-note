@@ -95,7 +95,7 @@ class TestAnkiFormatter(unittest.TestCase):
         }
         html_out = format_meaning_html(entries=[entry])
         self.assertIn('<span class="kn-pos">[ichidan, vt]</span>', html_out)
-        self.assertIn('<span class="kn-tag">[usually kana, math]</span>', html_out)
+        self.assertNotIn('<span class="kn-tag">', html_out)
 
     # 5. HTML/XSS escaping
     def test_05_html_xss_escaping_security(self):
@@ -410,8 +410,7 @@ class TestAnkiFormatter(unittest.TestCase):
         self.assertIn('<hr class="kn-divider">', back_html)
         self.assertIn('<ol class="kn-meanings">', back_html)
         self.assertIn('<span class="kn-pos">[ichidan, vt]</span>', back_html)
-        self.assertIn('<span class="kn-tag">[common]</span>', back_html)
-        self.assertIn('<span class="kn-tag">[math]</span>', back_html)
+        self.assertNotIn('<span class="kn-tag">', back_html)
         self.assertIn('<div class="kn-example-block">', back_html)
         self.assertIn('<p class="kn-example-ja">壁に絵を掛ける。</p>', back_html)
         self.assertIn('<p class="kn-example-en">Hang a picture on the wall.</p>', back_html)

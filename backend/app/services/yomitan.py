@@ -337,10 +337,13 @@ class YomitanService:
                 groups = YomitanService._find_marked(content, "sense-group")
                 if groups:
                     for group in groups:
-                        group_pos = YomitanService._marked_texts(group, "part-of-speech-info")
+                        group_pos = YomitanService._marked_texts(group, "part-of-speech-info", exclude_marker="sense")
                         all_pos.extend(group_pos)
-                        group_tags = YomitanService._marked_texts(group, "misc-info") + YomitanService._marked_texts(group, "dialect-info")
-                        group_field_tags = YomitanService._marked_texts(group, "field-info")
+                        group_tags = (
+                            YomitanService._marked_texts(group, "misc-info", exclude_marker="sense")
+                            + YomitanService._marked_texts(group, "dialect-info", exclude_marker="sense")
+                        )
+                        group_field_tags = YomitanService._marked_texts(group, "field-info", exclude_marker="sense")
 
                         raw_senses = YomitanService._find_marked(group.get("content"), "sense")
                         for raw_sense in raw_senses:
@@ -445,23 +448,37 @@ class YomitanService:
         )
 
     @staticmethod
-    def _find_marked(value: Any, marker: str, contains: bool = False, depth: int = 0) -> list[dict[str, Any]]:
+    def _find_marked(
+        value: Any,
+        marker: str,
+        contains: bool = False,
+        exclude_marker: str | None = None,
+        depth: int = 0,
+    ) -> list[dict[str, Any]]:
         if depth > YomitanService.MAX_AST_DEPTH:
             return []
         found: list[dict[str, Any]] = []
         if isinstance(value, list):
             for item in value:
-                found.extend(YomitanService._find_marked(item, marker, contains, depth + 1))
+                found.extend(YomitanService._find_marked(item, marker, contains, exclude_marker, depth + 1))
         elif isinstance(value, dict):
             current = YomitanService._marker(value)
+            if exclude_marker and (exclude_marker in current if contains else current == exclude_marker):
+                return []
             if (marker in current) if contains else (current == marker):
                 found.append(value)
-            found.extend(YomitanService._find_marked(value.get("content"), marker, contains, depth + 1))
+            found.extend(YomitanService._find_marked(value.get("content"), marker, contains, exclude_marker, depth + 1))
         return found
 
     @staticmethod
-    def _first_marked_node(value: Any, marker: str, contains: bool = False, depth: int = 0) -> dict[str, Any] | None:
-        nodes = YomitanService._find_marked(value, marker, contains=contains, depth=depth)
+    def _first_marked_node(
+        value: Any,
+        marker: str,
+        contains: bool = False,
+        exclude_marker: str | None = None,
+        depth: int = 0,
+    ) -> dict[str, Any] | None:
+        nodes = YomitanService._find_marked(value, marker, contains=contains, exclude_marker=exclude_marker, depth=depth)
         return nodes[0] if nodes else None
 
     @staticmethod
@@ -470,16 +487,16 @@ class YomitanService:
         return str(data.get("content", "")).lower() if isinstance(data, dict) else ""
 
     @staticmethod
-    def _marked_texts(value: Any, marker: str, contains: bool = False) -> list[str]:
+    def _marked_texts(value: Any, marker: str, contains: bool = False, exclude_marker: str | None = None) -> list[str]:
         return [
             text
-            for item in YomitanService._find_marked(value, marker, contains)
+            for item in YomitanService._find_marked(value, marker, contains, exclude_marker=exclude_marker)
             if (text := YomitanService._extract_text(item.get("content"), include_rt=False))
         ]
 
     @staticmethod
-    def _first_marked_text(value: Any, marker: str) -> str:
-        texts = YomitanService._marked_texts(value, marker)
+    def _first_marked_text(value: Any, marker: str, exclude_marker: str | None = None) -> str:
+        texts = YomitanService._marked_texts(value, marker, exclude_marker=exclude_marker)
         return texts[0] if texts else ""
 
     @staticmethod

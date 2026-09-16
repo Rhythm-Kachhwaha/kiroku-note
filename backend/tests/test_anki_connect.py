@@ -571,7 +571,7 @@ class TestAnkiConnectFormatterIntegration:
         fields = self.service.map_card_to_fields(card_data, ["Word", "Reading", "Meaning"])
         meaning_html = fields["Meaning"]
         assert '<span class="kn-pos">[ichidan, vi]</span>' in meaning_html
-        assert '<span class="kn-tag">[usually kana, physics]</span>' in meaning_html
+        assert '<span class="kn-tag">' not in meaning_html
         assert "to fall, to drop" in meaning_html
 
     # 4. Example ruby survives correctly

@@ -97,16 +97,45 @@ def _get_field(obj: Any, key: str, default: Any = None) -> Any:
 
 
 def _extract_senses_from_entries(entries: list[Any]) -> list[dict[str, Any]]:
-    """Flatten entries into a clean list of sense dictionaries, preserving ordering and POS/tags."""
+    """Flatten entries into a clean list of sense dictionaries for the target word, preserving ordering and POS."""
+    if not entries:
+        return []
+
+    # If multiple entries exist, find the primary term/headword.
+    # We want to include entries for the primary term (and any other dictionaries defining the same primary term),
+    # but ignore sub-term / component kanji entries (where term != primary_term).
+    primary_term = None
+    for e in entries:
+        if not e:
+            continue
+        term = _get_field(e, "term")
+        is_primary = _get_field(e, "is_primary")
+        if is_primary and term:
+            primary_term = term
+            break
+    if not primary_term:
+        for e in entries:
+            if not e:
+                continue
+            term = _get_field(e, "term")
+            if term:
+                primary_term = term
+                break
+
+    target_entries = entries
+    if primary_term:
+        matching = [e for e in entries if e and (_get_field(e, "term") == primary_term or _get_field(e, "term") is None)]
+        if matching:
+            target_entries = matching
+
     extracted: list[dict[str, Any]] = []
 
-    for entry in entries:
+    for entry in target_entries:
         if not entry:
             continue
 
         raw_senses = _get_field(entry, "senses")
         entry_pos = _get_field(entry, "parts_of_speech") or []
-        entry_tags = _get_field(entry, "tags") or []
 
         # Case A: entry itself is a sense
         if raw_senses is None and _get_field(entry, "glosses") is not None:
@@ -132,17 +161,10 @@ def _extract_senses_from_entries(entries: list[Any]) -> list[dict[str, Any]]:
             if not sense_pos and total_senses == 1 and entry_pos:
                 sense_pos = entry_pos
 
-            sense_tags = list(_get_field(s, "tags") or [])
-            sense_field_tags = _get_field(s, "field_tags") or []
-            sense_tags.extend(sense_field_tags)
-            if not sense_tags and total_senses == 1 and entry_tags:
-                sense_tags.extend(entry_tags)
-
             extracted.append({
                 "index": _get_field(s, "index") or s_idx,
                 "glosses": clean_glosses,
                 "parts_of_speech": [str(p).strip() for p in sense_pos if p and str(p).strip()],
-                "tags": [str(t).strip() for t in sense_tags if t and str(t).strip()],
             })
 
     return extracted
@@ -156,7 +178,7 @@ def format_meaning_html(
 
     - Single sense: rendered inside <div class="kn-meaning">...</div> without <ol> list wrapper.
     - Multiple senses: rendered inside <ol class="kn-meanings"><li>...</li></ol>.
-    - Preserves sense-bound POS ([vt], [vi]) and tags ([colloquial], [math]).
+    - Preserves sense-bound POS ([noun], [v1], [adj-i]) without domain tag clutter.
     - Strictly HTML-escapes text to prevent XSS.
     - Preserves dictionary sense ordering.
     """
@@ -170,9 +192,6 @@ def format_meaning_html(
                 if sense["parts_of_speech"]:
                     pos_str = escape_html(", ".join(sense["parts_of_speech"]))
                     content_parts.append(f'<span class="kn-pos">[{pos_str}]</span>')
-                if sense["tags"]:
-                    tags_str = escape_html(", ".join(sense["tags"]))
-                    content_parts.append(f'<span class="kn-tag">[{tags_str}]</span>')
                 content_parts.append(escape_html(", ".join(sense["glosses"])))
                 return f'<div class="kn-meaning">{" ".join(content_parts)}</div>'
 
@@ -183,9 +202,6 @@ def format_meaning_html(
                 if sense["parts_of_speech"]:
                     pos_str = escape_html(", ".join(sense["parts_of_speech"]))
                     content_parts.append(f'<span class="kn-pos">[{pos_str}]</span>')
-                if sense["tags"]:
-                    tags_str = escape_html(", ".join(sense["tags"]))
-                    content_parts.append(f'<span class="kn-tag">[{tags_str}]</span>')
                 content_parts.append(escape_html(", ".join(sense["glosses"])))
                 li_items.append(f'  <li>{" ".join(content_parts)}</li>')
 

@@ -497,7 +497,10 @@ function renderPreviewMeanings(container, data) {
   // 1. Try rendering from structured entries if available and not custom replaced
   if (entries.length) {
     const extractedSenses = [];
-    for (const entry of entries) {
+    const primaryTerm = entries.find(e => e?.is_primary && e?.term)?.term || entries.find(e => e?.term)?.term;
+    const targetEntries = primaryTerm ? entries.filter(e => !e?.term || e.term === primaryTerm) : entries;
+
+    for (const entry of targetEntries) {
       if (!entry) continue;
       const rawSenses = entry.senses || (entry.glosses ? [entry] : []);
       if (!Array.isArray(rawSenses)) continue;
@@ -513,16 +516,9 @@ function renderPreviewMeanings(container, data) {
           : (totalSenses === 1 && Array.isArray(entry.parts_of_speech) ? entry.parts_of_speech : []);
         posList = posList.map(p => String(p).trim()).filter(Boolean);
 
-        let tagList = [
-          ...(Array.isArray(s.tags) ? s.tags : []),
-          ...(Array.isArray(s.field_tags) ? s.field_tags : []),
-          ...(totalSenses === 1 && Array.isArray(entry.tags) ? entry.tags : [])
-        ].map(t => String(t).trim()).filter(Boolean);
-
         extractedSenses.push({
           glosses,
-          posList,
-          tagList
+          posList
         });
       }
     }
@@ -538,13 +534,6 @@ function renderPreviewMeanings(container, data) {
         meanDiv.append(posSpan);
         meanDiv.append(document.createTextNode(" "));
       }
-      if (s.tagList.length) {
-        const tagSpan = document.createElement("span");
-        tagSpan.className = "kn-tag";
-        tagSpan.textContent = `[${s.tagList.join(", ")}]`;
-        meanDiv.append(tagSpan);
-        meanDiv.append(document.createTextNode(" "));
-      }
       meanDiv.append(document.createTextNode(s.glosses.join(", ")));
       container.append(meanDiv);
       return;
@@ -558,13 +547,6 @@ function renderPreviewMeanings(container, data) {
           posSpan.className = "kn-pos";
           posSpan.textContent = `[${s.posList.join(", ")}]`;
           li.append(posSpan);
-          li.append(document.createTextNode(" "));
-        }
-        if (s.tagList.length) {
-          const tagSpan = document.createElement("span");
-          tagSpan.className = "kn-tag";
-          tagSpan.textContent = `[${s.tagList.join(", ")}]`;
-          li.append(tagSpan);
           li.append(document.createTextNode(" "));
         }
         li.append(document.createTextNode(s.glosses.join(", ")));
