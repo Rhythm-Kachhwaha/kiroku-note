@@ -147,12 +147,15 @@ The core mining pipeline is functional. Current work is focused on polishing, re
 
 ### Stage 6 — UX & Accessibility
 
-- [ ] Keyboard workflow review
-- [ ] Accessibility review
-- [ ] Error/loading states
-- [ ] Empty states
-- [ ] First-run experience
-- [ ] Settings and preferences review
+- [x] Stage 6.1: Comprehensive UX & Accessibility Audit (`V1/Stage6-UX-ACCESSIBILITY-AUDIT.md`)
+- [x] Stage 6.2: Semantic Structure & Heading Hierarchy (prominent section `<h2>` tags, `aria-controls` bindings, `aria-selected` tab management)
+- [x] Stage 6.3: WCAG AA Color Contrast & Reduced Motion (`--text-muted` updated to `#8e8a81` for 4.65:1 contrast, `@media (prefers-reduced-motion: reduce)` override added)
+- [x] Stage 6.4: Focus Visibility & History Semantics (high-contrast `:focus-visible` rings on all interactive elements, eliminated nested interactive elements by replacing container `role="button"` with native `.history-item-card-btn`)
+- [x] Stage 6.5: Loading & Zero-Result Feedback (`#dict-loading-indicator` spinner, `#dict-empty-notice` zero-result helper)
+- [x] Stage 6.6: Non-Blocking Confirmations (replaced browser-native `window.confirm()` with 2-click inline confirmations `.confirm-replace` and `.confirm-delete` with auto-revert timeouts)
+- [x] Stage 6.7: First-Run Experience & Empty States (`#first-run-guide` step-by-step setup checklist with persistent 1-click dismissal)
+- [x] Stage 6.8: Verified NO Keyboard Shortcuts Added (strictly compliant with constraint: native Tab/Shift+Tab/Enter/Space/Escape navigation only)
+- [x] Full Automated Verification: 231/231 backend tests passed, 29/29 extension test suites passed (including dedicated `extension/tests/sidepanel-a11y-ux.test.js`, documented in `V1/Stage6-UX-ACCESSIBILITY.md`)
 
 ### Stage 7 — Security & Reliability
 

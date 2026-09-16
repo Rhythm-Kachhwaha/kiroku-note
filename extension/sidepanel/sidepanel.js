@@ -20,6 +20,10 @@ const dictActionsBar = document.querySelector("#dict-actions-bar");
 const btnCopyRawDict = document.querySelector("#btn-copy-raw-dict");
 const btnToggleFullDict = document.querySelector("#btn-toggle-full-dict");
 const dictRawView = document.querySelector("#dict-raw-view");
+const dictLoadingIndicator = document.querySelector("#dict-loading-indicator");
+const dictEmptyNotice = document.querySelector("#dict-empty-notice");
+const firstRunGuide = document.querySelector("#first-run-guide");
+const btnDismissFirstRun = document.querySelector("#btn-dismiss-first-run");
 let currentDictionaryEntries = [];
 
 // Indicators
@@ -882,6 +886,8 @@ function clearDictionaryView() {
     btnToggleFullDict.textContent = "Full Dict";
     btnToggleFullDict.title = "Show full unabridged dictionary";
   }
+  if (typeof dictLoadingIndicator !== "undefined" && dictLoadingIndicator) dictLoadingIndicator.hidden = true;
+  if (typeof dictEmptyNotice !== "undefined" && dictEmptyNotice) dictEmptyNotice.hidden = true;
   currentDictionaryEntries = [];
 }
 
@@ -990,20 +996,29 @@ function renderRubyText(container, text, rubyText) {
 function insertSenseToMeaning(glossesText, btn) {
   if (!glossesText || !fieldMeaning) return;
   const current = fieldMeaning.value ? fieldMeaning.value.trim() : "";
-  if (current && current !== glossesText.trim()) {
-    const ok = window.confirm("Replace current meaning with this dictionary sense?");
-    if (!ok) return;
+  if (current && current !== glossesText.trim() && btn) {
+    if (!btn.classList.contains("confirm-replace")) {
+      btn.classList.add("confirm-replace");
+      btn.textContent = "Replace?";
+      setTimeout(() => {
+        if (btn.classList.contains("confirm-replace")) {
+          btn.classList.remove("confirm-replace");
+          btn.textContent = "Insert";
+        }
+      }, 3000);
+      return;
+    }
+    btn.classList.remove("confirm-replace");
   }
   fieldMeaning.value = glossesText;
   fieldMeaning.dispatchEvent(new Event("input", { bubbles: true }));
   fieldMeaning.dispatchEvent(new Event("change", { bubbles: true }));
 
   if (btn) {
-    const originalText = btn.textContent;
     btn.textContent = "Inserted!";
     btn.classList.add("inserted");
     setTimeout(() => {
-      btn.textContent = originalText;
+      btn.textContent = "Insert";
       btn.classList.remove("inserted");
     }, 1200);
   }
@@ -1012,9 +1027,19 @@ function insertSenseToMeaning(glossesText, btn) {
 function insertExampleToCard(japaneseText, translationText, btn) {
   if (!japaneseText) return;
   const currentSentence = fieldExampleSentence && fieldExampleSentence.value ? fieldExampleSentence.value.trim() : "";
-  if (currentSentence && currentSentence !== japaneseText.trim()) {
-    const ok = window.confirm("Replace current example sentence with this dictionary example?");
-    if (!ok) return;
+  if (currentSentence && currentSentence !== japaneseText.trim() && btn) {
+    if (!btn.classList.contains("confirm-replace")) {
+      btn.classList.add("confirm-replace");
+      btn.textContent = "Replace?";
+      setTimeout(() => {
+        if (btn.classList.contains("confirm-replace")) {
+          btn.classList.remove("confirm-replace");
+          btn.textContent = "Insert";
+        }
+      }, 3000);
+      return;
+    }
+    btn.classList.remove("confirm-replace");
   }
 
   if (fieldExampleSentence) {
@@ -1037,11 +1062,10 @@ function insertExampleToCard(japaneseText, translationText, btn) {
   }
 
   if (btn) {
-    const originalText = btn.textContent;
     btn.textContent = "Inserted!";
     btn.classList.add("inserted");
     setTimeout(() => {
-      btn.textContent = originalText;
+      btn.textContent = "Insert";
       btn.classList.remove("inserted");
     }, 1200);
   }
@@ -1197,7 +1221,11 @@ function renderDetails(body) {
   clearDictionaryView();
   const entries = Array.isArray(body?.entries) ? body.entries : [];
   currentDictionaryEntries = entries;
-  if (!entries.length) return;
+  if (!entries.length) {
+    if (typeof dictEmptyNotice !== "undefined" && dictEmptyNotice) dictEmptyNotice.hidden = false;
+    return;
+  }
+  if (typeof dictEmptyNotice !== "undefined" && dictEmptyNotice) dictEmptyNotice.hidden = true;
 
   if (dictActionsBar) dictActionsBar.style.display = "flex";
 
@@ -1436,6 +1464,7 @@ async function identify(text) {
   expression.textContent = "—";
   reading.textContent = "";
   clearDictionaryView();
+  if (dictLoadingIndicator) dictLoadingIndicator.hidden = false;
   clearAllMedia();
 
   try {
@@ -1556,6 +1585,8 @@ async function identify(text) {
     }
   } catch (error) {
     if (requestId !== currentCaptureId) return;
+    if (dictLoadingIndicator) dictLoadingIndicator.hidden = true;
+    if (dictEmptyNotice) dictEmptyNotice.hidden = false;
     if (saveBadge) saveBadge.hidden = true;
     setIndicatorStatus(indicatorYomitan, "unavailable", "Yomitan: Unavailable");
     setStatus(formatErrorMessage(error), true);
@@ -2036,6 +2067,36 @@ document.addEventListener("keydown", event => {
   }
 });
 
+// First-Run Quick Setup Guide logic
+async function checkFirstRunStatus(totalCardsCount) {
+  if (!firstRunGuide) return;
+  if (totalCardsCount > 0) {
+    firstRunGuide.hidden = true;
+    return;
+  }
+  let dismissed = false;
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const stored = await chrome.storage.local.get("first_run_dismissed");
+      dismissed = Boolean(stored?.first_run_dismissed);
+    } else if (typeof localStorage !== "undefined") {
+      dismissed = localStorage.getItem("first_run_dismissed") === "true";
+    }
+  } catch (_) {}
+  firstRunGuide.hidden = dismissed;
+}
+
+async function dismissFirstRunGuide() {
+  if (firstRunGuide) firstRunGuide.hidden = true;
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      await chrome.storage.local.set({ first_run_dismissed: true });
+    } else if (typeof localStorage !== "undefined") {
+      localStorage.setItem("first_run_dismissed", "true");
+    }
+  } catch (_) {}
+}
+
 // Mining History & Card Library logic
 async function loadHistory() {
   if (!historyCardsList) return;
@@ -2054,6 +2115,8 @@ async function loadHistory() {
     const data = await res.json();
     const cards = Array.isArray(data.cards) ? data.cards : [];
     const total = typeof data.total === "number" ? data.total : cards.length;
+
+    checkFirstRunStatus(total);
 
     if (historyCount) {
       historyCount.textContent = `${total} card${total === 1 ? "" : "s"}`;
@@ -2119,9 +2182,12 @@ function renderHistoryCards(cards) {
     const item = document.createElement("article");
     item.className = "history-item" + (selectedHistoryCardId === card.id ? " selected" : "");
     item.dataset.cardId = String(card.id);
-    item.tabIndex = 0;
-    item.setAttribute("role", "button");
-    item.setAttribute("aria-label", `Card ${card.expression}: ${card.reading || ""}`);
+
+    const cardBtn = document.createElement("button");
+    cardBtn.type = "button";
+    cardBtn.className = "history-item-card-btn";
+    cardBtn.setAttribute("aria-label", `Open card ${card.expression}${card.reading ? `: ${card.reading}` : ""}`);
+    cardBtn.addEventListener("click", () => openSavedCard(card.id));
 
     const main = document.createElement("div");
     main.className = "history-item-main";
@@ -2165,7 +2231,8 @@ function renderHistoryCards(cards) {
     meta.append(syncBadge);
 
     main.append(meta);
-    item.append(main);
+    cardBtn.append(main);
+    item.append(cardBtn);
 
     const actions = document.createElement("div");
     actions.className = "history-item-actions";
@@ -2192,24 +2259,11 @@ function renderHistoryCards(cards) {
     delBtn.setAttribute("aria-label", `Delete ${card.expression} from local database`);
     delBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      deleteLocalCard(card.id, card.expression);
+      deleteLocalCard(card.id, card.expression, delBtn);
     });
     actions.append(delBtn);
 
     item.append(actions);
-
-    const openCard = () => openSavedCard(card.id);
-    item.addEventListener("click", (e) => {
-      if (e.target.closest(".history-item-actions")) return;
-      openCard();
-    });
-    item.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        openCard();
-      }
-    });
-
     historyCardsList.append(item);
   });
 }
@@ -2317,9 +2371,23 @@ async function openSavedCard(cardId) {
   }
 }
 
-async function deleteLocalCard(cardId, cardExpr) {
-  const confirmed = window.confirm(`Delete local card "${cardExpr}"? This will not delete the note in Anki.`);
-  if (!confirmed) return;
+async function deleteLocalCard(cardId, cardExpr, delBtn) {
+  if (delBtn) {
+    if (!delBtn.classList.contains("confirm-delete")) {
+      delBtn.classList.add("confirm-delete");
+      delBtn.textContent = "✕";
+      delBtn.title = `Click again to confirm deleting "${cardExpr}"`;
+      setTimeout(() => {
+        if (delBtn && delBtn.classList.contains("confirm-delete")) {
+          delBtn.classList.remove("confirm-delete");
+          delBtn.innerHTML = "&times;";
+          delBtn.title = "Delete local card";
+        }
+      }, 3000);
+      return;
+    }
+    delBtn.classList.remove("confirm-delete");
+  }
 
   try {
     const res = await fetch(API_CARD_DETAIL_URL(cardId), { method: "DELETE" });
@@ -2914,6 +2982,10 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
       updateOffsetDisplay(changes.subtitle_timing_offset.newValue);
     }
   });
+}
+
+if (btnDismissFirstRun) {
+  btnDismissFirstRun.addEventListener("click", () => dismissFirstRunGuide());
 }
 
 loadAutoCapturePreferences();

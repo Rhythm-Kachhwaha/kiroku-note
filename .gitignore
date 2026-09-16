@@ -40,7 +40,8 @@ venv.bak/
 Thumbs.db
 
 # Testing
-tests/
+/tests/
+!extension/tests/
 .pytest_cache/
 .coverage
 htmlcov/

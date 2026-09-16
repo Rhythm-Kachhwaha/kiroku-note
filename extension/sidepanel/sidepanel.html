@@ -107,6 +107,20 @@
       </section>
     </div>
 
+    <!-- First-Run Quick Setup Guide -->
+    <section id="first-run-guide" class="first-run-guide" aria-label="Quick Setup Guide" hidden>
+      <div class="first-run-header">
+        <h3 class="first-run-title">Quick Setup Guide</h3>
+        <button type="button" id="btn-dismiss-first-run" class="btn-dismiss-first-run" title="Dismiss guide" aria-label="Dismiss setup guide">&times;</button>
+      </div>
+      <ol class="first-run-steps">
+        <li><strong>Backend:</strong> Start backend service (<code>python run.py</code> on port 8000)</li>
+        <li><strong>Yomitan:</strong> Install Yomitan extension and import your Japanese dictionaries</li>
+        <li><strong>Anki:</strong> Open Anki with <em>AnkiConnect</em> installed (port 8765)</li>
+        <li><strong>Start Mining:</strong> Click <em>Start mining</em> or toggle mode to begin capturing words</li>
+      </ol>
+    </section>
+
     <!-- Prominent Captured Japanese Word Display -->
     <section id="captured-word-section" class="captured-word-hero" aria-label="Captured Japanese Word">
       <div class="word-display-card">
@@ -116,9 +130,9 @@
     </section>
 
     <!-- Card Editor Form (Positioned Above Dictionary) -->
-    <section id="card-editor-section" class="card-editor-section">
+    <section id="card-editor-section" class="card-editor-section" aria-label="Card Editor">
       <div class="section-header">
-        <span class="section-title">CARD</span>
+        <h2 class="section-title">CARD</h2>
       </div>
       <form id="card-editor" class="card-editor" hidden>
         <input type="hidden" id="field-card-id" name="id">
@@ -209,7 +223,7 @@
         </div>
 
         <div class="optional-toggle-container">
-          <button type="button" id="toggle-optional" class="btn-toggle-optional" aria-expanded="false">
+          <button type="button" id="toggle-optional" class="btn-toggle-optional" aria-expanded="false" aria-controls="optional-fields">
             + Optional fields
           </button>
         </div>
@@ -258,10 +272,10 @@
     <!-- Live Anki Card Preview Section -->
     <section id="card-preview-section" class="card-preview-section" aria-label="Card Preview">
       <div class="section-header preview-section-header">
-        <span class="section-title">CARD PREVIEW</span>
+        <h2 class="section-title">CARD PREVIEW</h2>
         <div class="preview-tabs" role="tablist" aria-label="Card Preview Side">
-          <button type="button" id="preview-tab-front" class="preview-tab-btn" role="tab" aria-selected="false">Front</button>
-          <button type="button" id="preview-tab-back" class="preview-tab-btn active" role="tab" aria-selected="true">Back</button>
+          <button type="button" id="preview-tab-front" class="preview-tab-btn" role="tab" aria-selected="false" aria-controls="card-preview-container">Front</button>
+          <button type="button" id="preview-tab-back" class="preview-tab-btn active" role="tab" aria-selected="true" aria-controls="card-preview-container">Back</button>
         </div>
       </div>
       <div id="card-preview-container" class="card-preview-container">
@@ -270,14 +284,19 @@
     </section>
 
     <!-- Dictionary Information Section -->
-    <section id="dictionary-section" class="dictionary-section" aria-live="polite">
+    <section id="dictionary-section" class="dictionary-section" aria-label="Dictionary Information">
       <div class="section-header dict-section-header">
-        <span class="section-title">DICTIONARY</span>
+        <h2 class="section-title">DICTIONARY</h2>
         <div class="dict-actions-bar" id="dict-actions-bar" style="display: none;">
           <button type="button" id="btn-copy-raw-dict" class="btn-dict-action" title="Copy raw dictionary text to clipboard">📋 Copy</button>
           <button type="button" id="btn-toggle-full-dict" class="btn-dict-action" title="Show full unabridged dictionary">Full Dict</button>
         </div>
       </div>
+      <div id="dict-loading-indicator" class="dict-loading-indicator" hidden>
+        <span class="dict-loading-dot"></span>
+        <span class="dict-loading-text">Searching Yomitan dictionary…</span>
+      </div>
+      <div id="dict-empty-notice" class="dict-empty-notice" hidden>No dictionary entries found for this term.</div>
       <div id="meanings" class="details dict-study-view"></div>
       <div id="dict-raw-view" class="dict-raw-view" hidden></div>
       <div id="examples" class="details" hidden></div>
@@ -286,7 +305,7 @@
     <!-- Mining History & Card Library -->
     <section id="history-section" class="history-section" aria-label="Mining History & Card Library">
       <div class="section-header history-header">
-        <span class="section-title">HISTORY</span>
+        <h2 class="section-title">HISTORY</h2>
         <span id="history-count" class="history-count">0 cards</span>
       </div>
 

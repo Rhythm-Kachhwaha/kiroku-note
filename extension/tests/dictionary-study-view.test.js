@@ -193,7 +193,7 @@ const sandbox = {
   optionalFields: mockOptionalFields,
   toggleOptionalBtn: mockToggleOptionalBtn,
   currentDictionaryEntries: [],
-  setTimeout: (fn) => fn(),
+  setTimeout: (fn, ms) => {},
   console,
 };
 
@@ -399,19 +399,20 @@ mockFieldMeaning.value = "";
 insertBtnSense1.onclick();
 assert.equal(mockFieldMeaning.value, "to eat; to consume", "Clicking Insert on Sense 1 populates #field-meaning");
 
-// 2. Insert Sense 2 into populated meaning field with confirmation
-mockConfirmResponse = true;
-mockConfirmCalls = [];
+// 2. Insert Sense 2 into populated meaning field with inline confirmation
 insertBtnSense2.onclick();
-assert.equal(mockConfirmCalls.length, 1, "Confirmation prompt was triggered when field already had text");
+assert.equal(insertBtnSense2.classList.contains("confirm-replace"), true, "First click activates confirm-replace state");
+assert.equal(mockFieldMeaning.value, "to eat; to consume", "Meaning field not modified until confirmed");
+
+insertBtnSense2.onclick();
+assert.equal(insertBtnSense2.classList.contains("confirm-replace"), false, "Second click clears confirm-replace state");
 assert.equal(mockFieldMeaning.value, "to live on; to make a living", "Sense 2 glosses replace meaning when confirmed");
 
-// 3. User rejects confirmation - meaning should remain unchanged
-mockConfirmResponse = false;
-mockConfirmCalls = [];
+// 3. User does not confirm (single click on another button) - meaning should remain unchanged
 insertBtnSense1.onclick();
-assert.equal(mockConfirmCalls.length, 1, "Confirmation prompt was triggered");
-assert.equal(mockFieldMeaning.value, "to live on; to make a living", "Meaning was preserved when user cancelled confirmation");
+assert.equal(insertBtnSense1.classList.contains("confirm-replace"), true, "First click enters confirm-replace state");
+assert.equal(mockFieldMeaning.value, "to live on; to make a living", "Meaning was preserved without second confirming click");
+insertBtnSense1.classList.remove("confirm-replace");
 console.log("PASS: Quick-Insert Sense action & overwrite protection verified.");
 
 console.log("Testing Quick-Insert Example Action...");
@@ -449,15 +450,13 @@ assert.equal(mockOptionalFields.hidden, false, "Optional fields expanded after e
 
 // Example overwrite protection test
 mockFieldExampleSentence.value = "User custom sentence";
-mockConfirmResponse = false;
-mockConfirmCalls = [];
 insertBtnExample.onclick();
-assert.equal(mockConfirmCalls.length, 1, "Confirmation triggered on sentence overwrite");
-assert.equal(mockFieldExampleSentence.value, "User custom sentence", "Sentence preserved when user cancelled");
+assert.equal(insertBtnExample.classList.contains("confirm-replace"), true, "First click enters confirm-replace state");
+assert.equal(mockFieldExampleSentence.value, "User custom sentence", "Sentence preserved before second confirming click");
 
-mockConfirmResponse = true;
 insertBtnExample.onclick();
-assert.equal(mockFieldExampleSentence.value, "映画を見る", "Sentence updated when user confirmed");
+assert.equal(insertBtnExample.classList.contains("confirm-replace"), false, "Second click clears confirm-replace state");
+assert.equal(mockFieldExampleSentence.value, "映画を見る", "Sentence updated when user confirmed with second click");
 console.log("PASS: Quick-Insert Example action & overwrite protection verified.");
 
 // ==========================================
