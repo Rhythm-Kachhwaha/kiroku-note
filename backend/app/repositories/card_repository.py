@@ -467,7 +467,7 @@ class CardRepository:
             query += " WHERE " + " AND ".join(conditions)
 
         query += " ORDER BY id DESC LIMIT ? OFFSET ?"
-        params.extend([max(1, limit), max(0, offset)])
+        params.extend([min(500, max(1, limit)), max(0, offset)])
 
         with db_session(self._db_path) as conn:
             rows = conn.execute(query, params).fetchall()

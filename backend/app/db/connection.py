@@ -68,11 +68,23 @@ def get_db_connection(db_path: Path | str | None = None) -> sqlite3.Connection:
     if target_path != Path(":memory:"):
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
-    conn = sqlite3.connect(str(target_path), timeout=10.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
-    conn.execute("PRAGMA journal_mode = WAL;")
-    return conn
+    conn: sqlite3.Connection | None = None
+    try:
+        conn = sqlite3.connect(str(target_path), timeout=10.0)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON;")
+        conn.execute("PRAGMA journal_mode = WAL;")
+        return conn
+    except sqlite3.DatabaseError as err:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        raise RuntimeError(
+            f"Failed to initialize SQLite connection to '{target_path}': {err}. "
+            f"The database file may be corrupted or invalid."
+        ) from err
 
 
 @contextmanager
@@ -86,7 +98,7 @@ def db_session(db_path: Path | str | None = None) -> Iterator[sqlite3.Connection
 
 
 def init_db(db_path: Path | str | None = None) -> None:
-    """Initialize the SQLite database schema and run column migrations if needed."""
+    """Initialize the SQLite database schema, run migrations, and recover interrupted syncs."""
     with db_session(db_path) as conn:
         conn.executescript(SCHEMA_SQL)
         columns = [row["name"] for row in conn.execute("PRAGMA table_info(cards)").fetchall()]
@@ -108,4 +120,7 @@ def init_db(db_path: Path | str | None = None) -> None:
         for col_name, col_def in new_cols:
             if col_name not in columns:
                 conn.execute(f"ALTER TABLE cards ADD COLUMN {col_name} {col_def}")
+
+        # Recover cards left stuck in 'syncing' state from a previously interrupted process
+        conn.execute("UPDATE cards SET sync_status = 'pending' WHERE sync_status = 'syncing'")
         conn.commit()

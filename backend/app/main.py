@@ -1,6 +1,7 @@
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -23,6 +24,10 @@ from app.schemas import (
 from app.services.card_service import CardService
 from app.services.yomitan import YomitanError, YomitanService
 
+# Debug mode: set KIROKU_DEBUG=1 to enable /docs, /redoc, and hot-reload.
+# Off by default so production/distributed builds do not expose developer APIs.
+_debug = os.getenv("KIROKU_DEBUG", "").strip().lower() in ("1", "true", "yes")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,7 +35,12 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Kiroku Note Local API", lifespan=lifespan)
+app = FastAPI(
+    title="Kiroku Note Local API",
+    lifespan=lifespan,
+    docs_url="/docs" if _debug else None,
+    redoc_url="/redoc" if _debug else None,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"^(chrome-extension://.*|http://(localhost|127\.0\.0\.1)(:\d+)?)$",
@@ -97,8 +107,8 @@ def list_cards(
     deck: str | None = None,
     deck_name: str | None = None,
     sync_status: str | None = None,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ) -> CardListResponse:
     service = CardService()
     target_deck = deck or deck_name

@@ -151,6 +151,34 @@ class CardsApiTests(unittest.TestCase):
         resp_404 = self.client.delete(f"/api/cards/{c.id}")
         self.assertEqual(resp_404.status_code, 404)
 
+    def test_list_cards_limit_validation(self):
+        # Default limit
+        resp_default = self.client.get("/api/cards")
+        self.assertEqual(resp_default.status_code, 200)
+        self.assertEqual(resp_default.json()["limit"], 50)
+
+        # Valid boundary limits: 1 and 500
+        resp_min = self.client.get("/api/cards?limit=1")
+        self.assertEqual(resp_min.status_code, 200)
+        self.assertEqual(resp_min.json()["limit"], 1)
+
+        resp_max = self.client.get("/api/cards?limit=500")
+        self.assertEqual(resp_max.status_code, 200)
+        self.assertEqual(resp_max.json()["limit"], 500)
+
+        # Invalid limits: 0, >500, negative -> must return 422
+        resp_zero = self.client.get("/api/cards?limit=0")
+        self.assertEqual(resp_zero.status_code, 422)
+
+        resp_over = self.client.get("/api/cards?limit=501")
+        self.assertEqual(resp_over.status_code, 422)
+
+        resp_large = self.client.get("/api/cards?limit=999999")
+        self.assertEqual(resp_large.status_code, 422)
+
+        resp_neg = self.client.get("/api/cards?limit=-5")
+        self.assertEqual(resp_neg.status_code, 422)
+
 
 if __name__ == "__main__":
     unittest.main()

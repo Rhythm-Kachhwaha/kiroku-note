@@ -257,8 +257,28 @@ assert.ok(
   !jsContent.includes("ctrlKey && event.key === 'Enter'") &&
   !jsContent.includes("event.ctrlKey && event.key === 'k'") &&
   !jsContent.includes("event.ctrlKey && event.key === 'm'"),
-  "No keyboard shortcuts may be added in Stage 6"
+  "No keyboard shortcuts may be added in Stage 6/7"
 );
 
-console.log("PASS: All accessibility, focus, loading state, first-run guide, and semantics tests verified.");
+// ==========================================================================
+// 9. Stage 7.5 CSP Hardening & Offline Local Font Verification
+// ==========================================================================
+assert.ok(
+  html.includes('<meta http-equiv="Content-Security-Policy"'),
+  "sidepanel.html must include Content-Security-Policy meta tag"
+);
+
+assert.ok(
+  !html.includes("fonts.googleapis.com") && !html.includes("fonts.gstatic.com"),
+  "sidepanel.html must not contain external Google Fonts CDN links"
+);
+
+assert.ok(
+  css.includes('@font-face') && css.includes('Noto Sans JP') && css.includes('Noto Serif JP'),
+  "sidepanel.css must include @font-face declarations for Japanese typography"
+);
+
+console.log("PASS: All accessibility, focus, loading state, first-run guide, semantics, and Stage 7.5 CSP/font tests verified.");
+
+
 

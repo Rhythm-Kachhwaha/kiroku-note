@@ -159,11 +159,28 @@ The core mining pipeline is functional. Current work is focused on polishing, re
 
 ### Stage 7 — Security & Reliability
 
-- [ ] Local API security review
-- [ ] Input validation review
-- [ ] Extension permission review
-- [ ] Error handling review
-- [ ] Persistence/migration review
+- [x] Stage 7.1: Comprehensive Security & Reliability Audit (`V1/Stage7-SECURITY-RELIABILITY-AUDIT.md`)
+- [x] Stage 7.2: Launcher Hardening (`run_backend.py`, `backend/app/main.py`)
+  - [x] Disabled development reload by default (`reload=False`); guarded behind `KIROKU_DEBUG=1`
+  - [x] Gated FastAPI `/docs` and `/redoc` endpoints behind `KIROKU_DEBUG=1` (returns 404 in non-debug mode)
+- [x] Stage 7.3: YouTube Timedtext URL Validation (`extension/background.js`, `extension/tests/timedtext-url-validation.test.js`)
+  - [x] Implemented `isAllowedTimedtextUrl` with strict exact & subdomain boundary matching on approved Google/YouTube CDN hostnames (`youtube.com`, `googlevideo.com`, `ytimg.com`, `googleapis.com`, `google.com`)
+  - [x] Enforced HTTPS scheme and explicitly rejected localhost, loopback (`127.0.0.1`, `::1`), private IP ranges (`10.x`, `172.16-31.x`, `192.168.x`), deceptive hostnames (`evil-youtube.com`), and malformed URLs
+- [x] Stage 7.4: API Limit Cap & Stale Database Cleanup (`backend/app/main.py`, `backend/app/repositories/card_repository.py`, `backend/tests/test_cards_api.py`)
+  - [x] Added `Query(default=50, ge=1, le=500)` and `Query(default=0, ge=0)` to `GET /api/cards` with 422 Unprocessable Entity responses for invalid boundaries (0, >500, negative)
+  - [x] Added repository clamping `min(500, max(1, limit))` as defense-in-depth
+  - [x] Verified and safely removed obsolete 0-byte `backend/data/cards.db` while strictly preserving active `ankiminer.db` (245 KB)
+- [x] Stage 7.5: CSP & Offline Local Font Bundling (`extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`, `extension/fonts/README.md`, `extension/tests/sidepanel-a11y-ux.test.js`)
+  - [x] Added restrictive Content Security Policy meta tag to Side Panel (`default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' http://127.0.0.1:8000 data: blob:; media-src 'self' http://127.0.0.1:8000 data: blob:; connect-src http://127.0.0.1:8000; script-src 'self';`)
+  - [x] Removed external Google Fonts CDN links (`fonts.googleapis.com`, `fonts.gstatic.com`)
+  - [x] Added `@font-face` rules in `sidepanel.css` with local Japanese font bindings (`Noto Sans JP`, `Hiragino Sans`, `Yu Gothic`, `Meiryo`, `Noto Serif JP`, `Yu Mincho`) for offline visual parity
+- [x] Stage 7.6: Reliability Hardening & Interrupted Sync Recovery (`backend/app/db/connection.py`, `backend/tests/test_stage7_reliability_security.py`)
+  - [x] Added startup sync recovery in `init_db()`: resets cards stuck in `sync_status='syncing'` to `pending` without touching `synced`, `failed`, or `pending` cards
+  - [x] Hardened SQLite initialization in `get_db_connection()`: gracefully catches `sqlite3.DatabaseError` on corruption, safely closes connection handles, and raises descriptive `RuntimeError` without deleting the database
+- [x] Full Automated Verification:
+  - Backend: 236/236 unit and integration tests passing (`python -m pytest -o pythonpath=backend backend/tests`)
+  - Extension: 30/30 test suites passing (`node --test extension/tests/*.test.js`)
+
 
 ### Stage 8 — Documentation
 

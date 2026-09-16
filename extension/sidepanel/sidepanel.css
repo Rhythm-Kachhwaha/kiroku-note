@@ -1,3 +1,44 @@
+/* Local Japanese Typography Fallback & Bundling Declarations (Stage 7.5 CSP Hardening) */
+@font-face {
+  font-family: "Noto Sans JP";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Noto Sans JP"), local("Noto Sans CJK JP Regular"), local("Noto Sans CJK JP"), local("Hiragino Sans"), local("Yu Gothic"), local("Meiryo");
+}
+
+@font-face {
+  font-family: "Noto Sans JP";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local("Noto Sans JP Medium"), local("Noto Sans JP"), local("Noto Sans CJK JP Medium"), local("Hiragino Sans"), local("Yu Gothic Medium"), local("Yu Gothic");
+}
+
+@font-face {
+  font-family: "Noto Sans JP";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local("Noto Sans JP Bold"), local("Noto Sans JP"), local("Noto Sans CJK JP Bold"), local("Hiragino Sans"), local("Yu Gothic Bold"), local("Yu Gothic");
+}
+
+@font-face {
+  font-family: "Noto Serif JP";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Noto Serif JP"), local("Noto Serif CJK JP"), local("Hiragino Mincho ProN"), local("Yu Mincho");
+}
+
+@font-face {
+  font-family: "Noto Serif JP";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local("Noto Serif JP SemiBold"), local("Noto Serif JP"), local("Noto Serif CJK JP SemiBold"), local("Hiragino Mincho ProN"), local("Yu Mincho");
+}
+
 :root {
   /* Color Scheme */
   color-scheme: dark;

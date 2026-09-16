@@ -127,6 +127,59 @@ async function stopPersistentCapture() {
   } catch (_) {}
 }
 
+/**
+ * Validate that a URL is an allowed YouTube/Google CDN timedtext origin.
+ *
+ * Rules:
+ *  - Must be parseable by the URL constructor (rejects malformed strings).
+ *  - Must use https: (YouTube timedtext is always HTTPS).
+ *  - Hostname must end with one of the approved suffixes, separated by a
+ *    dot boundary so "evil-youtube.com" is never accepted.
+ *  - Explicitly rejects localhost, loopback, and private-range IP addresses.
+ *
+ * @param {string} url
+ * @returns {boolean}
+ */
+function isAllowedTimedtextUrl(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (_) {
+    return false; // malformed URL
+  }
+
+  // Only HTTPS is valid for YouTube CDN resources
+  if (parsed.protocol !== "https:") return false;
+
+  const host = parsed.hostname.toLowerCase();
+
+  // Reject loopback and private addresses
+  if (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    /^10\.\d+\.\d+\.\d+$/.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(host) ||
+    /^192\.168\.\d+\.\d+$/.test(host)
+  ) {
+    return false;
+  }
+
+  // Approved suffix list — each entry is either an exact hostname or a
+  // suffix that must be preceded by a dot (preventing evil-youtube.com).
+  const ALLOWED_SUFFIXES = [
+    "youtube.com",
+    "googlevideo.com",
+    "ytimg.com",
+    "googleapis.com",
+    "google.com",
+  ];
+
+  return ALLOWED_SUFFIXES.some(
+    (suffix) => host === suffix || host.endsWith("." + suffix)
+  );
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "SET_MINING_MODE") {
     isMiningModeEnabled = Boolean(message.enabled);
@@ -196,6 +249,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message?.type === "FETCH_YOUTUBE_TIMEDTEXT") {
+    if (!isAllowedTimedtextUrl(message.url)) {
+      sendResponse({ok: false, error: "URL not allowed"});
+      return true;
+    }
     fetch(message.url)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -344,7 +401,8 @@ if (typeof module !== "undefined" && module.exports) {
     ensureOffscreenDocument,
     startPersistentCaptureForTab,
     stopPersistentCapture,
-    OFFSCREEN_DOCUMENT_PATH
+    OFFSCREEN_DOCUMENT_PATH,
+    isAllowedTimedtextUrl,
   };
 }
 
