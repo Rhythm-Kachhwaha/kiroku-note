@@ -13,6 +13,7 @@ from app.services.anki_connect import (
     AnkiResponseError,
     AnkiTimeoutError,
 )
+from app.services.yomitan import PitchAccent
 
 
 def _make_mock_response(status=200, json_data=None, raw_bytes=None):
@@ -182,9 +183,9 @@ class TestAnkiConnectService:
         )
         assert fields["Expression"] == "映画"
         assert fields["Reading"] == "えいが"
-        assert fields["Meaning"] == "movie"
+        assert fields["Meaning"] == '<div class="kn-meaning">movie</div>'
         assert fields["Hint"] == "cinema"
-        assert fields["Example Sentence"] == "映画を見る"
+        assert fields["Example Sentence"] == '<div class="kn-example-block">\n  <p class="kn-example-ja">映画を見る</p>\n</div>'
         assert fields["Example Translation"] == "watch a movie"
 
     def test_mapping_yomitan_default_template(self):
@@ -199,8 +200,8 @@ class TestAnkiConnectService:
         fields = service.map_card_to_fields(card_data, ["Expression", "Reading", "Glossary", "Sentence", "Audio"])
         assert fields["Expression"] == "約束"
         assert fields["Reading"] == "やくそく"
-        assert fields["Glossary"] == "promise; agreement"
-        assert fields["Sentence"] == "約束を守る"
+        assert fields["Glossary"] == '<div class="kn-meaning">promise; agreement</div>'
+        assert fields["Sentence"] == '<div class="kn-example-block">\n  <p class="kn-example-ja">約束を守る</p>\n</div>'
         assert fields["Audio"] == "[sound:audio.mp3]"
 
     def test_mapping_core_2k_template(self):
@@ -215,8 +216,8 @@ class TestAnkiConnectService:
         fields = service.map_card_to_fields(card_data, ["Word", "Kana", "Meaning", "Sentence-Expression", "Sentence-English"])
         assert fields["Word"] == "桜"
         assert fields["Kana"] == "さくら"
-        assert fields["Meaning"] == "cherry blossom"
-        assert fields["Sentence-Expression"] == "桜が咲いた"
+        assert fields["Meaning"] == '<div class="kn-meaning">cherry blossom</div>'
+        assert fields["Sentence-Expression"] == '<div class="kn-example-block">\n  <p class="kn-example-ja">桜が咲いた</p>\n</div>'
         assert fields["Sentence-English"] == "The cherry blossoms bloomed"
 
     def test_mapping_kaishi_template(self):
@@ -231,8 +232,8 @@ class TestAnkiConnectService:
         fields = service.map_card_to_fields(card_data, ["Word", "Reading", "Meaning", "Example Sentence", "Example Sentence Meaning"])
         assert fields["Word"] == "猫"
         assert fields["Reading"] == "ねこ"
-        assert fields["Meaning"] == "cat"
-        assert fields["Example Sentence"] == "猫がいる"
+        assert fields["Meaning"] == '<div class="kn-meaning">cat</div>'
+        assert fields["Example Sentence"] == '<div class="kn-example-block">\n  <p class="kn-example-ja">猫がいる</p>\n</div>'
         assert fields["Example Sentence Meaning"] == "There is a cat"
 
     def test_mapping_anime_mining_template(self):
@@ -251,8 +252,8 @@ class TestAnkiConnectService:
         )
         assert fields["VocabKanji"] == "食べる"
         assert fields["VocabFurigana"] == "たべる"
-        assert fields["VocabDef"] == "to eat"
-        assert fields["Sentence"] == "ご飯を食べる"
+        assert fields["VocabDef"] == '<div class="kn-meaning">to eat</div>'
+        assert fields["Sentence"] == '<div class="kn-example-block">\n  <p class="kn-example-ja">ご飯を食べる</p>\n</div>'
         assert fields["SentenceAudio"] == "[sound:taberu.mp3]"
         assert fields["SentenceImage"] == '<img src="taberu.jpg">'
 
@@ -271,7 +272,7 @@ class TestAnkiConnectService:
         )
         assert fields["Expression"] == "遅刻"
         assert fields["Reading"] == "ちこく"
-        assert fields["Meaning"] == "lateness, tardiness"
+        assert fields["Meaning"] == '<div class="kn-meaning">lateness, tardiness</div>'
         assert fields["SentencePicture"] == '<img src="ankiminer_img_123.jpg">'
         assert fields["SentenceSound"] == '[sound:ankiminer_audio_456.webm]'
 
@@ -285,7 +286,7 @@ class TestAnkiConnectService:
         }
         fields = service.map_card_to_fields(card_data, ["Front", "Back"])
         assert fields["Front"] == "遅刻"
-        assert '<img src="ankiminer_img_123.jpg">' in fields["Back"]
+        assert '<img src="ankiminer_img_123.jpg" class="kn-image">' in fields["Back"]
         assert '[sound:ankiminer_audio_456.webm]' in fields["Back"]
 
     def test_mapping_arbitrary_two_field_fallback(self):
@@ -297,7 +298,7 @@ class TestAnkiConnectService:
         }
         fields = service.map_card_to_fields(card_data, ["Question", "Answer"])
         assert fields["Question"] == "水"
-        assert fields["Answer"] == "water"
+        assert fields["Answer"] == '<div class="kn-meaning">water</div>'
 
     def test_add_note_success(self):
         service = AnkiConnectService()
@@ -474,7 +475,7 @@ class TestAnkiConnectService:
         fields = service.map_card_to_fields(card_data, ["Expression", "Reading", "Meaning"])
         assert fields["Expression"] == "山"
         assert fields["Reading"] == "やま"
-        assert fields["Meaning"] == "mountain"
+        assert fields["Meaning"] == '<div class="kn-meaning">mountain</div>'
         assert "Image" not in fields
         assert "Audio" not in fields
 
@@ -498,3 +499,330 @@ class TestAnkiConnectService:
             assert data["supports_image"] is True
             assert data["supports_audio"] is True
             assert data["supports_sentence"] is False
+
+
+class TestAnkiConnectFormatterIntegration:
+    @pytest.fixture(autouse=True)
+    def setup_service(self):
+        self.service = AnkiConnectService()
+
+    # 1. Basic model receives formatted meaning HTML
+    def test_01_basic_model_receives_formatted_meaning_html(self):
+        card_data = {
+            "expression": "食べる",
+            "reading": "たべる",
+            "meaning": "to eat",
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Front", "Back"])
+        assert fields["Front"] == "食べる [たべる]"
+        assert '<div class="kn-card">' in fields["Back"]
+        assert '<span class="kn-kana">たべる</span>' in fields["Back"]
+        assert '<hr class="kn-divider">' in fields["Back"]
+        assert '<div class="kn-meaning">to eat</div>' in fields["Back"]
+
+    # 2. Multiple meanings remain structured and numbered
+    def test_02_multiple_meanings_remain_structured_and_numbered(self):
+        # Structured senses in entries
+        card_data = {
+            "expression": "掛ける",
+            "reading": "かける",
+            "meaning": "1. to hang\n2. to put on",
+            "entries": [
+                {
+                    "dictionary": "Jitendex",
+                    "senses": [
+                        {"index": 1, "glosses": ["to hang", "to suspend"]},
+                        {"index": 2, "glosses": ["to put on (glasses)"]},
+                    ],
+                }
+            ],
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Front", "Back"])
+        assert '<ol class="kn-meanings">' in fields["Back"]
+        assert "<li>to hang, to suspend</li>" in fields["Back"]
+        assert "<li>to put on (glasses)</li>" in fields["Back"]
+
+        # Also verify custom model Meaning field
+        custom_fields = self.service.map_card_to_fields(card_data, ["Expression", "Meaning"])
+        assert '<ol class="kn-meanings">' in custom_fields["Meaning"]
+        assert "<li>to hang, to suspend</li>" in custom_fields["Meaning"]
+
+    # 3. POS and tags survive into formatted meaning HTML
+    def test_03_pos_and_tags_survive_into_formatted_meaning_html(self):
+        card_data = {
+            "expression": "落ちる",
+            "reading": "おちる",
+            "meaning": "to fall",
+            "entries": [
+                {
+                    "dictionary": "Jitendex",
+                    "senses": [
+                        {
+                            "index": 1,
+                            "glosses": ["to fall", "to drop"],
+                            "parts_of_speech": ["ichidan", "vi"],
+                            "tags": ["usually kana"],
+                            "field_tags": ["physics"],
+                        }
+                    ],
+                }
+            ],
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Word", "Reading", "Meaning"])
+        meaning_html = fields["Meaning"]
+        assert '<span class="kn-pos">[ichidan, vi]</span>' in meaning_html
+        assert '<span class="kn-tag">[usually kana, physics]</span>' in meaning_html
+        assert "to fall, to drop" in meaning_html
+
+    # 4. Example ruby survives correctly
+    def test_04_example_ruby_survives_correctly(self):
+        card_data = {
+            "expression": "食べる",
+            "reading": "たべる",
+            "meaning": "to eat",
+            "example_sentence": "朝ご飯を食べる。",
+            "example_reading": "朝[あさ]御[ご]飯[はん]を食[た]べる。",
+            "example_translation": "To eat breakfast.",
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Expression", "Reading", "Meaning", "Sentence"])
+        sentence_html = fields["Sentence"]
+        assert "<ruby>朝<rt>あさ</rt></ruby>" in sentence_html
+        assert "<ruby>御<rt>ご</rt></ruby>" in sentence_html
+        assert "<ruby>飯<rt>はん</rt></ruby>" in sentence_html
+        assert "<ruby>食<rt>た</rt></ruby>" in sentence_html
+        assert "を" in sentence_html
+        assert "べる。" in sentence_html
+
+    # 5. Example translation survives
+    def test_05_example_translation_survives(self):
+        # Case A: Model with separate translation field (Kaishi)
+        card_data = {
+            "expression": "映画",
+            "reading": "えいが",
+            "meaning": "movie",
+            "example_sentence": "映画を見る",
+            "example_translation": "Watch a movie",
+        }
+        kaishi_fields = self.service.map_card_to_fields(
+            card_data,
+            ["Word", "Reading", "Meaning", "Example Sentence", "Example Sentence Meaning"],
+        )
+        assert kaishi_fields["Example Sentence Meaning"] == "Watch a movie"
+        assert "映画を見る" in kaishi_fields["Example Sentence"]
+        assert "kn-example-en" not in kaishi_fields["Example Sentence"]
+
+        # Case B: Model without separate translation field (Yomitan Default)
+        yomitan_fields = self.service.map_card_to_fields(
+            card_data,
+            ["Expression", "Reading", "Glossary", "Sentence"],
+        )
+        assert '<p class="kn-example-ja">映画を見る</p>' in yomitan_fields["Sentence"]
+        assert '<p class="kn-example-en">Watch a movie</p>' in yomitan_fields["Sentence"]
+
+    # 6. Pitch survives where applicable
+    def test_06_pitch_survives_where_applicable(self):
+        card_data = {
+            "expression": "食べる",
+            "reading": "たべる",
+            "meaning": "to eat",
+            "pitches": [
+                PitchAccent(reading="たべる", position=2, pattern_name="nakadaka"),
+            ],
+        }
+        # In Basic model
+        basic_fields = self.service.map_card_to_fields(card_data, ["Front", "Back"])
+        assert '<span class="kn-pitch">[② Nakadaka]</span>' in basic_fields["Back"]
+
+        # In Custom model with Pitch field
+        custom_fields = self.service.map_card_to_fields(
+            card_data,
+            ["Expression", "Reading", "Meaning", "Pitch"],
+        )
+        assert custom_fields["Pitch"] == "[② Nakadaka]"
+
+    # 7. HTML/XSS input is escaped
+    def test_07_html_xss_input_is_escaped(self):
+        malicious_card = {
+            "expression": "<script>alert('expr')</script>",
+            "reading": "<img src=x onerror=alert('read')>",
+            "meaning": '<a href="javascript:steal()">click</a> & test',
+            "hint": "<script>alert('hint')</script>",
+            "notes": '" onmouseover="hack()',
+            "example_sentence": "<script>alert('ja')</script>",
+            "example_translation": "<b>trans</b>",
+            "image": 'photo.jpg" onerror="alert(1)',
+            "audio": 'audio.mp3" onclick="alert(2)',
+        }
+        fields = self.service.map_card_to_fields(
+            malicious_card,
+            ["Expression", "Reading", "Meaning", "Hint", "Notes", "Sentence", "Translation", "Image", "Audio"],
+        )
+        for field_name, value in fields.items():
+            assert "<script>" not in value, f"Unescaped <script> in {field_name}"
+            assert 'onerror="alert' not in value, f"Unescaped attribute injection in {field_name}"
+            assert 'onmouseover="hack' not in value, f"Unescaped attribute injection in {field_name}"
+            assert 'onclick="alert' not in value, f"Unescaped attribute injection in {field_name}"
+
+        assert "&lt;script&gt;" in fields["Expression"]
+        assert "&lt;img src=x" in fields["Reading"]
+        assert "&amp; test" in fields["Meaning"]
+        assert "&quot; onmouseover=&quot;hack()" in fields["Notes"]
+        assert "Image" not in fields
+        assert "Audio" not in fields
+
+    # 8. Media sanitization is preserved
+    def test_08_media_sanitization_is_preserved(self):
+        valid_card = {
+            "expression": "猫",
+            "image": "kiroku_img_12345.png",
+            "audio": "kiroku_audio_67890.webm",
+        }
+        fields = self.service.map_card_to_fields(valid_card, ["Word", "SentencePicture", "SentenceSound"])
+        assert fields["SentencePicture"] == '<img src="kiroku_img_12345.png">'
+        assert fields["SentenceSound"] == '[sound:kiroku_audio_67890.webm]'
+
+        # In Basic model
+        basic_fields = self.service.map_card_to_fields(valid_card, ["Front", "Back"])
+        assert '<img src="kiroku_img_12345.png" class="kn-image">' in basic_fields["Back"]
+        assert '[sound:kiroku_audio_67890.webm]' in basic_fields["Back"]
+
+        # Disallowed file extensions
+        bad_card = {
+            "expression": "猫",
+            "image": "virus.exe",
+            "audio": "payload.bat",
+        }
+        bad_fields = self.service.map_card_to_fields(bad_card, ["Word", "SentencePicture", "SentenceSound"])
+        assert "SentencePicture" not in bad_fields
+        assert "SentenceSound" not in bad_fields
+
+    # 9. Existing Basic and custom model keyword mappings remain correct
+    def test_09_existing_basic_and_custom_keyword_mappings(self):
+        card_data = {
+            "expression": "本",
+            "reading": "ほん",
+            "meaning": "book",
+            "hint": "read",
+            "notes": "common noun",
+        }
+        basic_fields = self.service.map_card_to_fields(card_data, ["Front", "Back"])
+        assert basic_fields["Front"] == "本 [ほん]"
+        assert "book" in basic_fields["Back"]
+        assert "Hint: read" in basic_fields["Back"]
+        assert "Notes: common noun" in basic_fields["Back"]
+
+    # 10. Existing Kaishi mapping remains correct
+    def test_10_existing_kaishi_mapping(self):
+        card_data = {
+            "expression": "猫",
+            "reading": "ねこ",
+            "meaning": "cat",
+            "example_sentence": "猫がいる",
+            "example_translation": "There is a cat",
+        }
+        fields = self.service.map_card_to_fields(
+            card_data,
+            ["Word", "Reading", "Meaning", "Example Sentence", "Example Sentence Meaning"],
+        )
+        assert fields["Word"] == "猫"
+        assert fields["Reading"] == "ねこ"
+        assert fields["Meaning"] == '<div class="kn-meaning">cat</div>'
+        assert "猫がいる" in fields["Example Sentence"]
+        assert fields["Example Sentence Meaning"] == "There is a cat"
+
+    # 11. Existing Yomitan Default mapping remains correct
+    def test_11_existing_yomitan_default_mapping(self):
+        card_data = {
+            "expression": "約束",
+            "reading": "やくそく",
+            "meaning": "promise; agreement",
+            "example_sentence": "約束を守る",
+            "audio": "audio.mp3",
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Expression", "Reading", "Glossary", "Sentence", "Audio"])
+        assert fields["Expression"] == "約束"
+        assert fields["Reading"] == "やくそく"
+        assert fields["Glossary"] == '<div class="kn-meaning">promise; agreement</div>'
+        assert "約束を守る" in fields["Sentence"]
+        assert fields["Audio"] == "[sound:audio.mp3]"
+
+    # 12. Existing Anime/Japanese Mining mapping remains correct
+    def test_12_existing_anime_japanese_mining_mapping(self):
+        card_data = {
+            "expression": "食べる",
+            "reading": "たべる",
+            "meaning": "to eat",
+            "example_sentence": "ご飯を食べる",
+            "audio": "taberu.mp3",
+            "image": "taberu.jpg",
+        }
+        fields = self.service.map_card_to_fields(
+            card_data,
+            ["VocabKanji", "VocabFurigana", "VocabDef", "Sentence", "SentenceAudio", "SentenceImage"]
+        )
+        assert fields["VocabKanji"] == "食べる"
+        assert fields["VocabFurigana"] == "たべる"
+        assert fields["VocabDef"] == '<div class="kn-meaning">to eat</div>'
+        assert "ご飯を食べる" in fields["Sentence"]
+        assert fields["SentenceAudio"] == "[sound:taberu.mp3]"
+        assert fields["SentenceImage"] == '<img src="taberu.jpg">'
+
+    # 13. Multi-dictionary data does not silently disappear
+    def test_13_multi_dictionary_data_does_not_silently_disappear(self):
+        card_data = {
+            "expression": "勉強",
+            "reading": "べんきょう",
+            "meaning": "study",
+            "entries": [
+                {
+                    "dictionary": "Jitendex",
+                    "senses": [{"index": 1, "glosses": ["study", "diligence"]}],
+                },
+                {
+                    "dictionary": "新明解",
+                    "senses": [{"index": 1, "glosses": ["学問などを学ぶこと"]}],
+                },
+            ],
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Expression", "Meaning"])
+        meaning_html = fields["Meaning"]
+        assert "study, diligence" in meaning_html
+        assert "学問などを学ぶこと" in meaning_html
+        assert '<ol class="kn-meanings">' in meaning_html
+
+    # 14. Cards with no structured entries still work using legacy/default meaning data
+    def test_14_cards_with_no_structured_entries_work_using_legacy_data(self):
+        card_data = {
+            "expression": "走る",
+            "reading": "はしる",
+            "meaning": "1. to run\n2. to dash\n3. to retreat",
+            "entries": [],
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Expression", "Meaning"])
+        meaning_html = fields["Meaning"]
+        assert '<ol class="kn-meanings">' in meaning_html
+        assert "<li>to run</li>" in meaning_html
+        assert "<li>to dash</li>" in meaning_html
+        assert "<li>to retreat</li>" in meaning_html
+
+    # 15. Existing saved cards remain compatible
+    def test_15_existing_saved_cards_remain_compatible(self):
+        # Legacy card dictionary shape without entries/examples keys
+        legacy_card = {
+            "expression": "川",
+            "reading": "かわ",
+            "meaning": "river",
+            "hint": "",
+            "example_sentence": "",
+            "example_translation": "",
+            "image": "",
+            "audio": "",
+            "tags": "nature",
+            "notes": "",
+        }
+        fields = self.service.map_card_to_fields(legacy_card, ["Front", "Back"])
+        assert fields["Front"] == "川 [かわ]"
+        assert '<div class="kn-meaning">river</div>' in fields["Back"]
+        assert "kn-media" not in fields["Back"]
+        assert "kn-hint" not in fields["Back"]
+

@@ -214,3 +214,18 @@ const retryBtn = actionsDiv.children.find(c => c.className === "btn-history-retr
 assert.ok(retryBtn, "Failed card should have a retry button");
 
 console.log("sidepanel Phase 7 history & card library tests passed");
+
+// Stage 3B.4 Step 1: Save Card payload includes currentDictionaryEntries
+assert.ok(
+  jsContent.includes("entries: Array.isArray(currentDictionaryEntries) ? currentDictionaryEntries : []"),
+  "Save Card payload must include currentDictionaryEntries"
+);
+
+// Verify openSavedCard restores entries
+assert.ok(
+  jsContent.includes("if (Array.isArray(body.entries) && body.entries.length) {\n        renderDetails({ entries: body.entries });\n      } else {\n        clearDictionaryView();\n      }") ||
+  jsContent.includes("renderDetails({ entries: body.entries })"),
+  "openSavedCard must restore entries to renderDetails"
+);
+
+console.log("sidepanel Stage 3B.4 Step 1 entries persistence tests passed");

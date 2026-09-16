@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -134,6 +134,7 @@ class SaveCardRequest(BaseModel):
     notes: str = Field(default="", max_length=2000)
     source_text: str = Field(default="", max_length=500)
     deinflected_text: str = Field(default="", max_length=500)
+    entries: list[dict[str, Any]] = Field(default_factory=list)
 
     @field_validator("expression")
     @classmethod
@@ -170,6 +171,7 @@ class SaveCardResponse(BaseModel):
     is_updated: bool = False
     created_at: str
     updated_at: str
+    entries: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AnkiStatusResponse(BaseModel):

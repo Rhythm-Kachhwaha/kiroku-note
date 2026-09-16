@@ -202,7 +202,7 @@ class CardRepository:
         with db_session(self._db_path) as conn:
             if draft.id is not None:
                 # Editing existing card: verify card exists
-                existing = conn.execute("SELECT id FROM cards WHERE id = ?", (draft.id,)).fetchone()
+                existing = conn.execute("SELECT id, meanings_json, examples_json FROM cards WHERE id = ?", (draft.id,)).fetchone()
                 if existing:
                     # Check for identity collision with another card
                     collision = conn.execute(
@@ -216,6 +216,9 @@ class CardRepository:
                         collision_card = self.get_by_id(collision["id"])
                         if collision_card:
                             return collision_card, False, True, False
+
+                    meanings_json_to_save = meanings_json if draft.entries else (existing["meanings_json"] if "meanings_json" in existing.keys() and existing["meanings_json"] else "[]")
+                    examples_json_to_save = examples_json if draft.examples else (existing["examples_json"] if "examples_json" in existing.keys() and existing["examples_json"] else "[]")
 
                     # Update existing card
                     conn.execute(
@@ -236,6 +239,8 @@ class CardRepository:
                             normalized_expression = ?,
                             normalized_reading = ?,
                             normalized_deck_name = ?,
+                            meanings_json = ?,
+                            examples_json = ?,
                             updated_at = ?
                         WHERE id = ?
                         """,
@@ -255,6 +260,8 @@ class CardRepository:
                             norm_expr,
                             norm_read,
                             norm_deck,
+                            meanings_json_to_save,
+                            examples_json_to_save,
                             now_utc,
                             draft.id,
                         ),

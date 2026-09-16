@@ -224,6 +224,7 @@ class CardService:
             deinflected_text=request.deinflected_text,
             deck_name=request.deck_name,
             model_name=request.model_name,
+            entries=request.entries,
             status="saved",
             id=request.id,
         )
@@ -430,6 +431,8 @@ class CardService:
                 "audio": clean_audio_file or card.audio,
                 "tags": card.tags,
                 "notes": card.notes,
+                "entries": card.entries,
+                "examples": card.examples,
             }
             tags_list = [t.strip() for t in card.tags.split(",") if t.strip()] if card.tags else []
 

@@ -182,7 +182,7 @@ def test_anki_connect_audio_field_mapping_and_sound_tag():
     }
     mapped_custom = service.map_card_to_fields(card_custom, model_fields_custom)
     assert mapped_custom["Word"] == "信頼性"
-    assert mapped_custom["Definition"] == "reliability"
+    assert mapped_custom["Definition"] == '<div class="kn-meaning">reliability</div>'
     assert "audio" not in mapped_custom
     assert "[sound:" not in mapped_custom.get("Word", "")
     assert "[sound:" not in mapped_custom.get("Definition", "")

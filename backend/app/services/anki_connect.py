@@ -10,6 +10,15 @@ from typing import Any
 import urllib.error
 import urllib.request
 
+from app.services.anki_formatter import (
+    escape_html,
+    format_basic_back,
+    format_example_html,
+    format_meaning_html,
+    format_pitch_badge,
+    format_ruby_html,
+    sanitize_media_tags,
+)
 from app.services.card_normalizer import normalize_deck, normalize_expression, normalize_reading
 
 
@@ -376,72 +385,105 @@ class AnkiConnectService:
         """
         Deterministically map card fields to the model's fields.
         Supports standard Japanese fields, community templates (Yomitan, Core 2k/6k, Kaishi, Japanese Mining),
-        as well as Basic (Front/Back). Formats image fields as <img> tags and audio as [sound:...] tags.
+        as well as Basic (Front/Back).
+        Consumes AnkiFormatter for HTML formatting, ruby annotations, and media sanitization.
         """
         field_map: dict[str, str] = {}
         fields_lower = {f.lower().replace(" ", "").replace("_", "").replace("-", ""): f for f in model_fields}
 
-        expr = card.get("expression", "")
-        reading = card.get("reading", "")
-        meaning = card.get("meaning", "")
-        hint = card.get("hint", "")
-        example = card.get("example_sentence", "")
-        example_trans = card.get("example_translation", "")
-        notes = card.get("notes", "")
+        expr = str(card.get("expression", "") or "").strip()
+        reading = str(card.get("reading", "") or "").strip()
+        meaning = str(card.get("meaning", "") or "").strip()
+        hint = str(card.get("hint", "") or "").strip()
+        example = str(card.get("example_sentence", "") or "").strip()
+        example_trans = str(card.get("example_translation", "") or "").strip()
+        example_reading = card.get("example_reading")
+        notes = str(card.get("notes", "") or "").strip()
+        entries = card.get("entries")
+        examples = card.get("examples")
+        pitches = card.get("pitches")
 
-        # Media values formatted for Anki
+        # Extract pitch if not provided at top-level
+        if pitches is None and entries and isinstance(entries, list):
+            for e in entries:
+                e_pitches = e.get("pitches") if isinstance(e, dict) else getattr(e, "pitches", None)
+                if e_pitches and isinstance(e_pitches, list):
+                    pitches = e_pitches
+                    break
+
+        # Extract example reading with ruby if not provided at top-level
+        if not example_reading:
+            if entries and isinstance(entries, list):
+                for e in entries:
+                    for s in (e.get("senses") if isinstance(e, dict) else getattr(e, "senses", [])) or []:
+                        for eg in (s.get("examples") if isinstance(s, dict) else getattr(s, "examples", [])) or []:
+                            eg_ja = eg.get("japanese") if isinstance(eg, dict) else getattr(eg, "japanese", "")
+                            eg_rd = eg.get("reading") if isinstance(eg, dict) else getattr(eg, "reading", "")
+                            if eg_rd and (not example or eg_ja == example):
+                                example_reading = eg_rd
+                                break
+            if not example_reading and examples and isinstance(examples, list):
+                for eg in examples:
+                    eg_ja = eg.get("japanese") if isinstance(eg, dict) else getattr(eg, "japanese", "")
+                    eg_rd = eg.get("reading") if isinstance(eg, dict) else getattr(eg, "reading", "")
+                    if eg_rd and (not example or eg_ja == example):
+                        example_reading = eg_rd
+                        break
+
+        # Media values sanitized for Anki
         raw_img = (card.get("image") or "").strip()
         raw_aud = (card.get("audio") or "").strip()
 
-        formatted_img = ""
-        if raw_img:
-            if raw_img.lower().startswith("<img"):
-                formatted_img = raw_img
-            else:
-                img_file = os.path.basename(raw_img)
-                formatted_img = f'<img src="{img_file}">'
+        # Format image and audio for custom model fields (no extra class)
+        formatted_img, formatted_aud = sanitize_media_tags(image=raw_img, audio=raw_aud, img_class=None)
 
-        formatted_aud = ""
-        if raw_aud:
-            if raw_aud.startswith("[sound:"):
-                formatted_aud = raw_aud
-            else:
-                aud_file = os.path.basename(raw_aud)
-                formatted_aud = f"[sound:{aud_file}]"
+        # Formatted meaning HTML
+        formatted_meaning = format_meaning_html(meaning_text=meaning, entries=entries)
+
+        # Escaped plain text values
+        escaped_expr = escape_html(expr)
+        escaped_reading = escape_html(reading)
+        escaped_hint = escape_html(hint)
+        escaped_notes = escape_html(notes)
+        escaped_trans = escape_html(example_trans)
 
         # Check if model is standard Front/Back (Basic)
         if "front" in fields_lower and "back" in fields_lower:
             front_field = fields_lower["front"]
             back_field = fields_lower["back"]
-            # Front
+
+            # Front: Japanese expression with optional bracketed reading
             if reading and reading != expr:
-                field_map[front_field] = f"{expr} [{reading}]"
+                field_map[front_field] = f"{escaped_expr} [{escaped_reading}]"
             else:
-                field_map[front_field] = expr
-            # Back
-            back_parts = []
-            if meaning:
-                back_parts.append(meaning)
-            if hint:
-                back_parts.append(f"Hint: {hint}")
-            if example:
-                if example_trans:
-                    back_parts.append(f"{example}<br>{example_trans}")
-                else:
-                    back_parts.append(example)
-            if notes:
-                back_parts.append(f"Notes: {notes}")
-            if formatted_img and "image" not in fields_lower and "picture" not in fields_lower:
-                back_parts.append(formatted_img)
-            if formatted_aud and "audio" not in fields_lower and "sound" not in fields_lower:
-                back_parts.append(formatted_aud)
-            field_map[back_field] = "<br><br>".join(back_parts)
+                field_map[front_field] = escaped_expr
+
+            # Media inclusion for Back: only if dedicated image/audio fields are not present
+            img_for_back = raw_img if ("image" not in fields_lower and "picture" not in fields_lower) else ""
+            aud_for_back = raw_aud if ("audio" not in fields_lower and "sound" not in fields_lower) else ""
+
+            # Back: generated via AnkiFormatter
+            field_map[back_field] = format_basic_back(
+                card=card,
+                expression=expr,
+                reading=reading,
+                meaning=meaning,
+                entries=entries,
+                example_sentence=example,
+                example_reading=example_reading,
+                example_translation=example_trans,
+                hint=hint,
+                notes=notes,
+                image=img_for_back,
+                audio=aud_for_back,
+                pitches=pitches,
+            )
 
             # Populate additional fields if present in model
-            if "word" in fields_lower and expr:
-                field_map[fields_lower["word"]] = expr
-            if "reading" in fields_lower and reading:
-                field_map[fields_lower["reading"]] = reading
+            if "word" in fields_lower and escaped_expr:
+                field_map[fields_lower["word"]] = escaped_expr
+            if "reading" in fields_lower and escaped_reading:
+                field_map[fields_lower["reading"]] = escaped_reading
             if "audio" in fields_lower and formatted_aud:
                 field_map[fields_lower["audio"]] = formatted_aud
             elif "sound" in fields_lower and formatted_aud:
@@ -452,6 +494,26 @@ class AnkiConnectService:
                 field_map[fields_lower["picture"]] = formatted_img
 
             return field_map
+
+        # Check if model has a dedicated translation field
+        has_trans_field = any(
+            k in fields_lower
+            for k in (
+                "exampletranslation",
+                "sentencetranslation",
+                "sentenceenglish",
+                "examplesentencemeaning",
+                "translation",
+            )
+        )
+
+        # Formatted example sentence HTML
+        # If model has a dedicated translation field, don't duplicate translation in example sentence block
+        formatted_example = format_example_html(
+            japanese=example,
+            translation=None if has_trans_field else example_trans,
+            reading=example_reading,
+        )
 
         # Specialized or multi-field model: match fields deterministically
         def assign(keys: tuple[str, ...], value: str) -> bool:
@@ -466,13 +528,19 @@ class AnkiConnectService:
                         return True
             return False
 
-        assign(("expression", "japanese", "word", "front", "kanji", "vocabkanji", "vocab", "targetword", "vocabulary", "headword"), expr)
-        assign(("reading", "furigana", "kana", "vocabfurigana", "vocabreading", "kanareading", "readingfurigana"), reading)
-        assign(("meaning", "glossary", "english", "definition", "back", "vocabdef", "vocabmeaning", "meaningglossary", "primarymeaning", "englishmeaning"), meaning)
-        assign(("hint",), hint)
-        assign(("examplesentence", "sentenceexpression", "sentence", "sentences", "example", "examples"), example)
-        assign(("exampletranslation", "sentencetranslation", "sentenceenglish", "examplesentencemeaning", "translation"), example_trans)
-        assign(("notes", "note", "comment"), notes)
+        assign(("expression", "japanese", "word", "front", "kanji", "vocabkanji", "vocab", "targetword", "vocabulary", "headword"), escaped_expr)
+        assign(("reading", "furigana", "kana", "vocabfurigana", "vocabreading", "kanareading", "readingfurigana"), escaped_reading)
+        assign(("meaning", "glossary", "english", "definition", "back", "vocabdef", "vocabmeaning", "meaningglossary", "primarymeaning", "englishmeaning"), formatted_meaning)
+        assign(("hint",), escaped_hint)
+        assign(("examplesentence", "sentenceexpression", "sentence", "sentences", "example", "examples"), formatted_example)
+        assign(("exampletranslation", "sentencetranslation", "sentenceenglish", "examplesentencemeaning", "translation"), escaped_trans)
+        assign(("notes", "note", "comment"), escaped_notes)
+
+        # Pitch field if supported by model
+        if pitches and isinstance(pitches, list) and pitches[0]:
+            pitch_badge = format_pitch_badge(pitches[0])
+            if pitch_badge:
+                assign(("pitch", "pitchaccent", "vocabpitch"), pitch_badge)
 
         image_keys = (
             "image", "picture", "sentenceimage", "sentencepicture",
@@ -500,9 +568,9 @@ class AnkiConnectService:
 
         # Ensure at least the first model field is populated
         if model_fields and model_fields[0] not in field_map:
-            field_map[model_fields[0]] = expr
-        if len(model_fields) > 1 and model_fields[1] not in field_map and meaning:
-            field_map[model_fields[1]] = meaning
+            field_map[model_fields[0]] = escaped_expr
+        if len(model_fields) > 1 and model_fields[1] not in field_map and formatted_meaning:
+            field_map[model_fields[1]] = formatted_meaning
 
         return field_map
 

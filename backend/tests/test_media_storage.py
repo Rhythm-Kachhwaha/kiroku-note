@@ -143,7 +143,7 @@ class MediaStorageTests(unittest.TestCase):
         mapped_custom = anki.map_card_to_fields(card_basic, custom_fields)
         self.assertEqual(mapped_custom["TargetWord"], "約束")
         self.assertEqual(mapped_custom["Reading"], "やくそく")
-        self.assertEqual(mapped_custom["VocabMeaning"], "promise")
+        self.assertEqual(mapped_custom["VocabMeaning"], '<div class="kn-meaning">promise</div>')
         self.assertEqual(mapped_custom["SentenceAudio"], "[sound:ankiminer_audio_456.wav]")
         self.assertEqual(mapped_custom["VocabImage"], '<img src="ankiminer_img_123.jpg">')
 

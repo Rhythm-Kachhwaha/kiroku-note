@@ -341,6 +341,85 @@ class CardEditorTests(unittest.TestCase):
         self.assertTrue(data["is_new"])
         self.assertTrue(data["image"].startswith("ankiminer_img_"))
         self.assertTrue(data["audio"].startswith("ankiminer_audio_"))
+ 
+    # 15. SaveCardRequest persists structured entries to SQLite meanings_json
+    def test_15_save_card_persists_structured_entries(self):
+        sample_entries = [
+            {
+                "dictionary": "Jitendex",
+                "is_primary": True,
+                "term": "食べる",
+                "reading": "たべる",
+                "senses": [
+                    {"index": 1, "glosses": ["to eat"], "parts_of_speech": ["1-dan", "vt"]},
+                    {"index": 2, "glosses": ["to live on"], "parts_of_speech": ["1-dan"]},
+                ],
+            }
+        ]
+        payload = {
+            "expression": "食べる",
+            "reading": "たべる",
+            "meaning": "1. to eat\n2. to live on",
+            "entries": sample_entries,
+        }
+        res = self.client.post("/api/cards/save", json=payload)
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["entries"], sample_entries)
+
+        # Verify in SQLite
+        repo = CardRepository(self.db_path)
+        saved = repo.get_by_id(data["id"])
+        self.assertEqual(saved.entries, sample_entries)
+
+        # Verify via GET /api/cards/{id}
+        res_get = self.client.get(f"/api/cards/{data['id']}")
+        self.assertEqual(res_get.status_code, 200)
+        self.assertEqual(res_get.json()["entries"], sample_entries)
+
+    # 16. Update card preserves entries when omitted in update request
+    def test_16_update_card_preserves_entries_when_omitted(self):
+        sample_entries = [
+            {
+                "dictionary": "Jitendex",
+                "is_primary": True,
+                "term": "本",
+                "reading": "ほん",
+                "senses": [{"index": 1, "glosses": ["book"]}],
+            }
+        ]
+        res = self.client.post("/api/cards/save", json={"expression": "本", "reading": "ほん", "entries": sample_entries})
+        card_id = res.json()["id"]
+
+        # Update without entries
+        update_payload = {
+            "id": card_id,
+            "expression": "本",
+            "reading": "ほん",
+            "meaning": "book / volume",
+        }
+        res_update = self.client.post("/api/cards/save", json=update_payload)
+        self.assertEqual(res_update.status_code, 200)
+
+        # Existing entries preserved
+        repo = CardRepository(self.db_path)
+        saved = repo.get_by_id(card_id)
+        self.assertEqual(saved.entries, sample_entries)
+
+    # 17. Omitting entries defaults to empty list
+    def test_17_omitting_entries_defaults_to_empty(self):
+        payload = {
+            "expression": "水",
+            "reading": "みず",
+            "meaning": "water",
+        }
+        res = self.client.post("/api/cards/save", json=payload)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["entries"], [])
+
+        repo = CardRepository(self.db_path)
+        saved = repo.get_by_id(res.json()["id"])
+        self.assertEqual(saved.entries, [])
 
 
 if __name__ == "__main__":

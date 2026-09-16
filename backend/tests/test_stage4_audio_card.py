@@ -219,7 +219,7 @@ class TestStage4AnkiAudioFieldMapping(unittest.TestCase):
 
             fields = self.anki_service.map_card_to_fields(card, field_names)
             self.assertEqual(fields["Expression"], "見る")
-            self.assertEqual(fields["Meaning"], "to see")
+            self.assertEqual(fields["Meaning"], '<div class="kn-meaning">to see</div>')
             # Audio must NOT be silently stuffed into Notes
             self.assertNotIn(f"[sound:{self.audio_filename}]", fields.get("Notes", ""))
 

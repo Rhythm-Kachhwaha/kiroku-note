@@ -1495,6 +1495,7 @@ if (cardEditor) {
       notes: fieldNotes ? fieldNotes.value.trim() : "",
       source_text: fieldSourceText ? fieldSourceText.value.trim() : "",
       deinflected_text: fieldDeinflectedText ? fieldDeinflectedText.value.trim() : "",
+      entries: Array.isArray(currentDictionaryEntries) ? currentDictionaryEntries : [],
     };
 
     try {
@@ -1943,6 +1944,8 @@ async function openSavedCard(cardId) {
 
       if (Array.isArray(body.entries) && body.entries.length) {
         renderDetails({ entries: body.entries });
+      } else {
+        clearDictionaryView();
       }
 
       if (saveBadge) {
