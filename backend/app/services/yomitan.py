@@ -18,33 +18,80 @@ class IdentifiedTerm:
     reading: str
     source_text: str
     deinflected_text: str
+
+
 @dataclass(frozen=True)
-class Example:
+class ExampleSentence:
     japanese: str
     translation: str | None = None
+    reading: str | None = None
+    source_dictionary: str | None = None
+
+
+# Backward-compatibility alias
+Example = ExampleSentence
+
+
 @dataclass(frozen=True)
-class Sense:
+class PitchAccent:
+    reading: str
+    position: int
+    pattern_name: str | None = None
+    nasal_positions: list[int] = field(default_factory=list)
+    devoice_positions: list[int] = field(default_factory=list)
+    dictionary: str | None = None
+
+
+@dataclass(frozen=True)
+class FrequencyRank:
+    dictionary: str
+    frequency: int | float = 0
+    display_value: str | None = None
+    rank: int | None = None
+    is_common: bool = False
+
+
+@dataclass(frozen=True)
+class DictionarySense:
     glosses: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
-    examples: list[Example] = field(default_factory=list)
+    examples: list[ExampleSentence] = field(default_factory=list)
+    parts_of_speech: list[str] = field(default_factory=list)
+    field_tags: list[str] = field(default_factory=list)
+    index: int = 1
+
+
+# Backward-compatibility alias
+Sense = DictionarySense
+
+
 @dataclass(frozen=True)
 class DictionaryEntry:
     dictionary: str
-    is_primary: bool
-    term: str
-    reading: str
+    is_primary: bool = False
+    term: str = ""
+    reading: str = ""
     parts_of_speech: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
-    senses: list[Sense] = field(default_factory=list)
+    senses: list[DictionarySense] = field(default_factory=list)
+    dictionary_alias: str | None = None
+    alt_terms: list[str] = field(default_factory=list)
+    alt_readings: list[str] = field(default_factory=list)
+    pitches: list[PitchAccent] = field(default_factory=list)
+    frequencies: list[FrequencyRank] = field(default_factory=list)
+    score: int = 0
+
+
 @dataclass(frozen=True)
 class EnrichedTerm:
     expression: str
     reading: str
     source_text: str
     deinflected_text: str
-    entries: list[DictionaryEntry]
+    entries: list[DictionaryEntry] = field(default_factory=list)
     dictionary_error: str | None = None
+    jlpt_level: str | None = None
 
 class YomitanService:
     def __init__(self, endpoint: str | None = None, timeout_seconds: float = 3.0):
@@ -99,19 +146,59 @@ class YomitanService:
                 return (headword["term"].strip(), str(headword.get("reading", "")).strip(), str(source.get("originalText", "")).strip(), str(source.get("deinflectedText", "")).strip())
         return None
 
+    MAX_AST_DEPTH = 32
+
     @staticmethod
     def normalize_term_entries_response(payload: Any) -> list[DictionaryEntry]:
-        raw_entries = payload.get("dictionaryEntries") if isinstance(payload, dict) else None
-        if not isinstance(raw_entries, list): raise YomitanResponseError("Yomitan returned an invalid dictionary response.")
+        if not isinstance(payload, dict):
+            raise YomitanResponseError("Yomitan returned an invalid dictionary response.")
+        raw_entries = payload.get("dictionaryEntries")
+        if not isinstance(raw_entries, list):
+            raise YomitanResponseError("Yomitan returned an invalid dictionary response.")
         normalized: list[DictionaryEntry] = []
         for raw in raw_entries:
-            if not isinstance(raw, dict): continue
-            headwords = raw.get("headwords") if isinstance(raw.get("headwords"), list) else []
-            for definition in raw.get("definitions", []) if isinstance(raw.get("definitions"), list) else []:
-                if not isinstance(definition, dict): continue
-                term, reading = YomitanService._definition_headword(definition, headwords)
-                senses, pos = YomitanService._definition_senses(definition)
-                normalized.append(DictionaryEntry(str(definition.get("dictionaryAlias") or definition.get("dictionary") or "Unknown dictionary"), bool(raw.get("isPrimary") or definition.get("isPrimary")), term, reading, YomitanService._unique(pos), YomitanService._tag_names(definition.get("tags")), senses))
+            if not isinstance(raw, dict):
+                continue
+            try:
+                headwords = raw.get("headwords") if isinstance(raw.get("headwords"), list) else []
+                root_primary = bool(raw.get("isPrimary", False))
+                root_score = int(raw.get("score") or 0)
+                root_pitches = YomitanService._extract_pitches(raw)
+                root_frequencies = YomitanService._extract_frequencies(raw)
+
+                definitions = raw.get("definitions") if isinstance(raw.get("definitions"), list) else []
+                for definition in definitions:
+                    if not isinstance(definition, dict):
+                        continue
+                    dict_name = str(definition.get("dictionary") or "Unknown dictionary")
+                    dict_alias = str(definition["dictionaryAlias"]) if definition.get("dictionaryAlias") else None
+                    is_primary = bool(definition.get("isPrimary", root_primary))
+                    score = int(definition.get("score") or root_score)
+                    term, reading = YomitanService._definition_headword(definition, headwords)
+                    alt_terms, alt_readings = YomitanService._alt_headwords(headwords, term, reading)
+                    tags = YomitanService._tag_names(definition.get("tags"))
+                    pitches = YomitanService._extract_pitches(definition) or root_pitches
+                    frequencies = YomitanService._extract_frequencies(definition) or root_frequencies
+                    senses, entry_pos = YomitanService._definition_senses(definition, dict_name)
+
+                    entry = DictionaryEntry(
+                        dictionary=dict_name,
+                        is_primary=is_primary,
+                        term=term,
+                        reading=reading,
+                        parts_of_speech=entry_pos,
+                        tags=tags,
+                        senses=senses,
+                        dictionary_alias=dict_alias,
+                        alt_terms=alt_terms,
+                        alt_readings=alt_readings,
+                        pitches=pitches,
+                        frequencies=frequencies,
+                        score=score,
+                    )
+                    normalized.append(entry)
+            except Exception:
+                continue
         return normalized
 
     @staticmethod
@@ -119,69 +206,320 @@ class YomitanService:
         indices = definition.get("headwordIndices") if isinstance(definition.get("headwordIndices"), list) else []
         for index in indices + list(range(len(headwords))):
             if isinstance(index, int) and 0 <= index < len(headwords) and isinstance(headwords[index], dict):
-                item = headwords[index]; return str(item.get("term", "")), str(item.get("reading", ""))
+                item = headwords[index]
+                return str(item.get("term", "")).strip(), str(item.get("reading", "")).strip()
         return "", ""
 
     @staticmethod
-    def _definition_senses(definition: dict[str, Any]) -> tuple[list[Sense], list[str]]:
-        senses, pos = [], []
-        for item in definition.get("entries", []) if isinstance(definition.get("entries"), list) else []:
-            content = item.get("content") if isinstance(item, dict) else item
-            groups = YomitanService._find_marked(content, "sense-group")
-            for group in groups:
-                pos.extend(YomitanService._marked_texts(group, "part-of-speech-info"))
-                for raw_sense in YomitanService._find_marked(group.get("content"), "sense"):
-                    sense = YomitanService._normalize_sense(raw_sense)
-                    if sense.glosses or sense.notes or sense.examples: senses.append(sense)
-            if not groups:
-                sense = YomitanService._normalize_sense({"content": content})
-                if sense.glosses or sense.notes or sense.examples: senses.append(sense)
-        return senses, pos
+    def _alt_headwords(headwords: list[Any], primary_term: str, primary_reading: str) -> tuple[list[str], list[str]]:
+        alt_terms: list[str] = []
+        alt_readings: list[str] = []
+        for hw in headwords:
+            if not isinstance(hw, dict):
+                continue
+            term = str(hw.get("term", "")).strip()
+            reading = str(hw.get("reading", "")).strip()
+            if term and term != primary_term and term not in alt_terms:
+                alt_terms.append(term)
+            if reading and reading != primary_reading and reading not in alt_readings:
+                alt_readings.append(reading)
+        return alt_terms, alt_readings
 
     @staticmethod
-    def _normalize_sense(node: dict[str, Any]) -> Sense:
-        content, glosses, notes, examples = node.get("content"), [], [], []
+    def _extract_pitches(source: dict[str, Any]) -> list[PitchAccent]:
+        results: list[PitchAccent] = []
+        candidates = []
+        if isinstance(source.get("pitches"), list):
+            candidates.extend(source["pitches"])
+        if isinstance(source.get("pronunciations"), list):
+            candidates.extend(source["pronunciations"])
+
+        for item in candidates:
+            if not isinstance(item, dict):
+                continue
+            dict_name = str(item.get("dictionary") or item.get("dictionaryAlias") or "") or None
+            reading = str(item.get("reading", "")).strip()
+
+            sub_pitches = item.get("pitches") if isinstance(item.get("pitches"), list) else []
+            if sub_pitches:
+                for sp in sub_pitches:
+                    if isinstance(sp, dict) and "position" in sp:
+                        try:
+                            pos = int(sp["position"])
+                            pat = YomitanService._pitch_pattern_name(pos, len(reading))
+                            nasal = [int(x) for x in sp.get("nasalPositions", []) if isinstance(x, (int, str))]
+                            devoice = [int(x) for x in sp.get("devoicePositions", []) if isinstance(x, (int, str))]
+                            results.append(PitchAccent(
+                                reading=reading,
+                                position=pos,
+                                pattern_name=pat,
+                                nasal_positions=nasal,
+                                devoice_positions=devoice,
+                                dictionary=dict_name,
+                            ))
+                        except (ValueError, TypeError):
+                            continue
+            elif "position" in item:
+                try:
+                    pos = int(item["position"])
+                    pat = YomitanService._pitch_pattern_name(pos, len(reading))
+                    nasal = [int(x) for x in item.get("nasalPositions", []) if isinstance(x, (int, str))]
+                    devoice = [int(x) for x in item.get("devoicePositions", []) if isinstance(x, (int, str))]
+                    results.append(PitchAccent(
+                        reading=reading,
+                        position=pos,
+                        pattern_name=pat,
+                        nasal_positions=nasal,
+                        devoice_positions=devoice,
+                        dictionary=dict_name,
+                    ))
+                except (ValueError, TypeError):
+                    continue
+        return results
+
+    @staticmethod
+    def _pitch_pattern_name(position: int, mora_count: int = 0) -> str:
+        if position == 0:
+            return "heiban"
+        elif position == 1:
+            return "atamadaka"
+        elif mora_count > 0 and position == mora_count:
+            return "odaka"
+        else:
+            return "nakadaka"
+
+    @staticmethod
+    def _extract_frequencies(source: dict[str, Any]) -> list[FrequencyRank]:
+        results: list[FrequencyRank] = []
+        freq_list = source.get("frequencies") if isinstance(source.get("frequencies"), list) else []
+        for item in freq_list:
+            if not isinstance(item, dict):
+                continue
+            dict_name = str(item.get("dictionary") or item.get("dictionaryAlias") or "Unknown")
+            raw_freq = item.get("frequency") if item.get("frequency") is not None else item.get("value")
+            freq_val: int | float = 0
+            if isinstance(raw_freq, (int, float)):
+                freq_val = raw_freq
+            elif isinstance(raw_freq, str) and raw_freq.isdigit():
+                freq_val = int(raw_freq)
+
+            disp = str(item["displayValue"]).strip() if item.get("displayValue") is not None else (str(freq_val) if freq_val else None)
+
+            raw_rank = item.get("rank")
+            rank_val: int | None = None
+            if isinstance(raw_rank, int):
+                rank_val = raw_rank
+            elif isinstance(freq_val, int) and freq_val > 0:
+                rank_val = freq_val
+
+            is_common = bool(item.get("isCommon") or (rank_val is not None and rank_val <= 10000) or (disp and "★" in disp))
+            results.append(FrequencyRank(
+                dictionary=dict_name,
+                frequency=freq_val,
+                display_value=disp,
+                rank=rank_val,
+                is_common=is_common,
+            ))
+        return results
+
+    @staticmethod
+    def _definition_senses(definition: dict[str, Any], source_dict: str = "") -> tuple[list[DictionarySense], list[str]]:
+        senses: list[DictionarySense] = []
+        all_pos: list[str] = []
+        entries_list = definition.get("entries") if isinstance(definition.get("entries"), list) else []
+
+        for item in entries_list:
+            if isinstance(item, str):
+                if text := item.strip():
+                    senses.append(DictionarySense(glosses=[text], index=len(senses) + 1))
+            elif isinstance(item, dict):
+                content = item.get("content") if "content" in item else item
+                groups = YomitanService._find_marked(content, "sense-group")
+                if groups:
+                    for group in groups:
+                        group_pos = YomitanService._marked_texts(group, "part-of-speech-info")
+                        all_pos.extend(group_pos)
+                        group_tags = YomitanService._marked_texts(group, "misc-info") + YomitanService._marked_texts(group, "dialect-info")
+                        group_field_tags = YomitanService._marked_texts(group, "field-info")
+
+                        raw_senses = YomitanService._find_marked(group.get("content"), "sense")
+                        for raw_sense in raw_senses:
+                            sense = YomitanService._normalize_sense(
+                                raw_sense,
+                                inherited_pos=group_pos,
+                                inherited_tags=group_tags,
+                                inherited_fields=group_field_tags,
+                                sense_index=len(senses) + 1,
+                                source_dict=source_dict,
+                            )
+                            if sense.glosses or sense.notes or sense.examples:
+                                senses.append(sense)
+                else:
+                    direct_senses = YomitanService._find_marked(content, "sense")
+                    if direct_senses:
+                        for raw_sense in direct_senses:
+                            sense = YomitanService._normalize_sense(
+                                raw_sense,
+                                sense_index=len(senses) + 1,
+                                source_dict=source_dict,
+                            )
+                            if sense.glosses or sense.notes or sense.examples:
+                                senses.append(sense)
+                    else:
+                        sense = YomitanService._normalize_sense(
+                            {"content": content},
+                            sense_index=len(senses) + 1,
+                            source_dict=source_dict,
+                        )
+                        if sense.glosses or sense.notes or sense.examples:
+                            senses.append(sense)
+
+        for s in senses:
+            all_pos.extend(s.parts_of_speech)
+
+        return senses, YomitanService._unique(all_pos)
+
+    @staticmethod
+    def _normalize_sense(
+        node: dict[str, Any],
+        inherited_pos: list[str] | None = None,
+        inherited_tags: list[str] | None = None,
+        inherited_fields: list[str] | None = None,
+        sense_index: int = 1,
+        source_dict: str = "",
+    ) -> DictionarySense:
+        content = node.get("content")
+        glosses: list[str] = []
+        notes: list[str] = []
+        examples: list[ExampleSentence] = []
+
+        pos = list(inherited_pos or [])
+        pos.extend(YomitanService._marked_texts(content, "part-of-speech-info"))
+
+        tags = list(inherited_tags or [])
+        tags.extend(YomitanService._marked_texts(content, "misc-info"))
+        tags.extend(YomitanService._marked_texts(content, "dialect-info"))
+
+        field_tags = list(inherited_fields or [])
+        field_tags.extend(YomitanService._marked_texts(content, "field-info"))
+
         for glossary in YomitanService._find_marked(content, "glossary"):
             values = glossary.get("content")
-            for value in values if isinstance(values, list) else [values]:
-                if text := YomitanService._plain_text(value): glosses.append(text)
-        for marker in ("note", "see-also", "reference"):
+            items = values if isinstance(values, list) else [values]
+            for value in items:
+                if text := YomitanService._plain_text(value):
+                    glosses.append(text)
+
+        if not glosses:
+            if text := YomitanService._plain_text(content):
+                glosses.append(text)
+
+        for marker in ("note", "sense-note", "see-also", "reference", "xref"):
             notes.extend(YomitanService._marked_texts(content, marker, contains=True))
+
         for raw in YomitanService._find_marked(content, "example-sentence", contains=True):
-            japanese = YomitanService._first_marked_text(raw.get("content"), "example-sentence-a")
-            translation = YomitanService._first_marked_text(raw.get("content"), "example-sentence-b")
-            if japanese: examples.append(Example(japanese, translation or None))
-        return Sense(YomitanService._unique(glosses), [], YomitanService._unique(notes), YomitanService._unique_examples(examples))
+            ex_content = raw.get("content")
+            raw_a = YomitanService._first_marked_node(ex_content, "example-sentence-a")
+            raw_b = YomitanService._first_marked_node(ex_content, "example-sentence-b")
+
+            clean_jp = YomitanService._extract_text(raw_a.get("content") if isinstance(raw_a, dict) else raw_a, include_rt=False)
+            ruby_jp = YomitanService._extract_text(raw_a.get("content") if isinstance(raw_a, dict) else raw_a, include_rt=True)
+            translation = YomitanService._extract_text(raw_b.get("content") if isinstance(raw_b, dict) else raw_b, include_rt=False)
+
+            if clean_jp:
+                examples.append(ExampleSentence(
+                    japanese=clean_jp,
+                    translation=translation or None,
+                    reading=ruby_jp if ruby_jp != clean_jp else None,
+                    source_dictionary=source_dict or None,
+                ))
+
+        return DictionarySense(
+            glosses=YomitanService._unique(glosses),
+            tags=YomitanService._unique(tags),
+            notes=YomitanService._unique(notes),
+            examples=YomitanService._unique_examples(examples),
+            parts_of_speech=YomitanService._unique(pos),
+            field_tags=YomitanService._unique(field_tags),
+            index=sense_index,
+        )
 
     @staticmethod
-    def _find_marked(value: Any, marker: str, contains: bool = False) -> list[dict[str, Any]]:
-        found = []
+    def _find_marked(value: Any, marker: str, contains: bool = False, depth: int = 0) -> list[dict[str, Any]]:
+        if depth > YomitanService.MAX_AST_DEPTH:
+            return []
+        found: list[dict[str, Any]] = []
         if isinstance(value, list):
-            for item in value: found.extend(YomitanService._find_marked(item, marker, contains))
+            for item in value:
+                found.extend(YomitanService._find_marked(item, marker, contains, depth + 1))
         elif isinstance(value, dict):
             current = YomitanService._marker(value)
-            if (marker in current) if contains else (current == marker): found.append(value)
-            found.extend(YomitanService._find_marked(value.get("content"), marker, contains))
+            if (marker in current) if contains else (current == marker):
+                found.append(value)
+            found.extend(YomitanService._find_marked(value.get("content"), marker, contains, depth + 1))
         return found
+
+    @staticmethod
+    def _first_marked_node(value: Any, marker: str, contains: bool = False, depth: int = 0) -> dict[str, Any] | None:
+        nodes = YomitanService._find_marked(value, marker, contains=contains, depth=depth)
+        return nodes[0] if nodes else None
+
     @staticmethod
     def _marker(node: dict[str, Any]) -> str:
-        data = node.get("data"); return str(data.get("content", "")).lower() if isinstance(data, dict) else ""
+        data = node.get("data")
+        return str(data.get("content", "")).lower() if isinstance(data, dict) else ""
+
     @staticmethod
     def _marked_texts(value: Any, marker: str, contains: bool = False) -> list[str]:
-        return [text for item in YomitanService._find_marked(value, marker, contains) if (text := YomitanService._plain_text(item.get("content")))]
+        return [
+            text
+            for item in YomitanService._find_marked(value, marker, contains)
+            if (text := YomitanService._extract_text(item.get("content"), include_rt=False))
+        ]
+
     @staticmethod
     def _first_marked_text(value: Any, marker: str) -> str:
-        texts = YomitanService._marked_texts(value, marker); return texts[0] if texts else ""
+        texts = YomitanService._marked_texts(value, marker)
+        return texts[0] if texts else ""
+
     @staticmethod
-    def _plain_text(value: Any) -> str:
-        if isinstance(value, str): return value.strip()
-        if isinstance(value, list): return "".join(YomitanService._plain_text(item) for item in value).strip()
-        if isinstance(value, dict): return "" if value.get("tag") == "rt" else YomitanService._plain_text(value.get("content"))
+    def _plain_text(value: Any, depth: int = 0) -> str:
+        return YomitanService._extract_text(value, include_rt=False, depth=depth)
+
+    @staticmethod
+    def _extract_text(value: Any, include_rt: bool = False, depth: int = 0) -> str:
+        if depth > YomitanService.MAX_AST_DEPTH:
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, list):
+            parts = [YomitanService._extract_text(item, include_rt, depth + 1) for item in value]
+            return "".join(p for p in parts if p).strip()
+        if isinstance(value, dict):
+            tag = value.get("tag")
+            if not include_rt and tag == "rt":
+                return ""
+            if include_rt and tag == "rt":
+                rt_text = YomitanService._extract_text(value.get("content"), include_rt, depth + 1)
+                return f"[{rt_text}]"
+            return YomitanService._extract_text(value.get("content"), include_rt, depth + 1)
         return ""
+
     @staticmethod
     def _tag_names(value: Any) -> list[str]:
         return YomitanService._unique([str(item.get("name", "")) for item in value if isinstance(item, dict)]) if isinstance(value, list) else []
+
     @staticmethod
-    def _unique(values: list[str]) -> list[str]: return list(dict.fromkeys(value for value in values if value.strip()))
+    def _unique(values: list[str]) -> list[str]:
+        return list(dict.fromkeys(value for value in values if value and value.strip()))
+
     @staticmethod
-    def _unique_examples(values: list[Example]) -> list[Example]: return list({(item.japanese, item.translation): item for item in values}.values())
+    def _unique_examples(values: list[ExampleSentence]) -> list[ExampleSentence]:
+        seen = set()
+        unique = []
+        for item in values:
+            key = (item.japanese, item.translation, item.reading)
+            if key not in seen:
+                seen.add(key)
+                unique.append(item)
+        return unique

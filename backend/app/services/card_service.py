@@ -29,6 +29,66 @@ from app.services.media_storage import MediaStorageService
 from app.services.yomitan import YomitanError, YomitanService
 
 
+def synthesize_default_meaning(entries: list[DictionaryEntry]) -> str:
+    """
+    Synthesize an intelligent, multi-sense default meaning for the card editor.
+    Takes senses from the primary dictionary entry (or top dictionary if none marked primary).
+    Formats polysemous words cleanly as numbered lines:
+      1. movie, film
+      2. motion picture
+    Single-sense words are formatted cleanly without line numbers:
+      movie, film
+    """
+    if not entries:
+        return ""
+
+    # Find the primary entry with non-empty glosses, or the first entry with non-empty glosses
+    target_entry = next(
+        (e for e in entries if e.is_primary and any(any(g.strip() for g in s.glosses) for s in e.senses)),
+        next((e for e in entries if any(any(g.strip() for g in s.glosses) for s in e.senses)), None),
+    )
+
+    if not target_entry:
+        return ""
+
+    valid_senses: list[list[str]] = []
+    for sense in target_entry.senses:
+        clean_glosses = [g.strip() for g in sense.glosses if g and g.strip()]
+        if clean_glosses:
+            valid_senses.append(clean_glosses)
+
+    if not valid_senses:
+        return ""
+
+    if len(valid_senses) == 1:
+        return ", ".join(valid_senses[0])
+
+    lines: list[str] = []
+    for idx, glosses in enumerate(valid_senses, 1):
+        lines.append(f"{idx}. {', '.join(glosses)}")
+
+    return "\n".join(lines)
+
+
+def synthesize_default_example(entries: list[DictionaryEntry]) -> tuple[str, str]:
+    """
+    Synthesize the default example sentence and translation for the card editor.
+    Prefers examples from the primary dictionary, falling back to any available example.
+    """
+    if not entries:
+        return ("", "")
+
+    # Look in primary entry first, then any entry
+    ordered_entries = sorted(entries, key=lambda e: not e.is_primary)
+    for entry in ordered_entries:
+        for sense in entry.senses:
+            for example in sense.examples:
+                if example.japanese and example.japanese.strip():
+                    return (example.japanese.strip(), (example.translation or "").strip())
+
+    return ("", "")
+
+
 class CardService:
     """Orchestrates capture identification, enrichment, duplicate prevention, and persistence."""
 
@@ -55,26 +115,8 @@ class CardService:
 
         # Step 3: Extract structured entries and examples
         serialized_entries: list[dict[str, Any]] = [asdict(entry) for entry in enriched.entries]
-
-        default_meaning = ""
-        for entry in enriched.entries:
-            for sense in entry.senses:
-                if sense.glosses:
-                    default_meaning = ", ".join(sense.glosses)
-                    break
-            if default_meaning:
-                break
-
-        default_example_sentence = ""
-        default_example_translation = ""
-        for entry in enriched.entries:
-            for sense in entry.senses:
-                if sense.examples:
-                    default_example_sentence = sense.examples[0].japanese
-                    default_example_translation = sense.examples[0].translation or ""
-                    break
-            if default_example_sentence:
-                break
+        default_meaning = synthesize_default_meaning(enriched.entries)
+        default_example_sentence, default_example_translation = synthesize_default_example(enriched.entries)
 
         # Step 4: Check if already exists in SQLite
         existing = self.repository.find_by_identity(enriched.expression, enriched.reading, deck_name)
@@ -94,6 +136,7 @@ class CardService:
                 notes=existing.notes,
                 source_text=existing.source_text or enriched.source_text,
                 deinflected_text=existing.deinflected_text or enriched.deinflected_text,
+                jlpt_level=enriched.jlpt_level,
                 entries=entries_data,
                 dictionary_error=enriched.dictionary_error,
                 deck_name=existing.deck_name,
@@ -123,6 +166,7 @@ class CardService:
             notes="",
             source_text=enriched.source_text,
             deinflected_text=enriched.deinflected_text,
+            jlpt_level=enriched.jlpt_level,
             entries=serialized_entries,
             dictionary_error=enriched.dictionary_error,
             deck_name=deck_name,
@@ -235,21 +279,16 @@ class CardService:
             for sense in entry.senses
             for example in sense.examples
         ]
-
-        default_meaning = ""
-        for entry in enriched.entries:
-            for sense in entry.senses:
-                if sense.glosses:
-                    default_meaning = ", ".join(sense.glosses)
-                    break
-            if default_meaning:
-                break
+        default_meaning = synthesize_default_meaning(enriched.entries)
+        default_example_sentence, default_example_translation = synthesize_default_example(enriched.entries)
 
         # Step 4: Construct card draft
         draft = CardDraft(
             expression=enriched.expression,
             reading=enriched.reading,
             meaning=default_meaning,
+            example_sentence=default_example_sentence,
+            example_translation=default_example_translation,
             source_text=enriched.source_text,
             deinflected_text=enriched.deinflected_text,
             deck_name=deck_name,
@@ -278,6 +317,7 @@ class CardService:
             notes=card_record.notes,
             source_text=card_record.source_text,
             deinflected_text=card_record.deinflected_text,
+            jlpt_level=enriched.jlpt_level,
             entries=entries_data,
             dictionary_error=enriched.dictionary_error,
             deck_name=card_record.deck_name,

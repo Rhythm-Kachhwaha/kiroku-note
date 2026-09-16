@@ -89,13 +89,12 @@ The core mining pipeline is functional. Current work is focused on polishing, re
 
 ### Stage 3 — Dictionary
 
-- [ ] Replace ad-hoc dictionary parsing
-- [ ] Introduce structured dictionary representation
-- [ ] Preserve multiple senses
-- [ ] Improve POS handling
-- [ ] Improve examples
-- [ ] Preserve useful Yomitan metadata
-- [ ] Improve dictionary UI
+- [x] Stage 3A: Dictionary architecture research & technical design (`V1/Stage3A.md`)
+- [x] Stage 3B.1: Backend AST normalizer & provider-neutral domain models (`V1/Stage3B1.md`)
+- [x] Stage 3B.2.1: CardService multi-sense draft synthesis (`synthesize_default_meaning`, `synthesize_default_example`)
+- [ ] Stage 3B.2.2: CardService multi-dictionary integration & JLPT resolution handoff
+- [ ] Stage 3B.3: Side Panel declarative dictionary rendering & UI
+- [ ] Stage 3B.4: Multi-dictionary presentation polish & Anki template alignment
 
 ### Stage 4 — Frontend
 

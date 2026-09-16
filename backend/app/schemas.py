@@ -22,23 +22,68 @@ class CaptureRequest(BaseModel):
 class Example(BaseModel):
     japanese: str
     translation: Optional[str] = None
+    reading: Optional[str] = None
+    source_dictionary: Optional[str] = None
+
+
+ExampleSentence = Example
+ExampleSentenceSchema = Example
+
+
+class PitchAccent(BaseModel):
+    reading: str
+    position: int
+    pattern_name: Optional[str] = None
+    nasal_positions: list[int] = Field(default_factory=list)
+    devoice_positions: list[int] = Field(default_factory=list)
+    dictionary: Optional[str] = None
+
+
+PitchAccentSchema = PitchAccent
+
+
+class FrequencyRank(BaseModel):
+    dictionary: str
+    frequency: int | float = 0
+    display_value: Optional[str] = None
+    rank: Optional[int] = None
+    is_common: bool = False
+
+
+FrequencyRankSchema = FrequencyRank
 
 
 class Sense(BaseModel):
-    glosses: list[str] = []
-    tags: list[str] = []
-    notes: list[str] = []
-    examples: list[Example] = []
+    index: int = 1
+    glosses: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    examples: list[Example] = Field(default_factory=list)
+    parts_of_speech: list[str] = Field(default_factory=list)
+    field_tags: list[str] = Field(default_factory=list)
+
+
+DictionarySense = Sense
+DictionarySenseSchema = Sense
 
 
 class DictionaryEntry(BaseModel):
     dictionary: str
+    dictionary_alias: Optional[str] = None
     is_primary: bool = False
-    term: str
+    term: str = ""
     reading: str = ""
-    parts_of_speech: list[str] = []
-    tags: list[str] = []
-    senses: list[Sense] = []
+    alt_terms: list[str] = Field(default_factory=list)
+    alt_readings: list[str] = Field(default_factory=list)
+    parts_of_speech: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    senses: list[Sense] = Field(default_factory=list)
+    pitches: list[PitchAccent] = Field(default_factory=list)
+    frequencies: list[FrequencyRank] = Field(default_factory=list)
+    score: int = 0
+
+
+DictionaryEntrySchema = DictionaryEntry
 
 
 class CaptureResponse(BaseModel):
@@ -55,7 +100,8 @@ class CaptureResponse(BaseModel):
     notes: str = ""
     source_text: str = ""
     deinflected_text: str = ""
-    entries: list[DictionaryEntry] = []
+    jlpt_level: Optional[str] = None
+    entries: list[DictionaryEntry] = Field(default_factory=list)
     dictionary_error: Optional[str] = None
     deck_name: str = "Default"
     model_name: str = ""
