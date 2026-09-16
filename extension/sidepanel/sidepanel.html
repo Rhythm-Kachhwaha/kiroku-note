@@ -119,8 +119,8 @@
       </ol>
     </section>
 
-    <!-- Prominent Captured Japanese Word Display -->
-    <section id="captured-word-section" class="captured-word-hero" aria-label="Captured Japanese Word">
+    <!-- Prominent Captured Japanese Word Display (Preserved for compatibility, visual hero unified into Card Preview) -->
+    <section id="captured-word-section" class="captured-word-hero" aria-label="Captured Japanese Word" hidden>
       <div class="word-display-card">
         <h1 id="expression" class="hero-expression">—</h1>
         <p id="reading" class="hero-reading"></p>
@@ -129,9 +129,29 @@
 
     <!-- Card Editor Form (Positioned Above Dictionary) -->
     <section id="card-editor-section" class="card-editor-section" aria-label="Card Editor">
-      <div class="section-header">
+      <div class="section-header card-workspace-header">
         <h2 class="section-title">CARD</h2>
+        <div class="card-workspace-toolbar">
+          <button type="button" id="btn-layout-settings" class="btn-layout-settings" title="Layout Settings" aria-label="Layout Settings" aria-expanded="false" aria-controls="layout-settings-popover">⚙</button>
+        </div>
       </div>
+
+      <!-- Layout Settings Popover -->
+      <div id="layout-settings-popover" class="layout-settings-popover" role="dialog" aria-modal="false" aria-label="Layout Settings" hidden>
+        <div class="layout-settings-header">
+          <div class="layout-settings-title-row">
+            <span class="layout-settings-icon" aria-hidden="true">⚙</span>
+            <h3 class="layout-settings-title">Layout Settings</h3>
+          </div>
+          <button type="button" id="btn-close-layout-settings" class="btn-close-layout-settings" title="Close layout settings" aria-label="Close layout settings">&times;</button>
+        </div>
+        <p class="layout-settings-subtitle">Drag or use arrow buttons to reorder card sections.</p>
+        <div id="layout-sections-list" class="layout-sections-list" role="list" aria-label="Card sections order"></div>
+        <div class="layout-settings-footer">
+          <button type="button" id="btn-reset-layout" class="btn-reset-layout">Reset to Default</button>
+        </div>
+      </div>
+
       <form id="card-editor" class="card-editor" hidden>
         <input type="hidden" id="field-card-id" name="id">
         <input type="hidden" id="field-deck-name" name="deck_name" value="Default">
@@ -139,122 +159,170 @@
         <input type="hidden" id="field-source-text" name="source_text">
         <input type="hidden" id="field-deinflected-text" name="deinflected_text">
 
-        <div class="form-group">
-          <label for="field-expression">Expression</label>
-          <input type="text" id="field-expression" name="expression" required autocomplete="off" class="japanese-input">
-        </div>
+        <!-- Reorderable Card Layout Container -->
+        <div id="card-layout-container" class="card-layout-container">
 
-        <div class="form-group">
-          <label for="field-reading">Reading</label>
-          <input type="text" id="field-reading" name="reading" autocomplete="off" class="japanese-input">
-        </div>
-
-        <div class="form-group">
-          <label for="field-meaning">Meaning</label>
-          <textarea id="field-meaning" name="meaning" rows="2"></textarea>
-        </div>
-
-        <!-- Media Previews (Screenshot & Sentence Audio) -->
-        <div id="media-preview-container" class="media-preview-container">
-          <!-- Image Preview Card -->
-          <div id="image-preview-container" class="media-preview-card">
-            <div class="media-preview-header">
-              <span class="media-type-badge">IMAGE</span>
-              <div class="media-preview-actions">
-                <button type="button" id="btn-clear-image" class="btn-media-action btn-media-clear" title="Remove image" aria-label="Remove image" hidden>&times;</button>
+          <!-- 1. Card Preview Section -->
+          <section id="card-preview-section" class="card-preview-section" data-layout-section="preview" aria-label="Card Preview">
+            <div class="section-header preview-section-header">
+              <h2 class="section-title">CARD PREVIEW</h2>
+              <div class="preview-tabs" role="tablist" aria-label="Card Preview Side">
+                <button type="button" id="preview-tab-front" class="preview-tab-btn" role="tab" aria-selected="false" aria-controls="card-preview-container">Front</button>
+                <button type="button" id="preview-tab-back" class="preview-tab-btn active" role="tab" aria-selected="true" aria-controls="card-preview-container">Back</button>
               </div>
             </div>
-            <div class="media-thumbnail-wrapper">
-              <div id="image-empty-placeholder" class="media-empty-placeholder">
-                <span class="media-placeholder-icon">📸</span>
-                <span class="media-placeholder-text">No frame captured</span>
+            <div id="card-preview-container" class="card-preview-container">
+              <div id="card-preview-card" class="card-preview-card kn-card"></div>
+            </div>
+          </section>
+
+          <!-- 2. Card Fields Section -->
+          <div id="card-fields-section" class="card-fields-section" data-layout-section="fields">
+            <div class="form-row-compact">
+              <div class="form-group flex-1">
+                <label for="field-expression">Expression</label>
+                <input type="text" id="field-expression" name="expression" required autocomplete="off" class="japanese-input">
               </div>
-              <img id="image-preview" class="media-thumbnail" alt="Captured video frame" src="" hidden>
+
+              <div class="form-group flex-1">
+                <label for="field-reading">Reading</label>
+                <input type="text" id="field-reading" name="reading" autocomplete="off" class="japanese-input">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="field-meaning">Meaning</label>
+              <textarea id="field-meaning" name="meaning" rows="2"></textarea>
             </div>
           </div>
 
-          <!-- Audio Preview Card -->
-          <div id="audio-preview-container" class="media-preview-card">
-            <div class="media-preview-header">
-              <div class="media-header-left">
-                <span class="media-type-badge">AUDIO</span>
-                <span id="audio-status-badge" class="media-status-pill" hidden>Ready</span>
+          <!-- 3. Media Previews Section -->
+          <div id="media-preview-container" class="media-preview-container" data-layout-section="media">
+            <!-- Image Preview Card -->
+            <div id="image-preview-container" class="media-preview-card">
+              <div class="media-preview-header">
+                <span class="media-type-badge">IMAGE</span>
+                <div class="media-preview-actions">
+                  <button type="button" id="btn-clear-image" class="btn-media-action btn-media-clear" title="Remove image" aria-label="Remove image" hidden>&times;</button>
+                </div>
               </div>
-              <div class="media-preview-actions">
-                <button type="button" id="btn-replay-audio" class="btn-media-action btn-media-replay" title="Replay audio" aria-label="Replay audio" hidden>↺ Replay</button>
-                <button type="button" id="btn-clear-audio" class="btn-media-action btn-media-clear" title="Remove audio" aria-label="Remove audio" hidden>&times;</button>
+              <div class="media-thumbnail-wrapper">
+                <div id="image-empty-placeholder" class="media-empty-placeholder">
+                  <span class="media-placeholder-icon">📸</span>
+                  <span class="media-placeholder-text">No frame captured</span>
+                </div>
+                <img id="image-preview" class="media-thumbnail" alt="Captured video frame" src="" hidden>
               </div>
             </div>
-            <div class="media-audio-wrapper">
-              <div id="audio-empty-placeholder" class="media-empty-placeholder">
-                <span class="media-placeholder-icon">🎙️</span>
-                <span id="audio-placeholder-text" class="media-placeholder-text">No audio clip</span>
+
+            <!-- Audio Preview Card -->
+            <div id="audio-preview-container" class="media-preview-card">
+              <div class="media-preview-header">
+                <div class="media-header-left">
+                  <span class="media-type-badge">AUDIO</span>
+                  <span id="audio-status-badge" class="media-status-pill" hidden>Ready</span>
+                </div>
+                <div class="media-preview-actions">
+                  <button type="button" id="btn-replay-audio" class="btn-media-action btn-media-replay" title="Replay audio" aria-label="Replay audio" hidden>↺ Replay</button>
+                  <button type="button" id="btn-clear-audio" class="btn-media-action btn-media-clear" title="Remove audio" aria-label="Remove audio" hidden>&times;</button>
+                </div>
               </div>
-              <audio id="audio-preview" class="media-audio-player" controls preload="metadata" src="" hidden></audio>
+              <div class="media-audio-wrapper">
+                <div id="audio-empty-placeholder" class="media-empty-placeholder">
+                  <span class="media-placeholder-icon">🎙️</span>
+                  <span id="audio-placeholder-text" class="media-placeholder-text">No audio clip</span>
+                </div>
+                <audio id="audio-preview" class="media-audio-player" controls preload="metadata" src="" hidden></audio>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="form-row-compact">
-          <div class="form-group deck-selector-group">
-            <label for="field-deck-select">Deck</label>
-            <select id="field-deck-select" name="deck_select">
-              <option value="Default">Default</option>
-            </select>
+          <!-- 4. Card Settings Section -->
+          <div id="card-settings-section" class="card-settings-section" data-layout-section="settings">
+            <div class="form-row-compact settings-row">
+              <div class="form-group deck-selector-group">
+                <label for="field-deck-select">Deck</label>
+                <select id="field-deck-select" name="deck_select">
+                  <option value="Default">Default</option>
+                </select>
+              </div>
+
+              <div class="form-group model-selector-group">
+                <label for="field-model-select">Note Type</label>
+                <select id="field-model-select" name="model_select">
+                  <option value="Basic">Basic</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group font-selector-group">
+              <label for="field-font-select">Font</label>
+              <select id="field-font-select" name="font_select">
+                <option value="Noto Sans JP">Noto Sans Japanese</option>
+                <option value="Noto Serif JP">Noto Serif Japanese</option>
+                <option value="system-ui">System Default</option>
+              </select>
+            </div>
           </div>
 
-          <div class="form-group model-selector-group">
-            <label for="field-model-select">Note Type</label>
-            <select id="field-model-select" name="model_select">
-              <option value="Basic">Basic</option>
-            </select>
-          </div>
-        </div>
+          <!-- 5. Optional Fields Section -->
+          <div id="card-optional-section" class="card-optional-section" data-layout-section="optional">
+            <div class="optional-toggle-container">
+              <button type="button" id="toggle-optional" class="btn-toggle-optional" aria-expanded="false" aria-controls="optional-fields">
+                + Optional fields
+              </button>
+            </div>
 
-        <div class="form-group font-selector-group">
-          <label for="field-font-select">Font</label>
-          <select id="field-font-select" name="font_select">
-            <option value="Noto Sans JP">Noto Sans Japanese</option>
-            <option value="Noto Serif JP">Noto Serif Japanese</option>
-            <option value="system-ui">System Default</option>
-          </select>
-        </div>
+            <div id="optional-fields" class="optional-fields" hidden>
+              <div class="form-group">
+                <label for="field-hint">Hint</label>
+                <input type="text" id="field-hint" name="hint" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label for="field-example-sentence">Example sentence</label>
+                <textarea id="field-example-sentence" name="example_sentence" rows="2" class="japanese-input"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="field-example-translation">Example translation</label>
+                <textarea id="field-example-translation" name="example_translation" rows="2"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="field-image">Image</label>
+                <input type="text" id="field-image" name="image" placeholder="URL or path" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label for="field-audio">Audio</label>
+                <input type="text" id="field-audio" name="audio" placeholder="URL or path" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label for="field-tags">Tags</label>
+                <input type="text" id="field-tags" name="tags" placeholder="e.g. n5, verbs" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label for="field-notes">Notes</label>
+                <textarea id="field-notes" name="notes" rows="2"></textarea>
+              </div>
+            </div>
+          </div>
 
-        <div class="optional-toggle-container">
-          <button type="button" id="toggle-optional" class="btn-toggle-optional" aria-expanded="false" aria-controls="optional-fields">
-            + Optional fields
-          </button>
-        </div>
-
-        <div id="optional-fields" class="optional-fields" hidden>
-          <div class="form-group">
-            <label for="field-hint">Hint</label>
-            <input type="text" id="field-hint" name="hint" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label for="field-example-sentence">Example sentence</label>
-            <textarea id="field-example-sentence" name="example_sentence" rows="2" class="japanese-input"></textarea>
-          </div>
-          <div class="form-group">
-            <label for="field-example-translation">Example translation</label>
-            <textarea id="field-example-translation" name="example_translation" rows="2"></textarea>
-          </div>
-          <div class="form-group">
-            <label for="field-image">Image</label>
-            <input type="text" id="field-image" name="image" placeholder="URL or path" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label for="field-audio">Audio</label>
-            <input type="text" id="field-audio" name="audio" placeholder="URL or path" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label for="field-tags">Tags</label>
-            <input type="text" id="field-tags" name="tags" placeholder="e.g. n5, verbs" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label for="field-notes">Notes</label>
-            <textarea id="field-notes" name="notes" rows="2"></textarea>
-          </div>
+          <!-- 6. Dictionary Information Section -->
+          <section id="dictionary-section" class="dictionary-section" data-layout-section="dictionary" aria-label="Dictionary Information">
+            <div class="section-header dict-section-header">
+              <h2 class="section-title">DICTIONARY</h2>
+              <div class="dict-actions-bar" id="dict-actions-bar" style="display: none;">
+                <button type="button" id="btn-copy-raw-dict" class="btn-dict-action" title="Copy raw dictionary text to clipboard">📋 Copy</button>
+                <button type="button" id="btn-toggle-full-dict" class="btn-dict-action" title="Show full unabridged dictionary">Full Dict</button>
+              </div>
+            </div>
+            <div id="dict-loading-indicator" class="dict-loading-indicator" hidden>
+              <span class="dict-loading-dot"></span>
+              <span class="dict-loading-text">Searching Yomitan dictionary…</span>
+            </div>
+            <div id="dict-empty-notice" class="dict-empty-notice" hidden>No dictionary entries found for this term.</div>
+            <div id="meanings" class="details dict-study-view"></div>
+            <div id="dict-raw-view" class="dict-raw-view" hidden></div>
+            <div id="examples" class="details" hidden></div>
+          </section>
         </div>
 
         <div class="editor-actions">
@@ -266,46 +334,19 @@
         </div>
       </form>
     </section>
- 
-    <!-- Live Anki Card Preview Section -->
-    <section id="card-preview-section" class="card-preview-section" aria-label="Card Preview">
-      <div class="section-header preview-section-header">
-        <h2 class="section-title">CARD PREVIEW</h2>
-        <div class="preview-tabs" role="tablist" aria-label="Card Preview Side">
-          <button type="button" id="preview-tab-front" class="preview-tab-btn" role="tab" aria-selected="false" aria-controls="card-preview-container">Front</button>
-          <button type="button" id="preview-tab-back" class="preview-tab-btn active" role="tab" aria-selected="true" aria-controls="card-preview-container">Back</button>
-        </div>
-      </div>
-      <div id="card-preview-container" class="card-preview-container">
-        <div id="card-preview-card" class="card-preview-card kn-card"></div>
-      </div>
-    </section>
-
-    <!-- Dictionary Information Section -->
-    <section id="dictionary-section" class="dictionary-section" aria-label="Dictionary Information">
-      <div class="section-header dict-section-header">
-        <h2 class="section-title">DICTIONARY</h2>
-        <div class="dict-actions-bar" id="dict-actions-bar" style="display: none;">
-          <button type="button" id="btn-copy-raw-dict" class="btn-dict-action" title="Copy raw dictionary text to clipboard">📋 Copy</button>
-          <button type="button" id="btn-toggle-full-dict" class="btn-dict-action" title="Show full unabridged dictionary">Full Dict</button>
-        </div>
-      </div>
-      <div id="dict-loading-indicator" class="dict-loading-indicator" hidden>
-        <span class="dict-loading-dot"></span>
-        <span class="dict-loading-text">Searching Yomitan dictionary…</span>
-      </div>
-      <div id="dict-empty-notice" class="dict-empty-notice" hidden>No dictionary entries found for this term.</div>
-      <div id="meanings" class="details dict-study-view"></div>
-      <div id="dict-raw-view" class="dict-raw-view" hidden></div>
-      <div id="examples" class="details" hidden></div>
-    </section>
 
     <!-- Mining History & Card Library -->
     <section id="history-section" class="history-section" aria-label="Mining History & Card Library">
       <div class="section-header history-header">
         <h2 class="section-title">HISTORY</h2>
-        <span id="history-count" class="history-count">0 cards</span>
+        <div class="history-header-actions">
+          <span id="history-count" class="history-count">0 cards</span>
+          <button type="button" id="btn-sync-all" class="btn-sync-all" title="Sync all eligible cards to Anki" aria-label="Sync all eligible cards to Anki">Sync All</button>
+        </div>
       </div>
+
+      <div id="sync-all-status" class="sync-all-status" role="status" aria-live="polite" hidden></div>
+
 
       <div class="history-toolbar">
         <div class="history-search-group">

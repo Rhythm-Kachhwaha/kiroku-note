@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import json, os
+import json, os, re
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -148,6 +148,20 @@ class YomitanService:
         else:
             error = "Dictionary returned no usable definitions."
 
+        # Resolve modern JLPT level from entry tags if available
+        jlpt_level = None
+        for entry in entries:
+            for tag in entry.tags:
+                t = str(tag).strip()
+                if m := re.match(r"^jlpt-n([1-5])$", t, re.IGNORECASE):
+                    jlpt_level = f"N{m.group(1)}"
+                    break
+                if m := re.match(r"^n([1-5])$", t, re.IGNORECASE):
+                    jlpt_level = f"N{m.group(1)}"
+                    break
+            if jlpt_level:
+                break
+
         return EnrichedTerm(
             expression=term.expression,
             reading=term.reading,
@@ -155,6 +169,7 @@ class YomitanService:
             deinflected_text=term.deinflected_text,
             entries=entries,
             dictionary_error=error,
+            jlpt_level=jlpt_level,
             kanji_entries=kanji_entries,
         )
 

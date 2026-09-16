@@ -19,6 +19,7 @@ from app.schemas import (
     DeleteCardResponse,
     SaveCardRequest,
     SaveCardResponse,
+    SyncAllResponse,
     SyncCardResponse,
 )
 from app.services.card_service import CardService
@@ -99,6 +100,14 @@ def sync_card(card_id: int) -> SyncCardResponse:
         return service.sync_card(card_id)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+
+@app.post("/api/cards/sync-all", response_model=SyncAllResponse)
+@app.post("/api/anki/sync-all", response_model=SyncAllResponse)
+def sync_all_cards(deck_name: str | None = None) -> SyncAllResponse:
+    service = CardService()
+    return service.sync_all(deck_name=deck_name)
+
 
 
 @app.get("/api/cards", response_model=CardListResponse)

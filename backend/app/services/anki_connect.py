@@ -14,6 +14,7 @@ from app.services.anki_formatter import (
     escape_html,
     format_basic_back,
     format_example_html,
+    format_kanji_html,
     format_meaning_html,
     format_pitch_badge,
     format_ruby_html,
@@ -407,6 +408,7 @@ class AnkiConnectService:
         example_reading = card.get("example_reading")
         notes = str(card.get("notes", "") or "").strip()
         entries = card.get("entries")
+        kanji_entries = card.get("kanji_entries")
         examples = card.get("examples")
         pitches = card.get("pitches")
 
@@ -493,6 +495,7 @@ class AnkiConnectService:
                 reading=reading,
                 meaning=meaning,
                 entries=entries,
+                kanji_entries=kanji_entries,
                 example_sentence=example,
                 example_reading=example_reading,
                 example_translation=example_trans,
@@ -563,6 +566,12 @@ class AnkiConnectService:
             pitch_badge = format_pitch_badge(pitches[0])
             if pitch_badge:
                 assign(("pitch", "pitchaccent", "vocabpitch"), pitch_badge)
+
+        # Kanji fields if supported by model
+        if kanji_entries and isinstance(kanji_entries, list):
+            formatted_kanji = format_kanji_html(kanji_entries)
+            if formatted_kanji:
+                assign(("kanjidata", "kanjientries", "kanjiinfo", "kanjidetails"), formatted_kanji)
 
         image_keys = IMAGE_FIELD_KEYWORDS
         img_assigned = assign(image_keys, formatted_img)

@@ -108,6 +108,11 @@ The core mining pipeline is functional. Current work is focused on polishing, re
   - [x] Step 3: Persistence & Draft Synthesis — SQLite `meanings_json` serialization supporting both legacy arrays and `{ "entries": [...], "kanji_entries": [...] }` without SQLite schema migration.
   - [x] Step 4: Frontend Side Panel UI — Dedicated `.study-kanji-card` with interactive Onyomi (`.pill-onyomi`) and Kunyomi (`.pill-kunyomi`) click-to-set reading pills, quick-insert meanings, stats badges, and progressive disclosure `<details class="study-kanji-accordion">` for multi-kanji vocabulary terms.
   - [x] Step 5: Full verification — 241/241 backend pytest tests passing, 32/32 extension test suites passing.
+- [x] Stage 3B.6: Anki Card & Preview Rich Kanji Sync + JLPT Historical Fix
+  - [x] Step 1: Backend `AnkiFormatter` kanji enrichment (`format_kanji_html`, `format_kunyomi`, scoped `.kn-kanji-card` CSS, isolated vs compound card layouts, dictionary attribution).
+  - [x] Step 2: Side Panel Live Card Preview kanji alignment (`renderPreviewKanjiCard` DOM renderer, `.kn-card .kn-kanji-card` styles, full semantic parity with Anki output).
+  - [x] Step 3: JLPT historical classification fix: disambiguated pre-2010 4-level scale (`Old JLPT 1–4`) from modern post-2010 scale (`JLPT N1–N5`), preventing misleading badge presentation without speculative level conversion.
+  - [x] Step 4: Full verification across AnkiConnect payload mappings, custom models, and Side Panel preview (246/246 backend pytest tests passing, 32/32 extension test suites passing).
 
 
 ### Stage 4 — Frontend
@@ -118,6 +123,14 @@ The core mining pipeline is functional. Current work is focused on polishing, re
 - [x] Improve card editor (token-based inputs, high-contrast focus rings, refined media previews)
 - [x] Improve responsive behavior (320px, 400px, 600px width support)
 - [x] Preserve existing extension behavior and DOM contracts (100% test compatibility)
+- [x] Stage 4.1: Card Editor + Preview UX Consolidation & Centered Composition
+  - [x] Unified Card Workspace: established live `.kn-card` preview as single visual source of truth.
+  - [x] Removed redundant standalone hero display (`#captured-word-section` hidden while preserving all DOM bindings).
+  - [x] Streamlined 2-column Japanese input row for Expression & Reading (`.form-row-compact`).
+  - [x] Compact 2-column Media Preview grid (`.media-preview-container`) maintaining thumbnail, audio replay, status badge, and clear actions without vertical bloat.
+  - [x] Centered panel container layout (`max-width: 560px; margin: 0 auto; width: 100%;`).
+  - [x] Retained Dictionary & Reference section below as secondary exploration dock with click-to-fill reading pills and insert buttons.
+  - [x] Full test verification: 32/32 extension test suites passing, 246/246 backend pytest tests passing.
 
 ### Stage 5 — Anki Cards
 
@@ -342,12 +355,30 @@ New major features should generally be deferred unless they are necessary for th
 
 ---
 
-## Recent Fixes
-
-### Windowed Mode Subtitle Overlay Fix
-- **Issue Fixed:** Subtitles loaded while the player was in windowed mode (non-fullscreen on HiAnime / iframe players) were not immediately visible until entering fullscreen and reloading subs.
-- **Root Cause:** `getTargetContainer()` fell back to `document.body` in windowed mode with `position: fixed`, which caused the overlay to render outside or behind player-specific stacking contexts / iframe boundaries.
-- **Solution:** Updated `getTargetContainer()` in `extension/content/video-mining-poc.js` to attach directly to the player wrapper (`.jwplayer, #player, .video-js, [class*='player'], etc.` or `video.parentElement`) in both windowed and fullscreen modes. Added `play`, `canplay`, `loadeddata`, and `seeked` listeners, and immediately triggered `ensureMounted()` and `updatePosition()` upon cue loading.
+### Customizable Card Layout & Section Reordering
+- **Feature Delivered:** Modular Layout Settings system allowing users to customize the vertical order of the 6 card workspace sections (`preview`, `fields`, `media`, `settings`, `optional`, `dictionary`) via drag-and-drop or accessible Move Up / Move Down buttons.
+- **Key Architectural Decisions:**
+  - Sections grouped inside `#card-layout-container` with stable `data-layout-section="id"` attributes.
+  - DOM element reparenting preserves form inputs, values, active audio playback, and event bindings without destruction or re-initialization.
+  - Storage persistence via `chrome.storage.local` with fallback to `localStorage` under `kiroku.layout.cardSectionOrder`.
+  - Robust migration & validation via `resolveValidSectionOrder`: strips unknown/corrupted IDs, deduplicates, and restores missing canonical sections.
+  - Accessible keyboard & screen-reader friendly controls (Move Up / Move Down buttons with dynamic disabling and ARIA feedback, Escape key handling, click outside popover dismiss).
+  - Immediate Reset to Default button restoring canonical layout.
 - **Verification:**
-  - 31/31 extension tests passed (`node --test extension/tests/*.test.js`).
-  - 236/236 backend pytest tests passed (`python -m pytest -o pythonpath=backend backend/tests`).
+  - 33/33 extension tests passed (`node --test extension/tests/*.test.js`).
+  - 246/246 backend pytest tests passed (`python -m pytest -o pythonpath=backend backend/tests`).
+
+### Anki Sync All & Per-Deck Duplicate Handling
+- **Feature Delivered:**
+  - **Deck-Scoped Duplicate Invariant:** Uniqueness identity is enforced as `(normalized expression + normalized reading + normalized deck)`. Cards with identical expressions and readings across different decks (`Anime Mining` vs `Japanese N3`) are saved and synced as distinct cards without collision. Same-deck cards correctly identify duplicates.
+  - **Explicit Sync All Action:** Added a dedicated `Sync All` button and live status container in the History / Card Library header.
+  - **Resilient Batch Sync Engine:** Syncs all eligible `pending` and retryable `failed` cards sequentially. Individual card failures do not abort the batch; diagnostic error states are retained for later retries; already-synced cards are skipped to prevent duplicate notes.
+- **Key Architectural Decisions:**
+  - Preserved SQLite-first persistence: cards are stored locally in SQLite and only pushed to Anki on explicit user triggers (`Send to Anki` or `Sync All`).
+  - Frontend `identify()` now passes the currently active deck to `POST /api/capture` to ensure duplicate checks evaluate against the selected deck.
+  - Added `POST /api/cards/sync-all` and alias `POST /api/anki/sync-all` returning `SyncAllResponse` with structured summary statistics and itemized results.
+  - Designed accessible Side Panel UI with `:focus-visible` high-contrast rings, busy state during sync, live `aria-live="polite"` feedback, and automatic history refreshes.
+- **Verification:**
+  - 262/262 backend pytest tests passed (`python -m pytest -o pythonpath=backend backend/tests`).
+  - 34/34 extension test suites passed (`node --test extension/tests/*.test.js`).
+

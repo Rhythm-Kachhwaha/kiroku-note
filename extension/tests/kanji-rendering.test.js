@@ -287,7 +287,18 @@ console.log("PASS: sidepanel.js loaded in test context.");
 
   const statBadges = findAllByClass(card, "kanji-stat-badge");
   assert.ok(statBadges.some(b => b.textContent.includes("6 strokes")), "Strokes stat rendered");
-  assert.ok(statBadges.some(b => b.textContent.includes("JLPT N4")), "JLPT stat rendered");
+  assert.ok(statBadges.some(b => b.textContent.includes("JLPT N4")), "Modern JLPT stat rendered from tags");
+
+  // Verify historical KANJIDIC level 4 renders as 'Old JLPT 4' when modern tags absent
+  const oldKanjiSample = {
+    character: "合",
+    dictionary: "KANJIDIC",
+    stats: { strokes: "6", jlpt: "4" },
+  };
+  const oldCard = renderKanjiCard(oldKanjiSample, false);
+  const oldBadges = findAllByClass(oldCard, "kanji-stat-badge");
+  assert.ok(oldBadges.some(b => b.textContent === "Old JLPT 4"), "Historical KANJIDIC level 4 must be rendered as Old JLPT 4");
+  assert.ok(!oldBadges.some(b => b.textContent === "JLPT N4"), "Must NOT render old JLPT 4 as modern JLPT N4");
 
   // Test reading pill click
   const readingField = mockElements["#field-reading"];

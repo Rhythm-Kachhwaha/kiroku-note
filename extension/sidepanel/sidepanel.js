@@ -4,6 +4,7 @@ const API_ANKI_STATUS_URL = "http://127.0.0.1:8000/api/anki/status";
 const API_ANKI_DECKS_URL = "http://127.0.0.1:8000/api/anki/decks";
 const API_ANKI_MODELS_URL = "http://127.0.0.1:8000/api/anki/models";
 const API_CARD_SYNC_URL = (id) => `http://127.0.0.1:8000/api/cards/${id}/sync`;
+const API_CARD_SYNC_ALL_URL = "http://127.0.0.1:8000/api/cards/sync-all";
 const API_CARDS_URL = "http://127.0.0.1:8000/api/cards";
 const API_CARD_DETAIL_URL = (id) => `http://127.0.0.1:8000/api/cards/${id}`;
 
@@ -78,6 +79,36 @@ const audioStatusBadge = document.querySelector("#audio-status-badge");
 const btnReplayAudio = document.querySelector("#btn-replay-audio");
 const btnClearAudio = document.querySelector("#btn-clear-audio");
 
+// Layout Settings & Reordering elements
+const STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER = "kiroku.layout.cardSectionOrder";
+const DEFAULT_CARD_SECTION_ORDER = [
+  "preview",
+  "fields",
+  "media",
+  "settings",
+  "optional",
+  "dictionary"
+];
+
+const SECTION_METADATA = {
+  preview: { id: "preview", name: "Card Preview" },
+  fields: { id: "fields", name: "Card Fields" },
+  media: { id: "media", name: "Media" },
+  settings: { id: "settings", name: "Card Settings" },
+  optional: { id: "optional", name: "Optional Fields" },
+  dictionary: { id: "dictionary", name: "Dictionary" }
+};
+
+const cardLayoutContainer = document.querySelector("#card-layout-container");
+const btnLayoutSettings = document.querySelector("#btn-layout-settings");
+const layoutSettingsPopover = document.querySelector("#layout-settings-popover");
+const btnCloseLayoutSettings = document.querySelector("#btn-close-layout-settings");
+const layoutSectionsList = document.querySelector("#layout-sections-list");
+const btnResetLayout = document.querySelector("#btn-reset-layout");
+
+let currentCardSectionOrder = [...DEFAULT_CARD_SECTION_ORDER];
+let draggedSectionIndex = null;
+
 // History & Card Library elements
 const historySection = document.querySelector("#history-section");
 const historyCount = document.querySelector("#history-count");
@@ -87,6 +118,10 @@ const historySyncFilter = document.querySelector("#history-sync-filter");
 const historyListContainer = document.querySelector("#history-list-container");
 const historyEmpty = document.querySelector("#history-empty");
 const historyCardsList = document.querySelector("#history-cards-list");
+const btnSyncAll = document.querySelector("#btn-sync-all");
+const syncAllStatus = document.querySelector("#sync-all-status");
+
+
 
 // Navigation tab elements
 const tabBtnText = document.querySelector("#tab-btn-text");
@@ -417,6 +452,18 @@ if (fieldReading) {
 var currentPreviewSide = "back"; // "front" | "back"
 var previewUpdateTimer = null;
 
+function formatKunyomi(kunStr) {
+  if (!kunStr) return "";
+  const s = String(kunStr).trim();
+  if (s.includes(".")) {
+    const parts = s.split(".");
+    if (parts.length === 2) {
+      return `${parts[0]}(${parts[1]})`;
+    }
+  }
+  return s;
+}
+
 function formatPitchBadge(pitch) {
   if (!pitch || typeof pitch.position !== "number") return "";
   const circle = typeof getPitchCircleNumber === "function" ? getPitchCircleNumber(pitch.position) : `[${pitch.position}]`;
@@ -492,8 +539,151 @@ function getCardPreviewData() {
     image: resolvedImage,
     audio: resolvedAudio,
     pitch_badge: pitchBadge,
-    entries: currentDictionaryEntries || [],
+    entries: (typeof currentDictionaryEntries !== "undefined" && Array.isArray(currentDictionaryEntries)) ? currentDictionaryEntries : [],
+    kanji_entries: (typeof currentKanjiEntries !== "undefined" && Array.isArray(currentKanjiEntries)) ? currentKanjiEntries : [],
   };
+}
+
+function renderPreviewKanjiCard(k, isIsolated = false) {
+  const card = document.createElement("div");
+  card.className = "kn-kanji-card";
+
+  // Header
+  const header = document.createElement("div");
+  header.className = "kn-kanji-header";
+
+  if (k.character) {
+    const charSpan = document.createElement("span");
+    charSpan.className = "kn-kanji-char";
+    charSpan.textContent = k.character;
+    header.append(charSpan);
+  }
+
+  if (k.dictionary) {
+    const dictSpan = document.createElement("span");
+    dictSpan.className = "kn-tag";
+    dictSpan.textContent = k.dictionary;
+    header.append(dictSpan);
+  }
+
+  if (k.stats) {
+    if (k.stats.strokes) {
+      const sSpan = document.createElement("span");
+      sSpan.className = "kn-tag";
+      sSpan.textContent = `${k.stats.strokes} strokes`;
+      header.append(sSpan);
+    }
+    if (k.stats.grade) {
+      const gSpan = document.createElement("span");
+      gSpan.className = "kn-tag";
+      gSpan.textContent = `Grade ${k.stats.grade}`;
+      header.append(gSpan);
+    }
+
+    // JLPT check
+    let modernJlpt = null;
+    if (Array.isArray(k.tags)) {
+      for (const tag of k.tags) {
+        const m = String(tag).trim().match(/^jlpt-n([1-5])$/i) || String(tag).trim().match(/^n([1-5])$/i);
+        if (m) {
+          modernJlpt = `N${m[1]}`;
+          break;
+        }
+      }
+    }
+
+    if (modernJlpt) {
+      const jSpan = document.createElement("span");
+      jSpan.className = "kn-tag kn-jlpt";
+      jSpan.textContent = `JLPT ${modernJlpt}`;
+      header.append(jSpan);
+    } else if (k.stats.jlpt) {
+      const rawJlpt = String(k.stats.jlpt).trim();
+      const jSpan = document.createElement("span");
+      if (rawJlpt.toUpperCase().startsWith("N")) {
+        jSpan.className = "kn-tag kn-jlpt";
+        jSpan.textContent = `JLPT ${rawJlpt.toUpperCase()}`;
+        header.append(jSpan);
+      } else if (/^[1-4]$/.test(rawJlpt)) {
+        jSpan.className = "kn-tag";
+        jSpan.textContent = `Old JLPT ${rawJlpt}`;
+        header.append(jSpan);
+      }
+    }
+
+    if (k.stats.freq) {
+      const fSpan = document.createElement("span");
+      fSpan.className = "kn-tag";
+      fSpan.textContent = `Freq #${k.stats.freq}`;
+      header.append(fSpan);
+    }
+  }
+  card.append(header);
+
+  // Readings
+  const onyomi = Array.isArray(k.onyomi) ? k.onyomi.filter(Boolean) : [];
+  const kunyomi = Array.isArray(k.kunyomi) ? k.kunyomi.filter(Boolean) : [];
+  const nanori = Array.isArray(k.nanori) ? k.nanori.filter(Boolean) : [];
+
+  if (onyomi.length || kunyomi.length || nanori.length) {
+    const readingsDiv = document.createElement("div");
+    readingsDiv.className = "kn-kanji-readings";
+
+    if (onyomi.length) {
+      const row = document.createElement("div");
+      row.className = "kn-kanji-reading-row";
+      const lbl = document.createElement("span");
+      lbl.className = "kn-reading-lbl";
+      lbl.textContent = "Onyomi";
+      row.append(lbl);
+      const val = document.createElement("span");
+      val.className = "kn-onyomi";
+      val.textContent = onyomi.join(", ");
+      row.append(val);
+      readingsDiv.append(row);
+    }
+
+    if (kunyomi.length) {
+      const row = document.createElement("div");
+      row.className = "kn-kanji-reading-row";
+      const lbl = document.createElement("span");
+      lbl.className = "kn-reading-lbl";
+      lbl.textContent = "Kunyomi";
+      row.append(lbl);
+      const val = document.createElement("span");
+      val.className = "kn-kunyomi";
+      val.textContent = kunyomi.map(formatKunyomi).join(", ");
+      row.append(val);
+      readingsDiv.append(row);
+    }
+
+    if (nanori.length) {
+      const row = document.createElement("div");
+      row.className = "kn-kanji-reading-row";
+      const lbl = document.createElement("span");
+      lbl.className = "kn-reading-lbl";
+      lbl.textContent = "Nanori";
+      row.append(lbl);
+      const val = document.createElement("span");
+      val.className = "kn-nanori";
+      val.textContent = nanori.join(", ");
+      row.append(val);
+      readingsDiv.append(row);
+    }
+
+    card.append(readingsDiv);
+  }
+
+  // Meanings
+  const meanings = Array.isArray(k.meanings) ? k.meanings.filter(Boolean) : [];
+  if (meanings.length) {
+    const meanDiv = document.createElement("div");
+    meanDiv.className = "kn-kanji-meanings";
+    meanDiv.textContent = meanings.join(", ");
+    card.append(meanDiv);
+  }
+
+  return card;
 }
 
 function renderPreviewMeanings(container, data) {
@@ -596,7 +786,8 @@ function renderCardPreviewDOM(container, data, side = "back") {
 
   const hasContent = Boolean(
     data.expression || data.reading || data.meaning || data.example_sentence ||
-    data.example_translation || data.image || data.audio || data.hint || data.notes
+    data.example_translation || data.image || data.audio || data.hint || data.notes ||
+    (Array.isArray(data.kanji_entries) && data.kanji_entries.length > 0)
   );
 
   if (!hasContent) {
@@ -656,8 +847,27 @@ function renderCardPreviewDOM(container, data, side = "back") {
     container.append(divider);
   }
 
-  // 2. Meanings
-  renderPreviewMeanings(container, data);
+  // 2. Meanings & Kanji section
+  const kanjiEntries = Array.isArray(data.kanji_entries) ? data.kanji_entries : [];
+  const isSingleKanji = kanjiEntries.length > 0 && (data.expression || "").trim().length === 1;
+
+  if (isSingleKanji) {
+    kanjiEntries.forEach(k => {
+      container.append(renderPreviewKanjiCard(k, true));
+    });
+    if (Array.isArray(data.entries) && data.entries.length) {
+      renderPreviewMeanings(container, data);
+    } else if (!kanjiEntries.length && data.meaning) {
+      renderPreviewMeanings(container, data);
+    }
+  } else {
+    renderPreviewMeanings(container, data);
+    if (kanjiEntries.length) {
+      kanjiEntries.forEach(k => {
+        container.append(renderPreviewKanjiCard(k, false));
+      });
+    }
+  }
 
   // 3. Example Block
   if (data.example_sentence || data.example_translation) {
@@ -1247,18 +1457,6 @@ function renderStudySenseItem(sense, sIdx, entry, totalSensesCount) {
   return li;
 }
 
-function formatKunyomi(kunStr) {
-  if (!kunStr) return "";
-  const s = String(kunStr).trim();
-  if (s.includes(".")) {
-    const parts = s.split(".");
-    if (parts.length === 2) {
-      return `${parts[0]}(${parts[1]})`;
-    }
-  }
-  return s;
-}
-
 function cleanReadingForInput(readingStr) {
   if (!readingStr) return "";
   return String(readingStr).replace(/[\.\-\(\)]/g, "").trim();
@@ -1296,12 +1494,37 @@ function renderKanjiCard(kanji, isProminent = false) {
       gradePill.textContent = `Grade ${kanji.stats.grade}`;
       header.append(gradePill);
     }
-    if (kanji.stats.jlpt) {
+    // JLPT check: check tags for modern jlpt-n*, else check stats
+    let modernJlpt = null;
+    if (Array.isArray(kanji.tags)) {
+      for (const tag of kanji.tags) {
+        const m = String(tag).trim().match(/^jlpt-n([1-5])$/i) || String(tag).trim().match(/^n([1-5])$/i);
+        if (m) {
+          modernJlpt = `N${m[1]}`;
+          break;
+        }
+      }
+    }
+
+    if (modernJlpt) {
       const jlptPill = document.createElement("span");
       jlptPill.className = "badge jlpt-badge pill-jlpt kanji-stat-badge badge-jlpt";
-      const rawJlpt = String(kanji.stats.jlpt).trim();
-      jlptPill.textContent = rawJlpt.toUpperCase().startsWith("N") ? `JLPT ${rawJlpt.toUpperCase()}` : `JLPT N${rawJlpt}`;
+      jlptPill.textContent = `JLPT ${modernJlpt}`;
+      jlptPill.title = `Modern post-2010 JLPT Level ${modernJlpt}`;
       header.append(jlptPill);
+    } else if (kanji.stats.jlpt) {
+      const rawJlpt = String(kanji.stats.jlpt).trim();
+      const jlptPill = document.createElement("span");
+      jlptPill.className = "badge jlpt-badge pill-jlpt kanji-stat-badge";
+      if (rawJlpt.toUpperCase().startsWith("N")) {
+        jlptPill.classList.add("badge-jlpt");
+        jlptPill.textContent = `JLPT ${rawJlpt.toUpperCase()}`;
+        header.append(jlptPill);
+      } else if (/^[1-4]$/.test(rawJlpt)) {
+        jlptPill.textContent = `Old JLPT ${rawJlpt}`;
+        jlptPill.title = `Historical pre-2010 4-level classification from KANJIDIC (Level ${rawJlpt})`;
+        header.append(jlptPill);
+      }
     }
     if (kanji.stats.freq) {
       const freqPill = document.createElement("span");
@@ -1769,11 +1992,13 @@ async function identify(text) {
   if (dictLoadingIndicator) dictLoadingIndicator.hidden = false;
   clearAllMedia();
 
+  const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
+
   try {
     const response = await fetch(API_CAPTURE_URL, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({text: capturedText, auto_save: false}),
+      body: JSON.stringify({text: capturedText, auto_save: false, deck_name: targetDeck}),
     });
     const body = await response.json().catch(() => ({}));
     if (requestId !== currentCaptureId) return;
@@ -2302,6 +2527,99 @@ if (ankiSyncStatus) {
     }
   });
 }
+
+// Sync All action for eligible unsynced/retryable cards
+let isSyncAllRunning = false;
+
+async function triggerSyncAll() {
+  if (isSyncAllRunning) return;
+  isSyncAllRunning = true;
+
+  if (btnSyncAll) {
+    btnSyncAll.disabled = true;
+    btnSyncAll.classList.add("syncing");
+    btnSyncAll.textContent = "Syncing…";
+  }
+  if (syncAllStatus) {
+    syncAllStatus.hidden = false;
+    syncAllStatus.className = "sync-all-status";
+    syncAllStatus.textContent = "Checking Anki & syncing cards…";
+  }
+
+  try {
+    const response = await fetch(API_CARD_SYNC_ALL_URL, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+    });
+    const body = await response.json().catch(() => ({}));
+
+    if (!response.ok || body.error) {
+      const errMsg = body.error || body.detail || "Sync All failed";
+      if (syncAllStatus) {
+        syncAllStatus.hidden = false;
+        syncAllStatus.className = "sync-all-status failed";
+        syncAllStatus.textContent = `⚠ ${errMsg}`;
+      }
+      setStatus(`Sync All failed: ${errMsg}`, true);
+      await loadHistory().catch(() => {});
+      return;
+    }
+
+    const { total_eligible = 0, synced_count = 0, failed_count = 0 } = body;
+    if (total_eligible === 0) {
+      if (syncAllStatus) {
+        syncAllStatus.hidden = false;
+        syncAllStatus.className = "sync-all-status";
+        syncAllStatus.textContent = "No cards to sync (all up to date).";
+      }
+      setStatus("No eligible cards to sync.");
+    } else if (failed_count === 0) {
+      if (syncAllStatus) {
+        syncAllStatus.hidden = false;
+        syncAllStatus.className = "sync-all-status success";
+        syncAllStatus.textContent = `✓ ${synced_count} card${synced_count === 1 ? "" : "s"} synced to Anki`;
+      }
+      setStatus(`Sync All complete: ${synced_count} card${synced_count === 1 ? "" : "s"} synced.`);
+    } else if (synced_count > 0) {
+      if (syncAllStatus) {
+        syncAllStatus.hidden = false;
+        syncAllStatus.className = "sync-all-status partial";
+        syncAllStatus.textContent = `✓ ${synced_count} synced, ⚠ ${failed_count} failed`;
+      }
+      setStatus(`Sync All: ${synced_count} synced, ${failed_count} failed.`, true);
+    } else {
+      if (syncAllStatus) {
+        syncAllStatus.hidden = false;
+        syncAllStatus.className = "sync-all-status failed";
+        syncAllStatus.textContent = `⚠ All ${failed_count} cards failed to sync`;
+      }
+      setStatus(`Sync All failed: ${failed_count} cards failed.`, true);
+    }
+
+    await loadHistory().catch(() => {});
+  } catch (error) {
+    const msg = formatErrorMessage(error);
+    if (syncAllStatus) {
+      syncAllStatus.hidden = false;
+      syncAllStatus.className = "sync-all-status failed";
+      syncAllStatus.textContent = `⚠ Sync All failed: ${msg}`;
+    }
+    setStatus(`Sync All failed: ${msg}`, true);
+    await loadHistory().catch(() => {});
+  } finally {
+    isSyncAllRunning = false;
+    if (btnSyncAll) {
+      btnSyncAll.disabled = false;
+      btnSyncAll.classList.remove("syncing");
+      btnSyncAll.textContent = "Sync All";
+    }
+  }
+}
+
+if (btnSyncAll) {
+  btnSyncAll.addEventListener("click", triggerSyncAll);
+}
+
 
 // Keyboard shortcuts
 document.addEventListener("keydown", event => {
@@ -3292,13 +3610,290 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
   });
 }
 
+/* ==========================================================================
+   Layout Settings & Customizable Card Section Reordering
+   ========================================================================== */
+
+function resolveValidSectionOrder(savedOrder) {
+  if (!Array.isArray(savedOrder)) {
+    return [...DEFAULT_CARD_SECTION_ORDER];
+  }
+  const validIds = new Set(DEFAULT_CARD_SECTION_ORDER);
+  const seen = new Set();
+  const result = [];
+
+  for (const id of savedOrder) {
+    if (typeof id === "string" && validIds.has(id) && !seen.has(id)) {
+      seen.add(id);
+      result.push(id);
+    }
+  }
+
+  // Append any missing known sections in default canonical order
+  for (const defId of DEFAULT_CARD_SECTION_ORDER) {
+    if (!seen.has(defId)) {
+      seen.add(defId);
+      result.push(defId);
+    }
+  }
+
+  return result;
+}
+
+function getCurrentSectionOrder() {
+  return [...currentCardSectionOrder];
+}
+
+
+async function loadStoredSectionOrder() {
+  try {
+    let stored = null;
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const res = await chrome.storage.local.get(STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER);
+      stored = res?.[STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER];
+    } else if (typeof localStorage !== "undefined") {
+      const item = localStorage.getItem(STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER);
+      if (item) {
+        try {
+          stored = JSON.parse(item);
+        } catch (_) {}
+      }
+    }
+    const resolved = resolveValidSectionOrder(stored);
+    currentCardSectionOrder = resolved;
+    return resolved;
+  } catch (_) {
+    currentCardSectionOrder = [...DEFAULT_CARD_SECTION_ORDER];
+    return currentCardSectionOrder;
+  }
+}
+
+async function saveStoredSectionOrder(order) {
+  const validated = resolveValidSectionOrder(order);
+  currentCardSectionOrder = validated;
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      await chrome.storage.local.set({ [STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER]: validated });
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER, JSON.stringify(validated));
+    }
+  } catch (_) {}
+  return validated;
+}
+
+function applySectionOrder(order) {
+  const validated = resolveValidSectionOrder(order);
+  currentCardSectionOrder = validated;
+  if (!cardLayoutContainer) return validated;
+
+  for (const sectionId of validated) {
+    const sectionEl = cardLayoutContainer.querySelector(`[data-layout-section="${sectionId}"]`);
+    if (sectionEl) {
+      cardLayoutContainer.appendChild(sectionEl);
+    }
+  }
+  return validated;
+}
+
+function moveSectionByDelta(fromIndex, delta) {
+  const toIndex = fromIndex + delta;
+  if (toIndex < 0 || toIndex >= currentCardSectionOrder.length) return;
+
+  const newOrder = [...currentCardSectionOrder];
+  const [moved] = newOrder.splice(fromIndex, 1);
+  newOrder.splice(toIndex, 0, moved);
+
+  applySectionOrder(newOrder);
+  saveStoredSectionOrder(newOrder);
+  renderLayoutSettingsList(newOrder);
+}
+
+function renderLayoutSettingsList(order = currentCardSectionOrder) {
+  if (!layoutSectionsList) return;
+  layoutSectionsList.replaceChildren();
+
+  order.forEach((sectionId, index) => {
+    const meta = SECTION_METADATA[sectionId] || { id: sectionId, name: sectionId };
+    const item = document.createElement("div");
+    item.className = "layout-section-item";
+    item.draggable = true;
+    item.setAttribute("data-section-id", sectionId);
+    item.setAttribute("data-index", String(index));
+    item.setAttribute("role", "listitem");
+
+    // Handle and section label
+    const handleWrap = document.createElement("div");
+    handleWrap.className = "layout-section-handle-wrap";
+
+    const handleIcon = document.createElement("span");
+    handleIcon.className = "layout-drag-handle";
+    handleIcon.setAttribute("aria-hidden", "true");
+    handleIcon.textContent = "☰";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "layout-section-name";
+    nameSpan.textContent = meta.name;
+
+    handleWrap.appendChild(handleIcon);
+    handleWrap.appendChild(nameSpan);
+
+    // Actions (Move Up / Move Down)
+    const actionsWrap = document.createElement("div");
+    actionsWrap.className = "layout-section-actions";
+
+    const upBtn = document.createElement("button");
+    upBtn.type = "button";
+    upBtn.className = "btn-move-section btn-move-up";
+    upBtn.textContent = "↑";
+    upBtn.title = `Move ${meta.name} up`;
+    upBtn.setAttribute("aria-label", `Move ${meta.name} up`);
+    if (index === 0) upBtn.disabled = true;
+    upBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      moveSectionByDelta(index, -1);
+    });
+
+    const downBtn = document.createElement("button");
+    downBtn.type = "button";
+    downBtn.className = "btn-move-section btn-move-down";
+    downBtn.textContent = "↓";
+    downBtn.title = `Move ${meta.name} down`;
+    downBtn.setAttribute("aria-label", `Move ${meta.name} down`);
+    if (index === order.length - 1) downBtn.disabled = true;
+    downBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      moveSectionByDelta(index, 1);
+    });
+
+    actionsWrap.appendChild(upBtn);
+    actionsWrap.appendChild(downBtn);
+
+    item.appendChild(handleWrap);
+    item.appendChild(actionsWrap);
+
+    // Drag-and-drop event handlers
+    item.addEventListener("dragstart", (e) => {
+      draggedSectionIndex = index;
+      item.classList.add("dragging");
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", sectionId);
+      }
+    });
+
+    item.addEventListener("dragend", () => {
+      draggedSectionIndex = null;
+      if (layoutSectionsList) {
+        layoutSectionsList.querySelectorAll(".layout-section-item").forEach(el => {
+          el.classList.remove("dragging", "drag-over");
+        });
+      }
+    });
+
+    item.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+      item.classList.add("drag-over");
+    });
+
+    item.addEventListener("dragleave", () => {
+      item.classList.remove("drag-over");
+    });
+
+    item.addEventListener("drop", (e) => {
+      e.preventDefault();
+      item.classList.remove("drag-over");
+      if (draggedSectionIndex === null || draggedSectionIndex === index) return;
+
+      const newOrder = [...currentCardSectionOrder];
+      const [moved] = newOrder.splice(draggedSectionIndex, 1);
+      newOrder.splice(index, 0, moved);
+      draggedSectionIndex = null;
+
+      applySectionOrder(newOrder);
+      saveStoredSectionOrder(newOrder);
+      renderLayoutSettingsList(newOrder);
+    });
+
+    layoutSectionsList.appendChild(item);
+  });
+}
+
+function openLayoutSettings() {
+  if (!layoutSettingsPopover) return;
+  layoutSettingsPopover.hidden = false;
+  if (btnLayoutSettings) {
+    btnLayoutSettings.setAttribute("aria-expanded", "true");
+    btnLayoutSettings.classList.add("active");
+  }
+  renderLayoutSettingsList(currentCardSectionOrder);
+}
+
+function closeLayoutSettings() {
+  if (!layoutSettingsPopover) return;
+  layoutSettingsPopover.hidden = true;
+  if (btnLayoutSettings) {
+    btnLayoutSettings.setAttribute("aria-expanded", "false");
+    btnLayoutSettings.classList.remove("active");
+    btnLayoutSettings.focus();
+  }
+}
+
+async function resetLayoutSettings() {
+  const defaultOrder = [...DEFAULT_CARD_SECTION_ORDER];
+  applySectionOrder(defaultOrder);
+  await saveStoredSectionOrder(defaultOrder);
+  renderLayoutSettingsList(defaultOrder);
+}
+
+if (btnLayoutSettings) {
+  btnLayoutSettings.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (layoutSettingsPopover && !layoutSettingsPopover.hidden) {
+      closeLayoutSettings();
+    } else {
+      openLayoutSettings();
+    }
+  });
+}
+
+if (btnCloseLayoutSettings) {
+  btnCloseLayoutSettings.addEventListener("click", () => {
+    closeLayoutSettings();
+  });
+}
+
+if (btnResetLayout) {
+  btnResetLayout.addEventListener("click", () => {
+    resetLayoutSettings();
+  });
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && layoutSettingsPopover && !layoutSettingsPopover.hidden) {
+    closeLayoutSettings();
+  }
+});
+
+document.addEventListener("click", (e) => {
+  if (!layoutSettingsPopover || layoutSettingsPopover.hidden) return;
+  if (!layoutSettingsPopover.contains(e.target) && btnLayoutSettings && !btnLayoutSettings.contains(e.target)) {
+    closeLayoutSettings();
+  }
+});
+
 if (btnDismissFirstRun) {
   btnDismissFirstRun.addEventListener("click", () => dismissFirstRunGuide());
 }
 
 loadAutoCapturePreferences();
+loadStoredSectionOrder().then(order => {
+  applySectionOrder(order);
+}).catch(() => {});
 if (typeof updateCardPreview === "function") updateCardPreview();
 
 chrome.runtime.sendMessage({type: "GET_MINING_MODE"}).then(res => {
   if (res?.enabled) updateMiningUI(true);
 }).catch(() => {});
+

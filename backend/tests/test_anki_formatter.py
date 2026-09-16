@@ -420,6 +420,138 @@ class TestAnkiFormatter(unittest.TestCase):
         self.assertIn('<img src="kakeru.jpg" class="kn-image">', back_html)
         self.assertIn('[sound:kakeru.mp3]', back_html)
 
+    # 16. Kunyomi okurigana formatting
+    def test_16_format_kunyomi_okurigana(self):
+        from app.services.anki_formatter import format_kunyomi
+        self.assertEqual(format_kunyomi("あ.う"), "あ(う)")
+        self.assertEqual(format_kunyomi("-あ.わせる"), "-あ(わせる)")
+        self.assertEqual(format_kunyomi("あう"), "あう")
+        self.assertEqual(format_kunyomi(""), "")
+
+    # 17. Format kanji HTML with readings, stats, and dictionary attribution
+    def test_17_format_kanji_html_isolated_and_stats(self):
+        from app.services.anki_formatter import format_kanji_html
+        kanji_data = [
+            {
+                "character": "合",
+                "dictionary": "KANJIDIC",
+                "onyomi": ["ゴウ", "ガッ", "カッ"],
+                "kunyomi": ["あ.う", "あ.わせる"],
+                "nanori": ["あい"],
+                "meanings": ["fit", "suit", "join"],
+                "stats": {"strokes": "6", "grade": "2", "freq": "41"},
+            }
+        ]
+        html_out = format_kanji_html(kanji_data)
+        self.assertIn('<div class="kn-kanji-card">', html_out)
+        self.assertIn('<span class="kn-kanji-char">合</span>', html_out)
+        self.assertIn('<span class="kn-tag">KANJIDIC</span>', html_out)
+        self.assertIn('<span class="kn-tag">6 strokes</span>', html_out)
+        self.assertIn('<span class="kn-tag">Grade 2</span>', html_out)
+        self.assertIn('<span class="kn-tag">Freq #41</span>', html_out)
+        self.assertIn('<span class="kn-onyomi">ゴウ, ガッ, カッ</span>', html_out)
+        self.assertIn('<span class="kn-kunyomi">あ(う), あ(わせる)</span>', html_out)
+        self.assertIn('<span class="kn-nanori">あい</span>', html_out)
+        self.assertIn('<div class="kn-kanji-meanings">fit, suit, join</div>', html_out)
+
+    # 18. JLPT: Historical KANJIDIC level vs Modern JLPT tags
+    def test_18_jlpt_historical_vs_modern(self):
+        from app.services.anki_formatter import format_kanji_html
+        # Case A: Old KANJIDIC numeric 1-4 scale
+        old_jlpt_data = [
+            {
+                "character": "合",
+                "dictionary": "KANJIDIC",
+                "stats": {"jlpt": "4"},
+                "tags": [],
+            }
+        ]
+        old_out = format_kanji_html(old_jlpt_data)
+        self.assertIn('<span class="kn-tag">Old JLPT 4</span>', old_out)
+        self.assertNotIn("JLPT N4", old_out)
+
+        # Case B: Modern JLPT tag
+        modern_jlpt_data = [
+            {
+                "character": "食",
+                "dictionary": "KANJIDIC",
+                "stats": {"jlpt": "4"},
+                "tags": ["jlpt-n5"],
+            }
+        ]
+        modern_out = format_kanji_html(modern_jlpt_data)
+        self.assertIn('<span class="kn-tag kn-jlpt">JLPT N5</span>', modern_out)
+        self.assertNotIn("Old JLPT", modern_out)
+
+    # 19. format_basic_back for isolated kanji card
+    def test_19_format_basic_back_isolated_kanji(self):
+        card = {
+            "expression": "合",
+            "reading": "ごう",
+            "meaning": "fit, suit",
+        }
+        kanji_entries = [
+            {
+                "character": "合",
+                "dictionary": "KANJIDIC",
+                "onyomi": ["ゴウ", "ガッ", "カッ"],
+                "kunyomi": ["あ.う", "あ.わせる"],
+                "meanings": ["fit", "suit", "join"],
+                "stats": {"strokes": "6", "jlpt": "4"},
+            }
+        ]
+        term_entries = [
+            {
+                "dictionary": "Jitendex",
+                "senses": [
+                    {"index": 1, "glosses": ["0.18 liters"], "parts_of_speech": ["n"]},
+                ],
+            }
+        ]
+        back_html = format_basic_back(card, entries=term_entries, kanji_entries=kanji_entries)
+        # Prominent kanji card appears
+        self.assertIn('<div class="kn-kanji-card">', back_html)
+        self.assertIn('<span class="kn-kanji-char">合</span>', back_html)
+        self.assertIn('<span class="kn-onyomi">ゴウ, ガッ, カッ</span>', back_html)
+        self.assertIn('<span class="kn-kunyomi">あ(う), あ(わせる)</span>', back_html)
+        # Secondary vocabulary entry also included cleanly
+        self.assertIn("0.18 liters", back_html)
+
+    # 20. format_basic_back for vocabulary card with kanji entries
+    def test_20_format_basic_back_vocabulary_with_kanji(self):
+        card = {
+            "expression": "食べる",
+            "reading": "たべる",
+            "meaning": "to eat",
+        }
+        kanji_entries = [
+            {
+                "character": "食",
+                "dictionary": "KANJIDIC",
+                "onyomi": ["ショク", "ジキ"],
+                "kunyomi": ["た.べる", "く.う"],
+                "meanings": ["eat", "food"],
+                "stats": {"strokes": "9"},
+            }
+        ]
+        term_entries = [
+            {
+                "dictionary": "Jitendex",
+                "senses": [
+                    {"index": 1, "glosses": ["to eat"], "parts_of_speech": ["v1", "vt"]},
+                ],
+            }
+        ]
+        back_html = format_basic_back(card, entries=term_entries, kanji_entries=kanji_entries)
+        # Vocabulary definition appears first
+        pos_pos = back_html.find('[v1, vt]')
+        kanji_pos = back_html.find('<div class="kn-kanji-card">')
+        self.assertNotEqual(pos_pos, -1)
+        self.assertNotEqual(kanji_pos, -1)
+        self.assertLess(pos_pos, kanji_pos, "Vocabulary senses must appear before kanji block for multi-kanji cards")
+        self.assertIn('<span class="kn-onyomi">ショク, ジキ</span>', back_html)
+        self.assertIn('<span class="kn-kunyomi">た(べる), く(う)</span>', back_html)
+
 
 if __name__ == "__main__":
     unittest.main()

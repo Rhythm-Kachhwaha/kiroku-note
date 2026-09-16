@@ -330,6 +330,117 @@ def format_pitch_badge(pitch: Any) -> str:
 _format_pitch_badge = format_pitch_badge
 
 
+def format_kunyomi(kun_str: str) -> str:
+    """Format kunyomi reading with okurigana dot into readable parentheses.
+    e.g. 'あ.う' -> 'あ(う)', '-あ.わせる' -> '-あ(わせる)'
+    """
+    if not kun_str:
+        return ""
+    clean = str(kun_str).strip()
+    if "." in clean:
+        parts = clean.split(".", 1)
+        return f"{parts[0]}({parts[1]})"
+    return clean
+
+
+def format_kanji_html(
+    kanji_entries: list[Any] | None,
+    *,
+    is_isolated: bool = False,
+) -> str:
+    """Format structured kanji entries into clean Anki card HTML.
+    
+    Includes character, dictionary attribution, Onyomi, Kunyomi (with okurigana formatting),
+    Nanori, meanings/glosses, and valid stats (strokes, grade, JLPT - respecting old vs modern, frequency).
+    """
+    if not kanji_entries or not isinstance(kanji_entries, list):
+        return ""
+
+    cards_html: list[str] = []
+
+    for k in kanji_entries:
+        if not k:
+            continue
+        char = str(_get_field(k, "character") or "").strip()
+        dict_name = str(_get_field(k, "dictionary") or "KANJIDIC").strip()
+        onyomi = [str(x).strip() for x in (_get_field(k, "onyomi") or []) if x and str(x).strip()]
+        kunyomi = [str(x).strip() for x in (_get_field(k, "kunyomi") or []) if x and str(x).strip()]
+        nanori = [str(x).strip() for x in (_get_field(k, "nanori") or []) if x and str(x).strip()]
+        meanings = [str(x).strip() for x in (_get_field(k, "meanings") or []) if x and str(x).strip()]
+        stats = _get_field(k, "stats") or {}
+        tags = [str(x).strip() for x in (_get_field(k, "tags") or []) if x and str(x).strip()]
+
+        # Header with character and tags/stats
+        header_parts: list[str] = ['  <div class="kn-kanji-header">']
+        if char:
+            header_parts.append(f'    <span class="kn-kanji-char">{escape_html(char)}</span>')
+        if dict_name:
+            header_parts.append(f'    <span class="kn-tag">{escape_html(dict_name)}</span>')
+
+        if isinstance(stats, dict):
+            if strokes := stats.get("strokes"):
+                header_parts.append(f'    <span class="kn-tag">{escape_html(str(strokes))} strokes</span>')
+            if grade := stats.get("grade"):
+                header_parts.append(f'    <span class="kn-tag">Grade {escape_html(str(grade))}</span>')
+            
+            # JLPT check: check tags for modern jlpt-n*, else check stats
+            modern_jlpt = None
+            for t in tags:
+                if m := re.match(r"^jlpt-n([1-5])$", t, re.IGNORECASE):
+                    modern_jlpt = f"N{m.group(1)}"
+                    break
+                if m := re.match(r"^n([1-5])$", t, re.IGNORECASE):
+                    modern_jlpt = f"N{m.group(1)}"
+                    break
+            
+            if modern_jlpt:
+                header_parts.append(f'    <span class="kn-tag kn-jlpt">JLPT {escape_html(modern_jlpt)}</span>')
+            elif jlpt_raw := stats.get("jlpt"):
+                jlpt_str = str(jlpt_raw).strip()
+                if jlpt_str.upper().startswith("N"):
+                    header_parts.append(f'    <span class="kn-tag kn-jlpt">JLPT {escape_html(jlpt_str.upper())}</span>')
+                elif re.match(r"^[1-4]$", jlpt_str):
+                    header_parts.append(f'    <span class="kn-tag">Old JLPT {escape_html(jlpt_str)}</span>')
+            
+            if freq := stats.get("freq"):
+                header_parts.append(f'    <span class="kn-tag">Freq #{escape_html(str(freq))}</span>')
+
+        header_parts.append('  </div>')
+
+        # Readings
+        readings_parts: list[str] = []
+        if onyomi:
+            on_str = ", ".join(escape_html(x) for x in onyomi)
+            readings_parts.append(f'    <div class="kn-kanji-reading-row"><span class="kn-reading-lbl">Onyomi</span> <span class="kn-onyomi">{on_str}</span></div>')
+        if kunyomi:
+            formatted_kun = [format_kunyomi(x) for x in kunyomi]
+            kun_str = ", ".join(escape_html(x) for x in formatted_kun)
+            readings_parts.append(f'    <div class="kn-kanji-reading-row"><span class="kn-reading-lbl">Kunyomi</span> <span class="kn-kunyomi">{kun_str}</span></div>')
+        if nanori:
+            nan_str = ", ".join(escape_html(x) for x in nanori)
+            readings_parts.append(f'    <div class="kn-kanji-reading-row"><span class="kn-reading-lbl">Nanori</span> <span class="kn-nanori">{nan_str}</span></div>')
+
+        # Meanings
+        meanings_html = ""
+        if meanings:
+            mean_str = escape_html(", ".join(meanings))
+            meanings_html = f'  <div class="kn-kanji-meanings">{mean_str}</div>'
+
+        card_lines = ['<div class="kn-kanji-card">']
+        card_lines.extend(header_parts)
+        if readings_parts:
+            card_lines.append('  <div class="kn-kanji-readings">')
+            card_lines.extend(readings_parts)
+            card_lines.append('  </div>')
+        if meanings_html:
+            card_lines.append(meanings_html)
+        card_lines.append('</div>')
+
+        cards_html.append("\n".join(card_lines))
+
+    return "\n\n".join(cards_html)
+
+
 ANKI_CARD_CSS = """\
 .kn-card {
   --kn-bg: #ffffff;
@@ -460,6 +571,116 @@ body.night_mode .kn-card {
   color: var(--kn-muted, #6b7280);
   vertical-align: middle;
 }
+.kn-card .kn-tag.kn-jlpt,
+.kn-tag.kn-jlpt {
+  background: rgba(122, 162, 247, 0.15);
+  color: #3b82f6;
+}
+.nightMode .kn-card .kn-tag.kn-jlpt,
+.night_mode .kn-card .kn-tag.kn-jlpt,
+body.nightMode .kn-card .kn-tag.kn-jlpt,
+body.night_mode .kn-card .kn-tag.kn-jlpt {
+  background: rgba(122, 162, 247, 0.2);
+  color: #7aa2f7;
+}
+@media (prefers-color-scheme: dark) {
+  .kn-card .kn-tag.kn-jlpt {
+    background: rgba(122, 162, 247, 0.2);
+    color: #7aa2f7;
+  }
+}
+.kn-card .kn-kanji-card,
+.kn-kanji-card {
+  margin: 10px 0;
+  padding: 10px 12px;
+  background: var(--kn-surface, #f9fafb);
+  border: 1px solid var(--kn-surface-border, #e5e7eb);
+  border-radius: 6px;
+}
+.kn-card .kn-kanji-header,
+.kn-kanji-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--kn-border, #e5e7eb);
+  padding-bottom: 6px;
+}
+.kn-card .kn-kanji-char,
+.kn-kanji-char {
+  font-size: 1.3em;
+  font-weight: 700;
+  color: var(--kn-text, #1f2937);
+  margin-right: 4px;
+}
+.kn-card .kn-kanji-readings,
+.kn-kanji-readings {
+  margin: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.92em;
+}
+.kn-card .kn-kanji-reading-row,
+.kn-kanji-reading-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.kn-card .kn-reading-lbl,
+.kn-reading-lbl {
+  font-size: 0.75em;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--kn-muted, #6b7280);
+  min-width: 58px;
+}
+.kn-card .kn-onyomi,
+.kn-onyomi {
+  color: #b45309;
+  font-weight: 500;
+}
+.nightMode .kn-card .kn-onyomi,
+.night_mode .kn-card .kn-onyomi,
+body.nightMode .kn-card .kn-onyomi,
+body.night_mode .kn-card .kn-onyomi {
+  color: #fbbf24;
+}
+@media (prefers-color-scheme: dark) {
+  .kn-card .kn-onyomi {
+    color: #fbbf24;
+  }
+}
+.kn-card .kn-kunyomi,
+.kn-kunyomi {
+  color: #1d4ed8;
+  font-weight: 500;
+}
+.nightMode .kn-card .kn-kunyomi,
+.night_mode .kn-card .kn-kunyomi,
+body.nightMode .kn-card .kn-kunyomi,
+body.night_mode .kn-card .kn-kunyomi {
+  color: #93c5fd;
+}
+@media (prefers-color-scheme: dark) {
+  .kn-card .kn-kunyomi {
+    color: #93c5fd;
+  }
+}
+.kn-card .kn-nanori,
+.kn-nanori {
+  color: var(--kn-muted, #6b7280);
+}
+.kn-card .kn-kanji-meanings,
+.kn-kanji-meanings {
+  margin-top: 6px;
+  font-size: 0.95em;
+  line-height: 1.4;
+  color: var(--kn-text, #1f2937);
+  border-top: 1px solid var(--kn-border, #e5e7eb);
+  padding-top: 6px;
+}
 .kn-card .kn-example-block,
 .kn-example-block {
   margin: 12px 0;
@@ -524,6 +745,7 @@ def format_basic_back(
     reading: str = "",
     meaning: str = "",
     entries: list[Any] | None = None,
+    kanji_entries: list[Any] | None = None,
     example_sentence: str = "",
     example_reading: str | None = None,
     example_translation: str = "",
@@ -535,12 +757,14 @@ def format_basic_back(
 ) -> str:
     """Construct a clean, structured, learner-focused Back field for Anki Basic cards.
 
-    Includes reading + pitch badge, divider, structured meanings, ruby examples,
-    optional hint/notes, sanitized media tags, and a self-contained scoped <style> block.
+    Includes reading + pitch badge, divider, structured meanings, rich kanji information,
+    ruby examples, optional hint/notes, sanitized media tags, and a self-contained scoped <style> block.
     """
+    c_expr = str(expression if expression else (_get_field(card, "expression") or "")).strip()
     c_reading = str(reading if reading else (_get_field(card, "reading") or "")).strip()
     c_meaning = str(meaning if meaning else (_get_field(card, "meaning") or "")).strip()
     c_entries = entries if entries is not None else _get_field(card, "entries")
+    c_kanji_entries = kanji_entries if kanji_entries is not None else _get_field(card, "kanji_entries")
     c_ex_sentence = str(example_sentence if example_sentence else (_get_field(card, "example_sentence") or "")).strip()
     c_ex_trans = str(example_translation if example_translation else (_get_field(card, "example_translation") or "")).strip()
     c_hint = str(hint if hint else (_get_field(card, "hint") or "")).strip()
@@ -599,10 +823,35 @@ def format_basic_back(
         reading_parts.append('<hr class="kn-divider">')
         sections.append("\n".join(reading_parts))
 
-    # Meanings
-    meanings_html = format_meaning_html(meaning_text=c_meaning, entries=c_entries)
-    if meanings_html:
-        sections.append(meanings_html)
+    # Determine if isolated single-kanji card vs vocabulary card
+    is_isolated_kanji = bool(c_kanji_entries and len(c_expr) == 1)
+
+    if is_isolated_kanji:
+        # Isolated kanji: render kanji card prominently at the top
+        kanji_html = format_kanji_html(c_kanji_entries, is_isolated=True)
+        if kanji_html:
+            sections.append(kanji_html)
+
+        # If secondary vocabulary senses exist, render them below
+        if c_entries and isinstance(c_entries, list):
+            meanings_html = format_meaning_html(meaning_text="", entries=c_entries)
+            if meanings_html:
+                sections.append(meanings_html)
+        elif not kanji_html and c_meaning:
+            meanings_html = format_meaning_html(meaning_text=c_meaning, entries=None)
+            if meanings_html:
+                sections.append(meanings_html)
+    else:
+        # Normal vocabulary card: render vocabulary meanings first
+        meanings_html = format_meaning_html(meaning_text=c_meaning, entries=c_entries)
+        if meanings_html:
+            sections.append(meanings_html)
+
+        # If kanji entries exist, render compact kanji card below vocabulary senses
+        if c_kanji_entries and isinstance(c_kanji_entries, list):
+            kanji_html = format_kanji_html(c_kanji_entries, is_isolated=False)
+            if kanji_html:
+                sections.append(kanji_html)
 
     # Example block
     example_html = format_example_html(
@@ -635,3 +884,4 @@ def format_basic_back(
 
     body_html = "\n\n".join(sections)
     return f'<div class="kn-card">\n<style>\n{ANKI_CARD_CSS}\n</style>\n\n{body_html}\n</div>'
+

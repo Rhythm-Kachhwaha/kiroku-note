@@ -194,6 +194,7 @@ const vmContext = {
     audioStatus: "idle",
   },
   currentDictionaryEntries: [],
+  currentKanjiEntries: [],
   encodeURIComponent: encodeURIComponent,
   setTimeout: (fn, ms) => { fn(); return 1; },
   clearTimeout: () => {},
@@ -415,5 +416,73 @@ assert.equal(renderedKana.length, 1);
 assert.equal(renderedKana[0].textContent, "たべる");
 
 console.log("PASS 12: Form field updates reactively reflected in Card Preview.");
+
+// Test 11: Isolated kanji card in Live Preview
+const isolatedKanjiData = {
+  expression: "合",
+  reading: "ごう",
+  meaning: "fit, suit",
+  kanji_entries: [
+    {
+      character: "合",
+      dictionary: "KANJIDIC",
+      onyomi: ["ゴウ", "ガッ", "カッ"],
+      kunyomi: ["あ.う", "-あ.わせる"],
+      nanori: ["あい"],
+      meanings: ["fit", "suit", "join"],
+      stats: { strokes: "6", grade: "2", jlpt: "4", freq: "41" },
+    }
+  ],
+  entries: [
+    {
+      dictionary: "Jitendex",
+      senses: [{ index: 1, glosses: ["0.18 liters"], parts_of_speech: ["noun"] }],
+    }
+  ],
+};
+renderCardPreviewDOM(mockCardPreviewCard, isolatedKanjiData, "back");
+const previewKanjiCard = findAll(mockCardPreviewCard, c => c.className === "kn-kanji-card");
+assert.equal(previewKanjiCard.length, 1, "Live preview must render .kn-kanji-card for isolated kanji");
+const kanjiCharSpan = findAll(previewKanjiCard[0], c => c.className === "kn-kanji-char");
+assert.equal(kanjiCharSpan[0].textContent, "合");
+const onyomiSpan = findAll(previewKanjiCard[0], c => c.className === "kn-onyomi");
+assert.equal(onyomiSpan[0].textContent, "ゴウ, ガッ, カッ");
+const kunyomiSpan = findAll(previewKanjiCard[0], c => c.className === "kn-kunyomi");
+assert.equal(kunyomiSpan[0].textContent, "あ(う), -あ(わせる)");
+const oldJlptTag = findAll(previewKanjiCard[0], c => c.textContent === "Old JLPT 4");
+assert.equal(oldJlptTag.length, 1, "Historical KANJIDIC level 4 must be rendered as 'Old JLPT 4' in preview");
+
+console.log("PASS 13: Isolated kanji Live Preview renders rich kanji card and respects Old JLPT.");
+
+// Test 12: Multi-kanji vocabulary with kanji section in Live Preview
+const vocabWithKanjiData = {
+  expression: "食べる",
+  reading: "たべる",
+  meaning: "to eat",
+  entries: [
+    {
+      dictionary: "Jitendex",
+      senses: [{ index: 1, glosses: ["to eat"], parts_of_speech: ["v1", "vt"] }],
+    }
+  ],
+  kanji_entries: [
+    {
+      character: "食",
+      dictionary: "KANJIDIC",
+      onyomi: ["ショク", "ジキ"],
+      kunyomi: ["た.べる", "く.う"],
+      meanings: ["eat", "food"],
+      stats: { strokes: "9" },
+    }
+  ],
+};
+renderCardPreviewDOM(mockCardPreviewCard, vocabWithKanjiData, "back");
+const vocabMeanDiv = findAll(mockCardPreviewCard, c => c.className === "kn-meaning");
+const vocabKanjiCard = findAll(mockCardPreviewCard, c => c.className === "kn-kanji-card");
+assert.equal(vocabMeanDiv.length, 1, "Vocabulary meanings rendered at top");
+assert.equal(vocabKanjiCard.length, 1, "Kanji card rendered for component kanji");
+assert.ok(vocabMeanDiv[0].textContent.includes("[v1, vt]"));
+
+console.log("PASS 14: Multi-kanji vocabulary Live Preview renders vocabulary senses and component kanji.");
 
 console.log("\n>>> ALL STAGE 5.4 CARD PREVIEW TESTS PASSED SUCCESSFULLY! <<<\n");

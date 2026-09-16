@@ -23,6 +23,7 @@ from app.schemas import (
     KanjiEntry,
     SaveCardRequest,
     SaveCardResponse,
+    SyncAllResponse,
     SyncCardResponse,
 )
 from app.services.anki_connect import AnkiConnectService, AnkiError
@@ -494,6 +495,69 @@ class CardService:
                 error=error_message,
                 synced_at=card.synced_at,
             )
+
+    def sync_all(self, deck_name: str | None = None) -> SyncAllResponse:
+        """
+        Synchronize all eligible locally saved cards (pending / retryable failed) to AnkiConnect.
+        Invariants:
+        - Checks Anki reachability before processing.
+        - Fetches eligible local cards from SQLite (sync_status IN ('pending', 'failed')).
+        - Syncs cards sequentially using the existing sync_card() service logic.
+        - Preserves individual card failure diagnostics without blocking the entire batch.
+        - Skips already-synced cards and prevents duplicate Anki note creation.
+        """
+        connected, error_msg = self.anki.is_connected()
+        if not connected:
+            return SyncAllResponse(
+                total_eligible=0,
+                synced_count=0,
+                failed_count=0,
+                results=[],
+                error=f"Cannot connect to AnkiConnect: {error_msg or 'Connection refused'}",
+            )
+
+        eligible_cards = self.repository.get_pending_or_failed_cards(deck_name=deck_name)
+        if not eligible_cards:
+            return SyncAllResponse(
+                total_eligible=0,
+                synced_count=0,
+                failed_count=0,
+                results=[],
+            )
+
+        results: list[SyncCardResponse] = []
+        synced_count = 0
+        failed_count = 0
+
+        for card in eligible_cards:
+            try:
+                res = self.sync_card(card.id)
+                results.append(res)
+                if res.sync_status == "synced":
+                    synced_count += 1
+                else:
+                    failed_count += 1
+            except Exception as err:
+                logger.warning("Unexpected error syncing card %s during sync_all: %s", card.id, err)
+                results.append(
+                    SyncCardResponse(
+                        id=card.id,
+                        sync_status="failed",
+                        anki_note_id=card.anki_note_id,
+                        deck_name=card.deck_name,
+                        model_name=card.model_name or None,
+                        error=str(err),
+                        synced_at=card.synced_at,
+                    )
+                )
+                failed_count += 1
+
+        return SyncAllResponse(
+            total_eligible=len(eligible_cards),
+            synced_count=synced_count,
+            failed_count=failed_count,
+            results=results,
+        )
 
     def get_anki_status(self) -> AnkiStatusResponse:
         """Check AnkiConnect reachability and version."""

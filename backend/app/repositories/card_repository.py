@@ -417,21 +417,36 @@ class CardRepository:
             conn.commit()
         return self.get_by_id(card_id)
 
-    def get_pending_or_failed_cards(self) -> list[CardRecord]:
-        """Retrieve all cards with sync_status in ('pending', 'failed')."""
+    def get_pending_or_failed_cards(self, deck_name: str | None = None) -> list[CardRecord]:
+        """Retrieve all cards with sync_status in ('pending', 'failed'), optionally filtered by deck."""
         with db_session(self._db_path) as conn:
-            rows = conn.execute(
-                """
-                SELECT id, expression, reading, meaning, hint, example_sentence, example_translation,
-                       image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
-                       normalized_expression, normalized_reading, normalized_deck_name,
-                       meanings_json, examples_json, status, created_at, updated_at,
-                       sync_status, anki_note_id, sync_error, synced_at
-                FROM cards
-                WHERE sync_status IN ('pending', 'failed')
-                ORDER BY id ASC
-                """
-            ).fetchall()
+            if deck_name and deck_name.strip() and deck_name.strip().lower() != "all":
+                rows = conn.execute(
+                    """
+                    SELECT id, expression, reading, meaning, hint, example_sentence, example_translation,
+                           image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
+                           normalized_expression, normalized_reading, normalized_deck_name,
+                           meanings_json, examples_json, status, created_at, updated_at,
+                           sync_status, anki_note_id, sync_error, synced_at
+                    FROM cards
+                    WHERE sync_status IN ('pending', 'failed') AND deck_name = ?
+                    ORDER BY id ASC
+                    """,
+                    (deck_name.strip(),),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT id, expression, reading, meaning, hint, example_sentence, example_translation,
+                           image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
+                           normalized_expression, normalized_reading, normalized_deck_name,
+                           meanings_json, examples_json, status, created_at, updated_at,
+                           sync_status, anki_note_id, sync_error, synced_at
+                    FROM cards
+                    WHERE sync_status IN ('pending', 'failed')
+                    ORDER BY id ASC
+                    """
+                ).fetchall()
             return [_row_to_record(row) for row in rows]
 
     def get_sync_state(self, card_id: int) -> dict[str, Any] | None:

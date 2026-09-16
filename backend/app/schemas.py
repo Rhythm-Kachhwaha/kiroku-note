@@ -229,6 +229,15 @@ class SyncCardResponse(BaseModel):
     synced_at: Optional[str] = None
 
 
+class SyncAllResponse(BaseModel):
+    total_eligible: int = 0
+    synced_count: int = 0
+    failed_count: int = 0
+    results: list[SyncCardResponse] = Field(default_factory=list)
+    error: Optional[str] = None
+
+
+
 class CardSummary(BaseModel):
     id: int
     expression: str
