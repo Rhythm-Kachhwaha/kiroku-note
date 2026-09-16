@@ -57,6 +57,20 @@ class AnkiActionError(AnkiError):
 
 DEFAULT_ANKICONNECT_URL = "http://127.0.0.1:8765"
 
+# Canonical media field keywords recognized across standard and community note models
+IMAGE_FIELD_KEYWORDS: tuple[str, ...] = (
+    "image", "picture", "sentenceimage", "sentencepicture",
+    "vocabimage", "vocabpicture", "screenshot", "photo",
+    "snapshot", "illustration", "images", "pictures"
+)
+
+AUDIO_FIELD_KEYWORDS: tuple[str, ...] = (
+    "sentenceaudio", "sentencesound", "sentenceaudiofile", "sentence audio", "sentence sound",
+    "audio", "sound", "vocabaudio", "vocabsound", "vocab audio", "vocab sound",
+    "wordaudio", "word audio", "targetaudio", "targetwordaudio", "kanaaudio", "readingaudio",
+    "voice", "pronunciation", "audios", "sounds"
+)
+
 
 class AnkiConnectService:
     """Encapsulates all AnkiConnect HTTP communication and note mapping."""
@@ -341,17 +355,10 @@ class AnkiConnectService:
 
         fields_clean = {f.lower().replace(" ", "").replace("_", "").replace("-", "") for f in fields}
 
-        image_keywords = {
-            "image", "picture", "screenshot", "photo", "sentenceimage", "vocabimage",
-            "sentencepicture", "vocabpicture", "snapshot", "illustration", "images", "pictures"
-        }
+        image_keywords = set(IMAGE_FIELD_KEYWORDS)
         supports_image = bool(fields_clean.intersection(image_keywords))
 
-        audio_keywords = {
-            "audio", "sound", "voice", "pronunciation", "sentenceaudio", "vocabaudio",
-            "sentencesound", "vocabsound", "audios", "sounds", "wordaudio", "targetaudio",
-            "targetwordaudio", "kanaaudio", "readingaudio", "sentenceaudiofile"
-        }
+        audio_keywords = set(AUDIO_FIELD_KEYWORDS)
         supports_audio = bool(fields_clean.intersection(audio_keywords))
 
         sentence_keywords = {"examplesentence", "sentenceexpression", "sentence", "sentences", "example", "examples"}
@@ -458,9 +465,26 @@ class AnkiConnectService:
             else:
                 field_map[front_field] = escaped_expr
 
-            # Media inclusion for Back: only if dedicated image/audio fields are not present
-            img_for_back = raw_img if ("image" not in fields_lower and "picture" not in fields_lower) else ""
-            aud_for_back = raw_aud if ("audio" not in fields_lower and "sound" not in fields_lower) else ""
+            # Dedicated media field detection on Basic model
+            dedicated_img_field = None
+            if formatted_img:
+                for k in IMAGE_FIELD_KEYWORDS:
+                    clean_k = k.lower().replace(" ", "").replace("_", "").replace("-", "")
+                    if clean_k in fields_lower and clean_k not in ("front", "back"):
+                        dedicated_img_field = fields_lower[clean_k]
+                        break
+
+            dedicated_aud_field = None
+            if formatted_aud:
+                for k in AUDIO_FIELD_KEYWORDS:
+                    clean_k = k.lower().replace(" ", "").replace("_", "").replace("-", "")
+                    if clean_k in fields_lower and clean_k not in ("front", "back"):
+                        dedicated_aud_field = fields_lower[clean_k]
+                        break
+
+            # If dedicated media fields exist, omit from Back composite
+            img_for_back = "" if dedicated_img_field else raw_img
+            aud_for_back = "" if dedicated_aud_field else raw_aud
 
             # Back: generated via AnkiFormatter
             field_map[back_field] = format_basic_back(
@@ -479,19 +503,17 @@ class AnkiConnectService:
                 pitches=pitches,
             )
 
-            # Populate additional fields if present in model
-            if "word" in fields_lower and escaped_expr:
+            # Assign to dedicated media fields if present
+            if dedicated_img_field and formatted_img:
+                field_map[dedicated_img_field] = formatted_img
+            if dedicated_aud_field and formatted_aud:
+                field_map[dedicated_aud_field] = formatted_aud
+
+            # Populate additional non-media fields if present in model
+            if "word" in fields_lower and fields_lower["word"] not in field_map and escaped_expr:
                 field_map[fields_lower["word"]] = escaped_expr
-            if "reading" in fields_lower and escaped_reading:
+            if "reading" in fields_lower and fields_lower["reading"] not in field_map and escaped_reading:
                 field_map[fields_lower["reading"]] = escaped_reading
-            if "audio" in fields_lower and formatted_aud:
-                field_map[fields_lower["audio"]] = formatted_aud
-            elif "sound" in fields_lower and formatted_aud:
-                field_map[fields_lower["sound"]] = formatted_aud
-            if "image" in fields_lower and formatted_img:
-                field_map[fields_lower["image"]] = formatted_img
-            elif "picture" in fields_lower and formatted_img:
-                field_map[fields_lower["picture"]] = formatted_img
 
             return field_map
 
@@ -542,28 +564,30 @@ class AnkiConnectService:
             if pitch_badge:
                 assign(("pitch", "pitchaccent", "vocabpitch"), pitch_badge)
 
-        image_keys = (
-            "image", "picture", "sentenceimage", "sentencepicture",
-            "vocabimage", "vocabpicture", "screenshot", "photo",
-            "snapshot", "illustration", "images", "pictures"
-        )
+        image_keys = IMAGE_FIELD_KEYWORDS
         img_assigned = assign(image_keys, formatted_img)
 
-        audio_keys = (
-            "sentenceaudio", "sentencesound", "sentenceaudiofile", "sentence audio", "sentence sound",
-            "audio", "sound", "vocabaudio", "vocabsound", "vocab audio", "vocab sound",
-            "wordaudio", "word audio", "targetaudio", "targetwordaudio", "kanaaudio", "readingaudio",
-            "voice", "pronunciation", "audios", "sounds"
-        )
+        audio_keys = AUDIO_FIELD_KEYWORDS
         aud_assigned = assign(audio_keys, formatted_aud)
 
-        # If image was not assigned to a dedicated field, append to notes/back fallback
+        # If image was not assigned to a dedicated field, append to notes/back fallback idempotently
         if formatted_img and not img_assigned:
+            clean_cand = raw_img
+            if clean_cand.lower().startswith("<img"):
+                m = re.search(r'src=["\']?([^"\' >]+)', clean_cand, re.IGNORECASE)
+                clean_cand = m.group(1) if m else clean_cand
+            clean_img_file = os.path.basename(clean_cand) if clean_cand else ""
+
             for fallback_key in ("notes", "note", "back"):
                 if fallback_key in fields_lower:
                     real = fields_lower[fallback_key]
                     current = field_map.get(real, "")
-                    field_map[real] = f"{current}<br><br>{formatted_img}" if current else formatted_img
+                    already_has_image = (
+                        (formatted_img and formatted_img in current)
+                        or (clean_img_file and clean_img_file in current)
+                    )
+                    if not already_has_image:
+                        field_map[real] = f"{current}<br><br>{formatted_img}" if current else formatted_img
                     break
 
         # Ensure at least the first model field is populated

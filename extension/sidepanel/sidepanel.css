@@ -1856,3 +1856,256 @@ rt {
     padding: 12px 16px 24px;
   }
 }
+
+/* ==========================================================================
+   10. Card Preview Section & .kn-card Styles (Stage 5.4)
+   ========================================================================== */
+
+.card-preview-section {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.preview-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.preview-tabs {
+  display: inline-flex;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.preview-tab-btn {
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 1px);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.preview-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.preview-tab-btn.active {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.card-preview-container {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  min-height: 48px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.card-preview-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--space-2) 0;
+  font-style: italic;
+}
+
+/* Scoped .kn-card styles inside Side Panel Preview */
+.card-preview-card.kn-card,
+.kn-card {
+  --kn-bg: #191816;
+  --kn-text: #f5f4f0;
+  --kn-muted: #7d7971;
+  --kn-border: #292724;
+  --kn-surface: #121110;
+  --kn-surface-border: #292724;
+  --kn-badge-bg: #2a2824;
+  --kn-badge-text: #b5b1a7;
+  --kn-pitch-bg: rgba(220, 165, 102, 0.12);
+  --kn-pitch-text: #dca566;
+  --kn-pitch-border: rgba(220, 165, 102, 0.3);
+  --kn-ruby: #7d7971;
+  font-family: var(--japanese-font, var(--font-noto-sans));
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--kn-text);
+  text-align: left;
+  max-width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.kn-card *, .kn-card *::before, .kn-card *::after {
+  box-sizing: border-box;
+}
+
+.kn-card .kn-front-expression {
+  font-size: 1.45em;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+  margin: var(--space-2) 0;
+  word-break: break-word;
+  letter-spacing: 0.02em;
+}
+
+.kn-card .kn-reading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.kn-card .kn-kana {
+  font-size: 1.18em;
+  font-weight: 600;
+  color: var(--accent-reading, #dca566);
+  letter-spacing: 0.02em;
+}
+
+.kn-card .kn-pitch {
+  font-size: 0.75em;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--kn-pitch-bg);
+  color: var(--kn-pitch-text);
+  border: 1px solid var(--kn-pitch-border);
+  white-space: nowrap;
+}
+
+.kn-card .kn-divider {
+  border: 0;
+  height: 1px;
+  background: var(--kn-border);
+  margin: 6px 0 10px 0;
+}
+
+.kn-card .kn-meaning,
+.kn-meaning {
+  margin: 4px 0;
+  font-size: 1em;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.kn-card .kn-meanings,
+.kn-meanings {
+  margin: 4px 0 8px 0;
+  padding-left: 18px;
+  font-size: 1em;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.kn-card .kn-meanings li,
+.kn-meanings li {
+  margin-bottom: 3px;
+}
+
+.kn-card .kn-pos,
+.kn-pos {
+  display: inline-block;
+  font-size: 0.72em;
+  font-weight: 500;
+  padding: 1px 5px;
+  margin-right: 4px;
+  border-radius: 3px;
+  background: var(--kn-badge-bg);
+  color: var(--kn-badge-text);
+  vertical-align: middle;
+}
+
+.kn-card .kn-tag,
+.kn-tag {
+  display: inline-block;
+  font-size: 0.72em;
+  font-weight: 500;
+  padding: 1px 5px;
+  margin-right: 4px;
+  border-radius: 3px;
+  background: var(--kn-badge-bg);
+  color: var(--kn-muted);
+  vertical-align: middle;
+}
+
+.kn-card .kn-example-block,
+.kn-example-block {
+  margin: 8px 0;
+  padding: 8px 10px;
+  background: var(--kn-surface);
+  border: 1px solid var(--kn-surface-border);
+  border-radius: var(--radius-md);
+}
+
+.kn-card .kn-example-ja,
+.kn-example-ja {
+  margin: 0 0 3px 0;
+  font-size: 1em;
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.kn-card .kn-example-ja ruby rt,
+.kn-example-ja ruby rt {
+  font-size: 0.58em;
+  color: var(--kn-ruby);
+  font-weight: normal;
+}
+
+.kn-card .kn-example-en,
+.kn-example-en {
+  margin: 0;
+  font-size: 0.85em;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.kn-card .kn-hint,
+.kn-card .kn-notes {
+  margin: 4px 0;
+  font-size: 0.82em;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.kn-card .kn-media {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.kn-card .kn-image,
+.kn-image {
+  max-width: 100%;
+  max-height: 180px;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  display: block;
+  margin: 4px auto;
+  box-shadow: var(--shadow-sm);
+}
+
+.kn-card .kn-audio-preview {
+  width: 100%;
+  max-height: 32px;
+  margin-top: 4px;
+}

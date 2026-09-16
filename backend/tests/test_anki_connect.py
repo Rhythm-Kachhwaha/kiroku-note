@@ -823,6 +823,164 @@ class TestAnkiConnectFormatterIntegration:
         fields = self.service.map_card_to_fields(legacy_card, ["Front", "Back"])
         assert fields["Front"] == "川 [かわ]"
         assert '<div class="kn-meaning">river</div>' in fields["Back"]
-        assert "kn-media" not in fields["Back"]
-        assert "kn-hint" not in fields["Back"]
+        assert '<div class="kn-media">' not in fields["Back"]
+        assert '<div class="kn-hint">' not in fields["Back"]
+
+
+class TestStage5MediaDeduplication:
+    @pytest.fixture(autouse=True)
+    def setup_service(self):
+        self.service = AnkiConnectService()
+
+    # 1. Basic with Front, Back, and SentenceImage -> image appears only in SentenceImage, not Back
+    def test_01_basic_with_sentence_image_no_duplicate_in_back(self):
+        card_data = {
+            "expression": "走る",
+            "reading": "はしる",
+            "meaning": "to run",
+            "image": "kiroku_img_123.jpg",
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Front", "Back", "SentenceImage"])
+        assert fields["Front"] == "走る [はしる]"
+        assert fields["SentenceImage"] == '<img src="kiroku_img_123.jpg">'
+        assert "kiroku_img_123.jpg" not in fields["Back"]
+        assert '<div class="kn-media">' not in fields["Back"]
+
+    # 2. Basic with Screenshot -> image is not duplicated into Back
+    def test_02_basic_with_screenshot_no_duplicate_in_back(self):
+        card_data = {
+            "expression": "走る",
+            "reading": "はしる",
+            "meaning": "to run",
+            "image": "kiroku_img_123.jpg",
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Front", "Back", "Screenshot"])
+        assert fields["Screenshot"] == '<img src="kiroku_img_123.jpg">'
+        assert "kiroku_img_123.jpg" not in fields["Back"]
+        assert '<div class="kn-media">' not in fields["Back"]
+
+    # 3. Basic with Photo -> same behavior
+    def test_03_basic_with_photo_no_duplicate_in_back(self):
+        card_data = {
+            "expression": "走る",
+            "reading": "はしる",
+            "meaning": "to run",
+            "image": "kiroku_img_123.jpg",
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Front", "Back", "Photo"])
+        assert fields["Photo"] == '<img src="kiroku_img_123.jpg">'
+        assert "kiroku_img_123.jpg" not in fields["Back"]
+        assert '<div class="kn-media">' not in fields["Back"]
+
+    # 4. Basic with VocabImage -> same behavior
+    def test_04_basic_with_vocab_image_no_duplicate_in_back(self):
+        card_data = {
+            "expression": "走る",
+            "reading": "はしる",
+            "meaning": "to run",
+            "image": "kiroku_img_123.jpg",
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Front", "Back", "VocabImage"])
+        assert fields["VocabImage"] == '<img src="kiroku_img_123.jpg">'
+        assert "kiroku_img_123.jpg" not in fields["Back"]
+        assert '<div class="kn-media">' not in fields["Back"]
+
+    # 5. Basic with no dedicated image field -> existing fallback still works (image in Back)
+    def test_05_basic_with_no_dedicated_image_field_puts_image_in_back(self):
+        card_data = {
+            "expression": "走る",
+            "reading": "はしる",
+            "meaning": "to run",
+            "image": "kiroku_img_123.jpg",
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Front", "Back"])
+        assert '<img src="kiroku_img_123.jpg" class="kn-image">' in fields["Back"]
+
+    # 6. Repeated fallback mapping does not append the same image twice
+    def test_06_repeated_fallback_mapping_does_not_duplicate_image(self):
+        card_data = {
+            "expression": "走る",
+            "reading": "はしる",
+            "meaning": "to run",
+            "image": "kiroku_img_123.jpg",
+            "notes": "My personal note",
+        }
+        # First mapping
+        fields_1 = self.service.map_card_to_fields(card_data, ["Word", "Reading", "Meaning", "Notes"])
+        assert fields_1["Notes"] == 'My personal note<br><br><img src="kiroku_img_123.jpg">'
+        assert fields_1["Notes"].count("kiroku_img_123.jpg") == 1
+
+        # Repeated mapping of same card data produces identical idempotent result
+        fields_repeat = self.service.map_card_to_fields(card_data, ["Word", "Reading", "Meaning", "Notes"])
+        assert fields_repeat["Notes"] == fields_1["Notes"]
+        assert fields_repeat["Notes"].count("kiroku_img_123.jpg") == 1
+
+        # Resync where card.notes in storage already contains the image filename
+        card_data_with_img_in_notes = {
+            "expression": "走る",
+            "reading": "はしる",
+            "meaning": "to run",
+            "image": "kiroku_img_123.jpg",
+            "notes": "See attached kiroku_img_123.jpg for details",
+        }
+        fields_existing = self.service.map_card_to_fields(card_data_with_img_in_notes, ["Word", "Reading", "Meaning", "Notes"])
+        assert fields_existing["Notes"].count("kiroku_img_123.jpg") == 1
+
+    # 7. Existing image already present in Notes -> no duplicate append
+    def test_07_existing_image_in_notes_no_duplicate_append(self):
+        card_data = {
+            "expression": "猫",
+            "reading": "ねこ",
+            "meaning": "cat",
+            "image": "cat_photo.png",
+            "notes": '<img src="cat_photo.png">',
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Expression", "Reading", "Meaning", "Notes"])
+        assert fields["Notes"].count("cat_photo.png") == 1
+
+    # 8. Multiple dedicated media fields -> do not duplicate across Kiroku-populated fields
+    def test_08_multiple_dedicated_media_fields_single_assignment(self):
+        card_data = {
+            "expression": "猫",
+            "reading": "ねこ",
+            "meaning": "cat",
+            "image": "cat_photo.png",
+        }
+        # Model having both SentenceImage and VocabImage
+        fields = self.service.map_card_to_fields(card_data, ["Word", "Reading", "Meaning", "SentenceImage", "VocabImage"])
+        # Should be assigned to the first matching image field only
+        assert fields["SentenceImage"] == '<img src="cat_photo.png">'
+        assert "VocabImage" not in fields
+
+    # 9. Audio behavior remains unchanged and is not inserted into Notes/Back as fallback
+    def test_09_audio_behavior_unchanged_and_excluded_from_text_fallback(self):
+        card_data = {
+            "expression": "犬",
+            "reading": "いぬ",
+            "meaning": "dog",
+            "audio": "inu.wav",
+            "notes": "bark",
+        }
+        # Model with dedicated audio field
+        fields_with_aud = self.service.map_card_to_fields(card_data, ["Word", "Reading", "Meaning", "Notes", "SentenceAudio"])
+        assert fields_with_aud["SentenceAudio"] == "[sound:inu.wav]"
+        assert "inu.wav" not in fields_with_aud["Notes"]
+
+        # Model with NO audio field
+        fields_no_aud = self.service.map_card_to_fields(card_data, ["Word", "Reading", "Meaning", "Notes"])
+        assert "Audio" not in fields_no_aud
+        assert "inu.wav" not in fields_no_aud["Notes"]
+
+    # 10. Basic with dedicated audio field -> audio in dedicated field, omitted from Back
+    def test_10_basic_with_dedicated_audio_field_omitted_from_back(self):
+        card_data = {
+            "expression": "犬",
+            "reading": "いぬ",
+            "meaning": "dog",
+            "audio": "inu.wav",
+        }
+        fields = self.service.map_card_to_fields(card_data, ["Front", "Back", "SentenceAudio"])
+        assert fields["SentenceAudio"] == "[sound:inu.wav]"
+        assert "inu.wav" not in fields["Back"]
+        assert '<div class="kn-media">' not in fields["Back"]
 

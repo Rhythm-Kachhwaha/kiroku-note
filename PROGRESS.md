@@ -115,11 +115,34 @@ The core mining pipeline is functional. Current work is focused on polishing, re
 
 ### Stage 5 — Anki Cards
 
-- [ ] Improve card preview
-- [ ] Improve generated Anki HTML
-- [ ] Improve default card template
-- [ ] Improve media presentation
-- [ ] Verify compatibility with custom Anki note models
+- [x] Stage 5.1: Media De-duplication & Idempotency Hardening (`backend/app/services/anki_connect.py`, `backend/app/services/anki_formatter.py`)
+  - [x] Basic model media detection recognizing all supported image/audio keywords (`image`, `picture`, `sentenceimage`, `vocabimage`, `screenshot`, `photo`, `snapshot`, `illustration`, etc.)
+  - [x] Single-source media assignment: dedicated media fields prevent image/audio inclusion in composite `Back` HTML
+  - [x] Idempotent image fallback preventing duplicate append during re-sync or existing image references in `Notes`/`Back`
+  - [x] Automated test suite expanded to 222/222 backend tests (55/55 AnkiConnect tests, 10 dedicated Stage 5.1 regression tests)
+- [x] Stage 5.2: Learner-focused Anki Card HTML & Scoped CSS (`backend/app/services/anki_formatter.py`, `backend/tests/test_anki_formatter.py`)
+  - [x] Self-contained scoped CSS stylesheet (`ANKI_CARD_CSS`, `get_anki_card_css()`) embedded in generated Basic `Back` card HTML inside `.kn-card`
+  - [x] Full light and dark mode support (`.nightMode .kn-card`, `.night_mode .kn-card`, `body.nightMode .kn-card`, `body.night_mode .kn-card`, `@media (prefers-color-scheme: dark)`)
+  - [x] Japanese typography hierarchy with robust system fallbacks (`Noto Sans JP`, `Hiragino Sans`, `Yu Gothic`, `Meiryo`)
+  - [x] Semantic badges for POS (`.kn-pos`) and domain tags (`.kn-tag`), subtle Tokyo pitch badge pill (`.kn-pitch`), example sentence card surface (`.kn-example-block`), and responsive media containment (`max-height: 240px; object-fit: contain;`)
+  - [x] Automated test suite expanded to 224/224 backend tests (15/15 dedicated AnkiFormatter tests, 55/55 AnkiConnect tests, 27/27 extension suites)
+- [ ] Stage 5.3: Dedicated Kiroku Japanese Note Model & Template Provisioning (Deferred)
+- [x] Stage 5.4: Side Panel Live Anki Card Preview (`extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`, `extension/sidepanel/sidepanel.js`, `extension/tests/card-preview.test.js`)
+  - [x] Collapsible `#card-preview-section` embedded in Side Panel between `#card-editor-section` and `#dictionary-section` preserving narrow 320px–600px responsiveness
+  - [x] Front/Back toggle tabs (`#preview-tab-front`, `#preview-tab-back`) with aria state management and keyboard accessibility
+  - [x] Semantic `.kn-card` DOM renderer matching Stage 5.2 Anki layout (prominent expression, ruby furigana, Tokyo pitch pills, structured meanings with POS/tag badges, example blocks, hints, notes, media previews)
+  - [x] 100% XSS defense via safe DOM construction (`document.createElement`, `document.createTextNode`, `replaceChildren`) with zero unsafe `innerHTML` injection
+  - [x] Debounced reactive live-update pipeline (`scheduleCardPreviewUpdate`) bound to card editor inputs, media triggers, and history card opening
+  - [x] Comprehensive automated test suite (`extension/tests/card-preview.test.js`) passing 12/12 dedicated test scenarios (28/28 extension suites passed, 224/224 backend tests passed)
+- [x] Stage 5.5: Final Anki Card Regression, Compatibility & Live Verification (`backend/tests/test_stage5_regression.py`, `backend/tests/verify_live_anki.py`)
+  - [x] Live Anki Desktop verification confirmed active (AnkiConnect v6 at `127.0.0.1:8765`)
+  - [x] Live Basic model note creation verified (clean Front, scoped CSS `.kn-card`, reading, Tokyo pitch badge, ruby furigana, divider, structured meanings, example blocks, notes)
+  - [x] Live multi-sense word verification (`掛ける`) preserving sense ordering and sense-bound POS/tag badges
+  - [x] Live media de-duplication verified: dedicated image fields populated without duplication into Back; idempotent fallback on repeated sync
+  - [x] Live custom note models compatibility verified across installed user models (`Kaishi 1.5k`, `japanese mining`, `Core 2000`, `Japanese sentences`, `Basic`)
+  - [x] Security & XSS escaping verified across script injection, iframe, SVG onload, and malicious media filename breakout attempts
+  - [x] Side Panel preview vs Anki rendering semantic parity verified with intentional environment differences documented
+  - [x] Full automated test suites green: 231/231 backend tests passed (including dedicated `test_stage5_regression.py`), 28/28 extension suites passed
 
 ### Stage 6 — UX & Accessibility
 

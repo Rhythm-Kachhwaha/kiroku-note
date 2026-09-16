@@ -254,6 +254,20 @@
         </div>
       </form>
     </section>
+ 
+    <!-- Live Anki Card Preview Section -->
+    <section id="card-preview-section" class="card-preview-section" aria-label="Card Preview">
+      <div class="section-header preview-section-header">
+        <span class="section-title">CARD PREVIEW</span>
+        <div class="preview-tabs" role="tablist" aria-label="Card Preview Side">
+          <button type="button" id="preview-tab-front" class="preview-tab-btn" role="tab" aria-selected="false">Front</button>
+          <button type="button" id="preview-tab-back" class="preview-tab-btn active" role="tab" aria-selected="true">Back</button>
+        </div>
+      </div>
+      <div id="card-preview-container" class="card-preview-container">
+        <div id="card-preview-card" class="card-preview-card kn-card"></div>
+      </div>
+    </section>
 
     <!-- Dictionary Information Section -->
     <section id="dictionary-section" class="dictionary-section" aria-live="polite">

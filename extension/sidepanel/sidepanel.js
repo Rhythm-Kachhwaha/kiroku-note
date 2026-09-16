@@ -52,6 +52,13 @@ const saveCardBtn = document.querySelector("#save-card-btn");
 const syncAnkiBtn = document.querySelector("#sync-anki-btn");
 const ankiSyncStatus = document.querySelector("#anki-sync-status");
 
+// Card preview elements
+const cardPreviewSection = document.querySelector("#card-preview-section");
+const cardPreviewContainer = document.querySelector("#card-preview-container");
+const cardPreviewCard = document.querySelector("#card-preview-card");
+const previewTabFront = document.querySelector("#preview-tab-front");
+const previewTabBack = document.querySelector("#preview-tab-back");
+
 // Media preview elements
 const mediaPreviewContainer = document.querySelector("#media-preview-container");
 const imagePreviewContainer = document.querySelector("#image-preview-container");
@@ -398,6 +405,372 @@ if (fieldReading) {
     if (reading) reading.textContent = fieldReading.value || "";
   });
 }
+
+// ==========================================================================
+// Card Preview (Stage 5.4)
+// ==========================================================================
+var currentPreviewSide = "back"; // "front" | "back"
+var previewUpdateTimer = null;
+
+function formatPitchBadge(pitch) {
+  if (!pitch || typeof pitch.position !== "number") return "";
+  const circle = typeof getPitchCircleNumber === "function" ? getPitchCircleNumber(pitch.position) : `[${pitch.position}]`;
+  const pat = typeof formatPitchPatternName === "function" ? formatPitchPatternName(pitch.pattern_name) : "";
+  return pat ? `[${circle} ${pat}]` : `[${circle}]`;
+}
+
+function setPreviewSide(side) {
+  currentPreviewSide = side === "front" ? "front" : "back";
+  if (previewTabFront && previewTabBack) {
+    const isFront = currentPreviewSide === "front";
+    if (previewTabFront.classList) previewTabFront.classList.toggle("active", isFront);
+    if (typeof previewTabFront.setAttribute === "function") previewTabFront.setAttribute("aria-selected", String(isFront));
+    if (previewTabBack.classList) previewTabBack.classList.toggle("active", !isFront);
+    if (typeof previewTabBack.setAttribute === "function") previewTabBack.setAttribute("aria-selected", String(!isFront));
+  }
+  updateCardPreview();
+}
+
+function scheduleCardPreviewUpdate() {
+  if (previewUpdateTimer) clearTimeout(previewUpdateTimer);
+  previewUpdateTimer = setTimeout(() => {
+    updateCardPreview();
+  }, 40);
+}
+
+function getCardPreviewData() {
+  const expr = fieldExpression ? (fieldExpression.value || "").trim() : "";
+  const read = fieldReading ? (fieldReading.value || "").trim() : "";
+  const mean = fieldMeaning ? (fieldMeaning.value || "").trim() : "";
+  const hnt = fieldHint ? (fieldHint.value || "").trim() : "";
+  const exJa = fieldExampleSentence ? (fieldExampleSentence.value || "").trim() : "";
+  const exEn = fieldExampleTranslation ? (fieldExampleTranslation.value || "").trim() : "";
+  const nts = fieldNotes ? (fieldNotes.value || "").trim() : "";
+  const img = fieldImage ? (fieldImage.value || "").trim() : "";
+  const aud = fieldAudio ? (fieldAudio.value || "").trim() : "";
+
+  // Image source resolution
+  let resolvedImage = (currentDraftMedia && currentDraftMedia.imageBase64) || "";
+  if (!resolvedImage && img) {
+    resolvedImage = (img.startsWith("http://") || img.startsWith("https://") || img.startsWith("data:"))
+      ? img
+      : `http://127.0.0.1:8000/api/media/${encodeURIComponent(img)}`;
+  }
+
+  // Audio source resolution
+  let resolvedAudio = (currentDraftMedia && currentDraftMedia.audioBase64) || "";
+  if (!resolvedAudio && aud) {
+    resolvedAudio = (aud.startsWith("http://") || aud.startsWith("https://") || aud.startsWith("data:"))
+      ? aud
+      : `http://127.0.0.1:8000/api/media/${encodeURIComponent(aud)}`;
+  }
+
+  // Pitch resolution from currentDictionaryEntries
+  let pitchBadge = "";
+  if (Array.isArray(currentDictionaryEntries) && currentDictionaryEntries.length) {
+    for (const e of currentDictionaryEntries) {
+      if (Array.isArray(e.pitches) && e.pitches.length && e.pitches[0]) {
+        pitchBadge = formatPitchBadge(e.pitches[0]);
+        if (pitchBadge) break;
+      }
+    }
+  }
+
+  return {
+    expression: expr,
+    reading: read,
+    meaning: mean,
+    hint: hnt,
+    example_sentence: exJa,
+    example_translation: exEn,
+    notes: nts,
+    image: resolvedImage,
+    audio: resolvedAudio,
+    pitch_badge: pitchBadge,
+    entries: currentDictionaryEntries || [],
+  };
+}
+
+function renderPreviewMeanings(container, data) {
+  const entries = Array.isArray(data.entries) ? data.entries : [];
+  
+  // 1. Try rendering from structured entries if available and not custom replaced
+  if (entries.length) {
+    const extractedSenses = [];
+    for (const entry of entries) {
+      if (!entry) continue;
+      const rawSenses = entry.senses || (entry.glosses ? [entry] : []);
+      if (!Array.isArray(rawSenses)) continue;
+      const totalSenses = rawSenses.length;
+      for (let sIdx = 0; sIdx < totalSenses; sIdx++) {
+        const s = rawSenses[sIdx];
+        if (!s) continue;
+        const glosses = Array.isArray(s.glosses) ? s.glosses.filter(Boolean) : (s.glosses ? [String(s.glosses)] : []);
+        if (!glosses.length) continue;
+
+        let posList = Array.isArray(s.parts_of_speech) && s.parts_of_speech.length
+          ? s.parts_of_speech
+          : (totalSenses === 1 && Array.isArray(entry.parts_of_speech) ? entry.parts_of_speech : []);
+        posList = posList.map(p => String(p).trim()).filter(Boolean);
+
+        let tagList = [
+          ...(Array.isArray(s.tags) ? s.tags : []),
+          ...(Array.isArray(s.field_tags) ? s.field_tags : []),
+          ...(totalSenses === 1 && Array.isArray(entry.tags) ? entry.tags : [])
+        ].map(t => String(t).trim()).filter(Boolean);
+
+        extractedSenses.push({
+          glosses,
+          posList,
+          tagList
+        });
+      }
+    }
+
+    if (extractedSenses.length === 1) {
+      const s = extractedSenses[0];
+      const meanDiv = document.createElement("div");
+      meanDiv.className = "kn-meaning";
+      if (s.posList.length) {
+        const posSpan = document.createElement("span");
+        posSpan.className = "kn-pos";
+        posSpan.textContent = `[${s.posList.join(", ")}]`;
+        meanDiv.append(posSpan);
+        meanDiv.append(document.createTextNode(" "));
+      }
+      if (s.tagList.length) {
+        const tagSpan = document.createElement("span");
+        tagSpan.className = "kn-tag";
+        tagSpan.textContent = `[${s.tagList.join(", ")}]`;
+        meanDiv.append(tagSpan);
+        meanDiv.append(document.createTextNode(" "));
+      }
+      meanDiv.append(document.createTextNode(s.glosses.join(", ")));
+      container.append(meanDiv);
+      return;
+    } else if (extractedSenses.length > 1) {
+      const ol = document.createElement("ol");
+      ol.className = "kn-meanings";
+      for (const s of extractedSenses) {
+        const li = document.createElement("li");
+        if (s.posList.length) {
+          const posSpan = document.createElement("span");
+          posSpan.className = "kn-pos";
+          posSpan.textContent = `[${s.posList.join(", ")}]`;
+          li.append(posSpan);
+          li.append(document.createTextNode(" "));
+        }
+        if (s.tagList.length) {
+          const tagSpan = document.createElement("span");
+          tagSpan.className = "kn-tag";
+          tagSpan.textContent = `[${s.tagList.join(", ")}]`;
+          li.append(tagSpan);
+          li.append(document.createTextNode(" "));
+        }
+        li.append(document.createTextNode(s.glosses.join(", ")));
+        ol.append(li);
+      }
+      container.append(ol);
+      return;
+    }
+  }
+
+  // 2. Fallback to formatting plain text from meaning string
+  const rawMeaning = (data.meaning || "").trim();
+  if (!rawMeaning) return;
+
+  const lines = rawMeaning.split("\n").map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return;
+
+  if (lines.length === 1) {
+    const cleanLine = lines[0].replace(/^(?:\d+[\.\)]|\(\d+\))\s*/, "");
+    const meanDiv = document.createElement("div");
+    meanDiv.className = "kn-meaning";
+    meanDiv.textContent = cleanLine;
+    container.append(meanDiv);
+  } else {
+    const ol = document.createElement("ol");
+    ol.className = "kn-meanings";
+    for (const line of lines) {
+      const cleanLine = line.replace(/^(?:\d+[\.\)]|\(\d+\))\s*/, "");
+      const li = document.createElement("li");
+      li.textContent = cleanLine;
+      ol.append(li);
+    }
+    container.append(ol);
+  }
+}
+
+function renderCardPreviewDOM(container, data, side = "back") {
+  if (!container) return;
+  if (typeof container.replaceChildren === "function") {
+    container.replaceChildren();
+  }
+
+  const hasContent = Boolean(
+    data.expression || data.reading || data.meaning || data.example_sentence ||
+    data.example_translation || data.image || data.audio || data.hint || data.notes
+  );
+
+  if (!hasContent) {
+    const emptyEl = document.createElement("div");
+    emptyEl.className = "card-preview-empty";
+    emptyEl.textContent = "Preview will appear as you capture or edit a card.";
+    container.append(emptyEl);
+    return;
+  }
+
+  if (side === "front") {
+    // FRONT SIDE PREVIEW
+    const exprP = document.createElement("div");
+    exprP.className = "kn-front-expression";
+
+    if (data.reading && data.reading !== data.expression) {
+      exprP.textContent = `${data.expression} [${data.reading}]`;
+    } else {
+      exprP.textContent = data.expression || "—";
+    }
+    container.append(exprP);
+
+    if (data.hint) {
+      const hintDiv = document.createElement("div");
+      hintDiv.className = "kn-hint";
+      hintDiv.textContent = `Hint: ${data.hint}`;
+      if (hintDiv.style) hintDiv.style.textAlign = "center";
+      container.append(hintDiv);
+    }
+    return;
+  }
+
+  // BACK SIDE PREVIEW
+  // 1. Reading & Pitch header
+  if (data.reading || data.pitch_badge) {
+    const readingDiv = document.createElement("div");
+    readingDiv.className = "kn-reading";
+
+    if (data.reading) {
+      const kanaSpan = document.createElement("span");
+      kanaSpan.className = "kn-kana";
+      kanaSpan.textContent = data.reading;
+      readingDiv.append(kanaSpan);
+    }
+
+    if (data.pitch_badge) {
+      const pitchSpan = document.createElement("span");
+      pitchSpan.className = "kn-pitch";
+      pitchSpan.textContent = data.pitch_badge;
+      readingDiv.append(pitchSpan);
+    }
+
+    container.append(readingDiv);
+
+    const divider = document.createElement("hr");
+    divider.className = "kn-divider";
+    container.append(divider);
+  }
+
+  // 2. Meanings
+  renderPreviewMeanings(container, data);
+
+  // 3. Example Block
+  if (data.example_sentence || data.example_translation) {
+    const exBlock = document.createElement("div");
+    exBlock.className = "kn-example-block";
+
+    if (data.example_sentence) {
+      const jaP = document.createElement("p");
+      jaP.className = "kn-example-ja";
+      if (typeof renderRubyText === "function") {
+        renderRubyText(jaP, data.example_sentence);
+      } else {
+        jaP.textContent = data.example_sentence;
+      }
+      exBlock.append(jaP);
+    }
+
+    if (data.example_translation) {
+      const enP = document.createElement("p");
+      enP.className = "kn-example-en";
+      enP.textContent = data.example_translation;
+      exBlock.append(enP);
+    }
+
+    container.append(exBlock);
+  }
+
+  // 4. Hint & Notes
+  if (data.hint) {
+    const hintDiv = document.createElement("div");
+    hintDiv.className = "kn-hint";
+    hintDiv.textContent = `Hint: ${data.hint}`;
+    container.append(hintDiv);
+  }
+
+  if (data.notes) {
+    const notesDiv = document.createElement("div");
+    notesDiv.className = "kn-notes";
+    notesDiv.textContent = `Notes: ${data.notes}`;
+    container.append(notesDiv);
+  }
+
+  // 5. Media
+  if (data.image || data.audio) {
+    const mediaDiv = document.createElement("div");
+    mediaDiv.className = "kn-media";
+
+    if (data.image) {
+      const img = document.createElement("img");
+      img.className = "kn-image";
+      img.src = data.image;
+      img.alt = "Card image";
+      img.onerror = () => { if (img.style) img.style.display = "none"; };
+      mediaDiv.append(img);
+    }
+
+    if (data.audio) {
+      const aud = document.createElement("audio");
+      aud.className = "kn-audio-preview";
+      aud.src = data.audio;
+      aud.controls = true;
+      aud.preload = "metadata";
+      mediaDiv.append(aud);
+    }
+
+    container.append(mediaDiv);
+  }
+}
+
+function updateCardPreview() {
+  if (!cardPreviewCard) return;
+  const data = getCardPreviewData();
+  renderCardPreviewDOM(cardPreviewCard, data, currentPreviewSide);
+}
+
+if (previewTabFront) {
+  previewTabFront.addEventListener("click", () => setPreviewSide("front"));
+}
+if (previewTabBack) {
+  previewTabBack.addEventListener("click", () => setPreviewSide("back"));
+}
+
+// Live card editor input bindings
+[
+  fieldExpression,
+  fieldReading,
+  fieldMeaning,
+  fieldHint,
+  fieldExampleSentence,
+  fieldExampleTranslation,
+  fieldImage,
+  fieldAudio,
+  fieldTags,
+  fieldNotes
+].forEach(fieldEl => {
+  if (fieldEl) {
+    fieldEl.addEventListener("input", scheduleCardPreviewUpdate);
+    fieldEl.addEventListener("change", scheduleCardPreviewUpdate);
+  }
+});
 
 function updateSessionCounter() {
   if (sessionCountEl) {
@@ -1319,6 +1692,7 @@ function updateMediaPreviews() {
   if (mediaPreviewContainer) {
     mediaPreviewContainer.hidden = false;
   }
+  if (typeof scheduleCardPreviewUpdate === "function") scheduleCardPreviewUpdate();
 }
 
 function clearImageMedia() {
@@ -1954,6 +2328,7 @@ async function openSavedCard(cardId) {
         saveBadge.hidden = false;
       }
       setStatus("Opened saved card from library.");
+      if (typeof scheduleCardPreviewUpdate === "function") scheduleCardPreviewUpdate();
     }
   } catch (err) {
     setStatus(`Failed to open card: ${err.message}`, true);
@@ -1990,6 +2365,7 @@ async function deleteLocalCard(cardId, cardExpr) {
       if (cardEditor) cardEditor.hidden = true;
       updateSyncUI(ankiConnected ? "ready" : "not_connected");
       selectedHistoryCardId = null;
+      if (typeof scheduleCardPreviewUpdate === "function") scheduleCardPreviewUpdate();
     }
 
     setStatus(`Deleted "${cardExpr}" from local database.`);
@@ -2559,6 +2935,7 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
 }
 
 loadAutoCapturePreferences();
+if (typeof updateCardPreview === "function") updateCardPreview();
 
 chrome.runtime.sendMessage({type: "GET_MINING_MODE"}).then(res => {
   if (res?.enabled) updateMiningUI(true);

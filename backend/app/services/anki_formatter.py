@@ -314,6 +314,193 @@ def format_pitch_badge(pitch: Any) -> str:
 _format_pitch_badge = format_pitch_badge
 
 
+ANKI_CARD_CSS = """\
+.kn-card {
+  --kn-bg: #ffffff;
+  --kn-text: #1f2937;
+  --kn-muted: #6b7280;
+  --kn-border: #e5e7eb;
+  --kn-surface: #f9fafb;
+  --kn-surface-border: #e5e7eb;
+  --kn-badge-bg: #f3f4f6;
+  --kn-badge-text: #4b5563;
+  --kn-pitch-bg: #eff6ff;
+  --kn-pitch-text: #2563eb;
+  --kn-pitch-border: #bfdbfe;
+  --kn-ruby: #6b7280;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", "Noto Sans JP", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--kn-text);
+  text-align: left;
+  max-width: 520px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.kn-card *, .kn-card *::before, .kn-card *::after {
+  box-sizing: border-box;
+}
+.nightMode .kn-card,
+.night_mode .kn-card,
+body.nightMode .kn-card,
+body.night_mode .kn-card {
+  --kn-bg: #1e1e2e;
+  --kn-text: #e0e0e0;
+  --kn-muted: #9ca3af;
+  --kn-border: #374151;
+  --kn-surface: #181825;
+  --kn-surface-border: #313244;
+  --kn-badge-bg: #262738;
+  --kn-badge-text: #a6adc8;
+  --kn-pitch-bg: #1e293b;
+  --kn-pitch-text: #60a5fa;
+  --kn-pitch-border: #2563eb;
+  --kn-ruby: #9ca3af;
+}
+@media (prefers-color-scheme: dark) {
+  .kn-card {
+    --kn-bg: #1e1e2e;
+    --kn-text: #e0e0e0;
+    --kn-muted: #9ca3af;
+    --kn-border: #374151;
+    --kn-surface: #181825;
+    --kn-surface-border: #313244;
+    --kn-badge-bg: #262738;
+    --kn-badge-text: #a6adc8;
+    --kn-pitch-bg: #1e293b;
+    --kn-pitch-text: #60a5fa;
+    --kn-pitch-border: #2563eb;
+    --kn-ruby: #9ca3af;
+  }
+}
+.kn-card .kn-reading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.kn-card .kn-kana {
+  font-size: 1.25em;
+  font-weight: 600;
+  color: var(--kn-text, #1f2937);
+  letter-spacing: 0.02em;
+}
+.kn-card .kn-pitch {
+  font-size: 0.78em;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--kn-pitch-bg, #eff6ff);
+  color: var(--kn-pitch-text, #2563eb);
+  border: 1px solid var(--kn-pitch-border, #bfdbfe);
+  white-space: nowrap;
+}
+.kn-card .kn-divider {
+  border: 0;
+  height: 1px;
+  background: var(--kn-border, #e5e7eb);
+  margin: 8px 0 12px 0;
+}
+.kn-card .kn-meaning,
+.kn-meaning {
+  margin: 6px 0;
+  font-size: 1em;
+  line-height: 1.5;
+}
+.kn-card .kn-meanings,
+.kn-meanings {
+  margin: 6px 0 10px 0;
+  padding-left: 20px;
+  font-size: 1em;
+  line-height: 1.5;
+}
+.kn-card .kn-meanings li,
+.kn-meanings li {
+  margin-bottom: 4px;
+}
+.kn-card .kn-pos,
+.kn-pos {
+  display: inline-block;
+  font-size: 0.75em;
+  font-weight: 500;
+  padding: 1px 5px;
+  margin-right: 5px;
+  border-radius: 3px;
+  background: var(--kn-badge-bg, #f3f4f6);
+  color: var(--kn-badge-text, #4b5563);
+  vertical-align: middle;
+}
+.kn-card .kn-tag,
+.kn-tag {
+  display: inline-block;
+  font-size: 0.75em;
+  font-weight: 500;
+  padding: 1px 5px;
+  margin-right: 5px;
+  border-radius: 3px;
+  background: var(--kn-badge-bg, #f3f4f6);
+  color: var(--kn-muted, #6b7280);
+  vertical-align: middle;
+}
+.kn-card .kn-example-block,
+.kn-example-block {
+  margin: 12px 0;
+  padding: 10px 14px;
+  background: var(--kn-surface, #f9fafb);
+  border: 1px solid var(--kn-surface-border, #e5e7eb);
+  border-radius: 6px;
+}
+.kn-card .kn-example-ja,
+.kn-example-ja {
+  margin: 0 0 4px 0;
+  font-size: 1.05em;
+  line-height: 1.6;
+  font-weight: 500;
+  color: var(--kn-text, #1f2937);
+}
+.kn-card .kn-example-ja ruby rt,
+.kn-example-ja ruby rt {
+  font-size: 0.58em;
+  color: var(--kn-ruby, #6b7280);
+  font-weight: normal;
+}
+.kn-card .kn-example-en,
+.kn-example-en {
+  margin: 0;
+  font-size: 0.88em;
+  line-height: 1.4;
+  color: var(--kn-muted, #6b7280);
+}
+.kn-card .kn-hint,
+.kn-card .kn-notes {
+  margin: 6px 0;
+  font-size: 0.85em;
+  color: var(--kn-muted, #6b7280);
+}
+.kn-card .kn-media {
+  margin-top: 12px;
+  text-align: center;
+}
+.kn-card .kn-image,
+.kn-image {
+  max-width: 100%;
+  max-height: 240px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  display: block;
+  margin: 6px auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}"""
+
+
+def get_anki_card_css() -> str:
+    """Return the scoped CSS stylesheet used for Kiroku Anki cards."""
+    return ANKI_CARD_CSS
+
+
 def format_basic_back(
     card: Any = None,
     *,
@@ -326,14 +513,14 @@ def format_basic_back(
     example_translation: str = "",
     hint: str = "",
     notes: str = "",
-    image: str = "",
-    audio: str = "",
+    image: str | None = None,
+    audio: str | None = None,
     pitches: list[Any] | None = None,
 ) -> str:
     """Construct a clean, structured, learner-focused Back field for Anki Basic cards.
 
     Includes reading + pitch badge, divider, structured meanings, ruby examples,
-    optional hint/notes, and sanitized media tags.
+    optional hint/notes, sanitized media tags, and a self-contained scoped <style> block.
     """
     c_reading = str(reading if reading else (_get_field(card, "reading") or "")).strip()
     c_meaning = str(meaning if meaning else (_get_field(card, "meaning") or "")).strip()
@@ -343,8 +530,19 @@ def format_basic_back(
     c_hint = str(hint if hint else (_get_field(card, "hint") or "")).strip()
     c_notes = str(notes if notes else (_get_field(card, "notes") or "")).strip()
     # Respect explicitly passed image/audio (e.g. empty string if dedicated fields exist)
-    c_image = str(image if image != "" or card is None else (_get_field(card, "image") or "")).strip() if image is not None else ""
-    c_audio = str(audio if audio != "" or card is None else (_get_field(card, "audio") or "")).strip() if audio is not None else ""
+    if image is not None:
+        c_image = str(image).strip()
+    elif card is not None:
+        c_image = str(_get_field(card, "image") or "").strip()
+    else:
+        c_image = ""
+
+    if audio is not None:
+        c_audio = str(audio).strip()
+    elif card is not None:
+        c_audio = str(_get_field(card, "audio") or "").strip()
+    else:
+        c_audio = ""
 
     # 1. Pitch information
     c_pitches = pitches
@@ -419,4 +617,5 @@ def format_basic_back(
     if not sections:
         return ""
 
-    return '<div class="kn-card">\n' + "\n\n".join(sections) + '\n</div>'
+    body_html = "\n\n".join(sections)
+    return f'<div class="kn-card">\n<style>\n{ANKI_CARD_CSS}\n</style>\n\n{body_html}\n</div>'

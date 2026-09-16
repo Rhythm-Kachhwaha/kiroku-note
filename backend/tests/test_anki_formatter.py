@@ -2,11 +2,13 @@
 import unittest
 
 from app.services.anki_formatter import (
+    ANKI_CARD_CSS,
     escape_html,
     format_basic_back,
     format_example_html,
     format_meaning_html,
     format_ruby_html,
+    get_anki_card_css,
     sanitize_media_tags,
 )
 from app.services.yomitan import (
@@ -281,10 +283,10 @@ class TestAnkiFormatter(unittest.TestCase):
         card_minimal = {"expression": "犬", "reading": "いぬ"}
         minimal_back = format_basic_back(card_minimal)
         self.assertIn('<span class="kn-kana">いぬ</span>', minimal_back)
-        self.assertNotIn("kn-media", minimal_back)
-        self.assertNotIn("kn-hint", minimal_back)
-        self.assertNotIn("kn-notes", minimal_back)
-        self.assertNotIn("kn-example-block", minimal_back)
+        self.assertNotIn('<div class="kn-media">', minimal_back)
+        self.assertNotIn('<div class="kn-hint">', minimal_back)
+        self.assertNotIn('<div class="kn-notes">', minimal_back)
+        self.assertNotIn('<div class="kn-example-block">', minimal_back)
 
     # 12. Multiple dictionary entries / preserved ordering
     def test_12_multiple_dictionary_entries_preserved_ordering(self):
@@ -324,6 +326,100 @@ class TestAnkiFormatter(unittest.TestCase):
         for i in range(1, 26):
             self.assertIn(f"Sense meaning {i}", html_out)
         self.assertEqual(html_out.count("<li>"), 25)
+    # 14. Scoped CSS and styling tests (Stage 5.2)
+    def test_14_scoped_css_and_styling(self):
+        css = get_anki_card_css()
+        self.assertIsInstance(css, str)
+        self.assertGreater(len(css), 100)
+
+        # 1. Scoped container and light theme variables
+        self.assertIn(".kn-card", css)
+        self.assertIn("--kn-bg: #ffffff;", css)
+        self.assertIn("--kn-text: #1f2937;", css)
+        self.assertIn("--kn-muted: #6b7280;", css)
+        self.assertIn("--kn-surface: #f9fafb;", css)
+        self.assertIn("--kn-pitch-bg: #eff6ff;", css)
+
+        # 2. Night mode / dark mode selectors
+        self.assertIn(".nightMode .kn-card", css)
+        self.assertIn(".night_mode .kn-card", css)
+        self.assertIn("body.nightMode .kn-card", css)
+        self.assertIn("body.night_mode .kn-card", css)
+        self.assertIn("@media (prefers-color-scheme: dark)", css)
+        self.assertIn("--kn-bg: #1e1e2e;", css)
+
+        # 3. Japanese typography fallbacks
+        self.assertIn("Hiragino Sans", css)
+        self.assertIn("Yu Gothic", css)
+        self.assertIn("Noto Sans JP", css)
+
+        # 4. Media constraints
+        self.assertIn("max-height: 240px;", css)
+        self.assertIn("max-width: 100%;", css)
+        self.assertIn("object-fit: contain;", css)
+
+        # 5. Embedded in Basic Back HTML
+        card = {"expression": "勉強", "reading": "べんきょう", "meaning": "study"}
+        back_html = format_basic_back(card)
+        self.assertIn("<style>", back_html)
+        self.assertIn("</style>", back_html)
+        self.assertIn(".kn-card", back_html)
+        self.assertIn(".nightMode .kn-card", back_html)
+
+    # 15. Semantic elements structure verification (Stage 5.2)
+    def test_15_semantic_elements_structure(self):
+        card = {
+            "expression": "掛ける",
+            "reading": "かける",
+            "meaning": "1. to hang\n2. to multiply",
+            "hint": "multi-sense verb",
+            "notes": "polite: かけます",
+            "example_sentence": "壁に絵を掛ける。",
+            "example_translation": "Hang a picture on the wall.",
+            "image": "kakeru.jpg",
+            "audio": "kakeru.mp3",
+        }
+        pitches = [PitchAccent(reading="かける", position=2, pattern_name="nakadaka")]
+        entries = [
+            {
+                "dictionary": "Jitendex",
+                "senses": [
+                    {
+                        "index": 1,
+                        "glosses": ["to hang", "to suspend"],
+                        "parts_of_speech": ["ichidan", "vt"],
+                        "tags": ["common"],
+                    },
+                    {
+                        "index": 2,
+                        "glosses": ["to multiply"],
+                        "parts_of_speech": ["ichidan", "vt"],
+                        "field_tags": ["math"],
+                    },
+                ],
+            }
+        ]
+        back_html = format_basic_back(card, entries=entries, pitches=pitches)
+
+        # Verify exact hierarchy of classes
+        self.assertIn('<div class="kn-card">', back_html)
+        self.assertIn('<style>', back_html)
+        self.assertIn('<div class="kn-reading">', back_html)
+        self.assertIn('<span class="kn-kana">かける</span>', back_html)
+        self.assertIn('<span class="kn-pitch">[② Nakadaka]</span>', back_html)
+        self.assertIn('<hr class="kn-divider">', back_html)
+        self.assertIn('<ol class="kn-meanings">', back_html)
+        self.assertIn('<span class="kn-pos">[ichidan, vt]</span>', back_html)
+        self.assertIn('<span class="kn-tag">[common]</span>', back_html)
+        self.assertIn('<span class="kn-tag">[math]</span>', back_html)
+        self.assertIn('<div class="kn-example-block">', back_html)
+        self.assertIn('<p class="kn-example-ja">壁に絵を掛ける。</p>', back_html)
+        self.assertIn('<p class="kn-example-en">Hang a picture on the wall.</p>', back_html)
+        self.assertIn('<div class="kn-hint">Hint: multi-sense verb</div>', back_html)
+        self.assertIn('<div class="kn-notes">Notes: polite: かけます</div>', back_html)
+        self.assertIn('<div class="kn-media">', back_html)
+        self.assertIn('<img src="kakeru.jpg" class="kn-image">', back_html)
+        self.assertIn('[sound:kakeru.mp3]', back_html)
 
 
 if __name__ == "__main__":
