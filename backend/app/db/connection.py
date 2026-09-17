@@ -7,6 +7,8 @@ from pathlib import Path
 import sqlite3
 from typing import Iterator
 
+from app.config import get_data_dir
+
 DEFAULT_DB_REL_PATH = Path("data") / "kiroku.db"
 LEGACY_DB_REL_PATH = Path("data") / "ankiminer.db"
 
@@ -47,16 +49,18 @@ ON cards (normalized_expression, normalized_reading, normalized_deck_name);
 """
 
 
-def get_db_path() -> Path:
+def get_db_path(env: dict[str, str] | None = None) -> Path:
     """Resolve the SQLite database file path from environment or default with backward compatibility."""
-    custom_path = os.getenv("KIROKU_DB_PATH") or os.getenv("ANKIMINER_DB_PATH")
-    if custom_path:
-        return Path(custom_path)
-    base_dir = Path(__file__).resolve().parent.parent.parent
-    kiroku_path = base_dir / DEFAULT_DB_REL_PATH
+    env_dict = os.environ if env is None else env
+    custom_path = env_dict.get("KIROKU_DB_PATH") or env_dict.get("ANKIMINER_DB_PATH")
+    if custom_path and str(custom_path).strip():
+        return Path(str(custom_path).strip())
+
+    data_dir = get_data_dir(env_dict)
+    kiroku_path = data_dir / "kiroku.db"
     if kiroku_path.exists():
         return kiroku_path
-    legacy_path = base_dir / LEGACY_DB_REL_PATH
+    legacy_path = data_dir / "ankiminer.db"
     if legacy_path.exists():
         return legacy_path
     return kiroku_path

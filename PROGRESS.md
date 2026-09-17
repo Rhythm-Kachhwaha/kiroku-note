@@ -228,17 +228,19 @@ The core mining pipeline is functional. Current work is focused on polishing, re
 
 ### Stage 9 — Release Harness
 
-- [ ] Production configuration
-- [ ] Extension packaging
-- [ ] Backend launcher
+- [x] Production configuration
+- [x] Extension packaging
+- [x] Backend launcher
 - [ ] Clean-machine testing
 - [ ] Versioning
 - [ ] Release checks
 
 ### Stage 10 — Windows Distribution
 
-- [ ] Build easy-to-use Windows package
-- [ ] Package backend/launcher
+- [x] Build easy-to-use Windows package
+- [x] Package backend/launcher
+- [x] Package Chromium extension
+- [x] Configure Windows Inno Setup installer (`installer/kiroku_setup.iss`, `release/build-installer.ps1`)
 - [ ] Document installation
 - [ ] Test on clean Windows environment
 
@@ -404,6 +406,50 @@ New major features should generally be deferred unless they are necessary for th
 - **Verification:**
   - 275/275 backend pytest tests passing (`python -m pytest tests` in `backend/`).
   - 36/36 extension test suites passing (`node extension/tests/*.test.js`), including dedicated `backend-port-centralization.test.js`.
+
+### Standalone Backend Executable Packaging (PyInstaller V1)
+- **Artifacts Delivered:**
+  - `packaging/kiroku_backend.spec`: PyInstaller onefile specification bundling the Python 3.11 runtime, FastAPI, Uvicorn, SQLite3, Starlette, Pydantic, and all internal `app.*` services while excluding development dependencies (`pytest`, test directories, documentation, git).
+  - `release/build-backend.ps1`: Automated PowerShell build script that validates environment tooling, cleans previous build artifacts, runs PyInstaller, and verifies binary output.
+  - `dist/backend/KirokuNote.exe`: Standalone Windows single-file executable (49.76 MB).
+- **Key Architectural Decisions & User Data Separation:**
+  - **Persistent User Data Architecture:** In packaged mode (`getattr(sys, "frozen", False)` is True), user data strictly resides outside the bundle directory at `%LOCALAPPDATA%\KirokuNote\` with dedicated `data\`, `media\`, and `logs\` subdirectories.
+  - **Backward-Compatible Precedence:** Supported environment variables (`KIROKU_PORT`, `PORT`, `KIROKU_DB_PATH`, `ANKIMINER_DB_PATH`, `KIROKU_MEDIA_DIR`, `ANKIMINER_MEDIA_DIR`, `KIROKU_DATA_DIR`) take precedence over defaults.
+  - **Production Security Invariants:** API documentation (`/docs`, `/redoc`) and auto-reload are disabled by default in production; enabled only when `KIROKU_DEBUG=1` is explicitly set.
+  - **Socket Collision Handling:** Early socket-binding check provides actionable error guidance when port 21828 is occupied.
+- **Verification:**
+  - 285/285 backend pytest tests passing (`python -m pytest tests` in `backend/`), including:
+    - 8/8 packaging & path resolution tests (`test_packaging_config.py`)
+    - 2/2 isolated standalone executable runtime tests (`test_standalone_executable.py`) verifying binary presence, HTTP status endpoint, disabled docs (404), fresh SQLite initialization, card save/list persistence, and port collision exit code 1.
+
+### Chromium MV3 Extension Packaging (V1.0.0)
+- **Artifacts Delivered:**
+  - `release/build-extension.ps1`: Automated PowerShell packaging script that validates `manifest.json`, checks all referenced runtime resources, cleans prior outputs, stages runtime-only files to `dist/extension/unpacked/`, executes a strict zero-test/zero-dev audit, and generates `dist/extension/KirokuNote-extension-v1.0.0.zip`.
+  - `dist/extension/KirokuNote-extension-v1.0.0.zip`: Clean distribution ZIP (96.81 KB).
+  - `dist/extension/unpacked/`: Clean unpacked extension directory ready to be loaded in Brave/Chromium developer mode.
+  - `extension/tests/extension-packaging.test.js`: Automated packaging and manifest validation test suite.
+- **Key Architectural Decisions & Content Isolation:**
+  - **Manifest Alignment:** Bumped `extension/manifest.json` version from `0.1.0` to `1.0.0` (Manifest V3, name `Kiroku Note`).
+  - **Zero Leakage:** Strictly excluded all 36 test suites, test fixtures, `.md` files, `.git` metadata, temporary files, and development artifacts from the ZIP and unpacked distribution folders.
+### Windows Inno Setup Installer Packaging (V1.0.0)
+- **Artifacts Delivered:**
+  - `installer/kiroku_setup.iss`: Inno Setup 6 compilation script creating 64-bit per-machine installer `Kiroku-Note-Setup-v1.0.0.exe`.
+  - `installer/extension_instructions.txt`: Clear user instructions on how to load the unpacked Chromium extension from `{app}\extension`.
+  - `release/build-installer.ps1`: Automated PowerShell script to validate payload, audit user-data exclusion, locate `ISCC.exe`, and build installer.
+  - `backend/tests/test_installer_config.py`: Automated static and configuration test suite for the installer script.
+- **Key Architectural Decisions & User Data Safety:**
+  - **Installation Layout:** Installs `KirokuNote.exe`, the complete `extension/` runtime directory, and `extension_instructions.txt` to `{autopf}\Kiroku Note\` (`C:\Program Files\Kiroku Note\`).
+  - **Zero User-Data Tampering:** User database (`kiroku.db`), media, and logs reside strictly in `%LOCALAPPDATA%\KirokuNote\` and are never bundled, overwritten, or deleted by installation, updates, or uninstalls.
+  - **Extension Stability:** Installs extension to fixed `{app}\extension` folder so updates overwrite runtime code in-place without invalidating browser extension IDs or requiring users to locate new random folders.
+  - **Start Menu & Shortcuts:** Creates Start Menu shortcuts for `Kiroku Note`, `Extension Setup Instructions`, `Open Extension Folder`, and Windows uninstaller, with optional Desktop shortcut.
+  - **Zero Backend/Extension Interference:** Unmodified backend executable (`KirokuNote.exe`, 49.76 MB) and extension packaging (`dist/extension/unpacked/`).
+- **Verification:**
+  - 290/290 backend pytest tests passing (`python -m pytest tests` in `backend/`), including 5/5 dedicated `test_installer_config.py` tests.
+  - 39/39 extension test suites passing (`node --test extension/tests/*.test.js`).
+
+
+
+
 
 
 

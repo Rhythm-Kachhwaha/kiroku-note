@@ -8,18 +8,12 @@ from pathlib import Path
 import re
 import uuid
 
-DEFAULT_MEDIA_REL_PATH = Path("data") / "media"
+from app.config import get_media_dir as config_get_media_dir
 
 
-def get_media_dir() -> Path:
-    """Resolve media directory from environment (KIROKU_MEDIA_DIR / ANKIMINER_MEDIA_DIR) or default (backend/data/media)."""
-    custom_dir = os.getenv("KIROKU_MEDIA_DIR") or os.getenv("ANKIMINER_MEDIA_DIR")
-    if custom_dir:
-        target = Path(custom_dir)
-    else:
-        base_dir = Path(__file__).resolve().parent.parent.parent
-        target = base_dir / DEFAULT_MEDIA_REL_PATH
-
+def get_media_dir(env: dict[str, str] | None = None) -> Path:
+    """Resolve media directory from environment (KIROKU_MEDIA_DIR / ANKIMINER_MEDIA_DIR) or config default and ensure it exists."""
+    target = config_get_media_dir(env)
     target.mkdir(parents=True, exist_ok=True)
     return target
 
