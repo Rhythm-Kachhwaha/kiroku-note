@@ -61,11 +61,55 @@
       <section id="video-mining-section" class="video-mining-panel" aria-label="Video Mining Controls">
         <div class="video-toolbar">
           <div class="video-action-buttons">
-            <button type="button" id="load-subtitles-btn" class="btn-subtitles">Load Subtitles (.srt, .vtt)</button>
+            <button type="button" id="load-subtitles-btn" class="btn-subtitles">Load Subtitles (.srt, .vtt, .ass)</button>
+            <button type="button" id="btn-search-subtitles" class="btn-search-subtitles" title="Search Japanese subtitles via Jimaku">Search</button>
             <button type="button" id="clear-subtitles-btn" class="btn-clear-subtitles" title="Clear loaded subtitles">Clear</button>
-            <input type="file" id="subtitles-file-input" accept=".srt,.vtt" hidden>
+            <input type="file" id="subtitles-file-input" accept=".srt,.vtt,.ass,.ssa" hidden>
           </div>
           <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
+        </div>
+
+        <!-- Jimaku Subtitles Search Modal -->
+        <div id="jimaku-search-modal" class="jimaku-modal" role="dialog" aria-modal="false" aria-label="Search Japanese Subtitles" hidden>
+          <div class="jimaku-modal-header">
+            <div class="jimaku-modal-title-row">
+              <span class="jimaku-icon" aria-hidden="true">🔍</span>
+              <h3 class="jimaku-modal-title">Search Subtitles (Jimaku)</h3>
+            </div>
+            <button type="button" id="btn-close-jimaku-modal" class="btn-close-modal" title="Close subtitle search" aria-label="Close subtitle search">&times;</button>
+          </div>
+
+          <div class="jimaku-api-key-section">
+            <label for="jimaku-api-key-input" class="jimaku-label">API Key <span class="jimaku-hint">(stored locally)</span></label>
+            <div class="jimaku-key-row">
+              <input type="password" id="jimaku-api-key-input" class="jimaku-input" placeholder="Enter Jimaku API Key…" autocomplete="off">
+              <button type="button" id="btn-save-jimaku-key" class="btn-jimaku-action">Save</button>
+            </div>
+            <span id="jimaku-key-status" class="jimaku-status-note"></span>
+          </div>
+
+          <div class="jimaku-search-section">
+            <label for="jimaku-search-input" class="jimaku-label">Anime / Media Title</label>
+            <div class="jimaku-search-row">
+              <input type="text" id="jimaku-search-input" class="jimaku-input" placeholder="e.g. Frieren, 葬送のフリーレン…" autocomplete="off">
+              <button type="button" id="btn-jimaku-search" class="btn-jimaku-primary">Search</button>
+            </div>
+          </div>
+
+          <div id="jimaku-status-message" class="jimaku-status-message" hidden></div>
+
+          <div id="jimaku-results-container" class="jimaku-results-container" hidden>
+            <div class="jimaku-results-header">Search Results:</div>
+            <div id="jimaku-results-list" class="jimaku-results-list" role="list"></div>
+          </div>
+
+          <div id="jimaku-files-container" class="jimaku-files-container" hidden>
+            <div class="jimaku-files-header-row">
+              <span id="jimaku-selected-entry-title" class="jimaku-entry-title"></span>
+              <button type="button" id="btn-back-to-results" class="btn-jimaku-back">← Back</button>
+            </div>
+            <div id="jimaku-files-list" class="jimaku-files-list" role="list"></div>
+          </div>
         </div>
 
         <div class="video-controls-row">
@@ -385,6 +429,8 @@
     </section>
   </main>
   <script src="../lib/subtitle-parser.js"></script>
+  <script src="../lib/subtitle-provider.js"></script>
+  <script src="../lib/jimaku-provider.js"></script>
   <script src="../lib/ocr-cropper.js"></script>
   <script src="sidepanel.js"></script>
 </body>

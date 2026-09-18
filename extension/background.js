@@ -189,6 +189,39 @@ function isAllowedTimedtextUrl(url) {
   );
 }
 
+/**
+ * Validates URLs used for Jimaku API and subtitle file downloads.
+ * Only HTTPS requests targeting jimaku.cc under /api/ are permitted.
+ * Rejects localhost, loopback, and private IP addresses.
+ *
+ * @param {string} url
+ * @returns {boolean}
+ */
+function isAllowedJimakuUrl(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (_) {
+    return false;
+  }
+
+  if (parsed.protocol !== "https:") return false;
+  const host = parsed.hostname.toLowerCase();
+
+  if (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    /^10\.\d+\.\d+\.\d+$/.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(host) ||
+    /^192\.168\.\d+\.\d+$/.test(host)
+  ) {
+    return false;
+  }
+
+  return (host === "jimaku.cc" || host.endsWith(".jimaku.cc")) && parsed.pathname.startsWith("/api/");
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "SET_MINING_MODE") {
     isMiningModeEnabled = Boolean(message.enabled);
@@ -269,6 +302,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })
       .then(text => sendResponse({ok: true, text}))
       .catch(err => sendResponse({ok: false, error: err.message}));
+    return true;
+  }
+  if (message?.type === "FETCH_JIMAKU_API") {
+    if (!isAllowedJimakuUrl(message.url)) {
+      sendResponse({ ok: false, error: "INVALID_URL", message: "URL not allowed" });
+      return true;
+    }
+    const headers = {
+      "Accept": "application/json, text/plain, */*"
+    };
+    if (message.apiKey) {
+      headers["Authorization"] = message.apiKey;
+    }
+    fetch(message.url, {
+      method: message.method || "GET",
+      headers
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const status = res.status;
+          if (status === 401) throw new Error("UNAUTHORIZED: Invalid Jimaku API key");
+          if (status === 429) throw new Error("RATE_LIMITED: Jimaku API rate limit reached");
+          throw new Error(`HTTP ${status}: ${res.statusText}`);
+        }
+        const contentType = res.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          const json = await res.json();
+          return { ok: true, data: json, isJson: true };
+        } else {
+          const text = await res.text();
+          return { ok: true, text, isJson: false };
+        }
+      })
+      .then(data => sendResponse(data))
+      .catch(err => sendResponse({ ok: false, error: err.message }));
     return true;
   }
   if (message?.type === "CAPTURE_VIDEO_FRAME") {
@@ -469,6 +537,7 @@ if (typeof module !== "undefined" && module.exports) {
     stopPersistentCapture,
     OFFSCREEN_DOCUMENT_PATH,
     isAllowedTimedtextUrl,
+    isAllowedJimakuUrl,
   };
 }
 

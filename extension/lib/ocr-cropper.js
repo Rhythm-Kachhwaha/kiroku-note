@@ -53,12 +53,15 @@
       return { x: 0, y: 0, width: 0, height: 0 };
     }
 
+    const rectLeft = Number.isFinite(rect.left) ? rect.left : (Number.isFinite(rect.x) ? rect.x : 0);
+    const rectTop = Number.isFinite(rect.top) ? rect.top : (Number.isFinite(rect.y) ? rect.y : 0);
+
     const vpW = Number.isFinite(viewport?.innerWidth) && viewport.innerWidth > 0
       ? viewport.innerWidth
-      : (typeof window !== "undefined" ? window.innerWidth : 1);
+      : (Number.isFinite(viewport?.width) && viewport.width > 0 ? viewport.width : (typeof window !== "undefined" ? window.innerWidth : 1));
     const vpH = Number.isFinite(viewport?.innerHeight) && viewport.innerHeight > 0
       ? viewport.innerHeight
-      : (typeof window !== "undefined" ? window.innerHeight : 1);
+      : (Number.isFinite(viewport?.height) && viewport.height > 0 ? viewport.height : (typeof window !== "undefined" ? window.innerHeight : 1));
 
     const imgW = Number.isFinite(imageDimensions?.naturalWidth) && imageDimensions.naturalWidth > 0
       ? imageDimensions.naturalWidth
@@ -71,8 +74,8 @@
     const scaleX = imgW / vpW;
     const scaleY = imgH / vpH;
 
-    let cropX = Math.round(rect.left * scaleX);
-    let cropY = Math.round(rect.top * scaleY);
+    let cropX = Math.round(rectLeft * scaleX);
+    let cropY = Math.round(rectTop * scaleY);
     let cropW = Math.round(rect.width * scaleX);
     let cropH = Math.round(rect.height * scaleY);
 

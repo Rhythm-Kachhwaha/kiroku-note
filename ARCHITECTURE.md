@@ -105,3 +105,48 @@ OCR captures visible page screenshots, crops user-selected regions with High-DPI
 
 The core Kiroku Note distribution (~50 MB) does not bundle PyTorch or manga-ocr. The OCR component is distributed as an optional standalone add-on (`KirokuOCR.exe`). `GET /api/ocr/status` is strictly observational. `POST /api/ocr/recognize` performs a single bounded startup attempt if the add-on is installed but offline, guarded by failure cooldowns.
 
+### Subtitle Acquisition (`SubtitleProvider` & `SubtitleParser`)
+
+Subtitle acquisition is an input source providing Japanese cue streams into the unified mining pipeline. `SubtitleProvider` offers a provider-agnostic interface (`getTracks()`, `loadTrack(id)`) across:
+- `LocalFileSubtitleProvider`: User-dropped `.srt`, `.vtt`, `.ass`, `.ssa` files.
+- `YouTubeSubtitleProvider`: Native and auto-generated Japanese caption tracks extracted via player response metadata.
+- `NetflixSubtitleProvider`: Intercepted live `timedtext` streams from Netflix web players.
+- `JimakuSubtitleProvider`: Search and direct download of community anime subtitle tracks via Jimaku API (`https://jimaku.cc/api/*`).
+
+`SubtitleParser` normalizes diverse subtitle formats into standard `Cue` objects (`startMs`, `endMs`, `text`, `rawText`), stripping format-specific tags (`{\pos}`, `{\fad}`, `<v Speaker>`, etc.), speaker prefixes (`山田:`, `CHARACTER：`), and duplicate cues. Subtitle text interactions in the video overlay or Side Panel directly invoke `POST /api/capture` to feed the standard card draft and enrichment flow.
+
+## Architectural decisions
+
+### ADR-001: Chromium extension + Side Panel is the application shell
+
+The extension keeps mining next to the page and makes Side Panel the single application UI. Content scripts handle page interaction; the panel handles card work.
+
+### ADR-002: SQLite is the local source of truth and cards are persisted before Anki synchronization
+
+Local persistence protects cards from AnkiConnect outages and enables pending sync.
+
+### ADR-003: Prevent duplicate vocabulary cards per deck using normalized expression + reading + deck
+
+Both local and, when needed, Anki checks protect against duplicate notes across local database resets.
+
+### ADR-004: Isolate Yomitan behind a service boundary
+
+Dictionary/API changes must not leak beyond `YomitanService`.
+
+### ADR-005: Use vanilla HTML/CSS/JavaScript for the frontend
+
+React and Electron are intentionally excluded to keep the extension small and aligned with its browser-native shell.
+
+### ADR-006: OCR is strictly an input source to the canonical capture pipeline
+
+OCR captures visible page screenshots, crops user-selected regions with High-DPI coordinate scaling, and requests recognition via the core backend (`/api/ocr/recognize`). The recognized Japanese text feeds directly into the standard `identify(text)` pipeline (`POST /api/capture`). No duplicate card editors, custom Yomitan paths, or separate OCR databases exist.
+
+### ADR-007: OCR is an isolated, optional companion process with managed lifecycle
+
+The core Kiroku Note distribution (~50 MB) does not bundle PyTorch or manga-ocr. The OCR component is distributed as an optional standalone add-on (`KirokuOCR.exe`). `GET /api/ocr/status` is strictly observational. `POST /api/ocr/recognize` performs a single bounded startup attempt if the add-on is installed but offline, guarded by failure cooldowns.
+
+### ADR-008: Subtitle acquisition is an input source to the canonical capture pipeline
+
+Subtitle tracks from all sources (local files, YouTube CC, Netflix timedtext, Jimaku API) are parsed and normalized into standard cue streams. Hovering or clicking Japanese words in subtitle cues invokes the exact same `POST /api/capture` endpoint as text selection and OCR. No separate subtitle databases, custom card editors, or alternate enrichment paths exist. External subtitle search API keys (Jimaku) are stored strictly locally in `chrome.storage.local` with SSRF-safe background proxying.
+
+

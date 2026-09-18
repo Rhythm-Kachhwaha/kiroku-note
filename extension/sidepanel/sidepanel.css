@@ -226,6 +226,16 @@ body {
   background: #6c6a64;
 }
 
+.indicator-pill.error {
+  color: var(--accent-error);
+  border-color: var(--accent-error-border);
+}
+
+.indicator-pill.error .indicator-dot {
+  background: var(--accent-error);
+  box-shadow: 0 0 4px rgba(224, 108, 117, 0.4);
+}
+
 /* ==========================================================================
    2. Mode Navigation Tabs & Mining Bar
    ========================================================================== */
@@ -3136,5 +3146,268 @@ rt {
     animation: none !important;
   }
 }
+
+/* ==========================================================================
+   14. Subtitle Search Modal (Jimaku) & Action Buttons
+   ========================================================================== */
+
+.btn-search-subtitles {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
+  padding: 4px 9px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-search-subtitles:hover {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.btn-search-subtitles:focus-visible {
+  outline: 2px solid var(--border-focus);
+}
+
+.jimaku-modal {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.jimaku-modal[hidden] {
+  display: none !important;
+}
+
+.jimaku-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 6px;
+}
+
+.jimaku-modal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.jimaku-icon {
+  font-size: 13px;
+}
+
+.jimaku-modal-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.btn-close-modal {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.btn-close-modal:hover {
+  color: var(--text-primary);
+}
+
+.jimaku-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.jimaku-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+.jimaku-key-row,
+.jimaku-search-row {
+  display: flex;
+  gap: 6px;
+}
+
+.jimaku-input {
+  flex: 1;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 5px 8px;
+  outline: none;
+}
+
+.jimaku-input:focus {
+  border-color: var(--border-focus);
+}
+
+.btn-jimaku-action {
+  background: var(--bg-surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.btn-jimaku-action:hover {
+  border-color: var(--border-strong);
+}
+
+.btn-jimaku-primary {
+  background: var(--accent-primary-dim);
+  border: 1px solid rgba(217, 119, 87, 0.4);
+  border-radius: var(--radius-sm);
+  color: var(--accent-primary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.btn-jimaku-primary:hover {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.jimaku-status-note {
+  display: block;
+  font-size: 10px;
+  color: var(--accent-success);
+  margin-top: 3px;
+}
+
+.jimaku-status-message {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 6px 8px;
+  background: var(--bg-canvas);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.jimaku-status-message.error {
+  color: var(--accent-danger);
+  border-color: rgba(224, 108, 117, 0.3);
+  background: rgba(224, 108, 117, 0.08);
+}
+
+.jimaku-results-container,
+.jimaku-files-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.jimaku-results-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.jimaku-results-list,
+.jimaku-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.jimaku-entry-item,
+.jimaku-file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.jimaku-entry-item:hover,
+.jimaku-file-item:hover {
+  background: var(--bg-surface-3);
+  border-color: var(--border-strong);
+}
+
+.jimaku-entry-name,
+.jimaku-file-name {
+  font-size: 11px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jimaku-entry-meta,
+.jimaku-file-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+.jimaku-files-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4px;
+}
+
+.jimaku-entry-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-jimaku-back {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.btn-jimaku-back:hover {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+}
+
 
 

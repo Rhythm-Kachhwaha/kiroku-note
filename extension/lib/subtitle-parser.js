@@ -458,12 +458,135 @@
   }
 
   /**
+   * Strip ASS/SSA tags, style overrides, and drawing commands
+   */
+  function stripASSTags(str) {
+    if (!str) return "";
+    return str
+      // Remove drawing commands block: {\p1}...{\p0}
+      .replace(/\{\\p[1-9]\}[^\{]*\{\\p0\}/gi, "")
+      // Remove any trailing drawing command if unclosed
+      .replace(/\{\\p[1-9]\}.*$/gi, "")
+      // Replace \N and \n with actual newline
+      .replace(/\\N/g, "\n")
+      .replace(/\\n/g, "\n")
+      // Replace \h (hard space) with standard space
+      .replace(/\\h/g, " ")
+      // Remove all style override tags: {...}
+      .replace(/\{[^}]*\}/g, "")
+      // Strip HTML tags and entities
+      .replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, "\"")
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num, 10)))
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      .trim();
+  }
+
+  /**
+   * Parse Advanced SubStation Alpha (.ass) and SubStation Alpha (.ssa) formats
+   */
+  function parseASS(rawText) {
+    if (!rawText || typeof rawText !== "string") return [];
+
+    const normalized = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+    if (!normalized) return [];
+
+    const lines = normalized.split("\n");
+    const cues = [];
+    let inEventsSection = false;
+    let formatHeaders = ["Layer", "Start", "End", "Style", "Name", "MarginL", "MarginR", "MarginV", "Effect", "Text"];
+    let startIdx = 1;
+    let endIdx = 2;
+    let textIdx = 9;
+    let defaultId = 1;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      if (line.startsWith("[") && line.endsWith("]")) {
+        const sec = line.toLowerCase();
+        inEventsSection = (sec === "[events]");
+        continue;
+      }
+
+      if (inEventsSection && line.startsWith("Format:")) {
+        const headerLine = line.slice("Format:".length).trim();
+        formatHeaders = headerLine.split(",").map(h => h.trim());
+        startIdx = formatHeaders.findIndex(h => h.toLowerCase() === "start");
+        endIdx = formatHeaders.findIndex(h => h.toLowerCase() === "end");
+        textIdx = formatHeaders.findIndex(h => h.toLowerCase() === "text");
+        if (startIdx === -1) startIdx = 1;
+        if (endIdx === -1) endIdx = 2;
+        if (textIdx === -1) textIdx = formatHeaders.length - 1;
+        continue;
+      }
+
+      if (line.startsWith("Dialogue:") || (inEventsSection && line.startsWith("Dialogue:"))) {
+        const colonPos = line.indexOf(":");
+        const content = line.slice(colonPos + 1).trim();
+        const numFields = formatHeaders.length;
+
+        // Split into at most numFields parts (Text is the last field)
+        const parts = [];
+        let currentPart = "";
+        let splitCount = 0;
+        for (let j = 0; j < content.length; j++) {
+          const ch = content[j];
+          if (ch === "," && splitCount < numFields - 1) {
+            parts.push(currentPart.trim());
+            currentPart = "";
+            splitCount++;
+          } else {
+            currentPart += ch;
+          }
+        }
+        parts.push(currentPart.trim());
+
+        if (parts.length <= Math.max(startIdx, endIdx, textIdx)) continue;
+
+        const rawStart = parts[startIdx];
+        const rawEnd = parts[endIdx];
+        const rawTextContent = parts[textIdx] || "";
+
+        const startTime = parseTimestamp(rawStart);
+        const endTime = parseTimestamp(rawEnd);
+
+        if (startTime === null || endTime === null || startTime > endTime) continue;
+
+        const text = stripASSTags(rawTextContent);
+        if (!text) continue;
+
+        cues.push({
+          id: defaultId++,
+          startTime,
+          endTime,
+          text,
+          rawText: rawTextContent
+        });
+      }
+    }
+
+    return cues;
+  }
+
+  /**
    * Auto-detect format from filename or content
    */
   function parseSubtitles(rawText, formatOrFilename = "") {
     if (!rawText || typeof rawText !== "string") return [];
 
     const hint = String(formatOrFilename).toLowerCase();
+    if (hint.endsWith(".ass") || hint.endsWith(".ssa") || hint === "ass" || hint === "ssa") {
+      const cues = parseASS(rawText);
+      if (cues.length > 0) return cues;
+    }
     if (hint.endsWith(".srv3") || hint.endsWith(".ytsrv3") || hint === "srv3" || hint === "ytsrv3") {
       const cues = parseSRV3(rawText);
       if (cues.length > 0) return cues;
@@ -489,6 +612,10 @@
 
     // Sniff content
     const trimmed = rawText.trim();
+    if (trimmed.includes("[Script Info]") || trimmed.includes("[Events]") || trimmed.includes("Dialogue:") || trimmed.includes("[V4+ Styles]")) {
+      const assCues = parseASS(trimmed);
+      if (assCues.length > 0) return assCues;
+    }
     if (trimmed.startsWith("{") && (trimmed.includes('"events"') || trimmed.includes('"wireMagic"'))) {
       const jsonCues = parseYouTubeJson3(trimmed);
       if (jsonCues.length > 0) return jsonCues;
@@ -512,7 +639,10 @@
     const srtResult = parseSRT(rawText);
     if (srtResult.length > 0) return srtResult;
 
-    // Fallback: try SRV3 then XML
+    // Fallback: try ASS then SRV3 then XML
+    const assFallback = parseASS(rawText);
+    if (assFallback.length > 0) return assFallback;
+
     const srv3Fallback = parseSRV3(rawText);
     if (srv3Fallback.length > 0) return srv3Fallback;
 
@@ -520,6 +650,117 @@
     if (xmlFallback.length > 0) return xmlFallback;
 
     return parseVTT(rawText);
+  }
+
+  /**
+   * Strip leading speaker label from cue text
+   */
+  function stripSpeakerLabel(text) {
+    if (!text || typeof text !== "string") return "";
+    let clean = text.trim();
+
+    // 1. 【Speaker】Rest of line
+    clean = clean.replace(/^【[^】]+】\s*/, "");
+
+    // 2. [Speaker]: Rest of line or [Speaker] Rest of line
+    clean = clean.replace(/^\[[^\]]+\]\s*:?\s*/, "");
+
+    // 3. (Speaker): Rest of line or (Speaker) Rest of line
+    clean = clean.replace(/^\([^)]+\)\s*:?\s*/, "");
+
+    // 4. Speaker: Rest of line (where speaker is non-whitespace word up to 15 chars before a colon)
+    clean = clean.replace(/^[^\s:：]{1,15}\s*[:：]\s*/, "");
+
+    return clean.trim();
+  }
+
+  /**
+   * Clean and normalize raw cue text
+   */
+  function cleanCueText(text, options = {}) {
+    if (!text || typeof text !== "string") return "";
+    let res = text;
+
+    // 1. Strip ASS override tags if present
+    res = stripASSTags(res);
+
+    // 2. Strip HTML / VTT tags (<v ...>, <b>, etc.) and decode entities
+    res = stripHtmlTags(res);
+
+    // 3. Remove positioning tags (VTT: align:start size:50% line:0% position:10% etc.)
+    res = res.replace(/\b(?:align|size|position|line|vertical):[0-9a-zA-Z%,.-]+/gi, "");
+
+    // 4. Strip speaker labels if requested
+    if (options.stripSpeakerLabels) {
+      const lines = res.split("\n").map(l => stripSpeakerLabel(l)).filter(Boolean);
+      res = lines.join("\n");
+    }
+
+    return res.trim();
+  }
+
+  /**
+   * Normalize an array of subtitle cues:
+   * - Strips HTML/VTT/ASS tags
+   * - Strips speaker labels if requested
+   * - Normalizes whitespace and linebreaks
+   * - Validates timings and removes invalid/empty cues
+   * - Deduplicates and merges identical consecutive cues
+   */
+  function normalizeCues(cues, options = {}) {
+    if (!Array.isArray(cues) || cues.length === 0) return [];
+    const stripSpeaker = options.stripSpeakerLabels !== false;
+    const deduplicate = options.deduplicate !== false;
+
+    const cleaned = [];
+
+    for (const rawCue of cues) {
+      if (!rawCue) continue;
+      const startTime = typeof rawCue.startTime === "number" ? rawCue.startTime : parseTimestamp(rawCue.startTime);
+      const endTime = typeof rawCue.endTime === "number" ? rawCue.endTime : parseTimestamp(rawCue.endTime);
+
+      if (startTime === null || endTime === null || isNaN(startTime) || isNaN(endTime) || startTime >= endTime) {
+        continue;
+      }
+
+      const text = cleanCueText(rawCue.text || "", { stripSpeakerLabels: stripSpeaker });
+      if (!text) continue;
+
+      cleaned.push({
+        id: rawCue.id || cleaned.length + 1,
+        startTime: +startTime.toFixed(3),
+        endTime: +endTime.toFixed(3),
+        text,
+        rawText: rawCue.rawText || rawCue.text || ""
+      });
+    }
+
+    if (!deduplicate || cleaned.length === 0) {
+      return cleaned.map((c, idx) => ({ ...c, id: idx + 1 }));
+    }
+
+    // Sort by startTime
+    cleaned.sort((a, b) => a.startTime - b.startTime || a.endTime - b.endTime);
+
+    const deduplicated = [];
+    for (const cue of cleaned) {
+      if (deduplicated.length === 0) {
+        deduplicated.push({ ...cue });
+        continue;
+      }
+
+      const prev = deduplicated[deduplicated.length - 1];
+      if (prev.text === cue.text) {
+        // Exact duplicate timestamps or consecutive overlapping/adjacent cue with same text
+        if (cue.startTime <= prev.endTime + 0.1) {
+          prev.endTime = Math.max(prev.endTime, cue.endTime);
+          continue;
+        }
+      }
+      deduplicated.push({ ...cue });
+    }
+
+    return deduplicated.map((c, idx) => ({ ...c, id: idx + 1 }));
   }
 
   /**
@@ -537,13 +778,18 @@
   const SubtitleParser = {
     parseSRT,
     parseVTT,
+    parseASS,
     parseSRV3,
     parseYouTubeJson3,
     parseYouTubeXml,
     parseSubtitles,
     parseTimestamp,
+    normalizeCues,
+    cleanCueText,
+    stripSpeakerLabel,
     shiftCues,
     stripHtmlTags,
+    stripASSTags,
     calculateSensibleDuration
   };
 

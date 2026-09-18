@@ -141,6 +141,7 @@ const videoMiningView = document.querySelector("#video-mining-view");
 const videoMiningSection = document.querySelector("#video-mining-section");
 const subtitlesFileStatus = document.querySelector("#subtitles-file-status");
 const loadSubtitlesBtn = document.querySelector("#load-subtitles-btn");
+const btnSearchSubtitles = document.querySelector("#btn-search-subtitles");
 const clearSubtitlesBtn = document.querySelector("#clear-subtitles-btn");
 const subtitlesFileInput = document.querySelector("#subtitles-file-input");
 const videoTrackSelect = document.querySelector("#video-track-select");
@@ -152,6 +153,26 @@ const videoCurrentCuePreview = document.querySelector("#video-current-cue-previe
 const toggleAutoPauseHover = document.querySelector("#toggle-auto-pause-hover");
 const toggleAutoCaptureFrame = document.querySelector("#toggle-auto-capture-frame");
 const toggleAutoCaptureAudio = document.querySelector("#toggle-auto-capture-audio");
+
+// Jimaku Search Modal Elements
+const jimakuSearchModal = document.querySelector("#jimaku-search-modal");
+const btnCloseJimakuModal = document.querySelector("#btn-close-jimaku-modal");
+const jimakuApiKeyInput = document.querySelector("#jimaku-api-key-input");
+const btnSaveJimakuKey = document.querySelector("#btn-save-jimaku-key");
+const jimakuKeyStatus = document.querySelector("#jimaku-key-status");
+const jimakuSearchInput = document.querySelector("#jimaku-search-input");
+const btnJimakuSearch = document.querySelector("#btn-jimaku-search");
+const jimakuStatusMessage = document.querySelector("#jimaku-status-message");
+const jimakuResultsContainer = document.querySelector("#jimaku-results-container");
+const jimakuResultsList = document.querySelector("#jimaku-results-list");
+const jimakuFilesContainer = document.querySelector("#jimaku-files-container");
+const jimakuSelectedEntryTitle = document.querySelector("#jimaku-selected-entry-title");
+const btnBackToResults = document.querySelector("#btn-back-to-results");
+const jimakuFilesList = document.querySelector("#jimaku-files-list");
+
+const jimakuProvider = typeof JimakuProvider !== "undefined" && JimakuProvider.JimakuSubtitleProvider
+  ? new JimakuProvider.JimakuSubtitleProvider()
+  : null;
 
 let currentSubtitleOffsetMs = 0;
 let currentSubtitleOffset = 0.0;
@@ -375,23 +396,40 @@ async function checkOcrStatus() {
     const res = await fetch(API_OCR_STATUS_URL);
     const data = await res.json().catch(() => ({}));
     ocrAvailable = Boolean(data.available);
-    ocrLoaded = Boolean(data.loaded);
+    const ocrInstalled = Boolean(data.installed);
+    ocrLoaded = Boolean(data.model_loaded);
 
     if (ocrAvailable) {
-      setIndicatorStatus(indicatorOcr, "connected", ocrLoaded ? "OCR: Ready (Loaded)" : "OCR: Ready (Idle)");
+      setIndicatorStatus(
+        indicatorOcr,
+        "connected",
+        ocrLoaded ? "OCR: Ready (Loaded)" : "OCR: Ready (Idle)"
+      );
+    } else if (!ocrInstalled) {
+      setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Not installed");
     } else {
-      setIndicatorStatus(indicatorOcr, "unavailable", data.message || "OCR: Unavailable");
+      setIndicatorStatus(
+        indicatorOcr,
+        "unavailable",
+        data.error ? `OCR: Offline (${data.error})` : (data.message || "OCR: Offline")
+      );
     }
     return data;
   } catch (_) {
     ocrAvailable = false;
+    ocrLoaded = false;
     setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Backend unreachable");
-    return { available: false, loaded: false };
+    return { available: false, installed: false, model_loaded: false };
   }
 }
 
-async function handleOcrCropProcess({ dataUrl, cropRect, viewport }) {
+async function handleOcrCropProcess({ dataUrl, cropRect, rect, viewport }) {
   try {
+    const rawRect = cropRect || rect;
+    if (!rawRect) {
+      throw new Error("No selection region provided");
+    }
+
     setStatus("Processing OCR capture…");
     setIndicatorStatus(indicatorOcr, "checking", "OCR: Processing…");
 
@@ -405,41 +443,37 @@ async function handleOcrCropProcess({ dataUrl, cropRect, viewport }) {
 
     const cropBounds = (typeof KirokuOcrCropper !== "undefined" && KirokuOcrCropper.calculateOcrCropBounds)
       ? KirokuOcrCropper.calculateOcrCropBounds(
-          cropRect,
-          img.naturalWidth || img.width,
-          img.naturalHeight || img.height,
-          viewport.width,
-          viewport.height
+          rawRect,
+          viewport || {},
+          { naturalWidth: img.naturalWidth || img.width, naturalHeight: img.naturalHeight || img.height }
         )
       : {
-          sx: Math.round(cropRect.x),
-          sy: Math.round(cropRect.y),
-          sw: Math.round(cropRect.width),
-          sh: Math.round(cropRect.height),
-          targetWidth: Math.round(cropRect.width),
-          targetHeight: Math.round(cropRect.height)
+          x: Math.round(rawRect.left ?? rawRect.x ?? 0),
+          y: Math.round(rawRect.top ?? rawRect.y ?? 0),
+          width: Math.round(rawRect.width),
+          height: Math.round(rawRect.height)
         };
 
-    if (cropBounds.sw <= 0 || cropBounds.sh <= 0) {
+    if (cropBounds.width <= 0 || cropBounds.height <= 0) {
       throw new Error("Selection area is too small");
     }
 
     const canvas = document.createElement("canvas");
-    canvas.width = cropBounds.targetWidth;
-    canvas.height = cropBounds.targetHeight;
+    canvas.width = cropBounds.width;
+    canvas.height = cropBounds.height;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Failed to initialize canvas context");
 
     ctx.drawImage(
       img,
-      cropBounds.sx,
-      cropBounds.sy,
-      cropBounds.sw,
-      cropBounds.sh,
+      cropBounds.x,
+      cropBounds.y,
+      cropBounds.width,
+      cropBounds.height,
       0,
       0,
-      cropBounds.targetWidth,
-      cropBounds.targetHeight
+      cropBounds.width,
+      cropBounds.height
     );
 
     const croppedDataUrl = canvas.toDataURL("image/png");
@@ -447,18 +481,20 @@ async function handleOcrCropProcess({ dataUrl, cropRect, viewport }) {
     const response = await fetch(API_OCR_RECOGNIZE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image_base64: croppedDataUrl })
+      body: JSON.stringify({ image: croppedDataUrl })
     });
 
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
       const errMsg = result.detail || `OCR failed (status ${response.status})`;
-      setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Error");
+      setIndicatorStatus(indicatorOcr, "error", `OCR: ${errMsg}`);
       setStatus(`OCR failed: ${errMsg}`, true);
       return;
     }
 
-    setIndicatorStatus(indicatorOcr, "connected", "OCR: Ready");
+    setIndicatorStatus(indicatorOcr, "connected", "OCR: Ready (Loaded)");
+    ocrAvailable = true;
+    ocrLoaded = true;
 
     const recognizedText = typeof result.text === "string" ? result.text.trim() : "";
     if (!recognizedText) {
@@ -466,7 +502,7 @@ async function handleOcrCropProcess({ dataUrl, cropRect, viewport }) {
       return;
     }
 
-    setStatus(`OCR recognized: ${recognizedText}`);
+    setStatus(`OCR recognized: "${recognizedText}" — looking up dictionary…`);
 
     // Feed directly into canonical capture pipeline
     await identify(recognizedText);
@@ -478,9 +514,12 @@ async function handleOcrCropProcess({ dataUrl, cropRect, viewport }) {
       fieldImage.value = "ocr_crop.png";
     }
     updateMediaPreviews();
+    scheduleCardPreviewUpdate();
+    refreshDuplicateState();
+    setStatus(`OCR captured: "${recognizedText}"`);
 
   } catch (err) {
-    setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Error");
+    setIndicatorStatus(indicatorOcr, "error", `OCR: ${err.message}`);
     setStatus(`OCR capture failed: ${err.message}`, true);
   }
 }
@@ -3336,6 +3375,7 @@ loadHistory().catch(() => {});
 loadTabPreference().catch(() => {});
 loadAutoPausePreference().catch(() => {});
 loadSubtitleOffsetPreference().catch(() => {});
+loadJimakuApiKey().catch(() => {});
 
 // -------------------------------------------------------------
 // Video Mining Logic & Messaging
@@ -3424,7 +3464,8 @@ async function handleSubtitleFileSelect(file) {
       setStatus("Subtitle parser unavailable.", true);
       return;
     }
-    const cues = parser.parseSubtitles(text, file.name);
+    const rawCues = parser.parseSubtitles(text, file.name);
+    const cues = typeof parser.normalizeCues === "function" ? parser.normalizeCues(rawCues) : rawCues;
     if (!cues || cues.length === 0) {
       setStatus(`No valid subtitle cues found in "${file.name}".`, true);
       return;
@@ -3451,6 +3492,208 @@ async function handleSubtitleFileSelect(file) {
     });
   } catch (err) {
     setStatus(`Failed to read subtitle file: ${err.message}`, true);
+  }
+}
+
+// -------------------------------------------------------------
+// Jimaku Search Subtitles Integration
+// -------------------------------------------------------------
+async function loadJimakuApiKey() {
+  if (!jimakuProvider) return;
+  const key = await jimakuProvider.loadSavedApiKey();
+  if (jimakuApiKeyInput) jimakuApiKeyInput.value = key;
+  if (jimakuKeyStatus) {
+    jimakuKeyStatus.textContent = key ? "✓ API key saved" : "No API key configured";
+    jimakuKeyStatus.style.color = key ? "var(--accent-success)" : "var(--text-muted)";
+  }
+}
+
+async function saveJimakuApiKey() {
+  const key = (jimakuApiKeyInput?.value || "").trim();
+  if (jimakuProvider) jimakuProvider.setApiKey(key);
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      await chrome.storage.local.set({ jimaku_api_key: key });
+    } else if (typeof localStorage !== "undefined") {
+      localStorage.setItem("jimaku_api_key", key);
+    }
+  } catch (_) {}
+  if (jimakuKeyStatus) {
+    jimakuKeyStatus.textContent = key ? "✓ API key saved" : "API key cleared";
+    jimakuKeyStatus.style.color = key ? "var(--accent-success)" : "var(--text-muted)";
+  }
+}
+
+function showJimakuStatus(msg, isError = false) {
+  if (!jimakuStatusMessage) return;
+  if (!msg) {
+    jimakuStatusMessage.hidden = true;
+    jimakuStatusMessage.textContent = "";
+    jimakuStatusMessage.classList.remove("error");
+    return;
+  }
+  jimakuStatusMessage.hidden = false;
+  jimakuStatusMessage.textContent = msg;
+  jimakuStatusMessage.classList.toggle("error", isError);
+}
+
+async function handleJimakuSearch() {
+  const query = (jimakuSearchInput?.value || "").trim();
+  if (!query) {
+    showJimakuStatus("Please enter a title to search.", true);
+    return;
+  }
+  if (!jimakuProvider || !jimakuProvider.getApiKey()) {
+    showJimakuStatus("Please enter and save your Jimaku API key first.", true);
+    return;
+  }
+
+  showJimakuStatus("Searching Jimaku subtitles…");
+  if (jimakuResultsContainer) jimakuResultsContainer.hidden = true;
+  if (jimakuFilesContainer) jimakuFilesContainer.hidden = true;
+
+  try {
+    const entries = await jimakuProvider.searchEntries(query);
+    if (!Array.isArray(entries) || entries.length === 0) {
+      showJimakuStatus(`No subtitle entries found for "${query}".`, false);
+      return;
+    }
+
+    showJimakuStatus("");
+    if (jimakuResultsContainer && jimakuResultsList) {
+      jimakuResultsList.replaceChildren();
+      for (const entry of entries) {
+        const item = document.createElement("div");
+        item.className = "jimaku-entry-item";
+        item.role = "button";
+        item.tabIndex = 0;
+
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "jimaku-entry-name";
+        nameSpan.textContent = entry.japanese_name || entry.name || `Entry #${entry.id}`;
+
+        const metaSpan = document.createElement("span");
+        metaSpan.className = "jimaku-entry-meta";
+        metaSpan.textContent = entry.english_name ? `(${entry.english_name})` : "";
+
+        item.appendChild(nameSpan);
+        if (entry.english_name) item.appendChild(metaSpan);
+
+        item.addEventListener("click", () => selectJimakuEntry(entry));
+        item.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            selectJimakuEntry(entry);
+          }
+        });
+
+        jimakuResultsList.appendChild(item);
+      }
+      jimakuResultsContainer.hidden = false;
+    }
+  } catch (err) {
+    showJimakuStatus(`Search error: ${err.message}`, true);
+  }
+}
+
+async function selectJimakuEntry(entry) {
+  if (!entry || !entry.id || !jimakuProvider) return;
+
+  showJimakuStatus("Fetching subtitle files…");
+  if (jimakuResultsContainer) jimakuResultsContainer.hidden = true;
+  if (jimakuFilesContainer) jimakuFilesContainer.hidden = true;
+
+  try {
+    const files = await jimakuProvider.getFilesForEntry(entry.id);
+    if (!Array.isArray(files) || files.length === 0) {
+      showJimakuStatus("No subtitle files available for this entry.", false);
+      return;
+    }
+
+    showJimakuStatus("");
+    if (jimakuSelectedEntryTitle) {
+      jimakuSelectedEntryTitle.textContent = entry.japanese_name || entry.name || `Entry #${entry.id}`;
+    }
+
+    if (jimakuFilesContainer && jimakuFilesList) {
+      jimakuFilesList.replaceChildren();
+      for (const file of files) {
+        const item = document.createElement("div");
+        item.className = "jimaku-file-item";
+        item.role = "button";
+        item.tabIndex = 0;
+
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "jimaku-file-name";
+        nameSpan.textContent = file.name || `File #${file.id}`;
+
+        const sizeKb = file.size ? `${Math.round(file.size / 1024)} KB` : "";
+        const metaSpan = document.createElement("span");
+        metaSpan.className = "jimaku-file-meta";
+        metaSpan.textContent = sizeKb;
+
+        item.appendChild(nameSpan);
+        if (sizeKb) item.appendChild(metaSpan);
+
+        const downloadUrl = file.download_url || file.url || `https://jimaku.cc/api/files/${file.id}/download`;
+
+        item.addEventListener("click", () => loadJimakuFile(downloadUrl, file.name || "jimaku.ass"));
+        item.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            loadJimakuFile(downloadUrl, file.name || "jimaku.ass");
+          }
+        });
+
+        jimakuFilesList.appendChild(item);
+      }
+      jimakuFilesContainer.hidden = false;
+    }
+  } catch (err) {
+    showJimakuStatus(`Files error: ${err.message}`, true);
+  }
+}
+
+async function loadJimakuFile(fileUrl, filename) {
+  if (!jimakuProvider) return;
+  showJimakuStatus(`Downloading "${filename}"…`);
+
+  try {
+    const trackData = await jimakuProvider.downloadSubtitle(fileUrl, filename);
+    const cues = trackData.cues || [];
+    if (cues.length === 0) {
+      showJimakuStatus(`No valid cues found in "${filename}".`, true);
+      return;
+    }
+
+    loadedSubtitlesFilename = `Jimaku: ${filename}`;
+    if (subtitlesFileStatus) {
+      subtitlesFileStatus.textContent = loadedSubtitlesFilename;
+      subtitlesFileStatus.classList.add("active");
+      subtitlesFileStatus.title = `${loadedSubtitlesFilename} (${cues.length} cues)`;
+    }
+
+    setStatus(`Loaded ${cues.length} subtitle cues from Jimaku ("${filename}").`);
+
+    try {
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+        chrome.storage.local.set({
+          active_subtitle_cues: cues,
+          active_subtitle_filename: loadedSubtitlesFilename
+        });
+      }
+    } catch (_) {}
+
+    await broadcastToActiveVideo({
+      type: "LOAD_SUBTITLE_CUES",
+      cues,
+      filename: loadedSubtitlesFilename
+    });
+
+    if (jimakuSearchModal) jimakuSearchModal.hidden = true;
+    showJimakuStatus("");
+  } catch (err) {
+    showJimakuStatus(`Download error: ${err.message}`, true);
   }
 }
 
@@ -3547,6 +3790,45 @@ if (tabBtnVideo) {
 
 if (clearSubtitlesBtn) {
   clearSubtitlesBtn.addEventListener("click", clearSubtitles);
+}
+
+if (btnSearchSubtitles && jimakuSearchModal) {
+  btnSearchSubtitles.addEventListener("click", () => {
+    jimakuSearchModal.hidden = !jimakuSearchModal.hidden;
+    if (!jimakuSearchModal.hidden && jimakuSearchInput) {
+      jimakuSearchInput.focus();
+    }
+  });
+}
+
+if (btnCloseJimakuModal && jimakuSearchModal) {
+  btnCloseJimakuModal.addEventListener("click", () => {
+    jimakuSearchModal.hidden = true;
+  });
+}
+
+if (btnSaveJimakuKey) {
+  btnSaveJimakuKey.addEventListener("click", saveJimakuApiKey);
+}
+
+if (btnJimakuSearch) {
+  btnJimakuSearch.addEventListener("click", handleJimakuSearch);
+}
+
+if (jimakuSearchInput) {
+  jimakuSearchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleJimakuSearch();
+    }
+  });
+}
+
+if (btnBackToResults) {
+  btnBackToResults.addEventListener("click", () => {
+    if (jimakuFilesContainer) jimakuFilesContainer.hidden = true;
+    if (jimakuResultsContainer) jimakuResultsContainer.hidden = false;
+  });
 }
 
 if (loadSubtitlesBtn && subtitlesFileInput) {

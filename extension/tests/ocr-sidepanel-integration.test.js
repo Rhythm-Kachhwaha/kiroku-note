@@ -64,24 +64,27 @@ function updateMediaPreviews() {
 }
 
 // Simulated handleOcrCropProcess using identical logic
-async function simulateOcrCropProcess({ dataUrl, cropRect, viewport }, fetchMock) {
+async function simulateOcrCropProcess({ dataUrl, cropRect, rect, viewport }, fetchMock) {
   const indicatorOcr = indicatorState;
   const fieldImage = { value: "" };
 
   try {
+    const rawRect = cropRect || rect;
+    if (!rawRect) {
+      throw new Error("No selection region provided");
+    }
+
     setStatus("Processing OCR capture…");
     setIndicatorStatus(indicatorOcr, "checking", "OCR: Processing…");
 
     // Compute crop bounds
     const cropBounds = KirokuOcrCropper.calculateOcrCropBounds(
-      cropRect,
-      1920, // simulated naturalWidth
-      1080, // simulated naturalHeight
-      viewport.width,
-      viewport.height
+      rawRect,
+      viewport || {},
+      { naturalWidth: 1920, naturalHeight: 1080 }
     );
 
-    if (cropBounds.sw <= 0 || cropBounds.sh <= 0) {
+    if (cropBounds.width <= 0 || cropBounds.height <= 0) {
       throw new Error("Selection area is too small");
     }
 
@@ -90,18 +93,18 @@ async function simulateOcrCropProcess({ dataUrl, cropRect, viewport }, fetchMock
     const response = await fetchMock("http://127.0.0.1:21828/api/ocr/recognize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image_base64: croppedDataUrl })
+      body: JSON.stringify({ image: croppedDataUrl })
     });
 
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
       const errMsg = result.detail || `OCR failed (status ${response.status})`;
-      setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Error");
+      setIndicatorStatus(indicatorOcr, "error", `OCR: ${errMsg}`);
       setStatus(`OCR failed: ${errMsg}`, true);
       return;
     }
 
-    setIndicatorStatus(indicatorOcr, "connected", "OCR: Ready");
+    setIndicatorStatus(indicatorOcr, "connected", "OCR: Ready (Loaded)");
 
     const recognizedText = typeof result.text === "string" ? result.text.trim() : "";
     if (!recognizedText) {
@@ -109,7 +112,7 @@ async function simulateOcrCropProcess({ dataUrl, cropRect, viewport }, fetchMock
       return;
     }
 
-    setStatus(`OCR recognized: ${recognizedText}`);
+    setStatus(`OCR recognized: "${recognizedText}" — looking up dictionary…`);
 
     // Feed directly into canonical capture pipeline
     await identify(recognizedText);
@@ -123,7 +126,7 @@ async function simulateOcrCropProcess({ dataUrl, cropRect, viewport }, fetchMock
     updateMediaPreviews();
 
   } catch (err) {
-    setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Error");
+    setIndicatorStatus(indicatorOcr, "error", `OCR: ${err.message}`);
     setStatus(`OCR capture failed: ${err.message}`, true);
   }
 }
@@ -203,7 +206,7 @@ async function runAllTests() {
   assert.equal(identifiedText, null, "Failed OCR must NOT trigger identify()");
   assert.equal(lastStatusIsError, true, "Status must be flagged as error");
   assert.ok(lastStatus.includes("OCR service unavailable"), "Status must describe backend error");
-  assert.equal(indicatorState.className, "indicator-pill unavailable", "OCR indicator must be unavailable");
+  assert.equal(indicatorState.className, "indicator-pill error", "OCR indicator must be in error state");
   console.log("PASS 3C: OCR unavailable 503 error handled cleanly.");
 
   // Test 3D: OCR timeout (504) error handling

@@ -1665,7 +1665,10 @@
           ? SubtitleParser
           : (typeof globalThis !== "undefined" ? globalThis.SubtitleParser : null);
         if (!parser) return;
-        const cues = parser.parseSubtitles(text, file.name);
+        const parsedCues = parser.parseSubtitles(text, file.name);
+        const cues = typeof parser.normalizeCues === "function"
+          ? parser.normalizeCues(parsedCues)
+          : parsedCues;
         if (cues && cues.length > 0) {
           this.syncEngine.setCues(cues);
           this.activeFilename = file.name;

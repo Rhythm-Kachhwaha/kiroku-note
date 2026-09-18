@@ -532,8 +532,69 @@ New major features should generally be deferred unless they are necessary for th
 - **Automated Regression Test Results:**
   - Backend: **337/337 passed** (`python -m pytest tests` in `backend/`).
   - Extension: **43/43 suites passed** (`node --test extension/tests/*.test.js`).
-- **Core Invariant Preserved:**
-  - Core `backend/requirements.txt` remains 100% free of PyTorch, transformers, and manga-ocr dependencies. Core Kiroku Note remains fully decoupled.
+### Phase 6 OCR Workflow & Side Panel UI Polish (V2 Milestone)
+- **Status Summary:**
+  - ✅ **API Contract & Schema Alignment:** Fixed `sidepanel.js` `handleOcrCropProcess` payload contract to send `{ image: croppedDataUrl }` matching FastAPI `OcrRecognizeRequest` schema (eliminating 422 Unprocessable Entity failure).
+  - ✅ **Model Load State Synchronization:** Fixed `checkOcrStatus()` property mapping from `data.loaded` to `data.model_loaded` returned by `/api/ocr/status`, accurately reflecting model load status in memory.
+  - ✅ **6-State OCR UX Hierarchy:** Enhanced `#indicator-ocr` badge states to cleanly distinguish:
+    1. *OCR Not Installed* (`installed: false`, `available: false` -> `.indicator-pill.unavailable`, tooltip `"OCR: Not installed"`)
+    2. *OCR Offline* (`installed: true`, `available: false` -> `.indicator-pill.unavailable`, tooltip `"OCR: Offline"`)
+    3. *OCR Ready (Idle)* (`available: true`, `model_loaded: false` -> `.indicator-pill.connected`, tooltip `"OCR: Ready (Idle)"`)
+    4. *OCR Ready (Loaded)* (`available: true`, `model_loaded: true` -> `.indicator-pill.connected`, tooltip `"OCR: Ready (Loaded)"`)
+    5. *OCR Processing* (in-flight -> `.indicator-pill.checking`, tooltip `"OCR: Processing…"`)
+    6. *OCR Error* (fault/timeout -> `.indicator-pill.error`, tooltip with diagnostic details)
+  - ✅ **Visual Design Integration:** Added `.indicator-pill.error` styles and high-contrast focus/error rings adhering to Obsidian dark theme tokens in `sidepanel.css`.
+  - ✅ **High-DPI Coordinate Normalization:** Updated `KirokuOcrCropper.calculateOcrCropBounds` and `handleOcrCropProcess` to support both `left`/`top` and `x`/`y`, and `innerWidth`/`width` and `innerHeight`/`height` across 100%, 125%, 150%, 200% DPI and browser zoom levels.
+  - ✅ **Canonical Card Mining Path Verified:** Verified end-to-end flow:
+    `User selects region -> Crop screenshot -> POST /api/ocr/recognize -> OCR text -> user inspects/corrects in Expression field -> POST /api/capture -> Yomitan enrichment -> card draft (with attached image snippet) -> SQLite -> Anki sync`.
+  - ✅ **Error Edge Cases Verified:** Handled uninstalled daemon, offline daemon, daemon timeouts (504), daemon errors (502), invalid base64 (400), empty OCR results, small regions (< 5px), screen-edge selections, and Escape cancellation without corrupting active card drafts or database state.
+- **Automated Regression Test Results:**
+  - Backend: **348/348 passed** (`python -m pytest tests` in `backend/`), including 11/11 dedicated `test_phase6_ocr_code_runtime.py` tests.
+  - Extension: **44/44 suites passed** (`node --test extension/tests/*.test.js`), including new dedicated `ocr-phase6-workflow.test.js`.
+- **Core Invariants Preserved:**
+  - OCR is purely an input source to `POST /api/capture`; zero duplicate editors, secondary dictionary engines, or separate OCR databases.
+  - Backend remains 100% independent of heavy ML libraries (`torch`, `transformers`, `manga-ocr`).
+  - Core database and Anki operations remain 100% available when OCR is offline.
+
+### Phase 7 Subtitle Acquisition & Multi-Site Mining Polish (V2 Milestone)
+- **Status Summary:**
+  - ✅ **ASS / SSA Subtitle Parser (`extension/lib/subtitle-parser.js`):**
+    - Implemented native `parseASS(text)` supporting both Advanced SubStation Alpha (ASS v4.00+) and SubStation Alpha (SSA v4.00).
+    - Added parsing of `[Events]` header Format descriptors (supporting variable field order for `Start`, `End`, `Text`), timestamp parsing (`H:MM:SS.cc` to milliseconds), and newline conversion (`\N`, `\n`).
+    - Added auto-format detection sniffing `[Script Info]`, `[Events]`, `WEBVTT`, or SRT numeric sequence counters.
+  - ✅ **Subtitle Normalizer & Clean-up Pipeline:**
+    - `stripASSTags(text)`: Strips all ASS style/override tags (`{\pos(x,y)}`, `{\an8}`, `{\fad(100,200)}`, `{\c&HFFFFFF&}`, etc.) and drawing commands.
+    - `stripSpeakerLabel(text)`: Intelligently strips character speaker prefixes (e.g., `山田:`, `エレン：`, `[Narrator]`, `(Alice)`) while strictly preserving Japanese kanji words with colons like `日本語:勉強` or URLs.
+    - `cleanCueText(text)`: Robust pipeline executing ASS strip -> HTML/VTT tag strip -> positioning tag strip (`\b(?:align|size|position|line|vertical):[0-9a-zA-Z%,.-]+`) -> speaker prefix strip -> whitespace collapse.
+    - `normalizeCues(cues)`: Cleans all cue texts, collapses consecutive duplicates with identical text into a single extended cue duration, and discards zero-duration or empty cues.
+  - ✅ **Provider-Agnostic Subtitle Architecture (`extension/lib/subtitle-provider.js`):**
+    - `BaseSubtitleProvider`: Base class defining `name`, `getTracks()`, `loadTrack(trackId)`, and `isAvailable()`.
+    - `LocalFileSubtitleProvider`: Handles user-selected or dropped files (`.srt`, `.vtt`, `.ass`, `.ssa`).
+    - `YouTubeSubtitleProvider`: Extracts native and auto-translated Japanese caption tracks directly from YouTube player config and SRV3 endpoints.
+    - `NetflixSubtitleProvider`: Intercepts live `timedtext` streams from Netflix web players without DRM interference.
+    - `SubtitleProviderRegistry`: Discovers and registers active providers, aggregating available tracks across sources.
+  - ✅ **Community Anime Subtitle Integration (`extension/lib/jimaku-provider.js`):**
+    - Implemented `JimakuSubtitleProvider` providing anime subtitle search and direct download from `https://jimaku.cc/api/*`.
+    - Secure key management: API key stored purely in user's `chrome.storage.local`.
+    - Background fetch guard: `extension/background.js` enforces HTTPS only, strictly checks `isAllowedJimakuUrl` against loopback/private IPs (SSRF protection), and proxies requests to avoid CORS.
+  - ✅ **Side Panel UI Integration (`extension/sidepanel/`):**
+    - Updated file selector to `accept=".srt,.vtt,.ass,.ssa"`.
+    - Added "Search Subtitles" button opening modal dialog for Jimaku anime title search.
+    - Added Jimaku search modal with anime entry results, file listings, downloading status, and API key management modal with Obsidian dark theme styling.
+    - Wired subtitle loading and normalization into Video Mining POC drag-and-drop and manual file picker.
+  - ✅ **Canonical Capture Pipeline Preserved:**
+    - Subtitle cues feed directly into standard `POST /api/capture` via video overlay hover/click or Side Panel selection.
+    - Zero duplicate card editors, custom dictionaries, or separate subtitle databases.
+- **Automated Regression Test Results:**
+  - Backend: **348/348 passed** (`python -m pytest tests` in `backend/`).
+  - Extension: **68/68 passed** (`node --test extension/tests/*.test.js`), including 6 new Phase 7 test suites:
+    - `ass-parser.test.js` (4/4)
+    - `subtitle-normalizer.test.js` (4/4)
+    - `subtitle-providers.test.js` (4/4)
+    - `jimaku-provider.test.js` (5/5)
+    - `sidepanel-subtitles-ui.test.js` (2/2)
+    - `phase7-subtitle-polish.test.js` (5/5)
+
 
 
 
