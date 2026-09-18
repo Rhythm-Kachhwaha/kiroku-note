@@ -22,6 +22,7 @@ from typing import Any
 
 from app.config import (
     get_ocr_model_dir,
+    resolve_ocr_dev_command,
     resolve_ocr_exe_path,
     resolve_ocr_port,
     resolve_ocr_url,
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 class OcrProcessManager:
     """
-    Manages the lifecycle of the optional KirokuOCR.exe subprocess.
+    Manages the lifecycle of the optional KirokuOCR daemon (packaged or dev runner).
     Thread-safe singleton pattern.
     """
 
@@ -63,8 +64,8 @@ class OcrProcessManager:
                 cls._instance = None
 
     def is_installed(self, env: dict[str, str] | None = None) -> bool:
-        """Check if KirokuOCR.exe exists in any candidate location."""
-        return resolve_ocr_exe_path(env) is not None
+        """Check if KirokuOCR.exe or dev run_ocr.py exists in candidate locations."""
+        return resolve_ocr_exe_path(env) is not None or resolve_ocr_dev_command(env) is not None
 
     def get_executable_path(self, env: dict[str, str] | None = None) -> Path | None:
         """Return the resolved path to KirokuOCR.exe if installed."""
@@ -120,7 +121,9 @@ class OcrProcessManager:
                 self._spawn_failure_count = 0
 
             exe_path = resolve_ocr_exe_path(env)
-            if exe_path is None or not exe_path.is_file():
+            dev_cmd = resolve_ocr_dev_command(env) if exe_path is None else None
+
+            if exe_path is None and dev_cmd is None:
                 logger.info("KirokuOCR is not installed. Subprocess start skipped.")
                 return False
 
@@ -141,18 +144,28 @@ class OcrProcessManager:
                 if sys.platform == "win32":
                     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
 
-                logger.info("Spawning KirokuOCR daemon from %s on port %d", exe_path, port)
+                if exe_path is not None:
+                    spawn_cmd = [str(exe_path)]
+                    spawn_cwd = str(exe_path.parent)
+                    logger.info("Spawning KirokuOCR daemon from %s on port %d", exe_path, port)
+                else:
+                    assert dev_cmd is not None
+                    spawn_cmd = dev_cmd
+                    spawn_cwd = str(Path(__file__).resolve().parent.parent.parent.parent)
+                    logger.info("Spawning KirokuOCR dev runner from %s on port %d", dev_cmd, port)
+
                 self._process = subprocess.Popen(
-                    [str(exe_path)],
+                    spawn_cmd,
                     env=proc_env,
-                    cwd=str(exe_path.parent),
+                    cwd=spawn_cwd,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     creationflags=creationflags,
                 )
             except Exception as exc:
                 self._spawn_failure_count += 1
-                logger.error("Failed to spawn KirokuOCR executable at %s: %s", exe_path, exc)
+                target = exe_path or dev_cmd
+                logger.error("Failed to spawn KirokuOCR at %s: %s", target, exc)
                 return False
 
         if wait_for_health:

@@ -595,13 +595,31 @@ New major features should generally be deferred unless they are necessary for th
     - `sidepanel-subtitles-ui.test.js` (2/2)
     - `phase7-subtitle-polish.test.js` (5/5)
 
-
-
-
-
-
-
-
-
+### Phase 7.5 OCR Development Daemon Diagnosis, Cleanup & Runner
+- **Status Summary:**
+  - ✅ **Root Cause Diagnosed:**
+    - The persistent `manga-ocr import error: No module named 'torch.distributed'` (HTTP 503) was caused by a stale background instance of the packaged `dist/ocr/KirokuOCR/KirokuOCR.exe` (PID 5872) listening on port 21829.
+    - Status `/health` and `/api/ocr/status` showed `available: true` / green because `is_available()` only checked if `import manga_ocr` succeeded, but full inference lazily triggers `from manga_ocr import MangaOcr` which requires `torch.distributed`. Because PyInstaller failed to package `torch.distributed` in the old EXE build, recognition failed with 503 while health checks passed.
+    - When the daemon was offline, `OcrProcessManager` previously fell back to searching `dist/ocr/KirokuOCR/KirokuOCR.exe`, automatically respawning the broken packaged EXE.
+  - ✅ **Cleaned Obsolete Packaged OCR Builds:**
+    - Stopped and killed the rogue `KirokuOCR.exe` process (PID 5872).
+    - Permanently deleted generated build outputs: `dist/KirokuOCR/`, `dist/ocr/KirokuOCR/`, `build/kiroku_ocr/`, and `build/ocr/`.
+    - Preserved offline model weights at `dist/ocr/models/manga-ocr-base`.
+    - Confirmed zero remaining `KirokuOCR.exe` binaries in `dist/` or `build/`.
+  - ✅ **Direct Development Environment Verification:**
+    - Verified `.venv-ocr\Scripts\python.exe` (Python 3.11.1) contains working `torch 2.14.0+cpu`, `torch.distributed` (`<module 'torch.distributed'>`), `manga-ocr 0.1.16`, `transformers 5.17.0`, `fugashi 1.5.2`, and `unidic-lite 1.0.8`.
+  - ✅ **Smallest Development-Only Process Manager Adjustment:**
+    - Added `resolve_ocr_dev_command()` in `backend/app/config.py` so in development mode (when no packaged EXE exists), `OcrProcessManager` seamlessly detects and spawns `run_ocr.py` using `.venv-ocr` python.
+    - Updated `OcrProcessManager.is_installed()` and `OcrProcessManager.start()` in `backend/app/services/ocr_process_manager.py` to support development runner execution.
+  - ✅ **End-to-End Verification:**
+    - `run_ocr.py` running on `http://127.0.0.1:21829` (CPU-only, lazy-loading).
+    - Direct `GET http://127.0.0.1:21829/health` -> `status: ok, engine: manga-ocr, device: cpu, model_loaded: false, installed: true`.
+    - Direct `POST http://127.0.0.1:21829/recognize` -> HTTP 200, recognized text returned in ~287ms with `model_loaded: true`.
+    - Core Backend `GET http://127.0.0.1:21828/api/ocr/status` -> `available: true, installed: true, engine: manga-ocr, device: cpu, model_loaded: true`.
+    - Core Backend `POST http://127.0.0.1:21828/api/ocr/recognize` -> HTTP 200, successful recognition piped through backend.
+    - Extension UI workflow verified via integration tests (`ocr-sidepanel-integration.test.js`, `ocr-phase6-workflow.test.js`).
+- **Automated Test Results:**
+  - Backend OCR tests: **41/41 passed** (`test_ocr_process_manager.py`, `test_ocr_api.py`, `test_ocr_service.py`, `test_ocr_daemon.py`, `test_ocr_config_and_schemas.py`).
+  - Extension OCR tests: **All passed**.
 
 

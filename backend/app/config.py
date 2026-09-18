@@ -209,6 +209,33 @@ def resolve_ocr_exe_path(env: dict[str, str] | None = None) -> Path | None:
     return None
 
 
+def resolve_ocr_dev_command(env: dict[str, str] | None = None) -> list[str] | None:
+    """
+    Resolve development OCR command using run_ocr.py and .venv-ocr if present.
+    Used exclusively in development mode when a packaged binary is not present.
+    """
+    if getattr(sys, "frozen", False):
+        return None
+
+    env_dict = os.environ if env is None else env
+    # If explicit KIROKU_OCR_EXE was configured, do not fall back to dev runner
+    if "KIROKU_OCR_EXE" in env_dict:
+        return None
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    run_ocr_py = repo_root / "run_ocr.py"
+    if not run_ocr_py.is_file():
+        return None
+
+    if sys.platform == "win32" or os.name == "nt":
+        venv_py = repo_root / ".venv-ocr" / "Scripts" / "python.exe"
+    else:
+        venv_py = repo_root / ".venv-ocr" / "bin" / "python"
+
+    py_bin = str(venv_py) if venv_py.is_file() else sys.executable
+    return [py_bin, str(run_ocr_py)]
+
+
 def get_ocr_model_dir(env: dict[str, str] | None = None) -> Path:
     """
     Resolve the directory for offline manga-ocr model weights.
