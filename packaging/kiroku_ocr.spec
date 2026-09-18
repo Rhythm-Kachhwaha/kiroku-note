@@ -31,6 +31,8 @@ hidden_imports = (
     + collect_submodules("starlette")
     + collect_submodules("anyio")
     + collect_submodules("ocr_server")
+    + collect_submodules("manga_ocr")
+    + collect_submodules("transformers")
     + [
         "manga_ocr",
         "torch",
@@ -61,6 +63,8 @@ try:
     datas += copy_metadata("filelock")
     datas += copy_metadata("numpy")
     datas += copy_metadata("manga_ocr")
+    datas += copy_metadata("fugashi")
+    datas += copy_metadata("unidic_lite")
 except Exception:
     pass
 
@@ -84,8 +88,6 @@ excludes = [
     "IPython",
     "cv2",
     # CUDA / GPU components (strictly CPU only)
-    "torch.cuda",
-    "torch.distributed",
     "caffe2",
     "cuda",
     "triton",

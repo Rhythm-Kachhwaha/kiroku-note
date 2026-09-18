@@ -81,7 +81,9 @@ def test_get_status_success():
 
 
 def test_get_status_when_daemon_unavailable():
-    service = OcrService()
+    mock_pm = MagicMock()
+    mock_pm.is_installed.return_value = False
+    service = OcrService(process_manager=mock_pm)
     with patch("urllib.request.urlopen", side_effect=URLError(ConnectionRefusedError("Connection refused"))):
         status = service.get_status()
         assert status.available is False

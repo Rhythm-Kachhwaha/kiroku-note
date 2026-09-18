@@ -79,16 +79,17 @@ class OcrEngineHolder:
             # Default production path: import manga_ocr lazily
             try:
                 from manga_ocr import MangaOcr  # type: ignore
-            except ImportError as exc:
+            except Exception as exc:
+                logger.exception("Failed to import MangaOcr: %s", exc)
                 raise ImportError(
-                    "manga-ocr is not installed. Please install manga-ocr in the OCR environment."
+                    f"manga-ocr import error: {exc}"
                 ) from exc
 
-            # Instantiate model strictly with device="cpu"
+            # Instantiate model strictly with force_cpu=True
             if self._model_path and os.path.exists(self._model_path):
-                self._model = MangaOcr(pretrained_model_name_or_path=self._model_path, device="cpu")
+                self._model = MangaOcr(pretrained_model_name_or_path=self._model_path, force_cpu=True)
             else:
-                self._model = MangaOcr(device="cpu")
+                self._model = MangaOcr(force_cpu=True)
 
             return self._model
 

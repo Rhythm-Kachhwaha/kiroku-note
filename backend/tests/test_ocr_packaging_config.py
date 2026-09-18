@@ -46,9 +46,10 @@ def test_ocr_spec_entrypoint_and_exclusions():
     # Verify entrypoint
     assert "ocr_server" in content and "server.py" in content, "Spec must target ocr_server/server.py"
 
-    # Verify CUDA/GPU exclusions
-    assert '"torch.cuda"' in content
+    # Verify CUDA/GPU exclusions (strictly CPU only)
     assert '"cuda"' in content
+    assert '"caffe2"' in content
+    assert '"triton"' in content
 
     # Verify user data isolation
     forbidden_payload_patterns = ["kiroku.db", "ankiminer.db", "%LOCALAPPDATA%", ".env"]

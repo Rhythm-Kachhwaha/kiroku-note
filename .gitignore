@@ -27,7 +27,7 @@ env/
 ENV/
 env.bak/
 venv.bak/
-
+.venv-ocr/
 # IDE
 .vscode/
 .idea/

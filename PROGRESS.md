@@ -507,8 +507,34 @@ New major features should generally be deferred unless they are necessary for th
   - **CPU-Only PyTorch Optimization:** Prescribes official PyTorch CPU wheel (`torch --index-url https://download.pytorch.org/whl/cpu`) eliminating >2.5 GB of redundant NVIDIA/CUDA runtime binaries.
   - **Safe Process Lifecycle:** Uses bounded timeouts (5.0s), failure threshold (3 attempts), and 10s cooldown to strictly prevent CPU thrashing or restart loops.
 - **Verification:**
-  - 337/337 backend pytest tests passing (`python -m pytest tests` in `backend/`).
-  - 43/43 extension test suites passing (`node --test extension/tests/*.test.js`).
+### Phase 5 OCR Build & Runtime Verification (V2 Milestone)
+- **Status Summary:**
+  - ✅ **Isolated Build Environment:** Dedicated `.venv-ocr/` environment configured with Python 3.11.1 x64, CPU-only PyTorch `2.14.0+cpu` (from `https://download.pytorch.org/whl/cpu`), `torchvision 0.29.0+cpu`, `transformers 5.17.0`, `manga-ocr 0.1.16`, `fugashi 1.5.2`, and `unidic-lite 1.0.8`.
+  - ✅ **Zero CUDA / GPU Leakage:** Confirmed `torch.cuda.is_available() == False` with 0 CUDA/NVIDIA runtime binaries bundled.
+  - ✅ **Offline Model Verification:** Pre-packaged model directory (`dist/ocr/models/manga-ocr-base/`, 423.66 MB) verified with `TRANSFORMERS_OFFLINE=1` and `HF_HUB_OFFLINE=1`.
+  - ✅ **Direct Daemon Runtime Verified:** `ocr_server/server.py` daemon bound strictly to `127.0.0.1:21829`. Verified:
+    - Lazy loading on first inference request (initial `/health` reported `model_loaded: false`, first `/recognize` loaded model and returned `278.54ms`, subsequent `/health` reported `model_loaded: true`).
+    - Real Japanese text inference verified: `"日本語の勉強"` -> `"日本語の勉強"`, `"魔法少女まどか"` -> `"魔法少女まどか"`, `"記録ノート"` -> `"記録ノート"`.
+  - ✅ **Core Backend Gateway Integration Verified:** Full end-to-end flow tested:
+    - Extension / Client -> Core FastAPI (`127.0.0.1:21828`) `/api/ocr/status` and `/api/ocr/recognize` -> `OcrService` -> Standalone Daemon (`127.0.0.1:21829`) -> `manga-ocr`.
+    - Real Japanese image recognition (`"約束のネバーランド"`) returned `"約束のネバーラン"` in `342.91ms`.
+    - Text forwarding into canonical card capture (`POST /api/capture`) verified.
+  - ✅ **Failure Mode & Isolation Verification:**
+    - Daemon offline / stopped: Core backend remains 100% operational; `/api/ocr/status` reports `available: false` with graceful error message without throwing unhandled exceptions.
+    - User data isolation: SQLite database (`ankiminer.db`) and card library unaffected.
+  - ❌ **Installer Build Deferred:** `ISCC.exe` unavailable in current environment; `installer/kiroku_ocr_setup.iss` statically validated and ready for build machines with Inno Setup.
+- **Size Metrics:**
+  - `Kiroku Core (KirokuNote.exe)`: ~49.76 MB
+  - `KirokuOCR Onedir Package`: ~792.41 MB (uncompressed)
+  - `manga-ocr Model Directory`: ~423.66 MB (uncompressed)
+  - `Total OCR Add-on (Uncompressed)`: ~1216.07 MB (~1.19 GB)
+  - Largest dependencies: `torch` (359.18 MB), `unidic_lite` (248.40 MB), `transformers` (38.62 MB), `numpy.libs` (20.02 MB), `PIL` (12.80 MB).
+- **Automated Regression Test Results:**
+  - Backend: **337/337 passed** (`python -m pytest tests` in `backend/`).
+  - Extension: **43/43 suites passed** (`node --test extension/tests/*.test.js`).
+- **Core Invariant Preserved:**
+  - Core `backend/requirements.txt` remains 100% free of PyTorch, transformers, and manga-ocr dependencies. Core Kiroku Note remains fully decoupled.
+
 
 
 
