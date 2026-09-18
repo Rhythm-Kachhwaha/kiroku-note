@@ -62,11 +62,21 @@
         <div class="video-toolbar">
           <div class="video-action-buttons">
             <button type="button" id="load-subtitles-btn" class="btn-subtitles">Load Subtitles (.srt, .vtt, .ass)</button>
+            <button type="button" id="btn-select-subtitles-folder" class="btn-subtitles-folder" title="Select subtitle folder to pick subtitles from every time">📁 Folder</button>
             <button type="button" id="btn-search-subtitles" class="btn-search-subtitles" title="Search Japanese subtitles via Jimaku">Search</button>
             <button type="button" id="clear-subtitles-btn" class="btn-clear-subtitles" title="Clear loaded subtitles">Clear</button>
             <input type="file" id="subtitles-file-input" accept=".srt,.vtt,.ass,.ssa" hidden>
+            <input type="file" id="subtitles-dir-input" webkitdirectory directory hidden>
           </div>
           <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
+        </div>
+
+        <!-- Subtitle Folder Quick Selector -->
+        <div id="subtitle-folder-bar" class="subtitle-folder-bar" hidden>
+          <span id="folder-name-label" class="folder-name-label" title="Active Subtitle Directory">📁 Folder:</span>
+          <select id="folder-subtitles-select" class="folder-subtitles-select" aria-label="Select subtitle from chosen folder">
+            <option value="">Select subtitle file…</option>
+          </select>
         </div>
 
         <!-- Jimaku Subtitles Search Modal -->
@@ -86,6 +96,19 @@
               <button type="button" id="btn-save-jimaku-key" class="btn-jimaku-action">Save</button>
             </div>
             <span id="jimaku-key-status" class="jimaku-status-note"></span>
+          </div>
+
+          <div class="jimaku-download-path-section">
+            <label for="jimaku-download-folder-input" class="jimaku-label">Download Subfolder / Destination</label>
+            <div class="jimaku-folder-row">
+              <input type="text" id="jimaku-download-folder-input" class="jimaku-input" placeholder="e.g. KirokuSubtitles or Subtitles" value="KirokuSubtitles" autocomplete="off">
+            </div>
+            <div class="jimaku-options-row">
+              <label class="toggle-control" for="toggle-save-subtitle-disk">
+                <input type="checkbox" id="toggle-save-subtitle-disk" class="toggle-checkbox" checked>
+                <span class="toggle-label">Auto-save downloaded subtitles to folder</span>
+              </label>
+            </div>
           </div>
 
           <div class="jimaku-search-section">

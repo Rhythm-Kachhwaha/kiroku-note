@@ -192,15 +192,29 @@ function isAllowedTimedtextUrl(url) {
 /**
  * Validates URLs used for Jimaku API and subtitle file downloads.
  * Only HTTPS requests targeting jimaku.cc under /api/ are permitted.
- * Rejects localhost, loopback, and private IP addresses.
+/**
+ * Safely validate external subtitle download / Jimaku API URLs.
+ * Rejects localhost, loopback, and private IP addresses (SSRF protection).
+ * Accepts legitimate HTTPS URLs from jimaku.cc, *.jimaku.cc, and public HTTPS CDN/storage URLs.
+ * Resolves relative URLs against https://jimaku.cc.
  *
  * @param {string} url
  * @returns {boolean}
  */
 function isAllowedJimakuUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+
   let parsed;
   try {
-    parsed = new URL(url);
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      parsed = new URL(trimmed);
+    } else if (trimmed.startsWith("/") || /^(api|files|entries|subtitles)\//i.test(trimmed)) {
+      parsed = new URL(trimmed, "https://jimaku.cc");
+    } else {
+      return false;
+    }
   } catch (_) {
     return false;
   }
@@ -212,14 +226,16 @@ function isAllowedJimakuUrl(url) {
     host === "localhost" ||
     host === "127.0.0.1" ||
     host === "::1" ||
+    host === "0.0.0.0" ||
     /^10\.\d+\.\d+\.\d+$/.test(host) ||
     /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(host) ||
-    /^192\.168\.\d+\.\d+$/.test(host)
+    /^192\.168\.\d+\.\d+$/.test(host) ||
+    /^169\.254\.\d+\.\d+$/.test(host)
   ) {
     return false;
   }
 
-  return (host === "jimaku.cc" || host.endsWith(".jimaku.cc")) && parsed.pathname.startsWith("/api/");
+  return true;
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -309,13 +325,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ ok: false, error: "INVALID_URL", message: "URL not allowed" });
       return true;
     }
+    const targetUrl = new URL(message.url, "https://jimaku.cc").toString();
     const headers = {
-      "Accept": "application/json, text/plain, */*"
+      "Accept": "application/json, text/plain, text/vtt, text/x-ssa, */*"
     };
     if (message.apiKey) {
       headers["Authorization"] = message.apiKey;
     }
-    fetch(message.url, {
+    fetch(targetUrl, {
       method: message.method || "GET",
       headers
     })

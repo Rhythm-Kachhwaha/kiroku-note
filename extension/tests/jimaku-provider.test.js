@@ -128,3 +128,33 @@ test("JimakuSubtitleProvider - handles errors gracefully", async () => {
   providerRateLimited.setApiKey("key");
   await assert.rejects(async () => await providerRateLimited.searchEntries("test"), /RATE_LIMITED/);
 });
+
+test("JimakuSubtitleProvider - resolveJimakuUrl and relative URL downloads", async () => {
+  const { resolveJimakuUrl } = require("../lib/jimaku-provider.js");
+  assert.equal(resolveJimakuUrl("/api/entries/42/files"), "https://jimaku.cc/api/entries/42/files");
+  assert.equal(resolveJimakuUrl("files/101/download"), "https://jimaku.cc/files/101/download");
+  assert.equal(resolveJimakuUrl("https://jimaku.cc/files/101"), "https://jimaku.cc/files/101");
+  assert.equal(resolveJimakuUrl("https://cdn.example.com/subs.ass"), "https://cdn.example.com/subs.ass");
+
+  let fetchedUrl = "";
+  const provider = new JimakuSubtitleProvider({
+    parser: SubtitleParser,
+    fetchFunction: async ({ url }) => {
+      fetchedUrl = url;
+      return {
+        ok: true,
+        isJson: false,
+        text: "1\n00:00:01,000 --> 00:00:04,000\nテスト字幕\n"
+      };
+    }
+  });
+  provider.setApiKey("test_key");
+
+  // Relative path passed into downloadSubtitle
+  const subData = await provider.downloadSubtitle("/files/101/download", "Ep01.srt");
+  assert.equal(fetchedUrl, "https://jimaku.cc/files/101/download");
+  assert.equal(subData.cues.length, 1);
+  assert.equal(subData.cues[0].text, "テスト字幕");
+  assert.equal(subData.rawText, "1\n00:00:01,000 --> 00:00:04,000\nテスト字幕\n");
+});
+

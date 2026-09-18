@@ -12,6 +12,13 @@
     ? SubtitleProvider.BaseSubtitleProvider
     : (typeof require !== "undefined" ? require("./subtitle-provider.js").BaseSubtitleProvider : class BaseSubtitleProvider {});
 
+  function resolveJimakuUrl(url) {
+    if (!url || typeof url !== "string") return "";
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    const path = url.startsWith("/") ? url : `/${url}`;
+    return `https://jimaku.cc${path}`;
+  }
+
   class JimakuSubtitleProvider extends BaseSubtitleProvider {
     constructor({ parser, fetchFunction } = {}) {
       super("jimaku_search", "Jimaku Subtitles", "service");
@@ -53,8 +60,10 @@
         throw new Error("MISSING_API_KEY: Jimaku API key is required");
       }
 
+      const targetUrl = resolveJimakuUrl(url);
+
       if (this.fetchFunction) {
-        const res = await this.fetchFunction({ url, apiKey: this.apiKey });
+        const res = await this.fetchFunction({ url: targetUrl, apiKey: this.apiKey });
         if (!res || res.ok === false) {
           throw new Error(res?.error || "API request failed");
         }
@@ -65,7 +74,7 @@
       if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
         const response = await chrome.runtime.sendMessage({
           type: "FETCH_JIMAKU_API",
-          url,
+          url: targetUrl,
           apiKey: this.apiKey
         });
         if (!response || response.ok === false) {
@@ -76,10 +85,10 @@
 
       // Fallback: direct fetch
       if (typeof fetch !== "undefined") {
-        const res = await fetch(url, {
+        const res = await fetch(targetUrl, {
           headers: {
             "Authorization": this.apiKey,
-            "Accept": "application/json, text/plain, */*"
+            "Accept": "application/json, text/plain, text/vtt, text/x-ssa, */*"
           }
         });
         if (!res.ok) {
@@ -126,7 +135,8 @@
     async downloadSubtitle(fileUrl, filename = "subtitles.ass") {
       if (!fileUrl) throw new Error("Download URL is required");
 
-      const result = await this._callApi(fileUrl);
+      const resolvedUrl = resolveJimakuUrl(fileUrl);
+      const result = await this._callApi(resolvedUrl);
       const rawText = result.text || (typeof result.data === "string" ? result.data : JSON.stringify(result.data || ""));
 
       if (!this.parser) {
@@ -148,6 +158,7 @@
         language: "ja",
         format,
         filename,
+        rawText,
         cues: normalizedCues
       };
 
@@ -175,7 +186,8 @@
   }
 
   const JimakuModule = {
-    JimakuSubtitleProvider
+    JimakuSubtitleProvider,
+    resolveJimakuUrl
   };
 
   if (typeof module !== "undefined" && module.exports) {

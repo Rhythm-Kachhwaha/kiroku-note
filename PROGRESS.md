@@ -622,4 +622,24 @@ New major features should generally be deferred unless they are necessary for th
   - Backend OCR tests: **41/41 passed** (`test_ocr_process_manager.py`, `test_ocr_api.py`, `test_ocr_service.py`, `test_ocr_daemon.py`, `test_ocr_config_and_schemas.py`).
   - Extension OCR tests: **All passed**.
 
+### Phase 7.6 Jimaku Subtitle Download Fix & Subtitle Directory Selector
+- **Status Summary:**
+  - ✅ **Jimaku "DOWNLOAD INVALID URL" Fix (`extension/background.js`, `extension/lib/jimaku-provider.js`):**
+    - Corrected URL validation in `isAllowedJimakuUrl` to resolve relative API paths (e.g. `/files/123/download`, `/api/entries/123/files`) against `https://jimaku.cc` and allow all legitimate HTTPS subtitle download endpoints (including direct storage/CDN links).
+    - Preserved strict SSRF loopback and private IP protections (`localhost`, `127.0.0.1`, `::1`, `10.*`, `172.16-31.*`, `192.168.*`, `169.254.*`).
+    - Added `resolveJimakuUrl` normalization helper to ensure well-formed absolute URLs before initiating network requests.
+    - Preserved raw subtitle file text (`rawText`) in track data for direct local saving.
+  - ✅ **Dedicated Subtitle Directory Selector & Quick Dropdown (`extension/sidepanel/`):**
+    - Added "📁 Folder" button (`#btn-select-subtitles-folder`) with HTML5 directory picker (`#subtitles-dir-input`).
+    - Added subtitle directory quick selector (`#folder-subtitles-select`) listing all available `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files found in the chosen folder.
+    - Persistent folder memory: Remembers chosen subtitle folder across sessions and allows switching between subtitle files with a single click.
+  - ✅ **Jimaku Subtitle Auto-Save Destination Option:**
+    - Added "Download Subfolder / Destination" setting (`#jimaku-download-folder-input`, default: `KirokuSubtitles`) in Jimaku Search modal.
+    - Added "Auto-save downloaded subtitles to folder" toggle (`#toggle-save-subtitle-disk`).
+    - Automatically saves downloaded Jimaku subtitle files to the designated local subfolder on disk and dynamically indexes them in the quick folder dropdown.
+- **Verification Results:**
+  - Extension test suite: **73/73 passed** (`node --test extension/tests/*.test.js`), including new `subtitle-folder-and-jimaku.test.js`.
+  - Backend test suite: **348/348 passed** (`python -m pytest`).
+
+
 
