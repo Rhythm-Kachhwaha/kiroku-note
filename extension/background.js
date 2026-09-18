@@ -20,6 +20,15 @@ async function ensureContentScript(tabId) {
   }
 }
 
+async function ensureOcrContentScript(tabId) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["lib/ocr-cropper.js", "content/ocr-selection.js"]
+    });
+  } catch (_) {}
+}
+
 const OFFSCREEN_DOCUMENT_PATH = "offscreen/offscreen.html";
 let creatingOffscreenPromise = null;
 
@@ -369,6 +378,63 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     }).catch(() => {});
     sendResponse({ok: true});
+    return true;
+  }
+  if (message?.type === "START_OCR_CAPTURE") {
+    (async () => {
+      try {
+        const tab = await activeTab();
+        if (!tab?.id) {
+          sendResponse({ ok: false, error: "NO_ACTIVE_TAB", message: "No active browser tab found" });
+          return;
+        }
+        if (tab.url?.startsWith("chrome://") || tab.url?.startsWith("edge://") || tab.url?.startsWith("brave://")) {
+          sendResponse({ ok: false, error: "RESTRICTED_PAGE", message: "Cannot capture OCR on browser internal pages" });
+          return;
+        }
+
+        await ensureOcrContentScript(tab.id);
+        const res = await chrome.tabs.sendMessage(tab.id, { type: "START_OCR_SELECTION" }).catch(async () => {
+          await ensureOcrContentScript(tab.id);
+          return await chrome.tabs.sendMessage(tab.id, { type: "START_OCR_SELECTION" });
+        });
+        sendResponse(res || { ok: true });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message || "FAILED_TO_START_OCR" });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "OCR_REGION_SELECTED") {
+    const windowId = sender?.tab?.windowId;
+    const capturePromise = (typeof windowId === "number")
+      ? chrome.tabs.captureVisibleTab(windowId, { format: "png" })
+      : chrome.tabs.captureVisibleTab({ format: "png" });
+
+    capturePromise
+      .then(async (dataUrl) => {
+        const payload = {
+          type: "PROCESS_OCR_CROP",
+          dataUrl,
+          rect: message.rect,
+          viewport: message.viewport,
+          devicePixelRatio: message.devicePixelRatio || 1
+        };
+        chrome.runtime.sendMessage(payload).catch(() => {});
+        sendResponse({ ok: true });
+      })
+      .catch((err) => {
+        console.error("[AnkiMiner Background] OCR captureVisibleTab failed:", err);
+        sendResponse({ ok: false, error: err?.message || "Failed to capture screenshot for OCR" });
+      });
+    return true;
+  }
+  if (message?.type === "OCR_SELECTION_CANCELLED") {
+    chrome.runtime.sendMessage({
+      type: "OCR_SELECTION_CANCELLED",
+      reason: message.reason || "user"
+    }).catch(() => {});
+    sendResponse({ ok: true });
     return true;
   }
 });

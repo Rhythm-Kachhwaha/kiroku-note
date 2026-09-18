@@ -15,6 +15,10 @@ APP_VERSION = "1.0.0"
 DEFAULT_KIROKU_HOST = "127.0.0.1"
 DEFAULT_KIROKU_PORT = 21828
 
+DEFAULT_OCR_HOST = "127.0.0.1"
+DEFAULT_OCR_PORT = 21829
+DEFAULT_OCR_URL = f"http://{DEFAULT_OCR_HOST}:{DEFAULT_OCR_PORT}"
+
 
 def get_app_data_dir(env: dict[str, str] | None = None) -> Path:
     """
@@ -106,4 +110,53 @@ def resolve_port(env: dict[str, str] | None = None) -> int:
         )
 
     return port
+
+
+def resolve_ocr_port(env: dict[str, str] | None = None) -> int:
+    """
+    Resolve the standalone OCR daemon listening port.
+
+    Resolution order:
+      1. KIROKU_OCR_PORT
+      2. DEFAULT_OCR_PORT (21829)
+
+    Validates that the resulting port is an integer in the valid TCP range 1-65535.
+    """
+    env_dict = os.environ if env is None else env
+    raw = env_dict.get("KIROKU_OCR_PORT")
+    if raw is None or not str(raw).strip():
+        return DEFAULT_OCR_PORT
+
+    raw_str = str(raw).strip()
+    try:
+        port = int(raw_str)
+    except ValueError:
+        raise ValueError(
+            f"Invalid port value: '{raw_str}'. Port must be an integer between 1 and 65535."
+        )
+
+    if not (1 <= port <= 65535):
+        raise ValueError(
+            f"Port out of range: {port}. Port must be between 1 and 65535."
+        )
+
+    return port
+
+
+def resolve_ocr_url(env: dict[str, str] | None = None) -> str:
+    """
+    Resolve the standalone OCR daemon URL.
+
+    Resolution order:
+      1. KIROKU_OCR_URL (e.g. 'http://127.0.0.1:21829')
+      2. Derived from resolve_ocr_port(): 'http://127.0.0.1:<port>'
+    """
+    env_dict = os.environ if env is None else env
+    custom_url = env_dict.get("KIROKU_OCR_URL")
+    if custom_url and str(custom_url).strip():
+        return str(custom_url).strip().rstrip("/")
+
+    port = resolve_ocr_port(env_dict)
+    return f"http://{DEFAULT_OCR_HOST}:{port}"
+
 

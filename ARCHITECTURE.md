@@ -16,6 +16,7 @@ Kiroku Note is a local-first vocabulary mining pipeline. A Chromium/Brave extens
 | JLPT service | Resolve N5/N4/N3/N2/N1/Unknown from a replaceable local dataset | UI display rules |
 | SQLite | Cards, lifecycle/sync state, duplicate identity, and local history | External synchronization |
 | AnkiConnect service | Deck/note operations, external duplicate checks, and sync result translation | Source-of-truth storage |
+| `OcrService` | OCR daemon discovery, request proxying, status reporting, and response normalization | Model loading or raw vendor engine logic |
 
 ## Side Panel and extension boundary
 
@@ -68,7 +69,9 @@ The card synchronization flow enforces:
    - `synced`: Successfully created in Anki or linked to an existing matching note, with `anki_note_id` and `synced_at` populated.
    - `failed`: AnkiConnect returned an error, timed out, or connection was refused, with `sync_error` diagnostic saved. Recoverable via retry.
 4. **Duplicate detection across resets**: Before creating a note, `AnkiConnectService` queries candidates with `findNotes` and inspects actual fields with `notesInfo`. Matching normalized expression and reading in the target deck links the existing `anki_note_id` without creating a duplicate.
-5. **Deterministic note model mapping**: Detects available models with prompt (`front`/`expression`/`word`) and answer (`back`/`meaning`/`definition`) fields, prioritizing Japanese mining models or standard `Basic`, populating core fields and optional extras (audio, image) without arbitrary guessing.
+### OCR (`OcrService`)
+
+The standalone OCR daemon's default endpoint is `http://127.0.0.1:21829` (configurable via `KIROKU_OCR_URL` or `KIROKU_OCR_PORT`). `OcrService` is the sole integration boundary in the core backend. It handles health checking, availability detection, image byte forwarding, and response normalization. The browser extension talks exclusively to Kiroku's port `21828` (`/api/ocr/status`, `/api/ocr/recognize`) and never directly to port `21829`. Heavy machine-learning dependencies (`manga-ocr`, `torch`, `transformers`) reside strictly inside the standalone OCR daemon and are loaded lazily on CPU only.
 
 ## Architectural decisions
 
@@ -91,3 +94,8 @@ Dictionary/API changes must not leak beyond `YomitanService`.
 ### ADR-005: Use vanilla HTML/CSS/JavaScript for the frontend
 
 React and Electron are intentionally excluded to keep the extension small and aligned with its browser-native shell.
+
+### ADR-006: OCR is strictly an input source to the canonical capture pipeline
+
+OCR captures visible page screenshots, crops user-selected regions with High-DPI coordinate scaling, and requests recognition via the core backend (`/api/ocr/recognize`). The recognized Japanese text feeds directly into the standard `identify(text)` pipeline (`POST /api/capture`). No duplicate card editors, custom Yomitan paths, or separate OCR databases exist.
+

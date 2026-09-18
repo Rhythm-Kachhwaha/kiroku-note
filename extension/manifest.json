@@ -31,11 +31,13 @@
       "js": [
         "lib/subtitle-parser.js",
         "lib/image-cropper.js",
+        "lib/ocr-cropper.js",
         "content/adapters/youtube-adapter.js",
         "content/adapters/netflix-adapter.js",
         "content/capture-utils.js",
         "content/content.js",
-        "content/video-mining-poc.js"
+        "content/video-mining-poc.js",
+        "content/ocr-selection.js"
       ],
       "run_at": "document_idle",
       "all_frames": true,

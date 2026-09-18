@@ -291,3 +291,33 @@ class DeleteCardResponse(BaseModel):
     deleted: bool
 
 
+class OcrStatusResponse(BaseModel):
+    available: bool = False
+    installed: bool = False
+    engine: str = "manga-ocr"
+    device: str = "cpu"
+    model_loaded: bool = False
+    error: Optional[str] = None
+
+
+class OcrRecognizeRequest(BaseModel):
+    image: str = Field(max_length=20_000_000, description="Base64 encoded image string or data URL")
+
+    @field_validator("image")
+    @classmethod
+    def image_must_not_be_blank(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Image data must not be empty.")
+        return normalized
+
+
+class OcrRecognizeResponse(BaseModel):
+    text: str = ""
+    engine: str = "manga-ocr"
+    device: str = "cpu"
+    duration_ms: float = 0.0
+    error: Optional[str] = None
+
+
+

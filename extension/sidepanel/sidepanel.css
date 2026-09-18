@@ -312,6 +312,42 @@ body {
   outline-offset: 1px;
 }
 
+.btn-ocr {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 28px;
+  padding: 4px 10px;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-ocr:hover:not(:disabled) {
+  background: var(--bg-surface-3);
+  border-color: var(--border-strong);
+}
+
+.btn-ocr:active:not(:disabled) {
+  background: var(--bg-surface-active);
+}
+
+.btn-ocr:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.btn-ocr:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .status-mode {
   color: var(--text-secondary);
   font-size: 12px;

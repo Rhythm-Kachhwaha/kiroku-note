@@ -8,8 +8,11 @@ const API_CARD_SYNC_URL = (id) => `${BACKEND_BASE_URL}/api/cards/${id}/sync`;
 const API_CARD_SYNC_ALL_URL = `${BACKEND_BASE_URL}/api/cards/sync-all`;
 const API_CARDS_URL = `${BACKEND_BASE_URL}/api/cards`;
 const API_CARD_DETAIL_URL = (id) => `${BACKEND_BASE_URL}/api/cards/${id}`;
+const API_OCR_STATUS_URL = `${BACKEND_BASE_URL}/api/ocr/status`;
+const API_OCR_RECOGNIZE_URL = `${BACKEND_BASE_URL}/api/ocr/recognize`;
 
 const toggle = document.querySelector("#mining-toggle");
+const ocrCaptureBtn = document.querySelector("#ocr-capture-btn");
 const mode = document.querySelector("#mode");
 const sessionCountEl = document.querySelector("#session-count");
 const status = document.querySelector("#capture-status");
@@ -32,6 +35,10 @@ let currentKanjiEntries = [];
 // Indicators
 const indicatorYomitan = document.querySelector("#indicator-yomitan");
 const indicatorAnki = document.querySelector("#indicator-anki");
+const indicatorOcr = document.querySelector("#indicator-ocr");
+
+let ocrAvailable = false;
+let ocrLoaded = false;
 
 // Card Editor elements
 const cardEditor = document.querySelector("#card-editor");
@@ -359,6 +366,122 @@ function updateModelCapabilityWarnings() {
     if (!currentModelCapabilities.supports_audio && ankiConnected) {
       btnRetakeAudio.title = "Selected Anki model lacks audio field (saved locally only)";
     }
+  }
+}
+
+async function checkOcrStatus() {
+  try {
+    setIndicatorStatus(indicatorOcr, "checking", "OCR: Checking connection…");
+    const res = await fetch(API_OCR_STATUS_URL);
+    const data = await res.json().catch(() => ({}));
+    ocrAvailable = Boolean(data.available);
+    ocrLoaded = Boolean(data.loaded);
+
+    if (ocrAvailable) {
+      setIndicatorStatus(indicatorOcr, "connected", ocrLoaded ? "OCR: Ready (Loaded)" : "OCR: Ready (Idle)");
+    } else {
+      setIndicatorStatus(indicatorOcr, "unavailable", data.message || "OCR: Unavailable");
+    }
+    return data;
+  } catch (_) {
+    ocrAvailable = false;
+    setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Backend unreachable");
+    return { available: false, loaded: false };
+  }
+}
+
+async function handleOcrCropProcess({ dataUrl, cropRect, viewport }) {
+  try {
+    setStatus("Processing OCR capture…");
+    setIndicatorStatus(indicatorOcr, "checking", "OCR: Processing…");
+
+    // Decode screenshot image
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error("Failed to decode screenshot image"));
+      img.src = dataUrl;
+    });
+
+    const cropBounds = (typeof KirokuOcrCropper !== "undefined" && KirokuOcrCropper.calculateOcrCropBounds)
+      ? KirokuOcrCropper.calculateOcrCropBounds(
+          cropRect,
+          img.naturalWidth || img.width,
+          img.naturalHeight || img.height,
+          viewport.width,
+          viewport.height
+        )
+      : {
+          sx: Math.round(cropRect.x),
+          sy: Math.round(cropRect.y),
+          sw: Math.round(cropRect.width),
+          sh: Math.round(cropRect.height),
+          targetWidth: Math.round(cropRect.width),
+          targetHeight: Math.round(cropRect.height)
+        };
+
+    if (cropBounds.sw <= 0 || cropBounds.sh <= 0) {
+      throw new Error("Selection area is too small");
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = cropBounds.targetWidth;
+    canvas.height = cropBounds.targetHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Failed to initialize canvas context");
+
+    ctx.drawImage(
+      img,
+      cropBounds.sx,
+      cropBounds.sy,
+      cropBounds.sw,
+      cropBounds.sh,
+      0,
+      0,
+      cropBounds.targetWidth,
+      cropBounds.targetHeight
+    );
+
+    const croppedDataUrl = canvas.toDataURL("image/png");
+
+    const response = await fetch(API_OCR_RECOGNIZE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_base64: croppedDataUrl })
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const errMsg = result.detail || `OCR failed (status ${response.status})`;
+      setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Error");
+      setStatus(`OCR failed: ${errMsg}`, true);
+      return;
+    }
+
+    setIndicatorStatus(indicatorOcr, "connected", "OCR: Ready");
+
+    const recognizedText = typeof result.text === "string" ? result.text.trim() : "";
+    if (!recognizedText) {
+      setStatus("No Japanese text detected in selected region.");
+      return;
+    }
+
+    setStatus(`OCR recognized: ${recognizedText}`);
+
+    // Feed directly into canonical capture pipeline
+    await identify(recognizedText);
+
+    // Attach cropped image snippet to card draft
+    currentDraftMedia.imageBase64 = croppedDataUrl;
+    currentDraftMedia.captureId = currentCaptureId;
+    if (fieldImage && !fieldImage.value) {
+      fieldImage.value = "ocr_crop.png";
+    }
+    updateMediaPreviews();
+
+  } catch (err) {
+    setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Error");
+    setStatus(`OCR capture failed: ${err.message}`, true);
   }
 }
 
@@ -3544,6 +3667,21 @@ toggle.addEventListener("click", () => {
   });
 });
 
+if (ocrCaptureBtn) {
+  ocrCaptureBtn.addEventListener("click", () => {
+    setStatus("Select Japanese text on the page (Escape to cancel)…");
+    try {
+      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({ type: "START_OCR_CAPTURE" }).catch(err => {
+          setStatus(`Failed to start OCR: ${err.message}`, true);
+        });
+      }
+    } catch (err) {
+      setStatus(`Failed to start OCR: ${err.message}`, true);
+    }
+  });
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "SCREENSHOT_CAPTURED") {
     if (message.captureId && currentCaptureId && message.captureId !== currentCaptureId) {
@@ -3706,6 +3844,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         subtitlesFileStatus.classList.add("active");
       }
     }
+    sendResponse?.({ok: true});
+    return true;
+  }
+  if (message?.type === "PROCESS_OCR_CROP") {
+    handleOcrCropProcess(message);
+    sendResponse?.({ok: true});
+    return true;
+  }
+  if (message?.type === "OCR_SELECTION_CANCELLED") {
+    setStatus("OCR selection cancelled.");
     sendResponse?.({ok: true});
     return true;
   }
@@ -3997,6 +4145,7 @@ if (btnDismissFirstRun) {
 }
 
 loadAutoCapturePreferences();
+checkOcrStatus().catch(() => {});
 loadStoredSectionOrder().then(order => {
   applySectionOrder(order);
 }).catch(() => {});

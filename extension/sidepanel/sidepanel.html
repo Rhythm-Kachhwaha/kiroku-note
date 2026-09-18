@@ -22,6 +22,10 @@
           <span class="indicator-dot"></span>
           <span class="indicator-label">Anki</span>
         </span>
+        <span id="indicator-ocr" class="indicator-pill" title="OCR: Checking…" aria-label="OCR status">
+          <span class="indicator-dot"></span>
+          <span class="indicator-label">OCR</span>
+        </span>
       </div>
     </header>
 
@@ -40,6 +44,7 @@
       <div class="mining-bar">
         <div class="mining-controls">
           <button id="mining-toggle" type="button" aria-pressed="false" class="btn-mining">Start mining</button>
+          <button id="ocr-capture-btn" type="button" class="btn-ocr" title="Capture Japanese text from screen (OCR)">OCR</button>
           <p id="mode" class="status-mode">Mining mode is off.</p>
         </div>
         <span id="session-count" class="session-counter">Cards this session: 0</span>
@@ -380,6 +385,7 @@
     </section>
   </main>
   <script src="../lib/subtitle-parser.js"></script>
+  <script src="../lib/ocr-cropper.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

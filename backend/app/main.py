@@ -1,3 +1,4 @@
+import base64
 import os
 from contextlib import asynccontextmanager
 
@@ -17,12 +18,22 @@ from app.schemas import (
     CardDetailResponse,
     CardListResponse,
     DeleteCardResponse,
+    OcrRecognizeRequest,
+    OcrRecognizeResponse,
+    OcrStatusResponse,
     SaveCardRequest,
     SaveCardResponse,
     SyncAllResponse,
     SyncCardResponse,
 )
 from app.services.card_service import CardService
+from app.services.ocr_service import (
+    OcrError,
+    OcrResponseError,
+    OcrService,
+    OcrTimeoutError,
+    OcrUnavailableError,
+)
 from app.services.yomitan import YomitanError, YomitanService
 
 # Debug mode: set KIROKU_DEBUG=1 to enable /docs, /redoc, and hot-reload.
@@ -168,6 +179,75 @@ def get_media_file(filename: str) -> FileResponse:
     }
     media_type = media_types.get(ext, "application/octet-stream")
     return FileResponse(file_path, media_type=media_type)
+
+
+@app.get("/api/ocr/status", response_model=OcrStatusResponse)
+def get_ocr_status() -> OcrStatusResponse:
+    service = OcrService()
+    status_obj = service.get_status()
+    return OcrStatusResponse(
+        available=status_obj.available,
+        installed=status_obj.installed,
+        engine=status_obj.engine,
+        device=status_obj.device,
+        model_loaded=status_obj.model_loaded,
+        error=status_obj.error,
+    )
+
+
+@app.post("/api/ocr/recognize", response_model=OcrRecognizeResponse)
+def recognize_image(request: OcrRecognizeRequest) -> OcrRecognizeResponse:
+    raw_image = request.image.strip()
+    if "," in raw_image and raw_image.startswith("data:"):
+        _, b64_part = raw_image.split(",", 1)
+    else:
+        b64_part = raw_image
+
+    try:
+        image_bytes = base64.b64decode(b64_part, validate=True)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid base64 image data: {exc}",
+        ) from exc
+
+    if not image_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Decoded image data is empty.",
+        )
+
+    service = OcrService()
+    try:
+        result = service.recognize(image_bytes)
+        return OcrRecognizeResponse(
+            text=result.text,
+            engine=result.engine,
+            device=result.device,
+            duration_ms=result.duration_ms,
+            error=result.error,
+        )
+    except OcrUnavailableError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
+    except OcrTimeoutError as error:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=str(error),
+        ) from error
+    except OcrResponseError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(error),
+        ) from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"OCR recognition error: {error}",
+        ) from error
+
 
 
 

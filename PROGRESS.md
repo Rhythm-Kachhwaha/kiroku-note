@@ -445,7 +445,51 @@ New major features should generally be deferred unless they are necessary for th
   - **Zero Backend/Extension Interference:** Unmodified backend executable (`KirokuNote.exe`, 49.76 MB) and extension packaging (`dist/extension/unpacked/`).
 - **Verification:**
   - 290/290 backend pytest tests passing (`python -m pytest tests` in `backend/`), including 5/5 dedicated `test_installer_config.py` tests.
+### Phase 2 OCR Service Boundary & Standalone Daemon (V2 Milestone)
+- **Artifacts Delivered:**
+  - `backend/app/services/ocr_service.py`: Encapsulated core backend service boundary (`OcrService`) for OCR daemon discovery, health checking, request forwarding, and response normalization.
+  - `backend/app/main.py`: Backend gateway endpoints `GET /api/ocr/status` and `POST /api/ocr/recognize` proxying requests to the daemon and returning normalized provider-neutral responses.
+  - `backend/app/config.py`: Centralized OCR daemon configuration (`DEFAULT_OCR_HOST = "127.0.0.1"`, `DEFAULT_OCR_PORT = 21829`, `resolve_ocr_url()`, `resolve_ocr_port()`).
+  - `backend/app/schemas.py`: Pydantic validation schemas (`OcrStatusResponse`, `OcrRecognizeRequest`, `OcrRecognizeResponse`).
+  - `ocr_server/server.py`: Standalone local OCR HTTP daemon with FastAPI/Uvicorn binding strictly to `127.0.0.1:21829`, featuring lazy CPU-only `manga-ocr` loading on first inference request.
+- **Key Architectural Decisions & Dependency Isolation:**
+  - **Zero Dependency Leakage:** `torch`, `transformers`, and `manga-ocr` are strictly excluded from the core Kiroku backend dependencies (`backend/requirements.txt`).
+  - **Process Crash Isolation:** If the OCR daemon crashes, encounters OOM, or is not running, the core backend handles it safely with 503/504 errors without crashing or compromising database/Anki operations.
+  - **Extension Decoupling:** The browser extension communicates exclusively with Kiroku on port `21828` and never directly with port `21829`.
+  - **Lazy CPU Inference:** `manga-ocr` model weights are loaded on the first recognition request rather than at server startup.
+- **Verification:**
+  - 325/325 backend pytest tests passing (`python -m pytest tests` in `backend/`), including:
+    - 6/6 OCR config and schemas tests (`test_ocr_config_and_schemas.py`)
+    - 14/14 OcrService boundary tests (`test_ocr_service.py`)
+    - 9/9 FastAPI OCR gateway route tests (`test_ocr_api.py`)
+    - 5/5 Standalone OCR daemon tests (`test_ocr_daemon.py`)
+    - 1/1 Live end-to-end OCR pipeline test (`test_ocr_integration.py`)
   - 39/39 extension test suites passing (`node --test extension/tests/*.test.js`).
+
+### Phase 3 OCR Capture Pipeline & Extension UI (V2 Milestone)
+- **Artifacts Delivered:**
+  - `extension/lib/ocr-cropper.js`: Dedicated OCR image cropper computing coordinate normalization, 4-directional drag bounds, High-DPI/OS display scaling (`window.devicePixelRatio`, zoom), coordinate clamping, and canvas-based cropping.
+  - `extension/content/ocr-selection.js`: Content script overlay creating an interactive region selection UI (`#kiroku-ocr-overlay`, `#kiroku-ocr-selection-box`) with mouse drag, live dimensions badge, Escape cancellation, minimum dimension guard (5px), and clean DOM teardown.
+  - `extension/manifest.json`: Content script registration for `extension/lib/ocr-cropper.js` and `extension/content/ocr-selection.js`.
+  - `extension/background.js`: Routing handler for `START_OCR_CAPTURE`, `OCR_REGION_SELECTED` (orchestrating `chrome.tabs.captureVisibleTab`), and `OCR_SELECTION_CANCELLED`.
+  - `extension/sidepanel/sidepanel.html`: Added `#indicator-ocr` service connection indicator and `#ocr-capture-btn` in Text Mining controls.
+  - `extension/sidepanel/sidepanel.css`: Added `.btn-ocr` button styles and focus states adhering to Obsidian dark theme tokens.
+  - `extension/sidepanel/sidepanel.js`: Added `checkOcrStatus()`, `handleOcrCropProcess()`, and direct forwarding of recognized Japanese text into the canonical `identify(text)` Yomitan/card creation pipeline.
+  - `extension/tests/ocr-cropper.test.js`: Unit tests for OCR cropper math and coordinate transformations.
+  - `extension/tests/ocr-selection.test.js`: Unit tests for region selection overlay, event handling, and cancellation.
+  - `extension/tests/ocr-background-routing.test.js`: Unit tests for background script message routing and screenshot capture.
+  - `extension/tests/ocr-sidepanel-integration.test.js`: Integration tests for Side Panel OCR button, status checks, crop handling, `identify()` forwarding, and error states.
+- **Key Architectural Decisions & Pipeline Integration:**
+  - **Single Input Source Invariant:** OCR is purely an input source. Recognized text is forwarded directly into `identify(text)`; zero custom card editors, duplicate dictionary paths, or separate OCR history were created.
+  - **High-DPI Coordinate Normalization:** Computes scale factors `imgNaturalWidth / viewportWidth` and `imgNaturalHeight / viewportHeight` to reliably map CSS viewport selection coordinates to screenshot image pixels across 100%, 125%, 150%, 200% DPI and browser zoom levels.
+  - **Video Frame Cropper Isolation:** `extension/lib/image-cropper.js` remains 100% untouched and reserved exclusively for video frame mining.
+  - **Media Attachment:** Cropped image snippet is attached to `currentDraftMedia.imageBase64` so it populates the card image preview and Anki note payload automatically.
+  - **Graceful Error Handling:** Handled OCR daemon offline (503), timeout (504), invalid crops (400), empty OCR results, and user cancellation without exposing raw stack traces.
+- **Verification:**
+  - 325/325 backend pytest tests passing (`python -m pytest tests` in `backend/`).
+  - 43/43 extension test suites passing (`node --test extension/tests/*.test.js`).
+
+
 
 
 
