@@ -296,6 +296,16 @@ The project expects local services at roughly these endpoints:
 - Backend: http://127.0.0.1:21828
 - Yomitan: http://127.0.0.1:19633
 - AnkiConnect: http://127.0.0.1:8765
+- Optional OCR Daemon: http://127.0.0.1:21829
+
+### Optional OCR Companion Add-on
+
+OCR is an optional companion component powered by `manga-ocr` running locally on CPU (`KirokuOCR.exe`).
+
+- **Optionality:** The core Kiroku Note application (~50 MB) does not bundle PyTorch or heavy ML models. If the OCR add-on is absent, Kiroku Note runs 100% normally.
+- **Process Management:** When installed (in `{app}\ocr\`, `%LOCALAPPDATA%\KirokuNote\ocr\`, or via `KIROKU_OCR_EXE`), Kiroku Note automatically detects it, provides safe non-blocking startup with failure cooldowns, and cleanly terminates the daemon upon application exit.
+- **Offline Inference:** Pre-downloaded model weights reside in `{app}\ocr\models\` or `%LOCALAPPDATA%\KirokuNote\models\manga-ocr-base\`, requiring zero internet connectivity during inference.
+- **Building the Add-on:** See `release/build-ocr.ps1` and `release/build-ocr-installer.ps1`. Requires CPU-only PyTorch (`pip install torch --index-url https://download.pytorch.org/whl/cpu`) and `manga-ocr`.
 
 ### Data directories
 

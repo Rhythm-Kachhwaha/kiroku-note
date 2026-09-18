@@ -62,10 +62,18 @@ class OcrService:
         endpoint: str | None = None,
         timeout_seconds: float = 15.0,
         health_timeout_seconds: float = 2.0,
+        process_manager: Any | None = None,
     ) -> None:
         self._endpoint = (endpoint or resolve_ocr_url()).rstrip("/")
         self._timeout_seconds = timeout_seconds
         self._health_timeout_seconds = health_timeout_seconds
+        self._process_manager = process_manager
+
+    def _get_process_manager(self) -> Any:
+        if self._process_manager is not None:
+            return self._process_manager
+        from app.services.ocr_process_manager import OcrProcessManager
+        return OcrProcessManager.get_instance()
 
     @property
     def endpoint(self) -> str:
@@ -85,7 +93,13 @@ class OcrService:
         return status.available
 
     def get_status(self) -> OcrStatus:
-        """Fetch OCR service status from GET /health."""
+        """
+        Fetch OCR service status from GET /health.
+        Observational only — does NOT spawn processes.
+        """
+        pm = self._get_process_manager()
+        installed = pm.is_installed()
+
         request = urllib.request.Request(f"{self._endpoint}/health", method="GET")
         try:
             with urllib.request.urlopen(request, timeout=self._health_timeout_seconds) as response:
@@ -93,12 +107,12 @@ class OcrService:
                 if not isinstance(payload, dict):
                     return OcrStatus(
                         available=False,
-                        installed=False,
+                        installed=installed,
                         error="OCR daemon returned invalid response format.",
                     )
                 return OcrStatus(
                     available=payload.get("status") == "ok",
-                    installed=bool(payload.get("installed", True)),
+                    installed=installed or bool(payload.get("installed", False)),
                     engine=str(payload.get("engine", "manga-ocr")),
                     device=str(payload.get("device", "cpu")),
                     model_loaded=bool(payload.get("model_loaded", False)),
@@ -107,19 +121,20 @@ class OcrService:
         except (urllib.error.URLError, TimeoutError, socket.timeout, ConnectionRefusedError, OSError) as exc:
             return OcrStatus(
                 available=False,
-                installed=False,
+                installed=installed,
                 error=f"OCR service is unavailable: {exc}",
             )
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             return OcrStatus(
                 available=False,
-                installed=False,
+                installed=installed,
                 error=f"OCR daemon returned unparseable health response: {exc}",
             )
 
     def recognize(self, image_bytes: bytes) -> OcrResult:
         """
         Send raw image bytes to the OCR daemon for recognition.
+        If the daemon is not running but installed, triggers a single bounded startup attempt.
 
         Raises:
             ValueError: If image_bytes is empty.
@@ -129,6 +144,12 @@ class OcrService:
         """
         if not image_bytes:
             raise ValueError("Image bytes must not be empty.")
+
+        # If not currently available, try starting the process if installed
+        pm = self._get_process_manager()
+        if not self.is_available() and pm.is_installed() and not pm.is_in_cooldown():
+            logger.info("OCR daemon is offline. Attempting controlled startup for recognition request...")
+            pm.start(wait_for_health=True, timeout_seconds=5.0)
 
         request = urllib.request.Request(
             f"{self._endpoint}/recognize",

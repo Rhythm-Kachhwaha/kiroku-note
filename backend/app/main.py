@@ -41,10 +41,19 @@ from app.services.yomitan import YomitanError, YomitanService
 _debug = os.getenv("KIROKU_DEBUG", "").strip().lower() in ("1", "true", "yes")
 
 
+from app.services.ocr_process_manager import OcrProcessManager
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # On Kiroku backend startup: if OCR addon is installed, trigger one non-blocking start attempt
+    pm = OcrProcessManager.get_instance()
+    if pm.is_installed():
+        pm.start(wait_for_health=False)
     yield
+    # On Kiroku backend shutdown: clean up any child OCR subprocess
+    pm.stop()
 
 
 app = FastAPI(

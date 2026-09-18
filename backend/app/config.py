@@ -160,3 +160,75 @@ def resolve_ocr_url(env: dict[str, str] | None = None) -> str:
     return f"http://{DEFAULT_OCR_HOST}:{port}"
 
 
+def resolve_ocr_exe_path(env: dict[str, str] | None = None) -> Path | None:
+    """
+    Resolve the path to the KirokuOCR.exe standalone executable if installed.
+
+    Candidate discovery locations:
+      1. KIROKU_OCR_EXE environment variable (explicit override)
+      2. In frozen / packaged mode:
+         - <app_dir>/ocr/KirokuOCR.exe (Standard Inno Setup {app}/ocr layout)
+         - <app_dir>/KirokuOCR.exe
+         - %LOCALAPPDATA%/KirokuNote/ocr/KirokuOCR.exe
+      3. In development / source repository mode:
+         - <repo_root>/dist/ocr/KirokuOCR.exe
+         - <repo_root>/dist/ocr/KirokuOCR/KirokuOCR.exe (onedir build)
+         - %LOCALAPPDATA%/KirokuNote/ocr/KirokuOCR.exe
+    """
+    env_dict = os.environ if env is None else env
+    custom_exe = env_dict.get("KIROKU_OCR_EXE")
+    if custom_exe and str(custom_exe).strip():
+        custom_path = Path(str(custom_exe).strip())
+        return custom_path if custom_path.is_file() else None
+
+    candidates: list[Path] = []
+
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        candidates.append(exe_dir / "ocr" / "KirokuOCR.exe")
+        candidates.append(exe_dir / "ocr" / "KirokuOCR" / "KirokuOCR.exe")
+        candidates.append(exe_dir / "KirokuOCR.exe")
+    else:
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        candidates.append(repo_root / "dist" / "ocr" / "KirokuOCR.exe")
+        candidates.append(repo_root / "dist" / "ocr" / "KirokuOCR" / "KirokuOCR.exe")
+
+    # Common local appdata location
+    if sys.platform == "win32" or os.name == "nt":
+        local_appdata = env_dict.get("LOCALAPPDATA")
+        if local_appdata and str(local_appdata).strip():
+            base_appdata = Path(str(local_appdata).strip()) / APP_NAME
+        else:
+            base_appdata = Path.home() / "AppData" / "Local" / APP_NAME
+        candidates.append(base_appdata / "ocr" / "KirokuOCR.exe")
+
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+
+    return None
+
+
+def get_ocr_model_dir(env: dict[str, str] | None = None) -> Path:
+    """
+    Resolve the directory for offline manga-ocr model weights.
+
+    Precedence:
+      1. KIROKU_OCR_MODEL_PATH environment variable
+      2. In frozen mode: <app_dir>/ocr/models/manga-ocr-base (if exists) or %LOCALAPPDATA%/KirokuNote/models/manga-ocr-base
+      3. In dev mode: <repo_root>/dist/ocr/models/manga-ocr-base or %LOCALAPPDATA%/KirokuNote/models/manga-ocr-base
+    """
+    env_dict = os.environ if env is None else env
+    custom_path = env_dict.get("KIROKU_OCR_MODEL_PATH")
+    if custom_path and str(custom_path).strip():
+        return Path(str(custom_path).strip())
+
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        addon_models = exe_dir / "ocr" / "models" / "manga-ocr-base"
+        if addon_models.is_dir():
+            return addon_models
+
+    return get_app_data_dir(env) / "models" / "manga-ocr-base"
+
+

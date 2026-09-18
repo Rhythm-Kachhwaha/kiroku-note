@@ -489,6 +489,27 @@ New major features should generally be deferred unless they are necessary for th
   - 325/325 backend pytest tests passing (`python -m pytest tests` in `backend/`).
   - 43/43 extension test suites passing (`node --test extension/tests/*.test.js`).
 
+### Phase 4 OCR Packaging & Process Management (V2 Milestone)
+- **Artifacts Delivered:**
+  - `backend/app/services/ocr_process_manager.py`: Safe singleton process manager handling installation discovery, non-blocking subprocess startup with bounded timeouts, failure cooldowns (preventing restart loops), and automatic shutdown cleanup.
+  - `backend/app/config.py`: Added `resolve_ocr_exe_path()` and `get_ocr_model_dir()` for robust discovery across frozen (`{app}\ocr\`), local app data (`%LOCALAPPDATA%\KirokuNote\ocr\`), and development directory layouts.
+  - `backend/app/services/ocr_service.py`: Updated `OcrService` to make `GET /api/ocr/status` strictly observational while providing a controlled, single startup attempt on `POST /api/ocr/recognize` if installed and offline.
+  - `backend/app/main.py`: Updated FastAPI `lifespan` context manager to trigger optional initial startup if installed, and ensure guaranteed child process termination on backend shutdown.
+  - `packaging/kiroku_ocr.spec`: Dedicated standalone PyInstaller `onedir` specification targeting CPU-only PyTorch, Hugging Face `transformers`, `manga-ocr`, and morphological tokenizers with explicit CUDA/GPU and user-data exclusions.
+  - `installer/kiroku_ocr_setup.iss`: Standalone Inno Setup 6 addon installer script creating `Kiroku-Note-OCR-Setup-v1.0.0.exe` targeting `{app}\ocr\` without touching user data or core files.
+  - `release/build-ocr.ps1`: Automated PowerShell script to compile standalone `KirokuOCR.exe` with CPU-only PyTorch and environment validation.
+  - `release/build-ocr-installer.ps1`: Automated PowerShell script to compile the Inno Setup addon installer.
+  - `backend/tests/test_ocr_process_manager.py`: Dedicated unit tests covering absent/present executable detection, mocked subprocess startup, health-check timeouts, cooldown throttling, and controlled startup.
+  - `backend/tests/test_ocr_packaging_config.py`: Static configuration tests verifying zero leaks of user databases/media, strict CPU-only exclusions, and 64-bit architecture constraints.
+- **Key Architectural Decisions & User Isolation:**
+  - **Strict Observational Status:** `GET /api/ocr/status` does not spawn processes or cause heavy side effects.
+  - **Zero Dependency Leakage:** `torch`, `transformers`, and `manga-ocr` remain 100% excluded from `backend/requirements.txt` and core `KirokuNote.exe`.
+  - **CPU-Only PyTorch Optimization:** Prescribes official PyTorch CPU wheel (`torch --index-url https://download.pytorch.org/whl/cpu`) eliminating >2.5 GB of redundant NVIDIA/CUDA runtime binaries.
+  - **Safe Process Lifecycle:** Uses bounded timeouts (5.0s), failure threshold (3 attempts), and 10s cooldown to strictly prevent CPU thrashing or restart loops.
+- **Verification:**
+  - 337/337 backend pytest tests passing (`python -m pytest tests` in `backend/`).
+  - 43/43 extension test suites passing (`node --test extension/tests/*.test.js`).
+
 
 
 
