@@ -75,6 +75,38 @@ class TestCardServiceDraftSynthesis(unittest.TestCase):
         expected = "1. to eat\n2. to live on (e.g. one's salary), to get by"
         self.assertEqual(synthesize_default_meaning(entries), expected)
 
+    def test_synthesize_default_meaning_skips_identical_gloss_senses(self):
+        entries = [
+            DictionaryEntry(
+                dictionary="Jitendex",
+                is_primary=True,
+                term="合",
+                reading="ごう",
+                senses=[
+                    DictionarySense(index=1, glosses=["gō"]),
+                    DictionarySense(index=2, glosses=["gō"]),
+                ],
+            )
+        ]
+        self.assertEqual(synthesize_default_meaning(entries), "gō")
+
+    def test_synthesize_default_meaning_skips_order_independent_identical_glosses(self):
+        entries = [
+            DictionaryEntry(
+                dictionary="Jitendex",
+                is_primary=True,
+                term="test",
+                reading="test",
+                senses=[
+                    DictionarySense(index=1, glosses=["apple", "banana"]),
+                    DictionarySense(index=2, glosses=["banana", "apple"]),
+                    DictionarySense(index=3, glosses=["cherry"]),
+                ],
+            )
+        ]
+        expected = "1. apple, banana\n2. cherry"
+        self.assertEqual(synthesize_default_meaning(entries), expected)
+
     # 5. Primary entry selection
     def test_synthesize_default_meaning_prefers_primary_entry(self):
         entries = [

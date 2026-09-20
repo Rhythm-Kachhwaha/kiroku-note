@@ -65,10 +65,14 @@ def synthesize_default_meaning(entries: list[DictionaryEntry], kanji_entries: li
         return ""
 
     valid_senses: list[list[str]] = []
+    seen_gloss_sets: list[set[str]] = []
     for sense in target_entry.senses:
         clean_glosses = [g.strip() for g in sense.glosses if g and g.strip()]
         if clean_glosses:
-            valid_senses.append(clean_glosses)
+            gloss_set = {g.lower() for g in clean_glosses}
+            if gloss_set not in seen_gloss_sets:
+                seen_gloss_sets.append(gloss_set)
+                valid_senses.append(clean_glosses)
 
     if not valid_senses:
         if kanji_entries:
