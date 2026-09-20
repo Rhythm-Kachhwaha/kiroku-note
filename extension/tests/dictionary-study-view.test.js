@@ -9,8 +9,8 @@ const html = fs.readFileSync(htmlPath, "utf8");
 
 assert.ok(html.includes('id="dict-actions-bar"'), "dict-actions-bar element must exist in sidepanel.html");
 assert.ok(html.includes('id="btn-copy-raw-dict"'), "btn-copy-raw-dict button must exist in sidepanel.html");
-assert.ok(html.includes('id="btn-toggle-full-dict"'), "btn-toggle-full-dict button must exist in sidepanel.html");
-assert.ok(html.includes('id="dict-raw-view"'), "dict-raw-view container must exist in sidepanel.html");
+assert.ok(!html.includes('id="btn-toggle-full-dict"'), "btn-toggle-full-dict button retired from sidepanel.html");
+assert.ok(!html.includes('id="dict-raw-view"'), "dict-raw-view container retired from sidepanel.html");
 assert.ok(html.includes('id="meanings"'), "meanings container must exist in sidepanel.html");
 
 console.log("PASS: Dictionary HTML DOM structure verified.");
@@ -616,29 +616,15 @@ assert.ok(formatted.includes("=== JMdict ==="), "Formatted text must include sec
 
 renderDetails({ entries: sampleEntries });
 assert.equal(mockDictActionsBar.style.display, "flex", "dict-actions-bar displayed");
-assert.equal(mockDictRawView.children.length, 2, "Raw view contains 2 articles");
-assert.equal(mockDictRawView.hidden, true, "Raw view starts hidden");
 
-// Test toggle
-mockBtnToggle.onclick();
-assert.equal(mockDictRawView.hidden, false, "Toggle unhides raw view");
-assert.equal(mockMeanings.hidden, true, "Toggle hides study view");
-assert.equal(mockBtnToggle.textContent, "Study View");
-
-mockBtnToggle.onclick();
-assert.equal(mockDictRawView.hidden, true, "Toggle hides raw view");
-assert.equal(mockMeanings.hidden, false, "Toggle shows study view");
-assert.equal(mockBtnToggle.textContent, "Full Dict");
-
-// Test copy button
+// Test copy button (preserves access to raw dictionary text without dedicated raw view)
 mockBtnCopy.onclick();
 assert.ok(copiedClipboardText.includes("=== Jitendex (Primary) ==="), "Copy button wrote raw text to clipboard");
 
 // Test clear
 clearDictionaryView();
 assert.equal(mockMeanings.children.length, 0, "meanings empty after clear");
-assert.equal(mockDictRawView.children.length, 0, "dictRawView empty after clear");
 assert.equal(mockDictActionsBar.style.display, "none", "dictActionsBar hidden after clear");
-console.log("PASS: Raw view preservation & actions verified.");
+console.log("PASS: Raw text copy action & clear verified.");
 
 console.log("\n>>> ALL DICTIONARY STUDY VIEW TESTS PASSED! <<<");

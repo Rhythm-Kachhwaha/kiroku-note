@@ -23,8 +23,6 @@ const meanings = document.querySelector("#meanings");
 const examples = document.querySelector("#examples");
 const dictActionsBar = document.querySelector("#dict-actions-bar");
 const btnCopyRawDict = document.querySelector("#btn-copy-raw-dict");
-const btnToggleFullDict = document.querySelector("#btn-toggle-full-dict");
-const dictRawView = document.querySelector("#dict-raw-view");
 const dictLoadingIndicator = document.querySelector("#dict-loading-indicator");
 const dictEmptyNotice = document.querySelector("#dict-empty-notice");
 const firstRunGuide = document.querySelector("#first-run-guide");
@@ -1149,15 +1147,7 @@ function clearDictionaryView() {
     meanings.hidden = false;
   }
   if (examples) examples.replaceChildren();
-  if (dictRawView) {
-    dictRawView.replaceChildren();
-    dictRawView.hidden = true;
-  }
   if (dictActionsBar) dictActionsBar.style.display = "none";
-  if (btnToggleFullDict) {
-    btnToggleFullDict.textContent = "Full Dict";
-    btnToggleFullDict.title = "Show full unabridged dictionary";
-  }
   if (typeof dictLoadingIndicator !== "undefined" && dictLoadingIndicator) dictLoadingIndicator.hidden = true;
   if (typeof dictEmptyNotice !== "undefined" && dictEmptyNotice) dictEmptyNotice.hidden = true;
   currentDictionaryEntries = [];
@@ -2043,83 +2033,6 @@ function renderDetails(body) {
       meanings.append(kanjiAccordion);
     }
   }
-
-  // 2. Full Raw Unabridged Output rendered into #dict-raw-view
-  if (dictRawView) {
-    if (kanjiEntries.length) {
-      kanjiEntries.forEach(k => {
-        const block = document.createElement("article");
-        block.className = "raw-dictionary-entry raw-kanji-entry";
-        const headerDiv = document.createElement("div");
-        headerDiv.className = "raw-entry-header";
-        add(headerDiv, "h3", `Kanji: ${k.character} [${k.dictionary || "Kanji"}]`);
-        block.append(headerDiv);
-
-        if (k.onyomi?.length) {
-          add(block, "p", `Onyomi: ${k.onyomi.join(", ")}`, "raw-kanji-reading");
-        }
-        if (k.kunyomi?.length) {
-          add(block, "p", `Kunyomi: ${k.kunyomi.join(", ")}`, "raw-kanji-reading");
-        }
-        if (k.nanori?.length) {
-          add(block, "p", `Nanori: ${k.nanori.join(", ")}`, "raw-kanji-reading");
-        }
-        if (k.meanings?.length) {
-          add(block, "p", `Meanings: ${k.meanings.join(", ")}`, "raw-kanji-meanings");
-        }
-        dictRawView.append(block);
-      });
-    }
-
-    for (const entry of entries) {
-      const block = document.createElement("article");
-      block.className = "raw-dictionary-entry";
-
-      const headerDiv = document.createElement("div");
-      headerDiv.className = "raw-entry-header";
-      add(headerDiv, "h3", entry.dictionary || "Dictionary");
-      if (entry.is_primary) {
-        const primaryBadge = document.createElement("span");
-        primaryBadge.className = "badge primary-badge";
-        primaryBadge.textContent = "Primary";
-        primaryBadge.style.fontSize = "10px";
-        headerDiv.append(primaryBadge);
-      }
-      block.append(headerDiv);
-
-      if (entry.parts_of_speech?.length) {
-        const metaContainer = document.createElement("div");
-        metaContainer.className = "meta";
-        entry.parts_of_speech.forEach(pos => {
-          add(metaContainer, "span", pos, "pos-tag");
-        });
-        block.append(metaContainer);
-      }
-
-      (entry.senses || []).forEach((sense, index) => {
-        const section = document.createElement("section");
-        section.className = "sense";
-        if ((entry.senses || []).length > 1) {
-          add(section, "p", `SENSE ${index + 1}`, "sense-label");
-        }
-        if (sense.glosses?.length) {
-          const list = document.createElement("ul");
-          sense.glosses.forEach(gloss => add(list, "li", gloss));
-          section.append(list);
-        }
-        sense.notes?.forEach(note => add(section, "p", note, "note"));
-        sense.examples?.forEach(example => {
-          const egCard = document.createElement("div");
-          egCard.className = "example-card";
-          add(egCard, "p", example.japanese, "example");
-          if (example.translation) add(egCard, "p", example.translation, "translation");
-          section.append(egCard);
-        });
-        block.append(section);
-      });
-      dictRawView.append(block);
-    }
-  }
 }
 
 if (btnCopyRawDict) {
@@ -2135,24 +2048,6 @@ if (btnCopyRawDict) {
         btnCopyRawDict.textContent = origText;
         btnCopyRawDict.classList.remove("copied");
       }, 1500);
-    }
-  });
-}
-
-if (btnToggleFullDict) {
-  btnToggleFullDict.addEventListener("click", () => {
-    if (!dictRawView || !meanings) return;
-    const isShowingRaw = !dictRawView.hidden;
-    if (isShowingRaw) {
-      dictRawView.hidden = true;
-      meanings.hidden = false;
-      btnToggleFullDict.textContent = "Full Dict";
-      btnToggleFullDict.title = "Show full unabridged dictionary";
-    } else {
-      dictRawView.hidden = false;
-      meanings.hidden = true;
-      btnToggleFullDict.textContent = "Study View";
-      btnToggleFullDict.title = "Show compact study view";
     }
   });
 }
