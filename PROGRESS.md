@@ -637,9 +637,28 @@ New major features should generally be deferred unless they are necessary for th
     - Added "Download Subfolder / Destination" setting (`#jimaku-download-folder-input`, default: `KirokuSubtitles`) in Jimaku Search modal.
     - Added "Auto-save downloaded subtitles to folder" toggle (`#toggle-save-subtitle-disk`).
     - Automatically saves downloaded Jimaku subtitle files to the designated local subfolder on disk and dynamically indexes them in the quick folder dropdown.
+### Phase 7.7 Dictionary Pipeline & Side Panel UI Polish
+- **Status Summary:**
+  - ✅ **Fix 1 — Outermost AST Cross-Reference Extraction (`backend/app/services/yomitan.py`, `backend/app/schemas.py`):**
+    - Added `CrossReference` schema and `cross_references: list[CrossReference]` to `Sense` and `DictionarySense` with 100% field parity.
+    - Implemented `_find_outer_marked`, `_extract_cross_reference`, and `_unique_cross_references` capturing target term, ruby reading, label, and gloss summary from outer AST nodes (`content: xref`).
+    - Cleaned `notes` to only capture `("note", "sense-note")`, eliminating duplicate text fragments.
+  - ✅ **Fix 2 — Default Meaning Sense Deduplication (`backend/app/services/card_service.py`):**
+    - In `synthesize_default_meaning`, added order-independent gloss set deduplication (`seen_gloss_sets`), skipping duplicate senses across entries.
+  - ✅ **Fix 3 — Live Card Preview Meaning Field Priority & Reference Exemption (`extension/sidepanel/sidepanel.js`):**
+    - Inverted `renderPreviewMeanings` to prioritize user-edited `data.meaning` over raw entries summary.
+    - Excluded kanji reference blocks from live Card Preview (`#card-preview-card`), preserving kanji info strictly in Study View.
+  - ✅ **Fix 4 — Consolidated Kanji Card Renderers (`extension/sidepanel/sidepanel.js`):**
+    - Unified `renderPreviewKanjiCard` and `renderKanjiCard` into `renderKanjiCard(kanji, options = { mode: "full", isProminent: false })` supporting `mode: "compact"` and `mode: "full"` with backward compatibility for boolean flag.
+  - ✅ **Fix 5 — Retired Full Dict Separate View (`extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.js`):**
+    - Removed `#btn-toggle-full-dict` and `#dict-raw-view` container and raw rendering loop while preserving `formatRawDictionaryText` for `#btn-copy-raw-dict`.
+  - ✅ **Fix 6 — Cross-Reference Chips with Draft-Safety (`extension/sidepanel/sidepanel.js`, `extension/sidepanel/sidepanel.css`):**
+    - Rendered clean `.study-xref-chip` clickable chips per `cross_reference`.
+    - Implemented draft dirty protection: clean drafts trigger immediate lookup, while unsaved/dirty drafts require 2-click `.confirm-replace` confirmation before replacing card editor content with `identify(target_term)`.
 - **Verification Results:**
-  - Extension test suite: **73/73 passed** (`node --test extension/tests/*.test.js`), including new `subtitle-folder-and-jimaku.test.js`.
-  - Backend test suite: **348/348 passed** (`python -m pytest`).
+  - Backend test suite: **352/352 passed** (`python -m pytest -o pythonpath=backend backend/tests`).
+  - Extension test suite: **73/73 passed** (`node --test extension/tests/*.test.js`).
+  - Real capture verified on `合` AST.
 
 
 
