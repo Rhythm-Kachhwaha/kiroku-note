@@ -256,8 +256,11 @@ const quickAddInput = document.querySelector("#quickadd-input");
 const quickAddClearBtn = document.querySelector("#quickadd-clear-btn");
 const quickAddSuggestionsContainer = document.querySelector("#quickadd-suggestions-container");
 const quickAddSuggestionsList = document.querySelector("#quickadd-suggestions-list");
+const quickAddModeHiragana = document.querySelector("#quickadd-mode-hiragana");
+const quickAddModeKatakana = document.querySelector("#quickadd-mode-katakana");
 
 let currentMiningTab = "text";
+let currentQuickAddKanaMode = "hiragana";
 let quickAddCandidates = [];
 let quickAddHighlightedIndex = -1;
 let quickAddDebounceTimer = null;
@@ -1044,6 +1047,20 @@ function renderCardPreviewDOM(container, data, side = "back") {
     exprP.textContent = data.expression || "—";
     container.append(exprP);
 
+    // JLPT Badge on Front side preview (if enabled and present)
+    const showJlpt = settings.show_jlpt !== false;
+    if (showJlpt && data.jlpt_level) {
+      const jlptWrap = document.createElement("div");
+      jlptWrap.className = "kn-front-tags";
+      const jlptSpan = document.createElement("span");
+      jlptSpan.className = "kn-tag kn-jlpt";
+      jlptSpan.textContent = typeof formatJlptLevel === "function"
+        ? formatJlptLevel(data.jlpt_level)
+        : (String(data.jlpt_level).startsWith("JLPT") ? data.jlpt_level : `JLPT ${data.jlpt_level}`);
+      jlptWrap.append(jlptSpan);
+      container.append(jlptWrap);
+    }
+
     // 1. Word reading (only if enabled, default false)
     if (frontCfg.show_reading && data.reading) {
       const readP = document.createElement("div");
@@ -1128,6 +1145,18 @@ function renderCardPreviewDOM(container, data, side = "back") {
       readingDiv.append(pitchSpan);
     }
 
+    container.append(readingDiv);
+
+    const divider = document.createElement("hr");
+    divider.className = "kn-divider";
+    container.append(divider);
+  } else if (showJlpt && data.jlpt_level) {
+    const readingDiv = document.createElement("div");
+    readingDiv.className = "kn-reading";
+    const jlptSpan = document.createElement("span");
+    jlptSpan.className = "kn-tag kn-jlpt";
+    jlptSpan.textContent = typeof formatJlptLevel === "function" ? formatJlptLevel(data.jlpt_level) : (String(data.jlpt_level).startsWith("JLPT") ? data.jlpt_level : `JLPT ${data.jlpt_level}`);
+    readingDiv.append(jlptSpan);
     container.append(readingDiv);
 
     const divider = document.createElement("hr");
@@ -4519,6 +4548,12 @@ function onQuickAddKeydown(e) {
     e.preventDefault();
     e.stopPropagation();
     clearQuickAddSuggestions();
+  } else if (e.key === "F7") {
+    e.preventDefault();
+    setQuickAddKanaMode("katakana");
+  } else if (e.key === "F6") {
+    e.preventDefault();
+    setQuickAddKanaMode("hiragana");
   }
 }
 
@@ -4544,6 +4579,92 @@ function initQuickAdd() {
       updateQuickAddClearBtn();
     });
   }
+
+  if (quickAddModeHiragana) {
+    quickAddModeHiragana.addEventListener("click", () => {
+      setQuickAddKanaMode("hiragana");
+      if (quickAddInput) quickAddInput.focus();
+    });
+  }
+
+  if (quickAddModeKatakana) {
+    quickAddModeKatakana.addEventListener("click", () => {
+      setQuickAddKanaMode("katakana");
+      if (quickAddInput) quickAddInput.focus();
+    });
+  }
+
+  loadQuickAddKanaMode().catch(() => {});
+}
+
+function setQuickAddKanaMode(mode) {
+  currentQuickAddKanaMode = mode === "katakana" ? "katakana" : "hiragana";
+  const isKatakana = currentQuickAddKanaMode === "katakana";
+
+  if (quickAddModeHiragana) {
+    quickAddModeHiragana.classList.toggle("active", !isKatakana);
+    quickAddModeHiragana.setAttribute("aria-checked", String(!isKatakana));
+  }
+  if (quickAddModeKatakana) {
+    quickAddModeKatakana.classList.toggle("active", isKatakana);
+    quickAddModeKatakana.setAttribute("aria-checked", String(isKatakana));
+  }
+
+  if (quickAddInput) {
+    quickAddInput.placeholder = isKatakana
+      ? "Type romaji or Katakana… (e.g. taberu → タベル)"
+      : "Type romaji or Japanese… (e.g. taberu)";
+
+    if (typeof wanakana !== "undefined") {
+      try {
+        quickAddInput.removeEventListener("input", onQuickAddInput);
+        if (typeof wanakana.unbind === "function" && quickAddInput.hasAttribute("data-wanakana-id")) {
+          wanakana.unbind(quickAddInput);
+        }
+        if (typeof wanakana.bind === "function") {
+          wanakana.bind(quickAddInput, { IMEMode: isKatakana ? "toKatakana" : true });
+        }
+        quickAddInput.addEventListener("input", onQuickAddInput);
+      } catch (err) {
+        console.warn("WanaKana mode switch error:", err);
+      }
+
+      // Convert existing typed text if present
+      if (quickAddInput.value) {
+        const converted = isKatakana
+          ? (typeof wanakana.toKatakana === "function" ? wanakana.toKatakana(quickAddInput.value) : quickAddInput.value)
+          : (typeof wanakana.toHiragana === "function" ? wanakana.toHiragana(quickAddInput.value) : quickAddInput.value);
+        if (converted !== quickAddInput.value) {
+          quickAddInput.value = converted;
+          scheduleQuickAddLookup();
+        }
+      }
+    }
+  }
+
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ "kiroku.quickadd_kana_mode": currentQuickAddKanaMode });
+    } else if (typeof localStorage !== "undefined") {
+      localStorage.setItem("kiroku.quickadd_kana_mode", currentQuickAddKanaMode);
+    }
+  } catch (_) {}
+}
+
+async function loadQuickAddKanaMode() {
+  let savedMode = "hiragana";
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const stored = await chrome.storage.local.get("kiroku.quickadd_kana_mode");
+      if (stored && stored["kiroku.quickadd_kana_mode"]) {
+        savedMode = stored["kiroku.quickadd_kana_mode"];
+      }
+    } else if (typeof localStorage !== "undefined") {
+      const stored = localStorage.getItem("kiroku.quickadd_kana_mode");
+      if (stored) savedMode = stored;
+    }
+  } catch (_) {}
+  setQuickAddKanaMode(savedMode);
 }
 
 function switchMiningTab(targetTab) {

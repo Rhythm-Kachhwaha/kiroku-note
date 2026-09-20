@@ -310,11 +310,60 @@ body {
   position: relative;
 }
 
+.quickadd-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
 .quickadd-input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+}
+
+.quickadd-kana-mode-group {
+  display: flex;
+  align-items: center;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  height: 38px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.quickadd-mode-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-ja);
+  font-size: 13px;
+  font-weight: 600;
+  width: 28px;
+  height: 32px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.quickadd-mode-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-2);
+}
+
+.quickadd-mode-btn.active {
+  color: #ffffff;
+  background: var(--accent-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .quickadd-input {
@@ -2902,14 +2951,22 @@ rt {
 .kn-tag.kn-jlpt {
   background: var(--accent-jlpt-dim);
   color: var(--accent-jlpt);
-  font-size: 0.82em;
+  font-size: 13px;
   font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 4px;
+  padding: 3px 10px;
+  border-radius: 5px;
   border: 1px solid var(--accent-jlpt-border);
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   display: inline-block;
   vertical-align: middle;
+}
+
+.kn-front-tags {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 8px;
+  margin-bottom: 4px;
 }
 
 .kn-card .kn-kanji-card,

@@ -783,14 +783,18 @@ New major features should generally be deferred unless they are necessary for th
     - Added keyboard navigation scoped strictly to `#quickadd-input`: ArrowDown/ArrowUp cycle through suggestions with W3C ARIA combobox attributes (`aria-activedescendant`), Enter commits highlighted candidate (or fallback), and Escape dismisses suggestions without clearing typed input text.
   - ✅ **Precision Dark Utility Styling (`extension/sidepanel/sidepanel.css`):**
     - Styled Quick Add input and candidate suggestions using Obsidian dark tokens (`--bg-surface-1`, `--border-default`, `--accent-primary`, `--accent-reading`, `--radius-md`).
+  - ✅ **Hiragana / Katakana Mode Switcher (`extension/sidepanel/sidepanel.html`, `sidepanel.css`, `sidepanel.js`):**
+    - Added dedicated kana mode switch buttons (`#quickadd-mode-hiragana` with "あ" and `#quickadd-mode-katakana` with "ア") directly in `#quickadd-mining-view` `.quickadd-input-row`.
+    - Integrated dynamic WanaKana re-binding (`wanakana.bind(quickAddInput, { IMEMode: isKatakana ? "toKatakana" : true })`) with proper event listener ordering.
+    - Added automatic bidirectional text conversion: switching modes dynamically converts any active input text between Hiragana and Katakana (`wanakana.toKatakana` / `wanakana.toHiragana`) and re-triggers candidate lookup.
+    - Added standard Japanese IME keyboard shortcuts: `F7` switches to Katakana mode and `F6` switches to Hiragana mode.
+    - Persisted user preference in `chrome.storage.local` and `localStorage` (`kiroku.quickadd_kana_mode`).
+  - ✅ **Enlarged JLPT Badge in Card Preview (Front & Back) (`extension/sidepanel/sidepanel.js`, `sidepanel.css`):**
+    - Rendered JLPT level badge (`.kn-front-tags .kn-tag.kn-jlpt`) on the **Front side Card Preview** immediately below the target expression whenever `show_jlpt` is enabled, ensuring JLPT level is instantly visible upon looking up or mining words.
+    - Styled `.kn-card .kn-tag.kn-jlpt` with `font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 5px;` (~18% larger and more prominent than the 11px dictionary badge `.pill-jlpt` / `.dict-header-jlpt-badge`).
+    - Maintained full toggle compliance with card template settings (`show_jlpt: false` hides tag).
 - **Verification Results:**
-  - Extension test suite: **74/74 passed** (`node --test extension/tests/*.test.js`), including new dedicated `extension/tests/quick-add.test.js` (8/8 test scenarios).
-  - Full manual scenario checks verified:
-    1. Progressive romaji-to-kana conversion (`taberu` -> `たべる`, `hashi` -> `はし`).
-    2. Candidate list display with expressions, readings, and glosses.
-    3. Candidate selection committing through canonical `identify()`.
-    4. Pasting Japanese text directly triggering lookups.
-    5. Keyboard-only navigation flow (type -> ArrowDown -> Enter).
-    6. Non-breaking tab switching across Text Mining, Video Mining, and Quick Add.
-- **Remaining Risk:** None. All changes are frontend-only, adhere strictly to existing contracts, and maintain 100% test coverage.
+  - Extension test suite: **74/74 passed** (`node --test extension/tests/*.test.js`), with expanded `extension/tests/quick-add.test.js` covering 10/10 test suites (HTML structure, CSS rules, tab switching, WanaKana IME, Hiragana/Katakana mode switching, F6/F7 shortcuts, Front & Back Card Preview JLPT badges, candidate lookup, candidate selection, scoped navigation, dirty draft protection, and race condition protection).
+  - Backend test suite: untouched (0 backend changes).
+- **Remaining Risk:** None. All additions are frontend-only within MV3 Side Panel boundaries.
 

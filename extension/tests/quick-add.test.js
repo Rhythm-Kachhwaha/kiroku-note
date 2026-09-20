@@ -29,8 +29,11 @@ assert.ok(
   "Quick Add view panel must have role='tabpanel' and aria-labelledby='tab-btn-quickadd'"
 );
 
-// Quick Add View Content: input and suggestions container only (no mining toggle, session counter, etc.)
+// Quick Add View Content: input, clear button, kana mode toggle, suggestions container
 assert.ok(html.includes('id="quickadd-input"'), "Quick Add input element #quickadd-input must exist");
+assert.ok(html.includes('id="quickadd-clear-btn"'), "Quick Add clear button #quickadd-clear-btn must exist");
+assert.ok(html.includes('id="quickadd-mode-hiragana"'), "Hiragana mode button #quickadd-mode-hiragana must exist");
+assert.ok(html.includes('id="quickadd-mode-katakana"'), "Katakana mode button #quickadd-mode-katakana must exist");
 assert.ok(html.includes('id="quickadd-suggestions-container"'), "Quick Add suggestions container #quickadd-suggestions-container must exist");
 assert.ok(html.includes('id="quickadd-suggestions-list"'), "Quick Add suggestions list #quickadd-suggestions-list must exist");
 
@@ -44,18 +47,26 @@ assert.ok(wanakanaScriptIdx < sidepanelScriptIdx, "wanakana.js MUST load before 
 console.log("PASS 1: HTML DOM structure, role/aria attributes, and script loading order verified.");
 
 // ==========================================================================
-// 2. Verify CSS Styling for Quick Add
+// 2. Verify CSS Styling for Quick Add & JLPT Card Preview
 // ==========================================================================
 const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
 const css = fs.readFileSync(cssPath, "utf8");
 
 assert.ok(css.includes(".quickadd-container"), "CSS must define .quickadd-container");
+assert.ok(css.includes(".quickadd-input-row"), "CSS must define .quickadd-input-row");
+assert.ok(css.includes(".quickadd-kana-mode-group"), "CSS must define .quickadd-kana-mode-group");
+assert.ok(css.includes(".quickadd-mode-btn"), "CSS must define .quickadd-mode-btn");
 assert.ok(css.includes(".quickadd-input"), "CSS must define .quickadd-input");
 assert.ok(css.includes(".quickadd-suggestions-container"), "CSS must define .quickadd-suggestions-container");
 assert.ok(css.includes(".quickadd-candidate-item"), "CSS must define .quickadd-candidate-item");
 assert.ok(css.includes(".quickadd-candidate-expression"), "CSS must define .quickadd-candidate-expression");
 assert.ok(css.includes(".quickadd-candidate-reading"), "CSS must define .quickadd-candidate-reading");
 assert.ok(css.includes(".quickadd-candidate-gloss"), "CSS must define .quickadd-candidate-gloss");
+
+// Front tag & enlarged JLPT badge styling
+assert.ok(css.includes(".kn-front-tags"), "CSS must define .kn-front-tags for Front Card Preview JLPT badge");
+assert.ok(css.includes(".kn-tag.kn-jlpt"), "CSS must style .kn-tag.kn-jlpt");
+assert.ok(css.includes("font-size: 13px;"), "Card preview JLPT badge must have font-size: 13px (larger than 11px dictionary badge)");
 
 console.log("PASS 2: CSS styling definitions verified.");
 
@@ -71,8 +82,6 @@ function createMockElement(tagName, id = "") {
     textContent: "",
     innerHTML: "",
     hidden: false,
-    disabled: false,
-    className: "",
     options: [],
     style: {},
     dataset: {},
@@ -99,37 +108,77 @@ function createMockElement(tagName, id = "") {
       }
       return true;
     },
+    _classes: new Set(),
+    get className() {
+      return Array.from(this._classes).join(" ");
+    },
+    set className(val) {
+      this._classes.clear();
+      if (typeof val === "string") {
+        val.trim().split(/\s+/).filter(Boolean).forEach(c => this._classes.add(c));
+      }
+    },
     classList: {
-      _classes: new Set(),
-      add(c) { el.classList._classes.add(c); el.className = Array.from(el.classList._classes).join(" "); },
-      remove(c) { el.classList._classes.delete(c); el.className = Array.from(el.classList._classes).join(" "); },
-      contains(c) { return el.classList._classes.has(c); },
+      add(c) { el._classes.add(c); },
+      remove(c) { el._classes.delete(c); },
+      contains(c) { return el._classes.has(c); },
       toggle(c, force) {
-        const has = el.classList._classes.has(c);
+        const has = el._classes.has(c);
         const next = typeof force === "boolean" ? force : !has;
-        if (next) el.classList.add(c);
-        else el.classList.remove(c);
+        if (next) el._classes.add(c);
+        else el._classes.delete(c);
       },
+    },
+    remove() {
+      if (this.parentNode && this.parentNode.children) {
+        this.parentNode.children = this.parentNode.children.filter(c => c !== this);
+      }
     },
     replaceChildren(...nodes) {
       this.children = [...nodes];
+      this.children.forEach(n => { if (n) n.parentNode = this; });
     },
     appendChild(node) {
+      if (node) node.parentNode = this;
       this.children.push(node);
       return node;
     },
     append(...nodes) {
-      this.children.push(...nodes);
+      nodes.forEach(n => {
+        if (n) {
+          n.parentNode = this;
+          this.children.push(n);
+        }
+      });
     },
     prepend(...nodes) {
+      nodes.forEach(n => { if (n) n.parentNode = this; });
       this.children.unshift(...nodes);
     },
     querySelector(selector) {
-      if (selector.startsWith(".")) {
-        const cls = selector.slice(1);
-        return this.children.find(c => c.classList && c.classList.contains(cls)) || null;
+      const parts = selector.trim().split(/\s+/);
+      let currentElements = [this];
+      for (const part of parts) {
+        let nextElements = [];
+        for (const parent of currentElements) {
+          const searchNode = (node) => {
+            if (!node || !node.classList) return;
+            let match = true;
+            if (part.startsWith("#")) {
+              if (node.id !== part.slice(1)) match = false;
+            } else if (part.startsWith(".")) {
+              const classes = part.split(".").filter(Boolean);
+              if (!classes.every(c => node.classList.contains(c))) match = false;
+            }
+            if (match && node !== this) nextElements.push(node);
+            if (node.children) node.children.forEach(searchNode);
+          };
+          (parent.children || []).forEach(searchNode);
+        }
+        currentElements = nextElements;
+        if (!currentElements.length) break;
       }
-      return null;
+      return currentElements[0] || null;
     },
     focus() {},
     scrollIntoView() {},
@@ -171,6 +220,13 @@ const mockQuickAddClearBtn = createMockElement("button", "quickadd-clear-btn");
 const mockQuickAddSuggestionsContainer = createMockElement("div", "quickadd-suggestions-container");
 mockQuickAddSuggestionsContainer.hidden = true;
 const mockQuickAddSuggestionsList = createMockElement("ul", "quickadd-suggestions-list");
+
+const mockQuickAddModeHiragana = createMockElement("button", "quickadd-mode-hiragana");
+mockQuickAddModeHiragana.classList.add("active");
+mockQuickAddModeHiragana.setAttribute("aria-checked", "true");
+
+const mockQuickAddModeKatakana = createMockElement("button", "quickadd-mode-katakana");
+mockQuickAddModeKatakana.setAttribute("aria-checked", "false");
 
 const mockStorage = {};
 const mockChrome = {
@@ -214,10 +270,13 @@ const sandbox = {
         case "#quickadd-clear-btn": return mockQuickAddClearBtn;
         case "#quickadd-suggestions-container": return mockQuickAddSuggestionsContainer;
         case "#quickadd-suggestions-list": return mockQuickAddSuggestionsList;
+        case "#quickadd-mode-hiragana": return mockQuickAddModeHiragana;
+        case "#quickadd-mode-katakana": return mockQuickAddModeKatakana;
         default: return createMockElement("div");
       }
     },
     createElement: (tag) => createMockElement(tag),
+    createTextNode: (text) => ({ textContent: text }),
     addEventListener: () => {},
   },
   chrome: mockChrome,
@@ -274,12 +333,12 @@ assert.equal(sandbox.isVideoMiningActive(), false, "isVideoMiningActive() must r
 console.log("PASS 3: switchMiningTab generalization and isVideoMiningActive() verified.");
 
 // ==========================================================================
-// 5. Verify WanaKana IME Binding on Quick Add Input
+// 5. Verify WanaKana IME Binding & Hiragana / Katakana Mode Switching
 // ==========================================================================
 // Verify that wanakana bound the input
 assert.ok(mockQuickAddInput.hasAttribute("data-wanakana-id"), "Quick Add input must be bound with WanaKana data-wanakana-id");
 
-// Verify romaji progressive conversion
+// Verify romaji progressive conversion (default Hiragana)
 mockQuickAddInput.value = "taberu";
 mockQuickAddInput.selectionEnd = 6;
 mockQuickAddInput.dispatchEvent({ type: "input", target: mockQuickAddInput });
@@ -296,10 +355,80 @@ mockQuickAddInput.selectionEnd = 3;
 mockQuickAddInput.dispatchEvent({ type: "input", target: mockQuickAddInput });
 assert.equal(mockQuickAddInput.value, "食べる", "Direct Japanese / pasted kanji must pass through without corruption");
 
-console.log("PASS 4: WanaKana incremental romaji->kana and Japanese pass-through verified.");
+// Switch to Katakana mode via button click
+mockQuickAddModeKatakana.dispatchEvent({ type: "click" });
+assert.equal(mockQuickAddModeKatakana.classList.contains("active"), true, "Katakana button must be active");
+assert.equal(mockQuickAddModeHiragana.classList.contains("active"), false, "Hiragana button must be inactive");
+assert.equal(mockQuickAddModeKatakana.getAttribute("aria-checked"), "true", "Katakana button aria-checked must be true");
+assert.equal(mockQuickAddModeHiragana.getAttribute("aria-checked"), "false", "Hiragana button aria-checked must be false");
+
+// Typing romaji in Katakana mode converts to Katakana
+mockQuickAddInput.value = "taberu";
+mockQuickAddInput.selectionEnd = 6;
+mockQuickAddInput.dispatchEvent({ type: "input", target: mockQuickAddInput });
+assert.equal(mockQuickAddInput.value, "タベル", "Katakana mode must convert 'taberu' to 'タベル'");
+
+// Toggling back to Hiragana mode converts existing input to Hiragana
+mockQuickAddModeHiragana.dispatchEvent({ type: "click" });
+assert.equal(mockQuickAddModeHiragana.classList.contains("active"), true, "Hiragana button must be active");
+assert.equal(mockQuickAddModeKatakana.classList.contains("active"), false, "Katakana button must be inactive");
+assert.equal(mockQuickAddInput.value, "たべる", "Switching to Hiragana mode must convert existing text 'タベル' to 'たべる'");
+
+// Test F7 shortcut key switches to Katakana
+mockQuickAddInput.dispatchEvent({ type: "keydown", key: "F7", preventDefault: () => {} });
+assert.equal(mockQuickAddModeKatakana.classList.contains("active"), true, "F7 key must activate Katakana mode");
+assert.equal(mockQuickAddInput.value, "タベル", "F7 key must convert existing text to Katakana");
+
+// Test F6 shortcut key switches to Hiragana
+mockQuickAddInput.dispatchEvent({ type: "keydown", key: "F6", preventDefault: () => {} });
+assert.equal(mockQuickAddModeHiragana.classList.contains("active"), true, "F6 key must activate Hiragana mode");
+assert.equal(mockQuickAddInput.value, "たべる", "F6 key must convert existing text to Hiragana");
+
+console.log("PASS 4: WanaKana incremental romaji->kana and Hiragana/Katakana mode switching verified.");
 
 // ==========================================================================
-// 6. Verify Debounced Candidate Lookup & Request Shape
+// 6. Verify Card Preview JLPT Badge (Front & Back)
+// ==========================================================================
+// Front side preview with JLPT level
+const mockFrontPreviewContainer = createMockElement("div", "card-preview-front");
+sandbox.renderCardPreviewDOM(mockFrontPreviewContainer, {
+  expression: "食べる",
+  reading: "たべる",
+  jlpt_level: "N5",
+  template_settings: { show_jlpt: true }
+}, "front");
+
+const frontJlptSpan = mockFrontPreviewContainer.querySelector(".kn-front-tags .kn-tag.kn-jlpt");
+assert.ok(frontJlptSpan, "Front Card Preview must render .kn-front-tags .kn-tag.kn-jlpt when jlpt_level is present");
+assert.equal(frontJlptSpan.textContent, "JLPT N5", "Front JLPT tag must display 'JLPT N5'");
+
+// Front side preview when show_jlpt is disabled
+const mockFrontPreviewNoJlpt = createMockElement("div", "card-preview-front-no-jlpt");
+sandbox.renderCardPreviewDOM(mockFrontPreviewNoJlpt, {
+  expression: "食べる",
+  reading: "たべる",
+  jlpt_level: "N5",
+  template_settings: { show_jlpt: false }
+}, "front");
+const frontNoJlptTags = mockFrontPreviewNoJlpt.querySelector(".kn-front-tags");
+assert.equal(frontNoJlptTags, null, "Front Card Preview must not render JLPT badge when show_jlpt is false");
+
+// Back side preview with JLPT level
+const mockBackPreviewContainer = createMockElement("div", "card-preview-back");
+sandbox.renderCardPreviewDOM(mockBackPreviewContainer, {
+  expression: "食べる",
+  reading: "たべる",
+  jlpt_level: "N5",
+  template_settings: { show_jlpt: true }
+}, "back");
+const backJlptSpan = mockBackPreviewContainer.querySelector(".kn-reading .kn-tag.kn-jlpt");
+assert.ok(backJlptSpan, "Back Card Preview must render .kn-reading .kn-tag.kn-jlpt when jlpt_level is present");
+assert.equal(backJlptSpan.textContent, "JLPT N5", "Back JLPT tag must display 'JLPT N5'");
+
+console.log("PASS 5: Card Preview JLPT badge rendering on Front and Back verified.");
+
+// ==========================================================================
+// 7. Verify Debounced Candidate Lookup & Request Shape
 // ==========================================================================
 let capturedFetchRequest = null;
 sandbox.fetch = async (url, options) => {
@@ -347,10 +476,10 @@ setImmediate(async () => {
   assert.equal(exprEl.textContent, "食べる", "First candidate expression must be '食べる'");
   assert.equal(glossEl.textContent, "to eat", "First candidate gloss must be 'to eat'");
 
-  console.log("PASS 5: Debounced lookup request shape and candidate list rendering verified.");
+  console.log("PASS 6: Debounced lookup request shape and candidate list rendering verified.");
 
   // ==========================================================================
-  // 7. Verify Candidate Selection Commits via identify()
+  // 8. Verify Candidate Selection Commits via identify()
   // ==========================================================================
   let identifiedWord = null;
   sandbox.identify = (word) => {
@@ -378,10 +507,10 @@ setImmediate(async () => {
 
   assert.equal(identifiedWord, "謎の単語", "Pressing Enter with no candidates must call identify(currentInputValue)");
 
-  console.log("PASS 6: Candidate selection and fallback Enter committing to identify() verified.");
+  console.log("PASS 7: Candidate selection and fallback Enter committing to identify() verified.");
 
   // ==========================================================================
-  // 8. Verify Scoped Keyboard Navigation
+  // 9. Verify Scoped Keyboard Navigation
   // ==========================================================================
   // Re-render candidates
   sandbox.renderQuickAddSuggestions([
@@ -421,10 +550,10 @@ setImmediate(async () => {
   assert.equal(mockQuickAddSuggestionsContainer.hidden, true, "Escape must hide suggestions container");
   assert.equal(mockQuickAddInput.value, "hashi", "Escape MUST NOT clear the typed input text");
 
-  console.log("PASS 7: Scoped keyboard navigation (ArrowDown/Up, Enter, Escape) verified.");
+  console.log("PASS 8: Scoped keyboard navigation (ArrowDown/Up, Enter, Escape) verified.");
 
   // ==========================================================================
-  // 8. Verify Dirty Draft Protection on Candidate Selection
+  // 10. Verify Dirty Draft Protection on Candidate Selection
   // ==========================================================================
   sandbox.renderQuickAddSuggestions([
     { term: "食べる", reading: "たべる", senses: [{ glosses: ["to eat"] }] },
@@ -451,10 +580,10 @@ setImmediate(async () => {
   sandbox.isCardDraftDirty = originalIsDirty;
   sandbox.isCardDraftDirtyState = false;
 
-  console.log("PASS 8: Dirty card draft protection on candidate selection verified.");
+  console.log("PASS 9: Dirty card draft protection on candidate selection verified.");
 
   // ==========================================================================
-  // 9. Stale Response & Race Protection
+  // 11. Stale Response & Race Protection
   // ==========================================================================
   sandbox.clearQuickAddSuggestions();
   let callCount = 0;
@@ -487,8 +616,8 @@ setImmediate(async () => {
     assert.equal(mockQuickAddSuggestionsList.children.length, 1);
     const displayed = mockQuickAddSuggestionsList.children[0].children[0].children[0].textContent;
     assert.equal(displayed, "食べる", "Older request must not overwrite newer lookup results");
-    console.log("PASS 8: Stale lookup response sequence protection verified.");
+    console.log("PASS 10: Stale lookup response sequence protection verified.");
 
-    console.log("\nALL QUICK ADD TESTS PASSED! (8/8 Test Suites)");
+    console.log("\nALL QUICK ADD TESTS PASSED! (10/10 Test Suites)");
   }, 150);
 });
