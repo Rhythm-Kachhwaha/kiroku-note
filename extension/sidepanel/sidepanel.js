@@ -1256,7 +1256,21 @@ function renderRubyText(container, text, rubyText) {
   container.append(document.createTextNode(text || source));
 }
 
+let isCardDraftDirtyState = false;
+
+function isCardDraftDirty() {
+  const expr = fieldExpression ? fieldExpression.value.trim() : "";
+  if (!expr) return false;
+  const hasCardId = Boolean(fieldCardId && fieldCardId.value);
+  const isSavedBadge = Boolean(saveBadge && !saveBadge.hidden && (saveBadge.textContent.includes("SAVED") || saveBadge.textContent.includes("ALREADY SAVED")));
+  if (!hasCardId || !isSavedBadge || isCardDraftDirtyState) {
+    return true;
+  }
+  return false;
+}
+
 function insertSenseToMeaning(glossesText, btn) {
+  isCardDraftDirtyState = true;
   if (!glossesText || !fieldMeaning) return;
   const current = fieldMeaning.value ? fieldMeaning.value.trim() : "";
   if (current && current !== glossesText.trim() && btn) {
@@ -1288,6 +1302,7 @@ function insertSenseToMeaning(glossesText, btn) {
 }
 
 function insertExampleToCard(japaneseText, translationText, btn) {
+  isCardDraftDirtyState = true;
   if (!japaneseText) return;
   const currentSentence = fieldExampleSentence && fieldExampleSentence.value ? fieldExampleSentence.value.trim() : "";
   if (currentSentence && currentSentence !== japaneseText.trim() && btn) {
@@ -1419,6 +1434,55 @@ function renderStudySenseItem(sense, sIdx, entry, totalSensesCount) {
         bodyDiv.append(pNote);
       }
     });
+  }
+
+  // Cross-references
+  if (Array.isArray(sense.cross_references) && sense.cross_references.length) {
+    const xrefsContainer = document.createElement("div");
+    xrefsContainer.className = "study-sense-xrefs";
+
+    sense.cross_references.forEach(xref => {
+      const targetTerm = typeof xref === "string" ? xref.trim() : (xref?.target_term || "").trim();
+      if (!targetTerm) return;
+      const displayText = typeof xref === "string"
+        ? xref.trim()
+        : (xref?.display_text || xref?.target_term || "").trim();
+
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "study-xref-chip";
+      chip.textContent = displayText;
+      chip.title = `Look up: ${targetTerm}`;
+
+      chip.onclick = (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (e && e.preventDefault) e.preventDefault();
+
+        if (isCardDraftDirty()) {
+          if (!chip.classList.contains("confirm-replace")) {
+            chip.classList.add("confirm-replace");
+            chip._origText = chip.textContent;
+            chip.textContent = "Replace?";
+            setTimeout(() => {
+              if (chip.classList.contains("confirm-replace")) {
+                chip.classList.remove("confirm-replace");
+                chip.textContent = chip._origText || displayText;
+              }
+            }, 3000);
+            return;
+          }
+          chip.classList.remove("confirm-replace");
+        }
+
+        identify(targetTerm);
+      };
+
+      xrefsContainer.append(chip);
+    });
+
+    if (xrefsContainer.children.length) {
+      bodyDiv.append(xrefsContainer);
+    }
   }
 
   // Examples attached to this sense
@@ -2639,6 +2703,7 @@ if (cardEditor) {
           }
         }
       }
+      isCardDraftDirtyState = false;
       selectedHistoryCardId = body.id || null;
       loadHistory().catch(() => {});
     } catch (error) {
@@ -2647,6 +2712,10 @@ if (cardEditor) {
       saveCardBtn.disabled = false;
       saveCardBtn.textContent = "Save Card";
     }
+  });
+
+  cardEditor.addEventListener("input", () => {
+    isCardDraftDirtyState = true;
   });
 }
 

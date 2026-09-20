@@ -123,9 +123,13 @@ const mockExamples = createMockElement("div");
 const mockFieldMeaning = createMockElement("textarea");
 const mockFieldExampleSentence = createMockElement("textarea");
 const mockFieldExampleTranslation = createMockElement("textarea");
+const mockFieldExpression = createMockElement("input");
+const mockFieldCardId = createMockElement("input");
+const mockSaveBadge = createMockElement("span");
 const mockOptionalFields = createMockElement("div");
 mockOptionalFields.hidden = true;
 const mockToggleOptionalBtn = createMockElement("button");
+const identifiedCalls = [];
 
 let mockConfirmResponse = true;
 let mockConfirmCalls = [];
@@ -190,6 +194,10 @@ const sandbox = {
   fieldMeaning: mockFieldMeaning,
   fieldExampleSentence: mockFieldExampleSentence,
   fieldExampleTranslation: mockFieldExampleTranslation,
+  fieldExpression: mockFieldExpression,
+  fieldCardId: mockFieldCardId,
+  saveBadge: mockSaveBadge,
+  identify: (text) => { identifiedCalls.push(text); },
   optionalFields: mockOptionalFields,
   toggleOptionalBtn: mockToggleOptionalBtn,
   currentDictionaryEntries: [],
@@ -626,5 +634,77 @@ clearDictionaryView();
 assert.equal(mockMeanings.children.length, 0, "meanings empty after clear");
 assert.equal(mockDictActionsBar.style.display, "none", "dictActionsBar hidden after clear");
 console.log("PASS: Raw text copy action & clear verified.");
+
+// ==========================================
+// Test Cross-Reference Chips & Draft Safety
+// ==========================================
+console.log("Testing Cross-Reference Chips & Draft Safety...");
+identifiedCalls.length = 0;
+mockFieldExpression.value = "";
+mockFieldCardId.value = "";
+mockSaveBadge.hidden = true;
+mockSaveBadge.textContent = "";
+
+const xrefEntries = [
+  {
+    dictionary: "Jitendex",
+    is_primary: true,
+    term: "合",
+    reading: "ごう",
+    parts_of_speech: ["noun"],
+    tags: [],
+    senses: [
+      {
+        glosses: ["conjunction (astronomy)"],
+        tags: [],
+        notes: [],
+        examples: [],
+        cross_references: [
+          {
+            target_term: "衝",
+            target_reading: "しょう",
+            label: "See also",
+            gloss_summary: "③ opposition",
+            display_text: "See also 衝 (しょう) ③ opposition",
+          },
+        ],
+      },
+    ],
+  },
+];
+
+renderDetails({ entries: xrefEntries });
+const xrefContainer = findByClass(mockMeanings, "study-sense-xrefs");
+assert.ok(xrefContainer, "study-sense-xrefs container must be rendered");
+const xrefChips = findAllByClass(mockMeanings, "study-xref-chip");
+assert.equal(xrefChips.length, 1, "Must render exactly 1 cross-reference chip");
+assert.equal(xrefChips[0].textContent, "See also 衝 (しょう) ③ opposition");
+assert.equal(xrefChips[0].title, "Look up: 衝");
+
+// Case 1: Clean draft (no card expression in editor) -> immediate lookup
+xrefChips[0].onclick();
+assert.equal(identifiedCalls.length, 1, "Immediate identify call when draft is clean");
+assert.equal(identifiedCalls[0], "衝", "Identified target term must be 衝");
+assert.ok(!xrefChips[0].classList.contains("confirm-replace"), "confirm-replace not added on clean draft");
+
+// Case 2: Dirty draft (expression present, card unsaved) -> requires confirmation
+identifiedCalls.length = 0;
+mockFieldExpression.value = "合";
+mockFieldCardId.value = ""; // unsaved
+mockSaveBadge.hidden = true;
+
+// 1st click on dirty draft -> prompts for replacement confirmation
+xrefChips[0].onclick();
+assert.equal(identifiedCalls.length, 0, "Must NOT call identify on first click when draft is dirty");
+assert.ok(xrefChips[0].classList.contains("confirm-replace"), "Must add confirm-replace class");
+assert.equal(xrefChips[0].textContent, "Replace?");
+
+// 2nd click while confirm-replace is active -> confirms replacement and triggers identify
+xrefChips[0].onclick();
+assert.equal(identifiedCalls.length, 1, "Must call identify on second click");
+assert.equal(identifiedCalls[0], "衝");
+assert.ok(!xrefChips[0].classList.contains("confirm-replace"), "confirm-replace removed after confirmed action");
+
+console.log("PASS: Cross-reference chips & draft safety verified.");
 
 console.log("\n>>> ALL DICTIONARY STUDY VIEW TESTS PASSED! <<<");
