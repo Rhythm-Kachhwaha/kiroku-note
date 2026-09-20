@@ -316,6 +316,22 @@ console.log("PASS: sidepanel.js loaded in test context.");
   insertBtn.dispatchEvent("click");
   assert.equal(meaningField.value, "fit, suit, join", "Insert button copies glosses into card meaning");
 
+  // Test consolidated options parameter
+  const compactCard = renderKanjiCard(kanjiSample, { mode: "compact" });
+  assert.ok(compactCard.classList.contains("kn-kanji-card"), "compact mode renders kn-kanji-card");
+  assert.equal(findByClass(compactCard, "kn-kanji-char").textContent, "合");
+  assert.equal(findByClass(compactCard, "kn-onyomi").textContent, "ゴウ, ガッ, カッ");
+  assert.equal(findByClass(compactCard, "kn-kunyomi").textContent, "あ(う), -あ(わせる)");
+
+  const fullProminentCard = renderKanjiCard(kanjiSample, { mode: "full", isProminent: true });
+  assert.ok(fullProminentCard.classList.contains("study-kanji-card"));
+  assert.ok(fullProminentCard.classList.contains("prominent"));
+
+  const renderPreviewKanjiCard = context.renderPreviewKanjiCard;
+  assert.ok(typeof renderPreviewKanjiCard === "function", "renderPreviewKanjiCard alias exists");
+  const aliasCard = renderPreviewKanjiCard(kanjiSample);
+  assert.ok(aliasCard.classList.contains("kn-kanji-card"), "renderPreviewKanjiCard alias produces compact card");
+
   console.log("PASS: renderKanjiCard isolated test passed.");
 }
 

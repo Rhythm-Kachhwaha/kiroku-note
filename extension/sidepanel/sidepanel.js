@@ -736,145 +736,7 @@ function getCardPreviewData() {
 }
 
 function renderPreviewKanjiCard(k, isIsolated = false) {
-  const card = document.createElement("div");
-  card.className = "kn-kanji-card";
-
-  // Header
-  const header = document.createElement("div");
-  header.className = "kn-kanji-header";
-
-  if (k.character) {
-    const charSpan = document.createElement("span");
-    charSpan.className = "kn-kanji-char";
-    charSpan.textContent = k.character;
-    header.append(charSpan);
-  }
-
-  if (k.dictionary) {
-    const dictSpan = document.createElement("span");
-    dictSpan.className = "kn-tag";
-    dictSpan.textContent = k.dictionary;
-    header.append(dictSpan);
-  }
-
-  if (k.stats) {
-    if (k.stats.strokes) {
-      const sSpan = document.createElement("span");
-      sSpan.className = "kn-tag";
-      sSpan.textContent = `${k.stats.strokes} strokes`;
-      header.append(sSpan);
-    }
-    if (k.stats.grade) {
-      const gSpan = document.createElement("span");
-      gSpan.className = "kn-tag";
-      gSpan.textContent = `Grade ${k.stats.grade}`;
-      header.append(gSpan);
-    }
-
-    // JLPT check
-    let modernJlpt = null;
-    if (Array.isArray(k.tags)) {
-      for (const tag of k.tags) {
-        const m = String(tag).trim().match(/^jlpt-n([1-5])$/i) || String(tag).trim().match(/^n([1-5])$/i);
-        if (m) {
-          modernJlpt = `N${m[1]}`;
-          break;
-        }
-      }
-    }
-
-    if (modernJlpt) {
-      const jSpan = document.createElement("span");
-      jSpan.className = "kn-tag kn-jlpt";
-      jSpan.textContent = `JLPT ${modernJlpt}`;
-      header.append(jSpan);
-    } else if (k.stats.jlpt) {
-      const rawJlpt = String(k.stats.jlpt).trim();
-      const jSpan = document.createElement("span");
-      if (rawJlpt.toUpperCase().startsWith("N")) {
-        jSpan.className = "kn-tag kn-jlpt";
-        jSpan.textContent = `JLPT ${rawJlpt.toUpperCase()}`;
-        header.append(jSpan);
-      } else if (/^[1-4]$/.test(rawJlpt)) {
-        jSpan.className = "kn-tag";
-        jSpan.textContent = `Old JLPT ${rawJlpt}`;
-        header.append(jSpan);
-      }
-    }
-
-    if (k.stats.freq) {
-      const fSpan = document.createElement("span");
-      fSpan.className = "kn-tag";
-      fSpan.textContent = `Freq #${k.stats.freq}`;
-      header.append(fSpan);
-    }
-  }
-  card.append(header);
-
-  // Readings
-  const onyomi = Array.isArray(k.onyomi) ? k.onyomi.filter(Boolean) : [];
-  const kunyomi = Array.isArray(k.kunyomi) ? k.kunyomi.filter(Boolean) : [];
-  const nanori = Array.isArray(k.nanori) ? k.nanori.filter(Boolean) : [];
-
-  if (onyomi.length || kunyomi.length || nanori.length) {
-    const readingsDiv = document.createElement("div");
-    readingsDiv.className = "kn-kanji-readings";
-
-    if (onyomi.length) {
-      const row = document.createElement("div");
-      row.className = "kn-kanji-reading-row";
-      const lbl = document.createElement("span");
-      lbl.className = "kn-reading-lbl";
-      lbl.textContent = "Onyomi";
-      row.append(lbl);
-      const val = document.createElement("span");
-      val.className = "kn-onyomi";
-      val.textContent = onyomi.join(", ");
-      row.append(val);
-      readingsDiv.append(row);
-    }
-
-    if (kunyomi.length) {
-      const row = document.createElement("div");
-      row.className = "kn-kanji-reading-row";
-      const lbl = document.createElement("span");
-      lbl.className = "kn-reading-lbl";
-      lbl.textContent = "Kunyomi";
-      row.append(lbl);
-      const val = document.createElement("span");
-      val.className = "kn-kunyomi";
-      val.textContent = kunyomi.map(formatKunyomi).join(", ");
-      row.append(val);
-      readingsDiv.append(row);
-    }
-
-    if (nanori.length) {
-      const row = document.createElement("div");
-      row.className = "kn-kanji-reading-row";
-      const lbl = document.createElement("span");
-      lbl.className = "kn-reading-lbl";
-      lbl.textContent = "Nanori";
-      row.append(lbl);
-      const val = document.createElement("span");
-      val.className = "kn-nanori";
-      val.textContent = nanori.join(", ");
-      row.append(val);
-      readingsDiv.append(row);
-    }
-
-    card.append(readingsDiv);
-  }
-
-  // Meanings
-  const meanings = Array.isArray(k.meanings) ? k.meanings.filter(Boolean) : [];
-  if (meanings.length) {
-    const meanDiv = document.createElement("div");
-    meanDiv.className = "kn-kanji-meanings";
-    meanDiv.textContent = meanings.join(", ");
-    card.append(meanDiv);
-  }
-
-  return card;
+  return renderKanjiCard(k, { mode: "compact", isProminent: isIsolated });
 }
 
 function renderPreviewMeanings(container, data) {
@@ -1633,7 +1495,156 @@ function cleanReadingForInput(readingStr) {
   return String(readingStr).replace(/[\.\-\(\)]/g, "").trim();
 }
 
-function renderKanjiCard(kanji, isProminent = false) {
+function renderKanjiCard(kanji, options = { mode: "full", isProminent: false }) {
+  if (!kanji) return document.createElement("div");
+  const opts = typeof options === "boolean"
+    ? { mode: "full", isProminent: options }
+    : { mode: "full", isProminent: false, ...options };
+  const mode = opts.mode || "full";
+  const isProminent = !!opts.isProminent;
+
+  if (mode === "compact") {
+    const card = document.createElement("div");
+    card.className = "kn-kanji-card";
+
+    // Header
+    const header = document.createElement("div");
+    header.className = "kn-kanji-header";
+
+    if (kanji.character) {
+      const charSpan = document.createElement("span");
+      charSpan.className = "kn-kanji-char";
+      charSpan.textContent = kanji.character;
+      header.append(charSpan);
+    }
+
+    if (kanji.dictionary) {
+      const dictSpan = document.createElement("span");
+      dictSpan.className = "kn-tag";
+      dictSpan.textContent = kanji.dictionary;
+      header.append(dictSpan);
+    }
+
+    if (kanji.stats) {
+      if (kanji.stats.strokes) {
+        const sSpan = document.createElement("span");
+        sSpan.className = "kn-tag";
+        sSpan.textContent = `${kanji.stats.strokes} strokes`;
+        header.append(sSpan);
+      }
+      if (kanji.stats.grade) {
+        const gSpan = document.createElement("span");
+        gSpan.className = "kn-tag";
+        gSpan.textContent = `Grade ${kanji.stats.grade}`;
+        header.append(gSpan);
+      }
+
+      // JLPT check
+      let modernJlpt = null;
+      if (Array.isArray(kanji.tags)) {
+        for (const tag of kanji.tags) {
+          const m = String(tag).trim().match(/^jlpt-n([1-5])$/i) || String(tag).trim().match(/^n([1-5])$/i);
+          if (m) {
+            modernJlpt = `N${m[1]}`;
+            break;
+          }
+        }
+      }
+
+      if (modernJlpt) {
+        const jSpan = document.createElement("span");
+        jSpan.className = "kn-tag kn-jlpt";
+        jSpan.textContent = `JLPT ${modernJlpt}`;
+        header.append(jSpan);
+      } else if (kanji.stats.jlpt) {
+        const rawJlpt = String(kanji.stats.jlpt).trim();
+        const jSpan = document.createElement("span");
+        if (rawJlpt.toUpperCase().startsWith("N")) {
+          jSpan.className = "kn-tag kn-jlpt";
+          jSpan.textContent = `JLPT ${rawJlpt.toUpperCase()}`;
+          header.append(jSpan);
+        } else if (/^[1-4]$/.test(rawJlpt)) {
+          jSpan.className = "kn-tag";
+          jSpan.textContent = `Old JLPT ${rawJlpt}`;
+          header.append(jSpan);
+        }
+      }
+
+      if (kanji.stats.freq) {
+        const fSpan = document.createElement("span");
+        fSpan.className = "kn-tag";
+        fSpan.textContent = `Freq #${kanji.stats.freq}`;
+        header.append(fSpan);
+      }
+    }
+    card.append(header);
+
+    // Readings
+    const onyomi = Array.isArray(kanji.onyomi) ? kanji.onyomi.filter(Boolean) : [];
+    const kunyomi = Array.isArray(kanji.kunyomi) ? kanji.kunyomi.filter(Boolean) : [];
+    const nanori = Array.isArray(kanji.nanori) ? kanji.nanori.filter(Boolean) : [];
+
+    if (onyomi.length || kunyomi.length || nanori.length) {
+      const readingsDiv = document.createElement("div");
+      readingsDiv.className = "kn-kanji-readings";
+
+      if (onyomi.length) {
+        const row = document.createElement("div");
+        row.className = "kn-kanji-reading-row";
+        const lbl = document.createElement("span");
+        lbl.className = "kn-reading-lbl";
+        lbl.textContent = "Onyomi";
+        row.append(lbl);
+        const val = document.createElement("span");
+        val.className = "kn-onyomi";
+        val.textContent = onyomi.join(", ");
+        row.append(val);
+        readingsDiv.append(row);
+      }
+
+      if (kunyomi.length) {
+        const row = document.createElement("div");
+        row.className = "kn-kanji-reading-row";
+        const lbl = document.createElement("span");
+        lbl.className = "kn-reading-lbl";
+        lbl.textContent = "Kunyomi";
+        row.append(lbl);
+        const val = document.createElement("span");
+        val.className = "kn-kunyomi";
+        val.textContent = kunyomi.map(formatKunyomi).join(", ");
+        row.append(val);
+        readingsDiv.append(row);
+      }
+
+      if (nanori.length) {
+        const row = document.createElement("div");
+        row.className = "kn-kanji-reading-row";
+        const lbl = document.createElement("span");
+        lbl.className = "kn-reading-lbl";
+        lbl.textContent = "Nanori";
+        row.append(lbl);
+        const val = document.createElement("span");
+        val.className = "kn-nanori";
+        val.textContent = nanori.join(", ");
+        row.append(val);
+        readingsDiv.append(row);
+      }
+
+      card.append(readingsDiv);
+    }
+
+    // Meanings
+    const meanings = Array.isArray(kanji.meanings) ? kanji.meanings.filter(Boolean) : [];
+    if (meanings.length) {
+      const meanDiv = document.createElement("div");
+      meanDiv.className = "kn-kanji-meanings";
+      meanDiv.textContent = meanings.join(", ");
+      card.append(meanDiv);
+    }
+
+    return card;
+  }
+
   const card = document.createElement("div");
   card.className = isProminent ? "study-kanji-card prominent" : "study-kanji-card";
 
@@ -1876,7 +1887,7 @@ function renderDetails(body) {
     // For single isolated kanji, render prominent kanji card at the top
     if (isSingleKanji) {
       kanjiEntries.forEach(k => {
-        meanings.append(renderKanjiCard(k, true));
+        meanings.append(renderKanjiCard(k, { mode: "full", isProminent: true }));
       });
     }
 
@@ -2025,7 +2036,7 @@ function renderDetails(body) {
       const kanjiListDiv = document.createElement("div");
       kanjiListDiv.className = "study-kanji-list";
       kanjiEntries.forEach(k => {
-        kanjiListDiv.append(renderKanjiCard(k, false));
+        kanjiListDiv.append(renderKanjiCard(k, { mode: "full", isProminent: false }));
       });
       kanjiAccordion.append(kanjiListDiv);
 
