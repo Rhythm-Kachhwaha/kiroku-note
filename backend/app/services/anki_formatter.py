@@ -754,6 +754,8 @@ def format_basic_back(
     image: str | None = None,
     audio: str | None = None,
     pitches: list[Any] | None = None,
+    show_reading: bool = True,
+    show_meaning: bool = True,
 ) -> str:
     """Construct a clean, structured, learner-focused Back field for Anki Basic cards.
 
@@ -812,8 +814,8 @@ def format_basic_back(
     # Build sections
     sections: list[str] = []
 
-    # Header: Reading & Pitch
-    if c_reading or pitch_badge:
+    # Header: Reading & Pitch (respected via show_reading)
+    if show_reading and (c_reading or pitch_badge):
         reading_parts = ['<div class="kn-reading">']
         if c_reading:
             reading_parts.append(f'  <span class="kn-kana">{escape_html(c_reading)}</span>')
@@ -832,20 +834,22 @@ def format_basic_back(
         if kanji_html:
             sections.append(kanji_html)
 
-        # If secondary vocabulary senses exist, render them below
-        if c_entries and isinstance(c_entries, list):
-            meanings_html = format_meaning_html(meaning_text="", entries=c_entries)
-            if meanings_html:
-                sections.append(meanings_html)
-        elif not kanji_html and c_meaning:
-            meanings_html = format_meaning_html(meaning_text=c_meaning, entries=None)
-            if meanings_html:
-                sections.append(meanings_html)
+        # If secondary vocabulary senses exist, render them below if show_meaning
+        if show_meaning:
+            if c_entries and isinstance(c_entries, list):
+                meanings_html = format_meaning_html(meaning_text="", entries=c_entries)
+                if meanings_html:
+                    sections.append(meanings_html)
+            elif not kanji_html and c_meaning:
+                meanings_html = format_meaning_html(meaning_text=c_meaning, entries=None)
+                if meanings_html:
+                    sections.append(meanings_html)
     else:
-        # Normal vocabulary card: render vocabulary meanings first
-        meanings_html = format_meaning_html(meaning_text=c_meaning, entries=c_entries)
-        if meanings_html:
-            sections.append(meanings_html)
+        # Normal vocabulary card: render vocabulary meanings first if show_meaning
+        if show_meaning:
+            meanings_html = format_meaning_html(meaning_text=c_meaning, entries=c_entries)
+            if meanings_html:
+                sections.append(meanings_html)
 
         # If kanji entries exist, render compact kanji card below vocabulary senses
         if c_kanji_entries and isinstance(c_kanji_entries, list):

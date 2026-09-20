@@ -160,12 +160,48 @@ class TestAnkiConnectService:
         }
         fields = service.map_card_to_fields(card_data, ["Front", "Back"])
         assert "Front" in fields
-        assert fields["Front"] == "映画 [えいが]"
+        assert fields["Front"] == "映画"
         assert "Back" in fields
         assert "movie" in fields["Back"]
         assert "Hint: cinema" in fields["Back"]
         assert "映画を見る" in fields["Back"]
         assert "watch a movie" in fields["Back"]
+
+    def test_basic_model_with_card_settings(self):
+        service = AnkiConnectService()
+        card_data = {
+            "expression": "映画",
+            "reading": "えいが",
+            "meaning": "movie",
+            "kanji_entries": [
+                {
+                    "character": "映",
+                    "onyomi": ["エイ"],
+                    "kunyomi": ["うつ.る", "うつ.す"],
+                }
+            ],
+            "card_settings": {
+                "front": {
+                    "show_reading": True,
+                    "show_meaning": True,
+                    "show_kanji_reading": True,
+                },
+                "back": {
+                    "show_reading": False,
+                    "show_meaning": False,
+                },
+            },
+        }
+        fields = service.map_card_to_fields(card_data, ["Front", "Back"])
+        # Front has expression, reading, kanji reading, and meaning
+        assert '<div class="kn-front-expression">映画</div>' in fields["Front"]
+        assert '<div class="kn-front-reading">えいが</div>' in fields["Front"]
+        assert "エイ" in fields["Front"]
+        assert "movie" in fields["Front"]
+
+        # Back has suppressed reading header and suppressed vocabulary meaning
+        assert '<div class="kn-reading">' not in fields["Back"]
+        assert '<div class="kn-meaning">movie</div>' not in fields["Back"]
 
     def test_deterministic_japanese_model_mapping(self):
         service = AnkiConnectService()
@@ -514,7 +550,7 @@ class TestAnkiConnectFormatterIntegration:
             "meaning": "to eat",
         }
         fields = self.service.map_card_to_fields(card_data, ["Front", "Back"])
-        assert fields["Front"] == "食べる [たべる]"
+        assert fields["Front"] == "食べる"
         assert '<div class="kn-card">' in fields["Back"]
         assert '<span class="kn-kana">たべる</span>' in fields["Back"]
         assert '<hr class="kn-divider">' in fields["Back"]
@@ -706,7 +742,7 @@ class TestAnkiConnectFormatterIntegration:
             "notes": "common noun",
         }
         basic_fields = self.service.map_card_to_fields(card_data, ["Front", "Back"])
-        assert basic_fields["Front"] == "本 [ほん]"
+        assert basic_fields["Front"] == "本"
         assert "book" in basic_fields["Back"]
         assert "Hint: read" in basic_fields["Back"]
         assert "Notes: common noun" in basic_fields["Back"]
@@ -821,7 +857,7 @@ class TestAnkiConnectFormatterIntegration:
             "notes": "",
         }
         fields = self.service.map_card_to_fields(legacy_card, ["Front", "Back"])
-        assert fields["Front"] == "川 [かわ]"
+        assert fields["Front"] == "川"
         assert '<div class="kn-meaning">river</div>' in fields["Back"]
         assert '<div class="kn-media">' not in fields["Back"]
         assert '<div class="kn-hint">' not in fields["Back"]
@@ -841,7 +877,7 @@ class TestStage5MediaDeduplication:
             "image": "kiroku_img_123.jpg",
         }
         fields = self.service.map_card_to_fields(card_data, ["Front", "Back", "SentenceImage"])
-        assert fields["Front"] == "走る [はしる]"
+        assert fields["Front"] == "走る"
         assert fields["SentenceImage"] == '<img src="kiroku_img_123.jpg">'
         assert "kiroku_img_123.jpg" not in fields["Back"]
         assert '<div class="kn-media">' not in fields["Back"]

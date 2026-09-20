@@ -196,6 +196,14 @@ const vmContext = {
   currentDictionaryEntries: [],
   currentKanjiEntries: [],
   encodeURIComponent: encodeURIComponent,
+  DEFAULT_CARD_TEMPLATE_SETTINGS: {
+    front: { show_reading: false, show_meaning: false, show_kanji_reading: false },
+    back: { show_reading: true, show_meaning: true },
+  },
+  currentCardTemplateSettings: {
+    front: { show_reading: false, show_meaning: false, show_kanji_reading: false },
+    back: { show_reading: true, show_meaning: true },
+  },
   setTimeout: (fn, ms) => { fn(); return 1; },
   clearTimeout: () => {},
 };
@@ -232,7 +240,7 @@ assert.equal(mockCardPreviewCard.children.length, 1);
 assert.equal(mockCardPreviewCard.children[0].className, "card-preview-empty");
 console.log("PASS 3: Empty card displays placeholder message.");
 
-// Test 2: Front side preview rendering
+// Test 2: Front side preview rendering (Default: expression only, NO bracketed reading)
 const frontData = {
   expression: "食べる",
   reading: "たべる",
@@ -241,11 +249,43 @@ const frontData = {
 renderCardPreviewDOM(mockCardPreviewCard, frontData, "front");
 const exprEl = mockCardPreviewCard.children.find(c => c.className === "kn-front-expression");
 assert.ok(exprEl, "Front expression element must exist");
-assert.equal(exprEl.textContent, "食べる [たべる]");
+assert.equal(exprEl.textContent, "食べる");
 const hintEl = mockCardPreviewCard.children.find(c => c.className === "kn-hint");
 assert.ok(hintEl, "Front hint element must exist");
 assert.equal(hintEl.textContent, "Hint: 1-dan verb");
-console.log("PASS 4: Front preview displays expression [reading] and hint.");
+console.log("PASS 4: Front preview displays expression without bracketed reading by default.");
+
+// Test 2b: Front side preview with show_reading enabled
+renderCardPreviewDOM(mockCardPreviewCard, {
+  ...frontData,
+  template_settings: { front: { show_reading: true }, back: { show_reading: true } }
+}, "front");
+const exprEl2 = mockCardPreviewCard.children.find(c => c.className === "kn-front-expression");
+assert.equal(exprEl2.textContent, "食べる");
+const readEl2 = mockCardPreviewCard.children.find(c => c.className === "kn-front-reading");
+assert.ok(readEl2, "Front reading element must exist when show_reading is true");
+assert.equal(readEl2.textContent, "たべる");
+
+// Test 2c: Front side preview with show_kanji_reading enabled
+renderCardPreviewDOM(mockCardPreviewCard, {
+  expression: "食べる",
+  reading: "たべる",
+  kanji_readings: [{ character: "食", onyomi: ["ショク"], kunyomi: ["た.べる"] }],
+  template_settings: { front: { show_kanji_reading: true } }
+}, "front");
+const kanjiReadEl = mockCardPreviewCard.children.find(c => c.className === "kn-front-kanji-reading");
+assert.ok(kanjiReadEl, "Front kanji reading element must exist when show_kanji_reading is true");
+assert.ok(kanjiReadEl.textContent.includes("ショク"));
+
+// Test 2d: Front side preview with show_meaning enabled
+renderCardPreviewDOM(mockCardPreviewCard, {
+  expression: "食べる",
+  meaning: "to eat",
+  template_settings: { front: { show_meaning: true } }
+}, "front");
+const meanEl = mockCardPreviewCard.children.find(c => c.className === "kn-front-meaning");
+assert.ok(meanEl, "Front meaning element must exist when show_meaning is true");
+assert.ok(meanEl.textContent.includes("to eat"));
 
 // Test 3: Front side without reading or identical reading
 renderCardPreviewDOM(mockCardPreviewCard, { expression: "猫", reading: "猫" }, "front");
@@ -309,6 +349,22 @@ const fallbackLi1 = fallbackOl.children[0];
 const pos1 = fallbackLi1.children.find(c => c.className === "kn-pos");
 assert.equal(pos1.textContent, "[ichidan, vt]");
 assert.ok(fallbackLi1.textContent.includes("to hang, to suspend"));
+
+// Verify back side show_reading: false suppresses reading header
+renderCardPreviewDOM(mockCardPreviewCard, {
+  ...richData,
+  template_settings: { back: { show_reading: false, show_meaning: true } }
+}, "back");
+const noReadingDiv = mockCardPreviewCard.children.find(c => c.className === "kn-reading");
+assert.equal(noReadingDiv, undefined, "Reading header must be suppressed when show_reading is false on back");
+
+// Verify back side show_meaning: false suppresses meanings
+renderCardPreviewDOM(mockCardPreviewCard, {
+  ...richData,
+  template_settings: { back: { show_reading: true, show_meaning: false } }
+}, "back");
+const noMeaningsOl = mockCardPreviewCard.children.find(c => c.className === "kn-meanings");
+assert.equal(noMeaningsOl, undefined, "Meanings must be suppressed when show_meaning is false on back");
 
 // Re-render richData for remaining assertions
 renderCardPreviewDOM(mockCardPreviewCard, richData, "back");

@@ -169,7 +169,7 @@ def test_anki_connect_audio_field_mapping_and_sound_tag():
         "audio": "ankiminer_audio_test123.wav"
     }
     mapped_basic = service.map_card_to_fields(card_basic, model_fields_basic)
-    assert mapped_basic["Front"] == "信頼性 [しんらいせい]"
+    assert mapped_basic["Front"] == "信頼性"
     assert "[sound:ankiminer_audio_test123.wav]" in mapped_basic["Back"]
 
     # 3. Model without audio field gracefully omits sound tag without polluting arbitrary text fields

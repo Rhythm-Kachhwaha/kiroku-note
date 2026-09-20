@@ -52,7 +52,7 @@ def test_basic_model_front_back_structure(anki_service: AnkiConnectService):
     }
 
     fields = anki_service.map_card_to_fields(card, ["Front", "Back"])
-    assert fields["Front"] == "食べる [たべる]"
+    assert fields["Front"] == "食べる"
 
     back = fields["Back"]
     assert "<style>" in back
@@ -173,7 +173,7 @@ def test_custom_models_mapping_matrix(anki_service: AnkiConnectService):
     # 2. japanese mining
     jm_fields = ["Front", "Back", "word", "Audio", "Image", "Source", "URL"]
     jm_mapped = anki_service.map_card_to_fields(card, jm_fields)
-    assert jm_mapped["Front"] == "約束 [やくそく]"
+    assert jm_mapped["Front"] == "約束"
     assert jm_mapped["Image"] == '<img src="promise.jpg">'
     assert jm_mapped["Audio"] == '[sound:promise.mp3]'
 
@@ -221,10 +221,10 @@ def test_security_xss_sanitization(anki_service: AnkiConnectService):
     # Front escaping
     assert "<script>" not in front
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in front
-    assert "&lt;img src=x onerror=alert(2)&gt;" in front
 
     # Back escaping
     assert "<script>" not in back
+    assert "&lt;img src=x onerror=alert(2)&gt;" in back
     assert "<svg" not in back
     assert "<a " not in back
     assert "&lt;a href=&quot;javascript:alert(6)&quot;&gt;" in back

@@ -252,6 +252,7 @@ class CardService:
             model_name=request.model_name,
             entries=request.entries,
             kanji_entries=request.kanji_entries,
+            card_settings=request.card_settings,
             status="saved",
             id=request.id,
         )
@@ -287,6 +288,7 @@ class CardService:
             updated_at=record.updated_at,
             entries=record.entries,
             kanji_entries=record.kanji_entries,
+            card_settings=record.card_settings,
         )
 
     def capture_and_save(self, text: str, deck_name: str = "Default") -> CaptureResponse:
@@ -465,6 +467,8 @@ class CardService:
                 "notes": card.notes,
                 "entries": card.entries,
                 "examples": card.examples,
+                "kanji_entries": card.kanji_entries,
+                "card_settings": card.card_settings,
             }
             tags_list = [t.strip() for t in card.tags.split(",") if t.strip()] if card.tags else []
 

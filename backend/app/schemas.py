@@ -164,6 +164,7 @@ class SaveCardRequest(BaseModel):
     deinflected_text: str = Field(default="", max_length=500)
     entries: list[dict[str, Any]] = Field(default_factory=list)
     kanji_entries: list[dict[str, Any]] = Field(default_factory=list)
+    card_settings: Optional[dict[str, Any]] = None
 
     @field_validator("expression")
     @classmethod
@@ -202,6 +203,7 @@ class SaveCardResponse(BaseModel):
     updated_at: str
     entries: list[dict[str, Any]] = Field(default_factory=list)
     kanji_entries: list[dict[str, Any]] = Field(default_factory=list)
+    card_settings: Optional[dict[str, Any]] = None
 
 
 class AnkiStatusResponse(BaseModel):

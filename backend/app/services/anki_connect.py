@@ -31,6 +31,12 @@ def _clean_field_text(raw: str) -> str:
     return html.unescape(cleaned).strip()
 
 
+def _get_field(obj: Any, field_name: str) -> Any:
+    if isinstance(obj, dict):
+        return obj.get(field_name)
+    return getattr(obj, field_name, None)
+
+
 class AnkiError(Exception):
     """Base exception for AnkiConnect operations."""
     pass
@@ -461,9 +467,42 @@ class AnkiConnectService:
             front_field = fields_lower["front"]
             back_field = fields_lower["back"]
 
-            # Front: Japanese expression with optional bracketed reading
-            if reading and reading != expr:
-                field_map[front_field] = f"{escaped_expr} [{escaped_reading}]"
+            # Template settings resolution (single source of truth)
+            settings = card.get("card_settings") if isinstance(card, dict) else getattr(card, "card_settings", None)
+            settings = settings or {}
+            front_cfg = settings.get("front", {}) if isinstance(settings, dict) else {}
+            back_cfg = settings.get("back", {}) if isinstance(settings, dict) else {}
+
+            show_reading_front = bool(front_cfg.get("show_reading", False))
+            show_meaning_front = bool(front_cfg.get("show_meaning", False))
+            show_kanji_reading_front = bool(front_cfg.get("show_kanji_reading", False))
+
+            show_reading_back = bool(back_cfg.get("show_reading", True))
+            show_meaning_back = bool(back_cfg.get("show_meaning", True))
+
+            # Front: Japanese expression is base. Optional reading, kanji reading, meaning
+            front_elements = [escaped_expr]
+            if show_reading_front and reading:
+                front_elements.append(f'<div class="kn-front-reading">{escaped_reading}</div>')
+            if show_kanji_reading_front and kanji_entries:
+                kanji_readings = []
+                for k in kanji_entries:
+                    onyomi = _get_field(k, "onyomi") or []
+                    kunyomi = _get_field(k, "kunyomi") or []
+                    parts = []
+                    if onyomi:
+                        parts.append(f'<span class="kn-reading-lbl">On:</span> <span class="kn-onyomi">{", ".join(escape_html(str(x)) for x in onyomi)}</span>')
+                    if kunyomi:
+                        parts.append(f'<span class="kn-reading-lbl">Kun:</span> <span class="kn-kunyomi">{", ".join(escape_html(str(x)) for x in kunyomi)}</span>')
+                    if parts:
+                        kanji_readings.append(" ".join(parts))
+                if kanji_readings:
+                    front_elements.append(f'<div class="kn-front-kanji-reading">{"<br>".join(kanji_readings)}</div>')
+            if show_meaning_front and formatted_meaning:
+                front_elements.append(f'<div class="kn-front-meaning">{formatted_meaning}</div>')
+
+            if len(front_elements) > 1:
+                field_map[front_field] = f'<div class="kn-front-expression">{escaped_expr}</div>\n' + "\n".join(front_elements[1:])
             else:
                 field_map[front_field] = escaped_expr
 
@@ -488,7 +527,7 @@ class AnkiConnectService:
             img_for_back = "" if dedicated_img_field else raw_img
             aud_for_back = "" if dedicated_aud_field else raw_aud
 
-            # Back: generated via AnkiFormatter
+            # Back: generated via AnkiFormatter respecting card_settings
             field_map[back_field] = format_basic_back(
                 card=card,
                 expression=expr,
@@ -504,6 +543,8 @@ class AnkiConnectService:
                 image=img_for_back,
                 audio=aud_for_back,
                 pitches=pitches,
+                show_reading=show_reading_back,
+                show_meaning=show_meaning_back,
             )
 
             # Assign to dedicated media fields if present

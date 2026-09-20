@@ -204,23 +204,73 @@
       <div class="section-header card-workspace-header">
         <h2 class="section-title">CARD</h2>
         <div class="card-workspace-toolbar">
-          <button type="button" id="btn-layout-settings" class="btn-layout-settings" title="Layout Settings" aria-label="Layout Settings" aria-expanded="false" aria-controls="layout-settings-popover">⚙</button>
+          <button type="button" id="btn-layout-settings" class="btn-layout-settings" title="Card Settings" aria-label="Card Settings" aria-expanded="false" aria-controls="layout-settings-popover">⚙</button>
         </div>
       </div>
 
-      <!-- Layout Settings Popover -->
-      <div id="layout-settings-popover" class="layout-settings-popover" role="dialog" aria-modal="false" aria-label="Layout Settings" hidden>
-        <div class="layout-settings-header">
-          <div class="layout-settings-title-row">
-            <span class="layout-settings-icon" aria-hidden="true">⚙</span>
-            <h3 class="layout-settings-title">Layout Settings</h3>
+      <!-- Card Settings Popover -->
+      <div id="layout-settings-popover" class="card-settings-popover layout-settings-popover" role="dialog" aria-modal="false" aria-label="Card Settings" hidden>
+        <div class="card-settings-header layout-settings-header">
+          <div class="card-settings-title-row layout-settings-title-row">
+            <span class="card-settings-icon layout-settings-icon" aria-hidden="true">⚙</span>
+            <h3 class="card-settings-title layout-settings-title">Card Settings</h3>
           </div>
-          <button type="button" id="btn-close-layout-settings" class="btn-close-layout-settings" title="Close layout settings" aria-label="Close layout settings">&times;</button>
+          <button type="button" id="btn-close-layout-settings" class="btn-close-card-settings btn-close-layout-settings" title="Close card settings" aria-label="Close card settings">&times;</button>
         </div>
-        <p class="layout-settings-subtitle">Drag or use arrow buttons to reorder card sections.</p>
-        <div id="layout-sections-list" class="layout-sections-list" role="list" aria-label="Card sections order"></div>
-        <div class="layout-settings-footer">
-          <button type="button" id="btn-reset-layout" class="btn-reset-layout">Reset to Default</button>
+
+        <div class="card-settings-body">
+          <!-- Typography / Font Selection -->
+          <div class="card-settings-group">
+            <label for="field-font-select" class="settings-group-label">Japanese Font</label>
+            <select id="field-font-select" name="font_select" class="settings-select">
+              <option value="Noto Sans JP">Noto Sans Japanese</option>
+              <option value="Noto Serif JP">Noto Serif Japanese</option>
+              <option value="system-ui">System Default</option>
+            </select>
+          </div>
+
+          <!-- Front Side Template Settings -->
+          <div class="card-settings-group">
+            <span class="settings-group-label">Front Side</span>
+            <div class="settings-checkboxes">
+              <label class="setting-checkbox-label">
+                <input type="checkbox" id="setting-front-reading" class="setting-checkbox">
+                <span>Show reading</span>
+              </label>
+              <label class="setting-checkbox-label">
+                <input type="checkbox" id="setting-front-meaning" class="setting-checkbox">
+                <span>Show meaning</span>
+              </label>
+              <label class="setting-checkbox-label">
+                <input type="checkbox" id="setting-front-kanji-reading" class="setting-checkbox">
+                <span>Show kanji reading</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Back Side Template Settings -->
+          <div class="card-settings-group">
+            <span class="settings-group-label">Back Side</span>
+            <div class="settings-checkboxes">
+              <label class="setting-checkbox-label">
+                <input type="checkbox" id="setting-back-reading" class="setting-checkbox" checked>
+                <span>Show reading</span>
+              </label>
+              <label class="setting-checkbox-label">
+                <input type="checkbox" id="setting-back-meaning" class="setting-checkbox" checked>
+                <span>Show meaning</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Section Order Details (Maintains customizable layout capability) -->
+          <details class="settings-section-order-details">
+            <summary class="settings-order-summary">Section Layout Order</summary>
+            <div id="layout-sections-list" class="layout-sections-list" role="list" aria-label="Card sections order"></div>
+            <div class="layout-settings-footer">
+              <button type="button" id="btn-reset-layout" class="btn-reset-layout">Reset to Default</button>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -230,6 +280,19 @@
         <input type="hidden" id="field-model-name" name="model_name" value="">
         <input type="hidden" id="field-source-text" name="source_text">
         <input type="hidden" id="field-deinflected-text" name="deinflected_text">
+
+        <!-- Top Sticky Action Bar -->
+        <div class="editor-actions editor-actions-top">
+          <div class="action-buttons-group">
+            <button type="submit" id="save-card-btn" class="btn-save">Save Card</button>
+            <div class="sync-actions">
+              <button type="button" id="sync-anki-btn" class="btn-sync" disabled>Send to Anki</button>
+            </div>
+          </div>
+          <div class="sync-status-container">
+            <span id="anki-sync-status" class="sync-status-label">Anki: Not connected</span>
+          </div>
+        </div>
 
         <!-- Reorderable Card Layout Container -->
         <div id="card-layout-container" class="card-layout-container">
@@ -268,48 +331,57 @@
             </div>
           </div>
 
-          <!-- 3. Media Previews Section -->
-          <div id="media-preview-container" class="media-preview-container" data-layout-section="media">
-            <!-- Image Preview Card -->
-            <div id="image-preview-container" class="media-preview-card">
-              <div class="media-preview-header">
-                <span class="media-type-badge">IMAGE</span>
-                <div class="media-preview-actions">
-                  <button type="button" id="btn-clear-image" class="btn-media-action btn-media-clear" title="Remove image" aria-label="Remove image" hidden>&times;</button>
+          <!-- 3. Media Previews Section (Hidden from visible flow per Add-On, pipeline intact) -->
+          <details id="media-preview-collapsible" class="media-preview-collapsible" data-layout-section="media" hidden style="display: none !important;">
+            <summary class="media-collapsible-summary">
+              <span class="media-summary-label">
+                <span class="media-summary-icon">📷</span>
+                <span>Captured Media</span>
+              </span>
+              <span id="media-summary-badge" class="media-summary-badge">None</span>
+            </summary>
+            <div id="media-preview-container" class="media-preview-container">
+              <!-- Image Preview Card -->
+              <div id="image-preview-container" class="media-preview-card">
+                <div class="media-preview-header">
+                  <span class="media-type-badge">IMAGE</span>
+                  <div class="media-preview-actions">
+                    <button type="button" id="btn-clear-image" class="btn-media-action btn-media-clear" title="Remove image" aria-label="Remove image" hidden>&times;</button>
+                  </div>
+                </div>
+                <div class="media-thumbnail-wrapper">
+                  <div id="image-empty-placeholder" class="media-empty-placeholder">
+                    <span class="media-placeholder-icon">📸</span>
+                    <span class="media-placeholder-text">No frame captured</span>
+                  </div>
+                  <img id="image-preview" class="media-thumbnail" alt="Captured video frame" src="" hidden style="display: none;">
                 </div>
               </div>
-              <div class="media-thumbnail-wrapper">
-                <div id="image-empty-placeholder" class="media-empty-placeholder">
-                  <span class="media-placeholder-icon">📸</span>
-                  <span class="media-placeholder-text">No frame captured</span>
+
+              <!-- Audio Preview Card -->
+              <div id="audio-preview-container" class="media-preview-card">
+                <div class="media-preview-header">
+                  <div class="media-header-left">
+                    <span class="media-type-badge">AUDIO</span>
+                    <span id="audio-status-badge" class="media-status-pill" hidden>Ready</span>
+                  </div>
+                  <div class="media-preview-actions">
+                    <button type="button" id="btn-replay-audio" class="btn-media-action btn-media-replay" title="Replay audio" aria-label="Replay audio" hidden>↺ Replay</button>
+                    <button type="button" id="btn-clear-audio" class="btn-media-action btn-media-clear" title="Remove audio" aria-label="Remove audio" hidden>&times;</button>
+                  </div>
                 </div>
-                <img id="image-preview" class="media-thumbnail" alt="Captured video frame" src="" hidden>
+                <div class="media-audio-wrapper">
+                  <div id="audio-empty-placeholder" class="media-empty-placeholder">
+                    <span class="media-placeholder-icon">🎙️</span>
+                    <span id="audio-placeholder-text" class="media-placeholder-text">No audio clip</span>
+                  </div>
+                  <audio id="audio-preview" class="media-audio-player" controls preload="metadata" src="" hidden></audio>
+                </div>
               </div>
             </div>
+          </details>
 
-            <!-- Audio Preview Card -->
-            <div id="audio-preview-container" class="media-preview-card">
-              <div class="media-preview-header">
-                <div class="media-header-left">
-                  <span class="media-type-badge">AUDIO</span>
-                  <span id="audio-status-badge" class="media-status-pill" hidden>Ready</span>
-                </div>
-                <div class="media-preview-actions">
-                  <button type="button" id="btn-replay-audio" class="btn-media-action btn-media-replay" title="Replay audio" aria-label="Replay audio" hidden>↺ Replay</button>
-                  <button type="button" id="btn-clear-audio" class="btn-media-action btn-media-clear" title="Remove audio" aria-label="Remove audio" hidden>&times;</button>
-                </div>
-              </div>
-              <div class="media-audio-wrapper">
-                <div id="audio-empty-placeholder" class="media-empty-placeholder">
-                  <span class="media-placeholder-icon">🎙️</span>
-                  <span id="audio-placeholder-text" class="media-placeholder-text">No audio clip</span>
-                </div>
-                <audio id="audio-preview" class="media-audio-player" controls preload="metadata" src="" hidden></audio>
-              </div>
-            </div>
-          </div>
-
-          <!-- 4. Card Settings Section -->
+          <!-- 4. Card Deck & Note Type Section -->
           <div id="card-settings-section" class="card-settings-section" data-layout-section="settings">
             <div class="form-row-compact settings-row">
               <div class="form-group deck-selector-group">
@@ -325,15 +397,6 @@
                   <option value="Basic">Basic</option>
                 </select>
               </div>
-            </div>
-
-            <div class="form-group font-selector-group">
-              <label for="field-font-select">Font</label>
-              <select id="field-font-select" name="font_select">
-                <option value="Noto Sans JP">Noto Sans Japanese</option>
-                <option value="Noto Serif JP">Noto Serif Japanese</option>
-                <option value="system-ui">System Default</option>
-              </select>
             </div>
           </div>
 
@@ -395,13 +458,6 @@
           </section>
         </div>
 
-        <div class="editor-actions">
-          <button type="submit" id="save-card-btn" class="btn-save">Save Card</button>
-          <div class="sync-actions">
-            <button type="button" id="sync-anki-btn" class="btn-sync" disabled>Send to Anki</button>
-            <span id="anki-sync-status" class="sync-status-label">Anki: Not connected</span>
-          </div>
-        </div>
       </form>
     </section>
 

@@ -31,6 +31,7 @@ class CardDraft:
     entries: list[Any] = field(default_factory=list)
     examples: list[Any] = field(default_factory=list)
     kanji_entries: list[Any] = field(default_factory=list)
+    card_settings: dict[str, Any] | None = None
     status: str = "saved"
     sync_status: str = "pending"
     anki_note_id: int | None = None
@@ -71,6 +72,7 @@ class CardRecord:
     entries: list[dict] = field(default_factory=list)
     examples: list[dict] = field(default_factory=list)
     kanji_entries: list[dict] = field(default_factory=list)
+    card_settings: dict[str, Any] | None = None
 
 
 def _serialize_items(items: list[Any]) -> list[Any]:
@@ -87,12 +89,16 @@ def _serialize_items(items: list[Any]) -> list[Any]:
     return serialized
 
 
-def _serialize_meanings(entries: list[Any], kanji_entries: list[Any] | None = None) -> str:
+def _serialize_meanings(entries: list[Any], kanji_entries: list[Any] | None = None, card_settings: dict[str, Any] | None = None) -> str:
     serialized_entries = _serialize_items(entries)
+    data: dict[str, Any] = {"entries": serialized_entries}
     if kanji_entries:
-        serialized_kanji = _serialize_items(kanji_entries)
-        return json.dumps({"entries": serialized_entries, "kanji_entries": serialized_kanji}, ensure_ascii=False)
-    return json.dumps(serialized_entries, ensure_ascii=False)
+        data["kanji_entries"] = _serialize_items(kanji_entries)
+    if card_settings:
+        data["card_settings"] = card_settings
+    if len(data) == 1 and "entries" in data and not card_settings:
+        return json.dumps(serialized_entries, ensure_ascii=False)
+    return json.dumps(data, ensure_ascii=False)
 
 
 def _serialize_to_json(items: list[Any]) -> str:
@@ -104,11 +110,13 @@ def _row_to_record(row: sqlite3.Row) -> CardRecord:
     examples_raw = row["examples_json"] if "examples_json" in row.keys() else "[]"
     entries: list[dict] = []
     kanji_entries: list[dict] = []
+    card_settings: dict[str, Any] | None = None
     try:
         parsed_meanings = json.loads(meanings_raw) if meanings_raw else []
         if isinstance(parsed_meanings, dict):
             entries = parsed_meanings.get("entries", []) if isinstance(parsed_meanings.get("entries"), list) else []
             kanji_entries = parsed_meanings.get("kanji_entries", []) if isinstance(parsed_meanings.get("kanji_entries"), list) else []
+            card_settings = parsed_meanings.get("card_settings", None) if isinstance(parsed_meanings.get("card_settings"), dict) else None
         elif isinstance(parsed_meanings, list):
             entries = parsed_meanings
             kanji_entries = []
@@ -157,6 +165,7 @@ def _row_to_record(row: sqlite3.Row) -> CardRecord:
         entries=entries,
         examples=examples,
         kanji_entries=kanji_entries,
+        card_settings=card_settings,
     )
 
 
@@ -220,7 +229,7 @@ class CardRepository:
         """
         norm_expr, norm_read, norm_deck = get_duplicate_identity(draft.expression, draft.reading, draft.deck_name)
         now_utc = datetime.now(timezone.utc).isoformat()
-        meanings_json = _serialize_meanings(draft.entries, draft.kanji_entries)
+        meanings_json = _serialize_meanings(draft.entries, draft.kanji_entries, draft.card_settings)
         examples_json = _serialize_to_json(draft.examples)
 
         with db_session(self._db_path) as conn:
@@ -241,7 +250,7 @@ class CardRepository:
                         if collision_card:
                             return collision_card, False, True, False
 
-                    meanings_json_to_save = meanings_json if (draft.entries or draft.kanji_entries) else (existing["meanings_json"] if "meanings_json" in existing.keys() and existing["meanings_json"] else "[]")
+                    meanings_json_to_save = meanings_json if (draft.entries or draft.kanji_entries or draft.card_settings) else (existing["meanings_json"] if "meanings_json" in existing.keys() and existing["meanings_json"] else "[]")
                     examples_json_to_save = examples_json if draft.examples else (existing["examples_json"] if "examples_json" in existing.keys() and existing["examples_json"] else "[]")
 
                     # Update existing card

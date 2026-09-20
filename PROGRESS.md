@@ -660,5 +660,51 @@ New major features should generally be deferred unless they are necessary for th
   - Extension test suite: **73/73 passed** (`node --test extension/tests/*.test.js`).
   - Real capture verified on `合` AST.
 
+### Phase 7.8 Side Panel Card Editor De-claustrophobing, Top Action Bar & Smart Collapsible Media Previews
+- **Status Summary:**
+  - ✅ **Moved Save Card & Sync Actions to Top (`extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`):**
+    - Repositioned `.editor-actions` from bottom of form to a sticky, elevated top action bar (`.editor-actions.editor-actions-top`) directly beneath the Card header.
+    - Features a 2-column action bar with primary `Save Card` button (`#save-card-btn`) and secondary `Send to Anki` (`#sync-anki-btn`) with right-aligned Anki status pill (`#anki-sync-status`).
+    - Pinned with `position: sticky; top: 0; backdrop-filter: blur(12px)` so saving a mined card is always 1 click away without scrolling down past long fields and media.
+  - ✅ **Collapsible & Context-Aware Media Previews (`extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.js`, `extension/sidepanel/sidepanel.css`):**
+    - Wrapped `#media-preview-container` in `<details id="media-preview-collapsible">` with summary indicator and state badge (`#media-summary-badge`).
+    - Smart auto-collapse: In regular text/image vocabulary mining when no frame or audio is captured, media is collapsed to a 28px header, eliminating broken image icons and "Waiting for playback..." clutter.
+    - Smart auto-expand: Whenever a screenshot frame is captured or audio is recorded, `updateMediaPreviews()` automatically expands the details element (`open = true`) and updates badge ("Image", "Audio", "Image + Audio", "Recording…").
+    - Single-media mode: When only an image is present, `.single-media` automatically expands the image preview to full container width and suppresses the empty audio card companion.
+    - Fixed Chromium broken image rendering: Added `style="display: none;"` and `.media-thumbnail[hidden] { display: none !important; }` with empty alt text when hidden.
+    - Reordering contract preserved: Preserved `data-layout-section="media"` on the wrapper so the layout settings drag-and-drop / accessible up-down reorderer remains completely intact.
+  - ✅ **De-Claustrophobic UI & Refined Spacing (`extension/sidepanel/sidepanel.css`):**
+    - Added custom sleek, minimalist dark scrollbars (`::-webkit-scrollbar { width: 6px; }`).
+    - De-nested Card Preview: Replaced claustrophobic triple-box borders with smooth surface hierarchy and generous padding (`padding: 14px 16px`).
+    - Expanded Card Editor form inputs: Increased height to 38px, padding to `8px 11px`, border-radius to 6px (`var(--radius-md)`), and added soft glow focus rings (`outline: 2px solid rgba(217, 119, 87, 0.35)`).
+    - Increased textarea comfortable height to 60px with `1.5` line-height.
+- **Verification Results:**
+  - Extension test suite: **73/73 passed** (`node --test extension/tests/*.test.js`).
+  - Backend test suite: **352/352 passed** (`python -m pytest -o pythonpath=backend backend/tests`).
 
-
+### Phase 7.9 Side Panel Card Template Settings, Authoritative Front/Back Preview Semantics & Media Pipeline Decoupling
+- **Status Summary:**
+  - ✅ **Authoritative Single Source of Truth for Front/Back Card Configuration:**
+    - Default Front renders **only the Japanese expression** (e.g. `計画`), eliminating the bracketed reading mismatch (`計画 [けいかく]`).
+    - Standardized `card_settings` across schemas (`SaveCardRequest`, `SaveCardResponse`), repositories (`CardRecord`, `CardDraft`, SQLite `meanings_json` embedding), services (`CardService`), and Anki mappers (`map_card_to_fields`, `format_basic_back`).
+    - Verified strict separation of Word Reading (`reading`: expression reading) and Kanji Reading (on'yomi/kun'yomi from `kanji_entries`), preventing duplicate reading fields.
+  - ✅ **Card Settings Modal / Popover (`extension/sidepanel/`):**
+    - Repurposed the gear icon beside `CARD` (`#btn-layout-settings`) into a real Card Settings control.
+    - Added Japanese font selection inside Card Settings (`#field-font-select`), removing per-card repetitive font switching from the main editor flow.
+    - Added checkboxes for Front Side (`Show reading`, `Show meaning`, `Show kanji reading`) and Back Side (`Show reading`, `Show meaning`).
+    - Stored settings persistently in `chrome.storage.local` under `kiroku.card_template_settings`.
+  - ✅ **Exact DOM Preview & Anki Output Parity:**
+    - Updated `renderCardPreviewDOM` and `map_card_to_fields` to share exact CSS classes (`.kn-front-expression`, `.kn-front-reading`, `.kn-front-kanji-reading`, `.kn-front-meaning`, `.kn-reading`, `.kn-kana`, `.kn-meaning`).
+    - Rendered kanji cards on Back side preview matching `format_basic_back` for isolated single-kanji and vocabulary cards.
+  - ✅ **Clean Decoupling & Removal of Visible Media Controls in Editor:**
+    - Removed visible media controls and empty placeholders/spacers from the card editor flow (`#media-preview-collapsible` hidden with `display: none !important;`).
+    - Fully preserved `currentDraftMedia` and automatic OCR image attachment, video frame screenshot capture, and sentence audio recording pipeline without alteration.
+  - ✅ **Compact Sticky Action Toolbar:**
+    - Sleek single-row sticky toolbar sitting flush (`margin: -14px -16px 8px -16px; padding: 8px 16px`) with primary `Save Card` and secondary `Send to Anki` (`min-height: 34px`).
+    - Added `scroll-margin-top: 54px` across editor sections ensuring sticky controls never obscure editor fields when scrolling or focusing.
+  - ✅ **Dense Reference-Oriented Dictionary View:**
+    - Refined `.study-entry` padding (`8px 10px`) and margin (`8px`) with subtle borders for a clean, reference-first reading experience.
+- **Verification Results:**
+  - Extension test suite: **73/73 passed** (`node --test extension/tests/*.test.js`).
+  - Backend test suite: **353/353 passed** (`python -m pytest -o pythonpath=backend backend/tests`).
+  - End-to-end setting matrix verified: All combinations of Front (expression only, +reading, +kanji reading, +meaning, all enabled) and Back (+reading, +meaning, suppress reading, suppress meaning, suppress both) tested for exact output parity between Anki Basic model mapping and Kiroku Preview.

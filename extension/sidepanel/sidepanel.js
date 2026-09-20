@@ -84,6 +84,8 @@ const audioPlaceholderText = document.querySelector("#audio-placeholder-text");
 const audioStatusBadge = document.querySelector("#audio-status-badge");
 const btnReplayAudio = document.querySelector("#btn-replay-audio");
 const btnClearAudio = document.querySelector("#btn-clear-audio");
+const mediaPreviewCollapsible = document.querySelector("#media-preview-collapsible");
+const mediaSummaryBadge = document.querySelector("#media-summary-badge");
 
 // Layout Settings & Reordering elements
 const STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER = "kiroku.layout.cardSectionOrder";
@@ -107,10 +109,98 @@ const SECTION_METADATA = {
 
 const cardLayoutContainer = document.querySelector("#card-layout-container");
 const btnLayoutSettings = document.querySelector("#btn-layout-settings");
-const layoutSettingsPopover = document.querySelector("#layout-settings-popover");
-const btnCloseLayoutSettings = document.querySelector("#btn-close-layout-settings");
+const layoutSettingsPopover = document.querySelector("#layout-settings-popover") || document.querySelector("#card-settings-popover");
+const btnCloseLayoutSettings = document.querySelector("#btn-close-layout-settings") || document.querySelector("#btn-close-card-settings");
 const layoutSectionsList = document.querySelector("#layout-sections-list");
 const btnResetLayout = document.querySelector("#btn-reset-layout");
+
+// Card Settings elements
+const cardSettingsPopover = document.querySelector("#card-settings-popover") || layoutSettingsPopover;
+const btnCloseCardSettings = document.querySelector("#btn-close-card-settings") || btnCloseLayoutSettings;
+const settingFrontReading = document.querySelector("#setting-front-reading");
+const settingFrontMeaning = document.querySelector("#setting-front-meaning");
+const settingFrontKanjiReading = document.querySelector("#setting-front-kanji-reading");
+const settingBackReading = document.querySelector("#setting-back-reading");
+const settingBackMeaning = document.querySelector("#setting-back-meaning");
+
+const STORAGE_KEY_CARD_TEMPLATE_SETTINGS = "kiroku.card_template_settings";
+const DEFAULT_CARD_TEMPLATE_SETTINGS = {
+  front: {
+    show_reading: false,
+    show_meaning: false,
+    show_kanji_reading: false,
+  },
+  back: {
+    show_reading: true,
+    show_meaning: true,
+  }
+};
+let currentCardTemplateSettings = JSON.parse(JSON.stringify(DEFAULT_CARD_TEMPLATE_SETTINGS));
+
+async function loadStoredCardTemplateSettings() {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      const data = await chrome.storage.local.get([STORAGE_KEY_CARD_TEMPLATE_SETTINGS]);
+      if (data && data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS]) {
+        currentCardTemplateSettings = {
+          front: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.front, ...(data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].front || {}) },
+          back: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.back, ...(data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].back || {}) },
+        };
+      }
+    } else if (typeof localStorage !== "undefined") {
+      const stored = localStorage.getItem(STORAGE_KEY_CARD_TEMPLATE_SETTINGS);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        currentCardTemplateSettings = {
+          front: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.front, ...(parsed.front || {}) },
+          back: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.back, ...(parsed.back || {}) },
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to load stored card template settings:", err);
+  }
+  syncCardTemplateSettingsUI();
+}
+
+async function saveStoredCardTemplateSettings() {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      await chrome.storage.local.set({ [STORAGE_KEY_CARD_TEMPLATE_SETTINGS]: currentCardTemplateSettings });
+    } else if (typeof localStorage !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_CARD_TEMPLATE_SETTINGS, JSON.stringify(currentCardTemplateSettings));
+    }
+  } catch (err) {
+    console.warn("Failed to save card template settings:", err);
+  }
+  if (typeof updateCardPreview === "function") {
+    updateCardPreview();
+  }
+}
+
+function syncCardTemplateSettingsUI() {
+  if (settingFrontReading) settingFrontReading.checked = Boolean(currentCardTemplateSettings?.front?.show_reading);
+  if (settingFrontMeaning) settingFrontMeaning.checked = Boolean(currentCardTemplateSettings?.front?.show_meaning);
+  if (settingFrontKanjiReading) settingFrontKanjiReading.checked = Boolean(currentCardTemplateSettings?.front?.show_kanji_reading);
+  if (settingBackReading) settingBackReading.checked = currentCardTemplateSettings?.back?.show_reading !== false;
+  if (settingBackMeaning) settingBackMeaning.checked = currentCardTemplateSettings?.back?.show_meaning !== false;
+}
+
+[
+  { el: settingFrontReading, section: "front", key: "show_reading" },
+  { el: settingFrontMeaning, section: "front", key: "show_meaning" },
+  { el: settingFrontKanjiReading, section: "front", key: "show_kanji_reading" },
+  { el: settingBackReading, section: "back", key: "show_reading" },
+  { el: settingBackMeaning, section: "back", key: "show_meaning" },
+].forEach(({ el, section, key }) => {
+  if (el) {
+    el.addEventListener("change", () => {
+      if (!currentCardTemplateSettings[section]) currentCardTemplateSettings[section] = {};
+      currentCardTemplateSettings[section][key] = el.checked;
+      saveStoredCardTemplateSettings();
+    });
+  }
+});
 
 let currentCardSectionOrder = [...DEFAULT_CARD_SECTION_ORDER];
 let draggedSectionIndex = null;
@@ -717,6 +807,23 @@ function getCardPreviewData() {
     }
   }
 
+  // Kanji readings extraction (Onyomi & Kunyomi separate from word reading)
+  const kanjiReadings = [];
+  if (Array.isArray(currentKanjiEntries) && currentKanjiEntries.length) {
+    for (const k of currentKanjiEntries) {
+      if (!k) continue;
+      const on = Array.isArray(k.onyomi) ? k.onyomi.map(x => String(x).trim()).filter(Boolean) : [];
+      const kun = Array.isArray(k.kunyomi) ? k.kunyomi.map(x => String(x).trim()).filter(Boolean) : [];
+      if (on.length || kun.length) {
+        kanjiReadings.push({
+          character: k.character || "",
+          onyomi: on,
+          kunyomi: kun,
+        });
+      }
+    }
+  }
+
   return {
     expression: expr,
     reading: read,
@@ -730,11 +837,20 @@ function getCardPreviewData() {
     pitch_badge: pitchBadge,
     entries: (typeof currentDictionaryEntries !== "undefined" && Array.isArray(currentDictionaryEntries)) ? currentDictionaryEntries : [],
     kanji_entries: (typeof currentKanjiEntries !== "undefined" && Array.isArray(currentKanjiEntries)) ? currentKanjiEntries : [],
+    kanji_readings: kanjiReadings,
+    template_settings: currentCardTemplateSettings,
   };
 }
 
 function renderPreviewKanjiCard(k, isIsolated = false) {
-  return renderKanjiCard(k, { mode: "compact", isProminent: isIsolated });
+  if (typeof renderKanjiCard === "function") {
+    return renderKanjiCard(k, { mode: "compact", isProminent: isIsolated });
+  }
+  const div = document.createElement("div");
+  div.className = "kn-kanji-card" + (isIsolated ? " prominent" : " compact");
+  const char = k?.character || "";
+  div.textContent = char;
+  return div;
 }
 
 function renderPreviewMeanings(container, data) {
@@ -848,17 +964,62 @@ function renderCardPreviewDOM(container, data, side = "back") {
     return;
   }
 
+  const settings = data.template_settings || currentCardTemplateSettings || DEFAULT_CARD_TEMPLATE_SETTINGS;
+  const frontCfg = settings.front || {};
+  const backCfg = settings.back || {};
+
   if (side === "front") {
-    // FRONT SIDE PREVIEW
+    // FRONT SIDE PREVIEW (Default: expression only, NO bracketed reading)
     const exprP = document.createElement("div");
     exprP.className = "kn-front-expression";
-
-    if (data.reading && data.reading !== data.expression) {
-      exprP.textContent = `${data.expression} [${data.reading}]`;
-    } else {
-      exprP.textContent = data.expression || "—";
-    }
+    exprP.textContent = data.expression || "—";
     container.append(exprP);
+
+    // 1. Word reading (only if enabled, default false)
+    if (frontCfg.show_reading && data.reading) {
+      const readP = document.createElement("div");
+      readP.className = "kn-front-reading";
+      readP.textContent = data.reading;
+      container.append(readP);
+    }
+
+    // 2. Kanji reading (only if enabled, default false)
+    if (frontCfg.show_kanji_reading && Array.isArray(data.kanji_readings) && data.kanji_readings.length) {
+      const kanjiDiv = document.createElement("div");
+      kanjiDiv.className = "kn-front-kanji-reading";
+      for (const k of data.kanji_readings) {
+        const row = document.createElement("div");
+        row.className = "kn-kanji-reading-row";
+        if (k.onyomi && k.onyomi.length) {
+          const onLbl = document.createElement("span");
+          onLbl.className = "kn-reading-lbl";
+          onLbl.textContent = "On: ";
+          const onVal = document.createElement("span");
+          onVal.className = "kn-onyomi";
+          onVal.textContent = k.onyomi.join(", ");
+          row.append(onLbl, onVal, document.createTextNode("  "));
+        }
+        if (k.kunyomi && k.kunyomi.length) {
+          const kunLbl = document.createElement("span");
+          kunLbl.className = "kn-reading-lbl";
+          kunLbl.textContent = "Kun: ";
+          const kunVal = document.createElement("span");
+          kunVal.className = "kn-kunyomi";
+          kunVal.textContent = k.kunyomi.join(", ");
+          row.append(kunLbl, kunVal);
+        }
+        kanjiDiv.append(row);
+      }
+      container.append(kanjiDiv);
+    }
+
+    // 3. Meaning (only if enabled, default false)
+    if (frontCfg.show_meaning) {
+      const meanWrap = document.createElement("div");
+      meanWrap.className = "kn-front-meaning";
+      renderPreviewMeanings(meanWrap, data);
+      container.append(meanWrap);
+    }
 
     if (data.hint) {
       const hintDiv = document.createElement("div");
@@ -871,8 +1032,8 @@ function renderCardPreviewDOM(container, data, side = "back") {
   }
 
   // BACK SIDE PREVIEW
-  // 1. Reading & Pitch header
-  if (data.reading || data.pitch_badge) {
+  // 1. Reading & Pitch header (respected via backCfg.show_reading, default true)
+  if (backCfg.show_reading !== false && (data.reading || data.pitch_badge)) {
     const readingDiv = document.createElement("div");
     readingDiv.className = "kn-reading";
 
@@ -897,8 +1058,33 @@ function renderCardPreviewDOM(container, data, side = "back") {
     container.append(divider);
   }
 
-  // 2. Meanings (reflects actual card meaning field)
-  renderPreviewMeanings(container, data);
+  // 2. Meanings & Kanji references (matching Anki format_basic_back)
+  const isIsolatedKanji = Boolean(
+    Array.isArray(data.kanji_entries) &&
+    data.kanji_entries.length &&
+    data.expression &&
+    data.expression.length === 1
+  );
+
+  if (isIsolatedKanji) {
+    for (const k of data.kanji_entries) {
+      const kanjiEl = renderPreviewKanjiCard(k, true);
+      if (kanjiEl) container.append(kanjiEl);
+    }
+    if (backCfg.show_meaning !== false) {
+      renderPreviewMeanings(container, data);
+    }
+  } else {
+    if (backCfg.show_meaning !== false) {
+      renderPreviewMeanings(container, data);
+    }
+    if (Array.isArray(data.kanji_entries) && data.kanji_entries.length) {
+      for (const k of data.kanji_entries) {
+        const kanjiEl = renderPreviewKanjiCard(k, false);
+        if (kanjiEl) container.append(kanjiEl);
+      }
+    }
+  }
 
   // 3. Example Block
   if (data.example_sentence || data.example_translation) {
@@ -2278,9 +2464,13 @@ function updateMediaPreviews() {
     if (hasImage) {
       imagePreview.src = currentDraftMedia.imageBase64;
       imagePreview.hidden = false;
+      if (imagePreview.style) imagePreview.style.display = "";
+      imagePreview.alt = "Captured video frame";
     } else {
       imagePreview.removeAttribute("src");
       imagePreview.hidden = true;
+      if (imagePreview.style) imagePreview.style.display = "none";
+      imagePreview.alt = "";
     }
   }
 
@@ -2370,8 +2560,47 @@ function updateMediaPreviews() {
     }
   }
 
+  const isAudioPending = audioStatus === "pending";
+  const hasAnyMedia = hasImage || hasAudio || isAudioPending;
+
+  const collEl = typeof mediaPreviewCollapsible !== "undefined" && mediaPreviewCollapsible
+    ? mediaPreviewCollapsible
+    : (typeof document !== "undefined" ? document.querySelector("#media-preview-collapsible") : null);
+  if (collEl) {
+    collEl.open = hasAnyMedia;
+  }
+
+  const badgeEl = typeof mediaSummaryBadge !== "undefined" && mediaSummaryBadge
+    ? mediaSummaryBadge
+    : (typeof document !== "undefined" ? document.querySelector("#media-summary-badge") : null);
+  if (badgeEl) {
+    if (hasImage && hasAudio) {
+      badgeEl.textContent = "Image + Audio";
+      if (badgeEl.classList) badgeEl.classList.add("badge-active");
+    } else if (hasImage) {
+      badgeEl.textContent = "Image";
+      if (badgeEl.classList) badgeEl.classList.add("badge-active");
+    } else if (hasAudio) {
+      badgeEl.textContent = "Audio";
+      if (badgeEl.classList) badgeEl.classList.add("badge-active");
+    } else if (isAudioPending) {
+      badgeEl.textContent = "Recording…";
+      if (badgeEl.classList) badgeEl.classList.add("badge-active");
+    } else {
+      badgeEl.textContent = "None";
+      if (badgeEl.classList) badgeEl.classList.remove("badge-active");
+    }
+  }
+
   if (mediaPreviewContainer) {
     mediaPreviewContainer.hidden = false;
+    if (mediaPreviewContainer.classList) {
+      if ((hasImage && !hasAudio && !isAudioPending) || (!hasImage && (hasAudio || isAudioPending))) {
+        mediaPreviewContainer.classList.add("single-media");
+      } else {
+        mediaPreviewContainer.classList.remove("single-media");
+      }
+    }
   }
   if (typeof scheduleCardPreviewUpdate === "function") scheduleCardPreviewUpdate();
 }
@@ -2642,6 +2871,7 @@ if (cardEditor) {
       deinflected_text: fieldDeinflectedText ? fieldDeinflectedText.value.trim() : "",
       entries: Array.isArray(currentDictionaryEntries) ? currentDictionaryEntries : [],
       kanji_entries: Array.isArray(currentKanjiEntries) ? currentKanjiEntries : [],
+      card_settings: (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
     };
 
     try {
@@ -4512,18 +4742,21 @@ function renderLayoutSettingsList(order = currentCardSectionOrder) {
 }
 
 function openLayoutSettings() {
-  if (!layoutSettingsPopover) return;
-  layoutSettingsPopover.hidden = false;
+  const popover = cardSettingsPopover || layoutSettingsPopover;
+  if (!popover) return;
+  popover.hidden = false;
   if (btnLayoutSettings) {
     btnLayoutSettings.setAttribute("aria-expanded", "true");
     btnLayoutSettings.classList.add("active");
   }
+  syncCardTemplateSettingsUI();
   renderLayoutSettingsList(currentCardSectionOrder);
 }
 
 function closeLayoutSettings() {
-  if (!layoutSettingsPopover) return;
-  layoutSettingsPopover.hidden = true;
+  const popover = cardSettingsPopover || layoutSettingsPopover;
+  if (!popover) return;
+  popover.hidden = true;
   if (btnLayoutSettings) {
     btnLayoutSettings.setAttribute("aria-expanded", "false");
     btnLayoutSettings.classList.remove("active");
@@ -4541,7 +4774,8 @@ async function resetLayoutSettings() {
 if (btnLayoutSettings) {
   btnLayoutSettings.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (layoutSettingsPopover && !layoutSettingsPopover.hidden) {
+    const popover = cardSettingsPopover || layoutSettingsPopover;
+    if (popover && !popover.hidden) {
       closeLayoutSettings();
     } else {
       openLayoutSettings();
@@ -4555,6 +4789,12 @@ if (btnCloseLayoutSettings) {
   });
 }
 
+if (btnCloseCardSettings && btnCloseCardSettings !== btnCloseLayoutSettings) {
+  btnCloseCardSettings.addEventListener("click", () => {
+    closeLayoutSettings();
+  });
+}
+
 if (btnResetLayout) {
   btnResetLayout.addEventListener("click", () => {
     resetLayoutSettings();
@@ -4562,14 +4802,16 @@ if (btnResetLayout) {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && layoutSettingsPopover && !layoutSettingsPopover.hidden) {
+  const popover = cardSettingsPopover || layoutSettingsPopover;
+  if (e.key === "Escape" && popover && !popover.hidden) {
     closeLayoutSettings();
   }
 });
 
 document.addEventListener("click", (e) => {
-  if (!layoutSettingsPopover || layoutSettingsPopover.hidden) return;
-  if (!layoutSettingsPopover.contains(e.target) && btnLayoutSettings && !btnLayoutSettings.contains(e.target)) {
+  const popover = cardSettingsPopover || layoutSettingsPopover;
+  if (!popover || popover.hidden) return;
+  if (!popover.contains(e.target) && btnLayoutSettings && !btnLayoutSettings.contains(e.target)) {
     closeLayoutSettings();
   }
 });
@@ -4582,6 +4824,7 @@ loadAutoCapturePreferences();
 loadJimakuApiKey().catch(() => {});
 loadSubtitleFolderPreferences().catch(() => {});
 checkOcrStatus().catch(() => {});
+loadStoredCardTemplateSettings().catch(() => {});
 loadStoredSectionOrder().then(order => {
   applySectionOrder(order);
 }).catch(() => {});
