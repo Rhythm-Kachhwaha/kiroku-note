@@ -289,20 +289,29 @@ assert.equal(pitchSpan.textContent, "[② Nakadaka]");
 const divider = mockCardPreviewCard.children.find(c => c.className === "kn-divider");
 assert.ok(divider, ".kn-divider must exist");
 
-// Verify meanings list with POS (and no noisy domain tags)
+// Verify meanings list from data.meaning (primary path)
 const meaningsOl = mockCardPreviewCard.children.find(c => c.className === "kn-meanings");
 assert.ok(meaningsOl, ".kn-meanings list must exist");
 assert.equal(meaningsOl.children.length, 2, "Must contain 2 sense list items");
 
 const li1 = meaningsOl.children[0];
-const pos1 = li1.children.find(c => c.className === "kn-pos");
-assert.equal(pos1.textContent, "[ichidan, vt]");
-assert.ok(li1.textContent.includes("to hang, to suspend"));
+assert.equal(li1.textContent, "to hang");
 
 const li2 = meaningsOl.children[1];
-const pos2 = li2.children.find(c => c.className === "kn-pos");
-assert.equal(pos2.textContent, "[ichidan, vt]");
-assert.ok(li2.textContent.includes("to multiply"));
+assert.equal(li2.textContent, "to multiply");
+
+// Verify fallback to entries with POS when meaning is empty
+const fallbackRichData = { ...richData, meaning: "" };
+renderCardPreviewDOM(mockCardPreviewCard, fallbackRichData, "back");
+const fallbackOl = mockCardPreviewCard.children.find(c => c.className === "kn-meanings");
+assert.ok(fallbackOl, "Fallback .kn-meanings list must exist");
+const fallbackLi1 = fallbackOl.children[0];
+const pos1 = fallbackLi1.children.find(c => c.className === "kn-pos");
+assert.equal(pos1.textContent, "[ichidan, vt]");
+assert.ok(fallbackLi1.textContent.includes("to hang, to suspend"));
+
+// Re-render richData for remaining assertions
+renderCardPreviewDOM(mockCardPreviewCard, richData, "back");
 
 // Verify example block with ruby
 const exBlock = mockCardPreviewCard.children.find(c => c.className === "kn-example-block");
@@ -345,7 +354,7 @@ assert.ok(mockPreviewTabBack.classList.contains("active"));
 assert.ok(!mockPreviewTabFront.classList.contains("active"));
 console.log("PASS 7: Tab toggle updates currentPreviewSide and tab active states.");
 
-// Test 6: Single sense meaning formatting without <ol>
+// Test 6: Meaning field renders in .kn-meaning div
 const singleSenseData = {
   expression: "映画",
   reading: "えいが",
@@ -353,16 +362,52 @@ const singleSenseData = {
   entries: [
     {
       dictionary: "Jitendex",
-      senses: [{ index: 1, glosses: ["movie", "film"], parts_of_speech: ["noun"] }],
+      senses: [{ index: 1, glosses: ["raw gloss"], parts_of_speech: ["noun"] }],
     },
   ],
 };
 renderCardPreviewDOM(mockCardPreviewCard, singleSenseData, "back");
 const singleMeanDiv = mockCardPreviewCard.children.find(c => c.className === "kn-meaning");
 assert.ok(singleMeanDiv, "Single sense must render in .kn-meaning div without <ol>");
-assert.ok(singleMeanDiv.textContent.includes("movie, film"));
-assert.ok(singleMeanDiv.textContent.includes("[noun]"));
+assert.equal(singleMeanDiv.textContent, "movie, film");
 console.log("PASS 8: Single sense rendered inside .kn-meaning div.");
+
+// Test 6B: Edited meaning takes priority over raw entries
+const editedMeaningData = {
+  expression: "映画",
+  reading: "えいが",
+  meaning: "custom user edited meaning",
+  entries: [
+    {
+      dictionary: "Jitendex",
+      senses: [{ index: 1, glosses: ["raw dictionary gloss"], parts_of_speech: ["noun"] }],
+    },
+  ],
+};
+renderCardPreviewDOM(mockCardPreviewCard, editedMeaningData, "back");
+const editedMeanDiv = mockCardPreviewCard.children.find(c => c.className === "kn-meaning");
+assert.ok(editedMeanDiv, "Must render .kn-meaning");
+assert.equal(editedMeanDiv.textContent, "custom user edited meaning");
+assert.ok(!editedMeanDiv.textContent.includes("raw dictionary gloss"), "Must not show raw dictionary gloss when meaning is edited");
+console.log("PASS 8B: Edited meaning takes priority over raw dictionary entries.");
+
+// Test 6C: Empty meaning falls back to dictionary entries summary
+const fallbackData = {
+  expression: "映画",
+  reading: "えいが",
+  meaning: "",
+  entries: [
+    {
+      dictionary: "Jitendex",
+      senses: [{ index: 1, glosses: ["raw fallback gloss"], parts_of_speech: ["noun"] }],
+    },
+  ],
+};
+renderCardPreviewDOM(mockCardPreviewCard, fallbackData, "back");
+const fallbackMeanDiv = mockCardPreviewCard.children.find(c => c.className === "kn-meaning");
+assert.ok(fallbackMeanDiv, "Must fallback to entries when meaning is empty");
+assert.ok(fallbackMeanDiv.textContent.includes("raw fallback gloss"));
+console.log("PASS 8C: Empty meaning correctly falls back to dictionary entries.");
 
 // Test 7: Plain text multi-line meaning without entries
 const plainMultiData = {
@@ -417,7 +462,7 @@ assert.equal(renderedKana[0].textContent, "たべる");
 
 console.log("PASS 12: Form field updates reactively reflected in Card Preview.");
 
-// Test 11: Isolated kanji card in Live Preview
+// Test 11: Kanji info is reference-only and excluded from Live Card Preview
 const isolatedKanjiData = {
   expression: "合",
   reading: "ごう",
@@ -442,19 +487,12 @@ const isolatedKanjiData = {
 };
 renderCardPreviewDOM(mockCardPreviewCard, isolatedKanjiData, "back");
 const previewKanjiCard = findAll(mockCardPreviewCard, c => c.className === "kn-kanji-card");
-assert.equal(previewKanjiCard.length, 1, "Live preview must render .kn-kanji-card for isolated kanji");
-const kanjiCharSpan = findAll(previewKanjiCard[0], c => c.className === "kn-kanji-char");
-assert.equal(kanjiCharSpan[0].textContent, "合");
-const onyomiSpan = findAll(previewKanjiCard[0], c => c.className === "kn-onyomi");
-assert.equal(onyomiSpan[0].textContent, "ゴウ, ガッ, カッ");
-const kunyomiSpan = findAll(previewKanjiCard[0], c => c.className === "kn-kunyomi");
-assert.equal(kunyomiSpan[0].textContent, "あ(う), -あ(わせる)");
-const oldJlptTag = findAll(previewKanjiCard[0], c => c.textContent === "Old JLPT 4");
-assert.equal(oldJlptTag.length, 1, "Historical KANJIDIC level 4 must be rendered as 'Old JLPT 4' in preview");
+assert.equal(previewKanjiCard.length, 0, "Kanji-info card is reference-only and must NOT be in Card Preview");
+assert.ok(mockCardPreviewCard.textContent.includes("fit, suit"), "Card Preview must reflect actual card meaning");
 
-console.log("PASS 13: Isolated kanji Live Preview renders rich kanji card and respects Old JLPT.");
+console.log("PASS 13: Isolated kanji card correctly kept out of Card Preview (reference-only).");
 
-// Test 12: Multi-kanji vocabulary with kanji section in Live Preview
+// Test 12: Multi-kanji vocabulary Live Preview does not include kanji reference blocks
 const vocabWithKanjiData = {
   expression: "食べる",
   reading: "たべる",
@@ -479,10 +517,10 @@ const vocabWithKanjiData = {
 renderCardPreviewDOM(mockCardPreviewCard, vocabWithKanjiData, "back");
 const vocabMeanDiv = findAll(mockCardPreviewCard, c => c.className === "kn-meaning");
 const vocabKanjiCard = findAll(mockCardPreviewCard, c => c.className === "kn-kanji-card");
-assert.equal(vocabMeanDiv.length, 1, "Vocabulary meanings rendered at top");
-assert.equal(vocabKanjiCard.length, 1, "Kanji card rendered for component kanji");
-assert.ok(vocabMeanDiv[0].textContent.includes("[v1, vt]"));
+assert.equal(vocabMeanDiv.length, 1, "Vocabulary meanings rendered");
+assert.equal(vocabKanjiCard.length, 0, "Kanji card is reference-only and must NOT appear in Card Preview");
+assert.equal(vocabMeanDiv[0].textContent, "to eat");
 
-console.log("PASS 14: Multi-kanji vocabulary Live Preview renders vocabulary senses and component kanji.");
+console.log("PASS 14: Multi-kanji vocabulary Live Preview correctly reflects edited card fields.");
 
 console.log("\n>>> ALL STAGE 5.4 CARD PREVIEW TESTS PASSED SUCCESSFULLY! <<<\n");

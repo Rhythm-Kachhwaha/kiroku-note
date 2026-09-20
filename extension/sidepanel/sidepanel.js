@@ -878,9 +878,34 @@ function renderPreviewKanjiCard(k, isIsolated = false) {
 }
 
 function renderPreviewMeanings(container, data) {
+  // 1. Primary path: render from user's actual edited meaning field
+  const rawMeaning = (data.meaning || "").trim();
+  if (rawMeaning) {
+    const lines = rawMeaning.split("\n").map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return;
+
+    if (lines.length === 1) {
+      const cleanLine = lines[0].replace(/^(?:\d+[\.\)]|\(\d+\))\s*/, "");
+      const meanDiv = document.createElement("div");
+      meanDiv.className = "kn-meaning";
+      meanDiv.textContent = cleanLine;
+      container.append(meanDiv);
+    } else {
+      const ol = document.createElement("ol");
+      ol.className = "kn-meanings";
+      for (const line of lines) {
+        const cleanLine = line.replace(/^(?:\d+[\.\)]|\(\d+\))\s*/, "");
+        const li = document.createElement("li");
+        li.textContent = cleanLine;
+        ol.append(li);
+      }
+      container.append(ol);
+    }
+    return;
+  }
+
+  // 2. Fallback path: derive summary from raw dictionary entries only when meaning is empty
   const entries = Array.isArray(data.entries) ? data.entries : [];
-  
-  // 1. Try rendering from structured entries if available and not custom replaced
   if (entries.length) {
     const extractedSenses = [];
     const primaryTerm = entries.find(e => e?.is_primary && e?.term)?.term || entries.find(e => e?.term)?.term;
@@ -942,31 +967,6 @@ function renderPreviewMeanings(container, data) {
       return;
     }
   }
-
-  // 2. Fallback to formatting plain text from meaning string
-  const rawMeaning = (data.meaning || "").trim();
-  if (!rawMeaning) return;
-
-  const lines = rawMeaning.split("\n").map(l => l.trim()).filter(Boolean);
-  if (!lines.length) return;
-
-  if (lines.length === 1) {
-    const cleanLine = lines[0].replace(/^(?:\d+[\.\)]|\(\d+\))\s*/, "");
-    const meanDiv = document.createElement("div");
-    meanDiv.className = "kn-meaning";
-    meanDiv.textContent = cleanLine;
-    container.append(meanDiv);
-  } else {
-    const ol = document.createElement("ol");
-    ol.className = "kn-meanings";
-    for (const line of lines) {
-      const cleanLine = line.replace(/^(?:\d+[\.\)]|\(\d+\))\s*/, "");
-      const li = document.createElement("li");
-      li.textContent = cleanLine;
-      ol.append(li);
-    }
-    container.append(ol);
-  }
 }
 
 function renderCardPreviewDOM(container, data, side = "back") {
@@ -977,8 +977,7 @@ function renderCardPreviewDOM(container, data, side = "back") {
 
   const hasContent = Boolean(
     data.expression || data.reading || data.meaning || data.example_sentence ||
-    data.example_translation || data.image || data.audio || data.hint || data.notes ||
-    (Array.isArray(data.kanji_entries) && data.kanji_entries.length > 0)
+    data.example_translation || data.image || data.audio || data.hint || data.notes
   );
 
   if (!hasContent) {
@@ -1038,27 +1037,8 @@ function renderCardPreviewDOM(container, data, side = "back") {
     container.append(divider);
   }
 
-  // 2. Meanings & Kanji section
-  const kanjiEntries = Array.isArray(data.kanji_entries) ? data.kanji_entries : [];
-  const isSingleKanji = kanjiEntries.length > 0 && (data.expression || "").trim().length === 1;
-
-  if (isSingleKanji) {
-    kanjiEntries.forEach(k => {
-      container.append(renderPreviewKanjiCard(k, true));
-    });
-    if (Array.isArray(data.entries) && data.entries.length) {
-      renderPreviewMeanings(container, data);
-    } else if (!kanjiEntries.length && data.meaning) {
-      renderPreviewMeanings(container, data);
-    }
-  } else {
-    renderPreviewMeanings(container, data);
-    if (kanjiEntries.length) {
-      kanjiEntries.forEach(k => {
-        container.append(renderPreviewKanjiCard(k, false));
-      });
-    }
-  }
+  // 2. Meanings (reflects actual card meaning field)
+  renderPreviewMeanings(container, data);
 
   // 3. Example Block
   if (data.example_sentence || data.example_translation) {
