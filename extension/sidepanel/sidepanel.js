@@ -248,8 +248,21 @@ const syncAllStatus = document.querySelector("#sync-all-status");
 // Navigation tab elements
 const tabBtnText = document.querySelector("#tab-btn-text");
 const tabBtnVideo = document.querySelector("#tab-btn-video");
+const tabBtnQuickAdd = document.querySelector("#tab-btn-quickadd");
 const textMiningView = document.querySelector("#text-mining-view");
 const videoMiningView = document.querySelector("#video-mining-view");
+const quickAddMiningView = document.querySelector("#quickadd-mining-view");
+const quickAddInput = document.querySelector("#quickadd-input");
+const quickAddClearBtn = document.querySelector("#quickadd-clear-btn");
+const quickAddSuggestionsContainer = document.querySelector("#quickadd-suggestions-container");
+const quickAddSuggestionsList = document.querySelector("#quickadd-suggestions-list");
+
+let currentMiningTab = "text";
+let quickAddCandidates = [];
+let quickAddHighlightedIndex = -1;
+let quickAddDebounceTimer = null;
+let currentQuickAddLookupId = 0;
+let quickAddAbortController = null;
 
 // Video Mining elements
 const videoMiningSection = document.querySelector("#video-mining-section");
@@ -2588,8 +2601,8 @@ async function identify(text) {
 
 // Media preview management
 function isVideoMiningActive() {
+  if (currentMiningTab === "video") return true;
   if (videoMiningView && !videoMiningView.hidden) return true;
-  if (tabBtnVideo && tabBtnVideo.classList.contains("active")) return true;
   if (lastCaptureSource?.tabId || currentActiveCue) return true;
   return false;
 }
@@ -4241,25 +4254,339 @@ async function clearSubtitles() {
   await broadcastToActiveVideo({ type: "CLEAR_SUBTITLES" });
 }
 
-function switchMiningTab(targetTab) {
-  const isVideo = targetTab === "video";
-  if (tabBtnText && tabBtnVideo && textMiningView && videoMiningView) {
-    tabBtnText.classList.toggle("active", !isVideo);
-    tabBtnText.setAttribute("aria-selected", String(!isVideo));
-    tabBtnVideo.classList.toggle("active", isVideo);
-    tabBtnVideo.setAttribute("aria-selected", String(isVideo));
+function updateQuickAddClearBtn() {
+  if (quickAddClearBtn) {
+    quickAddClearBtn.hidden = !Boolean(quickAddInput && quickAddInput.value);
+  }
+}
 
-    textMiningView.hidden = isVideo;
-    videoMiningView.hidden = !isVideo;
-
-    try {
-      if (typeof chrome !== "undefined" && chrome.storage?.local) {
-        chrome.storage.local.set({ active_mining_tab: targetTab });
-      } else if (typeof localStorage !== "undefined") {
-        localStorage.setItem("active_mining_tab", targetTab);
+function clearQuickAddSuggestions() {
+  quickAddCandidates = [];
+  quickAddHighlightedIndex = -1;
+  if (quickAddSuggestionsList) {
+    quickAddSuggestionsList.replaceChildren();
+  }
+  if (quickAddSuggestionsContainer) {
+    quickAddSuggestionsContainer.hidden = true;
+  }
+  if (quickAddInput) {
+    quickAddInput.setAttribute("aria-expanded", "false");
+    quickAddInput.removeAttribute("aria-activedescendant");
+    if (quickAddInput.classList.contains("confirm-replace")) {
+      quickAddInput.classList.remove("confirm-replace");
+      if (quickAddInput._origPlaceholder) {
+        quickAddInput.placeholder = quickAddInput._origPlaceholder;
       }
+    }
+  }
+}
+
+function updateQuickAddHighlight() {
+  if (!quickAddSuggestionsList) return;
+  const items = Array.from(quickAddSuggestionsList.children);
+  items.forEach((item, idx) => {
+    const isHighlighted = idx === quickAddHighlightedIndex;
+    item.classList.toggle("highlighted", isHighlighted);
+    item.setAttribute("aria-selected", String(isHighlighted));
+    if (isHighlighted) {
+      if (typeof item.scrollIntoView === "function") {
+        item.scrollIntoView({ block: "nearest" });
+      }
+      if (quickAddInput) {
+        quickAddInput.setAttribute("aria-activedescendant", item.id);
+      }
+    }
+  });
+  if (quickAddHighlightedIndex === -1 && quickAddInput) {
+    quickAddInput.removeAttribute("aria-activedescendant");
+  }
+}
+
+function selectQuickAddCandidate(candidate, candidateElement) {
+  const targetExpression = candidate ? candidate.expression : (quickAddInput ? quickAddInput.value.trim() : "");
+  if (!targetExpression) return;
+
+  if (typeof isCardDraftDirty === "function" && isCardDraftDirty()) {
+    const confirmTarget = candidateElement || quickAddInput;
+    if (confirmTarget) {
+      if (!confirmTarget.classList.contains("confirm-replace")) {
+        confirmTarget.classList.add("confirm-replace");
+        if (candidateElement) {
+          const badge = document.createElement("span");
+          badge.className = "quickadd-confirm-badge";
+          badge.textContent = "Replace draft?";
+          candidateElement.appendChild(badge);
+        } else if (quickAddInput) {
+          quickAddInput._origPlaceholder = quickAddInput.placeholder;
+          quickAddInput.placeholder = "Unsaved draft! Press Enter to replace";
+        }
+        setTimeout(() => {
+          if (confirmTarget.classList.contains("confirm-replace")) {
+            confirmTarget.classList.remove("confirm-replace");
+            if (candidateElement) {
+              const badge = candidateElement.querySelector(".quickadd-confirm-badge");
+              if (badge) badge.remove();
+            } else if (quickAddInput && quickAddInput._origPlaceholder) {
+              quickAddInput.placeholder = quickAddInput._origPlaceholder;
+            }
+          }
+        }, 3000);
+        return;
+      }
+      confirmTarget.classList.remove("confirm-replace");
+      if (candidateElement) {
+        const badge = candidateElement.querySelector(".quickadd-confirm-badge");
+        if (badge) badge.remove();
+      } else if (quickAddInput && quickAddInput._origPlaceholder) {
+        quickAddInput.placeholder = quickAddInput._origPlaceholder;
+      }
+    }
+  }
+
+  if (quickAddInput) {
+    quickAddInput.value = targetExpression;
+    updateQuickAddClearBtn();
+  }
+  clearQuickAddSuggestions();
+  identify(targetExpression);
+}
+
+function renderQuickAddSuggestions(entries) {
+  if (!quickAddSuggestionsContainer || !quickAddSuggestionsList) return;
+
+  quickAddCandidates = entries.map((entry, idx) => {
+    const expression = entry.term || entry.expression || "";
+    const reading = entry.reading || "";
+    const gloss = (entry.senses && entry.senses[0] && entry.senses[0].glosses && entry.senses[0].glosses[0]) || "";
+    return { expression, reading, gloss, originalEntry: entry, index: idx };
+  }).filter(c => Boolean(c.expression));
+
+  if (quickAddCandidates.length === 0) {
+    clearQuickAddSuggestions();
+    return;
+  }
+
+  quickAddHighlightedIndex = -1;
+  const items = quickAddCandidates.map((candidate, idx) => {
+    const li = document.createElement("li");
+    li.id = `quickadd-candidate-${idx}`;
+    li.className = "quickadd-candidate-item";
+    li.setAttribute("role", "option");
+    li.setAttribute("aria-selected", "false");
+    li.dataset.index = String(idx);
+
+    const mainDiv = document.createElement("div");
+    mainDiv.className = "quickadd-candidate-main";
+
+    const exprSpan = document.createElement("span");
+    exprSpan.className = "quickadd-candidate-expression";
+    exprSpan.textContent = candidate.expression;
+    mainDiv.appendChild(exprSpan);
+
+    if (candidate.reading && candidate.reading !== candidate.expression) {
+      const readingSpan = document.createElement("span");
+      readingSpan.className = "quickadd-candidate-reading";
+      readingSpan.textContent = candidate.reading;
+      mainDiv.appendChild(readingSpan);
+    }
+
+    li.appendChild(mainDiv);
+
+    if (candidate.gloss) {
+      const glossDiv = document.createElement("div");
+      glossDiv.className = "quickadd-candidate-gloss";
+      glossDiv.textContent = candidate.gloss;
+      li.appendChild(glossDiv);
+    }
+
+    li.addEventListener("click", (e) => {
+      if (e) e.stopPropagation();
+      selectQuickAddCandidate(candidate, li);
+    });
+
+    li.addEventListener("mouseenter", () => {
+      quickAddHighlightedIndex = idx;
+      updateQuickAddHighlight();
+    });
+
+    return li;
+  });
+
+  quickAddSuggestionsList.replaceChildren(...items);
+  quickAddSuggestionsContainer.hidden = false;
+  if (quickAddInput) {
+    quickAddInput.setAttribute("aria-expanded", "true");
+  }
+}
+
+async function executeQuickAddLookup() {
+  if (!quickAddInput) return;
+  const rawValue = quickAddInput.value || "";
+  const query = rawValue.trim();
+
+  if (!query) {
+    clearQuickAddSuggestions();
+    return;
+  }
+
+  if (quickAddAbortController) {
+    try {
+      quickAddAbortController.abort();
     } catch (_) {}
   }
+  quickAddAbortController = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const lookupId = ++currentQuickAddLookupId;
+
+  const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
+
+  try {
+    const fetchOptions = {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: query, auto_save: false, deck_name: targetDeck }),
+    };
+    if (quickAddAbortController) {
+      fetchOptions.signal = quickAddAbortController.signal;
+    }
+
+    const response = await fetch(API_CAPTURE_URL, fetchOptions);
+    if (lookupId !== currentQuickAddLookupId) return;
+
+    if (!response.ok) {
+      clearQuickAddSuggestions();
+      return;
+    }
+
+    const body = await response.json().catch(() => ({}));
+    if (lookupId !== currentQuickAddLookupId) return;
+
+    const entries = Array.isArray(body.entries) ? body.entries : [];
+    if (entries.length === 0) {
+      clearQuickAddSuggestions();
+      return;
+    }
+
+    renderQuickAddSuggestions(entries);
+  } catch (err) {
+    if (err && err.name === "AbortError") return;
+    if (lookupId === currentQuickAddLookupId) {
+      clearQuickAddSuggestions();
+    }
+  }
+}
+
+function scheduleQuickAddLookup() {
+  if (quickAddDebounceTimer) {
+    clearTimeout(quickAddDebounceTimer);
+    quickAddDebounceTimer = null;
+  }
+  quickAddDebounceTimer = setTimeout(() => {
+    executeQuickAddLookup();
+  }, 350);
+}
+
+function onQuickAddInput() {
+  updateQuickAddClearBtn();
+  scheduleQuickAddLookup();
+}
+
+function onQuickAddKeydown(e) {
+  if (e.key === "ArrowDown") {
+    if (quickAddCandidates.length > 0) {
+      e.preventDefault();
+      quickAddHighlightedIndex = (quickAddHighlightedIndex + 1) % quickAddCandidates.length;
+      updateQuickAddHighlight();
+    }
+  } else if (e.key === "ArrowUp") {
+    if (quickAddCandidates.length > 0) {
+      e.preventDefault();
+      if (quickAddHighlightedIndex <= 0) {
+        quickAddHighlightedIndex = quickAddCandidates.length - 1;
+      } else {
+        quickAddHighlightedIndex -= 1;
+      }
+      updateQuickAddHighlight();
+    }
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    if (quickAddHighlightedIndex >= 0 && quickAddCandidates[quickAddHighlightedIndex]) {
+      const el = quickAddSuggestionsList ? quickAddSuggestionsList.children[quickAddHighlightedIndex] : null;
+      selectQuickAddCandidate(quickAddCandidates[quickAddHighlightedIndex], el);
+    } else {
+      selectQuickAddCandidate(null, null);
+    }
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    e.stopPropagation();
+    clearQuickAddSuggestions();
+  }
+}
+
+function initQuickAdd() {
+  if (quickAddInput) {
+    if (typeof wanakana !== "undefined" && typeof wanakana.bind === "function") {
+      try {
+        wanakana.bind(quickAddInput);
+      } catch (err) {
+        console.warn("WanaKana bind failed:", err);
+      }
+    }
+    quickAddInput.addEventListener("input", onQuickAddInput);
+    quickAddInput.addEventListener("keydown", onQuickAddKeydown);
+  }
+  if (quickAddClearBtn) {
+    quickAddClearBtn.addEventListener("click", () => {
+      if (quickAddInput) {
+        quickAddInput.value = "";
+        quickAddInput.focus();
+      }
+      clearQuickAddSuggestions();
+      updateQuickAddClearBtn();
+    });
+  }
+}
+
+function switchMiningTab(targetTab) {
+  const tab = (targetTab === "video" || targetTab === "quickadd") ? targetTab : "text";
+  currentMiningTab = tab;
+
+  if (tabBtnText) {
+    const isText = tab === "text";
+    tabBtnText.classList.toggle("active", isText);
+    tabBtnText.setAttribute("aria-selected", String(isText));
+  }
+  if (textMiningView) {
+    textMiningView.hidden = tab !== "text";
+  }
+
+  if (tabBtnVideo) {
+    const isVideo = tab === "video";
+    tabBtnVideo.classList.toggle("active", isVideo);
+    tabBtnVideo.setAttribute("aria-selected", String(isVideo));
+  }
+  if (videoMiningView) {
+    videoMiningView.hidden = tab !== "video";
+  }
+
+  if (tabBtnQuickAdd) {
+    const isQuickAdd = tab === "quickadd";
+    tabBtnQuickAdd.classList.toggle("active", isQuickAdd);
+    tabBtnQuickAdd.setAttribute("aria-selected", String(isQuickAdd));
+  }
+  if (quickAddMiningView) {
+    quickAddMiningView.hidden = tab !== "quickadd";
+    if (tab === "quickadd" && quickAddInput) {
+      setTimeout(() => quickAddInput.focus(), 50);
+    }
+  }
+
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ active_mining_tab: tab });
+    } else if (typeof localStorage !== "undefined") {
+      localStorage.setItem("active_mining_tab", tab);
+    }
+  } catch (_) {}
 }
 
 async function loadTabPreference() {
@@ -4281,6 +4608,9 @@ if (tabBtnText) {
 }
 if (tabBtnVideo) {
   tabBtnVideo.addEventListener("click", () => switchMiningTab("video"));
+}
+if (tabBtnQuickAdd) {
+  tabBtnQuickAdd.addEventListener("click", () => switchMiningTab("quickadd"));
 }
 
 if (clearSubtitlesBtn) {
@@ -4970,6 +5300,7 @@ loadStoredSectionOrder().then(order => {
   applySectionOrder(order);
 }).catch(() => {});
 if (typeof updateCardPreview === "function") updateCardPreview();
+initQuickAdd();
 
 chrome.runtime.sendMessage({type: "GET_MINING_MODE"}).then(res => {
   if (res?.enabled) updateMiningUI(true);

@@ -37,6 +37,9 @@
       <button type="button" id="tab-btn-video" class="tab-btn" role="tab" aria-selected="false" aria-controls="video-mining-view">
         Video Mining
       </button>
+      <button type="button" id="tab-btn-quickadd" class="tab-btn" role="tab" aria-selected="false" aria-controls="quickadd-mining-view">
+        Quick Add
+      </button>
     </nav>
 
     <!-- Text Mining View -->
@@ -175,6 +178,32 @@
           </label>
         </div>
       </section>
+    </div>
+
+    <!-- Quick Add Mining View -->
+    <div id="quickadd-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-quickadd" hidden>
+      <div class="quickadd-container">
+        <div class="quickadd-input-wrapper">
+          <input
+            type="text"
+            id="quickadd-input"
+            class="quickadd-input"
+            placeholder="Type romaji or Japanese… (e.g. taberu)"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+            aria-label="Quick Add word input"
+            aria-autocomplete="list"
+            aria-controls="quickadd-suggestions-list"
+            aria-expanded="false"
+          >
+          <button type="button" id="quickadd-clear-btn" class="quickadd-clear-btn" title="Clear input" aria-label="Clear input" hidden>&times;</button>
+        </div>
+        <div id="quickadd-suggestions-container" class="quickadd-suggestions-container" hidden>
+          <ul id="quickadd-suggestions-list" class="quickadd-suggestions-list" role="listbox" aria-label="Quick Add suggestions"></ul>
+        </div>
+      </div>
     </div>
 
     <!-- First-Run Quick Setup Guide -->
@@ -524,6 +553,7 @@
   <script src="../lib/subtitle-provider.js"></script>
   <script src="../lib/jimaku-provider.js"></script>
   <script src="../lib/ocr-cropper.js"></script>
+  <script src="../lib/wanakana.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

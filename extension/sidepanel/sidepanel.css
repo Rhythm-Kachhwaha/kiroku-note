@@ -298,6 +298,173 @@ body {
   display: none !important;
 }
 
+/* Quick Add Mining View
+   ========================================================================== */
+
+.quickadd-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: 6px;
+  padding-bottom: var(--space-2);
+  position: relative;
+}
+
+.quickadd-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.quickadd-input {
+  width: 100%;
+  height: 38px;
+  padding: 8px 32px 8px 12px;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-ja), var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+}
+
+.quickadd-input::placeholder {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-family: var(--font-sans);
+}
+
+.quickadd-input:focus {
+  border-color: var(--accent-primary);
+  background: var(--bg-surface-2);
+  box-shadow: 0 0 0 2px rgba(217, 119, 87, 0.25);
+}
+
+.quickadd-input.confirm-replace {
+  border-color: var(--accent-warning, #e08c45);
+  box-shadow: 0 0 0 2px rgba(224, 140, 69, 0.35);
+}
+
+.quickadd-clear-btn {
+  position: absolute;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.quickadd-clear-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-3);
+}
+
+.quickadd-clear-btn[hidden] {
+  display: none !important;
+}
+
+.quickadd-suggestions-container {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  max-height: 240px;
+  overflow-y: auto;
+  margin-top: 2px;
+}
+
+.quickadd-suggestions-container[hidden] {
+  display: none !important;
+}
+
+.quickadd-suggestions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.quickadd-candidate-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  position: relative;
+}
+
+.quickadd-candidate-item:last-child {
+  border-bottom: none;
+}
+
+.quickadd-candidate-item:hover,
+.quickadd-candidate-item.highlighted {
+  background: var(--bg-surface-2);
+}
+
+.quickadd-candidate-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.quickadd-candidate-expression {
+  font-family: var(--font-ja);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.quickadd-candidate-item.highlighted .quickadd-candidate-expression {
+  color: var(--accent-primary);
+}
+
+.quickadd-candidate-reading {
+  font-family: var(--font-ja);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent-reading);
+}
+
+.quickadd-candidate-gloss {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.quickadd-candidate-item.confirm-replace {
+  background: rgba(224, 140, 69, 0.15) !important;
+  border-left: 3px solid var(--accent-warning, #e08c45);
+}
+
+.quickadd-confirm-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-warning, #e08c45);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .mining-bar {
   display: flex;
   align-items: center;

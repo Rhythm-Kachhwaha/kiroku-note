@@ -749,4 +749,48 @@ New major features should generally be deferred unless they are necessary for th
 +  - Extension test suite: **73/73 passed** (`node --test extension/tests/*.test.js`).
 +  - Backend test suite: **360/360 passed** (`python -m pytest tests` in `backend/`).
 +  - Visual verification screenshot captured (`shot_hover_views.png`) confirming prominent JLPT badge display in both Dictionary View header and Card Preview on hover.
+
+### Phase 7.11 Quick Add Input Mode (Third Mining Tab)
+- **Status Summary:**
+  - ✅ **Vendored WanaKana Library (`extension/lib/wanakana.js`):**
+    - Vendored WanaKana v5.3.1 (MIT License) as a plain local browser bundle in `extension/lib/wanakana.js` with full attribution notice.
+    - Zero external CDN or build dependencies added; fully compliant with Manifest V3 and extension CSP (`script-src 'self'`).
+    - Loaded locally via `<script src="../lib/wanakana.js"></script>` in `sidepanel.html` immediately before `sidepanel.js` without leaking into web page content scripts.
+  - ✅ **Third Navigation Tab & View (`extension/sidepanel/sidepanel.html`):**
+    - Added `#tab-btn-quickadd` ("Quick Add") in `nav.mining-nav-tabs` (`role="tab"`, `aria-controls="quickadd-mining-view"`).
+    - Added clean `#quickadd-mining-view` (`role="tabpanel"`, `aria-labelledby="tab-btn-quickadd"`, `hidden`) containing only `#quickadd-input` and `#quickadd-suggestions-container` without any mining toggles or status noise.
+  - ✅ **Tab Switching Generalization (`extension/sidepanel/sidepanel.js`):**
+    - Generalized `switchMiningTab(targetTab)` to handle `"text"`, `"video"`, and `"quickadd"`.
+    - Introduced shared `currentMiningTab` state; updated `isVideoMiningActive()` to reference `currentMiningTab === "video"` instead of directly querying `tabBtnVideo` active class.
+    - Preserved persistence under `active_mining_tab` in `chrome.storage.local` and `localStorage`.
+    - Maintained 100% backward compatibility and regression pass across Text Mining and Video Mining tabs.
+  - ✅ **Incremental Romaji to Kana Input:**
+    - Bound `#quickadd-input` via `wanakana.bind(inputElement)` on initialization (IMEMode default).
+    - Verified progressive transliteration: typing "taberu" -> "たべる", "hashi" -> "はし", "kyo" -> "きょ", "sha" -> "しゃ", "tta" -> "った".
+    - Direct Japanese kana/kanji typing and pasting Japanese text passes through natively without corruption.
+  - ✅ **Debounced Lookup Reusing `/api/capture`:**
+    - 350ms debounce listening to input changes before issuing lookup.
+    - Reused existing `POST /api/capture` request shape `{ text: query, auto_save: false, deck_name: targetDeck }` without modifying any backend code or creating duplicate endpoints.
+    - Implemented sequence ID (`currentQuickAddLookupId`) and `AbortController` cancellation to guarantee older asynchronous responses never overwrite newer suggestions.
+    - Renders candidate rows (`.quickadd-candidate-item`) with Japanese expression, kana reading, and first sense gloss.
+  - ✅ **Candidate Selection & Existing `identify()` Integration:**
+    - Selecting a candidate calls existing `identify(candidate.expression)` directly, reusing Card Editor population, hero displays, tags, and media.
+    - Fallback: Pressing Enter with empty suggestions calls `identify(currentInputValue)`.
+  - ✅ **Dirty Card Draft Protection:**
+    - Reused existing `isCardDraftDirty()` and non-blocking `.confirm-replace` inline confirmation pattern.
+    - When active card draft has unsaved edits, candidate selection prompts with "Replace draft?" before committing on second click/Enter.
+  - ✅ **Scoped Keyboard Navigation:**
+    - Added keyboard navigation scoped strictly to `#quickadd-input`: ArrowDown/ArrowUp cycle through suggestions with W3C ARIA combobox attributes (`aria-activedescendant`), Enter commits highlighted candidate (or fallback), and Escape dismisses suggestions without clearing typed input text.
+  - ✅ **Precision Dark Utility Styling (`extension/sidepanel/sidepanel.css`):**
+    - Styled Quick Add input and candidate suggestions using Obsidian dark tokens (`--bg-surface-1`, `--border-default`, `--accent-primary`, `--accent-reading`, `--radius-md`).
+- **Verification Results:**
+  - Extension test suite: **74/74 passed** (`node --test extension/tests/*.test.js`), including new dedicated `extension/tests/quick-add.test.js` (8/8 test scenarios).
+  - Full manual scenario checks verified:
+    1. Progressive romaji-to-kana conversion (`taberu` -> `たべる`, `hashi` -> `はし`).
+    2. Candidate list display with expressions, readings, and glosses.
+    3. Candidate selection committing through canonical `identify()`.
+    4. Pasting Japanese text directly triggering lookups.
+    5. Keyboard-only navigation flow (type -> ArrowDown -> Enter).
+    6. Non-breaking tab switching across Text Mining, Video Mining, and Quick Add.
+- **Remaining Risk:** None. All changes are frontend-only, adhere strictly to existing contracts, and maintain 100% test coverage.
 
