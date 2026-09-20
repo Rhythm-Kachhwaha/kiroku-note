@@ -263,6 +263,18 @@
             </div>
           </div>
 
+          <!-- JLPT Level Display Settings -->
+          <div class="card-settings-group">
+            <span class="settings-group-label">JLPT Level</span>
+            <div class="settings-checkboxes">
+              <label class="setting-checkbox-label" title="Display modern JLPT level (N5–N1) on card preview and Anki cards (shown by default)">
+                <input type="checkbox" id="setting-show-jlpt" class="setting-checkbox" checked>
+                <span>Show JLPT level</span>
+              </label>
+            </div>
+            <div class="settings-subtext">Shown by default on preview and cards.</div>
+          </div>
+
           <!-- Section Order Details (Maintains customizable layout capability) -->
           <details class="settings-section-order-details">
             <summary class="settings-order-summary">Section Layout Order</summary>
@@ -443,7 +455,10 @@
           <!-- 6. Dictionary Information Section -->
           <section id="dictionary-section" class="dictionary-section" data-layout-section="dictionary" aria-label="Dictionary Information">
             <div class="section-header dict-section-header">
-              <h2 class="section-title">DICTIONARY</h2>
+              <div class="dict-title-row">
+                <h2 class="section-title">DICTIONARY</h2>
+                <span id="dict-jlpt-badge" class="kn-tag kn-jlpt dict-header-jlpt-badge" hidden></span>
+              </div>
               <div class="dict-actions-bar" id="dict-actions-bar" style="display: none;">
                 <button type="button" id="btn-copy-raw-dict" class="btn-dict-action" title="Copy raw dictionary text to clipboard">📋 Copy</button>
               </div>

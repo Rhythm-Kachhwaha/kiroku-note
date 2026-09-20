@@ -122,8 +122,10 @@ const settingFrontMeaning = document.querySelector("#setting-front-meaning");
 const settingFrontKanjiReading = document.querySelector("#setting-front-kanji-reading");
 const settingBackReading = document.querySelector("#setting-back-reading");
 const settingBackMeaning = document.querySelector("#setting-back-meaning");
+const settingShowJlpt = document.querySelector("#setting-show-jlpt");
 
 const STORAGE_KEY_CARD_TEMPLATE_SETTINGS = "kiroku.card_template_settings";
+const STORAGE_KEY_SHOW_JLPT_LEVEL = "kiroku.settings.showJlptLevel";
 const DEFAULT_CARD_TEMPLATE_SETTINGS = {
   front: {
     show_reading: false,
@@ -133,28 +135,40 @@ const DEFAULT_CARD_TEMPLATE_SETTINGS = {
   back: {
     show_reading: true,
     show_meaning: true,
-  }
+  },
+  show_jlpt: true,
 };
 let currentCardTemplateSettings = JSON.parse(JSON.stringify(DEFAULT_CARD_TEMPLATE_SETTINGS));
 
 async function loadStoredCardTemplateSettings() {
   try {
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-      const data = await chrome.storage.local.get([STORAGE_KEY_CARD_TEMPLATE_SETTINGS]);
+      const data = await chrome.storage.local.get([STORAGE_KEY_CARD_TEMPLATE_SETTINGS, STORAGE_KEY_SHOW_JLPT_LEVEL]);
       if (data && data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS]) {
         currentCardTemplateSettings = {
           front: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.front, ...(data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].front || {}) },
           back: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.back, ...(data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].back || {}) },
+          show_jlpt: typeof data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_jlpt === "boolean"
+            ? data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_jlpt
+            : (typeof data[STORAGE_KEY_SHOW_JLPT_LEVEL] === "boolean" ? data[STORAGE_KEY_SHOW_JLPT_LEVEL] : true),
         };
+      } else if (data && typeof data[STORAGE_KEY_SHOW_JLPT_LEVEL] === "boolean") {
+        currentCardTemplateSettings.show_jlpt = data[STORAGE_KEY_SHOW_JLPT_LEVEL];
       }
     } else if (typeof localStorage !== "undefined") {
       const stored = localStorage.getItem(STORAGE_KEY_CARD_TEMPLATE_SETTINGS);
+      const storedJlpt = localStorage.getItem(STORAGE_KEY_SHOW_JLPT_LEVEL);
       if (stored) {
         const parsed = JSON.parse(stored);
         currentCardTemplateSettings = {
           front: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.front, ...(parsed.front || {}) },
           back: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.back, ...(parsed.back || {}) },
+          show_jlpt: typeof parsed.show_jlpt === "boolean"
+            ? parsed.show_jlpt
+            : (storedJlpt !== null ? JSON.parse(storedJlpt) : true),
         };
+      } else if (storedJlpt !== null) {
+        currentCardTemplateSettings.show_jlpt = JSON.parse(storedJlpt);
       }
     }
   } catch (err) {
@@ -166,9 +180,13 @@ async function loadStoredCardTemplateSettings() {
 async function saveStoredCardTemplateSettings() {
   try {
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-      await chrome.storage.local.set({ [STORAGE_KEY_CARD_TEMPLATE_SETTINGS]: currentCardTemplateSettings });
+      await chrome.storage.local.set({
+        [STORAGE_KEY_CARD_TEMPLATE_SETTINGS]: currentCardTemplateSettings,
+        [STORAGE_KEY_SHOW_JLPT_LEVEL]: currentCardTemplateSettings.show_jlpt !== false,
+      });
     } else if (typeof localStorage !== "undefined") {
       localStorage.setItem(STORAGE_KEY_CARD_TEMPLATE_SETTINGS, JSON.stringify(currentCardTemplateSettings));
+      localStorage.setItem(STORAGE_KEY_SHOW_JLPT_LEVEL, JSON.stringify(currentCardTemplateSettings.show_jlpt !== false));
     }
   } catch (err) {
     console.warn("Failed to save card template settings:", err);
@@ -184,6 +202,7 @@ function syncCardTemplateSettingsUI() {
   if (settingFrontKanjiReading) settingFrontKanjiReading.checked = Boolean(currentCardTemplateSettings?.front?.show_kanji_reading);
   if (settingBackReading) settingBackReading.checked = currentCardTemplateSettings?.back?.show_reading !== false;
   if (settingBackMeaning) settingBackMeaning.checked = currentCardTemplateSettings?.back?.show_meaning !== false;
+  if (settingShowJlpt) settingShowJlpt.checked = currentCardTemplateSettings?.show_jlpt !== false;
 }
 
 [
@@ -201,6 +220,13 @@ function syncCardTemplateSettingsUI() {
     });
   }
 });
+
+if (settingShowJlpt) {
+  settingShowJlpt.addEventListener("change", () => {
+    currentCardTemplateSettings.show_jlpt = settingShowJlpt.checked;
+    saveStoredCardTemplateSettings();
+  });
+}
 
 let currentCardSectionOrder = [...DEFAULT_CARD_SECTION_ORDER];
 let draggedSectionIndex = null;
@@ -730,6 +756,7 @@ if (fieldReading) {
 // ==========================================================================
 var currentPreviewSide = "back"; // "front" | "back"
 var previewUpdateTimer = null;
+var currentJlptLevel = null;
 
 function formatKunyomi(kunStr) {
   if (!kunStr) return "";
@@ -824,6 +851,30 @@ function getCardPreviewData() {
     }
   }
 
+  let resolvedJlpt = typeof currentJlptLevel !== "undefined" && currentJlptLevel ? currentJlptLevel : null;
+  if (!resolvedJlpt && typeof currentDictionaryEntries !== "undefined" && Array.isArray(currentDictionaryEntries)) {
+    for (const e of currentDictionaryEntries) {
+      for (const t of (e.tags || [])) {
+        const m = String(t).match(/^jlpt-n([1-5])$/i) || String(t).match(/^n([1-5])$/i);
+        if (m) { resolvedJlpt = `N${m[1]}`; break; }
+      }
+      if (resolvedJlpt) break;
+    }
+  }
+  if (!resolvedJlpt && typeof currentKanjiEntries !== "undefined" && Array.isArray(currentKanjiEntries)) {
+    for (const k of currentKanjiEntries) {
+      if (k.stats && k.stats.jlpt && String(k.stats.jlpt).toUpperCase().startsWith("N")) {
+        resolvedJlpt = String(k.stats.jlpt).toUpperCase();
+        break;
+      }
+      for (const t of (k.tags || [])) {
+        const m = String(t).match(/^jlpt-n([1-5])$/i) || String(t).match(/^n([1-5])$/i);
+        if (m) { resolvedJlpt = `N${m[1]}`; break; }
+      }
+      if (resolvedJlpt) break;
+    }
+  }
+
   return {
     expression: expr,
     reading: read,
@@ -835,6 +886,7 @@ function getCardPreviewData() {
     image: resolvedImage,
     audio: resolvedAudio,
     pitch_badge: pitchBadge,
+    jlpt_level: resolvedJlpt,
     entries: (typeof currentDictionaryEntries !== "undefined" && Array.isArray(currentDictionaryEntries)) ? currentDictionaryEntries : [],
     kanji_entries: (typeof currentKanjiEntries !== "undefined" && Array.isArray(currentKanjiEntries)) ? currentKanjiEntries : [],
     kanji_readings: kanjiReadings,
@@ -844,7 +896,11 @@ function getCardPreviewData() {
 
 function renderPreviewKanjiCard(k, isIsolated = false) {
   if (typeof renderKanjiCard === "function") {
-    return renderKanjiCard(k, { mode: "compact", isProminent: isIsolated });
+    return renderKanjiCard(k, {
+      mode: "compact",
+      isProminent: isIsolated,
+      showJlpt: currentCardTemplateSettings?.show_jlpt !== false,
+    });
   }
   const div = document.createElement("div");
   div.className = "kn-kanji-card" + (isIsolated ? " prominent" : " compact");
@@ -1033,7 +1089,8 @@ function renderCardPreviewDOM(container, data, side = "back") {
 
   // BACK SIDE PREVIEW
   // 1. Reading & Pitch header (respected via backCfg.show_reading, default true)
-  if (backCfg.show_reading !== false && (data.reading || data.pitch_badge)) {
+  const showJlpt = settings.show_jlpt !== false;
+  if (backCfg.show_reading !== false && (data.reading || data.pitch_badge || (showJlpt && data.jlpt_level))) {
     const readingDiv = document.createElement("div");
     readingDiv.className = "kn-reading";
 
@@ -1042,6 +1099,13 @@ function renderCardPreviewDOM(container, data, side = "back") {
       kanaSpan.className = "kn-kana";
       kanaSpan.textContent = data.reading;
       readingDiv.append(kanaSpan);
+    }
+
+    if (showJlpt && data.jlpt_level) {
+      const jlptSpan = document.createElement("span");
+      jlptSpan.className = "kn-tag kn-jlpt";
+      jlptSpan.textContent = typeof formatJlptLevel === "function" ? formatJlptLevel(data.jlpt_level) : (String(data.jlpt_level).startsWith("JLPT") ? data.jlpt_level : `JLPT ${data.jlpt_level}`);
+      readingDiv.append(jlptSpan);
     }
 
     if (data.pitch_badge) {
@@ -1336,8 +1400,14 @@ function clearDictionaryView() {
   if (dictActionsBar) dictActionsBar.style.display = "none";
   if (typeof dictLoadingIndicator !== "undefined" && dictLoadingIndicator) dictLoadingIndicator.hidden = true;
   if (typeof dictEmptyNotice !== "undefined" && dictEmptyNotice) dictEmptyNotice.hidden = true;
+  const dictJlptBadge = document.querySelector("#dict-jlpt-badge");
+  if (dictJlptBadge) {
+    dictJlptBadge.hidden = true;
+    dictJlptBadge.textContent = "";
+  }
   currentDictionaryEntries = [];
   currentKanjiEntries = [];
+  currentJlptLevel = null;
 }
 
 function getPitchCircleNumber(position) {
@@ -1791,22 +1861,23 @@ function renderKanjiCard(kanji, options = { mode: "full", isProminent: false }) 
         }
       }
 
-      if (modernJlpt) {
-        const jSpan = document.createElement("span");
-        jSpan.className = "kn-tag kn-jlpt";
-        jSpan.textContent = `JLPT ${modernJlpt}`;
-        header.append(jSpan);
-      } else if (kanji.stats.jlpt) {
-        const rawJlpt = String(kanji.stats.jlpt).trim();
-        const jSpan = document.createElement("span");
-        if (rawJlpt.toUpperCase().startsWith("N")) {
+      const showJlpt = opts.showJlpt !== undefined
+        ? opts.showJlpt
+        : (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings?.show_jlpt !== false : true);
+      if (showJlpt) {
+        if (modernJlpt) {
+          const jSpan = document.createElement("span");
           jSpan.className = "kn-tag kn-jlpt";
-          jSpan.textContent = `JLPT ${rawJlpt.toUpperCase()}`;
+          jSpan.textContent = `JLPT ${modernJlpt}`;
           header.append(jSpan);
-        } else if (/^[1-4]$/.test(rawJlpt)) {
-          jSpan.className = "kn-tag";
-          jSpan.textContent = `Old JLPT ${rawJlpt}`;
-          header.append(jSpan);
+        } else if (kanji.stats.jlpt) {
+          const rawJlpt = String(kanji.stats.jlpt).trim();
+          if (rawJlpt.toUpperCase().startsWith("N")) {
+            const jSpan = document.createElement("span");
+            jSpan.className = "kn-tag kn-jlpt";
+            jSpan.textContent = `JLPT ${rawJlpt.toUpperCase()}`;
+            header.append(jSpan);
+          }
         }
       }
 
@@ -1932,19 +2003,14 @@ function renderKanjiCard(kanji, options = { mode: "full", isProminent: false }) 
       const jlptPill = document.createElement("span");
       jlptPill.className = "badge jlpt-badge pill-jlpt kanji-stat-badge badge-jlpt";
       jlptPill.textContent = `JLPT ${modernJlpt}`;
-      jlptPill.title = `Modern post-2010 JLPT Level ${modernJlpt}`;
+      jlptPill.title = `Modern JLPT Level ${modernJlpt}`;
       header.append(jlptPill);
     } else if (kanji.stats.jlpt) {
       const rawJlpt = String(kanji.stats.jlpt).trim();
-      const jlptPill = document.createElement("span");
-      jlptPill.className = "badge jlpt-badge pill-jlpt kanji-stat-badge";
       if (rawJlpt.toUpperCase().startsWith("N")) {
-        jlptPill.classList.add("badge-jlpt");
+        const jlptPill = document.createElement("span");
+        jlptPill.className = "badge jlpt-badge pill-jlpt kanji-stat-badge badge-jlpt";
         jlptPill.textContent = `JLPT ${rawJlpt.toUpperCase()}`;
-        header.append(jlptPill);
-      } else if (/^[1-4]$/.test(rawJlpt)) {
-        jlptPill.textContent = `Old JLPT ${rawJlpt}`;
-        jlptPill.title = `Historical pre-2010 4-level classification from KANJIDIC (Level ${rawJlpt})`;
         header.append(jlptPill);
       }
     }
@@ -2111,15 +2177,76 @@ function renderDetails(body) {
   currentDictionaryEntries = entries;
   currentKanjiEntries = kanjiEntries;
 
+  let jlptLevel = body?.jlpt_level || rawObj?.jlpt_level || currentJlptLevel;
+  if (!jlptLevel && entries.length) {
+    for (const e of entries) {
+      for (const t of (e.tags || [])) {
+        const m = String(t).match(/^jlpt-n([1-5])$/i) || String(t).match(/^n([1-5])$/i);
+        if (m) { jlptLevel = `N${m[1]}`; break; }
+      }
+      if (jlptLevel) break;
+    }
+  }
+  if (!jlptLevel && kanjiEntries.length) {
+    for (const k of kanjiEntries) {
+      if (k.stats && k.stats.jlpt && String(k.stats.jlpt).toUpperCase().startsWith("N")) {
+        jlptLevel = String(k.stats.jlpt).toUpperCase();
+        break;
+      }
+      for (const t of (k.tags || [])) {
+        const m = String(t).match(/^jlpt-n([1-5])$/i) || String(t).match(/^n([1-5])$/i);
+        if (m) { jlptLevel = `N${m[1]}`; break; }
+      }
+      if (jlptLevel) break;
+    }
+  }
+  if (jlptLevel) {
+    currentJlptLevel = jlptLevel;
+  }
+
+  // Update prominent DICTIONARY section header badge
+  const dictJlptBadge = document.querySelector("#dict-jlpt-badge");
+  if (dictJlptBadge) {
+    if (jlptLevel) {
+      dictJlptBadge.textContent = formatJlptLevel(jlptLevel);
+      dictJlptBadge.hidden = false;
+    } else {
+      dictJlptBadge.hidden = true;
+      dictJlptBadge.textContent = "";
+    }
+  }
+
+  const expr = typeof rawObj?.expression === "string" ? rawObj.expression.trim() : (typeof fieldExpression !== "undefined" && fieldExpression?.value ? fieldExpression.value.trim() : "");
+
   if (!entries.length && !kanjiEntries.length) {
-    if (typeof dictEmptyNotice !== "undefined" && dictEmptyNotice) dictEmptyNotice.hidden = false;
+    if (typeof dictEmptyNotice !== "undefined" && dictEmptyNotice) {
+      if (jlptLevel && expr) {
+        if (typeof dictEmptyNotice.replaceChildren === "function") {
+          dictEmptyNotice.replaceChildren();
+        } else {
+          dictEmptyNotice.textContent = "";
+        }
+        const noticeP = document.createElement("p");
+        noticeP.textContent = "No Yomitan dictionary definitions found for this term.";
+        noticeP.style.margin = "0 0 6px 0";
+        const badgeRow = document.createElement("div");
+        badgeRow.className = "dict-empty-jlpt-row";
+        const badge = document.createElement("span");
+        badge.className = "kn-tag kn-jlpt";
+        badge.textContent = formatJlptLevel(jlptLevel);
+        badgeRow.append(badge);
+        dictEmptyNotice.append(noticeP, badgeRow);
+      } else {
+        dictEmptyNotice.textContent = "No dictionary entries found for this term.";
+      }
+      dictEmptyNotice.hidden = false;
+    }
     return;
   }
   if (typeof dictEmptyNotice !== "undefined" && dictEmptyNotice) dictEmptyNotice.hidden = true;
 
   if (dictActionsBar) dictActionsBar.style.display = "flex";
 
-  const expr = typeof rawObj?.expression === "string" ? rawObj.expression.trim() : (typeof fieldExpression !== "undefined" && fieldExpression?.value ? fieldExpression.value.trim() : "");
   const isSingleKanji = kanjiEntries.length > 0 && (entries.length === 0 || expr.length === 1);
 
   // 1. Structured Study View rendered into #meanings
@@ -2186,10 +2313,11 @@ function renderDetails(body) {
         }
 
         // JLPT level pill from body.jlpt_level (rendered on primary entry)
-        if (isPrimary && body?.jlpt_level) {
+        const activeJlpt = jlptLevel;
+        if (isPrimary && activeJlpt) {
           const jlptPill = document.createElement("span");
-          jlptPill.className = "pill-jlpt badge jlpt-badge";
-          jlptPill.textContent = formatJlptLevel(body.jlpt_level);
+          jlptPill.className = "pill-jlpt badge jlpt-badge kn-tag kn-jlpt";
+          jlptPill.textContent = formatJlptLevel(activeJlpt);
           header.append(jlptPill);
         }
 
@@ -2344,6 +2472,9 @@ async function identify(text) {
     // Populate prominent hero elements
     expression.textContent = body.expression || "—";
     reading.textContent = body.reading || "";
+    if (body.jlpt_level) {
+      currentJlptLevel = body.jlpt_level;
+    }
     renderDetails(body);
 
     // Populate Card Editor form
@@ -2436,6 +2567,14 @@ async function identify(text) {
       }
     } else {
       setStatus(body.dictionary_error || "Capture identified.", Boolean(body.dictionary_error));
+    }
+
+    // Immediately trigger Card Preview update so hovered term and JLPT badge appear instantly!
+    if (typeof updateCardPreview === "function") {
+      updateCardPreview();
+    }
+    if (typeof scheduleCardPreviewUpdate === "function") {
+      scheduleCardPreviewUpdate();
     }
   } catch (error) {
     if (requestId !== currentCaptureId) return;
@@ -2871,6 +3010,7 @@ if (cardEditor) {
       deinflected_text: fieldDeinflectedText ? fieldDeinflectedText.value.trim() : "",
       entries: Array.isArray(currentDictionaryEntries) ? currentDictionaryEntries : [],
       kanji_entries: Array.isArray(currentKanjiEntries) ? currentKanjiEntries : [],
+      jlpt_level: typeof currentJlptLevel !== "undefined" ? currentJlptLevel : null,
       card_settings: (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
     };
 
@@ -3448,6 +3588,7 @@ async function openSavedCard(cardId) {
         });
       } else {
         clearDictionaryView();
+        currentJlptLevel = body.jlpt_level || null;
       }
 
       if (saveBadge) {

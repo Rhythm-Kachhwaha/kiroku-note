@@ -445,6 +445,9 @@ class AnkiConnectService:
                         example_reading = eg_rd
                         break
 
+        # Extract JLPT level from card if present
+        jlpt_level = card.get("jlpt_level") if isinstance(card, dict) else getattr(card, "jlpt_level", None)
+
         # Media values sanitized for Anki
         raw_img = (card.get("image") or "").strip()
         raw_aud = (card.get("audio") or "").strip()
@@ -479,6 +482,7 @@ class AnkiConnectService:
 
             show_reading_back = bool(back_cfg.get("show_reading", True))
             show_meaning_back = bool(back_cfg.get("show_meaning", True))
+            show_jlpt = bool(settings.get("show_jlpt", True))
 
             # Front: Japanese expression is base. Optional reading, kanji reading, meaning
             front_elements = [escaped_expr]
@@ -543,8 +547,10 @@ class AnkiConnectService:
                 image=img_for_back,
                 audio=aud_for_back,
                 pitches=pitches,
+                jlpt_level=jlpt_level,
                 show_reading=show_reading_back,
                 show_meaning=show_meaning_back,
+                show_jlpt=show_jlpt,
             )
 
             # Assign to dedicated media fields if present

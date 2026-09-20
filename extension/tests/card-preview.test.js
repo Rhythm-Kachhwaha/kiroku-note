@@ -579,4 +579,34 @@ assert.equal(vocabMeanDiv[0].textContent, "to eat");
 
 console.log("PASS 14: Multi-kanji vocabulary Live Preview correctly reflects edited card fields.");
 
+// Test 15: JLPT Level badge rendering in back preview
+const jlptCardData = {
+  expression: "食べる",
+  reading: "たべる",
+  meaning: "to eat",
+  jlpt_level: "N5",
+  template_settings: {
+    back: { show_reading: true, show_meaning: true },
+    show_jlpt: true,
+  },
+};
+renderCardPreviewDOM(mockCardPreviewCard, jlptCardData, "back");
+const jlptBadges = findAll(mockCardPreviewCard, c => c.className && c.className.includes("kn-jlpt"));
+assert.equal(jlptBadges.length, 1, "JLPT badge must be rendered when show_jlpt is true");
+assert.equal(jlptBadges[0].textContent, "JLPT N5", "JLPT badge text must be 'JLPT N5'");
+
+// Test 15b: JLPT Level badge omitted when show_jlpt is false
+const jlptDisabledData = {
+  ...jlptCardData,
+  template_settings: {
+    back: { show_reading: true, show_meaning: true },
+    show_jlpt: false,
+  },
+};
+renderCardPreviewDOM(mockCardPreviewCard, jlptDisabledData, "back");
+const disabledBadges = findAll(mockCardPreviewCard, c => c.className && c.className.includes("kn-jlpt"));
+assert.equal(disabledBadges.length, 0, "JLPT badge must be omitted when show_jlpt is false");
+
+console.log("PASS 15: JLPT level badge in Card Preview verified for enabled and disabled states.");
+
 console.log("\n>>> ALL STAGE 5.4 CARD PREVIEW TESTS PASSED SUCCESSFULLY! <<<\n");

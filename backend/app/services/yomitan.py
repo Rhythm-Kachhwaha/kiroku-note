@@ -118,10 +118,19 @@ class EnrichedTerm:
     jlpt_level: str | None = None
     kanji_entries: list[KanjiEntry] = field(default_factory=list)
 
+from app.services.jlpt_reference import JlptReferenceService
+
+
 class YomitanService:
-    def __init__(self, endpoint: str | None = None, timeout_seconds: float = 3.0):
+    def __init__(
+        self,
+        endpoint: str | None = None,
+        timeout_seconds: float = 3.0,
+        jlpt_reference_service: JlptReferenceService | None = None,
+    ):
         self._endpoint = (endpoint or os.getenv("YOMITAN_ENDPOINT") or DEFAULT_YOMITAN_ENDPOINT).rstrip("/")
         self._timeout_seconds = timeout_seconds
+        self._jlpt_reference = jlpt_reference_service or JlptReferenceService()
 
     def identify(self, text: str) -> IdentifiedTerm:
         return self.normalize_tokenize_response(self._post_json("/tokenize", {"text": text, "scanLength": 16, "parser": "scanning-parser"}), text)
@@ -148,6 +157,44 @@ class YomitanService:
             except Exception:
                 pass
 
+        # Enrich kanji entries with modern JLPT level from tags or JlptReferenceService fallback
+        if kanji_entries:
+            updated_kanji: list[KanjiEntry] = []
+            for k in kanji_entries:
+                modern_k_jlpt = None
+                for tag in k.tags:
+                    t = str(tag).strip()
+                    if m := re.match(r"^jlpt-n([1-5])$", t, re.IGNORECASE):
+                        modern_k_jlpt = f"N{m.group(1)}"
+                        break
+                    if m := re.match(r"^n([1-5])$", t, re.IGNORECASE):
+                        modern_k_jlpt = f"N{m.group(1)}"
+                        break
+
+                if not modern_k_jlpt and self._jlpt_reference:
+                    modern_k_jlpt = self._jlpt_reference.lookup_kanji(k.character)
+
+                k_stats = dict(k.stats)
+                if modern_k_jlpt:
+                    k_stats["jlpt"] = modern_k_jlpt
+                elif "jlpt" in k_stats and not str(k_stats["jlpt"]).strip().upper().startswith("N"):
+                    # Remove reliance on KANJIDIC deprecated 1-4 scale
+                    del k_stats["jlpt"]
+
+                updated_kanji.append(KanjiEntry(
+                    character=k.character,
+                    dictionary=k.dictionary,
+                    onyomi=k.onyomi,
+                    kunyomi=k.kunyomi,
+                    nanori=k.nanori,
+                    meanings=k.meanings,
+                    tags=k.tags,
+                    stats=k_stats,
+                    dictionary_alias=k.dictionary_alias,
+                    frequencies=k.frequencies,
+                ))
+            kanji_entries = updated_kanji
+
         has_usable_terms = any(s.glosses for entry in entries for s in entry.senses)
         has_usable_kanji = any(k.meanings or k.onyomi or k.kunyomi for k in kanji_entries)
 
@@ -158,7 +205,7 @@ class YomitanService:
         else:
             error = "Dictionary returned no usable definitions."
 
-        # Resolve modern JLPT level from entry tags if available
+        # Priority 1: Resolve modern JLPT level from dictionary entry tags if available
         jlpt_level = None
         for entry in entries:
             for tag in entry.tags:
@@ -171,6 +218,10 @@ class YomitanService:
                     break
             if jlpt_level:
                 break
+
+        # Priority 2: Fallback to bundled OpenJLPT reference service lookup
+        if not jlpt_level and self._jlpt_reference:
+            jlpt_level = self._jlpt_reference.lookup_word(term.expression)
 
         return EnrichedTerm(
             expression=term.expression,

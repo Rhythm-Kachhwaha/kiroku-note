@@ -708,3 +708,45 @@ New major features should generally be deferred unless they are necessary for th
   - Extension test suite: **73/73 passed** (`node --test extension/tests/*.test.js`).
   - Backend test suite: **353/353 passed** (`python -m pytest -o pythonpath=backend backend/tests`).
   - End-to-end setting matrix verified: All combinations of Front (expression only, +reading, +kanji reading, +meaning, all enabled) and Back (+reading, +meaning, suppress reading, suppress meaning, suppress both) tested for exact output parity between Anki Basic model mapping and Kiroku Preview.
+
+### Phase 7.10 Modern JLPT (N5–N1) Feature & Deprecated Old Scale Removal
+- **Status Summary:**
+  - ✅ **OpenJLPT SQLite Bundled Reference (`backend/app/data/jlpt_reference.sqlite`):**
+    - Bundled pre-indexed OpenJLPT SQLite database (8,334 vocabulary entries, 2,211 kanji entries).
+    - Added open-source attribution notice at `backend/app/data/JLPT_REFERENCE_NOTICE.md` under CC BY-SA 4.0.
+    - Zero external pip/npm dependencies added; queried using Python standard library `sqlite3` via read-only URI mode.
+  - ✅ **JlptReferenceService & Yomitan Fallback (`backend/app/services/jlpt_reference.py`, `backend/app/services/yomitan.py`):**
+    - Implemented `JlptReferenceService` with fast indexed lookup (`lookup_word` and `lookup_kanji`) and fail-soft error handling.
+    - Preserved Yomitan dictionary tags as first priority (`jlpt-n[1-5]`, `n[1-5]`). When absent, seamlessly falls back to `JlptReferenceService`.
+  - ✅ **Removal of Deprecated "Old JLPT 1–4" Scale:**
+    - Completely removed the pre-2010 4-level scale ("Old JLPT 1-4") from `anki_formatter.py` and `sidepanel.js`.
+    - Modern N5–N1 level is now the sole standard across the entire application.
+  - ✅ **Prominent JLPT Badge in Card Preview & Synced Anki Card (`sidepanel.js`, `sidepanel.css`, `anki_formatter.py`):**
+    - Added prominent `.kn-tag.kn-jlpt` badge rendered directly in `.kn-reading` beside kana reading and pitch accent in both Card Preview and synced Anki cards.
+    - Elevated visual weight: bold 700 font weight, 0.82em, subtle cobalt/blue border and background matching design tokens (`var(--accent-jlpt)`).
+  - ✅ **Card Template Settings Toggle (`sidepanel.html`, `sidepanel.js`):**
+    - Integrated "Show JLPT level" toggle into the existing `#layout-settings-popover` (`#setting-show-jlpt`).
+    - Enabled by default (`show_jlpt: true`), persisting locally via `chrome.storage.local` with `localStorage` fallback.
+    - When disabled, cleanly suppresses the JLPT badge from Card Preview and generated Anki card HTML.
+- **Verification Results:**
+  - Backend test suite: **360/360 passed** (`python -m pytest tests` in `backend/`).
+  - Extension test suite: **73/73 passed** (`node --test extension/tests/*.test.js`).
+  - Unit tests added: `test_jlpt_reference.py`, `test_18_jlpt_historical_vs_modern` updated, `test_21_format_basic_back_jlpt` added, `test_11_map_card_to_fields_jlpt_level_and_toggle` added, and `test 15` in `card-preview.test.js`.
+  - Visual verification: Captured screenshots covering Card Preview enabled/disabled, synced Anki card output, and settings popover in both enabled/disabled states.
+ 
++### Phase 7.10.1 Immediate Hover JLPT Visibility in Card Preview & Dictionary Header
++- **Status Summary:**
++  - ✅ **Automatic Card Preview Update on Word Hover / Identification (`extension/sidepanel/sidepanel.js`):**
++    - Resolved issue where hovering or capturing text programmatically updated input fields but did not fire DOM input events, leaving the Card Preview blank.
++    - Added explicit calls to `updateCardPreview()` and `scheduleCardPreviewUpdate()` inside `identify()` immediately following draft population.
++    - In `getCardPreviewData()`, added robust fallback resolution for `jlpt_level` from `currentDictionaryEntries` tags and `currentKanjiEntries` tags.
++  - ✅ **Prominent Dictionary Section Header Badge (`extension/sidepanel/sidepanel.html`, `sidepanel.css`, `sidepanel.js`):**
++    - Added `#dict-jlpt-badge` directly into the Dictionary section title row (`.dict-title-row`) beside `DICTIONARY`.
++    - Displays the JLPT level (e.g. `JLPT N5`) prominently at the top of the dictionary section the moment a word is hovered, without requiring the user to scroll through definitions.
++    - Enhanced `.pill-jlpt` styling on dictionary entries with bold font weight, 11px size, and `var(--accent-jlpt)` cobalt badge styling.
++    - If Yomitan returns 0 definitions or is disconnected, but a JLPT level is resolved from the offline reference, renders a clean banner in `#dict-empty-notice` displaying the JLPT badge.
++- **Verification Results:**
++  - Extension test suite: **73/73 passed** (`node --test extension/tests/*.test.js`).
++  - Backend test suite: **360/360 passed** (`python -m pytest tests` in `backend/`).
++  - Visual verification screenshot captured (`shot_hover_views.png`) confirming prominent JLPT badge display in both Dictionary View header and Card Preview on hover.
+

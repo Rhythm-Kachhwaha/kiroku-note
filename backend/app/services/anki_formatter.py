@@ -347,6 +347,7 @@ def format_kanji_html(
     kanji_entries: list[Any] | None,
     *,
     is_isolated: bool = False,
+    show_jlpt: bool = True,
 ) -> str:
     """Format structured kanji entries into clean Anki card HTML.
     
@@ -393,14 +394,13 @@ def format_kanji_html(
                     modern_jlpt = f"N{m.group(1)}"
                     break
             
-            if modern_jlpt:
-                header_parts.append(f'    <span class="kn-tag kn-jlpt">JLPT {escape_html(modern_jlpt)}</span>')
-            elif jlpt_raw := stats.get("jlpt"):
+            if not modern_jlpt and (jlpt_raw := stats.get("jlpt")):
                 jlpt_str = str(jlpt_raw).strip()
                 if jlpt_str.upper().startswith("N"):
-                    header_parts.append(f'    <span class="kn-tag kn-jlpt">JLPT {escape_html(jlpt_str.upper())}</span>')
-                elif re.match(r"^[1-4]$", jlpt_str):
-                    header_parts.append(f'    <span class="kn-tag">Old JLPT {escape_html(jlpt_str)}</span>')
+                    modern_jlpt = jlpt_str.upper()
+
+            if show_jlpt and modern_jlpt:
+                header_parts.append(f'    <span class="kn-tag kn-jlpt">JLPT {escape_html(modern_jlpt)}</span>')
             
             if freq := stats.get("freq"):
                 header_parts.append(f'    <span class="kn-tag">Freq #{escape_html(str(freq))}</span>')
@@ -573,20 +573,30 @@ body.night_mode .kn-card {
 }
 .kn-card .kn-tag.kn-jlpt,
 .kn-tag.kn-jlpt {
-  background: rgba(122, 162, 247, 0.15);
-  color: #3b82f6;
+  font-size: 0.82em;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  letter-spacing: 0.03em;
+  display: inline-block;
+  vertical-align: middle;
 }
 .nightMode .kn-card .kn-tag.kn-jlpt,
 .night_mode .kn-card .kn-tag.kn-jlpt,
 body.nightMode .kn-card .kn-tag.kn-jlpt,
 body.night_mode .kn-card .kn-tag.kn-jlpt {
-  background: rgba(122, 162, 247, 0.2);
-  color: #7aa2f7;
+  background: rgba(122, 162, 247, 0.25);
+  color: #93c5fd;
+  border: 1px solid rgba(122, 162, 247, 0.45);
 }
 @media (prefers-color-scheme: dark) {
   .kn-card .kn-tag.kn-jlpt {
-    background: rgba(122, 162, 247, 0.2);
-    color: #7aa2f7;
+    background: rgba(122, 162, 247, 0.25);
+    color: #93c5fd;
+    border: 1px solid rgba(122, 162, 247, 0.45);
   }
 }
 .kn-card .kn-kanji-card,
@@ -754,8 +764,10 @@ def format_basic_back(
     image: str | None = None,
     audio: str | None = None,
     pitches: list[Any] | None = None,
+    jlpt_level: str | None = None,
     show_reading: bool = True,
     show_meaning: bool = True,
+    show_jlpt: bool = True,
 ) -> str:
     """Construct a clean, structured, learner-focused Back field for Anki Basic cards.
 
@@ -765,6 +777,7 @@ def format_basic_back(
     c_expr = str(expression if expression else (_get_field(card, "expression") or "")).strip()
     c_reading = str(reading if reading else (_get_field(card, "reading") or "")).strip()
     c_meaning = str(meaning if meaning else (_get_field(card, "meaning") or "")).strip()
+    c_jlpt = str(jlpt_level if jlpt_level else (_get_field(card, "jlpt_level") or "")).strip()
     c_entries = entries if entries is not None else _get_field(card, "entries")
     c_kanji_entries = kanji_entries if kanji_entries is not None else _get_field(card, "kanji_entries")
     c_ex_sentence = str(example_sentence if example_sentence else (_get_field(card, "example_sentence") or "")).strip()
@@ -814,11 +827,14 @@ def format_basic_back(
     # Build sections
     sections: list[str] = []
 
-    # Header: Reading & Pitch (respected via show_reading)
-    if show_reading and (c_reading or pitch_badge):
+    # Header: Reading, JLPT & Pitch (respected via show_reading and show_jlpt)
+    if show_reading and (c_reading or pitch_badge or (show_jlpt and c_jlpt)):
         reading_parts = ['<div class="kn-reading">']
         if c_reading:
             reading_parts.append(f'  <span class="kn-kana">{escape_html(c_reading)}</span>')
+        if show_jlpt and c_jlpt:
+            jlpt_badge_text = c_jlpt if c_jlpt.upper().startswith("JLPT") else f"JLPT {c_jlpt}"
+            reading_parts.append(f'  <span class="kn-tag kn-jlpt">{escape_html(jlpt_badge_text)}</span>')
         if pitch_badge:
             reading_parts.append(f'  <span class="kn-pitch">{escape_html(pitch_badge)}</span>')
         reading_parts.append('</div>')
@@ -830,7 +846,7 @@ def format_basic_back(
 
     if is_isolated_kanji:
         # Isolated kanji: render kanji card prominently at the top
-        kanji_html = format_kanji_html(c_kanji_entries, is_isolated=True)
+        kanji_html = format_kanji_html(c_kanji_entries, is_isolated=True, show_jlpt=show_jlpt)
         if kanji_html:
             sections.append(kanji_html)
 
@@ -853,7 +869,7 @@ def format_basic_back(
 
         # If kanji entries exist, render compact kanji card below vocabulary senses
         if c_kanji_entries and isinstance(c_kanji_entries, list):
-            kanji_html = format_kanji_html(c_kanji_entries, is_isolated=False)
+            kanji_html = format_kanji_html(c_kanji_entries, is_isolated=False, show_jlpt=show_jlpt)
             if kanji_html:
                 sections.append(kanji_html)
 

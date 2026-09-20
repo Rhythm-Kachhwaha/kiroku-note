@@ -457,7 +457,7 @@ class TestAnkiFormatter(unittest.TestCase):
     # 18. JLPT: Historical KANJIDIC level vs Modern JLPT tags
     def test_18_jlpt_historical_vs_modern(self):
         from app.services.anki_formatter import format_kanji_html
-        # Case A: Old KANJIDIC numeric 1-4 scale
+        # Case A: Historical numeric 1-4 scale from KANJIDIC is deprecated and suppressed
         old_jlpt_data = [
             {
                 "character": "合",
@@ -467,7 +467,8 @@ class TestAnkiFormatter(unittest.TestCase):
             }
         ]
         old_out = format_kanji_html(old_jlpt_data)
-        self.assertIn('<span class="kn-tag">Old JLPT 4</span>', old_out)
+        self.assertNotIn("Old JLPT", old_out)
+        self.assertNotIn("Old JLPT 4", old_out)
         self.assertNotIn("JLPT N4", old_out)
 
         # Case B: Modern JLPT tag
@@ -551,6 +552,24 @@ class TestAnkiFormatter(unittest.TestCase):
         self.assertLess(pos_pos, kanji_pos, "Vocabulary senses must appear before kanji block for multi-kanji cards")
         self.assertIn('<span class="kn-onyomi">ショク, ジキ</span>', back_html)
         self.assertIn('<span class="kn-kunyomi">た(べる), く(う)</span>', back_html)
+
+    # 21. format_basic_back with JLPT level and show_jlpt toggle
+    def test_21_format_basic_back_jlpt(self):
+        card = {
+            "expression": "食べる",
+            "reading": "たべる",
+            "meaning": "to eat",
+        }
+        # With JLPT level and show_jlpt=True (default)
+        html_with_jlpt = format_basic_back(card, jlpt_level="N5", show_jlpt=True)
+        self.assertIn('<span class="kn-tag kn-jlpt">JLPT N5</span>', html_with_jlpt)
+        self.assertIn('<span class="kn-kana">たべる</span>', html_with_jlpt)
+
+        # With JLPT level and show_jlpt=False
+        html_without_jlpt = format_basic_back(card, jlpt_level="N5", show_jlpt=False)
+        self.assertNotIn('<span class="kn-tag kn-jlpt">', html_without_jlpt)
+        self.assertNotIn('JLPT N5', html_without_jlpt)
+        self.assertIn('<span class="kn-kana">たべる</span>', html_without_jlpt)
 
 
 if __name__ == "__main__":

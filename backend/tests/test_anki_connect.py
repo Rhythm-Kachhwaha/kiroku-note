@@ -1020,3 +1020,26 @@ class TestStage5MediaDeduplication:
         assert "inu.wav" not in fields["Back"]
         assert '<div class="kn-media">' not in fields["Back"]
 
+    # 11. JLPT Level badge rendering and show_jlpt toggle on Back
+    def test_11_map_card_to_fields_jlpt_level_and_toggle(self):
+        card_data_with_jlpt = {
+            "expression": "食べる",
+            "reading": "たべる",
+            "meaning": "to eat",
+            "jlpt_level": "N5",
+            "card_settings": {"show_jlpt": True},
+        }
+        fields_enabled = self.service.map_card_to_fields(card_data_with_jlpt, ["Front", "Back"])
+        assert '<span class="kn-tag kn-jlpt">JLPT N5</span>' in fields_enabled["Back"]
+
+        card_data_disabled = {
+            "expression": "食べる",
+            "reading": "たべる",
+            "meaning": "to eat",
+            "jlpt_level": "N5",
+            "card_settings": {"show_jlpt": False},
+        }
+        fields_disabled = self.service.map_card_to_fields(card_data_disabled, ["Front", "Back"])
+        assert '<span class="kn-tag kn-jlpt">' not in fields_disabled["Back"]
+        assert "JLPT N5" not in fields_disabled["Back"]
+

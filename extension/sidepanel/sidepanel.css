@@ -1616,15 +1616,32 @@ img[hidden] {
   border-radius: var(--radius-sm);
 }
 
+.dict-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dict-header-jlpt-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
 .pill-jlpt {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
   color: var(--accent-jlpt);
   background: var(--accent-jlpt-dim);
   border: 1px solid var(--accent-jlpt-border);
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: var(--radius-sm);
+  letter-spacing: 0.03em;
+  display: inline-flex;
+  align-items: center;
 }
 
 .pill-freq {
@@ -2718,6 +2735,14 @@ rt {
 .kn-tag.kn-jlpt {
   background: var(--accent-jlpt-dim);
   color: var(--accent-jlpt);
+  font-size: 0.82em;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--accent-jlpt-border);
+  letter-spacing: 0.03em;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .kn-card .kn-kanji-card,

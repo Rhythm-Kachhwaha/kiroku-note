@@ -289,7 +289,7 @@ console.log("PASS: sidepanel.js loaded in test context.");
   assert.ok(statBadges.some(b => b.textContent.includes("6 strokes")), "Strokes stat rendered");
   assert.ok(statBadges.some(b => b.textContent.includes("JLPT N4")), "Modern JLPT stat rendered from tags");
 
-  // Verify historical KANJIDIC level 4 renders as 'Old JLPT 4' when modern tags absent
+  // Verify historical KANJIDIC level 4 is deprecated and NOT rendered as Old JLPT
   const oldKanjiSample = {
     character: "合",
     dictionary: "KANJIDIC",
@@ -297,7 +297,7 @@ console.log("PASS: sidepanel.js loaded in test context.");
   };
   const oldCard = renderKanjiCard(oldKanjiSample, false);
   const oldBadges = findAllByClass(oldCard, "kanji-stat-badge");
-  assert.ok(oldBadges.some(b => b.textContent === "Old JLPT 4"), "Historical KANJIDIC level 4 must be rendered as Old JLPT 4");
+  assert.ok(!oldBadges.some(b => b.textContent.includes("Old JLPT")), "Historical KANJIDIC level 4 must NOT be rendered as Old JLPT");
   assert.ok(!oldBadges.some(b => b.textContent === "JLPT N4"), "Must NOT render old JLPT 4 as modern JLPT N4");
 
   // Test reading pill click

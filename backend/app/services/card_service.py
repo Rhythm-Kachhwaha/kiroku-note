@@ -454,6 +454,27 @@ class CardService:
                     clean_audio_file = clean_aud
 
             # 3. Add note to Anki
+            card_jlpt = None
+            if card.entries:
+                for entry in card.entries:
+                    e_tags = entry.get("tags") if isinstance(entry, dict) else getattr(entry, "tags", [])
+                    for tag in e_tags or []:
+                        t = str(tag).strip()
+                        if m := re.match(r"^jlpt-n([1-5])$", t, re.IGNORECASE):
+                            card_jlpt = f"N{m.group(1)}"
+                            break
+                        if m := re.match(r"^n([1-5])$", t, re.IGNORECASE):
+                            card_jlpt = f"N{m.group(1)}"
+                            break
+                    if card_jlpt:
+                        break
+            if not card_jlpt and card.expression:
+                try:
+                    from app.services.jlpt_reference import JlptReferenceService
+                    card_jlpt = JlptReferenceService().lookup_word(card.expression)
+                except Exception:
+                    pass
+
             card_data = {
                 "expression": card.expression,
                 "reading": card.reading,
@@ -469,6 +490,7 @@ class CardService:
                 "examples": card.examples,
                 "kanji_entries": card.kanji_entries,
                 "card_settings": card.card_settings,
+                "jlpt_level": card_jlpt,
             }
             tags_list = [t.strip() for t in card.tags.split(",") if t.strip()] if card.tags else []
 
