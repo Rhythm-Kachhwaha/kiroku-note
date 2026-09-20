@@ -53,6 +53,16 @@ class FrequencyRank(BaseModel):
 FrequencyRankSchema = FrequencyRank
 
 
+class CrossReference(BaseModel):
+    target_term: str
+    display_text: str
+    target_reading: Optional[str] = None
+    target_sense_index: Optional[int] = None
+
+
+CrossReferenceSchema = CrossReference
+
+
 class Sense(BaseModel):
     index: int = 1
     glosses: list[str] = Field(default_factory=list)
@@ -61,6 +71,7 @@ class Sense(BaseModel):
     examples: list[Example] = Field(default_factory=list)
     parts_of_speech: list[str] = Field(default_factory=list)
     field_tags: list[str] = Field(default_factory=list)
+    cross_references: list[CrossReference] = Field(default_factory=list)
 
 
 DictionarySense = Sense

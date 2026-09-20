@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 import json, os, re
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import parse_qs, urlparse
 from urllib.request import Request, urlopen
 
 DEFAULT_YOMITAN_ENDPOINT = "http://127.0.0.1:19633"
@@ -52,6 +53,14 @@ class FrequencyRank:
 
 
 @dataclass(frozen=True)
+class CrossReference:
+    target_term: str
+    display_text: str
+    target_reading: str | None = None
+    target_sense_index: int | None = None
+
+
+@dataclass(frozen=True)
 class DictionarySense:
     glosses: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
@@ -59,6 +68,7 @@ class DictionarySense:
     examples: list[ExampleSentence] = field(default_factory=list)
     parts_of_speech: list[str] = field(default_factory=list)
     field_tags: list[str] = field(default_factory=list)
+    cross_references: list[CrossReference] = field(default_factory=list)
     index: int = 1
 
 
@@ -481,8 +491,14 @@ class YomitanService:
             if text := YomitanService._plain_text(content):
                 glosses.append(text)
 
-        for marker in ("note", "sense-note", "see-also", "reference", "xref"):
+        for marker in ("note", "sense-note"):
             notes.extend(YomitanService._marked_texts(content, marker, contains=True))
+
+        cross_references: list[CrossReference] = []
+        for raw_xref in YomitanService._find_outer_marked(content, ("see-also", "reference", "xref")):
+            xref_obj = YomitanService._extract_cross_reference(raw_xref)
+            if xref_obj:
+                cross_references.append(xref_obj)
 
         for raw in YomitanService._find_marked(content, "example-sentence", contains=True):
             ex_content = raw.get("content")
@@ -508,6 +524,7 @@ class YomitanService:
             examples=YomitanService._unique_examples(examples),
             parts_of_speech=YomitanService._unique(pos),
             field_tags=YomitanService._unique(field_tags),
+            cross_references=YomitanService._unique_cross_references(cross_references),
             index=sense_index,
         )
 
@@ -604,6 +621,102 @@ class YomitanService:
                 seen.add(key)
                 unique.append(item)
         return unique
+
+    @staticmethod
+    def _unique_cross_references(values: list[CrossReference]) -> list[CrossReference]:
+        seen = set()
+        unique = []
+        for item in values:
+            key = (item.target_term, item.target_reading, item.display_text)
+            if key not in seen:
+                seen.add(key)
+                unique.append(item)
+        return unique
+
+    @staticmethod
+    def _find_by_tag(value: Any, tag_name: str, depth: int = 0) -> list[dict[str, Any]]:
+        if depth > YomitanService.MAX_AST_DEPTH:
+            return []
+        found: list[dict[str, Any]] = []
+        if isinstance(value, list):
+            for item in value:
+                found.extend(YomitanService._find_by_tag(item, tag_name, depth + 1))
+        elif isinstance(value, dict):
+            if value.get("tag") == tag_name:
+                found.append(value)
+            found.extend(YomitanService._find_by_tag(value.get("content"), tag_name, depth + 1))
+        return found
+
+    @staticmethod
+    def _find_outer_marked(
+        value: Any,
+        markers: tuple[str, ...],
+        contains: bool = True,
+        depth: int = 0,
+    ) -> list[dict[str, Any]]:
+        if depth > YomitanService.MAX_AST_DEPTH:
+            return []
+        found: list[dict[str, Any]] = []
+        if isinstance(value, list):
+            for item in value:
+                found.extend(YomitanService._find_outer_marked(item, markers, contains, depth + 1))
+        elif isinstance(value, dict):
+            current = YomitanService._marker(value)
+            if any((m in current) if contains else (current == m) for m in markers):
+                found.append(value)
+            else:
+                found.extend(YomitanService._find_outer_marked(value.get("content"), markers, contains, depth + 1))
+        return found
+
+    @staticmethod
+    def _extract_cross_reference(node: dict[str, Any]) -> CrossReference | None:
+        a_nodes = YomitanService._find_by_tag(node, "a")
+        target_term = ""
+        target_reading: str | None = None
+
+        if a_nodes:
+            a_node = a_nodes[0]
+            target_term = YomitanService._extract_text(a_node.get("content"), include_rt=False)
+            href = str(a_node.get("href") or "")
+            if href:
+                parsed_qs = parse_qs(urlparse(href).query)
+                if not target_term and parsed_qs.get("query"):
+                    target_term = parsed_qs["query"][0].strip()
+                if parsed_qs.get("primary_reading"):
+                    target_reading = parsed_qs["primary_reading"][0].strip() or None
+
+            if not target_reading:
+                rt_nodes = YomitanService._find_by_tag(a_node, "rt")
+                if rt_nodes:
+                    rt_text = "".join(YomitanService._plain_text(rt.get("content")) for rt in rt_nodes).strip()
+                    if rt_text:
+                        target_reading = rt_text
+
+        label = YomitanService._first_marked_text(node, "reference-label")
+        glossary = YomitanService._first_marked_text(node, "xref-glossary")
+
+        if not target_term:
+            plain = YomitanService._plain_text(node)
+            if not plain:
+                return None
+            target_term = plain
+
+        parts: list[str] = []
+        if label:
+            parts.append(label)
+        if target_term:
+            parts.append(target_term)
+        if glossary:
+            parts.append(glossary)
+
+        display_text = " ".join(parts).strip() or target_term
+
+        return CrossReference(
+            target_term=target_term,
+            display_text=display_text,
+            target_reading=target_reading,
+            target_sense_index=None,
+        )
 
     @staticmethod
     def normalize_kanji_entries_response(payload: Any) -> list[KanjiEntry]:

@@ -638,5 +638,44 @@ class TestDictionarySchemas(unittest.TestCase):
         self.assertIsNone(cap.jlpt_level)
 
 
+class TestCrossReferenceModelParity(unittest.TestCase):
+    """Verify 100% field parity and serialization between domain and schema CrossReference."""
+
+    def test_cross_reference_domain_and_schema_parity(self):
+        from app.schemas import CrossReference as CrossReferenceSchema
+        from app.services.yomitan import CrossReference as CrossReferenceDomain
+
+        domain_xref = CrossReferenceDomain(
+            target_term="衝",
+            display_text="See also 衝 ③ opposition",
+            target_reading="しょう",
+            target_sense_index=None,
+        )
+
+        # asdict must produce clean dict matching schema fields
+        serialized = asdict(domain_xref)
+        self.assertEqual(
+            serialized,
+            {
+                "target_term": "衝",
+                "display_text": "See also 衝 ③ opposition",
+                "target_reading": "しょう",
+                "target_sense_index": None,
+            },
+        )
+
+        # Pydantic schema must ingest serialized domain model without error
+        schema_xref = CrossReferenceSchema(**serialized)
+        self.assertEqual(schema_xref.target_term, domain_xref.target_term)
+        self.assertEqual(schema_xref.display_text, domain_xref.display_text)
+        self.assertEqual(schema_xref.target_reading, domain_xref.target_reading)
+        self.assertEqual(schema_xref.target_sense_index, domain_xref.target_sense_index)
+
+        # Verify field names match exactly to prevent model drift
+        domain_fields = set(CrossReferenceDomain.__dataclass_fields__.keys())
+        schema_fields = set(CrossReferenceSchema.model_fields.keys())
+        self.assertEqual(domain_fields, schema_fields)
+
+
 if __name__ == "__main__":
     unittest.main()
