@@ -240,7 +240,7 @@ assert.equal(mockCardPreviewCard.children.length, 1);
 assert.equal(mockCardPreviewCard.children[0].className, "card-preview-empty");
 console.log("PASS 3: Empty card displays placeholder message.");
 
-// Test 2: Front side preview rendering (Default: expression only, NO bracketed reading)
+// Test 2: Front side preview rendering (Default: expression only, NO bracketed reading, hint hidden by default)
 const frontData = {
   expression: "食べる",
   reading: "たべる",
@@ -250,10 +250,18 @@ renderCardPreviewDOM(mockCardPreviewCard, frontData, "front");
 const exprEl = mockCardPreviewCard.children.find(c => c.className === "kn-front-expression");
 assert.ok(exprEl, "Front expression element must exist");
 assert.equal(exprEl.textContent, "食べる");
+const defaultHintEl = mockCardPreviewCard.children.find(c => c.className === "kn-hint");
+assert.equal(defaultHintEl, undefined, "Front hint element must be hidden by default (show_hint: false)");
+
+// When front.show_hint is enabled:
+renderCardPreviewDOM(mockCardPreviewCard, {
+  ...frontData,
+  template_settings: { front: { show_hint: true } }
+}, "front");
 const hintEl = mockCardPreviewCard.children.find(c => c.className === "kn-hint");
-assert.ok(hintEl, "Front hint element must exist");
+assert.ok(hintEl, "Front hint element must exist when show_hint is true");
 assert.equal(hintEl.textContent, "Hint: 1-dan verb");
-console.log("PASS 4: Front preview displays expression without bracketed reading by default.");
+console.log("PASS 4: Front preview displays expression without bracketed reading and hint hidden by default.");
 
 // Test 2b: Front side preview with show_reading enabled
 renderCardPreviewDOM(mockCardPreviewCard, {

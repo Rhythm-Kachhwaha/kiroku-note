@@ -768,6 +768,7 @@ def format_basic_back(
     show_reading: bool = True,
     show_meaning: bool = True,
     show_jlpt: bool = True,
+    show_hint: bool = True,
 ) -> str:
     """Construct a clean, structured, learner-focused Back field for Anki Basic cards.
 
@@ -883,7 +884,7 @@ def format_basic_back(
         sections.append(example_html)
 
     # Hint & Notes
-    if c_hint:
+    if show_hint and c_hint:
         sections.append(f'<div class="kn-hint">Hint: {escape_html(c_hint)}</div>')
     if c_notes:
         sections.append(f'<div class="kn-notes">Notes: {escape_html(c_notes)}</div>')

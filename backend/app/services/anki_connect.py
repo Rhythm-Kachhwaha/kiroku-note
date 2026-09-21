@@ -479,12 +479,14 @@ class AnkiConnectService:
             show_reading_front = bool(front_cfg.get("show_reading", False))
             show_meaning_front = bool(front_cfg.get("show_meaning", False))
             show_kanji_reading_front = bool(front_cfg.get("show_kanji_reading", False))
+            show_hint_front = bool(front_cfg.get("show_hint", False))
 
             show_reading_back = bool(back_cfg.get("show_reading", True))
             show_meaning_back = bool(back_cfg.get("show_meaning", True))
+            show_hint_back = bool(back_cfg.get("show_hint", True))
             show_jlpt = bool(settings.get("show_jlpt", True))
 
-            # Front: Japanese expression is base. Optional reading, kanji reading, meaning
+            # Front: Japanese expression is base. Optional reading, kanji reading, meaning, hint
             front_elements = [escaped_expr]
             if show_reading_front and reading:
                 front_elements.append(f'<div class="kn-front-reading">{escaped_reading}</div>')
@@ -504,6 +506,8 @@ class AnkiConnectService:
                     front_elements.append(f'<div class="kn-front-kanji-reading">{"<br>".join(kanji_readings)}</div>')
             if show_meaning_front and formatted_meaning:
                 front_elements.append(f'<div class="kn-front-meaning">{formatted_meaning}</div>')
+            if show_hint_front and hint:
+                front_elements.append(f'<div class="kn-hint">Hint: {escaped_hint}</div>')
 
             if len(front_elements) > 1:
                 field_map[front_field] = f'<div class="kn-front-expression">{escaped_expr}</div>\n' + "\n".join(front_elements[1:])
@@ -551,6 +555,7 @@ class AnkiConnectService:
                 show_reading=show_reading_back,
                 show_meaning=show_meaning_back,
                 show_jlpt=show_jlpt,
+                show_hint=show_hint_back,
             )
 
             # Assign to dedicated media fields if present

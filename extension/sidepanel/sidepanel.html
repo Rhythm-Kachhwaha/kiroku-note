@@ -239,6 +239,9 @@
       <div class="section-header card-workspace-header">
         <h2 class="section-title">CARD</h2>
         <div class="card-workspace-toolbar">
+          <button type="button" id="btn-editor-jp-mode" class="btn-editor-jp-mode" title="Toggle Japanese input assistance (Romaji → Kana) for Sentence and Hint fields" aria-pressed="true">
+            <span class="jp-mode-tag">JP</span> <span class="jp-mode-status">Kana</span>
+          </button>
           <button type="button" id="btn-layout-settings" class="btn-layout-settings" title="Card Settings" aria-label="Card Settings" aria-expanded="false" aria-controls="layout-settings-popover">⚙</button>
         </div>
       </div>
@@ -280,6 +283,10 @@
                 <input type="checkbox" id="setting-front-kanji-reading" class="setting-checkbox">
                 <span>Show kanji reading</span>
               </label>
+              <label class="setting-checkbox-label">
+                <input type="checkbox" id="setting-front-hint" class="setting-checkbox">
+                <span>Show hint</span>
+              </label>
             </div>
           </div>
 
@@ -295,6 +302,10 @@
                 <input type="checkbox" id="setting-back-meaning" class="setting-checkbox" checked>
                 <span>Show meaning</span>
               </label>
+              <label class="setting-checkbox-label">
+                <input type="checkbox" id="setting-back-hint" class="setting-checkbox" checked>
+                <span>Show hint</span>
+              </label>
             </div>
           </div>
 
@@ -308,6 +319,17 @@
               </label>
             </div>
             <div class="settings-subtext">Shown by default on preview and cards.</div>
+          </div>
+
+          <!-- Side Panel UI Settings -->
+          <div class="card-settings-group">
+            <span class="settings-group-label">Side Panel</span>
+            <div class="settings-checkboxes">
+              <label class="setting-checkbox-label" title="Show or hide the History section in the Side Panel">
+                <input type="checkbox" id="setting-show-history" class="setting-checkbox" checked>
+                <span>Show History</span>
+              </label>
+            </div>
           </div>
 
           <!-- Section Order Details (Maintains customizable layout capability) -->
@@ -336,29 +358,27 @@
               <button type="button" id="sync-anki-btn" class="btn-sync" disabled>Send to Anki</button>
             </div>
           </div>
-          <div class="sync-status-container">
-            <span id="anki-sync-status" class="sync-status-label">Anki: Not connected</span>
+          <div class="destination-and-status-row">
+            <div id="card-target-destination" class="card-target-destination" title="Current target destination for Anki send">
+              <span class="dest-item"><span class="dest-label">Deck:</span> <strong id="dest-deck-val" class="dest-val">Default</strong></span>
+              <span class="dest-sep">•</span>
+              <span class="dest-item"><span class="dest-label">Note Type:</span> <strong id="dest-model-val" class="dest-val">Basic</strong></span>
+            </div>
+            <div class="sync-status-container">
+              <span id="anki-sync-status" class="sync-status-label">Anki: Not connected</span>
+            </div>
           </div>
+        </div>
+
+        <!-- Floating Candidate Suggestions Popup -->
+        <div id="editor-suggestions-container" class="editor-candidate-popup" hidden>
+          <ul id="editor-suggestions-list" class="editor-candidate-list" role="listbox" aria-label="Candidate suggestions"></ul>
         </div>
 
         <!-- Reorderable Card Layout Container -->
         <div id="card-layout-container" class="card-layout-container">
 
-          <!-- 1. Card Preview Section -->
-          <section id="card-preview-section" class="card-preview-section" data-layout-section="preview" aria-label="Card Preview">
-            <div class="section-header preview-section-header">
-              <h2 class="section-title">CARD PREVIEW</h2>
-              <div class="preview-tabs" role="tablist" aria-label="Card Preview Side">
-                <button type="button" id="preview-tab-front" class="preview-tab-btn" role="tab" aria-selected="false" aria-controls="card-preview-container">Front</button>
-                <button type="button" id="preview-tab-back" class="preview-tab-btn active" role="tab" aria-selected="true" aria-controls="card-preview-container">Back</button>
-              </div>
-            </div>
-            <div id="card-preview-container" class="card-preview-container">
-              <div id="card-preview-card" class="card-preview-card kn-card"></div>
-            </div>
-          </section>
-
-          <!-- 2. Card Fields Section -->
+          <!-- 1. Card Fields Section (First in hierarchy for immediate Word -> Reading -> Meaning focus) -->
           <div id="card-fields-section" class="card-fields-section" data-layout-section="fields">
             <div class="form-row-compact">
               <div class="form-group flex-1">
@@ -372,11 +392,25 @@
               </div>
             </div>
 
-            <div class="form-group">
-              <label for="field-meaning">Meaning</label>
-              <textarea id="field-meaning" name="meaning" rows="2"></textarea>
+            <div class="form-group meaning-form-group">
+              <label for="field-meaning" class="meaning-label">Meaning</label>
+              <textarea id="field-meaning" name="meaning" rows="3" class="meaning-textarea" placeholder="Enter meaning or definition…"></textarea>
             </div>
           </div>
+
+          <!-- 2. Card Preview Section -->
+          <section id="card-preview-section" class="card-preview-section" data-layout-section="preview" aria-label="Card Preview">
+            <div class="section-header preview-section-header">
+              <h2 class="section-title">CARD PREVIEW</h2>
+              <div class="preview-tabs" role="tablist" aria-label="Card Preview Side">
+                <button type="button" id="preview-tab-front" class="preview-tab-btn" role="tab" aria-selected="false" aria-controls="card-preview-container">Front</button>
+                <button type="button" id="preview-tab-back" class="preview-tab-btn active" role="tab" aria-selected="true" aria-controls="card-preview-container">Back</button>
+              </div>
+            </div>
+            <div id="card-preview-container" class="card-preview-container">
+              <div id="card-preview-card" class="card-preview-card kn-card"></div>
+            </div>
+          </section>
 
           <!-- 3. Media Previews Section (Hidden from visible flow per Add-On, pipeline intact) -->
           <details id="media-preview-collapsible" class="media-preview-collapsible" data-layout-section="media" hidden style="display: none !important;">
@@ -514,44 +548,50 @@
     <!-- Mining History & Card Library -->
     <section id="history-section" class="history-section" aria-label="Mining History & Card Library">
       <div class="section-header history-header">
-        <h2 class="section-title">HISTORY</h2>
+        <div class="history-header-left">
+          <button type="button" id="history-collapse-btn" class="history-collapse-btn" title="Expand or collapse history" aria-expanded="false" aria-controls="history-content-container">
+            <span class="history-collapse-arrow" aria-hidden="true">▶</span>
+            <h2 class="section-title history-title">HISTORY</h2>
+          </button>
+        </div>
         <div class="history-header-actions">
           <span id="history-count" class="history-count">0 cards</span>
           <button type="button" id="btn-sync-all" class="btn-sync-all" title="Sync all eligible cards to Anki" aria-label="Sync all eligible cards to Anki">Sync All</button>
         </div>
       </div>
 
-      <div id="sync-all-status" class="sync-all-status" role="status" aria-live="polite" hidden></div>
+      <div id="history-content-container" class="history-content-container" hidden>
+        <div id="sync-all-status" class="sync-all-status" role="status" aria-live="polite" hidden></div>
 
-
-      <div class="history-toolbar">
-        <div class="history-search-group">
-          <input
-            type="search"
-            id="history-search-input"
-            class="history-search-input"
-            placeholder="Search cards…"
-            autocomplete="off"
-            aria-label="Search cards"
-          >
+        <div class="history-toolbar">
+          <div class="history-search-group">
+            <input
+              type="search"
+              id="history-search-input"
+              class="history-search-input"
+              placeholder="Search cards…"
+              autocomplete="off"
+              aria-label="Search cards"
+            >
+          </div>
+          <div class="history-filter-row">
+            <select id="history-deck-filter" class="history-filter-select" aria-label="Filter by deck">
+              <option value="all">All decks</option>
+            </select>
+            <select id="history-sync-filter" class="history-filter-select" aria-label="Filter by sync status">
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="syncing">Syncing</option>
+              <option value="synced">Synced</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
         </div>
-        <div class="history-filter-row">
-          <select id="history-deck-filter" class="history-filter-select" aria-label="Filter by deck">
-            <option value="all">All decks</option>
-          </select>
-          <select id="history-sync-filter" class="history-filter-select" aria-label="Filter by sync status">
-            <option value="all">All statuses</option>
-            <option value="pending">Pending</option>
-            <option value="syncing">Syncing</option>
-            <option value="synced">Synced</option>
-            <option value="failed">Failed</option>
-          </select>
-        </div>
-      </div>
 
-      <div id="history-list-container" class="history-list-container" role="region" aria-label="Saved cards list">
-        <div id="history-empty" class="history-empty" hidden>No saved cards.</div>
-        <div id="history-cards-list" class="history-cards-list"></div>
+        <div id="history-list-container" class="history-list-container" role="region" aria-label="Saved cards list">
+          <div id="history-empty" class="history-empty" hidden>No saved cards.</div>
+          <div id="history-cards-list" class="history-cards-list"></div>
+        </div>
       </div>
     </section>
   </main>

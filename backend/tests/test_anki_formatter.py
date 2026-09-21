@@ -571,6 +571,23 @@ class TestAnkiFormatter(unittest.TestCase):
         self.assertNotIn('JLPT N5', html_without_jlpt)
         self.assertIn('<span class="kn-kana">たべる</span>', html_without_jlpt)
 
+    # 22. format_basic_back with hint and show_hint toggle
+    def test_22_format_basic_back_show_hint(self):
+        card = {
+            "expression": "食べる",
+            "reading": "たべる",
+            "meaning": "to eat",
+            "hint": "irregular verb",
+        }
+        # With hint and show_hint=True (default)
+        html_with_hint = format_basic_back(card, show_hint=True)
+        self.assertIn('<div class="kn-hint">Hint: irregular verb</div>', html_with_hint)
+
+        # With hint and show_hint=False
+        html_without_hint = format_basic_back(card, show_hint=False)
+        self.assertNotIn('<div class="kn-hint">', html_without_hint)
+        self.assertNotIn('irregular verb', html_without_hint)
+
 
 if __name__ == "__main__":
     unittest.main()

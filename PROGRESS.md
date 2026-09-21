@@ -797,4 +797,35 @@ New major features should generally be deferred unless they are necessary for th
   - Extension test suite: **74/74 passed** (`node --test extension/tests/*.test.js`), with expanded `extension/tests/quick-add.test.js` covering 10/10 test suites (HTML structure, CSS rules, tab switching, WanaKana IME, Hiragana/Katakana mode switching, F6/F7 shortcuts, Front & Back Card Preview JLPT badges, candidate lookup, candidate selection, scoped navigation, dirty draft protection, and race condition protection).
   - Backend test suite: untouched (0 backend changes).
 - **Remaining Risk:** None. All additions are frontend-only within MV3 Side Panel boundaries.
+
+### Phase 7.12 Real-World UX Fixes (First Hour of Real Study Refinements)
+- **Status Summary:**
+  - ✅ **Issue 1 — Meaning Prominence & Visual Hierarchy (Reduction Over Explanation):**
+    - Repositioned `#card-fields-section` above `#card-preview-section` in `DEFAULT_CARD_SECTION_ORDER` and `sidepanel.html` markup, establishing the direct workflow hierarchy: `WORD -> READING -> MEANING -> SAVE`.
+    - Enhanced `#field-meaning` with `.meaning-form-group` and `.meaning-textarea`, providing elevated contrast, 14px legible typography, distinct focus styling, and a minimum 68px height.
+    - Zero explanatory bloat, badges, or tooltips added; solved purely through spatial priority and visual hierarchy.
+  - ✅ **Issue 2 & Guardrail 4 — History Collapsible & Space Reclamation:**
+    - Added `#history-collapse-btn` with animated chevron indicator; history body (`#history-content-container`) is collapsed (`hidden`) by default.
+    - Added `#setting-show-history` in Card Settings dialog (`show_history`, default `true`).
+    - When `show_history` is toggled off, `#history-section` is completely hidden (`display: none !important; margin: 0 !important; height: 0;`), reclaiming 100% of vertical layout space with zero empty headings or reserved height.
+  - ✅ **Issue 3 & Guardrails 1 & 2 — Contextual Japanese Mode & Quiet Candidate Assistance:**
+    - Bound WanaKana IME strictly to free-form fields: `#field-hint` and `#field-example-sentence`.
+    - Enforced Guardrail 1: `#field-expression` and `#field-reading` are NEVER bound to WanaKana, preserving dictionary-controlled behavior.
+    - Added `#btn-editor-jp-mode` in card toolbar with persistent toggle (`kiroku.editor_jp_mode`).
+    - Implemented quiet contextual candidate assistance: triggered only after a 450ms typing pause and for meaningful tokens (>= 2 Japanese characters).
+    - Floating `#editor-suggestions-container` is anchored close to the active field without obscuring text. Disappears on typing continuation, blur, or Escape.
+    - Candidate selection strictly replaces only the matched token range; never silently replaces text.
+  - ✅ **Issue 4 & Guardrail 3 — Authoritative Destination Safety & Persistent Target Memory:**
+    - Added compact `#card-target-destination` badge (`Deck: … • Note Type: …`) in the card action bar.
+    - Updated immediately whenever deck or note type changes (`updateDestinationIndicator()`).
+    - Fixed restoration bug in `loadDecks()` and `loadModels()` where HTML placeholder values `"Default"` and `"Basic"` took precedence over stored `last_used_deck` and `preferred_anki_model`.
+    - Enforced destination safety in `triggerAnkiSync()`: automatically re-saves the card with the authoritative displayed target before dispatching sync, guaranteeing Anki receives the exact destination displayed.
+  - ✅ **Issue 5 — Independent Front/Back Hint Toggles:**
+    - Added `#setting-front-hint` (default `false`) and `#setting-back-hint` (default `true`) in Card Settings.
+    - Updated `renderCardPreviewDOM()` in `sidepanel.js`: Front hint is strictly gated by `frontCfg.show_hint && data.hint` (fixing the prior unconditional leak), and Back hint is gated by `backCfg.show_hint !== false && data.hint`.
+    - Updated backend `anki_formatter.py` (`format_basic_back(show_hint=...)`) and `anki_connect.py` (`map_card_to_fields`) to forward card settings to generated Anki card HTML.
+- **Verification Results:**
+  - Backend pytest tests: **80/80 passed** (`backend/tests/test_anki_formatter.py` and `backend/tests/test_anki_connect.py`), with new unit tests `test_22_format_basic_back_show_hint` and `test_12_map_card_to_fields_show_hint_toggle`.
+  - Extension test suite: **75/75 passed**, including `extension/tests/real-world-ux-fixes.test.js`, `customizable-layout.test.js`, `card-preview.test.js`, and `quick-add.test.js`.
+- **Remaining Risk:** None. All changes respect locked boundaries, zero new backend routes, and adhere to all 5 final guardrails.
 

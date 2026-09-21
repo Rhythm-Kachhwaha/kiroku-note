@@ -297,25 +297,25 @@ function assertOrder(actual, expected, message) {
 // 4. Test resolveValidSectionOrder validation & migration rules
 assertOrder(
   resolveValidSectionOrder(null),
-  ["preview", "fields", "media", "settings", "optional", "dictionary"],
+  ["fields", "preview", "media", "settings", "optional", "dictionary"],
   "Null storage should resolve to canonical default order"
 );
 
 assertOrder(
   resolveValidSectionOrder(undefined),
-  ["preview", "fields", "media", "settings", "optional", "dictionary"],
+  ["fields", "preview", "media", "settings", "optional", "dictionary"],
   "Undefined storage should resolve to canonical default order"
 );
 
 assertOrder(
   resolveValidSectionOrder("corrupted string"),
-  ["preview", "fields", "media", "settings", "optional", "dictionary"],
+  ["fields", "preview", "media", "settings", "optional", "dictionary"],
   "Non-array storage should resolve to canonical default order"
 );
 
 assertOrder(
   resolveValidSectionOrder({ bad: "object" }),
-  ["preview", "fields", "media", "settings", "optional", "dictionary"],
+  ["fields", "preview", "media", "settings", "optional", "dictionary"],
   "Object storage should resolve to canonical default order"
 );
 
@@ -389,18 +389,18 @@ assert.equal(mockBtnLayoutSettings.getAttribute("aria-expanded"), "false", "Gear
   await resetLayoutSettings();
   assertOrder(
     getCurrentSectionOrder(),
-    ["preview", "fields", "media", "settings", "optional", "dictionary"],
+    ["fields", "preview", "media", "settings", "optional", "dictionary"],
     "Reset must restore canonical default order in memory"
   );
   const resetDomOrder = mockContainer.children.map(c => c.getAttribute("data-layout-section"));
   assertOrder(
     resetDomOrder,
-    ["preview", "fields", "media", "settings", "optional", "dictionary"],
+    ["fields", "preview", "media", "settings", "optional", "dictionary"],
     "Reset must immediately restore canonical default order in DOM"
   );
   assertOrder(
     mockStorageStore[STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER],
-    ["preview", "fields", "media", "settings", "optional", "dictionary"],
+    ["fields", "preview", "media", "settings", "optional", "dictionary"],
     "Reset must persist canonical default order to chrome.storage.local"
   );
   console.log("PASS 6: Reset to Default and storage persistence verified.");

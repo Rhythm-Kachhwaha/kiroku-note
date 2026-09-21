@@ -90,8 +90,8 @@ const mediaSummaryBadge = document.querySelector("#media-summary-badge");
 // Layout Settings & Reordering elements
 const STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER = "kiroku.layout.cardSectionOrder";
 const DEFAULT_CARD_SECTION_ORDER = [
-  "preview",
   "fields",
+  "preview",
   "media",
   "settings",
   "optional",
@@ -99,8 +99,8 @@ const DEFAULT_CARD_SECTION_ORDER = [
 ];
 
 const SECTION_METADATA = {
-  preview: { id: "preview", name: "Card Preview" },
   fields: { id: "fields", name: "Card Fields" },
+  preview: { id: "preview", name: "Card Preview" },
   media: { id: "media", name: "Media" },
   settings: { id: "settings", name: "Card Settings" },
   optional: { id: "optional", name: "Optional Fields" },
@@ -120,9 +120,20 @@ const btnCloseCardSettings = document.querySelector("#btn-close-card-settings") 
 const settingFrontReading = document.querySelector("#setting-front-reading");
 const settingFrontMeaning = document.querySelector("#setting-front-meaning");
 const settingFrontKanjiReading = document.querySelector("#setting-front-kanji-reading");
+const settingFrontHint = document.querySelector("#setting-front-hint");
 const settingBackReading = document.querySelector("#setting-back-reading");
 const settingBackMeaning = document.querySelector("#setting-back-meaning");
+const settingBackHint = document.querySelector("#setting-back-hint");
 const settingShowJlpt = document.querySelector("#setting-show-jlpt");
+const settingShowHistory = document.querySelector("#setting-show-history");
+
+// Destination & Japanese input elements
+const cardTargetDestination = document.querySelector("#card-target-destination");
+const destDeckVal = document.querySelector("#dest-deck-val");
+const destModelVal = document.querySelector("#dest-model-val");
+const btnEditorJpMode = document.querySelector("#btn-editor-jp-mode");
+const editorSuggestionsContainer = document.querySelector("#editor-suggestions-container");
+const editorSuggestionsList = document.querySelector("#editor-suggestions-list");
 
 const STORAGE_KEY_CARD_TEMPLATE_SETTINGS = "kiroku.card_template_settings";
 const STORAGE_KEY_SHOW_JLPT_LEVEL = "kiroku.settings.showJlptLevel";
@@ -131,14 +142,25 @@ const DEFAULT_CARD_TEMPLATE_SETTINGS = {
     show_reading: false,
     show_meaning: false,
     show_kanji_reading: false,
+    show_hint: false,
   },
   back: {
     show_reading: true,
     show_meaning: true,
+    show_hint: true,
   },
   show_jlpt: true,
+  show_history: true,
 };
 let currentCardTemplateSettings = JSON.parse(JSON.stringify(DEFAULT_CARD_TEMPLATE_SETTINGS));
+
+function applyHistoryVisibility() {
+  const historySec = document.querySelector("#history-section");
+  if (!historySec) return;
+  const showHistory = currentCardTemplateSettings?.show_history !== false;
+  historySec.hidden = !showHistory;
+  historySec.style.display = showHistory ? "" : "none";
+}
 
 async function loadStoredCardTemplateSettings() {
   try {
@@ -151,6 +173,9 @@ async function loadStoredCardTemplateSettings() {
           show_jlpt: typeof data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_jlpt === "boolean"
             ? data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_jlpt
             : (typeof data[STORAGE_KEY_SHOW_JLPT_LEVEL] === "boolean" ? data[STORAGE_KEY_SHOW_JLPT_LEVEL] : true),
+          show_history: typeof data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_history === "boolean"
+            ? data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_history
+            : true,
         };
       } else if (data && typeof data[STORAGE_KEY_SHOW_JLPT_LEVEL] === "boolean") {
         currentCardTemplateSettings.show_jlpt = data[STORAGE_KEY_SHOW_JLPT_LEVEL];
@@ -166,6 +191,9 @@ async function loadStoredCardTemplateSettings() {
           show_jlpt: typeof parsed.show_jlpt === "boolean"
             ? parsed.show_jlpt
             : (storedJlpt !== null ? JSON.parse(storedJlpt) : true),
+          show_history: typeof parsed.show_history === "boolean"
+            ? parsed.show_history
+            : true,
         };
       } else if (storedJlpt !== null) {
         currentCardTemplateSettings.show_jlpt = JSON.parse(storedJlpt);
@@ -191,6 +219,7 @@ async function saveStoredCardTemplateSettings() {
   } catch (err) {
     console.warn("Failed to save card template settings:", err);
   }
+  applyHistoryVisibility();
   if (typeof updateCardPreview === "function") {
     updateCardPreview();
   }
@@ -200,17 +229,23 @@ function syncCardTemplateSettingsUI() {
   if (settingFrontReading) settingFrontReading.checked = Boolean(currentCardTemplateSettings?.front?.show_reading);
   if (settingFrontMeaning) settingFrontMeaning.checked = Boolean(currentCardTemplateSettings?.front?.show_meaning);
   if (settingFrontKanjiReading) settingFrontKanjiReading.checked = Boolean(currentCardTemplateSettings?.front?.show_kanji_reading);
+  if (settingFrontHint) settingFrontHint.checked = Boolean(currentCardTemplateSettings?.front?.show_hint);
   if (settingBackReading) settingBackReading.checked = currentCardTemplateSettings?.back?.show_reading !== false;
   if (settingBackMeaning) settingBackMeaning.checked = currentCardTemplateSettings?.back?.show_meaning !== false;
+  if (settingBackHint) settingBackHint.checked = currentCardTemplateSettings?.back?.show_hint !== false;
   if (settingShowJlpt) settingShowJlpt.checked = currentCardTemplateSettings?.show_jlpt !== false;
+  if (settingShowHistory) settingShowHistory.checked = currentCardTemplateSettings?.show_history !== false;
+  applyHistoryVisibility();
 }
 
 [
   { el: settingFrontReading, section: "front", key: "show_reading" },
   { el: settingFrontMeaning, section: "front", key: "show_meaning" },
   { el: settingFrontKanjiReading, section: "front", key: "show_kanji_reading" },
+  { el: settingFrontHint, section: "front", key: "show_hint" },
   { el: settingBackReading, section: "back", key: "show_reading" },
   { el: settingBackMeaning, section: "back", key: "show_meaning" },
+  { el: settingBackHint, section: "back", key: "show_hint" },
 ].forEach(({ el, section, key }) => {
   if (el) {
     el.addEventListener("change", () => {
@@ -224,6 +259,13 @@ function syncCardTemplateSettingsUI() {
 if (settingShowJlpt) {
   settingShowJlpt.addEventListener("change", () => {
     currentCardTemplateSettings.show_jlpt = settingShowJlpt.checked;
+    saveStoredCardTemplateSettings();
+  });
+}
+
+if (settingShowHistory) {
+  settingShowHistory.addEventListener("change", () => {
+    currentCardTemplateSettings.show_history = settingShowHistory.checked;
     saveStoredCardTemplateSettings();
   });
 }
@@ -242,6 +284,61 @@ const historyEmpty = document.querySelector("#history-empty");
 const historyCardsList = document.querySelector("#history-cards-list");
 const btnSyncAll = document.querySelector("#btn-sync-all");
 const syncAllStatus = document.querySelector("#sync-all-status");
+
+// History Collapse Management (Guardrail 4)
+const STORAGE_KEY_HISTORY_COLLAPSED = "kiroku.history_collapsed";
+const historyCollapseBtn = document.querySelector("#history-collapse-btn");
+const historyContentContainer = document.querySelector("#history-content-container");
+
+function setHistoryCollapsed(collapsed) {
+  if (historyContentContainer) {
+    historyContentContainer.hidden = collapsed;
+  }
+  if (historyCollapseBtn) {
+    historyCollapseBtn.setAttribute("aria-expanded", String(!collapsed));
+  }
+}
+
+async function loadStoredHistoryCollapseState() {
+  let isCollapsed = true; // Default collapsed as per UX spec
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      const data = await chrome.storage.local.get(STORAGE_KEY_HISTORY_COLLAPSED);
+      if (data && typeof data[STORAGE_KEY_HISTORY_COLLAPSED] === "boolean") {
+        isCollapsed = data[STORAGE_KEY_HISTORY_COLLAPSED];
+      }
+    } else if (typeof localStorage !== "undefined") {
+      const stored = localStorage.getItem(STORAGE_KEY_HISTORY_COLLAPSED);
+      if (stored !== null) {
+        isCollapsed = JSON.parse(stored);
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to load history collapse state:", err);
+  }
+  setHistoryCollapsed(isCollapsed);
+}
+
+async function toggleHistoryCollapsed() {
+  const currentlyCollapsed = historyContentContainer ? historyContentContainer.hidden : true;
+  const nextState = !currentlyCollapsed;
+  setHistoryCollapsed(nextState);
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      await chrome.storage.local.set({ [STORAGE_KEY_HISTORY_COLLAPSED]: nextState });
+    } else if (typeof localStorage !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_HISTORY_COLLAPSED, JSON.stringify(nextState));
+    }
+  } catch (err) {
+    console.warn("Failed to save history collapse state:", err);
+  }
+}
+
+if (historyCollapseBtn) {
+  historyCollapseBtn.addEventListener("click", () => {
+    toggleHistoryCollapsed();
+  });
+}
 
 
 
@@ -437,11 +534,21 @@ async function loadDecks() {
         }
       } catch (_) {}
 
-      const targetDeck = currentSelected || lastDeck || "Default";
-      if (decks.includes(targetDeck)) {
-        fieldDeckSelect.value = targetDeck;
+      // Prioritize stored lastDeck if present in decks, otherwise currentSelected if present, then Default or first deck
+      let targetDeck = "";
+      if (lastDeck && decks.includes(lastDeck)) {
+        targetDeck = lastDeck;
+      } else if (currentSelected && decks.includes(currentSelected)) {
+        targetDeck = currentSelected;
+      } else if (decks.includes("Default")) {
+        targetDeck = "Default";
+      } else {
+        targetDeck = decks[0] || "Default";
       }
+
+      fieldDeckSelect.value = targetDeck;
       if (fieldDeckName) fieldDeckName.value = fieldDeckSelect.value;
+      updateDestinationIndicator();
     }
   } catch (_) {
     ankiConnected = false;
@@ -476,11 +583,21 @@ async function loadModels() {
         }
       } catch (_) {}
 
-      const targetModel = currentSelected || preferredModel || models[0] || "Basic";
-      if (models.includes(targetModel)) {
-        fieldModelSelect.value = targetModel;
+      // Prioritize stored preferredModel if present in models, otherwise currentSelected if present, then Basic or first model
+      let targetModel = "";
+      if (preferredModel && models.includes(preferredModel)) {
+        targetModel = preferredModel;
+      } else if (currentSelected && models.includes(currentSelected)) {
+        targetModel = currentSelected;
+      } else if (models.includes("Basic")) {
+        targetModel = "Basic";
+      } else {
+        targetModel = models[0] || "Basic";
       }
+
+      fieldModelSelect.value = targetModel;
       if (fieldModelName) fieldModelName.value = fieldModelSelect.value;
+      updateDestinationIndicator();
       loadModelCapabilities(fieldModelSelect.value).catch(() => {});
     }
   } catch (_) {
@@ -490,6 +607,7 @@ async function loadModels() {
       opt.textContent = "Basic";
       fieldModelSelect.append(opt);
     }
+    updateDestinationIndicator();
   }
 }
 
@@ -711,6 +829,7 @@ if (fieldDeckSelect) {
   fieldDeckSelect.addEventListener("change", () => {
     const val = fieldDeckSelect.value;
     if (fieldDeckName) fieldDeckName.value = val;
+    updateDestinationIndicator();
     try {
       if (typeof chrome !== "undefined" && chrome.storage?.local) {
         chrome.storage.local.set({last_used_deck: val});
@@ -724,9 +843,11 @@ if (fieldDeckSelect) {
 
 if (fieldDeckName) {
   fieldDeckName.addEventListener("input", () => {
+    updateDestinationIndicator();
     scheduleDuplicateCheck(false);
   });
   fieldDeckName.addEventListener("change", () => {
+    updateDestinationIndicator();
     scheduleDuplicateCheck(true);
   });
 }
@@ -735,6 +856,7 @@ if (fieldModelSelect) {
   fieldModelSelect.addEventListener("change", () => {
     const val = fieldModelSelect.value;
     if (fieldModelName) fieldModelName.value = val;
+    updateDestinationIndicator();
     loadModelCapabilities(val).catch(() => {});
     try {
       if (typeof chrome !== "undefined" && chrome.storage?.local) {
@@ -743,6 +865,15 @@ if (fieldModelSelect) {
         localStorage.setItem("preferred_anki_model", val);
       }
     } catch (_) {}
+  });
+}
+
+if (fieldModelName) {
+  fieldModelName.addEventListener("input", () => {
+    updateDestinationIndicator();
+  });
+  fieldModelName.addEventListener("change", () => {
+    updateDestinationIndicator();
   });
 }
 
@@ -1107,7 +1238,7 @@ function renderCardPreviewDOM(container, data, side = "back") {
       container.append(meanWrap);
     }
 
-    if (data.hint) {
+    if (frontCfg.show_hint && data.hint) {
       const hintDiv = document.createElement("div");
       hintDiv.className = "kn-hint";
       hintDiv.textContent = `Hint: ${data.hint}`;
@@ -1219,7 +1350,7 @@ function renderCardPreviewDOM(container, data, side = "back") {
   }
 
   // 4. Hint & Notes
-  if (data.hint) {
+  if (backCfg.show_hint !== false && data.hint) {
     const hintDiv = document.createElement("div");
     hintDiv.className = "kn-hint";
     hintDiv.textContent = `Hint: ${data.hint}`;
@@ -2523,11 +2654,12 @@ async function identify(text) {
     if (cardEditor) {
       cardEditor.hidden = false;
       if (fieldCardId) fieldCardId.value = body.id || "";
-      if (fieldDeckSelect && body.deck_name) {
+      const isDraftOrNew = !body.id || body.status === "draft";
+      if (fieldDeckSelect && body.deck_name && !isDraftOrNew) {
         fieldDeckSelect.value = body.deck_name;
       }
       if (fieldDeckName) fieldDeckName.value = (fieldDeckSelect && fieldDeckSelect.value) || body.deck_name || "Default";
-      if (fieldModelSelect && body.model_name) {
+      if (fieldModelSelect && body.model_name && !isDraftOrNew) {
         let hasOption = Array.from(fieldModelSelect.options).some(o => o.value === body.model_name);
         if (!hasOption) {
           const opt = document.createElement("option");
@@ -2538,6 +2670,7 @@ async function identify(text) {
         fieldModelSelect.value = body.model_name;
       }
       if (fieldModelName) fieldModelName.value = (fieldModelSelect && fieldModelSelect.value) || body.model_name || "";
+      updateDestinationIndicator();
       if (fieldSourceText) fieldSourceText.value = body.source_text || "";
       if (fieldDeinflectedText) fieldDeinflectedText.value = body.deinflected_text || "";
       if (fieldExpression) fieldExpression.value = body.expression || "";
@@ -3072,6 +3205,15 @@ if (cardEditor) {
         fieldModelSelect.value = body.model_name;
         if (fieldModelName) fieldModelName.value = body.model_name;
       }
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          chrome.storage.local.set({ last_used_deck: targetDeck, preferred_anki_model: targetModel });
+        } else if (typeof localStorage !== "undefined") {
+          localStorage.setItem("last_used_deck", targetDeck);
+          localStorage.setItem("preferred_anki_model", targetModel);
+        }
+      } catch (_) {}
+      updateDestinationIndicator();
       if (body.audio) {
         if (fieldAudio) fieldAudio.value = body.audio;
         const audioSrc = body.audio.startsWith("data:") || body.audio.startsWith("http:") || body.audio.startsWith("https:")
@@ -3138,8 +3280,54 @@ async function triggerAnkiSync() {
     return;
   }
 
+  // Guardrail 3: Destination safety - visible Deck + Note Type indicator is authoritative
+  const targetDeck = (destDeckVal && destDeckVal.textContent.trim()) || (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
+  const targetModel = (destModelVal && destModelVal.textContent.trim()) || (fieldModelSelect && fieldModelSelect.value.trim()) || (fieldModelName && fieldModelName.value.trim()) || "";
+
   updateSyncUI("syncing");
   try {
+    const expr = fieldExpression ? fieldExpression.value.trim() : "";
+    if (expr) {
+      const payload = {
+        id: cardId,
+        expression: expr,
+        reading: fieldReading ? fieldReading.value.trim() : "",
+        meaning: fieldMeaning ? fieldMeaning.value.trim() : "",
+        deck_name: targetDeck,
+        model_name: targetModel,
+        hint: fieldHint ? fieldHint.value.trim() : "",
+        example_sentence: fieldExampleSentence ? fieldExampleSentence.value.trim() : "",
+        example_translation: fieldExampleTranslation ? fieldExampleTranslation.value.trim() : "",
+        image: fieldImage ? fieldImage.value.trim() : "",
+        audio: fieldAudio ? fieldAudio.value.trim() : "",
+        image_data: currentDraftMedia.imageBase64 || null,
+        audio_data: currentDraftMedia.audioBase64 || null,
+        media_mime_type: currentDraftMedia.mimeType || null,
+        tags: fieldTags ? fieldTags.value.trim() : "",
+        notes: fieldNotes ? fieldNotes.value.trim() : "",
+        source_text: fieldSourceText ? fieldSourceText.value.trim() : "",
+        deinflected_text: fieldDeinflectedText ? fieldDeinflectedText.value.trim() : "",
+        entries: Array.isArray(currentDictionaryEntries) ? currentDictionaryEntries : [],
+        kanji_entries: Array.isArray(currentKanjiEntries) ? currentKanjiEntries : [],
+        jlpt_level: typeof currentJlptLevel !== "undefined" ? currentJlptLevel : null,
+        card_settings: (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
+      };
+      await fetch(API_SAVE_URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      });
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          chrome.storage.local.set({ last_used_deck: targetDeck, preferred_anki_model: targetModel });
+        } else if (typeof localStorage !== "undefined") {
+          localStorage.setItem("last_used_deck", targetDeck);
+          localStorage.setItem("preferred_anki_model", targetModel);
+        }
+      } catch (_) {}
+      updateDestinationIndicator();
+    }
+
     const response = await fetch(API_CARD_SYNC_URL(cardId), {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -3175,6 +3363,310 @@ if (ankiSyncStatus) {
     }
   });
 }
+
+// Authoritative Destination Target Indicator (Guardrail 3)
+function updateDestinationIndicator() {
+  const currentDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
+  const currentModel = (fieldModelSelect && fieldModelSelect.value.trim()) || (fieldModelName && fieldModelName.value.trim()) || "Basic";
+  if (destDeckVal) destDeckVal.textContent = currentDeck;
+  if (destModelVal) destModelVal.textContent = currentModel;
+}
+
+// Japanese Input Mode & Quiet Contextual Assistance (Guardrails 1 & 2)
+let isEditorJpModeActive = true;
+let editorCandidateDebounceTimer = null;
+let activeCandidateField = null;
+let activeTokenInfo = null;
+let editorCandidateList = [];
+let editorCandidateHighlightedIndex = -1;
+
+function setEditorJapaneseMode(active) {
+  isEditorJpModeActive = Boolean(active);
+  if (btnEditorJpMode) {
+    btnEditorJpMode.setAttribute("aria-pressed", String(isEditorJpModeActive));
+    btnEditorJpMode.classList.toggle("active", isEditorJpModeActive);
+    const statusSpan = btnEditorJpMode.querySelector(".jp-mode-status");
+    if (statusSpan) {
+      statusSpan.textContent = isEditorJpModeActive ? "Kana" : "Off";
+    }
+  }
+  // Guardrail 1: Japanese input mode is primarily for free-form Japanese text fields:
+  // Hint, Sentence. NEVER bind WanaKana to Expression or Reading!
+  const targetInputs = [fieldHint, fieldExampleSentence].filter(Boolean);
+  if (typeof wanakana !== "undefined") {
+    targetInputs.forEach(input => {
+      try {
+        const nodeName = (input.nodeName || input.tagName || "").toUpperCase();
+        if (nodeName !== "INPUT" && nodeName !== "TEXTAREA") return;
+        if (isEditorJpModeActive) {
+          if (!input.hasAttribute("data-wanakana-id") && typeof wanakana.bind === "function") {
+            wanakana.bind(input, { IMEMode: true });
+          }
+        } else {
+          if (input.hasAttribute("data-wanakana-id") && typeof wanakana.unbind === "function") {
+            wanakana.unbind(input);
+          }
+        }
+      } catch (err) {
+        console.warn("WanaKana editor toggle error:", err);
+      }
+    });
+  }
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ "kiroku.editor_jp_mode": isEditorJpModeActive });
+    } else if (typeof localStorage !== "undefined") {
+      localStorage.setItem("kiroku.editor_jp_mode", JSON.stringify(isEditorJpModeActive));
+    }
+  } catch (_) {}
+}
+
+async function initEditorJapaneseMode() {
+  let active = true;
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const data = await chrome.storage.local.get("kiroku.editor_jp_mode");
+      if (typeof data?.["kiroku.editor_jp_mode"] === "boolean") {
+        active = data["kiroku.editor_jp_mode"];
+      }
+    } else if (typeof localStorage !== "undefined") {
+      const stored = localStorage.getItem("kiroku.editor_jp_mode");
+      if (stored !== null) {
+        active = JSON.parse(stored);
+      }
+    }
+  } catch (_) {}
+  setEditorJapaneseMode(active);
+}
+
+if (btnEditorJpMode) {
+  btnEditorJpMode.addEventListener("click", () => {
+    setEditorJapaneseMode(!isEditorJpModeActive);
+  });
+}
+
+function clearEditorSuggestions() {
+  if (editorSuggestionsContainer) {
+    editorSuggestionsContainer.hidden = true;
+  }
+  if (editorSuggestionsList) {
+    editorSuggestionsList.replaceChildren();
+  }
+  editorCandidateList = [];
+  editorCandidateHighlightedIndex = -1;
+  activeTokenInfo = null;
+  activeCandidateField = null;
+}
+
+function updateEditorCandidateHighlight() {
+  if (!editorSuggestionsList) return;
+  const items = Array.from(editorSuggestionsList.children);
+  items.forEach((item, i) => {
+    const isHighlighted = (i === editorCandidateHighlightedIndex);
+    item.classList.toggle("highlighted", isHighlighted);
+    item.setAttribute("aria-selected", String(isHighlighted));
+    if (isHighlighted && typeof item.scrollIntoView === "function") {
+      item.scrollIntoView({ block: "nearest" });
+    }
+  });
+}
+
+function selectEditorCandidate(candidate) {
+  if (!activeCandidateField || !activeTokenInfo || !candidate) {
+    clearEditorSuggestions();
+    return;
+  }
+  const field = activeCandidateField;
+  const { start, end, token } = activeTokenInfo;
+  const currentVal = field.value;
+  // Guardrail 2: Replace only the selected token; never silently replace text
+  if (currentVal.slice(start, end) === token) {
+    const replacement = candidate.expression || "";
+    const newVal = currentVal.slice(0, start) + replacement + currentVal.slice(end);
+    field.value = newVal;
+    const newPos = start + replacement.length;
+    if (typeof field.setSelectionRange === "function") {
+      field.setSelectionRange(newPos, newPos);
+    }
+    field.focus();
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  clearEditorSuggestions();
+}
+
+function positionEditorSuggestions(field) {
+  if (!editorSuggestionsContainer || !field) return;
+  const editorEl = cardEditor || document.body;
+  const fieldRect = field.getBoundingClientRect();
+  const editorRect = editorEl.getBoundingClientRect();
+  const top = (fieldRect.bottom - editorRect.top + editorEl.scrollTop + 4);
+  const left = Math.max(8, fieldRect.left - editorRect.left);
+  editorSuggestionsContainer.style.top = `${top}px`;
+  editorSuggestionsContainer.style.left = `${left}px`;
+}
+
+function renderEditorSuggestions(entries, token, field, tokenStart, tokenEnd) {
+  if (!editorSuggestionsContainer || !editorSuggestionsList) return;
+  
+  editorCandidateList = (entries || []).map(entry => {
+    const expr = entry.term || entry.expression || "";
+    const read = entry.reading || "";
+    const gloss = (entry.senses && entry.senses[0] && entry.senses[0].glosses && entry.senses[0].glosses[0]) || "";
+    return { expression: expr, reading: read, gloss };
+  }).filter(c => Boolean(c.expression));
+
+  if (editorCandidateList.length === 0) {
+    clearEditorSuggestions();
+    return;
+  }
+
+  activeCandidateField = field;
+  activeTokenInfo = { field, start: tokenStart, end: tokenEnd, token };
+  editorCandidateHighlightedIndex = -1;
+
+  const items = editorCandidateList.slice(0, 6).map((candidate, idx) => {
+    const li = document.createElement("li");
+    li.className = "editor-candidate-item";
+    li.setAttribute("role", "option");
+    li.setAttribute("aria-selected", "false");
+    li.dataset.index = String(idx);
+
+    const mainDiv = document.createElement("div");
+    mainDiv.className = "editor-candidate-main";
+
+    const exprSpan = document.createElement("span");
+    exprSpan.className = "editor-candidate-expr";
+    exprSpan.textContent = candidate.expression;
+    mainDiv.appendChild(exprSpan);
+
+    if (candidate.reading && candidate.reading !== candidate.expression) {
+      const readSpan = document.createElement("span");
+      readSpan.className = "editor-candidate-reading";
+      readSpan.textContent = candidate.reading;
+      mainDiv.appendChild(readSpan);
+    }
+    li.appendChild(mainDiv);
+
+    if (candidate.gloss) {
+      const glossDiv = document.createElement("div");
+      glossDiv.className = "editor-candidate-gloss";
+      glossDiv.textContent = candidate.gloss;
+      li.appendChild(glossDiv);
+    }
+
+    li.addEventListener("mousedown", (e) => {
+      e.preventDefault(); // Prevent blur before selection
+      selectEditorCandidate(candidate);
+    });
+
+    li.addEventListener("mouseenter", () => {
+      editorCandidateHighlightedIndex = idx;
+      updateEditorCandidateHighlight();
+    });
+
+    return li;
+  });
+
+  editorSuggestionsList.replaceChildren(...items);
+  positionEditorSuggestions(field);
+  editorSuggestionsContainer.hidden = false;
+}
+
+function handleEditorTokenLookup(field) {
+  if (!field || !isEditorJpModeActive) return;
+  const caretPos = typeof field.selectionEnd === "number" ? field.selectionEnd : field.value.length;
+  const textBefore = field.value.slice(0, caretPos);
+  
+  // Guardrail 2: Trigger only for a meaningful token after short pause (at least 2 Japanese characters)
+  const match = textBefore.match(/([\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]{2,})$/);
+  if (!match) {
+    clearEditorSuggestions();
+    return;
+  }
+  const token = match[1];
+  const tokenStart = caretPos - token.length;
+  const tokenEnd = caretPos;
+  const targetDeck = (destDeckVal && destDeckVal.textContent.trim()) || (fieldDeckSelect && fieldDeckSelect.value.trim()) || "Default";
+
+  fetch(API_CAPTURE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: token, auto_save: false, deck_name: targetDeck }),
+  })
+    .then(res => (res.ok ? res.json() : null))
+    .then(body => {
+      if (!body) {
+        clearEditorSuggestions();
+        return;
+      }
+      const currentCaret = field.selectionEnd;
+      if (currentCaret !== caretPos || field.value.slice(tokenStart, tokenEnd) !== token) {
+        return;
+      }
+      let entries = Array.isArray(body.entries) && body.entries.length ? body.entries : [];
+      if (!entries.length && body.expression) {
+        entries = [{ expression: body.expression, reading: body.reading || "", senses: body.meanings ? [{ glosses: body.meanings }] : [] }];
+      }
+      renderEditorSuggestions(entries, token, field, tokenStart, tokenEnd);
+    })
+    .catch(() => {
+      clearEditorSuggestions();
+    });
+}
+
+function attachEditorFieldAssistance(field) {
+  if (!field) return;
+
+  field.addEventListener("input", () => {
+    // Guardrail 2: disappear when typing continues
+    if (editorSuggestionsContainer && !editorSuggestionsContainer.hidden) {
+      clearEditorSuggestions();
+    }
+    if (editorCandidateDebounceTimer) {
+      clearTimeout(editorCandidateDebounceTimer);
+    }
+    // Guardrail 2: 450ms pause before lookup
+    editorCandidateDebounceTimer = setTimeout(() => {
+      handleEditorTokenLookup(field);
+    }, 450);
+  });
+
+  field.addEventListener("blur", () => {
+    // Guardrail 2: disappear when focus moves
+    setTimeout(() => {
+      clearEditorSuggestions();
+    }, 200);
+  });
+
+  field.addEventListener("keydown", (e) => {
+    if (!editorSuggestionsContainer || editorSuggestionsContainer.hidden) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (editorCandidateList.length > 0) {
+        editorCandidateHighlightedIndex = (editorCandidateHighlightedIndex + 1) % editorCandidateList.length;
+        updateEditorCandidateHighlight();
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (editorCandidateList.length > 0) {
+        editorCandidateHighlightedIndex = (editorCandidateHighlightedIndex - 1 + editorCandidateList.length) % editorCandidateList.length;
+        updateEditorCandidateHighlight();
+      }
+    } else if (e.key === "Enter") {
+      if (editorCandidateHighlightedIndex >= 0 && editorCandidateHighlightedIndex < editorCandidateList.length) {
+        e.preventDefault();
+        selectEditorCandidate(editorCandidateList[editorCandidateHighlightedIndex]);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      clearEditorSuggestions();
+    }
+  });
+}
+
+if (fieldHint) attachEditorFieldAssistance(fieldHint);
+if (fieldExampleSentence) attachEditorFieldAssistance(fieldExampleSentence);
 
 // Sync All action for eligible unsynced/retryable cards
 let isSyncAllRunning = false;
@@ -3609,6 +4101,7 @@ async function openSavedCard(cardId) {
         fieldModelSelect.value = body.model_name;
       }
       if (fieldModelName) fieldModelName.value = (fieldModelSelect && fieldModelSelect.value) || body.model_name || "";
+      updateDestinationIndicator();
 
       if (expression) expression.textContent = body.expression || "—";
       if (reading) reading.textContent = body.reading || "";
@@ -5417,13 +5910,36 @@ loadJimakuApiKey().catch(() => {});
 loadSubtitleFolderPreferences().catch(() => {});
 checkOcrStatus().catch(() => {});
 loadStoredCardTemplateSettings().catch(() => {});
+loadStoredHistoryCollapseState().catch(() => {});
+initEditorJapaneseMode().catch(() => {});
+updateDestinationIndicator();
 loadStoredSectionOrder().then(order => {
   applySectionOrder(order);
 }).catch(() => {});
 if (typeof updateCardPreview === "function") updateCardPreview();
 initQuickAdd();
 
-chrome.runtime.sendMessage({type: "GET_MINING_MODE"}).then(res => {
-  if (res?.enabled) updateMiningUI(true);
-}).catch(() => {});
+if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+  chrome.runtime.sendMessage({type: "GET_MINING_MODE"}).then(res => {
+    if (res?.enabled) updateMiningUI(true);
+  }).catch(() => {});
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    DEFAULT_CARD_TEMPLATE_SETTINGS,
+    currentCardTemplateSettings,
+    loadStoredCardTemplateSettings,
+    saveStoredCardTemplateSettings,
+    setHistoryCollapsed,
+    loadStoredHistoryCollapseState,
+    toggleHistoryCollapsed,
+    updateDestinationIndicator,
+    setEditorJapaneseMode,
+    initEditorJapaneseMode,
+    selectEditorCandidate,
+    renderEditorSuggestions,
+    clearEditorSuggestions,
+  };
+}
 

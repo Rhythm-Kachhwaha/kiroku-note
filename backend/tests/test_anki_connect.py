@@ -1043,3 +1043,29 @@ class TestStage5MediaDeduplication:
         assert '<span class="kn-tag kn-jlpt">' not in fields_disabled["Back"]
         assert "JLPT N5" not in fields_disabled["Back"]
 
+    # 12. Show hint toggle on Front and Back
+    def test_12_map_card_to_fields_show_hint_toggle(self):
+        card_data = {
+            "expression": "食べる",
+            "reading": "たべる",
+            "meaning": "to eat",
+            "hint": "irregular verb",
+        }
+        # Default: Front has no hint, Back has hint
+        fields_default = self.service.map_card_to_fields(card_data, ["Front", "Back"])
+        assert '<div class="kn-hint">Hint: irregular verb</div>' not in fields_default["Front"]
+        assert '<div class="kn-hint">Hint: irregular verb</div>' in fields_default["Back"]
+
+        # Front hint enabled, Back hint disabled
+        card_data_custom = {
+            **card_data,
+            "card_settings": {
+                "front": {"show_hint": True},
+                "back": {"show_hint": False},
+            },
+        }
+        fields_custom = self.service.map_card_to_fields(card_data_custom, ["Front", "Back"])
+        assert '<div class="kn-hint">Hint: irregular verb</div>' in fields_custom["Front"]
+        assert '<div class="kn-hint">Hint: irregular verb</div>' not in fields_custom["Back"]
+
+
