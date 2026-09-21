@@ -856,4 +856,37 @@ New major features should generally be deferred unless they are necessary for th
     - Dedicated renderer tests: **14/14 suites passed** (`node extension/tests/yomitan-reference-renderer.test.js`).
     - Dedicated study view tests: **13/13 suites passed** (`node extension/tests/dictionary-study-view.test.js`).
 - **Remaining Risk:** None. All changes adhere to locked boundaries, no Node/npm dependencies added to extension, no React/Electron, and data lifetime guardrail verified across multiple layers.
+
+### Stage 3B.6 — User Control Over Yomitan Dictionaries in Reference View
+- **Status Summary:**
+  - ✅ **Yomitan Dictionary Discovery Without Invented APIs (`backend/app/services/yomitan.py`, `schemas.py`, `main.py`):**
+    - Probed Yomitan's HTTP server to verify actual endpoints; confirmed `/dictionaries` and `/dictionarySettings` do not exist in Yomitan's HTTP server.
+    - Implemented `discover_available_dictionaries()` using seed probes across common grammatical/lexical seeds (`["の", "する", "食べる", "こと"]`) for terms and `"一"` for kanji, collecting and deduplicating dictionary titles across both term and kanji dictionaries.
+    - Exposed `GET /api/yomitan/dictionaries` returning `YomitanDictionariesResponse(available_dictionaries=[...])`.
+    - Live verified against local Yomitan instance running on port 19633 (`Jitendex.org [2026-08-11]`, `KANJIDIC [2026-253]`).
+  - ✅ **Continuous Discovery & Explicit Selection Policy (`extension/sidepanel/sidepanel.js`):**
+    - Seed scanning & continuous harvesting: Probes via backend on demand and continuously harvests newly discovered dictionaries during lookups in `renderDetails()` via `harvestDiscoveredDictionaries()`.
+    - Explicit selection policy: Once `hasExplicitDictionarySelection === true`, any newly discovered dictionary appears unchecked (`☐ New Dict`) in Settings and remains hidden from the Reference View until explicitly enabled by the user.
+    - First setup behavior: Before any explicit user selection, all discovered dictionaries default to selected.
+    - Stored settings: Persisted via `STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION` (`kiroku.reference_dictionary_selection`), `STORAGE_KEY_DISCOVERED_DICTIONARIES` (`kiroku.discovered_dictionaries`), and `STORAGE_KEY_HAS_EXPLICIT_DICTIONARY_SELECTION` (`kiroku.has_explicit_dictionary_selection`) using Chrome extension storage with localStorage fallback.
+  - ✅ **Settings Popover UI & Styling (`extension/sidepanel/sidepanel.html`, `sidepanel.css`):**
+    - Added `.dict-settings-group` inside `#layout-settings-popover` `.card-settings-body` with `YOMITAN DICTIONARIES` label.
+    - Added `#btn-refresh-dict-list` ("↻ Refresh") with scanning state animation.
+    - Added `#btn-dict-select-all` ("Select All") and `#btn-dict-clear-all` ("Clear All") quick action buttons.
+    - Added `#dict-selected-count-label` ("Selected: N").
+    - Added `#dict-selection-list-container` styled with bounded `max-height: 145px; overflow-y: auto;` and dark scrollbars, displaying checkboxes for all discovered dictionaries.
+  - ✅ **Reference View Filtering & Empty States (`extension/sidepanel/sidepanel.js`):**
+    - Filtered rendering: Only definitions from selected dictionaries appear in `#meanings`. Separate source blocks, accordion ordering, and accurate count pills (`+N more dicts`) are updated dynamically.
+    - Deselect all empty state: If the user deselects all dictionaries, renders `.dict-none-selected-notice` ("No dictionaries selected for Reference View.") with an "Open Dictionary Settings" button. Never falls back silently to showing all dictionaries.
+    - No matching definitions: When selected dictionaries do not match the active term, renders `.dict-none-selected-notice` ("No definitions found in your selected dictionaries.") with a "Change Dictionary Settings" button.
+    - Instant re-rendering: Toggling checkboxes or clicking Select All/Clear All triggers `reRenderActiveReferenceView()`, updating the Reference View immediately in memory without network re-lookups.
+    - Copy Raw Dictionary: Copies only the visible/selected entries when explicit selection exists.
+  - ✅ **DOM Hierarchy & Layout Bug Fix (`extension/sidepanel/sidepanel.html`):**
+    - Corrected missing closing `</div>` on `.card-settings-group` (Side Panel section) in `sidepanel.html`. The unclosed tag had caused `#card-editor`, `#card-fields-section`, `#card-preview-section`, and `#dictionary-section` (`#meanings`) to be swallowed inside the `#layout-settings-popover` container, making them invisible during normal view and only visible when the settings badge was toggled.
+    - Verified complete DOM separation and normal view visibility with new end-user dry run test `extension/tests/end-user-dry-run.test.js`.
+- **Verification Results:**
+  - Backend pytest tests: **368/368 passed** (`python -m pytest -o pythonpath=backend backend/tests`), including new tests in `backend/tests/test_dictionary_discovery.py`.
+  - Extension test suite: **54/54 test files passed** with zero failures, including `extension/tests/dictionary-selection.test.js` (8/8 test suites passed) and `extension/tests/end-user-dry-run.test.js`.
+  - Regression verified: `dictionary-study-view.test.js` (13/13 passed) and `kanji-rendering.test.js` passed.
+- **Remaining Risk:** None. All boundaries respected, no invented Yomitan endpoints, independent scrolling preserved, and full user control delivered.
 

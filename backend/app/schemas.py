@@ -115,6 +115,12 @@ class KanjiEntry(BaseModel):
 KanjiEntrySchema = KanjiEntry
 
 
+class YomitanDictionariesResponse(BaseModel):
+    available_dictionaries: list[str] = Field(default_factory=list)
+    discovery_source: str = "yomitan_probe"
+    disclaimer: str = "Discovered from enabled dictionaries responding in Yomitan."
+
+
 class CaptureResponse(BaseModel):
     id: Optional[int] = None
     expression: str

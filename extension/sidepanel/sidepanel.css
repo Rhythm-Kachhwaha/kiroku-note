@@ -4040,6 +4040,167 @@ rt {
   color: var(--text-primary);
 }
 
+/* Yomitan Dictionaries Settings Group */
+.dict-settings-group {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.dict-settings-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.btn-refresh-dict-list {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs, 3px);
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-refresh-dict-list:hover {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.btn-refresh-dict-list.scanning {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.dict-selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+.btn-dict-quick-select {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs, 3px);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
+.btn-dict-quick-select:hover {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.dict-selected-count {
+  font-size: 10.5px;
+  color: var(--accent-reading);
+  margin-left: auto;
+  font-weight: 500;
+}
+
+.dict-selection-list-container {
+  max-height: 145px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) var(--bg-surface-1);
+}
+
+.dict-selection-list-container::-webkit-scrollbar {
+  width: 4px;
+}
+.dict-selection-list-container::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 2px;
+}
+
+.dict-selection-items {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dict-item-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 4px;
+  border-radius: var(--radius-xs, 3px);
+  transition: background var(--transition-fast);
+}
+
+.dict-item-label:hover {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+
+.dict-item-label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dict-selection-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px 4px;
+  text-align: center;
+}
+
+/* Reference View: Empty state when no dictionaries selected */
+.dict-none-selected-notice {
+  text-align: center;
+  padding: 18px 12px;
+  background: var(--bg-surface-1);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-sm);
+  margin: 8px 0;
+}
+
+.dict-none-selected-notice p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 8px 0;
+}
+
+.btn-open-dict-settings {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--accent-primary);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-open-dict-settings:hover {
+  background: var(--bg-surface-3);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
 .settings-section-order-details {
   margin-top: 10px;
   border-top: 1px dashed var(--border-subtle);

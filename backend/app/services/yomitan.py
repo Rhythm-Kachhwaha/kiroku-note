@@ -236,6 +236,47 @@ class YomitanService:
             kanji_entries=kanji_entries,
         )
 
+    def discover_available_dictionaries(self) -> list[str]:
+        """Discover available dictionaries returned by Yomitan across common seed terms.
+
+        Because Yomitan's local API does not expose an endpoint to list installed dictionaries,
+        this probes Yomitan with high-coverage seed terms across term and kanji dictionaries,
+        extracting unique dictionary titles from the returned entries.
+        """
+        seed_terms = ["の", "する", "食べる", "こと"]
+        found_dicts: list[str] = []
+        seen: set[str] = set()
+
+        for term in seed_terms:
+            try:
+                raw = self._post_json("/termEntries", {"term": term})
+                if isinstance(raw, dict) and isinstance(raw.get("dictionaryEntries"), list):
+                    for de in raw["dictionaryEntries"]:
+                        if not isinstance(de, dict):
+                            continue
+                        for defn in de.get("definitions", []) if isinstance(de.get("definitions"), list) else []:
+                            if isinstance(defn, dict):
+                                d_name = str(defn.get("dictionary") or "").strip()
+                                if d_name and d_name not in seen:
+                                    seen.add(d_name)
+                                    found_dicts.append(d_name)
+            except Exception:
+                pass
+
+        try:
+            raw_kanji = self._post_json("/kanjiEntries", {"character": "一"})
+            if isinstance(raw_kanji, list):
+                for k in raw_kanji:
+                    if isinstance(k, dict):
+                        k_dict = str(k.get("dictionary") or "").strip()
+                        if k_dict and k_dict not in seen:
+                            seen.add(k_dict)
+                            found_dicts.append(k_dict)
+        except Exception:
+            pass
+
+        return found_dicts
+
     def _post_json(self, path: str, payload: dict[str, Any]) -> Any:
         request = Request(f"{self._endpoint}{path}", data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
         try:

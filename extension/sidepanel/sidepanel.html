@@ -332,6 +332,26 @@
             </div>
           </div>
 
+          <!-- Yomitan Reference Dictionaries Selection -->
+          <div class="card-settings-group dict-settings-group">
+            <div class="dict-settings-header-row">
+              <span class="settings-group-label">YOMITAN DICTIONARIES</span>
+              <button type="button" id="btn-refresh-dict-list" class="btn-refresh-dict-list" title="Scan Yomitan for available dictionaries">↻ Refresh</button>
+            </div>
+            <div class="settings-subtext">Choose which dictionary sources appear in Reference View.</div>
+
+            <div class="dict-selection-toolbar">
+              <button type="button" id="btn-dict-select-all" class="btn-dict-quick-select">Select All</button>
+              <button type="button" id="btn-dict-clear-all" class="btn-dict-quick-select">Clear All</button>
+              <span id="dict-selected-count-label" class="dict-selected-count">Selected: 0</span>
+            </div>
+
+            <div id="dict-selection-list-container" class="dict-selection-list-container">
+              <div id="dict-selection-empty" class="dict-selection-empty" hidden>No dictionaries discovered yet. Look up words or click Refresh.</div>
+              <div id="dict-selection-items" class="dict-selection-items" role="group" aria-label="Available Yomitan dictionaries"></div>
+            </div>
+          </div>
+
           <!-- Section Order Details (Maintains customizable layout capability) -->
           <details class="settings-section-order-details">
             <summary class="settings-order-summary">Section Layout Order</summary>

@@ -25,6 +25,7 @@ from app.schemas import (
     SaveCardResponse,
     SyncAllResponse,
     SyncCardResponse,
+    YomitanDictionariesResponse,
 )
 from app.services.card_service import CardService
 from app.services.ocr_service import (
@@ -86,6 +87,13 @@ def capture_term(request: CaptureRequest) -> CaptureResponse:
 def save_card(request: SaveCardRequest) -> SaveCardResponse:
     service = CardService()
     return service.save_card(request)
+
+
+@app.get("/api/yomitan/dictionaries", response_model=YomitanDictionariesResponse)
+def get_available_yomitan_dictionaries() -> YomitanDictionariesResponse:
+    service = YomitanService()
+    dicts = service.discover_available_dictionaries()
+    return YomitanDictionariesResponse(available_dictionaries=dicts)
 
 
 @app.get("/api/anki/status", response_model=AnkiStatusResponse)

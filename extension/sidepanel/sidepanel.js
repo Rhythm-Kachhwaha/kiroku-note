@@ -10,6 +10,7 @@ const API_CARDS_URL = `${BACKEND_BASE_URL}/api/cards`;
 const API_CARD_DETAIL_URL = (id) => `${BACKEND_BASE_URL}/api/cards/${id}`;
 const API_OCR_STATUS_URL = `${BACKEND_BASE_URL}/api/ocr/status`;
 const API_OCR_RECOGNIZE_URL = `${BACKEND_BASE_URL}/api/ocr/recognize`;
+const API_YOMITAN_DICTIONARIES_URL = `${BACKEND_BASE_URL}/api/yomitan/dictionaries`;
 
 const toggle = document.querySelector("#mining-toggle");
 const ocrCaptureBtn = document.querySelector("#ocr-capture-btn");
@@ -126,6 +127,22 @@ const settingBackMeaning = document.querySelector("#setting-back-meaning");
 const settingBackHint = document.querySelector("#setting-back-hint");
 const settingShowJlpt = document.querySelector("#setting-show-jlpt");
 const settingShowHistory = document.querySelector("#setting-show-history");
+
+// Yomitan Dictionaries Settings elements
+const btnRefreshDictList = document.querySelector("#btn-refresh-dict-list");
+const btnDictSelectAll = document.querySelector("#btn-dict-select-all");
+const btnDictClearAll = document.querySelector("#btn-dict-clear-all");
+const dictSelectedCountLabel = document.querySelector("#dict-selected-count-label");
+const dictSelectionItems = document.querySelector("#dict-selection-items");
+const dictSelectionEmpty = document.querySelector("#dict-selection-empty");
+
+const STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION = "kiroku.reference_dictionary_selection";
+const STORAGE_KEY_DISCOVERED_DICTIONARIES = "kiroku.discovered_dictionaries";
+const STORAGE_KEY_HAS_EXPLICIT_DICTIONARY_SELECTION = "kiroku.has_explicit_dictionary_selection";
+
+let discoveredDictionaries = new Set();
+let selectedDictionaries = new Set();
+let hasExplicitDictionarySelection = false;
 
 // Destination & Japanese input elements
 const cardTargetDestination = document.querySelector("#card-target-destination");
@@ -267,6 +284,263 @@ if (settingShowHistory) {
   settingShowHistory.addEventListener("change", () => {
     currentCardTemplateSettings.show_history = settingShowHistory.checked;
     saveStoredCardTemplateSettings();
+  });
+}
+
+// ==========================================================================
+// Yomitan Reference Dictionaries Management
+// ==========================================================================
+
+function updateDictionaryCountLabel() {
+  if (dictSelectedCountLabel) {
+    dictSelectedCountLabel.textContent = `Selected: ${selectedDictionaries.size}`;
+  }
+}
+
+function reRenderActiveReferenceView() {
+  const cachedEntries = Array.isArray(currentDictionaryEntries) ? [...currentDictionaryEntries] : [];
+  const cachedKanji = Array.isArray(currentKanjiEntries) ? [...currentKanjiEntries] : [];
+  if (cachedEntries.length || cachedKanji.length) {
+    const rawObj = {
+      entries: cachedEntries,
+      kanji_entries: cachedKanji,
+      jlpt_level: currentJlptLevel,
+      expression: (typeof fieldExpression !== "undefined" && fieldExpression) ? fieldExpression.value : "",
+      reading: (typeof fieldReading !== "undefined" && fieldReading) ? fieldReading.value : "",
+    };
+    renderDetails(rawObj);
+  }
+}
+
+function renderDictionarySelectionUI() {
+  if (!dictSelectionItems) return;
+  dictSelectionItems.replaceChildren();
+
+  const dictList = Array.from(discoveredDictionaries);
+  if (dictList.length === 0) {
+    if (dictSelectionEmpty) dictSelectionEmpty.hidden = false;
+    dictSelectionItems.hidden = true;
+    updateDictionaryCountLabel();
+    return;
+  }
+
+  if (dictSelectionEmpty) dictSelectionEmpty.hidden = true;
+  dictSelectionItems.hidden = false;
+
+  dictList.forEach(dictName => {
+    const label = document.createElement("label");
+    label.className = "dict-item-label";
+    label.title = dictName;
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "setting-checkbox dict-select-checkbox";
+    if (!checkbox.dataset) checkbox.dataset = {};
+    checkbox.dataset.dictionary = dictName;
+    if (typeof checkbox.setAttribute === "function") {
+      checkbox.setAttribute("data-dictionary", dictName);
+    }
+    checkbox.checked = selectedDictionaries.has(dictName);
+
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        selectedDictionaries.add(dictName);
+      } else {
+        selectedDictionaries.delete(dictName);
+      }
+      saveStoredDictionarySettings();
+    });
+
+    const span = document.createElement("span");
+    span.textContent = dictName;
+
+    label.append(checkbox, span);
+    dictSelectionItems.append(label);
+  });
+
+  updateDictionaryCountLabel();
+}
+
+async function loadStoredDictionarySettings() {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      const data = await chrome.storage.local.get([
+        STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION,
+        STORAGE_KEY_DISCOVERED_DICTIONARIES,
+        STORAGE_KEY_HAS_EXPLICIT_DICTIONARY_SELECTION,
+      ]);
+      const storedDiscovered = Array.isArray(data?.[STORAGE_KEY_DISCOVERED_DICTIONARIES])
+        ? data[STORAGE_KEY_DISCOVERED_DICTIONARIES]
+        : [];
+      discoveredDictionaries = new Set(storedDiscovered);
+
+      hasExplicitDictionarySelection = Boolean(data?.[STORAGE_KEY_HAS_EXPLICIT_DICTIONARY_SELECTION]);
+      if (hasExplicitDictionarySelection) {
+        const storedSelected = Array.isArray(data?.[STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION])
+          ? data[STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION]
+          : [];
+        selectedDictionaries = new Set(storedSelected.filter(d => discoveredDictionaries.has(d)));
+      } else {
+        selectedDictionaries = new Set(discoveredDictionaries);
+      }
+    } else if (typeof localStorage !== "undefined") {
+      const storedDisc = localStorage.getItem(STORAGE_KEY_DISCOVERED_DICTIONARIES);
+      if (storedDisc) {
+        try {
+          const parsed = JSON.parse(storedDisc);
+          if (Array.isArray(parsed)) discoveredDictionaries = new Set(parsed);
+        } catch (_) {}
+      }
+      hasExplicitDictionarySelection = localStorage.getItem(STORAGE_KEY_HAS_EXPLICIT_DICTIONARY_SELECTION) === "true";
+      const storedSel = localStorage.getItem(STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION);
+      if (hasExplicitDictionarySelection && storedSel) {
+        try {
+          const parsed = JSON.parse(storedSel);
+          if (Array.isArray(parsed)) {
+            selectedDictionaries = new Set(parsed.filter(d => discoveredDictionaries.has(d)));
+          }
+        } catch (_) {}
+      } else if (!hasExplicitDictionarySelection) {
+        selectedDictionaries = new Set(discoveredDictionaries);
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to load stored dictionary settings:", err);
+  }
+  renderDictionarySelectionUI();
+}
+
+async function saveStoredDictionarySettings() {
+  hasExplicitDictionarySelection = true;
+  const selArr = Array.from(selectedDictionaries);
+  const discArr = Array.from(discoveredDictionaries);
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      await chrome.storage.local.set({
+        [STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION]: selArr,
+        [STORAGE_KEY_DISCOVERED_DICTIONARIES]: discArr,
+        [STORAGE_KEY_HAS_EXPLICIT_DICTIONARY_SELECTION]: true,
+      });
+    } else if (typeof localStorage !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION, JSON.stringify(selArr));
+      localStorage.setItem(STORAGE_KEY_DISCOVERED_DICTIONARIES, JSON.stringify(discArr));
+      localStorage.setItem(STORAGE_KEY_HAS_EXPLICIT_DICTIONARY_SELECTION, "true");
+    }
+  } catch (err) {
+    console.warn("Failed to save dictionary settings:", err);
+  }
+  updateDictionaryCountLabel();
+  reRenderActiveReferenceView();
+}
+
+function harvestDiscoveredDictionaries(entries = [], kanjiEntries = []) {
+  let hasNew = false;
+  const processDict = (dictName) => {
+    if (!dictName || typeof dictName !== "string") return;
+    const trimmed = dictName.trim();
+    if (trimmed && !discoveredDictionaries.has(trimmed)) {
+      discoveredDictionaries.add(trimmed);
+      hasNew = true;
+      if (!hasExplicitDictionarySelection) {
+        selectedDictionaries.add(trimmed);
+      }
+    }
+  };
+
+  if (Array.isArray(entries)) {
+    entries.forEach(e => {
+      if (e) processDict(e.dictionary);
+    });
+  }
+  if (Array.isArray(kanjiEntries)) {
+    kanjiEntries.forEach(k => {
+      if (k) processDict(k.dictionary);
+    });
+  }
+
+  if (hasNew) {
+    try {
+      const discArr = Array.from(discoveredDictionaries);
+      const selArr = Array.from(selectedDictionaries);
+      if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({
+          [STORAGE_KEY_DISCOVERED_DICTIONARIES]: discArr,
+          ...(hasExplicitDictionarySelection ? {} : { [STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION]: selArr }),
+        });
+      } else if (typeof localStorage !== "undefined") {
+        localStorage.setItem(STORAGE_KEY_DISCOVERED_DICTIONARIES, JSON.stringify(discArr));
+        if (!hasExplicitDictionarySelection) {
+          localStorage.setItem(STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION, JSON.stringify(selArr));
+        }
+      }
+    } catch (_) {}
+    renderDictionarySelectionUI();
+  }
+}
+
+async function refreshAvailableDictionaries() {
+  if (btnRefreshDictList) {
+    btnRefreshDictList.classList.add("scanning");
+    btnRefreshDictList.textContent = "Scanning…";
+  }
+  try {
+    const res = await fetch(API_YOMITAN_DICTIONARIES_URL);
+    if (res.ok) {
+      const data = await res.json();
+      const available = Array.isArray(data.available_dictionaries) ? data.available_dictionaries : [];
+      let updated = false;
+      available.forEach(dictName => {
+        const trimmed = String(dictName).trim();
+        if (trimmed && !discoveredDictionaries.has(trimmed)) {
+          discoveredDictionaries.add(trimmed);
+          updated = true;
+          if (!hasExplicitDictionarySelection) {
+            selectedDictionaries.add(trimmed);
+          }
+        }
+      });
+      if (available.length > 0) {
+        for (const sel of Array.from(selectedDictionaries)) {
+          if (!discoveredDictionaries.has(sel)) {
+            selectedDictionaries.delete(sel);
+            updated = true;
+          }
+        }
+      }
+      renderDictionarySelectionUI();
+      if (updated) {
+        await saveStoredDictionarySettings();
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to refresh Yomitan dictionaries:", err);
+  } finally {
+    if (btnRefreshDictList) {
+      btnRefreshDictList.classList.remove("scanning");
+      btnRefreshDictList.textContent = "↻ Refresh";
+    }
+  }
+}
+
+if (btnRefreshDictList) {
+  btnRefreshDictList.addEventListener("click", () => {
+    refreshAvailableDictionaries();
+  });
+}
+
+if (btnDictSelectAll) {
+  btnDictSelectAll.addEventListener("click", () => {
+    discoveredDictionaries.forEach(d => selectedDictionaries.add(d));
+    renderDictionarySelectionUI();
+    saveStoredDictionarySettings();
+  });
+}
+
+if (btnDictClearAll) {
+  btnDictClearAll.addEventListener("click", () => {
+    selectedDictionaries.clear();
+    renderDictionarySelectionUI();
+    saveStoredDictionarySettings();
   });
 }
 
@@ -2350,6 +2624,24 @@ function renderDetails(body) {
   currentDictionaryEntries = entries;
   currentKanjiEntries = kanjiEntries;
 
+  if (typeof harvestDiscoveredDictionaries === "function") {
+    harvestDiscoveredDictionaries(entries, kanjiEntries);
+  }
+
+  const isExplicit = typeof hasExplicitDictionarySelection !== "undefined" && hasExplicitDictionarySelection;
+  let visibleEntries = entries;
+  let visibleKanjiEntries = kanjiEntries;
+  if (isExplicit && typeof selectedDictionaries !== "undefined") {
+    visibleEntries = entries.filter(e => {
+      const dictName = e && e.dictionary ? String(e.dictionary).trim() : "";
+      return !dictName || selectedDictionaries.has(dictName);
+    });
+    visibleKanjiEntries = kanjiEntries.filter(k => {
+      const dictName = k && k.dictionary ? String(k.dictionary).trim() : "";
+      return !dictName || selectedDictionaries.has(dictName);
+    });
+  }
+
   let jlptLevel = body?.jlpt_level || rawObj?.jlpt_level || currentJlptLevel;
   if (!jlptLevel && entries.length) {
     for (const e of entries) {
@@ -2420,21 +2712,60 @@ function renderDetails(body) {
 
   if (dictActionsBar) dictActionsBar.style.display = "flex";
 
-  const isSingleKanji = kanjiEntries.length > 0 && (entries.length === 0 || expr.length === 1);
+  // Check if all dictionaries are deselected or none of the selected dictionaries matched
+  if (isExplicit && typeof selectedDictionaries !== "undefined" && selectedDictionaries.size === 0) {
+    if (meanings) {
+      const notice = document.createElement("div");
+      notice.className = "dict-none-selected-notice";
+      const p = document.createElement("p");
+      p.textContent = "No dictionaries selected for Reference View.";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn-open-dict-settings";
+      btn.textContent = "Open Dictionary Settings";
+      btn.addEventListener("click", () => {
+        if (typeof openLayoutSettings === "function") openLayoutSettings();
+      });
+      notice.append(p, btn);
+      meanings.append(notice);
+    }
+    return;
+  }
+
+  if ((entries.length > 0 || kanjiEntries.length > 0) && visibleEntries.length === 0 && visibleKanjiEntries.length === 0) {
+    if (meanings) {
+      const notice = document.createElement("div");
+      notice.className = "dict-none-selected-notice";
+      const p = document.createElement("p");
+      p.textContent = "No definitions found in your selected dictionaries.";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn-open-dict-settings";
+      btn.textContent = "Change Dictionary Settings";
+      btn.addEventListener("click", () => {
+        if (typeof openLayoutSettings === "function") openLayoutSettings();
+      });
+      notice.append(p, btn);
+      meanings.append(notice);
+    }
+    return;
+  }
+
+  const isSingleKanji = visibleKanjiEntries.length > 0 && (visibleEntries.length === 0 || expr.length === 1);
 
   // 1. Structured Study View rendered into #meanings
   if (meanings) {
     // For single isolated kanji, render prominent kanji card at the top
     if (isSingleKanji) {
-      kanjiEntries.forEach(k => {
+      visibleKanjiEntries.forEach(k => {
         meanings.append(renderKanjiCard(k, { mode: "full", isProminent: true }));
       });
     }
 
-    if (entries.length) {
-      const primaryEntry = entries.find(e => e.is_primary) || entries[0];
+    if (visibleEntries.length) {
+      const primaryEntry = visibleEntries.find(e => e.is_primary) || visibleEntries[0];
 
-      entries.forEach((entry, entryIdx) => {
+      visibleEntries.forEach((entry, entryIdx) => {
         const isPrimary = Boolean(entry.is_primary || entry === primaryEntry);
 
         // Meta Strip / Header for this entry
@@ -2456,8 +2787,8 @@ function renderDetails(body) {
         }
 
         // If this is the primary entry and there are multiple entries, show count pill
-        if (isPrimary && entryIdx === 0 && entries.length > 1) {
-          const moreCount = entries.length - 1;
+        if (isPrimary && entryIdx === 0 && visibleEntries.length > 1) {
+          const moreCount = visibleEntries.length - 1;
           const countPill = document.createElement("span");
           countPill.className = "dict-count-pill";
           countPill.textContent = `+${moreCount} more dict${moreCount > 1 ? "s" : ""}`;
@@ -2546,7 +2877,7 @@ function renderDetails(body) {
         }
 
         // Container structure (multi-dictionary accordion or standard container)
-        const isMultiDict = entries.length > 1;
+        const isMultiDict = visibleEntries.length > 1;
         let entryContainer;
         let bodyHost;
 
@@ -2684,18 +3015,18 @@ function renderDetails(body) {
     }
 
     // For multi-character vocabulary, render kanji entries in a collapsible accordion below term definitions
-    if (!isSingleKanji && kanjiEntries.length > 0) {
+    if (!isSingleKanji && visibleKanjiEntries.length > 0) {
       const kanjiAccordion = document.createElement("details");
       kanjiAccordion.className = "study-kanji-accordion";
 
       const summary = document.createElement("summary");
       summary.className = "study-kanji-summary";
-      summary.textContent = `Kanji in this word (${kanjiEntries.length})`;
+      summary.textContent = `Kanji in this word (${visibleKanjiEntries.length})`;
       kanjiAccordion.append(summary);
 
       const kanjiListDiv = document.createElement("div");
       kanjiListDiv.className = "study-kanji-list";
-      kanjiEntries.forEach(k => {
+      visibleKanjiEntries.forEach(k => {
         kanjiListDiv.append(renderKanjiCard(k, { mode: "full", isProminent: false }));
       });
       kanjiAccordion.append(kanjiListDiv);
@@ -2707,7 +3038,14 @@ function renderDetails(body) {
 
 if (btnCopyRawDict) {
   btnCopyRawDict.addEventListener("click", async () => {
-    const rawText = formatRawDictionaryText(currentDictionaryEntries, currentKanjiEntries);
+    let entriesToCopy = currentDictionaryEntries;
+    let kanjiToCopy = currentKanjiEntries;
+    const isExplicit = typeof hasExplicitDictionarySelection !== "undefined" && hasExplicitDictionarySelection;
+    if (isExplicit && typeof selectedDictionaries !== "undefined") {
+      entriesToCopy = currentDictionaryEntries.filter(e => !e?.dictionary || selectedDictionaries.has(String(e.dictionary).trim()));
+      kanjiToCopy = currentKanjiEntries.filter(k => !k?.dictionary || selectedDictionaries.has(String(k.dictionary).trim()));
+    }
+    const rawText = formatRawDictionaryText(entriesToCopy, kanjiToCopy);
     if (!rawText) return;
     const ok = await copyTextToClipboard(rawText);
     if (ok) {
@@ -6030,6 +6368,7 @@ loadSubtitleFolderPreferences().catch(() => {});
 checkOcrStatus().catch(() => {});
 loadStoredCardTemplateSettings().catch(() => {});
 loadStoredHistoryCollapseState().catch(() => {});
+loadStoredDictionarySettings().catch(() => {});
 initEditorJapaneseMode().catch(() => {});
 updateDestinationIndicator();
 loadStoredSectionOrder().then(order => {
@@ -6059,6 +6398,23 @@ if (typeof module !== "undefined" && module.exports) {
     selectEditorCandidate,
     renderEditorSuggestions,
     clearEditorSuggestions,
+    STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION,
+    STORAGE_KEY_DISCOVERED_DICTIONARIES,
+    STORAGE_KEY_HAS_EXPLICIT_DICTIONARY_SELECTION,
+    getDiscoveredDictionaries: () => discoveredDictionaries,
+    getSelectedDictionaries: () => selectedDictionaries,
+    getHasExplicitDictionarySelection: () => hasExplicitDictionarySelection,
+    setDiscoveredDictionaries: (s) => { discoveredDictionaries = new Set(s); },
+    setSelectedDictionaries: (s) => { selectedDictionaries = new Set(s); },
+    setHasExplicitDictionarySelection: (b) => { hasExplicitDictionarySelection = Boolean(b); },
+    loadStoredDictionarySettings,
+    saveStoredDictionarySettings,
+    harvestDiscoveredDictionaries,
+    refreshAvailableDictionaries,
+    renderDictionarySelectionUI,
+    reRenderActiveReferenceView,
+    renderDetails,
+    clearDictionaryView,
   };
 }
 
