@@ -20,7 +20,7 @@ function createMockElement(tag = "div") {
   const el = {
     tagName: tag.toUpperCase(),
     tag,
-    className: "",
+    _className: "",
     _textContent: "",
     title: "",
     value: "",
@@ -31,15 +31,22 @@ function createMockElement(tag = "div") {
     _listeners: {},
     classList: {
       _classes: new Set(),
-      add(c) { this._classes.add(c); },
-      remove(c) { this._classes.delete(c); },
+      add(...classes) { classes.forEach(c => this._classes.add(c)); },
+      remove(...classes) { classes.forEach(c => this._classes.delete(c)); },
       contains(c) { return this._classes.has(c); },
     },
     append(...els) {
-      this.children.push(...els);
+      for (const el of els) {
+        if (el && el.nodeType === 11) {
+          this.children.push(...el.children);
+        } else if (el) {
+          this.children.push(el);
+        }
+      }
     },
     replaceChildren(...els) {
-      this.children = [...els];
+      this.children = [];
+      this.append(...els);
     },
     addEventListener(event, fn) {
       if (!this._listeners[event]) this._listeners[event] = [];
@@ -63,6 +70,20 @@ function createMockElement(tag = "div") {
       return this[name] || null;
     },
   };
+
+  Object.defineProperty(el, "className", {
+    get() {
+      if (this.classList._classes.size > 0) {
+        return Array.from(this.classList._classes).join(" ");
+      }
+      return this._className;
+    },
+    set(val) {
+      this._className = String(val);
+      this.classList._classes.clear();
+      this._className.split(/\s+/).filter(Boolean).forEach(c => this.classList._classes.add(c));
+    },
+  });
 
   Object.defineProperty(el, "textContent", {
     get() {
@@ -147,6 +168,21 @@ const mockDocument = {
   createTextNode(text) {
     return createTextNode(text);
   },
+  createDocumentFragment() {
+    return {
+      nodeType: 11,
+      children: [],
+      append(...nodes) {
+        for (const node of nodes) {
+          if (node && node.nodeType === 11) {
+            this.children.push(...node.children);
+          } else if (node) {
+            this.children.push(node);
+          }
+        }
+      },
+    };
+  },
   querySelector(selector) {
     if (selector === "#meanings") return mockMeanings;
     if (selector === "#dict-raw-view") return mockDictRawView;
@@ -162,6 +198,8 @@ const mockDocument = {
     return createMockElement("div");
   },
 };
+
+global.document = mockDocument;
 
 let copiedClipboardText = "";
 const mockNavigator = {
@@ -201,9 +239,11 @@ const sandbox = {
   optionalFields: mockOptionalFields,
   toggleOptionalBtn: mockToggleOptionalBtn,
   currentDictionaryEntries: [],
+  YomitanReferenceRenderer: require("../lib/yomitan-reference-renderer.js"),
   setTimeout: (fn, ms) => {},
   console,
 };
+mockWindow.YomitanReferenceRenderer = sandbox.YomitanReferenceRenderer;
 
 // Load dictionary logic functions from sidepanel.js
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
@@ -706,5 +746,107 @@ assert.equal(identifiedCalls[0], "衝");
 assert.ok(!xrefChips[0].classList.contains("confirm-replace"), "confirm-replace removed after confirmed action");
 
 console.log("PASS: Cross-reference chips & draft safety verified.");
+
+// 12. Multi-Dictionary Separate Display & Preserved Order
+console.log("Testing Multi-Dictionary Separate Display & Order...");
+clearDictionaryView();
+
+const multiDictPayload = {
+  expression: "食べる",
+  reading: "たべる",
+  entries: [
+    {
+      dictionary: "Jitendex.org",
+      is_primary: true,
+      term: "食べる",
+      reading: "たべる",
+      parts_of_speech: ["v1", "transitive"],
+      senses: [{ index: 1, glosses: ["to eat"] }],
+      raw_content: [
+        {
+          type: "structured-content",
+          content: [
+            { tag: "div", content: "1. to eat (Jitendex definition)" },
+          ],
+        },
+      ],
+    },
+    {
+      dictionary: "Daijirin",
+      is_primary: false,
+      term: "食べる",
+      reading: "たべる",
+      parts_of_speech: ["他下一"],
+      senses: [{ index: 1, glosses: ["食物を口から体内に入れる。"] }],
+      raw_content: [
+        {
+          type: "structured-content",
+          content: [
+            { tag: "div", content: "食物を口から体内に入れる。(Daijirin monolingual)" },
+          ],
+        },
+      ],
+    },
+    {
+      dictionary: "JMdict (English)",
+      is_primary: false,
+      term: "食べる",
+      reading: "たべる",
+      parts_of_speech: ["Ichidan verb"],
+      senses: [{ index: 1, glosses: ["to eat; to consume"] }],
+      raw_content: [
+        {
+          type: "structured-content",
+          content: [
+            { tag: "div", content: "to eat; to consume (JMdict)" },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+renderDetails(multiDictPayload);
+
+const allDictEntries = findAll(mockMeanings, (el) => el.classList && el.classList.contains("study-entry"));
+assert.equal(allDictEntries.length, 3, "All 3 dictionaries must be rendered separately");
+
+// Verify dictionary sources and order preserved
+const dictPills = findAll(mockMeanings, (el) => el.classList && el.classList.contains("dict-source-pill"));
+assert.equal(dictPills.length, 3, "Exactly 3 dictionary source pills rendered");
+assert.equal(dictPills[0].textContent, "Jitendex.org", "First dictionary must be Jitendex.org");
+assert.equal(dictPills[1].textContent, "Daijirin", "Second dictionary must be Daijirin");
+assert.equal(dictPills[2].textContent, "JMdict (English)", "Third dictionary must be JMdict (English)");
+
+// Verify primary dictionary is open, secondary dictionaries are collapsible accordions
+assert.ok(!allDictEntries[0].classList.contains("dict-entry-accordion"), "Primary entry is standard open card");
+assert.ok(allDictEntries[1].classList.contains("dict-entry-accordion"), "Secondary entry 1 is collapsible accordion");
+assert.ok(allDictEntries[2].classList.contains("dict-entry-accordion"), "Secondary entry 2 is collapsible accordion");
+
+// Verify structured content rendered
+const refContents = findAll(mockMeanings, (el) => el.classList && el.classList.contains("yomitan-reference-content"));
+assert.equal(refContents.length, 3, "All 3 entries render rich structured content");
+assert.ok(refContents[0].textContent.includes("Jitendex definition"));
+assert.ok(refContents[1].textContent.includes("Daijirin monolingual"));
+
+// Verify Word Class / POS labels displayed directly from dictionary
+const posBadges = findAll(mockMeanings, (el) => el.classList && el.classList.contains("study-pos-badge"));
+const posTexts = posBadges.map(b => b.textContent);
+assert.ok(posTexts.includes("v1"), "Jitendex v1 POS badge rendered");
+assert.ok(posTexts.includes("transitive"), "Jitendex transitive POS badge rendered");
+assert.ok(posTexts.includes("他下一"), "Daijirin 他下一 POS badge rendered without Kiroku POS alteration");
+
+console.log("PASS: Multi-dictionary separate display, ordering & POS labels verified.");
+
+// 13. Independent Scrolling Verification in CSS
+console.log("Testing Independent Scrolling CSS tokens...");
+const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
+const cssContent = fs.readFileSync(cssPath, "utf8");
+
+assert.ok(cssContent.includes(".dict-study-view {"), ".dict-study-view rule exists in sidepanel.css");
+assert.ok(cssContent.includes("max-height: 440px;"), "max-height set for dictionary view");
+assert.ok(cssContent.includes("overflow-y: auto;"), "overflow-y auto set for independent scrolling");
+assert.ok(cssContent.includes("overscroll-behavior: contain;"), "overscroll-behavior contain set to isolate scrolling");
+console.log("PASS: Independent scrolling CSS rules verified.");
 
 console.log("\n>>> ALL DICTIONARY STUDY VIEW TESTS PASSED! <<<");

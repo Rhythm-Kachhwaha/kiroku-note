@@ -828,4 +828,32 @@ New major features should generally be deferred unless they are necessary for th
   - Backend pytest tests: **80/80 passed** (`backend/tests/test_anki_formatter.py` and `backend/tests/test_anki_connect.py`), with new unit tests `test_22_format_basic_back_show_hint` and `test_12_map_card_to_fields_show_hint_toggle`.
   - Extension test suite: **75/75 passed**, including `extension/tests/real-world-ux-fixes.test.js`, `customizable-layout.test.js`, `card-preview.test.js`, and `quick-add.test.js`.
 - **Remaining Risk:** None. All changes respect locked boundaries, zero new backend routes, and adhere to all 5 final guardrails.
+
+### Stage 3B.5 — Rich Yomitan Reference View & Full Dictionary Structured Content Rendering
+- **Status Summary:**
+  - ✅ **Data Lifetime Guardrail (Strict Separation of Reference View & Persisted Card):**
+    - `raw_content: list[Any]` and `raw_tags: list[dict[str, Any]]` added to `DictionaryEntry` (dataclass in `yomitan.py` and Pydantic schemas in `schemas.py`) strictly to power the transient active session in the Side Panel Reference View.
+    - Card creation, draft synthesis, and card extraction remain 100% controlled, normalized, and unchanged (`identify()` -> normalized fields -> Card Editor -> SQLite -> Anki).
+    - Hardened persistence boundary: Added `_strip_transient_dictionary_data()` in `card_service.py` (`save_card()`, `capture_and_save()`) and defense-in-depth stripping in `card_repository.py` (`_serialize_items()`).
+    - Raw AST is NEVER persisted into SQLite `cards` (`CardRecord`), `meanings_json`, saved `CardDraft`, Anki sync payloads, or History.
+  - ✅ **Generic Yomitan Structured Content DOM Renderer (`extension/lib/yomitan-reference-renderer.js`):**
+    - Zero `innerHTML` injection: built 100% on safe standard DOM API methods (`createElement`, `createTextNode`, `createDocumentFragment`).
+    - Strict HTML tag whitelist (`span`, `div`, `p`, `ruby`, `rt`, `rp`, `ol`, `ul`, `li`, `details`, `summary`, `table`, `thead`, `tbody`, `tr`, `td`, `th`, `a`, `img`, `code`, `pre`, etc.).
+    - Style attribute sanitization: strict property whitelist (typography, spacing, borders, colors, alignment) and value sanitization blocking `url()`, `expression()`, `@import`, `-webkit-image-set`, and rule breakouts.
+    - URL sanitization: strict scheme whitelist (`http://`, `https://`, `mailto:`, `yomitan:`, `#`, `?`, `/`), blocking `javascript:`, `data:`, `vbscript:`. Unsafe links converted to inert span representations.
+    - Recursion depth protection: bounded recursion at max depth 32 to prevent stack overflow on deeply nested ASTs.
+    - Internal dictionary cross-reference links: parsed query parameters (`query`, `primary_reading`) with `onDictionaryLinkClick` callback, wired to `identify()` with dirty draft protection.
+    - Data-* attribute preservation (`data-content`, `data-sc-content`) for semantic dictionary styling hooks.
+  - ✅ **Side Panel UI & Styling (`extension/sidepanel/sidepanel.js`, `sidepanel.css`, `sidepanel.html`):**
+    - Script integration: Loaded `yomitan-reference-renderer.js` in `sidepanel.html` before `sidepanel.js`.
+    - Multi-dictionary display: Preserves source dictionary ordering; primary dictionary displayed open with headword/reading and rich content; secondary dictionaries rendered as collapsible accordions (`<details class="dict-entry-accordion">`).
+    - Independent scrolling: `.dict-study-view` styled with `max-height: 440px; overflow-y: auto; overscroll-behavior: contain; min-height: 0;` and dark theme scrollbars, ensuring long dictionary content does not displace Card Editor or action buttons.
+    - Word class / POS badges: Extracted directly from `entry.parts_of_speech` and `entry.raw_tags` without forcing Kiroku's internal POS classification.
+    - Graceful fallback: Entries without `raw_content` seamlessly fall back to existing normalized senses list with progressive disclosure.
+- **Verification Results:**
+    - Backend test suite: **365/365 passed** (`python -m pytest -o pythonpath=backend backend/tests`).
+    - Extension test suite: **76/76 test files passed** (`node --test extension/tests/*.test.js`).
+    - Dedicated renderer tests: **14/14 suites passed** (`node extension/tests/yomitan-reference-renderer.test.js`).
+    - Dedicated study view tests: **13/13 suites passed** (`node extension/tests/dictionary-study-view.test.js`).
+- **Remaining Risk:** None. All changes adhere to locked boundaries, no Node/npm dependencies added to extension, no React/Electron, and data lifetime guardrail verified across multiple layers.
 

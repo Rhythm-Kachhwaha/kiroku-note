@@ -1,7 +1,7 @@
 """Service orchestrating Japanese term capture, enrichment, and SQLite persistence."""
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 import logging
 import os
 import re
@@ -109,6 +109,30 @@ def synthesize_default_example(entries: list[DictionaryEntry]) -> tuple[str, str
                     return (example.japanese.strip(), (example.translation or "").strip())
 
     return ("", "")
+
+
+def _strip_transient_dictionary_data(entries: list[Any]) -> list[dict[str, Any]]:
+    """Enforce Data Lifetime Guardrail: Strip transient raw AST/tags before SQLite persistence."""
+    cleaned = []
+    for item in entries:
+        if isinstance(item, dict):
+            clean_item = dict(item)
+            clean_item.pop("raw_content", None)
+            clean_item.pop("raw_tags", None)
+            cleaned.append(clean_item)
+        elif hasattr(item, "model_dump"):
+            clean_item = item.model_dump()
+            clean_item.pop("raw_content", None)
+            clean_item.pop("raw_tags", None)
+            cleaned.append(clean_item)
+        elif is_dataclass(item):
+            clean_item = asdict(item)
+            clean_item.pop("raw_content", None)
+            clean_item.pop("raw_tags", None)
+            cleaned.append(clean_item)
+        else:
+            cleaned.append(item)
+    return cleaned
 
 
 class CardService:
@@ -250,7 +274,7 @@ class CardService:
             deinflected_text=request.deinflected_text,
             deck_name=request.deck_name,
             model_name=request.model_name,
-            entries=request.entries,
+            entries=_strip_transient_dictionary_data(request.entries),
             kanji_entries=request.kanji_entries,
             card_settings=request.card_settings,
             status="saved",
@@ -324,7 +348,7 @@ class CardService:
             source_text=enriched.source_text,
             deinflected_text=enriched.deinflected_text,
             deck_name=deck_name,
-            entries=serialized_entries,
+            entries=_strip_transient_dictionary_data(serialized_entries),
             examples=serialized_examples,
             kanji_entries=serialized_kanji,
             status="saved",

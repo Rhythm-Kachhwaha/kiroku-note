@@ -79,11 +79,20 @@ def _serialize_items(items: list[Any]) -> list[Any]:
     serialized = []
     for item in items:
         if is_dataclass(item):
-            serialized.append(asdict(item))
+            d = asdict(item)
+            d.pop("raw_content", None)
+            d.pop("raw_tags", None)
+            serialized.append(d)
         elif hasattr(item, "model_dump"):
-            serialized.append(item.model_dump())
+            d = item.model_dump()
+            d.pop("raw_content", None)
+            d.pop("raw_tags", None)
+            serialized.append(d)
         elif isinstance(item, dict):
-            serialized.append(item)
+            d = dict(item)
+            d.pop("raw_content", None)
+            d.pop("raw_tags", None)
+            serialized.append(d)
         else:
             serialized.append(str(item))
     return serialized

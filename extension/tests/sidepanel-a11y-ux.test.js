@@ -41,7 +41,8 @@ assert.ok(
 
 assert.ok(
   html.includes('<h2 class="section-title">HISTORY</h2>') ||
-  html.includes('<h2 class="section-title">History</h2>'),
+  html.includes('<h2 class="section-title">History</h2>') ||
+  html.includes('<h2 class="section-title history-title">HISTORY</h2>'),
   "History section header must be an h2 heading"
 );
 

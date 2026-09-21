@@ -2437,10 +2437,6 @@ function renderDetails(body) {
       entries.forEach((entry, entryIdx) => {
         const isPrimary = Boolean(entry.is_primary || entry === primaryEntry);
 
-        // Entry Container
-        const entryContainer = document.createElement("div");
-        entryContainer.className = "study-entry";
-
         // Meta Strip / Header for this entry
         const header = document.createElement("div");
         header.className = "study-dict-header";
@@ -2494,6 +2490,29 @@ function renderDetails(body) {
           header.append(jlptPill);
         }
 
+        // Word class / Part of Speech badges
+        const posSet = new Set();
+        if (Array.isArray(entry.parts_of_speech)) {
+          entry.parts_of_speech.forEach(p => {
+            if (p && String(p).trim()) posSet.add(String(p).trim());
+          });
+        }
+        if (Array.isArray(entry.raw_tags)) {
+          entry.raw_tags.forEach(t => {
+            const name = t && typeof t === "object" ? String(t.name || "").trim() : String(t || "").trim();
+            const cat = t && typeof t === "object" ? String(t.category || "").toLowerCase() : "";
+            if (name && (cat === "partofspeech" || cat === "class")) {
+              posSet.add(name);
+            }
+          });
+        }
+        posSet.forEach(pos => {
+          const posPill = document.createElement("span");
+          posPill.className = "badge pos-badge study-pos-badge pos-tag";
+          posPill.textContent = pos;
+          header.append(posPill);
+        });
+
         // Frequency rank pills from entry.frequencies
         if (Array.isArray(entry.frequencies) && entry.frequencies.length) {
           entry.frequencies.forEach(freq => {
@@ -2508,11 +2527,111 @@ function renderDetails(body) {
           });
         }
 
-        entryContainer.append(header);
-
-        // Senses list for this entry with Progressive Disclosure
+        // Quick-insert meaning button
         const senses = Array.isArray(entry.senses) ? entry.senses : [];
         if (senses.length) {
+          const insertBtn = document.createElement("button");
+          insertBtn.type = "button";
+          insertBtn.className = "btn-dict-insert btn-sense-insert btn-entry-insert";
+          insertBtn.textContent = "Insert";
+          insertBtn.title = `Insert meaning from ${entry.dictionary || "dictionary"} into Meaning field`;
+          insertBtn.onclick = (e) => {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const glosses = senses.flatMap(s => s.glosses || []).filter(Boolean);
+            if (glosses.length) {
+              insertSenseToMeaning(glosses.join("; "), insertBtn);
+            }
+          };
+          header.append(insertBtn);
+        }
+
+        // Container structure (multi-dictionary accordion or standard container)
+        const isMultiDict = entries.length > 1;
+        let entryContainer;
+        let bodyHost;
+
+        if (isMultiDict && !isPrimary) {
+          const accordion = document.createElement("details");
+          accordion.className = "study-entry dict-entry-accordion";
+          accordion.open = false;
+
+          const summary = document.createElement("summary");
+          summary.className = "dict-entry-summary";
+
+          const summaryLeft = document.createElement("div");
+          summaryLeft.className = "dict-entry-summary-left";
+          summaryLeft.append(header);
+
+          const arrow = document.createElement("span");
+          arrow.className = "dict-entry-summary-arrow";
+          arrow.textContent = "▶";
+
+          summary.append(summaryLeft, arrow);
+          accordion.append(summary);
+
+          const bodyWrapper = document.createElement("div");
+          bodyWrapper.className = "dict-entry-body";
+          accordion.append(bodyWrapper);
+
+          entryContainer = accordion;
+          bodyHost = bodyWrapper;
+        } else {
+          entryContainer = document.createElement("div");
+          entryContainer.className = "study-entry";
+          entryContainer.append(header);
+          bodyHost = entryContainer;
+        }
+
+        // Headword & reading line if provided
+        if (entry.term || entry.reading) {
+          const hwDiv = document.createElement("div");
+          hwDiv.className = "dict-entry-headword";
+          const termSpan = document.createElement("span");
+          termSpan.className = "dict-headword-term";
+          termSpan.textContent = entry.term || expr;
+          hwDiv.append(termSpan);
+          if (entry.reading && entry.reading !== entry.term) {
+            const readingSpan = document.createElement("span");
+            readingSpan.className = "dict-headword-reading";
+            readingSpan.textContent = entry.reading;
+            hwDiv.append(readingSpan);
+          }
+          bodyHost.append(hwDiv);
+        }
+
+        // Content rendering: Structured content (Reference View) or Normalized Senses fallback
+        const hasRawContent = Array.isArray(entry.raw_content) && entry.raw_content.length > 0;
+        const renderer = typeof window !== "undefined" && window.YomitanReferenceRenderer
+          ? window.YomitanReferenceRenderer
+          : (typeof YomitanReferenceRenderer !== "undefined" ? YomitanReferenceRenderer : null);
+
+        if (hasRawContent && renderer && typeof renderer.renderStructuredContent === "function") {
+          const refDiv = document.createElement("div");
+          refDiv.className = "dict-entry-reference-content";
+          renderer.renderStructuredContent(refDiv, entry.raw_content, {
+            onDictionaryLinkClick: (targetTerm, targetReading, e) => {
+              const linkEl = e && e.target;
+              if (typeof isCardDraftDirty === "function" && isCardDraftDirty()) {
+                if (linkEl && !linkEl.classList.contains("confirm-replace")) {
+                  linkEl.classList.add("confirm-replace");
+                  linkEl._origText = linkEl.textContent;
+                  linkEl.textContent = "Replace?";
+                  setTimeout(() => {
+                    if (linkEl.classList.contains("confirm-replace")) {
+                      linkEl.classList.remove("confirm-replace");
+                      linkEl.textContent = linkEl._origText || targetTerm;
+                    }
+                  }, 3000);
+                  return;
+                }
+                if (linkEl) linkEl.classList.remove("confirm-replace");
+              }
+              identify(targetTerm);
+            },
+          });
+          bodyHost.append(refDiv);
+        } else if (senses.length) {
+          // Normalized senses list fallback with Progressive Disclosure
           const PRIMARY_SENSES_LIMIT = 4;
           const primarySenses = senses.slice(0, PRIMARY_SENSES_LIMIT);
           const overflowSenses = senses.slice(PRIMARY_SENSES_LIMIT);
@@ -2524,7 +2643,7 @@ function renderDetails(body) {
             ol.append(renderStudySenseItem(sense, sIdx, entry, senses.length));
           });
 
-          entryContainer.append(ol);
+          bodyHost.append(ol);
 
           if (overflowSenses.length > 0) {
             const details = document.createElement("details");
@@ -2556,7 +2675,7 @@ function renderDetails(body) {
             });
 
             details.append(overflowOl);
-            entryContainer.append(details);
+            bodyHost.append(details);
           }
         }
 

@@ -676,6 +676,81 @@ class TestCrossReferenceModelParity(unittest.TestCase):
         schema_fields = set(CrossReferenceSchema.model_fields.keys())
         self.assertEqual(domain_fields, schema_fields)
 
+    def test_raw_content_and_tags_preserved_in_dictionary_entry(self):
+        raw = {
+            "dictionaryEntries": [
+                {
+                    "isPrimary": True,
+                    "headwords": [{"term": "食べる", "reading": "たべる"}],
+                    "definitions": [
+                        {
+                            "dictionary": "Jitendex.org",
+                            "tags": [{"name": "v1", "category": "partOfSpeech", "notes": "Ichidan verb"}],
+                            "entries": [
+                                {
+                                    "type": "structured-content",
+                                    "content": [
+                                        {"tag": "div", "content": "1. to eat"}
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ]
+        }
+        entries = YomitanService.normalize_term_entries_response(raw)
+        self.assertEqual(len(entries), 1)
+        entry = entries[0]
+        self.assertEqual(entry.dictionary, "Jitendex.org")
+        self.assertEqual(len(entry.raw_content), 1)
+        self.assertEqual(entry.raw_content[0]["type"], "structured-content")
+        self.assertEqual(len(entry.raw_tags), 1)
+        self.assertEqual(entry.raw_tags[0]["name"], "v1")
+
+    def test_capture_response_serializes_raw_content(self):
+        from app.schemas import CaptureResponse
+        entry = DictionaryEntry(
+            dictionary="Jitendex",
+            term="食べる",
+            reading="たべる",
+            raw_content=[{"type": "structured-content", "content": "to eat"}],
+            raw_tags=[{"name": "v1"}],
+        )
+        data = asdict(entry)
+        self.assertIn("raw_content", data)
+        self.assertIn("raw_tags", data)
+
+        capture = CaptureResponse(
+            expression="食べる",
+            reading="たべる",
+            meaning="to eat",
+            entries=[data],
+        )
+        self.assertEqual(len(capture.entries), 1)
+        self.assertEqual(capture.entries[0].raw_content, [{"type": "structured-content", "content": "to eat"}])
+        self.assertEqual(capture.entries[0].raw_tags, [{"name": "v1"}])
+
+    def test_data_lifetime_guardrail_strips_raw_content_on_persistence(self):
+        from app.services.card_service import _strip_transient_dictionary_data
+        entries = [
+            {
+                "dictionary": "Jitendex",
+                "term": "食べる",
+                "reading": "たべる",
+                "parts_of_speech": ["v1"],
+                "senses": [{"index": 1, "glosses": ["to eat"]}],
+                "raw_content": [{"type": "structured-content", "content": "huge ast..."}],
+                "raw_tags": [{"name": "v1", "notes": "notes"}],
+            }
+        ]
+        cleaned = _strip_transient_dictionary_data(entries)
+        self.assertEqual(len(cleaned), 1)
+        self.assertNotIn("raw_content", cleaned[0])
+        self.assertNotIn("raw_tags", cleaned[0])
+        self.assertEqual(cleaned[0]["dictionary"], "Jitendex")
+        self.assertEqual(cleaned[0]["parts_of_speech"], ["v1"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -91,6 +91,8 @@ class DictionaryEntry:
     pitches: list[PitchAccent] = field(default_factory=list)
     frequencies: list[FrequencyRank] = field(default_factory=list)
     score: int = 0
+    raw_content: list[Any] = field(default_factory=list)
+    raw_tags: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -305,6 +307,8 @@ class YomitanService:
                     pitches = YomitanService._extract_pitches(definition) or root_pitches
                     frequencies = YomitanService._extract_frequencies(definition) or root_frequencies
                     senses, entry_pos = YomitanService._definition_senses(definition, dict_name)
+                    raw_content = definition.get("entries") if isinstance(definition.get("entries"), list) else []
+                    raw_tags = definition.get("tags") if isinstance(definition.get("tags"), list) else []
 
                     entry = DictionaryEntry(
                         dictionary=dict_name,
@@ -320,6 +324,8 @@ class YomitanService:
                         pitches=pitches,
                         frequencies=frequencies,
                         score=score,
+                        raw_content=raw_content,
+                        raw_tags=raw_tags,
                     )
                     normalized.append(entry)
             except Exception:

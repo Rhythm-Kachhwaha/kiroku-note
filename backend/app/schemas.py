@@ -92,6 +92,8 @@ class DictionaryEntry(BaseModel):
     pitches: list[PitchAccent] = Field(default_factory=list)
     frequencies: list[FrequencyRank] = Field(default_factory=list)
     score: int = 0
+    raw_content: list[Any] = Field(default_factory=list)
+    raw_tags: list[dict[str, Any]] = Field(default_factory=list)
 
 
 DictionaryEntrySchema = DictionaryEntry
