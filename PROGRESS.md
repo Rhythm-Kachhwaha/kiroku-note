@@ -217,6 +217,16 @@ The core mining pipeline is functional. Current work is focused on polishing, re
   - Extension: 31/31 test suites passing (`node --test extension/tests/*.test.js`) including dedicated `extension/tests/movable-subtitle-overlay.test.js`
   - Backend: 236/236 unit and integration tests passing (`python -m pytest -o pythonpath=backend backend/tests`)
 
+### Subtitle Display Visibility & Playback Performance Fix
+
+- [x] Removed continuous subtitle `requestAnimationFrame` synchronization and per-`timeupdate` overlay repositioning in `extension/content/video-mining-poc.js`.
+- [x] Filtered video detection mutations so unrelated body changes do not trigger document-wide video scans.
+- [x] Made YouTube and Netflix native caption suppression reversible and synchronized with the existing subtitle display setting.
+- [x] Replaced Netflix's repeating document poll with a filtered one-shot discovery observer, then kept observation scoped to the live subtitle container.
+- [x] Added regression coverage for repeated display toggles, cue preservation, playback continuity, no per-frame subtitle work, and provider caption restoration.
+- [x] Final verification: 78/78 extension tests passed; 371/371 backend tests passed.
+- [ ] Manual real-video verification remains environment-dependent and was not run in this session.
+
 
 ### Stage 8 — Documentation
 

@@ -74,17 +74,25 @@ class MockMutationObserver {
 }
 global.MutationObserver = MockMutationObserver;
 
-const mockStyleEl = { parentNode: { removeChild: () => {} } };
+let nativeCaptionStyle = null;
+const mockStyleEl = {
+  id: "ankiminer-hide-netflix-captions",
+  parentNode: {
+    removeChild: () => {
+      nativeCaptionStyle = null;
+    }
+  }
+};
 global.document = {
   getElementById: (id) => {
-    if (id === "ankiminer-hide-netflix-captions") return mockStyleEl;
+    if (id === "ankiminer-hide-netflix-captions") return nativeCaptionStyle;
     return null;
   },
   querySelector: (sel) => {
     if (sel.includes("player-timedtext")) return mockTimedtextEl;
     return null;
   },
-  head: { appendChild: () => {} },
+  head: { appendChild: (style) => { nativeCaptionStyle = style; style.parentNode = mockStyleEl.parentNode; } },
   createElement: () => ({ id: "", textContent: "" }),
   body: {}
 };
@@ -99,6 +107,14 @@ const adapter = new NetflixAdapter({
 
 global.location = { hostname: "www.netflix.com" };
 adapter.init();
+
+adapter.setDisplayEnabled(true);
+assert.ok(nativeCaptionStyle, "Netflix native captions should be suppressed while Kiroku display is on");
+adapter.setDisplayEnabled(false);
+assert.equal(nativeCaptionStyle, null, "Netflix captions should be restored when Kiroku display is off");
+adapter.setDisplayEnabled(true);
+adapter.setDisplayEnabled(false);
+assert.equal(nativeCaptionStyle, null, "Repeated visibility toggles must not leave stale Netflix styles");
 
 // Verify initial cue emission from existing DOM
 assert.equal(observedCues.length, 1);

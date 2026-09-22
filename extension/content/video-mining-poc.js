@@ -24,13 +24,12 @@
       this.activeVideo = null;
       this.observer = null;
       this._boundCheck = this.checkVideos.bind(this);
+      this._boundMutations = this.handleMutations.bind(this);
     }
 
     start() {
       this.checkVideos();
-      this.observer = new MutationObserver(() => {
-        this.checkVideos();
-      });
+      this.observer = new MutationObserver(this._boundMutations);
       if (document.body) {
         this.observer.observe(document.body, { childList: true, subtree: true });
       } else {
@@ -58,6 +57,19 @@
 
     findAllVideos() {
       return Array.from(document.querySelectorAll("video"));
+    }
+
+    handleMutations(mutations) {
+      if (!Array.isArray(mutations) || mutations.some((mutation) => {
+        const nodes = [...(mutation.addedNodes || []), ...(mutation.removedNodes || [])];
+        return nodes.some((node) => {
+          if (!node || node.nodeType !== 1) return false;
+          return (node.tagName || "").toLowerCase() === "video" ||
+            (typeof node.querySelector === "function" && Boolean(node.querySelector("video")));
+        });
+      })) {
+        this.checkVideos();
+      }
     }
 
     findPrimaryVideo() {
@@ -126,8 +138,6 @@
       this.offset = 0.0;
       this.offsetMs = 0;
       this._boundSync = () => this.sync();
-      this._rafId = null;
-      this._boundRaf = this._rafLoop.bind(this);
     }
 
     setCues(newCues) {
@@ -177,11 +187,9 @@
       this.video.addEventListener("play", this._boundSync);
       this.video.addEventListener("pause", this._boundSync);
       this.sync(true);
-      this._startRaf();
     }
 
     detach() {
-      this._stopRaf();
       if (this.video) {
         this.video.removeEventListener("timeupdate", this._boundSync);
         this.video.removeEventListener("seeked", this._boundSync);
@@ -190,30 +198,6 @@
         this.video = null;
       }
       this._updateCue(null, true);
-    }
-
-    _startRaf() {
-      if (this._rafId === null && typeof window.requestAnimationFrame === "function") {
-        this._rafId = window.requestAnimationFrame(this._boundRaf);
-      }
-    }
-
-    _stopRaf() {
-      if (this._rafId !== null && typeof window.cancelAnimationFrame === "function") {
-        window.cancelAnimationFrame(this._rafId);
-        this._rafId = null;
-      }
-    }
-
-    _rafLoop() {
-      if (this.video && !this.video.paused) {
-        this.sync();
-      }
-      if (this.video) {
-        this._rafId = window.requestAnimationFrame(this._boundRaf);
-      } else {
-        this._rafId = null;
-      }
     }
 
     findCueAtTime(currentTime) {
@@ -798,7 +782,6 @@
         this.video.addEventListener("dragover", this._boundDragOver);
         this.video.addEventListener("dragleave", this._boundDragLeave);
         this.video.addEventListener("drop", this._boundDrop);
-        this.video.addEventListener("timeupdate", this._boundUpdatePosition);
         this.video.addEventListener("resize", this._boundUpdatePosition);
         this.video.addEventListener("loadedmetadata", this._boundUpdatePosition);
         this.video.addEventListener("loadeddata", this._boundUpdatePosition);
@@ -954,6 +937,8 @@
       } else {
         if (this.currentCue && this.currentCue.text) {
           this.renderCue(this.currentCue);
+        } else {
+          this.renderCue(null);
         }
       }
     }
@@ -981,7 +966,11 @@
         this.container.setAttribute("data-active-cue", cue.text);
         this.updatePosition();
       } else {
-        this.subtitleEl.textContent = "";
+        if (!this.displayEnabled && cue && cue.text) {
+          this.subtitleEl.textContent = cue.text;
+        } else {
+          this.subtitleEl.textContent = "";
+        }
         setStyleProperty(this.subtitleEl, "display", "none", "important");
         setStyleProperty(this.container, "opacity", "0", "important");
         setStyleProperty(this.container, "visibility", "hidden", "important");
@@ -1038,7 +1027,6 @@
         this.video.removeEventListener("dragover", this._boundDragOver);
         this.video.removeEventListener("dragleave", this._boundDragLeave);
         this.video.removeEventListener("drop", this._boundDrop);
-        this.video.removeEventListener("timeupdate", this._boundUpdatePosition);
         this.video.removeEventListener("resize", this._boundUpdatePosition);
         this.video.removeEventListener("loadedmetadata", this._boundUpdatePosition);
         this.video.removeEventListener("loadeddata", this._boundUpdatePosition);
@@ -1789,6 +1777,12 @@
     setSubtitlesDisplay(enabled) {
       this.subtitlesDisplayEnabled = Boolean(enabled);
       this.renderer.setDisplayEnabled(this.subtitlesDisplayEnabled);
+      if (this.ytAdapter && typeof this.ytAdapter.setDisplayEnabled === "function") {
+        this.ytAdapter.setDisplayEnabled(this.subtitlesDisplayEnabled);
+      }
+      if (this.netflixAdapter && typeof this.netflixAdapter.setDisplayEnabled === "function") {
+        this.netflixAdapter.setDisplayEnabled(this.subtitlesDisplayEnabled);
+      }
       if (this.subtitlesDisplayEnabled && this.syncEngine?.currentCue) {
         this.renderer.renderCue(this.syncEngine.currentCue);
       }
@@ -2558,6 +2552,7 @@
             this.broadcastActiveCue(this.syncEngine.currentCue);
           }
         });
+        this.ytAdapter.setDisplayEnabled(this.subtitlesDisplayEnabled);
         this.ytAdapter.init();
       }
 
@@ -2579,6 +2574,7 @@
             }
           }
         });
+        this.netflixAdapter.setDisplayEnabled(this.subtitlesDisplayEnabled);
         this.netflixAdapter.init();
       }
 

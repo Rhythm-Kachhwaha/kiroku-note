@@ -199,14 +199,30 @@
     (document.head || document.documentElement).appendChild(style);
   }
 
+  function showNativeYouTubeCaptions() {
+    if (typeof document === "undefined") return;
+    const style = document.getElementById("ankiminer-hide-yt-captions");
+    if (style && style.parentNode) style.parentNode.removeChild(style);
+  }
+
   class YouTubeAdapter {
     constructor({ onCuesLoaded } = {}) {
       this.onCuesLoaded = onCuesLoaded;
       this.tracks = [];
       this.activeTrack = null;
       this.currentVideoId = null;
+      this.displayEnabled = true;
       this._boundCheck = this.checkAndLoad.bind(this);
       this._boundBridgeMessage = this.handleBridgeMessage.bind(this);
+    }
+
+    setDisplayEnabled(enabled) {
+      this.displayEnabled = Boolean(enabled);
+      if (this.displayEnabled) {
+        hideNativeYouTubeCaptions();
+      } else {
+        showNativeYouTubeCaptions();
+      }
     }
 
     init() {
@@ -318,7 +334,7 @@
       }
 
       if (cues && cues.length > 0 && typeof this.onCuesLoaded === "function") {
-        hideNativeYouTubeCaptions();
+        if (this.displayEnabled) hideNativeYouTubeCaptions();
         this.onCuesLoaded(cues, track);
       }
     }
@@ -329,6 +345,7 @@
         window.removeEventListener("yt-navigate-finish", this._boundCheck);
         window.removeEventListener("load", this._boundCheck);
       }
+      showNativeYouTubeCaptions();
     }
   }
 
@@ -340,6 +357,7 @@
     findCaptionTracksInDOM,
     fetchCaptionSRV3,
     hideNativeYouTubeCaptions,
+    showNativeYouTubeCaptions,
     YouTubeAdapter
   };
 

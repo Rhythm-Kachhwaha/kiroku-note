@@ -64,26 +64,28 @@
       this.observer = null;
       this.timedtextEl = null;
       this.currentText = "";
-      this._pollInterval = null;
+      this.displayEnabled = true;
+      this.discoveryObserver = null;
     }
 
     init() {
       if (!isNetflixPage()) return;
 
-      hideNativeNetflixCaptions();
+      this.setDisplayEnabled(this.displayEnabled);
       this._findAndObserve();
-
-      // Poll periodically in case Netflix switches player elements during navigation
-      this._pollInterval = setInterval(() => {
-        const el = document.querySelector(".player-timedtext, [data-uia=\"player-timedtext\"]");
-        if (el && el !== this.timedtextEl) {
-          this._observeElement(el);
-        }
-      }, 1500);
     }
 
     setVideo(video) {
       this.video = video;
+    }
+
+    setDisplayEnabled(enabled) {
+      this.displayEnabled = Boolean(enabled);
+      if (this.displayEnabled) {
+        hideNativeNetflixCaptions();
+      } else {
+        removeNativeNetflixCaptionsHiding();
+      }
     }
 
     _findAndObserve() {
@@ -91,15 +93,23 @@
       if (el) {
         this._observeElement(el);
       } else if (typeof MutationObserver !== "undefined" && document.body) {
-        // Observe body until timedtext container appears
-        const bodyObserver = new MutationObserver((_mutations, obs) => {
-          const found = document.querySelector(".player-timedtext, [data-uia=\"player-timedtext\"]");
-          if (found) {
-            obs.disconnect();
-            this._observeElement(found);
+        this.discoveryObserver = new MutationObserver((mutations) => {
+          for (const mutation of mutations) {
+            for (const node of mutation.addedNodes || []) {
+              if (!node || node.nodeType !== 1) continue;
+              const found = node.matches?.(".player-timedtext, [data-uia=\"player-timedtext\"]")
+                ? node
+                : node.querySelector?.(".player-timedtext, [data-uia=\"player-timedtext\"]");
+              if (found) {
+                this.discoveryObserver.disconnect();
+                this.discoveryObserver = null;
+                this._observeElement(found);
+                return;
+              }
+            }
           }
         });
-        bodyObserver.observe(document.body, { childList: true, subtree: true });
+        this.discoveryObserver.observe(document.body, { childList: true, subtree: true });
       }
     }
 
@@ -159,9 +169,9 @@
         this.observer.disconnect();
         this.observer = null;
       }
-      if (this._pollInterval) {
-        clearInterval(this._pollInterval);
-        this._pollInterval = null;
+      if (this.discoveryObserver) {
+        this.discoveryObserver.disconnect();
+        this.discoveryObserver = null;
       }
       removeNativeNetflixCaptionsHiding();
       this.timedtextEl = null;

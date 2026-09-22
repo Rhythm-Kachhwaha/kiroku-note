@@ -405,6 +405,57 @@ async function testOverlayRendering() {
 }
 
 // -------------------------------------------------------------
+// Test 4b: Subtitle Display Toggle and Playback Work
+// -------------------------------------------------------------
+async function testSubtitleDisplayToggle() {
+  const env = createMockDOMEnvironment();
+  const poc = env.context.window.__ANKIMINER_VIDEO_POC__;
+  const video = new env.MockVideoElement("display-toggle-video");
+  env.rootBody.appendChild(video);
+  poc.instance.detector.checkVideos();
+  poc.instance.syncEngine.setCues([{ startTime: 0, endTime: 5, text: "表示切替テスト" }]);
+
+  const container = env.mockDocument.getElementById("ankiminer-video-overlay-container");
+  const subtitle = env.mockDocument.getElementById("ankiminer-video-subtitle");
+  assert.equal(subtitle.textContent, "表示切替テスト");
+
+  for (const enabled of [false, true, false, true, false, true]) {
+    poc.instance.setSubtitlesDisplay(enabled);
+    assert.equal(poc.instance.renderer.displayEnabled, enabled);
+    assert.equal(poc.instance.syncEngine.currentCue.text, "表示切替テスト", "Hidden display must preserve mining cue data");
+    if (enabled) {
+      assert.equal(subtitle.textContent, "表示切替テスト", "Enabling display must restore the current cue");
+      assert.equal(container.style.display, "flex");
+    } else {
+      assert.equal(container.style.display, "none");
+    }
+  }
+
+  video.play();
+  assert.equal(video.paused, false, "Display toggling must not pause playback");
+  console.log("PASS: Subtitle display toggles are reversible, cue data is preserved, and playback continues.");
+}
+
+async function testNoPerFrameSubtitleWork() {
+  const env = createMockDOMEnvironment();
+  let rafCalls = 0;
+  env.mockWindow.requestAnimationFrame = () => {
+    rafCalls++;
+    return 1;
+  };
+  const poc = env.context.window.__ANKIMINER_VIDEO_POC__;
+  const syncEngine = new poc.SubtitleSynchronizer([{ startTime: 0, endTime: 10, text: "イベント同期" }]);
+  const video = new env.MockVideoElement("event-sync-video");
+  env.rootBody.appendChild(video);
+  syncEngine.attach(video);
+  video.play();
+  video.seek(2);
+  assert.equal(rafCalls, 0, "Subtitle synchronization must not schedule per-frame animation work");
+  syncEngine.detach();
+  console.log("PASS: Subtitle synchronization is event-driven without a requestAnimationFrame loop.");
+}
+
+// -------------------------------------------------------------
 // Test 5: End-to-End Integration (Subtitle Overlay -> Yomitan/Selection -> AnkiMiner Capture)
 // -------------------------------------------------------------
 async function testCapturePipelineIntegration() {
@@ -694,6 +745,8 @@ async function testSubtitleHoverMining() {
   await testVideoDetection();
   await testSubtitleSync();
   await testOverlayRendering();
+  await testSubtitleDisplayToggle();
+  await testNoPerFrameSubtitleWork();
   await testCapturePipelineIntegration();
   await testNativeTextTrackInspection();
   await testNoDemoSubtitlesWhenEmpty();

@@ -9,6 +9,8 @@ const {
   normalizeCaptionTrack,
   prioritizeTracks,
   extractTracksFromHtml,
+  hideNativeYouTubeCaptions,
+  showNativeYouTubeCaptions,
   YouTubeAdapter
 } = YouTubeModule;
 
@@ -79,6 +81,23 @@ assert.equal(prioritizedAutoTranslate[0].languageCode, "ja_translated");
 assert.ok(prioritizedAutoTranslate[0].srv3Url.includes("tlang=ja"));
 
 console.log("PASS: prioritizeTracks & auto-translate synthesis verified.");
+
+// 2c. Native caption visibility is reversible and does not duplicate styles
+const originalDocument = global.document;
+const captionStyles = new Map();
+global.document = {
+  createElement: () => ({ id: "", textContent: "", parentNode: null }),
+  getElementById: (id) => captionStyles.get(id) || null,
+  head: { appendChild: (style) => { style.parentNode = global.document.head; captionStyles.set(style.id, style); }, removeChild: (style) => captionStyles.delete(style.id) },
+  documentElement: { appendChild: (style) => { style.parentNode = global.document.documentElement; captionStyles.set(style.id, style); }, removeChild: (style) => captionStyles.delete(style.id) }
+};
+hideNativeYouTubeCaptions();
+hideNativeYouTubeCaptions();
+assert.ok(captionStyles.has("ankiminer-hide-yt-captions"), "YouTube captions should be suppressible");
+showNativeYouTubeCaptions();
+assert.equal(captionStyles.has("ankiminer-hide-yt-captions"), false, "YouTube captions should be restorable");
+global.document = originalDocument;
+console.log("PASS: YouTube native caption visibility toggle verified.");
 
 // 3. extractTracksFromHtml
 const mockPlayerScript = `
