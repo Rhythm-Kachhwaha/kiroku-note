@@ -382,6 +382,8 @@
       this.onFileDropped = null;
       this.onPositionChanged = null;
       this.isHoverLocked = false;
+      this.displayEnabled = true;
+      this.currentCue = null;
       this.pendingCue = undefined;
       this.position = { relX: 0.5, relY: 0.78 };
       this.isDragging = false;
@@ -849,6 +851,7 @@
 
     updatePosition() {
       if (!this.container || !this.video) return;
+      if (this.displayEnabled === false) return;
 
       this.ensureMounted();
 
@@ -935,7 +938,28 @@
       }
     }
 
+    setDisplayEnabled(enabled) {
+      this.displayEnabled = Boolean(enabled);
+      if (!this.displayEnabled) {
+        if (this.subtitleEl) {
+          this.subtitleEl.textContent = "";
+          setStyleProperty(this.subtitleEl, "display", "none", "important");
+        }
+        if (this.container) {
+          setStyleProperty(this.container, "opacity", "0", "important");
+          setStyleProperty(this.container, "visibility", "hidden", "important");
+          setStyleProperty(this.container, "display", "none", "important");
+          this.container.removeAttribute("data-active-cue");
+        }
+      } else {
+        if (this.currentCue && this.currentCue.text) {
+          this.renderCue(this.currentCue);
+        }
+      }
+    }
+
     renderCue(cue) {
+      this.currentCue = cue;
       if (!this.subtitleEl || !this.container) return;
       if (this.isHoverLocked) {
         // If mouse is currently hovering over the subtitle to read/scan it with Yomitan or dragging:
@@ -948,7 +972,7 @@
       }
       this.pendingCue = undefined;
 
-      if (cue && cue.text) {
+      if (cue && cue.text && this.displayEnabled !== false) {
         this.subtitleEl.textContent = cue.text;
         setStyleProperty(this.subtitleEl, "display", "inline-block", "important");
         setStyleProperty(this.container, "display", "flex", "important");
@@ -1605,6 +1629,7 @@
       });
       this.activeVideo = null;
       this.activeFilename = "";
+      this.subtitlesDisplayEnabled = true;
       this.ytAdapter = null;
       this.netflixAdapter = null;
       this.timelineId = 1;
@@ -1759,6 +1784,14 @@
           localStorage.setItem("subtitle_overlay_position", JSON.stringify(pos));
         }
       } catch (_) {}
+    }
+
+    setSubtitlesDisplay(enabled) {
+      this.subtitlesDisplayEnabled = Boolean(enabled);
+      this.renderer.setDisplayEnabled(this.subtitlesDisplayEnabled);
+      if (this.subtitlesDisplayEnabled && this.syncEngine?.currentCue) {
+        this.renderer.renderCue(this.syncEngine.currentCue);
+      }
     }
 
     onTimelineDiscontinuity(reason = "unknown") {
@@ -2336,6 +2369,15 @@
         sendResponse?.({ ok: true, enabled: message.enabled });
         return true;
       }
+      if (message?.type === "SET_SUBTITLES_DISPLAY" && typeof message.enabled === "boolean") {
+        this.setSubtitlesDisplay(message.enabled);
+        sendResponse?.({ ok: true, enabled: message.enabled });
+        return true;
+      }
+      if (message?.type === "GET_SUBTITLES_DISPLAY") {
+        sendResponse?.({ ok: true, enabled: this.renderer.displayEnabled !== false });
+        return true;
+      }
       if (message?.type === "GET_VIDEO_STATE") {
         sendResponse?.({
           ok: true,
@@ -2346,6 +2388,7 @@
           cueCount: this.syncEngine.cues.length,
           activeFilename: this.activeFilename,
           autoPauseEnabled: this.autoPauseController.enabled,
+          subtitlesDisplayEnabled: this.renderer.displayEnabled !== false,
           subtitlePosition: this.renderer.getPosition()
         });
         return true;
@@ -2468,6 +2511,29 @@
           const stored = localStorage.getItem("auto_pause_on_hover");
           if (stored !== null) {
             this.autoPauseController.setEnabled(stored === "true");
+          }
+        }
+      } catch (_) {}
+
+      // Initialize subtitle display preference from storage
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          chrome.storage.local.get("subtitles_display_enabled", (result) => {
+            if (typeof result?.subtitles_display_enabled === "boolean") {
+              this.setSubtitlesDisplay(result.subtitles_display_enabled);
+            }
+          });
+          if (chrome.storage?.onChanged) {
+            chrome.storage.onChanged.addListener((changes, areaName) => {
+              if (areaName === "local" && typeof changes?.subtitles_display_enabled?.newValue === "boolean") {
+                this.setSubtitlesDisplay(changes.subtitles_display_enabled.newValue);
+              }
+            });
+          }
+        } else if (typeof localStorage !== "undefined") {
+          const stored = localStorage.getItem("subtitles_display_enabled");
+          if (stored !== null) {
+            this.setSubtitlesDisplay(stored === "true");
           }
         }
       } catch (_) {}

@@ -657,6 +657,7 @@ const offsetPlusBtn = document.querySelector("#offset-plus-btn");
 const offsetDisplay = document.querySelector("#offset-display");
 const videoCurrentCuePreview = document.querySelector("#video-current-cue-preview");
 const toggleAutoPauseHover = document.querySelector("#toggle-auto-pause-hover");
+const toggleSubtitlesDisplay = document.querySelector("#toggle-subtitles-display");
 const toggleAutoCaptureFrame = document.querySelector("#toggle-auto-capture-frame");
 const toggleAutoCaptureAudio = document.querySelector("#toggle-auto-capture-audio");
 
@@ -4702,6 +4703,7 @@ loadModels().catch(() => {});
 loadHistory().catch(() => {});
 loadTabPreference().catch(() => {});
 loadAutoPausePreference().catch(() => {});
+loadSubtitlesDisplayPreference().catch(() => {});
 loadSubtitleOffsetPreference().catch(() => {});
 loadJimakuApiKey().catch(() => {});
 
@@ -5856,6 +5858,40 @@ function setAutoPausePreference(enabled) {
   });
 }
 
+async function loadSubtitlesDisplayPreference() {
+  try {
+    let enabled = true;
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const stored = await chrome.storage.local.get("subtitles_display_enabled");
+      if (typeof stored?.subtitles_display_enabled === "boolean") {
+        enabled = stored.subtitles_display_enabled;
+      }
+    } else if (typeof localStorage !== "undefined") {
+      const stored = localStorage.getItem("subtitles_display_enabled");
+      if (stored !== null) {
+        enabled = stored === "true";
+      }
+    }
+    if (toggleSubtitlesDisplay) {
+      toggleSubtitlesDisplay.checked = enabled;
+    }
+  } catch (_) {}
+}
+
+function setSubtitlesDisplayPreference(enabled) {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ subtitles_display_enabled: enabled });
+    } else if (typeof localStorage !== "undefined") {
+      localStorage.setItem("subtitles_display_enabled", String(enabled));
+    }
+  } catch (_) {}
+  broadcastToActiveVideo({
+    type: "SET_SUBTITLES_DISPLAY",
+    enabled
+  });
+}
+
 async function loadAutoCapturePreferences() {
   try {
     let autoFrame = true;
@@ -5888,6 +5924,12 @@ function setAutoCapturePreference(key, enabled) {
 if (toggleAutoPauseHover) {
   toggleAutoPauseHover.addEventListener("change", (e) => {
     setAutoPausePreference(Boolean(e.target.checked));
+  });
+}
+
+if (toggleSubtitlesDisplay) {
+  toggleSubtitlesDisplay.addEventListener("change", (e) => {
+    setSubtitlesDisplayPreference(Boolean(e.target.checked));
   });
 }
 

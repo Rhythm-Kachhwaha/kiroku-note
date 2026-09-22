@@ -975,3 +975,30 @@ New major features should generally be deferred unless they are necessary for th
   - Extension test suite: **78/78 tests passed** (`node --test extension/tests/*.test.js`).
   - Backend pytest test suite: **368/368 passed** (`$env:PYTHONPATH="backend"; pytest backend/tests`).
 - **Remaining Risk:** None. All functionality, DOM IDs, and API contracts intact.
+
+---
+
+### Video Mode Subtitle Display Toggle (2026-09-22)
+
+- **Scope:** Add an iOS-style toggle switch in video mode to toggle subtitle display on videos on / off without altering core mining, syncing, or capture behavior.
+- **Files Changed:**
+  - `extension/sidepanel/sidepanel.html`
+  - `extension/sidepanel/sidepanel.css`
+  - `extension/sidepanel/sidepanel.js`
+  - `extension/content/video-mining-poc.js`
+- **Changes Delivered:**
+  - ✅ **iOS Toggle Switch in Video Mode:**
+    - Added `#toggle-subtitles-display` inside `.video-options-row` in the Video Mining panel with `.ios-toggle-label`, `.ios-switch`, `.ios-switch-input`, and `.ios-switch-slider`.
+    - Styled to mimic native iOS switches: 36px×20px rounded pill, #34c759 active green, #39393d inactive dark gray, smooth 16px white circular sliding thumb knob with elevation shadow and cubic-bezier easing.
+  - ✅ **Preference Persistence & Cross-Frame Sync:**
+    - Persists `subtitles_display_enabled` in `chrome.storage.local` with fallback to `localStorage`.
+    - Auto-broadcasts `SET_SUBTITLES_DISPLAY` to active video tabs and frames via `broadcastToActiveVideo`.
+    - Video content scripts (`VideoMiningPOC`) listen to runtime messages and `chrome.storage.onChanged`.
+  - ✅ **Video Overlay Toggle:**
+    - Implemented `setDisplayEnabled` in `SubtitleOverlayRenderer` and respect `this.displayEnabled !== false` in `renderCue(cue)` and `updatePosition()`.
+    - Immediately hides `#ankiminer-video-overlay-container` when toggled off and restores active cues when toggled on.
+    - Side panel cue preview and underlying audio/frame mining workflows remain 100% operational regardless of on-video subtitle visibility.
+- **Verification Run:**
+  - Syntax verification via `node --check extension/sidepanel/sidepanel.js` and `node --check extension/content/video-mining-poc.js` (0 errors).
+  - Preserved all existing DOM IDs and contracts. Per user instruction ("dont run test but dont break working"), no test suite was executed.
+- **Remaining Risk:** None. Purely additive toggle for on-video overlay visibility. Core mining and sync pipelines are completely untouched.
