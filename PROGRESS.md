@@ -947,3 +947,31 @@ New major features should generally be deferred unless they are necessary for th
   - Extension test suite: **78/78 tests passed** (`node --test`).
   - a11y test updated to accept `EDIT` label alongside `CARD` as valid card section heading.
 - **Remaining Risk:** None identified. Pure CSS/HTML presentation changes; backend, APIs, capture logic, and Anki/Yomitan integration untouched.
+
+---
+
+### UI Polish Pass 3 — Video Tab Refinements & Subtitle Centering (2026-09-22)
+
+- **Scope:** Clean up video mining tab according to user feedback and UI reference specifications.
+- **Files Changed:** `extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`, `extension/sidepanel/sidepanel.js`
+- **Changes Delivered:**
+  - ✅ **Active subtitle enlarged, centered, and colored:**
+    - Stripped the redundant `ACTIVE SUBTITLE` uppercase label.
+    - Updated active subtitle text to 20px, centered (`text-align: center; justify-content: center;`), Japanese font with warm amber (`--accent-reading`: `#d4884f`) for optimal readability.
+    - Added subtle `.waiting` state for "Waiting for playback…" that smoothly transitions to amber 20px when active cues play.
+  - ✅ **Collapsible subtitle controls:**
+    - Wrapped subtitle configuration controls (folder selector, Jimaku search, offset controls, auto-pause toggle) in a native `<details>` container.
+    - Top bar (`Load subtitles ▾` button and status pill) acts as the summary trigger with a sleek obsidian-themed rotating chevron.
+    - Added `e.preventDefault()` and dropdown click `stopPropagation` so clicking the "Load subtitles" button or dropdown menu items does not toggle the details accordion.
+  - ✅ **Relocated auto-capture toggles:**
+    - Moved "Auto-capture frame" and "Auto-capture audio" from the video tab to the Settings popover under a dedicated "Video" section, preserving all IDs and event bindings.
+  - ✅ **Removed verbose subtitle help callout:**
+    - Removed the "Click a word in the active subtitle to capture it..." paragraph to make the video view clean and distraction-free.
+  - ✅ **Folder icon:**
+    - Replaced the folder emoji with an inline SVG folder icon matching the obsidian/rust design system.
+  - ✅ **Label consistency:**
+    - Ensured `Subtitle Offset:` label matches test requirements and design specifications.
+- **Verification Results:**
+  - Extension test suite: **78/78 tests passed** (`node --test extension/tests/*.test.js`).
+  - Backend pytest test suite: **368/368 passed** (`$env:PYTHONPATH="backend"; pytest backend/tests`).
+- **Remaining Risk:** None. All functionality, DOM IDs, and API contracts intact.

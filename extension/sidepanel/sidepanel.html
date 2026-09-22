@@ -58,131 +58,114 @@
     <!-- Video Mining View -->
     <div id="video-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-video" hidden>
       <section id="video-mining-section" class="video-mining-panel" aria-label="Video Mining Controls">
-        <div class="video-toolbar">
-          <div class="video-action-buttons">
-            <div class="subtitles-dropdown-wrapper">
-              <button type="button" id="load-subtitles-btn" class="btn-subtitles" aria-expanded="false" aria-haspopup="true">Load subtitles ▾</button>
-              <div id="subtitles-menu-dropdown" class="subtitles-menu-dropdown" hidden>
-                <button type="button" id="subtitles-menu-file" class="subtitles-menu-item">From file (.srt, .vtt, .ass)</button>
-                <button type="button" id="btn-select-subtitles-folder" class="btn-subtitles-folder subtitles-menu-item" title="Select subtitle folder to pick subtitles from every time">From folder</button>
-                <button type="button" id="btn-search-subtitles" class="btn-search-subtitles subtitles-menu-item" title="Search Japanese subtitles via Jimaku">Search (Jimaku)</button>
-                <div class="subtitles-menu-divider"></div>
-                <button type="button" id="clear-subtitles-btn" class="btn-clear-subtitles subtitles-menu-item" title="Clear loaded subtitles">Clear</button>
+
+        <!-- Collapsible Subtitle Controls -->
+        <details id="subtitle-controls-details" class="subtitle-controls-details" open>
+          <summary class="subtitle-controls-summary">
+            <div class="subtitle-controls-summary-inner">
+              <div class="subtitles-dropdown-wrapper">
+                <button type="button" id="load-subtitles-btn" class="btn-subtitles" aria-expanded="false" aria-haspopup="true">Load subtitles &#9662;</button>
+                <div id="subtitles-menu-dropdown" class="subtitles-menu-dropdown" hidden>
+                  <button type="button" id="subtitles-menu-file" class="subtitles-menu-item">From file (.srt, .vtt, .ass)</button>
+                  <button type="button" id="btn-select-subtitles-folder" class="btn-subtitles-folder subtitles-menu-item" title="Select subtitle folder to pick subtitles from every time">From folder</button>
+                  <button type="button" id="btn-search-subtitles" class="btn-search-subtitles subtitles-menu-item" title="Search Japanese subtitles via Jimaku">Search (Jimaku)</button>
+                  <div class="subtitles-menu-divider"></div>
+                  <button type="button" id="clear-subtitles-btn" class="btn-clear-subtitles subtitles-menu-item" title="Clear loaded subtitles">Clear</button>
+                </div>
+              </div>
+              <input type="file" id="subtitles-file-input" accept=".srt,.vtt,.ass,.ssa" hidden>
+              <input type="file" id="subtitles-dir-input" webkitdirectory directory hidden>
+              <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
+            </div>
+          </summary>
+
+          <!-- Subtitle Folder Quick Selector -->
+          <div id="subtitle-folder-bar" class="subtitle-folder-bar" hidden>
+            <span id="folder-name-label" class="folder-name-label" title="Active Subtitle Directory"><svg class="folder-icon" aria-hidden="true" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 3.5A1 1 0 0 1 2.5 2.5H6l1 1.5H13.5A1 1 0 0 1 14.5 5v7a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V3.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>Folder:</span>
+            <select id="folder-subtitles-select" class="folder-subtitles-select" aria-label="Select subtitle from chosen folder">
+              <option value="">Select subtitle file…</option>
+            </select>
+          </div>
+
+          <!-- Jimaku Subtitles Search Modal -->
+          <div id="jimaku-search-modal" class="jimaku-modal" role="dialog" aria-modal="false" aria-label="Search Japanese Subtitles" hidden>
+            <div class="jimaku-modal-header">
+              <div class="jimaku-modal-title-row">
+                <span class="jimaku-icon" aria-hidden="true">🔍</span>
+                <h3 class="jimaku-modal-title">Search Subtitles (Jimaku)</h3>
+              </div>
+              <button type="button" id="btn-close-jimaku-modal" class="btn-close-modal" title="Close subtitle search" aria-label="Close subtitle search">&times;</button>
+            </div>
+            <div class="jimaku-api-key-section">
+              <label for="jimaku-api-key-input" class="jimaku-label">API Key <span class="jimaku-hint">(stored locally)</span></label>
+              <div class="jimaku-key-row">
+                <input type="password" id="jimaku-api-key-input" class="jimaku-input" placeholder="Enter Jimaku API Key…" autocomplete="off">
+                <button type="button" id="btn-save-jimaku-key" class="btn-jimaku-action">Save</button>
+              </div>
+              <span id="jimaku-key-status" class="jimaku-status-note"></span>
+            </div>
+            <div class="jimaku-download-path-section">
+              <label for="jimaku-download-folder-input" class="jimaku-label">Download Subfolder / Destination</label>
+              <div class="jimaku-folder-row">
+                <input type="text" id="jimaku-download-folder-input" class="jimaku-input" placeholder="e.g. KirokuSubtitles or Subtitles" value="KirokuSubtitles" autocomplete="off">
+              </div>
+              <div class="jimaku-options-row">
+                <label class="toggle-control" for="toggle-save-subtitle-disk">
+                  <input type="checkbox" id="toggle-save-subtitle-disk" class="toggle-checkbox" checked>
+                  <span class="toggle-label">Auto-save downloaded subtitles to folder</span>
+                </label>
               </div>
             </div>
-            <input type="file" id="subtitles-file-input" accept=".srt,.vtt,.ass,.ssa" hidden>
-            <input type="file" id="subtitles-dir-input" webkitdirectory directory hidden>
-          </div>
-          <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
-        </div>
-
-        <!-- Subtitle Folder Quick Selector -->
-        <div id="subtitle-folder-bar" class="subtitle-folder-bar" hidden>
-          <span id="folder-name-label" class="folder-name-label" title="Active Subtitle Directory"><svg class="folder-icon" aria-hidden="true" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 3.5A1 1 0 0 1 2.5 2.5H6l1 1.5H13.5A1 1 0 0 1 14.5 5v7a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V3.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>Folder:</span>
-          <select id="folder-subtitles-select" class="folder-subtitles-select" aria-label="Select subtitle from chosen folder">
-            <option value="">Select subtitle file…</option>
-          </select>
-        </div>
-
-        <!-- Jimaku Subtitles Search Modal -->
-        <div id="jimaku-search-modal" class="jimaku-modal" role="dialog" aria-modal="false" aria-label="Search Japanese Subtitles" hidden>
-          <div class="jimaku-modal-header">
-            <div class="jimaku-modal-title-row">
-              <span class="jimaku-icon" aria-hidden="true">🔍</span>
-              <h3 class="jimaku-modal-title">Search Subtitles (Jimaku)</h3>
+            <div class="jimaku-search-section">
+              <label for="jimaku-search-input" class="jimaku-label">Anime / Media Title</label>
+              <div class="jimaku-search-row">
+                <input type="text" id="jimaku-search-input" class="jimaku-input" placeholder="e.g. Frieren, 葯送のフリーレン…" autocomplete="off">
+                <button type="button" id="btn-jimaku-search" class="btn-jimaku-primary">Search</button>
+              </div>
             </div>
-            <button type="button" id="btn-close-jimaku-modal" class="btn-close-modal" title="Close subtitle search" aria-label="Close subtitle search">&times;</button>
-          </div>
-
-          <div class="jimaku-api-key-section">
-            <label for="jimaku-api-key-input" class="jimaku-label">API Key <span class="jimaku-hint">(stored locally)</span></label>
-            <div class="jimaku-key-row">
-              <input type="password" id="jimaku-api-key-input" class="jimaku-input" placeholder="Enter Jimaku API Key…" autocomplete="off">
-              <button type="button" id="btn-save-jimaku-key" class="btn-jimaku-action">Save</button>
+            <div id="jimaku-status-message" class="jimaku-status-message" hidden></div>
+            <div id="jimaku-results-container" class="jimaku-results-container" hidden>
+              <div class="jimaku-results-header">Search Results:</div>
+              <div id="jimaku-results-list" class="jimaku-results-list" role="list"></div>
             </div>
-            <span id="jimaku-key-status" class="jimaku-status-note"></span>
-          </div>
-
-          <div class="jimaku-download-path-section">
-            <label for="jimaku-download-folder-input" class="jimaku-label">Download Subfolder / Destination</label>
-            <div class="jimaku-folder-row">
-              <input type="text" id="jimaku-download-folder-input" class="jimaku-input" placeholder="e.g. KirokuSubtitles or Subtitles" value="KirokuSubtitles" autocomplete="off">
-            </div>
-            <div class="jimaku-options-row">
-              <label class="toggle-control" for="toggle-save-subtitle-disk">
-                <input type="checkbox" id="toggle-save-subtitle-disk" class="toggle-checkbox" checked>
-                <span class="toggle-label">Auto-save downloaded subtitles to folder</span>
-              </label>
+            <div id="jimaku-files-container" class="jimaku-files-container" hidden>
+              <div class="jimaku-files-header-row">
+                <span id="jimaku-selected-entry-title" class="jimaku-entry-title"></span>
+                <button type="button" id="btn-back-to-results" class="btn-jimaku-back">← Back</button>
+              </div>
+              <div id="jimaku-files-list" class="jimaku-files-list" role="list"></div>
             </div>
           </div>
 
-          <div class="jimaku-search-section">
-            <label for="jimaku-search-input" class="jimaku-label">Anime / Media Title</label>
-            <div class="jimaku-search-row">
-              <input type="text" id="jimaku-search-input" class="jimaku-input" placeholder="e.g. Frieren, 葬送のフリーレン…" autocomplete="off">
-              <button type="button" id="btn-jimaku-search" class="btn-jimaku-primary">Search</button>
+          <div class="video-controls-row">
+            <select id="video-track-select" class="video-track-select" hidden aria-label="Select subtitle track">
+              <option value="">Default track</option>
+            </select>
+            <div class="video-offset-controls">
+              <span class="offset-label">Subtitle Offset:</span>
+              <div class="offset-btn-group">
+                <button type="button" id="offset-minus-btn" class="btn-offset" title="Decrease offset by 100 ms (-100 ms)">-100ms</button>
+                <button type="button" id="offset-reset-btn" class="btn-offset btn-offset-reset" title="Reset offset to 0 ms">
+                  <span id="offset-display">0 ms</span>
+                </button>
+                <button type="button" id="offset-plus-btn" class="btn-offset" title="Increase offset by 100 ms (+100 ms)">+100ms</button>
+              </div>
             </div>
           </div>
 
-          <div id="jimaku-status-message" class="jimaku-status-message" hidden></div>
-
-          <div id="jimaku-results-container" class="jimaku-results-container" hidden>
-            <div class="jimaku-results-header">Search Results:</div>
-            <div id="jimaku-results-list" class="jimaku-results-list" role="list"></div>
+          <div class="video-options-row">
+            <label class="toggle-control" for="toggle-auto-pause-hover">
+              <input type="checkbox" id="toggle-auto-pause-hover" class="toggle-checkbox">
+              <span class="toggle-label">Auto-pause on subtitle hover</span>
+            </label>
           </div>
+        </details>
 
-          <div id="jimaku-files-container" class="jimaku-files-container" hidden>
-            <div class="jimaku-files-header-row">
-              <span id="jimaku-selected-entry-title" class="jimaku-entry-title"></span>
-              <button type="button" id="btn-back-to-results" class="btn-jimaku-back">← Back</button>
-            </div>
-            <div id="jimaku-files-list" class="jimaku-files-list" role="list"></div>
-          </div>
-        </div>
-
-        <div class="video-controls-row">
-          <select id="video-track-select" class="video-track-select" hidden aria-label="Select subtitle track">
-            <option value="">Default track</option>
-          </select>
-
-          <div class="video-offset-controls">
-            <span class="offset-label">Subtitle Offset:</span>
-            <div class="offset-btn-group">
-              <button type="button" id="offset-minus-btn" class="btn-offset" title="Decrease offset by 100 ms (-100 ms)">-100ms</button>
-              <button type="button" id="offset-reset-btn" class="btn-offset btn-offset-reset" title="Reset offset to 0 ms">
-                <span id="offset-display">0 ms</span>
-              </button>
-              <button type="button" id="offset-plus-btn" class="btn-offset" title="Increase offset by 100 ms (+100 ms)">+100ms</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="video-options-row">
-          <label class="toggle-control" for="toggle-auto-pause-hover">
-            <input type="checkbox" id="toggle-auto-pause-hover" class="toggle-checkbox">
-            <span class="toggle-label">Auto-pause on subtitle hover</span>
-          </label>
-        </div>
-
+        <!-- Active Subtitle Display -->
         <div class="video-cue-preview-container">
-          <div class="cue-preview-label">ACTIVE SUBTITLE</div>
-          <div id="video-current-cue-preview" class="video-cue-preview">Waiting for playback…</div>
+          <div id="video-current-cue-preview" class="video-cue-preview waiting">Waiting for playback…</div>
         </div>
 
-        <div class="video-auto-capture-options">
-          <label class="auto-capture-checkbox-label" title="Automatically capture a video frame screenshot whenever you mine/lookup a word">
-            <input type="checkbox" id="toggle-auto-capture-frame" checked>
-            <span>Auto-capture frame</span>
-          </label>
-          <label class="auto-capture-checkbox-label" title="Automatically record sentence audio whenever you mine/lookup a word">
-            <input type="checkbox" id="toggle-auto-capture-audio" checked>
-            <span>Auto-capture audio</span>
-          </label>
-        </div>
-
-        <div class="video-help-callout">
-          Click a word in the active subtitle to capture it — it flows into the same Card Preview &amp; Editor as Text Mining.
-        </div>
       </section>
     </div>
 
@@ -331,8 +314,20 @@
             <div class="settings-subtext">Shown by default on preview and cards.</div>
           </div>
 
-
-
+          <!-- Video Settings -->
+          <div class="card-settings-group">
+            <span class="settings-group-label">Video</span>
+            <div class="settings-checkboxes">
+              <label class="setting-checkbox-label" title="Automatically capture a video frame screenshot whenever you mine/lookup a word">
+                <input type="checkbox" id="toggle-auto-capture-frame" class="setting-checkbox" checked>
+                <span>Auto-capture frame</span>
+              </label>
+              <label class="setting-checkbox-label" title="Automatically record sentence audio whenever you mine/lookup a word">
+                <input type="checkbox" id="toggle-auto-capture-audio" class="setting-checkbox" checked>
+                <span>Auto-capture audio</span>
+              </label>
+            </div>
+          </div>
           <!-- Side Panel UI Settings -->
           <div class="card-settings-group">
             <span class="settings-group-label">Side Panel</span>

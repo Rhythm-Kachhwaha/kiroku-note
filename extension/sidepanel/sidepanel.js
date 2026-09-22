@@ -5218,6 +5218,7 @@ async function clearSubtitles() {
   }
   if (videoCurrentCuePreview) {
     videoCurrentCuePreview.textContent = "—";
+    videoCurrentCuePreview.classList.add("waiting");
   }
   if (videoTrackSelect) {
     videoTrackSelect.hidden = true;
@@ -5733,14 +5734,21 @@ const subtitlesMenuFile = document.querySelector("#subtitles-menu-file");
 if (loadSubtitlesBtn) {
   if (subtitlesMenuDropdown) {
     loadSubtitlesBtn.addEventListener("click", (e) => {
+      e.preventDefault();
       e.stopPropagation();
       subtitlesMenuDropdown.hidden = !subtitlesMenuDropdown.hidden;
+    });
+    subtitlesMenuDropdown.addEventListener("click", (e) => {
+      e.stopPropagation();
     });
     document.addEventListener("click", () => {
       if (subtitlesMenuDropdown) subtitlesMenuDropdown.hidden = true;
     });
   } else if (subtitlesFileInput) {
-    loadSubtitlesBtn.addEventListener("click", () => subtitlesFileInput.click());
+    loadSubtitlesBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      subtitlesFileInput.click();
+    });
   }
 }
 
@@ -6044,7 +6052,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       currentActiveCue = message.cue;
     }
     if (videoCurrentCuePreview) {
-      videoCurrentCuePreview.textContent = message.cue?.text || "—";
+      const cueText = message.cue?.text || "";
+      videoCurrentCuePreview.textContent = cueText || "—";
+      if (cueText) {
+        videoCurrentCuePreview.classList.remove("waiting");
+      } else {
+        videoCurrentCuePreview.classList.add("waiting");
+      }
     }
     if (typeof message.offsetMs === "number") {
       if (message.offsetMs !== currentSubtitleOffsetMs) {

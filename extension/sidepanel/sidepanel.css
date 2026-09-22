@@ -720,6 +720,50 @@ body {
   margin-bottom: var(--space-2);
 }
 
+.subtitle-controls-details {
+  display: block;
+}
+
+.subtitle-controls-summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+
+.subtitle-controls-summary::-webkit-details-marker {
+  display: none;
+}
+
+.subtitle-controls-summary-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.subtitle-controls-summary-inner::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid var(--text-muted);
+  border-bottom: 1.5px solid var(--text-muted);
+  transform: rotate(-45deg);
+  transition: transform var(--transition-fast);
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.subtitle-controls-details[open] > .subtitle-controls-summary .subtitle-controls-summary-inner::after {
+  transform: rotate(45deg);
+}
+
+.subtitle-controls-details > *:not(summary) {
+  margin-top: 8px;
+}
+
 .video-toolbar {
   display: flex;
   align-items: center;
@@ -930,39 +974,44 @@ body {
 }
 
 .video-cue-preview-container {
-  background: var(--bg-canvas);
+  background: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin-top: 4px;
+  min-height: 58px;
 }
 
 .cue-preview-label {
-  font-size: 10px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 4px;
-  font-weight: 600;
+  display: none;
 }
 
 .video-cue-preview {
-  font-family: var(--japanese-font);
-  font-size: 13px;
-  color: var(--text-muted);
-  min-height: 36px;
+  font-family: var(--font-japanese, var(--japanese-font));
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--accent-reading);
   word-break: break-word;
   line-height: 1.5;
-  display: flex;
-  align-items: center;
+  text-align: center;
+  letter-spacing: 0.5px;
+  width: 100%;
+  transition: color var(--transition-fast), font-size var(--transition-fast);
+}
+
+.video-cue-preview.waiting {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
 }
 
 .video-help-callout {
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.4;
-  margin-top: 4px;
-  border-top: 1px solid var(--border-subtle);
-  padding-top: 6px;
+  display: none;
 }
 
 .video-options-row {
