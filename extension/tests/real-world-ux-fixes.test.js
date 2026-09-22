@@ -105,7 +105,7 @@ assert.ok(js.includes("if (frontCfg.show_hint && data.hint)"), "Front preview MU
 assert.ok(js.includes("if (backCfg.show_hint !== false && data.hint)"), "Back preview MUST gate hint with backCfg.show_hint !== false");
 
 // Guardrail 1: Editor Japanese mode bound ONLY to free-form fields
-assert.ok(js.includes("const targetInputs = [fieldHint, fieldExampleSentence]"), "WanaKana binding in editor MUST target ONLY fieldHint and fieldExampleSentence");
+assert.ok(js.includes("const targetInputs = [fieldHint, fieldExampleSentence, fieldNotes]"), "WanaKana binding in editor MUST target free-form Hint, Sentence, and Notes fields");
 assert.ok(!js.includes("const targetInputs = [fieldExpression"), "WanaKana in editor MUST NEVER bind to fieldExpression");
 assert.ok(!js.includes("targetInputs = [fieldReading"), "WanaKana in editor MUST NEVER bind to fieldReading");
 

@@ -218,6 +218,67 @@ class TestSyncLifecycle:
         mock_anki.find_existing_note.assert_not_called()
         mock_anki.add_note.assert_not_called()
 
+    def test_revalidates_stale_synced_cards_before_short_circuit(self, temp_db):
+        repo = CardRepository(temp_db)
+        mock_anki = MagicMock(spec=AnkiConnectService)
+        mock_anki.note_matches_card.return_value = False
+        mock_anki.find_existing_note.return_value = None
+        mock_anki.add_note.return_value = 555555
+
+        service = CardService(card_repository=repo, anki_service=mock_anki)
+        saved = service.save_card(SaveCardRequest(expression="森", reading="もり", meaning="forest"))
+        repo.mark_synced(saved.id, 555444)
+
+        sync_result = service.sync_card(saved.id)
+
+        assert sync_result.sync_status == "synced"
+        assert sync_result.anki_note_id == 555555
+        mock_anki.note_matches_card.assert_called_once_with(
+            note_id=555444,
+            expression="森",
+            reading="もり",
+            deck_name="Default",
+        )
+        mock_anki.add_note.assert_called_once()
+
+    def test_sync_all_retries_cards_with_unverified_synced_state(self, temp_db):
+        repo = CardRepository(temp_db)
+        mock_anki = MagicMock(spec=AnkiConnectService)
+        mock_anki.is_connected.return_value = (True, None)
+        mock_anki.note_matches_card.side_effect = [False]
+        mock_anki.find_existing_note.return_value = None
+        mock_anki.add_note.return_value = 777777
+
+        service = CardService(card_repository=repo, anki_service=mock_anki)
+        saved = service.save_card(SaveCardRequest(expression="島", reading="しま", meaning="island"))
+        repo.mark_synced(saved.id, 777111)
+
+        result = service.sync_all()
+
+        assert result.total_eligible == 1
+        assert result.synced_count == 1
+        assert result.results[0].anki_note_id == 777777
+        assert mock_anki.note_matches_card.call_count == 1
+
+    def test_sync_all_keeps_cards_with_verified_synced_note_unrecreated(self, temp_db):
+        repo = CardRepository(temp_db)
+        mock_anki = MagicMock(spec=AnkiConnectService)
+        mock_anki.is_connected.return_value = (True, None)
+        mock_anki.note_matches_card.return_value = True
+
+        service = CardService(card_repository=repo, anki_service=mock_anki)
+        saved = service.save_card(SaveCardRequest(expression="川", reading="かわ", meaning="river"))
+        repo.mark_synced(saved.id, 444444)
+
+        result = service.sync_all()
+
+        assert result.total_eligible == 0
+        assert result.synced_count == 0
+        assert result.failed_count == 0
+        assert result.results == []
+        assert mock_anki.find_existing_note.call_count == 0
+        assert mock_anki.add_note.call_count == 0
+
     def test_retry_after_failure_succeeds(self, temp_db):
         repo = CardRepository(temp_db)
         mock_anki = MagicMock(spec=AnkiConnectService)

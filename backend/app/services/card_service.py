@@ -404,16 +404,31 @@ class CardService:
         if not card:
             raise ValueError(f"Card with ID {card_id} does not exist.")
 
-        # If already marked synced and has anki_note_id, return status immediately
+        # If already marked synced and has anki_note_id, re-validate the external note before trusting it.
         if card.sync_status == "synced" and card.anki_note_id:
-            return SyncCardResponse(
-                id=card.id,
-                sync_status="synced",
-                anki_note_id=card.anki_note_id,
-                deck_name=card.deck_name,
-                model_name=card.model_name or None,
-                synced_at=card.synced_at,
-            )
+            note_matches = False
+            try:
+                note_matches = self.anki.note_matches_card(
+                    note_id=card.anki_note_id,
+                    expression=card.expression,
+                    reading=card.reading,
+                    deck_name=card.deck_name,
+                )
+            except Exception as err:
+                logger.warning("Could not revalidate synced note %s for card %s: %s", card.anki_note_id, card.id, err)
+
+            if note_matches:
+                return SyncCardResponse(
+                    id=card.id,
+                    sync_status="synced",
+                    anki_note_id=card.anki_note_id,
+                    deck_name=card.deck_name,
+                    model_name=card.model_name or None,
+                    synced_at=card.synced_at,
+                )
+
+            # A stale or orphaned note cannot be trusted; proceed with normal re-sync logic.
+            self.repository.mark_failed(card_id, "Existing Anki note validation failed; retrying sync.")
 
         # Transition to syncing in SQLite
         self.repository.mark_syncing(card_id)
@@ -570,7 +585,29 @@ class CardService:
                 error=f"Cannot connect to AnkiConnect: {error_msg or 'Connection refused'}",
             )
 
-        eligible_cards = self.repository.get_pending_or_failed_cards(deck_name=deck_name)
+        candidate_cards = self.repository.get_recoverable_cards(deck_name=deck_name)
+        eligible_cards: list[CardRecord] = []
+        for card in candidate_cards:
+            if card.sync_status != "synced" or not card.anki_note_id:
+                eligible_cards.append(card)
+                continue
+
+            try:
+                note_matches = self.anki.note_matches_card(
+                    note_id=card.anki_note_id,
+                    expression=card.expression,
+                    reading=card.reading,
+                    deck_name=card.deck_name,
+                )
+            except Exception as err:
+                logger.warning("Could not revalidate synced note %s for card %s: %s", card.anki_note_id, card.id, err)
+                note_matches = False
+
+            if not note_matches:
+                self.repository.mark_failed(card.id, "Existing Anki note validation failed; retrying sync.")
+                refreshed = self.repository.get_by_id(card.id)
+                if refreshed:
+                    eligible_cards.append(refreshed)
         if not eligible_cards:
             return SyncAllResponse(
                 total_eligible=0,

@@ -281,6 +281,59 @@ class AnkiConnectService:
 
         return None
 
+    def note_matches_card(self, note_id: int, expression: str, reading: str = "", deck_name: str | None = None) -> bool:
+        """Check whether a stored Anki note still matches the local card identity."""
+        try:
+            note_infos = self._invoke("notesInfo", notes=[int(note_id)])
+        except Exception:
+            return False
+        if not isinstance(note_infos, list) or not note_infos:
+            return False
+
+        note = note_infos[0]
+        if not isinstance(note, dict):
+            return False
+
+        if deck_name:
+            note_deck = note.get("deckName")
+            if note_deck and normalize_deck(str(note_deck)) != normalize_deck(str(deck_name)):
+                return False
+
+        fields = note.get("fields", {})
+        found_expr = ""
+        found_read = ""
+        for field_name, field_dict in fields.items():
+            raw_val = field_dict.get("value", "") if isinstance(field_dict, dict) else str(field_dict)
+            val = _clean_field_text(raw_val)
+            lower_name = field_name.lower().replace(" ", "").replace("_", "")
+            if lower_name in ("expression", "japanese", "word", "front", "kanji"):
+                if not found_expr or lower_name in ("expression", "japanese", "word"):
+                    found_expr = val
+            elif lower_name in ("reading", "furigana", "kana"):
+                found_read = val
+
+        if not found_expr:
+            return False
+
+        norm_target_expr = normalize_expression(expression)
+        norm_target_read = normalize_reading(reading)
+        if normalize_expression(found_expr) == norm_target_expr:
+            expr_match = True
+        else:
+            base_expr = re.sub(r"\[[^\]]+\]", "", found_expr).strip()
+            expr_match = normalize_expression(base_expr) == norm_target_expr
+        if not expr_match:
+            return False
+
+        if norm_target_read:
+            effective_read = found_read or ""
+            if not effective_read:
+                brackets = re.findall(r"\[([^\]]+)\]", found_expr)
+                effective_read = "".join(brackets).strip()
+            return normalize_reading(effective_read) == norm_target_read
+
+        return True
+
     def _model_supports_card(self, field_names: list[str]) -> bool:
         """Check if model fields contain at least one prompt field and one answer field."""
         fields_clean = {f.lower().replace(" ", "").replace("_", "").replace("-", "") for f in field_names}

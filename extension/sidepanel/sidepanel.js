@@ -3848,9 +3848,9 @@ function setEditorJapaneseMode(active) {
       statusSpan.textContent = isEditorJpModeActive ? "Kana" : "Off";
     }
   }
-  // Guardrail 1: Japanese input mode is primarily for free-form Japanese text fields:
-  // Hint, Sentence. NEVER bind WanaKana to Expression or Reading!
-  const targetInputs = [fieldHint, fieldExampleSentence].filter(Boolean);
+  // Guardrail 1: Japanese input mode is limited to free-form text fields.
+  // NEVER bind WanaKana to Expression or Reading.
+  const targetInputs = [fieldHint, fieldExampleSentence, fieldNotes].filter(Boolean);
   if (typeof wanakana !== "undefined") {
     targetInputs.forEach(input => {
       try {
@@ -4125,6 +4125,7 @@ function attachEditorFieldAssistance(field) {
 
 if (fieldHint) attachEditorFieldAssistance(fieldHint);
 if (fieldExampleSentence) attachEditorFieldAssistance(fieldExampleSentence);
+if (fieldNotes) attachEditorFieldAssistance(fieldNotes);
 
 // Sync All action for eligible unsynced/retryable cards
 let isSyncAllRunning = false;

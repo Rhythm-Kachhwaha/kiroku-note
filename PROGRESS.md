@@ -698,6 +698,17 @@ New major features should generally be deferred unless they are necessary for th
     - Rendered kanji cards on Back side preview matching `format_basic_back` for isolated single-kanji and vocabulary cards.
   - ✅ **Clean Decoupling & Removal of Visible Media Controls in Editor:**
     - Removed visible media controls and empty placeholders/spacers from the card editor flow (`#media-preview-collapsible` hidden with `display: none !important;`).
+
+### Anki Sync State Recovery & Japanese Input Integrity
+- **Status Summary:**
+  - ✅ Revalidated locally synced Anki note IDs through `notesInfo` before trusting `sync_status = 'synced'`.
+  - ✅ Routed stale or missing external notes through the existing duplicate-check and retry path instead of silently skipping them.
+  - ✅ Updated Sync All accounting so verified synced cards are excluded from work totals while stale, pending, and failed cards remain recoverable.
+  - ✅ Extended WanaKana editor assistance to the free-form Notes field while preserving the exclusion of structured Expression and Reading fields.
+- **Verification Results:**
+  - Backend focused sync suite: **27/27 passed**.
+  - Extension suite: **78/78 passed** (`node --test extension/tests/*.test.js`).
+  - Language diagnostics: no errors in touched backend or extension files.
     - Fully preserved `currentDraftMedia` and automatic OCR image attachment, video frame screenshot capture, and sentence audio recording pipeline without alteration.
   - ✅ **Compact Sticky Action Toolbar:**
     - Sleek single-row sticky toolbar sitting flush (`margin: -14px -16px 8px -16px; padding: 8px 16px`) with primary `Save Card` and secondary `Send to Anki` (`min-height: 34px`).

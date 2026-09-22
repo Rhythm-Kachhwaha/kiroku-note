@@ -467,6 +467,30 @@ class CardRepository:
                 ).fetchall()
             return [_row_to_record(row) for row in rows]
 
+    def get_recoverable_cards(self, deck_name: str | None = None) -> list[CardRecord]:
+        """Retrieve pending, failed, and previously synced cards for external-state verification."""
+        with db_session(self._db_path) as conn:
+            deck_clause = ""
+            params: tuple[str, ...] = ()
+            if deck_name and deck_name.strip() and deck_name.strip().lower() != "all":
+                deck_clause = " AND deck_name = ?"
+                params = (deck_name.strip(),)
+            rows = conn.execute(
+                f"""
+                SELECT id, expression, reading, meaning, hint, example_sentence, example_translation,
+                       image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
+                       normalized_expression, normalized_reading, normalized_deck_name,
+                       meanings_json, examples_json, status, created_at, updated_at,
+                       sync_status, anki_note_id, sync_error, synced_at
+                FROM cards
+                WHERE (sync_status IN ('pending', 'failed')
+                       OR (sync_status = 'synced' AND anki_note_id IS NOT NULL)){deck_clause}
+                ORDER BY id ASC
+                """,
+                params,
+            ).fetchall()
+            return [_row_to_record(row) for row in rows]
+
     def get_sync_state(self, card_id: int) -> dict[str, Any] | None:
         """Retrieve the sync state of a card."""
         card = self.get_by_id(card_id)
