@@ -75,6 +75,10 @@ The standalone OCR daemon's default endpoint is `http://127.0.0.1:21829` (config
 
 The browser extension talks exclusively to Kiroku's port `21828` (`/api/ocr/status`, `/api/ocr/recognize`) and never directly to port `21829`. Heavy machine-learning dependencies (`manga-ocr`, `torch` CPU, `transformers`) reside strictly inside the standalone OCR companion package (`packaging/kiroku_ocr.spec`, `installer/kiroku_ocr_setup.iss`) and are loaded lazily on CPU only. If the OCR addon is absent or stopped, the core application functions completely normally.
 
+### Windows distribution (`run_tray.py`)
+
+The Windows distribution launches the existing FastAPI application inside a small `pystray` host. The tray owns process lifecycle actions (start, restart, quit), loopback service status labels, and the optional per-user `HKCU` startup entry. It does not move backend, OCR, dictionary, Anki, or persistence responsibilities into the desktop shell. PyInstaller produces an onedir `KirokuNote` payload; the optional OCR payload remains separate.
+
 ## Architectural decisions
 
 ### ADR-001: Chromium extension + Side Panel is the application shell

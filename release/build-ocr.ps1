@@ -8,6 +8,7 @@ $ErrorActionPreference = "Stop"
 
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $PROJECT_ROOT = (Resolve-Path (Join-Path $SCRIPT_DIR "..")).Path
+$MODEL_SOURCE = $env:KIROKU_OCR_MODEL_SOURCE
 
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host "  Kiroku Note Standalone OCR Builder (V1.0.0)" -ForegroundColor Cyan
@@ -80,6 +81,13 @@ Write-Host "`n[5/5] Verifying output package..." -ForegroundColor Yellow
 $ExePath = Join-Path $DistDir "KirokuOCR\KirokuOCR.exe"
 if (-not (Test-Path $ExePath)) {
     $ExePath = Join-Path $DistDir "KirokuOCR.exe"
+}
+
+if ($MODEL_SOURCE -and (Test-Path $MODEL_SOURCE)) {
+    $ModelDestination = Join-Path (Split-Path -Parent $ExePath) "models\manga-ocr-base"
+    New-Item -ItemType Directory -Path $ModelDestination -Force | Out-Null
+    Copy-Item -Path (Join-Path $MODEL_SOURCE "*") -Destination $ModelDestination -Recurse -Force
+    Write-Host "  Embedded offline model: $MODEL_SOURCE" -ForegroundColor Green
 }
 
 if (-not (Test-Path $ExePath)) {

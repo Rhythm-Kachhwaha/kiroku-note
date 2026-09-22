@@ -256,6 +256,19 @@ The core mining pipeline is functional. Current work is focused on polishing, re
 
 ### Stage 11 — Final Regression
 
+### Shipping and Distribution Audit
+
+- [x] Audited and removed obsolete generated `build/`, `dist/`, Python cache, and pytest cache outputs. Preserved `.venv-ocr` because it remains the current OCR development environment.
+- [x] Added managed Windows tray host around the existing FastAPI app with restart, quit, status labels, user data folder action, and optional per-user startup registration.
+- [x] Switched backend packaging to PyInstaller onedir with `Kiroku Note` executable metadata and no UPX.
+- [x] Updated per-user Inno Setup scripts to preserve `%LOCALAPPDATA%\KirokuNote` user data and keep OCR separate.
+- [x] Added Windows GitHub Actions packaging workflow for backend, extension, optional OCR, and installers.
+- [x] Updated normal-user installation documentation and packaging tests.
+- [x] Local packaged executable smoke test: 2/2 tests passed, including isolated HTTP/SQLite, production docs, port collision exit, and cleanup.
+- [x] Packaging-focused backend checks: 12/12 passed; packaged extension checks: 3/3 passed; full extension suite: 78/78 passed.
+- [ ] Full backend suite has 370 passed and 1 environment-blocked failure because an existing developer `run_backend.py` process owns port 21828; no user process was terminated.
+- [ ] Clean-machine installation test remains pending.
+
 - [ ] Backend test suite
 - [ ] Extension test suite
 - [ ] YouTube regression

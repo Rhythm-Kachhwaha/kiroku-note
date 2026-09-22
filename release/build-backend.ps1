@@ -71,7 +71,7 @@ $BuildDuration = ((Get-Date) - $BuildStartTime).TotalSeconds
 
 # 5. Verify Output Artifact
 Write-Host "`n[5/5] Verifying output binary..." -ForegroundColor Yellow
-$ExePath = Join-Path $DistDir "KirokuNote.exe"
+$ExePath = Join-Path $DistDir "KirokuNote\KirokuNote.exe"
 if (-not (Test-Path $ExePath)) {
     Write-Error "[FATAL] Expected executable was not produced at: $ExePath"
     exit 1

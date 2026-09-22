@@ -3,7 +3,7 @@ Kiroku Note — Browser Extension Setup Instructions
 ==============================================================================
 
 Kiroku Note's Chromium extension is installed locally at:
-  C:\Program Files\Kiroku Note\extension\
+  %LOCALAPPDATA%\Programs\Kiroku Note\extension\
   (or your chosen custom installation directory)
 
 To load the extension into Brave, Chrome, Edge, or Chromium:
@@ -18,7 +18,7 @@ To load the extension into Brave, Chrome, Edge, or Chromium:
 3. Click the "Load unpacked" button.
 
 4. Browse to and select the extension directory:
-   C:\Program Files\Kiroku Note\extension
+  %LOCALAPPDATA%\Programs\Kiroku Note\extension
 
 5. The "Kiroku Note" extension will now appear in your browser extensions list!
 
@@ -27,6 +27,7 @@ To load the extension into Brave, Chrome, Edge, or Chromium:
 ------------------------------------------------------------------------------
 Application Notes:
 - Start the Kiroku Note desktop application from the Start Menu.
+- Launch Kiroku Note from the Start Menu and leave its tray app running.
 - The local backend service runs on http://127.0.0.1:21828.
 - Your mined vocabulary cards, database, and media are safely stored in:
   %LOCALAPPDATA%\KirokuNote\

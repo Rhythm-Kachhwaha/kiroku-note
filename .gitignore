@@ -7,6 +7,10 @@ __pycache__/
 build/
 develop-eggs/
 dist/
+release-artifacts/
+ocr-model/
+*.exe
+*.zip
 downloads/
 eggs/
 .eggs/
@@ -49,6 +53,7 @@ htmlcov/
 
 # Logs
 *.log
+*.tmp
 logs/
 
 # AnkiMiner specific - test outputs and temporary files

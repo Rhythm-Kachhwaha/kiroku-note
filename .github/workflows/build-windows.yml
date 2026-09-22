@@ -1,0 +1,80 @@
+name: Build Windows Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: "1"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install core build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pyinstaller
+
+      - name: Build backend and extension
+        shell: pwsh
+        run: |
+          ./release/build-backend.ps1
+          ./release/build-extension.ps1
+
+      - name: Install OCR build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install manga-ocr huggingface-hub
+
+      - name: Download pinned OCR model for offline packaging
+        shell: pwsh
+        run: |
+          python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='kha-white/manga-ocr-base', local_dir='ocr-model', local_dir_use_symlinks=False)"
+          $env:KIROKU_OCR_MODEL_SOURCE = (Resolve-Path ocr-model).Path
+          ./release/build-ocr.ps1
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installers
+        shell: pwsh
+        run: |
+          ./release/build-installer.ps1
+          ./release/build-ocr-installer.ps1
+
+      - name: Stage release artifacts
+        shell: pwsh
+        run: |
+          $version = (Get-Content extension/manifest.json -Raw | ConvertFrom-Json).version
+          New-Item -ItemType Directory -Path release-artifacts -Force | Out-Null
+          Compress-Archive -Path dist/backend/KirokuNote -DestinationPath "release-artifacts/KirokuNote-v$version-Windows.zip" -CompressionLevel Optimal
+          Copy-Item "dist/extension/KirokuNote-extension-v$version.zip" "release-artifacts/KirokuNote-v$version-Extension.zip"
+          Compress-Archive -Path dist/ocr/KirokuOCR -DestinationPath "release-artifacts/KirokuNote-v$version-OCR.zip" -CompressionLevel Optimal
+          Copy-Item "dist/installer/Kiroku-Note-Setup-v$version.exe" "release-artifacts/KirokuNote-v$version-Setup.exe"
+          Copy-Item "dist/installer/Kiroku-Note-OCR-Setup-v$version.exe" "release-artifacts/KirokuNote-v$version-OCR-Setup.exe"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kiroku-windows-release
+          path: release-artifacts/*
+          if-no-files-found: error

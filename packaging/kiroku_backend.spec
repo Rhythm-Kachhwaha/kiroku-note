@@ -19,6 +19,8 @@ BACKEND_DIR = PROJECT_ROOT / "backend"
 
 from PyInstaller.utils.hooks import collect_submodules
 
+VERSION_FILE = PROJECT_ROOT / "packaging" / "version-info.txt"
+
 # Collect all submodules for framework and application runtime
 hidden_imports = (
     collect_submodules("uvicorn")
@@ -26,6 +28,7 @@ hidden_imports = (
     + collect_submodules("starlette")
     + collect_submodules("anyio")
     + collect_submodules("app")
+    + collect_submodules("pystray")
     + [
         "sqlite3",
         "pydantic",
@@ -33,6 +36,8 @@ hidden_imports = (
         "sniffio",
         "unicodedata",
         "email.mime.multipart",
+        "PIL.Image",
+        "PIL.ImageDraw",
     ]
 )
 
@@ -58,12 +63,10 @@ excludes = [
     "cv2",
     "docutils",
     "sphinx",
-    "PIL",
-    "PIL.Image",
 ]
 
 a = Analysis(
-    [str(PROJECT_ROOT / "run_backend.py")],
+    [str(PROJECT_ROOT / "run_tray.py")],
     pathex=[str(PROJECT_ROOT), str(BACKEND_DIR)],
     binaries=[],
     datas=[],
@@ -92,16 +95,29 @@ exe = EXE(
     a.datas,
     [],
     name="KirokuNote",
+    exclude_binaries=True,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version=str(VERSION_FILE),
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name="KirokuNote",
 )

@@ -11,7 +11,7 @@ $PROJECT_ROOT = (Resolve-Path (Join-Path $SCRIPT_DIR "..")).Path
 $INSTALLER_DIR = Join-Path $PROJECT_ROOT "installer"
 $ISS_PATH = Join-Path $INSTALLER_DIR "kiroku_setup.iss"
 $DIST_DIR = Join-Path $PROJECT_ROOT "dist\installer"
-$BACKEND_EXE = Join-Path $PROJECT_ROOT "dist\backend\KirokuNote.exe"
+$BACKEND_EXE = Join-Path $PROJECT_ROOT "dist\backend\KirokuNote\KirokuNote.exe"
 $EXTENSION_DIR = Join-Path $PROJECT_ROOT "dist\extension\unpacked"
 
 Write-Host "============================================================" -ForegroundColor Cyan

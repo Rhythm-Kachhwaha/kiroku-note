@@ -63,7 +63,7 @@ def test_ocr_installer_iss_configuration():
     # Verify AppName and Architecture
     assert "Kiroku Note OCR Add-on" in content
     assert "ArchitecturesInstallIn64BitMode=x64compatible" in content
-    assert "PrivilegesRequired=admin" in content
+    assert "PrivilegesRequired=lowest" in content
     assert "Kiroku-Note-OCR-Setup-v{#MyAppVersion}" in content
 
     # Verify destination is {app}\ocr

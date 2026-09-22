@@ -1,7 +1,7 @@
 ; ==============================================================================
 ; Kiroku Note — Windows Inno Setup Script (V1.0.0)
 ; ==============================================================================
-; Produces a 64-bit per-machine Windows installer: Kiroku-Note-Setup-v1.0.0.exe
+; Produces a 64-bit per-user Windows installer: Kiroku-Note-Setup-v1.0.0.exe
 ; Installs standalone backend executable and unpacked Chromium MV3 extension.
 ; User data is isolated in %LOCALAPPDATA%\KirokuNote and never bundled or overwritten.
 ; ==============================================================================
@@ -17,7 +17,7 @@ AppId={#MyAppId}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={autopf}\{#MyAppName}
+DefaultDirName={localappdata}\Programs\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist\installer
@@ -27,7 +27,7 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-PrivilegesRequired=admin
+PrivilegesRequired=lowest
 DisableProgramGroupPage=yes
 DisableDirPage=auto
 CloseApplications=force
@@ -44,7 +44,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Backend Standalone Executable
-Source: "..\dist\backend\KirokuNote.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\backend\KirokuNote\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Chromium MV3 Extension Runtime
 Source: "..\dist\extension\unpacked\*"; DestDir: "{app}\extension"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -54,6 +54,11 @@ Source: "extension_instructions.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 ; NOTE: User data (kiroku.db, media files, logs) is explicitly excluded from installation.
 ; All persistent user data resides in %LOCALAPPDATA%\KirokuNote\ and is preserved during upgrades and uninstalls.
+
+[Dirs]
+Name: "{localappdata}\KirokuNote\data"
+Name: "{localappdata}\KirokuNote\media"
+Name: "{localappdata}\KirokuNote\logs"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

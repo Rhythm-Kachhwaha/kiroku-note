@@ -9,7 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 INSTALLER_DIR = REPO_ROOT / "installer"
 ISS_PATH = INSTALLER_DIR / "kiroku_setup.iss"
 INSTRUCTIONS_PATH = INSTALLER_DIR / "extension_instructions.txt"
-DIST_BACKEND_EXE = REPO_ROOT / "dist" / "backend" / "KirokuNote.exe"
+DIST_BACKEND_EXE = REPO_ROOT / "dist" / "backend" / "KirokuNote" / "KirokuNote.exe"
 DIST_EXTENSION_UNPACKED = REPO_ROOT / "dist" / "extension" / "unpacked"
 
 
@@ -32,7 +32,7 @@ def test_installer_metadata_and_architecture():
     assert "ArchitecturesAllowed=x64compatible" in content or "ArchitecturesAllowed=x64" in content
 
     # Verify admin privileges and output settings
-    assert "PrivilegesRequired=admin" in content
+    assert "PrivilegesRequired=lowest" in content
     assert "OutputBaseFilename=Kiroku-Note-Setup-v{#MyAppVersion}" in content
 
 
@@ -40,11 +40,15 @@ def test_installer_payload_sources_exist():
     content = ISS_PATH.read_text(encoding="utf-8")
 
     # Verify backend executable exists and is referenced
-    assert r'Source: "..\dist\backend\KirokuNote.exe"' in content
+    assert r'Source: "..\dist\backend\KirokuNote\*"' in content
+    if not DIST_BACKEND_EXE.exists():
+        pytest.skip("Release backend has not been built")
     assert DIST_BACKEND_EXE.is_file(), f"Expected backend binary at {DIST_BACKEND_EXE}"
 
     # Verify extension runtime directory exists and is referenced
     assert r'Source: "..\dist\extension\unpacked\*"' in content
+    if not DIST_EXTENSION_UNPACKED.exists():
+        pytest.skip("Release extension has not been built")
     assert DIST_EXTENSION_UNPACKED.is_dir(), f"Expected unpacked extension at {DIST_EXTENSION_UNPACKED}"
     assert (DIST_EXTENSION_UNPACKED / "manifest.json").is_file(), "Extension unpacked directory missing manifest.json"
 

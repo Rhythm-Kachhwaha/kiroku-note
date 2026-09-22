@@ -1,5 +1,23 @@
 # Kiroku Note
 
+## What is Kiroku?
+
+Kiroku Note is a local-first browser extension for collecting Japanese vocabulary and sentences while you read or watch content. It enriches captured text through Yomitan, saves cards locally, and sends them to Anki only when you ask.
+
+## Install Kiroku
+
+1. Download the Windows setup file from the project release page and run it. The installer does not require Python or administrator access.
+2. Launch **Kiroku Note** from the Start Menu. Its tray icon should say **Running**.
+3. In Chrome, Edge, Brave, or Chromium, open the extension release ZIP, extract it, then open the browser's extensions page (`chrome://extensions`, `edge://extensions`, or `brave://extensions`). Turn on Developer mode and choose **Load unpacked**, selecting the extracted folder containing `manifest.json`.
+4. Install and enable Yomitan for dictionary lookup. Start Anki with AnkiConnect enabled before sending cards.
+5. OCR is optional. Install the separate OCR add-on only when you need image text recognition; the tray status changes to **Ready** after its daemon health check succeeds.
+
+Your database and media remain in `%LOCALAPPDATA%\KirokuNote\data` and `%LOCALAPPDATA%\KirokuNote\media`. Updating or uninstalling the app does not remove them. The unsigned Windows build may show a normal SmartScreen warning; do not disable security software to work around it.
+
+For connection problems, confirm that Kiroku is running in the tray, Yomitan is listening on `127.0.0.1:19633`, and AnkiConnect is listening on `127.0.0.1:8765`. The extension only talks to the Kiroku backend on `127.0.0.1:21828`.
+
+## Developer setup
+
 Kiroku Note is a local-first Japanese vocabulary mining tool designed for fast capture, enrichment, editing, and syncing into Anki.
 
 The workflow is intentionally simple:
