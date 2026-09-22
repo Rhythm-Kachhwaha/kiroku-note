@@ -11,7 +11,7 @@
   <main class="panel">
     <header class="panel-header">
       <div class="brand">
-        <span class="eyebrow">KIROKU NOTE</span>
+        <span class="eyebrow">KIROKU</span>
       </div>
       <div class="connection-indicators" role="status" aria-label="Service connection status">
         <span id="indicator-yomitan" class="indicator-pill" title="Yomitan: Ready" aria-label="Yomitan status">
@@ -26,16 +26,17 @@
           <span class="indicator-dot"></span>
           <span class="indicator-label">OCR</span>
         </span>
+        <button type="button" id="btn-layout-settings" class="btn-layout-settings" title="Card Settings" aria-label="Card Settings" aria-expanded="false" aria-controls="layout-settings-popover">⚙</button>
       </div>
     </header>
 
     <!-- Mining Mode Navigation Tabs -->
     <nav class="mining-nav-tabs" role="tablist" aria-label="Mining Mode">
       <button type="button" id="tab-btn-text" class="tab-btn active" role="tab" aria-selected="true" aria-controls="text-mining-view">
-        Text Mining
+        Text
       </button>
       <button type="button" id="tab-btn-video" class="tab-btn" role="tab" aria-selected="false" aria-controls="video-mining-view">
-        Video Mining
+        Video
       </button>
       <button type="button" id="tab-btn-quickadd" class="tab-btn" role="tab" aria-selected="false" aria-controls="quickadd-mining-view">
         Quick Add
@@ -45,18 +46,13 @@
     <!-- Text Mining View -->
     <div id="text-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-text">
       <div class="mining-bar">
-        <div class="mining-controls">
-          <button id="mining-toggle" type="button" aria-pressed="false" class="btn-mining">Start mining</button>
-          <button id="ocr-capture-btn" type="button" class="btn-ocr" title="Capture Japanese text from screen (OCR)">OCR</button>
-          <p id="mode" class="status-mode">Mining mode is off.</p>
-        </div>
-        <span id="session-count" class="session-counter">Cards this session: 0</span>
-      </div>
-
-      <div class="capture-banner">
-        <p id="capture-status" class="status">Select Japanese text after starting mining.</p>
+        <button id="mining-toggle" type="button" aria-pressed="false" class="btn-mining">Start</button>
+        <button id="ocr-capture-btn" type="button" class="btn-ocr" title="Capture Japanese text from screen (OCR)">OCR</button>
+        <p id="mode" class="status-mode">Select Japanese text on the page</p>
+        <span id="session-count" class="session-counter">0 today</span>
         <span id="save-badge" class="badge" hidden></span>
       </div>
+      <p id="capture-status" class="status" hidden></p>
     </div>
 
     <!-- Video Mining View -->
@@ -64,10 +60,16 @@
       <section id="video-mining-section" class="video-mining-panel" aria-label="Video Mining Controls">
         <div class="video-toolbar">
           <div class="video-action-buttons">
-            <button type="button" id="load-subtitles-btn" class="btn-subtitles">Load Subtitles (.srt, .vtt, .ass)</button>
-            <button type="button" id="btn-select-subtitles-folder" class="btn-subtitles-folder" title="Select subtitle folder to pick subtitles from every time">📁 Folder</button>
-            <button type="button" id="btn-search-subtitles" class="btn-search-subtitles" title="Search Japanese subtitles via Jimaku">Search</button>
-            <button type="button" id="clear-subtitles-btn" class="btn-clear-subtitles" title="Clear loaded subtitles">Clear</button>
+            <div class="subtitles-dropdown-wrapper">
+              <button type="button" id="load-subtitles-btn" class="btn-subtitles" aria-expanded="false" aria-haspopup="true">Load subtitles ▾</button>
+              <div id="subtitles-menu-dropdown" class="subtitles-menu-dropdown" hidden>
+                <button type="button" id="subtitles-menu-file" class="subtitles-menu-item">From file (.srt, .vtt, .ass)</button>
+                <button type="button" id="btn-select-subtitles-folder" class="btn-subtitles-folder subtitles-menu-item" title="Select subtitle folder to pick subtitles from every time">From folder</button>
+                <button type="button" id="btn-search-subtitles" class="btn-search-subtitles subtitles-menu-item" title="Search Japanese subtitles via Jimaku">Search (Jimaku)</button>
+                <div class="subtitles-menu-divider"></div>
+                <button type="button" id="clear-subtitles-btn" class="btn-clear-subtitles subtitles-menu-item" title="Clear loaded subtitles">Clear</button>
+              </div>
+            </div>
             <input type="file" id="subtitles-file-input" accept=".srt,.vtt,.ass,.ssa" hidden>
             <input type="file" id="subtitles-dir-input" webkitdirectory directory hidden>
           </div>
@@ -76,7 +78,7 @@
 
         <!-- Subtitle Folder Quick Selector -->
         <div id="subtitle-folder-bar" class="subtitle-folder-bar" hidden>
-          <span id="folder-name-label" class="folder-name-label" title="Active Subtitle Directory">📁 Folder:</span>
+          <span id="folder-name-label" class="folder-name-label" title="Active Subtitle Directory"><svg class="folder-icon" aria-hidden="true" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 3.5A1 1 0 0 1 2.5 2.5H6l1 1.5H13.5A1 1 0 0 1 14.5 5v7a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V3.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>Folder:</span>
           <select id="folder-subtitles-select" class="folder-subtitles-select" aria-label="Select subtitle from chosen folder">
             <option value="">Select subtitle file…</option>
           </select>
@@ -163,8 +165,8 @@
         </div>
 
         <div class="video-cue-preview-container">
-          <div class="cue-preview-label">Active Subtitle:</div>
-          <div id="video-current-cue-preview" class="video-cue-preview">—</div>
+          <div class="cue-preview-label">ACTIVE SUBTITLE</div>
+          <div id="video-current-cue-preview" class="video-cue-preview">Waiting for playback…</div>
         </div>
 
         <div class="video-auto-capture-options">
@@ -177,12 +179,23 @@
             <span>Auto-capture audio</span>
           </label>
         </div>
+
+        <div class="video-help-callout">
+          Click a word in the active subtitle to capture it — it flows into the same Card Preview &amp; Editor as Text Mining.
+        </div>
       </section>
     </div>
 
     <!-- Quick Add Mining View -->
     <div id="quickadd-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-quickadd" hidden>
       <div class="quickadd-container">
+        <div class="quickadd-header-row">
+          <span class="quickadd-help-text">Type on a normal keyboard — no IME needed.</span>
+          <div class="quickadd-kana-mode-group" role="radiogroup" aria-label="Kana input mode">
+            <button type="button" id="quickadd-mode-hiragana" class="quickadd-mode-btn active" role="radio" aria-checked="true" title="Hiragana mode (あ)">あ</button>
+            <button type="button" id="quickadd-mode-katakana" class="quickadd-mode-btn" role="radio" aria-checked="false" title="Katakana mode (ア)">ア</button>
+          </div>
+        </div>
         <div class="quickadd-input-row">
           <div class="quickadd-input-wrapper">
             <input
@@ -201,13 +214,11 @@
             >
             <button type="button" id="quickadd-clear-btn" class="quickadd-clear-btn" title="Clear input" aria-label="Clear input" hidden>&times;</button>
           </div>
-          <div class="quickadd-kana-mode-group" role="radiogroup" aria-label="Kana input mode">
-            <button type="button" id="quickadd-mode-hiragana" class="quickadd-mode-btn active" role="radio" aria-checked="true" title="Hiragana mode (あ)">あ</button>
-            <button type="button" id="quickadd-mode-katakana" class="quickadd-mode-btn" role="radio" aria-checked="false" title="Katakana mode (ア)">ア</button>
-          </div>
         </div>
         <div id="quickadd-suggestions-container" class="quickadd-suggestions-container" hidden>
+          <div class="quickadd-suggestions-header">SUGGESTIONS</div>
           <ul id="quickadd-suggestions-list" class="quickadd-suggestions-list" role="listbox" aria-label="Quick Add suggestions"></ul>
+          <div class="quickadd-footer-hint">↓ select a candidate to populate the same Card Editor as Text Mining</div>
         </div>
       </div>
     </div>
@@ -222,12 +233,12 @@
         <li><strong>Backend:</strong> Start backend service (<code>python run_backend.py</code> on port 21828)</li>
         <li><strong>Yomitan:</strong> Install Yomitan extension and import your Japanese dictionaries</li>
         <li><strong>Anki:</strong> Open Anki with <em>AnkiConnect</em> installed (port 8765)</li>
-        <li><strong>Start Mining:</strong> Click <em>Start mining</em> or toggle mode to begin capturing words</li>
+        <li><strong>Start Mining:</strong> Click <em>Start</em> to begin capturing words</li>
       </ol>
     </section>
 
-    <!-- Prominent Captured Japanese Word Display (Preserved for compatibility, visual hero unified into Card Preview) -->
-    <section id="captured-word-section" class="captured-word-hero" aria-label="Captured Japanese Word" hidden>
+    <!-- Prominent Captured Japanese Word Display -->
+    <section id="captured-word-section" class="captured-word-hero" aria-label="Captured Japanese Word">
       <div class="word-display-card">
         <h1 id="expression" class="hero-expression">—</h1>
         <p id="reading" class="hero-reading"></p>
@@ -237,12 +248,11 @@
     <!-- Card Editor Form (Positioned Above Dictionary) -->
     <section id="card-editor-section" class="card-editor-section" aria-label="Card Editor">
       <div class="section-header card-workspace-header">
-        <h2 class="section-title">CARD</h2>
+        <h2 class="section-title">EDIT</h2>
         <div class="card-workspace-toolbar">
           <button type="button" id="btn-editor-jp-mode" class="btn-editor-jp-mode" title="Toggle Japanese input assistance (Romaji → Kana) for Sentence and Hint fields" aria-pressed="true">
-            <span class="jp-mode-tag">JP</span> <span class="jp-mode-status">Kana</span>
+            <span class="jp-mode-tag">JP</span>
           </button>
-          <button type="button" id="btn-layout-settings" class="btn-layout-settings" title="Card Settings" aria-label="Card Settings" aria-expanded="false" aria-controls="layout-settings-popover">⚙</button>
         </div>
       </div>
 
@@ -321,6 +331,8 @@
             <div class="settings-subtext">Shown by default on preview and cards.</div>
           </div>
 
+
+
           <!-- Side Panel UI Settings -->
           <div class="card-settings-group">
             <span class="settings-group-label">Side Panel</span>
@@ -370,23 +382,15 @@
         <input type="hidden" id="field-source-text" name="source_text">
         <input type="hidden" id="field-deinflected-text" name="deinflected_text">
 
-        <!-- Top Sticky Action Bar -->
-        <div class="editor-actions editor-actions-top">
-          <div class="action-buttons-group">
-            <button type="submit" id="save-card-btn" class="btn-save">Save Card</button>
-            <div class="sync-actions">
-              <button type="button" id="sync-anki-btn" class="btn-sync" disabled>Send to Anki</button>
-            </div>
+        <!-- Destination & Status row (compact) -->
+        <div class="destination-and-status-row">
+          <div id="card-target-destination" class="card-target-destination" title="Current target destination for Anki send">
+            <span class="dest-item"><span class="dest-label">Deck:</span> <strong id="dest-deck-val" class="dest-val">Default</strong></span>
+            <span class="dest-sep">•</span>
+            <span class="dest-item"><span class="dest-label">Note Type:</span> <strong id="dest-model-val" class="dest-val">Basic</strong></span>
           </div>
-          <div class="destination-and-status-row">
-            <div id="card-target-destination" class="card-target-destination" title="Current target destination for Anki send">
-              <span class="dest-item"><span class="dest-label">Deck:</span> <strong id="dest-deck-val" class="dest-val">Default</strong></span>
-              <span class="dest-sep">•</span>
-              <span class="dest-item"><span class="dest-label">Note Type:</span> <strong id="dest-model-val" class="dest-val">Basic</strong></span>
-            </div>
-            <div class="sync-status-container">
-              <span id="anki-sync-status" class="sync-status-label">Anki: Not connected</span>
-            </div>
+          <div class="sync-status-container">
+            <span id="anki-sync-status" class="sync-status-label">Anki: Not connected</span>
           </div>
         </div>
 
@@ -537,6 +541,16 @@
               <div class="form-group">
                 <label for="field-notes">Notes</label>
                 <textarea id="field-notes" name="notes" rows="2"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Save Actions (bottom of form) -->
+          <div class="editor-actions editor-actions-bottom">
+            <div class="action-buttons-group">
+              <button type="submit" id="save-card-btn" class="btn-save">Save Card</button>
+              <div class="sync-actions">
+                <button type="button" id="sync-anki-btn" class="btn-sync" disabled>Send to Anki</button>
               </div>
             </div>
           </div>

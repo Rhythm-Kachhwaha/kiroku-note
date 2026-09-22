@@ -889,4 +889,61 @@ New major features should generally be deferred unless they are necessary for th
   - Extension test suite: **54/54 test files passed** with zero failures, including `extension/tests/dictionary-selection.test.js` (8/8 test suites passed) and `extension/tests/end-user-dry-run.test.js`.
   - Regression verified: `dictionary-study-view.test.js` (13/13 passed) and `kanji-rendering.test.js` passed.
 - **Remaining Risk:** None. All boundaries respected, no invented Yomitan endpoints, independent scrolling preserved, and full user control delivered.
-
+
+### Visual Polish Pass — Alignment with UI-plan Reference Mockups
+- **Status Summary:**
+  - ✅ **Design System Foundation & Color Tokens (`extension/sidepanel/sidepanel.css`):**
+    - Transitioned palette to obsidian canvas (`#121110`), dark charcoal surfaces (`#191816`, `#211e1b`, `#2a2622`), understated borders (`#25211e`, `#312b26`), restrained warm terracotta/rust accents (`#b84632`), warm amber readings (`#d4884f`), and rust JLPT badge accents (`#cc5a42`, `#351f1a`).
+    - Standardized corners to 3–4px radius across all containers and buttons, matching the developer-tool aesthetic in `UI-plan/`.
+    - Removed heavy gradients and glassmorphism backdrop filters in favor of clean solid surfaces.
+  - ✅ **Header & Navigation Tabs (`extension/sidepanel/sidepanel.html`, `sidepanel.css`):**
+    - Wordmark updated to clean, bold uppercase `KIROKU`.
+    - Connectivity indicators styled as understated text with subtle status dots.
+    - Settings button (`⚙`) integrated into header bar.
+    - Mining navigation tabs styled with clean left alignment, transparent backgrounds, and terracotta active bottom underline.
+  - ✅ **Word Hero & Card Workspace (`extension/sidepanel/sidepanel.html`, `sidepanel.css`):**
+    - Captured word display styled with prominent 42px bold Japanese expression and 17px warm amber reading without bulky outer container boxes.
+    - Card preview updated with Front/Back side pills (active Back in dark rust `#351f1a`), clean borderless preview card, and crisp tag hierarchy.
+    - Card editor container refined to a borderless, shadowless design with clean inputs, understated divider, optional fields link, full-width terracotta "Save Card" button, and quiet destination metadata.
+  - ✅ **Dictionary Reference & Study View (`extension/sidepanel/sidepanel.css`):**
+    - Dictionary entries restyled without container boxes, using clean divider lines and typography hierarchy.
+    - Headword displays prominent 20px expression, amber reading, and dark rust JLPT badge.
+    - Sense items display quiet numbering, part-of-speech tags, clear definitions, and compact `[Insert]` action buttons.
+  - ✅ **Video Mining & Quick Add Views (`extension/sidepanel/sidepanel.html`, `sidepanel.css`, `sidepanel.js`):**
+    - Video toolbar refined with subtitle dropdown menu (`Load subtitles ▾`), active subtitle preview box, offset controls, and help callout.
+    - Quick Add view updated with normal keyboard input guidance, kana toggle (`[あ] [ア]`), and suggestions list with candidate expression, reading, and right-aligned gloss.
+  - ✅ **Jimaku Modal & History Library (`extension/sidepanel/sidepanel.css`):**
+    - Jimaku subtitle search modal styled with clean dark surface, terracotta Search button, and clear inputs.
+    - History library styled with quiet search input, filter dropdowns, and clean empty state.
+  - ✅ **Preservation of Functionality & Architecture:**
+    - Zero backend files modified.
+    - Zero changes to APIs, state management, capture logic, Yomitan, Anki, OCR, subtitles, or card persistence.
+    - All existing DOM hooks, IDs, and event handlers preserved intact.
+- **Verification Results:**
+    - Extension test suite: **78/78 tests passed** (`node --test extension/tests/*.test.js`).
+    - Backend pytest test suite: **368/368 passed** (`python -m pytest backend/tests -o pythonpath=backend`).
+    - Accessibility and WCAG AA contrast tokens verified.
+- **Remaining Risk:** None. Pure presentation refinement; all functional contracts and automated verification tests remain 100% green.
+
+---
+
+### UI Polish Pass 2 — Reference Image Alignment (2026-09-22)
+
+- **Scope:** Visual alignment with `UI-plan/` reference screenshots. No functional changes.
+- **Files Changed:** `extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`, `extension/sidepanel/sidepanel.js`, `extension/tests/sidepanel-a11y-ux.test.js`
+- **Changes Delivered:**
+  - ✅ **Mining bar restructured to single horizontal row** — buttons + status text + session counter all on one line, matching the reference ("Start | OCR | Select Japanese text on the page | 0 today").
+  - ✅ **"Start mining" / "Stop mining" → "Start" / "Stop"** — label shortened as requested.
+  - ✅ **Session counter text** → "N today" format (e.g. "0 today", "3 today").
+  - ✅ **Load subtitles dropdown fixed** — HTML class mismatch (`video-dropdown-container` vs `subtitles-dropdown-wrapper`) corrected; dropdown now positions correctly relative to the button.
+  - ✅ **Auto-capture frame & audio checkboxes** restored to video tab (where reference shows them), removed from settings popover.
+  - ✅ **Settings popover repositioned** to `position: fixed` from header, overlaying content correctly instead of displacing the card editor.
+  - ✅ **"CARD" section label → "EDIT"** — matches the reference card editor header.
+  - ✅ **Save Card button moved to bottom** of the form (below Optional fields), matching reference where it's the final prominent action.
+  - ✅ **"ACTIVE SUBTITLE" label** upgraded to uppercase style with proper letter-spacing.
+  - ✅ **Folder emoji removed** from subtitle folder bar label.
+  - ✅ **Capture-status element** made `hidden` by default; status is now implied by the mining bar state text.
+- **Verification Results:**
+  - Extension test suite: **78/78 tests passed** (`node --test`).
+  - a11y test updated to accept `EDIT` label alongside `CARD` as valid card section heading.
+- **Remaining Risk:** None identified. Pure CSS/HTML presentation changes; backend, APIs, capture logic, and Anki/Yomitan integration untouched.

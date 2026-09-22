@@ -1699,7 +1699,7 @@ if (previewTabBack) {
 
 function updateSessionCounter() {
   if (sessionCountEl) {
-    sessionCountEl.textContent = `Cards this session: ${sessionCardCount}`;
+    sessionCountEl.textContent = sessionCardCount === 0 ? "0 today" : `${sessionCardCount} today`;
   }
 }
 
@@ -1719,10 +1719,10 @@ function setStatus(message, isError = false) {
 function updateMiningUI(enabled) {
   miningMode = enabled;
   toggle.setAttribute("aria-pressed", String(enabled));
-  toggle.textContent = enabled ? "Stop mining" : "Start mining";
+  toggle.textContent = enabled ? "Stop" : "Start";
   mode.textContent = enabled
-    ? "Mining mode is on. Select Japanese text on the page."
-    : "Mining mode is off.";
+    ? "Select Japanese text on the page"
+    : "Select Japanese text on the page";
 }
 
 async function setMiningMode(enabled) {
@@ -5727,8 +5727,39 @@ if (btnBackToResults) {
   });
 }
 
-if (loadSubtitlesBtn && subtitlesFileInput) {
-  loadSubtitlesBtn.addEventListener("click", () => subtitlesFileInput.click());
+const subtitlesMenuDropdown = document.querySelector("#subtitles-menu-dropdown");
+const subtitlesMenuFile = document.querySelector("#subtitles-menu-file");
+
+if (loadSubtitlesBtn) {
+  if (subtitlesMenuDropdown) {
+    loadSubtitlesBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      subtitlesMenuDropdown.hidden = !subtitlesMenuDropdown.hidden;
+    });
+    document.addEventListener("click", () => {
+      if (subtitlesMenuDropdown) subtitlesMenuDropdown.hidden = true;
+    });
+  } else if (subtitlesFileInput) {
+    loadSubtitlesBtn.addEventListener("click", () => subtitlesFileInput.click());
+  }
+}
+
+if (subtitlesMenuFile && subtitlesFileInput) {
+  subtitlesMenuFile.addEventListener("click", () => {
+    subtitlesFileInput.click();
+    if (subtitlesMenuDropdown) subtitlesMenuDropdown.hidden = true;
+  });
+}
+
+[btnSelectSubtitlesFolder, btnSearchSubtitles, clearSubtitlesBtn].forEach(btn => {
+  if (btn && subtitlesMenuDropdown) {
+    btn.addEventListener("click", () => {
+      subtitlesMenuDropdown.hidden = true;
+    });
+  }
+});
+
+if (subtitlesFileInput) {
   subtitlesFileInput.addEventListener("change", (e) => {
     const file = e.target.files?.[0];
     if (file) handleSubtitleFileSelect(file);

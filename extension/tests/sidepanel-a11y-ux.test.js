@@ -23,7 +23,9 @@ const jsContent = fs.readFileSync(jsPath, "utf8");
 // ==========================================================================
 assert.ok(
   html.includes('<h2 class="section-title">CARD</h2>') ||
-  html.includes('<h2 class="section-title">Card</h2>'),
+  html.includes('<h2 class="section-title">Card</h2>') ||
+  html.includes('<h2 class="section-title">EDIT</h2>') ||
+  html.includes('<h2 class="section-title">Edit</h2>'),
   "Card section header must be an h2 heading"
 );
 
