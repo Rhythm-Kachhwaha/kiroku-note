@@ -78,7 +78,8 @@ class TestPortConfiguration(unittest.TestCase):
     def test_start_server_invokes_uvicorn_with_configured_port(self, mock_uvicorn):
         """start_server must call uvicorn.run with resolved port and host 127.0.0.1."""
         with patch.dict(os.environ, {"KIROKU_PORT": "21828"}, clear=True):
-            run_backend.start_server()
+            with patch.object(run_backend, "check_port_available"):
+                run_backend.start_server()
             mock_uvicorn.assert_called_once_with(
                 "app.main:app",
                 host="127.0.0.1",

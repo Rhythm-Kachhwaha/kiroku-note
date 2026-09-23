@@ -22,7 +22,9 @@ SPEC_DIR = Path(SPEC).resolve().parent
 PROJECT_ROOT = SPEC_DIR.parent
 OCR_SERVER_DIR = PROJECT_ROOT / "ocr_server"
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
+from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules, copy_metadata
+
+manga_ocr_datas, manga_ocr_binaries, manga_ocr_hidden_imports = collect_all("manga_ocr")
 
 # Collect all required submodules for OCR server and ML runtime
 hidden_imports = (
@@ -32,6 +34,7 @@ hidden_imports = (
     + collect_submodules("anyio")
     + collect_submodules("ocr_server")
     + collect_submodules("manga_ocr")
+    + manga_ocr_hidden_imports
     + collect_submodules("transformers")
     + [
         "manga_ocr",
@@ -51,6 +54,7 @@ hidden_imports = (
 
 # Collect required metadata and model configuration assets
 datas = []
+datas += manga_ocr_datas
 try:
     datas += collect_data_files("transformers")
     datas += collect_data_files("unidic_lite")
@@ -115,6 +119,8 @@ pyz = PYZ(
     cipher=block_cipher,
 )
 
+ICON_PATH = PROJECT_ROOT / "assets" / "icon.ico"
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -131,6 +137,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=str(ICON_PATH) if ICON_PATH.exists() else None,
 )
 
 coll = COLLECT(

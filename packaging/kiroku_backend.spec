@@ -65,11 +65,18 @@ excludes = [
     "sphinx",
 ]
 
+ICON_PATH = PROJECT_ROOT / "assets" / "icon.ico"
+ICON_PNG = PROJECT_ROOT / "assets" / "icon.png"
+
+datas = []
+if ICON_PNG.exists():
+    datas.append((str(ICON_PNG), "assets"))
+
 a = Analysis(
     [str(PROJECT_ROOT / "run_tray.py")],
     pathex=[str(PROJECT_ROOT), str(BACKEND_DIR)],
     binaries=[],
-    datas=[],
+    datas=datas,
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
@@ -109,6 +116,7 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     version=str(VERSION_FILE),
+    icon=str(ICON_PATH) if ICON_PATH.exists() else None,
 )
 
 coll = COLLECT(

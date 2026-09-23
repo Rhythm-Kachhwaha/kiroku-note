@@ -34,6 +34,7 @@ DisableProgramGroupPage=yes
 DisableDirPage=auto
 CloseApplications=force
 CloseApplicationsFilter={#MyAppExeName}
+SetupIconFile=..\assets\icon.ico
 ShowLanguageDialog=no
 ChangesAssociations=no
 

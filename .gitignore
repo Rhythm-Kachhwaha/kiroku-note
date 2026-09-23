@@ -32,56 +32,44 @@ ENV/
 env.bak/
 venv.bak/
 .venv-ocr/
-# IDE
+
+# IDE & OS
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-# Testing
-/tests/
-!extension/tests/
+# Testing & Coverage
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
 .nox/
 
-# Logs
+# Logs & Temporary files
 *.log
 *.tmp
 logs/
+scratch/
+remaining.md
+PROBLEMS.md
 
-# AnkiMiner specific - test outputs and temporary files
-*.json
-!package.json
-!package-lock.json
-!tsconfig.json
-structure.txt
-/test_*.py
-extract_examples.py
-inspect_structure.py
-
-# Local development
+# Local development & user databases
 *.local
 local/
-
-# Database
 *.db
 *.db-shm
 *.db-wal
-backend/data/
+backend/data/media/
+backend/data/*.db
+backend/data/*.sqlite-shm
+backend/data/*.sqlite-wal
+backend/data/ankiminer.db*
+backend/data/kiroku.db*
 
+# Ignored Markdown reports
 AudioReport.md
 AudioFeatureReport.md
-Audio/
-
-Frame/
-scratch/
-*.log
-
-PROBLEMS.md

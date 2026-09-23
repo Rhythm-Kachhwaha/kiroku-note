@@ -33,6 +33,7 @@ DisableDirPage=auto
 CloseApplications=force
 CloseApplicationsFilter={#MyAppExeName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
+SetupIconFile=..\assets\icon.ico
 ShowLanguageDialog=no
 ChangesAssociations=no
 

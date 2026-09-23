@@ -17,18 +17,23 @@ Write-Host "============================================================" -Foreg
 
 # 1. Verify Python Environment
 Write-Host "`n[1/5] Checking Python environment..." -ForegroundColor Yellow
-$PythonPath = (Get-Command python -ErrorAction SilentlyContinue).Source
+$BundledOcrPython = Join-Path $PROJECT_ROOT ".venv-ocr\Scripts\python.exe"
+if (Test-Path $BundledOcrPython) {
+    $PythonPath = $BundledOcrPython
+} else {
+    $PythonPath = (Get-Command python -ErrorAction SilentlyContinue).Source
+}
 if (-not $PythonPath) {
     Write-Error "[FATAL] Python is not found in PATH. Please ensure Python is installed and available."
     exit 1
 }
-$PythonVersion = python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"
+$PythonVersion = & $PythonPath -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"
 Write-Host "  Found Python: $PythonPath ($PythonVersion)" -ForegroundColor Green
 
 # 2. Check OCR / PyTorch dependencies
 Write-Host "`n[2/5] Checking manga-ocr and PyTorch CPU dependencies..." -ForegroundColor Yellow
-$HasTorch = python -c "import torch; print(torch.__version__)" 2>$null
-$HasMangaOcr = python -c "import manga_ocr; print(manga_ocr.__version__)" 2>$null
+$HasTorch = & $PythonPath -c "import torch; print(torch.__version__)" 2>$null
+$HasMangaOcr = & $PythonPath -c "import manga_ocr; print(manga_ocr.__version__)" 2>$null
 
 if (-not $HasTorch -or -not $HasMangaOcr) {
     Write-Host "`n[NOTICE] manga-ocr or PyTorch is not installed in the active environment." -ForegroundColor Yellow
@@ -44,6 +49,11 @@ if (-not $HasTorch -or -not $HasMangaOcr) {
 
 Write-Host "  Found torch: $HasTorch" -ForegroundColor Green
 Write-Host "  Found manga-ocr: $HasMangaOcr" -ForegroundColor Green
+
+if ($MODEL_SOURCE -and -not (Test-Path $MODEL_SOURCE)) {
+    Write-Error "[FATAL] KIROKU_OCR_MODEL_SOURCE does not exist: $MODEL_SOURCE"
+    exit 1
+}
 
 # 3. Clean prior build output
 Write-Host "`n[3/5] Cleaning prior build output..." -ForegroundColor Yellow
@@ -68,7 +78,7 @@ if (-not (Test-Path $SpecPath)) {
 }
 
 $BuildStartTime = Get-Date
-python -m PyInstaller "$SpecPath" --distpath "$DistDir" --workpath "$BuildDir" --clean --noconfirm
+& $PythonPath -m PyInstaller "$SpecPath" --distpath "$DistDir" --workpath "$BuildDir" --clean --noconfirm
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "[FATAL] PyInstaller build failed with exit code $LASTEXITCODE."

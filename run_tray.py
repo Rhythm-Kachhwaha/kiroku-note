@@ -34,12 +34,71 @@ STARTUP_VALUE = "KirokuNote"
 
 
 def _make_icon() -> Image.Image:
-    image = Image.new("RGBA", (64, 64), (25, 25, 25, 255))
+    # Try loading pre-rendered asset first
+    candidate_paths = [
+        PROJECT_ROOT / "assets" / "icon.png",
+        PROJECT_ROOT.parent / "assets" / "icon.png",
+    ]
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        candidate_paths.insert(0, Path(sys._MEIPASS) / "assets" / "icon.png")
+    
+    for path in candidate_paths:
+        if path.exists():
+            try:
+                return Image.open(path).resize((64, 64), Image.Resampling.LANCZOS)
+            except Exception:
+                pass
+
+    # Dynamic fallback rendering of Hiragana 'あ' in orange
+    scale = 4
+    canvas_size = 64 * scale
+    image = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((8, 8, 56, 56), radius=12, fill=(231, 111, 81, 255))
-    draw.ellipse((20, 20, 44, 44), fill=(25, 25, 25, 255))
-    draw.ellipse((27, 27, 37, 37), fill=(245, 241, 232, 255))
-    return image
+
+    margin = int(canvas_size * 0.05)
+    radius = int(canvas_size * 0.22)
+    draw.rounded_rectangle(
+        (margin, margin, canvas_size - margin, canvas_size - margin),
+        radius=radius,
+        fill=(25, 24, 22, 255),
+        outline=(55, 48, 42, 255),
+        width=max(1, int(4 * scale))
+    )
+
+    from PIL import ImageFont
+    font_candidates = [
+        r"C:\Windows\Fonts\NotoSansJP-VF.ttf",
+        r"C:\Windows\Fonts\YuGothB.ttc",
+        r"C:\Windows\Fonts\meiryob.ttc",
+        r"C:\Windows\Fonts\BIZ-UDGothicB.ttc",
+        r"C:\Windows\Fonts\msgothic.ttc",
+    ]
+    font = None
+    for fc in font_candidates:
+        if os.path.exists(fc):
+            try:
+                font = ImageFont.truetype(fc, int(canvas_size * 0.58))
+                break
+            except Exception:
+                continue
+    if font is None:
+        try:
+            font = ImageFont.load_default()
+        except Exception:
+            pass
+
+    char = "あ"
+    bbox = draw.textbbox((0, 0), char, font=font) if font else (0, 0, 32, 32)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    x = (canvas_size - text_w) // 2 - bbox[0]
+    y = (canvas_size - text_h) // 2 - bbox[1] - int(canvas_size * 0.02)
+
+    shadow_offset = max(1, int(2 * scale))
+    draw.text((x + shadow_offset, y + shadow_offset), char, font=font, fill=(15, 14, 12, 180))
+    draw.text((x, y), char, font=font, fill=(242, 100, 25, 255))
+
+    return image.resize((64, 64), Image.Resampling.LANCZOS)
 
 
 def _startup_enabled() -> bool:
@@ -145,6 +204,26 @@ class TrayHost:
         else:
             subprocess.Popen(["xdg-open", str(folder)])
 
+    def open_instructions(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
+        candidates = [
+            PROJECT_ROOT / "installer" / "extension_instructions.txt",
+            PROJECT_ROOT / "extension_instructions.txt",
+            Path(sys.executable).parent / "extension_instructions.txt",
+        ]
+        for c in candidates:
+            if c.exists():
+                if os.name == "nt":
+                    os.startfile(str(c))
+                else:
+                    subprocess.Popen(["xdg-open", str(c)])
+                return
+        # Fallback to folder
+        self.open_folder(icon, item)
+
+    def open_status_page(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
+        import webbrowser
+        webbrowser.open(f"{self.base_url}/api/cards?limit=1")
+
     def _get_json(self, path: str) -> dict[str, object] | None:
         try:
             with urllib.request.urlopen(f"{self.base_url}{path}", timeout=0.4) as response:
@@ -163,12 +242,23 @@ class TrayHost:
         if self.icon:
             self.icon.update_menu()
 
+    def _header_label(self) -> str:
+        if self.state == "Running":
+            return f"● Kiroku Note (Running • :{self.port})"
+        elif self.state == "Starting":
+            return f"○ Kiroku Note (Starting...)"
+        else:
+            return f"✕ Kiroku Note (Error / Stopped)"
+
     def _service_label(self, path: str, name: str) -> str:
         payload = self._get_json(path)
         if path == "/api/ocr/status":
             if not payload or not payload.get("installed"):
-                return f"{name}: Not installed"
-            return f"{name}: Ready" if payload.get("available") else f"{name}: Starting"
+                return f"  ○ {name}: Not installed"
+            if payload.get("available"):
+                return f"  ● {name}: Ready"
+            return f"  ◌ {name}: Starting..."
+        
         connected = bool(
             payload
             and (
@@ -176,7 +266,9 @@ class TrayHost:
                 or payload.get("available_dictionaries")
             )
         )
-        return f"{name}: {'Connected' if connected else 'Not found'}"
+        dot = "●" if connected else "○"
+        status_text = "Connected" if connected else "Not found"
+        return f"  {dot} {name}: {status_text}"
 
     def run(self) -> bool:
         self.start_backend()
@@ -200,16 +292,20 @@ class TrayHost:
             _make_icon(),
             APP_NAME,
             pystray.Menu(
-                pystray.MenuItem(lambda item: f"Kiroku - {self.state}", None, enabled=False),
-                pystray.MenuItem(f"Server: {self.host}:{self.port}", None, enabled=False),
+                pystray.MenuItem(lambda item: self._header_label(), None, enabled=False),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Service Status:", None, enabled=False),
                 pystray.MenuItem(lambda item: self._service_label("/api/yomitan/dictionaries", "Yomitan"), None, enabled=False),
                 pystray.MenuItem(lambda item: self._service_label("/api/anki/status", "AnkiConnect"), None, enabled=False),
-                pystray.MenuItem(lambda item: self._service_label("/api/ocr/status", "OCR"), None, enabled=False),
+                pystray.MenuItem(lambda item: self._service_label("/api/ocr/status", "OCR Engine"), None, enabled=False),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Extension Setup Guide", self.open_instructions, default=True),
+                pystray.MenuItem("Open User Data Folder", self.open_folder),
+                pystray.MenuItem("Backend Status (Browser)", self.open_status_page),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Start with Windows", self.toggle_startup, checked=lambda item: _startup_enabled()),
-                pystray.MenuItem("Open Kiroku folder", self.open_folder),
-                pystray.MenuItem("Restart", self.restart_backend),
-                pystray.MenuItem("Quit", self.quit),
+                pystray.MenuItem("Restart Backend", self.restart_backend),
+                pystray.MenuItem("Quit Kiroku Note", self.quit),
             ),
         )
         threading.Thread(target=poll, name="kiroku-tray-status", daemon=True).start()
