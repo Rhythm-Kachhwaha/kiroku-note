@@ -1,13 +1,13 @@
 ; ==============================================================================
-; Kiroku Note — Windows Inno Setup OCR Add-on Script (V1.0.0)
+; Kiroku Note — Windows Inno Setup OCR Add-on Script
 ; ==============================================================================
-; Produces a 64-bit Windows Add-on installer: Kiroku-Note-OCR-Setup-v1.0.0.exe
+; Produces a 64-bit Windows Add-on installer: Kiroku-Note-OCR-Setup-v1.0.1.exe
 ; Installs standalone KirokuOCR engine and dependencies into {app}\ocr\.
 ; User data is preserved and never bundled or overwritten.
 ; ==============================================================================
 
 #define MyAppName "Kiroku Note OCR Add-on"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "Kiroku Note"
 #define MyAppExeName "KirokuOCR.exe"
 #define MyBaseAppName "Kiroku Note"
@@ -20,7 +20,6 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={localappdata}\Programs\{#MyBaseAppName}
 UsePreviousAppDir=yes
-AppendDefaultDirName=no
 AllowNoIcons=yes
 OutputDir=..\dist\installer
 OutputBaseFilename=Kiroku-Note-OCR-Setup-v{#MyAppVersion}
@@ -44,9 +43,6 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 ; Standalone OCR Component Payload into {app}\ocr
 Source: "..\dist\ocr\KirokuOCR\*"; DestDir: "{app}\ocr"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; Optional pre-packaged model weights into {app}\ocr\models
-; Source: "..\dist\ocr\models\*"; DestDir: "{app}\ocr\models"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; NOTE: User data (kiroku.db, media files, logs) is explicitly excluded from installation.
 ; All persistent user data resides in %LOCALAPPDATA%\KirokuNote\ and is preserved during upgrades and uninstalls.

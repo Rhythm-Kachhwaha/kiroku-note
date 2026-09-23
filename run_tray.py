@@ -12,7 +12,7 @@ import urllib.error
 import urllib.request
 
 import pystray
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import uvicorn
 
 
@@ -49,7 +49,7 @@ def _make_icon() -> Image.Image:
             except Exception:
                 pass
 
-    # Dynamic fallback rendering of Hiragana 'あ' in orange
+    # Dynamic fallback rendering of Hiragana 'あ' in vibrant orange on a lighter dark tile
     scale = 4
     canvas_size = 64 * scale
     image = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
@@ -60,12 +60,11 @@ def _make_icon() -> Image.Image:
     draw.rounded_rectangle(
         (margin, margin, canvas_size - margin, canvas_size - margin),
         radius=radius,
-        fill=(25, 24, 22, 255),
-        outline=(55, 48, 42, 255),
+        fill=(45, 41, 37, 255),
+        outline=(97, 86, 76, 255),
         width=max(1, int(4 * scale))
     )
 
-    from PIL import ImageFont
     font_candidates = [
         r"C:\Windows\Fonts\NotoSansJP-VF.ttf",
         r"C:\Windows\Fonts\YuGothB.ttc",
@@ -95,8 +94,8 @@ def _make_icon() -> Image.Image:
     y = (canvas_size - text_h) // 2 - bbox[1] - int(canvas_size * 0.02)
 
     shadow_offset = max(1, int(2 * scale))
-    draw.text((x + shadow_offset, y + shadow_offset), char, font=font, fill=(15, 14, 12, 180))
-    draw.text((x, y), char, font=font, fill=(242, 100, 25, 255))
+    draw.text((x + shadow_offset, y + shadow_offset), char, font=font, fill=(20, 18, 16, 200))
+    draw.text((x, y), char, font=font, fill=(255, 106, 19, 255))
 
     return image.resize((64, 64), Image.Resampling.LANCZOS)
 
@@ -142,6 +141,13 @@ class TrayHost:
         self.icon: pystray.Icon | None = None
         self._lock = threading.Lock()
 
+        # In-memory cached status to prevent blocking and hover-flicker during menu display
+        self._yomitan_connected: bool = False
+        self._anki_connected: bool = False
+        self._ocr_installed: bool = False
+        self._ocr_available: bool = False
+        self._last_menu_state: tuple[str, bool, bool, bool, bool, bool] | None = None
+
     def start_backend(self) -> None:
         with self._lock:
             if self.server_thread and self.server_thread.is_alive():
@@ -186,7 +192,7 @@ class TrayHost:
     def restart_backend(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
         self.stop_backend()
         self.start_backend()
-        icon.update_menu()
+        self.refresh_status(force_update=True)
 
     def quit(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
         self.stop_backend()
@@ -194,7 +200,8 @@ class TrayHost:
 
     def toggle_startup(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
         _set_startup_enabled(not _startup_enabled())
-        icon.update_menu()
+        if self.icon:
+            self.icon.update_menu()
 
     def open_folder(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
         folder = get_app_data_dir()
@@ -217,58 +224,123 @@ class TrayHost:
                 else:
                     subprocess.Popen(["xdg-open", str(c)])
                 return
-        # Fallback to folder
         self.open_folder(icon, item)
 
     def open_status_page(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
         import webbrowser
         webbrowser.open(f"{self.base_url}/api/cards?limit=1")
 
+    def toggle_ocr(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
+        """Start or stop the OCR daemon on user action."""
+        action = "stop" if self._ocr_available else "start"
+        threading.Thread(target=self._exec_ocr_toggle, args=(action,), daemon=True).start()
+
+    def _exec_ocr_toggle(self, action: str) -> None:
+        try:
+            req = urllib.request.Request(f"{self.base_url}/api/ocr/{action}", method="POST", data=b"{}")
+            req.add_header("Content-Type", "application/json")
+            with urllib.request.urlopen(req, timeout=10.0) as resp:
+                pass
+        except Exception:
+            pass
+        self.refresh_status(force_update=True)
+
     def _get_json(self, path: str) -> dict[str, object] | None:
         try:
-            with urllib.request.urlopen(f"{self.base_url}{path}", timeout=0.4) as response:
+            with urllib.request.urlopen(f"{self.base_url}{path}", timeout=0.5) as response:
                 value = json.loads(response.read().decode("utf-8"))
                 return value if isinstance(value, dict) else None
         except (OSError, urllib.error.URLError, ValueError):
             return None
 
-    def refresh_status(self) -> None:
-        payload = self._get_json("/api/cards?limit=1")
+    def refresh_status(self, force_update: bool = False) -> None:
+        backend_payload = self._get_json("/api/health")
         with self._lock:
-            if payload is not None:
+            if backend_payload is not None:
                 self.state = "Running"
             elif self.state != "Error":
                 self.state = "Starting" if self.server_thread and self.server_thread.is_alive() else "Error"
-        if self.icon:
+
+        yomitan_payload = self._get_json("/api/yomitan/dictionaries")
+        anki_payload = self._get_json("/api/anki/status")
+        ocr_payload = self._get_json("/api/ocr/status")
+
+        with self._lock:
+            self._yomitan_connected = bool(yomitan_payload and yomitan_payload.get("available_dictionaries"))
+            self._anki_connected = bool(anki_payload and anki_payload.get("connected"))
+            self._ocr_installed = bool(ocr_payload and ocr_payload.get("installed"))
+            self._ocr_available = bool(ocr_payload and ocr_payload.get("available"))
+
+            current_state = (
+                self.state,
+                self._yomitan_connected,
+                self._anki_connected,
+                self._ocr_installed,
+                self._ocr_available,
+                _startup_enabled(),
+            )
+            state_changed = (self._last_menu_state != current_state)
+            if state_changed:
+                self._last_menu_state = current_state
+
+        # ONLY update menu if values actually changed or forced, eliminating hover stutter/blue flicker
+        if self.icon and (state_changed or force_update):
             self.icon.update_menu()
 
     def _header_label(self) -> str:
         if self.state == "Running":
             return f"● Kiroku Note (Running • :{self.port})"
         elif self.state == "Starting":
-            return f"○ Kiroku Note (Starting...)"
-        else:
-            return f"✕ Kiroku Note (Error / Stopped)"
+            return "○ Kiroku Note (Starting...)"
+        return "✕ Kiroku Note (Stopped)"
 
-    def _service_label(self, path: str, name: str) -> str:
-        payload = self._get_json(path)
-        if path == "/api/ocr/status":
-            if not payload or not payload.get("installed"):
-                return f"  ○ {name}: Not installed"
-            if payload.get("available"):
-                return f"  ● {name}: Ready"
-            return f"  ◌ {name}: Starting..."
-        
-        connected = bool(
-            payload
-            and (
-                payload.get("available", payload.get("connected", False))
-                or payload.get("available_dictionaries")
-            )
+    def _yomitan_label(self) -> str:
+        dot = "●" if self._yomitan_connected else "○"
+        status_text = "Connected" if self._yomitan_connected else "Not found"
+        return f"  {dot} Yomitan: {status_text}"
+
+    def _anki_label(self) -> str:
+        dot = "●" if self._anki_connected else "○"
+        status_text = "Connected" if self._anki_connected else "Not found"
+        return f"  {dot} AnkiConnect: {status_text}"
+
+    def _ocr_label(self) -> str:
+        if not self._ocr_installed:
+            return "  ○ OCR Engine: Not installed"
+        if self._ocr_available:
+            return "  ● OCR Engine: Ready (Active)"
+        return "  ○ OCR Engine: Off (Stopped)"
+
+    def _ocr_action_label(self) -> str:
+        if self._ocr_available:
+            return "⏹ Stop OCR Engine"
+        return "▶ Start OCR Engine"
+
+    def _ocr_action_visible(self) -> bool:
+        return self._ocr_installed
+
+    def _build_menu(self) -> pystray.Menu:
+        return pystray.Menu(
+            pystray.MenuItem(lambda item: self._header_label(), None, enabled=False),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Service Status:", None, enabled=False),
+            pystray.MenuItem(lambda item: self._yomitan_label(), None, enabled=False),
+            pystray.MenuItem(lambda item: self._anki_label(), None, enabled=False),
+            pystray.MenuItem(lambda item: self._ocr_label(), None, enabled=False),
+            pystray.MenuItem(
+                lambda item: self._ocr_action_label(),
+                self.toggle_ocr,
+                visible=lambda item: self._ocr_action_visible(),
+            ),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Extension Setup Guide", self.open_instructions, default=True),
+            pystray.MenuItem("Open User Data Folder", self.open_folder),
+            pystray.MenuItem("Backend Status (Browser)", self.open_status_page),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Start with Windows", self.toggle_startup, checked=lambda item: _startup_enabled()),
+            pystray.MenuItem("Restart Backend", self.restart_backend),
+            pystray.MenuItem("Quit Kiroku Note", self.quit),
         )
-        dot = "●" if connected else "○"
-        status_text = "Connected" if connected else "Not found"
-        return f"  {dot} {name}: {status_text}"
 
     def run(self) -> bool:
         self.start_backend()
@@ -282,6 +354,9 @@ class TrayHost:
             self.stop_backend()
             return False
 
+        # Pre-populate status
+        self.refresh_status(force_update=True)
+
         def poll() -> None:
             while self.icon:
                 self.refresh_status()
@@ -291,22 +366,7 @@ class TrayHost:
             APP_NAME,
             _make_icon(),
             APP_NAME,
-            pystray.Menu(
-                pystray.MenuItem(lambda item: self._header_label(), None, enabled=False),
-                pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Service Status:", None, enabled=False),
-                pystray.MenuItem(lambda item: self._service_label("/api/yomitan/dictionaries", "Yomitan"), None, enabled=False),
-                pystray.MenuItem(lambda item: self._service_label("/api/anki/status", "AnkiConnect"), None, enabled=False),
-                pystray.MenuItem(lambda item: self._service_label("/api/ocr/status", "OCR Engine"), None, enabled=False),
-                pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Extension Setup Guide", self.open_instructions, default=True),
-                pystray.MenuItem("Open User Data Folder", self.open_folder),
-                pystray.MenuItem("Backend Status (Browser)", self.open_status_page),
-                pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Start with Windows", self.toggle_startup, checked=lambda item: _startup_enabled()),
-                pystray.MenuItem("Restart Backend", self.restart_backend),
-                pystray.MenuItem("Quit Kiroku Note", self.quit),
-            ),
+            self._build_menu(),
         )
         threading.Thread(target=poll, name="kiroku-tray-status", daemon=True).start()
         self.icon.run()

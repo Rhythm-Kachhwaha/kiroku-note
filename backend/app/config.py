@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 
 APP_NAME = "KirokuNote"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 
 DEFAULT_KIROKU_HOST = "127.0.0.1"
 DEFAULT_KIROKU_PORT = 21828
@@ -25,17 +25,14 @@ def get_app_data_dir(env: dict[str, str] | None = None) -> Path:
     Resolve the base user-data directory for Kiroku Note.
 
     Resolution order:
-      1. KIROKU_DATA_DIR (explicit override)
-      2. If frozen / packaged executable:
-         - Windows: %LOCALAPPDATA%\\KirokuNote (fallback: ~/AppData/Local/KirokuNote)
-         - Non-Windows: ~/.kirokunote
-      3. Development / source mode:
-         - Root backend directory (parent of app package)
+      1. KIROKU_DATA_DIR environment variable (explicit override)
+      2. In frozen / packaged mode: %LOCALAPPDATA%/KirokuNote (Windows) or ~/.local/share/KirokuNote
+      3. In development mode: <repo_root>/backend/data (project-local for safety)
     """
     env_dict = os.environ if env is None else env
-    custom_dir = env_dict.get("KIROKU_DATA_DIR")
-    if custom_dir and str(custom_dir).strip():
-        return Path(str(custom_dir).strip())
+    custom = env_dict.get("KIROKU_DATA_DIR") or env_dict.get("ANKIMINER_DATA_DIR")
+    if custom and str(custom).strip():
+        return Path(str(custom).strip())
 
     if getattr(sys, "frozen", False):
         if sys.platform == "win32" or os.name == "nt":
@@ -43,40 +40,84 @@ def get_app_data_dir(env: dict[str, str] | None = None) -> Path:
             if local_appdata and str(local_appdata).strip():
                 return Path(str(local_appdata).strip()) / APP_NAME
             return Path.home() / "AppData" / "Local" / APP_NAME
-        return Path.home() / f".{APP_NAME.lower()}"
+        return Path.home() / ".local" / "share" / APP_NAME
 
-    # Development / source repository mode
     return Path(__file__).resolve().parent.parent
 
 
 def get_data_dir(env: dict[str, str] | None = None) -> Path:
-    """Resolve data directory (for SQLite database)."""
-    return get_app_data_dir(env) / "data"
-
-
-def get_media_dir(env: dict[str, str] | None = None) -> Path:
-    """
-    Resolve media directory for image and audio storage.
-
-    Precedence:
-      1. KIROKU_MEDIA_DIR / ANKIMINER_MEDIA_DIR
-      2. When frozen or KIROKU_DATA_DIR set: <app_data_dir>/media
-      3. In development default: <app_data_dir>/data/media (preserves backend/data/media)
-    """
-    env_dict = os.environ if env is None else env
-    custom_dir = env_dict.get("KIROKU_MEDIA_DIR") or env_dict.get("ANKIMINER_MEDIA_DIR")
-    if custom_dir and str(custom_dir).strip():
-        return Path(str(custom_dir).strip())
-
-    if getattr(sys, "frozen", False) or env_dict.get("KIROKU_DATA_DIR"):
-        return get_app_data_dir(env) / "media"
-
-    return get_app_data_dir(env) / "data" / "media"
+    """Resolve data directory."""
+    app_dir = get_app_data_dir(env)
+    return app_dir / "data"
 
 
 def get_logs_dir(env: dict[str, str] | None = None) -> Path:
     """Resolve logs directory."""
-    return get_app_data_dir(env) / "logs"
+    app_dir = get_app_data_dir(env)
+    return app_dir / "logs"
+
+
+def get_db_path(env: dict[str, str] | None = None) -> Path:
+    """
+    Resolve the SQLite database file path.
+
+    Resolution order:
+      1. KIROKU_DB_PATH environment variable (explicit override)
+      2. <app_data_dir>/data/kiroku.db
+    """
+    env_dict = os.environ if env is None else env
+    custom = env_dict.get("KIROKU_DB_PATH") or env_dict.get("ANKIMINER_DB_PATH")
+    if custom and str(custom).strip():
+        return Path(str(custom).strip())
+
+    return get_data_dir(env_dict) / "kiroku.db"
+
+
+def get_media_dir(env: dict[str, str] | None = None) -> Path:
+    """
+    Resolve the media storage directory.
+
+    Resolution order:
+      1. KIROKU_MEDIA_DIR environment variable (explicit override)
+      2. <app_data_dir>/media or <app_data_dir>/data/media (dev)
+    """
+    env_dict = os.environ if env is None else env
+    custom = env_dict.get("KIROKU_MEDIA_DIR") or env_dict.get("ANKIMINER_MEDIA_DIR")
+    if custom and str(custom).strip():
+        return Path(str(custom).strip())
+
+    if getattr(sys, "frozen", False):
+        return get_app_data_dir(env_dict) / "media"
+    return get_app_data_dir(env_dict) / "data" / "media"
+
+
+def get_ocr_model_dir(env: dict[str, str] | None = None) -> Path:
+    """
+    Resolve the directory for the pinned manga-ocr offline model weights.
+
+    Resolution order:
+      1. KIROKU_OCR_MODEL_PATH environment variable (explicit override)
+      2. In frozen mode: <app_dir>/ocr/models/manga-ocr-base or <app_dir>/models/manga-ocr-base
+      3. %LOCALAPPDATA%/KirokuNote/models/manga-ocr-base
+      4. In dev mode: <repo_root>/backend/data/models/manga-ocr-base
+    """
+    env_dict = os.environ if env is None else env
+    custom = env_dict.get("KIROKU_OCR_MODEL_PATH")
+    if custom and str(custom).strip():
+        return Path(str(custom).strip())
+
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        for candidate in [
+            exe_dir / "ocr" / "models" / "manga-ocr-base",
+            exe_dir / "models" / "manga-ocr-base",
+            exe_dir / "ocr" / "models",
+            exe_dir / "models",
+        ]:
+            if candidate.is_dir():
+                return candidate
+
+    return get_data_dir(env_dict) / "models" / "manga-ocr-base"
 
 
 def resolve_port(env: dict[str, str] | None = None) -> int:
@@ -84,15 +125,13 @@ def resolve_port(env: dict[str, str] | None = None) -> int:
     Resolve the backend listening port.
 
     Resolution order:
-      1. KIROKU_PORT
-      2. PORT
-      3. DEFAULT_KIROKU_PORT (21828)
+      1. KIROKU_PORT environment variable (integer)
+      2. DEFAULT_KIROKU_PORT (21828)
 
     Validates that the resulting port is an integer in the valid TCP range 1-65535.
-    Raises ValueError with a clear actionable message if the value is invalid.
     """
     env_dict = os.environ if env is None else env
-    raw = env_dict.get("KIROKU_PORT") or env_dict.get("PORT")
+    raw = env_dict.get("KIROKU_PORT") or env_dict.get("ANKIMINER_PORT") or env_dict.get("PORT")
     if raw is None or not str(raw).strip():
         return DEFAULT_KIROKU_PORT
 
@@ -160,20 +199,60 @@ def resolve_ocr_url(env: dict[str, str] | None = None) -> str:
     return f"http://{DEFAULT_OCR_HOST}:{port}"
 
 
+def _get_registry_install_paths() -> list[Path]:
+    """Discover installation directories registered by Inno Setup in Windows Registry."""
+    if sys.platform != "win32" and os.name != "nt":
+        return []
+
+    discovered: list[Path] = []
+    try:
+        import winreg
+
+        uninstall_key_path = r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
+        for root_hkey in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+            try:
+                with winreg.OpenKey(root_hkey, uninstall_key_path) as root_key:
+                    num_subkeys = winreg.QueryInfoKey(root_key)[0]
+                    for i in range(num_subkeys):
+                        try:
+                            subkey_name = winreg.EnumKey(root_key, i)
+                            with winreg.OpenKey(root_key, subkey_name) as subkey:
+                                try:
+                                    display_name, _ = winreg.QueryValueEx(subkey, "DisplayName")
+                                    if "Kiroku" in str(display_name):
+                                        install_loc, _ = winreg.QueryValueEx(subkey, "InstallLocation")
+                                        if install_loc and str(install_loc).strip():
+                                            discovered.append(Path(str(install_loc).strip()))
+                                except OSError:
+                                    continue
+                        except OSError:
+                            continue
+            except OSError:
+                continue
+    except Exception:
+        pass
+
+    return discovered
+
+
 def resolve_ocr_exe_path(env: dict[str, str] | None = None) -> Path | None:
     """
     Resolve the path to the KirokuOCR.exe standalone executable if installed.
 
     Candidate discovery locations:
       1. KIROKU_OCR_EXE environment variable (explicit override)
-      2. In frozen / packaged mode:
+      2. Windows Registry InstallLocations (Inno Setup registered paths)
+      3. In frozen / packaged mode:
          - <app_dir>/ocr/KirokuOCR.exe (Standard Inno Setup {app}/ocr layout)
+         - <app_dir>/ocr/KirokuOCR/KirokuOCR.exe
          - <app_dir>/KirokuOCR.exe
-         - %LOCALAPPDATA%/KirokuNote/ocr/KirokuOCR.exe
-      3. In development / source repository mode:
+         - Adjacent directories (<app_dir>ocr/ocr/KirokuOCR.exe, <app_dir>ocr/KirokuOCR.exe)
+      4. In development / source repository mode:
          - <repo_root>/dist/ocr/KirokuOCR.exe
          - <repo_root>/dist/ocr/KirokuOCR/KirokuOCR.exe (onedir build)
+      5. Common local appdata:
          - %LOCALAPPDATA%/KirokuNote/ocr/KirokuOCR.exe
+         - %LOCALAPPDATA%/Programs/Kiroku Note/ocr/KirokuOCR.exe
     """
     env_dict = os.environ if env is None else env
     custom_exe = env_dict.get("KIROKU_OCR_EXE")
@@ -183,24 +262,38 @@ def resolve_ocr_exe_path(env: dict[str, str] | None = None) -> Path | None:
 
     candidates: list[Path] = []
 
+    # 1. Registry discovery
+    for reg_path in _get_registry_install_paths():
+        candidates.append(reg_path / "ocr" / "KirokuOCR.exe")
+        candidates.append(reg_path / "ocr" / "KirokuOCR" / "KirokuOCR.exe")
+        candidates.append(reg_path / "KirokuOCR.exe")
+
+    # 2. Frozen mode discovery
     if getattr(sys, "frozen", False):
         exe_dir = Path(sys.executable).resolve().parent
         candidates.append(exe_dir / "ocr" / "KirokuOCR.exe")
         candidates.append(exe_dir / "ocr" / "KirokuOCR" / "KirokuOCR.exe")
         candidates.append(exe_dir / "KirokuOCR.exe")
+        parent_dir = exe_dir.parent
+        dir_name = exe_dir.name
+        candidates.append(parent_dir / f"{dir_name}ocr" / "ocr" / "KirokuOCR.exe")
+        candidates.append(parent_dir / f"{dir_name}ocr" / "KirokuOCR.exe")
     else:
         repo_root = Path(__file__).resolve().parent.parent.parent
         candidates.append(repo_root / "dist" / "ocr" / "KirokuOCR.exe")
         candidates.append(repo_root / "dist" / "ocr" / "KirokuOCR" / "KirokuOCR.exe")
 
-    # Common local appdata location
+    # 3. Common LocalAppData locations
     if sys.platform == "win32" or os.name == "nt":
         local_appdata = env_dict.get("LOCALAPPDATA")
         if local_appdata and str(local_appdata).strip():
-            base_appdata = Path(str(local_appdata).strip()) / APP_NAME
+            base_local = Path(str(local_appdata).strip())
         else:
-            base_appdata = Path.home() / "AppData" / "Local" / APP_NAME
-        candidates.append(base_appdata / "ocr" / "KirokuOCR.exe")
+            base_local = Path.home() / "AppData" / "Local"
+        
+        candidates.append(base_local / APP_NAME / "ocr" / "KirokuOCR.exe")
+        candidates.append(base_local / "Programs" / "Kiroku Note" / "ocr" / "KirokuOCR.exe")
+        candidates.append(base_local / "Programs" / "Kiroku Note" / "ocr" / "KirokuOCR" / "KirokuOCR.exe")
 
     for candidate in candidates:
         if candidate.is_file():
@@ -218,7 +311,6 @@ def resolve_ocr_dev_command(env: dict[str, str] | None = None) -> list[str] | No
         return None
 
     env_dict = os.environ if env is None else env
-    # If explicit KIROKU_OCR_EXE was configured, do not fall back to dev runner
     if "KIROKU_OCR_EXE" in env_dict:
         return None
 
@@ -234,28 +326,3 @@ def resolve_ocr_dev_command(env: dict[str, str] | None = None) -> list[str] | No
 
     py_bin = str(venv_py) if venv_py.is_file() else sys.executable
     return [py_bin, str(run_ocr_py)]
-
-
-def get_ocr_model_dir(env: dict[str, str] | None = None) -> Path:
-    """
-    Resolve the directory for offline manga-ocr model weights.
-
-    Precedence:
-      1. KIROKU_OCR_MODEL_PATH environment variable
-      2. In frozen mode: <app_dir>/ocr/models/manga-ocr-base (if exists) or %LOCALAPPDATA%/KirokuNote/models/manga-ocr-base
-      3. In dev mode: <repo_root>/dist/ocr/models/manga-ocr-base or %LOCALAPPDATA%/KirokuNote/models/manga-ocr-base
-    """
-    env_dict = os.environ if env is None else env
-    custom_path = env_dict.get("KIROKU_OCR_MODEL_PATH")
-    if custom_path and str(custom_path).strip():
-        return Path(str(custom_path).strip())
-
-    if getattr(sys, "frozen", False):
-        exe_dir = Path(sys.executable).resolve().parent
-        addon_models = exe_dir / "ocr" / "models" / "manga-ocr-base"
-        if addon_models.is_dir():
-            return addon_models
-
-    return get_app_data_dir(env) / "models" / "manga-ocr-base"
-
-

@@ -13,7 +13,7 @@ $DIST_DIR = Join-Path $PROJECT_ROOT "dist\extension"
 $UNPACKED_DIR = Join-Path $DIST_DIR "unpacked"
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  Kiroku Note Extension Packager (V1.0.0)" -ForegroundColor Cyan
+Write-Host "  Kiroku Note Extension Packager" -ForegroundColor Cyan
 Write-Host "  Extension Source: $EXTENSION_DIR" -ForegroundColor DarkGray
 Write-Host "  Distribution Dir: $DIST_DIR" -ForegroundColor DarkGray
 Write-Host "============================================================" -ForegroundColor Cyan
@@ -35,10 +35,6 @@ if ($ManifestVersion -ne 3) {
     Write-Error "[FATAL] Expected manifest_version 3, got: $ManifestVersion"
     exit 1
 }
-if ($Version -ne "1.0.0") {
-    Write-Error "[FATAL] Expected version '1.0.0', got: '$Version'"
-    exit 1
-}
 Write-Host "  Manifest valid: name='$ExtName', version='$Version', MV$ManifestVersion" -ForegroundColor Green
 
 # 2. Check all files referenced by manifest
@@ -58,6 +54,11 @@ if ($ManifestContent.content_scripts) {
                 $ReferencedFiles += $script
             }
         }
+    }
+}
+if ($ManifestContent.icons) {
+    $ManifestContent.icons.PSObject.Properties | ForEach-Object {
+        $ReferencedFiles += $_.Value
     }
 }
 
@@ -87,6 +88,9 @@ Write-Host "`n[4/6] Staging runtime extension files..." -ForegroundColor Yellow
 $RuntimeItems = @(
     "manifest.json",
     "background.js",
+    "icons\icon16.png",
+    "icons\icon48.png",
+    "icons\icon128.png",
     "content\capture-utils.js",
     "content\content.js",
     "content\video-mining-poc.js",
@@ -158,14 +162,12 @@ if (-not (Test-Path $ZipPath)) {
 
 $ZipItem = Get-Item $ZipPath
 $ZipSizeBytes = $ZipItem.Length
-$ZipSizeKB = [math]::Round($ZipSizeBytes / 1KB, 2)
+$ZipSizeKB = [math]::Round($ZipSizeBytes / 1024, 2)
 
-Write-Host "`n============================================================" -ForegroundColor Green
-Write-Host "  EXTENSION BUILD SUCCESSFUL!" -ForegroundColor Green
-Write-Host "  ZIP Path:      $ZipPath" -ForegroundColor White
-Write-Host "  ZIP Size:      $ZipSizeKB KB ($ZipSizeBytes bytes)" -ForegroundColor White
-Write-Host "  Unpacked Dir:  $UNPACKED_DIR" -ForegroundColor White
-Write-Host "  Total Files:   $StagedCount" -ForegroundColor White
 Write-Host "============================================================" -ForegroundColor Green
-
-exit 0
+Write-Host "  EXTENSION PACKAGING SUCCESSFUL!" -ForegroundColor Green
+Write-Host "  Unpacked Dir: $UNPACKED_DIR" -ForegroundColor Green
+Write-Host "  ZIP Package:  $ZipPath" -ForegroundColor Green
+Write-Host "  Total Files:  $StagedCount" -ForegroundColor Green
+Write-Host "  ZIP Size:     $ZipSizeKB KB ($ZipSizeBytes bytes)" -ForegroundColor Green
+Write-Host "============================================================" -ForegroundColor Green

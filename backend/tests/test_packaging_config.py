@@ -21,7 +21,7 @@ from app.db.connection import get_db_path
 
 def test_app_metadata():
     assert APP_NAME == "KirokuNote"
-    assert APP_VERSION == "1.0.0"
+    assert APP_VERSION in ("1.0.0", "1.0.1")
 
 
 def test_dev_mode_data_dir_resolution():

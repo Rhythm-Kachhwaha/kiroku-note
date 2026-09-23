@@ -1,10 +1,14 @@
-"""Generate crisp multi-resolution Kiroku Note application icons with Hiragana 'あ' in orange."""
+"""Generate crisp multi-resolution Kiroku Note application and browser extension icons with Hiragana 'あ' in vibrant orange."""
 import os
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
-ASSETS_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ASSETS_DIR = PROJECT_ROOT / "assets"
+EXTENSION_ICONS_DIR = PROJECT_ROOT / "extension" / "icons"
+
 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+EXTENSION_ICONS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Candidate Japanese font paths on Windows
 FONT_CANDIDATES = [
@@ -28,7 +32,7 @@ def get_japanese_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont
         return ImageFont.load_default()
 
 def render_hiragana_a_image(size: int = 256) -> Image.Image:
-    """Render a high-resolution square icon with Hiragana 'あ' in warm vibrant orange."""
+    """Render a high-resolution square icon with Hiragana 'あ' in warm vibrant orange against a lighter, high-contrast dark tile."""
     # 4x supersampling for ultra crisp anti-aliasing
     scale = 4
     canvas_size = size * scale
@@ -41,15 +45,25 @@ def render_hiragana_a_image(size: int = 256) -> Image.Image:
     margin = int(canvas_size * 0.05)
     radius = int(canvas_size * 0.22)
     
-    # Background: sleek dark obsidian tile (#191816) with subtle border (#312B26)
+    # Background: Lighter rich charcoal/slate tile (#2D2925) with crisp outline (#61564C)
     bg_box = (margin, margin, canvas_size - margin, canvas_size - margin)
-    draw.rounded_rectangle(bg_box, radius=radius, fill=(25, 24, 22, 255), outline=(55, 48, 42, 255), width=max(1, int(4 * scale)))
+    draw.rounded_rectangle(
+        bg_box,
+        radius=radius,
+        fill=(45, 41, 37, 255),
+        outline=(97, 86, 76, 255),
+        width=max(1, int(4 * scale))
+    )
     
-    # Inner subtle glow/accent ring (optional, elegant touch)
-    inner_margin = margin + int(6 * scale)
-    inner_radius = max(1, radius - int(6 * scale))
-    draw.rounded_rectangle((inner_margin, inner_margin, canvas_size - inner_margin, canvas_size - inner_margin), 
-                           radius=inner_radius, outline=(42, 38, 34, 255), width=max(1, int(2 * scale)))
+    # Inner subtle warm ring for depth
+    inner_margin = margin + int(5 * scale)
+    inner_radius = max(1, radius - int(5 * scale))
+    draw.rounded_rectangle(
+        (inner_margin, inner_margin, canvas_size - inner_margin, canvas_size - inner_margin),
+        radius=inner_radius,
+        outline=(65, 59, 53, 255),
+        width=max(1, int(2 * scale))
+    )
     
     # Character 'あ'
     char = "あ"
@@ -65,12 +79,12 @@ def render_hiragana_a_image(size: int = 256) -> Image.Image:
     x = (canvas_size - text_w) // 2 - bbox[0]
     y = (canvas_size - text_h) // 2 - bbox[1] - int(canvas_size * 0.02)
     
-    # Text Color: Warm Vibrant Terracotta/Amber Orange (#F26419 / #E76F51 / (242, 100, 25))
-    orange_color = (242, 100, 25, 255)
+    # Text Color: Ultra-vibrant luminous Japanese orange (#FF6A13 / (255, 106, 19))
+    orange_color = (255, 106, 19, 255)
     
     # Draw character with slight shadow for depth
     shadow_offset = max(1, int(2 * scale))
-    draw.text((x + shadow_offset, y + shadow_offset), char, font=font, fill=(15, 14, 12, 180))
+    draw.text((x + shadow_offset, y + shadow_offset), char, font=font, fill=(20, 18, 16, 200))
     draw.text((x, y), char, font=font, fill=orange_color)
     
     # Downsample using high-quality Lanczos resampling
@@ -90,6 +104,13 @@ def generate_assets():
     sizes = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
     master_img.save(ico_path, format="ICO", sizes=sizes)
     print(f"Saved ICO icon with {len(sizes)} sizes: {ico_path}")
+
+    # Generate browser extension icons: 16x16, 48x48, 128x128
+    for ext_size in [16, 48, 128]:
+        ext_img = render_hiragana_a_image(ext_size)
+        ext_target = EXTENSION_ICONS_DIR / f"icon{ext_size}.png"
+        ext_img.save(ext_target, format="PNG")
+        print(f"Saved Extension icon: {ext_target}")
 
 if __name__ == "__main__":
     generate_assets()

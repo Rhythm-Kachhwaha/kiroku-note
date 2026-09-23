@@ -212,6 +212,43 @@ def get_ocr_status() -> OcrStatusResponse:
     )
 
 
+@app.post("/api/ocr/start", response_model=OcrStatusResponse)
+def start_ocr_engine() -> OcrStatusResponse:
+    pm = OcrProcessManager.get_instance()
+    started = pm.start(wait_for_health=True, timeout_seconds=15.0)
+    service = OcrService()
+    status_obj = service.get_status()
+    if not started and not status_obj.available:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=status_obj.error or "Failed to start OCR engine daemon.",
+        )
+    return OcrStatusResponse(
+        available=status_obj.available,
+        installed=status_obj.installed,
+        engine=status_obj.engine,
+        device=status_obj.device,
+        model_loaded=status_obj.model_loaded,
+        error=status_obj.error,
+    )
+
+
+@app.post("/api/ocr/stop", response_model=OcrStatusResponse)
+def stop_ocr_engine() -> OcrStatusResponse:
+    pm = OcrProcessManager.get_instance()
+    pm.stop()
+    service = OcrService()
+    status_obj = service.get_status()
+    return OcrStatusResponse(
+        available=False,
+        installed=status_obj.installed,
+        engine=status_obj.engine,
+        device=status_obj.device,
+        model_loaded=False,
+        error=None,
+    )
+
+
 @app.post("/api/ocr/recognize", response_model=OcrRecognizeResponse)
 def recognize_image(request: OcrRecognizeRequest) -> OcrRecognizeResponse:
     raw_image = request.image.strip()
