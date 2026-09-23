@@ -98,15 +98,51 @@ Want to capture and mine Japanese text directly from manga, anime frames, or unt
 
 ---
 
-## 📖 How to Mine Cards
+## 📖 Mining Modes & Features
 
-1. Open any Japanese article, manga reader, or video (e.g., YouTube/Netflix) in your browser.
-2. Click the **Kiroku Note** extension icon to open the **Side Panel**.
-3. **Capture:** Select Japanese text on the page, or hover over subtitles.
-4. **Enrich:** Kiroku Note instantly queries Yomitan, fills in pitch accents, JLPT levels, kanji readings, and grabs the sentence context.
-5. **Review & Edit:** Review your card draft in the side panel, tweak the definition or notes.
-6. **Save:** Click **Save Card**. The card is safely saved in your local SQLite database.
-7. **Sync:** Click **Sync to Anki** whenever you want. Your cards appear instantly in your Anki deck with zero duplicates!
+Kiroku Note supports three tailored mining workflows depending on the media you are consuming:
+
+![Card View Overview](imgs/cardview.png)
+
+### 1. 📄 Text Mining Mode
+Designed for Japanese news, novels, web pages, and articles.
+![Text Mining Mode](imgs/text.png)
+- **Selection Capture**: Highlight any Japanese text on a web page to instantly open a card draft in the Side Panel.
+- **Yomitan Enrichment**: Automatically populates term headword, readings, pitch accents, JLPT levels, and definitions.
+- **Context Preservation**: Extracts sentence context automatically from the surrounding HTML DOM.
+
+---
+
+### 2. 🎬 Video Mining Mode
+Optimized for Japanese YouTube videos, Netflix, and streaming platforms.
+![Video Mining Mode](imgs/video.png)
+- **Interactive Subtitle Overlay**: Renders hoverable Japanese subtitles over the video player.
+- **Instant Audio & Frame Capture**: Captures exact audio timestamps and video snapshots accompanying the target sentence.
+- **Keyboard Shortcuts**:
+  - `A`: Jump to the **previous subtitle cue**.
+  - `S`: Jump to the **start of the current subtitle cue**.
+  - `D`: Jump to the **next subtitle cue**.
+
+---
+
+### 3. ⚡ Quick Add Mode
+For ultra-fast, single-click card creation without manual side panel review.
+![Quick Add Mode](imgs/quickadd.png)
+- **One-Click Mining**: Capture and immediately enqueue cards to local SQLite storage or Anki with default settings.
+- **High-Velocity Workflow**: Perfect when reading long texts or watching fast-paced media where opening the editor panel interrupts your flow.
+
+---
+
+## ⚙️ Purpose of Kiroku Backend Servers
+
+Kiroku Note runs as a lightweight desktop service system on your local machine (`127.0.0.1`):
+
+1. **Main Kiroku Local Engine (Port `21828`)**:
+   - **Purpose**: Local source of truth and REST API backend. Handles card drafting, SQLite persistence (`kiroku.db`), audio/image media storage, Yomitan dictionary orchestration, offline JLPT level lookups (`jlpt_reference.sqlite`), and AnkiConnect sync.
+2. **Kiroku System Tray Host**:
+   - **Purpose**: Low-footprint Windows system tray application (`run_tray.py`). Manages server lifecycle, displays real-time health status for Yomitan/AnkiConnect/OCR, and provides toggle controls.
+3. **Optional Standalone OCR Engine (Port `21829`)**:
+   - **Purpose**: Isolated CPU-optimized OCR service powered by `manga-ocr`. Runs independently so users without OCR needs keep memory footprint minimal, while allowing instant optical character recognition for manga and screen selections when enabled.
 
 ---
 
