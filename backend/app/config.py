@@ -205,6 +205,20 @@ def _get_registry_install_paths() -> list[Path]:
         return []
 
     discovered: list[Path] = []
+    seen: set[str] = set()
+
+    def _add_path(raw_p: str | None) -> None:
+        if not raw_p:
+            return
+        p_str = str(raw_p).strip()
+        if not p_str or p_str.lower() in seen:
+            return
+        seen.add(p_str.lower())
+        try:
+            discovered.append(Path(p_str))
+        except Exception:
+            pass
+
     try:
         import winreg
 
@@ -217,14 +231,25 @@ def _get_registry_install_paths() -> list[Path]:
                         try:
                             subkey_name = winreg.EnumKey(root_key, i)
                             with winreg.OpenKey(root_key, subkey_name) as subkey:
-                                try:
-                                    display_name, _ = winreg.QueryValueEx(subkey, "DisplayName")
-                                    if "Kiroku" in str(display_name):
-                                        install_loc, _ = winreg.QueryValueEx(subkey, "InstallLocation")
-                                        if install_loc and str(install_loc).strip():
-                                            discovered.append(Path(str(install_loc).strip()))
-                                except OSError:
-                                    continue
+                                is_match = (
+                                    "8B84B425-4521-4E65-A6FB-1EE08C36A780" in subkey_name
+                                    or "C4318E29-22B4-463F-A238-C6207FB8652A" in subkey_name
+                                )
+                                if not is_match:
+                                    try:
+                                        display_name, _ = winreg.QueryValueEx(subkey, "DisplayName")
+                                        if "Kiroku" in str(display_name):
+                                            is_match = True
+                                    except OSError:
+                                        pass
+
+                                if is_match:
+                                    for val_name in ("InstallLocation", "Inno Setup: App Path"):
+                                        try:
+                                            loc, _ = winreg.QueryValueEx(subkey, val_name)
+                                            _add_path(loc)
+                                        except OSError:
+                                            continue
                         except OSError:
                             continue
             except OSError:
@@ -267,6 +292,7 @@ def resolve_ocr_exe_path(env: dict[str, str] | None = None) -> Path | None:
         candidates.append(reg_path / "ocr" / "KirokuOCR.exe")
         candidates.append(reg_path / "ocr" / "KirokuOCR" / "KirokuOCR.exe")
         candidates.append(reg_path / "KirokuOCR.exe")
+        candidates.append(reg_path / "Kiroku Note" / "ocr" / "KirokuOCR.exe")
 
     # 2. Frozen mode discovery
     if getattr(sys, "frozen", False):

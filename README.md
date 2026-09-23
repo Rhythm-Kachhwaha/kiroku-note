@@ -93,8 +93,8 @@ For automatic Japanese subtitle matching on video and streaming platforms:
 Want to capture and mine Japanese text directly from manga, anime frames, or untranslatable images?
 
 1. Download **`Kiroku-Note-OCR-Setup-v1.0.1.exe`** from the [Releases page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
-2. Run the installer. It installs the lightweight, CPU-optimized [manga-ocr](https://github.com/kha-white/manga-ocr) model locally.
-3. Once installed, Kiroku Note will automatically detect the OCR engine and start it in the background when you use the image capture tool!
+2. Run the installer. It automatically detects your Kiroku Note installation directory (e.g. `D:\Kiroku Note` or `%LOCALAPPDATA%\Programs\Kiroku Note`) and places the CPU-optimized [manga-ocr](https://github.com/kha-white/manga-ocr) engine into Kiroku Note's directory under `\ocr`. *(If installing manually or choosing custom paths, ensure the OCR add-on is installed into the same main folder as Kiroku Note).*
+3. Once installed, Kiroku Note automatically detects the OCR engine and starts it in the background when you use the image capture tool — no manual running of `ocr.exe` is required!
 
 ---
 

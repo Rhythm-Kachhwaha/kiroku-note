@@ -77,7 +77,6 @@ excludes = [
     # Testing & docs
     "pytest",
     "_pytest",
-    "unittest",
     "docutils",
     "sphinx",
     "tkinter",
@@ -91,6 +90,9 @@ excludes = [
     "jupyter",
     "IPython",
     "cv2",
+    # Heavy unused PyTorch sub-packages
+    "torchvision",
+    "torchaudio",
     # CUDA / GPU components (strictly CPU only)
     "caffe2",
     "cuda",

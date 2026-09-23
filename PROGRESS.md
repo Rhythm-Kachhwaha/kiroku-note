@@ -1101,3 +1101,26 @@ New major features should generally be deferred unless they are necessary for th
     - Added automated GitHub release step via `softprops/action-gh-release@v2` when a tag `v*` is pushed.
   - ✅ **Release Tag & Deployment:**
     - Re-tagged `v1.0.1` and pushed to `origin/main` to trigger clean automated GitHub Actions release build.
+
+---
+
+### Stage 14 — Standalone OCR Packaging & Automatic Daemon Process Launch Fix (2026-09-23)
+
+- **Status Summary:**
+  - ✅ **PyInstaller Packaging Fix for manga-ocr & PyTorch:**
+    - Fixed `packaging/kiroku_ocr.spec` by removing `unittest` from `excludes` (which broke `torch.utils._config_module` and `import manga_ocr` at runtime with `ModuleNotFoundError: No module named 'unittest'`).
+    - Added explicit exclusions for unused heavy sub-packages `torchvision` and `torchaudio` so `transformers` cleanly falls back to `PIL` (`ViTImageProcessorPil`) without failing on missing C-extension operators.
+  - ✅ **Inno Setup Add-on Path Auto-Discovery (`installer/kiroku_ocr_setup.iss`):**
+    - Added Pascal Script registry lookup in `kiroku_ocr_setup.iss` querying `HKCU/HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\{8B84B425-4521-4E65-A6FB-1EE08C36A780}_is1` for the main Kiroku Note installation path (`DefaultDirName={code:GetKirokuInstallDir}`).
+    - Added `AppendDefaultDirName=no` to prevent Inno Setup from duplicating folder names (e.g. `\Kiroku Note\Kiroku Note\ocr`) when users select custom destination directories.
+  - ✅ **Backend OCR Discovery & Offline Startup Environment:**
+    - Hardened `_get_registry_install_paths()` in `backend/app/config.py` to check both GUID keys and DisplayName across HKCU and HKLM.
+    - Updated `resolve_ocr_exe_path()` with complete candidate coverage including `{app}\ocr\KirokuOCR.exe`, `%LOCALAPPDATA%\Programs\Kiroku Note\ocr\KirokuOCR.exe`, and registry install locations.
+    - Set `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` in `OcrProcessManager` subprocess environment to guarantee instant offline loading without network hanging.
+  - ✅ **Built & Verified Production Packages:**
+    - Rebuilt `dist/ocr/KirokuOCR/KirokuOCR.exe` and `dist/installer/Kiroku-Note-OCR-Setup-v1.0.1.exe` (179.87 MB).
+    - Rebuilt `dist/backend/KirokuNote/KirokuNote.exe` and `dist/installer/Kiroku-Note-Setup-v1.0.1.exe` (49.57 MB).
+  - ✅ **End-to-End Verification:**
+    - Backend Pytest suite: **371/371 passed**.
+    - Extension test suite: **77/77 test files passed**.
+    - Verified packaged `KirokuNote.exe` automatically detects installed OCR, spawns `KirokuOCR.exe` on demand, and processes `POST /api/ocr/recognize` returning HTTP 200 with recognized Japanese text. Manual launch of `ocr.exe` is completely eliminated.

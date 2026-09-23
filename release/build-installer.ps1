@@ -113,10 +113,9 @@ Write-Host "  Found Inno Setup compiler: $IsccPath" -ForegroundColor Green
 # 4. Compile Installer
 Write-Host "`n[4/4] Compiling Windows installer with Inno Setup..." -ForegroundColor Yellow
 
-if (Test-Path $DIST_DIR) {
-    Remove-Item -Path $DIST_DIR -Recurse -Force -ErrorAction SilentlyContinue
+if (-not (Test-Path $DIST_DIR)) {
+    New-Item -ItemType Directory -Path $DIST_DIR -Force | Out-Null
 }
-New-Item -ItemType Directory -Path $DIST_DIR -Force | Out-Null
 
 $BuildStartTime = Get-Date
 & "$IsccPath" "$ISS_PATH"

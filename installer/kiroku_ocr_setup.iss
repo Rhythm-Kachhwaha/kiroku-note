@@ -18,7 +18,8 @@ AppId={#MyAppId}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={localappdata}\Programs\{#MyBaseAppName}
+DefaultDirName={code:GetKirokuInstallDir}
+AppendDefaultDirName=no
 UsePreviousAppDir=yes
 AllowNoIcons=yes
 OutputDir=..\dist\installer
@@ -46,3 +47,38 @@ Source: "..\dist\ocr\KirokuOCR\*"; DestDir: "{app}\ocr"; Flags: ignoreversion re
 
 ; NOTE: User data (kiroku.db, media files, logs) is explicitly excluded from installation.
 ; All persistent user data resides in %LOCALAPPDATA%\KirokuNote\ and is preserved during upgrades and uninstalls.
+
+[Code]
+function RemoveTrailingSlash(const S: string): string;
+begin
+  Result := S;
+  while (Length(Result) > 0) and ((Result[Length(Result)] = '\') or (Result[Length(Result)] = '/')) do
+    Delete(Result, Length(Result), 1);
+end;
+
+function GetKirokuInstallDir(Param: string): string;
+var
+  InstallPath: string;
+begin
+  InstallPath := '';
+  if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{8B84B425-4521-4E65-A6FB-1EE08C36A780}_is1', 'InstallLocation', InstallPath) and (InstallPath <> '') then
+  begin
+    Result := RemoveTrailingSlash(InstallPath);
+  end
+  else if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{8B84B425-4521-4E65-A6FB-1EE08C36A780}_is1', 'Inno Setup: App Path', InstallPath) and (InstallPath <> '') then
+  begin
+    Result := RemoveTrailingSlash(InstallPath);
+  end
+  else if RegQueryStringValue(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{8B84B425-4521-4E65-A6FB-1EE08C36A780}_is1', 'InstallLocation', InstallPath) and (InstallPath <> '') then
+  begin
+    Result := RemoveTrailingSlash(InstallPath);
+  end
+  else if RegQueryStringValue(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{8B84B425-4521-4E65-A6FB-1EE08C36A780}_is1', 'Inno Setup: App Path', InstallPath) and (InstallPath <> '') then
+  begin
+    Result := RemoveTrailingSlash(InstallPath);
+  end
+  else
+  begin
+    Result := ExpandConstant('{localappdata}\Programs\Kiroku Note');
+  end;
+end;

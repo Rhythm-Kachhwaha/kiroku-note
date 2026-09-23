@@ -134,6 +134,8 @@ class OcrProcessManager:
             port = resolve_ocr_port(proc_env)
             proc_env["KIROKU_OCR_HOST"] = "127.0.0.1"
             proc_env["KIROKU_OCR_PORT"] = str(port)
+            proc_env.setdefault("HF_HUB_OFFLINE", "1")
+            proc_env.setdefault("TRANSFORMERS_OFFLINE", "1")
 
             model_dir = get_ocr_model_dir(proc_env)
             if model_dir.is_dir() and "KIROKU_OCR_MODEL_PATH" not in proc_env:
