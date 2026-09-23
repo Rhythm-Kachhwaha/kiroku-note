@@ -1061,3 +1061,32 @@ New major features should generally be deferred unless they are necessary for th
     - Backend Pytest suite: **371/371 passed** (including isolated standalone executable runtime tests, port configuration, DB persistence, OCR boundaries).
     - Extension test suite: **78/78 suites passed** with zero failures.
 - **Remaining Risk:** None. All V1.0 release prerequisites are complete. Product is **READY FOR V1.0 RELEASE**.
+
+---
+
+### Stage 13 — V1.0.1 Release: OCR Toggle, Contrast & Extension Brand Sync (2026-09-23)
+
+- **Status Summary:**
+  - ✅ **Lighter High-Contrast System Tray Icon:**
+    - Updated `assets/generate_icon.py` and `run_tray.py` to use a lighter rich charcoal/slate tile (`#2D2925` / `rgb(45,41,37)`) with outer border (`#61564C`) and luminous Japanese orange **あ** (`#FF6A13`).
+    - The character **あ** is now vividly distinguishable against dark Windows taskbars at all display scales.
+  - ✅ **Browser Extension Icon Brand Synchronization:**
+    - Generated `extension/icons/icon16.png`, `icon48.png`, and `icon128.png`.
+    - Declared icons in `extension/manifest.json` under `"icons"` and `"action.default_icon"`.
+    - Updated `release/build-extension.ps1` to package the extension icons into the distribution archive.
+  - ✅ **User On/Off OCR Toggle in System Tray:**
+    - Added `POST /api/ocr/start` and `POST /api/ocr/stop` endpoints in FastAPI backend (`backend/app/main.py`).
+    - Added user action in tray menu: `▶ Start OCR Engine` when stopped, and `⏹ Stop OCR Engine` when active.
+    - Updated tray status to show `● OCR Engine: Ready (Active)` or `○ OCR Engine: Off (Stopped)`.
+  - ✅ **Resilient Windows Registry & Path Auto-Discovery:**
+    - Hardened `resolve_ocr_exe_path()` in `backend/app/config.py` to query Inno Setup registry keys under `HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\`.
+    - Added fallback discovery for custom install directory patterns (`D:\Kiroku Noteocr\ocr\KirokuOCR.exe`, etc.).
+    - Fixed `installer/kiroku_ocr_setup.iss` to prevent directory name concatenation issues.
+  - ✅ **Eliminated System Tray Menu Lag & Hover Artifacts:**
+    - Replaced unconditional 2-second menu rebuilds with state-diff checking in `run_tray.py`.
+    - Cached status in memory to eliminate Win32 menu flickering and blue selection highlights during user hover.
+  - ✅ **Automated Regression Verification:**
+    - Backend Pytest suite: **371/371 passed**.
+    - Extension test suite: **77/77 test files passed**.
+  - ✅ **Release Tag & Deployment:**
+    - Tagged `v1.0.1` and pushed to `origin/main` to trigger automated GitHub Actions build.
