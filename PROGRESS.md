@@ -1088,5 +1088,16 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ **Automated Regression Verification:**
     - Backend Pytest suite: **371/371 passed**.
     - Extension test suite: **77/77 test files passed**.
+  - ✅ **CI Build & Installer Versioning Fix:**
+    - Resolved CI failure in `release/build-installer.ps1` and `release/build-ocr-installer.ps1` where `$ExpectedInstaller` verification had hardcoded `v1.0.0.exe` instead of dynamically resolving `$Version`.
+    - Both scripts now dynamically resolve the target version directly from `#define MyAppVersion` in the `.iss` file or `extension/manifest.json`.
+  - ✅ **JLPT Offline Reference Database Packaging & Legal Attribution:**
+    - Bundled `backend/app/data/jlpt_reference.sqlite` and `JLPT_REFERENCE_NOTICE.md` into PyInstaller runtime bundle (`packaging/kiroku_backend.spec`).
+    - Enhanced `resolve_jlpt_reference_db_path()` in `backend/app/services/jlpt_reference.py` to support frozen onedir and onefile layouts.
+    - Packaged `LICENSE` and `JLPT_REFERENCE_NOTICE.md` in Inno Setup root application folder (`installer/kiroku_setup.iss`).
+    - Added dedicated *Third-Party Data & Attribution* section to `README.md` attributing OpenJLPT (CC BY-SA 4.0), Jonathan Waller (CC BY), JMdict/KANJIDIC2 (CC BY-SA 4.0), and Tatoeba (CC BY 2.0 FR).
+  - ✅ **Automated GitHub Release Creation:**
+    - Updated `.github/workflows/build-windows.yml` permissions to `contents: write`.
+    - Added automated GitHub release step via `softprops/action-gh-release@v2` when a tag `v*` is pushed.
   - ✅ **Release Tag & Deployment:**
-    - Tagged `v1.0.1` and pushed to `origin/main` to trigger automated GitHub Actions build.
+    - Re-tagged `v1.0.1` and pushed to `origin/main` to trigger clean automated GitHub Actions release build.

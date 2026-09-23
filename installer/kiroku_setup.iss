@@ -53,6 +53,10 @@ Source: "..\dist\extension\unpacked\*"; DestDir: "{app}\extension"; Flags: ignor
 ; Post-install Browser Extension Setup Documentation
 Source: "extension_instructions.txt"; DestDir: "{app}"; Flags: ignoreversion
 
+; Legal & License Notices
+Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\backend\app\data\JLPT_REFERENCE_NOTICE.md"; DestDir: "{app}"; Flags: ignoreversion
+
 ; NOTE: User data (kiroku.db, media files, logs) is explicitly excluded from installation.
 ; All persistent user data resides in %LOCALAPPDATA%\KirokuNote\ and is preserved during upgrades and uninstalls.
 

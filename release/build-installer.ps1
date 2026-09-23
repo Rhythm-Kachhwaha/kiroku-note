@@ -52,9 +52,15 @@ if ($IssContent -notmatch 'AppName\s*=\s*(\{#MyAppName\}|"?Kiroku Note"?)' -and 
     Write-Error "[FATAL] Missing AppName='Kiroku Note' in $ISS_PATH"
     exit 1
 }
-if ($IssContent -notmatch 'AppVersion\s*=\s*(\{#MyAppVersion\}|"?1\.0\.0"?)' -and $IssContent -notmatch '#define\s+MyAppVersion\s+"1\.0\.0"') {
-    Write-Error "[FATAL] Missing AppVersion='1.0.0' in $ISS_PATH"
+if ($IssContent -notmatch '#define\s+MyAppVersion\s+"[^"]+"') {
+    Write-Error "[FATAL] Missing #define MyAppVersion in $ISS_PATH"
     exit 1
+}
+if ($IssContent -match '#define\s+MyAppVersion\s+"([^"]+)"') {
+    $Version = $Matches[1]
+} else {
+    $ManifestPath = Join-Path $PROJECT_ROOT "extension\manifest.json"
+    $Version = (Get-Content $ManifestPath -Raw | ConvertFrom-Json).version
 }
 if ($IssContent -notmatch 'ArchitecturesInstallIn64BitMode\s*=\s*x64compatible') {
     Write-Error "[FATAL] Missing 64-bit installation directive in $ISS_PATH"
@@ -120,7 +126,7 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-$ExpectedInstaller = Join-Path $DIST_DIR "Kiroku-Note-Setup-v1.0.0.exe"
+$ExpectedInstaller = Join-Path $DIST_DIR "Kiroku-Note-Setup-v$Version.exe"
 if (-not (Test-Path $ExpectedInstaller)) {
     Write-Error "[FATAL] Expected installer was not generated at: $ExpectedInstaller"
     exit 1

@@ -24,7 +24,7 @@ Even if you have never used Python, a terminal, or built an extension before, yo
 ### Step 1: Download & Install Kiroku Note (Windows)
 
 1. Go to the [Kiroku Note Releases Page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
-2. Download **`Kiroku-Note-Setup-v1.0.0.exe`**.
+2. Download the latest installer: **`Kiroku-Note-Setup-v1.0.1.exe`**.
 3. Double-click the installer file to run it.
    > **Note on Windows SmartScreen:** Because this is a free, open-source application and not signed with an enterprise certificate, Windows may show a blue popup saying *"Windows protected your PC"*. Simply click **"More info"** and then click **"Run anyway"**.
 4. Follow the setup wizard and click **Finish**. Kiroku Note is now installed in your system!
@@ -48,7 +48,7 @@ Even if you have never used Python, a terminal, or built an extension before, yo
 
 Kiroku Note works on all modern Chromium-based browsers (**Brave**, **Google Chrome**, **Microsoft Edge**, **Vivaldi**, **Opera**).
 
-1. Download **`KirokuNote-extension-v1.0.0.zip`** from the [Releases page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases) and **Extract / Unzip** it to a permanent folder (e.g. `Documents\KirokuExtension`).  
+1. Download **`KirokuNote-extension-v1.0.1.zip`** from the [Releases page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases) and **Extract / Unzip** it to a permanent folder (e.g. `Documents\KirokuExtension`).  
    *(If you ran the Windows installer, the extension files are also already placed at `%LOCALAPPDATA%\Programs\Kiroku Note\extension`)*.
 2. Open your browser and navigate to the Extensions management page:
    - **Brave:** `brave://extensions`
@@ -92,7 +92,7 @@ For automatic Japanese subtitle matching on video and streaming platforms:
 
 Want to capture and mine Japanese text directly from manga, anime frames, or untranslatable images?
 
-1. Download **`Kiroku-Note-OCR-Setup-v1.0.0.exe`** from the [Releases page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
+1. Download **`Kiroku-Note-OCR-Setup-v1.0.1.exe`** from the [Releases page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
 2. Run the installer. It installs the lightweight, CPU-optimized [manga-ocr](https://github.com/kha-white/manga-ocr) model locally.
 3. Once installed, Kiroku Note will automatically detect the OCR engine and start it in the background when you use the image capture tool!
 
@@ -208,6 +208,20 @@ For architecture diagrams, design guidelines, and development documentation:
 
 ---
 
+## 📚 Third-Party Data & Attribution
+
+Kiroku Note bundles an offline, local JLPT reference SQLite database (`jlpt_reference.sqlite`) to resolve modern JLPT levels (N5–N1) without sending lookups over the network:
+
+- **OpenJLPT:** Assembled by Evan Clan ([OpenJLPT Repository](https://github.com/evanclan/OpenJLPT)), licensed under [Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/).
+- **Jonathan Waller's JLPT Resources:** N5–N1 level vocabulary and kanji classifications ([tanos.co.uk/jlpt](http://www.tanos.co.uk/jlpt/)), licensed under [CC BY](https://creativecommons.org/licenses/by/3.0/).
+- **JMdict / EDICT & KANJIDIC2:** Electronic Dictionary Research and Development Group (EDRDG) ([edrdg.org](https://www.edrdg.org/)), licensed under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html).
+- **Tatoeba Project:** Example sentences and translations ([tatoeba.org](https://tatoeba.org/)), licensed under [CC BY 2.0 FR](https://creativecommons.org/licenses/by/2.0/fr/).
+
+For complete upstream attribution and legal notices, see [`backend/app/data/JLPT_REFERENCE_NOTICE.md`](backend/app/data/JLPT_REFERENCE_NOTICE.md).
+
+---
+
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+- **Software & Source Code:** Licensed under the [MIT License](LICENSE).
+- **Bundled Reference Data:** Sourced from OpenJLPT and upstream projects under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).

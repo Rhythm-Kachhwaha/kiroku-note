@@ -72,6 +72,13 @@ datas = []
 if ICON_PNG.exists():
     datas.append((str(ICON_PNG), "assets"))
 
+JLPT_DB = BACKEND_DIR / "app" / "data" / "jlpt_reference.sqlite"
+JLPT_NOTICE = BACKEND_DIR / "app" / "data" / "JLPT_REFERENCE_NOTICE.md"
+if JLPT_DB.exists():
+    datas.append((str(JLPT_DB), os.path.join("app", "data")))
+if JLPT_NOTICE.exists():
+    datas.append((str(JLPT_NOTICE), os.path.join("app", "data")))
+
 a = Analysis(
     [str(PROJECT_ROOT / "run_tray.py")],
     pathex=[str(PROJECT_ROOT), str(BACKEND_DIR)],

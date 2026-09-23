@@ -28,6 +28,15 @@ def resolve_jlpt_reference_db_path() -> Path:
         if meipass_data.exists():
             return meipass_data
 
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        for candidate in [
+            exe_dir / "_internal" / "app" / "data" / "jlpt_reference.sqlite",
+            exe_dir / "app" / "data" / "jlpt_reference.sqlite",
+        ]:
+            if candidate.exists():
+                return candidate
+
     return Path(__file__).resolve().parent.parent / "data" / "jlpt_reference.sqlite"
 
 
