@@ -1,11 +1,35 @@
-# Kiroku Note 
+<h1 align="center">Kiroku Note</h1>
 
-> **A fast, local-first Japanese vocabulary & sentence mining companion.**  
-> See a word → capture context & audio/screenshot → enrich with Yomitan → edit in side panel → save locally in SQLite → sync cleanly to Anki in under 10 seconds.
+<p align="center">
+  <strong>A fast, local-first Japanese vocabulary &amp; sentence mining companion.</strong><br>
+  See a word → capture context &amp; audio/screenshot → enrich with Yomitan → edit in side panel → save locally in SQLite → sync cleanly to Anki in under 10 seconds.
+</p>
 
 ---
 
-## ⚡ Quick Start & Installation Guide
+## Table of Contents
+
+- [Quick Start & Installation Guide](#quick-start--installation-guide)
+  - [Step 1: Download & Install Kiroku Note (Windows)](#step-1-download--install-kiroku-note-windows)
+  - [Step 2: Launch Kiroku Note](#step-2-launch-kiroku-note)
+  - [Step 3: Add Extension to Browser](#step-3-add-the-extension-to-your-browser-chrome-brave-edge)
+  - [Step 4: Required Third-Party Integrations](#step-4-required-third-party-integrations-full-experience)
+  - [Step 5 (Optional): Install Local OCR](#step-5-optional-install-local-ocr-manga--image-text-mining)
+- [Mining Modes & Features](#mining-modes--features)
+  - [1. Text Mining Mode](#1--text-mining-mode)
+  - [2. Video Mining Mode](#2--video-mining-mode)
+  - [3. Quick Add Mode](#3--quick-add-mode)
+- [Purpose of Kiroku Backend Servers](#purpose-of-kiroku-backend-servers)
+- [Privacy & Local-First Philosophy](#privacy--local-first-philosophy)
+- [Troubleshooting & FAQ](#troubleshooting--faq)
+- [Developer & Source Setup](#developer--source-setup)
+- [Architecture & Design References](#architecture--design-references)
+- [Third-Party Data & Attribution](#third-party-data--attribution)
+- [License](#license)
+
+---
+
+## <a id="quick-start--installation-guide"></a>⚡ Quick Start & Installation Guide
 
 Even if you have never used Python, a terminal, or built an extension before, you can set up Kiroku Note in just a few minutes!
 
@@ -21,7 +45,7 @@ Even if you have never used Python, a terminal, or built an extension before, yo
 
 ---
 
-### Step 1: Download & Install Kiroku Note (Windows)
+### <a id="step-1-download--install-kiroku-note-windows"></a>Step 1: Download & Install Kiroku Note (Windows)
 
 1. Go to the [Kiroku Note Releases Page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
 2. Download the latest installer: **`Kiroku-Note-Setup-v1.0.1.exe`**.
@@ -31,7 +55,7 @@ Even if you have never used Python, a terminal, or built an extension before, yo
 
 ---
 
-### Step 2: Launch Kiroku Note
+### <a id="step-2-launch-kiroku-note"></a>Step 2: Launch Kiroku Note
 
 1. Open your Windows **Start Menu** and search for **Kiroku Note**.
 2. Click to run it.
@@ -44,7 +68,7 @@ Even if you have never used Python, a terminal, or built an extension before, yo
 
 ---
 
-### Step 3: Add the Extension to your Browser (Chrome, Brave, Edge)
+### <a id="step-3-add-the-extension-to-your-browser-chrome-brave-edge"></a>Step 3: Add the Extension to your Browser (Chrome, Brave, Edge)
 
 Kiroku Note works on all modern Chromium-based browsers (**Brave**, **Google Chrome**, **Microsoft Edge**, **Vivaldi**, **Opera**).
 
@@ -61,7 +85,7 @@ Kiroku Note works on all modern Chromium-based browsers (**Brave**, **Google Chr
 
 ---
 
-### Step 4: Required Third-Party Integrations (Full Experience)
+### <a id="step-4-required-third-party-integrations-full-experience"></a>Step 4: Required Third-Party Integrations (Full Experience)
 
 For the complete, automated dictionary enrichment and card syncing experience, Kiroku Note connects to the following local open-source tools:
 
@@ -88,7 +112,7 @@ For automatic Japanese subtitle matching on video and streaming platforms:
 
 ---
 
-### Step 5 (Optional): Install Local OCR (Manga & Image Text Mining)
+### <a id="step-5-optional-install-local-ocr-manga--image-text-mining"></a>Step 5 (Optional): Install Local OCR (Manga & Image Text Mining)
 
 Want to capture and mine Japanese text directly from manga, anime frames, or untranslatable images?
 
@@ -98,13 +122,13 @@ Want to capture and mine Japanese text directly from manga, anime frames, or unt
 
 ---
 
-## 📖 Mining Modes & Features
+## <a id="mining-modes--features"></a>📖 Mining Modes & Features
 
 Kiroku Note supports three tailored mining workflows depending on the media you are consuming:
 
 ![Card View Overview](imgs/cardview.png)
 
-### 1. 📄 Text Mining Mode
+### <a id="1--text-mining-mode"></a>1. 📄 Text Mining Mode
 Designed for Japanese news, novels, web pages, and articles.
 ![Text Mining Mode](imgs/text.png)
 - **Selection Capture**: Highlight any Japanese text on a web page to instantly open a card draft in the Side Panel.
@@ -113,7 +137,7 @@ Designed for Japanese news, novels, web pages, and articles.
 
 ---
 
-### 2. 🎬 Video Mining Mode
+### <a id="2--video-mining-mode"></a>2. 🎬 Video Mining Mode
 Optimized for Japanese YouTube videos, Netflix, and streaming platforms.
 ![Video Mining Mode](imgs/video.png)
 - **Interactive Subtitle Overlay**: Renders hoverable Japanese subtitles over the video player.
@@ -125,7 +149,7 @@ Optimized for Japanese YouTube videos, Netflix, and streaming platforms.
 
 ---
 
-### 3. ⚡ Quick Add Mode
+### <a id="3--quick-add-mode"></a>3. ⚡ Quick Add Mode
 For ultra-fast, single-click card creation without manual side panel review.
 ![Quick Add Mode](imgs/quickadd.png)
 - **One-Click Mining**: Capture and immediately enqueue cards to local SQLite storage or Anki with default settings.
@@ -133,7 +157,7 @@ For ultra-fast, single-click card creation without manual side panel review.
 
 ---
 
-## ⚙️ Purpose of Kiroku Backend Servers
+## <a id="purpose-of-kiroku-backend-servers"></a>⚙️ Purpose of Kiroku Backend Servers
 
 Kiroku Note runs as a lightweight desktop service system on your local machine (`127.0.0.1`):
 
@@ -146,7 +170,7 @@ Kiroku Note runs as a lightweight desktop service system on your local machine (
 
 ---
 
-## 🛡️ Privacy & Local-First Philosophy
+## <a id="privacy--local-first-philosophy"></a>🛡️ Privacy & Local-First Philosophy
 
 - **No Cloud Accounts / No Telemetry:** Everything runs 100% locally on your machine (`127.0.0.1`).
 - **Zero Data Loss:** Cards are always stored in your local SQLite database (`%LOCALAPPDATA%\KirokuNote\data\kiroku.db`) before syncing. If Anki is closed, your cards are never lost.
@@ -154,7 +178,7 @@ Kiroku Note runs as a lightweight desktop service system on your local machine (
 
 ---
 
-## 🔧 Troubleshooting & FAQ
+## <a id="troubleshooting--faq"></a>🔧 Troubleshooting & FAQ
 
 <details>
 <summary><b>The tray icon says Yomitan / AnkiConnect is Offline</b></summary>
@@ -185,7 +209,7 @@ Your database and media are stored in your user profile:
 
 ---
 
-## 💻 Developer & Source Setup
+## <a id="developer--source-setup"></a>💻 Developer & Source Setup
 
 If you are a developer and want to run Kiroku Note directly from Python source code:
 
@@ -234,7 +258,7 @@ node --test extension/tests/*.test.js
 
 ---
 
-## Architecture & Design References
+## <a id="architecture--design-references"></a>📐 Architecture & Design References
 
 For architecture diagrams, design guidelines, and development documentation:
 - [ARCHITECTURE.md](ARCHITECTURE.md): Architectural boundaries & data flow
@@ -244,7 +268,7 @@ For architecture diagrams, design guidelines, and development documentation:
 
 ---
 
-## 📚 Third-Party Data & Attribution
+## <a id="third-party-data--attribution"></a>📚 Third-Party Data & Attribution
 
 Kiroku Note bundles an offline, local JLPT reference SQLite database (`jlpt_reference.sqlite`) to resolve modern JLPT levels (N5–N1) without sending lookups over the network:
 
@@ -257,7 +281,8 @@ For complete upstream attribution and legal notices, see [`backend/app/data/JLPT
 
 ---
 
-## 📄 License
+## <a id="license"></a>📄 License
 
 - **Software & Source Code:** Licensed under the [MIT License](LICENSE).
 - **Bundled Reference Data:** Sourced from OpenJLPT and upstream projects under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+
