@@ -1,4 +1,4 @@
-# 🌸 Kiroku Note (記録ノート)
+# Kiroku Note 
 
 > **A fast, local-first Japanese vocabulary & sentence mining companion.**  
 > See a word → capture context & audio/screenshot → enrich with Yomitan → edit in side panel → save locally in SQLite → sync cleanly to Anki in under 10 seconds.
@@ -189,7 +189,7 @@ node --test extension/tests/*.test.js
 
 ---
 
-## 📜 Architecture & Design References
+## Architecture & Design References
 
 For architecture diagrams, design guidelines, and development documentation:
 - [ARCHITECTURE.md](ARCHITECTURE.md): Architectural boundaries & data flow
