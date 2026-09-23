@@ -5,7 +5,7 @@
 
 ---
 
-## ⚡ Quick Start & Installation Guide (Beginner-Friendly)
+## ⚡ Quick Start & Installation Guide
 
 Even if you have never used Python, a terminal, or built an extension before, you can set up Kiroku Note in just a few minutes!
 
@@ -23,11 +23,10 @@ Even if you have never used Python, a terminal, or built an extension before, yo
 
 ### Step 1: Download & Install Kiroku Note (Windows)
 
-1. Go to the [**Kiroku Note Releases Page**](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
+1. Go to the [Kiroku Note Releases Page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
 2. Download **`Kiroku-Note-Setup-v1.0.0.exe`**.
 3. Double-click the installer file to run it.
-   > 💡 **Note on Windows SmartScreen:** Because this is a free, open-source application and not signed with an expensive enterprise certificate, Windows may show a blue popup saying *"Windows protected your PC"*.  
-   > Simply click **"More info"** and then click **"Run anyway"**.
+   > **Note on Windows SmartScreen:** Because this is a free, open-source application and not signed with an enterprise certificate, Windows may show a blue popup saying *"Windows protected your PC"*. Simply click **"More info"** and then click **"Run anyway"**.
 4. Follow the setup wizard and click **Finish**. Kiroku Note is now installed in your system!
 
 ---
@@ -62,20 +61,30 @@ Kiroku Note works on all modern Chromium-based browsers (**Brave**, **Google Chr
 
 ---
 
-### Step 4: Setup Prerequisites (Anki & Yomitan)
+### Step 4: Required Third-Party Integrations (Full Experience)
 
-For the complete mining experience, make sure Anki and Yomitan are running:
+For the complete, automated dictionary enrichment and card syncing experience, Kiroku Note connects to the following local open-source tools:
 
-#### 🅰️ Set up Anki & AnkiConnect
-1. Open [Anki Desktop](https://apps.ankiweb.net/).
-2. In the top menu, go to **Tools** → **Add-ons**.
-3. Click **Get Add-ons...**, paste the code: `2055492159` (AnkiConnect), and click **OK**.
-4. Restart Anki. Keep Anki open in the background when mining!
+#### 1. Anki Desktop + AnkiConnect (Card Syncing)
+To sync mined cards directly into your Anki decks with zero manual copy-pasting:
+1. Install [Anki Desktop](https://apps.ankiweb.net/) (Official repository: [ankitects/anki](https://github.com/ankitects/anki)).
+2. Install the [AnkiConnect Add-on](https://ankiweb.net/shared/info/2055492159) (Official repository: [FooSoft/anki-connect](https://github.com/FooSoft/anki-connect)):
+   - Open Anki Desktop → go to **Tools** → **Add-ons**.
+   - Click **Get Add-ons...**, paste the code: `2055492159`, and click **OK**.
+   - Restart Anki.
+3. Keep Anki running in the background when mining so cards can sync seamlessly.
 
-#### 🅱️ Set up Yomitan (Dictionary Lookup)
-1. Install the [Yomitan Chrome Extension](https://chromewebstore.google.com/detail/yomitan/likgccmbimhjbgmplfdgkhclinjectip).
-2. Download a Japanese dictionary (such as [Jitendex](https://jitendex.org/)) and import it into Yomitan settings.
-3. In Yomitan Settings → **Developer**, ensure local dictionary connection is allowed so Kiroku Note can enrich definitions automatically.
+#### 2. Yomitan + Offline Dictionary (Instant Term Enrichment)
+To automatically look up kanji, readings, meanings, pitch accents, and JLPT levels:
+1. Install the [Yomitan Browser Extension](https://chromewebstore.google.com/detail/yomitan/likgccmbimhjbgmplfdgkhclinjectip) (Official repository: [themoeway/yomitan](https://github.com/themoeway/yomitan)).
+2. Import at least one dictionary into Yomitan (recommended: [Jitendex](https://jitendex.org/)).
+3. In Yomitan Settings → **Developer**, ensure local dictionary connection is allowed so Kiroku Note can read dictionary data.
+
+#### 3. Optional: Jimaku.cc Integration (Video & Streaming Subtitles)
+For automatic Japanese subtitle matching on video and streaming platforms:
+- Kiroku Note supports subtitle fetching from [Jimaku.cc](https://jimaku.cc/) via their official public API.
+- If you have an account, you can optionally enter your personal Jimaku API key in the Kiroku Note Side Panel subtitle settings.
+- **Privacy & Legality Note:** Kiroku Note connects strictly to Jimaku's authorized public API using your own user-provided API key stored locally in your browser (`chrome.storage.local`). Kiroku Note does not scrape or distribute copyrighted media.
 
 ---
 
@@ -84,7 +93,7 @@ For the complete mining experience, make sure Anki and Yomitan are running:
 Want to capture and mine Japanese text directly from manga, anime frames, or untranslatable images?
 
 1. Download **`Kiroku-Note-OCR-Setup-v1.0.0.exe`** from the [Releases page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
-2. Run the installer. It installs the lightweight, CPU-optimized `manga-ocr` model locally.
+2. Run the installer. It installs the lightweight, CPU-optimized [manga-ocr](https://github.com/kha-white/manga-ocr) model locally.
 3. Once installed, Kiroku Note will automatically detect the OCR engine and start it in the background when you use the image capture tool!
 
 ---
@@ -112,7 +121,7 @@ Want to capture and mine Japanese text directly from manga, anime frames, or unt
 ## 🔧 Troubleshooting & FAQ
 
 <details>
-<summary><b>🔴 The tray icon says Yomitan / AnkiConnect is Offline</b></summary>
+<summary><b>The tray icon says Yomitan / AnkiConnect is Offline</b></summary>
 
 - **AnkiConnect:** Ensure Anki Desktop is running. Verify that the AnkiConnect add-on (`2055492159`) is installed under `Tools -> Add-ons`.
 - **Yomitan:** Check that Yomitan extension is active in your browser.
@@ -124,13 +133,13 @@ Want to capture and mine Japanese text directly from manga, anime frames, or unt
 </details>
 
 <details>
-<summary><b>⚠️ SmartScreen warning during installation</b></summary>
+<summary><b>SmartScreen warning during installation</b></summary>
 
 This is normal for open-source releases without a costly commercial code-signing certificate. Click **"More info"** → **"Run anyway"**. The application source code is completely open and auditable in this repository.
 </details>
 
 <details>
-<summary><b>📂 Where are my database and cards stored?</b></summary>
+<summary><b>Where are my database and cards stored?</b></summary>
 
 Your database and media are stored in your user profile:
 - Database: `%LOCALAPPDATA%\KirokuNote\data\kiroku.db`
@@ -184,7 +193,7 @@ node --test extension/tests/*.test.js
 .\release\build-extension.ps1
 
 # Build Inno Setup installer
-.\installer\build-installer.ps1
+.\release\build-installer.ps1
 ```
 
 ---
