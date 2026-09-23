@@ -1,402 +1,204 @@
-# Kiroku Note
+# 🌸 Kiroku Note (記録ノート)
 
-## What is Kiroku?
-
-Kiroku Note is a local-first browser extension for collecting Japanese vocabulary and sentences while you read or watch content. It enriches captured text through Yomitan, saves cards locally, and sends them to Anki only when you ask.
-
-## Install Kiroku
-
-1. Download the Windows setup file from the project release page and run it. The installer does not require Python or administrator access.
-2. Launch **Kiroku Note** from the Start Menu. Its tray icon should say **Running**.
-3. In Chrome, Edge, Brave, or Chromium, open the extension release ZIP, extract it, then open the browser's extensions page (`chrome://extensions`, `edge://extensions`, or `brave://extensions`). Turn on Developer mode and choose **Load unpacked**, selecting the extracted folder containing `manifest.json`.
-4. Install and enable Yomitan for dictionary lookup. Start Anki with AnkiConnect enabled before sending cards.
-5. OCR is optional. Install the separate OCR add-on only when you need image text recognition; the tray status changes to **Ready** after its daemon health check succeeds.
-
-Your database and media remain in `%LOCALAPPDATA%\KirokuNote\data` and `%LOCALAPPDATA%\KirokuNote\media`. Updating or uninstalling the app does not remove them. The unsigned Windows build may show a normal SmartScreen warning; do not disable security software to work around it.
-
-For connection problems, confirm that Kiroku is running in the tray, Yomitan is listening on `127.0.0.1:19633`, and AnkiConnect is listening on `127.0.0.1:8765`. The extension only talks to the Kiroku backend on `127.0.0.1:21828`.
-
-## Developer setup
-
-Kiroku Note is a local-first Japanese vocabulary mining tool designed for fast capture, enrichment, editing, and syncing into Anki.
-
-The workflow is intentionally simple:
-
-see Japanese word -> capture -> identify/enrich -> edit -> save locally -> send to Anki
-
-This project is built as a Chromium/Brave extension paired with a local Python backend. It keeps your data local, avoids cloud dependence, and uses SQLite as the source of truth before syncing to Anki through AnkiConnect.
-
-This README explains the project, what is included in the V1 build, and how to install and run it locally.
+> **A fast, local-first Japanese vocabulary & sentence mining companion.**  
+> See a word → capture context & audio/screenshot → enrich with Yomitan → edit in side panel → save locally in SQLite → sync cleanly to Anki in under 10 seconds.
 
 ---
 
-## Project purpose
+## ⚡ Quick Start & Installation Guide (Beginner-Friendly)
 
-Kiroku Note is not a replacement for Anki or a Japanese-learning platform. It is a focused mining utility for collecting Japanese vocabulary and sentence cards from the web, subtitles, and other content you are reading.
+Even if you have never used Python, a terminal, or built an extension before, you can set up Kiroku Note in just a few minutes!
 
-Core goals:
-
-- Capture Japanese text from web pages and video subtitle contexts
-- Identify and enrich terms using local dictionary services
-- Let users review and edit card details before storing them
-- Persist cards locally in SQLite
-- Synchronize accepted cards to Anki via AnkiConnect
-- Keep the whole flow local-first and privacy-friendly
-
----
-
-## What is included in the V1 build
-
-The current V1 project is a functional local-first stack with the following elements:
-
-- Chromium/Brave extension shell
-- Side panel UI for editing and previewing cards
-- Python FastAPI backend for enrichment and persistence
-- SQLite database for saved cards and sync state
-- Yomitan/Jitendex dictionary integration boundary
-- JLPT level resolution via a local replaceable service
-- AnkiConnect integration for exporting cards to Anki
-- Media handling for frames, screenshots, and audio-related card content
-- Local packaging/build files for backend and extension distribution
-
-This repository also includes packaging and installer scripts under the release and build areas for a desktop-oriented, packaged build flow.
-
----
-
-## High-level architecture
-
-### 1. Extension layer
-The extension runs as a Chromium/Brave Manifest V3 add-on and keeps the user-facing experience in a side panel.
-
-Responsibilities:
-
-- capture selected or hovered Japanese text
-- detect subtitle/video-related mining contexts
-- present the card editor and live preview
-- send requests to the local backend
-- display dictionary and study information
-
-The extension is intentionally implemented with vanilla HTML, CSS, and JavaScript and does not rely on React or Electron.
-
-### 2. Backend layer
-The backend is a local Python + FastAPI application.
-
-Responsibilities:
-
-- validate and expose local API routes
-- orchestrate dictionary lookup and enrichment
-- normalize dictionary results into project-level data models
-- persist cards in SQLite
-- manage sync state and Anki export flows
-- keep the database as the local source of truth
-
-### 3. Data layer
-SQLite is the authoritative local store for:
-
-- mined cards
-- saved card history
-- sync status
-- duplicate checks
-- presentation metadata
-- media references
-
-Cards are saved locally before any sync attempt is made to Anki. If Anki is down or a sync fails, the card remains available locally and can be retried later.
-
-### 4. External integrations
-The main external services are:
-
-- Yomitan or Jitendex dictionary endpoint for lookup
-- AnkiConnect for note creation and sync
-- local JLPT classification dataset/service
-
-The project is designed so these integrations are isolated behind service boundaries rather than being spread across the UI or other modules.
-
----
-
-## Main project structure
-
-```text
-AnkiMiner/
-├── AGENTS.md
-├── ARCHITECTURE.md
-├── PROGRESS.MD
-├── README.md
-├── run_backend.py
-├── start_backend.bat
-├── backend/
-│   ├── app/
-│   ├── data/
-│   ├── requirements.txt
-│   └── tests/
-├── build/
-├── extension/
-├── installer/
-├── packaging/
-├── release/
-├── skills/
-├── V1/
-└── ...
+```
+┌─────────────────┐       ┌──────────────────────┐       ┌─────────────────┐
+│   Web Browser   │ ────> │  Kiroku Note Tray    │ ────> │      Anki       │
+│ (MV3 SidePanel) │ :21828│ (Local SQLite + API) │ :8765 │  (AnkiConnect)  │
+└─────────────────┘       └──────────────────────┘       └─────────────────┘
+         │                           │
+         v                           v
+  Yomitan (:19633)          Optional OCR (:21829)
 ```
 
-Key folders:
+---
 
-- backend: FastAPI backend code, DB logic, services, and tests
-- extension: browser extension files, side panel, and content scripts
-- build: packaged build output and generated artifacts
-- release: packaging and release scripts
-- installer: setup instructions and installer assets
-- skills: project domain guidance and workflow documentation
-- V1: historical design and stage docs for the product roadmap
+### Step 1: Download & Install Kiroku Note (Windows)
+
+1. Go to the [**Kiroku Note Releases Page**](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
+2. Download **`Kiroku-Note-Setup-v1.0.0.exe`**.
+3. Double-click the installer file to run it.
+   > 💡 **Note on Windows SmartScreen:** Because this is a free, open-source application and not signed with an expensive enterprise certificate, Windows may show a blue popup saying *"Windows protected your PC"*.  
+   > Simply click **"More info"** and then click **"Run anyway"**.
+4. Follow the setup wizard and click **Finish**. Kiroku Note is now installed in your system!
 
 ---
 
-## Core features
+### Step 2: Launch Kiroku Note
 
-### Card mining
-- capture Japanese text from selected or hovered content
-- detect related context such as subtitles, video overlays, and page text
-- synthesize a card draft with meaning, reading, example, and metadata
-
-### Dictionary enrichment
-- fetch dictionary entries from Yomitan/Jitendex-like local services
-- normalize response data into project-level structures
-- surface parts of speech, tags, readings, examples, and JLPT info
-
-### Card editing and preview
-- edit expression, reading, meaning, notes, and example fields
-- review a live card preview before saving
-- use a dark utility-focused side panel interface optimized for desk work
-
-### Local persistence
-- save card data to SQLite
-- preserve sync state such as pending, syncing, synced, and failed
-- avoid losing cards if AnkiConnect is unavailable
-
-### Anki sync
-- export cards to Anki using AnkiConnect
-- map note fields to supported Anki models
-- avoid creating duplicates by checking for existing matching note data
-- leave failed syncs recoverable and retryable
+1. Open your Windows **Start Menu** and search for **Kiroku Note**.
+2. Click to run it.
+3. You will see a warm orange Japanese **あ** icon appear in your **Windows System Tray** (bottom-right corner near the clock).
+4. **Right-click the tray icon** to see real-time service status:
+   - `● Running` (Kiroku local engine is active on port `21828`)
+   - `• Yomitan: Ready / Offline`
+   - `• AnkiConnect: Ready / Offline`
+   - `• OCR Engine: Ready / Disabled`
 
 ---
 
-## Requirements
+### Step 3: Add the Extension to your Browser (Chrome, Brave, Edge)
 
-### Required software
+Kiroku Note works on all modern Chromium-based browsers (**Brave**, **Google Chrome**, **Microsoft Edge**, **Vivaldi**, **Opera**).
 
-- Python 3.10+ recommended
-- A Chromium-based browser such as Brave, Chrome, Edge, or Chromium
-- Anki desktop installed locally with AnkiConnect running on the default URL
-- Yomitan or a compatible local dictionary service running on its configured endpoint
-
-### Recommended local setup
-
-- local dictionary service accessible on http://127.0.0.1:19633
-- AnkiConnect available at http://127.0.0.1:8765
-- a stable local data directory for SQLite and media files
+1. Download **`KirokuNote-extension-v1.0.0.zip`** from the [Releases page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases) and **Extract / Unzip** it to a permanent folder (e.g. `Documents\KirokuExtension`).  
+   *(If you ran the Windows installer, the extension files are also already placed at `%LOCALAPPDATA%\Programs\Kiroku Note\extension`)*.
+2. Open your browser and navigate to the Extensions management page:
+   - **Brave:** `brave://extensions`
+   - **Chrome:** `chrome://extensions`
+   - **Edge:** `edge://extensions`
+3. Toggle on **Developer mode** (switch located at the top-right corner).
+4. Click the **Load unpacked** button in the top-left corner.
+5. Select the extracted folder (the folder containing `manifest.json`).
+6. Pin **Kiroku Note** to your browser toolbar for easy access!
 
 ---
 
-## Installation steps
+### Step 4: Setup Prerequisites (Anki & Yomitan)
 
-## 1. Clone or open the project
+For the complete mining experience, make sure Anki and Yomitan are running:
 
-From a terminal or shell, navigate to the repository root:
+#### 🅰️ Set up Anki & AnkiConnect
+1. Open [Anki Desktop](https://apps.ankiweb.net/).
+2. In the top menu, go to **Tools** → **Add-ons**.
+3. Click **Get Add-ons...**, paste the code: `2055492159` (AnkiConnect), and click **OK**.
+4. Restart Anki. Keep Anki open in the background when mining!
 
+#### 🅱️ Set up Yomitan (Dictionary Lookup)
+1. Install the [Yomitan Chrome Extension](https://chromewebstore.google.com/detail/yomitan/likgccmbimhjbgmplfdgkhclinjectip).
+2. Download a Japanese dictionary (such as [Jitendex](https://jitendex.org/)) and import it into Yomitan settings.
+3. In Yomitan Settings → **Developer**, ensure local dictionary connection is allowed so Kiroku Note can enrich definitions automatically.
+
+---
+
+### Step 5 (Optional): Install Local OCR (Manga & Image Text Mining)
+
+Want to capture and mine Japanese text directly from manga, anime frames, or untranslatable images?
+
+1. Download **`Kiroku-Note-OCR-Setup-v1.0.0.exe`** from the [Releases page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
+2. Run the installer. It installs the lightweight, CPU-optimized `manga-ocr` model locally.
+3. Once installed, Kiroku Note will automatically detect the OCR engine and start it in the background when you use the image capture tool!
+
+---
+
+## 📖 How to Mine Cards
+
+1. Open any Japanese article, manga reader, or video (e.g., YouTube/Netflix) in your browser.
+2. Click the **Kiroku Note** extension icon to open the **Side Panel**.
+3. **Capture:** Select Japanese text on the page, or hover over subtitles.
+4. **Enrich:** Kiroku Note instantly queries Yomitan, fills in pitch accents, JLPT levels, kanji readings, and grabs the sentence context.
+5. **Review & Edit:** Review your card draft in the side panel, tweak the definition or notes.
+6. **Save:** Click **Save Card**. The card is safely saved in your local SQLite database.
+7. **Sync:** Click **Sync to Anki** whenever you want. Your cards appear instantly in your Anki deck with zero duplicates!
+
+---
+
+## 🛡️ Privacy & Local-First Philosophy
+
+- **No Cloud Accounts / No Telemetry:** Everything runs 100% locally on your machine (`127.0.0.1`).
+- **Zero Data Loss:** Cards are always stored in your local SQLite database (`%LOCALAPPDATA%\KirokuNote\data\kiroku.db`) before syncing. If Anki is closed, your cards are never lost.
+- **Persistent Media:** Screenshots and audio clips are saved locally in `%LOCALAPPDATA%\KirokuNote\media\`. Updating or uninstalling the app never wipes your mined data.
+
+---
+
+## 🔧 Troubleshooting & FAQ
+
+<details>
+<summary><b>🔴 The tray icon says Yomitan / AnkiConnect is Offline</b></summary>
+
+- **AnkiConnect:** Ensure Anki Desktop is running. Verify that the AnkiConnect add-on (`2055492159`) is installed under `Tools -> Add-ons`.
+- **Yomitan:** Check that Yomitan extension is active in your browser.
+- **Port check:**
+  - Kiroku Backend: `http://127.0.0.1:21828`
+  - AnkiConnect: `http://127.0.0.1:8765`
+  - Yomitan Local Server: `http://127.0.0.1:19633`
+  - Optional OCR Server: `http://127.0.0.1:21829`
+</details>
+
+<details>
+<summary><b>⚠️ SmartScreen warning during installation</b></summary>
+
+This is normal for open-source releases without a costly commercial code-signing certificate. Click **"More info"** → **"Run anyway"**. The application source code is completely open and auditable in this repository.
+</details>
+
+<details>
+<summary><b>📂 Where are my database and cards stored?</b></summary>
+
+Your database and media are stored in your user profile:
+- Database: `%LOCALAPPDATA%\KirokuNote\data\kiroku.db`
+- Mined Media: `%LOCALAPPDATA%\KirokuNote\media\`
+- Logs: `%LOCALAPPDATA%\KirokuNote\logs\`
+</details>
+
+---
+
+## 💻 Developer & Source Setup
+
+If you are a developer and want to run Kiroku Note directly from Python source code:
+
+### 1. Clone the repository
 ```bash
-cd path/to/AnkiMiner
+git clone https://github.com/Rhythm-Kachhwaha/kiroku-note.git
+cd kiroku-note
 ```
 
-## 2. Create a virtual environment
-
+### 2. Create Virtual Environment & Install Dependencies
 ```bash
 python -m venv .venv
-```
+.venv\Scripts\activate       # On Windows
+# source .venv/bin/activate  # On macOS/Linux
 
-On Windows:
-
-```bash
-.venv\Scripts\activate
-```
-
-On macOS/Linux:
-
-```bash
-source .venv/bin/activate
-```
-
-## 3. Install backend requirements
-
-From the repository root:
-
-```bash
 pip install -r backend/requirements.txt
 ```
 
-This installs the FastAPI and Uvicorn dependencies required by the local backend.
-
-## 4. Start the backend
-
-You can start the backend using the included runner:
-
+### 3. Run Backend & System Tray
 ```bash
+# Start backend server
 python run_backend.py
+
+# Or launch system tray with background server
+python run_tray.py
 ```
 
-Or on Windows, the helper batch file:
-
-```bat
-start_backend.bat
-```
-
-The app defaults to:
-
-- host: 127.0.0.1
-- port: 21828
-
-This is configurable through environment variables such as:
-
+### 4. Run Automated Tests
 ```bash
-set KIROKU_PORT=21829
-python run_backend.py
+# Run all backend unit & integration tests (371+ tests)
+python -m pytest -o pythonpath=backend backend/tests
+
+# Run extension tests (Node.js built-in runner)
+node --test extension/tests/*.test.js
 ```
 
-or
+### 5. Build Packaged Executables & Installers
+```powershell
+# Build backend executable & extension ZIP
+.\release\build-backend.ps1 -Clean
+.\release\build-extension.ps1
 
-```bash
-KIROKU_PORT=21829 python run_backend.py
+# Build Inno Setup installer
+.\installer\build-installer.ps1
 ```
 
-### Optional debug mode
+---
 
-```bash
-set KIROKU_DEBUG=1
-python run_backend.py
-```
+## 📜 Architecture & Design References
 
-When debug mode is enabled, the API docs endpoints may be available locally for inspection.
-
-## 5. Ensure dependencies for dictionary and Anki are active
-
-Before using the mining flow, confirm the following are running locally:
-
-- Yomitan or compatible dictionary service on its configured endpoint
-- Anki desktop with AnkiConnect active on port 8765
-
-If AnkiConnect is unavailable, the app can still save cards locally, but sync to Anki will remain pending or failed until the service is available again.
-
-## 6. Load the browser extension
-
-Open the browser and go to:
-
-- Brave: brave://extensions
-- Chrome: chrome://extensions
-- Edge: edge://extensions
-
-Enable Developer mode and click Load unpacked.
-
-Select the extension directory:
-
-```text
-<project-root>/extension
-```
-
-The extension should appear as Kiroku Note and can be pinned to the toolbar for quick access.
+For architecture diagrams, design guidelines, and development documentation:
+- [ARCHITECTURE.md](ARCHITECTURE.md): Architectural boundaries & data flow
+- [DESIGN.md](DESIGN.md): Design system tokens, color palettes & side panel UX guidelines
+- [AGENTS.md](AGENTS.md): Locked guidelines and core development principles
+- [PROGRESS.md](PROGRESS.MD): Feature milestones & verification logs
 
 ---
 
-## Configuration notes
+## 📄 License
 
-### Default local endpoints
-
-The project expects local services at roughly these endpoints:
-
-- Backend: http://127.0.0.1:21828
-- Yomitan: http://127.0.0.1:19633
-- AnkiConnect: http://127.0.0.1:8765
-- Optional OCR Daemon: http://127.0.0.1:21829
-
-### Optional OCR Companion Add-on
-
-OCR is an optional companion component powered by `manga-ocr` running locally on CPU (`KirokuOCR.exe`).
-
-- **Optionality:** The core Kiroku Note application (~50 MB) does not bundle PyTorch or heavy ML models. If the OCR add-on is absent, Kiroku Note runs 100% normally.
-- **Process Management:** When installed (in `{app}\ocr\`, `%LOCALAPPDATA%\KirokuNote\ocr\`, or via `KIROKU_OCR_EXE`), Kiroku Note automatically detects it, provides safe non-blocking startup with failure cooldowns, and cleanly terminates the daemon upon application exit.
-- **Offline Inference:** Pre-downloaded model weights reside in `{app}\ocr\models\` or `%LOCALAPPDATA%\KirokuNote\models\manga-ocr-base\`, requiring zero internet connectivity during inference.
-- **Building the Add-on:** See `release/build-ocr.ps1` and `release/build-ocr-installer.ps1`. Requires CPU-only PyTorch (`pip install torch --index-url https://download.pytorch.org/whl/cpu`) and `manga-ocr`.
-
-### Data directories
-
-The backend resolves user data and media storage based on environment and packaged mode. In source/development mode, it typically uses the project-level backend data directory; in packaged mode it prefers the OS app data directory such as the Windows LocalAppData folder.
-
-This keeps user content local and stable instead of tying it to a temporary development directory.
-
----
-
-## Typical usage flow
-
-1. Open a page or video with Japanese text you want to mine.
-2. Activate the extension and start mining mode.
-3. Capture the relevant Japanese expression or subtitle text.
-4. Review the generated card draft in the side panel.
-5. Edit the card fields as needed.
-6. Save it locally.
-7. Sync it to Anki when ready.
-8. Repeat on more terms while keeping a local archive of vocabulary cards.
-
----
-
-## Safety and reliability principles
-
-The project intentionally favors local-first reliability:
-
-- SQLite is the local source of truth
-- cards are saved before sync attempts
-- sync failures do not delete local cards
-- duplicate prevention happens in backend logic
-- external provider details stay behind service boundaries
-- packaged/runtime defaults favor safe local operation over developer convenience
-
----
-
-## Packaging and build notes
-
-This repository includes build and release assets to support a packaged V1 distribution, including:
-
-- build generated output folders
-- release scripts for backend and extension packaging
-- installer scripts for local desktop deployment
-
-These are intended for local project packaging and distribution workflows rather than for app development itself.
-
----
-
-## Useful references in this repository
-
-- AGENTS.md: project-level instructions and rules for working on the repo
-- ARCHITECTURE.md: system design and component boundaries
-- PROGRESS.MD: V1 completion status and feature milestones
-- backend/requirements.txt: backend dependency list
-- run_backend.py: backend startup entry point
-- extension/: browser extension source files
-- release/: packaging scripts
-- installer/: installation guidance and packaged installation assets
-
----
-
-## Summary
-
-Kiroku Note is a local-first Japanese card mining tool built around a clean split between:
-
-- browser extension capture UI
-- backend enrichment and storage logic
-- AnkiConnect-based syncing
-- durable local-first persistence
-
-The V1 build is ready as a practical, self-contained local workflow for capturing and saving Japanese vocabulary cards while preserving data safety and avoiding cloud dependence.
-
----
-
-## License
-
-This project is provided in the repository under its included license terms. Please review the LICENSE file before redistributing or packaging the project.
+This project is licensed under the MIT License - see the LICENSE file for details.
