@@ -73,3 +73,7 @@ backend/data/kiroku.db*
 # Ignored Markdown reports
 AudioReport.md
 AudioFeatureReport.md
+
+UI-exploration/
+docs/
+superpowers/plans/
