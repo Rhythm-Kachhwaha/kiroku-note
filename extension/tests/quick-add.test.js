@@ -618,6 +618,57 @@ setImmediate(async () => {
     assert.equal(displayed, "食べる", "Older request must not overwrite newer lookup results");
     console.log("PASS 10: Stale lookup response sequence protection verified.");
 
-    console.log("\nALL QUICK ADD TESTS PASSED! (10/10 Test Suites)");
+    // ==========================================================================
+    // 12. Verify Same-Reading Multi-Candidate Discovery, Preservation & Selection
+    // ==========================================================================
+    // Test that entries sharing the same reading (e.g. じしん -> 地震, 自信, 自身)
+    // are all preserved as distinct candidates in the dropdown, while multi-dictionary
+    // duplicates of the exact same term (e.g. 地震 in Dict1 and Dict2) are deduplicated.
+    const multiCandidatesSameReading = [
+      { term: "地震", reading: "じしん", senses: [{ glosses: ["earthquake"] }] },
+      { term: "地震", reading: "じしん", senses: [{ glosses: ["earthquake (dup)"] }] }, // same word from 2nd dict
+      { term: "自信", reading: "じしん", senses: [{ glosses: ["self-confidence"] }] },
+      { term: "自身", reading: "じしん", senses: [{ glosses: ["oneself"] }] },
+      { term: "侍臣", reading: "じしん", senses: [{ glosses: ["courtier"] }] },
+    ];
+
+    sandbox.renderQuickAddSuggestions(multiCandidatesSameReading);
+
+    // Must have 4 distinct candidate items (地震, 自信, 自身, 侍臣) - not collapsed to 1, and duplicate 地震 deduplicated
+    assert.equal(mockQuickAddSuggestionsList.children.length, 4, "Must render exactly 4 distinct candidate list elements");
+
+    const candidateTerms = mockQuickAddSuggestionsList.children.map(
+      li => li.children[0].children[0].textContent
+    );
+    assert.deepEqual(candidateTerms, ["地震", "自信", "自身", "侍臣"], "All distinct same-reading expressions must be preserved in order");
+
+    // Verify UI display of non-first candidate 1 ('自信')
+    const item1Expr = mockQuickAddSuggestionsList.children[1].children[0].children[0].textContent;
+    const item1Gloss = mockQuickAddSuggestionsList.children[1].children[1].textContent;
+    assert.equal(item1Expr, "自信", "Second item expression must display '自信'");
+    assert.equal(item1Gloss, "self-confidence", "Second item gloss must display 'self-confidence'");
+
+    // Verify UI display of non-first candidate 2 ('自身')
+    const item2Expr = mockQuickAddSuggestionsList.children[2].children[0].children[0].textContent;
+    const item2Gloss = mockQuickAddSuggestionsList.children[2].children[1].textContent;
+    assert.equal(item2Expr, "自身", "Third item expression must display '自身'");
+    assert.equal(item2Gloss, "oneself", "Third item gloss must display 'oneself'");
+
+    // Verify clicking non-first candidate 1 ('自信')
+    identifiedWord = null;
+    mockQuickAddSuggestionsList.children[1].dispatchEvent({ type: "click", stopPropagation: () => {} });
+    assert.equal(identifiedWord, "自信", "Clicking non-first candidate must call identify('自信')");
+    assert.equal(mockQuickAddInput.value, "自信", "Quick Add input value must update to '自信'");
+
+    // Verify clicking non-first candidate 2 ('自身')
+    sandbox.renderQuickAddSuggestions(multiCandidatesSameReading);
+    identifiedWord = null;
+    mockQuickAddSuggestionsList.children[2].dispatchEvent({ type: "click", stopPropagation: () => {} });
+    assert.equal(identifiedWord, "自身", "Clicking non-first candidate must call identify('自身')");
+    assert.equal(mockQuickAddInput.value, "自身", "Quick Add input value must update to '自身'");
+
+    console.log("PASS 11: Same-reading multi-candidate discovery, preservation, and non-first selection verified.");
+
+    console.log("\nALL QUICK ADD TESTS PASSED! (11/11 Test Suites)");
   }, 150);
 });

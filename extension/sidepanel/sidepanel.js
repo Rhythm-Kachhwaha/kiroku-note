@@ -5337,12 +5337,40 @@ function selectQuickAddCandidate(candidate, candidateElement) {
 function renderQuickAddSuggestions(entries) {
   if (!quickAddSuggestionsContainer || !quickAddSuggestionsList) return;
 
-  quickAddCandidates = entries.map((entry, idx) => {
-    const expression = entry.term || entry.expression || "";
-    const reading = entry.reading || "";
-    const gloss = (entry.senses && entry.senses[0] && entry.senses[0].glosses && entry.senses[0].glosses[0]) || "";
-    return { expression, reading, gloss, originalEntry: entry, index: idx };
-  }).filter(c => Boolean(c.expression));
+  const seenCandidateKeys = new Set();
+  const rawCandidates = [];
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const expression = (entry.term || entry.expression || "").trim();
+    if (!expression) continue;
+    const reading = (entry.reading || "").trim();
+    const key = `${expression}\u001f${reading}`;
+
+    let gloss = "";
+    if (entry.senses && Array.isArray(entry.senses)) {
+      for (const sense of entry.senses) {
+        if (sense && Array.isArray(sense.glosses) && sense.glosses.length > 0 && sense.glosses[0]) {
+          gloss = String(sense.glosses[0]).trim();
+          if (gloss) break;
+        }
+      }
+    }
+
+    if (seenCandidateKeys.has(key)) {
+      if (gloss) {
+        const existing = rawCandidates.find(c => c.expression === expression && c.reading === reading);
+        if (existing && !existing.gloss) {
+          existing.gloss = gloss;
+        }
+      }
+      continue;
+    }
+
+    seenCandidateKeys.add(key);
+    rawCandidates.push({ expression, reading, gloss, originalEntry: entry, index: rawCandidates.length });
+  }
+
+  quickAddCandidates = rawCandidates;
 
   if (quickAddCandidates.length === 0) {
     clearQuickAddSuggestions();

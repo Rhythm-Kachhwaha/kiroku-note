@@ -137,13 +137,36 @@ class YomitanService:
     def identify(self, text: str) -> IdentifiedTerm:
         return self.normalize_tokenize_response(self._post_json("/tokenize", {"text": text, "scanLength": 16, "parser": "scanning-parser"}), text)
 
+    @staticmethod
+    def _is_kana_text(text: str) -> bool:
+        if not text:
+            return False
+        return all(
+            "\u3040" <= ch <= "\u309f"
+            or "\u30a0" <= ch <= "\u30ff"
+            or "\u31f0" <= ch <= "\u31ff"
+            or "\uff66" <= ch <= "\uff9f"
+            or ch in ("ー", "・", " ")
+            for ch in text.strip()
+        )
+
     def enrich(self, term: IdentifiedTerm) -> EnrichedTerm:
         term_error: str | None = None
         entries: list[DictionaryEntry] = []
+        is_kana = self._is_kana_text(term.source_text) if term.source_text else False
+        lookup_term = term.source_text.strip() if is_kana and term.source_text else term.expression
+
         try:
-            entries = self.normalize_term_entries_response(self._post_json("/termEntries", {"term": term.expression}))
+            entries = self.normalize_term_entries_response(self._post_json("/termEntries", {"term": lookup_term}))
         except YomitanError as error:
             term_error = str(error)
+
+        if not entries and term.expression and term.expression != lookup_term:
+            try:
+                entries = self.normalize_term_entries_response(self._post_json("/termEntries", {"term": term.expression}))
+                term_error = None
+            except YomitanError:
+                pass
 
         kanji_entries: list[KanjiEntry] = []
         has_kanji = any(
