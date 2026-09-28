@@ -43,6 +43,9 @@
       window.addEventListener("resize", this._boundCheck);
       document.addEventListener("fullscreenchange", this._boundCheck);
       document.addEventListener("webkitfullscreenchange", this._boundCheck);
+      document.addEventListener("play", this._boundCheck, true);
+      document.addEventListener("playing", this._boundCheck, true);
+      document.addEventListener("loadeddata", this._boundCheck, true);
     }
 
     stop() {
@@ -53,6 +56,9 @@
       window.removeEventListener("resize", this._boundCheck);
       document.removeEventListener("fullscreenchange", this._boundCheck);
       document.removeEventListener("webkitfullscreenchange", this._boundCheck);
+      document.removeEventListener("play", this._boundCheck, true);
+      document.removeEventListener("playing", this._boundCheck, true);
+      document.removeEventListener("loadeddata", this._boundCheck, true);
     }
 
     findAllVideos() {
@@ -367,6 +373,7 @@
       this.onPositionChanged = null;
       this.isHoverLocked = false;
       this.displayEnabled = true;
+      this.activeHighlightTerm = "";
       this.currentCue = null;
       this.pendingCue = undefined;
       this.position = { relX: 0.5, relY: 0.78 };
@@ -404,6 +411,10 @@
           const word = extractJapaneseWordAtPosition(this.subtitleEl, e.clientX, e.clientY);
           if (word && word !== this._lastHoverWord) {
             this._lastHoverWord = word;
+            this.activeHighlightTerm = word;
+            if (this.currentCue) {
+              this.renderCue(this.currentCue);
+            }
             try {
               if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
                 chrome.runtime.sendMessage({
@@ -415,6 +426,18 @@
             } catch (_) {}
           }
         }, 180);
+      };
+      this._boundSubtitleMouseUp = () => {
+        if (typeof window !== "undefined" && window.getSelection) {
+          const sel = window.getSelection();
+          const selText = sel ? sel.toString().trim() : "";
+          if (selText) {
+            this.activeHighlightTerm = selText;
+            if (this.currentCue) {
+              this.renderCue(this.currentCue);
+            }
+          }
+        }
       };
 
       this._boundHandlePointerDown = (e) => {
@@ -601,9 +624,6 @@
       if (!target) return;
       if (!this.container.isConnected || this.container.parentElement !== target) {
         target.appendChild(this.container);
-      } else if (target.lastElementChild !== this.container) {
-        // Bring to front in case player added control overlays after our container
-        target.appendChild(this.container);
       }
     }
 
@@ -764,6 +784,7 @@
         this.subtitleEl.addEventListener("mouseenter", this._boundSubtitleMouseEnter);
         this.subtitleEl.addEventListener("mouseleave", this._boundSubtitleMouseLeave);
         this.subtitleEl.addEventListener("mousemove", this._boundSubtitleMouseMove);
+        this.subtitleEl.addEventListener("mouseup", this._boundSubtitleMouseUp);
       }
 
       // Attach handle dragging listeners
@@ -959,6 +980,23 @@
 
       if (cue && cue.text && this.displayEnabled !== false) {
         this.subtitleEl.textContent = cue.text;
+        const highlightTerm = (typeof this.activeHighlightTerm === "string" ? this.activeHighlightTerm.trim() : "");
+        if (highlightTerm && cue.text.includes(highlightTerm) && typeof this.subtitleEl.replaceChildren === "function" && typeof document !== "undefined" && typeof document.createTextNode === "function") {
+          this.subtitleEl.replaceChildren();
+          const parts = cue.text.split(highlightTerm);
+          parts.forEach((part, idx) => {
+            if (part) {
+              this.subtitleEl.appendChild(document.createTextNode(part));
+            }
+            if (idx < parts.length - 1) {
+              const highlightSpan = document.createElement("span");
+              highlightSpan.className = "video-sub-highlight";
+              highlightSpan.textContent = highlightTerm;
+              highlightSpan.style.cssText = "color: #d4884f !important; border-bottom: 2px solid #b84632 !important; padding-bottom: 1px !important; font-weight: 600 !important; cursor: text !important; user-select: text !important;";
+              this.subtitleEl.appendChild(highlightSpan);
+            }
+          });
+        }
         setStyleProperty(this.subtitleEl, "display", "inline-block", "important");
         setStyleProperty(this.container, "display", "flex", "important");
         setStyleProperty(this.container, "opacity", "1", "important");
@@ -1007,6 +1045,7 @@
         this.subtitleEl.removeEventListener("mouseenter", this._boundSubtitleMouseEnter);
         this.subtitleEl.removeEventListener("mouseleave", this._boundSubtitleMouseLeave);
         this.subtitleEl.removeEventListener("mousemove", this._boundSubtitleMouseMove);
+        this.subtitleEl.removeEventListener("mouseup", this._boundSubtitleMouseUp);
       }
       if (this.handleEl && typeof this.handleEl.removeEventListener === "function") {
         this.handleEl.removeEventListener("pointerdown", this._boundHandlePointerDown);
@@ -2320,6 +2359,16 @@
         this.renderer.renderCue(null);
         this.broadcastActiveCue(null);
         this.broadcastOffset(0);
+        sendResponse?.({ ok: true });
+        return true;
+      }
+      if (message?.type === "HIGHLIGHT_SUBTITLE_WORD" || message?.type === "JAPANESE_TEXT_CAPTURED") {
+        if (typeof message.text === "string" && message.text.trim()) {
+          this.renderer.activeHighlightTerm = message.text.trim();
+          if (this.syncEngine?.currentCue) {
+            this.renderer.renderCue(this.syncEngine.currentCue);
+          }
+        }
         sendResponse?.({ ok: true });
         return true;
       }

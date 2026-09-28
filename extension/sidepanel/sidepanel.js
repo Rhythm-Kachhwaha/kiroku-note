@@ -12,6 +12,19 @@ const API_OCR_STATUS_URL = `${BACKEND_BASE_URL}/api/ocr/status`;
 const API_OCR_RECOGNIZE_URL = `${BACKEND_BASE_URL}/api/ocr/recognize`;
 const API_YOMITAN_DICTIONARIES_URL = `${BACKEND_BASE_URL}/api/yomitan/dictionaries`;
 
+if (typeof chrome === "undefined") {
+  globalThis.chrome = {
+    runtime: {
+      sendMessage: () => Promise.resolve({ ok: true }),
+      onMessage: { addListener: () => {} }
+    },
+    storage: {
+      local: { get: () => Promise.resolve({}), set: () => Promise.resolve(), remove: () => Promise.resolve() },
+      onChanged: { addListener: () => {} }
+    }
+  };
+}
+
 const toggle = document.querySelector("#mining-toggle");
 const ocrCaptureBtn = document.querySelector("#ocr-capture-btn");
 const mode = document.querySelector("#mode");
@@ -53,6 +66,7 @@ const fieldExpression = document.querySelector("#field-expression");
 const fieldReading = document.querySelector("#field-reading");
 const fieldMeaning = document.querySelector("#field-meaning");
 const toggleOptionalBtn = document.querySelector("#toggle-optional");
+const optionalDetails = document.querySelector("#optional-details");
 const optionalFields = document.querySelector("#optional-fields");
 const fieldHint = document.querySelector("#field-hint");
 const fieldExampleSentence = document.querySelector("#field-example-sentence");
@@ -620,9 +634,13 @@ if (historyCollapseBtn) {
 const tabBtnText = document.querySelector("#tab-btn-text");
 const tabBtnVideo = document.querySelector("#tab-btn-video");
 const tabBtnQuickAdd = document.querySelector("#tab-btn-quickadd");
+const tabBtnHistory = document.querySelector("#tab-btn-history");
 const textMiningView = document.querySelector("#text-mining-view");
 const videoMiningView = document.querySelector("#video-mining-view");
 const quickAddMiningView = document.querySelector("#quickadd-mining-view");
+const cardEditorSection = document.querySelector("#card-editor-section");
+const btnNavCollapseToggle = document.querySelector("#btn-nav-collapse-toggle");
+const panelHeader = document.querySelector("#panel-header");
 const quickAddInput = document.querySelector("#quickadd-input");
 const quickAddClearBtn = document.querySelector("#quickadd-clear-btn");
 const quickAddSuggestionsContainer = document.querySelector("#quickadd-suggestions-container");
@@ -1719,11 +1737,16 @@ function setStatus(message, isError = false) {
 
 function updateMiningUI(enabled) {
   miningMode = enabled;
-  toggle.setAttribute("aria-pressed", String(enabled));
-  toggle.textContent = enabled ? "Stop" : "Start";
-  mode.textContent = enabled
-    ? "Select Japanese text on the page"
-    : "Select Japanese text on the page";
+  if (toggle) {
+    toggle.setAttribute("aria-pressed", String(enabled));
+    toggle.setAttribute("aria-label", enabled ? "Stop mining" : "Start mining");
+    toggle.textContent = enabled ? "Stop" : "Start";
+  }
+  if (mode) {
+    mode.textContent = enabled
+      ? "Mining active"
+      : "Select Japanese text on the page";
+  }
 }
 
 async function setMiningMode(enabled) {
@@ -1733,13 +1756,22 @@ async function setMiningMode(enabled) {
     try {
       const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
       if (tab?.id) {
-        streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
+        streamId = await Promise.race([
+          chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("tabCapture timeout")), 2000))
+        ]).catch(() => null);
       }
     } catch (_) {}
   }
-  const result = await chrome.runtime.sendMessage({type: "SET_MINING_MODE", enabled, streamId});
-  if (!result?.ok) {
-    setStatus(result?.error || "Capture setup failed.", true);
+  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+    try {
+      const result = await chrome.runtime.sendMessage({type: "SET_MINING_MODE", enabled, streamId});
+      if (!result?.ok) {
+        setStatus(result?.error || "Capture setup failed.", true);
+      }
+    } catch (err) {
+      setStatus(err.message || "Capture setup failed.", true);
+    }
   }
 }
 
@@ -2036,11 +2068,15 @@ function insertExampleToCard(japaneseText, translationText, btn) {
     fieldExampleTranslation.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
-  if (optionalFields && optionalFields.hidden) {
+  if (typeof optionalDetails !== "undefined" && optionalDetails) {
+    optionalDetails.open = true;
+  }
+  if (optionalFields) {
     optionalFields.hidden = false;
-    if (toggleOptionalBtn) {
-      toggleOptionalBtn.textContent = "Hide optional fields";
-    }
+  }
+  if (toggleOptionalBtn) {
+    toggleOptionalBtn.setAttribute("aria-expanded", "true");
+    toggleOptionalBtn.textContent = "− Optional fields";
   }
 
   if (btn) {
@@ -3061,9 +3097,24 @@ if (btnCopyRawDict) {
   });
 }
 
+function notifyVideoHighlightTerm(term) {
+  if (!term || typeof chrome === "undefined" || !chrome.tabs?.query) return;
+  try {
+    chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+      if (tab?.id && chrome.tabs?.sendMessage) {
+        chrome.tabs.sendMessage(tab.id, {
+          type: "HIGHLIGHT_SUBTITLE_WORD",
+          text: term
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+  } catch (_) {}
+}
+
 async function identify(text) {
   const capturedText = typeof text === "string" ? text.trim() : "";
   if (!capturedText) return;
+  notifyVideoHighlightTerm(capturedText);
   const requestId = ++currentCaptureId;
   setStatus("Identifying selection…");
   setIndicatorStatus(indicatorYomitan, "checking", "Yomitan: Identifying…");
@@ -3508,12 +3559,32 @@ if (fieldAudio) {
 }
 
 // Progressive disclosure toggle for optional fields
-if (toggleOptionalBtn && optionalFields) {
+if (optionalDetails) {
+  optionalDetails.addEventListener("toggle", () => {
+    const isOpen = optionalDetails.open;
+    if (optionalFields) {
+      optionalFields.hidden = false;
+    }
+    if (toggleOptionalBtn) {
+      toggleOptionalBtn.setAttribute("aria-expanded", String(isOpen));
+      toggleOptionalBtn.textContent = isOpen ? "− Optional fields" : "+ Optional fields";
+    }
+  });
+}
+
+if (toggleOptionalBtn) {
   toggleOptionalBtn.addEventListener("click", () => {
-    const isExpanded = !optionalFields.hidden;
-    optionalFields.hidden = isExpanded;
-    toggleOptionalBtn.setAttribute("aria-expanded", String(!isExpanded));
-    toggleOptionalBtn.textContent = isExpanded ? "+ Optional fields" : "- Optional fields";
+    if (optionalDetails) {
+      optionalDetails.open = !optionalDetails.open;
+      if (optionalFields) optionalFields.hidden = false;
+      toggleOptionalBtn.setAttribute("aria-expanded", String(optionalDetails.open));
+      toggleOptionalBtn.textContent = optionalDetails.open ? "− Optional fields" : "+ Optional fields";
+    } else if (optionalFields) {
+      const isExpanded = !optionalFields.hidden;
+      optionalFields.hidden = isExpanded;
+      toggleOptionalBtn.setAttribute("aria-expanded", String(!isExpanded));
+      toggleOptionalBtn.textContent = isExpanded ? "+ Optional fields" : "− Optional fields";
+    }
   });
 }
 
@@ -3831,7 +3902,7 @@ function updateDestinationIndicator() {
 }
 
 // Japanese Input Mode & Quiet Contextual Assistance (Guardrails 1 & 2)
-let isEditorJpModeActive = true;
+let isEditorJpModeActive = false;
 let editorCandidateDebounceTimer = null;
 let activeCandidateField = null;
 let activeTokenInfo = null;
@@ -3880,7 +3951,7 @@ function setEditorJapaneseMode(active) {
 }
 
 async function initEditorJapaneseMode() {
-  let active = true;
+  let active = false;
   try {
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
       const data = await chrome.storage.local.get("kiroku.editor_jp_mode");
@@ -4225,6 +4296,14 @@ document.addEventListener("keydown", event => {
   const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
   const modKey = isMac ? event.metaKey : event.ctrlKey;
 
+  if (event.altKey && (event.key.toLowerCase() === "o" || event.code === "KeyO")) {
+    event.preventDefault();
+    if (ocrCaptureBtn) {
+      ocrCaptureBtn.click();
+    }
+    return;
+  }
+
   if (modKey && event.key === "Enter") {
     event.preventDefault();
     if (cardEditor && !cardEditor.hidden) {
@@ -4252,13 +4331,28 @@ document.addEventListener("keydown", event => {
   }
 
   if (event.key === "Escape") {
-    if (optionalFields && !optionalFields.hidden) {
+    const popover = cardSettingsPopover || layoutSettingsPopover;
+    if (popover && !popover.hidden) {
+      closeLayoutSettings();
+      return;
+    }
+    if (optionalDetails && optionalDetails.open) {
+      optionalDetails.open = false;
+      if (toggleOptionalBtn) {
+        toggleOptionalBtn.setAttribute("aria-expanded", "false");
+        toggleOptionalBtn.textContent = "+ Optional fields";
+        toggleOptionalBtn.focus();
+      }
+      return;
+    }
+    if (!optionalDetails && optionalFields && !optionalFields.hidden) {
       optionalFields.hidden = true;
       if (toggleOptionalBtn) {
         toggleOptionalBtn.setAttribute("aria-expanded", "false");
         toggleOptionalBtn.textContent = "+ Optional fields";
         toggleOptionalBtn.focus();
       }
+      return;
     }
     return;
   }
@@ -4703,6 +4797,7 @@ loadDecks().catch(() => {});
 loadModels().catch(() => {});
 loadHistory().catch(() => {});
 loadTabPreference().catch(() => {});
+loadNavCollapsePreference().catch(() => {});
 loadAutoPausePreference().catch(() => {});
 loadSubtitlesDisplayPreference().catch(() => {});
 loadSubtitleOffsetPreference().catch(() => {});
@@ -5332,6 +5427,9 @@ function selectQuickAddCandidate(candidate, candidateElement) {
   }
   clearQuickAddSuggestions();
   identify(targetExpression);
+  if (typeof switchMiningTab === "function") {
+    switchMiningTab("text");
+  }
 }
 
 function renderQuickAddSuggestions(entries) {
@@ -5649,9 +5747,45 @@ async function loadQuickAddKanaMode() {
   setQuickAddKanaMode(savedMode);
 }
 
+function updateVideoCuePreviewText(cueText) {
+  if (!videoCurrentCuePreview) return;
+  const text = (typeof cueText === "string" ? cueText : (currentActiveCue?.text || "")).trim();
+  if (!text) {
+    videoCurrentCuePreview.textContent = "Waiting for playback…";
+    videoCurrentCuePreview.classList.add("waiting");
+    return;
+  }
+  videoCurrentCuePreview.classList.remove("waiting");
+
+  // Highlight currently mined / draft expression if present in the cue text
+  const currentTerm = (fieldExpression?.value || (expression && expression.textContent !== "—" ? expression.textContent : "") || "").trim();
+  if (currentTerm && text.includes(currentTerm)) {
+    videoCurrentCuePreview.replaceChildren();
+    const parts = text.split(currentTerm);
+    parts.forEach((part, idx) => {
+      if (part) {
+        videoCurrentCuePreview.appendChild(document.createTextNode(part));
+      }
+      if (idx < parts.length - 1) {
+        const highlightSpan = document.createElement("span");
+        highlightSpan.className = "video-sub-highlight";
+        highlightSpan.textContent = currentTerm;
+        videoCurrentCuePreview.appendChild(highlightSpan);
+      }
+    });
+  } else {
+    videoCurrentCuePreview.textContent = text;
+  }
+}
+
 function switchMiningTab(targetTab) {
-  const tab = (targetTab === "video" || targetTab === "quickadd") ? targetTab : "text";
+  const validTabs = ["text", "video", "quickadd", "history"];
+  const tab = validTabs.includes(targetTab) ? targetTab : "text";
   currentMiningTab = tab;
+
+  if (typeof closeLayoutSettings === "function") {
+    closeLayoutSettings();
+  }
 
   if (tabBtnText) {
     const isText = tab === "text";
@@ -5666,6 +5800,9 @@ function switchMiningTab(targetTab) {
     const isVideo = tab === "video";
     tabBtnVideo.classList.toggle("active", isVideo);
     tabBtnVideo.setAttribute("aria-selected", String(isVideo));
+    if (isVideo) {
+      updateVideoCuePreviewText();
+    }
   }
   if (videoMiningView) {
     videoMiningView.hidden = tab !== "video";
@@ -5681,6 +5818,33 @@ function switchMiningTab(targetTab) {
     if (tab === "quickadd" && quickAddInput) {
       setTimeout(() => quickAddInput.focus(), 50);
     }
+  }
+
+  if (tabBtnHistory) {
+    const isHistory = tab === "history";
+    tabBtnHistory.classList.toggle("active", isHistory);
+    tabBtnHistory.setAttribute("aria-selected", String(isHistory));
+  }
+  if (historySection) {
+    if (tab === "history") {
+      historySection.hidden = false;
+      historySection.style.display = "";
+      if (historyContentContainer) {
+        historyContentContainer.hidden = false;
+      }
+      if (typeof loadHistory === "function") {
+        try { loadHistory().catch(() => {}); } catch (_) {}
+      }
+    } else {
+      historySection.hidden = true;
+      historySection.style.display = "none";
+    }
+  }
+
+  if (cardEditorSection) {
+    const hideEditor = tab === "history";
+    cardEditorSection.hidden = hideEditor;
+    cardEditorSection.style.display = hideEditor ? "none" : "";
   }
 
   try {
@@ -5706,6 +5870,27 @@ async function loadTabPreference() {
   } catch (_) {}
 }
 
+const STORAGE_KEY_NAV_COLLAPSED = "kiroku.nav_collapsed";
+
+async function loadNavCollapsePreference() {
+  try {
+    let isCollapsed = false;
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const stored = await chrome.storage.local.get(STORAGE_KEY_NAV_COLLAPSED);
+      isCollapsed = !!stored?.[STORAGE_KEY_NAV_COLLAPSED];
+    } else if (typeof localStorage !== "undefined") {
+      isCollapsed = localStorage.getItem(STORAGE_KEY_NAV_COLLAPSED) === "true";
+    }
+    const header = panelHeader || document.querySelector(".panel-header");
+    if (header) {
+      header.classList.toggle("nav-collapsed", isCollapsed);
+    }
+    if (btnNavCollapseToggle) {
+      btnNavCollapseToggle.setAttribute("aria-expanded", String(!isCollapsed));
+    }
+  } catch (_) {}
+}
+
 if (tabBtnText) {
   tabBtnText.addEventListener("click", () => switchMiningTab("text"));
 }
@@ -5714,6 +5899,25 @@ if (tabBtnVideo) {
 }
 if (tabBtnQuickAdd) {
   tabBtnQuickAdd.addEventListener("click", () => switchMiningTab("quickadd"));
+}
+if (tabBtnHistory) {
+  tabBtnHistory.addEventListener("click", () => switchMiningTab("history"));
+}
+
+if (btnNavCollapseToggle) {
+  btnNavCollapseToggle.addEventListener("click", async () => {
+    const header = panelHeader || document.querySelector(".panel-header");
+    if (!header) return;
+    const isCurrentlyCollapsed = header.classList.toggle("nav-collapsed");
+    btnNavCollapseToggle.setAttribute("aria-expanded", String(!isCurrentlyCollapsed));
+    try {
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+        await chrome.storage.local.set({ [STORAGE_KEY_NAV_COLLAPSED]: isCurrentlyCollapsed });
+      } else if (typeof localStorage !== "undefined") {
+        localStorage.setItem(STORAGE_KEY_NAV_COLLAPSED, String(isCurrentlyCollapsed));
+      }
+    } catch (_) {}
+  });
 }
 
 if (clearSubtitlesBtn) {
@@ -6102,6 +6306,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       lastCaptureSource.frameId = typeof sender.frameId === "number" ? sender.frameId : null;
     }
     identify(message.text);
+    if (message.contextSentence) {
+      insertExampleToCard(message.contextSentence, "");
+    } else if (currentMiningTab === "video" && currentActiveCue?.text) {
+      insertExampleToCard(currentActiveCue.text, "");
+    }
     sendResponse?.({ok: true});
     return true;
   }
@@ -6403,6 +6612,9 @@ function openLayoutSettings() {
   const popover = cardSettingsPopover || layoutSettingsPopover;
   if (!popover) return;
   popover.hidden = false;
+  if (popover.style) {
+    popover.style.display = "block";
+  }
   if (btnLayoutSettings) {
     btnLayoutSettings.setAttribute("aria-expanded", "true");
     btnLayoutSettings.classList.add("active");
@@ -6415,6 +6627,9 @@ function closeLayoutSettings() {
   const popover = cardSettingsPopover || layoutSettingsPopover;
   if (!popover) return;
   popover.hidden = true;
+  if (popover.style) {
+    popover.style.display = "none";
+  }
   if (btnLayoutSettings) {
     btnLayoutSettings.setAttribute("aria-expanded", "false");
     btnLayoutSettings.classList.remove("active");

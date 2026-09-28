@@ -49,6 +49,10 @@
   --bg-surface-2: #211e1b;        /* Form inputs, nested cards, list rows */
   --bg-surface-3: #2a2622;        /* Hovered elements, elevated controls */
   --bg-surface-active: #332d28;   /* Pressed states, selected cards */
+  --bg-surface: #181715;          /* Concept 6 base surface */
+  --bg-surface-elevated: #211e1b; /* Concept 6 elevated surface */
+  --bg-surface-hover: #27231f;    /* Concept 6 hover surface */
+  --bg-input: #151413;            /* Concept 6 input background */
 
   /* Border Tokens */
   --border-subtle: #25211e;       /* Hairline structural dividers */
@@ -61,6 +65,7 @@
   --text-secondary: #9e948a;      /* Clean secondary labels & translations */
   --text-muted: #8e8a81;          /* Quiet meta, hints, timestamps */
   --text-disabled: #4e4842;       /* Disabled elements */
+  --text-faint: #48433d;          /* Faint hints and counters */
 
   /* Brand & Semantic Accents */
   --accent-primary: #b84632;      /* Warm terracotta/rust (Actions, CTA) */
@@ -5019,6 +5024,1611 @@ rt {
   gap: 6px;
 }
 
+/* ==========================================================================
+   CONCEPT 6: THE REFINED UNIFIED HYBRID DESIGN SYSTEM
+   - Zero emojis anywhere (clean crisp SVG icons only)
+   - Generous, calm breathing room (no claustrophobia)
+   - Collapsible top navigation bar with minimal toggle arrow
+   - JP Writing Mode toggle in top bar next to Settings
+   - Borderless, unobtrusive deck/card type selectors
+   - Quiet, subtle mining indicator (no screaming green)
+   - Clean "Save" and "Anki" buttons (no distracting shortcut text)
+   - Auto-selecting Quick Add with generous spacing
+   - Compact video offset controls; untouched perfect subtitle display
+   - Folder selection in video bar + full video/jimaku settings
+   ========================================================================== */
+
+/* 1. Header & Navigation */
+.panel-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 10px 14px 9px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.brand-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-wordmark {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--text-primary);
+  text-transform: uppercase;
+}
+
+.service-indicators {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+.status-dot.yomi {
+  background: var(--accent-reading);
+}
+
+.status-dot.anki {
+  background: var(--accent-success);
+}
+
+.status-dot.ocr {
+  background: var(--accent-success);
+}
+
+.status-dot.disconnected,
+.status-dot.inactive {
+  background: var(--text-disabled);
+  opacity: 0.4;
+}
+
+.btn-ocr-icon {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.btn-ocr-icon:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-reading);
+  background: var(--bg-surface-elevated);
+}
+
+.btn-ocr-icon svg {
+  display: block;
+}
+
+.header-right-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mode-nav-tabs {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.mode-tab-btn {
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px 7px;
+  border-radius: 4px;
+  user-select: none;
+  transition: all 0.12s ease;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+}
+
+.mode-tab-btn:hover {
+  color: var(--text-secondary);
+}
+
+.mode-tab-btn.active,
+.mode-tab-btn[aria-selected="true"] {
+  color: var(--text-primary);
+  background: var(--bg-surface-elevated);
+  font-weight: 600;
+}
+
+.btn-jp-mode {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-jp-mode:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+.btn-jp-mode.active,
+.btn-jp-mode[aria-pressed="true"] {
+  color: var(--accent-reading);
+  border-color: var(--accent-reading);
+  background: var(--accent-reading-dim);
+}
+
+.btn-settings-gear {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  user-select: none;
+}
+
+.btn-settings-gear:hover,
+.btn-settings-gear.active {
+  color: var(--text-primary);
+  background: var(--bg-surface-elevated);
+}
+
+.btn-nav-collapse-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  width: 18px;
+  height: 22px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color 0.15s;
+  user-select: none;
+}
+
+.btn-nav-collapse-toggle:hover {
+  color: var(--text-secondary);
+}
+
+.btn-nav-collapse-toggle svg {
+  transition: transform 0.2s ease;
+}
+
+/* Collapsible Navigation Toggle State */
+.nav-collapsed .mode-nav-tabs,
+header.nav-collapsed .mode-nav-tabs {
+  display: none !important;
+}
+
+.nav-collapsed .btn-nav-collapse-toggle svg,
+header.nav-collapsed .btn-nav-collapse-toggle svg {
+  transform: rotate(180deg);
+}
+
+/* 2. Top-Level Views Switching */
+.mining-view-panel {
+  display: none;
+  flex-direction: column;
+}
+
+.mining-view-panel.active,
+.mining-view-panel:not([hidden]):not(.is-hidden) {
+  display: flex;
+}
+
+.mining-view-panel[hidden] {
+  display: none !important;
+}
+
+.panel-content-body {
+  padding: 22px 20px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 3. Quiet Mining Status Bar */
+.mining-status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 0 2px;
+}
+
+.mining-status-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.status-dot-quiet {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-success);
+  display: inline-block;
+  opacity: 0.8;
+  transition: all 0.2s ease;
+}
+
+.status-dot-quiet.inactive {
+  background: var(--text-muted);
+  opacity: 0.4;
+}
+
+.mining-status-left:hover .status-dot-quiet {
+  opacity: 1;
+}
+
+.session-counter {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+/* 4. Centered Focus Word Showcase (Generous Breathing Room) */
+.word-showcase-card {
+  text-align: center;
+  padding: 22px 18px 20px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.word-reading-lead {
+  font-family: var(--font-japanese);
+  font-size: 15px;
+  color: var(--accent-reading);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.word-reading-lead:empty {
+  display: none;
+}
+
+.word-main-term {
+  font-family: var(--font-japanese);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--text-primary);
+  margin: 4px 0 8px;
+  letter-spacing: 0.02em;
+}
+
+.word-meanings-summary {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  max-width: 380px;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.word-badges-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.kn-badge {
+  font-size: 9.5px;
+  font-family: var(--font-mono);
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.kn-badge.jlpt {
+  color: var(--accent-primary);
+  border-color: rgba(184, 70, 50, 0.35);
+  background: rgba(184, 70, 50, 0.1);
+  font-weight: 600;
+}
+
+.kn-badge.pitch {
+  color: var(--accent-reading);
+  border-color: rgba(212, 136, 79, 0.3);
+  background: rgba(212, 136, 79, 0.08);
+}
+
+/* 5. Primary Actions Row: Clean Shortened "Save" & "Anki" */
+.primary-actions-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 8px;
+}
+
+.btn-act-save {
+  background: var(--accent-primary);
+  color: #fff;
+  border: none;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 5px;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s ease;
+  box-shadow: 0 2px 8px rgba(184, 70, 50, 0.25);
+  width: 100%;
+}
+
+.btn-act-save:hover:not(:disabled) {
+  background: var(--accent-primary-hover);
+}
+
+.btn-act-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-act-anki {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  padding: 10px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  border-radius: 5px;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.btn-act-anki:hover:not(:disabled) {
+  border-color: var(--text-muted);
+  background: var(--bg-surface-elevated);
+}
+
+.btn-act-anki:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 6. Borderless Deck & Card Type Row */
+.deck-selector-borderless {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: -6px;
+  margin-bottom: -4px;
+  flex-wrap: wrap;
+}
+
+.deck-borderless-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.deck-borderless-group span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+.deck-select-subtle {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 1px 2px;
+  outline: none;
+  transition: color 0.15s;
+}
+
+.deck-select-subtle:hover,
+.deck-select-subtle:focus {
+  color: var(--text-primary);
+}
+
+/* 7. Card Form Fields & Native Details Accordion */
+.editor-fields-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-row-duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.field-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 7px 10px;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+.field-input.jp,
+.field-input.sentence {
+  font-family: var(--font-japanese);
+}
+
+.optional-details {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+.optional-summary {
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  font-weight: 500;
+}
+
+.optional-summary::-webkit-details-marker {
+  display: none;
+}
+
+.optional-summary::before {
+  content: "+";
+  font-family: var(--font-mono);
+  color: var(--accent-reading);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.optional-details[open] .optional-summary::before {
+  content: "−";
+}
+
+.optional-content-box {
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 8. Live Card Preview Strip */
+.preview-card-strip {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.preview-title {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.preview-tabs-group {
+  display: flex;
+  background: var(--bg-canvas);
+  border-radius: 3px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.preview-tab-btn {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 2px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.12s;
+  border: none;
+  background: transparent;
+}
+
+.preview-tab-btn.active,
+.preview-tab-btn[aria-selected="true"] {
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.preview-body-front,
+.preview-body-back {
+  display: none;
+  font-family: var(--font-japanese);
+}
+
+.preview-body-front.active,
+.preview-body-front:not([hidden]),
+.preview-body-back.active {
+  display: block;
+}
+
+.preview-body-front[hidden],
+.preview-body-back[hidden] {
+  display: none !important;
+}
+
+.preview-front-display {
+  font-size: 18px;
+  color: var(--text-primary);
+  text-align: center;
+  padding: 8px 0;
+}
+
+.preview-back-display {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 0;
+}
+
+.preview-back-reading {
+  color: var(--accent-reading);
+  font-size: 12px;
+}
+
+.preview-back-meaning {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.preview-back-sentence {
+  color: var(--text-primary);
+  font-size: 11.5px;
+  border-left: 2px solid var(--accent-primary);
+  padding-left: 8px;
+  margin-top: 4px;
+}
+
+.preview-back-trans {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  margin-left: 10px;
+}
+
+/* 9. Reference Dictionary Section */
+.dict-section-wrap {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dict-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dict-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dict-section-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.dict-source-badge {
+  font-size: 9.5px;
+  font-family: var(--font-mono);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent-reading);
+}
+
+.btn-copy-raw {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 10.5px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.btn-copy-raw:hover {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  background: var(--bg-surface-elevated);
+}
+
+.dict-card-container {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 10. Video Mining View */
+.video-content-body {
+  padding: 20px 20px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.video-sub-strip {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+}
+
+.video-sub-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.video-sub-text {
+  font-family: var(--font-japanese);
+  font-size: 20px;
+  color: var(--text-primary);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.video-sub-highlight {
+  color: var(--accent-reading);
+  border-bottom: 2px solid var(--accent-primary);
+  padding-bottom: 1px;
+}
+
+.video-bar-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 11px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.video-folder-picker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.video-folder-label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.video-folder-select {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  outline: none;
+}
+
+.video-jog-btns-compact {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.btn-jog-compact {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 9.5px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+
+.btn-jog-compact:hover {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+/* 11. Quick Add View */
+.quickadd-content-body {
+  padding: 22px 20px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.qa-input-box {
+  display: flex;
+  gap: 6px;
+}
+
+.qa-input-field {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: 5px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-family: var(--font-mono);
+}
+
+.qa-kana-toggle {
+  display: flex;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.qa-kana-btn {
+  font-family: var(--font-japanese);
+  font-size: 12px;
+  padding: 0 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+}
+
+.qa-kana-btn.active,
+.qa-kana-btn[aria-pressed="true"] {
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.qa-candidates-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qa-cand-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.qa-cand-item:hover,
+.qa-cand-item.selected {
+  border-color: var(--accent-primary);
+  background: var(--bg-surface-elevated);
+}
+
+/* 12. History View (Full Top-Level Tab) */
+.history-content-body {
+  padding: 20px 20px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.history-toolbar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.history-search-input {
+  flex: 1;
+  min-width: 140px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 6px 9px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.history-filter-select {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.history-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.history-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+
+.hist-term {
+  font-family: var(--font-japanese);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hist-reading {
+  color: var(--accent-reading);
+  font-size: 11.5px;
+  margin-left: 6px;
+}
+
+.hist-meaning {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.hist-sync-badge {
+  font-size: 9.5px;
+  font-family: var(--font-mono);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.hist-sync-badge.synced {
+  color: var(--accent-success);
+  background: rgba(94, 163, 106, 0.1);
+  border: 1px solid rgba(94, 163, 106, 0.25);
+}
+
+.hist-sync-badge.pending {
+  color: var(--accent-reading);
+  background: rgba(212, 136, 79, 0.1);
+  border: 1px solid rgba(212, 136, 79, 0.25);
+}
+
+/* 13. Settings View (Orange Headings, Overlay) */
+.settings-popover-panel {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 17, 16, 0.98);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  overflow-y: auto;
+  padding: 20px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.settings-popover-panel[hidden] {
+  display: none !important;
+}
+
+.settings-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+}
+
+.settings-popover-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.btn-close-settings {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.btn-close-settings:hover {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-group-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-reading);
+  padding-bottom: 2px;
+}
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+}
+
+.settings-label {
+  color: var(--text-secondary);
+}
+
+.settings-val {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.switch-control {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 16px;
+}
+
+.switch-control input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--border-default);
+  transition: .15s;
+  border-radius: 16px;
+}
+
+.switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--text-primary);
+  transition: .15s;
+  border-radius: 50%;
+}
+
+input:checked + .switch-slider {
+  background-color: var(--accent-primary);
+}
+
+input:checked + .switch-slider:before {
+  transform: translateX(14px);
+}
+
+.service-legend-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   CONCEPT 6 REFINED HYBRID SPEC ENFORCEMENTS & USER DEFECT FIXES
+   ========================================================================== */
+
+/* 1. Wordmark Styling: Clean, Crisp, Not Ultra-Bold */
+.brand-wordmark,
+.eyebrow {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 2px !important;
+  color: var(--text-primary) !important;
+  text-transform: uppercase !important;
+}
+
+/* 2. Top Header Navigation Alignment: All Tabs, JP, and Collapse Arrow on Exact Same Line */
+.header-right-nav {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.mode-nav-tabs,
+.mining-nav-tabs {
+  display: flex !important;
+  gap: 2px !important;
+  align-items: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-bottom: none !important;
+}
+
+.mode-tab-btn,
+.tab-btn,
+.btn-jp-mode,
+.btn-editor-jp-mode,
+.btn-nav-collapse-toggle,
+#btn-layout-settings,
+.btn-settings-gear,
+.btn-layout-settings {
+  height: 22px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+}
+
+.mode-tab-btn,
+.tab-btn,
+#btn-layout-settings,
+.btn-settings-gear,
+.btn-layout-settings {
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 3px 6px !important;
+  border-radius: 4px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.12s ease !important;
+  width: auto !important;
+  min-width: 0 !important;
+  line-height: 1 !important;
+}
+
+.mode-tab-btn:hover,
+.tab-btn:hover,
+#btn-layout-settings:hover,
+.btn-settings-gear:hover,
+.btn-layout-settings:hover {
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+}
+
+.mode-tab-btn.active,
+.tab-btn.active,
+.mode-tab-btn[aria-selected="true"],
+.tab-btn[aria-selected="true"],
+#btn-layout-settings.active,
+#btn-layout-settings[aria-selected="true"],
+.btn-settings-gear.active,
+.btn-layout-settings.active {
+  color: var(--text-primary) !important;
+  background: var(--bg-surface-elevated, #211e1b) !important;
+  font-weight: 600 !important;
+}
+
+.btn-jp-mode,
+.btn-editor-jp-mode {
+  font-size: 10px !important;
+  font-family: var(--font-mono) !important;
+  font-weight: 700 !important;
+  padding: 2px 6px !important;
+  border-radius: 3px !important;
+  border: 1px solid var(--border-subtle, #24201c) !important;
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  transition: all 0.15s !important;
+}
+
+.btn-jp-mode:hover {
+  color: var(--text-primary) !important;
+  border-color: var(--border-medium, #332e27) !important;
+  background: var(--bg-hover, rgba(255, 255, 255, 0.04)) !important;
+}
+
+.btn-jp-mode.active,
+.btn-editor-jp-mode.active,
+.btn-jp-mode[aria-pressed="true"],
+.btn-editor-jp-mode[aria-pressed="true"] {
+  color: var(--accent-reading, #d4884f) !important;
+  border-color: rgba(212, 136, 79, 0.4) !important;
+  background: rgba(212, 136, 79, 0.08) !important;
+}
+
+.btn-nav-collapse-toggle {
+  width: 18px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-muted) !important;
+  cursor: pointer !important;
+}
+
+.btn-nav-collapse-toggle:hover {
+  color: var(--text-primary) !important;
+}
+
+.mining-status-bar {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-size: 11px !important;
+  color: var(--text-faint) !important;
+  padding: 0 2px !important;
+}
+
+.mining-status-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+.mining-status-mode,
+.status-mode {
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+}
+
+/* 4. Equal Primary Action Buttons: Compact Height, Sleek & Proportional */
+.primary-actions-row {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.btn-act-save,
+.btn-act-anki,
+#save-card-btn,
+#sync-anki-btn {
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  padding: 6px 12px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  border-radius: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  cursor: pointer !important;
+  width: 100% !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-act-save,
+#save-card-btn {
+  background: var(--accent-primary, #b84632) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(184, 70, 50, 0.25) !important;
+}
+
+.btn-act-save:hover:not(:disabled),
+#save-card-btn:hover:not(:disabled) {
+  background: var(--accent-primary-hover, #cb503a) !important;
+}
+
+.btn-act-anki,
+#sync-anki-btn {
+  background: var(--bg-surface, #181715) !important;
+  color: var(--text-primary, #ede8e1) !important;
+  border: 1px solid var(--border-default, #302b25) !important;
+  box-shadow: none !important;
+}
+
+.btn-act-anki:hover:not(:disabled),
+#sync-anki-btn:hover:not(:disabled) {
+  border-color: var(--text-muted) !important;
+  background: var(--bg-surface-elevated, #211e1b) !important;
+}
+
+/* 5. Borderless Deck & Card Type Selectors */
+.deck-selector-borderless {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 12px !important;
+  font-size: 11px !important;
+  color: var(--text-faint) !important;
+  margin-top: -4px !important;
+  margin-bottom: -2px !important;
+}
+
+.deck-borderless-label {
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: var(--text-faint) !important;
+}
+
+select.deck-select-subtle,
+.deck-select-subtle {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--text-secondary) !important;
+  font-size: 11px !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  padding: 1px 2px !important;
+  outline: none !important;
+  transition: color 0.15s !important;
+}
+
+select.deck-select-subtle:hover,
+select.deck-select-subtle:focus,
+.deck-select-subtle:hover,
+.deck-select-subtle:focus {
+  color: var(--text-primary) !important;
+}
+
+/* Fix White Dropdown Options on Chromium Dark Mode */
+select option,
+option {
+  background-color: #1c1a17 !important;
+  color: #ede8e1 !important;
+  padding: 6px 10px !important;
+}
+
+/* Ensure destination badge doesn't leak into view */
+#card-target-destination {
+  display: none !important;
+}
+
+/* 6. Native Collapsible Optional Fields (Single + Sign & Working Toggle) */
+.optional-details {
+  border-top: 1px solid var(--border-subtle, #24201c) !important;
+  padding-top: 10px !important;
+}
+
+.optional-summary {
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+  cursor: pointer !important;
+  list-style: none !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  user-select: none !important;
+}
+
+.optional-summary::-webkit-details-marker {
+  display: none !important;
+}
+
+.optional-summary::before {
+  content: "+" !important;
+  font-family: var(--font-mono, monospace) !important;
+  color: var(--accent-reading, #d4884f) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+.optional-details[open] > .optional-summary::before {
+  content: "−" !important;
+}
+
+.btn-toggle-optional {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  color: inherit !important;
+  font: inherit !important;
+  pointer-events: none !important;
+}
+
+/* 7. Dictionary View: Production-Grade Card Containers, Tables, Ruby & Links */
+.dict-card-container,
+.study-entry {
+  background: var(--bg-surface, #181715) !important;
+  border: 1px solid var(--border-subtle, #24201c) !important;
+  border-radius: 6px !important;
+  padding: 12px 14px !important;
+  margin-bottom: 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.dict-entry-accordion {
+  background: var(--bg-surface, #181715) !important;
+  border: 1px solid var(--border-subtle, #24201c) !important;
+  border-radius: 6px !important;
+  padding: 8px 12px !important;
+  margin-top: 4px !important;
+  margin-bottom: 6px !important;
+}
+
+.dict-entry-summary {
+  cursor: pointer !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+/* Yomitan Structured Content Tables */
+.dict-entry-reference-content table,
+.yomitan-reference-content table,
+.dict-study-view table,
+table.yomitan-table,
+.study-entry table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  margin: 8px 0 !important;
+  background: var(--bg-surface-elevated, #211e1b) !important;
+  border: 1px solid var(--border-subtle, #24201c) !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+.dict-entry-reference-content th,
+.dict-entry-reference-content td,
+.yomitan-reference-content th,
+.yomitan-reference-content td,
+.dict-study-view th,
+.dict-study-view td,
+table.yomitan-table th,
+table.yomitan-table td,
+.study-entry th,
+.study-entry td {
+  padding: 6px 10px !important;
+  border: 1px solid var(--border-subtle, #24201c) !important;
+  color: var(--text-primary, #ede8e1) !important;
+  font-size: 11.5px !important;
+  text-align: left !important;
+}
+
+.dict-entry-reference-content th,
+.yomitan-reference-content th,
+.dict-study-view th,
+table.yomitan-table th,
+.study-entry th {
+  background: var(--bg-surface, #181715) !important;
+  font-weight: 600 !important;
+  color: var(--text-secondary, #9e948a) !important;
+}
+
+/* Ruby Furigana */
+.dict-entry-reference-content ruby,
+.yomitan-reference-content ruby,
+.dict-study-view ruby,
+ruby {
+  font-family: var(--font-japanese, var(--font-jp, sans-serif)) !important;
+}
+
+.dict-entry-reference-content rt,
+.yomitan-reference-content rt,
+.dict-study-view rt,
+rt {
+  font-size: 0.65em !important;
+  color: var(--accent-reading, #d4884f) !important;
+  user-select: none !important;
+}
+
+/* Dictionary Links */
+.dict-entry-reference-content a,
+.yomitan-reference-content a,
+a.yomitan-xref-link {
+  color: var(--accent-reading, #d4884f) !important;
+  text-decoration: none !important;
+  border-bottom: 1px dotted var(--accent-reading, #d4884f) !important;
+}
+
+.dict-entry-reference-content a:hover,
+.yomitan-reference-content a:hover,
+a.yomitan-xref-link:hover {
+  color: var(--text-primary, #ede8e1) !important;
+  border-bottom-style: solid !important;
+}
+
+/* Example Sentences in Dictionary */
+.dict-entry-reference-content blockquote,
+.yomitan-reference-content blockquote,
+div[data-content="example"],
+.yomitan-tag-example,
+.dict-example {
+  margin: 6px 0 !important;
+  padding: 4px 10px !important;
+  border-left: 2px solid var(--accent-reading, #d4884f) !important;
+  background: rgba(212, 136, 79, 0.05) !important;
+  border-radius: 0 4px 4px 0 !important;
+  color: var(--text-primary, #ede8e1) !important;
+  font-family: var(--font-japanese, var(--font-jp, sans-serif)) !important;
+}
+
+/* 8. Video Subtitle Highlighting (Mined/Selected Word Turns Orange with Accent Underline) */
+.video-sub-highlight {
+  color: var(--accent-reading, #d4884f) !important;
+  border-bottom: 2px solid var(--accent-primary, #b84632) !important;
+  padding-bottom: 1px !important;
+  font-weight: 600 !important;
+}
 
 
+.settings-content-body {
+  padding: 18px 20px 32px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+}
 
+.settings-group-title {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  color: var(--accent-reading, #d4884f) !important;
+  padding-bottom: 2px !important;
+}
+
+.settings-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 7px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
+  font-size: 12px !important;
+}
+
+.settings-label {
+  color: var(--text-secondary, #9e948a) !important;
+}
+
+.settings-val {
+  color: var(--text-primary, #ede8e1) !important;
+  font-family: var(--font-mono, monospace) !important;
+  font-size: 11px !important;
+}

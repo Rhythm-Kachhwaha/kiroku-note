@@ -1,4 +1,9 @@
 (() => {
+  if (window.__KIROKU_CONTENT_SCRIPT_INITIALIZED__) {
+    return;
+  }
+  window.__KIROKU_CONTENT_SCRIPT_INITIALIZED__ = true;
+
   let miningMode = false;
 
   chrome.runtime.sendMessage({type: "GET_MINING_MODE"}).then(res => {
@@ -57,4 +62,21 @@
   document.addEventListener("keyup", event => {
     if (event.key === "Shift" || event.key.startsWith("Arrow")) captureSelection();
   }, true);
+
+  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+    document.addEventListener("keydown", (event) => {
+      if (event.altKey && (event.key.toLowerCase() === "o" || event.code === "KeyO")) {
+        const activeEl = document.activeElement;
+        const isEditable = activeEl && (
+          activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.isContentEditable
+        );
+        if (!isEditable) {
+          event.preventDefault();
+          chrome.runtime.sendMessage({ type: "START_OCR_CAPTURE" }).catch(() => {});
+        }
+      }
+    }, true);
+  }
 })();
