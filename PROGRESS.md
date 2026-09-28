@@ -1370,15 +1370,15 @@ New major features should generally be deferred unless they are necessary for th
 
 - **Date:** 2026-09-28
 - **Scope & Objectives:**
-  1. Eliminate visual redundancy in the card workspace by hiding duplicate Expression, Reading, and Sentence Context input fields.
+  1. Eliminate visual redundancy in the card workspace by hiding duplicate Expression, Reading, Meaning, and Sentence Context input fields.
   2. Surface the top 3 synthesized meanings inline directly beneath the 48px hero term in the focus showcase card.
   3. Wire up and display showcase badges (JLPT level, POS, Pitch accent) in the hero showcase.
   4. Ensure 100% preservation of all underlying DOM inputs, save/sync payloads, duplicate check mechanisms, card preview rendering, and dictionary pipelines.
 
 - **Changes Delivered:**
   1. **Visual Form Redundancy Elimination:**
-     - In [sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html), applied `hidden` and inline `display: none;` to the `.form-row-compact` wrapper (containing `#field-expression` and `#field-reading`) and the `.field-group` wrapper for `#field-example-sentence`.
-     - In [sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css), added explicit `display: none !important;` rules for `.editor-fields-box [hidden]` and associated classes.
+     - In [sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html), applied `hidden` and inline `display: none;` to the `#card-fields-section` box, `.form-row-compact` wrapper (`#field-expression`, `#field-reading`), `.meaning-form-group` (`#field-meaning`), and the `.field-group` wrapper for `#field-example-sentence`.
+     - In [sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css), added explicit `display: none !important;` rules for `.editor-fields-box[hidden]`, `.meaning-form-group[hidden]`, and `.card-fields-section[hidden]`.
      - Preserved all inputs in the DOM to guarantee zero breakage for `collectCardData()`, `getCardPreviewData()`, `scheduleDuplicateCheck()`, and automated test mocks.
   2. **Top 3 Meanings in Hero Showcase:**
      - Added `wordMeaningsSummary` DOM reference for `#word-meanings-summary`.

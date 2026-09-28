@@ -5419,9 +5419,12 @@ header.nav-collapsed .btn-nav-collapse-toggle svg {
 
 .word-meanings-summary[hidden],
 .kn-badge[hidden],
+.editor-fields-box[hidden],
 .editor-fields-box [hidden],
 .editor-fields-box .form-row-compact[hidden],
-.editor-fields-box .field-group[hidden] {
+.editor-fields-box .field-group[hidden],
+.meaning-form-group[hidden],
+.card-fields-section[hidden] {
   display: none !important;
 }
 
