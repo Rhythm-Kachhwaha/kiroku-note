@@ -301,6 +301,29 @@
     );
   }
 
+  function isKanji(ch) {
+    if (!ch) return false;
+    const code = ch.charCodeAt(0);
+    return (code >= 0x4E00 && code <= 0x9FAF) || (code >= 0x3400 && code <= 0x4DBF);
+  }
+
+  function isHiragana(ch) {
+    if (!ch) return false;
+    const code = ch.charCodeAt(0);
+    return code >= 0x3040 && code <= 0x309F;
+  }
+
+  function isKatakana(ch) {
+    if (!ch) return false;
+    const code = ch.charCodeAt(0);
+    return (code >= 0x30A0 && code <= 0x30FF) || (code >= 0xFF66 && code <= 0xFF9F) || ch === "ー";
+  }
+
+  function isJapanesePunctuationOrSpace(ch) {
+    if (!ch) return true;
+    return /[\s。、！？!?.,;:「」『』()（）\[\]【】…―—\-]/.test(ch);
+  }
+
   function extractJapaneseWordAtPosition(element, clientX, clientY) {
     if (!element) return null;
 
@@ -347,18 +370,63 @@
       }
     }
 
+    // 1. Intl.Segmenter word segmentation (standard in modern Chromium / JS engines)
+    if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+      try {
+        const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
+        const segments = Array.from(segmenter.segment(text));
+        const matched = segments.find((s) => s.index <= charIdx && charIdx < s.index + s.segment.length);
+        if (matched) {
+          if (matched.isWordLike && Array.from(matched.segment).some(isJapaneseChar)) {
+            return matched.segment.trim();
+          }
+          const prev = segments.find((s) => s.index + s.segment.length === charIdx);
+          if (prev && prev.isWordLike && Array.from(prev.segment).some(isJapaneseChar)) {
+            return prev.segment.trim();
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Fallback token extraction: stop at Japanese punctuation and respect script transitions
     let start = charIdx;
     let end = charIdx;
 
-    while (start > 0 && isJapaneseChar(text[start - 1])) {
-      start--;
-    }
-    while (end < text.length - 1 && isJapaneseChar(text[end + 1])) {
-      end++;
+    const initialIsKatakana = isKatakana(text[charIdx]);
+    const initialIsHiragana = isHiragana(text[charIdx]);
+
+    if (initialIsKatakana) {
+      // Katakana cluster with prolonged sound mark
+      while (start > 0 && isKatakana(text[start - 1]) && !isJapanesePunctuationOrSpace(text[start - 1])) {
+        start--;
+      }
+      while (end < text.length - 1 && isKatakana(text[end + 1]) && !isJapanesePunctuationOrSpace(text[end + 1])) {
+        end++;
+      }
+    } else if (initialIsHiragana) {
+      // Hiragana cluster (e.g. ちょっと, に, から) - stops at Kanji, Katakana, punctuation
+      while (start > 0 && isHiragana(text[start - 1]) && !isJapanesePunctuationOrSpace(text[start - 1])) {
+        start--;
+      }
+      while (end < text.length - 1 && isHiragana(text[end + 1]) && !isJapanesePunctuationOrSpace(text[end + 1])) {
+        end++;
+      }
+    } else {
+      // Kanji compound (e.g. 向こう, 温泉, 勉強する) - expands across Kanji and attached okurigana
+      while (start > 0 && isKanji(text[start - 1]) && !isJapanesePunctuationOrSpace(text[start - 1])) {
+        start--;
+      }
+      while (end < text.length - 1 && (isKanji(text[end + 1]) || isHiragana(text[end + 1])) && !isJapanesePunctuationOrSpace(text[end + 1])) {
+        end++;
+      }
     }
 
     const word = text.slice(start, end + 1).trim();
     return word.length > 0 ? word : null;
+  }
+
+  if (typeof window !== "undefined") {
+    window.extractJapaneseWordAtPosition = extractJapaneseWordAtPosition;
   }
 
   class SubtitleOverlayRenderer {
@@ -421,6 +489,10 @@
                   type: "JAPANESE_TEXT_CAPTURED",
                   text: word,
                   source: "subtitle_hover"
+                }).catch(() => {});
+                chrome.runtime.sendMessage({
+                  type: "HIGHLIGHT_SUBTITLE_WORD",
+                  text: word
                 }).catch(() => {});
               }
             } catch (_) {}
@@ -1755,6 +1827,7 @@
           chrome.runtime.sendMessage({
             type: "SUBTITLE_CUE_CHANGED",
             cue,
+            highlightTerm: (this.renderer && typeof this.renderer.activeHighlightTerm === "string") ? this.renderer.activeHighlightTerm : "",
             offset: this.syncEngine.offset,
             offsetMs: this.syncEngine.offsetMs
           }).catch(() => {});

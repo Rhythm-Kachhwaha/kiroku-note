@@ -134,11 +134,16 @@
           </div>
         </div>
 
-        <!-- Hidden container for secondary / test-required subtitle controls to preserve 100% test compatibility while decluttering UI -->
-        <div id="subtitle-controls-hidden-wrap" style="display:none;" hidden>
-          <details id="subtitle-controls-details" class="subtitle-controls-details">
+        <!-- Subtitle Settings & Secondary Controls Collapsible Card -->
+        <div id="subtitle-controls-hidden-wrap" class="video-subtitle-settings-wrap">
+          <details id="subtitle-controls-details" class="subtitle-controls-details video-subtitle-settings-collapsible">
             <summary class="subtitle-controls-summary">
-              <div class="subtitle-controls-summary-inner">
+              <span class="subtitle-settings-header-title">Subtitle Settings</span>
+              <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
+            </summary>
+
+            <div class="video-subtitle-settings-content">
+              <div class="video-options-row video-load-subtitles-row">
                 <div class="subtitles-dropdown-wrapper">
                   <button type="button" id="load-subtitles-btn" class="btn-subtitles" aria-expanded="false" aria-haspopup="true">Load subtitles ▾</button>
                   <div id="subtitles-menu-dropdown" class="subtitles-menu-dropdown" hidden>
@@ -151,25 +156,24 @@
                 </div>
                 <input type="file" id="subtitles-file-input" accept=".srt,.vtt,.ass,.ssa" hidden>
                 <input type="file" id="subtitles-dir-input" webkitdirectory directory hidden>
-                <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
               </div>
-            </summary>
 
-            <div class="video-options-row">
-              <label class="ios-toggle-label" for="toggle-subtitles-display" title="Toggle subtitle display on video on/off">
-                <span class="toggle-label">Show subtitles on video</span>
-                <div class="ios-switch">
-                  <input type="checkbox" id="toggle-subtitles-display" class="ios-switch-input" checked>
-                  <span class="ios-switch-slider"></span>
-                </div>
-              </label>
-            </div>
+              <div class="video-options-row">
+                <label class="ios-toggle-label" for="toggle-subtitles-display" title="Toggle subtitle display on video on/off">
+                  <span class="toggle-label">Show subtitles on video</span>
+                  <div class="ios-switch">
+                    <input type="checkbox" id="toggle-subtitles-display" class="ios-switch-input" checked>
+                    <span class="ios-switch-slider"></span>
+                  </div>
+                </label>
+              </div>
 
-            <div class="video-options-row">
-              <label class="toggle-control" for="toggle-auto-pause-hover">
-                <input type="checkbox" id="toggle-auto-pause-hover" class="toggle-checkbox">
-                <span class="toggle-label">Auto-pause on subtitle hover</span>
-              </label>
+              <div class="video-options-row">
+                <label class="toggle-control" for="toggle-auto-pause-hover">
+                  <input type="checkbox" id="toggle-auto-pause-hover" class="toggle-checkbox">
+                  <span class="toggle-label">Auto-pause on subtitle hover</span>
+                </label>
+              </div>
             </div>
           </details>
         </div>
@@ -378,7 +382,7 @@
           <div id="card-optional-section" class="card-optional-section" data-layout-section="optional">
             <details id="optional-details" class="optional-details">
               <summary class="optional-summary" id="optional-summary-toggle">
-                <button type="button" id="toggle-optional" class="btn-toggle-optional" aria-expanded="false" aria-controls="optional-fields">Optional fields (Translation, Hint, Audio, Tags, Notes)</button>
+                <button type="button" id="toggle-optional" class="btn-toggle-optional" aria-expanded="false" aria-controls="optional-fields">+ Optional fields</button>
               </summary>
               <div id="optional-fields" class="optional-fields optional-content-box">
                 <div class="field-group form-group">

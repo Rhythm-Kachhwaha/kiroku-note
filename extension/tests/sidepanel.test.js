@@ -229,3 +229,26 @@ assert.ok(
 );
 
 console.log("sidepanel Stage 3B.4 Step 1 entries persistence tests passed");
+
+// Subtitle Controls Restoration & Video Settings Accordion
+assert.ok(!html.includes('id="subtitle-controls-hidden-wrap" style="display:none;"'), "#subtitle-controls-hidden-wrap must not be hidden via inline style");
+assert.ok(!html.includes('id="subtitle-controls-hidden-wrap" hidden'), "#subtitle-controls-hidden-wrap must not have hidden attribute");
+assert.ok(html.includes('class="subtitle-controls-details video-subtitle-settings-collapsible"'), "Subtitle details must have video-subtitle-settings-collapsible class");
+assert.ok(html.includes('id="toggle-subtitles-display"'), "Show subtitles on video toggle must exist");
+
+// Optional fields toggle single indicator
+assert.ok(html.includes('id="toggle-optional" class="btn-toggle-optional" aria-expanded="false" aria-controls="optional-fields">+ Optional fields</button>'), "Toggle optional button must start with '+ Optional fields'");
+
+// CSS pseudo-element duplication check
+const cssPath = fs.existsSync("extension/sidepanel/sidepanel.css")
+  ? "extension/sidepanel/sidepanel.css"
+  : path.resolve(__dirname, "../sidepanel/sidepanel.css");
+const cssContent = fs.readFileSync(cssPath, "utf8");
+assert.ok(!cssContent.includes('.optional-summary::before {\n  content: "+";'), "CSS must not inject + via optional-summary::before");
+assert.ok(!cssContent.includes('content: "+" !important;'), "CSS must not force + !important on optional-summary::before");
+
+// Subtitle cue preview live highlighting sync
+assert.ok(jsContent.includes("updateVideoCuePreviewText(message.cue?.text, highlight)"), "SUBTITLE_CUE_CHANGED must update cue preview with live highlight");
+assert.ok(jsContent.includes("lastVideoHighlightTerm"), "sidepanel must track lastVideoHighlightTerm for live preview sync");
+
+console.log("sidepanel subtitle controls & optional toggle tests passed");

@@ -725,8 +725,17 @@ body {
   margin-bottom: var(--space-2);
 }
 
-.subtitle-controls-details {
+.video-subtitle-settings-wrap {
+  margin-top: 8px;
+}
+
+.subtitle-controls-details,
+.video-subtitle-settings-collapsible {
   display: block;
+  background: var(--bg-surface-1, #181715);
+  border: 1px solid var(--border-subtle, #24201c);
+  border-radius: var(--radius-sm, 4px);
+  overflow: visible;
 }
 
 .subtitle-controls-summary {
@@ -734,39 +743,61 @@ body {
   cursor: pointer;
   user-select: none;
   outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary, #9e978e);
+  transition: background var(--transition-fast, 0.15s ease), color var(--transition-fast, 0.15s ease);
+}
+
+.subtitle-controls-summary:hover {
+  background: var(--bg-surface-2, #201e1a);
+  color: var(--text-primary, #ded8cf);
 }
 
 .subtitle-controls-summary::-webkit-details-marker {
   display: none;
 }
 
-.subtitle-controls-summary-inner {
+.subtitle-settings-header-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.subtitle-settings-header-title::before {
+  content: "▸";
+  font-size: 10px;
+  color: var(--text-muted, #686259);
+  transition: transform var(--transition-fast, 0.15s ease);
+}
+
+.subtitle-controls-details[open] > .subtitle-controls-summary .subtitle-settings-header-title::before,
+.video-subtitle-settings-collapsible[open] > .subtitle-controls-summary .subtitle-settings-header-title::before {
+  content: "▾";
+}
+
+.video-subtitle-settings-content {
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--border-subtle, #24201c);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.video-subtitle-settings-content .video-options-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
-  width: 100%;
 }
 
-.subtitle-controls-summary-inner::after {
-  content: "";
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-right: 1.5px solid var(--text-muted);
-  border-bottom: 1.5px solid var(--text-muted);
-  transform: rotate(-45deg);
-  transition: transform var(--transition-fast);
-  margin-left: 4px;
-  flex-shrink: 0;
-}
-
-.subtitle-controls-details[open] > .subtitle-controls-summary .subtitle-controls-summary-inner::after {
-  transform: rotate(45deg);
-}
-
-.subtitle-controls-details > *:not(summary) {
-  margin-top: 8px;
+.video-load-subtitles-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .video-toolbar {
@@ -5561,15 +5592,11 @@ header.nav-collapsed .btn-nav-collapse-toggle svg {
 }
 
 .optional-summary::before {
-  content: "+";
-  font-family: var(--font-mono);
-  color: var(--accent-reading);
-  font-size: 12px;
-  font-weight: 700;
+  display: none;
 }
 
 .optional-details[open] .optional-summary::before {
-  content: "−";
+  display: none;
 }
 
 .optional-content-box {
@@ -6448,15 +6475,11 @@ option {
 }
 
 .optional-summary::before {
-  content: "+" !important;
-  font-family: var(--font-mono, monospace) !important;
-  color: var(--accent-reading, #d4884f) !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
+  display: none !important;
 }
 
 .optional-details[open] > .optional-summary::before {
-  content: "−" !important;
+  display: none !important;
 }
 
 .btn-toggle-optional {
@@ -6464,9 +6487,16 @@ option {
   border: none !important;
   padding: 0 !important;
   margin: 0 !important;
-  color: inherit !important;
+  color: var(--text-muted, #686259) !important;
   font: inherit !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
   pointer-events: none !important;
+  transition: color var(--transition-fast, 0.15s ease) !important;
+}
+
+.optional-summary:hover .btn-toggle-optional {
+  color: var(--text-primary, #ded8cf) !important;
 }
 
 /* 7. Dictionary View: Production-Grade Card Containers, Tables, Ruby & Links */

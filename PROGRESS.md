@@ -1328,6 +1328,43 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ **Backend Pytest Suite:** **374/374 passed (100%)** (`python -m pytest backend/tests -o pythonpath=backend`).
   - ✅ **Playwright End-to-End Suite:** **13/13 passed (100%)** (`python test_plan_verification.py`), covering all 7 sections with 0 runtime page errors.
 
+---
+
+### Video Subtitle Controls, Optional Fields Toggle, Subtitle Cue Sync & Word Hover Segmentation Remediation
+
+- **Date:** 2026-09-28
+- **Scope & Objectives:**
+  1. Restore video subtitle settings & load controls visibility without breaking layout.
+  2. Eliminate double `+ +` / `− −` indicator duplication on Optional Fields accordion button.
+  3. Resolve sidepanel active cue preview lag and sync live word highlighting (`.video-sub-highlight`).
+  4. Fix Japanese word-level hover segmentation to prevent full-sentence greedy highlighting.
+
+- **Changes Delivered:**
+  1. **Subtitle Settings & Load Controls Restoration:**
+     - Removed `display:none; hidden` from `#subtitle-controls-hidden-wrap` in [sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html).
+     - Structured as `<details id="subtitle-controls-details" class="subtitle-controls-details video-subtitle-settings-collapsible">`.
+     - Styled collapsible accordion in [sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css) with clean surface styling, chevron indicators, and layout margins.
+     - Ensured "Load Subtitles" dropdown button (`From file`, `From folder`, `Jimaku Search`, `Clear`), "Show subtitles on video" toggle switch (`#toggle-subtitles-display`), and "Auto-pause on hover" toggle switch (`#toggle-auto-pause-hover`) are fully visible and functional when expanded.
+  2. **Double `++` Indicator Cleanup:**
+     - Removed pseudo-element content duplication (`.optional-summary::before`) in [sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css).
+     - Standardized `#toggle-optional` button text to render single, clean `+ Optional fields` (when closed) or `− Optional fields` (when open) managed by [sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
+  3. **Side Panel Active Cue Preview Sync, Highlighting & Lag Fix:**
+     - Refactored `updateVideoCuePreviewText(cueText, highlightTerm)` in [sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) to accept active highlight terms and maintain `lastVideoHighlightTerm`.
+     - Replaced plain text replacement in `SUBTITLE_CUE_CHANGED` with instant `updateVideoCuePreviewText` call.
+     - Handled `HIGHLIGHT_SUBTITLE_WORD` and `JAPANESE_TEXT_CAPTURED` events in `sidepanel.js` to immediately apply `.video-sub-highlight` (`color: #d4884f; border-bottom: 2px solid #b84632`), ensuring player overlay and side panel stay in exact visual lockstep during playback.
+     - Updated `broadcastActiveCue` in [video-mining-poc.js](file:///d:/Python/AnkiMiner/extension/content/video-mining-poc.js) to send `highlightTerm` synchronously with active cues.
+  4. **Japanese Word-Level Hover Segmentation:**
+     - Refactored `extractJapaneseWordAtPosition` in [video-mining-poc.js](file:///d:/Python/AnkiMiner/extension/content/video-mining-poc.js).
+     - Integrated `Intl.Segmenter` (`granularity: "word"`, `locale: "ja"`) for accurate Japanese lexical word boundary extraction.
+     - Added script boundary fallback stopping at Japanese punctuation (`。`, `、`, `！`, `？`, whitespace, quotes) and enforcing script transition constraints (Hiragana clusters like `ちょっと` stop at Kanji; Katakana clusters with prolonged marks stop at non-Katakana; Kanji compounds only expand across Kanji + attached okurigana).
+     - Verified that hovering over `"ちょっと"` in `"ちょっと向こうに行けますね。温泉の向こう側にも行けます"` isolates `"ちょっと"` and does not greedily expand to the full clause.
+
+- **Verification:**
+  - ✅ `node --test extension/tests/*.test.js`: **77/77 tests passed (100%)**
+  - ✅ `python -m pytest backend/tests -o pythonpath=backend`: **374/374 tests passed (100%)**
+  - ✅ `python test_plan_verification.py`: **13/13 verification checks passed (100%)** with 0 page errors
+
+
 
 
 

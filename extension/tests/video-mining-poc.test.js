@@ -720,9 +720,32 @@ async function testSubtitleHoverMining() {
   // Call the word extraction and broadcast directly to verify word detection logic
   const word = env.context.window.extractJapaneseWordAtPosition
     ? env.context.window.extractJapaneseWordAtPosition(subtitle, 100, 100)
-    : "日本語を勉強する";
+    : "日本語";
 
-  assert.equal(word, "日本語を勉強する", "Extracted hovered Japanese word must match");
+  assert.equal(word, "日本語", "Extracted hovered Japanese word must match segmented word");
+
+  // Verify word segmentation on multi-word clause without whole-sentence expansion
+  if (env.context.window.extractJapaneseWordAtPosition) {
+    const complexSub = { textContent: "ちょっと向こうに行けますね。温泉の向こう側にも行けます" };
+    // Mock caret position at index 0 (inside ちょっと)
+    const origCaret = env.mockDocument.caretRangeFromPoint;
+    env.mockDocument.caretRangeFromPoint = () => ({
+      startContainer: { nodeType: 3, nodeValue: complexSub.textContent, textContent: complexSub.textContent },
+      startOffset: 0
+    });
+    const extractedChotto = env.context.window.extractJapaneseWordAtPosition(complexSub, 10, 10);
+    assert.equal(extractedChotto, "ちょっと", "Hovering ちょっと must extract only ちょっと");
+
+    // Mock caret position at index 4 (inside 向こう)
+    env.mockDocument.caretRangeFromPoint = () => ({
+      startContainer: { nodeType: 3, nodeValue: complexSub.textContent, textContent: complexSub.textContent },
+      startOffset: 4
+    });
+    const extractedMukou = env.context.window.extractJapaneseWordAtPosition(complexSub, 50, 10);
+    assert.equal(extractedMukou, "向こう", "Hovering 向こう must extract only 向こう");
+
+    env.mockDocument.caretRangeFromPoint = origCaret;
+  }
 
   // Trigger subtitle mousemove
   subtitle.dispatchEvent({
@@ -736,7 +759,7 @@ async function testSubtitleHoverMining() {
 
   const captureMsg = env.sentMessages.find((m) => m.type === "JAPANESE_TEXT_CAPTURED" && m.source === "subtitle_hover");
   assert.ok(captureMsg, "Hovering subtitle must trigger JAPANESE_TEXT_CAPTURED with source: subtitle_hover");
-  assert.equal(captureMsg.text, "日本語を勉強する");
+  assert.equal(captureMsg.text, "日本語");
 
   console.log("PASS: Subtitle hover word extraction and auto-lookup dispatch verified.");
 }

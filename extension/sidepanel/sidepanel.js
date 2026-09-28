@@ -710,6 +710,7 @@ let loadedSubtitlesFilename = "";
 let availableCaptionTracks = [];
 let lastCaptureSource = { tabId: null, frameId: null };
 let currentActiveCue = null;
+let lastVideoHighlightTerm = "";
 
 let selectedHistoryCardId = null;
 let searchDebounceTimeout = null;
@@ -1175,9 +1176,15 @@ if (fieldExpression) {
   fieldExpression.addEventListener("input", () => {
     if (expression) expression.textContent = fieldExpression.value || "—";
     scheduleDuplicateCheck(false);
+    if (currentMiningTab === "video") {
+      updateVideoCuePreviewText();
+    }
   });
   fieldExpression.addEventListener("change", () => {
     scheduleDuplicateCheck(true);
+    if (currentMiningTab === "video") {
+      updateVideoCuePreviewText();
+    }
   });
 }
 
@@ -3114,7 +3121,11 @@ function notifyVideoHighlightTerm(term) {
 async function identify(text) {
   const capturedText = typeof text === "string" ? text.trim() : "";
   if (!capturedText) return;
+  lastVideoHighlightTerm = capturedText;
   notifyVideoHighlightTerm(capturedText);
+  if (currentMiningTab === "video" || videoCurrentCuePreview) {
+    updateVideoCuePreviewText(currentActiveCue?.text, capturedText);
+  }
   const requestId = ++currentCaptureId;
   setStatus("Identifying selection…");
   setIndicatorStatus(indicatorYomitan, "checking", "Yomitan: Identifying…");
@@ -5747,7 +5758,7 @@ async function loadQuickAddKanaMode() {
   setQuickAddKanaMode(savedMode);
 }
 
-function updateVideoCuePreviewText(cueText) {
+function updateVideoCuePreviewText(cueText, highlightTerm) {
   if (!videoCurrentCuePreview) return;
   const text = (typeof cueText === "string" ? cueText : (currentActiveCue?.text || "")).trim();
   if (!text) {
@@ -5757,8 +5768,18 @@ function updateVideoCuePreviewText(cueText) {
   }
   videoCurrentCuePreview.classList.remove("waiting");
 
-  // Highlight currently mined / draft expression if present in the cue text
-  const currentTerm = (fieldExpression?.value || (expression && expression.textContent !== "—" ? expression.textContent : "") || "").trim();
+  if (typeof highlightTerm === "string") {
+    lastVideoHighlightTerm = highlightTerm.trim();
+  }
+
+  // Highlight currently hovered term, mined expression, or draft expression if present in the cue text
+  const currentTerm = (
+    lastVideoHighlightTerm ||
+    fieldExpression?.value ||
+    (expression && expression.textContent !== "—" ? expression.textContent : "") ||
+    ""
+  ).trim();
+
   if (currentTerm && text.includes(currentTerm)) {
     videoCurrentCuePreview.replaceChildren();
     const parts = text.split(currentTerm);
@@ -6305,11 +6326,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       lastCaptureSource.tabId = sender.tab.id;
       lastCaptureSource.frameId = typeof sender.frameId === "number" ? sender.frameId : null;
     }
+    if (message.text) {
+      lastVideoHighlightTerm = message.text.trim();
+      updateVideoCuePreviewText(currentActiveCue?.text, lastVideoHighlightTerm);
+    }
     identify(message.text);
     if (message.contextSentence) {
       insertExampleToCard(message.contextSentence, "");
     } else if (currentMiningTab === "video" && currentActiveCue?.text) {
       insertExampleToCard(currentActiveCue.text, "");
+    }
+    sendResponse?.({ok: true});
+    return true;
+  }
+  if (message?.type === "HIGHLIGHT_SUBTITLE_WORD") {
+    if (message.text) {
+      lastVideoHighlightTerm = message.text.trim();
+      updateVideoCuePreviewText(currentActiveCue?.text, lastVideoHighlightTerm);
     }
     sendResponse?.({ok: true});
     return true;
@@ -6328,18 +6361,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message?.type === "SUBTITLE_CUE_CHANGED") {
-    if (message.cue) {
+    if (message.cue !== undefined) {
       currentActiveCue = message.cue;
     }
-    if (videoCurrentCuePreview) {
-      const cueText = message.cue?.text || "";
-      videoCurrentCuePreview.textContent = cueText || "—";
-      if (cueText) {
-        videoCurrentCuePreview.classList.remove("waiting");
-      } else {
-        videoCurrentCuePreview.classList.add("waiting");
-      }
-    }
+    const highlight = typeof message.highlightTerm === "string" ? message.highlightTerm : undefined;
+    updateVideoCuePreviewText(message.cue?.text, highlight);
     if (typeof message.offsetMs === "number") {
       if (message.offsetMs !== currentSubtitleOffsetMs) {
         updateOffsetDisplay(message.offsetMs);
