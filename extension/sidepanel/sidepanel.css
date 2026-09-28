@@ -5417,6 +5417,14 @@ header.nav-collapsed .btn-nav-collapse-toggle svg {
   background: rgba(212, 136, 79, 0.08);
 }
 
+.word-meanings-summary[hidden],
+.kn-badge[hidden],
+.editor-fields-box [hidden],
+.editor-fields-box .form-row-compact[hidden],
+.editor-fields-box .field-group[hidden] {
+  display: none !important;
+}
+
 /* 5. Primary Actions Row: Clean Shortened "Save" & "Anki" */
 .primary-actions-row {
   display: grid;

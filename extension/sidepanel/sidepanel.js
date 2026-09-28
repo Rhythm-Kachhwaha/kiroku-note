@@ -33,6 +33,10 @@ const status = document.querySelector("#capture-status");
 const saveBadge = document.querySelector("#save-badge");
 const expression = document.querySelector("#expression");
 const reading = document.querySelector("#reading");
+const wordMeaningsSummary = document.querySelector("#word-meanings-summary");
+const showcaseJlptBadge = document.querySelector("#showcase-jlpt-badge");
+const showcasePosBadge = document.querySelector("#showcase-pos-badge");
+const showcasePitchBadge = document.querySelector("#showcase-pitch-badge");
 const meanings = document.querySelector("#meanings");
 const examples = document.querySelector("#examples");
 const dictActionsBar = document.querySelector("#dict-actions-bar");
@@ -1196,6 +1200,118 @@ if (fieldReading) {
   fieldReading.addEventListener("change", () => {
     scheduleDuplicateCheck(true);
   });
+}
+
+if (fieldMeaning) {
+  fieldMeaning.addEventListener("input", () => {
+    updateHeroMeanings({ meaning: fieldMeaning.value });
+  });
+}
+
+function updateHeroMeanings(data) {
+  if (!wordMeaningsSummary) return;
+  const meaning = (data && data.meaning ? String(data.meaning) : "").trim();
+  if (!meaning) {
+    wordMeaningsSummary.textContent = "";
+    wordMeaningsSummary.hidden = true;
+    return;
+  }
+  const rawParts = meaning.split(/[;\n]/).map(s => s.trim().replace(/^\d+[\.\)]\s*/, "")).filter(Boolean);
+  const top3 = rawParts.slice(0, 3).join("; ");
+  wordMeaningsSummary.textContent = top3;
+  wordMeaningsSummary.hidden = !top3;
+}
+
+function updateHeroBadges(body) {
+  const rawObj = body?.term || body;
+  const entries = Array.isArray(rawObj?.entries) ? rawObj.entries : (Array.isArray(currentDictionaryEntries) ? currentDictionaryEntries : []);
+  const kanjiEntries = Array.isArray(rawObj?.kanji_entries) ? rawObj.kanji_entries : (Array.isArray(currentKanjiEntries) ? currentKanjiEntries : []);
+
+  // 1. JLPT Level
+  let jlpt = body?.jlpt_level || rawObj?.jlpt_level || currentJlptLevel;
+  if (!jlpt && entries.length) {
+    for (const e of entries) {
+      for (const t of (e.tags || [])) {
+        const m = String(t).match(/^jlpt-n([1-5])$/i) || String(t).match(/^n([1-5])$/i);
+        if (m) { jlpt = `N${m[1]}`; break; }
+      }
+      if (jlpt) break;
+    }
+  }
+  if (!jlpt && kanjiEntries.length) {
+    for (const k of kanjiEntries) {
+      if (k.stats && k.stats.jlpt && String(k.stats.jlpt).toUpperCase().startsWith("N")) {
+        jlpt = String(k.stats.jlpt).toUpperCase();
+        break;
+      }
+      for (const t of (k.tags || [])) {
+        const m = String(t).match(/^jlpt-n([1-5])$/i) || String(t).match(/^n([1-5])$/i);
+        if (m) { jlpt = `N${m[1]}`; break; }
+      }
+      if (jlpt) break;
+    }
+  }
+  if (showcaseJlptBadge) {
+    if (jlpt) {
+      const displayJlpt = String(jlpt).trim().toUpperCase();
+      const cleanJlpt = displayJlpt.startsWith("JLPT") ? displayJlpt.replace("JLPT", "").trim() : displayJlpt;
+      showcaseJlptBadge.textContent = cleanJlpt.match(/^[1-5]$/) ? `N${cleanJlpt}` : cleanJlpt;
+      showcaseJlptBadge.hidden = false;
+    } else {
+      showcaseJlptBadge.hidden = true;
+      showcaseJlptBadge.textContent = "";
+    }
+  }
+
+  // 2. POS (Part of Speech)
+  if (showcasePosBadge) {
+    let pos = "";
+    if (entries.length) {
+      for (const e of entries) {
+        if (Array.isArray(e.senses)) {
+          for (const s of e.senses) {
+            if (Array.isArray(s.pos) && s.pos.length) {
+              pos = s.pos[0];
+              break;
+            }
+          }
+        }
+        if (pos) break;
+      }
+    }
+    if (pos) {
+      showcasePosBadge.textContent = pos;
+      showcasePosBadge.hidden = false;
+    } else {
+      showcasePosBadge.hidden = true;
+      showcasePosBadge.textContent = "";
+    }
+  }
+
+  // 3. Pitch Accent
+  if (showcasePitchBadge) {
+    let pitchText = "";
+    if (entries.length) {
+      for (const e of entries) {
+        if (Array.isArray(e.pitches) && e.pitches.length) {
+          const p = e.pitches[0];
+          if (p && typeof p.position === "number") {
+            const circle = typeof getPitchCircleNumber === "function" ? getPitchCircleNumber(p.position) : `[${p.position}]`;
+            const pat = typeof formatPitchPatternName === "function" ? formatPitchPatternName(p.pattern_name) : "";
+            pitchText = pat ? `${circle} ${pat}` : circle;
+            break;
+          }
+        }
+      }
+    }
+    if (pitchText) {
+      showcasePitchBadge.textContent = pitchText;
+      showcasePitchBadge.hidden = false;
+    } else {
+      showcasePitchBadge.hidden = true;
+      showcasePitchBadge.textContent = "";
+    }
+  }
 }
 
 // ==========================================================================
@@ -3136,6 +3252,22 @@ async function identify(text) {
   }
   expression.textContent = "—";
   reading.textContent = "";
+  if (wordMeaningsSummary) {
+    wordMeaningsSummary.textContent = "";
+    wordMeaningsSummary.hidden = true;
+  }
+  if (showcaseJlptBadge) {
+    showcaseJlptBadge.hidden = true;
+    showcaseJlptBadge.textContent = "";
+  }
+  if (showcasePosBadge) {
+    showcasePosBadge.hidden = true;
+    showcasePosBadge.textContent = "";
+  }
+  if (showcasePitchBadge) {
+    showcasePitchBadge.hidden = true;
+    showcasePitchBadge.textContent = "";
+  }
   clearDictionaryView();
   if (dictLoadingIndicator) dictLoadingIndicator.hidden = false;
   clearAllMedia();
@@ -3169,6 +3301,8 @@ async function identify(text) {
       currentJlptLevel = body.jlpt_level;
     }
     renderDetails(body);
+    updateHeroMeanings(body);
+    updateHeroBadges(body);
 
     // Populate Card Editor form
     if (cardEditor) {
@@ -3773,6 +3907,9 @@ if (cardEditor) {
       updateMediaPreviews();
       if (expression) expression.textContent = body.expression || expr;
       if (reading) reading.textContent = body.reading || "";
+      if (body.meaning || (fieldMeaning && fieldMeaning.value)) {
+        updateHeroMeanings(body.meaning ? body : { meaning: fieldMeaning.value });
+      }
 
       if (body.sync_status === "synced") {
         updateSyncUI("synced");
@@ -4669,6 +4806,8 @@ async function openSavedCard(cardId) {
 
       if (expression) expression.textContent = body.expression || "—";
       if (reading) reading.textContent = body.reading || "";
+      updateHeroMeanings(body);
+      updateHeroBadges(body);
 
       if (body.sync_status === "synced") {
         updateSyncUI("synced");
@@ -4739,6 +4878,22 @@ async function deleteLocalCard(cardId, cardExpr, delBtn) {
       if (fieldNotes) fieldNotes.value = "";
       if (expression) expression.textContent = "—";
       if (reading) reading.textContent = "";
+      if (wordMeaningsSummary) {
+        wordMeaningsSummary.textContent = "";
+        wordMeaningsSummary.hidden = true;
+      }
+      if (showcaseJlptBadge) {
+        showcaseJlptBadge.hidden = true;
+        showcaseJlptBadge.textContent = "";
+      }
+      if (showcasePosBadge) {
+        showcasePosBadge.hidden = true;
+        showcasePosBadge.textContent = "";
+      }
+      if (showcasePitchBadge) {
+        showcasePitchBadge.hidden = true;
+        showcasePitchBadge.textContent = "";
+      }
       clearDictionaryView();
       if (saveBadge) {
         saveBadge.hidden = true;

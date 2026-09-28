@@ -1364,6 +1364,35 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ `python -m pytest backend/tests -o pythonpath=backend`: **374/374 tests passed (100%)**
   - ✅ `python test_plan_verification.py`: **13/13 verification checks passed (100%)** with 0 page errors
 
+---
+
+### Card Editor UI Streamlining — Compact Hero Showcase, Top 3 Inline Meanings & Form Field Redundancy Elimination
+
+- **Date:** 2026-09-28
+- **Scope & Objectives:**
+  1. Eliminate visual redundancy in the card workspace by hiding duplicate Expression, Reading, and Sentence Context input fields.
+  2. Surface the top 3 synthesized meanings inline directly beneath the 48px hero term in the focus showcase card.
+  3. Wire up and display showcase badges (JLPT level, POS, Pitch accent) in the hero showcase.
+  4. Ensure 100% preservation of all underlying DOM inputs, save/sync payloads, duplicate check mechanisms, card preview rendering, and dictionary pipelines.
+
+- **Changes Delivered:**
+  1. **Visual Form Redundancy Elimination:**
+     - In [sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html), applied `hidden` and inline `display: none;` to the `.form-row-compact` wrapper (containing `#field-expression` and `#field-reading`) and the `.field-group` wrapper for `#field-example-sentence`.
+     - In [sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css), added explicit `display: none !important;` rules for `.editor-fields-box [hidden]` and associated classes.
+     - Preserved all inputs in the DOM to guarantee zero breakage for `collectCardData()`, `getCardPreviewData()`, `scheduleDuplicateCheck()`, and automated test mocks.
+  2. **Top 3 Meanings in Hero Showcase:**
+     - Added `wordMeaningsSummary` DOM reference for `#word-meanings-summary`.
+     - Implemented `updateHeroMeanings(data)` in [sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) to parse definitions (splitting on semicolons/newlines/numbered bullets) and display the top 3 items inline.
+     - Added live input listener on `fieldMeaning` so edits in the Meaning textarea immediately reflect in the hero showcase.
+  3. **Hero Showcase Badges Activation:**
+     - Connected `#showcase-jlpt-badge`, `#showcase-pos-badge`, and `#showcase-pitch-badge`.
+     - Implemented `updateHeroBadges(body)` in [sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) to extract and format JLPT level (`N1`–`N5`), Part of Speech (`noun`, `verb`, etc.), and Pitch Accent (`⓪`, `①`, etc.) from dictionary entries.
+     - Integrated badge and meaning updates into `identify()`, `openSavedCard()`, card save, and card deletion reset workflows.
+
+- **Verification:**
+  - ✅ `node --test extension/tests/*.test.js`: **77/77 tests passed (100%)**
+  - ✅ `python -m pytest backend/tests -o pythonpath=backend`: **374/374 tests passed (100%)**
+
 
 
 
