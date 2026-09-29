@@ -1,7 +1,8 @@
 # Kiroku Note — Feature Implementation Guide
 
-> **For coding agents:** Read `AGENTS.md`, `ARCHITECTURE.md`, and `PROGRESS.md` before touching any file.
-> Features are sorted from simplest to most complex. Implement low-complexity items first to avoid
+> **For coding agents:** Read `AGENTS.md`, `ARCHITECTURE.md`, and `PROGRESS.md` before touching any file. 
+> Use superpowers when necessary.
+> Features are sorted from simplest to most complex. Implement low-complexity items first or as asked by user to avoid
 > destabilizing working systems. Each entry describes WHAT to do, WHY, and HOW with exact file targets.
 > Run the full test suites after every feature: `python -m pytest -o pythonpath=backend backend/tests`
 > and `node --test extension/tests/*.test.js`.
