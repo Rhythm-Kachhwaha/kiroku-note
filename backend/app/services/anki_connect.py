@@ -538,6 +538,7 @@ class AnkiConnectService:
             show_meaning_back = bool(back_cfg.get("show_meaning", True))
             show_hint_back = bool(back_cfg.get("show_hint", True))
             show_jlpt = bool(settings.get("show_jlpt", True))
+            show_verb_type = bool(settings.get("show_verb_type", True))
 
             # Front: Japanese expression is base. Optional reading, kanji reading, meaning, hint
             front_elements = [escaped_expr]
@@ -605,10 +606,12 @@ class AnkiConnectService:
                 audio=aud_for_back,
                 pitches=pitches,
                 jlpt_level=jlpt_level,
+                verb_metadata=_get_field(card, "verb_metadata"),
                 show_reading=show_reading_back,
                 show_meaning=show_meaning_back,
                 show_jlpt=show_jlpt,
                 show_hint=show_hint_back,
+                show_verb_type=show_verb_type,
             )
 
             # Assign to dedicated media fields if present

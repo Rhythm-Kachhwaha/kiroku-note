@@ -22,8 +22,17 @@
     "scripting",
     "tabs",
     "tabCapture",
-    "offscreen"
+    "offscreen",
+    "clipboardRead"
   ],
+  "commands": {
+    "open-side-panel": {
+      "suggested_key": {
+        "default": "Alt+Shift+K"
+      },
+      "description": "Open Kiroku Note side panel"
+    }
+  },
   "host_permissions": [
     "http://127.0.0.1:21828/*",
     "*://*.youtube.com/*",

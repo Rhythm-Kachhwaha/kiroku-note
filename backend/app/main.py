@@ -1,12 +1,15 @@
 import base64
+import csv
+import io
 import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
-from app.db.connection import init_db
+from app.config import APP_VERSION
+from app.db.connection import db_session, init_db
 from app.services.media_storage import MediaStorageService
 from app.schemas import (
     AnkiDecksResponse,
@@ -18,6 +21,7 @@ from app.schemas import (
     CardDetailResponse,
     CardListResponse,
     DeleteCardResponse,
+    HealthResponse,
     OcrRecognizeRequest,
     OcrRecognizeResponse,
     OcrStatusResponse,
@@ -70,6 +74,53 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/api/health", response_model=HealthResponse)
+def get_health() -> HealthResponse:
+    # 1. Database check
+    db_ok = False
+    try:
+        with db_session() as conn:
+            conn.execute("SELECT 1")
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    # 2. Yomitan check
+    yomitan_ok = False
+    try:
+        yomitan_service = YomitanService()
+        yomitan_ok = yomitan_service.check_availability()
+    except Exception:
+        yomitan_ok = False
+
+    # 3. AnkiConnect check
+    anki_ok = False
+    try:
+        card_service = CardService()
+        anki_status = card_service.get_anki_status()
+        anki_ok = bool(anki_status.connected)
+    except Exception:
+        anki_ok = False
+
+    # 4. Standalone OCR check
+    ocr_ok = False
+    try:
+        ocr_service = OcrService()
+        ocr_status = ocr_service.get_status()
+        ocr_ok = bool(ocr_status.available)
+    except Exception:
+        ocr_ok = False
+
+    return HealthResponse(
+        status="ok",
+        version=APP_VERSION,
+        yomitan=yomitan_ok,
+        ankiconnect=anki_ok,
+        ocr=ocr_ok,
+        db=db_ok,
+    )
 
 
 @app.post("/api/capture", response_model=CaptureResponse)
@@ -166,6 +217,44 @@ def list_cards(
         sync_status=sync_status,
         limit=limit,
         offset=offset,
+    )
+
+
+@app.get("/api/cards/export")
+def export_cards_csv(
+    deck: str | None = None,
+    deck_name: str | None = None,
+    status: str | None = None,
+    sync_status: str | None = None,
+    search: str | None = None,
+) -> Response:
+    service = CardService()
+    target_deck = deck or deck_name
+    target_status = status or sync_status
+    records = service.repository.list_cards(
+        search=search,
+        deck_name=target_deck,
+        sync_status=target_status,
+        limit=100000,
+        offset=0,
+    )
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator="\n")
+    writer.writerow(["expression", "reading", "meaning", "jlpt_level", "deck", "sync_status", "created_at"])
+    for r in records:
+        writer.writerow([
+            r.expression or "",
+            r.reading or "",
+            r.meaning or "",
+            r.jlpt_level or "",
+            r.deck_name or "",
+            r.sync_status or "",
+            r.created_at or "",
+        ])
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="kiroku_cards.csv"'},
     )
 
 

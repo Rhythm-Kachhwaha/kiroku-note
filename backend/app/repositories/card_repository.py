@@ -10,6 +10,7 @@ from typing import Any
 
 from app.db.connection import db_session, init_db
 from app.services.card_normalizer import get_duplicate_identity, normalize_deck, normalize_expression, normalize_reading
+from app.services.verb_metadata import VerbMetadata, parse_verb_metadata
 
 
 @dataclass
@@ -37,6 +38,8 @@ class CardDraft:
     anki_note_id: int | None = None
     sync_error: str = ""
     synced_at: str | None = None
+    jlpt_level: str | None = None
+    verb_metadata: Any = None
     id: int | None = None
 
 
@@ -73,6 +76,8 @@ class CardRecord:
     examples: list[dict] = field(default_factory=list)
     kanji_entries: list[dict] = field(default_factory=list)
     card_settings: dict[str, Any] | None = None
+    jlpt_level: str | None = None
+    verb_metadata: VerbMetadata | None = None
 
 
 def _serialize_items(items: list[Any]) -> list[Any]:
@@ -98,14 +103,43 @@ def _serialize_items(items: list[Any]) -> list[Any]:
     return serialized
 
 
-def _serialize_meanings(entries: list[Any], kanji_entries: list[Any] | None = None, card_settings: dict[str, Any] | None = None) -> str:
+_jlpt_reference_service = None
+
+
+def _get_jlpt_reference():
+    global _jlpt_reference_service
+    if _jlpt_reference_service is None:
+        try:
+            from app.services.jlpt_reference import JlptReferenceService
+            _jlpt_reference_service = JlptReferenceService()
+        except Exception:
+            _jlpt_reference_service = False
+    return _jlpt_reference_service if _jlpt_reference_service is not False else None
+
+
+def _serialize_meanings(
+    entries: list[Any],
+    kanji_entries: list[Any] | None = None,
+    card_settings: dict[str, Any] | None = None,
+    jlpt_level: str | None = None,
+    verb_metadata: Any = None,
+) -> str:
     serialized_entries = _serialize_items(entries)
     data: dict[str, Any] = {"entries": serialized_entries}
     if kanji_entries:
         data["kanji_entries"] = _serialize_items(kanji_entries)
     if card_settings:
         data["card_settings"] = card_settings
-    if len(data) == 1 and "entries" in data and not card_settings:
+    if jlpt_level:
+        data["jlpt_level"] = jlpt_level
+    if verb_metadata:
+        if hasattr(verb_metadata, "to_dict"):
+            data["verb_metadata"] = verb_metadata.to_dict()
+        elif hasattr(verb_metadata, "model_dump"):
+            data["verb_metadata"] = verb_metadata.model_dump()
+        elif isinstance(verb_metadata, dict):
+            data["verb_metadata"] = verb_metadata
+    if len(data) == 1 and "entries" in data and not card_settings and not jlpt_level and not verb_metadata:
         return json.dumps(serialized_entries, ensure_ascii=False)
     return json.dumps(data, ensure_ascii=False)
 
@@ -136,6 +170,63 @@ def _row_to_record(row: sqlite3.Row) -> CardRecord:
         examples = json.loads(examples_raw) if examples_raw else []
     except Exception:
         examples = []
+
+    jlpt_level = None
+    if isinstance(parsed_meanings, dict):
+        jlpt_level = parsed_meanings.get("jlpt_level")
+
+    if not jlpt_level and entries:
+        for e in entries:
+            for t in (e.get("tags") or []):
+                t_str = str(t)
+                if t_str.lower().startswith("jlpt-n") and len(t_str) == 7:
+                    jlpt_level = t_str[5:].upper()
+                    break
+                elif t_str.lower().startswith("n") and len(t_str) == 2 and t_str[1].isdigit():
+                    jlpt_level = t_str.upper()
+                    break
+            if jlpt_level:
+                break
+
+    if not jlpt_level and kanji_entries:
+        for k in kanji_entries:
+            stats = k.get("stats") or {}
+            if stats.get("jlpt") and str(stats.get("jlpt")).upper().startswith("N"):
+                jlpt_level = str(stats.get("jlpt")).upper()
+                break
+
+    if not jlpt_level and row["expression"]:
+        ref = _get_jlpt_reference()
+        if ref and hasattr(ref, "lookup_word_with_kanji_fallback"):
+            try:
+                jlpt_level = ref.lookup_word_with_kanji_fallback(row["expression"])
+            except Exception:
+                jlpt_level = None
+
+    verb_metadata: VerbMetadata | None = None
+    if isinstance(parsed_meanings, dict):
+        vm_raw = parsed_meanings.get("verb_metadata")
+        if isinstance(vm_raw, dict):
+            try:
+                verb_metadata = VerbMetadata(
+                    is_verb=bool(vm_raw.get("is_verb")),
+                    verb_type=vm_raw.get("verb_type"),
+                    is_transitive=bool(vm_raw.get("is_transitive")),
+                    is_intransitive=bool(vm_raw.get("is_intransitive")),
+                    transitivity_label=str(vm_raw.get("transitivity_label") or "none"),
+                )
+            except Exception:
+                verb_metadata = None
+
+    if verb_metadata is None and entries:
+        all_pos: list[str] = []
+        for e in entries:
+            all_pos.extend(e.get("parts_of_speech") or [])
+            for s in (e.get("senses") or []):
+                all_pos.extend(s.get("parts_of_speech") or [])
+            all_pos.extend(e.get("tags") or [])
+        if all_pos:
+            verb_metadata = parse_verb_metadata(all_pos)
 
     def _get(key: str, default: str = "") -> str:
         return row[key] if key in row.keys() and row[key] is not None else default
@@ -175,6 +266,8 @@ def _row_to_record(row: sqlite3.Row) -> CardRecord:
         examples=examples,
         kanji_entries=kanji_entries,
         card_settings=card_settings,
+        jlpt_level=jlpt_level,
+        verb_metadata=verb_metadata,
     )
 
 
@@ -238,7 +331,7 @@ class CardRepository:
         """
         norm_expr, norm_read, norm_deck = get_duplicate_identity(draft.expression, draft.reading, draft.deck_name)
         now_utc = datetime.now(timezone.utc).isoformat()
-        meanings_json = _serialize_meanings(draft.entries, draft.kanji_entries, draft.card_settings)
+        meanings_json = _serialize_meanings(draft.entries, draft.kanji_entries, draft.card_settings, draft.jlpt_level, getattr(draft, "verb_metadata", None))
         examples_json = _serialize_to_json(draft.examples)
 
         with db_session(self._db_path) as conn:

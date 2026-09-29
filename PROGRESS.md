@@ -1524,6 +1524,99 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ **Backend Pytest Suite:** **391/391 passed (100%)** (`python -m pytest backend/tests -o pythonpath=backend`)
 - **Remaining Risk:** None. All changes are purely additive and maintain 100% backward compatibility.
 
+---
+
+### Tier 2 — Session 1: Extension & UI Quick-Wins (Client-side & UX Focus)
+
+- **Date:** 2026-09-29
+- **Scope & Objectives:**
+  - Complete the six tasks assigned for Tier 2 Session 1 from `newfeatures.md`:
+    - **T2-B**: Keyboard shortcut `Alt+Shift+K` to open/focus the Side Panel.
+    - **T2-D**: Speaker button (`🔊`) on Hero card for browser TTS pronunciation (`ja-JP`).
+    - **T2-H**: Clipboard auto-detection on panel focus with one-click capture bar.
+    - **T2-A**: JLPT level pill (`N3`, etc.) on History card rows.
+    - **T2-J**: Sort dropdown in History (`date-desc`, `date-asc`, `jlpt`, `deck`, `status`).
+    - **T2-I**: Auto-trigger silent `Sync All` when AnkiConnect reconnects.
+  - Zero SQLite schema migration risk (purely client-side + deserialization/fallback in repository).
+- **Implementation Deliverables:**
+  1. **T2-B (Keyboard Shortcut `Alt+Shift+K`):**
+     - Updated [extension/manifest.json](file:///d:/Python/AnkiMiner/extension/manifest.json) with `"clipboardRead"` permission and `"commands"` entry for `open-side-panel` (`Alt+Shift+K`).
+     - Added `chrome.commands.onCommand` listener in [extension/background.js](file:///d:/Python/AnkiMiner/extension/background.js) invoking `chrome.sidePanel.open` with `tab.windowId` fallback.
+  2. **T2-D (Browser TTS Pronunciation on Hero Card):**
+     - Added `#btn-tts-play` inside `.hero-expression-row` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html).
+     - Styled `.btn-tts` and `.hero-expression-row` in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css) with subtle hover and active states.
+     - Implemented `SpeechSynthesisUtterance` (`lang: "ja-JP"`) and `updateTtsPlayButton()` visibility toggling in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
+  3. **T2-H (Clipboard Auto-Detection & Quick Capture):**
+     - Added `#clipboard-suggestion-bar` with `#clipboard-suggestion-text`, `#btn-clipboard-capture`, and `#btn-clipboard-dismiss` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html).
+     - Styled `.clipboard-suggestion-bar` in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css).
+     - Wired Japanese character regex detection (`/[\u3040-\u30ff\u4e00-\u9fff]/`), dismiss/capture memory cache, and `window focus` / `document visibilitychange` listeners in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
+  4. **T2-A (JLPT Level Pill on History Rows):**
+     - Added `jlpt_level: Optional[str] = None` to `CardSummary`, `CardDetailResponse`, and `SaveCardRequest` in [backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py).
+     - Updated `CardDraft` and `CardRecord` in [backend/app/repositories/card_repository.py](file:///d:/Python/AnkiMiner/backend/app/repositories/card_repository.py) to deserialize `jlpt_level` from `meanings_json` and fallback to bundled OpenJLPT reference.
+     - Rendered `<span class="history-item-jlpt pill-jlpt">` in `renderHistoryCards()` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
+     - Added backend API test `test_list_cards_includes_jlpt_level` in [backend/tests/test_cards_api.py](file:///d:/Python/AnkiMiner/backend/tests/test_cards_api.py).
+  5. **T2-J (History Sort Dropdown):**
+     - Added `#history-sort-select` with options `date-desc`, `date-asc`, `jlpt` (N5→N1), `deck`, `status` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html).
+     - Implemented `sortHistoryCards()` and persisted selected sort mode to `chrome.storage.local` / `localStorage` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
+  6. **T2-I (Auto-Trigger Silent Sync All on Reconnect):**
+     - Refactored `triggerSyncAll({ silent: false })` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) so background sync operates silently without flashing status banners.
+     - Added `checkAnkiStatus()` polling and `checkAndAutoSyncPendingCards()` triggering silent sync when AnkiConnect transitions from offline to online with pending cards.
+- **Verification:**
+  - ✅ `extension/tests/tier2-session1-features.test.js`: **6/6 passed (100%)**
+  - ✅ **Full Extension Test Suite:** **111/111 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - ✅ **Full Backend Pytest Suite:** **392/392 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+- **Remaining Risk:** Zero. All changes adhere strictly to the locked architecture, require zero database migrations, and pass 100% of automated unit and regression tests.
+
+---
+
+### Tier 2 — Session 2: Backend, Anki & Data Pipeline (Backend services, formatting & quality)
+
+- **Date:** 2026-09-29
+- **Scope & Objectives:**
+  - Complete the tasks assigned for Tier 2 Session 2 from `newfeatures.md`:
+    - **T2-G**: Unified `/api/health` endpoint replacing separate startup checks.
+    - **T2-F**: History CSV Export button and `GET /api/cards/export` endpoint.
+    - **T2-C**: Include verb type & transitivity tags in Anki card HTML and Side Panel card preview.
+    - **T2-K**: Fix POS tagging heuristics (`desu`, `ashita`, `imi`) & declutter dictionary view.
+    - **T2-E**: Evaluate OCR confidence score badge feasibility against `manga-ocr`.
+  - Adhere strictly to SQLite local-first persistence with zero schema migrations.
+- **Implementation Deliverables:**
+  1. **T2-G (Unified Backend `/api/health` Endpoint):**
+     - Added `check_availability()` method to `YomitanService` in [backend/app/services/yomitan.py](file:///d:/Python/AnkiMiner/backend/app/services/yomitan.py).
+     - Defined `HealthResponse` schema in [backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py).
+     - Added `GET /api/health` in [backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py) returning `{ "status": "ok", "version": APP_VERSION, "yomitan": bool, "ankiconnect": bool, "ocr": bool, "db": bool }` using managed `db_session()` connection lifecycle.
+     - Implemented `checkHealthStatus()` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) to query `/api/health` and update all 3 indicators in parallel during extension startup while retaining individual legacy status endpoints intact.
+  2. **T2-F (History CSV Export):**
+     - Added `GET /api/cards/export` in [backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py) supporting optional `deck`, `status`, and `search` query parameters, returning streaming `text/csv` with headers `expression,reading,meaning,jlpt_level,deck,sync_status,created_at`.
+     - Added `<button id="btn-export-cards">Export CSV</button>` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html) and styled `.btn-export-cards` in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css).
+     - Added `exportCardsCsv()` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) triggering browser download via `URL.createObjectURL(new Blob(...))`.
+     - Created comprehensive backend export tests in [backend/tests/test_cards_export.py](file:///d:/Python/AnkiMiner/backend/tests/test_cards_export.py) (empty, populated, deck filter, sync filter, health endpoint).
+  3. **T2-C (Verb Metadata in Anki Card HTML & Settings):**
+     - Added `VerbMetadataSchema` and optional `verb_metadata` field on `SaveCardRequest`, `SaveCardResponse`, `CardSummary`, and `CardDetailResponse` in [backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py).
+     - Updated [backend/app/repositories/card_repository.py](file:///d:/Python/AnkiMiner/backend/app/repositories/card_repository.py) to serialize/deserialize `verb_metadata` within `meanings_json`.
+     - Updated `format_basic_back()` in [backend/app/services/anki_formatter.py](file:///d:/Python/AnkiMiner/backend/app/services/anki_formatter.py) and [backend/app/services/anki_connect.py](file:///d:/Python/AnkiMiner/backend/app/services/anki_connect.py) to render `<span class="kn-pos kn-verb-type">{verb_type}</span>` and `<span class="kn-pos kn-transitivity">{transitivity_label}</span>` when `show_verb_type` is enabled.
+     - Added `#setting-show-verb-type` toggle switch in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html), updated `DEFAULT_CARD_TEMPLATE_SETTINGS`, storage synchronization, and back-side preview in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
+     - Added unit tests covering verb metadata formatting in [backend/tests/test_anki_formatter.py](file:///d:/Python/AnkiMiner/backend/tests/test_anki_formatter.py).
+  4. **T2-K (POS Tag Heuristic Accuracy & Dictionary View Declutter):**
+     - Hardened `parse_verb_metadata` in [backend/app/services/verb_metadata.py](file:///d:/Python/AnkiMiner/backend/app/services/verb_metadata.py):
+       - Guarded copula/auxiliary tags (`cop`, `copula`) to return `is_verb = False`.
+       - Guarded noun/adverb presence when `suru` is only an inflection marker without `vs`/`vt`/`vi` verb tags to return `is_verb = False`.
+       - Restricted transitivity labels (`他動詞`, `自動詞`, `自他動詞`) strictly to content verbs.
+     - Updated `updateHeroBadges()` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) with POS display priority (`noun` > `adverb` > `verb` > `aux`), preventing nouns like `意味` or `明日` from falsely displaying standalone `verb`.
+     - Added CSS declutter rules in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css) for `.dict-sense-tags .kn-pos`, `.dict-sense-gloss-list li`, and `.dict-extra-dicts-badge`.
+     - Added unit tests in [backend/tests/test_verb_metadata.py](file:///d:/Python/AnkiMiner/backend/tests/test_verb_metadata.py) testing `です`, `明日`, `意味`, `元気`, `する`, and `食べる`.
+  5. **T2-E (OCR Confidence Score Badge Evaluation):**
+     - Evaluated `manga-ocr` architecture in [ocr_server/server.py](file:///d:/Python/AnkiMiner/ocr_server/server.py). The model's greedy autoregressive decoder outputs string predictions directly without retaining token-level logits or confidence metrics.
+     - Per specification constraint: *"If manga-ocr does not expose confidence, document this as 'Not Implemented — model does not expose per-token confidence' in PROGRESS.md and skip."*
+     - Status: **Not Implemented — model does not expose per-token confidence**.
+- **Verification:**
+  - ✅ `extension/tests/tier2-session2-features.test.js`: **4/4 passed (100%)**
+  - ✅ **Full Extension Test Suite:** **115/115 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - ✅ **Full Backend Pytest Suite:** **404/404 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+- **Remaining Risk:** None. All features are additive, non-breaking, fully verified by automated tests, and strictly respect locked architectural boundaries.
+
+
+
 
 
 

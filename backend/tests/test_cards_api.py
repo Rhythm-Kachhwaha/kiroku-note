@@ -179,6 +179,31 @@ class CardsApiTests(unittest.TestCase):
         resp_neg = self.client.get("/api/cards?limit=-5")
         self.assertEqual(resp_neg.status_code, 422)
 
+    def test_list_cards_includes_jlpt_level(self):
+        # Save a card with explicit jlpt_level via SaveCardRequest
+        save_resp = self.client.post("/api/cards/save", json={
+            "expression": "素晴らしい",
+            "reading": "すばらしい",
+            "meaning": "wonderful",
+            "jlpt_level": "N3"
+        })
+        self.assertEqual(save_resp.status_code, 200)
+
+        # Save a card that resolves via OpenJLPT fallback (本 -> N5)
+        save_resp2 = self.client.post("/api/cards/save", json={
+            "expression": "本",
+            "reading": "ほん",
+            "meaning": "book",
+        })
+        self.assertEqual(save_resp2.status_code, 200)
+
+        resp = self.client.get("/api/cards")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        cards = {c["expression"]: c for c in data["cards"]}
+        self.assertEqual(cards["素晴らしい"]["jlpt_level"], "N3")
+        self.assertEqual(cards["本"]["jlpt_level"], "N5")
+
 
 if __name__ == "__main__":
     unittest.main()

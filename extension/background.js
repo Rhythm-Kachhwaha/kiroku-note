@@ -546,6 +546,22 @@ chrome.tabs.onRemoved?.addListener?.((tabId) => {
   }
 });
 
+if (typeof chrome !== "undefined" && chrome.commands?.onCommand) {
+  chrome.commands.onCommand.addListener((command, tab) => {
+    if (command === "open-side-panel") {
+      if (tab?.windowId && chrome.sidePanel?.open) {
+        chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
+      } else if (chrome.sidePanel?.open) {
+        chrome.windows?.getCurrent((win) => {
+          if (win?.id) {
+            chrome.sidePanel.open({ windowId: win.id }).catch(() => {});
+          }
+        });
+      }
+    }
+  });
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     hasOffscreenDocument,

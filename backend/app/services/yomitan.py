@@ -317,6 +317,14 @@ class YomitanService:
 
         return found_dicts
 
+    def check_availability(self) -> bool:
+        """Check if Yomitan local HTTP server is reachable."""
+        try:
+            self._post_json("/tokenize", {"text": "日", "scanLength": 1, "parser": "scanning-parser"})
+            return True
+        except Exception:
+            return False
+
     def _post_json(self, path: str, payload: dict[str, Any]) -> Any:
         request = Request(f"{self._endpoint}{path}", data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
         try:

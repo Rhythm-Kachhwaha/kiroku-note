@@ -25,6 +25,7 @@ from app.schemas import (
     SaveCardResponse,
     SyncAllResponse,
     SyncCardResponse,
+    VerbMetadataSchema,
 )
 from app.services.anki_connect import AnkiConnectService, AnkiError
 from app.services.media_storage import MediaStorageService
@@ -280,6 +281,8 @@ class CardService:
             entries=_strip_transient_dictionary_data(request.entries),
             kanji_entries=request.kanji_entries,
             card_settings=request.card_settings,
+            jlpt_level=request.jlpt_level,
+            verb_metadata=request.verb_metadata,
             status="saved",
             id=request.id,
         )
@@ -316,6 +319,7 @@ class CardService:
             entries=record.entries,
             kanji_entries=record.kanji_entries,
             card_settings=record.card_settings,
+            verb_metadata=VerbMetadataSchema(**record.verb_metadata.to_dict()) if record.verb_metadata else None,
         )
 
     def capture_and_save(self, text: str, deck_name: str = "Default") -> CaptureResponse:
@@ -737,6 +741,7 @@ class CardService:
                 sync_error=r.sync_error,
                 created_at=r.created_at,
                 updated_at=r.updated_at,
+                jlpt_level=r.jlpt_level,
             )
             for r in records
         ]
@@ -772,6 +777,8 @@ class CardService:
             updated_at=record.updated_at,
             entries=record.entries,
             kanji_entries=record.kanji_entries,
+            jlpt_level=record.jlpt_level,
+            verb_metadata=VerbMetadataSchema(**record.verb_metadata.to_dict()) if record.verb_metadata else None,
         )
 
     def delete_card(self, card_id: int) -> bool:

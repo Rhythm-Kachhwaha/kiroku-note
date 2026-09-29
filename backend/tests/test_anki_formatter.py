@@ -588,6 +588,65 @@ class TestAnkiFormatter(unittest.TestCase):
         self.assertNotIn('<div class="kn-hint">', html_without_hint)
         self.assertNotIn('irregular verb', html_without_hint)
 
+    # 23. format_basic_back with verb_metadata and show_verb_type toggle
+    def test_23_format_basic_back_verb_metadata(self):
+        # 1. Transitive verb (ichidan + 他動詞)
+        verb_card = {
+            "expression": "食べる",
+            "reading": "たべる",
+            "meaning": "to eat",
+            "verb_metadata": {
+                "is_verb": True,
+                "verb_type": "ichidan",
+                "is_transitive": True,
+                "is_intransitive": False,
+                "transitivity_label": "他動詞",
+            },
+        }
+        html_trans = format_basic_back(verb_card, show_verb_type=True)
+        self.assertIn('<span class="kn-pos kn-verb-type">ichidan</span>', html_trans)
+        self.assertIn('<span class="kn-pos kn-transitivity">他動詞</span>', html_trans)
+
+        # 2. Intransitive verb (godan + 自動詞)
+        verb_card_intrans = {
+            "expression": "行く",
+            "reading": "いく",
+            "meaning": "to go",
+            "verb_metadata": {
+                "is_verb": True,
+                "verb_type": "godan",
+                "is_transitive": False,
+                "is_intransitive": True,
+                "transitivity_label": "自動詞",
+            },
+        }
+        html_intrans = format_basic_back(verb_card_intrans, show_verb_type=True)
+        self.assertIn('<span class="kn-pos kn-verb-type">godan</span>', html_intrans)
+        self.assertIn('<span class="kn-pos kn-transitivity">自動詞</span>', html_intrans)
+
+        # 3. Non-verb card
+        non_verb_card = {
+            "expression": "明日",
+            "reading": "あした",
+            "meaning": "tomorrow",
+            "verb_metadata": {
+                "is_verb": False,
+                "verb_type": None,
+                "is_transitive": False,
+                "is_intransitive": False,
+                "transitivity_label": "none",
+            },
+        }
+        html_non_verb = format_basic_back(non_verb_card, show_verb_type=True)
+        self.assertNotIn('kn-verb-type', html_non_verb)
+        self.assertNotIn('kn-transitivity', html_non_verb)
+
+        # 4. Toggle disabled (show_verb_type=False)
+        html_toggle_off = format_basic_back(verb_card, show_verb_type=False)
+        self.assertNotIn('kn-verb-type', html_toggle_off)
+        self.assertNotIn('kn-transitivity', html_toggle_off)
+
 
 if __name__ == "__main__":
     unittest.main()
+

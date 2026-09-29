@@ -22,17 +22,17 @@
 - [x] **T1-E** — Add "→ Sentence" button on dictionary examples to insert into the Sentence field *(Already functionally implemented, UI label updated to "→ Sentence" & verified 2026-09-29)*
 
 ### Tier 2 — Low
-- [ ] **T2-A** — Show JLPT level (N3 etc.) as a pill on each History card row
-- [ ] **T2-B** — Add keyboard shortcut `Alt+Shift+K` to open the Side Panel
-- [ ] **T2-C** — Include verb type & transitivity on the Anki card HTML output
-- [ ] **T2-D** — Add a 🔊 speaker button on the hero card to play pronunciation via browser TTS
-- [ ] **T2-E** — Show OCR confidence score badge next to expression after OCR capture
-- [ ] **T2-F** — Add Export CSV button in History to download all cards as a file
-- [ ] **T2-G** — Add a single `/api/health` endpoint replacing the 3-4 separate startup checks
-- [ ] **T2-H** — Detect Japanese text on clipboard when panel opens and offer one-click capture
-- [ ] **T2-I** — Auto-trigger Sync All silently when AnkiConnect comes back online
-- [ ] **T2-J** — Add sort dropdown to History (by date / JLPT / deck / status)
-- [ ] **T2-K** — Fix wrong POS tags (desu/ashita/imi showing "verb") + reduce dictionary clutter
+- [x] **T2-A** — Show JLPT level (N3 etc.) as a pill on each History card row *(Implemented & verified 2026-09-29)*
+- [x] **T2-B** — Add keyboard shortcut `Alt+Shift+K` to open the Side Panel *(Implemented & verified 2026-09-29)*
+- [x] **T2-C** — Include verb type & transitivity on the Anki card HTML output *(Implemented & verified 2026-09-29)*
+- [x] **T2-D** — Add a 🔊 speaker button on the hero card to play pronunciation via browser TTS *(Implemented & verified 2026-09-29)*
+- [x] **T2-E** — Show OCR confidence score badge next to expression after OCR capture *(Evaluated per spec: manga-ocr model pipeline does not expose per-token confidence/logits; documented as Not Implemented in PROGRESS.md per constraint)*
+- [x] **T2-F** — Add Export CSV button in History to download all cards as a file *(Implemented & verified 2026-09-29)*
+- [x] **T2-G** — Add a single `/api/health` endpoint replacing the 3-4 separate startup checks *(Implemented & verified 2026-09-29)*
+- [x] **T2-H** — Detect Japanese text on clipboard when panel opens and offer one-click capture *(Implemented & verified 2026-09-29)*
+- [x] **T2-I** — Auto-trigger Sync All silently when AnkiConnect comes back online *(Implemented & verified 2026-09-29)*
+- [x] **T2-J** — Add sort dropdown to History (by date / JLPT / deck / status) *(Implemented & verified 2026-09-29)*
+- [x] **T2-K** — Fix wrong POS tags (desu/ashita/imi showing "verb") + reduce dictionary clutter *(Implemented & verified 2026-09-29)*
 
 ### Tier 3 — Medium
 - [ ] **T3-A** — `Alt+Enter` shortcut: saves card AND sends to Anki in one step

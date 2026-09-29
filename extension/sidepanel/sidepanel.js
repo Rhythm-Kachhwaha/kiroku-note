@@ -11,6 +11,7 @@ const API_CARD_DETAIL_URL = (id) => `${BACKEND_BASE_URL}/api/cards/${id}`;
 const API_OCR_STATUS_URL = `${BACKEND_BASE_URL}/api/ocr/status`;
 const API_OCR_RECOGNIZE_URL = `${BACKEND_BASE_URL}/api/ocr/recognize`;
 const API_YOMITAN_DICTIONARIES_URL = `${BACKEND_BASE_URL}/api/yomitan/dictionaries`;
+const API_HEALTH_URL = `${BACKEND_BASE_URL}/api/health`;
 
 if (typeof chrome === "undefined") {
   globalThis.chrome = {
@@ -49,6 +50,17 @@ const wordMeaningsSummary = document.querySelector("#word-meanings-summary");
 const showcaseJlptBadge = document.querySelector("#showcase-jlpt-badge");
 const showcasePosBadge = document.querySelector("#showcase-pos-badge");
 const showcasePitchBadge = document.querySelector("#showcase-pitch-badge");
+const btnTtsPlay = document.querySelector("#btn-tts-play");
+const clipboardSuggestionBar = document.querySelector("#clipboard-suggestion-bar");
+const clipboardSuggestionText = document.querySelector("#clipboard-suggestion-text");
+const btnClipboardCapture = document.querySelector("#btn-clipboard-capture");
+const btnClipboardDismiss = document.querySelector("#btn-clipboard-dismiss");
+const historySortSelect = document.querySelector("#history-sort-select");
+const STORAGE_KEY_HISTORY_SORT = "kiroku.history.sortOrder";
+let currentHistorySort = "date-desc";
+let lastSeenClipboardText = "";
+let lastDismissedClipboardText = "";
+let prevAnkiStatus = null;
 const meanings = document.querySelector("#meanings");
 const examples = document.querySelector("#examples");
 const dictActionsBar = document.querySelector("#dict-actions-bar");
@@ -156,6 +168,7 @@ const settingBackReading = document.querySelector("#setting-back-reading");
 const settingBackMeaning = document.querySelector("#setting-back-meaning");
 const settingBackHint = document.querySelector("#setting-back-hint");
 const settingShowJlpt = document.querySelector("#setting-show-jlpt");
+const settingShowVerbType = document.querySelector("#setting-show-verb-type");
 const settingShowHistory = document.querySelector("#setting-show-history");
 
 // Yomitan Dictionaries Settings elements
@@ -197,6 +210,7 @@ const DEFAULT_CARD_TEMPLATE_SETTINGS = {
     show_hint: true,
   },
   show_jlpt: true,
+  show_verb_type: true,
   show_history: true,
 };
 let currentCardTemplateSettings = JSON.parse(JSON.stringify(DEFAULT_CARD_TEMPLATE_SETTINGS));
@@ -220,6 +234,9 @@ async function loadStoredCardTemplateSettings() {
           show_jlpt: typeof data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_jlpt === "boolean"
             ? data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_jlpt
             : (typeof data[STORAGE_KEY_SHOW_JLPT_LEVEL] === "boolean" ? data[STORAGE_KEY_SHOW_JLPT_LEVEL] : true),
+          show_verb_type: typeof data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_verb_type === "boolean"
+            ? data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_verb_type
+            : true,
           show_history: typeof data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_history === "boolean"
             ? data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_history
             : true,
@@ -238,6 +255,9 @@ async function loadStoredCardTemplateSettings() {
           show_jlpt: typeof parsed.show_jlpt === "boolean"
             ? parsed.show_jlpt
             : (storedJlpt !== null ? JSON.parse(storedJlpt) : true),
+          show_verb_type: typeof parsed.show_verb_type === "boolean"
+            ? parsed.show_verb_type
+            : true,
           show_history: typeof parsed.show_history === "boolean"
             ? parsed.show_history
             : true,
@@ -281,6 +301,7 @@ function syncCardTemplateSettingsUI() {
   if (settingBackMeaning) settingBackMeaning.checked = currentCardTemplateSettings?.back?.show_meaning !== false;
   if (settingBackHint) settingBackHint.checked = currentCardTemplateSettings?.back?.show_hint !== false;
   if (settingShowJlpt) settingShowJlpt.checked = currentCardTemplateSettings?.show_jlpt !== false;
+  if (settingShowVerbType) settingShowVerbType.checked = currentCardTemplateSettings?.show_verb_type !== false;
   if (settingShowHistory) settingShowHistory.checked = currentCardTemplateSettings?.show_history !== false;
   applyHistoryVisibility();
 }
@@ -306,6 +327,13 @@ function syncCardTemplateSettingsUI() {
 if (settingShowJlpt) {
   settingShowJlpt.addEventListener("change", () => {
     currentCardTemplateSettings.show_jlpt = settingShowJlpt.checked;
+    saveStoredCardTemplateSettings();
+  });
+}
+
+if (settingShowVerbType) {
+  settingShowVerbType.addEventListener("change", () => {
+    currentCardTemplateSettings.show_verb_type = settingShowVerbType.checked;
     saveStoredCardTemplateSettings();
   });
 }
@@ -589,6 +617,7 @@ const historyListContainer = document.querySelector("#history-list-container");
 const historyEmpty = document.querySelector("#history-empty");
 const historyCardsList = document.querySelector("#history-cards-list");
 const btnSyncAll = document.querySelector("#btn-sync-all");
+const btnExportCards = document.querySelector("#btn-export-cards");
 const syncAllStatus = document.querySelector("#sync-all-status");
 
 // History Collapse Management (Guardrail 4)
@@ -810,18 +839,79 @@ function updateSyncUI(state, error = "") {
   }
 }
 
+let ankiStatusPollInterval = null;
+
+async function checkAnkiStatus() {
+  try {
+    const res = await fetch(API_ANKI_DECKS_URL);
+    const data = await res.json().catch(() => ({}));
+    const isNowConnected = Boolean(data.connected);
+    const wasOffline = prevAnkiStatus === false;
+    const isInitial = prevAnkiStatus === null;
+
+    prevAnkiStatus = isNowConnected;
+    ankiConnected = isNowConnected;
+
+    if (isNowConnected) {
+      setIndicatorStatus(indicatorAnki, "connected", "Anki: Connected");
+      if (ankiSyncStatus && ankiSyncStatus.textContent === "Anki: Not connected") {
+        ankiSyncStatus.textContent = "Anki: Ready";
+      }
+      if (wasOffline && !isInitial && !isSyncAllRunning) {
+        checkAndAutoSyncPendingCards().catch(() => {});
+      }
+    } else {
+      setIndicatorStatus(indicatorAnki, "unavailable", "Anki: Not connected");
+    }
+    return isNowConnected;
+  } catch (_) {
+    prevAnkiStatus = false;
+    ankiConnected = false;
+    setIndicatorStatus(indicatorAnki, "unavailable", "Anki: Not connected");
+    return false;
+  }
+}
+
+async function checkAndAutoSyncPendingCards() {
+  try {
+    const res = await fetch(`${API_CARDS_URL}?sync_status=pending&limit=1`);
+    if (!res.ok) return;
+    const data = await res.json().catch(() => ({}));
+    if (Array.isArray(data.cards) && data.cards.length > 0) {
+      await triggerSyncAll({ silent: true });
+    }
+  } catch (_) {}
+}
+
+function startAnkiStatusPolling() {
+  if (typeof clearInterval !== "undefined" && ankiStatusPollInterval) clearInterval(ankiStatusPollInterval);
+  if (typeof setInterval !== "undefined") {
+    ankiStatusPollInterval = setInterval(() => {
+      checkAnkiStatus().catch(() => {});
+    }, 10000);
+  }
+}
+
 async function loadDecks() {
   try {
     setIndicatorStatus(indicatorAnki, "checking", "Anki: Checking connection…");
     const res = await fetch(API_ANKI_DECKS_URL);
     const data = await res.json().catch(() => ({}));
-    ankiConnected = Boolean(data.connected);
+    const isNowConnected = Boolean(data.connected);
+    const wasOffline = prevAnkiStatus === false;
+    const isInitial = prevAnkiStatus === null;
+
+    prevAnkiStatus = isNowConnected;
+    ankiConnected = isNowConnected;
     const decks = Array.isArray(data.decks) && data.decks.length ? data.decks : ["Default"];
 
     if (ankiConnected) {
       setIndicatorStatus(indicatorAnki, "connected", "Anki: Connected");
       if (ankiSyncStatus && ankiSyncStatus.textContent === "Anki: Not connected") {
         ankiSyncStatus.textContent = "Anki: Ready";
+      }
+      if (wasOffline && !isInitial && !isSyncAllRunning) {
+        checkAndAutoSyncPendingCards().catch(() => {});
       }
     } else {
       setIndicatorStatus(indicatorAnki, "unavailable", "Anki: Not connected");
@@ -992,6 +1082,46 @@ async function checkOcrStatus() {
     ocrLoaded = false;
     setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Backend unreachable");
     return { available: false, installed: false, model_loaded: false };
+  }
+}
+
+async function checkHealthStatus() {
+  try {
+    const res = await fetch(API_HEALTH_URL);
+    if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
+    const data = await res.json().catch(() => ({}));
+
+    if (data.yomitan) {
+      setIndicatorStatus(indicatorYomitan, "connected", "Yomitan: Connected");
+    } else {
+      setIndicatorStatus(indicatorYomitan, "unavailable", "Yomitan: Offline");
+    }
+
+    const isAnkiConnected = Boolean(data.ankiconnect);
+    ankiConnected = isAnkiConnected;
+    prevAnkiStatus = isAnkiConnected;
+    if (isAnkiConnected) {
+      setIndicatorStatus(indicatorAnki, "connected", "Anki: Connected");
+      if (ankiSyncStatus && ankiSyncStatus.textContent === "Anki: Not connected") {
+        ankiSyncStatus.textContent = "Anki: Ready";
+      }
+    } else {
+      setIndicatorStatus(indicatorAnki, "unavailable", "Anki: Not connected");
+    }
+
+    ocrAvailable = Boolean(data.ocr);
+    if (ocrAvailable) {
+      setIndicatorStatus(indicatorOcr, "connected", "OCR: Ready");
+    } else {
+      setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Offline");
+    }
+
+    return data;
+  } catch (_) {
+    setIndicatorStatus(indicatorYomitan, "unavailable", "Yomitan: Offline");
+    setIndicatorStatus(indicatorAnki, "unavailable", "Anki: Not connected");
+    setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Offline");
+    return { status: "error", yomitan: false, ankiconnect: false, ocr: false, db: false };
   }
 }
 
@@ -1227,7 +1357,31 @@ if (fieldMeaning) {
   });
 }
 
+function updateTtsPlayButton(exprText) {
+  if (!btnTtsPlay) return;
+  const text = (exprText !== undefined ? exprText : (fieldExpression ? fieldExpression.value : (expression ? expression.textContent : ""))).trim();
+  if (text && text !== "—") {
+    btnTtsPlay.hidden = false;
+  } else {
+    btnTtsPlay.hidden = true;
+  }
+}
+
+if (btnTtsPlay) {
+  btnTtsPlay.addEventListener("click", () => {
+    const text = (fieldExpression?.value || expression?.textContent || "").trim();
+    if (!text || text === "—") return;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = "ja-JP";
+      window.speechSynthesis.speak(utt);
+    }
+  });
+}
+
 function updateHeroReading(readingText, expressionText) {
+  if (typeof updateTtsPlayButton === "function") updateTtsPlayButton(expressionText);
   if (!reading) return;
   const rawReading = (readingText || "").trim();
   const rawExpr = (expressionText || "").trim();
@@ -1334,51 +1488,57 @@ function updateHeroBadges(body) {
   // 2. POS (Part of Speech) / Verb Metadata
   if (showcasePosBadge) {
     let posLabel = "";
-    const verbMeta = body?.verb_metadata || rawObj?.verb_metadata;
-    if (verbMeta && verbMeta.is_verb) {
-      const vType = verbMeta.verb_type ? String(verbMeta.verb_type).toLowerCase() : "";
-      posLabel = vType ? `verb · ${vType}` : "verb";
-    } else {
-      let rawPos = "";
-      if (entries.length) {
-        for (const e of entries) {
-          const allPosTokens = [
-            ...(Array.isArray(e.parts_of_speech) ? e.parts_of_speech : []),
-            ...(Array.isArray(e.tags) ? e.tags : []),
-          ];
-          if (Array.isArray(e.senses)) {
-            for (const s of e.senses) {
-              if (Array.isArray(s.parts_of_speech)) allPosTokens.push(...s.parts_of_speech);
-              if (Array.isArray(s.pos)) allPosTokens.push(...s.pos);
-              if (Array.isArray(s.tags)) allPosTokens.push(...s.tags);
-            }
-          }
-          const normTokens = allPosTokens.map(t => String(t).toLowerCase().trim());
-          if (normTokens.some(t => t.includes("5-dan") || t.includes("godan") || t.startsWith("v5"))) {
-            posLabel = "verb · godan";
-            break;
-          } else if (normTokens.some(t => t.includes("1-dan") || t.includes("ichidan") || t.startsWith("v1"))) {
-            posLabel = "verb · ichidan";
-            break;
-          } else if (normTokens.some(t => t === "suru" || t.includes("suru verb") || t === "vs" || t.startsWith("vs-"))) {
-            posLabel = "verb · suru";
-            break;
-          } else if (normTokens.some(t => t === "kuru" || t.includes("kuru verb") || t === "vk")) {
-            posLabel = "verb · kuru";
-            break;
-          } else if (normTokens.some(t => t.includes("verb") || t.startsWith("v"))) {
-            posLabel = "verb";
-            break;
-          }
-          if (!rawPos && normTokens.length) {
-            rawPos = normTokens[0];
+    const verbMeta = body?.verb_metadata || rawObj?.verb_metadata || (typeof currentVerbMetadata !== "undefined" ? currentVerbMetadata : null);
+
+    const allPosTokens = [
+      ...(Array.isArray(rawObj?.parts_of_speech) ? rawObj.parts_of_speech : []),
+      ...(Array.isArray(rawObj?.tags) ? rawObj.tags : []),
+    ];
+    if (entries.length) {
+      for (const e of entries) {
+        if (Array.isArray(e.parts_of_speech)) allPosTokens.push(...e.parts_of_speech);
+        if (Array.isArray(e.tags)) allPosTokens.push(...e.tags);
+        if (Array.isArray(e.senses)) {
+          for (const s of e.senses) {
+            if (Array.isArray(s.parts_of_speech)) allPosTokens.push(...s.parts_of_speech);
+            if (Array.isArray(s.pos)) allPosTokens.push(...s.pos);
+            if (Array.isArray(s.tags)) allPosTokens.push(...s.tags);
           }
         }
       }
-      if (!posLabel && rawPos) {
-        posLabel = rawPos;
-      }
     }
+    const normTokens = allPosTokens.map(t => String(t).toLowerCase().trim());
+    const isNoun = normTokens.some(t => t === "noun" || t.includes("noun") || t === "n" || t.startsWith("n-"));
+    const isAdverb = normTokens.some(t => t === "adverb" || t.includes("adverb") || t === "adv" || t.startsWith("adv-"));
+    const isAux = normTokens.some(t => t === "aux" || t.includes("aux") || t === "cop" || t.includes("copula"));
+
+    if (isNoun) {
+      if (verbMeta && verbMeta.is_verb) {
+        posLabel = "noun · suru";
+      } else {
+        posLabel = "noun";
+      }
+    } else if (isAdverb) {
+      posLabel = "adverb";
+    } else if (verbMeta && verbMeta.is_verb) {
+      const vType = verbMeta.verb_type ? String(verbMeta.verb_type).toLowerCase() : "";
+      posLabel = vType ? `verb · ${vType}` : "verb";
+    } else if (normTokens.some(t => t.includes("5-dan") || t.includes("godan") || t.startsWith("v5"))) {
+      posLabel = "verb · godan";
+    } else if (normTokens.some(t => t.includes("1-dan") || t.includes("ichidan") || t.startsWith("v1"))) {
+      posLabel = "verb · ichidan";
+    } else if (normTokens.some(t => t === "suru" || t.includes("suru verb") || t === "vs" || t.startsWith("vs-"))) {
+      posLabel = "verb · suru";
+    } else if (normTokens.some(t => t === "kuru" || t.includes("kuru verb") || t === "vk")) {
+      posLabel = "verb · kuru";
+    } else if (normTokens.some(t => t === "verb" || t.startsWith("v-") || (t.startsWith("v") && t.length <= 3))) {
+      posLabel = "verb";
+    } else if (isAux) {
+      posLabel = "aux";
+    } else if (normTokens.length) {
+      posLabel = normTokens[0];
+    }
+
     if (posLabel) {
       showcasePosBadge.textContent = posLabel;
       showcasePosBadge.className = "kn-badge pos";
@@ -1428,6 +1588,7 @@ function updateHeroBadges(body) {
 var currentPreviewSide = "back"; // "front" | "back"
 var previewUpdateTimer = null;
 var currentJlptLevel = null;
+var currentVerbMetadata = null;
 
 function formatKunyomi(kunStr) {
   if (!kunStr) return "";
@@ -1558,6 +1719,7 @@ function getCardPreviewData() {
     audio: resolvedAudio,
     pitch_badge: pitchBadge,
     jlpt_level: resolvedJlpt,
+    verb_metadata: (typeof currentVerbMetadata !== "undefined" && currentVerbMetadata) ? currentVerbMetadata : null,
     entries: (typeof currentDictionaryEntries !== "undefined" && Array.isArray(currentDictionaryEntries)) ? currentDictionaryEntries : [],
     kanji_entries: (typeof currentKanjiEntries !== "undefined" && Array.isArray(currentKanjiEntries)) ? currentKanjiEntries : [],
     kanji_readings: kanjiReadings,
@@ -1798,6 +1960,22 @@ function renderCardPreviewDOM(container, data, side = "back") {
       pitchSpan.className = "kn-pitch";
       pitchSpan.textContent = data.pitch_badge;
       readingDiv.append(pitchSpan);
+    }
+
+    if (settings.show_verb_type !== false && data.verb_metadata && data.verb_metadata.is_verb) {
+      if (data.verb_metadata.verb_type) {
+        const vSpan = document.createElement("span");
+        vSpan.className = "kn-pos kn-verb-type";
+        vSpan.textContent = data.verb_metadata.verb_type;
+        readingDiv.append(vSpan);
+      }
+      if (data.verb_metadata.transitivity) {
+        const tSpan = document.createElement("span");
+        tSpan.className = "kn-pos kn-transitivity";
+        const t = data.verb_metadata.transitivity;
+        tSpan.textContent = t === "transitive" ? "他動詞" : (t === "intransitive" ? "自動詞" : (t === "both" ? "自他動詞" : t));
+        readingDiv.append(tSpan);
+      }
     }
 
     container.append(readingDiv);
@@ -2123,6 +2301,7 @@ function clearDictionaryView() {
   currentDictionaryEntries = [];
   currentKanjiEntries = [];
   currentJlptLevel = null;
+  currentVerbMetadata = null;
 }
 
 function getPitchCircleNumber(position) {
@@ -2355,12 +2534,12 @@ function renderStudySenseItem(sense, sIdx, entry, totalSensesCount) {
   ];
 
   const metaDiv = document.createElement("div");
-  metaDiv.className = "study-sense-meta";
+  metaDiv.className = "study-sense-meta dict-sense-tags";
 
   sensePosList.forEach(pos => {
     if (pos && String(pos).trim()) {
       const posSpan = document.createElement("span");
-      posSpan.className = "study-sense-pos study-pos-badge pos-tag";
+      posSpan.className = "study-sense-pos study-pos-badge pos-tag kn-pos";
       posSpan.textContent = String(pos).trim();
       metaDiv.append(posSpan);
     }
@@ -3065,7 +3244,7 @@ function renderDetails(body) {
         if (isPrimary && entryIdx === 0 && visibleEntries.length > 1) {
           const moreCount = visibleEntries.length - 1;
           const countPill = document.createElement("span");
-          countPill.className = "dict-count-pill";
+          countPill.className = "dict-count-pill dict-extra-dicts-badge";
           countPill.textContent = `+${moreCount} more dict${moreCount > 1 ? "s" : ""}`;
           header.append(countPill);
         }
@@ -3429,6 +3608,7 @@ async function identify(text) {
     if (body.jlpt_level) {
       currentJlptLevel = body.jlpt_level;
     }
+    currentVerbMetadata = body.verb_metadata || null;
     renderDetails(body);
     updateHeroMeanings(body);
     updateHeroBadges(body);
@@ -3998,6 +4178,7 @@ if (cardEditor) {
       entries: Array.isArray(currentDictionaryEntries) ? currentDictionaryEntries : [],
       kanji_entries: Array.isArray(currentKanjiEntries) ? currentKanjiEntries : [],
       jlpt_level: typeof currentJlptLevel !== "undefined" ? currentJlptLevel : null,
+      verb_metadata: typeof currentVerbMetadata !== "undefined" ? currentVerbMetadata : null,
       card_settings: (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
     };
 
@@ -4120,6 +4301,7 @@ async function triggerAnkiSync() {
         entries: Array.isArray(currentDictionaryEntries) ? currentDictionaryEntries : [],
         kanji_entries: Array.isArray(currentKanjiEntries) ? currentKanjiEntries : [],
         jlpt_level: typeof currentJlptLevel !== "undefined" ? currentJlptLevel : null,
+        verb_metadata: typeof currentVerbMetadata !== "undefined" ? currentVerbMetadata : null,
         card_settings: (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
       };
       await fetch(API_SAVE_URL, {
@@ -4482,16 +4664,17 @@ if (fieldNotes) attachEditorFieldAssistance(fieldNotes);
 // Sync All action for eligible unsynced/retryable cards
 let isSyncAllRunning = false;
 
-async function triggerSyncAll() {
+async function triggerSyncAll(options = {}) {
+  const silent = Boolean(options && options.silent);
   if (isSyncAllRunning) return;
   isSyncAllRunning = true;
 
-  if (btnSyncAll) {
+  if (!silent && btnSyncAll) {
     btnSyncAll.disabled = true;
     btnSyncAll.classList.add("syncing");
     btnSyncAll.textContent = "Syncing…";
   }
-  if (syncAllStatus) {
+  if (!silent && syncAllStatus) {
     syncAllStatus.hidden = false;
     syncAllStatus.className = "sync-all-status";
     syncAllStatus.textContent = "Checking Anki & syncing cards…";
@@ -4506,56 +4689,58 @@ async function triggerSyncAll() {
 
     if (!response.ok || body.error) {
       const errMsg = body.error || body.detail || "Sync All failed";
-      if (syncAllStatus) {
+      if (!silent && syncAllStatus) {
         syncAllStatus.hidden = false;
         syncAllStatus.className = "sync-all-status failed";
         syncAllStatus.textContent = `⚠ ${errMsg}`;
       }
-      setStatus(`Sync All failed: ${errMsg}`, true);
+      if (!silent) setStatus(`Sync All failed: ${errMsg}`, true);
       await loadHistory().catch(() => {});
       return;
     }
 
     const { total_eligible = 0, synced_count = 0, failed_count = 0 } = body;
-    if (total_eligible === 0) {
-      if (syncAllStatus) {
-        syncAllStatus.hidden = false;
-        syncAllStatus.className = "sync-all-status";
-        syncAllStatus.textContent = "No cards to sync (all up to date).";
+    if (!silent) {
+      if (total_eligible === 0) {
+        if (syncAllStatus) {
+          syncAllStatus.hidden = false;
+          syncAllStatus.className = "sync-all-status";
+          syncAllStatus.textContent = "No cards to sync (all up to date).";
+        }
+        setStatus("No eligible cards to sync.");
+      } else if (failed_count === 0) {
+        if (syncAllStatus) {
+          syncAllStatus.hidden = false;
+          syncAllStatus.className = "sync-all-status success";
+          syncAllStatus.textContent = `✓ ${synced_count} card${synced_count === 1 ? "" : "s"} synced to Anki`;
+        }
+        setStatus(`Sync All complete: ${synced_count} card${synced_count === 1 ? "" : "s"} synced.`);
+      } else if (synced_count > 0) {
+        if (syncAllStatus) {
+          syncAllStatus.hidden = false;
+          syncAllStatus.className = "sync-all-status partial";
+          syncAllStatus.textContent = `✓ ${synced_count} synced, ⚠ ${failed_count} failed`;
+        }
+        setStatus(`Sync All: ${synced_count} synced, ${failed_count} failed.`, true);
+      } else {
+        if (syncAllStatus) {
+          syncAllStatus.hidden = false;
+          syncAllStatus.className = "sync-all-status failed";
+          syncAllStatus.textContent = `⚠ All ${failed_count} cards failed to sync`;
+        }
+        setStatus(`Sync All failed: ${failed_count} cards failed.`, true);
       }
-      setStatus("No eligible cards to sync.");
-    } else if (failed_count === 0) {
-      if (syncAllStatus) {
-        syncAllStatus.hidden = false;
-        syncAllStatus.className = "sync-all-status success";
-        syncAllStatus.textContent = `✓ ${synced_count} card${synced_count === 1 ? "" : "s"} synced to Anki`;
-      }
-      setStatus(`Sync All complete: ${synced_count} card${synced_count === 1 ? "" : "s"} synced.`);
-    } else if (synced_count > 0) {
-      if (syncAllStatus) {
-        syncAllStatus.hidden = false;
-        syncAllStatus.className = "sync-all-status partial";
-        syncAllStatus.textContent = `✓ ${synced_count} synced, ⚠ ${failed_count} failed`;
-      }
-      setStatus(`Sync All: ${synced_count} synced, ${failed_count} failed.`, true);
-    } else {
-      if (syncAllStatus) {
-        syncAllStatus.hidden = false;
-        syncAllStatus.className = "sync-all-status failed";
-        syncAllStatus.textContent = `⚠ All ${failed_count} cards failed to sync`;
-      }
-      setStatus(`Sync All failed: ${failed_count} cards failed.`, true);
     }
 
     await loadHistory().catch(() => {});
   } catch (error) {
     const msg = formatErrorMessage(error);
-    if (syncAllStatus) {
+    if (!silent && syncAllStatus) {
       syncAllStatus.hidden = false;
       syncAllStatus.className = "sync-all-status failed";
       syncAllStatus.textContent = `⚠ Sync All failed: ${msg}`;
     }
-    setStatus(`Sync All failed: ${msg}`, true);
+    if (!silent) setStatus(`Sync All failed: ${msg}`, true);
     await loadHistory().catch(() => {});
   } finally {
     isSyncAllRunning = false;
@@ -4568,7 +4753,7 @@ async function triggerSyncAll() {
 }
 
 if (btnSyncAll) {
-  btnSyncAll.addEventListener("click", triggerSyncAll);
+  btnSyncAll.addEventListener("click", () => triggerSyncAll({ silent: false }));
 }
 
 
@@ -4748,7 +4933,7 @@ async function loadHistory() {
         historyEmpty.hidden = true;
         if (typeof historyEmpty.replaceChildren === "function") historyEmpty.replaceChildren();
       }
-      renderHistoryCards(cards);
+      renderHistoryCards(sortHistoryCards(cards, currentHistorySort));
     }
 
     updateDeckFilterOptions(cards);
@@ -4758,6 +4943,58 @@ async function loadHistory() {
       historyEmpty.textContent = "Failed to load history.";
     }
   }
+}
+
+function sortHistoryCards(cards, sortKey) {
+  if (!Array.isArray(cards)) return [];
+  const copy = [...cards];
+  switch (sortKey) {
+    case "date-asc":
+      return copy.sort((a, b) => (a.id || 0) - (b.id || 0));
+    case "date-desc":
+      return copy.sort((a, b) => (b.id || 0) - (a.id || 0));
+    case "jlpt": {
+      const jlptRank = { N5: 1, N4: 2, N3: 3, N2: 4, N1: 5 };
+      return copy.sort((a, b) => {
+        const rA = a.jlpt_level ? (jlptRank[String(a.jlpt_level).toUpperCase()] || 99) : 999;
+        const rB = b.jlpt_level ? (jlptRank[String(b.jlpt_level).toUpperCase()] || 99) : 999;
+        if (rA !== rB) return rA - rB;
+        return (b.id || 0) - (a.id || 0);
+      });
+    }
+    case "deck":
+      return copy.sort((a, b) => (a.deck_name || "").localeCompare(b.deck_name || ""));
+    case "status":
+      return copy.sort((a, b) => (a.sync_status || "").localeCompare(b.sync_status || ""));
+    default:
+      return copy;
+  }
+}
+
+async function loadStoredHistorySort() {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const stored = await chrome.storage.local.get(STORAGE_KEY_HISTORY_SORT);
+      if (stored?.[STORAGE_KEY_HISTORY_SORT]) {
+        currentHistorySort = stored[STORAGE_KEY_HISTORY_SORT];
+      }
+    } else if (typeof localStorage !== "undefined") {
+      const stored = localStorage.getItem(STORAGE_KEY_HISTORY_SORT);
+      if (stored) currentHistorySort = stored;
+    }
+  } catch (_) {}
+  if (historySortSelect) historySortSelect.value = currentHistorySort;
+}
+
+function saveStoredHistorySort(val) {
+  currentHistorySort = val;
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ [STORAGE_KEY_HISTORY_SORT]: val });
+    } else if (typeof localStorage !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_HISTORY_SORT, val);
+    }
+  } catch (_) {}
 }
 
 function updateDeckFilterOptions(cards) {
@@ -4841,6 +5078,14 @@ function renderHistoryCards(cards) {
     deckBadge.textContent = card.deck_name || "Default";
     deckBadge.title = `Deck: ${card.deck_name || "Default"}`;
     meta.append(deckBadge);
+
+    if (card.jlpt_level) {
+      const jlptPill = document.createElement("span");
+      jlptPill.className = "history-item-jlpt pill-jlpt";
+      jlptPill.textContent = card.jlpt_level;
+      jlptPill.title = `JLPT: ${card.jlpt_level}`;
+      meta.append(jlptPill);
+    }
 
     const syncBadge = document.createElement("span");
     const statusKey = card.sync_status || "pending";
@@ -4983,6 +5228,7 @@ async function openSavedCard(cardId) {
       } else {
         clearDictionaryView();
         currentJlptLevel = body.jlpt_level || null;
+        currentVerbMetadata = body.verb_metadata || null;
       }
 
       setSaveBadge("SAVED", "badge saved", true);
@@ -5106,9 +5352,129 @@ if (historySyncFilter) {
   });
 }
 
+if (historySortSelect) {
+  historySortSelect.addEventListener("change", () => {
+    saveStoredHistorySort(historySortSelect.value);
+    loadHistory();
+  });
+}
+
+async function exportCardsCsv() {
+  try {
+    const params = new URLSearchParams();
+    const deckVal = historyDeckFilter ? historyDeckFilter.value : "";
+    if (deckVal && deckVal !== "all") {
+      params.set("deck", deckVal);
+    }
+    const syncVal = historySyncFilter ? historySyncFilter.value : "";
+    if (syncVal && syncVal !== "all") {
+      params.set("status", syncVal);
+    }
+    const searchVal = historySearchInput ? historySearchInput.value.trim() : "";
+    if (searchVal) {
+      params.set("search", searchVal);
+    }
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const res = await fetch(`${API_CARDS_URL}/export${query}`);
+    if (!res.ok) {
+      throw new Error(`Export failed (${res.status})`);
+    }
+    const csvText = await res.text();
+    const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const timestamp = new Date().toISOString().slice(0, 10);
+    link.download = `kiroku_cards_${timestamp}.csv`;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      if (link.parentNode) link.parentNode.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+    setStatus("Cards exported to CSV.");
+  } catch (err) {
+    setStatus(`Export failed: ${err.message || err}`, true);
+  }
+}
+
+if (typeof btnExportCards !== "undefined" && btnExportCards) {
+  btnExportCards.addEventListener("click", exportCardsCsv);
+}
+
+async function checkClipboardForJapanese() {
+  if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+  if (typeof navigator === "undefined" || !navigator.clipboard?.readText) return;
+  try {
+    const text = (await navigator.clipboard.readText() || "").trim();
+    if (!text) return;
+    if (!/[\u3040-\u30ff\u4e00-\u9fff]/.test(text)) return;
+    if (text === lastDismissedClipboardText || text === lastSeenClipboardText) return;
+    showClipboardSuggestion(text);
+  } catch (_) {}
+}
+
+function showClipboardSuggestion(text) {
+  if (!clipboardSuggestionBar || !clipboardSuggestionText) return;
+  const maxLen = 30;
+  const preview = text.length > maxLen ? text.slice(0, maxLen) + "…" : text;
+  clipboardSuggestionText.textContent = preview;
+  clipboardSuggestionBar.dataset.clipboardText = text;
+  clipboardSuggestionBar.hidden = false;
+}
+
+function hideClipboardSuggestion() {
+  if (clipboardSuggestionBar) {
+    clipboardSuggestionBar.hidden = true;
+    delete clipboardSuggestionBar.dataset.clipboardText;
+  }
+}
+
+if (btnClipboardCapture) {
+  btnClipboardCapture.addEventListener("click", () => {
+    const text = clipboardSuggestionBar?.dataset?.clipboardText;
+    hideClipboardSuggestion();
+    if (text) {
+      lastSeenClipboardText = text;
+      identify(text);
+    }
+  });
+}
+
+if (btnClipboardDismiss) {
+  btnClipboardDismiss.addEventListener("click", () => {
+    const text = clipboardSuggestionBar?.dataset?.clipboardText;
+    hideClipboardSuggestion();
+    if (text) {
+      lastDismissedClipboardText = text;
+    }
+  });
+}
+
+if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      checkClipboardForJapanese().catch(() => {});
+      checkAnkiStatus().catch(() => {});
+    }
+  });
+}
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("focus", () => {
+    checkClipboardForJapanese().catch(() => {});
+    checkAnkiStatus().catch(() => {});
+  });
+}
+
 // Initialization
 loadFontPreference().catch(() => {});
+loadStoredHistorySort().catch(() => {});
 loadDecks().catch(() => {});
+startAnkiStatusPolling();
+checkClipboardForJapanese().catch(() => {});
 loadModels().catch(() => {});
 loadHistory().catch(() => {});
 loadTabPreference().catch(() => {});
@@ -7118,7 +7484,7 @@ if (btnDismissFirstRun) {
 loadAutoCapturePreferences();
 loadJimakuApiKey().catch(() => {});
 loadSubtitleFolderPreferences().catch(() => {});
-checkOcrStatus().catch(() => {});
+checkHealthStatus().catch(() => {});
 loadStoredCardTemplateSettings().catch(() => {});
 loadStoredHistoryCollapseState().catch(() => {});
 loadStoredDictionarySettings().catch(() => {});
@@ -7168,6 +7534,22 @@ if (typeof module !== "undefined" && module.exports) {
     reRenderActiveReferenceView,
     renderDetails,
     clearDictionaryView,
+    btnTtsPlay,
+    updateTtsPlayButton,
+    checkClipboardForJapanese,
+    showClipboardSuggestion,
+    hideClipboardSuggestion,
+    sortHistoryCards,
+    loadStoredHistorySort,
+    saveStoredHistorySort,
+    checkAnkiStatus,
+    triggerSyncAll,
+    checkHealthStatus,
+    exportCardsCsv,
+    btnExportCards,
+    settingShowVerbType,
+    updateHeroBadges,
+    getCardPreviewData,
   };
 }
 

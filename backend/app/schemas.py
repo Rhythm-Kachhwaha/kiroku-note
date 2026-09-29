@@ -182,6 +182,8 @@ class SaveCardRequest(BaseModel):
     entries: list[dict[str, Any]] = Field(default_factory=list)
     kanji_entries: list[dict[str, Any]] = Field(default_factory=list)
     card_settings: Optional[dict[str, Any]] = None
+    jlpt_level: Optional[str] = None
+    verb_metadata: Optional[VerbMetadataSchema] = None
 
     @field_validator("expression")
     @classmethod
@@ -221,6 +223,16 @@ class SaveCardResponse(BaseModel):
     entries: list[dict[str, Any]] = Field(default_factory=list)
     kanji_entries: list[dict[str, Any]] = Field(default_factory=list)
     card_settings: Optional[dict[str, Any]] = None
+    verb_metadata: Optional[VerbMetadataSchema] = None
+
+
+class HealthResponse(BaseModel):
+    status: str = "ok"
+    version: str
+    yomitan: bool
+    ankiconnect: bool
+    ocr: bool
+    db: bool
 
 
 class AnkiStatusResponse(BaseModel):
@@ -280,6 +292,8 @@ class CardSummary(BaseModel):
     sync_error: str = ""
     created_at: str
     updated_at: str
+    jlpt_level: Optional[str] = None
+    verb_metadata: Optional[VerbMetadataSchema] = None
 
 
 class CardListResponse(BaseModel):
@@ -314,6 +328,8 @@ class CardDetailResponse(BaseModel):
     updated_at: str
     entries: list[dict] = []
     kanji_entries: list[dict] = []
+    jlpt_level: Optional[str] = None
+    verb_metadata: Optional[VerbMetadataSchema] = None
 
 
 class DeleteCardResponse(BaseModel):

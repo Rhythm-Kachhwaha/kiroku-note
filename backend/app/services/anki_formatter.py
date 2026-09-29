@@ -765,10 +765,12 @@ def format_basic_back(
     audio: str | None = None,
     pitches: list[Any] | None = None,
     jlpt_level: str | None = None,
+    verb_metadata: Any = None,
     show_reading: bool = True,
     show_meaning: bool = True,
     show_jlpt: bool = True,
     show_hint: bool = True,
+    show_verb_type: bool = True,
 ) -> str:
     """Construct a clean, structured, learner-focused Back field for Anki Basic cards.
 
@@ -779,6 +781,7 @@ def format_basic_back(
     c_reading = str(reading if reading else (_get_field(card, "reading") or "")).strip()
     c_meaning = str(meaning if meaning else (_get_field(card, "meaning") or "")).strip()
     c_jlpt = str(jlpt_level if jlpt_level else (_get_field(card, "jlpt_level") or "")).strip()
+    c_verb_meta = verb_metadata if verb_metadata is not None else _get_field(card, "verb_metadata")
     c_entries = entries if entries is not None else _get_field(card, "entries")
     c_kanji_entries = kanji_entries if kanji_entries is not None else _get_field(card, "kanji_entries")
     c_ex_sentence = str(example_sentence if example_sentence else (_get_field(card, "example_sentence") or "")).strip()
@@ -825,17 +828,31 @@ def format_basic_back(
                         c_ex_reading = eg_rd
                         break
 
+    # 3. Verb metadata (verb type & transitivity)
+    verb_parts: list[str] = []
+    if show_verb_type and c_verb_meta:
+        is_v = bool(_get_field(c_verb_meta, "is_verb"))
+        if is_v:
+            v_type = _get_field(c_verb_meta, "verb_type")
+            trans_lbl = _get_field(c_verb_meta, "transitivity_label")
+            if v_type:
+                verb_parts.append(f'<span class="kn-pos kn-verb-type">{escape_html(str(v_type))}</span>')
+            if trans_lbl and str(trans_lbl).strip() not in ("none", ""):
+                verb_parts.append(f'<span class="kn-pos kn-transitivity">{escape_html(str(trans_lbl))}</span>')
+
     # Build sections
     sections: list[str] = []
 
-    # Header: Reading, JLPT & Pitch (respected via show_reading and show_jlpt)
-    if show_reading and (c_reading or pitch_badge or (show_jlpt and c_jlpt)):
+    # Header: Reading, JLPT, Verb Type & Pitch (respected via show_reading, show_jlpt, show_verb_type)
+    if (show_reading and c_reading) or pitch_badge or (show_jlpt and c_jlpt) or verb_parts:
         reading_parts = ['<div class="kn-reading">']
-        if c_reading:
+        if show_reading and c_reading:
             reading_parts.append(f'  <span class="kn-kana">{escape_html(c_reading)}</span>')
         if show_jlpt and c_jlpt:
             jlpt_badge_text = c_jlpt if c_jlpt.upper().startswith("JLPT") else f"JLPT {c_jlpt}"
             reading_parts.append(f'  <span class="kn-tag kn-jlpt">{escape_html(jlpt_badge_text)}</span>')
+        for vp in verb_parts:
+            reading_parts.append(f'  {vp}')
         if pitch_badge:
             reading_parts.append(f'  <span class="kn-pitch">{escape_html(pitch_badge)}</span>')
         reading_parts.append('</div>')
