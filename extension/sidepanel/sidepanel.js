@@ -167,6 +167,7 @@ const settingFrontHint = document.querySelector("#setting-front-hint");
 const settingBackReading = document.querySelector("#setting-back-reading");
 const settingBackMeaning = document.querySelector("#setting-back-meaning");
 const settingBackHint = document.querySelector("#setting-back-hint");
+const settingFuriganaMode = document.querySelector("#setting-furigana-mode");
 const settingShowJlpt = document.querySelector("#setting-show-jlpt");
 const settingShowVerbType = document.querySelector("#setting-show-verb-type");
 const settingShowHistory = document.querySelector("#setting-show-history");
@@ -209,6 +210,7 @@ const DEFAULT_CARD_TEMPLATE_SETTINGS = {
     show_meaning: true,
     show_hint: true,
   },
+  furigana_mode: "all",
   show_jlpt: true,
   show_verb_type: true,
   show_history: true,
@@ -231,6 +233,7 @@ async function loadStoredCardTemplateSettings() {
         currentCardTemplateSettings = {
           front: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.front, ...(data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].front || {}) },
           back: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.back, ...(data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].back || {}) },
+          furigana_mode: data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].furigana_mode || DEFAULT_CARD_TEMPLATE_SETTINGS.furigana_mode,
           show_jlpt: typeof data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_jlpt === "boolean"
             ? data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_jlpt
             : (typeof data[STORAGE_KEY_SHOW_JLPT_LEVEL] === "boolean" ? data[STORAGE_KEY_SHOW_JLPT_LEVEL] : true),
@@ -252,6 +255,7 @@ async function loadStoredCardTemplateSettings() {
         currentCardTemplateSettings = {
           front: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.front, ...(parsed.front || {}) },
           back: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.back, ...(parsed.back || {}) },
+          furigana_mode: parsed.furigana_mode || DEFAULT_CARD_TEMPLATE_SETTINGS.furigana_mode,
           show_jlpt: typeof parsed.show_jlpt === "boolean"
             ? parsed.show_jlpt
             : (storedJlpt !== null ? JSON.parse(storedJlpt) : true),
@@ -300,6 +304,7 @@ function syncCardTemplateSettingsUI() {
   if (settingBackReading) settingBackReading.checked = currentCardTemplateSettings?.back?.show_reading !== false;
   if (settingBackMeaning) settingBackMeaning.checked = currentCardTemplateSettings?.back?.show_meaning !== false;
   if (settingBackHint) settingBackHint.checked = currentCardTemplateSettings?.back?.show_hint !== false;
+  if (settingFuriganaMode) settingFuriganaMode.value = currentCardTemplateSettings?.furigana_mode || "all";
   if (settingShowJlpt) settingShowJlpt.checked = currentCardTemplateSettings?.show_jlpt !== false;
   if (settingShowVerbType) settingShowVerbType.checked = currentCardTemplateSettings?.show_verb_type !== false;
   if (settingShowHistory) settingShowHistory.checked = currentCardTemplateSettings?.show_history !== false;
@@ -323,6 +328,16 @@ function syncCardTemplateSettingsUI() {
     });
   }
 });
+
+if (settingFuriganaMode) {
+  settingFuriganaMode.addEventListener("change", () => {
+    currentCardTemplateSettings.furigana_mode = settingFuriganaMode.value;
+    saveStoredCardTemplateSettings();
+    if (typeof updateCardPreview === "function") {
+      updateCardPreview();
+    }
+  });
+}
 
 if (settingShowJlpt) {
   settingShowJlpt.addEventListener("change", () => {
@@ -770,7 +785,7 @@ let currentSubtitleOffsetMs = 0;
 let currentSubtitleOffset = 0.0;
 let loadedSubtitlesFilename = "";
 let availableCaptionTracks = [];
-let lastCaptureSource = { tabId: null, frameId: null };
+let lastCaptureSource = { tabId: null, frameId: null, type: "text", url: "", title: "" };
 let currentActiveCue = null;
 let lastVideoHighlightTerm = "";
 
@@ -1218,6 +1233,11 @@ async function handleOcrCropProcess({ dataUrl, cropRect, rect, viewport }) {
     }
 
     setStatus(`OCR recognized: "${recognizedText}" — looking up dictionary…`);
+
+    // Track provenance
+    if (typeof lastCaptureSource !== "undefined") {
+      lastCaptureSource.type = "ocr";
+    }
 
     // Feed directly into canonical capture pipeline
     await identify(recognizedText);
@@ -2047,7 +2067,7 @@ function renderCardPreviewDOM(container, data, side = "back") {
       const jaP = document.createElement("p");
       jaP.className = "kn-example-ja";
       if (typeof renderRubyText === "function") {
-        renderRubyText(jaP, data.example_sentence);
+        renderRubyText(jaP, data.example_sentence, undefined, { furiganaMode: settings.furigana_mode });
       } else {
         jaP.textContent = data.example_sentence;
       }
@@ -2361,9 +2381,24 @@ function formatJlptLevel(level) {
   return `JLPT ${trimmed}`;
 }
 
-function renderRubyText(container, text, rubyText) {
+// OpenJLPT N4/N5 kanji set for advanced-only furigana density filtering
+const JLPT_N4_N5_KANJI = new Set(
+  "一七万三上下不世中主九事二五京人今仕代以休会住体何作使借元兄先入八公六円写冬出切別前力勉動北医十千午半南去友口古台右同名味品員問四図国土地堂場売夏夕外多夜大天女妹姉始子字学安室家小少屋山川工左帰年広店度建弟強待後心思急悪意手持教文料新方旅族日早明映春昼時曜書月有服朝木本来東校業楽歌止正歩死母毎気水注洋海漢火父牛物特犬理生用田男町画界病発白百目真着知研社私秋究空立答紙終習考者聞肉自色花英茶行西見親言計試話語読買貸質赤走起足車転近送通週運道重野金銀長開間院集雨電青音題風食飯飲館駅験高魚鳥黒"
+);
+
+function isN4N5KanjiString(str) {
+  if (!str) return false;
+  const kanjiRegex = /[\u4e00-\u9faf々〆ヶ]/g;
+  const chars = str.match(kanjiRegex);
+  if (!chars || chars.length === 0) return false;
+  return chars.every(ch => JLPT_N4_N5_KANJI.has(ch));
+}
+
+function renderRubyText(container, text, rubyText, options = {}) {
   const source = rubyText || text || "";
   if (!source) return;
+
+  const furiganaMode = (options && options.furiganaMode) || (typeof currentCardTemplateSettings !== "undefined" && currentCardTemplateSettings?.furigana_mode) || "all";
 
   // If no bracket furigana or ruby tags exist, append plain text safely
   if (!source.includes("[") && !source.includes("<ruby>")) {
@@ -2380,12 +2415,20 @@ function renderRubyText(container, text, rubyText) {
     while ((match = regex.exec(source)) !== null) {
       if (match[1] && match[2]) {
         foundRuby = true;
-        const rubyEl = document.createElement("ruby");
-        rubyEl.append(document.createTextNode(match[1]));
-        const rtEl = document.createElement("rt");
-        rtEl.textContent = match[2];
-        rubyEl.append(rtEl);
-        container.append(rubyEl);
+        const base = match[1];
+        const rt = match[2];
+        if (furiganaMode === "none") {
+          container.append(document.createTextNode(base));
+        } else if (furiganaMode === "advanced_only" && isN4N5KanjiString(base)) {
+          container.append(document.createTextNode(base));
+        } else {
+          const rubyEl = document.createElement("ruby");
+          rubyEl.append(document.createTextNode(base));
+          const rtEl = document.createElement("rt");
+          rtEl.textContent = rt;
+          rubyEl.append(rtEl);
+          container.append(rubyEl);
+        }
       } else if (match[3]) {
         container.append(document.createTextNode(match[3]));
       }
@@ -2403,12 +2446,20 @@ function renderRubyText(container, text, rubyText) {
     let match;
     while ((match = rubyRegex.exec(source)) !== null) {
       if (match[1] && match[2]) {
-        const rubyEl = document.createElement("ruby");
-        rubyEl.append(document.createTextNode(match[1]));
-        const rtEl = document.createElement("rt");
-        rtEl.textContent = match[2];
-        rubyEl.append(rtEl);
-        container.append(rubyEl);
+        const base = match[1];
+        const rt = match[2];
+        if (furiganaMode === "none") {
+          container.append(document.createTextNode(base));
+        } else if (furiganaMode === "advanced_only" && isN4N5KanjiString(base)) {
+          container.append(document.createTextNode(base));
+        } else {
+          const rubyEl = document.createElement("ruby");
+          rubyEl.append(document.createTextNode(base));
+          const rtEl = document.createElement("rt");
+          rtEl.textContent = rt;
+          rubyEl.append(rtEl);
+          container.append(rubyEl);
+        }
       } else if (match[3]) {
         container.append(document.createTextNode(match[3]));
       }
@@ -2656,19 +2707,21 @@ function renderStudySenseItem(sense, sIdx, entry, totalSensesCount) {
 
   // Examples attached to this sense
   if (Array.isArray(sense.examples) && sense.examples.length) {
-    const details = document.createElement("details");
-    details.className = "study-examples-accordion";
+    const validExamples = (sense.examples || []).filter(eg => eg && (eg.japanese || eg.reading));
+    if (validExamples.length > 0) {
+      const details = document.createElement("details");
+      details.className = "study-examples-accordion";
 
-    const summary = document.createElement("summary");
-    summary.className = "study-examples-summary";
-    summary.textContent = `Examples (${sense.examples.length})`;
-    details.append(summary);
+      const summary = document.createElement("summary");
+      summary.className = "study-examples-summary";
+      summary.textContent = `Examples (${validExamples.length})`;
+      details.append(summary);
 
-    const listDiv = document.createElement("div");
-    listDiv.className = "study-examples-list";
+      const listDiv = document.createElement("div");
+      listDiv.className = "study-examples-list";
 
-    sense.examples.forEach(eg => {
-      if (eg && (eg.japanese || eg.reading)) {
+      if (validExamples.length === 1) {
+        const eg = validExamples[0];
         const card = document.createElement("div");
         card.className = "study-example-card example-card";
 
@@ -2702,11 +2755,96 @@ function renderStudySenseItem(sense, sIdx, entry, totalSensesCount) {
         card.append(insertExampleBtn);
 
         listDiv.append(card);
-      }
-    });
+      } else {
+        // T3-E: Multiple examples - render stepper controls (◀ 1/3 ▶)
+        let currentExampleIdx = 0;
 
-    details.append(listDiv);
-    bodyDiv.append(details);
+        const stepperBar = document.createElement("div");
+        stepperBar.className = "example-stepper-controls";
+
+        const prevBtn = document.createElement("button");
+        prevBtn.type = "button";
+        prevBtn.className = "btn-example-stepper btn-example-prev";
+        prevBtn.textContent = "◀";
+        prevBtn.title = "Previous example";
+        prevBtn.setAttribute("aria-label", "Previous example sentence");
+
+        const indicator = document.createElement("span");
+        indicator.className = "example-stepper-indicator";
+        indicator.textContent = `1 / ${validExamples.length}`;
+
+        const nextBtn = document.createElement("button");
+        nextBtn.type = "button";
+        nextBtn.className = "btn-example-stepper btn-example-next";
+        nextBtn.textContent = "▶";
+        nextBtn.title = "Next example";
+        nextBtn.setAttribute("aria-label", "Next example sentence");
+
+        stepperBar.append(prevBtn, indicator, nextBtn);
+        listDiv.append(stepperBar);
+
+        const cardContainer = document.createElement("div");
+        cardContainer.className = "example-stepper-card-container";
+        listDiv.append(cardContainer);
+
+        function renderActiveExampleCard(idx) {
+          cardContainer.replaceChildren();
+          const eg = validExamples[idx];
+          if (!eg) return;
+
+          const card = document.createElement("div");
+          card.className = "study-example-card example-card";
+
+          const contentDiv = document.createElement("div");
+          contentDiv.className = "study-example-content";
+
+          const jaP = document.createElement("p");
+          jaP.className = "study-example-ja example";
+          renderRubyText(jaP, eg.japanese, eg.reading);
+          contentDiv.append(jaP);
+
+          if (eg.translation) {
+            const enP = document.createElement("p");
+            enP.className = "study-example-en translation";
+            enP.textContent = eg.translation;
+            contentDiv.append(enP);
+          }
+
+          card.append(contentDiv);
+
+          const insertExampleBtn = document.createElement("button");
+          insertExampleBtn.className = "btn-dict-insert btn-example-insert btn-insert-sentence";
+          insertExampleBtn.type = "button";
+          insertExampleBtn.textContent = "→ Sentence";
+          insertExampleBtn.title = "Insert this example into Sentence";
+          insertExampleBtn.onclick = (e) => {
+            if (e && e.stopPropagation) e.stopPropagation();
+            insertExampleToCard(eg.japanese || "", eg.translation || "", insertExampleBtn);
+          };
+          card.append(insertExampleBtn);
+          cardContainer.append(card);
+
+          indicator.textContent = `${idx + 1} / ${validExamples.length}`;
+        }
+
+        prevBtn.addEventListener("click", (e) => {
+          if (e && e.stopPropagation) e.stopPropagation();
+          currentExampleIdx = (currentExampleIdx - 1 + validExamples.length) % validExamples.length;
+          renderActiveExampleCard(currentExampleIdx);
+        });
+
+        nextBtn.addEventListener("click", (e) => {
+          if (e && e.stopPropagation) e.stopPropagation();
+          currentExampleIdx = (currentExampleIdx + 1) % validExamples.length;
+          renderActiveExampleCard(currentExampleIdx);
+        });
+
+        renderActiveExampleCard(0);
+      }
+
+      details.append(listDiv);
+      bodyDiv.append(details);
+    }
   }
 
   li.append(bodyDiv);
@@ -4193,6 +4331,8 @@ async function saveCard() {
     jlpt_level: typeof currentJlptLevel !== "undefined" ? currentJlptLevel : null,
     verb_metadata: typeof currentVerbMetadata !== "undefined" ? currentVerbMetadata : null,
     card_settings: (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
+    source_type: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.type) || "text",
+    source_url: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.url) || "",
   };
 
   try {
@@ -4339,6 +4479,8 @@ async function triggerAnkiSync() {
         jlpt_level: typeof currentJlptLevel !== "undefined" ? currentJlptLevel : null,
         verb_metadata: typeof currentVerbMetadata !== "undefined" ? currentVerbMetadata : null,
         card_settings: (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
+        source_type: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.type) || "text",
+        source_url: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.url) || "",
       };
       await fetch(API_SAVE_URL, {
         method: "POST",
@@ -5238,6 +5380,38 @@ function renderHistoryCards(cards) {
     syncBadge.textContent = statusKey.charAt(0).toUpperCase() + statusKey.slice(1);
     meta.append(syncBadge);
 
+    if (card.source_type || card.source_url) {
+      const srcType = card.source_type || "text";
+      const sourceBadge = document.createElement("span");
+      sourceBadge.className = "history-item-source";
+      let icon = "📄";
+      let label = "Text";
+      if (srcType === "video") {
+        icon = "🎬";
+        label = "Video";
+      } else if (srcType === "ocr") {
+        icon = "🔲";
+        label = "OCR";
+      } else if (srcType === "quick_add" || srcType === "quickadd") {
+        icon = "⚡";
+        label = "Quick Add";
+      }
+
+      let host = "";
+      if (card.source_url) {
+        try {
+          const u = new URL(card.source_url);
+          host = u.hostname.replace(/^www\./, "");
+        } catch (_) {
+          host = card.source_url.slice(0, 20);
+        }
+      }
+
+      sourceBadge.textContent = host ? `${icon} ${host}` : `${icon} ${label}`;
+      sourceBadge.title = card.source_url ? `Mined from ${label}: ${card.source_url}` : `Mined from: ${label}`;
+      meta.append(sourceBadge);
+    }
+
     main.append(meta);
     cardBtn.append(main);
     item.append(cardBtn);
@@ -5349,6 +5523,16 @@ async function openSavedCard(cardId) {
       }
       if (fieldModelName) fieldModelName.value = (fieldModelSelect && fieldModelSelect.value) || body.model_name || "";
       updateDestinationIndicator();
+
+      if (body.source_type || body.source_url) {
+        lastCaptureSource = {
+          tabId: null,
+          frameId: null,
+          type: body.source_type || "text",
+          url: body.source_url || "",
+          title: "",
+        };
+      }
 
       if (expression) expression.textContent = body.expression || "—";
       updateHeroReading(body.reading, body.expression);
@@ -6329,6 +6513,15 @@ function selectQuickAddCandidate(candidate, candidateElement) {
     updateQuickAddClearBtn();
   }
   clearQuickAddSuggestions();
+  if (typeof lastCaptureSource !== "undefined") {
+    lastCaptureSource = {
+      tabId: null,
+      frameId: null,
+      type: "quick_add",
+      url: "",
+      title: "",
+    };
+  }
   identify(targetExpression);
   // User remains on Quick Add mode as requested
 }
@@ -7309,7 +7502,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender?.tab?.id) {
       lastCaptureSource.tabId = sender.tab.id;
       lastCaptureSource.frameId = typeof sender.frameId === "number" ? sender.frameId : null;
+      lastCaptureSource.url = sender.tab.url || message.url || "";
+      lastCaptureSource.title = sender.tab.title || message.title || "";
+    } else {
+      if (message.url) lastCaptureSource.url = message.url;
+      if (message.title) lastCaptureSource.title = message.title;
     }
+    lastCaptureSource.type = message.sourceType || (currentMiningTab === "video" ? "video" : "text");
     if (message.text) {
       lastVideoHighlightTerm = message.text.trim();
       updateVideoCuePreviewText(currentActiveCue?.text, lastVideoHighlightTerm);
@@ -7772,6 +7971,14 @@ if (typeof module !== "undefined" && module.exports) {
     settingShowVerbType,
     updateHeroBadges,
     getCardPreviewData,
+    settingFuriganaMode,
+    JLPT_N4_N5_KANJI,
+    isN4N5KanjiString,
+    renderRubyText,
+    renderStudySenseItem,
+    renderHistoryCards,
+    getLastCaptureSource: () => lastCaptureSource,
+    setLastCaptureSource: (s) => { lastCaptureSource = s; },
   };
 }
 

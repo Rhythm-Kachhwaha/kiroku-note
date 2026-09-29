@@ -37,11 +37,11 @@
 ### Tier 3 — Medium
 - [x] **T3-A** — `Alt+Enter` shortcut: saves card AND sends to Anki in one step *(Implemented & verified 2026-09-29)*
 - [x] **T3-C** — 5-second Undo toast after deleting a card from History *(Implemented & verified 2026-09-29)*
-- [ ] **T3-E** — Sentence stepper (◀ 1/3 ▶) when a dictionary entry has multiple examples
+- [x] **T3-E** — Sentence stepper (◀ 1/3 ▶) when a dictionary entry has multiple examples *(Implemented & verified 2026-09-29)*
 - [ ] **T3-F** — Stats panel in History: cards today/week, JLPT breakdown, deck distribution
 - [ ] **T3-G** — Save card template settings (furigana, JLPT badge etc.) per Anki deck
-- [ ] **T3-H** — Furigana density control: All / Advanced-only (hide N4/N5 kanji ruby) / None
-- [ ] **T3-I** — Store and show where/when a card was mined (Text / Video / OCR + source URL)
+- [x] **T3-H** — Furigana density control: All / Advanced-only (hide N4/N5 kanji ruby) / None *(Implemented & verified 2026-09-29)*
+- [x] **T3-I** — Store and show where/when a card was mined (Text / Video / OCR + source URL) *(Implemented & verified 2026-09-29)*
 - [x] **T3-J** — Show live per-card ✓/✗ progress list during Sync All instead of just a count *(Implemented & verified 2026-09-29)*
 
 ### Tier 4 — Complex

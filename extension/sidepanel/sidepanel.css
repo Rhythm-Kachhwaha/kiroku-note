@@ -2884,6 +2884,49 @@ img[hidden] {
   gap: 6px;
 }
 
+/* T3-E: Example Sentence Stepper Controls */
+.example-stepper-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 2px 0 4px 0;
+  margin-bottom: 2px;
+  border-bottom: 1px dashed var(--border-subtle);
+}
+
+.btn-example-stepper {
+  background: var(--bg-surface-3);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs, 3px);
+  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.btn-example-stepper:hover {
+  background: var(--bg-surface-4, var(--bg-hover));
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.btn-example-stepper:active {
+  transform: scale(0.95);
+}
+
+.example-stepper-indicator {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+  user-select: none;
+}
+
 .study-example-card {
   border-left: 2px solid var(--accent-primary);
   padding-left: 8px;
@@ -3367,6 +3410,23 @@ rt {
   line-height: 1.3;
   display: inline-flex;
   align-items: center;
+}
+
+/* T3-I: Provenance source badge */
+.history-item-source {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  padding: 1px 5px;
+  line-height: 1.3;
+  display: inline-flex;
+  align-items: center;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .history-badge {

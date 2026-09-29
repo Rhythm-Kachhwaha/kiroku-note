@@ -1652,6 +1652,43 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ **Full Backend Pytest Suite:** **404/404 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
 - **Remaining Risk:** None. All changes are backward compatible, respect local-first SQLite invariants, and have passed extensive regression verification.
 
+---
+
+### Tier 3 — Session 2: Content Enrichment & Reading Display
+
+- **Date:** 2026-09-29
+- **Scope & Objectives:**
+  - Implement Tier 3 Session 2 tasks from `newfeatures.md`:
+    - **T3-E (Example Sentence Stepper `◀ 1/3 ▶`)**: Cycles through multiple dictionary example sentences for entries with multiple examples, keeping the "→ Sentence" action bound to the currently viewed example.
+    - **T3-H (Furigana Density Control `All / Advanced-only / None`)**: Configurable ruby density filtering. "Advanced-only" suppresses furigana on common N4/N5 kanji while keeping N3+ kanji annotated; "None" removes ruby annotations completely while preserving base kanji. Configured via Card Settings popover, live previewed in UI, and applied during Anki note formatting.
+    - **T3-I (Capture Provenance Tracking)**: Records source metadata (`source_type`: text, video, ocr, quick_add; and `source_url`) on card capture and persist in SQLite. Displays source type badge icon and hostname in the Mining History card list.
+  - Invariants maintained: Local-first SQLite source of truth; zero-overhead local JLPT kanji set in extension; vanilla HTML/CSS/JS only; strict backward compatibility.
+- **Implementation Deliverables:**
+  1. **T3-E (Example Sentence Stepper `◀ 1/3 ▶`):**
+     - Updated `renderStudySenseItem()` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
+     - For senses with `validExamples.length > 1`, rendered `.example-stepper-controls` with `◀`, `${currentIndex + 1} / ${total}`, and `▶` buttons.
+     - Senses with a single example continue rendering directly without stepper clutter.
+     - Added button styles and badge indicators in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css).
+  2. **T3-H (Furigana Density Control):**
+     - Added `<select id="setting-furigana-mode">` with `all`, `advanced_only`, and `none` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html).
+     - Embedded local `JLPT_N4_N5_KANJI` set (680 unique N4/N5 kanji characters) and `isN4N5KanjiString()` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) for zero-latency UI rendering.
+     - Updated `renderRubyText()` and `renderCardPreviewDOM()` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) to filter ruby annotations according to the selected mode.
+     - Updated `backend/app/services/anki_formatter.py` and `backend/app/services/anki_connect.py` to accept `furigana_mode` and selectively filter `<ruby>` tags against `JlptReferenceService`.
+  3. **T3-I (Capture Provenance Tracking):**
+     - Extended SQLite schema in [backend/app/db/connection.py](file:///d:/Python/AnkiMiner/backend/app/db/connection.py) with `source_type TEXT` and `source_url TEXT` (with dynamic `ALTER TABLE` in `init_db()` for existing databases).
+     - Updated `SaveCardRequest`, `SaveCardResponse`, `CardSummary`, and `CardDetailResponse` in [backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py).
+     - Updated [backend/app/repositories/card_repository.py](file:///d:/Python/AnkiMiner/backend/app/repositories/card_repository.py) and [backend/app/services/card_service.py](file:///d:/Python/AnkiMiner/backend/app/services/card_service.py).
+     - Tracked `lastCaptureSource` across text capture, OCR crop processing, and quick add in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
+     - Rendered `.history-item-source` badge in `renderHistoryCards()` with type icons (`📄`, `🎬`, `🔲`, `⚡`) and domain hostname.
+- **Verification:**
+  - ✅ **Backend Provenance Tests:** [backend/tests/test_card_provenance.py](file:///d:/Python/AnkiMiner/backend/tests/test_card_provenance.py)
+  - ✅ **Backend Furigana Density Tests:** [backend/tests/test_furigana_density.py](file:///d:/Python/AnkiMiner/backend/tests/test_furigana_density.py)
+  - ✅ **Extension Session 2 Tests:** [extension/tests/tier3-session2-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier3-session2-features.test.js): **4/4 passed (100%)**
+  - ✅ **Full Extension Test Suite:** **123/123 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - ✅ **Full Backend Pytest Suite:** **411/411 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+- **Remaining Risk:** None. All features are additive, non-breaking, fully verified by automated tests, and strictly respect locked architectural boundaries.
+
+
 
 
 

@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS cards (
     anki_note_id INTEGER DEFAULT NULL,
     sync_error TEXT NOT NULL DEFAULT '',
     synced_at TEXT DEFAULT NULL,
+    source_type TEXT NOT NULL DEFAULT '',
+    source_url TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     UNIQUE(normalized_expression, normalized_reading, normalized_deck_name)
@@ -120,6 +122,8 @@ def init_db(db_path: Path | str | None = None) -> None:
             ("anki_note_id", "INTEGER DEFAULT NULL"),
             ("sync_error", "TEXT NOT NULL DEFAULT ''"),
             ("synced_at", "TEXT DEFAULT NULL"),
+            ("source_type", "TEXT NOT NULL DEFAULT ''"),
+            ("source_url", "TEXT NOT NULL DEFAULT ''"),
         ]
         for col_name, col_def in new_cols:
             if col_name not in columns:

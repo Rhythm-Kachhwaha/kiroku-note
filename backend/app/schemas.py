@@ -179,6 +179,8 @@ class SaveCardRequest(BaseModel):
     notes: str = Field(default="", max_length=2000)
     source_text: str = Field(default="", max_length=500)
     deinflected_text: str = Field(default="", max_length=500)
+    source_type: Optional[str] = Field(default="", max_length=100)
+    source_url: Optional[str] = Field(default="", max_length=2000)
     entries: list[dict[str, Any]] = Field(default_factory=list)
     kanji_entries: list[dict[str, Any]] = Field(default_factory=list)
     card_settings: Optional[dict[str, Any]] = None
@@ -208,6 +210,8 @@ class SaveCardResponse(BaseModel):
     notes: str = ""
     source_text: str = ""
     deinflected_text: str = ""
+    source_type: str = ""
+    source_url: str = ""
     deck_name: str = "Default"
     model_name: str = ""
     status: str = "saved"
@@ -293,6 +297,8 @@ class CardSummary(BaseModel):
     sync_error: str = ""
     created_at: str
     updated_at: str
+    source_type: str = ""
+    source_url: str = ""
     jlpt_level: Optional[str] = None
     verb_metadata: Optional[VerbMetadataSchema] = None
 
@@ -318,6 +324,8 @@ class CardDetailResponse(BaseModel):
     notes: str = ""
     source_text: str = ""
     deinflected_text: str = ""
+    source_type: str = ""
+    source_url: str = ""
     deck_name: str = "Default"
     model_name: str = ""
     status: str = "saved"

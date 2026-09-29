@@ -36,7 +36,7 @@ def escape_html(text: Any) -> str:
     return html.escape(str(text), quote=True)
 
 
-def _format_bracket_ruby(segment: str) -> str:
+def _format_bracket_ruby(segment: str, furigana_mode: str = "all", jlpt_service: Any = None) -> str:
     """Helper to convert bracket notation [rt] into <ruby> markup within a text segment."""
     if not segment:
         return ""
@@ -47,7 +47,26 @@ def _format_bracket_ruby(segment: str) -> str:
             if base and rt:
                 if prefix:
                     parts.append(escape_html(prefix))
-                parts.append(f"<ruby>{escape_html(base)}<rt>{escape_html(rt)}</rt></ruby>")
+                if furigana_mode == "none":
+                    parts.append(escape_html(base))
+                elif furigana_mode in ("advanced_only", "advanced"):
+                    kanji_chars = [ch for ch in base if '\u4e00' <= ch <= '\u9fff' or ch in '々〆ヶ']
+                    if kanji_chars:
+                        if jlpt_service is None:
+                            try:
+                                from app.services.jlpt_reference import JlptReferenceService
+                                jlpt_service = JlptReferenceService()
+                            except Exception:
+                                jlpt_service = None
+                        levels = [jlpt_service.lookup_kanji(ch) for ch in kanji_chars] if jlpt_service else []
+                        if levels and all(lvl in ("N4", "N5") for lvl in levels):
+                            parts.append(escape_html(base))
+                        else:
+                            parts.append(f"<ruby>{escape_html(base)}<rt>{escape_html(rt)}</rt></ruby>")
+                    else:
+                        parts.append(f"<ruby>{escape_html(base)}<rt>{escape_html(rt)}</rt></ruby>")
+                else:
+                    parts.append(f"<ruby>{escape_html(base)}<rt>{escape_html(rt)}</rt></ruby>")
             elif plain:
                 parts.append(escape_html(plain))
             else:
@@ -56,10 +75,11 @@ def _format_bracket_ruby(segment: str) -> str:
     return escape_html(segment)
 
 
-def format_ruby_html(text: str = "", reading: str | None = None) -> str:
+def format_ruby_html(text: str = "", reading: str | None = None, furigana_mode: str = "all", jlpt_service: Any = None) -> str:
     """Safely convert Japanese text/reading with ruby or bracket furigana into <ruby> HTML.
 
     All base and rt tokens are strictly HTML-escaped to prevent script/markup injection.
+    Supports furigana_mode: 'all', 'advanced_only', 'none'.
     """
     source = (reading or text or "").strip()
     if not source:
@@ -73,20 +93,39 @@ def format_ruby_html(text: str = "", reading: str | None = None) -> str:
         for m in ruby_pattern.finditer(source):
             start, end = m.span()
             if start > pos:
-                parts.append(_format_bracket_ruby(source[pos:start]))
+                parts.append(_format_bracket_ruby(source[pos:start], furigana_mode=furigana_mode, jlpt_service=jlpt_service))
             base = escape_html(re.sub(r'<[^>]+>', '', m.group(1)).strip())
             rt = escape_html(re.sub(r'<[^>]+>', '', m.group(2)).strip())
             if base and rt:
-                parts.append(f"<ruby>{base}<rt>{rt}</rt></ruby>")
+                if furigana_mode == "none":
+                    parts.append(base)
+                elif furigana_mode in ("advanced_only", "advanced"):
+                    kanji_chars = [ch for ch in base if '\u4e00' <= ch <= '\u9fff' or ch in '々〆ヶ']
+                    if kanji_chars:
+                        if jlpt_service is None:
+                            try:
+                                from app.services.jlpt_reference import JlptReferenceService
+                                jlpt_service = JlptReferenceService()
+                            except Exception:
+                                jlpt_service = None
+                        levels = [jlpt_service.lookup_kanji(ch) for ch in kanji_chars] if jlpt_service else []
+                        if levels and all(lvl in ("N4", "N5") for lvl in levels):
+                            parts.append(base)
+                        else:
+                            parts.append(f"<ruby>{base}<rt>{rt}</rt></ruby>")
+                    else:
+                        parts.append(f"<ruby>{base}<rt>{rt}</rt></ruby>")
+                else:
+                    parts.append(f"<ruby>{base}<rt>{rt}</rt></ruby>")
             elif base:
                 parts.append(base)
             pos = end
         if pos < len(source):
-            parts.append(_format_bracket_ruby(source[pos:]))
+            parts.append(_format_bracket_ruby(source[pos:], furigana_mode=furigana_mode, jlpt_service=jlpt_service))
         return "".join(parts)
 
     # 2. Process bracket notation or plain text
-    return _format_bracket_ruby(source)
+    return _format_bracket_ruby(source, furigana_mode=furigana_mode, jlpt_service=jlpt_service)
 
 
 def _get_field(obj: Any, key: str, default: Any = None) -> Any:
@@ -234,6 +273,7 @@ def format_example_html(
     reading: str | None = None,
     *,
     example: Any = None,
+    furigana_mode: str = "all",
 ) -> str:
     """Convert example sentence and translation into clean Anki HTML.
 
@@ -257,7 +297,7 @@ def format_example_html(
     if trans_text:
         trans_text = str(trans_text).strip()
 
-    ja_html = format_ruby_html(text=ja_text, reading=reading_text)
+    ja_html = format_ruby_html(text=ja_text, reading=reading_text, furigana_mode=furigana_mode)
     trans_html = escape_html(trans_text)
 
     if not ja_html and not trans_html:
@@ -348,6 +388,7 @@ def format_kanji_html(
     *,
     is_isolated: bool = False,
     show_jlpt: bool = True,
+    furigana_mode: str = "all",
 ) -> str:
     """Format structured kanji entries into clean Anki card HTML.
     
@@ -766,6 +807,7 @@ def format_basic_back(
     pitches: list[Any] | None = None,
     jlpt_level: str | None = None,
     verb_metadata: Any = None,
+    furigana_mode: str = "all",
     show_reading: bool = True,
     show_meaning: bool = True,
     show_jlpt: bool = True,
@@ -777,6 +819,10 @@ def format_basic_back(
     Includes reading + pitch badge, divider, structured meanings, rich kanji information,
     ruby examples, optional hint/notes, sanitized media tags, and a self-contained scoped <style> block.
     """
+    c_settings = _get_field(card, "card_settings") or {}
+    c_furigana_mode = furigana_mode
+    if c_furigana_mode == "all" and isinstance(c_settings, dict) and c_settings.get("furigana_mode"):
+        c_furigana_mode = str(c_settings.get("furigana_mode"))
     c_expr = str(expression if expression else (_get_field(card, "expression") or "")).strip()
     c_reading = str(reading if reading else (_get_field(card, "reading") or "")).strip()
     c_meaning = str(meaning if meaning else (_get_field(card, "meaning") or "")).strip()
@@ -864,7 +910,7 @@ def format_basic_back(
 
     if is_isolated_kanji:
         # Isolated kanji: render kanji card prominently at the top
-        kanji_html = format_kanji_html(c_kanji_entries, is_isolated=True, show_jlpt=show_jlpt)
+        kanji_html = format_kanji_html(c_kanji_entries, is_isolated=True, show_jlpt=show_jlpt, furigana_mode=c_furigana_mode)
         if kanji_html:
             sections.append(kanji_html)
 
@@ -887,7 +933,7 @@ def format_basic_back(
 
         # If kanji entries exist, render compact kanji card below vocabulary senses
         if c_kanji_entries and isinstance(c_kanji_entries, list):
-            kanji_html = format_kanji_html(c_kanji_entries, is_isolated=False, show_jlpt=show_jlpt)
+            kanji_html = format_kanji_html(c_kanji_entries, is_isolated=False, show_jlpt=show_jlpt, furigana_mode=c_furigana_mode)
             if kanji_html:
                 sections.append(kanji_html)
 
@@ -896,6 +942,7 @@ def format_basic_back(
         japanese=c_ex_sentence,
         translation=c_ex_trans,
         reading=c_ex_reading,
+        furigana_mode=c_furigana_mode,
     )
     if example_html:
         sections.append(example_html)

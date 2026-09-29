@@ -539,6 +539,7 @@ class AnkiConnectService:
             show_hint_back = bool(back_cfg.get("show_hint", True))
             show_jlpt = bool(settings.get("show_jlpt", True))
             show_verb_type = bool(settings.get("show_verb_type", True))
+            furigana_mode = str(settings.get("furigana_mode", "all"))
 
             # Front: Japanese expression is base. Optional reading, kanji reading, meaning, hint
             front_elements = [escaped_expr]
@@ -612,6 +613,7 @@ class AnkiConnectService:
                 show_jlpt=show_jlpt,
                 show_hint=show_hint_back,
                 show_verb_type=show_verb_type,
+                furigana_mode=furigana_mode,
             )
 
             # Assign to dedicated media fields if present

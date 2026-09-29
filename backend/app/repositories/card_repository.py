@@ -27,6 +27,8 @@ class CardDraft:
     notes: str = ""
     source_text: str = ""
     deinflected_text: str = ""
+    source_type: str = ""
+    source_url: str = ""
     deck_name: str = "Default"
     model_name: str = ""
     entries: list[Any] = field(default_factory=list)
@@ -68,6 +70,8 @@ class CardRecord:
     created_at: str
     updated_at: str
     model_name: str = ""
+    source_type: str = ""
+    source_url: str = ""
     sync_status: str = "pending"
     anki_note_id: int | None = None
     sync_error: str = ""
@@ -248,6 +252,8 @@ def _row_to_record(row: sqlite3.Row) -> CardRecord:
         notes=_get("notes"),
         source_text=row["source_text"],
         deinflected_text=row["deinflected_text"],
+        source_type=_get("source_type", ""),
+        source_url=_get("source_url", ""),
         deck_name=row["deck_name"],
         normalized_expression=row["normalized_expression"],
         normalized_reading=row["normalized_reading"],
@@ -288,7 +294,7 @@ class CardRepository:
                        image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
                        normalized_expression, normalized_reading, normalized_deck_name,
                        meanings_json, examples_json, status, created_at, updated_at,
-                       sync_status, anki_note_id, sync_error, synced_at
+                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url
                 FROM cards
                 WHERE normalized_expression = ? AND normalized_reading = ? AND normalized_deck_name = ?
                 """,
@@ -307,7 +313,7 @@ class CardRepository:
                        image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
                        normalized_expression, normalized_reading, normalized_deck_name,
                        meanings_json, examples_json, status, created_at, updated_at,
-                       sync_status, anki_note_id, sync_error, synced_at
+                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url
                 FROM cards
                 WHERE id = ?
                 """,
@@ -369,6 +375,8 @@ class CardRepository:
                             audio = ?,
                             tags = ?,
                             notes = ?,
+                            source_type = CASE WHEN ? != '' THEN ? ELSE source_type END,
+                            source_url = CASE WHEN ? != '' THEN ? ELSE source_url END,
                             deck_name = ?,
                             model_name = ?,
                             normalized_expression = ?,
@@ -390,6 +398,10 @@ class CardRepository:
                             draft.audio,
                             draft.tags,
                             draft.notes,
+                            draft.source_type or "",
+                            draft.source_type or "",
+                            draft.source_url or "",
+                            draft.source_url or "",
                             normalize_deck(draft.deck_name),
                             draft.model_name or "",
                             norm_expr,
@@ -416,11 +428,11 @@ class CardRepository:
                     """
                     INSERT INTO cards (
                         expression, reading, meaning, hint, example_sentence, example_translation,
-                        image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
-                        normalized_expression, normalized_reading, normalized_deck_name,
+                        image, audio, tags, notes, source_text, deinflected_text, source_type, source_url,
+                        deck_name, model_name, normalized_expression, normalized_reading, normalized_deck_name,
                         meanings_json, examples_json, status, sync_status, anki_note_id,
                         sync_error, synced_at, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         draft.expression,
@@ -435,6 +447,8 @@ class CardRepository:
                         draft.notes,
                         draft.source_text,
                         draft.deinflected_text,
+                        draft.source_type or "",
+                        draft.source_url or "",
                         normalize_deck(draft.deck_name),
                         draft.model_name or "",
                         norm_expr,
@@ -538,7 +552,7 @@ class CardRepository:
                            image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
                            normalized_expression, normalized_reading, normalized_deck_name,
                            meanings_json, examples_json, status, created_at, updated_at,
-                           sync_status, anki_note_id, sync_error, synced_at
+                           sync_status, anki_note_id, sync_error, synced_at, source_type, source_url
                     FROM cards
                     WHERE sync_status IN ('pending', 'failed') AND deck_name = ?
                     ORDER BY id ASC
@@ -552,7 +566,7 @@ class CardRepository:
                            image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
                            normalized_expression, normalized_reading, normalized_deck_name,
                            meanings_json, examples_json, status, created_at, updated_at,
-                           sync_status, anki_note_id, sync_error, synced_at
+                           sync_status, anki_note_id, sync_error, synced_at, source_type, source_url
                     FROM cards
                     WHERE sync_status IN ('pending', 'failed')
                     ORDER BY id ASC
@@ -574,7 +588,7 @@ class CardRepository:
                        image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
                        normalized_expression, normalized_reading, normalized_deck_name,
                        meanings_json, examples_json, status, created_at, updated_at,
-                       sync_status, anki_note_id, sync_error, synced_at
+                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url
                 FROM cards
                 WHERE (sync_status IN ('pending', 'failed')
                        OR (sync_status = 'synced' AND anki_note_id IS NOT NULL)){deck_clause}
@@ -616,7 +630,7 @@ class CardRepository:
                    image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
                    normalized_expression, normalized_reading, normalized_deck_name,
                    meanings_json, examples_json, status, created_at, updated_at,
-                   sync_status, anki_note_id, sync_error, synced_at
+                   sync_status, anki_note_id, sync_error, synced_at, source_type, source_url
             FROM cards
         """
         conditions = []
