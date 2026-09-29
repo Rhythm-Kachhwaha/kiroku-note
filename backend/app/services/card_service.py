@@ -560,6 +560,7 @@ class CardService:
                 deck_name=card.deck_name,
                 model_name=explicit_model,
                 synced_at=updated.synced_at if updated else None,
+                expression=card.expression,
             )
 
         except Exception as error:
@@ -573,6 +574,7 @@ class CardService:
                 model_name=card.model_name or None,
                 error=error_message,
                 synced_at=card.synced_at,
+                expression=card.expression,
             )
 
     def sync_all(self, deck_name: str | None = None) -> SyncAllResponse:
@@ -649,6 +651,7 @@ class CardService:
                         model_name=card.model_name or None,
                         error=str(err),
                         synced_at=card.synced_at,
+                        expression=card.expression,
                     )
                 )
                 failed_count += 1

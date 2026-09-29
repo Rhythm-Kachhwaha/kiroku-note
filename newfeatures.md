@@ -35,16 +35,14 @@
 - [x] **T2-K** — Fix wrong POS tags (desu/ashita/imi showing "verb") + reduce dictionary clutter *(Implemented & verified 2026-09-29)*
 
 ### Tier 3 — Medium
-- [ ] **T3-A** — `Alt+Enter` shortcut: saves card AND sends to Anki in one step
-- [ ] **T3-B** — `R` key in Video tab: replays the last subtitle cue from its start timestamp
-- [ ] **T3-C** — 5-second Undo toast after deleting a card from History
-- [ ] **T3-D** — Show a visual pitch accent diagram (LH line) instead of just a number
+- [x] **T3-A** — `Alt+Enter` shortcut: saves card AND sends to Anki in one step *(Implemented & verified 2026-09-29)*
+- [x] **T3-C** — 5-second Undo toast after deleting a card from History *(Implemented & verified 2026-09-29)*
 - [ ] **T3-E** — Sentence stepper (◀ 1/3 ▶) when a dictionary entry has multiple examples
 - [ ] **T3-F** — Stats panel in History: cards today/week, JLPT breakdown, deck distribution
 - [ ] **T3-G** — Save card template settings (furigana, JLPT badge etc.) per Anki deck
 - [ ] **T3-H** — Furigana density control: All / Advanced-only (hide N4/N5 kanji ruby) / None
 - [ ] **T3-I** — Store and show where/when a card was mined (Text / Video / OCR + source URL)
-- [ ] **T3-J** — Show live per-card ✓/✗ progress list during Sync All instead of just a count
+- [x] **T3-J** — Show live per-card ✓/✗ progress list during Sync All instead of just a count *(Implemented & verified 2026-09-29)*
 
 ### Tier 4 — Complex
 - [ ] **T4-A** — Checkboxes on History cards for bulk delete / bulk move to deck / bulk sync
@@ -508,24 +506,7 @@ begins. Use Promise chaining, not parallel calls. If save fails, do not attempt 
 
 ---
 
-## T3-B: Replay Last Subtitle Cue Shortcut
-
-**What:** A keyboard shortcut `R` (while the Video tab is active and focus is NOT in an input
-field) that seeks the video back to `startMs` of the last active subtitle cue and plays it.
-
-**Why:** Mine a word → replay it in context → confirm pronunciation. This is the core SRS
-audio-loop workflow and currently requires manual scrubbing.
-
-**Files:**
-- `extension/content/video-mining-poc.js` — store `lastActiveCue = { startMs, endMs }` when a
-  cue is displayed. Add `document.addEventListener('keydown', ...)` handler: if `e.key === 'r'`
-  and `!isEditableTarget(e.target)` and `lastActiveCue !== null`, execute
-  `video.currentTime = lastActiveCue.startMs / 1000; video.play();`.
-- The handler must be gated behind mining mode being active.
-
-**Constraints:** This IS an explicit user-initiated seek (key press), which is exempt from the
-playback invariant (invariant prohibits *automatic* seeks during mining, not user-triggered ones).
-Document this clearly in the PR/commit message.
+## Tier3 - B is removed coz of redundancy ignore the T3-B
 
 ---
 
@@ -556,33 +537,7 @@ seconds without undo, the delete commits.
 
 ---
 
-## T3-D: Pitch Accent Visual Diagram
-
-**What:** Instead of just the pitch accent number pill (`①`, `⊚ heiban`), render a small visual
-LH-drop line diagram — the standard notation used by all Japanese pitch accent materials.
-
-**Example:** For `③` on a 3-mora word: `L H H↓` shown as a simple SVG polyline.
-
-**Why:** The pitch *number* is meaningless to learners who haven't memorized the system. The
-diagram is the actual pedagogical tool. Yomitan shows diagrams; Kiroku only shows numbers.
-
-**Implementation:**
-- Pure SVG generation in JavaScript. No external library needed.
-- Input: pitch number `n` (0, 1, 2, 3...) + mora count (derived from reading kana length).
-- Algorithm: mora 1 is always L if `n !== 1`, else H. Moras 2..n are H. Mora n+1 drops to L.
-  Pattern `n=0` (heiban): rises at mora 2, never drops within the word.
-- Generate `<svg width="60" height="20">` with `<polyline points="...">` connecting H/L nodes.
-
-**Files:**
-- `extension/sidepanel/sidepanel.js` — add `generatePitchDiagramSVG(pitchNum, moraCount)` function.
-  Call it in `updateHeroBadges()` and in `renderCardPreviewDOM()`.
-- `extension/sidepanel/sidepanel.css` — add `.pitch-diagram svg polyline { stroke: var(--accent-reading); }`.
-- `backend/app/services/anki_formatter.py` — add the same SVG generation logic in Python for
-  embedding in the Anki card HTML. The SVG should be self-contained (no external CSS references).
-
-**Test:** Unit test the SVG generation for pitch 0 (heiban), 1 (atamadaka), 2, 3 on 3-mora words.
-
----
+## T3-D is removed : redundant 
 
 ## T3-E: Example Sentence Selector (1 of N)
 

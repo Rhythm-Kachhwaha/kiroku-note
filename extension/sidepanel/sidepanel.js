@@ -620,6 +620,19 @@ const btnSyncAll = document.querySelector("#btn-sync-all");
 const btnExportCards = document.querySelector("#btn-export-cards");
 const syncAllStatus = document.querySelector("#sync-all-status");
 
+// Live Sync Progress Modal Elements (T3-J)
+const syncProgressModal = document.querySelector("#sync-progress-modal");
+const btnCloseSyncModal = document.querySelector("#btn-close-sync-modal");
+const syncProgressSummary = document.querySelector("#sync-progress-summary");
+const syncModalProgressBar = document.querySelector("#sync-modal-progress-bar");
+const syncProgressList = document.querySelector("#sync-progress-list");
+const btnDismissSyncModal = document.querySelector("#btn-dismiss-sync-modal");
+
+// Undo Toast Elements (T3-C)
+const undoToast = document.querySelector("#undo-toast");
+const undoToastMessage = document.querySelector("#undo-toast-message");
+const btnUndoDelete = document.querySelector("#btn-undo-delete");
+
 // History Collapse Management (Guardrail 4)
 const STORAGE_KEY_HISTORY_COLLAPSED = "kiroku.history_collapsed";
 const historyCollapseBtn = document.querySelector("#history-collapse-btn");
@@ -4142,126 +4155,149 @@ async function refreshDuplicateState() {
 }
 
 // Card save form submission
-if (cardEditor) {
-  cardEditor.addEventListener("submit", async event => {
-    event.preventDefault();
-    const expr = fieldExpression ? fieldExpression.value.trim() : "";
-    if (!expr) {
-      setStatus("Expression must not be empty.", true);
-      return;
-    }
+async function saveCard() {
+  const expr = (typeof fieldExpression !== "undefined" && fieldExpression) ? fieldExpression.value.trim() : "";
+  if (!expr) {
+    if (typeof setStatus === "function") setStatus("Expression must not be empty.", true);
+    return null;
+  }
 
+  if (typeof saveCardBtn !== "undefined" && saveCardBtn) {
     saveCardBtn.disabled = true;
     saveCardBtn.textContent = "Saving…";
+  }
 
-    const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
-    const targetModel = (fieldModelSelect && fieldModelSelect.value.trim()) || (fieldModelName && fieldModelName.value.trim()) || "";
-    const payload = {
-      id: fieldCardId && fieldCardId.value ? parseInt(fieldCardId.value, 10) : null,
-      expression: expr,
-      reading: fieldReading ? fieldReading.value.trim() : "",
-      meaning: fieldMeaning ? fieldMeaning.value.trim() : "",
-      deck_name: targetDeck,
-      model_name: targetModel,
-      hint: fieldHint ? fieldHint.value.trim() : "",
-      example_sentence: fieldExampleSentence ? fieldExampleSentence.value.trim() : "",
-      example_translation: fieldExampleTranslation ? fieldExampleTranslation.value.trim() : "",
-      image: fieldImage ? fieldImage.value.trim() : "",
-      audio: fieldAudio ? fieldAudio.value.trim() : "",
-      image_data: currentDraftMedia.imageBase64 || null,
-      audio_data: currentDraftMedia.audioBase64 || null,
-      media_mime_type: currentDraftMedia.mimeType || null,
-      tags: fieldTags ? fieldTags.value.trim() : "",
-      notes: fieldNotes ? fieldNotes.value.trim() : "",
-      source_text: fieldSourceText ? fieldSourceText.value.trim() : "",
-      deinflected_text: fieldDeinflectedText ? fieldDeinflectedText.value.trim() : "",
-      entries: Array.isArray(currentDictionaryEntries) ? currentDictionaryEntries : [],
-      kanji_entries: Array.isArray(currentKanjiEntries) ? currentKanjiEntries : [],
-      jlpt_level: typeof currentJlptLevel !== "undefined" ? currentJlptLevel : null,
-      verb_metadata: typeof currentVerbMetadata !== "undefined" ? currentVerbMetadata : null,
-      card_settings: (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
-    };
+  const targetDeck = (typeof fieldDeckSelect !== "undefined" && fieldDeckSelect && fieldDeckSelect.value.trim()) || (typeof fieldDeckName !== "undefined" && fieldDeckName && fieldDeckName.value.trim()) || "Default";
+  const targetModel = (typeof fieldModelSelect !== "undefined" && fieldModelSelect && fieldModelSelect.value.trim()) || (typeof fieldModelName !== "undefined" && fieldModelName && fieldModelName.value.trim()) || "";
+  const payload = {
+    id: (typeof fieldCardId !== "undefined" && fieldCardId && fieldCardId.value) ? parseInt(fieldCardId.value, 10) : null,
+    expression: expr,
+    reading: (typeof fieldReading !== "undefined" && fieldReading) ? fieldReading.value.trim() : "",
+    meaning: (typeof fieldMeaning !== "undefined" && fieldMeaning) ? fieldMeaning.value.trim() : "",
+    deck_name: targetDeck,
+    model_name: targetModel,
+    hint: (typeof fieldHint !== "undefined" && fieldHint) ? fieldHint.value.trim() : "",
+    example_sentence: (typeof fieldExampleSentence !== "undefined" && fieldExampleSentence) ? fieldExampleSentence.value.trim() : "",
+    example_translation: (typeof fieldExampleTranslation !== "undefined" && fieldExampleTranslation) ? fieldExampleTranslation.value.trim() : "",
+    image: (typeof fieldImage !== "undefined" && fieldImage) ? fieldImage.value.trim() : "",
+    audio: (typeof fieldAudio !== "undefined" && fieldAudio) ? fieldAudio.value.trim() : "",
+    image_data: (typeof currentDraftMedia !== "undefined" && currentDraftMedia.imageBase64) || null,
+    audio_data: (typeof currentDraftMedia !== "undefined" && currentDraftMedia.audioBase64) || null,
+    media_mime_type: (typeof currentDraftMedia !== "undefined" && currentDraftMedia.mimeType) || null,
+    tags: (typeof fieldTags !== "undefined" && fieldTags) ? fieldTags.value.trim() : "",
+    notes: (typeof fieldNotes !== "undefined" && fieldNotes) ? fieldNotes.value.trim() : "",
+    source_text: (typeof fieldSourceText !== "undefined" && fieldSourceText) ? fieldSourceText.value.trim() : "",
+    deinflected_text: (typeof fieldDeinflectedText !== "undefined" && fieldDeinflectedText) ? fieldDeinflectedText.value.trim() : "",
+    entries: (typeof currentDictionaryEntries !== "undefined" && Array.isArray(currentDictionaryEntries)) ? currentDictionaryEntries : [],
+    kanji_entries: (typeof currentKanjiEntries !== "undefined" && Array.isArray(currentKanjiEntries)) ? currentKanjiEntries : [],
+    jlpt_level: typeof currentJlptLevel !== "undefined" ? currentJlptLevel : null,
+    verb_metadata: typeof currentVerbMetadata !== "undefined" ? currentVerbMetadata : null,
+    card_settings: (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
+  };
 
+  try {
+    const response = await fetch(API_SAVE_URL, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.detail || "Failed to save card.");
+    }
+
+    if (typeof fieldCardId !== "undefined" && fieldCardId) fieldCardId.value = body.id || "";
+    if (body.model_name && typeof fieldModelSelect !== "undefined" && fieldModelSelect) {
+      fieldModelSelect.value = body.model_name;
+      if (typeof fieldModelName !== "undefined" && fieldModelName) fieldModelName.value = body.model_name;
+    }
     try {
-      const response = await fetch(API_SAVE_URL, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(payload),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(body.detail || "Failed to save card.");
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+        chrome.storage.local.set({ last_used_deck: targetDeck, preferred_anki_model: targetModel });
+      } else if (typeof localStorage !== "undefined") {
+        localStorage.setItem("last_used_deck", targetDeck);
+        localStorage.setItem("preferred_anki_model", targetModel);
       }
-
-      if (fieldCardId) fieldCardId.value = body.id || "";
-      if (body.model_name && fieldModelSelect) {
-        fieldModelSelect.value = body.model_name;
-        if (fieldModelName) fieldModelName.value = body.model_name;
-      }
-      try {
-        if (typeof chrome !== "undefined" && chrome.storage?.local) {
-          chrome.storage.local.set({ last_used_deck: targetDeck, preferred_anki_model: targetModel });
-        } else if (typeof localStorage !== "undefined") {
-          localStorage.setItem("last_used_deck", targetDeck);
-          localStorage.setItem("preferred_anki_model", targetModel);
-        }
-      } catch (_) {}
-      updateDestinationIndicator();
-      if (body.audio) {
-        if (fieldAudio) fieldAudio.value = body.audio;
-        const audioSrc = body.audio.startsWith("data:") || body.audio.startsWith("http:") || body.audio.startsWith("https:")
-          ? body.audio
-          : `${BACKEND_BASE_URL}/api/media/${body.audio}`;
+    } catch (_) {}
+    if (typeof updateDestinationIndicator === "function") updateDestinationIndicator();
+    if (body.audio) {
+      if (typeof fieldAudio !== "undefined" && fieldAudio) fieldAudio.value = body.audio;
+      const audioSrc = body.audio.startsWith("data:") || body.audio.startsWith("http:") || body.audio.startsWith("https:")
+        ? body.audio
+        : `${typeof BACKEND_BASE_URL !== "undefined" ? BACKEND_BASE_URL : ""}/api/media/${body.audio}`;
+      if (typeof currentDraftMedia !== "undefined") {
         currentDraftMedia.audioBase64 = audioSrc;
         currentDraftMedia.audioStatus = "available";
         currentDraftMedia.audioError = null;
       }
-      if (body.image) {
-        if (fieldImage) fieldImage.value = body.image;
-        const imgSrc = body.image.startsWith("data:") || body.image.startsWith("http:") || body.image.startsWith("https:")
-          ? body.image
-          : `${BACKEND_BASE_URL}/api/media/${body.image}`;
+    }
+    if (body.image) {
+      if (typeof fieldImage !== "undefined" && fieldImage) fieldImage.value = body.image;
+      const imgSrc = body.image.startsWith("data:") || body.image.startsWith("http:") || body.image.startsWith("https:")
+        ? body.image
+        : `${typeof BACKEND_BASE_URL !== "undefined" ? BACKEND_BASE_URL : ""}/api/media/${body.image}`;
+      if (typeof currentDraftMedia !== "undefined") {
         currentDraftMedia.imageBase64 = imgSrc;
       }
-      updateMediaPreviews();
-      if (expression) expression.textContent = body.expression || expr;
-      updateHeroReading(body.reading, body.expression || expr);
-      if (body.meaning || (fieldMeaning && fieldMeaning.value)) {
+    }
+    if (typeof updateMediaPreviews === "function") updateMediaPreviews();
+    if (typeof expression !== "undefined" && expression) expression.textContent = body.expression || expr;
+    if (typeof updateHeroReading === "function") updateHeroReading(body.reading, body.expression || expr);
+    if (typeof updateHeroMeanings === "function") {
+      if (body.meaning || (typeof fieldMeaning !== "undefined" && fieldMeaning && fieldMeaning.value)) {
         updateHeroMeanings(body.meaning ? body : { meaning: fieldMeaning.value });
       }
-      updateHeroBadges(body);
+    }
+    if (typeof updateHeroBadges === "function") updateHeroBadges(body);
 
+    if (typeof updateSyncUI === "function") {
       if (body.sync_status === "synced") {
         updateSyncUI("synced");
       } else {
         updateSyncUI("pending");
       }
+    }
 
-      if (body.is_duplicate) {
-        setSaveBadge("ALREADY SAVED", "badge already-saved", true);
-        setStatus("Card already saved.");
-      } else {
-        setSaveBadge("SAVED", "badge saved", true);
-        setStatus(body.is_updated ? "Card updated." : "Card saved.");
-        if (body.is_new) {
-          sessionCardCount++;
-          updateSessionCounter();
-        }
+    if (body.is_duplicate) {
+      if (typeof setSaveBadge === "function") setSaveBadge("ALREADY SAVED", "badge already-saved", true);
+      if (typeof setStatus === "function") setStatus("Card already saved.");
+    } else {
+      if (typeof setSaveBadge === "function") setSaveBadge("SAVED", "badge saved", true);
+      if (typeof setStatus === "function") setStatus(body.is_updated ? "Card updated." : "Card saved.");
+      if (body.is_new) {
+        if (typeof sessionCardCount !== "undefined") sessionCardCount++;
+        if (typeof updateSessionCounter === "function") updateSessionCounter();
       }
-      isCardDraftDirtyState = false;
-      selectedHistoryCardId = body.id || null;
-      loadHistory().catch(() => {});
-    } catch (error) {
-      setStatus(`Save failed: ${formatErrorMessage(error)}`, true);
-    } finally {
+    }
+    if (typeof isCardDraftDirtyState !== "undefined") isCardDraftDirtyState = false;
+    if (typeof selectedHistoryCardId !== "undefined") selectedHistoryCardId = body.id || null;
+    if (typeof loadHistory === "function") loadHistory().catch(() => {});
+    return body;
+  } catch (error) {
+    if (typeof setStatus === "function") {
+      const errFormatted = typeof formatErrorMessage === "function" ? formatErrorMessage(error) : (error.message || String(error));
+      setStatus(`Save failed: ${errFormatted}`, true);
+    }
+    return null;
+  } finally {
+    if (typeof saveCardBtn !== "undefined" && saveCardBtn) {
       saveCardBtn.disabled = false;
       saveCardBtn.textContent = "Save Card";
     }
+  }
+}
+
+if (typeof cardEditor !== "undefined" && cardEditor) {
+  cardEditor.addEventListener("submit", async event => {
+    if (event && typeof event.preventDefault === "function") event.preventDefault();
+    await saveCard();
   });
 
-  cardEditor.addEventListener("input", () => {
-    isCardDraftDirtyState = true;
-  });
+  if (typeof cardEditor.addEventListener === "function") {
+    cardEditor.addEventListener("input", () => {
+      if (typeof isCardDraftDirtyState !== "undefined") isCardDraftDirtyState = true;
+    });
+  }
 }
 
 async function triggerAnkiSync() {
@@ -4680,6 +4716,17 @@ async function triggerSyncAll(options = {}) {
     syncAllStatus.textContent = "Checking Anki & syncing cards…";
   }
 
+  if (!silent && typeof syncProgressModal !== "undefined" && syncProgressModal) {
+    syncProgressModal.hidden = false;
+    if (typeof syncProgressSummary !== "undefined" && syncProgressSummary) syncProgressSummary.textContent = "Connecting to Anki and syncing cards…";
+    if (typeof syncModalProgressBar !== "undefined" && syncModalProgressBar) {
+      syncModalProgressBar.style.width = "10%";
+      syncModalProgressBar.style.background = "var(--accent-anki, #64b5f6)";
+    }
+    if (typeof syncProgressList !== "undefined" && syncProgressList) syncProgressList.replaceChildren();
+    if (typeof btnDismissSyncModal !== "undefined" && btnDismissSyncModal) btnDismissSyncModal.hidden = true;
+  }
+
   try {
     const response = await fetch(API_CARD_SYNC_ALL_URL, {
       method: "POST",
@@ -4694,12 +4741,70 @@ async function triggerSyncAll(options = {}) {
         syncAllStatus.className = "sync-all-status failed";
         syncAllStatus.textContent = `⚠ ${errMsg}`;
       }
+      if (!silent && typeof syncProgressModal !== "undefined" && syncProgressModal) {
+        if (typeof syncProgressSummary !== "undefined" && syncProgressSummary) syncProgressSummary.textContent = `⚠ ${errMsg}`;
+        if (typeof syncModalProgressBar !== "undefined" && syncModalProgressBar) {
+          syncModalProgressBar.style.width = "100%";
+          syncModalProgressBar.style.background = "var(--accent-coral, #ff8c70)";
+        }
+        if (typeof btnDismissSyncModal !== "undefined" && btnDismissSyncModal) btnDismissSyncModal.hidden = false;
+      }
       if (!silent) setStatus(`Sync All failed: ${errMsg}`, true);
       await loadHistory().catch(() => {});
       return;
     }
 
-    const { total_eligible = 0, synced_count = 0, failed_count = 0 } = body;
+    const { total_eligible = 0, synced_count = 0, failed_count = 0, results = [] } = body;
+
+    if (!silent && typeof syncProgressModal !== "undefined" && syncProgressModal) {
+      if (total_eligible === 0) {
+        if (typeof syncProgressSummary !== "undefined" && syncProgressSummary) syncProgressSummary.textContent = "No cards to sync (all up to date).";
+        if (typeof syncModalProgressBar !== "undefined" && syncModalProgressBar) syncModalProgressBar.style.width = "100%";
+        if (typeof btnDismissSyncModal !== "undefined" && btnDismissSyncModal) btnDismissSyncModal.hidden = false;
+      } else {
+        if (typeof syncProgressList !== "undefined" && syncProgressList) syncProgressList.replaceChildren();
+        for (let i = 0; i < results.length; i++) {
+          const item = results[i];
+          const isSuccess = item.sync_status === "synced";
+          const li = document.createElement("li");
+          li.className = `sync-item ${isSuccess ? "success" : "failed"}`;
+
+          const iconSpan = document.createElement("span");
+          iconSpan.className = "sync-icon";
+          iconSpan.textContent = isSuccess ? "✓" : "✗";
+
+          const exprSpan = document.createElement("span");
+          exprSpan.className = "sync-expr";
+          exprSpan.textContent = item.expression || `Card #${item.id}`;
+
+          li.append(iconSpan, exprSpan);
+
+          if (!isSuccess && item.error) {
+            const errSpan = document.createElement("span");
+            errSpan.className = "sync-err";
+            errSpan.textContent = item.error;
+            errSpan.title = item.error;
+            li.append(errSpan);
+          }
+
+          if (typeof syncProgressList !== "undefined" && syncProgressList) {
+            syncProgressList.append(li);
+            syncProgressList.scrollTop = syncProgressList.scrollHeight;
+          }
+
+          if (typeof syncModalProgressBar !== "undefined" && syncModalProgressBar) {
+            const pct = Math.round(((i + 1) / results.length) * 100);
+            syncModalProgressBar.style.width = `${pct}%`;
+          }
+        }
+
+        if (typeof syncProgressSummary !== "undefined" && syncProgressSummary) {
+          syncProgressSummary.textContent = `Sync complete: ${synced_count} succeeded, ${failed_count} failed.`;
+        }
+        if (typeof btnDismissSyncModal !== "undefined" && btnDismissSyncModal) btnDismissSyncModal.hidden = false;
+      }
+    }
+
     if (!silent) {
       if (total_eligible === 0) {
         if (syncAllStatus) {
@@ -4740,6 +4845,14 @@ async function triggerSyncAll(options = {}) {
       syncAllStatus.className = "sync-all-status failed";
       syncAllStatus.textContent = `⚠ Sync All failed: ${msg}`;
     }
+    if (!silent && syncProgressModal) {
+      if (syncProgressSummary) syncProgressSummary.textContent = `⚠ Sync All failed: ${msg}`;
+      if (syncModalProgressBar) {
+        syncModalProgressBar.style.width = "100%";
+        syncModalProgressBar.style.background = "var(--accent-coral, #ff8c70)";
+      }
+      if (btnDismissSyncModal) btnDismissSyncModal.hidden = false;
+    }
     if (!silent) setStatus(`Sync All failed: ${msg}`, true);
     await loadHistory().catch(() => {});
   } finally {
@@ -4756,6 +4869,18 @@ if (btnSyncAll) {
   btnSyncAll.addEventListener("click", () => triggerSyncAll({ silent: false }));
 }
 
+if (typeof btnCloseSyncModal !== "undefined" && btnCloseSyncModal) {
+  btnCloseSyncModal.addEventListener("click", () => {
+    if (typeof syncProgressModal !== "undefined" && syncProgressModal) syncProgressModal.hidden = true;
+  });
+}
+
+if (typeof btnDismissSyncModal !== "undefined" && btnDismissSyncModal) {
+  btnDismissSyncModal.addEventListener("click", () => {
+    if (typeof syncProgressModal !== "undefined" && syncProgressModal) syncProgressModal.hidden = true;
+  });
+}
+
 
 // Keyboard shortcuts
 document.addEventListener("keydown", event => {
@@ -4766,6 +4891,22 @@ document.addEventListener("keydown", event => {
     event.preventDefault();
     if (ocrCaptureBtn) {
       ocrCaptureBtn.click();
+    }
+    return;
+  }
+
+  // T3-A: Alt+Enter Smart Save Shortcut (Save + Sync in one action)
+  if (event.altKey && !event.ctrlKey && !event.metaKey && (event.key === "Enter" || event.code === "Enter" || event.code === "NumpadEnter")) {
+    if (event.target && typeof event.target.matches === "function" && event.target.matches("textarea, input[type=text]")) {
+      return;
+    }
+    event.preventDefault();
+    if (cardEditor && !cardEditor.hidden) {
+      saveCard().then(saved => {
+        if (saved && saved.id) {
+          triggerAnkiSync();
+        }
+      }).catch(() => {});
     }
     return;
   }
@@ -4797,6 +4938,10 @@ document.addEventListener("keydown", event => {
   }
 
   if (event.key === "Escape") {
+    if (syncProgressModal && !syncProgressModal.hidden) {
+      syncProgressModal.hidden = true;
+      return;
+    }
     const popover = cardSettingsPopover || layoutSettingsPopover;
     if (popover && !popover.hidden) {
       closeLayoutSettings();
@@ -5240,29 +5385,39 @@ async function openSavedCard(cardId) {
   }
 }
 
-async function deleteLocalCard(cardId, cardExpr, delBtn) {
-  if (delBtn) {
-    if (!delBtn.classList.contains("confirm-delete")) {
-      delBtn.classList.add("confirm-delete");
-      delBtn.textContent = "✕";
-      delBtn.title = `Click again to confirm deleting "${cardExpr}"`;
-      setTimeout(() => {
-        if (delBtn && delBtn.classList.contains("confirm-delete")) {
-          delBtn.classList.remove("confirm-delete");
-          delBtn.innerHTML = "&times;";
-          delBtn.title = "Delete local card";
-        }
-      }, 3000);
-      return;
-    }
-    delBtn.classList.remove("confirm-delete");
+// T3-C: 5-Second Undo Toast on History Deletion
+let pendingDeletion = null;
+
+function showUndoToast(message, onUndo) {
+  if (!undoToast) return;
+  if (undoToastMessage) undoToastMessage.textContent = message;
+  undoToast.hidden = false;
+  if (btnUndoDelete) {
+    btnUndoDelete.onclick = (e) => {
+      e.preventDefault();
+      if (typeof onUndo === "function") onUndo();
+    };
   }
+}
+
+function hideUndoToast() {
+  if (undoToast) {
+    undoToast.hidden = true;
+  }
+}
+
+async function commitPendingDelete() {
+  if (!pendingDeletion) return;
+  const toDelete = pendingDeletion;
+  clearTimeout(toDelete.timerId);
+  pendingDeletion = null;
+  hideUndoToast();
 
   try {
-    const res = await fetch(API_CARD_DETAIL_URL(cardId), { method: "DELETE" });
+    const res = await fetch(API_CARD_DETAIL_URL(toDelete.cardId), { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete card.");
 
-    if (fieldCardId && fieldCardId.value === String(cardId)) {
+    if (fieldCardId && fieldCardId.value === String(toDelete.cardId)) {
       fieldCardId.value = "";
       if (fieldExpression) fieldExpression.value = "";
       if (fieldReading) fieldReading.value = "";
@@ -5300,11 +5455,78 @@ async function deleteLocalCard(cardId, cardExpr, delBtn) {
       if (typeof scheduleCardPreviewUpdate === "function") scheduleCardPreviewUpdate();
     }
 
-    setStatus(`Deleted "${cardExpr}" from local database.`);
+    setStatus(`Deleted "${toDelete.cardExpr}" from local database.`);
     await loadHistory();
   } catch (err) {
     setStatus(`Delete failed: ${err.message}`, true);
+    await loadHistory();
   }
+}
+
+function cancelPendingDelete() {
+  if (!pendingDeletion) return;
+  const restored = pendingDeletion;
+  clearTimeout(restored.timerId);
+  pendingDeletion = null;
+  hideUndoToast();
+
+  if (restored.cardEl) {
+    restored.cardEl.style.display = "";
+  }
+  setStatus(`Restored "${restored.cardExpr}".`);
+  loadHistory().catch(() => {});
+}
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("beforeunload", () => {
+    if (pendingDeletion) {
+      commitPendingDelete();
+    }
+  });
+}
+
+async function deleteLocalCard(cardId, cardExpr, delBtn) {
+  if (delBtn) {
+    if (!delBtn.classList.contains("confirm-delete")) {
+      delBtn.classList.add("confirm-delete");
+      delBtn.textContent = "✕";
+      delBtn.title = `Click again to confirm deleting "${cardExpr}"`;
+      setTimeout(() => {
+        if (delBtn && delBtn.classList.contains("confirm-delete")) {
+          delBtn.classList.remove("confirm-delete");
+          delBtn.innerHTML = "&times;";
+          delBtn.title = "Delete local card";
+        }
+      }, 3000);
+      return;
+    }
+    delBtn.classList.remove("confirm-delete");
+  }
+
+  // If another deletion was pending, commit it immediately before starting new one
+  if (pendingDeletion) {
+    await commitPendingDelete();
+  }
+
+  // Find DOM element in history list to give instant feedback
+  const cardEl = historyCardsList ? historyCardsList.querySelector(`.history-item[data-card-id="${cardId}"]`) : null;
+  if (cardEl) {
+    cardEl.style.display = "none";
+  }
+
+  pendingDeletion = {
+    cardId,
+    cardExpr,
+    cardEl,
+    timerId: setTimeout(() => {
+      commitPendingDelete();
+    }, 5000),
+  };
+
+  showUndoToast(`Deleted "${cardExpr}"`, () => {
+    cancelPendingDelete();
+  });
+  setStatus(`"${cardExpr}" deleted (Undo available for 5s)`);
 }
 
 async function retrySyncFromHistory(cardId) {

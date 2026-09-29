@@ -334,7 +334,7 @@
 
           <!-- 2. Primary Actions: Shortened Clean Labels "Save" & "Anki" (No Shortcut Clutter) -->
           <div class="primary-actions-row editor-actions-bottom">
-            <button type="submit" id="save-card-btn" class="btn-act-save btn-save" title="Save card to local database">
+            <button type="submit" id="save-card-btn" class="btn-act-save btn-save" title="Save card to local database (Alt+Enter)">
               <span>Save</span>
             </button>
             <button type="button" id="sync-anki-btn" class="btn-sync" disabled title="Direct Sync to Anki">
@@ -548,6 +548,27 @@
 
       <div id="history-content-container" class="history-content-container" hidden>
         <div id="sync-all-status" class="sync-all-status" role="status" aria-live="polite" hidden></div>
+
+        <!-- Live Sync Progress Modal (T3-J) -->
+        <div id="sync-progress-modal" class="sync-progress-modal" role="dialog" aria-modal="false" aria-label="Sync All Progress" hidden>
+          <div class="sync-progress-modal-header">
+            <div class="sync-progress-modal-title-row">
+              <span class="sync-progress-modal-icon" aria-hidden="true">🔄</span>
+              <h3 class="sync-progress-modal-title">Sync All to Anki</h3>
+            </div>
+            <button type="button" id="btn-close-sync-modal" class="btn-close-modal" title="Close sync progress" aria-label="Close sync progress">&times;</button>
+          </div>
+          <div class="sync-progress-modal-body">
+            <div id="sync-progress-summary" class="sync-progress-summary">Preparing sync…</div>
+            <div class="sync-modal-progress-track">
+              <div id="sync-modal-progress-bar" class="sync-modal-progress-bar" style="width: 0%;"></div>
+            </div>
+            <ul id="sync-progress-list" class="sync-progress-list" aria-label="Itemized sync results"></ul>
+          </div>
+          <div class="sync-progress-modal-footer">
+            <button type="button" id="btn-dismiss-sync-modal" class="btn-secondary btn-dismiss-sync-modal" hidden>Close</button>
+          </div>
+        </div>
 
         <div class="history-toolbar">
           <div class="history-search-group" style="flex:1;">
@@ -769,6 +790,10 @@
         </details>
 
       </div>
+    <!-- 5-Second Undo Toast on History Deletion (T3-C) -->
+    <div id="undo-toast" class="undo-toast" role="status" aria-live="polite" hidden>
+      <span id="undo-toast-message" class="undo-toast-message"></span>
+      <button type="button" id="btn-undo-delete" class="btn-undo-delete">Undo</button>
     </div>
 
   </main>

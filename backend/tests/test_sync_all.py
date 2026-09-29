@@ -269,4 +269,6 @@ class TestSyncAllApi:
                     assert data["synced_count"] == 2
                     assert data["failed_count"] == 0
                     assert len(data["results"]) == 2
+                    assert data["results"][0]["expression"] == "本"
+                    assert data["results"][1]["expression"] == "紙"
                     assert data["error"] is None

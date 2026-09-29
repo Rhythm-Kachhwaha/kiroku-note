@@ -269,6 +269,7 @@ class SyncCardResponse(BaseModel):
     model_name: Optional[str] = None
     error: Optional[str] = None
     synced_at: Optional[str] = None
+    expression: Optional[str] = None
 
 
 class SyncAllResponse(BaseModel):

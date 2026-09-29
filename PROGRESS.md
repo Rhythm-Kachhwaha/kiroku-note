@@ -1615,6 +1615,44 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ **Full Backend Pytest Suite:** **404/404 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
 - **Remaining Risk:** None. All features are additive, non-breaking, fully verified by automated tests, and strictly respect locked architectural boundaries.
 
+---
+
+### Tier 3 — Session 1: Fast Mining Workflows & History UX
+
+- **Date:** 2026-09-29
+- **Scope & Objectives:**
+  - Implement Tier 3 Session 1 tasks from `newfeatures.md`:
+    - **T3-A (Smart Save Shortcut `Alt+Enter`)**: Pressing `Alt+Enter` in the side panel saves the card locally and immediately queues/triggers Anki sync in sequence.
+    - **T3-C (5-Second Undo Toast on History Deletion)**: Deleting a card displays a 5-second floating undo toast allowing the user to restore the card before permanent SQLite deletion.
+    - **T3-J (Detailed Live Sync Progress Modal)**: Displays a live per-card itemized list (`✓ Expression` / `✗ Error`) and animated progress bar during Sync All execution instead of a simple counter.
+  - Invariants maintained: SQLite-first persistence; vanilla HTML/CSS/JS only (no frameworks); 100% backward compatibility.
+- **Implementation Deliverables:**
+  1. **T3-A (Smart Save Shortcut `Alt+Enter`):**
+     - Updated `#save-card-btn` title in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html) to `title="Save card to local database (Alt+Enter)"`.
+     - Extracted reusable `async function saveCard()` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) positioned cleanly above `// Card save form submission`.
+     - Added global `keydown` listener for `Alt+Enter` with target input guard (`!event.target.matches('textarea, input[type=text]')`), chaining `.then(saved => { if (saved && saved.id) triggerAnkiSync(); })`.
+  2. **T3-C (5-Second Undo Toast on History Deletion):**
+     - Added `#undo-toast` floating container with `#undo-toast-message` and `#btn-undo-delete` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html).
+     - Styled `.undo-toast` in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css) with high z-index and coral accent theme.
+     - Implemented deferred deletion pattern in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js):
+       - First click arms `.confirm-delete`.
+       - Second click visually hides the card element (`display = 'none'`), arms a 5-second `setTimeout`, records `pendingDeletion`, and displays the toast.
+       - Clicking "Undo" restores card element display, clears timer, and resets state.
+       - Timer expiration, starting a new deletion, or `beforeunload` flushes `commitPendingDelete()` issuing `DELETE /api/cards/{id}` to SQLite.
+  3. **T3-J (Detailed Live Sync Progress Modal):**
+     - Added `expression: Optional[str] = None` to `SyncCardResponse` schema in [backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py).
+     - Populated `expression=card.expression` in `sync_card()` and `sync_all()` responses in [backend/app/services/card_service.py](file:///d:/Python/AnkiMiner/backend/app/services/card_service.py) for both successful and failed sync items.
+     - Added `#sync-progress-modal` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html) with `#sync-progress-summary`, `#sync-modal-progress-bar`, `#sync-progress-list`, and `#btn-dismiss-sync-modal`.
+     - Styled modal, progress bar, and itemized rows (`.sync-item.success`, `.sync-item.failed`) in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css).
+     - Updated `triggerSyncAll({ silent: false })` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) to display the modal during manual execution, populate itemized status rows (`✓ expression` / `✗ expression: error`), animate the progress bar, and provide dismiss/Escape key dismiss.
+- **Verification:**
+  - ✅ **Backend Sync All Response Test:** [backend/tests/test_sync_all.py](file:///d:/Python/AnkiMiner/backend/tests/test_sync_all.py) verifies `expression` inclusion in `SyncCardResponse`.
+  - ✅ **Tier 3 Session 1 Automated Suite:** [extension/tests/tier3-session1-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier3-session1-features.test.js): **4/4 passed (100%)**
+  - ✅ **Full Extension Test Suite:** **119/119 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - ✅ **Full Backend Pytest Suite:** **404/404 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+- **Remaining Risk:** None. All changes are backward compatible, respect local-first SQLite invariants, and have passed extensive regression verification.
+
+
 
 
 
