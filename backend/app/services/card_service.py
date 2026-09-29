@@ -164,6 +164,7 @@ class CardService:
         serialized_kanji: list[dict[str, Any]] = [asdict(k) for k in enriched.kanji_entries]
         default_meaning = synthesize_default_meaning(enriched.entries, enriched.kanji_entries)
         default_example_sentence, default_example_translation = synthesize_default_example(enriched.entries)
+        verb_meta = enriched.verb_metadata.to_dict() if getattr(enriched, "verb_metadata", None) else None
 
         # Step 4: Check if already exists in SQLite
         existing = self.repository.find_by_identity(enriched.expression, enriched.reading, deck_name)
@@ -185,6 +186,7 @@ class CardService:
                 source_text=existing.source_text or enriched.source_text,
                 deinflected_text=existing.deinflected_text or enriched.deinflected_text,
                 jlpt_level=enriched.jlpt_level,
+                verb_metadata=verb_meta,
                 entries=entries_data,
                 kanji_entries=kanji_data,
                 dictionary_error=enriched.dictionary_error,
@@ -216,6 +218,7 @@ class CardService:
             source_text=enriched.source_text,
             deinflected_text=enriched.deinflected_text,
             jlpt_level=enriched.jlpt_level,
+            verb_metadata=verb_meta,
             entries=serialized_entries,
             kanji_entries=serialized_kanji,
             dictionary_error=enriched.dictionary_error,
@@ -361,6 +364,8 @@ class CardService:
         entries_data = card_record.entries if card_record.entries else serialized_entries
         kanji_data = card_record.kanji_entries if card_record.kanji_entries else serialized_kanji
 
+        verb_meta = enriched.verb_metadata.to_dict() if getattr(enriched, "verb_metadata", None) else None
+
         return CaptureResponse(
             id=card_record.id,
             expression=card_record.expression,
@@ -376,6 +381,7 @@ class CardService:
             source_text=card_record.source_text,
             deinflected_text=card_record.deinflected_text,
             jlpt_level=enriched.jlpt_level,
+            verb_metadata=verb_meta,
             entries=entries_data,
             kanji_entries=kanji_data,
             dictionary_error=enriched.dictionary_error,

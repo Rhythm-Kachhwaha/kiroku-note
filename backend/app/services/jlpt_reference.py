@@ -5,6 +5,7 @@ for Japanese vocabulary words and kanji characters.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -16,6 +17,8 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 _VALID_JLPT_LEVELS = {"N1", "N2", "N3", "N4", "N5"}
+_DERIVATIONAL_SUFFIXES = ("性", "的", "化", "力", "感", "界", "者", "家")
+_LEVEL_PRIORITY = {"N5": 5, "N4": 4, "N3": 3, "N2": 2, "N1": 1}
 
 
 def resolve_jlpt_reference_db_path() -> Path:
@@ -111,13 +114,54 @@ class JlptReferenceService:
         clean_expr = expression.strip()
         try:
             cursor = conn.cursor()
-            row = cursor.execute("SELECT level FROM vocab WHERE word = ? LIMIT 1;", (clean_expr,)).fetchone()
-            if row and row[0]:
-                return _normalize_level(row[0])
+            # Query exact match, prefix, suffix, and surrounded space matches
+            query = """
+                SELECT level FROM vocab 
+                WHERE word = ? 
+                   OR word LIKE ? 
+                   OR word LIKE ? 
+                   OR word LIKE ?
+            """
+            rows = cursor.execute(
+                query,
+                (clean_expr, f"{clean_expr} %", f"% {clean_expr}", f"% {clean_expr} %"),
+            ).fetchall()
+
+            if rows:
+                # Pick canonical level with lowest index / easiest grade (N5 over N3 if dual-listed)
+                levels = [_normalize_level(r[0]) for r in rows if r and r[0]]
+                valid_levels = [lvl for lvl in levels if lvl in _LEVEL_PRIORITY]
+                if valid_levels:
+                    # Return highest priority (N5 > N4 > N3 > N2 > N1 for beginner safety)
+                    return max(valid_levels, key=lambda lvl: _LEVEL_PRIORITY[lvl])
+
+            # Suffix stripping fallback
+            for suffix in _DERIVATIONAL_SUFFIXES:
+                if clean_expr.endswith(suffix) and len(clean_expr) > len(suffix) + 1:
+                    base_expr = clean_expr[:-len(suffix)]
+                    base_level = self.lookup_word(base_expr)
+                    if base_level:
+                        return base_level
+
             return None
         except Exception as err:
             logger.debug("JLPT vocab lookup failed for '%s': %s", clean_expr, err)
             return None
+
+    def lookup_word_with_kanji_fallback(self, expression: str) -> str | None:
+        """Lookup modern JLPT level ('N5'..'N1') with kanji fallback for unlisted compounds."""
+        direct = self.lookup_word(expression)
+        if direct:
+            return direct
+        kanji_chars = [ch for ch in expression if "\u4e00" <= ch <= "\u9fff"]
+        if not kanji_chars:
+            return None
+        kanji_levels = [self.lookup_kanji(ch) for ch in kanji_chars]
+        valid = [lvl for lvl in kanji_levels if lvl in _LEVEL_PRIORITY]
+        if len(valid) == len(kanji_chars):
+            # All kanji are known; return the most advanced kanji level
+            return min(valid, key=lambda lvl: _LEVEL_PRIORITY[lvl])
+        return None
 
     def lookup_kanji(self, character: str) -> str | None:
         """Lookup modern JLPT level ('N5'..'N1') for a kanji character, or None."""
@@ -141,6 +185,84 @@ class JlptReferenceService:
         except Exception as err:
             logger.debug("JLPT kanji lookup failed for '%s': %s", clean_char, err)
             return None
+
+    def search_english(self, query: str, limit: int = 20) -> list[dict]:
+        """Search vocabulary by English meaning keywords/phrases."""
+        clean_query = query.strip().lower()
+        if not clean_query:
+            return []
+
+        norm_query = re.sub(r"^(to|a|an)\s+", "", clean_query)
+        words = re.findall(r"\b[a-z0-9'-]+\b", norm_query)
+        if not words:
+            return []
+
+        conn = self._get_connection()
+        if conn is None:
+            return []
+
+        try:
+            where_clauses = ["meanings LIKE ?" for _ in words]
+            params = [f"%{w}%" for w in words]
+            sql = f"SELECT word, reading, meanings, level FROM vocab WHERE {' AND '.join(where_clauses)} LIMIT 100;"
+            cursor = conn.cursor()
+            rows = cursor.execute(sql, params).fetchall()
+
+            scored_entries = []
+            level_weights = {"N5": 50, "N4": 40, "N3": 30, "N2": 20, "N1": 10}
+
+            for word, reading, meanings_raw, level in rows:
+                try:
+                    meanings_list = json.loads(meanings_raw) if meanings_raw else []
+                except Exception:
+                    meanings_list = [meanings_raw] if meanings_raw else []
+
+                matched = False
+                exact_gloss = False
+                starts_with_gloss = False
+                primary_gloss = meanings_list[0] if meanings_list else ""
+
+                for m in meanings_list:
+                    m_lower = str(m).lower()
+                    all_words_present = all(re.search(r"\b" + re.escape(w) + r"\b", m_lower) for w in words)
+                    if all_words_present:
+                        matched = True
+                        if m_lower == clean_query or m_lower == f"to {clean_query}":
+                            exact_gloss = True
+                        elif m_lower.startswith(clean_query) or m_lower.startswith(f"to {clean_query}"):
+                            starts_with_gloss = True
+
+                if not matched:
+                    continue
+
+                norm_lvl = _normalize_level(level)
+                score = level_weights.get(norm_lvl, 0)
+                if exact_gloss:
+                    score += 100
+                elif starts_with_gloss:
+                    score += 50
+
+                scored_entries.append({
+                    "score": score,
+                    "term": word,
+                    "reading": reading or word,
+                    "senses": [{"glosses": [primary_gloss] if primary_gloss else [""]}],
+                    "tags": [norm_lvl] if norm_lvl else [],
+                })
+
+            scored_entries.sort(key=lambda x: x["score"], reverse=True)
+            return [
+                {
+                    "term": item["term"],
+                    "reading": item["reading"],
+                    "senses": item["senses"],
+                    "tags": item["tags"],
+                }
+                for item in scored_entries[:limit]
+            ]
+        except Exception as err:
+            logger.debug("search_english failed for '%s': %s", clean_query, err)
+            return []
 
     def close(self) -> None:
         """Close cached SQLite connection handle if active."""

@@ -121,6 +121,14 @@ class YomitanDictionariesResponse(BaseModel):
     disclaimer: str = "Discovered from enabled dictionaries responding in Yomitan."
 
 
+class VerbMetadataSchema(BaseModel):
+    is_verb: bool = False
+    verb_type: Optional[str] = None
+    is_transitive: bool = False
+    is_intransitive: bool = False
+    transitivity_label: str = "none"
+
+
 class CaptureResponse(BaseModel):
     id: Optional[int] = None
     expression: str
@@ -136,6 +144,7 @@ class CaptureResponse(BaseModel):
     source_text: str = ""
     deinflected_text: str = ""
     jlpt_level: Optional[str] = None
+    verb_metadata: Optional[VerbMetadataSchema] = None
     entries: list[DictionaryEntry] = Field(default_factory=list)
     kanji_entries: list[KanjiEntry] = Field(default_factory=list)
     dictionary_error: Optional[str] = None

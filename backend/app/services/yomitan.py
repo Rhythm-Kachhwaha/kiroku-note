@@ -109,6 +109,9 @@ class KanjiEntry:
     frequencies: list[FrequencyRank] = field(default_factory=list)
 
 
+from app.services.verb_metadata import VerbMetadata, parse_verb_metadata
+
+
 @dataclass(frozen=True)
 class EnrichedTerm:
     expression: str
@@ -119,6 +122,7 @@ class EnrichedTerm:
     dictionary_error: str | None = None
     jlpt_level: str | None = None
     kanji_entries: list[KanjiEntry] = field(default_factory=list)
+    verb_metadata: VerbMetadata | None = None
 
 from app.services.jlpt_reference import JlptReferenceService
 
@@ -246,7 +250,19 @@ class YomitanService:
 
         # Priority 2: Fallback to bundled OpenJLPT reference service lookup
         if not jlpt_level and self._jlpt_reference:
-            jlpt_level = self._jlpt_reference.lookup_word(term.expression)
+            if hasattr(self._jlpt_reference, "lookup_word_with_kanji_fallback"):
+                jlpt_level = self._jlpt_reference.lookup_word_with_kanji_fallback(term.expression)
+            else:
+                jlpt_level = self._jlpt_reference.lookup_word(term.expression)
+
+        # Parse verb metadata from all available POS tokens and tags
+        all_pos: list[str] = []
+        for entry in entries:
+            all_pos.extend(entry.parts_of_speech)
+            for s in entry.senses:
+                all_pos.extend(s.parts_of_speech)
+            all_pos.extend(entry.tags)
+        verb_metadata = parse_verb_metadata(all_pos) if all_pos else None
 
         return EnrichedTerm(
             expression=term.expression,
@@ -257,6 +273,7 @@ class YomitanService:
             dictionary_error=error,
             jlpt_level=jlpt_level,
             kanji_entries=kanji_entries,
+            verb_metadata=verb_metadata,
         )
 
     def discover_available_dictionaries(self) -> list[str]:

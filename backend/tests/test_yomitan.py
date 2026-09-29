@@ -157,3 +157,26 @@ class YomitanCrossReferenceTests(unittest.TestCase):
         for frag in ("See also", "See also衝", "③ opposition", "See also 衝 ③ opposition"):
             self.assertNotIn(frag, sense.notes)
 
+
+class YomitanEnrichmentTests(unittest.TestCase):
+    def test_enrich_attaches_verb_metadata(self):
+        from app.services.yomitan import DictionaryEntry, DictionarySense, IdentifiedTerm, YomitanService
+        service = YomitanService()
+        term = IdentifiedTerm("食べる", "たべる", "食べる", "食べる")
+        entry = DictionaryEntry(
+            dictionary="Jitendex",
+            term="食べる",
+            reading="たべる",
+            parts_of_speech=["1-dan", "transitive"],
+            senses=[DictionarySense(glosses=["to eat"])],
+        )
+        with patch.object(service, "_post_json", return_value={}):
+            with patch.object(service, "normalize_term_entries_response", return_value=[entry]):
+                enriched = service.enrich(term)
+                self.assertIsNotNone(getattr(enriched, "verb_metadata", None))
+                self.assertTrue(enriched.verb_metadata.is_verb)
+                self.assertEqual(enriched.verb_metadata.verb_type, "ichidan")
+                self.assertTrue(enriched.verb_metadata.is_transitive)
+                self.assertEqual(enriched.verb_metadata.transitivity_label, "他動詞")
+
+

@@ -1393,6 +1393,96 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ `node --test extension/tests/*.test.js`: **77/77 tests passed (100%)**
   - ✅ `python -m pytest backend/tests -o pythonpath=backend`: **374/374 tests passed (100%)**
 
+---
+
+### Quick Add Status, Tab Persistence, English Reverse Lookup & JP Mode English Preservation Fixes
+
+- **Date:** 2026-09-29
+- **Scope & Objectives:**
+  1. Show "already saved" status in Quick Add too if valid, including session counter ("0 today") and subtle saved indicator on matching candidate suggestions.
+  2. Stop Quick Add from switching back to the Text tab when selecting a candidate or replacing a draft (stay on Quick mode).
+  3. Replace the redundant Katakana button ("ア") in Quick Add with an English reverse search button ("EN"), allowing users to type English meanings (e.g., "eat", "water") and find corresponding Japanese words.
+  4. Fix JP Mode (WanaKana IME): prevent pre-existing English characters in editor fields from turning into mangled Japanese when typing in JP mode.
+  5. Regression test against mixed English-Japanese typing cases and maintain 100% test pass rate across backend and extension.
+
+- **Changes Delivered:**
+  1. **Quick Add Saved Status & Session Counter:**
+     - In [sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html), added `#quickadd-session-count` and `#quickadd-save-badge` to the Quick Add header row.
+     - In [sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css), styled `.quickadd-header-left`, `.quickadd-candidate-saved-pill`, and `.quickadd-candidate-jlpt-pill`.
+     - In [sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js), added `setSaveBadge(text, className, isVisible)` updating both `#save-badge` and `#quickadd-save-badge` in sync, updated `updateSessionCounter()`, and enhanced `renderQuickAddSuggestions()` to mark already-saved candidates with a green `SAVED` pill.
+  2. **Quick Add Tab Persistence:**
+     - In [sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js), removed `switchMiningTab("text")` from `selectQuickAddCandidate()`. Users now remain on the Quick Add view while candidate details load into the card draft.
+  3. **English Reverse Lookup in Quick Add:**
+     - In [jlpt_reference.py](file:///d:/Python/AnkiMiner/backend/app/services/jlpt_reference.py), added `search_english(query: str, limit: int = 20)` searching 8,334 vocabulary entries in `jlpt_reference.sqlite` by English definition with word-boundary regex and JLPT level weighting.
+     - In [main.py](file:///d:/Python/AnkiMiner/backend/app/main.py), added `GET /api/dictionary/search-english` endpoint.
+     - In [sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html), replaced `#quickadd-mode-katakana` with `#quickadd-mode-english` ("EN").
+     - In [sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js), implemented `setQuickAddSearchMode("kana" | "english")`. English mode unbinds WanaKana and routes queries to `/api/dictionary/search-english`.
+  4. **JP Mode English Character Preservation:**
+     - In [wanakana.js](file:///d:/Python/AnkiMiner/extension/lib/wanakana.js), modified the lookback predicate to stop at whitespace and punctuation (`/\s|[.,\/#!$%\^&\*;:{}=\-_~()\[\]"?<>]/.test(ch)`) and added a smart filter (`_token.length > 4 && /[a-zA-Z]/.test(re(_token))`) that detects unconverted English words and skips conversion.
+     - Pre-existing English text (e.g. `"The cat: "`, `"English note "`, `"Notes: [important]"`) is 100% preserved when typing in JP mode.
+
+- **Verification:**
+  - ✅ `backend/tests/test_english_search.py`: **5/5 tests passed (100%)**
+  - ✅ `python -m pytest backend/tests -o pythonpath=backend`: **379/379 tests passed (100%)**
+  - ✅ `extension/tests/jp-mode-regression.test.js`: **11/11 tests passed (100%)**
+  - ✅ `extension/tests/quick-add-status.test.js`: **3/3 tests passed (100%)**
+  - ✅ `extension/tests/quick-add-tab-persistence.test.js`: **1/1 tests passed (100%)**
+  - ✅ `extension/tests/quick-add-english-mode.test.js`: **3/3 tests passed (100%)**
+  - ✅ `extension/tests/quick-add.test.js`: **11/11 test suites passed (100%)**
+  - ✅ Full Extension Suite (`55 test files`): **55/55 passed (100%)**
+
+---
+
+### JLPT Resolution Hardening, Verb Metadata Classification & Side Panel Hero View Showcase
+
+- **Date:** 2026-09-29
+- **Scope & Objectives:**
+  1. Implement `2026-09-28-jlpt-and-verb-metadata.md` specification across backend services.
+  2. Resilient JLPT level resolution: resolve space-separated multi-word vocab entries (`見る 観る`), handle derivational noun suffixes (`〜性`, `〜力`, `〜的`, `〜化`), and kanji-level fallback for unlisted high-register compounds.
+  3. Pure domain verb classification and transitivity parser for Jitendex/Yomitan POS tokens (`1-dan`, `5-dan`, `suru`, `kuru`, `aux-verb`, `transitive`, `intransitive`), forwarding structured metadata to `EnrichedTerm` and capture API responses.
+  4. Redesign captured-word Hero View in the Side Panel matching the user's visual reference screenshot:
+     - Top reading line: Hiragana reading + middle dot + Romaji in warm amber (`のむ · nomu`).
+     - Main word: prominent Japanese kanji (`飲む`).
+     - Meaning summary: numbered senses separated by middle dots (`1. to drink · 2. to take; consume · 3. to swallow`).
+     - Badges: `[ JLPT N4 ]` (red-orange border/text), `[ verb · godan ]` (dark surface pill), and `[ ⊚ heiban ]` (warm amber border/text with circle glyph).
+  5. Strictly preserve all existing functionality, editor inputs, preview data, Anki sync payloads, and pass 100% of test suites.
+
+- **Changes Delivered:**
+  1. **Resilient JLPT Word & Suffix Resolution:**
+     - In [jlpt_reference.py](file:///d:/Python/AnkiMiner/backend/app/services/jlpt_reference.py), updated `lookup_word` to match exact words, prefix patterns (`word %`), suffix patterns (`% word`), and space-enclosed patterns (`% word %`), prioritizing canonical easier levels (e.g. `N5` over `N3` for `見る` from dual-listed `見る 観る`).
+     - Added derivational suffix stripping (`性`, `的`, `化`, `力`, `感`, `界`, `者`, `家`) fallback.
+     - Added `lookup_word_with_kanji_fallback` heuristic aggregating individual kanji JLPT levels for unlisted compounds (e.g. `顕著` -> `顕` N1, `著` N2 -> `N1`).
+     - Added 8 dedicated unit tests in [test_jlpt_reference.py](file:///d:/Python/AnkiMiner/backend/tests/test_jlpt_reference.py).
+  2. **Verb Metadata Domain Parser:**
+     - Created [verb_metadata.py](file:///d:/Python/AnkiMiner/backend/app/services/verb_metadata.py) with `VerbMetadata` frozen dataclass (`is_verb`, `verb_type`, `is_transitive`, `is_intransitive`, `transitivity_label`).
+     - Implemented `parse_verb_metadata` normalizing Jitendex tokens (`1-dan`, `5-dan`, `suru`, `kuru`, `aux-verb`, `transitive`, `intransitive`, etc.).
+     - Created [test_verb_metadata.py](file:///d:/Python/AnkiMiner/backend/tests/test_verb_metadata.py) with 8 dedicated unit tests.
+  3. **Yomitan Enrichment & API Schemas:**
+     - In [yomitan.py](file:///d:/Python/AnkiMiner/backend/app/services/yomitan.py), attached `verb_metadata` to `EnrichedTerm`, aggregated POS tags from entry/senses/tags, and integrated kanji-level fallback for JLPT resolution.
+     - In [schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py), added `VerbMetadataSchema` and included `verb_metadata: VerbMetadataSchema | None = None` in `CaptureResponse`.
+     - In [card_service.py](file:///d:/Python/AnkiMiner/backend/app/services/card_service.py), forwarded `verb_metadata` in `capture_term` and `capture_and_save`.
+  4. **Side Panel Hero View UI (Matching Visual Specification):**
+     - In [sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css):
+       - Refined `.word-reading-lead` (`font-size: 16px; font-weight: 500; color: var(--accent-reading, #e2945a); display: flex; align-items: center; justify-content: center; gap: 6px;`).
+       - Refined `.word-meanings-summary` (`font-size: 14px; color: var(--text-secondary, #b0ada8); text-align: center; line-height: 1.5;`).
+       - Refined `.word-badges-row` and `.kn-badge` (`.jlpt` red-orange accent, `.pos` neutral surface pill, `.pitch` warm amber with `⊚`).
+     - In [sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js):
+       - Added `updateHeroReading(readingText, expressionText)` converting kana reading to romaji with `wanakana.toRomaji()` and formatting as `${reading} · ${romaji}`.
+       - Rewrote `updateHeroMeanings(data)` to format top 3 senses as `1. sense · 2. sense · 3. sense`, preserving sense-internal semicolons when numbered or newline senses exist.
+       - Rewrote `updateHeroBadges(body)` to render `JLPT N*`, `verb · <type>` / POS tag, and `⊚ heiban` / `${circle} ${pattern}`.
+       - Bound `updateHeroReading` across editor inputs, candidate selection, saved card opening, and reset flows.
+     - Added [hero-view.test.js](file:///d:/Python/AnkiMiner/extension/tests/hero-view.test.js) with 5 unit tests verifying reading formatting, meaning sense formatting, and badge output.
+
+- **Verification:**
+  - ✅ `backend/tests/test_jlpt_reference.py`: **8/8 passed (100%)**
+  - ✅ `backend/tests/test_verb_metadata.py`: **8/8 passed (100%)**
+  - ✅ `backend/tests/test_yomitan.py`: **7/7 passed (100%)**
+  - ✅ `extension/tests/hero-view.test.js`: **5/5 passed (100%)**
+  - ✅ **Backend Pytest Suite:** **391/391 passed (100%)** (`python -m pytest backend/tests -o pythonpath=backend`)
+  - ✅ **Extension Test Suite:** **100/100 passed (100%)** (`node --test extension/tests/*.test.js`)
+- **Remaining Risk:** None. All automated tests pass cleanly with zero breaking changes.
+
+
 
 
 

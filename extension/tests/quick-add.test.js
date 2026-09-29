@@ -33,7 +33,7 @@ assert.ok(
 assert.ok(html.includes('id="quickadd-input"'), "Quick Add input element #quickadd-input must exist");
 assert.ok(html.includes('id="quickadd-clear-btn"'), "Quick Add clear button #quickadd-clear-btn must exist");
 assert.ok(html.includes('id="quickadd-mode-hiragana"'), "Hiragana mode button #quickadd-mode-hiragana must exist");
-assert.ok(html.includes('id="quickadd-mode-katakana"'), "Katakana mode button #quickadd-mode-katakana must exist");
+assert.ok(html.includes('id="quickadd-mode-english"'), "English mode button #quickadd-mode-english must exist");
 assert.ok(html.includes('id="quickadd-suggestions-container"'), "Quick Add suggestions container #quickadd-suggestions-container must exist");
 assert.ok(html.includes('id="quickadd-suggestions-list"'), "Quick Add suggestions list #quickadd-suggestions-list must exist");
 
@@ -225,6 +225,9 @@ const mockQuickAddModeHiragana = createMockElement("button", "quickadd-mode-hira
 mockQuickAddModeHiragana.classList.add("active");
 mockQuickAddModeHiragana.setAttribute("aria-checked", "true");
 
+const mockQuickAddModeEnglish = createMockElement("button", "quickadd-mode-english");
+mockQuickAddModeEnglish.setAttribute("aria-checked", "false");
+
 const mockQuickAddModeKatakana = createMockElement("button", "quickadd-mode-katakana");
 mockQuickAddModeKatakana.setAttribute("aria-checked", "false");
 
@@ -271,6 +274,7 @@ const sandbox = {
         case "#quickadd-suggestions-container": return mockQuickAddSuggestionsContainer;
         case "#quickadd-suggestions-list": return mockQuickAddSuggestionsList;
         case "#quickadd-mode-hiragana": return mockQuickAddModeHiragana;
+        case "#quickadd-mode-english": return mockQuickAddModeEnglish;
         case "#quickadd-mode-katakana": return mockQuickAddModeKatakana;
         default: return createMockElement("div");
       }
@@ -355,36 +359,27 @@ mockQuickAddInput.selectionEnd = 3;
 mockQuickAddInput.dispatchEvent({ type: "input", target: mockQuickAddInput });
 assert.equal(mockQuickAddInput.value, "食べる", "Direct Japanese / pasted kanji must pass through without corruption");
 
-// Switch to Katakana mode via button click
-mockQuickAddModeKatakana.dispatchEvent({ type: "click" });
-assert.equal(mockQuickAddModeKatakana.classList.contains("active"), true, "Katakana button must be active");
+// Switch to English mode via button click
+mockQuickAddModeEnglish.dispatchEvent({ type: "click" });
+assert.equal(mockQuickAddModeEnglish.classList.contains("active"), true, "English button must be active");
 assert.equal(mockQuickAddModeHiragana.classList.contains("active"), false, "Hiragana button must be inactive");
-assert.equal(mockQuickAddModeKatakana.getAttribute("aria-checked"), "true", "Katakana button aria-checked must be true");
+assert.equal(mockQuickAddModeEnglish.getAttribute("aria-checked"), "true", "English button aria-checked must be true");
 assert.equal(mockQuickAddModeHiragana.getAttribute("aria-checked"), "false", "Hiragana button aria-checked must be false");
 
-// Typing romaji in Katakana mode converts to Katakana
-mockQuickAddInput.value = "taberu";
-mockQuickAddInput.selectionEnd = 6;
-mockQuickAddInput.dispatchEvent({ type: "input", target: mockQuickAddInput });
-assert.equal(mockQuickAddInput.value, "タベル", "Katakana mode must convert 'taberu' to 'タベル'");
-
-// Toggling back to Hiragana mode converts existing input to Hiragana
+// Toggling back to Hiragana mode
 mockQuickAddModeHiragana.dispatchEvent({ type: "click" });
 assert.equal(mockQuickAddModeHiragana.classList.contains("active"), true, "Hiragana button must be active");
-assert.equal(mockQuickAddModeKatakana.classList.contains("active"), false, "Katakana button must be inactive");
-assert.equal(mockQuickAddInput.value, "たべる", "Switching to Hiragana mode must convert existing text 'タベル' to 'たべる'");
+assert.equal(mockQuickAddModeEnglish.classList.contains("active"), false, "English button must be inactive");
 
-// Test F7 shortcut key switches to Katakana
+// Test F7 shortcut key switches to English
 mockQuickAddInput.dispatchEvent({ type: "keydown", key: "F7", preventDefault: () => {} });
-assert.equal(mockQuickAddModeKatakana.classList.contains("active"), true, "F7 key must activate Katakana mode");
-assert.equal(mockQuickAddInput.value, "タベル", "F7 key must convert existing text to Katakana");
+assert.equal(mockQuickAddModeEnglish.classList.contains("active"), true, "F7 key must activate English mode");
 
 // Test F6 shortcut key switches to Hiragana
 mockQuickAddInput.dispatchEvent({ type: "keydown", key: "F6", preventDefault: () => {} });
 assert.equal(mockQuickAddModeHiragana.classList.contains("active"), true, "F6 key must activate Hiragana mode");
-assert.equal(mockQuickAddInput.value, "たべる", "F6 key must convert existing text to Hiragana");
 
-console.log("PASS 4: WanaKana incremental romaji->kana and Hiragana/Katakana mode switching verified.");
+console.log("PASS 4: WanaKana incremental romaji->kana and Hiragana/English mode switching verified.");
 
 // ==========================================================================
 // 6. Verify Card Preview JLPT Badge (Front & Back)

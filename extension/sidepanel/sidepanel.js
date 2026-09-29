@@ -29,8 +29,20 @@ const toggle = document.querySelector("#mining-toggle");
 const ocrCaptureBtn = document.querySelector("#ocr-capture-btn");
 const mode = document.querySelector("#mode");
 const sessionCountEl = document.querySelector("#session-count");
+const quickAddSessionCountEl = document.querySelector("#quickadd-session-count");
 const status = document.querySelector("#capture-status");
 const saveBadge = document.querySelector("#save-badge");
+const quickAddSaveBadge = document.querySelector("#quickadd-save-badge");
+
+function setSaveBadge(text, className = "badge", isVisible = true) {
+  [saveBadge, quickAddSaveBadge].forEach(badge => {
+    if (badge) {
+      badge.textContent = isVisible ? text : "";
+      badge.className = isVisible ? className : "badge";
+      badge.hidden = !isVisible;
+    }
+  });
+}
 const expression = document.querySelector("#expression");
 const reading = document.querySelector("#reading");
 const wordMeaningsSummary = document.querySelector("#word-meanings-summary");
@@ -650,10 +662,12 @@ const quickAddClearBtn = document.querySelector("#quickadd-clear-btn");
 const quickAddSuggestionsContainer = document.querySelector("#quickadd-suggestions-container");
 const quickAddSuggestionsList = document.querySelector("#quickadd-suggestions-list");
 const quickAddModeHiragana = document.querySelector("#quickadd-mode-hiragana");
+const quickAddModeEnglish = document.querySelector("#quickadd-mode-english");
 const quickAddModeKatakana = document.querySelector("#quickadd-mode-katakana");
 
 let currentMiningTab = "text";
 let currentQuickAddKanaMode = "hiragana";
+let currentQuickAddSearchMode = "kana";
 let quickAddCandidates = [];
 let quickAddHighlightedIndex = -1;
 let quickAddDebounceTimer = null;
@@ -1179,12 +1193,14 @@ if (fieldModelName) {
 if (fieldExpression) {
   fieldExpression.addEventListener("input", () => {
     if (expression) expression.textContent = fieldExpression.value || "—";
+    updateHeroReading(fieldReading ? fieldReading.value : "", fieldExpression.value);
     scheduleDuplicateCheck(false);
     if (currentMiningTab === "video") {
       updateVideoCuePreviewText();
     }
   });
   fieldExpression.addEventListener("change", () => {
+    updateHeroReading(fieldReading ? fieldReading.value : "", fieldExpression.value);
     scheduleDuplicateCheck(true);
     if (currentMiningTab === "video") {
       updateVideoCuePreviewText();
@@ -1194,10 +1210,11 @@ if (fieldExpression) {
 
 if (fieldReading) {
   fieldReading.addEventListener("input", () => {
-    if (reading) reading.textContent = fieldReading.value || "";
+    updateHeroReading(fieldReading.value, fieldExpression ? fieldExpression.value : "");
     scheduleDuplicateCheck(false);
   });
   fieldReading.addEventListener("change", () => {
+    updateHeroReading(fieldReading.value, fieldExpression ? fieldExpression.value : "");
     scheduleDuplicateCheck(true);
   });
 }
@@ -1208,6 +1225,26 @@ if (fieldMeaning) {
   });
 }
 
+function updateHeroReading(readingText, expressionText) {
+  if (!reading) return;
+  const rawReading = (readingText || "").trim();
+  const rawExpr = (expressionText || "").trim();
+  const text = rawReading || rawExpr;
+  if (!text) {
+    reading.textContent = "";
+    return;
+  }
+  const hasKana = /[\u3040-\u309f\u30a0-\u30ff]/.test(text);
+  if (hasKana && typeof wanakana !== "undefined" && typeof wanakana.toRomaji === "function") {
+    const romaji = wanakana.toRomaji(text);
+    if (romaji && romaji.toLowerCase() !== text.toLowerCase()) {
+      reading.textContent = `${text} · ${romaji}`;
+      return;
+    }
+  }
+  reading.textContent = text;
+}
+
 function updateHeroMeanings(data) {
   if (!wordMeaningsSummary) return;
   const meaning = (data && data.meaning ? String(data.meaning) : "").trim();
@@ -1216,10 +1253,38 @@ function updateHeroMeanings(data) {
     wordMeaningsSummary.hidden = true;
     return;
   }
-  const rawParts = meaning.split(/[;\n]/).map(s => s.trim().replace(/^\d+[\.\)]\s*/, "")).filter(Boolean);
-  const top3 = rawParts.slice(0, 3).join("; ");
-  wordMeaningsSummary.textContent = top3;
-  wordMeaningsSummary.hidden = !top3;
+  let rawParts = [];
+  if (meaning.includes("\n")) {
+    rawParts = meaning
+      .split(/\r?\n/)
+      .map(s => s.trim().replace(/^\d+[\.\)]\s*/, "").trim())
+      .filter(Boolean);
+  } else if (/^\s*\d+[\.\)]/.test(meaning)) {
+    rawParts = meaning
+      .split(/(?:^|\s+)\d+[\.\)]\s*/)
+      .map(s => s.trim())
+      .filter(Boolean);
+  } else {
+    rawParts = meaning
+      .split(/;/)
+      .map(s => s.trim().replace(/^\d+[\.\)]\s*/, "").trim())
+      .filter(Boolean);
+  }
+
+  const uniqueParts = [];
+  for (const p of rawParts) {
+    if (!uniqueParts.includes(p)) uniqueParts.push(p);
+  }
+
+  const top3 = uniqueParts.slice(0, 3);
+  if (top3.length === 0) {
+    wordMeaningsSummary.textContent = "";
+    wordMeaningsSummary.hidden = true;
+    return;
+  }
+  const formatted = top3.map((s, idx) => `${idx + 1}. ${s}`).join(" · ");
+  wordMeaningsSummary.textContent = formatted;
+  wordMeaningsSummary.hidden = false;
 }
 
 function updateHeroBadges(body) {
@@ -1255,7 +1320,8 @@ function updateHeroBadges(body) {
     if (jlpt) {
       const displayJlpt = String(jlpt).trim().toUpperCase();
       const cleanJlpt = displayJlpt.startsWith("JLPT") ? displayJlpt.replace("JLPT", "").trim() : displayJlpt;
-      showcaseJlptBadge.textContent = cleanJlpt.match(/^[1-5]$/) ? `N${cleanJlpt}` : cleanJlpt;
+      const normalizedNum = cleanJlpt.match(/^[1-5]$/) ? `N${cleanJlpt}` : cleanJlpt;
+      showcaseJlptBadge.textContent = `JLPT ${normalizedNum}`;
       showcaseJlptBadge.hidden = false;
     } else {
       showcaseJlptBadge.hidden = true;
@@ -1263,24 +1329,57 @@ function updateHeroBadges(body) {
     }
   }
 
-  // 2. POS (Part of Speech)
+  // 2. POS (Part of Speech) / Verb Metadata
   if (showcasePosBadge) {
-    let pos = "";
-    if (entries.length) {
-      for (const e of entries) {
-        if (Array.isArray(e.senses)) {
-          for (const s of e.senses) {
-            if (Array.isArray(s.pos) && s.pos.length) {
-              pos = s.pos[0];
-              break;
+    let posLabel = "";
+    const verbMeta = body?.verb_metadata || rawObj?.verb_metadata;
+    if (verbMeta && verbMeta.is_verb) {
+      const vType = verbMeta.verb_type ? String(verbMeta.verb_type).toLowerCase() : "";
+      posLabel = vType ? `verb · ${vType}` : "verb";
+    } else {
+      let rawPos = "";
+      if (entries.length) {
+        for (const e of entries) {
+          const allPosTokens = [
+            ...(Array.isArray(e.parts_of_speech) ? e.parts_of_speech : []),
+            ...(Array.isArray(e.tags) ? e.tags : []),
+          ];
+          if (Array.isArray(e.senses)) {
+            for (const s of e.senses) {
+              if (Array.isArray(s.parts_of_speech)) allPosTokens.push(...s.parts_of_speech);
+              if (Array.isArray(s.pos)) allPosTokens.push(...s.pos);
+              if (Array.isArray(s.tags)) allPosTokens.push(...s.tags);
             }
           }
+          const normTokens = allPosTokens.map(t => String(t).toLowerCase().trim());
+          if (normTokens.some(t => t.includes("5-dan") || t.includes("godan") || t.startsWith("v5"))) {
+            posLabel = "verb · godan";
+            break;
+          } else if (normTokens.some(t => t.includes("1-dan") || t.includes("ichidan") || t.startsWith("v1"))) {
+            posLabel = "verb · ichidan";
+            break;
+          } else if (normTokens.some(t => t === "suru" || t.includes("suru verb") || t === "vs" || t.startsWith("vs-"))) {
+            posLabel = "verb · suru";
+            break;
+          } else if (normTokens.some(t => t === "kuru" || t.includes("kuru verb") || t === "vk")) {
+            posLabel = "verb · kuru";
+            break;
+          } else if (normTokens.some(t => t.includes("verb") || t.startsWith("v"))) {
+            posLabel = "verb";
+            break;
+          }
+          if (!rawPos && normTokens.length) {
+            rawPos = normTokens[0];
+          }
         }
-        if (pos) break;
+      }
+      if (!posLabel && rawPos) {
+        posLabel = rawPos;
       }
     }
-    if (pos) {
-      showcasePosBadge.textContent = pos;
+    if (posLabel) {
+      showcasePosBadge.textContent = posLabel;
+      showcasePosBadge.className = "kn-badge pos";
       showcasePosBadge.hidden = false;
     } else {
       showcasePosBadge.hidden = true;
@@ -1295,10 +1394,16 @@ function updateHeroBadges(body) {
       for (const e of entries) {
         if (Array.isArray(e.pitches) && e.pitches.length) {
           const p = e.pitches[0];
-          if (p && typeof p.position === "number") {
-            const circle = typeof getPitchCircleNumber === "function" ? getPitchCircleNumber(p.position) : `[${p.position}]`;
-            const pat = typeof formatPitchPatternName === "function" ? formatPitchPatternName(p.pattern_name) : "";
-            pitchText = pat ? `${circle} ${pat}` : circle;
+          if (p && (typeof p.position === "number" || p.pattern_name)) {
+            const pat = (p.pattern_name || "").toLowerCase().trim();
+            if (p.position === 0 || pat === "heiban") {
+              pitchText = "⊚ heiban";
+            } else if (pat) {
+              const circle = typeof getPitchCircleNumber === "function" ? getPitchCircleNumber(p.position) : `[${p.position}]`;
+              pitchText = `${circle} ${pat}`;
+            } else if (typeof p.position === "number") {
+              pitchText = typeof getPitchCircleNumber === "function" ? getPitchCircleNumber(p.position) : `[${p.position}]`;
+            }
             break;
           }
         }
@@ -1306,6 +1411,7 @@ function updateHeroBadges(body) {
     }
     if (pitchText) {
       showcasePitchBadge.textContent = pitchText;
+      showcasePitchBadge.className = "kn-badge pitch";
       showcasePitchBadge.hidden = false;
     } else {
       showcasePitchBadge.hidden = true;
@@ -1840,8 +1946,12 @@ if (previewTabBack) {
 });
 
 function updateSessionCounter() {
+  const countText = sessionCardCount === 0 ? "0 today" : `${sessionCardCount} today`;
   if (sessionCountEl) {
-    sessionCountEl.textContent = sessionCardCount === 0 ? "0 today" : `${sessionCardCount} today`;
+    sessionCountEl.textContent = countText;
+  }
+  if (quickAddSessionCountEl) {
+    quickAddSessionCountEl.textContent = countText;
   }
 }
 
@@ -3245,13 +3355,9 @@ async function identify(text) {
   const requestId = ++currentCaptureId;
   setStatus("Identifying selection…");
   setIndicatorStatus(indicatorYomitan, "checking", "Yomitan: Identifying…");
-  if (saveBadge) {
-    saveBadge.hidden = true;
-    saveBadge.className = "badge";
-    saveBadge.textContent = "";
-  }
+  setSaveBadge("", "badge", false);
   expression.textContent = "—";
-  reading.textContent = "";
+  updateHeroReading("", "");
   if (wordMeaningsSummary) {
     wordMeaningsSummary.textContent = "";
     wordMeaningsSummary.hidden = true;
@@ -3296,7 +3402,7 @@ async function identify(text) {
 
     // Populate prominent hero elements
     expression.textContent = body.expression || "—";
-    reading.textContent = body.reading || "";
+    updateHeroReading(body.reading, body.expression);
     if (body.jlpt_level) {
       currentJlptLevel = body.jlpt_level;
     }
@@ -3383,19 +3489,12 @@ async function identify(text) {
       }
     }
 
-    if (saveBadge) {
-      if (body.is_duplicate) {
-        saveBadge.textContent = "ALREADY SAVED";
-        saveBadge.className = "badge already-saved";
-        saveBadge.hidden = false;
-        setStatus(body.dictionary_error || "Card already saved.");
-      } else {
-        saveBadge.hidden = true;
-        saveBadge.textContent = "";
-        setStatus(body.dictionary_error || "Card draft ready. Edit and save.");
-      }
+    if (body.is_duplicate) {
+      setSaveBadge("ALREADY SAVED", "badge already-saved", true);
+      setStatus(body.dictionary_error || "Card already saved.");
     } else {
-      setStatus(body.dictionary_error || "Capture identified.", Boolean(body.dictionary_error));
+      setSaveBadge("", "badge", false);
+      setStatus(body.dictionary_error || "Card draft ready. Edit and save.");
     }
 
     // Immediately trigger Card Preview update so hovered term and JLPT badge appear instantly!
@@ -3409,7 +3508,7 @@ async function identify(text) {
     if (requestId !== currentCaptureId) return;
     if (dictLoadingIndicator) dictLoadingIndicator.hidden = true;
     if (dictEmptyNotice) dictEmptyNotice.hidden = false;
-    if (saveBadge) saveBadge.hidden = true;
+    setSaveBadge("", "badge", false);
     setIndicatorStatus(indicatorYomitan, "unavailable", "Yomitan: Unavailable");
     setStatus(formatErrorMessage(error), true);
   }
@@ -3737,6 +3836,21 @@ if (toggleOptionalBtn) {
 var duplicateCheckTimer = null;
 var duplicateCheckRequestId = 0;
 
+function updateSaveBadge(text, className = "badge", isVisible = true) {
+  if (typeof setSaveBadge === "function") {
+    setSaveBadge(text, className, isVisible);
+  } else {
+    const badges = [];
+    if (typeof saveBadge !== "undefined" && saveBadge) badges.push(saveBadge);
+    if (typeof quickAddSaveBadge !== "undefined" && quickAddSaveBadge) badges.push(quickAddSaveBadge);
+    badges.forEach(badge => {
+      badge.textContent = isVisible ? text : "";
+      badge.className = isVisible ? className : "badge";
+      badge.hidden = !isVisible;
+    });
+  }
+}
+
 function scheduleDuplicateCheck(immediate = false) {
   if (duplicateCheckTimer) {
     clearTimeout(duplicateCheckTimer);
@@ -3757,11 +3871,7 @@ async function refreshDuplicateState() {
   const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
 
   if (!expr) {
-    if (saveBadge) {
-      saveBadge.hidden = true;
-      saveBadge.textContent = "";
-      saveBadge.className = "badge";
-    }
+    updateSaveBadge("", "badge", false);
     if (fieldCardId) fieldCardId.value = "";
     return;
   }
@@ -3794,11 +3904,7 @@ async function refreshDuplicateState() {
 
     if (existingCard) {
       if (fieldCardId) fieldCardId.value = String(existingCard.id);
-      if (saveBadge) {
-        saveBadge.textContent = "ALREADY SAVED";
-        saveBadge.className = "badge already-saved";
-        saveBadge.hidden = false;
-      }
+      updateSaveBadge("ALREADY SAVED", "badge already-saved", true);
       setStatus("Card already saved.");
       if (existingCard.sync_status === "synced") {
         updateSyncUI("synced");
@@ -3809,11 +3915,7 @@ async function refreshDuplicateState() {
       }
     } else {
       if (fieldCardId) fieldCardId.value = "";
-      if (saveBadge) {
-        saveBadge.hidden = true;
-        saveBadge.textContent = "";
-        saveBadge.className = "badge";
-      }
+      updateSaveBadge("", "badge", false);
       setStatus("Card draft ready. Edit and save.");
       updateSyncUI(ankiConnected ? "ready" : "not_connected");
     }
@@ -3906,10 +4008,11 @@ if (cardEditor) {
       }
       updateMediaPreviews();
       if (expression) expression.textContent = body.expression || expr;
-      if (reading) reading.textContent = body.reading || "";
+      updateHeroReading(body.reading, body.expression || expr);
       if (body.meaning || (fieldMeaning && fieldMeaning.value)) {
         updateHeroMeanings(body.meaning ? body : { meaning: fieldMeaning.value });
       }
+      updateHeroBadges(body);
 
       if (body.sync_status === "synced") {
         updateSyncUI("synced");
@@ -3917,21 +4020,15 @@ if (cardEditor) {
         updateSyncUI("pending");
       }
 
-      if (saveBadge) {
-        if (body.is_duplicate) {
-          saveBadge.textContent = "ALREADY SAVED";
-          saveBadge.className = "badge already-saved";
-          saveBadge.hidden = false;
-          setStatus("Card already saved.");
-        } else {
-          saveBadge.textContent = "SAVED";
-          saveBadge.className = "badge saved";
-          saveBadge.hidden = false;
-          setStatus(body.is_updated ? "Card updated." : "Card saved.");
-          if (body.is_new) {
-            sessionCardCount++;
-            updateSessionCounter();
-          }
+      if (body.is_duplicate) {
+        setSaveBadge("ALREADY SAVED", "badge already-saved", true);
+        setStatus("Card already saved.");
+      } else {
+        setSaveBadge("SAVED", "badge saved", true);
+        setStatus(body.is_updated ? "Card updated." : "Card saved.");
+        if (body.is_new) {
+          sessionCardCount++;
+          updateSessionCounter();
         }
       }
       isCardDraftDirtyState = false;
@@ -4805,7 +4902,7 @@ async function openSavedCard(cardId) {
       updateDestinationIndicator();
 
       if (expression) expression.textContent = body.expression || "—";
-      if (reading) reading.textContent = body.reading || "";
+      updateHeroReading(body.reading, body.expression);
       updateHeroMeanings(body);
       updateHeroBadges(body);
 
@@ -4829,11 +4926,7 @@ async function openSavedCard(cardId) {
         currentJlptLevel = body.jlpt_level || null;
       }
 
-      if (saveBadge) {
-        saveBadge.textContent = "SAVED";
-        saveBadge.className = "badge saved";
-        saveBadge.hidden = false;
-      }
+      setSaveBadge("SAVED", "badge saved", true);
       setStatus("Opened saved card from library.");
       if (typeof scheduleCardPreviewUpdate === "function") scheduleCardPreviewUpdate();
     }
@@ -4877,7 +4970,7 @@ async function deleteLocalCard(cardId, cardExpr, delBtn) {
       if (fieldTags) fieldTags.value = "";
       if (fieldNotes) fieldNotes.value = "";
       if (expression) expression.textContent = "—";
-      if (reading) reading.textContent = "";
+      updateHeroReading("", "");
       if (wordMeaningsSummary) {
         wordMeaningsSummary.textContent = "";
         wordMeaningsSummary.hidden = true;
@@ -4895,10 +4988,7 @@ async function deleteLocalCard(cardId, cardExpr, delBtn) {
         showcasePitchBadge.textContent = "";
       }
       clearDictionaryView();
-      if (saveBadge) {
-        saveBadge.hidden = true;
-        saveBadge.textContent = "";
-      }
+      setSaveBadge("", "badge", false);
       if (cardEditor) cardEditor.hidden = true;
       updateSyncUI(ankiConnected ? "ready" : "not_connected");
       selectedHistoryCardId = null;
@@ -5593,12 +5683,10 @@ function selectQuickAddCandidate(candidate, candidateElement) {
   }
   clearQuickAddSuggestions();
   identify(targetExpression);
-  if (typeof switchMiningTab === "function") {
-    switchMiningTab("text");
-  }
+  // User remains on Quick Add mode as requested
 }
 
-function renderQuickAddSuggestions(entries) {
+function renderQuickAddSuggestions(entries, savedCardExpressions = new Set()) {
   if (!quickAddSuggestionsContainer || !quickAddSuggestionsList) return;
 
   const seenCandidateKeys = new Set();
@@ -5618,6 +5706,8 @@ function renderQuickAddSuggestions(entries) {
           if (gloss) break;
         }
       }
+    } else if (entry.meaning) {
+      gloss = String(entry.meaning).trim();
     }
 
     if (seenCandidateKeys.has(key)) {
@@ -5631,7 +5721,16 @@ function renderQuickAddSuggestions(entries) {
     }
 
     seenCandidateKeys.add(key);
-    rawCandidates.push({ expression, reading, gloss, originalEntry: entry, index: rawCandidates.length });
+    const isSaved = Boolean(entry.is_saved || entry.is_duplicate || (savedCardExpressions && savedCardExpressions.has(expression.toLowerCase())));
+    rawCandidates.push({
+      expression,
+      reading,
+      gloss,
+      jlpt_level: entry.jlpt_level || null,
+      isSaved,
+      originalEntry: entry,
+      index: rawCandidates.length,
+    });
   }
 
   quickAddCandidates = rawCandidates;
@@ -5663,6 +5762,20 @@ function renderQuickAddSuggestions(entries) {
       readingSpan.className = "quickadd-candidate-reading";
       readingSpan.textContent = candidate.reading;
       mainDiv.appendChild(readingSpan);
+    }
+
+    if (candidate.jlpt_level) {
+      const jlptBadge = document.createElement("span");
+      jlptBadge.className = "quickadd-candidate-jlpt-pill";
+      jlptBadge.textContent = candidate.jlpt_level;
+      mainDiv.appendChild(jlptBadge);
+    }
+
+    if (candidate.isSaved) {
+      const savedBadge = document.createElement("span");
+      savedBadge.className = "quickadd-candidate-saved-pill";
+      savedBadge.textContent = "SAVED";
+      mainDiv.appendChild(savedBadge);
     }
 
     li.appendChild(mainDiv);
@@ -5713,35 +5826,82 @@ async function executeQuickAddLookup() {
   const lookupId = ++currentQuickAddLookupId;
 
   const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
+  const isEnglishSearch = currentQuickAddSearchMode === "english";
 
   try {
-    const fetchOptions = {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: query, auto_save: false, deck_name: targetDeck }),
-    };
-    if (quickAddAbortController) {
-      fetchOptions.signal = quickAddAbortController.signal;
+    let entries = [];
+    const savedCardExpressions = new Set();
+
+    const savedCardsPromise = fetch(`${API_CARDS_URL}?limit=50&search=${encodeURIComponent(query)}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && Array.isArray(data.cards)) {
+          for (const c of data.cards) {
+            if (c.expression) savedCardExpressions.add(c.expression.trim().toLowerCase());
+          }
+        }
+      })
+      .catch(() => {});
+
+    if (isEnglishSearch) {
+      const searchUrl = `${BACKEND_BASE_URL}/api/dictionary/search-english?query=${encodeURIComponent(query)}&limit=20`;
+      const fetchOptions = {};
+      if (quickAddAbortController) fetchOptions.signal = quickAddAbortController.signal;
+
+      const [searchRes] = await Promise.all([
+        fetch(searchUrl, fetchOptions),
+        savedCardsPromise,
+      ]);
+
+      if (lookupId !== currentQuickAddLookupId) return;
+      if (!searchRes.ok) {
+        clearQuickAddSuggestions();
+        return;
+      }
+      const data = await searchRes.json().catch(() => ({}));
+      if (lookupId !== currentQuickAddLookupId) return;
+
+      entries = Array.isArray(data.entries) ? data.entries : [];
+    } else {
+      const fetchOptions = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: query, auto_save: false, deck_name: targetDeck }),
+      };
+      if (quickAddAbortController) {
+        fetchOptions.signal = quickAddAbortController.signal;
+      }
+
+      const [response] = await Promise.all([
+        fetch(API_CAPTURE_URL, fetchOptions),
+        savedCardsPromise,
+      ]);
+
+      if (lookupId !== currentQuickAddLookupId) return;
+      if (!response.ok) {
+        clearQuickAddSuggestions();
+        return;
+      }
+
+      const body = await response.json().catch(() => ({}));
+      if (lookupId !== currentQuickAddLookupId) return;
+
+      if (body.is_duplicate) {
+        setSaveBadge("ALREADY SAVED", "badge already-saved", true);
+        if (body.expression) {
+          savedCardExpressions.add(body.expression.trim().toLowerCase());
+        }
+      }
+
+      entries = Array.isArray(body.entries) ? body.entries : [];
     }
 
-    const response = await fetch(API_CAPTURE_URL, fetchOptions);
-    if (lookupId !== currentQuickAddLookupId) return;
-
-    if (!response.ok) {
-      clearQuickAddSuggestions();
-      return;
-    }
-
-    const body = await response.json().catch(() => ({}));
-    if (lookupId !== currentQuickAddLookupId) return;
-
-    const entries = Array.isArray(body.entries) ? body.entries : [];
     if (entries.length === 0) {
       clearQuickAddSuggestions();
       return;
     }
 
-    renderQuickAddSuggestions(entries);
+    renderQuickAddSuggestions(entries, savedCardExpressions);
   } catch (err) {
     if (err && err.name === "AbortError") return;
     if (lookupId === currentQuickAddLookupId) {
@@ -5796,10 +5956,10 @@ function onQuickAddKeydown(e) {
     clearQuickAddSuggestions();
   } else if (e.key === "F7") {
     e.preventDefault();
-    setQuickAddKanaMode("katakana");
+    setQuickAddSearchMode("english");
   } else if (e.key === "F6") {
     e.preventDefault();
-    setQuickAddKanaMode("hiragana");
+    setQuickAddSearchMode("kana");
   }
 }
 
@@ -5828,14 +5988,21 @@ function initQuickAdd() {
 
   if (quickAddModeHiragana) {
     quickAddModeHiragana.addEventListener("click", () => {
-      setQuickAddKanaMode("hiragana");
+      setQuickAddSearchMode("kana");
+      if (quickAddInput) quickAddInput.focus();
+    });
+  }
+
+  if (quickAddModeEnglish) {
+    quickAddModeEnglish.addEventListener("click", () => {
+      setQuickAddSearchMode("english");
       if (quickAddInput) quickAddInput.focus();
     });
   }
 
   if (quickAddModeKatakana) {
     quickAddModeKatakana.addEventListener("click", () => {
-      setQuickAddKanaMode("katakana");
+      setQuickAddSearchMode("kana");
       if (quickAddInput) quickAddInput.focus();
     });
   }
@@ -5844,21 +6011,35 @@ function initQuickAdd() {
 }
 
 function setQuickAddKanaMode(mode) {
-  currentQuickAddKanaMode = mode === "katakana" ? "katakana" : "hiragana";
-  const isKatakana = currentQuickAddKanaMode === "katakana";
+  if (mode === "katakana") {
+    setQuickAddSearchMode("kana");
+  } else if (mode === "english") {
+    setQuickAddSearchMode("english");
+  } else {
+    setQuickAddSearchMode("kana");
+  }
+}
+
+function setQuickAddSearchMode(mode) {
+  currentQuickAddSearchMode = mode === "english" ? "english" : "kana";
+  const isEnglish = currentQuickAddSearchMode === "english";
 
   if (quickAddModeHiragana) {
-    quickAddModeHiragana.classList.toggle("active", !isKatakana);
-    quickAddModeHiragana.setAttribute("aria-checked", String(!isKatakana));
+    quickAddModeHiragana.classList.toggle("active", !isEnglish);
+    quickAddModeHiragana.setAttribute("aria-checked", String(!isEnglish));
+  }
+  if (quickAddModeEnglish) {
+    quickAddModeEnglish.classList.toggle("active", isEnglish);
+    quickAddModeEnglish.setAttribute("aria-checked", String(isEnglish));
   }
   if (quickAddModeKatakana) {
-    quickAddModeKatakana.classList.toggle("active", isKatakana);
-    quickAddModeKatakana.setAttribute("aria-checked", String(isKatakana));
+    quickAddModeKatakana.classList.toggle("active", false);
+    quickAddModeKatakana.setAttribute("aria-checked", "false");
   }
 
   if (quickAddInput) {
-    quickAddInput.placeholder = isKatakana
-      ? "Type romaji or Katakana… (e.g. taberu → タベル)"
+    quickAddInput.placeholder = isEnglish
+      ? "Search by English meaning… (e.g. eat, water, happy)"
       : "Type romaji or Japanese… (e.g. taberu)";
 
     if (typeof wanakana !== "undefined") {
@@ -5867,50 +6048,39 @@ function setQuickAddKanaMode(mode) {
         if (typeof wanakana.unbind === "function" && quickAddInput.hasAttribute("data-wanakana-id")) {
           wanakana.unbind(quickAddInput);
         }
-        if (typeof wanakana.bind === "function") {
-          wanakana.bind(quickAddInput, { IMEMode: isKatakana ? "toKatakana" : true });
+        if (!isEnglish && typeof wanakana.bind === "function") {
+          wanakana.bind(quickAddInput, { IMEMode: true });
         }
         quickAddInput.addEventListener("input", onQuickAddInput);
       } catch (err) {
         console.warn("WanaKana mode switch error:", err);
-      }
-
-      // Convert existing typed text if present
-      if (quickAddInput.value) {
-        const converted = isKatakana
-          ? (typeof wanakana.toKatakana === "function" ? wanakana.toKatakana(quickAddInput.value) : quickAddInput.value)
-          : (typeof wanakana.toHiragana === "function" ? wanakana.toHiragana(quickAddInput.value) : quickAddInput.value);
-        if (converted !== quickAddInput.value) {
-          quickAddInput.value = converted;
-          scheduleQuickAddLookup();
-        }
       }
     }
   }
 
   try {
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      chrome.storage.local.set({ "kiroku.quickadd_kana_mode": currentQuickAddKanaMode });
+      chrome.storage.local.set({ "kiroku.quickadd_search_mode": currentQuickAddSearchMode });
     } else if (typeof localStorage !== "undefined") {
-      localStorage.setItem("kiroku.quickadd_kana_mode", currentQuickAddKanaMode);
+      localStorage.setItem("kiroku.quickadd_search_mode", currentQuickAddSearchMode);
     }
   } catch (_) {}
 }
 
 async function loadQuickAddKanaMode() {
-  let savedMode = "hiragana";
+  let savedMode = "kana";
   try {
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      const stored = await chrome.storage.local.get("kiroku.quickadd_kana_mode");
-      if (stored && stored["kiroku.quickadd_kana_mode"]) {
-        savedMode = stored["kiroku.quickadd_kana_mode"];
+      const stored = await chrome.storage.local.get("kiroku.quickadd_search_mode");
+      if (stored && stored["kiroku.quickadd_search_mode"]) {
+        savedMode = stored["kiroku.quickadd_search_mode"];
       }
     } else if (typeof localStorage !== "undefined") {
-      const stored = localStorage.getItem("kiroku.quickadd_kana_mode");
+      const stored = localStorage.getItem("kiroku.quickadd_search_mode");
       if (stored) savedMode = stored;
     }
   } catch (_) {}
-  setQuickAddKanaMode(savedMode);
+  setQuickAddSearchMode(savedMode);
 }
 
 function updateVideoCuePreviewText(cueText, highlightTerm) {

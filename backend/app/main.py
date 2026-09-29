@@ -35,6 +35,7 @@ from app.services.ocr_service import (
     OcrTimeoutError,
     OcrUnavailableError,
 )
+from app.services.jlpt_reference import JlptReferenceService
 from app.services.yomitan import YomitanError, YomitanService
 
 # Debug mode: set KIROKU_DEBUG=1 to enable /docs, /redoc, and hot-reload.
@@ -94,6 +95,16 @@ def get_available_yomitan_dictionaries() -> YomitanDictionariesResponse:
     service = YomitanService()
     dicts = service.discover_available_dictionaries()
     return YomitanDictionariesResponse(available_dictionaries=dicts)
+
+
+@app.get("/api/dictionary/search-english")
+def search_dictionary_english(
+    query: str = Query(default="", max_length=100),
+    limit: int = Query(default=20, ge=1, le=50),
+):
+    jlpt_service = JlptReferenceService()
+    entries = jlpt_service.search_english(query=query, limit=limit)
+    return {"entries": entries, "count": len(entries)}
 
 
 @app.get("/api/anki/status", response_model=AnkiStatusResponse)

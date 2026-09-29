@@ -239,10 +239,14 @@
     <div id="quickadd-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-quickadd" hidden>
       <div class="quickadd-container">
         <div class="quickadd-header-row">
-          <span class="quickadd-help-text">Type romaji on a normal keyboard — no IME needed.</span>
-          <div class="quickadd-kana-mode-group qa-kana-toggle" role="radiogroup" aria-label="Kana input mode">
-            <button type="button" id="quickadd-mode-hiragana" class="quickadd-mode-btn qa-kana-btn active" role="radio" aria-checked="true" title="Hiragana mode (あ)">あ</button>
-            <button type="button" id="quickadd-mode-katakana" class="quickadd-mode-btn qa-kana-btn" role="radio" aria-checked="false" title="Katakana mode (ア)">ア</button>
+          <div class="quickadd-header-left">
+            <span class="quickadd-help-text" id="quickadd-help-text">Type romaji — no IME needed.</span>
+            <span id="quickadd-session-count" class="session-counter">0 today</span>
+            <span id="quickadd-save-badge" class="badge" hidden></span>
+          </div>
+          <div class="quickadd-kana-mode-group qa-kana-toggle" role="radiogroup" aria-label="Input search mode">
+            <button type="button" id="quickadd-mode-hiragana" class="quickadd-mode-btn qa-kana-btn active" role="radio" aria-checked="true" title="Japanese / Kana mode (あ)">あ</button>
+            <button type="button" id="quickadd-mode-english" class="quickadd-mode-btn qa-kana-btn" role="radio" aria-checked="false" title="English meaning search mode (EN)">EN</button>
           </div>
         </div>
         <div class="quickadd-input-row qa-input-box">
