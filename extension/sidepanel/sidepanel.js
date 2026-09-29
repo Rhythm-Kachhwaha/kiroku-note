@@ -580,6 +580,8 @@ let draggedSectionIndex = null;
 // History & Card Library elements
 const historySection = document.querySelector("#history-section");
 const historyCount = document.querySelector("#history-count");
+const historySyncLabel = document.querySelector("#history-sync-label");
+const historyProgressBar = document.querySelector("#history-progress-bar");
 const historySearchInput = document.querySelector("#history-search-input");
 const historyDeckFilter = document.querySelector("#history-deck-filter");
 const historySyncFilter = document.querySelector("#history-sync-filter");
@@ -2277,11 +2279,12 @@ function insertExampleToCard(japaneseText, translationText, btn) {
   if (currentSentence && currentSentence !== japaneseText.trim() && btn) {
     if (!btn.classList.contains("confirm-replace")) {
       btn.classList.add("confirm-replace");
+      btn._origText = btn.textContent;
       btn.textContent = "Replace?";
       setTimeout(() => {
         if (btn.classList.contains("confirm-replace")) {
           btn.classList.remove("confirm-replace");
-          btn.textContent = "Insert";
+          btn.textContent = btn._origText || "→ Sentence";
         }
       }, 3000);
       return;
@@ -2313,10 +2316,11 @@ function insertExampleToCard(japaneseText, translationText, btn) {
   }
 
   if (btn) {
+    btn._origText = btn.textContent === "Replace?" ? (btn._origText || "→ Sentence") : btn.textContent;
     btn.textContent = "Inserted!";
     btn.classList.add("inserted");
     setTimeout(() => {
-      btn.textContent = "Insert";
+      btn.textContent = btn._origText || "→ Sentence";
       btn.classList.remove("inserted");
     }, 1200);
   }
@@ -2495,10 +2499,10 @@ function renderStudySenseItem(sense, sIdx, entry, totalSensesCount) {
 
         // Quick-Insert Example Button
         const insertExampleBtn = document.createElement("button");
-        insertExampleBtn.className = "btn-dict-insert btn-example-insert";
+        insertExampleBtn.className = "btn-dict-insert btn-example-insert btn-insert-sentence";
         insertExampleBtn.type = "button";
-        insertExampleBtn.textContent = "Insert";
-        insertExampleBtn.title = "Insert this example into card";
+        insertExampleBtn.textContent = "→ Sentence";
+        insertExampleBtn.title = "Insert this example into Sentence";
         insertExampleBtn.onclick = (e) => {
           if (e && e.stopPropagation) e.stopPropagation();
           insertExampleToCard(eg.japanese || "", eg.translation || "", insertExampleBtn);
@@ -2955,25 +2959,26 @@ function renderDetails(body) {
 
   if (!entries.length && !kanjiEntries.length) {
     if (typeof dictEmptyNotice !== "undefined" && dictEmptyNotice) {
+      if (typeof dictEmptyNotice.replaceChildren === "function") {
+        dictEmptyNotice.replaceChildren();
+      } else {
+        dictEmptyNotice.textContent = "";
+      }
+      const emptyDiv = document.createElement("div");
+      emptyDiv.className = "empty-state dict-empty-state";
+      emptyDiv.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>` +
+        `<p class="empty-state-text">No dictionary entries found for this term.</p>` +
+        `<p class="empty-state-hint">Try searching a different expression or reading.</p>`;
       if (jlptLevel && expr) {
-        if (typeof dictEmptyNotice.replaceChildren === "function") {
-          dictEmptyNotice.replaceChildren();
-        } else {
-          dictEmptyNotice.textContent = "";
-        }
-        const noticeP = document.createElement("p");
-        noticeP.textContent = "No Yomitan dictionary definitions found for this term.";
-        noticeP.style.margin = "0 0 6px 0";
         const badgeRow = document.createElement("div");
         badgeRow.className = "dict-empty-jlpt-row";
         const badge = document.createElement("span");
         badge.className = "kn-tag kn-jlpt";
         badge.textContent = formatJlptLevel(jlptLevel);
         badgeRow.append(badge);
-        dictEmptyNotice.append(noticeP, badgeRow);
-      } else {
-        dictEmptyNotice.textContent = "No dictionary entries found for this term.";
+        emptyDiv.append(badgeRow);
       }
+      dictEmptyNotice.append(emptyDiv);
       dictEmptyNotice.hidden = false;
     }
     return;
@@ -3304,6 +3309,24 @@ function renderDetails(body) {
       meanings.append(kanjiAccordion);
     }
   }
+
+  // Post-render cleanup pass: remove form tables where > 50% of td cells are empty (T1-D)
+  if (meanings && typeof meanings.querySelectorAll === "function") {
+    meanings.querySelectorAll("table").forEach(table => {
+      const cells = Array.from(table.querySelectorAll("td"));
+      if (cells.length > 0) {
+        const empty = cells.filter(td => td.textContent.trim() === "").length;
+        if (empty / cells.length > 0.5) {
+          const wrapper = table.closest(".forms-section, .dict-forms-section, tr");
+          if (wrapper && typeof wrapper.remove === "function") {
+            wrapper.remove();
+          } else if (typeof table.remove === "function") {
+            table.remove();
+          }
+        }
+      }
+    });
+  }
 }
 
 if (btnCopyRawDict) {
@@ -3507,7 +3530,20 @@ async function identify(text) {
   } catch (error) {
     if (requestId !== currentCaptureId) return;
     if (dictLoadingIndicator) dictLoadingIndicator.hidden = true;
-    if (dictEmptyNotice) dictEmptyNotice.hidden = false;
+    if (dictEmptyNotice) {
+      if (typeof dictEmptyNotice.replaceChildren === "function") {
+        dictEmptyNotice.replaceChildren();
+      } else {
+        dictEmptyNotice.textContent = "";
+      }
+      const emptyDiv = document.createElement("div");
+      emptyDiv.className = "empty-state dict-empty-state";
+      emptyDiv.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>` +
+        `<p class="empty-state-text">Yomitan is offline.</p>` +
+        `<p class="empty-state-hint">Connect Yomitan to get dictionary enrichment.</p>`;
+      dictEmptyNotice.append(emptyDiv);
+      dictEmptyNotice.hidden = false;
+    }
     setSaveBadge("", "badge", false);
     setIndicatorStatus(indicatorYomitan, "unavailable", "Yomitan: Unavailable");
     setStatus(formatErrorMessage(error), true);
@@ -4677,18 +4713,41 @@ async function loadHistory() {
 
     checkFirstRunStatus(total);
 
+    const synced = cards.filter(c => c.sync_status === "synced").length;
+
     if (historyCount) {
       historyCount.textContent = `${total} card${total === 1 ? "" : "s"}`;
+    }
+    if (historySyncLabel) {
+      historySyncLabel.textContent = `${synced} / ${total} synced`;
+    }
+    if (historyProgressBar) {
+      const pct = total > 0 ? Math.min(100, Math.round((synced / total) * 100)) : 0;
+      historyProgressBar.style.width = `${pct}%`;
     }
 
     if (cards.length === 0) {
       historyCardsList.replaceChildren();
       if (historyEmpty) {
         historyEmpty.hidden = false;
-        historyEmpty.textContent = search || deck !== "all" || syncStatus !== "all" ? "No matching cards found." : "No saved cards yet.";
+        if (typeof historyEmpty.replaceChildren === "function") {
+          historyEmpty.replaceChildren();
+        } else {
+          historyEmpty.textContent = "";
+        }
+        const emptyDiv = document.createElement("div");
+        emptyDiv.className = "empty-state history-empty-state";
+        const isFiltered = Boolean(search || deck !== "all" || syncStatus !== "all");
+        emptyDiv.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon" aria-hidden="true"><rect x="2" y="7" width="16" height="14" rx="2"/><path d="M6 3h14a2 2 0 0 1 2 2v12"/></svg>` +
+          `<p class="empty-state-text">${isFiltered ? "No matching cards found." : "No cards mined yet."}</p>` +
+          `<p class="empty-state-hint">${isFiltered ? "Try adjusting your search query or filters." : "Start mining to see your history here."}</p>`;
+        historyEmpty.append(emptyDiv);
       }
     } else {
-      if (historyEmpty) historyEmpty.hidden = true;
+      if (historyEmpty) {
+        historyEmpty.hidden = true;
+        if (typeof historyEmpty.replaceChildren === "function") historyEmpty.replaceChildren();
+      }
       renderHistoryCards(cards);
     }
 
@@ -5737,6 +5796,18 @@ function renderQuickAddSuggestions(entries, savedCardExpressions = new Set()) {
 
   if (quickAddCandidates.length === 0) {
     clearQuickAddSuggestions();
+    const query = (quickAddInput && quickAddInput.value ? quickAddInput.value : "").trim();
+    if (query && quickAddSuggestionsContainer && quickAddSuggestionsList) {
+      quickAddSuggestionsContainer.hidden = false;
+      quickAddSuggestionsList.replaceChildren();
+      const emptyLi = document.createElement("li");
+      emptyLi.className = "empty-state quickadd-empty-state";
+      emptyLi.setAttribute("role", "status");
+      emptyLi.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>` +
+        `<p class="empty-state-text">No matches found.</p>` +
+        `<p class="empty-state-hint">Try a different reading or switch to EN mode.</p>`;
+      quickAddSuggestionsList.append(emptyLi);
+    }
     return;
   }
 

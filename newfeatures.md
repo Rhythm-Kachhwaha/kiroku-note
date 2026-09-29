@@ -15,11 +15,11 @@
 > Tick the box and write the completion date when a task passes all tests.
 
 ### Tier 1 — Trivial
-- [ ] **T1-A** — Add hover tooltips to the 3 header status dots (Yomitan / AnkiConnect / OCR)
-- [ ] **T1-B** — Show "163 / 213 synced" label next to the History progress bar
-- [ ] **T1-C** — Add friendly empty-state messages when History/Quick Add/Dictionary is blank
-- [ ] **T1-D** — Hide blank/mostly-empty form tables in the dictionary view
-- [ ] **T1-E** — Add "→ Sentence" button on dictionary examples to insert into the Sentence field
+- [x] **T1-A** — Add hover tooltips to the 3 header status dots (Yomitan / AnkiConnect / OCR) *(Already implemented & verified 2026-09-29)*
+- [x] **T1-B** — Show "163 / 213 synced" label next to the History progress bar *(Implemented & verified 2026-09-29)*
+- [x] **T1-C** — Add friendly empty-state messages when History/Quick Add/Dictionary is blank *(Implemented & verified 2026-09-29)*
+- [x] **T1-D** — Hide blank/mostly-empty form tables in the dictionary view *(Implemented & verified 2026-09-29)*
+- [x] **T1-E** — Add "→ Sentence" button on dictionary examples to insert into the Sentence field *(Already functionally implemented, UI label updated to "→ Sentence" & verified 2026-09-29)*
 
 ### Tier 2 — Low
 - [ ] **T2-A** — Show JLPT level (N3 etc.) as a pill on each History card row

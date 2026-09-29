@@ -6721,3 +6721,93 @@ div[data-content="example"],
   font-family: var(--font-mono, monospace) !important;
   font-size: 11px !important;
 }
+
+/* ==========================================================================
+   Tier 1 Polish (T1-B, T1-C, T1-D, T1-E)
+   ========================================================================== */
+
+/* T1-B: History Sync Progress Bar & Label */
+.history-sync-progress-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.history-progress-track {
+  width: 56px;
+  height: 4px;
+  background: var(--bg-surface-3, #2b2824);
+  border-radius: 2px;
+  overflow: hidden;
+  border: 1px solid var(--border-default, #36322d);
+}
+
+.history-progress-bar {
+  height: 100%;
+  background: #5ba677;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.history-sync-label {
+  font-size: 11px;
+  color: var(--text-muted, #8e8a81);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* T1-C: Empty State Illustrations & Friendly Messages */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-muted, #8e8a81);
+}
+
+.empty-state-icon {
+  margin-bottom: 8px;
+  opacity: 0.6;
+  color: var(--text-muted, #8e8a81);
+  flex-shrink: 0;
+}
+
+.empty-state-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #b0ada8);
+  margin: 0 0 4px 0;
+}
+
+.empty-state-hint {
+  font-size: 11px;
+  color: var(--text-muted, #8e8a81);
+  margin: 0;
+}
+
+.history-empty-state {
+  padding: 40px 16px;
+}
+
+.quickadd-empty-state {
+  list-style: none;
+  padding: 24px 16px;
+}
+
+.dict-empty-state {
+  padding: 24px 16px;
+}
+
+/* T1-D: Dictionary Forms Table Fallback */
+.dict-forms-section:empty,
+.forms-section:empty {
+  display: none !important;
+}
+
+/* T1-E: "→ Sentence" Quick-Insert Button on Dictionary Examples */
+.btn-insert-sentence {
+  white-space: nowrap;
+  font-size: 11px;
+}

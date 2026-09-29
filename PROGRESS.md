@@ -1482,6 +1482,48 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ **Extension Test Suite:** **100/100 passed (100%)** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. All automated tests pass cleanly with zero breaking changes.
 
+---
+
+### Tier 1 Trivial Tasks Pass (newfeatures.md)
+
+- **Date:** 2026-09-29
+- **Scope & Objectives:**
+  - Audit and implement all Tier 1 trivial tasks from `newfeatures.md`:
+    - **T1-A**: Header status dots hover tooltips (Yomitan, AnkiConnect, OCR).
+    - **T1-B**: History sync progress bar and live "X / Y synced" label.
+    - **T1-C**: Inline SVG empty state illustrations and helpful copy for History, Quick Add, and Dictionary.
+    - **T1-D**: Pruning blank / mostly empty (> 50% empty cells) form tables in Yomitan dictionary views.
+    - **T1-E**: Example sentence "→ Sentence" quick-insert button inserting into `#field-example-sentence` and expanding optional fields.
+- **Audit & Implementation Findings:**
+  1. **T1-A (Status Dots Hover Tooltips):**
+     - **Status:** Already implemented.
+     - `#indicator-yomitan`, `#indicator-anki`, and `#indicator-ocr` in `sidepanel.html` have `title` attributes.
+     - `setIndicatorStatus(indicatorEl, state, titleText)` dynamically maintains live tooltip strings on state transitions.
+  2. **T1-B (History Progress Bar Label):**
+     - **Status:** Implemented.
+     - Added `<div class="history-sync-progress-group">` with track, dynamic `#history-progress-bar`, and `#history-sync-label` in `sidepanel.html`.
+     - In `sidepanel.js` `loadHistory()`, calculates synced count from cards list and sets `${synced} / ${total} synced` along with the progress bar fill percentage.
+     - Added styling in `sidepanel.css`.
+  3. **T1-C (Empty State Illustrations):**
+     - **Status:** Implemented.
+     - Added `.empty-state` styles with lightweight inline SVG illustrations (< 200 bytes) avoiding CSP violations.
+     - History view: Card stack SVG + "No cards mined yet." / "No matching cards found."
+     - Quick Add view: Search SVG + "No matches found. Try a different reading or switch to EN mode."
+     - Dictionary view: Dictionary book SVG + "No dictionary entries found for this term." / Offline SVG + "Yomitan is offline. Connect Yomitan to get dictionary enrichment."
+  4. **T1-D (Dictionary Forms Table Cleanup):**
+     - **Status:** Implemented.
+     - Added post-render DOM cleanup pass in `renderDetails()` scanning rendered tables and removing any table where > 50% of `<td>` cells are blank.
+     - Added `.dict-forms-section:empty, .forms-section:empty { display: none !important; }` in `sidepanel.css`.
+  5. **T1-E ("→ Sentence" Button on Examples):**
+     - **Status:** Already functionally implemented; UI label updated.
+     - `btn-example-insert` already invoked `insertExampleToCard()`, populating `#field-example-sentence` and `#field-example-translation`, opening `#optional-details`, and enforcing 2-click overwrite protection.
+     - Updated button label to `"→ Sentence"` (with class `.btn-insert-sentence` and title `"Insert this example into Sentence"`) for visual clarity.
+- **Verification:**
+  - ✅ `extension/tests/tier1-features.test.js`: **5/5 tests passed (100%)**
+  - ✅ **Extension Test Suite:** **105/105 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - ✅ **Backend Pytest Suite:** **391/391 passed (100%)** (`python -m pytest backend/tests -o pythonpath=backend`)
+- **Remaining Risk:** None. All changes are purely additive and maintain 100% backward compatibility.
+
 
 
 
