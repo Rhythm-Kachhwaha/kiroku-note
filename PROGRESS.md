@@ -1688,6 +1688,39 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ **Full Backend Pytest Suite:** **411/411 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
 - **Remaining Risk:** None. All features are additive, non-breaking, fully verified by automated tests, and strictly respect locked architectural boundaries.
 
+---
+
+### Tier 3 — Session 3: Mining Stats Dashboard & Per-Deck Template Profiles
+
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Implement remaining Tier 3 tasks from `newfeatures.md`:
+    - **T3-F (Mining Stats Dashboard)**: Collapsible stats dashboard inside History showing cards mined today/this week/all-time, sync ratio breakdown, inline SVG horizontal bar chart for JLPT levels (N5..N1, Unknown), and top 3 decks by card count.
+    - **T3-G (Per-Deck Card Template Profiles)**: Saves card template settings (furigana density, JLPT badge, verb type, history toggle) per Anki deck. Switching decks in the editor auto-loads that deck's profile, with a "Save as default for this deck" action in the Settings popover.
+  - Invariants maintained: Local-first SQLite source of truth; zero schema migrations; backward-compatible template settings migration; vanilla HTML/CSS/JS only; 100% green test suites.
+- **Implementation Deliverables:**
+  1. **T3-F (Mining Stats Dashboard):**
+     - Added `DeckStat`, `MiningTimeframeStats`, `SyncRatioStats`, and `CardStatsResponse` in [backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py).
+     - Implemented `CardRepository.get_stats()` in [backend/app/repositories/card_repository.py](file:///d:/Python/AnkiMiner/backend/app/repositories/card_repository.py) computing timeframe metrics, sync status counts, top 3 decks, and JLPT distribution with fallback to local JLPT reference service.
+     - Added `get_stats()` in `CardService` in [backend/app/services/card_service.py](file:///d:/Python/AnkiMiner/backend/app/services/card_service.py).
+     - Exposed `GET /api/cards/stats` endpoint in [backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py).
+     - Added `<details id="history-stats-details">` with summary `"Stats ▸"` and `#history-stats-content` container at the top of `#history-content-container` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html).
+     - Styled `.history-stats-details`, `.history-stats-summary`, `.history-stats-content`, `.stat-metrics-row`, `.stat-metric-card`, `.stat-sync-track`, `.stat-jlpt-svg`, `.stat-deck-row` in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css).
+     - Implemented `loadHistoryStats()`, `renderHistoryStats()`, inline SVG bar chart renderer, 30-second TTL cache, and reactive cache invalidation on save, sync, and delete in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
+  2. **T3-G (Per-Deck Card Template Profiles):**
+     - Updated `STORAGE_KEY_CARD_TEMPLATE_SETTINGS` storage model in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) to store keyed profiles per deck name.
+     - Added backward-compatible migration in `loadStoredCardTemplateSettings()` converting legacy flat settings into `"Default"` profile.
+     - Implemented `getDeckTemplateProfile(deckName)` and `loadDeckTemplateSettings(deckName)` to dynamically apply deck profiles on deck switch in `#field-deck-select`, `#field-deck-name`, and `openSavedCard()`.
+     - Added `<button id="btn-save-deck-template">` ("Save as default for this deck") and `<span id="deck-template-status">` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html) and wired click handler in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
+     - Styled `.btn-save-deck-template` and `.deck-template-status` in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css).
+- **Verification:**
+  - ✅ **Backend Stats Test Suite:** [backend/tests/test_cards_stats.py](file:///d:/Python/AnkiMiner/backend/tests/test_cards_stats.py): **6/6 passed (100%)**
+  - ✅ **Extension Session 3 Test Suite:** [extension/tests/tier3-session3-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier3-session3-features.test.js): **3/3 passed (100%)**
+  - ✅ **Full Backend Pytest Suite:** **417/417 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - ✅ **Full Extension Test Suite:** **126/126 passed (100%)** (`node --test extension/tests/*.test.js`)
+- **Remaining Risk:** None. All changes respect locked boundaries, require no database migrations, and pass 100% of all automated test suites.
+
+
 
 
 

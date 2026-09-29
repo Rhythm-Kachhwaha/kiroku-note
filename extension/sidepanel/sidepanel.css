@@ -7286,3 +7286,195 @@ div[data-content="example"],
     transform: translateX(0);
   }
 }
+
+/* ==========================================================================
+   Tier 3 Features: Mining Stats Dashboard (T3-F) & Per-Deck Template (T3-G)
+   ========================================================================== */
+
+/* History Stats Dashboard (T3-F) */
+.history-stats-details {
+  margin: 8px 12px 12px 12px;
+  background: var(--bg-surface-1, #181716);
+  border: 1px solid var(--border-subtle, #252320);
+  border-radius: var(--radius-md, 6px);
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.history-stats-summary {
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary, #b5b0a8);
+  cursor: pointer;
+  background: var(--bg-surface-2, #1e1d1b);
+  border-bottom: 1px solid transparent;
+  user-select: none;
+  transition: background 0.15s ease, color 0.15s ease;
+  list-style: none;
+}
+
+.history-stats-summary::-webkit-details-marker {
+  display: none;
+}
+
+.history-stats-summary:hover {
+  background: var(--bg-surface-3, #252320);
+  color: var(--text-primary, #f5f4f2);
+}
+
+.history-stats-details[open] .history-stats-summary {
+  border-bottom-color: var(--border-subtle, #252320);
+}
+
+.history-stats-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-metrics-row {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.stat-metric-card {
+  flex: 1;
+  background: var(--bg-surface-2, #1e1d1b);
+  border: 1px solid var(--border-subtle, #252320);
+  border-radius: var(--radius-sm, 4px);
+  padding: 8px 6px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-metric-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent-primary, #e8a87c);
+  font-family: var(--font-mono, monospace);
+}
+
+.stat-metric-label {
+  font-size: 10px;
+  color: var(--text-muted, #7a746e);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-block {
+  background: var(--bg-surface-2, #1e1d1b);
+  border: 1px solid var(--border-subtle, #252320);
+  border-radius: var(--radius-sm, 4px);
+  padding: 10px;
+}
+
+.stat-block-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #b5b0a8);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-sync-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-surface-3, #252320);
+  overflow: hidden;
+  display: flex;
+  margin-bottom: 6px;
+}
+
+.stat-sync-bar {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.stat-sync-bar.synced {
+  background: var(--accent-success, #81c784);
+}
+
+.stat-sync-bar.pending {
+  background: var(--accent-primary, #e8a87c);
+}
+
+.stat-sync-bar.failed {
+  background: var(--accent-coral, #ff8c70);
+}
+
+.stat-sync-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: var(--text-muted, #7a746e);
+}
+
+.stat-jlpt-chart {
+  width: 100%;
+}
+
+.stat-jlpt-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.stat-deck-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle, #252320);
+  font-size: 11px;
+}
+
+.stat-deck-row:last-child {
+  border-bottom: none;
+}
+
+.stat-deck-name {
+  color: var(--text-primary, #f5f4f2);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.stat-deck-count {
+  color: var(--text-muted, #7a746e);
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+}
+
+/* Per-Deck Template Settings (T3-G) */
+.btn-save-deck-template {
+  font-size: 11.5px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--bg-surface-3, #252320);
+  border: 1px solid var(--border-default, #2e2b27);
+  color: var(--text-primary, #f5f4f2);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-save-deck-template:hover {
+  background: var(--bg-surface-2, #1e1d1b);
+  border-color: var(--accent-primary, #e8a87c);
+  color: var(--accent-primary, #e8a87c);
+}
+
+.deck-template-status {
+  font-size: 11px;
+  color: var(--accent-success, #81c784);
+  margin-left: 8px;
+  font-weight: 500;
+}

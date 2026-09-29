@@ -547,6 +547,14 @@
       </div>
 
       <div id="history-content-container" class="history-content-container" hidden>
+        <!-- Mining Stats Dashboard (T3-F) -->
+        <details id="history-stats-details" class="history-stats-details">
+          <summary id="history-stats-summary" class="history-stats-summary">Stats ▸</summary>
+          <div id="history-stats-content" class="history-stats-content">
+            <div class="stats-loading">Loading stats…</div>
+          </div>
+        </details>
+
         <div id="sync-all-status" class="sync-all-status" role="status" aria-live="polite" hidden></div>
 
         <!-- Live Sync Progress Modal (T3-J) -->
@@ -720,6 +728,12 @@
               <option value="advanced_only">Advanced-only (N3+)</option>
               <option value="none">None</option>
             </select>
+          </div>
+          <div class="settings-row deck-template-save-row" style="margin-top: 8px;">
+            <button type="button" id="btn-save-deck-template" class="btn-save-deck-template btn-secondary" title="Save current settings as default for this deck">
+              Save as default for this deck
+            </button>
+            <span id="deck-template-status" class="deck-template-status" hidden>Saved!</span>
           </div>
         </div>
 

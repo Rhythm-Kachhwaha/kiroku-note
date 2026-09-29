@@ -707,3 +707,130 @@ class CardRepository:
             conn.commit()
             return cursor.rowcount > 0
 
+    def get_stats(self) -> dict[str, Any]:
+        """
+        Aggregate mining statistics:
+        - cards mined today, this week, all-time
+        - sync ratio (synced vs pending vs failed)
+        - JLPT level breakdown (N5, N4, N3, N2, N1, Unknown)
+        - top 3 decks by card count
+        """
+        with db_session(self._db_path) as conn:
+            time_row = conn.execute(
+                """
+                SELECT
+                    COUNT(*) as total,
+                    SUM(CASE WHEN DATE(created_at) = DATE('now') THEN 1 ELSE 0 END) as today,
+                    SUM(CASE WHEN DATE(created_at) >= DATE('now', '-7 days') THEN 1 ELSE 0 END) as this_week
+                FROM cards
+                """
+            ).fetchone()
+            total = int(time_row["total"]) if time_row and time_row["total"] is not None else 0
+            today = int(time_row["today"]) if time_row and time_row["today"] is not None else 0
+            this_week = int(time_row["this_week"]) if time_row and time_row["this_week"] is not None else 0
+
+            sync_rows = conn.execute(
+                "SELECT sync_status, COUNT(*) as cnt FROM cards GROUP BY sync_status"
+            ).fetchall()
+            sync_counts = {"synced": 0, "pending": 0, "failed": 0, "total": total}
+            for row in sync_rows:
+                st = str(row["sync_status"]).lower()
+                c = int(row["cnt"])
+                if st in sync_counts:
+                    sync_counts[st] = c
+                elif st == "syncing":
+                    sync_counts["pending"] += c
+
+            deck_rows = conn.execute(
+                """
+                SELECT deck_name, COUNT(*) as cnt
+                FROM cards
+                GROUP BY deck_name
+                ORDER BY cnt DESC, deck_name ASC
+                LIMIT 3
+                """
+            ).fetchall()
+            top_decks = [
+                {"deck_name": str(r["deck_name"]), "count": int(r["cnt"])}
+                for r in deck_rows
+            ]
+
+            card_rows = conn.execute(
+                "SELECT id, expression, meanings_json FROM cards"
+            ).fetchall()
+            jlpt_breakdown = {
+                "N5": 0,
+                "N4": 0,
+                "N3": 0,
+                "N2": 0,
+                "N1": 0,
+                "Unknown": 0,
+            }
+            ref = _get_jlpt_reference()
+            for r in card_rows:
+                lvl = None
+                raw_m = r["meanings_json"]
+                try:
+                    parsed = json.loads(raw_m) if raw_m else {}
+                except Exception:
+                    parsed = {}
+
+                if isinstance(parsed, dict):
+                    lvl = parsed.get("jlpt_level")
+                    if not lvl and "entries" in parsed:
+                        for e in (parsed.get("entries") or []):
+                            for t in (e.get("tags") or []):
+                                t_str = str(t)
+                                if t_str.lower().startswith("jlpt-n") and len(t_str) == 7:
+                                    lvl = t_str[5:].upper()
+                                    break
+                                elif t_str.lower().startswith("n") and len(t_str) == 2 and t_str[1].isdigit():
+                                    lvl = t_str.upper()
+                                    break
+                            if lvl:
+                                break
+                    if not lvl and "kanji_entries" in parsed:
+                        for k in (parsed.get("kanji_entries") or []):
+                            stats = k.get("stats") or {}
+                            if stats.get("jlpt") and str(stats.get("jlpt")).upper().startswith("N"):
+                                lvl = str(stats.get("jlpt")).upper()
+                                break
+                elif isinstance(parsed, list):
+                    for e in parsed:
+                        for t in (e.get("tags") or []):
+                            t_str = str(t)
+                            if t_str.lower().startswith("jlpt-n") and len(t_str) == 7:
+                                lvl = t_str[5:].upper()
+                                break
+                            elif t_str.lower().startswith("n") and len(t_str) == 2 and t_str[1].isdigit():
+                                lvl = t_str.upper()
+                                break
+                        if lvl:
+                            break
+
+                if not lvl and r["expression"] and ref and hasattr(ref, "lookup_word_with_kanji_fallback"):
+                    try:
+                        lvl = ref.lookup_word_with_kanji_fallback(r["expression"])
+                    except Exception:
+                        lvl = None
+
+                lvl_clean = str(lvl).upper() if lvl else "UNKNOWN"
+                if lvl_clean in ("N1", "N2", "N3", "N4", "N5"):
+                    jlpt_breakdown[lvl_clean] += 1
+                else:
+                    jlpt_breakdown["Unknown"] += 1
+
+            return {
+                "total": total,
+                "today": today,
+                "this_week": this_week,
+                "timeframe": {
+                    "today": today,
+                    "this_week": this_week,
+                    "total": total,
+                },
+                "sync_ratio": sync_counts,
+                "jlpt_breakdown": jlpt_breakdown,
+                "top_decks": top_decks,
+            }
+

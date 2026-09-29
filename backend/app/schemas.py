@@ -375,4 +375,38 @@ class OcrRecognizeResponse(BaseModel):
     error: Optional[str] = None
 
 
+class DeckStat(BaseModel):
+    deck_name: str
+    count: int
 
+
+class MiningTimeframeStats(BaseModel):
+    today: int = 0
+    this_week: int = 0
+    total: int = 0
+
+
+class SyncRatioStats(BaseModel):
+    synced: int = 0
+    pending: int = 0
+    failed: int = 0
+    total: int = 0
+
+
+class CardStatsResponse(BaseModel):
+    total: int = 0
+    today: int = 0
+    this_week: int = 0
+    timeframe: MiningTimeframeStats = Field(default_factory=MiningTimeframeStats)
+    sync_ratio: SyncRatioStats = Field(default_factory=SyncRatioStats)
+    jlpt_breakdown: dict[str, int] = Field(
+        default_factory=lambda: {
+            "N5": 0,
+            "N4": 0,
+            "N3": 0,
+            "N2": 0,
+            "N1": 0,
+            "Unknown": 0,
+        }
+    )
+    top_decks: list[DeckStat] = Field(default_factory=list)

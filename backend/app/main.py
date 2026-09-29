@@ -20,6 +20,7 @@ from app.schemas import (
     CaptureResponse,
     CardDetailResponse,
     CardListResponse,
+    CardStatsResponse,
     DeleteCardResponse,
     HealthResponse,
     OcrRecognizeRequest,
@@ -256,6 +257,12 @@ def export_cards_csv(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="kiroku_cards.csv"'},
     )
+
+
+@app.get("/api/cards/stats", response_model=CardStatsResponse)
+def get_cards_stats() -> CardStatsResponse:
+    service = CardService()
+    return service.get_stats()
 
 
 @app.get("/api/cards/{card_id}", response_model=CardDetailResponse)

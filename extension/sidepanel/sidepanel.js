@@ -12,6 +12,7 @@ const API_OCR_STATUS_URL = `${BACKEND_BASE_URL}/api/ocr/status`;
 const API_OCR_RECOGNIZE_URL = `${BACKEND_BASE_URL}/api/ocr/recognize`;
 const API_YOMITAN_DICTIONARIES_URL = `${BACKEND_BASE_URL}/api/yomitan/dictionaries`;
 const API_HEALTH_URL = `${BACKEND_BASE_URL}/api/health`;
+const API_CARDS_STATS_URL = `${BACKEND_BASE_URL}/api/cards/stats`;
 
 if (typeof chrome === "undefined") {
   globalThis.chrome = {
@@ -171,6 +172,8 @@ const settingFuriganaMode = document.querySelector("#setting-furigana-mode");
 const settingShowJlpt = document.querySelector("#setting-show-jlpt");
 const settingShowVerbType = document.querySelector("#setting-show-verb-type");
 const settingShowHistory = document.querySelector("#setting-show-history");
+const btnSaveDeckTemplate = document.querySelector("#btn-save-deck-template");
+const deckTemplateStatus = document.querySelector("#deck-template-status");
 
 // Yomitan Dictionaries Settings elements
 const btnRefreshDictList = document.querySelector("#btn-refresh-dict-list");
@@ -216,6 +219,41 @@ const DEFAULT_CARD_TEMPLATE_SETTINGS = {
   show_history: true,
 };
 let currentCardTemplateSettings = JSON.parse(JSON.stringify(DEFAULT_CARD_TEMPLATE_SETTINGS));
+let storedDeckTemplateProfiles = {};
+
+function getCurrentDeckName() {
+  return (typeof fieldDeckSelect !== "undefined" && fieldDeckSelect && fieldDeckSelect.value && fieldDeckSelect.value.trim()) ||
+         (typeof fieldDeckName !== "undefined" && fieldDeckName && fieldDeckName.value && fieldDeckName.value.trim()) ||
+         (typeof destDeckVal !== "undefined" && destDeckVal && destDeckVal.textContent && destDeckVal.textContent.trim()) ||
+         "Default";
+}
+
+function getDeckTemplateProfile(deckName) {
+  const targetDeck = (deckName && deckName.trim()) || getCurrentDeckName();
+  if (storedDeckTemplateProfiles && storedDeckTemplateProfiles[targetDeck]) {
+    return storedDeckTemplateProfiles[targetDeck];
+  }
+  if (storedDeckTemplateProfiles && storedDeckTemplateProfiles["Default"]) {
+    return storedDeckTemplateProfiles["Default"];
+  }
+  return DEFAULT_CARD_TEMPLATE_SETTINGS;
+}
+
+function loadDeckTemplateSettings(deckName) {
+  const profile = getDeckTemplateProfile(deckName);
+  currentCardTemplateSettings = {
+    front: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.front, ...(profile.front || {}) },
+    back: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.back, ...(profile.back || {}) },
+    furigana_mode: profile.furigana_mode || DEFAULT_CARD_TEMPLATE_SETTINGS.furigana_mode,
+    show_jlpt: typeof profile.show_jlpt === "boolean" ? profile.show_jlpt : true,
+    show_verb_type: typeof profile.show_verb_type === "boolean" ? profile.show_verb_type : true,
+    show_history: typeof profile.show_history === "boolean" ? profile.show_history : true,
+  };
+  syncCardTemplateSettingsUI();
+  if (typeof updateCardPreview === "function") {
+    updateCardPreview();
+  }
+}
 
 function applyHistoryVisibility() {
   const historySec = document.querySelector("#history-section");
@@ -227,64 +265,77 @@ function applyHistoryVisibility() {
 
 async function loadStoredCardTemplateSettings() {
   try {
+    let rawStored = null;
+    let storedJlpt = null;
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
       const data = await chrome.storage.local.get([STORAGE_KEY_CARD_TEMPLATE_SETTINGS, STORAGE_KEY_SHOW_JLPT_LEVEL]);
-      if (data && data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS]) {
-        currentCardTemplateSettings = {
-          front: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.front, ...(data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].front || {}) },
-          back: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.back, ...(data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].back || {}) },
-          furigana_mode: data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].furigana_mode || DEFAULT_CARD_TEMPLATE_SETTINGS.furigana_mode,
-          show_jlpt: typeof data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_jlpt === "boolean"
-            ? data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_jlpt
-            : (typeof data[STORAGE_KEY_SHOW_JLPT_LEVEL] === "boolean" ? data[STORAGE_KEY_SHOW_JLPT_LEVEL] : true),
-          show_verb_type: typeof data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_verb_type === "boolean"
-            ? data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_verb_type
-            : true,
-          show_history: typeof data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_history === "boolean"
-            ? data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS].show_history
-            : true,
-        };
-      } else if (data && typeof data[STORAGE_KEY_SHOW_JLPT_LEVEL] === "boolean") {
-        currentCardTemplateSettings.show_jlpt = data[STORAGE_KEY_SHOW_JLPT_LEVEL];
+      if (data) {
+        rawStored = data[STORAGE_KEY_CARD_TEMPLATE_SETTINGS];
+        storedJlpt = data[STORAGE_KEY_SHOW_JLPT_LEVEL];
       }
     } else if (typeof localStorage !== "undefined") {
-      const stored = localStorage.getItem(STORAGE_KEY_CARD_TEMPLATE_SETTINGS);
-      const storedJlpt = localStorage.getItem(STORAGE_KEY_SHOW_JLPT_LEVEL);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        currentCardTemplateSettings = {
-          front: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.front, ...(parsed.front || {}) },
-          back: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.back, ...(parsed.back || {}) },
-          furigana_mode: parsed.furigana_mode || DEFAULT_CARD_TEMPLATE_SETTINGS.furigana_mode,
-          show_jlpt: typeof parsed.show_jlpt === "boolean"
-            ? parsed.show_jlpt
-            : (storedJlpt !== null ? JSON.parse(storedJlpt) : true),
-          show_verb_type: typeof parsed.show_verb_type === "boolean"
-            ? parsed.show_verb_type
-            : true,
-          show_history: typeof parsed.show_history === "boolean"
-            ? parsed.show_history
-            : true,
-        };
-      } else if (storedJlpt !== null) {
-        currentCardTemplateSettings.show_jlpt = JSON.parse(storedJlpt);
+      const s = localStorage.getItem(STORAGE_KEY_CARD_TEMPLATE_SETTINGS);
+      if (s) {
+        try { rawStored = JSON.parse(s); } catch (_) {}
+      }
+      const j = localStorage.getItem(STORAGE_KEY_SHOW_JLPT_LEVEL);
+      if (j !== null) {
+        try { storedJlpt = JSON.parse(j); } catch (_) {}
       }
     }
+
+    if (rawStored && typeof rawStored === "object") {
+      if (rawStored.front || rawStored.back || typeof rawStored.show_jlpt === "boolean" || rawStored.furigana_mode) {
+        // Migrate legacy flat structure to Default profile
+        storedDeckTemplateProfiles = {
+          "Default": {
+            front: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.front, ...(rawStored.front || {}) },
+            back: { ...DEFAULT_CARD_TEMPLATE_SETTINGS.back, ...(rawStored.back || {}) },
+            furigana_mode: rawStored.furigana_mode || DEFAULT_CARD_TEMPLATE_SETTINGS.furigana_mode,
+            show_jlpt: typeof rawStored.show_jlpt === "boolean"
+              ? rawStored.show_jlpt
+              : (typeof storedJlpt === "boolean" ? storedJlpt : true),
+            show_verb_type: typeof rawStored.show_verb_type === "boolean" ? rawStored.show_verb_type : true,
+            show_history: typeof rawStored.show_history === "boolean" ? rawStored.show_history : true,
+          }
+        };
+      } else {
+        storedDeckTemplateProfiles = rawStored;
+      }
+    } else {
+      storedDeckTemplateProfiles = {
+        "Default": JSON.parse(JSON.stringify(DEFAULT_CARD_TEMPLATE_SETTINGS))
+      };
+      if (typeof storedJlpt === "boolean") {
+        storedDeckTemplateProfiles["Default"].show_jlpt = storedJlpt;
+      }
+    }
+
+    const currentDeck = getCurrentDeckName();
+    loadDeckTemplateSettings(currentDeck);
   } catch (err) {
     console.warn("Failed to load stored card template settings:", err);
+    syncCardTemplateSettingsUI();
   }
-  syncCardTemplateSettingsUI();
 }
 
-async function saveStoredCardTemplateSettings() {
+async function saveStoredCardTemplateSettings(targetDeckName) {
+  const deckName = (targetDeckName && targetDeckName.trim()) || getCurrentDeckName();
+  if (!storedDeckTemplateProfiles || typeof storedDeckTemplateProfiles !== "object") {
+    storedDeckTemplateProfiles = {};
+  }
+  storedDeckTemplateProfiles[deckName] = JSON.parse(JSON.stringify(currentCardTemplateSettings));
+  if (!storedDeckTemplateProfiles["Default"]) {
+    storedDeckTemplateProfiles["Default"] = JSON.parse(JSON.stringify(currentCardTemplateSettings));
+  }
   try {
     if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
       await chrome.storage.local.set({
-        [STORAGE_KEY_CARD_TEMPLATE_SETTINGS]: currentCardTemplateSettings,
+        [STORAGE_KEY_CARD_TEMPLATE_SETTINGS]: storedDeckTemplateProfiles,
         [STORAGE_KEY_SHOW_JLPT_LEVEL]: currentCardTemplateSettings.show_jlpt !== false,
       });
     } else if (typeof localStorage !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_CARD_TEMPLATE_SETTINGS, JSON.stringify(currentCardTemplateSettings));
+      localStorage.setItem(STORAGE_KEY_CARD_TEMPLATE_SETTINGS, JSON.stringify(storedDeckTemplateProfiles));
       localStorage.setItem(STORAGE_KEY_SHOW_JLPT_LEVEL, JSON.stringify(currentCardTemplateSettings.show_jlpt !== false));
     }
   } catch (err) {
@@ -357,6 +408,20 @@ if (settingShowHistory) {
   settingShowHistory.addEventListener("change", () => {
     currentCardTemplateSettings.show_history = settingShowHistory.checked;
     saveStoredCardTemplateSettings();
+  });
+}
+
+if (btnSaveDeckTemplate) {
+  btnSaveDeckTemplate.addEventListener("click", async () => {
+    const deckName = getCurrentDeckName();
+    await saveStoredCardTemplateSettings(deckName);
+    if (deckTemplateStatus) {
+      deckTemplateStatus.textContent = `Saved for ${deckName}!`;
+      deckTemplateStatus.hidden = false;
+      setTimeout(() => {
+        if (deckTemplateStatus) deckTemplateStatus.hidden = true;
+      }, 2500);
+    }
   });
 }
 
@@ -652,6 +717,9 @@ const btnUndoDelete = document.querySelector("#btn-undo-delete");
 const STORAGE_KEY_HISTORY_COLLAPSED = "kiroku.history_collapsed";
 const historyCollapseBtn = document.querySelector("#history-collapse-btn");
 const historyContentContainer = document.querySelector("#history-content-container");
+const historyStatsDetails = document.querySelector("#history-stats-details");
+const historyStatsSummary = document.querySelector("#history-stats-summary");
+const historyStatsContent = document.querySelector("#history-stats-content");
 
 function setHistoryCollapsed(collapsed) {
   if (historyContentContainer) {
@@ -1305,6 +1373,7 @@ if (fieldFontSelect) {
 if (fieldDeckSelect) {
   fieldDeckSelect.addEventListener("change", () => {
     const val = fieldDeckSelect.value;
+    loadDeckTemplateSettings(val);
     if (fieldDeckName) fieldDeckName.value = val;
     updateDestinationIndicator();
     try {
@@ -1324,6 +1393,8 @@ if (fieldDeckName) {
     scheduleDuplicateCheck(false);
   });
   fieldDeckName.addEventListener("change", () => {
+    const val = fieldDeckName.value.trim();
+    if (val) loadDeckTemplateSettings(val);
     updateDestinationIndicator();
     scheduleDuplicateCheck(true);
   });
@@ -4411,6 +4482,10 @@ async function saveCard() {
     }
     if (typeof isCardDraftDirtyState !== "undefined") isCardDraftDirtyState = false;
     if (typeof selectedHistoryCardId !== "undefined") selectedHistoryCardId = body.id || null;
+    if (typeof cachedStats !== "undefined") cachedStats = null;
+    if (typeof historyStatsDetails !== "undefined" && historyStatsDetails && historyStatsDetails.open && typeof loadHistoryStats === "function") {
+      loadHistoryStats(true).catch(() => {});
+    }
     if (typeof loadHistory === "function") loadHistory().catch(() => {});
     return body;
   } catch (error) {
@@ -4979,6 +5054,10 @@ async function triggerSyncAll(options = {}) {
       }
     }
 
+    if (typeof cachedStats !== "undefined") cachedStats = null;
+    if (typeof historyStatsDetails !== "undefined" && historyStatsDetails && historyStatsDetails.open && typeof loadHistoryStats === "function") {
+      loadHistoryStats(true).catch(() => {});
+    }
     await loadHistory().catch(() => {});
   } catch (error) {
     const msg = formatErrorMessage(error);
@@ -5162,6 +5241,158 @@ async function dismissFirstRunGuide() {
       localStorage.setItem("first_run_dismissed", "true");
     }
   } catch (_) {}
+}
+
+// Mining Stats Dashboard (T3-F)
+let cachedStats = null;
+let cachedStatsTime = 0;
+const STATS_CACHE_TTL_MS = 30000;
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+async function loadHistoryStats(force = false) {
+  if (!historyStatsContent) return;
+  const now = Date.now();
+  if (!force && cachedStats && (now - cachedStatsTime < STATS_CACHE_TTL_MS)) {
+    renderHistoryStats(cachedStats);
+    return;
+  }
+  historyStatsContent.innerHTML = '<div class="stats-loading" style="padding:8px; color:var(--text-muted); font-size:12px;">Loading stats…</div>';
+  try {
+    const res = await fetch(API_CARDS_STATS_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    cachedStats = data;
+    cachedStatsTime = Date.now();
+    renderHistoryStats(data);
+  } catch (err) {
+    console.warn("Failed to load history stats:", err);
+    historyStatsContent.innerHTML = `<div class="stats-error" style="color:var(--text-muted); font-size:11.5px; padding:6px;">Unable to load stats (${escapeHtml(err.message)}).</div>`;
+  }
+}
+
+function renderHistoryStats(stats) {
+  if (!historyStatsContent || !stats) return;
+
+  const total = Number(stats.total) || 0;
+  const today = Number(stats.today) || 0;
+  const thisWeek = Number(stats.this_week) || 0;
+
+  const sync = stats.sync_ratio || {};
+  const synced = Number(sync.synced) || 0;
+  const pending = Number(sync.pending) || 0;
+  const failed = Number(sync.failed) || 0;
+  const syncTotal = synced + pending + failed || total || 1;
+
+  const syncedPct = Math.round((synced / syncTotal) * 100);
+  const pendingPct = Math.round((pending / syncTotal) * 100);
+  const failedPct = Math.max(0, 100 - syncedPct - pendingPct);
+
+  // JLPT levels
+  const jlptMap = stats.jlpt_breakdown || {};
+  const jlptLevels = [
+    { key: "N5", color: "#61afef" },
+    { key: "N4", color: "#98c379" },
+    { key: "N3", color: "#e5c07b" },
+    { key: "N2", color: "#d19a66" },
+    { key: "N1", color: "#e06c75" },
+    { key: "Unknown", color: "#7f848e" },
+  ];
+  const maxJlptCount = Math.max(...jlptLevels.map(l => Number(jlptMap[l.key]) || 0), 1);
+
+  // Top decks
+  const topDecks = Array.isArray(stats.top_decks) ? stats.top_decks : [];
+
+  // Generate SVG for horizontal bar chart
+  const svgRows = jlptLevels.map((lvl, idx) => {
+    const count = Number(jlptMap[lvl.key]) || 0;
+    const barWidth = count > 0 ? Math.max(Math.round((count / maxJlptCount) * 180), 3) : 0;
+    const y = idx * 22;
+    return `
+      <text x="2" y="${y + 13}" font-size="11" fill="var(--text-secondary, #b5b0a8)" font-family="monospace, sans-serif">${lvl.key}</text>
+      <rect x="58" y="${y + 3}" width="180" height="11" rx="3" fill="var(--bg-surface-3, #252320)" opacity="0.6"/>
+      ${barWidth > 0 ? `<rect x="58" y="${y + 3}" width="${barWidth}" height="11" rx="3" fill="${lvl.color}"/>` : ""}
+      <text x="246" y="${y + 13}" font-size="11" fill="var(--text-muted, #7a746e)" font-family="monospace, sans-serif">${count}</text>
+    `;
+  }).join("");
+
+  const decksHtml = topDecks.length > 0
+    ? topDecks.map((d, i) => `
+        <div class="stat-deck-row">
+          <span class="stat-deck-name">${i + 1}. ${escapeHtml(d.deck_name || "Default")}</span>
+          <span class="stat-deck-count">${d.count} card${d.count === 1 ? "" : "s"}</span>
+        </div>
+      `).join("")
+    : '<div style="font-size:11px; color:var(--text-muted); padding:4px 0;">No cards mined yet.</div>';
+
+  historyStatsContent.innerHTML = `
+    <div class="stat-metrics-row">
+      <div class="stat-metric-card">
+        <span class="stat-metric-val">${today}</span>
+        <span class="stat-metric-label">Today</span>
+      </div>
+      <div class="stat-metric-card">
+        <span class="stat-metric-val">${thisWeek}</span>
+        <span class="stat-metric-label">This Week</span>
+      </div>
+      <div class="stat-metric-card">
+        <span class="stat-metric-val">${total}</span>
+        <span class="stat-metric-label">All-Time</span>
+      </div>
+    </div>
+
+    <div class="stat-block">
+      <div class="stat-block-title">
+        <span>Sync Status</span>
+        <span style="font-size:10px; color:var(--text-muted);">${synced}/${total} synced</span>
+      </div>
+      <div class="stat-sync-track">
+        <div class="stat-sync-bar synced" style="width: ${syncedPct}%;" title="${synced} synced"></div>
+        <div class="stat-sync-bar pending" style="width: ${pendingPct}%;" title="${pending} pending"></div>
+        <div class="stat-sync-bar failed" style="width: ${failedPct}%;" title="${failed} failed"></div>
+      </div>
+      <div class="stat-sync-legend">
+        <span>✓ ${synced} Synced</span>
+        <span>⏳ ${pending} Pending</span>
+        <span>⚠️ ${failed} Failed</span>
+      </div>
+    </div>
+
+    <div class="stat-block">
+      <div class="stat-block-title">JLPT Breakdown</div>
+      <div class="stat-jlpt-chart">
+        <svg class="stat-jlpt-svg" viewBox="0 0 280 134" aria-label="JLPT distribution chart">
+          ${svgRows}
+        </svg>
+      </div>
+    </div>
+
+    <div class="stat-block">
+      <div class="stat-block-title">Top Decks</div>
+      <div class="stat-top-decks-list">
+        ${decksHtml}
+      </div>
+    </div>
+  `;
+}
+
+if (historyStatsDetails) {
+  historyStatsDetails.addEventListener("toggle", () => {
+    if (historyStatsDetails.open) {
+      if (historyStatsSummary) historyStatsSummary.textContent = "Stats ▾";
+      loadHistoryStats();
+    } else {
+      if (historyStatsSummary) historyStatsSummary.textContent = "Stats ▸";
+    }
+  });
 }
 
 // Mining History & Card Library logic
@@ -5639,9 +5870,17 @@ async function commitPendingDelete() {
       if (typeof scheduleCardPreviewUpdate === "function") scheduleCardPreviewUpdate();
     }
 
+    if (typeof cachedStats !== "undefined") cachedStats = null;
+    if (typeof historyStatsDetails !== "undefined" && historyStatsDetails && historyStatsDetails.open && typeof loadHistoryStats === "function") {
+      loadHistoryStats(true).catch(() => {});
+    }
     setStatus(`Deleted "${toDelete.cardExpr}" from local database.`);
     await loadHistory();
   } catch (err) {
+    if (typeof cachedStats !== "undefined") cachedStats = null;
+    if (typeof historyStatsDetails !== "undefined" && historyStatsDetails && historyStatsDetails.open && typeof loadHistoryStats === "function") {
+      loadHistoryStats(true).catch(() => {});
+    }
     setStatus(`Delete failed: ${err.message}`, true);
     await loadHistory();
   }

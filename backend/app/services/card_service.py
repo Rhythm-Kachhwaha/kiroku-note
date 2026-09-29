@@ -17,6 +17,7 @@ from app.schemas import (
     CaptureResponse,
     CardDetailResponse,
     CardListResponse,
+    CardStatsResponse,
     CardSummary,
     DeleteCardResponse,
     DictionaryEntry,
@@ -799,5 +800,10 @@ class CardService:
     def get_saved_decks(self) -> list[str]:
         """Retrieve distinct deck names from saved cards."""
         return self.repository.get_saved_decks()
+
+    def get_stats(self) -> CardStatsResponse:
+        """Retrieve aggregated mining and library statistics."""
+        data = self.repository.get_stats()
+        return CardStatsResponse(**data)
 
 
