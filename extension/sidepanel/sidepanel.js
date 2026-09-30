@@ -77,10 +77,23 @@ function createStrokeSvgElement(svgText) {
 }
 
 if (typeof chrome === "undefined") {
+  const _listeners = [];
   globalThis.chrome = {
     runtime: {
-      sendMessage: () => Promise.resolve({ ok: true }),
-      onMessage: { addListener: () => {} }
+      sendMessage: (msg) => {
+        _listeners.forEach(fn => { try { fn(msg, {}, () => {}); } catch (_) {} });
+        return Promise.resolve({ ok: true });
+      },
+      onMessage: {
+        addListener: (fn) => { _listeners.push(fn); },
+        removeListener: (fn) => {
+          const idx = _listeners.indexOf(fn);
+          if (idx !== -1) _listeners.splice(idx, 1);
+        },
+        _dispatch: (msg) => {
+          _listeners.forEach(fn => { try { fn(msg, {}, () => {}); } catch (_) {} });
+        }
+      }
     },
     storage: {
       local: { get: () => Promise.resolve({}), set: () => Promise.resolve(), remove: () => Promise.resolve() },
@@ -7978,6 +7991,8 @@ if (typeof window !== "undefined") {
   window.searchSubtitles = searchSubtitles;
   window.renderRecentCuesList = renderRecentCuesList;
   window.handleMineFullSentence = handleMineFullSentence;
+  window.setLoadedSubtitleCues = (cues) => { loadedSubtitleCues = cues; };
+  window.setRecentSubtitleCues = (cues) => { recentSubtitleCues = cues; };
 }
 
 function switchMiningTab(targetTab) {
