@@ -529,20 +529,20 @@ New major features should generally be deferred unless they are necessary for th
 - **Verification:**
 ### Phase 5 OCR Build & Runtime Verification (V2 Milestone)
 - **Status Summary:**
-  - ✅ **Isolated Build Environment:** Dedicated `.venv-ocr/` environment configured with Python 3.11.1 x64, CPU-only PyTorch `2.14.0+cpu` (from `https://download.pytorch.org/whl/cpu`), `torchvision 0.29.0+cpu`, `transformers 5.17.0`, `manga-ocr 0.1.16`, `fugashi 1.5.2`, and `unidic-lite 1.0.8`.
-  - ✅ **Zero CUDA / GPU Leakage:** Confirmed `torch.cuda.is_available() == False` with 0 CUDA/NVIDIA runtime binaries bundled.
-  - ✅ **Offline Model Verification:** Pre-packaged model directory (`dist/ocr/models/manga-ocr-base/`, 423.66 MB) verified with `TRANSFORMERS_OFFLINE=1` and `HF_HUB_OFFLINE=1`.
-  - ✅ **Direct Daemon Runtime Verified:** `ocr_server/server.py` daemon bound strictly to `127.0.0.1:21829`. Verified:
+  - [PASS] **Isolated Build Environment:** Dedicated `.venv-ocr/` environment configured with Python 3.11.1 x64, CPU-only PyTorch `2.14.0+cpu` (from `https://download.pytorch.org/whl/cpu`), `torchvision 0.29.0+cpu`, `transformers 5.17.0`, `manga-ocr 0.1.16`, `fugashi 1.5.2`, and `unidic-lite 1.0.8`.
+  - [PASS] **Zero CUDA / GPU Leakage:** Confirmed `torch.cuda.is_available() == False` with 0 CUDA/NVIDIA runtime binaries bundled.
+  - [PASS] **Offline Model Verification:** Pre-packaged model directory (`dist/ocr/models/manga-ocr-base/`, 423.66 MB) verified with `TRANSFORMERS_OFFLINE=1` and `HF_HUB_OFFLINE=1`.
+  - [PASS] **Direct Daemon Runtime Verified:** `ocr_server/server.py` daemon bound strictly to `127.0.0.1:21829`. Verified:
     - Lazy loading on first inference request (initial `/health` reported `model_loaded: false`, first `/recognize` loaded model and returned `278.54ms`, subsequent `/health` reported `model_loaded: true`).
     - Real Japanese text inference verified: `"日本語の勉強"` -> `"日本語の勉強"`, `"魔法少女まどか"` -> `"魔法少女まどか"`, `"記録ノート"` -> `"記録ノート"`.
-  - ✅ **Core Backend Gateway Integration Verified:** Full end-to-end flow tested:
+  - [PASS] **Core Backend Gateway Integration Verified:** Full end-to-end flow tested:
     - Extension / Client -> Core FastAPI (`127.0.0.1:21828`) `/api/ocr/status` and `/api/ocr/recognize` -> `OcrService` -> Standalone Daemon (`127.0.0.1:21829`) -> `manga-ocr`.
     - Real Japanese image recognition (`"約束のネバーランド"`) returned `"約束のネバーラン"` in `342.91ms`.
     - Text forwarding into canonical card capture (`POST /api/capture`) verified.
-  - ✅ **Failure Mode & Isolation Verification:**
+  - [PASS] **Failure Mode & Isolation Verification:**
     - Daemon offline / stopped: Core backend remains 100% operational; `/api/ocr/status` reports `available: false` with graceful error message without throwing unhandled exceptions.
     - User data isolation: SQLite database (`ankiminer.db`) and card library unaffected.
-  - ❌ **Installer Build Deferred:** `ISCC.exe` unavailable in current environment; `installer/kiroku_ocr_setup.iss` statically validated and ready for build machines with Inno Setup.
+  - [FAIL] **Installer Build Deferred:** `ISCC.exe` unavailable in current environment; `installer/kiroku_ocr_setup.iss` statically validated and ready for build machines with Inno Setup.
 - **Size Metrics:**
   - `Kiroku Core (KirokuNote.exe)`: ~49.76 MB
   - `KirokuOCR Onedir Package`: ~792.41 MB (uncompressed)
@@ -554,20 +554,20 @@ New major features should generally be deferred unless they are necessary for th
   - Extension: **43/43 suites passed** (`node --test extension/tests/*.test.js`).
 ### Phase 6 OCR Workflow & Side Panel UI Polish (V2 Milestone)
 - **Status Summary:**
-  - ✅ **API Contract & Schema Alignment:** Fixed `sidepanel.js` `handleOcrCropProcess` payload contract to send `{ image: croppedDataUrl }` matching FastAPI `OcrRecognizeRequest` schema (eliminating 422 Unprocessable Entity failure).
-  - ✅ **Model Load State Synchronization:** Fixed `checkOcrStatus()` property mapping from `data.loaded` to `data.model_loaded` returned by `/api/ocr/status`, accurately reflecting model load status in memory.
-  - ✅ **6-State OCR UX Hierarchy:** Enhanced `#indicator-ocr` badge states to cleanly distinguish:
+  - [PASS] **API Contract & Schema Alignment:** Fixed `sidepanel.js` `handleOcrCropProcess` payload contract to send `{ image: croppedDataUrl }` matching FastAPI `OcrRecognizeRequest` schema (eliminating 422 Unprocessable Entity failure).
+  - [PASS] **Model Load State Synchronization:** Fixed `checkOcrStatus()` property mapping from `data.loaded` to `data.model_loaded` returned by `/api/ocr/status`, accurately reflecting model load status in memory.
+  - [PASS] **6-State OCR UX Hierarchy:** Enhanced `#indicator-ocr` badge states to cleanly distinguish:
     1. *OCR Not Installed* (`installed: false`, `available: false` -> `.indicator-pill.unavailable`, tooltip `"OCR: Not installed"`)
     2. *OCR Offline* (`installed: true`, `available: false` -> `.indicator-pill.unavailable`, tooltip `"OCR: Offline"`)
     3. *OCR Ready (Idle)* (`available: true`, `model_loaded: false` -> `.indicator-pill.connected`, tooltip `"OCR: Ready (Idle)"`)
     4. *OCR Ready (Loaded)* (`available: true`, `model_loaded: true` -> `.indicator-pill.connected`, tooltip `"OCR: Ready (Loaded)"`)
     5. *OCR Processing* (in-flight -> `.indicator-pill.checking`, tooltip `"OCR: Processing…"`)
     6. *OCR Error* (fault/timeout -> `.indicator-pill.error`, tooltip with diagnostic details)
-  - ✅ **Visual Design Integration:** Added `.indicator-pill.error` styles and high-contrast focus/error rings adhering to Obsidian dark theme tokens in `sidepanel.css`.
-  - ✅ **High-DPI Coordinate Normalization:** Updated `KirokuOcrCropper.calculateOcrCropBounds` and `handleOcrCropProcess` to support both `left`/`top` and `x`/`y`, and `innerWidth`/`width` and `innerHeight`/`height` across 100%, 125%, 150%, 200% DPI and browser zoom levels.
-  - ✅ **Canonical Card Mining Path Verified:** Verified end-to-end flow:
+  - [PASS] **Visual Design Integration:** Added `.indicator-pill.error` styles and high-contrast focus/error rings adhering to Obsidian dark theme tokens in `sidepanel.css`.
+  - [PASS] **High-DPI Coordinate Normalization:** Updated `KirokuOcrCropper.calculateOcrCropBounds` and `handleOcrCropProcess` to support both `left`/`top` and `x`/`y`, and `innerWidth`/`width` and `innerHeight`/`height` across 100%, 125%, 150%, 200% DPI and browser zoom levels.
+  - [PASS] **Canonical Card Mining Path Verified:** Verified end-to-end flow:
     `User selects region -> Crop screenshot -> POST /api/ocr/recognize -> OCR text -> user inspects/corrects in Expression field -> POST /api/capture -> Yomitan enrichment -> card draft (with attached image snippet) -> SQLite -> Anki sync`.
-  - ✅ **Error Edge Cases Verified:** Handled uninstalled daemon, offline daemon, daemon timeouts (504), daemon errors (502), invalid base64 (400), empty OCR results, small regions (< 5px), screen-edge selections, and Escape cancellation without corrupting active card drafts or database state.
+  - [PASS] **Error Edge Cases Verified:** Handled uninstalled daemon, offline daemon, daemon timeouts (504), daemon errors (502), invalid base64 (400), empty OCR results, small regions (< 5px), screen-edge selections, and Escape cancellation without corrupting active card drafts or database state.
 - **Automated Regression Test Results:**
   - Backend: **348/348 passed** (`python -m pytest tests` in `backend/`), including 11/11 dedicated `test_phase6_ocr_code_runtime.py` tests.
   - Extension: **44/44 suites passed** (`node --test extension/tests/*.test.js`), including new dedicated `ocr-phase6-workflow.test.js`.
@@ -578,31 +578,31 @@ New major features should generally be deferred unless they are necessary for th
 
 ### Phase 7 Subtitle Acquisition & Multi-Site Mining Polish (V2 Milestone)
 - **Status Summary:**
-  - ✅ **ASS / SSA Subtitle Parser (`extension/lib/subtitle-parser.js`):**
+  - [PASS] **ASS / SSA Subtitle Parser (`extension/lib/subtitle-parser.js`):**
     - Implemented native `parseASS(text)` supporting both Advanced SubStation Alpha (ASS v4.00+) and SubStation Alpha (SSA v4.00).
     - Added parsing of `[Events]` header Format descriptors (supporting variable field order for `Start`, `End`, `Text`), timestamp parsing (`H:MM:SS.cc` to milliseconds), and newline conversion (`\N`, `\n`).
     - Added auto-format detection sniffing `[Script Info]`, `[Events]`, `WEBVTT`, or SRT numeric sequence counters.
-  - ✅ **Subtitle Normalizer & Clean-up Pipeline:**
+  - [PASS] **Subtitle Normalizer & Clean-up Pipeline:**
     - `stripASSTags(text)`: Strips all ASS style/override tags (`{\pos(x,y)}`, `{\an8}`, `{\fad(100,200)}`, `{\c&HFFFFFF&}`, etc.) and drawing commands.
     - `stripSpeakerLabel(text)`: Intelligently strips character speaker prefixes (e.g., `山田:`, `エレン：`, `[Narrator]`, `(Alice)`) while strictly preserving Japanese kanji words with colons like `日本語:勉強` or URLs.
     - `cleanCueText(text)`: Robust pipeline executing ASS strip -> HTML/VTT tag strip -> positioning tag strip (`\b(?:align|size|position|line|vertical):[0-9a-zA-Z%,.-]+`) -> speaker prefix strip -> whitespace collapse.
     - `normalizeCues(cues)`: Cleans all cue texts, collapses consecutive duplicates with identical text into a single extended cue duration, and discards zero-duration or empty cues.
-  - ✅ **Provider-Agnostic Subtitle Architecture (`extension/lib/subtitle-provider.js`):**
+  - [PASS] **Provider-Agnostic Subtitle Architecture (`extension/lib/subtitle-provider.js`):**
     - `BaseSubtitleProvider`: Base class defining `name`, `getTracks()`, `loadTrack(trackId)`, and `isAvailable()`.
     - `LocalFileSubtitleProvider`: Handles user-selected or dropped files (`.srt`, `.vtt`, `.ass`, `.ssa`).
     - `YouTubeSubtitleProvider`: Extracts native and auto-translated Japanese caption tracks directly from YouTube player config and SRV3 endpoints.
     - `NetflixSubtitleProvider`: Intercepts live `timedtext` streams from Netflix web players without DRM interference.
     - `SubtitleProviderRegistry`: Discovers and registers active providers, aggregating available tracks across sources.
-  - ✅ **Community Anime Subtitle Integration (`extension/lib/jimaku-provider.js`):**
+  - [PASS] **Community Anime Subtitle Integration (`extension/lib/jimaku-provider.js`):**
     - Implemented `JimakuSubtitleProvider` providing anime subtitle search and direct download from `https://jimaku.cc/api/*`.
     - Secure key management: API key stored purely in user's `chrome.storage.local`.
     - Background fetch guard: `extension/background.js` enforces HTTPS only, strictly checks `isAllowedJimakuUrl` against loopback/private IPs (SSRF protection), and proxies requests to avoid CORS.
-  - ✅ **Side Panel UI Integration (`extension/sidepanel/`):**
+  - [PASS] **Side Panel UI Integration (`extension/sidepanel/`):**
     - Updated file selector to `accept=".srt,.vtt,.ass,.ssa"`.
     - Added "Search Subtitles" button opening modal dialog for Jimaku anime title search.
     - Added Jimaku search modal with anime entry results, file listings, downloading status, and API key management modal with Obsidian dark theme styling.
     - Wired subtitle loading and normalization into Video Mining POC drag-and-drop and manual file picker.
-  - ✅ **Canonical Capture Pipeline Preserved:**
+  - [PASS] **Canonical Capture Pipeline Preserved:**
     - Subtitle cues feed directly into standard `POST /api/capture` via video overlay hover/click or Side Panel selection.
     - Zero duplicate card editors, custom dictionaries, or separate subtitle databases.
 - **Automated Regression Test Results:**
@@ -617,21 +617,21 @@ New major features should generally be deferred unless they are necessary for th
 
 ### Phase 7.5 OCR Development Daemon Diagnosis, Cleanup & Runner
 - **Status Summary:**
-  - ✅ **Root Cause Diagnosed:**
+  - [PASS] **Root Cause Diagnosed:**
     - The persistent `manga-ocr import error: No module named 'torch.distributed'` (HTTP 503) was caused by a stale background instance of the packaged `dist/ocr/KirokuOCR/KirokuOCR.exe` (PID 5872) listening on port 21829.
     - Status `/health` and `/api/ocr/status` showed `available: true` / green because `is_available()` only checked if `import manga_ocr` succeeded, but full inference lazily triggers `from manga_ocr import MangaOcr` which requires `torch.distributed`. Because PyInstaller failed to package `torch.distributed` in the old EXE build, recognition failed with 503 while health checks passed.
     - When the daemon was offline, `OcrProcessManager` previously fell back to searching `dist/ocr/KirokuOCR/KirokuOCR.exe`, automatically respawning the broken packaged EXE.
-  - ✅ **Cleaned Obsolete Packaged OCR Builds:**
+  - [PASS] **Cleaned Obsolete Packaged OCR Builds:**
     - Stopped and killed the rogue `KirokuOCR.exe` process (PID 5872).
     - Permanently deleted generated build outputs: `dist/KirokuOCR/`, `dist/ocr/KirokuOCR/`, `build/kiroku_ocr/`, and `build/ocr/`.
     - Preserved offline model weights at `dist/ocr/models/manga-ocr-base`.
     - Confirmed zero remaining `KirokuOCR.exe` binaries in `dist/` or `build/`.
-  - ✅ **Direct Development Environment Verification:**
+  - [PASS] **Direct Development Environment Verification:**
     - Verified `.venv-ocr\Scripts\python.exe` (Python 3.11.1) contains working `torch 2.14.0+cpu`, `torch.distributed` (`<module 'torch.distributed'>`), `manga-ocr 0.1.16`, `transformers 5.17.0`, `fugashi 1.5.2`, and `unidic-lite 1.0.8`.
-  - ✅ **Smallest Development-Only Process Manager Adjustment:**
+  - [PASS] **Smallest Development-Only Process Manager Adjustment:**
     - Added `resolve_ocr_dev_command()` in `backend/app/config.py` so in development mode (when no packaged EXE exists), `OcrProcessManager` seamlessly detects and spawns `run_ocr.py` using `.venv-ocr` python.
     - Updated `OcrProcessManager.is_installed()` and `OcrProcessManager.start()` in `backend/app/services/ocr_process_manager.py` to support development runner execution.
-  - ✅ **End-to-End Verification:**
+  - [PASS] **End-to-End Verification:**
     - `run_ocr.py` running on `http://127.0.0.1:21829` (CPU-only, lazy-loading).
     - Direct `GET http://127.0.0.1:21829/health` -> `status: ok, engine: manga-ocr, device: cpu, model_loaded: false, installed: true`.
     - Direct `POST http://127.0.0.1:21829/recognize` -> HTTP 200, recognized text returned in ~287ms with `model_loaded: true`.
@@ -644,35 +644,35 @@ New major features should generally be deferred unless they are necessary for th
 
 ### Phase 7.6 Jimaku Subtitle Download Fix & Subtitle Directory Selector
 - **Status Summary:**
-  - ✅ **Jimaku "DOWNLOAD INVALID URL" Fix (`extension/background.js`, `extension/lib/jimaku-provider.js`):**
+  - [PASS] **Jimaku "DOWNLOAD INVALID URL" Fix (`extension/background.js`, `extension/lib/jimaku-provider.js`):**
     - Corrected URL validation in `isAllowedJimakuUrl` to resolve relative API paths (e.g. `/files/123/download`, `/api/entries/123/files`) against `https://jimaku.cc` and allow all legitimate HTTPS subtitle download endpoints (including direct storage/CDN links).
     - Preserved strict SSRF loopback and private IP protections (`localhost`, `127.0.0.1`, `::1`, `10.*`, `172.16-31.*`, `192.168.*`, `169.254.*`).
     - Added `resolveJimakuUrl` normalization helper to ensure well-formed absolute URLs before initiating network requests.
     - Preserved raw subtitle file text (`rawText`) in track data for direct local saving.
-  - ✅ **Dedicated Subtitle Directory Selector & Quick Dropdown (`extension/sidepanel/`):**
-    - Added "📁 Folder" button (`#btn-select-subtitles-folder`) with HTML5 directory picker (`#subtitles-dir-input`).
+  - [PASS] **Dedicated Subtitle Directory Selector & Quick Dropdown (`extension/sidepanel/`):**
+    - Added " Folder" button (`#btn-select-subtitles-folder`) with HTML5 directory picker (`#subtitles-dir-input`).
     - Added subtitle directory quick selector (`#folder-subtitles-select`) listing all available `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files found in the chosen folder.
     - Persistent folder memory: Remembers chosen subtitle folder across sessions and allows switching between subtitle files with a single click.
-  - ✅ **Jimaku Subtitle Auto-Save Destination Option:**
+  - [PASS] **Jimaku Subtitle Auto-Save Destination Option:**
     - Added "Download Subfolder / Destination" setting (`#jimaku-download-folder-input`, default: `KirokuSubtitles`) in Jimaku Search modal.
     - Added "Auto-save downloaded subtitles to folder" toggle (`#toggle-save-subtitle-disk`).
     - Automatically saves downloaded Jimaku subtitle files to the designated local subfolder on disk and dynamically indexes them in the quick folder dropdown.
 ### Phase 7.7 Dictionary Pipeline & Side Panel UI Polish
 - **Status Summary:**
-  - ✅ **Fix 1 — Outermost AST Cross-Reference Extraction (`backend/app/services/yomitan.py`, `backend/app/schemas.py`):**
+  - [PASS] **Fix 1 — Outermost AST Cross-Reference Extraction (`backend/app/services/yomitan.py`, `backend/app/schemas.py`):**
     - Added `CrossReference` schema and `cross_references: list[CrossReference]` to `Sense` and `DictionarySense` with 100% field parity.
     - Implemented `_find_outer_marked`, `_extract_cross_reference`, and `_unique_cross_references` capturing target term, ruby reading, label, and gloss summary from outer AST nodes (`content: xref`).
     - Cleaned `notes` to only capture `("note", "sense-note")`, eliminating duplicate text fragments.
-  - ✅ **Fix 2 — Default Meaning Sense Deduplication (`backend/app/services/card_service.py`):**
+  - [PASS] **Fix 2 — Default Meaning Sense Deduplication (`backend/app/services/card_service.py`):**
     - In `synthesize_default_meaning`, added order-independent gloss set deduplication (`seen_gloss_sets`), skipping duplicate senses across entries.
-  - ✅ **Fix 3 — Live Card Preview Meaning Field Priority & Reference Exemption (`extension/sidepanel/sidepanel.js`):**
+  - [PASS] **Fix 3 — Live Card Preview Meaning Field Priority & Reference Exemption (`extension/sidepanel/sidepanel.js`):**
     - Inverted `renderPreviewMeanings` to prioritize user-edited `data.meaning` over raw entries summary.
     - Excluded kanji reference blocks from live Card Preview (`#card-preview-card`), preserving kanji info strictly in Study View.
-  - ✅ **Fix 4 — Consolidated Kanji Card Renderers (`extension/sidepanel/sidepanel.js`):**
+  - [PASS] **Fix 4 — Consolidated Kanji Card Renderers (`extension/sidepanel/sidepanel.js`):**
     - Unified `renderPreviewKanjiCard` and `renderKanjiCard` into `renderKanjiCard(kanji, options = { mode: "full", isProminent: false })` supporting `mode: "compact"` and `mode: "full"` with backward compatibility for boolean flag.
-  - ✅ **Fix 5 — Retired Full Dict Separate View (`extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.js`):**
+  - [PASS] **Fix 5 — Retired Full Dict Separate View (`extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.js`):**
     - Removed `#btn-toggle-full-dict` and `#dict-raw-view` container and raw rendering loop while preserving `formatRawDictionaryText` for `#btn-copy-raw-dict`.
-  - ✅ **Fix 6 — Cross-Reference Chips with Draft-Safety (`extension/sidepanel/sidepanel.js`, `extension/sidepanel/sidepanel.css`):**
+  - [PASS] **Fix 6 — Cross-Reference Chips with Draft-Safety (`extension/sidepanel/sidepanel.js`, `extension/sidepanel/sidepanel.css`):**
     - Rendered clean `.study-xref-chip` clickable chips per `cross_reference`.
     - Implemented draft dirty protection: clean drafts trigger immediate lookup, while unsaved/dirty drafts require 2-click `.confirm-replace` confirmation before replacing card editor content with `identify(target_term)`.
 - **Verification Results:**
@@ -682,18 +682,18 @@ New major features should generally be deferred unless they are necessary for th
 
 ### Phase 7.8 Side Panel Card Editor De-claustrophobing, Top Action Bar & Smart Collapsible Media Previews
 - **Status Summary:**
-  - ✅ **Moved Save Card & Sync Actions to Top (`extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`):**
+  - [PASS] **Moved Save Card & Sync Actions to Top (`extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`):**
     - Repositioned `.editor-actions` from bottom of form to a sticky, elevated top action bar (`.editor-actions.editor-actions-top`) directly beneath the Card header.
     - Features a 2-column action bar with primary `Save Card` button (`#save-card-btn`) and secondary `Send to Anki` (`#sync-anki-btn`) with right-aligned Anki status pill (`#anki-sync-status`).
     - Pinned with `position: sticky; top: 0; backdrop-filter: blur(12px)` so saving a mined card is always 1 click away without scrolling down past long fields and media.
-  - ✅ **Collapsible & Context-Aware Media Previews (`extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.js`, `extension/sidepanel/sidepanel.css`):**
+  - [PASS] **Collapsible & Context-Aware Media Previews (`extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.js`, `extension/sidepanel/sidepanel.css`):**
     - Wrapped `#media-preview-container` in `<details id="media-preview-collapsible">` with summary indicator and state badge (`#media-summary-badge`).
     - Smart auto-collapse: In regular text/image vocabulary mining when no frame or audio is captured, media is collapsed to a 28px header, eliminating broken image icons and "Waiting for playback..." clutter.
     - Smart auto-expand: Whenever a screenshot frame is captured or audio is recorded, `updateMediaPreviews()` automatically expands the details element (`open = true`) and updates badge ("Image", "Audio", "Image + Audio", "Recording…").
     - Single-media mode: When only an image is present, `.single-media` automatically expands the image preview to full container width and suppresses the empty audio card companion.
     - Fixed Chromium broken image rendering: Added `style="display: none;"` and `.media-thumbnail[hidden] { display: none !important; }` with empty alt text when hidden.
     - Reordering contract preserved: Preserved `data-layout-section="media"` on the wrapper so the layout settings drag-and-drop / accessible up-down reorderer remains completely intact.
-  - ✅ **De-Claustrophobic UI & Refined Spacing (`extension/sidepanel/sidepanel.css`):**
+  - [PASS] **De-Claustrophobic UI & Refined Spacing (`extension/sidepanel/sidepanel.css`):**
     - Added custom sleek, minimalist dark scrollbars (`::-webkit-scrollbar { width: 6px; }`).
     - De-nested Card Preview: Replaced claustrophobic triple-box borders with smooth surface hierarchy and generous padding (`padding: 14px 16px`).
     - Expanded Card Editor form inputs: Increased height to 38px, padding to `8px 11px`, border-radius to 6px (`var(--radius-md)`), and added soft glow focus rings (`outline: 2px solid rgba(217, 119, 87, 0.35)`).
@@ -704,36 +704,36 @@ New major features should generally be deferred unless they are necessary for th
 
 ### Phase 7.9 Side Panel Card Template Settings, Authoritative Front/Back Preview Semantics & Media Pipeline Decoupling
 - **Status Summary:**
-  - ✅ **Authoritative Single Source of Truth for Front/Back Card Configuration:**
+  - [PASS] **Authoritative Single Source of Truth for Front/Back Card Configuration:**
     - Default Front renders **only the Japanese expression** (e.g. `計画`), eliminating the bracketed reading mismatch (`計画 [けいかく]`).
     - Standardized `card_settings` across schemas (`SaveCardRequest`, `SaveCardResponse`), repositories (`CardRecord`, `CardDraft`, SQLite `meanings_json` embedding), services (`CardService`), and Anki mappers (`map_card_to_fields`, `format_basic_back`).
     - Verified strict separation of Word Reading (`reading`: expression reading) and Kanji Reading (on'yomi/kun'yomi from `kanji_entries`), preventing duplicate reading fields.
-  - ✅ **Card Settings Modal / Popover (`extension/sidepanel/`):**
+  - [PASS] **Card Settings Modal / Popover (`extension/sidepanel/`):**
     - Repurposed the gear icon beside `CARD` (`#btn-layout-settings`) into a real Card Settings control.
     - Added Japanese font selection inside Card Settings (`#field-font-select`), removing per-card repetitive font switching from the main editor flow.
     - Added checkboxes for Front Side (`Show reading`, `Show meaning`, `Show kanji reading`) and Back Side (`Show reading`, `Show meaning`).
     - Stored settings persistently in `chrome.storage.local` under `kiroku.card_template_settings`.
-  - ✅ **Exact DOM Preview & Anki Output Parity:**
+  - [PASS] **Exact DOM Preview & Anki Output Parity:**
     - Updated `renderCardPreviewDOM` and `map_card_to_fields` to share exact CSS classes (`.kn-front-expression`, `.kn-front-reading`, `.kn-front-kanji-reading`, `.kn-front-meaning`, `.kn-reading`, `.kn-kana`, `.kn-meaning`).
     - Rendered kanji cards on Back side preview matching `format_basic_back` for isolated single-kanji and vocabulary cards.
-  - ✅ **Clean Decoupling & Removal of Visible Media Controls in Editor:**
+  - [PASS] **Clean Decoupling & Removal of Visible Media Controls in Editor:**
     - Removed visible media controls and empty placeholders/spacers from the card editor flow (`#media-preview-collapsible` hidden with `display: none !important;`).
 
 ### Anki Sync State Recovery & Japanese Input Integrity
 - **Status Summary:**
-  - ✅ Revalidated locally synced Anki note IDs through `notesInfo` before trusting `sync_status = 'synced'`.
-  - ✅ Routed stale or missing external notes through the existing duplicate-check and retry path instead of silently skipping them.
-  - ✅ Updated Sync All accounting so verified synced cards are excluded from work totals while stale, pending, and failed cards remain recoverable.
-  - ✅ Extended WanaKana editor assistance to the free-form Notes field while preserving the exclusion of structured Expression and Reading fields.
+  - [PASS] Revalidated locally synced Anki note IDs through `notesInfo` before trusting `sync_status = 'synced'`.
+  - [PASS] Routed stale or missing external notes through the existing duplicate-check and retry path instead of silently skipping them.
+  - [PASS] Updated Sync All accounting so verified synced cards are excluded from work totals while stale, pending, and failed cards remain recoverable.
+  - [PASS] Extended WanaKana editor assistance to the free-form Notes field while preserving the exclusion of structured Expression and Reading fields.
 - **Verification Results:**
   - Backend focused sync suite: **27/27 passed**.
   - Extension suite: **78/78 passed** (`node --test extension/tests/*.test.js`).
   - Language diagnostics: no errors in touched backend or extension files.
     - Fully preserved `currentDraftMedia` and automatic OCR image attachment, video frame screenshot capture, and sentence audio recording pipeline without alteration.
-  - ✅ **Compact Sticky Action Toolbar:**
+  - [PASS] **Compact Sticky Action Toolbar:**
     - Sleek single-row sticky toolbar sitting flush (`margin: -14px -16px 8px -16px; padding: 8px 16px`) with primary `Save Card` and secondary `Send to Anki` (`min-height: 34px`).
     - Added `scroll-margin-top: 54px` across editor sections ensuring sticky controls never obscure editor fields when scrolling or focusing.
-  - ✅ **Dense Reference-Oriented Dictionary View:**
+  - [PASS] **Dense Reference-Oriented Dictionary View:**
     - Refined `.study-entry` padding (`8px 10px`) and margin (`8px`) with subtle borders for a clean, reference-first reading experience.
 - **Verification Results:**
   - Extension test suite: **73/73 passed** (`node --test extension/tests/*.test.js`).
@@ -742,20 +742,20 @@ New major features should generally be deferred unless they are necessary for th
 
 ### Phase 7.10 Modern JLPT (N5–N1) Feature & Deprecated Old Scale Removal
 - **Status Summary:**
-  - ✅ **OpenJLPT SQLite Bundled Reference (`backend/app/data/jlpt_reference.sqlite`):**
+  - [PASS] **OpenJLPT SQLite Bundled Reference (`backend/app/data/jlpt_reference.sqlite`):**
     - Bundled pre-indexed OpenJLPT SQLite database (8,334 vocabulary entries, 2,211 kanji entries).
     - Added open-source attribution notice at `backend/app/data/JLPT_REFERENCE_NOTICE.md` under CC BY-SA 4.0.
     - Zero external pip/npm dependencies added; queried using Python standard library `sqlite3` via read-only URI mode.
-  - ✅ **JlptReferenceService & Yomitan Fallback (`backend/app/services/jlpt_reference.py`, `backend/app/services/yomitan.py`):**
+  - [PASS] **JlptReferenceService & Yomitan Fallback (`backend/app/services/jlpt_reference.py`, `backend/app/services/yomitan.py`):**
     - Implemented `JlptReferenceService` with fast indexed lookup (`lookup_word` and `lookup_kanji`) and fail-soft error handling.
     - Preserved Yomitan dictionary tags as first priority (`jlpt-n[1-5]`, `n[1-5]`). When absent, seamlessly falls back to `JlptReferenceService`.
-  - ✅ **Removal of Deprecated "Old JLPT 1–4" Scale:**
+  - [PASS] **Removal of Deprecated "Old JLPT 1–4" Scale:**
     - Completely removed the pre-2010 4-level scale ("Old JLPT 1-4") from `anki_formatter.py` and `sidepanel.js`.
     - Modern N5–N1 level is now the sole standard across the entire application.
-  - ✅ **Prominent JLPT Badge in Card Preview & Synced Anki Card (`sidepanel.js`, `sidepanel.css`, `anki_formatter.py`):**
+  - [PASS] **Prominent JLPT Badge in Card Preview & Synced Anki Card (`sidepanel.js`, `sidepanel.css`, `anki_formatter.py`):**
     - Added prominent `.kn-tag.kn-jlpt` badge rendered directly in `.kn-reading` beside kana reading and pitch accent in both Card Preview and synced Anki cards.
     - Elevated visual weight: bold 700 font weight, 0.82em, subtle cobalt/blue border and background matching design tokens (`var(--accent-jlpt)`).
-  - ✅ **Card Template Settings Toggle (`sidepanel.html`, `sidepanel.js`):**
+  - [PASS] **Card Template Settings Toggle (`sidepanel.html`, `sidepanel.js`):**
     - Integrated "Show JLPT level" toggle into the existing `#layout-settings-popover` (`#setting-show-jlpt`).
     - Enabled by default (`show_jlpt: true`), persisting locally via `chrome.storage.local` with `localStorage` fallback.
     - When disabled, cleanly suppresses the JLPT badge from Card Preview and generated Anki card HTML.
@@ -767,11 +767,11 @@ New major features should generally be deferred unless they are necessary for th
  
 +### Phase 7.10.1 Immediate Hover JLPT Visibility in Card Preview & Dictionary Header
 +- **Status Summary:**
-+  - ✅ **Automatic Card Preview Update on Word Hover / Identification (`extension/sidepanel/sidepanel.js`):**
++  - [PASS] **Automatic Card Preview Update on Word Hover / Identification (`extension/sidepanel/sidepanel.js`):**
 +    - Resolved issue where hovering or capturing text programmatically updated input fields but did not fire DOM input events, leaving the Card Preview blank.
 +    - Added explicit calls to `updateCardPreview()` and `scheduleCardPreviewUpdate()` inside `identify()` immediately following draft population.
 +    - In `getCardPreviewData()`, added robust fallback resolution for `jlpt_level` from `currentDictionaryEntries` tags and `currentKanjiEntries` tags.
-+  - ✅ **Prominent Dictionary Section Header Badge (`extension/sidepanel/sidepanel.html`, `sidepanel.css`, `sidepanel.js`):**
++  - [PASS] **Prominent Dictionary Section Header Badge (`extension/sidepanel/sidepanel.html`, `sidepanel.css`, `sidepanel.js`):**
 +    - Added `#dict-jlpt-badge` directly into the Dictionary section title row (`.dict-title-row`) beside `DICTIONARY`.
 +    - Displays the JLPT level (e.g. `JLPT N5`) prominently at the top of the dictionary section the moment a word is hovered, without requiring the user to scroll through definitions.
 +    - Enhanced `.pill-jlpt` styling on dictionary entries with bold font weight, 11px size, and `var(--accent-jlpt)` cobalt badge styling.
@@ -783,44 +783,44 @@ New major features should generally be deferred unless they are necessary for th
 
 ### Phase 7.11 Quick Add Input Mode (Third Mining Tab)
 - **Status Summary:**
-  - ✅ **Vendored WanaKana Library (`extension/lib/wanakana.js`):**
+  - [PASS] **Vendored WanaKana Library (`extension/lib/wanakana.js`):**
     - Vendored WanaKana v5.3.1 (MIT License) as a plain local browser bundle in `extension/lib/wanakana.js` with full attribution notice.
     - Zero external CDN or build dependencies added; fully compliant with Manifest V3 and extension CSP (`script-src 'self'`).
     - Loaded locally via `<script src="../lib/wanakana.js"></script>` in `sidepanel.html` immediately before `sidepanel.js` without leaking into web page content scripts.
-  - ✅ **Third Navigation Tab & View (`extension/sidepanel/sidepanel.html`):**
+  - [PASS] **Third Navigation Tab & View (`extension/sidepanel/sidepanel.html`):**
     - Added `#tab-btn-quickadd` ("Quick Add") in `nav.mining-nav-tabs` (`role="tab"`, `aria-controls="quickadd-mining-view"`).
     - Added clean `#quickadd-mining-view` (`role="tabpanel"`, `aria-labelledby="tab-btn-quickadd"`, `hidden`) containing only `#quickadd-input` and `#quickadd-suggestions-container` without any mining toggles or status noise.
-  - ✅ **Tab Switching Generalization (`extension/sidepanel/sidepanel.js`):**
+  - [PASS] **Tab Switching Generalization (`extension/sidepanel/sidepanel.js`):**
     - Generalized `switchMiningTab(targetTab)` to handle `"text"`, `"video"`, and `"quickadd"`.
     - Introduced shared `currentMiningTab` state; updated `isVideoMiningActive()` to reference `currentMiningTab === "video"` instead of directly querying `tabBtnVideo` active class.
     - Preserved persistence under `active_mining_tab` in `chrome.storage.local` and `localStorage`.
     - Maintained 100% backward compatibility and regression pass across Text Mining and Video Mining tabs.
-  - ✅ **Incremental Romaji to Kana Input:**
+  - [PASS] **Incremental Romaji to Kana Input:**
     - Bound `#quickadd-input` via `wanakana.bind(inputElement)` on initialization (IMEMode default).
     - Verified progressive transliteration: typing "taberu" -> "たべる", "hashi" -> "はし", "kyo" -> "きょ", "sha" -> "しゃ", "tta" -> "った".
     - Direct Japanese kana/kanji typing and pasting Japanese text passes through natively without corruption.
-  - ✅ **Debounced Lookup Reusing `/api/capture`:**
+  - [PASS] **Debounced Lookup Reusing `/api/capture`:**
     - 350ms debounce listening to input changes before issuing lookup.
     - Reused existing `POST /api/capture` request shape `{ text: query, auto_save: false, deck_name: targetDeck }` without modifying any backend code or creating duplicate endpoints.
     - Implemented sequence ID (`currentQuickAddLookupId`) and `AbortController` cancellation to guarantee older asynchronous responses never overwrite newer suggestions.
     - Renders candidate rows (`.quickadd-candidate-item`) with Japanese expression, kana reading, and first sense gloss.
-  - ✅ **Candidate Selection & Existing `identify()` Integration:**
+  - [PASS] **Candidate Selection & Existing `identify()` Integration:**
     - Selecting a candidate calls existing `identify(candidate.expression)` directly, reusing Card Editor population, hero displays, tags, and media.
     - Fallback: Pressing Enter with empty suggestions calls `identify(currentInputValue)`.
-  - ✅ **Dirty Card Draft Protection:**
+  - [PASS] **Dirty Card Draft Protection:**
     - Reused existing `isCardDraftDirty()` and non-blocking `.confirm-replace` inline confirmation pattern.
     - When active card draft has unsaved edits, candidate selection prompts with "Replace draft?" before committing on second click/Enter.
-  - ✅ **Scoped Keyboard Navigation:**
+  - [PASS] **Scoped Keyboard Navigation:**
     - Added keyboard navigation scoped strictly to `#quickadd-input`: ArrowDown/ArrowUp cycle through suggestions with W3C ARIA combobox attributes (`aria-activedescendant`), Enter commits highlighted candidate (or fallback), and Escape dismisses suggestions without clearing typed input text.
-  - ✅ **Precision Dark Utility Styling (`extension/sidepanel/sidepanel.css`):**
+  - [PASS] **Precision Dark Utility Styling (`extension/sidepanel/sidepanel.css`):**
     - Styled Quick Add input and candidate suggestions using Obsidian dark tokens (`--bg-surface-1`, `--border-default`, `--accent-primary`, `--accent-reading`, `--radius-md`).
-  - ✅ **Hiragana / Katakana Mode Switcher (`extension/sidepanel/sidepanel.html`, `sidepanel.css`, `sidepanel.js`):**
+  - [PASS] **Hiragana / Katakana Mode Switcher (`extension/sidepanel/sidepanel.html`, `sidepanel.css`, `sidepanel.js`):**
     - Added dedicated kana mode switch buttons (`#quickadd-mode-hiragana` with "あ" and `#quickadd-mode-katakana` with "ア") directly in `#quickadd-mining-view` `.quickadd-input-row`.
     - Integrated dynamic WanaKana re-binding (`wanakana.bind(quickAddInput, { IMEMode: isKatakana ? "toKatakana" : true })`) with proper event listener ordering.
     - Added automatic bidirectional text conversion: switching modes dynamically converts any active input text between Hiragana and Katakana (`wanakana.toKatakana` / `wanakana.toHiragana`) and re-triggers candidate lookup.
     - Added standard Japanese IME keyboard shortcuts: `F7` switches to Katakana mode and `F6` switches to Hiragana mode.
     - Persisted user preference in `chrome.storage.local` and `localStorage` (`kiroku.quickadd_kana_mode`).
-  - ✅ **Enlarged JLPT Badge in Card Preview (Front & Back) (`extension/sidepanel/sidepanel.js`, `sidepanel.css`):**
+  - [PASS] **Enlarged JLPT Badge in Card Preview (Front & Back) (`extension/sidepanel/sidepanel.js`, `sidepanel.css`):**
     - Rendered JLPT level badge (`.kn-front-tags .kn-tag.kn-jlpt`) on the **Front side Card Preview** immediately below the target expression whenever `show_jlpt` is enabled, ensuring JLPT level is instantly visible upon looking up or mining words.
     - Styled `.kn-card .kn-tag.kn-jlpt` with `font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 5px;` (~18% larger and more prominent than the 11px dictionary badge `.pill-jlpt` / `.dict-header-jlpt-badge`).
     - Maintained full toggle compliance with card template settings (`show_jlpt: false` hides tag).
@@ -831,27 +831,27 @@ New major features should generally be deferred unless they are necessary for th
 
 ### Phase 7.12 Real-World UX Fixes (First Hour of Real Study Refinements)
 - **Status Summary:**
-  - ✅ **Issue 1 — Meaning Prominence & Visual Hierarchy (Reduction Over Explanation):**
+  - [PASS] **Issue 1 — Meaning Prominence & Visual Hierarchy (Reduction Over Explanation):**
     - Repositioned `#card-fields-section` above `#card-preview-section` in `DEFAULT_CARD_SECTION_ORDER` and `sidepanel.html` markup, establishing the direct workflow hierarchy: `WORD -> READING -> MEANING -> SAVE`.
     - Enhanced `#field-meaning` with `.meaning-form-group` and `.meaning-textarea`, providing elevated contrast, 14px legible typography, distinct focus styling, and a minimum 68px height.
     - Zero explanatory bloat, badges, or tooltips added; solved purely through spatial priority and visual hierarchy.
-  - ✅ **Issue 2 & Guardrail 4 — History Collapsible & Space Reclamation:**
+  - [PASS] **Issue 2 & Guardrail 4 — History Collapsible & Space Reclamation:**
     - Added `#history-collapse-btn` with animated chevron indicator; history body (`#history-content-container`) is collapsed (`hidden`) by default.
     - Added `#setting-show-history` in Card Settings dialog (`show_history`, default `true`).
     - When `show_history` is toggled off, `#history-section` is completely hidden (`display: none !important; margin: 0 !important; height: 0;`), reclaiming 100% of vertical layout space with zero empty headings or reserved height.
-  - ✅ **Issue 3 & Guardrails 1 & 2 — Contextual Japanese Mode & Quiet Candidate Assistance:**
+  - [PASS] **Issue 3 & Guardrails 1 & 2 — Contextual Japanese Mode & Quiet Candidate Assistance:**
     - Bound WanaKana IME strictly to free-form fields: `#field-hint` and `#field-example-sentence`.
     - Enforced Guardrail 1: `#field-expression` and `#field-reading` are NEVER bound to WanaKana, preserving dictionary-controlled behavior.
     - Added `#btn-editor-jp-mode` in card toolbar with persistent toggle (`kiroku.editor_jp_mode`).
     - Implemented quiet contextual candidate assistance: triggered only after a 450ms typing pause and for meaningful tokens (>= 2 Japanese characters).
     - Floating `#editor-suggestions-container` is anchored close to the active field without obscuring text. Disappears on typing continuation, blur, or Escape.
     - Candidate selection strictly replaces only the matched token range; never silently replaces text.
-  - ✅ **Issue 4 & Guardrail 3 — Authoritative Destination Safety & Persistent Target Memory:**
+  - [PASS] **Issue 4 & Guardrail 3 — Authoritative Destination Safety & Persistent Target Memory:**
     - Added compact `#card-target-destination` badge (`Deck: … • Note Type: …`) in the card action bar.
     - Updated immediately whenever deck or note type changes (`updateDestinationIndicator()`).
     - Fixed restoration bug in `loadDecks()` and `loadModels()` where HTML placeholder values `"Default"` and `"Basic"` took precedence over stored `last_used_deck` and `preferred_anki_model`.
     - Enforced destination safety in `triggerAnkiSync()`: automatically re-saves the card with the authoritative displayed target before dispatching sync, guaranteeing Anki receives the exact destination displayed.
-  - ✅ **Issue 5 — Independent Front/Back Hint Toggles:**
+  - [PASS] **Issue 5 — Independent Front/Back Hint Toggles:**
     - Added `#setting-front-hint` (default `false`) and `#setting-back-hint` (default `true`) in Card Settings.
     - Updated `renderCardPreviewDOM()` in `sidepanel.js`: Front hint is strictly gated by `frontCfg.show_hint && data.hint` (fixing the prior unconditional leak), and Back hint is gated by `backCfg.show_hint !== false && data.hint`.
     - Updated backend `anki_formatter.py` (`format_basic_back(show_hint=...)`) and `anki_connect.py` (`map_card_to_fields`) to forward card settings to generated Anki card HTML.
@@ -862,12 +862,12 @@ New major features should generally be deferred unless they are necessary for th
 
 ### Stage 3B.5 — Rich Yomitan Reference View & Full Dictionary Structured Content Rendering
 - **Status Summary:**
-  - ✅ **Data Lifetime Guardrail (Strict Separation of Reference View & Persisted Card):**
+  - [PASS] **Data Lifetime Guardrail (Strict Separation of Reference View & Persisted Card):**
     - `raw_content: list[Any]` and `raw_tags: list[dict[str, Any]]` added to `DictionaryEntry` (dataclass in `yomitan.py` and Pydantic schemas in `schemas.py`) strictly to power the transient active session in the Side Panel Reference View.
     - Card creation, draft synthesis, and card extraction remain 100% controlled, normalized, and unchanged (`identify()` -> normalized fields -> Card Editor -> SQLite -> Anki).
     - Hardened persistence boundary: Added `_strip_transient_dictionary_data()` in `card_service.py` (`save_card()`, `capture_and_save()`) and defense-in-depth stripping in `card_repository.py` (`_serialize_items()`).
     - Raw AST is NEVER persisted into SQLite `cards` (`CardRecord`), `meanings_json`, saved `CardDraft`, Anki sync payloads, or History.
-  - ✅ **Generic Yomitan Structured Content DOM Renderer (`extension/lib/yomitan-reference-renderer.js`):**
+  - [PASS] **Generic Yomitan Structured Content DOM Renderer (`extension/lib/yomitan-reference-renderer.js`):**
     - Zero `innerHTML` injection: built 100% on safe standard DOM API methods (`createElement`, `createTextNode`, `createDocumentFragment`).
     - Strict HTML tag whitelist (`span`, `div`, `p`, `ruby`, `rt`, `rp`, `ol`, `ul`, `li`, `details`, `summary`, `table`, `thead`, `tbody`, `tr`, `td`, `th`, `a`, `img`, `code`, `pre`, etc.).
     - Style attribute sanitization: strict property whitelist (typography, spacing, borders, colors, alignment) and value sanitization blocking `url()`, `expression()`, `@import`, `-webkit-image-set`, and rule breakouts.
@@ -875,7 +875,7 @@ New major features should generally be deferred unless they are necessary for th
     - Recursion depth protection: bounded recursion at max depth 32 to prevent stack overflow on deeply nested ASTs.
     - Internal dictionary cross-reference links: parsed query parameters (`query`, `primary_reading`) with `onDictionaryLinkClick` callback, wired to `identify()` with dirty draft protection.
     - Data-* attribute preservation (`data-content`, `data-sc-content`) for semantic dictionary styling hooks.
-  - ✅ **Side Panel UI & Styling (`extension/sidepanel/sidepanel.js`, `sidepanel.css`, `sidepanel.html`):**
+  - [PASS] **Side Panel UI & Styling (`extension/sidepanel/sidepanel.js`, `sidepanel.css`, `sidepanel.html`):**
     - Script integration: Loaded `yomitan-reference-renderer.js` in `sidepanel.html` before `sidepanel.js`.
     - Multi-dictionary display: Preserves source dictionary ordering; primary dictionary displayed open with headword/reading and rich content; secondary dictionaries rendered as collapsible accordions (`<details class="dict-entry-accordion">`).
     - Independent scrolling: `.dict-study-view` styled with `max-height: 440px; overflow-y: auto; overscroll-behavior: contain; min-height: 0;` and dark theme scrollbars, ensuring long dictionary content does not displace Card Editor or action buttons.
@@ -890,29 +890,29 @@ New major features should generally be deferred unless they are necessary for th
 
 ### Stage 3B.6 — User Control Over Yomitan Dictionaries in Reference View
 - **Status Summary:**
-  - ✅ **Yomitan Dictionary Discovery Without Invented APIs (`backend/app/services/yomitan.py`, `schemas.py`, `main.py`):**
+  - [PASS] **Yomitan Dictionary Discovery Without Invented APIs (`backend/app/services/yomitan.py`, `schemas.py`, `main.py`):**
     - Probed Yomitan's HTTP server to verify actual endpoints; confirmed `/dictionaries` and `/dictionarySettings` do not exist in Yomitan's HTTP server.
     - Implemented `discover_available_dictionaries()` using seed probes across common grammatical/lexical seeds (`["の", "する", "食べる", "こと"]`) for terms and `"一"` for kanji, collecting and deduplicating dictionary titles across both term and kanji dictionaries.
     - Exposed `GET /api/yomitan/dictionaries` returning `YomitanDictionariesResponse(available_dictionaries=[...])`.
     - Live verified against local Yomitan instance running on port 19633 (`Jitendex.org [2026-08-11]`, `KANJIDIC [2026-253]`).
-  - ✅ **Continuous Discovery & Explicit Selection Policy (`extension/sidepanel/sidepanel.js`):**
+  - [PASS] **Continuous Discovery & Explicit Selection Policy (`extension/sidepanel/sidepanel.js`):**
     - Seed scanning & continuous harvesting: Probes via backend on demand and continuously harvests newly discovered dictionaries during lookups in `renderDetails()` via `harvestDiscoveredDictionaries()`.
     - Explicit selection policy: Once `hasExplicitDictionarySelection === true`, any newly discovered dictionary appears unchecked (`☐ New Dict`) in Settings and remains hidden from the Reference View until explicitly enabled by the user.
     - First setup behavior: Before any explicit user selection, all discovered dictionaries default to selected.
     - Stored settings: Persisted via `STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION` (`kiroku.reference_dictionary_selection`), `STORAGE_KEY_DISCOVERED_DICTIONARIES` (`kiroku.discovered_dictionaries`), and `STORAGE_KEY_HAS_EXPLICIT_DICTIONARY_SELECTION` (`kiroku.has_explicit_dictionary_selection`) using Chrome extension storage with localStorage fallback.
-  - ✅ **Settings Popover UI & Styling (`extension/sidepanel/sidepanel.html`, `sidepanel.css`):**
+  - [PASS] **Settings Popover UI & Styling (`extension/sidepanel/sidepanel.html`, `sidepanel.css`):**
     - Added `.dict-settings-group` inside `#layout-settings-popover` `.card-settings-body` with `YOMITAN DICTIONARIES` label.
     - Added `#btn-refresh-dict-list` ("↻ Refresh") with scanning state animation.
     - Added `#btn-dict-select-all` ("Select All") and `#btn-dict-clear-all` ("Clear All") quick action buttons.
     - Added `#dict-selected-count-label` ("Selected: N").
     - Added `#dict-selection-list-container` styled with bounded `max-height: 145px; overflow-y: auto;` and dark scrollbars, displaying checkboxes for all discovered dictionaries.
-  - ✅ **Reference View Filtering & Empty States (`extension/sidepanel/sidepanel.js`):**
+  - [PASS] **Reference View Filtering & Empty States (`extension/sidepanel/sidepanel.js`):**
     - Filtered rendering: Only definitions from selected dictionaries appear in `#meanings`. Separate source blocks, accordion ordering, and accurate count pills (`+N more dicts`) are updated dynamically.
     - Deselect all empty state: If the user deselects all dictionaries, renders `.dict-none-selected-notice` ("No dictionaries selected for Reference View.") with an "Open Dictionary Settings" button. Never falls back silently to showing all dictionaries.
     - No matching definitions: When selected dictionaries do not match the active term, renders `.dict-none-selected-notice` ("No definitions found in your selected dictionaries.") with a "Change Dictionary Settings" button.
     - Instant re-rendering: Toggling checkboxes or clicking Select All/Clear All triggers `reRenderActiveReferenceView()`, updating the Reference View immediately in memory without network re-lookups.
     - Copy Raw Dictionary: Copies only the visible/selected entries when explicit selection exists.
-  - ✅ **DOM Hierarchy & Layout Bug Fix (`extension/sidepanel/sidepanel.html`):**
+  - [PASS] **DOM Hierarchy & Layout Bug Fix (`extension/sidepanel/sidepanel.html`):**
     - Corrected missing closing `</div>` on `.card-settings-group` (Side Panel section) in `sidepanel.html`. The unclosed tag had caused `#card-editor`, `#card-fields-section`, `#card-preview-section`, and `#dictionary-section` (`#meanings`) to be swallowed inside the `#layout-settings-popover` container, making them invisible during normal view and only visible when the settings badge was toggled.
     - Verified complete DOM separation and normal view visibility with new end-user dry run test `extension/tests/end-user-dry-run.test.js`.
 - **Verification Results:**
@@ -923,30 +923,30 @@ New major features should generally be deferred unless they are necessary for th
 
 ### Visual Polish Pass — Alignment with UI-plan Reference Mockups
 - **Status Summary:**
-  - ✅ **Design System Foundation & Color Tokens (`extension/sidepanel/sidepanel.css`):**
+  - [PASS] **Design System Foundation & Color Tokens (`extension/sidepanel/sidepanel.css`):**
     - Transitioned palette to obsidian canvas (`#121110`), dark charcoal surfaces (`#191816`, `#211e1b`, `#2a2622`), understated borders (`#25211e`, `#312b26`), restrained warm terracotta/rust accents (`#b84632`), warm amber readings (`#d4884f`), and rust JLPT badge accents (`#cc5a42`, `#351f1a`).
     - Standardized corners to 3–4px radius across all containers and buttons, matching the developer-tool aesthetic in `UI-plan/`.
     - Removed heavy gradients and glassmorphism backdrop filters in favor of clean solid surfaces.
-  - ✅ **Header & Navigation Tabs (`extension/sidepanel/sidepanel.html`, `sidepanel.css`):**
+  - [PASS] **Header & Navigation Tabs (`extension/sidepanel/sidepanel.html`, `sidepanel.css`):**
     - Wordmark updated to clean, bold uppercase `KIROKU`.
     - Connectivity indicators styled as understated text with subtle status dots.
-    - Settings button (`⚙`) integrated into header bar.
+    - Settings button (``) integrated into header bar.
     - Mining navigation tabs styled with clean left alignment, transparent backgrounds, and terracotta active bottom underline.
-  - ✅ **Word Hero & Card Workspace (`extension/sidepanel/sidepanel.html`, `sidepanel.css`):**
+  - [PASS] **Word Hero & Card Workspace (`extension/sidepanel/sidepanel.html`, `sidepanel.css`):**
     - Captured word display styled with prominent 42px bold Japanese expression and 17px warm amber reading without bulky outer container boxes.
     - Card preview updated with Front/Back side pills (active Back in dark rust `#351f1a`), clean borderless preview card, and crisp tag hierarchy.
     - Card editor container refined to a borderless, shadowless design with clean inputs, understated divider, optional fields link, full-width terracotta "Save Card" button, and quiet destination metadata.
-  - ✅ **Dictionary Reference & Study View (`extension/sidepanel/sidepanel.css`):**
+  - [PASS] **Dictionary Reference & Study View (`extension/sidepanel/sidepanel.css`):**
     - Dictionary entries restyled without container boxes, using clean divider lines and typography hierarchy.
     - Headword displays prominent 20px expression, amber reading, and dark rust JLPT badge.
     - Sense items display quiet numbering, part-of-speech tags, clear definitions, and compact `[Insert]` action buttons.
-  - ✅ **Video Mining & Quick Add Views (`extension/sidepanel/sidepanel.html`, `sidepanel.css`, `sidepanel.js`):**
+  - [PASS] **Video Mining & Quick Add Views (`extension/sidepanel/sidepanel.html`, `sidepanel.css`, `sidepanel.js`):**
     - Video toolbar refined with subtitle dropdown menu (`Load subtitles ▾`), active subtitle preview box, offset controls, and help callout.
     - Quick Add view updated with normal keyboard input guidance, kana toggle (`[あ] [ア]`), and suggestions list with candidate expression, reading, and right-aligned gloss.
-  - ✅ **Jimaku Modal & History Library (`extension/sidepanel/sidepanel.css`):**
+  - [PASS] **Jimaku Modal & History Library (`extension/sidepanel/sidepanel.css`):**
     - Jimaku subtitle search modal styled with clean dark surface, terracotta Search button, and clear inputs.
     - History library styled with quiet search input, filter dropdowns, and clean empty state.
-  - ✅ **Preservation of Functionality & Architecture:**
+  - [PASS] **Preservation of Functionality & Architecture:**
     - Zero backend files modified.
     - Zero changes to APIs, state management, capture logic, Yomitan, Anki, OCR, subtitles, or card persistence.
     - All existing DOM hooks, IDs, and event handlers preserved intact.
@@ -963,17 +963,17 @@ New major features should generally be deferred unless they are necessary for th
 - **Scope:** Visual alignment with `UI-plan/` reference screenshots. No functional changes.
 - **Files Changed:** `extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`, `extension/sidepanel/sidepanel.js`, `extension/tests/sidepanel-a11y-ux.test.js`
 - **Changes Delivered:**
-  - ✅ **Mining bar restructured to single horizontal row** — buttons + status text + session counter all on one line, matching the reference ("Start | OCR | Select Japanese text on the page | 0 today").
-  - ✅ **"Start mining" / "Stop mining" → "Start" / "Stop"** — label shortened as requested.
-  - ✅ **Session counter text** → "N today" format (e.g. "0 today", "3 today").
-  - ✅ **Load subtitles dropdown fixed** — HTML class mismatch (`video-dropdown-container` vs `subtitles-dropdown-wrapper`) corrected; dropdown now positions correctly relative to the button.
-  - ✅ **Auto-capture frame & audio checkboxes** restored to video tab (where reference shows them), removed from settings popover.
-  - ✅ **Settings popover repositioned** to `position: fixed` from header, overlaying content correctly instead of displacing the card editor.
-  - ✅ **"CARD" section label → "EDIT"** — matches the reference card editor header.
-  - ✅ **Save Card button moved to bottom** of the form (below Optional fields), matching reference where it's the final prominent action.
-  - ✅ **"ACTIVE SUBTITLE" label** upgraded to uppercase style with proper letter-spacing.
-  - ✅ **Folder emoji removed** from subtitle folder bar label.
-  - ✅ **Capture-status element** made `hidden` by default; status is now implied by the mining bar state text.
+  - [PASS] **Mining bar restructured to single horizontal row** — buttons + status text + session counter all on one line, matching the reference ("Start | OCR | Select Japanese text on the page | 0 today").
+  - [PASS] **"Start mining" / "Stop mining" → "Start" / "Stop"** — label shortened as requested.
+  - [PASS] **Session counter text** → "N today" format (e.g. "0 today", "3 today").
+  - [PASS] **Load subtitles dropdown fixed** — HTML class mismatch (`video-dropdown-container` vs `subtitles-dropdown-wrapper`) corrected; dropdown now positions correctly relative to the button.
+  - [PASS] **Auto-capture frame & audio checkboxes** restored to video tab (where reference shows them), removed from settings popover.
+  - [PASS] **Settings popover repositioned** to `position: fixed` from header, overlaying content correctly instead of displacing the card editor.
+  - [PASS] **"CARD" section label → "EDIT"** — matches the reference card editor header.
+  - [PASS] **Save Card button moved to bottom** of the form (below Optional fields), matching reference where it's the final prominent action.
+  - [PASS] **"ACTIVE SUBTITLE" label** upgraded to uppercase style with proper letter-spacing.
+  - [PASS] **Folder emoji removed** from subtitle folder bar label.
+  - [PASS] **Capture-status element** made `hidden` by default; status is now implied by the mining bar state text.
 - **Verification Results:**
   - Extension test suite: **78/78 tests passed** (`node --test`).
   - a11y test updated to accept `EDIT` label alongside `CARD` as valid card section heading.
@@ -986,21 +986,21 @@ New major features should generally be deferred unless they are necessary for th
 - **Scope:** Clean up video mining tab according to user feedback and UI reference specifications.
 - **Files Changed:** `extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`, `extension/sidepanel/sidepanel.js`
 - **Changes Delivered:**
-  - ✅ **Active subtitle enlarged, centered, and colored:**
+  - [PASS] **Active subtitle enlarged, centered, and colored:**
     - Stripped the redundant `ACTIVE SUBTITLE` uppercase label.
     - Updated active subtitle text to 20px, centered (`text-align: center; justify-content: center;`), Japanese font with warm amber (`--accent-reading`: `#d4884f`) for optimal readability.
     - Added subtle `.waiting` state for "Waiting for playback…" that smoothly transitions to amber 20px when active cues play.
-  - ✅ **Collapsible subtitle controls:**
+  - [PASS] **Collapsible subtitle controls:**
     - Wrapped subtitle configuration controls (folder selector, Jimaku search, offset controls, auto-pause toggle) in a native `<details>` container.
     - Top bar (`Load subtitles ▾` button and status pill) acts as the summary trigger with a sleek obsidian-themed rotating chevron.
     - Added `e.preventDefault()` and dropdown click `stopPropagation` so clicking the "Load subtitles" button or dropdown menu items does not toggle the details accordion.
-  - ✅ **Relocated auto-capture toggles:**
+  - [PASS] **Relocated auto-capture toggles:**
     - Moved "Auto-capture frame" and "Auto-capture audio" from the video tab to the Settings popover under a dedicated "Video" section, preserving all IDs and event bindings.
-  - ✅ **Removed verbose subtitle help callout:**
+  - [PASS] **Removed verbose subtitle help callout:**
     - Removed the "Click a word in the active subtitle to capture it..." paragraph to make the video view clean and distraction-free.
-  - ✅ **Folder icon:**
+  - [PASS] **Folder icon:**
     - Replaced the folder emoji with an inline SVG folder icon matching the obsidian/rust design system.
-  - ✅ **Label consistency:**
+  - [PASS] **Label consistency:**
     - Ensured `Subtitle Offset:` label matches test requirements and design specifications.
 - **Verification Results:**
   - Extension test suite: **78/78 tests passed** (`node --test extension/tests/*.test.js`).
@@ -1018,14 +1018,14 @@ New major features should generally be deferred unless they are necessary for th
   - `extension/sidepanel/sidepanel.js`
   - `extension/content/video-mining-poc.js`
 - **Changes Delivered:**
-  - ✅ **iOS Toggle Switch in Video Mode:**
+  - [PASS] **iOS Toggle Switch in Video Mode:**
     - Added `#toggle-subtitles-display` inside `.video-options-row` in the Video Mining panel with `.ios-toggle-label`, `.ios-switch`, `.ios-switch-input`, and `.ios-switch-slider`.
     - Styled to mimic native iOS switches: 36px×20px rounded pill, #34c759 active green, #39393d inactive dark gray, smooth 16px white circular sliding thumb knob with elevation shadow and cubic-bezier easing.
-  - ✅ **Preference Persistence & Cross-Frame Sync:**
+  - [PASS] **Preference Persistence & Cross-Frame Sync:**
     - Persists `subtitles_display_enabled` in `chrome.storage.local` with fallback to `localStorage`.
     - Auto-broadcasts `SET_SUBTITLES_DISPLAY` to active video tabs and frames via `broadcastToActiveVideo`.
     - Video content scripts (`VideoMiningPOC`) listen to runtime messages and `chrome.storage.onChanged`.
-  - ✅ **Video Overlay Toggle:**
+  - [PASS] **Video Overlay Toggle:**
     - Implemented `setDisplayEnabled` in `SubtitleOverlayRenderer` and respect `this.displayEnabled !== false` in `renderCue(cue)` and `updatePosition()`.
     - Immediately hides `#ankiminer-video-overlay-container` when toggled off and restores active cues when toggled on.
     - Side panel cue preview and underlying audio/frame mining workflows remain 100% operational regardless of on-video subtitle visibility.
@@ -1039,25 +1039,25 @@ New major features should generally be deferred unless they are necessary for th
 ### Stage 12 — Final V1.0 Release, Tray Redesign & Production Packaging (2026-09-23)
 
 - **Status Summary:**
-  - ✅ **System Tray Icon Redesign (Hiragana 'あ' in Orange):**
+  - [PASS] **System Tray Icon Redesign (Hiragana 'あ' in Orange):**
     - Created high-resolution multi-size icon assets (`assets/icon.png`, `assets/icon.ico` with 16x16, 24x24, 32x32, 48x48, 64x64, 128x128, 256x256 dimensions) rendering Japanese Hiragana 'あ' in vibrant warm terracotta/amber orange (`#F26419`) on a dark obsidian rounded tile (`#191816`).
     - Updated `run_tray.py` `_make_icon()` with dynamic multi-resolution asset loading and PIL Japanese font fallbacks (`NotoSansJP-VF.ttf`, `YuGothB.ttc`, `meiryob.ttc`).
     - Embedded icon into PyInstaller specifications (`packaging/kiroku_backend.spec`, `packaging/kiroku_ocr.spec`) and Inno Setup installers (`installer/kiroku_setup.iss`, `installer/kiroku_ocr_setup.iss`).
-  - ✅ **Polished System Tray Popup Menu (`run_tray.py`):**
+  - [PASS] **Polished System Tray Popup Menu (`run_tray.py`):**
     - Redesigned menu with structured status indicators:
       - Header: `● Kiroku Note (Running • :21828)` / `○ Starting...` / `✕ Stopped`
       - Grouped service statuses: `• Yomitan: Connected`, `• AnkiConnect: Connected`, `• OCR Engine: Ready`
       - Direct Quick Actions: `Extension Setup Guide`, `Open User Data Folder`, `Backend Status (Browser)`
       - Lifecycle: `Start with Windows`, `Restart Backend`, `Quit Kiroku Note`
-  - ✅ **Standalone Backend & OCR Build Pipelines:**
+  - [PASS] **Standalone Backend & OCR Build Pipelines:**
     - `dist/backend/KirokuNote/KirokuNote.exe` (19.28 MB) standalone executable compiled with PyInstaller onedir and tray host.
     - `dist/ocr/KirokuOCR/KirokuOCR.exe` (813.72 MB uncompressed) standalone OCR companion compiled with CPU-only PyTorch and manga-ocr.
     - `dist/extension/KirokuNote-extension-v1.0.0.zip` (145.83 KB) clean Chromium MV3 distribution package.
-  - ✅ **Windows Inno Setup Installers Built:**
+  - [PASS] **Windows Inno Setup Installers Built:**
     - Installed Inno Setup 6.7.3 via winget.
     - `dist/installer/Kiroku-Note-Setup-v1.0.0.exe` (48.91 MB) per-user 64-bit installer with isolated user-data safety (`%LOCALAPPDATA%\KirokuNote\`).
     - `dist/installer/Kiroku-Note-OCR-Setup-v1.0.0.exe` (181.1 MB) standalone companion add-on installer.
-  - ✅ **Automated Regression Verification:**
+  - [PASS] **Automated Regression Verification:**
     - Backend Pytest suite: **371/371 passed** (including isolated standalone executable runtime tests, port configuration, DB persistence, OCR boundaries).
     - Extension test suite: **78/78 suites passed** with zero failures.
 - **Remaining Risk:** None. All V1.0 release prerequisites are complete. Product is **READY FOR V1.0 RELEASE**.
@@ -1067,39 +1067,39 @@ New major features should generally be deferred unless they are necessary for th
 ### Stage 13 — V1.0.1 Release: OCR Toggle, Contrast & Extension Brand Sync (2026-09-23)
 
 - **Status Summary:**
-  - ✅ **Lighter High-Contrast System Tray Icon:**
+  - [PASS] **Lighter High-Contrast System Tray Icon:**
     - Updated `assets/generate_icon.py` and `run_tray.py` to use a lighter rich charcoal/slate tile (`#2D2925` / `rgb(45,41,37)`) with outer border (`#61564C`) and luminous Japanese orange **あ** (`#FF6A13`).
     - The character **あ** is now vividly distinguishable against dark Windows taskbars at all display scales.
-  - ✅ **Browser Extension Icon Brand Synchronization:**
+  - [PASS] **Browser Extension Icon Brand Synchronization:**
     - Generated `extension/icons/icon16.png`, `icon48.png`, and `icon128.png`.
     - Declared icons in `extension/manifest.json` under `"icons"` and `"action.default_icon"`.
     - Updated `release/build-extension.ps1` to package the extension icons into the distribution archive.
-  - ✅ **User On/Off OCR Toggle in System Tray:**
+  - [PASS] **User On/Off OCR Toggle in System Tray:**
     - Added `POST /api/ocr/start` and `POST /api/ocr/stop` endpoints in FastAPI backend (`backend/app/main.py`).
     - Added user action in tray menu: `▶ Start OCR Engine` when stopped, and `⏹ Stop OCR Engine` when active.
     - Updated tray status to show `● OCR Engine: Ready (Active)` or `○ OCR Engine: Off (Stopped)`.
-  - ✅ **Resilient Windows Registry & Path Auto-Discovery:**
+  - [PASS] **Resilient Windows Registry & Path Auto-Discovery:**
     - Hardened `resolve_ocr_exe_path()` in `backend/app/config.py` to query Inno Setup registry keys under `HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\`.
     - Added fallback discovery for custom install directory patterns (`D:\Kiroku Noteocr\ocr\KirokuOCR.exe`, etc.).
     - Fixed `installer/kiroku_ocr_setup.iss` to prevent directory name concatenation issues.
-  - ✅ **Eliminated System Tray Menu Lag & Hover Artifacts:**
+  - [PASS] **Eliminated System Tray Menu Lag & Hover Artifacts:**
     - Replaced unconditional 2-second menu rebuilds with state-diff checking in `run_tray.py`.
     - Cached status in memory to eliminate Win32 menu flickering and blue selection highlights during user hover.
-  - ✅ **Automated Regression Verification:**
+  - [PASS] **Automated Regression Verification:**
     - Backend Pytest suite: **371/371 passed**.
     - Extension test suite: **77/77 test files passed**.
-  - ✅ **CI Build & Installer Versioning Fix:**
+  - [PASS] **CI Build & Installer Versioning Fix:**
     - Resolved CI failure in `release/build-installer.ps1` and `release/build-ocr-installer.ps1` where `$ExpectedInstaller` verification had hardcoded `v1.0.0.exe` instead of dynamically resolving `$Version`.
     - Both scripts now dynamically resolve the target version directly from `#define MyAppVersion` in the `.iss` file or `extension/manifest.json`.
-  - ✅ **JLPT Offline Reference Database Packaging & Legal Attribution:**
+  - [PASS] **JLPT Offline Reference Database Packaging & Legal Attribution:**
     - Bundled `backend/app/data/jlpt_reference.sqlite` and `JLPT_REFERENCE_NOTICE.md` into PyInstaller runtime bundle (`packaging/kiroku_backend.spec`).
     - Enhanced `resolve_jlpt_reference_db_path()` in `backend/app/services/jlpt_reference.py` to support frozen onedir and onefile layouts.
     - Packaged `LICENSE` and `JLPT_REFERENCE_NOTICE.md` in Inno Setup root application folder (`installer/kiroku_setup.iss`).
     - Added dedicated *Third-Party Data & Attribution* section to `README.md` attributing OpenJLPT (CC BY-SA 4.0), Jonathan Waller (CC BY), JMdict/KANJIDIC2 (CC BY-SA 4.0), and Tatoeba (CC BY 2.0 FR).
-  - ✅ **Automated GitHub Release Creation:**
+  - [PASS] **Automated GitHub Release Creation:**
     - Updated `.github/workflows/build-windows.yml` permissions to `contents: write`.
     - Added automated GitHub release step via `softprops/action-gh-release@v2` when a tag `v*` is pushed.
-  - ✅ **Release Tag & Deployment:**
+  - [PASS] **Release Tag & Deployment:**
     - Re-tagged `v1.0.1` and pushed to `origin/main` to trigger clean automated GitHub Actions release build.
 
 ---
@@ -1107,20 +1107,20 @@ New major features should generally be deferred unless they are necessary for th
 ### Stage 14 — Standalone OCR Packaging & Automatic Daemon Process Launch Fix (2026-09-23)
 
 - **Status Summary:**
-  - ✅ **PyInstaller Packaging Fix for manga-ocr & PyTorch:**
+  - [PASS] **PyInstaller Packaging Fix for manga-ocr & PyTorch:**
     - Fixed `packaging/kiroku_ocr.spec` by removing `unittest` from `excludes` (which broke `torch.utils._config_module` and `import manga_ocr` at runtime with `ModuleNotFoundError: No module named 'unittest'`).
     - Added explicit exclusions for unused heavy sub-packages `torchvision` and `torchaudio` so `transformers` cleanly falls back to `PIL` (`ViTImageProcessorPil`) without failing on missing C-extension operators.
-  - ✅ **Inno Setup Add-on Path Auto-Discovery (`installer/kiroku_ocr_setup.iss`):**
+  - [PASS] **Inno Setup Add-on Path Auto-Discovery (`installer/kiroku_ocr_setup.iss`):**
     - Added Pascal Script registry lookup in `kiroku_ocr_setup.iss` querying `HKCU/HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\{8B84B425-4521-4E65-A6FB-1EE08C36A780}_is1` for the main Kiroku Note installation path (`DefaultDirName={code:GetKirokuInstallDir}`).
     - Added `AppendDefaultDirName=no` to prevent Inno Setup from duplicating folder names (e.g. `\Kiroku Note\Kiroku Note\ocr`) when users select custom destination directories.
-  - ✅ **Backend OCR Discovery & Offline Startup Environment:**
+  - [PASS] **Backend OCR Discovery & Offline Startup Environment:**
     - Hardened `_get_registry_install_paths()` in `backend/app/config.py` to check both GUID keys and DisplayName across HKCU and HKLM.
     - Updated `resolve_ocr_exe_path()` with complete candidate coverage including `{app}\ocr\KirokuOCR.exe`, `%LOCALAPPDATA%\Programs\Kiroku Note\ocr\KirokuOCR.exe`, and registry install locations.
     - Set `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` in `OcrProcessManager` subprocess environment to guarantee instant offline loading without network hanging.
-  - ✅ **Built & Verified Production Packages:**
+  - [PASS] **Built & Verified Production Packages:**
     - Rebuilt `dist/ocr/KirokuOCR/KirokuOCR.exe` and `dist/installer/Kiroku-Note-OCR-Setup-v1.0.1.exe` (179.87 MB).
     - Rebuilt `dist/backend/KirokuNote/KirokuNote.exe` and `dist/installer/Kiroku-Note-Setup-v1.0.1.exe` (49.57 MB).
-  - ✅ **End-to-End Verification:**
+  - [PASS] **End-to-End Verification:**
     - Backend Pytest suite: **371/371 passed**.
     - Extension test suite: **77/77 test files passed**.
     - Verified packaged `KirokuNote.exe` automatically detects installed OCR, spawns `KirokuOCR.exe` on demand, and processes `POST /api/ocr/recognize` returning HTTP 200 with recognized Japanese text. Manual launch of `ocr.exe` is completely eliminated.
@@ -1130,7 +1130,7 @@ New major features should generally be deferred unless they are necessary for th
 ### Stage 15 — Side Panel UI Migration to Concept 6 (Unified Hybrid) (2026-09-27)
 
 - **Status Summary:**
-  - ✅ **Concept 6 Architecture Migration (`extension/sidepanel/sidepanel.html`):**
+  - [PASS] **Concept 6 Architecture Migration (`extension/sidepanel/sidepanel.html`):**
     - Refactored Side Panel HTML to match Concept 6 specifications: zero emojis (crisp inline SVG icons for OCR crop, settings gear, collapse arrow, copy button).
     - Top header layout: `KIROKU` wordmark, quiet service status dots (Yomitan amber, Anki green, OCR green), inline SVG crop icon button (`#ocr-capture-btn`), top mode tabs (Text, Video, Quick, History), top-positioned Japanese writing mode toggle (`#btn-editor-jp-mode`), settings gear (`#btn-layout-settings`), and collapsible header arrow toggle (`#btn-nav-collapse-toggle`).
     - Centered Focus Word Showcase: generous breathing room, 48px Japanese expression typography (`#expression`), warm amber reading lead (`#reading`), multi-definition summary, and badges row (JLPT, POS, pitch accent).
@@ -1142,17 +1142,17 @@ New major features should generally be deferred unless they are necessary for th
     - Quick Add view: keyboard-friendly romaji input, kana toggle, spacious candidate suggestions list with click-to-load direct selection.
     - History view: promoted to full top-level tab library view with search, deck filter, sync status filter, card list, and Sync All button.
     - Settings view: orange section headings (`--accent-reading`), toggle switches, Yomitan dictionary selector, Anki deck/model, video/subtitles/Jimaku config, OCR daemon, and connection indicator legend; closes automatically when switching mode tabs or clicking gear.
-  - ✅ **Concept 6 Design System & Tokens (`extension/sidepanel/sidepanel.css`):**
+  - [PASS] **Concept 6 Design System & Tokens (`extension/sidepanel/sidepanel.css`):**
     - Added tokens `--bg-surface`, `--bg-surface-elevated`, `--bg-surface-hover`, `--bg-input`, `--text-faint`.
     - Implemented clean dark theme styling matching Concept 6 prototype with generous breathing room, smooth micro-interactions, and 0 external frameworks.
     - Preserved 100% of tested legacy CSS classes and contrast tokens (`--text-muted: #8e8a81;`, `.study-kanji-card`, `.dict-study-view`, `.btn-sync-all`, etc.).
-  - ✅ **Event Wiring & Behavior Coordination (`extension/sidepanel/sidepanel.js`):**
+  - [PASS] **Event Wiring & Behavior Coordination (`extension/sidepanel/sidepanel.js`):**
     - Updated `switchMiningTab(targetTab)` to support `"text"`, `"video"`, `"quickadd"`, and `"history"`.
     - Added header collapse arrow toggle logic with persistent storage (`kiroku.nav_collapsed`).
     - Auto-closes Settings popover when navigating between mode tabs.
     - Quick Add candidate click immediately selects candidate, populates editor, and switches to Text tab.
     - Video mode sentence context auto-populates into Sentence Context field upon capture.
-  - ✅ **Verification & Zero Regression:**
+  - [PASS] **Verification & Zero Regression:**
     - Extension test suite: **77/77 test suites passed (100%)**.
     - Backend Pytest suite: **374/374 tests passed (100%)**.
     - All existing DOM contracts, element IDs, form fields, and integration boundaries completely preserved.
@@ -1162,34 +1162,34 @@ New major features should generally be deferred unless they are necessary for th
 ### Stage 16 — Concept 6 Visual Defect Remediation & Precision Alignment (2026-09-27)
 
 - **Status Summary:**
-  - ✅ **Dictionary & Structured Reference Content:**
+  - [PASS] **Dictionary & Structured Reference Content:**
     - Replaced raw unformatted dictionary layout with `.dict-card-container` cards featuring subtle dark borders (`#24201c`), elevated background (`#181715`), and metadata bar.
     - Styled Yomitan structured verb form / inflection tables (`table.yomitan-table`, `.dict-entry-reference-content table`) with clean dark borders, separated cells, and padded headers.
     - Styled furigana `<ruby><rt>` with warm amber reading accents (`#d4884f`) and Japanese typography hierarchy.
     - Styled dictionary example sentences with left accent borders and clean cross-reference links (`JMdict | Tatoeba`).
-  - ✅ **Start/Stop Mining Indicator:**
+  - [PASS] **Start/Stop Mining Indicator:**
     - Replaced oversized green button with minimal 6px quiet amber indicator dot (`#mining-toggle.status-dot-quiet`) with subtle glow and quiet status text beside it.
-  - ✅ **Wordmark Typography:**
+  - [PASS] **Wordmark Typography:**
     - Reverted `.brand-wordmark` from ultra-bold (800) back to crisp, clean original styling (`font-size: 12px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;`).
-  - ✅ **Header Tabs & Settings Baseline Alignment:**
+  - [PASS] **Header Tabs & Settings Baseline Alignment:**
     - Promoted Settings from a floating dropdown modal to a full, first-class top-level tab (`Text`, `Video`, `Quick`, `History`, `Settings`).
     - Stripped legacy `margin-bottom: 8px` from navigation container and overridden fixed 22px/26px gear widths on `#btn-layout-settings`.
     - Aligned all tabs, the `[JP]` writing mode button, and the `^` collapse arrow on the exact same vertical baseline (`y: 21px`, `height: 22px`, 0 overlap).
-  - ✅ **Dropdown Selection Dark Theme:**
+  - [PASS] **Dropdown Selection Dark Theme:**
     - Styled all `<select> option` elements with dark background (`#1c1a17`) and light text (`#ede8e1`), preventing white unreadable popups in Chromium dark mode.
     - Cleaned subtle inline deck and note type selectors under the primary action row.
-  - ✅ **Action Buttons Proportions:**
+  - [PASS] **Action Buttons Proportions:**
     - Equalized `Save` and `Anki` buttons to a balanced 1:1 grid (`1fr 1fr`), sleek 34px height, and compact padding.
-  - ✅ **Collapsible Optional Fields:**
+  - [PASS] **Collapsible Optional Fields:**
     - Eliminated duplicate plus sign (`+ +`) by replacing hardcoded characters with CSS `::before` pseudo-element toggle (`+` when closed, `−` when expanded) on native `<details id="optional-details">`.
-  - ✅ **Video Mining Subtitle Highlighting & Decluttering:**
+  - [PASS] **Video Mining Subtitle Highlighting & Decluttering:**
     - Highlighted active/mined Japanese words in video subtitles with warm amber text and accent underline (`.video-sub-highlight`).
     - Removed cluttered duplicate rows (`Load subtitles`, `No subtitles`), preserving only the compact Concept 6 bar (`Folder: ...`, `Offset: ...`).
-  - ✅ **Playwright Automated Browser Verification:**
+  - [PASS] **Playwright Automated Browser Verification:**
     - Installed and executed Playwright headless browser test suite (`scratch_visual_audit.py`).
     - Generated visual audit captures across Text default, Text populated with structured dictionary, Optional fields open, Video mode with subtitle word highlight, and full Settings tab.
     - Confirmed DOM element bounding boxes and baseline coordinates via Playwright evaluation.
-  - ✅ **Full Regression Verification:**
+  - [PASS] **Full Regression Verification:**
     - Extension test suite: **77/77 passed (100%)**.
     - Backend Pytest suite: **374/374 passed (100%)**.
 
@@ -1230,32 +1230,32 @@ New major features should generally be deferred unless they are necessary for th
      - Fatal `ReferenceError: chrome is not defined` at `sidepanel.js:6138` aborted script execution in environments without full extension runtime mock.
 
 - **Status Summary & Fixes Implemented:**
-  - ✅ **Regression 1: Settings Control Restored:**
+  - [PASS] **Regression 1: Settings Control Restored:**
     - Restored `#btn-layout-settings` as a clean SVG gear button in `.header-right-nav` per Concept 6 layout.
     - Updated `openLayoutSettings()` and `closeLayoutSettings()` to toggle `popover.style.display = "block"` / `"none"`.
     - Removed `settings` from `switchMiningTab` tabs and removed static position/hidden header overrides from `sidepanel.css`.
-  - ✅ **Regression 2: JP Writing Mode Restored:**
+  - [PASS] **Regression 2: JP Writing Mode Restored:**
     - Set default `aria-pressed="false"` in markup and `isEditorJpModeActive = false` (English default).
     - Decoupled `.btn-jp-mode:hover` from `.btn-jp-mode.active` in `sidepanel.css`.
     - Full toggle ON/OFF with WanaKana binding and `kiroku.editor_jp_mode` persistence verified.
-  - ✅ **Regression 3 & 4: Start Mining & Text Capture Pipeline Restored:**
+  - [PASS] **Regression 3 & 4: Start Mining & Text Capture Pipeline Restored:**
     - Restored `#mining-toggle` from 6px dot to standard `.btn-mining` ("Start" / "Stop").
     - Added timeout fallback to `chrome.tabCapture.getMediaStreamId` in `setMiningMode` to prevent freezes.
     - Added idempotency guard (`window.__KIROKU_CONTENT_SCRIPT_INITIALIZED__`) to `content.js` preventing duplicate listeners and conflicting capture calls.
-  - ✅ **Regression 5 & 6: Video Subtitle Rendering & Highlighting Restored:**
+  - [PASS] **Regression 5 & 6: Video Subtitle Rendering & Highlighting Restored:**
     - Added `play`, `playing`, and `loadeddata` listeners to `VideoDetector.start()` in `video-mining-poc.js`.
     - Removed repeated `target.appendChild(this.container)` in `ensureMounted()` to prevent clearing user text selections.
     - Added active term highlighting (`.video-sub-highlight`) in `renderCue()` on `#ankiminer-video-subtitle`.
     - Added `notifyVideoHighlightTerm` in `sidepanel.js:identify` to highlight captured words on the video overlay.
-  - ✅ **Regression 7: Stray Dot Between Deck and Type Removed:**
+  - [PASS] **Regression 7: Stray Dot Between Deck and Type Removed:**
     - Deleted `<span class="deck-sep">·</span>` from `sidepanel.html:320`.
-  - ✅ **Regression 8: Common Exception Protected:**
+  - [PASS] **Regression 8: Common Exception Protected:**
     - Added safe fallback mock on `globalThis.chrome` at top of `sidepanel.js` preventing `ReferenceError` in non-extension environments.
 
 - **Automated Verification Results:**
-  - ✅ **Extension unit test suite:** **77/77 passed (100%)** (`node --test extension/tests/*.test.js`).
-  - ✅ **Backend Pytest suite:** **374/374 passed (100%)** (`python -m pytest backend/tests -o pythonpath=backend`).
-  - ✅ **Playwright Browser Verification:** All checks passed (`diagnose.py`):
+  - [PASS] **Extension unit test suite:** **77/77 passed (100%)** (`node --test extension/tests/*.test.js`).
+  - [PASS] **Backend Pytest suite:** **374/374 passed (100%)** (`python -m pytest backend/tests -o pythonpath=backend`).
+  - [PASS] **Playwright Browser Verification:** All checks passed (`diagnose.py`):
     - Settings button opens and closes popover repeatedly.
     - JP Writing Mode toggles ON/OFF with active terracotta accent.
     - Start Mining button toggles Start/Stop without freezing.
@@ -1324,9 +1324,9 @@ New major features should generally be deferred unless they are necessary for th
      - Updated `allow_origin_regex` in `backend/app/main.py` to accept `null` origin for automated Playwright testing.
 
 - **Automated Verification Results:**
-  - ✅ **Extension Unit Test Suite:** **77/77 passed (100%)** (`node --test extension/tests/*.test.js`).
-  - ✅ **Backend Pytest Suite:** **374/374 passed (100%)** (`python -m pytest backend/tests -o pythonpath=backend`).
-  - ✅ **Playwright End-to-End Suite:** **13/13 passed (100%)** (`python test_plan_verification.py`), covering all 7 sections with 0 runtime page errors.
+  - [PASS] **Extension Unit Test Suite:** **77/77 passed (100%)** (`node --test extension/tests/*.test.js`).
+  - [PASS] **Backend Pytest Suite:** **374/374 passed (100%)** (`python -m pytest backend/tests -o pythonpath=backend`).
+  - [PASS] **Playwright End-to-End Suite:** **13/13 passed (100%)** (`python test_plan_verification.py`), covering all 7 sections with 0 runtime page errors.
 
 ---
 
@@ -1360,9 +1360,9 @@ New major features should generally be deferred unless they are necessary for th
      - Verified that hovering over `"ちょっと"` in `"ちょっと向こうに行けますね。温泉の向こう側にも行けます"` isolates `"ちょっと"` and does not greedily expand to the full clause.
 
 - **Verification:**
-  - ✅ `node --test extension/tests/*.test.js`: **77/77 tests passed (100%)**
-  - ✅ `python -m pytest backend/tests -o pythonpath=backend`: **374/374 tests passed (100%)**
-  - ✅ `python test_plan_verification.py`: **13/13 verification checks passed (100%)** with 0 page errors
+  - [PASS] `node --test extension/tests/*.test.js`: **77/77 tests passed (100%)**
+  - [PASS] `python -m pytest backend/tests -o pythonpath=backend`: **374/374 tests passed (100%)**
+  - [PASS] `python test_plan_verification.py`: **13/13 verification checks passed (100%)** with 0 page errors
 
 ---
 
@@ -1390,8 +1390,8 @@ New major features should generally be deferred unless they are necessary for th
      - Integrated badge and meaning updates into `identify()`, `openSavedCard()`, card save, and card deletion reset workflows.
 
 - **Verification:**
-  - ✅ `node --test extension/tests/*.test.js`: **77/77 tests passed (100%)**
-  - ✅ `python -m pytest backend/tests -o pythonpath=backend`: **374/374 tests passed (100%)**
+  - [PASS] `node --test extension/tests/*.test.js`: **77/77 tests passed (100%)**
+  - [PASS] `python -m pytest backend/tests -o pythonpath=backend`: **374/374 tests passed (100%)**
 
 ---
 
@@ -1422,14 +1422,14 @@ New major features should generally be deferred unless they are necessary for th
      - Pre-existing English text (e.g. `"The cat: "`, `"English note "`, `"Notes: [important]"`) is 100% preserved when typing in JP mode.
 
 - **Verification:**
-  - ✅ `backend/tests/test_english_search.py`: **5/5 tests passed (100%)**
-  - ✅ `python -m pytest backend/tests -o pythonpath=backend`: **379/379 tests passed (100%)**
-  - ✅ `extension/tests/jp-mode-regression.test.js`: **11/11 tests passed (100%)**
-  - ✅ `extension/tests/quick-add-status.test.js`: **3/3 tests passed (100%)**
-  - ✅ `extension/tests/quick-add-tab-persistence.test.js`: **1/1 tests passed (100%)**
-  - ✅ `extension/tests/quick-add-english-mode.test.js`: **3/3 tests passed (100%)**
-  - ✅ `extension/tests/quick-add.test.js`: **11/11 test suites passed (100%)**
-  - ✅ Full Extension Suite (`55 test files`): **55/55 passed (100%)**
+  - [PASS] `backend/tests/test_english_search.py`: **5/5 tests passed (100%)**
+  - [PASS] `python -m pytest backend/tests -o pythonpath=backend`: **379/379 tests passed (100%)**
+  - [PASS] `extension/tests/jp-mode-regression.test.js`: **11/11 tests passed (100%)**
+  - [PASS] `extension/tests/quick-add-status.test.js`: **3/3 tests passed (100%)**
+  - [PASS] `extension/tests/quick-add-tab-persistence.test.js`: **1/1 tests passed (100%)**
+  - [PASS] `extension/tests/quick-add-english-mode.test.js`: **3/3 tests passed (100%)**
+  - [PASS] `extension/tests/quick-add.test.js`: **11/11 test suites passed (100%)**
+  - [PASS] Full Extension Suite (`55 test files`): **55/55 passed (100%)**
 
 ---
 
@@ -1474,12 +1474,12 @@ New major features should generally be deferred unless they are necessary for th
      - Added [hero-view.test.js](file:///d:/Python/AnkiMiner/extension/tests/hero-view.test.js) with 5 unit tests verifying reading formatting, meaning sense formatting, and badge output.
 
 - **Verification:**
-  - ✅ `backend/tests/test_jlpt_reference.py`: **8/8 passed (100%)**
-  - ✅ `backend/tests/test_verb_metadata.py`: **8/8 passed (100%)**
-  - ✅ `backend/tests/test_yomitan.py`: **7/7 passed (100%)**
-  - ✅ `extension/tests/hero-view.test.js`: **5/5 passed (100%)**
-  - ✅ **Backend Pytest Suite:** **391/391 passed (100%)** (`python -m pytest backend/tests -o pythonpath=backend`)
-  - ✅ **Extension Test Suite:** **100/100 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] `backend/tests/test_jlpt_reference.py`: **8/8 passed (100%)**
+  - [PASS] `backend/tests/test_verb_metadata.py`: **8/8 passed (100%)**
+  - [PASS] `backend/tests/test_yomitan.py`: **7/7 passed (100%)**
+  - [PASS] `extension/tests/hero-view.test.js`: **5/5 passed (100%)**
+  - [PASS] **Backend Pytest Suite:** **391/391 passed (100%)** (`python -m pytest backend/tests -o pythonpath=backend`)
+  - [PASS] **Extension Test Suite:** **100/100 passed (100%)** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. All automated tests pass cleanly with zero breaking changes.
 
 ---
@@ -1519,9 +1519,9 @@ New major features should generally be deferred unless they are necessary for th
      - `btn-example-insert` already invoked `insertExampleToCard()`, populating `#field-example-sentence` and `#field-example-translation`, opening `#optional-details`, and enforcing 2-click overwrite protection.
      - Updated button label to `"→ Sentence"` (with class `.btn-insert-sentence` and title `"Insert this example into Sentence"`) for visual clarity.
 - **Verification:**
-  - ✅ `extension/tests/tier1-features.test.js`: **5/5 tests passed (100%)**
-  - ✅ **Extension Test Suite:** **105/105 passed (100%)** (`node --test extension/tests/*.test.js`)
-  - ✅ **Backend Pytest Suite:** **391/391 passed (100%)** (`python -m pytest backend/tests -o pythonpath=backend`)
+  - [PASS] `extension/tests/tier1-features.test.js`: **5/5 tests passed (100%)**
+  - [PASS] **Extension Test Suite:** **105/105 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **Backend Pytest Suite:** **391/391 passed (100%)** (`python -m pytest backend/tests -o pythonpath=backend`)
 - **Remaining Risk:** None. All changes are purely additive and maintain 100% backward compatibility.
 
 ---
@@ -1532,7 +1532,7 @@ New major features should generally be deferred unless they are necessary for th
 - **Scope & Objectives:**
   - Complete the six tasks assigned for Tier 2 Session 1 from `newfeatures.md`:
     - **T2-B**: Keyboard shortcut `Alt+Shift+K` to open/focus the Side Panel.
-    - **T2-D**: Speaker button (`🔊`) on Hero card for browser TTS pronunciation (`ja-JP`).
+    - **T2-D**: Speaker button (``) on Hero card for browser TTS pronunciation (`ja-JP`).
     - **T2-H**: Clipboard auto-detection on panel focus with one-click capture bar.
     - **T2-A**: JLPT level pill (`N3`, etc.) on History card rows.
     - **T2-J**: Sort dropdown in History (`date-desc`, `date-asc`, `jlpt`, `deck`, `status`).
@@ -1562,9 +1562,9 @@ New major features should generally be deferred unless they are necessary for th
      - Refactored `triggerSyncAll({ silent: false })` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) so background sync operates silently without flashing status banners.
      - Added `checkAnkiStatus()` polling and `checkAndAutoSyncPendingCards()` triggering silent sync when AnkiConnect transitions from offline to online with pending cards.
 - **Verification:**
-  - ✅ `extension/tests/tier2-session1-features.test.js`: **6/6 passed (100%)**
-  - ✅ **Full Extension Test Suite:** **111/111 passed (100%)** (`node --test extension/tests/*.test.js`)
-  - ✅ **Full Backend Pytest Suite:** **392/392 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] `extension/tests/tier2-session1-features.test.js`: **6/6 passed (100%)**
+  - [PASS] **Full Extension Test Suite:** **111/111 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **Full Backend Pytest Suite:** **392/392 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
 - **Remaining Risk:** Zero. All changes adhere strictly to the locked architecture, require zero database migrations, and pass 100% of automated unit and regression tests.
 
 ---
@@ -1610,9 +1610,9 @@ New major features should generally be deferred unless they are necessary for th
      - Per specification constraint: *"If manga-ocr does not expose confidence, document this as 'Not Implemented — model does not expose per-token confidence' in PROGRESS.md and skip."*
      - Status: **Not Implemented — model does not expose per-token confidence**.
 - **Verification:**
-  - ✅ `extension/tests/tier2-session2-features.test.js`: **4/4 passed (100%)**
-  - ✅ **Full Extension Test Suite:** **115/115 passed (100%)** (`node --test extension/tests/*.test.js`)
-  - ✅ **Full Backend Pytest Suite:** **404/404 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] `extension/tests/tier2-session2-features.test.js`: **4/4 passed (100%)**
+  - [PASS] **Full Extension Test Suite:** **115/115 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **Full Backend Pytest Suite:** **404/404 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
 - **Remaining Risk:** None. All features are additive, non-breaking, fully verified by automated tests, and strictly respect locked architectural boundaries.
 
 ---
@@ -1646,10 +1646,10 @@ New major features should generally be deferred unless they are necessary for th
      - Styled modal, progress bar, and itemized rows (`.sync-item.success`, `.sync-item.failed`) in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css).
      - Updated `triggerSyncAll({ silent: false })` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) to display the modal during manual execution, populate itemized status rows (`✓ expression` / `✗ expression: error`), animate the progress bar, and provide dismiss/Escape key dismiss.
 - **Verification:**
-  - ✅ **Backend Sync All Response Test:** [backend/tests/test_sync_all.py](file:///d:/Python/AnkiMiner/backend/tests/test_sync_all.py) verifies `expression` inclusion in `SyncCardResponse`.
-  - ✅ **Tier 3 Session 1 Automated Suite:** [extension/tests/tier3-session1-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier3-session1-features.test.js): **4/4 passed (100%)**
-  - ✅ **Full Extension Test Suite:** **119/119 passed (100%)** (`node --test extension/tests/*.test.js`)
-  - ✅ **Full Backend Pytest Suite:** **404/404 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] **Backend Sync All Response Test:** [backend/tests/test_sync_all.py](file:///d:/Python/AnkiMiner/backend/tests/test_sync_all.py) verifies `expression` inclusion in `SyncCardResponse`.
+  - [PASS] **Tier 3 Session 1 Automated Suite:** [extension/tests/tier3-session1-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier3-session1-features.test.js): **4/4 passed (100%)**
+  - [PASS] **Full Extension Test Suite:** **119/119 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **Full Backend Pytest Suite:** **404/404 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
 - **Remaining Risk:** None. All changes are backward compatible, respect local-first SQLite invariants, and have passed extensive regression verification.
 
 ---
@@ -1679,13 +1679,13 @@ New major features should generally be deferred unless they are necessary for th
      - Updated `SaveCardRequest`, `SaveCardResponse`, `CardSummary`, and `CardDetailResponse` in [backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py).
      - Updated [backend/app/repositories/card_repository.py](file:///d:/Python/AnkiMiner/backend/app/repositories/card_repository.py) and [backend/app/services/card_service.py](file:///d:/Python/AnkiMiner/backend/app/services/card_service.py).
      - Tracked `lastCaptureSource` across text capture, OCR crop processing, and quick add in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
-     - Rendered `.history-item-source` badge in `renderHistoryCards()` with type icons (`📄`, `🎬`, `🔲`, `⚡`) and domain hostname.
+     - Rendered `.history-item-source` badge in `renderHistoryCards()` with type icons (``, ``, ``, ``) and domain hostname.
 - **Verification:**
-  - ✅ **Backend Provenance Tests:** [backend/tests/test_card_provenance.py](file:///d:/Python/AnkiMiner/backend/tests/test_card_provenance.py)
-  - ✅ **Backend Furigana Density Tests:** [backend/tests/test_furigana_density.py](file:///d:/Python/AnkiMiner/backend/tests/test_furigana_density.py)
-  - ✅ **Extension Session 2 Tests:** [extension/tests/tier3-session2-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier3-session2-features.test.js): **4/4 passed (100%)**
-  - ✅ **Full Extension Test Suite:** **123/123 passed (100%)** (`node --test extension/tests/*.test.js`)
-  - ✅ **Full Backend Pytest Suite:** **411/411 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] **Backend Provenance Tests:** [backend/tests/test_card_provenance.py](file:///d:/Python/AnkiMiner/backend/tests/test_card_provenance.py)
+  - [PASS] **Backend Furigana Density Tests:** [backend/tests/test_furigana_density.py](file:///d:/Python/AnkiMiner/backend/tests/test_furigana_density.py)
+  - [PASS] **Extension Session 2 Tests:** [extension/tests/tier3-session2-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier3-session2-features.test.js): **4/4 passed (100%)**
+  - [PASS] **Full Extension Test Suite:** **123/123 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **Full Backend Pytest Suite:** **411/411 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
 - **Remaining Risk:** None. All features are additive, non-breaking, fully verified by automated tests, and strictly respect locked architectural boundaries.
 
 ---
@@ -1714,10 +1714,10 @@ New major features should generally be deferred unless they are necessary for th
      - Added `<button id="btn-save-deck-template">` ("Save as default for this deck") and `<span id="deck-template-status">` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html) and wired click handler in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
      - Styled `.btn-save-deck-template` and `.deck-template-status` in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css).
 - **Verification:**
-  - ✅ **Backend Stats Test Suite:** [backend/tests/test_cards_stats.py](file:///d:/Python/AnkiMiner/backend/tests/test_cards_stats.py): **6/6 passed (100%)**
-  - ✅ **Extension Session 3 Test Suite:** [extension/tests/tier3-session3-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier3-session3-features.test.js): **3/3 passed (100%)**
-  - ✅ **Full Backend Pytest Suite:** **417/417 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
-  - ✅ **Full Extension Test Suite:** **126/126 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **Backend Stats Test Suite:** [backend/tests/test_cards_stats.py](file:///d:/Python/AnkiMiner/backend/tests/test_cards_stats.py): **6/6 passed (100%)**
+  - [PASS] **Extension Session 3 Test Suite:** [extension/tests/tier3-session3-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier3-session3-features.test.js): **3/3 passed (100%)**
+  - [PASS] **Full Backend Pytest Suite:** **417/417 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] **Full Extension Test Suite:** **126/126 passed (100%)** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. All changes respect locked boundaries, require no database migrations, and pass 100% of all automated test suites.
 
 ---
@@ -1753,10 +1753,10 @@ New major features should generally be deferred unless they are necessary for th
      - Added `.history-select-cb` inside `renderHistoryCards()` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) with selection state management (`selectedHistoryCardIds` `Set`), select all / deselect all, 2-click delete confirmation, bulk sync, and bulk deck move.
      - Fully guarded all new element references and event listener attachments with `typeof elem !== 'undefined' && elem`.
 - **Verification:**
-  - ✅ **Backend Bulk Operations Test Suite:** [backend/tests/test_cards_bulk.py](file:///d:/Python/AnkiMiner/backend/tests/test_cards_bulk.py): **8/8 passed (100%)**
-  - ✅ **Extension Tier 4 Session 1 Test Suite:** [extension/tests/tier4-session1-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier4-session1-features.test.js): **3/3 passed (100%)**
-  - ✅ **Full Backend Pytest Suite:** **425/425 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
-  - ✅ **Full Extension Test Suite:** **129/129 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **Backend Bulk Operations Test Suite:** [backend/tests/test_cards_bulk.py](file:///d:/Python/AnkiMiner/backend/tests/test_cards_bulk.py): **8/8 passed (100%)**
+  - [PASS] **Extension Tier 4 Session 1 Test Suite:** [extension/tests/tier4-session1-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier4-session1-features.test.js): **3/3 passed (100%)**
+  - [PASS] **Full Backend Pytest Suite:** **425/425 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] **Full Extension Test Suite:** **129/129 passed (100%)** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. All features are additive, adhere to local-first SQLite invariants, guard all VM-sliced elements, and pass 100% of all automated test suites.
 
 ---
@@ -1802,10 +1802,10 @@ New major features should generally be deferred unless they are necessary for th
      - Extended [extension/tests/video-mining-poc.test.js](file:///d:/Python/AnkiMiner/extension/tests/video-mining-poc.test.js) with 2 new comprehensive test cases (Tests 12 & 13).
      - Created dedicated test suite [extension/tests/tier4-session2-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier4-session2-features.test.js) verifying HTML/CSS structure, `findMostProminentWord`, search/seek, and recent cues word click-to-mine.
 - **Verification:**
-  - ✅ **Target Verification Suite:** [extension/tests/video-mining-poc.test.js](file:///d:/Python/AnkiMiner/extension/tests/video-mining-poc.test.js): **13/13 passed (100%)**
-  - ✅ **Tier 4 Session 2 Test Suite:** [extension/tests/tier4-session2-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier4-session2-features.test.js): **4/4 passed (100%)**
-  - ✅ **Full Backend Pytest Suite:** **425/425 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
-  - ✅ **Full Extension Test Suite:** **133/133 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **Target Verification Suite:** [extension/tests/video-mining-poc.test.js](file:///d:/Python/AnkiMiner/extension/tests/video-mining-poc.test.js): **13/13 passed (100%)**
+  - [PASS] **Tier 4 Session 2 Test Suite:** [extension/tests/tier4-session2-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier4-session2-features.test.js): **4/4 passed (100%)**
+  - [PASS] **Full Backend Pytest Suite:** **425/425 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] **Full Extension Test Suite:** **133/133 passed (100%)** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. All video playback invariants preserved, Intl.Segmenter used natively with zero external dependencies, no database migrations required.
 
 ---
@@ -1821,7 +1821,7 @@ New major features should generally be deferred unless they are necessary for th
     - Provide backend endpoint `GET /api/kanji/strokes/{character}` with in-memory LRU caching.
     - Inline SVG styles in `anki_formatter.py` so diagrams render properly in Anki (which strips class-based CSS).
     - Safe DOM injection inside existing kanji breakdown cards (`DOMParser` with `image/svg+xml` and `replaceChildren`).
-    - Progressive disclosure: stroke diagram rendered inside a collapsed `<details class="study-kanji-strokes-accordion">` (plus interactive toggle chip on `${strokes} strokes ✍`), ensuring the default UI is clean and uncluttered.
+    - Progressive disclosure: stroke diagram rendered inside a collapsed `<details class="study-kanji-strokes-accordion">` (plus interactive toggle chip on `${strokes} strokes `), ensuring the default UI is clean and uncluttered.
     - Legal attribution: prominent **CC BY-SA 3.0** attribution for Ulrich Apel & KanjiVG in `README.md` and `backend/app/data/KANJIVG_NOTICE.md`.
 - **Implementation Deliverables:**
   1. **KanjiVG Ingestion Script & Dataset:**
@@ -1840,17 +1840,17 @@ New major features should generally be deferred unless they are necessary for th
   4. **Side Panel UI & Progressive Disclosure:**
      - Added CSS styling in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css) for `.study-kanji-strokes-accordion`, `.study-kanji-strokes-summary`, `.study-kanji-strokes-panel`, and `.stroke-order-svg`.
      - Added `getKanjiStrokeSvg()` with in-memory `Map` caching and safe `DOMParser` rendering in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
-     - In study view: added interactive stroke toggle badge (`${strokes} strokes ✍`) and collapsed `<details class="study-kanji-strokes-accordion">` that lazily fetches and renders the stroke diagram only when toggled/opened, preserving zero-clutter UI.
+     - In study view: added interactive stroke toggle badge (`${strokes} strokes `) and collapsed `<details class="study-kanji-strokes-accordion">` that lazily fetches and renders the stroke diagram only when toggled/opened, preserving zero-clutter UI.
      - In compact card preview: displayed 2-column layout (`.kn-kanji-body-row`) matching Anki output with async SVG injection.
   5. **Task Management & Scope Control:**
      - Marked **T4-D** as `Deferred` in [newfeatures.md](file:///d:/Python/AnkiMiner/newfeatures.md).
      - Marked **T4-E** as `Completed` in [newfeatures.md](file:///d:/Python/AnkiMiner/newfeatures.md).
 - **Verification:**
-  - ✅ **Backend Stroke Service & API Test Suite:** [backend/tests/test_kanji_strokes.py](file:///d:/Python/AnkiMiner/backend/tests/test_kanji_strokes.py): **7/7 passed (100%)**
-  - ✅ **Backend Anki Formatter Test Suite:** [backend/tests/test_anki_formatter.py](file:///d:/Python/AnkiMiner/backend/tests/test_anki_formatter.py): **25/25 passed (100%)**
-  - ✅ **Extension Session 3 Test Suite:** [extension/tests/tier4-session3-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier4-session3-features.test.js): **3/3 passed (100%)**
-  - ✅ **Full Backend Pytest Suite:** **434/434 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
-  - ✅ **Full Extension Test Suite:** **136/136 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **Backend Stroke Service & API Test Suite:** [backend/tests/test_kanji_strokes.py](file:///d:/Python/AnkiMiner/backend/tests/test_kanji_strokes.py): **7/7 passed (100%)**
+  - [PASS] **Backend Anki Formatter Test Suite:** [backend/tests/test_anki_formatter.py](file:///d:/Python/AnkiMiner/backend/tests/test_anki_formatter.py): **25/25 passed (100%)**
+  - [PASS] **Extension Session 3 Test Suite:** [extension/tests/tier4-session3-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier4-session3-features.test.js): **3/3 passed (100%)**
+  - [PASS] **Full Backend Pytest Suite:** **434/434 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] **Full Extension Test Suite:** **136/136 passed (100%)** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. KanjiVG SVGs are served on-demand via the local backend, cached in memory, and rendered on-demand in the UI without cluttering the existing card presentation.
 
 ---
@@ -1886,9 +1886,9 @@ New major features should generally be deferred unless they are necessary for th
   5. **Automated Test Suite ([backend/tests/test_llm_service.py](file:///d:/Python/AnkiMiner/backend/tests/test_llm_service.py)):**
      - 24 comprehensive mocked unit and integration tests covering config resolution, unconfigured 501, Groq, Gemini, Ollama, prompt task formatting, JLPT MCQ answering, multi-turn chat history, 422 validations, 504 timeouts, 502 upstream errors, and 503 connection refusals.
 - **Verification:**
-  - ✅ **LLM Service Test Suite:** [backend/tests/test_llm_service.py](file:///d:/Python/AnkiMiner/backend/tests/test_llm_service.py): **24/24 passed (100%)**
-  - ✅ **Full Backend Pytest Suite:** **458/458 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
-  - ✅ **Full Extension Test Suite:** **136/136 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **LLM Service Test Suite:** [backend/tests/test_llm_service.py](file:///d:/Python/AnkiMiner/backend/tests/test_llm_service.py): **24/24 passed (100%)**
+  - [PASS] **Full Backend Pytest Suite:** **458/458 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] **Full Extension Test Suite:** **136/136 passed (100%)** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. The extension does not call any LLM directly; keys reside only in backend environment variables. Zero live network calls are made during tests or when unconfigured.
 
 ---
@@ -1924,9 +1924,307 @@ New major features should generally be deferred unless they are necessary for th
   4. **Automated Test Suite ([extension/tests/tier5-ask-tab.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier5-ask-tab.test.js)):**
      - 9 automated tests validating DOM elements, absence of emojis, no redundant composer buttons, settings popover status, CSS definitions, JP mode binding, OCR text routing, and module exports.
 - **Verification:**
-  - ✅ **Ask Tab Test Suite:** [extension/tests/tier5-ask-tab.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier5-ask-tab.test.js): **9/9 passed (100%)**
-  - ✅ **Full Extension Test Suite:** **145/145 passed (100%)** (`node --test extension/tests/*.test.js`)
-  - ✅ **Full Backend Pytest Suite:** **458/458 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] **Ask Tab Test Suite:** [extension/tests/tier5-ask-tab.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier5-ask-tab.test.js): **9/9 passed (100%)**
+  - [PASS] **Full Extension Test Suite:** **145/145 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **Full Backend Pytest Suite:** **458/458 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
 - **Remaining Risk:** None. Zero external runtime dependencies added. The extension remains 100% vanilla HTML/CSS/JS and local-first.
 
-
+---
+
+### Session 1: Test Suite Baseline & Trustworthiness (Phase 0)
+
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Fix cancelled subtests in [extension/tests/hero-view.test.js](file:///d:/Python/AnkiMiner/extension/tests/hero-view.test.js) by making the parent test `async` and awaiting subtests.
+  - Fix platform-dependent test failures in [backend/tests/test_packaging_config.py](file:///d:/Python/AnkiMiner/backend/tests/test_packaging_config.py) on Linux/macOS caused by patching `os.name = "nt"`.
+  - Add continuous integration workflow [.github/workflows/test.yml](file:///d:/Python/AnkiMiner/.github/workflows/test.yml) to run both backend and extension test suites on Linux (`ubuntu-latest`) and Windows (`windows-latest`), including an audit to ensure `extension/lib` files are tracked in git and not blocked by `.gitignore`.
+- **Implementation Deliverables:**
+  1. **Extension Test Harness Fix ([extension/tests/hero-view.test.js](file:///d:/Python/AnkiMiner/extension/tests/hero-view.test.js)):**
+     - Made the parent test `async (t) => { ... }` and added `await t.test(...)` for each of the 4 subtests.
+     - Confirmed all 145 node tests pass with 0 cancelled subtests.
+  2. **Backend Packaging Test Fix ([backend/tests/test_packaging_config.py](file:///d:/Python/AnkiMiner/backend/tests/test_packaging_config.py)):**
+     - Removed `patch("os.name", "nt")` from `test_frozen_mode_windows_localappdata_resolution` and `test_frozen_mode_fallback_to_legacy_db_if_exists`.
+     - Tests rely on `sys.platform == "win32"` which matches `app.config` resolution without triggering `pathlib`'s `NotImplementedError` on POSIX systems.
+  3. **GitHub Actions CI Workflow ([.github/workflows/test.yml](file:///d:/Python/AnkiMiner/.github/workflows/test.yml)):**
+     - Matrix build covering `ubuntu-latest` and `windows-latest` across Python 3.11 and Node 20.
+     - Runs dependency installation, git tracking audit for `extension/lib`, `pytest` backend tests, and `node --test` extension tests.
+- **Verification:**
+  - [PASS] **Full Backend Pytest Suite:** **458/458 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] **Full Extension Test Suite:** **145/145 passed (100%)** with 0 failures and 0 cancellations (`node --test extension/tests/*.test.js`)
+- **Remaining Risk:** None. All test suites are green and baseline trustworthiness is established across both platforms.
+
+---
+
+### Session 2: Backend Core Fixes & Security Hardening (Phase 9 & Backend Health)
+
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Remove `|null` from `allow_origin_regex` in [backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py) to prevent sandboxed iframes and `data:` URLs from accessing backend resources.
+  - Implement request validation middleware in [backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py):
+    - For state-changing methods (`POST`, `PUT`, `PATCH`, `DELETE`): if an `Origin` header is present and does not match allowed extension/local origins, return 403 Forbidden.
+    - Check that the `Host` header matches `localhost`, `127.0.0.1`, or `testserver` (preventing DNS rebinding attacks).
+    - Allow requests with no `Origin` header (curl, tray app, local tests).
+  - Fix query param shadowing in [backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py): rename `export_cards_csv` parameter from `status` to `filter_status` with `Query(default=None, alias="status")` so it does not shadow `fastapi.status`.
+  - Tighten loose bulk endpoint typing in [backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py) and [backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py) from `list[Union[int, str]]` to `list[int]`.
+  - Add in-process cache (3.0s TTL) to `GET /api/health` in [backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py) to prevent rapid polling from reconstructing services or flooding Anki/Yomitan serially.
+  - Add comprehensive unit and integration tests in [backend/tests/test_backend_security_and_health.py](file:///d:/Python/AnkiMiner/backend/tests/test_backend_security_and_health.py).
+- **Implementation Deliverables:**
+  1. **CORS & Host Security Middleware ([backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py)):**
+     - Removed `|null` from `ALLOWED_ORIGIN_REGEX` (`^(chrome-extension://.*|http://(localhost|127\.0\.0\.1)(:\d+)?)$`).
+     - Added `validate_request_security` middleware enforcing host DNS rebinding defense and untrusted state-changing origin blocking.
+  2. **Health Check Caching ([backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py)):**
+     - Added `_health_cache` with 3.0s TTL and `clear_health_cache()` test helper.
+  3. **CSV Export Query Alias ([backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py)):**
+     - Changed `status: str | None = None` to `filter_status: str | None = Query(default=None, alias="status")`.
+  4. **Bulk Endpoint Schema Tightening ([backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py), [backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py)):**
+     - Changed `card_ids: list[Union[int, str]]` to `card_ids: list[int]` in `BulkDeleteCardsRequest`, `BulkSyncCardsRequest`, `BulkDeckUpdateRequest`, and FastAPI router bindings.
+  5. **Automated Test Suite ([backend/tests/test_backend_security_and_health.py](file:///d:/Python/AnkiMiner/backend/tests/test_backend_security_and_health.py)):**
+     - Added 12 new automated unit and integration tests covering OPTIONS preflight, null origin blocking, untrusted origin rejection, valid extension/local origins, missing origin tolerance, host header validation, in-process health caching, CSV export status query filtering, and bulk integer validation.
+- **Verification:**
+  - [PASS] **Backend Pytest Suite:** **470/470 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] **Extension Test Suite:** **145/145 passed (100%)** (`node --test extension/tests/*.test.js`)
+- **Remaining Risk:** None. All security boundaries, host checks, CORS policies, and health caching are fully verified and green across all test suites.
+
+---
+
+### Session 3: LLM Backend Enhancements & Config API (Phase 2 Backend)
+
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Replace hardcoded `5.0s` timeout across `LLMService` and providers with configurable timeout via `KIROKU_LLM_TIMEOUT` (default `45.0s`, clamped to 5.0–180.0s).
+  - Move Google Gemini authentication from URL query parameter (`?key=...`) to `x-goog-api-key` HTTP header in `GeminiProvider`. Sanitize error messages to prevent leaking URLs, headers, or keys.
+  - Chat history & prompt capping:
+    - Cap `messages` in `LLMRequest` to max 20 entries and total characters across messages to max 20,000.
+    - Reject client-supplied `role="system"` in `LLMChatMessage`.
+    - Truncate conversational history in `LLMService.ask` to retain only the last 10 messages for prompt construction.
+  - Add task validation: raise `ValueError` on unsupported assistant tasks instead of silent fallthrough.
+  - LLM Configuration & Test API endpoints:
+    - `GET /api/llm/config`: returns active provider configuration with masked API key (`has_key: bool`, `key_preview: str | null`), never returning raw keys.
+    - `PUT /api/llm/config`: persists provider settings to `llm_config.json` in user data directory (with environment variables still taking precedence).
+    - `POST /api/llm/test`: executes a fast 1-token dummy query to verify provider connectivity and credentials.
+  - Create documentation `docs/llm-setup.md` detailing provider setup (Groq, Gemini, Ollama), environment variables, UI settings, timeouts, and privacy disclosures.
+- **Implementation Deliverables:**
+  1. **Config Layer ([backend/app/config.py](file:///d:/Python/AnkiMiner/backend/app/config.py)):**
+     - Added `DEFAULT_LLM_TIMEOUT = 45.0`, `MIN_LLM_TIMEOUT = 5.0`, `MAX_LLM_TIMEOUT = 180.0`.
+     - Added `get_llm_config_file_path()`, `load_stored_llm_config()`, `save_stored_llm_config()`, and `resolve_llm_timeout()`.
+     - Updated `get_llm_provider()`, `get_llm_api_key()`, `get_llm_ollama_url()`, and `get_llm_model()` to support stored JSON configuration fallback while maintaining environment variable precedence.
+  2. **Schema Layer ([backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py)):**
+     - Restricted `LLMChatMessage.role` to `Literal["user", "assistant"]` (rejecting `"system"`).
+     - Added `Field(default=None, max_length=20)` and 20,000 total character validator for `LLMRequest.messages`.
+     - Added `LLMConfigResponse`, `LLMConfigUpdateRequest`, `LLMTestRequest`, and `LLMTestResponse`.
+  3. **Service & Provider Layer ([backend/app/services/llm_service.py](file:///d:/Python/AnkiMiner/backend/app/services/llm_service.py)):**
+     - Updated `_send_http_json()` with configurable timeout and sanitized error messages.
+     - Updated `GeminiProvider.ask` to authenticate via `x-goog-api-key` header instead of URL query parameters.
+     - Enforced `SUPPORTED_LLM_TASKS` check in `LLMService.ask` raising `ValueError` on invalid tasks.
+     - Implemented last-10-message conversational history windowing in `LLMService.ask`.
+  4. **FastAPI Endpoints Layer ([backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py)):**
+     - Exposed `GET /api/llm/config` with masked key previews.
+     - Exposed `PUT /api/llm/config` saving configuration to `llm_config.json`.
+     - Exposed `POST /api/llm/test` testing provider connectivity and returning latency diagnostics.
+     - Caught `ValueError` in `POST /api/llm/ask` returning 422 Unprocessable Entity.
+  5. **Documentation ([docs/llm-setup.md](file:///d:/Python/AnkiMiner/docs/llm-setup.md)):**
+     - Added complete setup guide, provider matrix, local vs cloud privacy disclosures, and API endpoint reference.
+  6. **Automated Test Suite ([backend/tests/test_llm_service.py](file:///d:/Python/AnkiMiner/backend/tests/test_llm_service.py)):**
+     - Added 11 new tests covering timeout clamping, Gemini header auth, history capping, system role rejection, character limits, unsupported task validation, config GET/PUT JSON persistence, env var precedence, and connection testing.
+- **Verification:**
+  - [PASS] **Full Backend Pytest Suite:** **481/481 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] **Full Extension Test Suite:** **145/145 passed (100%)** (`node --test extension/tests/*.test.js`)
+- **Remaining Risk:** None. All changes maintain locked boundaries, zero extra pip dependencies, and zero database schema changes.
+
+---
+
+### Session 4: Stray History Under Text Mode Fix (Phase 1)
+
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Fix stray `#history-section` showing at the bottom of the Side Panel in Text mode (and other non-history modes).
+  - Extract and ensure `applyTabVisibility(tab)` is the single authoritative function controlling `hidden` and `style.display` across all tab panels (`#text-mining-view`, `#video-mining-view`, `#quickadd-mining-view`, `#ask-mining-view`, `#history-section`, `#card-editor-section`).
+  - Turn `applyHistoryVisibility()` into a safe no-op (preserved for export/call-site backward compatibility).
+  - Remove the "Show History" switch row from Settings HTML/UI (`hidden style="display:none;"`), while retaining the `#setting-show-history` input ID in the DOM and preserving backward compatibility for stored profile parsing.
+  - Ensure deterministic startup order: tab preference is loaded and applied without `loadStoredCardTemplateSettings()` or deck changes re-showing History.
+  - Add comprehensive automated unit test in [extension/tests/history-visibility.test.js](file:///d:/Python/AnkiMiner/extension/tests/history-visibility.test.js).
+- **Implementation Deliverables:**
+  1. **Tab & Panel Visibility Management ([extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js)):**
+     - Implemented `applyTabVisibility(targetTab)` as the single authority controlling view panel visibility and editor visibility based strictly on the active tab.
+     - Updated `switchMiningTab(targetTab)` to delegate to `applyTabVisibility(tab)`.
+     - Replaced `applyHistoryVisibility()` with an exported no-op so settings changes and profile loading cannot toggle `#history-section`.
+     - Exported `applyTabVisibility` and `applyHistoryVisibility` to `window` and `module.exports`.
+  2. **Settings UI Markup ([extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html)):**
+     - Marked the `#setting-show-history` settings row as `hidden style="display:none;"`, removing the switch from user settings while preserving the element for DOM/test compatibility.
+  3. **Automated Test Suite ([extension/tests/history-visibility.test.js](file:///d:/Python/AnkiMiner/extension/tests/history-visibility.test.js)):**
+     - Added 2 automated test scenarios: DOM markup structure verification and behavioral tab-switching isolation test covering initial Text tab state, `applyHistoryVisibility()` no-op verification, stored template loading with `show_history: true`, template saving, deck changes, and switching across `video`, `ask`, `quickadd`, `history`, and `text` tabs.
+- **Verification:**
+  - [PASS] **Full Extension Test Suite:** **148/148 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **Full Backend Pytest Suite:** **481/481 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+- **Remaining Risk:** None. The history panel is now strictly bound to the active tab state and cannot be erroneously shown at the bottom of Text mode.
+
+---
+
+### Session 5: LLM Frontend Wiring, Escaping & Context Accuracy (Phase 2 Frontend)
+
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Fix payload construction in `sendAskQuery` across all assistant tasks (`explain_sense`, `mnemonic`, `translate`, `explain_grammar`, `answer_question`, `chat`).
+  - Eliminate duplicate text transmission: avoid sending the prompt text as both `text` and `context`.
+  - Comprehensive XSS prevention & safe DOM construction: replace `innerHTML` injections for error messages, FastAPI 422 validation error arrays, provider names, and model tags with safe DOM nodes and `textContent`.
+  - Task chip stickiness & reset: reset `currentAskTask` to `"answer_question"` and revert active chip and submit button text on query completion.
+  - Client-side history capping: retain only the last 10 messages in `askChatHistory` before dispatch.
+  - UI polish & status colors: replace hardcoded status colors with CSS tokens (`var(--accent-error)`, `var(--accent-success)`). Initialize `#ask-status-dot` in neutral checking state.
+  - Settings integration: wire Settings AI Assistant controls (`#setting-llm-provider`, `#setting-llm-model`, `#setting-llm-key`, `#setting-llm-ollama-url`, `#btn-test-llm`, `#btn-save-llm-config`, `#llm-config-feedback`) to `GET/PUT /api/llm/config` and `POST /api/llm/test`.
+  - Text tab context actions: add quick action buttons (`#btn-dict-ai-translate`, `#btn-dict-ai-sense`, `#btn-dict-ai-mnemonic`) and `#dict-ai-result-card` with 1-click "Add to Notes" in the Text tab next to Dictionary meanings.
+  - Safe network requests: implement `fetchWithTimeout` helper with 15s default and 60s for LLM operations using `AbortController`.
+  - Strict emoji elimination: strip all emojis from HTML, CSS, test files, and documentation.
+- **Implementation Deliverables:**
+  1. **Network & LLM Logic ([extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js)):**
+     - Implemented `fetchWithTimeout` with `AbortController` timeout support.
+     - Rewrote `sendAskQuery` to construct clean, accurate task payloads, cap history, handle 422 array errors cleanly, safely construct DOM elements without `innerHTML`, and reset chips on completion.
+     - Implemented `loadLlmConfigToSettings()`, `saveLlmConfigFromSettings()`, `testLlmConnectionFromSettings()`, and `executeQuickAiTask()`.
+  2. **Markup & Settings Integration ([extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html)):**
+     - Added Quick AI action buttons and `#dict-ai-result-card` inside `.dict-header-row`.
+     - Added LLM configuration fields and connection testing controls inside Settings panel.
+     - Stripped all emojis from UI labels, placeholders, buttons, and progress notices.
+  3. **Visual Design & Typography ([extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css)):**
+     - Added styling for `.dict-ai-actions`, `.dict-ai-btn`, `.dict-ai-result`, `.dict-ai-meta`, and Settings AI controls utilizing theme tokens and micro-interactions.
+  4. **Automated Test Suite ([extension/tests/llm-frontend-session5.test.js](file:///d:/Python/AnkiMiner/extension/tests/llm-frontend-session5.test.js)):**
+     - Added 8 automated tests covering `fetchWithTimeout`, payload accuracy across tasks, history capping to 10 entries, safe DOM creation for errors, 422 array formatting, task chip reset, and Settings LLM config load/save.
+- **Verification:**
+  - [PASS] **Full Extension Test Suite:** **156/156 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - [PASS] **Full Backend Pytest Suite:** **481/481 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+- **Remaining Risk:** None. All features are verified, secured against XSS, and fully passing.
+
+### Session 6: Section Visibility, Collapse Prefs & Collapsible Dictionary (Phase 3)
+- **Status:** Complete
+- **Requirements & Objectives:**
+  - Preferences storage under `kiroku.layout.cardSectionPrefs` with safe defaults ensuring all sections remain visible and expanded by default.
+  - Section visibility toggling with `.is-user-hidden` (`display:none !important`) and `aria-hidden="true"`.
+  - Collapsible Dictionary header row with summary pill and smooth collapsible body (`#dict-body`).
+  - Dictionary content visibility via CSS utility classes on `#meanings` (`hide-kanji`, `hide-strokes`, `hide-examples`, `hide-other-dicts`, `hide-xrefs`, `hide-sense-tags`).
+  - Layout settings transformed into full-panel Settings tab view (`role="tabpanel"`, class `mining-tab-view settings-tab-view`) with drag ordering, visibility toggles, collapse toggles, layout presets, and dictionary contents toggles.
+  - Strict emoji elimination: zero emojis across HTML, CSS, tests, and documentation.
+- **Implementation Deliverables:**
+  1. **Preferences & State ([extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js)):**
+     - Implemented `defaultSectionPrefs()`, `normalizeSectionPrefs()`, `loadStoredSectionPrefs()`, `saveStoredSectionPrefs()`, `getCurrentSectionPrefs()`, `applySectionPrefs()`, `syncSectionPrefsUI()`, and `applyPreset()`.
+     - Integrated `applySectionPrefs()` into extension startup immediately after `applySectionOrder()`.
+     - Wired `#btn-dict-collapse` with dynamic first-gloss summary pill updates.
+  2. **Markup & Settings View ([extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html)):**
+     - Converted `#layout-settings-popover` into full panel view with tab controls.
+     - Added `#btn-dict-collapse`, `#dict-collapsed-summary`, and wrapped dictionary elements inside `#dict-body`.
+     - Added layout presets and dictionary content toggles.
+  3. **Visual Styling ([extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css)):**
+     - Added `.is-user-hidden`, `.is-collapsed`, and dictionary content hiding CSS rules.
+     - Added styling for settings tab view, preset buttons, and collapse toggles.
+  4. **Automated Unit Tests ([extension/tests/section-prefs.test.js](file:///d:/Python/AnkiMiner/extension/tests/section-prefs.test.js)):**
+     - 9 automated tests covering normalization, defaults, CSS content hiding classes, presets, and collapse state.
+- **Verification:**
+  - [PASS] Full Extension Suite: 165/165 passed (100%) (`node --test extension/tests/*.test.js`)
+  - [PASS] Full Backend Suite: 481/481 passed (100%) (`python -m pytest -o pythonpath=backend backend/tests`)
+- **Remaining Risk:** None. All features are verified and backward-compatible.
+
+### Session 7: Floating Ask Drawer (Replacing Ask Tab - Phase 4A)
+- **Status:** Complete
+- **Requirements & Objectives:**
+  - Floating Action Button (#ask-fab) fixed at bottom-right with aria-controls, aria-expanded, and unread replies dot indicator (#ask-fab-unread-dot).
+  - Bottom Drawer Container (<aside id="ask-float" role="dialog" aria-modal="false" aria-label="Ask AI" hidden>) covering ~65% height with drag handle, title, cloud notice, minimize, close, and chat reset controls.
+  - Tab strip decoupling: #tab-btn-ask hidden from visual tab strip while preserving card editor visibility underneath drawer on non-history tabs.
+  - Backwards-compatible alias: switchMiningTab("ask") calls openAskFloat() without switching active mining tab away from text/video.
+  - Focus & keyboard shortcuts: openAskFloat() focuses composer, Escape closes drawer, Alt+Shift+A or Ctrl+/ toggles drawer, toggle-ask manifest command.
+  - Context entry points: clean SVG sparkle buttons on Hero (#btn-hero-ask), Video current-cue (#btn-video-cue-ask), and OCR result (#btn-ocr-ask) that open Ask float with contextual text.
+  - Cloud privacy notice: shows provider disclosure when configured with cloud providers (e.g., OpenAI, Gemini, Groq) and hides for local providers (Ollama).
+  - Strict absence of emojis across all HTML, CSS, JS, tests, and documentation.
+- **Implementation Deliverables:**
+  1. **Markup & Structure (extension/sidepanel/sidepanel.html):**
+     - Added #ask-fab with unread dot indicator before bottom toast.
+     - Added <aside id="ask-float"> drawer with header, controls, and wrapped #ask-mining-view with privacy disclosure.
+     - Hidden #tab-btn-ask from visual tab strip.
+     - Added context entry buttons #btn-hero-ask, #btn-video-cue-ask, and #btn-ocr-ask.
+  2. **Styling & Aesthetics (extension/sidepanel/sidepanel.css):**
+     - Styled .ask-fab, .ask-fab-unread-dot, .ask-float-drawer, .ask-float-handle, .ask-float-header, .ask-cloud-notice, .btn-ask-float-control, .ask-privacy-disclosure, and .btn-ask-context-entry with tokens, smooth transitions, and elevation shadows.
+  3. **Behavior & Logic (extension/sidepanel/sidepanel.js):**
+     - Implemented openAskFloat(), closeAskFloat(), toggleAskFloat(), minimizeAskFloat(), isAskFloatOpen(), isAskFloatHidden(), and updateAskPrivacyNotice().
+     - Adjusted switchMiningTab and applyTabVisibility so card editor remains visible under the overlay.
+     - Wired up FAB, header controls, keyboard shortcuts (Esc, Alt+Shift+A, Ctrl+/), runtime message listener TOGGLE_ASK_FLOAT, and context buttons.
+  4. **Extension Manifest & Background (extension/manifest.json, extension/background.js):**
+     - Registered toggle-ask command with Alt+Shift+A suggested shortcut.
+     - Handled toggle-ask in background.js to dispatch TOGGLE_ASK_FLOAT runtime message.
+  5. **Automated Unit Tests (extension/tests/ask-float.test.js):**
+     - 10 automated tests covering DOM structure, tab decoupling, CSS styling, zero emojis guardrail, privacy notice logic, open/close/toggle/minimize state management, switchMiningTab alias, and context entry button triggers.
+- **Verification:**
+  - [PASS] Full Extension Suite: 175/175 passed (100%) (node --test extension/tests/*.test.js)
+  - [PASS] Full Backend Suite: 481/481 passed (100%) (python -m pytest -o pythonpath=backend backend/tests)
+- **Remaining Risk:** None. All features are verified, backward-compatible, and zero emojis present.
+
+### Session 8: Hero Search & Quick Add Merging (Phase 5)
+- **Status:** Complete
+- **Requirements & Objectives:**
+  - Hero Search Input: Add `#hero-search-input` in the hero slot (`role="combobox"`, `aria-autocomplete="list"`, `aria-expanded`, `aria-controls="hero-search-popup"`).
+  - States: "idle" (shows input with placeholder "Type romaji, kana or English…"), "captured" (displays hero expression; clicking word or `/` activates search input), "searching" (dropdown open with candidate suggestions).
+  - Auto-Detect Search Mode: Detect Japanese characters -> kana search; ASCII -> test `wanakana.toKana(q)`. If pure kana (e.g. `nomu` -> `のむ`), kana search; if non-kana English (e.g. `water`), English search; if ambiguous (e.g. `ai`), parallel lookup with Japanese and English suggestion groups.
+  - Manual search mode toggle button (`#btn-hero-search-mode`) and F6/F7 shortcut key cycle.
+  - Candidate Suggestions & Selection: Suggestions rendered in `#hero-search-popup` (`#hero-search-suggestions`), preserving JLPT tag, already-saved pill, dirty card draft protection (`isCardDraftDirty()`), and setting provenance to `quick_add`.
+  - Quick Add Tab Removal: Removed `#tab-btn-quickadd` and `#quickadd-mining-view`. In `switchMiningTab()`, legacy `"quickadd"` request redirects to `"text"` and opens hero search. In `loadTabPreference()`, saved `"quickadd"` preference maps to `"text"`. Removed dead references to `#quickadd-mode-katakana`.
+  - Strict absence of emojis across all HTML, CSS, JS, tests, and documentation.
+- **Implementation Deliverables:**
+  1. **Markup & Structure ([extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html)):**
+     - Removed `#tab-btn-quickadd` and `#quickadd-mining-view`.
+     - Added `#hero-search-container`, `#hero-search-input`, `#btn-hero-search-mode`, `#btn-hero-search-clear`, and `#hero-search-popup` with `#hero-search-suggestions`.
+     - Made `#expression` keyboard-focusable (`tabindex="0"`, `role="button"`) to toggle hero search.
+  2. **Styling & Aesthetics ([extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css)):**
+     - Styled `.hero-search-container`, `.hero-search-input-wrap`, `.hero-search-input`, `.hero-search-mode-btn`, `.hero-search-clear-btn`, `.hero-search-popup`, `.hero-search-suggestions-list`, and `.hero-search-group-header`.
+  3. **Behavior & Logic ([extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js)):**
+     - Implemented `updateHeroSearchState()`, `detectQueryMode()`, `executeQuickAddLookup()`, and `selectQuickAddCandidate()`.
+     - Maintained backward-compatible aliases: `quickAddInput`, `quickAddSuggestionsContainer`, `quickAddSuggestionsList`, and `quickAddClearBtn`.
+     - Handled F6/F7, mode cycling, Escape, outside click, and slash shortcut.
+  4. **Automated Unit Tests ([extension/tests/quick-add.test.js](file:///d:/Python/AnkiMiner/extension/tests/quick-add.test.js), [extension/tests/quick-add-english-mode.test.js](file:///d:/Python/AnkiMiner/extension/tests/quick-add-english-mode.test.js), [extension/tests/quick-add-status.test.js](file:///d:/Python/AnkiMiner/extension/tests/quick-add-status.test.js)):**
+     - Updated suites to verify hero search DOM, auto-detection, keyboard navigation, candidate selection, dirty-draft safety, and tab redirection.
+- **Verification:**
+  - [PASS] Full Extension Suite: 176/176 passed (100%) (`node --test extension/tests/*.test.js`)
+  - [PASS] Full Backend Suite: 481/481 passed (100%) (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] Zero Emojis check: Passed (0 unicode emojis in all changed files)
+- **Remaining Risk:** None. All features verified, backward-compatible, and zero emojis present.
+
+### Session 9: Settings Regrouping & Header Consolidation (Phase 6)
+- **Status:** Complete
+- **Requirements & Objectives:**
+  - Header Consolidation: Consolidate Yomitan, Anki, OCR, and AI status dots into a single unified status indicator (`#unified-service-status-wrap`, `#unified-status-btn`, `#unified-status-dot`, `#unified-status-text`) with a hover/click/focus popover (`#service-status-popover`) detailing individual service health.
+  - Legacy Compatibility: Keep original status dot elements (`#indicator-yomitan`, `#indicator-anki`, `#indicator-ocr`, `#service-indicators`) hidden in the DOM with their original title attributes preserved for backward compatibility with existing tests and scripts.
+  - JP Mode Relocation: Move the Japanese input toggle button (`#btn-editor-jp-mode`) out of the header nav and into the Card Editor's free-text settings toolbar (`#card-settings-section`).
+  - Header Streamlining: Hide `#btn-nav-collapse-toggle` to eliminate header clutter.
+  - Settings Reorganization: Group settings into 4 clean top-level sections:
+    1. Display (`#settings-group-display`): Japanese Font, Section Order & Layout presets details, Dictionary Contents Checklist.
+    2. Card (`#settings-group-card`): Compact 2-column grid (`.card-template-grid`, `.card-side-col`) for Front and Back fields, JLPT badge toggle, Verb type toggle, Furigana density select, and Default deck selector.
+    3. Connections (`#settings-group-connections`): Dynamic AnkiConnect URL display, Yomitan Dictionaries selection, and AI Assistant configuration.
+    4. Video (`#settings-group-video`): Video mining automation preferences (frame & audio auto-capture).
+  - Redundant Element Cleanup: Remove the obsolete "Connection Indicators" legend box.
+  - Dynamic AnkiConnect URL: Update backend schemas and service to return `endpoint_url` on `/api/anki/status`, and dynamically display the AnkiConnect URL (`#anki-connect-url-val`) and status (`#anki-connect-status-val`) in Settings.
+  - Strict absence of emojis across all HTML, CSS, JS, tests, and documentation.
+- **Implementation Deliverables:**
+  1. **Backend Support ([backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py), [backend/app/services/card_service.py](file:///d:/Python/AnkiMiner/backend/app/services/card_service.py)):**
+     - Added optional `endpoint_url: Optional[str] = None` to `AnkiStatusResponse`.
+     - Updated `get_anki_status()` to return the configured AnkiConnect endpoint URL.
+  2. **Markup & Structure ([extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html)):**
+     - Added `#unified-service-status-wrap` with `#unified-status-btn`, `#unified-status-dot`, `#unified-status-text`, and `#service-status-popover`.
+     - Hid legacy indicator dots while retaining all original IDs and titles.
+     - Moved `#btn-editor-jp-mode` to `#card-settings-section`.
+     - Hid `#btn-nav-collapse-toggle`.
+     - Reorganized settings container into Display, Card, Connections, and Video sections with compact 2-column grid for card template fields.
+     - Added `#anki-connect-url-val` and `#anki-connect-status-val` display in Connections.
+     - Removed redundant connection indicator legend.
+  3. **Styling & Aesthetics ([extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css)):**
+     - Styled `.unified-service-status-wrap`, `.unified-status-btn`, `.unified-status-dot`, `.service-status-popover`, `.status-popover-header`, `.status-popover-list`, `.status-popover-item`, `.status-dot-mini`.
+     - Added pulse animations and health tokens (`connected`, `checking`, `partial`, `unavailable`).
+     - Styled `.card-template-grid`, `.card-side-col`, `.card-side-label`, `.connection-subgroup`, and `.settings-group-subtitle`.
+  4. **Behavior & Logic ([extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js)):**
+     - Implemented `updateUnifiedStatusIndicator()`, `initServiceStatusPopover()`, and `fetchAnkiConnectUrl()`.
+     - Hooked unified status calculations into `setIndicatorStatus` and `checkLLMStatus`.
+     - Hooked AnkiConnect dynamic URL fetching into `checkAnkiStatus()`, tab switching to Settings, and layout settings opening.
+  5. **Automated Unit Tests ([extension/tests/settings-header-consolidation.test.js](file:///d:/Python/AnkiMiner/extension/tests/settings-header-consolidation.test.js)):**
+     - 4 test suites verifying unified header indicator DOM & popover, 4-group settings DOM & compact grid, CSS styling rules, and state calculation logic.
+- **Verification:**
+  - [PASS] Session 9 Suite: 4/4 passed (100%) (`node --test extension/tests/settings-header-consolidation.test.js`)
+  - [PASS] Full Extension Suite: 180/180 passed (100%) (`node --test extension/tests/*.test.js`)
+  - [PASS] Full Backend Suite: 481/481 passed (100%) (`python -m pytest -o pythonpath=backend backend/tests`)
+  - [PASS] Zero Emojis check: Passed (0 unicode emojis in all newly added lines)
+- **Remaining Risk:** None. All features verified, backward-compatible, and zero emojis present.
+
+
+

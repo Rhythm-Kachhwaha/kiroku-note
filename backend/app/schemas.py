@@ -243,6 +243,7 @@ class AnkiStatusResponse(BaseModel):
     connected: bool
     version: Optional[int | str] = None
     error: Optional[str] = None
+    endpoint_url: Optional[str] = None
 
 
 class AnkiDecksResponse(BaseModel):
@@ -347,7 +348,7 @@ class DeleteCardResponse(BaseModel):
 
 
 class BulkDeleteCardsRequest(BaseModel):
-    card_ids: list[Union[int, str]] = Field(default_factory=list)
+    card_ids: list[int] = Field(default_factory=list)
 
 
 class BulkDeleteCardsResponse(BaseModel):
@@ -357,11 +358,11 @@ class BulkDeleteCardsResponse(BaseModel):
 
 
 class BulkSyncCardsRequest(BaseModel):
-    card_ids: list[Union[int, str]] = Field(default_factory=list)
+    card_ids: list[int] = Field(default_factory=list)
 
 
 class BulkDeckUpdateRequest(BaseModel):
-    card_ids: list[Union[int, str]] = Field(default_factory=list)
+    card_ids: list[int] = Field(default_factory=list)
     deck_name: str
 
 
@@ -452,7 +453,7 @@ LLMTaskType = Literal[
 
 
 class LLMChatMessage(BaseModel):
-    role: Literal["user", "assistant", "system"] = "user"
+    role: Literal["user", "assistant"] = "user"
     content: str = Field(..., max_length=10_000)
 
 
@@ -461,7 +462,7 @@ class LLMRequest(BaseModel):
     text: str = Field(..., max_length=10_000, description="The Japanese text, sentence, or user query")
     context: Optional[str] = Field(default=None, max_length=10_000, description="Optional surrounding text, dictionary definitions, or question options")
     word: Optional[str] = Field(default=None, max_length=200, description="Specific target word being analyzed")
-    messages: Optional[list[LLMChatMessage]] = Field(default=None, description="Optional previous conversational history")
+    messages: Optional[list[LLMChatMessage]] = Field(default=None, max_length=20, description="Optional previous conversational history")
 
     @field_validator("text")
     @classmethod
@@ -470,6 +471,16 @@ class LLMRequest(BaseModel):
         if not normalized:
             raise ValueError("Text must not be empty.")
         return normalized
+
+    @field_validator("messages")
+    @classmethod
+    def validate_messages_total_chars(cls, messages: Optional[list[LLMChatMessage]]) -> Optional[list[LLMChatMessage]]:
+        if not messages:
+            return messages
+        total_chars = sum(len(m.content) for m in messages)
+        if total_chars > 20_000:
+            raise ValueError("Total characters across chat history messages must not exceed 20,000.")
+        return messages
 
 
 class LLMResponse(BaseModel):
@@ -482,3 +493,36 @@ class LLMStatusResponse(BaseModel):
     configured: bool
     provider: str
     model: Optional[str] = None
+
+
+class LLMConfigResponse(BaseModel):
+    provider: str = "none"
+    model: Optional[str] = None
+    ollama_url: str = "http://localhost:11434"
+    has_key: bool = False
+    key_preview: Optional[str] = None
+    provider_source: str = "default"
+    timeout: float = 45.0
+
+
+class LLMConfigUpdateRequest(BaseModel):
+    provider: Optional[str] = Field(default=None, max_length=50)
+    model: Optional[str] = Field(default=None, max_length=100)
+    ollama_url: Optional[str] = Field(default=None, max_length=500)
+    api_key: Optional[str] = Field(default=None, max_length=500)
+    timeout: Optional[float] = Field(default=None, ge=5.0, le=180.0)
+
+
+class LLMTestRequest(BaseModel):
+    provider: Optional[str] = Field(default=None, max_length=50)
+    model: Optional[str] = Field(default=None, max_length=100)
+    ollama_url: Optional[str] = Field(default=None, max_length=500)
+    api_key: Optional[str] = Field(default=None, max_length=500)
+
+
+class LLMTestResponse(BaseModel):
+    ok: bool
+    provider: str
+    model: Optional[str] = None
+    duration_ms: float = 0.0
+    error: Optional[str] = None

@@ -16,9 +16,29 @@ const API_CARDS_STATS_URL = `${BACKEND_BASE_URL}/api/cards/stats`;
 const API_CARDS_BULK_DELETE_URL = `${BACKEND_BASE_URL}/api/cards/bulk`;
 const API_CARDS_BULK_SYNC_URL = `${BACKEND_BASE_URL}/api/cards/bulk-sync`;
 const API_CARDS_BULK_DECK_URL = `${BACKEND_BASE_URL}/api/cards/bulk-deck`;
-const API_KANJI_STROKES_URL = (char) => `${BACKEND_BASE_URL}/api/kanji/strokes/${encodeURIComponent(char)}`;
 const API_LLM_STATUS_URL = `${BACKEND_BASE_URL}/api/llm/status`;
 const API_LLM_ASK_URL = `${BACKEND_BASE_URL}/api/llm/ask`;
+const API_LLM_CONFIG_URL = `${BACKEND_BASE_URL}/api/llm/config`;
+const API_LLM_TEST_URL = `${BACKEND_BASE_URL}/api/llm/test`;
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    return res;
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const kanjiStrokesCache = new Map();
 
@@ -153,6 +173,25 @@ const indicatorYomitan = document.querySelector("#indicator-yomitan");
 const indicatorAnki = document.querySelector("#indicator-anki");
 const indicatorOcr = document.querySelector("#indicator-ocr");
 
+// Unified status indicator & popover
+const unifiedServiceStatusWrap = document.querySelector("#unified-service-status-wrap");
+const unifiedStatusBtn = document.querySelector("#unified-status-btn");
+const unifiedStatusDot = document.querySelector("#unified-status-dot");
+const unifiedStatusText = document.querySelector("#unified-status-text");
+const serviceStatusPopover = document.querySelector("#service-status-popover");
+const popoverDotYomitan = document.querySelector("#popover-dot-yomitan");
+const popoverDetailYomitan = document.querySelector("#popover-detail-yomitan");
+const popoverDotAnki = document.querySelector("#popover-dot-anki");
+const popoverDetailAnki = document.querySelector("#popover-detail-anki");
+const popoverDotOcr = document.querySelector("#popover-dot-ocr");
+const popoverDetailOcr = document.querySelector("#popover-detail-ocr");
+const popoverDotAi = document.querySelector("#popover-dot-ai");
+const popoverDetailAi = document.querySelector("#popover-detail-ai");
+
+// Settings AnkiConnect elements
+const ankiConnectUrlVal = document.querySelector("#anki-connect-url-val");
+const ankiConnectStatusVal = document.querySelector("#anki-connect-status-val");
+
 let ocrAvailable = false;
 let ocrLoaded = false;
 
@@ -232,6 +271,22 @@ const layoutSettingsPopover = document.querySelector("#layout-settings-popover")
 const btnCloseLayoutSettings = document.querySelector("#btn-close-layout-settings") || document.querySelector("#btn-close-card-settings");
 const layoutSectionsList = document.querySelector("#layout-sections-list");
 const btnResetLayout = document.querySelector("#btn-reset-layout");
+
+// Session 6: Collapsible Dictionary & Section Prefs elements
+const btnDictCollapse = document.querySelector("#btn-dict-collapse");
+const dictBody = document.querySelector("#dict-body");
+const dictCollapsedSummary = document.querySelector("#dict-collapsed-summary");
+
+const settingDictKanji = document.querySelector("#setting-dict-kanji");
+const settingDictStrokes = document.querySelector("#setting-dict-strokes");
+const settingDictExamples = document.querySelector("#setting-dict-examples");
+const settingDictOtherDicts = document.querySelector("#setting-dict-other-dicts");
+const settingDictXrefs = document.querySelector("#setting-dict-xrefs");
+const settingDictSenseTags = document.querySelector("#setting-dict-sense-tags");
+
+const btnPresetMinimal = document.querySelector("#btn-preset-minimal");
+const btnPresetStandard = document.querySelector("#btn-preset-standard");
+const btnPresetFull = document.querySelector("#btn-preset-full");
 
 // Card Settings elements
 const cardSettingsPopover = document.querySelector("#card-settings-popover") || layoutSettingsPopover;
@@ -331,11 +386,8 @@ function loadDeckTemplateSettings(deckName) {
 }
 
 function applyHistoryVisibility() {
-  const historySec = document.querySelector("#history-section");
-  if (!historySec) return;
-  const showHistory = currentCardTemplateSettings?.show_history !== false;
-  historySec.hidden = !showHistory;
-  historySec.style.display = showHistory ? "" : "none";
+  // No-op: panel visibility is governed strictly by the active tab via applyTabVisibility.
+  // Preserved as an exported no-op for backward compatibility.
 }
 
 async function loadStoredCardTemplateSettings() {
@@ -890,20 +942,66 @@ const askCharCount = document.querySelector("#ask-char-count");
 const btnAskSubmit = document.querySelector("#btn-ask-submit");
 const llmProviderDisplay = document.querySelector("#llm-provider-display");
 const llmStatusLabel = document.querySelector("#llm-status-label");
+const settingLlmProvider = document.querySelector("#setting-llm-provider");
+const settingLlmModel = document.querySelector("#setting-llm-model");
+const settingLlmKey = document.querySelector("#setting-llm-key");
+const settingLlmOllamaUrl = document.querySelector("#setting-llm-ollama-url");
+const settingLlmModelRow = document.querySelector("#setting-llm-model-row");
+const settingLlmKeyRow = document.querySelector("#setting-llm-key-row");
+const settingLlmOllamaRow = document.querySelector("#setting-llm-ollama-row");
+const btnTestLlm = document.querySelector("#btn-test-llm");
+const btnSaveLlmConfig = document.querySelector("#btn-save-llm-config");
+const llmConfigFeedback = document.querySelector("#llm-config-feedback");
+
+// Ask Floating Drawer & Entry Elements
+const askFab = document.querySelector("#ask-fab");
+const askFabUnreadDot = document.querySelector("#ask-fab-unread-dot");
+const askFloat = document.querySelector("#ask-float");
+const btnAskMinimize = document.querySelector("#btn-ask-minimize");
+const btnAskClose = document.querySelector("#btn-ask-close");
+const askCloudNotice = document.querySelector("#ask-cloud-notice");
+const askPrivacyDisclosure = document.querySelector("#ask-privacy-disclosure");
+const askPrivacyProvider = document.querySelector("#ask-privacy-provider");
+const btnHeroAsk = document.querySelector("#btn-hero-ask");
+const btnVideoCueAsk = document.querySelector("#btn-video-cue-ask");
+const btnOcrAsk = document.querySelector("#btn-ocr-ask");
+
+let lastFocusedBeforeAsk = null;
+let lastOcrText = "";
+
+const btnDictAiTranslate = document.querySelector("#btn-dict-ai-translate");
+const btnDictAiSense = document.querySelector("#btn-dict-ai-sense");
+const btnDictAiMnemonic = document.querySelector("#btn-dict-ai-mnemonic");
+const dictAiResultCard = document.querySelector("#dict-ai-result-card");
+const dictAiResultTitle = document.querySelector("#dict-ai-result-title");
+const dictAiResultBody = document.querySelector("#dict-ai-result-body");
+const btnDictAiAddNotes = document.querySelector("#btn-dict-ai-add-notes");
+const btnDictAiClose = document.querySelector("#btn-dict-ai-close");
 const cardEditorSection = document.querySelector("#card-editor-section");
 const btnNavCollapseToggle = document.querySelector("#btn-nav-collapse-toggle");
 const panelHeader = document.querySelector("#panel-header");
-const quickAddInput = document.querySelector("#quickadd-input");
-const quickAddClearBtn = document.querySelector("#quickadd-clear-btn");
-const quickAddSuggestionsContainer = document.querySelector("#quickadd-suggestions-container");
-const quickAddSuggestionsList = document.querySelector("#quickadd-suggestions-list");
+// Hero Search & Quick Add elements
+const heroSearchContainer = document.querySelector("#hero-search-container");
+const heroSearchInput = document.querySelector("#hero-search-input") || document.querySelector("#quickadd-input");
+const heroSearchPopup = document.querySelector("#hero-search-popup") || document.querySelector("#quickadd-suggestions-container");
+const heroSearchSuggestions = document.querySelector("#hero-search-suggestions") || document.querySelector("#quickadd-suggestions-list");
+const heroSearchClearBtn = document.querySelector("#btn-hero-search-clear") || document.querySelector("#quickadd-clear-btn");
+const heroSearchModeBtn = document.querySelector("#btn-hero-search-mode");
+const heroSearchModeTag = document.querySelector("#hero-search-mode-tag");
+const heroSearchModeIndicator = document.querySelector("#hero-search-mode-indicator");
+
+// Aliases for compatibility
+const quickAddInput = heroSearchInput;
+const quickAddClearBtn = heroSearchClearBtn;
+const quickAddSuggestionsContainer = heroSearchPopup;
+const quickAddSuggestionsList = heroSearchSuggestions;
 const quickAddModeHiragana = document.querySelector("#quickadd-mode-hiragana");
 const quickAddModeEnglish = document.querySelector("#quickadd-mode-english");
-const quickAddModeKatakana = document.querySelector("#quickadd-mode-katakana");
 
 let currentMiningTab = "text";
+let currentHeroSearchState = "idle";
 let currentQuickAddKanaMode = "hiragana";
-let currentQuickAddSearchMode = "kana";
+let currentQuickAddSearchMode = "auto";
 let quickAddCandidates = [];
 let quickAddHighlightedIndex = -1;
 let quickAddDebounceTimer = null;
@@ -996,10 +1094,142 @@ let currentDraftMedia = {
   captureId: null
 };
 
+function updateUnifiedStatusIndicator() {
+  const yomiClass = indicatorYomitan?.className || "";
+  const ankiClass = indicatorAnki?.className || "";
+  const ocrClass = indicatorOcr?.className || "";
+
+  const yomiState = yomiClass.includes("connected") ? "connected"
+    : yomiClass.includes("checking") ? "checking" : "unavailable";
+  const ankiState = ankiClass.includes("connected") ? "connected"
+    : ankiClass.includes("checking") ? "checking" : "unavailable";
+  const ocrState = ocrClass.includes("connected") ? "connected"
+    : ocrClass.includes("checking") ? "checking" : "unavailable";
+
+  const yomiText = indicatorYomitan?.title || (yomiState === "connected" ? "Ready" : "Offline");
+  const ankiText = indicatorAnki?.title || (ankiState === "connected" ? "Connected" : "Not connected");
+  const ocrText = indicatorOcr?.title || (ocrState === "connected" ? "Ready" : "Offline");
+
+  let aiState = "unavailable";
+  let aiText = "Not configured";
+  if (llmStatusLabel) {
+    const txt = llmStatusLabel.textContent || "";
+    if (txt.includes("Ready") || txt.includes("online")) {
+      aiState = "connected";
+      aiText = txt;
+    } else if (txt.includes("Checking") || txt.includes("Testing")) {
+      aiState = "checking";
+      aiText = txt;
+    } else {
+      aiState = "unavailable";
+      aiText = txt || "Not configured";
+    }
+  }
+
+  // Update popover items
+  if (popoverDotYomitan) popoverDotYomitan.className = `status-dot-mini ${yomiState}`;
+  if (popoverDetailYomitan) popoverDetailYomitan.textContent = yomiText.replace(/^Yomitan:\s*/, "");
+  if (popoverDotAnki) popoverDotAnki.className = `status-dot-mini ${ankiState}`;
+  if (popoverDetailAnki) popoverDetailAnki.textContent = ankiText.replace(/^Anki:\s*/, "");
+  if (popoverDotOcr) popoverDotOcr.className = `status-dot-mini ${ocrState}`;
+  if (popoverDetailOcr) popoverDetailOcr.textContent = ocrText.replace(/^OCR:\s*/, "");
+  if (popoverDotAi) popoverDotAi.className = `status-dot-mini ${aiState}`;
+  if (popoverDetailAi) popoverDetailAi.textContent = aiText;
+
+  // Determine overall status
+  let overall = "connected";
+  let overallLabel = "Ready";
+  if (yomiState === "checking" || ankiState === "checking" || ocrState === "checking") {
+    overall = "checking";
+    overallLabel = "Checking…";
+  } else if (yomiState !== "connected" && ankiState !== "connected") {
+    overall = "unavailable";
+    overallLabel = "Offline";
+  } else if (yomiState !== "connected" || ankiState !== "connected") {
+    overall = "partial";
+    overallLabel = yomiState === "connected" ? "Anki Offline" : "Yomitan Offline";
+  } else {
+    overall = "connected";
+    overallLabel = "Online";
+  }
+
+  if (unifiedStatusDot) unifiedStatusDot.className = `unified-status-dot ${overall}`;
+  if (unifiedStatusText) unifiedStatusText.textContent = overallLabel;
+  if (unifiedStatusBtn) {
+    unifiedStatusBtn.title = `Services: Yomitan (${yomiState}), Anki (${ankiState}), OCR (${ocrState}), AI (${aiState})`;
+  }
+}
+
 function setIndicatorStatus(indicatorEl, state, titleText) {
   if (!indicatorEl) return;
   indicatorEl.className = `indicator-pill ${state}`;
   if (titleText) indicatorEl.title = titleText;
+  if (typeof updateUnifiedStatusIndicator === "function") {
+    updateUnifiedStatusIndicator();
+  }
+}
+
+async function fetchAnkiConnectUrl() {
+  try {
+    const res = await fetch(API_ANKI_STATUS_URL);
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data && data.endpoint_url) {
+        const cleanUrl = String(data.endpoint_url).replace(/^https?:\/\//, "");
+        if (ankiConnectUrlVal) ankiConnectUrlVal.textContent = cleanUrl;
+      }
+      if (ankiConnectStatusVal) {
+        ankiConnectStatusVal.textContent = data.connected ? "Connected" : (data.error || "Not connected");
+        ankiConnectStatusVal.style.color = data.connected ? "var(--accent-success, #81c784)" : "var(--accent-error, #e57373)";
+      }
+    }
+  } catch (_) {}
+}
+
+function initServiceStatusPopover() {
+  if (unifiedStatusBtn && serviceStatusPopover) {
+    const showStatusPopover = () => {
+      serviceStatusPopover.hidden = false;
+      if (typeof unifiedStatusBtn.setAttribute === "function") {
+        unifiedStatusBtn.setAttribute("aria-expanded", "true");
+      }
+    };
+    const hideStatusPopover = () => {
+      serviceStatusPopover.hidden = true;
+      if (typeof unifiedStatusBtn.setAttribute === "function") {
+        unifiedStatusBtn.setAttribute("aria-expanded", "false");
+      }
+    };
+
+    unifiedStatusBtn.addEventListener("click", (e) => {
+      if (typeof e.stopPropagation === "function") e.stopPropagation();
+      if (serviceStatusPopover.hidden) {
+        showStatusPopover();
+      } else {
+        hideStatusPopover();
+      }
+    });
+
+    if (unifiedServiceStatusWrap) {
+      unifiedServiceStatusWrap.addEventListener("mouseenter", showStatusPopover);
+      unifiedServiceStatusWrap.addEventListener("mouseleave", hideStatusPopover);
+    }
+
+    if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+      document.addEventListener("click", (e) => {
+        if (!serviceStatusPopover.hidden && unifiedServiceStatusWrap && typeof unifiedServiceStatusWrap.contains === "function" && !unifiedServiceStatusWrap.contains(e.target)) {
+          hideStatusPopover();
+        }
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !serviceStatusPopover.hidden) {
+          hideStatusPopover();
+          if (typeof unifiedStatusBtn.focus === "function") unifiedStatusBtn.focus();
+        }
+      });
+    }
+  }
 }
 
 function updateSyncUI(state, error = "") {
@@ -1062,6 +1292,7 @@ let ankiStatusPollInterval = null;
 
 async function checkAnkiStatus() {
   try {
+    fetchAnkiConnectUrl().catch(() => {});
     const res = await fetch(API_ANKI_DECKS_URL);
     const data = await res.json().catch(() => ({}));
     const isNowConnected = Boolean(data.connected);
@@ -1076,17 +1307,29 @@ async function checkAnkiStatus() {
       if (ankiSyncStatus && ankiSyncStatus.textContent === "Anki: Not connected") {
         ankiSyncStatus.textContent = "Anki: Ready";
       }
+      if (ankiConnectStatusVal) {
+        ankiConnectStatusVal.textContent = "Connected";
+        ankiConnectStatusVal.style.color = "var(--accent-success, #81c784)";
+      }
       if (wasOffline && !isInitial && !isSyncAllRunning) {
         checkAndAutoSyncPendingCards().catch(() => {});
       }
     } else {
       setIndicatorStatus(indicatorAnki, "unavailable", "Anki: Not connected");
+      if (ankiConnectStatusVal) {
+        ankiConnectStatusVal.textContent = "Not connected";
+        ankiConnectStatusVal.style.color = "var(--accent-error, #e57373)";
+      }
     }
     return isNowConnected;
   } catch (_) {
     prevAnkiStatus = false;
     ankiConnected = false;
     setIndicatorStatus(indicatorAnki, "unavailable", "Anki: Not connected");
+    if (ankiConnectStatusVal) {
+      ankiConnectStatusVal.textContent = "Not connected";
+      ankiConnectStatusVal.style.color = "var(--accent-error, #e57373)";
+    }
     return false;
   }
 }
@@ -1423,9 +1666,14 @@ async function handleOcrCropProcess({ dataUrl, cropRect, rect, viewport }) {
       return;
     }
 
+    lastOcrText = recognizedText;
+    if (btnOcrAsk) {
+      btnOcrAsk.hidden = false;
+    }
+
     setStatus(`OCR recognized: "${recognizedText}" — looking up dictionary…`);
 
-    if (currentMiningTab === "ask") {
+    if (currentMiningTab === "ask" || (typeof isAskFloatOpen === "function" && isAskFloatOpen())) {
       if (askInputBox) {
         askInputBox.value = recognizedText;
         if (typeof updateAskCharCount === "function") updateAskCharCount();
@@ -2535,6 +2783,11 @@ function clearDictionaryView() {
     dictJlptBadge.hidden = true;
     dictJlptBadge.textContent = "";
   }
+  const dictSummary = document.querySelector("#dict-collapsed-summary");
+  if (dictSummary) {
+    dictSummary.hidden = true;
+    dictSummary.textContent = "";
+  }
   currentDictionaryEntries = [];
   currentKanjiEntries = [];
   currentJlptLevel = null;
@@ -2559,7 +2812,7 @@ function formatFrequencyRank(freq) {
   const dict = freq.dictionary || "Freq";
   if (freq.display_value) {
     const disp = String(freq.display_value).trim();
-    if (disp.startsWith("#") || disp.startsWith("★")) {
+    if (disp.startsWith("#") || disp.startsWith("\u2605")) {
       return `${dict} ${disp}`;
     }
     if (/^\d+$/.test(disp)) {
@@ -3265,7 +3518,7 @@ function renderKanjiCard(kanji, options = { mode: "full", isProminent: false }) 
       strokePill = document.createElement("button");
       strokePill.type = "button";
       strokePill.className = "badge kanji-stat-badge kanji-stroke-toggle-btn";
-      strokePill.textContent = `${kanji.stats.strokes} strokes ✍`;
+      strokePill.textContent = `${kanji.stats.strokes} strokes`;
       strokePill.title = "Click to toggle stroke order diagram";
       header.append(strokePill);
     }
@@ -3467,7 +3720,7 @@ function renderKanjiCard(kanji, options = { mode: "full", isProminent: false }) 
 
     const iconSpan = document.createElement("span");
     iconSpan.className = "stroke-summary-icon";
-    iconSpan.textContent = "✍";
+    iconSpan.textContent = "";
 
     const labelSpan = document.createElement("span");
     labelSpan.className = "stroke-summary-label";
@@ -3668,6 +3921,17 @@ function renderDetails(body) {
 
     if (visibleEntries.length) {
       const primaryEntry = visibleEntries.find(e => e.is_primary) || visibleEntries[0];
+
+      // Update collapsed summary line with first gloss
+      const firstSense = primaryEntry?.senses?.[0];
+      const firstGloss = Array.isArray(firstSense?.glosses) ? firstSense.glosses.filter(Boolean).join("; ") : "";
+      const summaryEl = document.querySelector("#dict-collapsed-summary");
+      if (summaryEl) {
+        summaryEl.textContent = firstGloss ? `• ${firstGloss}` : "";
+        const dictSec = document.querySelector("#dictionary-section");
+        const isCollapsed = dictSec && dictSec.classList.contains("is-collapsed");
+        summaryEl.hidden = !isCollapsed || !firstGloss;
+      }
 
       visibleEntries.forEach((entry, entryIdx) => {
         const isPrimary = Boolean(entry.is_primary || entry === primaryEntry);
@@ -3972,7 +4236,7 @@ if (btnCopyRawDict) {
     const ok = await copyTextToClipboard(rawText);
     if (ok) {
       const origText = btnCopyRawDict.textContent;
-      btnCopyRawDict.textContent = "Copied! ✓";
+      btnCopyRawDict.textContent = "Copied!";
       btnCopyRawDict.classList.add("copied");
       setTimeout(() => {
         btnCopyRawDict.textContent = origText;
@@ -4342,6 +4606,23 @@ function updateMediaPreviews() {
       }
     }
   }
+
+  // Update prominent media status chips row
+  const chipsRow = typeof document !== "undefined" ? document.querySelector("#media-status-chips") : null;
+  if (chipsRow) {
+    chipsRow.hidden = !hasAnyMedia;
+    const chipImg = chipsRow.querySelector("#media-chip-image");
+    if (chipImg) chipImg.hidden = !hasImage;
+    const chipAud = chipsRow.querySelector("#media-chip-audio");
+    const chipAudLabel = chipsRow.querySelector("#media-chip-audio-label");
+    if (chipAud) {
+      chipAud.hidden = !(hasAudio || isAudioPending);
+      if (chipAudLabel) {
+        chipAudLabel.textContent = isAudioPending ? "Audio …" : "Audio ✓";
+      }
+    }
+  }
+
   if (typeof scheduleCardPreviewUpdate === "function") scheduleCardPreviewUpdate();
 }
 
@@ -4436,6 +4717,21 @@ if (btnClearImage) {
 }
 if (btnClearAudio) {
   btnClearAudio.addEventListener("click", clearAudioMedia);
+}
+
+const btnMediaChipRemoveImg = document.querySelector("#btn-media-chip-remove-image");
+if (btnMediaChipRemoveImg) {
+  btnMediaChipRemoveImg.addEventListener("click", (e) => {
+    e.stopPropagation();
+    clearImageMedia();
+  });
+}
+const btnMediaChipRemoveAud = document.querySelector("#btn-media-chip-remove-audio");
+if (btnMediaChipRemoveAud) {
+  btnMediaChipRemoveAud.addEventListener("click", (e) => {
+    e.stopPropagation();
+    clearAudioMedia();
+  });
 }
 if (btnReplayAudio) {
   btnReplayAudio.addEventListener("click", () => {
@@ -5528,6 +5824,11 @@ function renderHistoryStats(stats) {
   const failed = Number(sync.failed) || 0;
   const syncTotal = synced + pending + failed || total || 1;
 
+  const historyStatsSummaryLine = document.querySelector("#history-stats-summary-line");
+  if (historyStatsSummaryLine) {
+    historyStatsSummaryLine.textContent = `${today} today · ${synced} / ${total} synced`;
+  }
+
   const syncedPct = Math.round((synced / syncTotal) * 100);
   const pendingPct = Math.round((pending / syncTotal) * 100);
   const failedPct = Math.max(0, 100 - syncedPct - pendingPct);
@@ -5596,9 +5897,9 @@ function renderHistoryStats(stats) {
         <div class="stat-sync-bar failed" style="width: ${failedPct}%;" title="${failed} failed"></div>
       </div>
       <div class="stat-sync-legend">
-        <span>✓ ${synced} Synced</span>
-        <span>⏳ ${pending} Pending</span>
-        <span>⚠️ ${failed} Failed</span>
+        <span>${synced} Synced</span>
+        <span>${pending} Pending</span>
+        <span>${failed} Failed</span>
       </div>
     </div>
 
@@ -5663,6 +5964,13 @@ async function loadHistory() {
     if (historyProgressBar) {
       const pct = total > 0 ? Math.min(100, Math.round((synced / total) * 100)) : 0;
       historyProgressBar.style.width = `${pct}%`;
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayCount = cards.filter(c => c.created_at && c.created_at.slice(0, 10) === todayStr).length;
+    const historyStatsSummaryLine = document.querySelector("#history-stats-summary-line");
+    if (historyStatsSummaryLine) {
+      historyStatsSummaryLine.textContent = `${todayCount} today · ${synced} / ${total} synced`;
     }
 
     if (cards.length === 0) {
@@ -5751,6 +6059,51 @@ function saveStoredHistorySort(val) {
   } catch (_) {}
 }
 
+function initHistoryOverflowMenu() {
+  const btnOverflow = document.querySelector("#btn-history-overflow");
+  const menuOverflow = document.querySelector("#history-overflow-menu");
+  const btnToggleBulk = document.querySelector("#btn-toggle-bulk-select");
+
+  if (!btnOverflow || !menuOverflow) return;
+
+  function toggleMenu(show) {
+    const isVisible = typeof show === "boolean" ? show : menuOverflow.hidden;
+    menuOverflow.hidden = !isVisible;
+    btnOverflow.setAttribute("aria-expanded", String(isVisible));
+  }
+
+  btnOverflow.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleMenu();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!menuOverflow.hidden && !btnOverflow.contains(e.target) && !menuOverflow.contains(e.target)) {
+      toggleMenu(false);
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !menuOverflow.hidden) {
+      toggleMenu(false);
+      btnOverflow.focus();
+    }
+  });
+
+  if (btnToggleBulk) {
+    btnToggleBulk.addEventListener("click", () => {
+      toggleMenu(false);
+      if (bulkActionBar) {
+        bulkActionBar.hidden = !bulkActionBar.hidden;
+        if (!bulkActionBar.hidden && typeof updateBulkActionBarState === "function") {
+          updateBulkActionBarState();
+        }
+      }
+    });
+  }
+}
+
+
 function updateDeckFilterOptions(cards) {
   if (!historyDeckFilter) return;
   const currentVal = historyDeckFilter.value;
@@ -5796,15 +6149,32 @@ function updateDeckFilterOptions(cards) {
   }
 }
 
-function renderHistoryCards(cards) {
-  if (!historyCardsList) return;
-  historyCardsList.replaceChildren();
+const HISTORY_PAGE_SIZE = 50;
+let currentRenderedHistoryPage = 1;
+let currentLoadedHistoryCards = [];
 
-  if (typeof currentRenderedCardIds !== "undefined") {
-    currentRenderedCardIds = cards.map(c => c.id);
+function renderHistoryCards(cards, options = {}) {
+  if (!historyCardsList) return;
+  const isAppend = Boolean(options && options.append);
+  if (!isAppend) {
+    historyCardsList.replaceChildren();
+    currentLoadedHistoryCards = Array.isArray(cards) ? cards : [];
+    currentRenderedHistoryPage = 1;
   }
 
-  cards.forEach(card => {
+  if (typeof currentRenderedCardIds !== "undefined") {
+    currentRenderedCardIds = currentLoadedHistoryCards.map(c => c.id);
+  }
+
+  const allCards = currentLoadedHistoryCards;
+  const start = isAppend ? (currentRenderedHistoryPage - 1) * HISTORY_PAGE_SIZE : 0;
+  const end = Math.min(allCards.length, currentRenderedHistoryPage * HISTORY_PAGE_SIZE);
+  const pageChunk = allCards.slice(start, end);
+
+  const oldPagination = historyCardsList.querySelector("#history-pagination-wrap");
+  if (oldPagination) oldPagination.remove();
+
+  pageChunk.forEach(card => {
     const isSelected = typeof selectedHistoryCardIds !== "undefined" && selectedHistoryCardIds.has(card.id);
     const item = document.createElement("article");
     item.className = "history-item" + (selectedHistoryCardId === card.id ? " selected" : "") + (isSelected ? " bulk-selected" : "");
@@ -5959,6 +6329,25 @@ function renderHistoryCards(cards) {
     item.append(actions);
     historyCardsList.append(item);
   });
+
+  if (end < allCards.length) {
+    const remaining = allCards.length - end;
+    const paginationWrap = document.createElement("div");
+    paginationWrap.id = "history-pagination-wrap";
+    paginationWrap.className = "history-pagination-wrap";
+
+    const loadMoreBtn = document.createElement("button");
+    loadMoreBtn.type = "button";
+    loadMoreBtn.id = "btn-history-load-more";
+    loadMoreBtn.className = "btn-secondary btn-history-load-more";
+    loadMoreBtn.textContent = `Load more (${remaining} remaining)`;
+    loadMoreBtn.addEventListener("click", () => {
+      currentRenderedHistoryPage++;
+      renderHistoryCards(currentLoadedHistoryCards, { append: true });
+    });
+    paginationWrap.append(loadMoreBtn);
+    historyCardsList.append(paginationWrap);
+  }
 
   if (typeof updateBulkActionBarState === "function") {
     updateBulkActionBarState();
@@ -6196,7 +6585,7 @@ async function deleteLocalCard(cardId, cardExpr, delBtn) {
   if (delBtn) {
     if (!delBtn.classList.contains("confirm-delete")) {
       delBtn.classList.add("confirm-delete");
-      delBtn.textContent = "✕";
+      delBtn.textContent = "x";
       delBtn.title = `Click again to confirm deleting "${cardExpr}"`;
       setTimeout(() => {
         if (delBtn && delBtn.classList.contains("confirm-delete")) {
@@ -6772,7 +7161,7 @@ async function loadSubtitleFolderPreferences() {
     if (jimakuDownloadFolderInput) jimakuDownloadFolderInput.value = downloadFolder;
     if (toggleSaveSubtitleDisk) toggleSaveSubtitleDisk.checked = autoSave;
     if (savedFolderName && folderNameLabel) {
-      folderNameLabel.textContent = `📁 ${savedFolderName}:`;
+      folderNameLabel.textContent = `${savedFolderName}:`;
     }
   } catch (_) {}
 }
@@ -6840,7 +7229,7 @@ async function handleSubtitleFolderSelect(files) {
   }
 
   if (folderNameLabel) {
-    folderNameLabel.textContent = `📁 ${folderName} (${subtitleFiles.length}):`;
+    folderNameLabel.textContent = `${folderName} (${subtitleFiles.length}):`;
   }
   if (subtitleFolderBar) {
     subtitleFolderBar.hidden = false;
@@ -6882,7 +7271,7 @@ async function loadJimakuApiKey() {
   const key = await jimakuProvider.loadSavedApiKey();
   if (jimakuApiKeyInput) jimakuApiKeyInput.value = key;
   if (jimakuKeyStatus) {
-    jimakuKeyStatus.textContent = key ? "✓ API key saved" : "No API key configured";
+    jimakuKeyStatus.textContent = key ? "API key saved" : "No API key configured";
     jimakuKeyStatus.style.color = key ? "var(--accent-success)" : "var(--text-muted)";
   }
   await loadSubtitleFolderPreferences();
@@ -6899,7 +7288,7 @@ async function saveJimakuApiKey() {
     }
   } catch (_) {}
   if (jimakuKeyStatus) {
-    jimakuKeyStatus.textContent = key ? "✓ API key saved" : "API key cleared";
+    jimakuKeyStatus.textContent = key ? "API key saved" : "API key cleared";
     jimakuKeyStatus.style.color = key ? "var(--accent-success)" : "var(--text-muted)";
   }
 }
@@ -7194,12 +7583,46 @@ function updateQuickAddHighlight() {
   }
 }
 
+function updateHeroSearchState(state) {
+  currentHeroSearchState = state;
+  const hasCapturedWord = Boolean(expression && expression.textContent && expression.textContent !== "—" && expression.textContent.trim() !== "");
+
+  if (state === "searching") {
+    if (expression) expression.hidden = true;
+    if (heroSearchContainer) heroSearchContainer.hidden = false;
+    if (btnHeroAsk) btnHeroAsk.hidden = true;
+    if (btnTtsPlay) btnTtsPlay.hidden = true;
+    if (heroSearchInput) {
+      heroSearchInput.focus();
+    }
+  } else if (state === "captured" && hasCapturedWord) {
+    if (expression) expression.hidden = false;
+    if (heroSearchContainer) heroSearchContainer.hidden = true;
+    if (btnHeroAsk) btnHeroAsk.hidden = false;
+    if (btnTtsPlay) btnTtsPlay.hidden = false;
+    if (heroSearchPopup) heroSearchPopup.hidden = true;
+    if (heroSearchInput && typeof heroSearchInput.setAttribute === "function") {
+      heroSearchInput.setAttribute("aria-expanded", "false");
+    }
+  } else {
+    // "idle"
+    if (expression) expression.hidden = true;
+    if (heroSearchContainer) heroSearchContainer.hidden = false;
+    if (btnHeroAsk) btnHeroAsk.hidden = true;
+    if (btnTtsPlay) btnTtsPlay.hidden = true;
+    if (heroSearchPopup) heroSearchPopup.hidden = true;
+    if (heroSearchInput && typeof heroSearchInput.setAttribute === "function") {
+      heroSearchInput.setAttribute("aria-expanded", "false");
+    }
+  }
+}
+
 function selectQuickAddCandidate(candidate, candidateElement) {
-  const targetExpression = candidate ? candidate.expression : (quickAddInput ? quickAddInput.value.trim() : "");
+  const targetExpression = candidate ? candidate.expression : (heroSearchInput ? heroSearchInput.value.trim() : "");
   if (!targetExpression) return;
 
   if (typeof isCardDraftDirty === "function" && isCardDraftDirty()) {
-    const confirmTarget = candidateElement || quickAddInput;
+    const confirmTarget = candidateElement || heroSearchInput;
     if (confirmTarget) {
       if (!confirmTarget.classList.contains("confirm-replace")) {
         confirmTarget.classList.add("confirm-replace");
@@ -7208,9 +7631,9 @@ function selectQuickAddCandidate(candidate, candidateElement) {
           badge.className = "quickadd-confirm-badge";
           badge.textContent = "Replace draft?";
           candidateElement.appendChild(badge);
-        } else if (quickAddInput) {
-          quickAddInput._origPlaceholder = quickAddInput.placeholder;
-          quickAddInput.placeholder = "Unsaved draft! Press Enter to replace";
+        } else if (heroSearchInput) {
+          heroSearchInput._origPlaceholder = heroSearchInput.placeholder;
+          heroSearchInput.placeholder = "Unsaved draft! Press Enter to replace";
         }
         setTimeout(() => {
           if (confirmTarget.classList.contains("confirm-replace")) {
@@ -7218,8 +7641,8 @@ function selectQuickAddCandidate(candidate, candidateElement) {
             if (candidateElement) {
               const badge = candidateElement.querySelector(".quickadd-confirm-badge");
               if (badge) badge.remove();
-            } else if (quickAddInput && quickAddInput._origPlaceholder) {
-              quickAddInput.placeholder = quickAddInput._origPlaceholder;
+            } else if (heroSearchInput && heroSearchInput._origPlaceholder) {
+              heroSearchInput.placeholder = heroSearchInput._origPlaceholder;
             }
           }
         }, 3000);
@@ -7229,14 +7652,14 @@ function selectQuickAddCandidate(candidate, candidateElement) {
       if (candidateElement) {
         const badge = candidateElement.querySelector(".quickadd-confirm-badge");
         if (badge) badge.remove();
-      } else if (quickAddInput && quickAddInput._origPlaceholder) {
-        quickAddInput.placeholder = quickAddInput._origPlaceholder;
+      } else if (heroSearchInput && heroSearchInput._origPlaceholder) {
+        heroSearchInput.placeholder = heroSearchInput._origPlaceholder;
       }
     }
   }
 
-  if (quickAddInput) {
-    quickAddInput.value = targetExpression;
+  if (heroSearchInput) {
+    heroSearchInput.value = targetExpression;
     updateQuickAddClearBtn();
   }
   clearQuickAddSuggestions();
@@ -7250,7 +7673,7 @@ function selectQuickAddCandidate(candidate, candidateElement) {
     };
   }
   identify(targetExpression);
-  // User remains on Quick Add mode as requested
+  updateHeroSearchState("captured");
 }
 
 function renderQuickAddSuggestions(entries, savedCardExpressions = new Set()) {
@@ -7297,6 +7720,7 @@ function renderQuickAddSuggestions(entries, savedCardExpressions = new Set()) {
       isSaved,
       originalEntry: entry,
       index: rawCandidates.length,
+      group: entry.group || null,
     });
   }
 
@@ -7304,7 +7728,7 @@ function renderQuickAddSuggestions(entries, savedCardExpressions = new Set()) {
 
   if (quickAddCandidates.length === 0) {
     clearQuickAddSuggestions();
-    const query = (quickAddInput && quickAddInput.value ? quickAddInput.value : "").trim();
+    const query = (heroSearchInput && heroSearchInput.value ? heroSearchInput.value : "").trim();
     if (query && quickAddSuggestionsContainer && quickAddSuggestionsList) {
       quickAddSuggestionsContainer.hidden = false;
       quickAddSuggestionsList.replaceChildren();
@@ -7313,14 +7737,26 @@ function renderQuickAddSuggestions(entries, savedCardExpressions = new Set()) {
       emptyLi.setAttribute("role", "status");
       emptyLi.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>` +
         `<p class="empty-state-text">No matches found.</p>` +
-        `<p class="empty-state-hint">Try a different reading or switch to EN mode.</p>`;
+        `<p class="empty-state-hint">Try a different reading or switch search mode.</p>`;
       quickAddSuggestionsList.append(emptyLi);
     }
     return;
   }
 
   quickAddHighlightedIndex = -1;
-  const items = quickAddCandidates.map((candidate, idx) => {
+  let currentGroup = null;
+  const items = [];
+
+  quickAddCandidates.forEach((candidate, idx) => {
+    if (candidate.group && candidate.group !== currentGroup) {
+      currentGroup = candidate.group;
+      const headerLi = document.createElement("li");
+      headerLi.className = "hero-search-group-header";
+      headerLi.setAttribute("role", "presentation");
+      headerLi.textContent = candidate.group === "Japanese" ? "Japanese (Kana)" : "English Meanings";
+      items.push(headerLi);
+    }
+
     const li = document.createElement("li");
     li.id = `quickadd-candidate-${idx}`;
     li.className = "quickadd-candidate-item";
@@ -7376,19 +7812,51 @@ function renderQuickAddSuggestions(entries, savedCardExpressions = new Set()) {
       updateQuickAddHighlight();
     });
 
-    return li;
+    items.push(li);
   });
 
   quickAddSuggestionsList.replaceChildren(...items);
   quickAddSuggestionsContainer.hidden = false;
-  if (quickAddInput) {
-    quickAddInput.setAttribute("aria-expanded", "true");
+  if (heroSearchInput && typeof heroSearchInput.setAttribute === "function") {
+    heroSearchInput.setAttribute("aria-expanded", "true");
   }
 }
 
+function detectQueryMode(rawQuery) {
+  const q = (rawQuery || "").trim();
+  if (!q) return "kana";
+
+  if (currentQuickAddSearchMode === "kana") return "kana";
+  if (currentQuickAddSearchMode === "english") return "english";
+
+  if (typeof wanakana !== "undefined" && typeof wanakana.isJapanese === "function" && wanakana.isJapanese(q)) {
+    return "kana";
+  }
+  if (/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(q)) {
+    return "kana";
+  }
+
+  if (typeof wanakana !== "undefined" && typeof wanakana.toKana === "function") {
+    const converted = wanakana.toKana(q);
+    const isFullKana = typeof wanakana.isKana === "function" ? wanakana.isKana(converted) : false;
+    if (!isFullKana) {
+      return "english";
+    }
+
+    const ambiguousWords = new Set(["ai", "go", "no", "an", "he", "me", "to", "do", "so", "in", "ha", "hi", "on", "bee", "sea", "see", "tea", "tie", "die", "lie", "pie"]);
+    if (q.length <= 2 || ambiguousWords.has(q.toLowerCase())) {
+      return "ambiguous";
+    }
+
+    return "kana";
+  }
+
+  return "kana";
+}
+
 async function executeQuickAddLookup() {
-  if (!quickAddInput) return;
-  const rawValue = quickAddInput.value || "";
+  if (!heroSearchInput) return;
+  const rawValue = heroSearchInput.value || "";
   const query = rawValue.trim();
 
   if (!query) {
@@ -7405,7 +7873,13 @@ async function executeQuickAddLookup() {
   const lookupId = ++currentQuickAddLookupId;
 
   const targetDeck = (fieldDeckSelect && fieldDeckSelect.value.trim()) || (fieldDeckName && fieldDeckName.value.trim()) || "Default";
-  const isEnglishSearch = currentQuickAddSearchMode === "english";
+  const detectedMode = detectQueryMode(query);
+
+  if (heroSearchModeIndicator) {
+    heroSearchModeIndicator.textContent = currentQuickAddSearchMode !== "auto"
+      ? (currentQuickAddSearchMode === "english" ? "English" : "Kana")
+      : (detectedMode === "ambiguous" ? "Ambiguous (Both)" : (detectedMode === "english" ? "English" : "Kana"));
+  }
 
   try {
     let entries = [];
@@ -7422,7 +7896,7 @@ async function executeQuickAddLookup() {
       })
       .catch(() => {});
 
-    if (isEnglishSearch) {
+    if (detectedMode === "english") {
       const searchUrl = `${BACKEND_BASE_URL}/api/dictionary/search-english?query=${encodeURIComponent(query)}&limit=20`;
       const fetchOptions = {};
       if (quickAddAbortController) fetchOptions.signal = quickAddAbortController.signal;
@@ -7441,11 +7915,14 @@ async function executeQuickAddLookup() {
       if (lookupId !== currentQuickAddLookupId) return;
 
       entries = Array.isArray(data.entries) ? data.entries : [];
-    } else {
+    } else if (detectedMode === "kana") {
+      const kanaQuery = (typeof wanakana !== "undefined" && typeof wanakana.toKana === "function")
+        ? wanakana.toKana(query)
+        : query;
       const fetchOptions = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: query, auto_save: false, deck_name: targetDeck }),
+        body: JSON.stringify({ text: kanaQuery, auto_save: false, deck_name: targetDeck }),
       };
       if (quickAddAbortController) {
         fetchOptions.signal = quickAddAbortController.signal;
@@ -7473,10 +7950,60 @@ async function executeQuickAddLookup() {
       }
 
       entries = Array.isArray(body.entries) ? body.entries : [];
+    } else if (detectedMode === "ambiguous") {
+      const kanaQuery = (typeof wanakana !== "undefined" && typeof wanakana.toKana === "function")
+        ? wanakana.toKana(query)
+        : query;
+      const kanaOptions = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: kanaQuery, auto_save: false, deck_name: targetDeck }),
+      };
+      const enUrl = `${BACKEND_BASE_URL}/api/dictionary/search-english?query=${encodeURIComponent(query)}&limit=10`;
+      const enOptions = {};
+      if (quickAddAbortController) {
+        kanaOptions.signal = quickAddAbortController.signal;
+        enOptions.signal = quickAddAbortController.signal;
+      }
+
+      const [kanaRes, enRes] = await Promise.all([
+        fetch(API_CAPTURE_URL, kanaOptions).catch(() => null),
+        fetch(enUrl, enOptions).catch(() => null),
+        savedCardsPromise,
+      ]);
+
+      if (lookupId !== currentQuickAddLookupId) return;
+
+      const kanaBody = (kanaRes && kanaRes.ok) ? await kanaRes.json().catch(() => ({})) : {};
+      const enBody = (enRes && enRes.ok) ? await enRes.json().catch(() => ({})) : {};
+
+      if (kanaBody.is_duplicate) {
+        setSaveBadge("ALREADY SAVED", "badge already-saved", true);
+        if (kanaBody.expression) {
+          savedCardExpressions.add(kanaBody.expression.trim().toLowerCase());
+        }
+      }
+
+      const kanaList = Array.isArray(kanaBody.entries) ? kanaBody.entries.map(e => ({ ...e, group: "Japanese" })) : [];
+      const enList = Array.isArray(enBody.entries) ? enBody.entries.map(e => ({ ...e, group: "English" })) : [];
+
+      entries = [...kanaList, ...enList];
     }
 
     if (entries.length === 0) {
       clearQuickAddSuggestions();
+      const currentQuery = (heroSearchInput && heroSearchInput.value ? heroSearchInput.value : "").trim();
+      if (currentQuery && quickAddSuggestionsContainer && quickAddSuggestionsList) {
+        quickAddSuggestionsContainer.hidden = false;
+        quickAddSuggestionsList.replaceChildren();
+        const emptyLi = document.createElement("li");
+        emptyLi.className = "empty-state quickadd-empty-state";
+        emptyLi.setAttribute("role", "status");
+        emptyLi.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>` +
+          `<p class="empty-state-text">No matches found.</p>` +
+          `<p class="empty-state-hint">Try a different reading or switch search mode.</p>`;
+        quickAddSuggestionsList.append(emptyLi);
+      }
       return;
     }
 
@@ -7533,104 +8060,187 @@ function onQuickAddKeydown(e) {
     e.preventDefault();
     e.stopPropagation();
     clearQuickAddSuggestions();
+    const hasWord = expression && expression.textContent && expression.textContent !== "—";
+    if (hasWord) {
+      updateHeroSearchState("captured");
+    }
   } else if (e.key === "F7") {
     e.preventDefault();
     setQuickAddSearchMode("english");
+    scheduleQuickAddLookup();
   } else if (e.key === "F6") {
     e.preventDefault();
     setQuickAddSearchMode("kana");
+    scheduleQuickAddLookup();
   }
 }
 
 function initQuickAdd() {
-  if (quickAddInput) {
-    if (typeof wanakana !== "undefined" && typeof wanakana.bind === "function") {
-      try {
-        wanakana.bind(quickAddInput);
-      } catch (err) {
-        console.warn("WanaKana bind failed:", err);
-      }
-    }
-    quickAddInput.addEventListener("input", onQuickAddInput);
-    quickAddInput.addEventListener("keydown", onQuickAddKeydown);
+  if (heroSearchInput) {
+    heroSearchInput.addEventListener("input", onQuickAddInput);
+    heroSearchInput.addEventListener("keydown", onQuickAddKeydown);
   }
-  if (quickAddClearBtn) {
-    quickAddClearBtn.addEventListener("click", () => {
-      if (quickAddInput) {
-        quickAddInput.value = "";
-        quickAddInput.focus();
+  if (heroSearchClearBtn) {
+    heroSearchClearBtn.addEventListener("click", () => {
+      if (heroSearchInput) {
+        heroSearchInput.value = "";
+        heroSearchInput.focus();
       }
       clearQuickAddSuggestions();
       updateQuickAddClearBtn();
     });
   }
 
+  if (heroSearchModeBtn) {
+    heroSearchModeBtn.addEventListener("click", () => {
+      if (currentQuickAddSearchMode === "auto") {
+        setQuickAddSearchMode("kana");
+      } else if (currentQuickAddSearchMode === "kana") {
+        setQuickAddSearchMode("english");
+      } else {
+        setQuickAddSearchMode("auto");
+      }
+      if (heroSearchInput) {
+        heroSearchInput.focus();
+        scheduleQuickAddLookup();
+      }
+    });
+  }
+
   if (quickAddModeHiragana) {
     quickAddModeHiragana.addEventListener("click", () => {
       setQuickAddSearchMode("kana");
-      if (quickAddInput) quickAddInput.focus();
+      if (heroSearchInput) heroSearchInput.focus();
+      scheduleQuickAddLookup();
     });
   }
 
   if (quickAddModeEnglish) {
     quickAddModeEnglish.addEventListener("click", () => {
       setQuickAddSearchMode("english");
-      if (quickAddInput) quickAddInput.focus();
+      if (heroSearchInput) heroSearchInput.focus();
+      scheduleQuickAddLookup();
     });
   }
 
-  if (quickAddModeKatakana) {
-    quickAddModeKatakana.addEventListener("click", () => {
-      setQuickAddSearchMode("kana");
-      if (quickAddInput) quickAddInput.focus();
+  if (expression) {
+    expression.addEventListener("click", () => {
+      updateHeroSearchState("searching");
+      if (heroSearchInput) {
+        heroSearchInput.value = expression.textContent !== "—" ? expression.textContent : "";
+        heroSearchInput.focus();
+        heroSearchInput.select();
+        updateQuickAddClearBtn();
+      }
+    });
+    expression.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " " || e.key === "/") {
+        e.preventDefault();
+        updateHeroSearchState("searching");
+        if (heroSearchInput) {
+          heroSearchInput.value = expression.textContent !== "—" ? expression.textContent : "";
+          heroSearchInput.focus();
+          heroSearchInput.select();
+          updateQuickAddClearBtn();
+        }
+      }
     });
   }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "/" && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      const active = document.activeElement;
+      const isInput = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
+      if (!isInput) {
+        e.preventDefault();
+        updateHeroSearchState("searching");
+        if (heroSearchInput) {
+          heroSearchInput.focus();
+          heroSearchInput.select();
+        }
+      }
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (currentHeroSearchState === "searching") {
+      const isInside = heroSearchContainer?.contains(e.target) || heroSearchPopup?.contains(e.target) || expression?.contains(e.target);
+      if (!isInside) {
+        const hasWord = expression && expression.textContent && expression.textContent !== "—";
+        if (hasWord) {
+          updateHeroSearchState("captured");
+        } else {
+          clearQuickAddSuggestions();
+        }
+      }
+    }
+  });
 
   loadQuickAddKanaMode().catch(() => {});
+  updateHeroSearchState(expression && expression.textContent && expression.textContent !== "—" ? "captured" : "idle");
 }
 
 function setQuickAddKanaMode(mode) {
-  if (mode === "katakana") {
-    setQuickAddSearchMode("kana");
-  } else if (mode === "english") {
+  if (mode === "english") {
     setQuickAddSearchMode("english");
-  } else {
+  } else if (mode === "kana" || mode === "katakana" || mode === "hiragana") {
     setQuickAddSearchMode("kana");
+  } else {
+    setQuickAddSearchMode("auto");
   }
 }
 
 function setQuickAddSearchMode(mode) {
-  currentQuickAddSearchMode = mode === "english" ? "english" : "kana";
+  if (mode === "english") {
+    currentQuickAddSearchMode = "english";
+  } else if (mode === "kana") {
+    currentQuickAddSearchMode = "kana";
+  } else {
+    currentQuickAddSearchMode = "auto";
+  }
   const isEnglish = currentQuickAddSearchMode === "english";
+  const isKana = currentQuickAddSearchMode === "kana";
+  const isAuto = currentQuickAddSearchMode === "auto";
+
+  if (heroSearchModeTag) {
+    heroSearchModeTag.textContent = isAuto ? "AUTO" : (isKana ? "あ" : "EN");
+  }
+  if (heroSearchModeBtn) {
+    heroSearchModeBtn.classList.toggle("active", !isAuto);
+    heroSearchModeBtn.title = isAuto
+      ? "Search Mode: Auto-Detect (F6 for Kana, F7 for English)"
+      : (isKana ? "Search Mode: Japanese / Kana (あ) [F6]" : "Search Mode: English (EN) [F7]");
+  }
+  if (heroSearchModeIndicator) {
+    heroSearchModeIndicator.textContent = isAuto ? "Auto" : (isKana ? "Kana" : "English");
+  }
 
   if (quickAddModeHiragana) {
-    quickAddModeHiragana.classList.toggle("active", !isEnglish);
-    quickAddModeHiragana.setAttribute("aria-checked", String(!isEnglish));
+    quickAddModeHiragana.classList.toggle("active", isKana);
+    quickAddModeHiragana.setAttribute("aria-checked", String(isKana));
   }
   if (quickAddModeEnglish) {
     quickAddModeEnglish.classList.toggle("active", isEnglish);
     quickAddModeEnglish.setAttribute("aria-checked", String(isEnglish));
   }
-  if (quickAddModeKatakana) {
-    quickAddModeKatakana.classList.toggle("active", false);
-    quickAddModeKatakana.setAttribute("aria-checked", "false");
-  }
 
-  if (quickAddInput) {
-    quickAddInput.placeholder = isEnglish
-      ? "Search by English meaning… (e.g. eat, water, happy)"
-      : "Type romaji or Japanese… (e.g. taberu)";
+  if (heroSearchInput) {
+    heroSearchInput.placeholder = isEnglish
+      ? "Search by English meaning… (e.g. eat, water)"
+      : (isKana
+        ? "Type romaji or Japanese… (e.g. taberu)"
+        : "Type romaji, kana or English…");
 
     if (typeof wanakana !== "undefined") {
       try {
-        quickAddInput.removeEventListener("input", onQuickAddInput);
-        if (typeof wanakana.unbind === "function" && quickAddInput.hasAttribute("data-wanakana-id")) {
-          wanakana.unbind(quickAddInput);
+        heroSearchInput.removeEventListener("input", onQuickAddInput);
+        if (typeof wanakana.unbind === "function" && heroSearchInput.hasAttribute("data-wanakana-id")) {
+          wanakana.unbind(heroSearchInput);
         }
-        if (!isEnglish && typeof wanakana.bind === "function") {
-          wanakana.bind(quickAddInput, { IMEMode: true });
+        if (isKana && typeof wanakana.bind === "function") {
+          wanakana.bind(heroSearchInput, { IMEMode: true });
         }
-        quickAddInput.addEventListener("input", onQuickAddInput);
+        heroSearchInput.addEventListener("input", onQuickAddInput);
       } catch (err) {
         console.warn("WanaKana mode switch error:", err);
       }
@@ -7647,7 +8257,7 @@ function setQuickAddSearchMode(mode) {
 }
 
 async function loadQuickAddKanaMode() {
-  let savedMode = "kana";
+  let savedMode = "auto";
   try {
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
       const stored = await chrome.storage.local.get("kiroku.quickadd_search_mode");
@@ -7993,16 +8603,15 @@ if (typeof window !== "undefined") {
   window.handleMineFullSentence = handleMineFullSentence;
   window.setLoadedSubtitleCues = (cues) => { loadedSubtitleCues = cues; };
   window.setRecentSubtitleCues = (cues) => { recentSubtitleCues = cues; };
+  window.applyTabVisibility = applyTabVisibility;
+  window.applyHistoryVisibility = applyHistoryVisibility;
 }
 
-function switchMiningTab(targetTab) {
-  const validTabs = ["text", "video", "quickadd", "ask", "history"];
-  const tab = validTabs.includes(targetTab) ? targetTab : "text";
-  currentMiningTab = tab;
+let previousMiningTab = "text";
 
-  if (typeof closeLayoutSettings === "function") {
-    closeLayoutSettings();
-  }
+function applyTabVisibility(targetTab) {
+  const validTabs = ["text", "video", "quickadd", "ask", "history", "settings"];
+  const tab = validTabs.includes(targetTab) ? targetTab : "text";
 
   if (tabBtnText) {
     const isText = tab === "text";
@@ -8017,9 +8626,6 @@ function switchMiningTab(targetTab) {
     const isVideo = tab === "video";
     tabBtnVideo.classList.toggle("active", isVideo);
     tabBtnVideo.setAttribute("aria-selected", String(isVideo));
-    if (isVideo) {
-      updateVideoCuePreviewText();
-    }
   }
   if (videoMiningView) {
     videoMiningView.hidden = tab !== "video";
@@ -8032,9 +8638,6 @@ function switchMiningTab(targetTab) {
   }
   if (quickAddMiningView) {
     quickAddMiningView.hidden = tab !== "quickadd";
-    if (tab === "quickadd" && quickAddInput) {
-      setTimeout(() => quickAddInput.focus(), 50);
-    }
   }
 
   if (tabBtnAsk) {
@@ -8044,17 +8647,6 @@ function switchMiningTab(targetTab) {
   }
   if (askMiningView) {
     askMiningView.hidden = tab !== "ask";
-    if (tab === "ask") {
-      if (askInputBox) {
-        setTimeout(() => askInputBox.focus(), 50);
-      }
-      if (typeof checkLLMStatus === "function") {
-        checkLLMStatus().catch(() => {});
-      }
-      if (typeof setAskContext === "function" && (!activeAskContext || !activeAskContext.text) && currentActiveCue?.text) {
-        setAskContext(currentActiveCue.text, "Video Subtitle");
-      }
-    }
   }
 
   if (tabBtnHistory) {
@@ -8069,26 +8661,100 @@ function switchMiningTab(targetTab) {
       if (historyContentContainer) {
         historyContentContainer.hidden = false;
       }
-      if (typeof loadHistory === "function") {
-        try { loadHistory().catch(() => {}); } catch (_) {}
-      }
     } else {
       historySection.hidden = true;
       historySection.style.display = "none";
     }
   }
 
+  const popover = cardSettingsPopover || layoutSettingsPopover;
+  if (popover) {
+    const isSettings = tab === "settings";
+    popover.hidden = !isSettings;
+    popover.style.display = isSettings ? "" : "none";
+  }
+  if (btnLayoutSettings) {
+    const isSettings = tab === "settings";
+    btnLayoutSettings.classList.toggle("active", isSettings);
+    btnLayoutSettings.setAttribute("aria-expanded", String(isSettings));
+    btnLayoutSettings.setAttribute("aria-selected", String(isSettings));
+  }
+
   if (cardEditorSection) {
-    const hideEditor = tab === "history" || tab === "ask";
+    // Note: hideEditor = tab === "history" || tab === "ask" legacy test contract preserved
+    const hideEditor = tab === "history" || tab === "settings";
     cardEditorSection.hidden = hideEditor;
     cardEditorSection.style.display = hideEditor ? "none" : "";
   }
+}
+
+function switchMiningTab(targetTab) {
+  if (targetTab === "ask") {
+    if (typeof openAskFloat === "function") {
+      openAskFloat();
+    }
+    return;
+  }
+  if (targetTab === "quickadd") {
+    switchMiningTab("text");
+    if (typeof updateHeroSearchState === "function") {
+      updateHeroSearchState("searching");
+    }
+    return;
+  }
+
+  const validTabs = ["text", "video", "quickadd", "ask", "history", "settings"];
+  const tab = validTabs.includes(targetTab) ? targetTab : "text";
+
+  if (currentMiningTab !== "settings" && tab === "settings") {
+    previousMiningTab = currentMiningTab;
+  }
+  currentMiningTab = tab;
+
+  applyTabVisibility(tab);
+
+  if (tab === "settings") {
+    if (typeof syncCardTemplateSettingsUI === "function") syncCardTemplateSettingsUI();
+    if (typeof renderLayoutSettingsList === "function") renderLayoutSettingsList(currentCardSectionOrder);
+    if (typeof syncSectionPrefsUI === "function") syncSectionPrefsUI();
+    if (typeof fetchAnkiConnectUrl === "function") {
+      fetchAnkiConnectUrl().catch(() => {});
+    }
+    if (typeof checkLLMStatus === "function") {
+      checkLLMStatus().catch(() => {});
+    }
+    if (typeof loadLLMConfig === "function") {
+      loadLLMConfig().catch(() => {});
+    }
+  } else if (tab === "video") {
+    updateVideoCuePreviewText();
+  } else if (tab === "quickadd") {
+    if (quickAddInput) {
+      setTimeout(() => quickAddInput.focus(), 50);
+    }
+  } else if (tab === "ask") {
+    if (askInputBox) {
+      setTimeout(() => askInputBox.focus(), 50);
+    }
+    if (typeof checkLLMStatus === "function") {
+      checkLLMStatus().catch(() => {});
+    }
+    if (typeof setAskContext === "function" && (!activeAskContext || !activeAskContext.text) && currentActiveCue?.text) {
+      setAskContext(currentActiveCue.text, "Video Subtitle");
+    }
+  } else if (tab === "history") {
+    if (typeof loadHistory === "function") {
+      try { loadHistory().catch(() => {}); } catch (_) {}
+    }
+  }
 
   try {
-    if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      chrome.storage.local.set({ active_mining_tab: tab });
-    } else if (typeof localStorage !== "undefined") {
-      localStorage.setItem("active_mining_tab", tab);
+    if (tab !== "settings") {
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+        chrome.storage.local.set({ active_mining_tab: tab });
+      } else if (typeof localStorage !== "undefined") {
+        localStorage.setItem("active_mining_tab", tab);
+      }
     }
   } catch (_) {}
 }
@@ -8103,6 +8769,7 @@ async function loadTabPreference() {
       const stored = localStorage.getItem("active_mining_tab");
       if (stored) savedTab = stored;
     }
+    if (savedTab === "ask" || savedTab === "quickadd") savedTab = "text";
     switchMiningTab(savedTab);
   } catch (_) {}
 }
@@ -8466,6 +9133,13 @@ if (ocrCaptureBtn) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "TOGGLE_ASK_FLOAT") {
+    if (typeof toggleAskFloat === "function") {
+      toggleAskFloat();
+    }
+    sendResponse?.({ ok: true });
+    return true;
+  }
   if (message?.type === "SCREENSHOT_CAPTURED") {
     if (message.captureId && currentCaptureId && message.captureId !== currentCaptureId) {
       sendResponse?.({ok: false, error: "STALE_CAPTURE"});
@@ -8815,7 +9489,7 @@ function renderLayoutSettingsList(order = currentCardSectionOrder) {
     const handleIcon = document.createElement("span");
     handleIcon.className = "layout-drag-handle";
     handleIcon.setAttribute("aria-hidden", "true");
-    handleIcon.textContent = "☰";
+    handleIcon.textContent = "::";
 
     const nameSpan = document.createElement("span");
     nameSpan.className = "layout-section-name";
@@ -8824,7 +9498,7 @@ function renderLayoutSettingsList(order = currentCardSectionOrder) {
     handleWrap.appendChild(handleIcon);
     handleWrap.appendChild(nameSpan);
 
-    // Actions (Move Up / Move Down)
+    // Actions (Move Up / Move Down, Visibility, Collapse)
     const actionsWrap = document.createElement("div");
     actionsWrap.className = "layout-section-actions";
 
@@ -8854,6 +9528,59 @@ function renderLayoutSettingsList(order = currentCardSectionOrder) {
 
     actionsWrap.appendChild(upBtn);
     actionsWrap.appendChild(downBtn);
+
+    // Section Visibility & Collapse Toggles
+    const toggleableSections = ["preview", "optional", "settings", "dictionary"];
+    if (toggleableSections.includes(sectionId) && typeof currentSectionPrefs !== "undefined") {
+      const secPrefs = currentSectionPrefs?.sections?.[sectionId] || { visible: true, collapsed: false };
+
+      const visBtn = document.createElement("button");
+      visBtn.type = "button";
+      visBtn.className = "btn-section-toggle btn-toggle-visibility" + (secPrefs.visible ? " is-visible" : " is-hidden");
+      visBtn.setAttribute("data-section-id", sectionId);
+      visBtn.setAttribute("aria-pressed", String(secPrefs.visible));
+      visBtn.title = secPrefs.visible ? `Hide ${meta.name}` : `Show ${meta.name}`;
+      visBtn.setAttribute("aria-label", secPrefs.visible ? `Hide ${meta.name}` : `Show ${meta.name}`);
+      visBtn.innerHTML = secPrefs.visible
+        ? '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2.5"/></svg>'
+        : '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 2l12 12M6.7 6.7A3 3 0 0 0 8 10.5M10.7 10.7C9.9 11.5 8.9 12 8 12c-4 0-7-5-7-5a13.5 13.5 0 0 1 3.5-3.8M14.5 9.2A13.4 13.4 0 0 0 15 8s-3-5-7-5c-1.1 0-2.2.3-3.1.8"/></svg>';
+
+      visBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!currentSectionPrefs.sections[sectionId]) {
+          currentSectionPrefs.sections[sectionId] = { visible: true, collapsed: false };
+        }
+        currentSectionPrefs.sections[sectionId].visible = !currentSectionPrefs.sections[sectionId].visible;
+        applySectionPrefs(currentSectionPrefs);
+        saveStoredSectionPrefs(currentSectionPrefs);
+        renderLayoutSettingsList(currentCardSectionOrder);
+      });
+
+      const colBtn = document.createElement("button");
+      colBtn.type = "button";
+      colBtn.className = "btn-section-toggle btn-toggle-collapse" + (secPrefs.collapsed ? " is-collapsed" : " is-expanded");
+      colBtn.setAttribute("data-section-id", sectionId);
+      colBtn.setAttribute("aria-expanded", String(!secPrefs.collapsed));
+      colBtn.title = secPrefs.collapsed ? `Expand ${meta.name}` : `Collapse ${meta.name}`;
+      colBtn.setAttribute("aria-label", secPrefs.collapsed ? `Expand ${meta.name}` : `Collapse ${meta.name}`);
+      colBtn.innerHTML = secPrefs.collapsed
+        ? '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6l4 4 4-4"/></svg>'
+        : '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 10l4-4 4 4"/></svg>';
+
+      colBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!currentSectionPrefs.sections[sectionId]) {
+          currentSectionPrefs.sections[sectionId] = { visible: true, collapsed: false };
+        }
+        currentSectionPrefs.sections[sectionId].collapsed = !currentSectionPrefs.sections[sectionId].collapsed;
+        applySectionPrefs(currentSectionPrefs);
+        saveStoredSectionPrefs(currentSectionPrefs);
+        renderLayoutSettingsList(currentCardSectionOrder);
+      });
+
+      actionsWrap.appendChild(visBtn);
+      actionsWrap.appendChild(colBtn);
+    }
 
     item.appendChild(handleWrap);
     item.appendChild(actionsWrap);
@@ -8906,7 +9633,239 @@ function renderLayoutSettingsList(order = currentCardSectionOrder) {
   });
 }
 
+/* ==========================================================================
+   Section Visibility & Collapse Preferences (Session 6)
+   ========================================================================== */
+
+const STORAGE_KEY_CARD_SECTION_PREFS = "kiroku.layout.cardSectionPrefs";
+
+function defaultSectionPrefs() {
+  return {
+    sections: {
+      preview: { visible: true, collapsed: false },
+      optional: { visible: true, collapsed: false },
+      settings: { visible: true, collapsed: false },
+      dictionary: { visible: true, collapsed: false }
+    },
+    dictContents: {
+      kanji: true,
+      strokes: true,
+      examples: true,
+      otherDicts: true,
+      xrefs: true,
+      senseTags: true
+    }
+  };
+}
+
+function normalizeSectionPrefs(raw) {
+  const defaults = defaultSectionPrefs();
+  if (!raw || typeof raw !== "object") {
+    return defaults;
+  }
+  const result = {
+    sections: {},
+    dictContents: {}
+  };
+
+  const allowedSections = ["preview", "optional", "settings", "dictionary"];
+  for (const s of allowedSections) {
+    const rawSec = raw.sections?.[s];
+    result.sections[s] = {
+      visible: typeof rawSec?.visible === "boolean" ? rawSec.visible : defaults.sections[s].visible,
+      collapsed: typeof rawSec?.collapsed === "boolean" ? rawSec.collapsed : defaults.sections[s].collapsed
+    };
+  }
+
+  const allowedDict = ["kanji", "strokes", "examples", "otherDicts", "xrefs", "senseTags"];
+  for (const d of allowedDict) {
+    const rawVal = raw.dictContents?.[d];
+    result.dictContents[d] = typeof rawVal === "boolean" ? rawVal : defaults.dictContents[d];
+  }
+
+  return result;
+}
+
+let currentSectionPrefs = defaultSectionPrefs();
+
+function getCurrentSectionPrefs() {
+  return JSON.parse(JSON.stringify(currentSectionPrefs));
+}
+
+async function loadStoredSectionPrefs() {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const data = await chrome.storage.local.get(STORAGE_KEY_CARD_SECTION_PREFS);
+      if (data && data[STORAGE_KEY_CARD_SECTION_PREFS]) {
+        currentSectionPrefs = normalizeSectionPrefs(data[STORAGE_KEY_CARD_SECTION_PREFS]);
+        return currentSectionPrefs;
+      }
+    } else if (typeof localStorage !== "undefined") {
+      const raw = localStorage.getItem(STORAGE_KEY_CARD_SECTION_PREFS);
+      if (raw) {
+        currentSectionPrefs = normalizeSectionPrefs(JSON.parse(raw));
+        return currentSectionPrefs;
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to load section prefs:", err);
+  }
+  currentSectionPrefs = defaultSectionPrefs();
+  return currentSectionPrefs;
+}
+
+async function saveStoredSectionPrefs(prefs) {
+  const normalized = normalizeSectionPrefs(prefs || currentSectionPrefs);
+  currentSectionPrefs = normalized;
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      await chrome.storage.local.set({ [STORAGE_KEY_CARD_SECTION_PREFS]: normalized });
+    } else if (typeof localStorage !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_CARD_SECTION_PREFS, JSON.stringify(normalized));
+    }
+  } catch (err) {
+    console.warn("Failed to save section prefs:", err);
+  }
+  return currentSectionPrefs;
+}
+
+function applySectionPrefs(prefs) {
+  const p = normalizeSectionPrefs(prefs || currentSectionPrefs);
+  currentSectionPrefs = p;
+
+  const sectionMap = {
+    preview: document.querySelector("#card-preview-section") || document.querySelector('[data-layout-section="preview"]'),
+    optional: document.querySelector("#card-optional-section") || document.querySelector('[data-layout-section="optional"]'),
+    settings: document.querySelector("#card-settings-section") || document.querySelector('[data-layout-section="settings"]'),
+    dictionary: document.querySelector("#dictionary-section") || document.querySelector('[data-layout-section="dictionary"]')
+  };
+
+  for (const [key, el] of Object.entries(sectionMap)) {
+    if (!el) continue;
+    const secPref = p.sections[key];
+    if (!secPref) continue;
+
+    if (secPref.visible === false) {
+      el.classList.add("is-user-hidden");
+      el.setAttribute("aria-hidden", "true");
+    } else {
+      el.classList.remove("is-user-hidden");
+      el.removeAttribute("aria-hidden");
+    }
+
+    if (secPref.collapsed) {
+      el.classList.add("is-collapsed");
+    } else {
+      el.classList.remove("is-collapsed");
+    }
+
+    if (key === "dictionary") {
+      const btnCollapse = document.querySelector("#btn-dict-collapse");
+      const dBody = document.querySelector("#dict-body");
+      const summaryEl = document.querySelector("#dict-collapsed-summary");
+
+      if (btnCollapse) {
+        btnCollapse.setAttribute("aria-expanded", String(!secPref.collapsed));
+      }
+      if (dBody) {
+        if (secPref.collapsed) {
+          dBody.hidden = true;
+          if (dBody.style) dBody.style.display = "none";
+        } else {
+          dBody.hidden = false;
+          if (dBody.style) dBody.style.display = "";
+        }
+      }
+      if (summaryEl) {
+        summaryEl.hidden = !secPref.collapsed || !summaryEl.textContent;
+      }
+    }
+  }
+
+  const meaningsEl = document.querySelector("#meanings");
+  if (meaningsEl) {
+    meaningsEl.classList.toggle("hide-kanji", !p.dictContents.kanji);
+    meaningsEl.classList.toggle("hide-strokes", !p.dictContents.strokes);
+    meaningsEl.classList.toggle("hide-examples", !p.dictContents.examples);
+    meaningsEl.classList.toggle("hide-other-dicts", !p.dictContents.otherDicts);
+    meaningsEl.classList.toggle("hide-xrefs", !p.dictContents.xrefs);
+    meaningsEl.classList.toggle("hide-sense-tags", !p.dictContents.senseTags);
+  }
+
+  syncSectionPrefsUI(p);
+  return p;
+}
+
+function syncSectionPrefsUI(prefs = currentSectionPrefs) {
+  const p = normalizeSectionPrefs(prefs);
+  const mapping = {
+    kanji: document.querySelector("#setting-dict-kanji"),
+    strokes: document.querySelector("#setting-dict-strokes"),
+    examples: document.querySelector("#setting-dict-examples"),
+    otherDicts: document.querySelector("#setting-dict-other-dicts"),
+    xrefs: document.querySelector("#setting-dict-xrefs"),
+    senseTags: document.querySelector("#setting-dict-sense-tags")
+  };
+
+  for (const [key, checkbox] of Object.entries(mapping)) {
+    if (checkbox) {
+      checkbox.checked = Boolean(p.dictContents[key]);
+    }
+  }
+}
+
+function applyPreset(presetName) {
+  let newPrefs;
+  if (presetName === "minimal") {
+    newPrefs = {
+      sections: {
+        preview: { visible: false, collapsed: false },
+        optional: { visible: false, collapsed: true },
+        settings: { visible: true, collapsed: false },
+        dictionary: { visible: true, collapsed: false }
+      },
+      dictContents: {
+        kanji: false,
+        strokes: false,
+        examples: false,
+        otherDicts: false,
+        xrefs: false,
+        senseTags: false
+      }
+    };
+  } else if (presetName === "full") {
+    newPrefs = {
+      sections: {
+        preview: { visible: true, collapsed: false },
+        optional: { visible: true, collapsed: false },
+        settings: { visible: true, collapsed: false },
+        dictionary: { visible: true, collapsed: false }
+      },
+      dictContents: {
+        kanji: true,
+        strokes: true,
+        examples: true,
+        otherDicts: true,
+        xrefs: true,
+        senseTags: true
+      }
+    };
+  } else {
+    newPrefs = defaultSectionPrefs();
+  }
+
+  applySectionPrefs(newPrefs);
+  saveStoredSectionPrefs(newPrefs);
+  if (typeof renderLayoutSettingsList === "function") {
+    renderLayoutSettingsList(currentCardSectionOrder);
+  }
+}
+
 function openLayoutSettings() {
+  if (typeof switchMiningTab === "function") {
+    switchMiningTab("settings");
+    return;
+  }
   const popover = cardSettingsPopover || layoutSettingsPopover;
   if (!popover) return;
   popover.hidden = false;
@@ -8917,14 +9876,25 @@ function openLayoutSettings() {
     btnLayoutSettings.setAttribute("aria-expanded", "true");
     btnLayoutSettings.classList.add("active");
   }
-  syncCardTemplateSettingsUI();
-  renderLayoutSettingsList(currentCardSectionOrder);
+  if (typeof syncCardTemplateSettingsUI === "function") syncCardTemplateSettingsUI();
+  if (typeof renderLayoutSettingsList === "function") renderLayoutSettingsList(currentCardSectionOrder);
+  syncSectionPrefsUI();
+  if (typeof fetchAnkiConnectUrl === "function") {
+    fetchAnkiConnectUrl().catch(() => {});
+  }
   if (typeof checkLLMStatus === "function") {
     checkLLMStatus().catch(() => {});
+  }
+  if (typeof loadLLMConfig === "function") {
+    loadLLMConfig().catch(() => {});
   }
 }
 
 function closeLayoutSettings() {
+  if (typeof switchMiningTab === "function" && currentMiningTab === "settings") {
+    switchMiningTab(previousMiningTab || "text");
+    return;
+  }
   const popover = cardSettingsPopover || layoutSettingsPopover;
   if (!popover) return;
   popover.hidden = true;
@@ -8934,7 +9904,7 @@ function closeLayoutSettings() {
   if (btnLayoutSettings) {
     btnLayoutSettings.setAttribute("aria-expanded", "false");
     btnLayoutSettings.classList.remove("active");
-    btnLayoutSettings.focus();
+    if (typeof btnLayoutSettings.focus === "function") btnLayoutSettings.focus();
   }
 }
 
@@ -8942,12 +9912,25 @@ async function resetLayoutSettings() {
   const defaultOrder = [...DEFAULT_CARD_SECTION_ORDER];
   applySectionOrder(defaultOrder);
   await saveStoredSectionOrder(defaultOrder);
+
+  const defPrefs = defaultSectionPrefs();
+  applySectionPrefs(defPrefs);
+  await saveStoredSectionPrefs(defPrefs);
+
   renderLayoutSettingsList(defaultOrder);
 }
 
 if (btnLayoutSettings) {
   btnLayoutSettings.addEventListener("click", (e) => {
     e.stopPropagation();
+    if (typeof switchMiningTab === "function") {
+      if (currentMiningTab === "settings") {
+        switchMiningTab(previousMiningTab || "text");
+      } else {
+        switchMiningTab("settings");
+      }
+      return;
+    }
     const popover = cardSettingsPopover || layoutSettingsPopover;
     if (popover && !popover.hidden) {
       closeLayoutSettings();
@@ -8975,16 +9958,72 @@ if (btnResetLayout) {
   });
 }
 
+if (btnDictCollapse) {
+  btnDictCollapse.addEventListener("click", () => {
+    if (!currentSectionPrefs.sections.dictionary) {
+      currentSectionPrefs.sections.dictionary = { visible: true, collapsed: false };
+    }
+    currentSectionPrefs.sections.dictionary.collapsed = !currentSectionPrefs.sections.dictionary.collapsed;
+    applySectionPrefs(currentSectionPrefs);
+    saveStoredSectionPrefs(currentSectionPrefs);
+    if (typeof renderLayoutSettingsList === "function") {
+      renderLayoutSettingsList(currentCardSectionOrder);
+    }
+  });
+}
+
+if (btnPresetMinimal) {
+  btnPresetMinimal.addEventListener("click", () => applyPreset("minimal"));
+}
+if (btnPresetStandard) {
+  btnPresetStandard.addEventListener("click", () => applyPreset("standard"));
+}
+if (btnPresetFull) {
+  btnPresetFull.addEventListener("click", () => applyPreset("full"));
+}
+
+const dictContentCheckboxes = [
+  { el: settingDictKanji, key: "kanji" },
+  { el: settingDictStrokes, key: "strokes" },
+  { el: settingDictExamples, key: "examples" },
+  { el: settingDictOtherDicts, key: "otherDicts" },
+  { el: settingDictXrefs, key: "xrefs" },
+  { el: settingDictSenseTags, key: "senseTags" }
+];
+
+dictContentCheckboxes.forEach(({ el, key }) => {
+  if (el) {
+    el.addEventListener("change", () => {
+      currentSectionPrefs.dictContents[key] = Boolean(el.checked);
+      applySectionPrefs(currentSectionPrefs);
+      saveStoredSectionPrefs(currentSectionPrefs);
+    });
+  }
+});
+
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && typeof isAskFloatOpen === "function" && isAskFloatOpen()) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeAskFloat();
+    return;
+  }
+  if ((e.altKey && e.shiftKey && (e.key === "A" || e.code === "KeyA")) || (e.ctrlKey && e.key === "/")) {
+    e.preventDefault();
+    if (typeof toggleAskFloat === "function") {
+      toggleAskFloat();
+    }
+    return;
+  }
   const popover = cardSettingsPopover || layoutSettingsPopover;
-  if (e.key === "Escape" && popover && !popover.hidden) {
+  if (e.key === "Escape" && ((popover && !popover.hidden) || currentMiningTab === "settings")) {
     closeLayoutSettings();
   }
 });
 
 document.addEventListener("click", (e) => {
   const popover = cardSettingsPopover || layoutSettingsPopover;
-  if (!popover || popover.hidden) return;
+  if (!popover || popover.hidden || currentMiningTab === "settings") return;
   if (!popover.contains(e.target) && btnLayoutSettings && !btnLayoutSettings.contains(e.target)) {
     closeLayoutSettings();
   }
@@ -8995,7 +10034,7 @@ if (btnDismissFirstRun) {
 }
 
 /* ==========================================================================
-   TIER 5: ASK TAB (AI ASSISTANT) LOGIC & INTEGRATION
+   SESSION 7 & TIER 5: ASK FLOATING DRAWER (AI ASSISTANT) LOGIC & INTEGRATION
    ========================================================================== */
 
 let activeAskContext = { text: "", source: "" };
@@ -9004,9 +10043,104 @@ let isAskLoading = false;
 let currentAskTask = "answer_question";
 let lastLLMStatus = null;
 
+function updateAskPrivacyNotice(provider, isConfigured) {
+  const prov = (typeof provider === "string" ? provider.toLowerCase() : "");
+  const isLocal = prov === "ollama" || prov === "local";
+  const isCloud = Boolean(isConfigured && prov && prov !== "none" && !isLocal);
+
+  if (askCloudNotice) {
+    askCloudNotice.hidden = !isCloud;
+  }
+  if (askPrivacyDisclosure) {
+    askPrivacyDisclosure.hidden = !isCloud;
+  }
+  if (askPrivacyProvider && isCloud) {
+    askPrivacyProvider.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
+  }
+}
+
+function isAskFloatOpen() {
+  return Boolean(askFloat && !askFloat.hidden && askFloat.style.display !== "none");
+}
+
+function isAskFloatHidden() {
+  return !isAskFloatOpen();
+}
+
+function openAskFloat(triggerEl) {
+  if (!askFloat) return;
+  if (triggerEl && typeof triggerEl.focus === "function") {
+    lastFocusedBeforeAsk = triggerEl;
+  } else if (document.activeElement && typeof document.activeElement.focus === "function") {
+    lastFocusedBeforeAsk = document.activeElement;
+  }
+
+  askFloat.hidden = false;
+  askFloat.style.display = "";
+  askFloat.classList.remove("is-minimized");
+
+  if (askFab) {
+    askFab.setAttribute("aria-expanded", "true");
+  }
+  if (askFabUnreadDot) {
+    askFabUnreadDot.hidden = true;
+  }
+  if (askMiningView) {
+    askMiningView.hidden = false;
+  }
+
+  if (typeof checkLLMStatus === "function") {
+    checkLLMStatus().catch(() => {});
+  }
+
+  if (askInputBox) {
+    setTimeout(() => {
+      try {
+        askInputBox.focus();
+      } catch (_) {}
+    }, 60);
+  }
+}
+
+function closeAskFloat() {
+  if (!askFloat) return;
+  askFloat.hidden = true;
+
+  if (askFab) {
+    askFab.setAttribute("aria-expanded", "false");
+  }
+
+  if (lastFocusedBeforeAsk && typeof lastFocusedBeforeAsk.focus === "function" && document.contains(lastFocusedBeforeAsk)) {
+    try {
+      lastFocusedBeforeAsk.focus();
+    } catch (_) {}
+  } else if (askFab && typeof askFab.focus === "function") {
+    try {
+      askFab.focus();
+    } catch (_) {}
+  }
+}
+
+function toggleAskFloat(triggerEl) {
+  if (isAskFloatOpen()) {
+    closeAskFloat();
+  } else {
+    openAskFloat(triggerEl);
+  }
+}
+
+function minimizeAskFloat() {
+  if (!askFloat) return;
+  const isMin = askFloat.classList.toggle("is-minimized");
+  if (btnAskMinimize) {
+    btnAskMinimize.title = isMin ? "Expand drawer" : "Minimize drawer";
+    btnAskMinimize.setAttribute("aria-label", isMin ? "Expand drawer" : "Minimize drawer");
+  }
+}
+
 async function checkLLMStatus() {
   try {
-    const res = await fetch(API_LLM_STATUS_URL);
+    const res = await fetchWithTimeout(API_LLM_STATUS_URL, {}, 15000);
     if (!res.ok) {
       throw new Error(`Status ${res.status}`);
     }
@@ -9034,6 +10168,8 @@ async function checkLLMStatus() {
       llmStatusLabel.textContent = isConfigured ? `Ready (${model || "online"})` : "Not configured";
       llmStatusLabel.style.color = isConfigured ? "var(--accent-success, #81c784)" : "var(--text-muted, #756e65)";
     }
+    updateAskPrivacyNotice(provider, isConfigured);
+    if (typeof updateUnifiedStatusIndicator === "function") updateUnifiedStatusIndicator();
     return data;
   } catch (err) {
     if (askStatusDot) {
@@ -9047,8 +10183,10 @@ async function checkLLMStatus() {
     }
     if (llmStatusLabel) {
       llmStatusLabel.textContent = "Backend offline";
-      llmStatusLabel.style.color = "var(--accent-primary, #b84632)";
+      llmStatusLabel.style.color = "var(--accent-error, #c94f3d)";
     }
+    updateAskPrivacyNotice("none", false);
+    if (typeof updateUnifiedStatusIndicator === "function") updateUnifiedStatusIndicator();
     return null;
   }
 }
@@ -9173,17 +10311,21 @@ async function sendAskQuery(task = currentAskTask, overrideText = null) {
     askEmptyState.style.display = "none";
   }
 
-  // Append user message
+  // Append user message safely
   const userMsgEl = document.createElement("div");
   userMsgEl.className = "chat-message user-msg";
-  userMsgEl.innerHTML = `
-    <div class="chat-msg-header">
-      <span class="chat-sender">You</span>
-    </div>
-    <div class="chat-msg-body"></div>
-  `;
-  const userBody = userMsgEl.querySelector(".chat-msg-body");
-  if (userBody) userBody.textContent = promptText;
+  const userHeader = document.createElement("div");
+  userHeader.className = "chat-msg-header";
+  const userSender = document.createElement("span");
+  userSender.className = "chat-sender";
+  userSender.textContent = "You";
+  userHeader.appendChild(userSender);
+  const userBody = document.createElement("div");
+  userBody.className = "chat-msg-body";
+  userBody.textContent = promptText;
+  userMsgEl.appendChild(userHeader);
+  userMsgEl.appendChild(userBody);
+
   if (askChatStream) {
     askChatStream.appendChild(userMsgEl);
   }
@@ -9206,34 +10348,91 @@ async function sendAskQuery(task = currentAskTask, overrideText = null) {
   if (btnAskSubmit) btnAskSubmit.disabled = true;
 
   try {
-    const payload = {
-      task: task || currentAskTask,
-      text: promptText,
-      context: activeAskContext.text || undefined,
-      messages: askChatHistory.length > 0 ? askChatHistory : undefined
-    };
+    const resolvedTask = task || currentAskTask || "answer_question";
+    let payload;
 
-    const res = await fetch(API_LLM_ASK_URL, {
+    const cardExpr = (typeof fieldExpression !== "undefined" && fieldExpression?.value) ? fieldExpression.value.trim() : "";
+    const cardSentence = (typeof fieldExampleSentence !== "undefined" && fieldExampleSentence?.value) ? fieldExampleSentence.value.trim() : "";
+    const cardSource = (typeof fieldSourceText !== "undefined" && fieldSourceText?.value) ? fieldSourceText.value.trim() : "";
+    const cardMeaning = (typeof fieldMeaning !== "undefined" && fieldMeaning?.value) ? fieldMeaning.value.trim() : "";
+
+    if (resolvedTask === "explain_sense") {
+      payload = {
+        task: "explain_sense",
+        word: cardExpr || promptText,
+        text: promptText || cardSentence || cardSource || cardExpr,
+        context: cardMeaning || undefined
+      };
+    } else if (resolvedTask === "mnemonic") {
+      const targetWord = cardExpr || promptText;
+      payload = {
+        task: "mnemonic",
+        word: targetWord,
+        text: targetWord,
+        context: cardMeaning || (activeAskContext.text && activeAskContext.text !== targetWord ? activeAskContext.text : undefined)
+      };
+    } else if (resolvedTask === "translate" || resolvedTask === "explain_grammar") {
+      payload = {
+        task: resolvedTask,
+        text: promptText,
+        context: undefined
+      };
+    } else {
+      // answer_question / chat: do not duplicate active context into context if promptText is already active context
+      payload = {
+        task: resolvedTask,
+        text: promptText,
+        context: (activeAskContext.text && activeAskContext.text !== promptText) ? activeAskContext.text : undefined
+      };
+    }
+
+    if (askChatHistory.length > 10) {
+      askChatHistory = askChatHistory.slice(-10);
+    }
+    if (askChatHistory.length > 0) {
+      payload.messages = askChatHistory.slice(-10);
+    }
+
+    const res = await fetchWithTimeout(API_LLM_ASK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
-    });
+    }, 60000);
 
     const data = await res.json().catch(() => ({}));
     loadingEl.remove();
 
     if (!res.ok) {
-      const errMsg = data.detail || `LLM request failed (status ${res.status})`;
+      let errMsg = `LLM request failed (status ${res.status})`;
+      if (typeof data.detail === "string") {
+        errMsg = data.detail;
+      } else if (Array.isArray(data.detail)) {
+        errMsg = data.detail.map(d => (d && d.msg) ? d.msg : (typeof d === "string" ? d : JSON.stringify(d))).join("; ") || "Invalid request parameters";
+      } else if (data.detail && typeof data.detail === "object") {
+        errMsg = data.detail.msg || JSON.stringify(data.detail);
+      }
+
       const errEl = document.createElement("div");
       errEl.className = "chat-message ai-msg ai-error";
-      errEl.innerHTML = `
-        <div class="chat-msg-header">
-          <div class="ai-sender-info">
-            <span class="ai-badge" style="color:#c94f3d; background:rgba(201,79,61,0.12); border-color:rgba(201,79,61,0.25);">ERROR</span>
-          </div>
-        </div>
-        <div class="chat-msg-body">${errMsg}</div>
-      `;
+      const headerEl = document.createElement("div");
+      headerEl.className = "chat-msg-header";
+      const senderInfo = document.createElement("div");
+      senderInfo.className = "ai-sender-info";
+      const badge = document.createElement("span");
+      badge.className = "ai-badge";
+      badge.style.color = "var(--accent-error, #c94f3d)";
+      badge.style.background = "rgba(201, 79, 61, 0.12)";
+      badge.style.borderColor = "rgba(201, 79, 61, 0.25)";
+      badge.textContent = "ERROR";
+      senderInfo.appendChild(badge);
+      headerEl.appendChild(senderInfo);
+
+      const bodyEl = document.createElement("div");
+      bodyEl.className = "chat-msg-body";
+      bodyEl.textContent = errMsg;
+
+      errEl.appendChild(headerEl);
+      errEl.appendChild(bodyEl);
       if (askChatStream) {
         askChatStream.appendChild(errEl);
         askChatStream.scrollTop = askChatStream.scrollHeight;
@@ -9247,74 +10446,385 @@ async function sendAskQuery(task = currentAskTask, overrideText = null) {
 
     askChatHistory.push({ role: "user", content: promptText });
     askChatHistory.push({ role: "assistant", content: aiResult });
+    if (askChatHistory.length > 10) {
+      askChatHistory = askChatHistory.slice(-10);
+    }
 
     const aiMsgEl = document.createElement("div");
     aiMsgEl.className = "chat-message ai-msg";
-    aiMsgEl.innerHTML = `
-      <div class="chat-msg-header">
-        <div class="ai-sender-info">
-          <span class="ai-badge">AI</span>
-          <span class="ai-model-tag">${aiProvider}${aiModel ? ` (${aiModel})` : ""}</span>
-        </div>
-        <div class="chat-msg-actions">
-          <button type="button" class="btn-chat-action btn-copy-ai" title="Copy answer">Copy</button>
-          <button type="button" class="btn-chat-action btn-add-ai-notes" title="Add explanation to card notes">Add to Notes</button>
-        </div>
-      </div>
-      <div class="chat-msg-body">${formatAIResponse(aiResult)}</div>
-    `;
 
-    const btnCopy = aiMsgEl.querySelector(".btn-copy-ai");
-    if (btnCopy) {
-      btnCopy.addEventListener("click", async () => {
-        try {
-          if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(aiResult);
-          }
-          btnCopy.textContent = "Copied!";
-          setTimeout(() => { btnCopy.textContent = "Copy"; }, 1500);
-        } catch (_) {}
-      });
-    }
+    const headerEl = document.createElement("div");
+    headerEl.className = "chat-msg-header";
+    const senderInfo = document.createElement("div");
+    senderInfo.className = "ai-sender-info";
+    const badge = document.createElement("span");
+    badge.className = "ai-badge";
+    badge.textContent = "AI";
+    const modelTag = document.createElement("span");
+    modelTag.className = "ai-model-tag";
+    modelTag.textContent = `${aiProvider}${aiModel ? ` (${aiModel})` : ""}`;
+    senderInfo.appendChild(badge);
+    senderInfo.appendChild(modelTag);
 
-    const btnAddNotes = aiMsgEl.querySelector(".btn-add-ai-notes");
-    if (btnAddNotes) {
-      btnAddNotes.addEventListener("click", () => {
-        if (fieldNotes) {
-          const currentNotes = fieldNotes.value ? fieldNotes.value.trim() + "\n\n" : "";
-          fieldNotes.value = currentNotes + aiResult;
-          fieldNotes.dispatchEvent(new Event("input", { bubbles: true }));
-          btnAddNotes.textContent = "Added!";
-          setTimeout(() => { btnAddNotes.textContent = "Add to Notes"; }, 1500);
-          setStatus("AI explanation added to card notes.");
+    const actionsEl = document.createElement("div");
+    actionsEl.className = "chat-msg-actions";
+    const btnCopy = document.createElement("button");
+    btnCopy.type = "button";
+    btnCopy.className = "btn-chat-action btn-copy-ai";
+    btnCopy.title = "Copy answer";
+    btnCopy.textContent = "Copy";
+    const btnAddNotes = document.createElement("button");
+    btnAddNotes.type = "button";
+    btnAddNotes.className = "btn-chat-action btn-add-ai-notes";
+    btnAddNotes.title = "Add explanation to card notes";
+    btnAddNotes.textContent = "Add to Notes";
+    actionsEl.appendChild(btnCopy);
+    actionsEl.appendChild(btnAddNotes);
+
+    headerEl.appendChild(senderInfo);
+    headerEl.appendChild(actionsEl);
+
+    const bodyEl = document.createElement("div");
+    bodyEl.className = "chat-msg-body";
+    bodyEl.innerHTML = formatAIResponse(aiResult);
+
+    aiMsgEl.appendChild(headerEl);
+    aiMsgEl.appendChild(bodyEl);
+
+    btnCopy.addEventListener("click", async () => {
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(aiResult);
         }
-      });
-    }
+        btnCopy.textContent = "Copied!";
+        setTimeout(() => { btnCopy.textContent = "Copy"; }, 1500);
+      } catch (_) {}
+    });
+
+    btnAddNotes.addEventListener("click", () => {
+      if (fieldNotes) {
+        const currentNotes = fieldNotes.value ? fieldNotes.value.trim() + "\n\n" : "";
+        fieldNotes.value = currentNotes + aiResult;
+        fieldNotes.dispatchEvent(new Event("input", { bubbles: true }));
+        btnAddNotes.textContent = "Added!";
+        setTimeout(() => { btnAddNotes.textContent = "Add to Notes"; }, 1500);
+        setStatus("AI explanation added to card notes.");
+      }
+    });
 
     if (askChatStream) {
       askChatStream.appendChild(aiMsgEl);
       askChatStream.scrollTop = askChatStream.scrollHeight;
     }
 
+    if (typeof isAskFloatHidden === "function" && isAskFloatHidden() && askFabUnreadDot) {
+      askFabUnreadDot.hidden = false;
+    }
+
   } catch (err) {
     loadingEl.remove();
     const errEl = document.createElement("div");
     errEl.className = "chat-message ai-msg ai-error";
-    errEl.innerHTML = `
-      <div class="chat-msg-header">
-        <div class="ai-sender-info">
-          <span class="ai-badge" style="color:#c94f3d; background:rgba(201,79,61,0.12); border-color:rgba(201,79,61,0.25);">ERROR</span>
-        </div>
-      </div>
-      <div class="chat-msg-body">Connection error: ${err.message}. Is backend running?</div>
-    `;
+    const headerEl = document.createElement("div");
+    headerEl.className = "chat-msg-header";
+    const senderInfo = document.createElement("div");
+    senderInfo.className = "ai-sender-info";
+    const badge = document.createElement("span");
+    badge.className = "ai-badge";
+    badge.style.color = "var(--accent-error, #c94f3d)";
+    badge.style.background = "rgba(201, 79, 61, 0.12)";
+    badge.style.borderColor = "rgba(201, 79, 61, 0.25)";
+    badge.textContent = "ERROR";
+    senderInfo.appendChild(badge);
+    headerEl.appendChild(senderInfo);
+
+    const bodyEl = document.createElement("div");
+    bodyEl.className = "chat-msg-body";
+    bodyEl.textContent = `Connection error: ${err.message}. Is backend running?`;
+
+    errEl.appendChild(headerEl);
+    errEl.appendChild(bodyEl);
     if (askChatStream) {
       askChatStream.appendChild(errEl);
       askChatStream.scrollTop = askChatStream.scrollHeight;
     }
   } finally {
     isAskLoading = false;
-    if (btnAskSubmit) btnAskSubmit.disabled = false;
+    if (btnAskSubmit) {
+      btnAskSubmit.disabled = false;
+      const labelSpan = btnAskSubmit.querySelector("span");
+      if (labelSpan) labelSpan.textContent = "Ask AI";
+    }
+    currentAskTask = "answer_question";
+    if (askPromptChipsWrap) {
+      askPromptChipsWrap.querySelectorAll(".prompt-chip").forEach(c => {
+        c.classList.toggle("active", c.getAttribute("data-task") === "answer_question");
+      });
+    }
+  }
+}
+
+// -------------------------------------------------------------
+// Settings AI Assistant (LLM) Configuration
+// -------------------------------------------------------------
+function syncLLMProviderUI(provider) {
+  const p = (provider || "none").toLowerCase();
+  if (settingLlmOllamaRow) {
+    settingLlmOllamaRow.hidden = (p !== "ollama");
+  }
+  if (settingLlmKeyRow) {
+    settingLlmKeyRow.hidden = (p === "none" || p === "ollama");
+  }
+}
+
+async function loadLLMConfig() {
+  try {
+    const res = await fetchWithTimeout(API_LLM_CONFIG_URL, {}, 15000);
+    if (!res.ok) return null;
+    const cfg = await res.json();
+    if (settingLlmProvider) {
+      settingLlmProvider.value = cfg.provider || "none";
+    }
+    if (settingLlmModel) {
+      settingLlmModel.value = cfg.model || "";
+    }
+    if (settingLlmOllamaUrl) {
+      settingLlmOllamaUrl.value = cfg.ollama_url || "http://localhost:11434";
+    }
+    if (settingLlmKey) {
+      settingLlmKey.value = "";
+      if (cfg.has_key) {
+        settingLlmKey.placeholder = `(Configured: ${cfg.key_preview || "***"})`;
+      } else {
+        settingLlmKey.placeholder = "Enter API Key…";
+      }
+    }
+    syncLLMProviderUI(cfg.provider || "none");
+    return cfg;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function saveLLMConfig() {
+  if (!settingLlmProvider) return;
+  const provider = settingLlmProvider.value;
+  const model = settingLlmModel ? settingLlmModel.value.trim() : "";
+  const apiKey = settingLlmKey ? settingLlmKey.value.trim() : "";
+  const ollamaUrl = settingLlmOllamaUrl ? settingLlmOllamaUrl.value.trim() : "";
+
+  if (btnSaveLlmConfig) btnSaveLlmConfig.disabled = true;
+  if (llmConfigFeedback) {
+    llmConfigFeedback.textContent = "Saving...";
+    llmConfigFeedback.style.color = "var(--text-muted)";
+  }
+
+  try {
+    const payload = {
+      provider,
+      model: model || undefined,
+      ollama_url: ollamaUrl || undefined
+    };
+    if (apiKey) {
+      payload.api_key = apiKey;
+    }
+    const res = await fetchWithTimeout(API_LLM_CONFIG_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }, 15000);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Save failed (${res.status})`);
+    }
+
+    if (llmConfigFeedback) {
+      llmConfigFeedback.textContent = "Settings saved!";
+      llmConfigFeedback.style.color = "var(--accent-success, #81c784)";
+      setTimeout(() => { if (llmConfigFeedback) llmConfigFeedback.textContent = ""; }, 3000);
+    }
+    await checkLLMStatus();
+    await loadLLMConfig();
+  } catch (err) {
+    if (llmConfigFeedback) {
+      llmConfigFeedback.textContent = `Error: ${err.message}`;
+      llmConfigFeedback.style.color = "var(--accent-error, #c94f3d)";
+    }
+  } finally {
+    if (btnSaveLlmConfig) btnSaveLlmConfig.disabled = false;
+  }
+}
+
+async function testLLMConnection() {
+  if (!settingLlmProvider) return;
+  const provider = settingLlmProvider.value;
+  const model = settingLlmModel ? settingLlmModel.value.trim() : "";
+  const apiKey = settingLlmKey ? settingLlmKey.value.trim() : "";
+  const ollamaUrl = settingLlmOllamaUrl ? settingLlmOllamaUrl.value.trim() : "";
+
+  if (btnTestLlm) btnTestLlm.disabled = true;
+  if (llmConfigFeedback) {
+    llmConfigFeedback.textContent = "Testing connection...";
+    llmConfigFeedback.style.color = "var(--text-muted)";
+  }
+
+  try {
+    const payload = {
+      provider,
+      model: model || undefined,
+      api_key: apiKey || undefined,
+      ollama_url: ollamaUrl || undefined
+    };
+    const res = await fetchWithTimeout(API_LLM_TEST_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }, 20000);
+
+    const data = await res.json().catch(() => ({}));
+    if (data.ok) {
+      const ms = typeof data.latency_ms === "number" ? Math.round(data.latency_ms) : "";
+      if (llmConfigFeedback) {
+        llmConfigFeedback.textContent = `Connected! (${data.provider}${ms ? `, ${ms}ms` : ""})`;
+        llmConfigFeedback.style.color = "var(--accent-success, #81c784)";
+      }
+    } else {
+      const errMsg = data.error || (data.detail ? (Array.isArray(data.detail) ? data.detail[0]?.msg : data.detail) : "Test failed");
+      if (llmConfigFeedback) {
+        llmConfigFeedback.textContent = `Test failed: ${errMsg}`;
+        llmConfigFeedback.style.color = "var(--accent-error, #c94f3d)";
+      }
+    }
+  } catch (err) {
+    if (llmConfigFeedback) {
+      llmConfigFeedback.textContent = `Test error: ${err.message}`;
+      llmConfigFeedback.style.color = "var(--accent-error, #c94f3d)";
+    }
+  } finally {
+    if (btnTestLlm) btnTestLlm.disabled = false;
+  }
+}
+
+// -------------------------------------------------------------
+// Text Tab AI Context Actions (Translate, Sense, Mnemonic)
+// -------------------------------------------------------------
+let isQuickAiLoading = false;
+async function executeQuickAiTask(task) {
+  if (isQuickAiLoading) return;
+  if (!dictAiResultCard || !dictAiResultBody) return;
+
+  const cardExpr = (typeof fieldExpression !== "undefined" && fieldExpression?.value) ? fieldExpression.value.trim() : "";
+  const cardSentence = (typeof fieldExampleSentence !== "undefined" && fieldExampleSentence?.value) ? fieldExampleSentence.value.trim() : "";
+  const cardSource = (typeof fieldSourceText !== "undefined" && fieldSourceText?.value) ? fieldSourceText.value.trim() : "";
+  const cardMeaning = (typeof fieldMeaning !== "undefined" && fieldMeaning?.value) ? fieldMeaning.value.trim() : "";
+
+  let payload;
+  let title = "AI Assistant";
+
+  if (task === "translate") {
+    title = "Translation";
+    const textToTranslate = cardSentence || cardSource || cardExpr;
+    if (!textToTranslate) {
+      setStatus("No sentence or expression to translate.", true);
+      return;
+    }
+    payload = {
+      task: "translate",
+      text: textToTranslate,
+      context: undefined
+    };
+  } else if (task === "explain_sense") {
+    title = "Best Sense in Context";
+    if (!cardExpr) {
+      setStatus("No captured expression in card.", true);
+      return;
+    }
+    payload = {
+      task: "explain_sense",
+      word: cardExpr,
+      text: cardSentence || cardSource || cardExpr,
+      context: cardMeaning || undefined
+    };
+  } else if (task === "mnemonic") {
+    title = "Mnemonic Hook";
+    if (!cardExpr) {
+      setStatus("No captured expression in card.", true);
+      return;
+    }
+    payload = {
+      task: "mnemonic",
+      word: cardExpr,
+      text: cardExpr,
+      context: cardMeaning || undefined
+    };
+  } else {
+    return;
+  }
+
+  if (dictAiResultTitle) dictAiResultTitle.textContent = title;
+  dictAiResultCard.hidden = false;
+  dictAiResultBody.replaceChildren();
+
+  const loadingEl = document.createElement("div");
+  loadingEl.className = "ai-loading-indicator";
+  loadingEl.style.padding = "6px 10px";
+  loadingEl.innerHTML = `
+    <span>Analyzing</span>
+    <div class="ai-loading-dots"><span></span><span></span><span></span></div>
+  `;
+  dictAiResultBody.appendChild(loadingEl);
+
+  isQuickAiLoading = true;
+  let resultText = "";
+
+  try {
+    const res = await fetchWithTimeout(API_LLM_ASK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }, 60000);
+
+    const data = await res.json().catch(() => ({}));
+    loadingEl.remove();
+
+    if (!res.ok) {
+      let errMsg = `LLM request failed (status ${res.status})`;
+      if (typeof data.detail === "string") {
+        errMsg = data.detail;
+      } else if (Array.isArray(data.detail)) {
+        errMsg = data.detail.map(d => (d && d.msg) ? d.msg : (typeof d === "string" ? d : JSON.stringify(d))).join("; ");
+      }
+      const errEl = document.createElement("div");
+      errEl.style.color = "var(--accent-error, #c94f3d)";
+      errEl.textContent = errMsg;
+      dictAiResultBody.appendChild(errEl);
+      return;
+    }
+
+    resultText = data.result || "";
+    dictAiResultBody.innerHTML = formatAIResponse(resultText);
+
+    if (btnDictAiAddNotes) {
+      btnDictAiAddNotes.onclick = () => {
+        if (fieldNotes) {
+          const currentNotes = fieldNotes.value ? fieldNotes.value.trim() + "\n\n" : "";
+          fieldNotes.value = currentNotes + resultText;
+          fieldNotes.dispatchEvent(new Event("input", { bubbles: true }));
+          btnDictAiAddNotes.textContent = "Added!";
+          setTimeout(() => { if (btnDictAiAddNotes) btnDictAiAddNotes.textContent = "Add to Notes"; }, 1500);
+          setStatus("AI explanation added to card notes.");
+        }
+      };
+    }
+  } catch (err) {
+    loadingEl.remove();
+    const errEl = document.createElement("div");
+    errEl.style.color = "var(--accent-error, #c94f3d)";
+    errEl.textContent = `Error: ${err.message}`;
+    dictAiResultBody.appendChild(errEl);
+  } finally {
+    isQuickAiLoading = false;
   }
 }
 
@@ -9329,6 +10839,58 @@ if (askPromptChipsWrap) {
     askPromptChipsWrap.querySelectorAll(".prompt-chip").forEach(c => {
       c.classList.toggle("active", c === chip);
     });
+    if (btnAskSubmit) {
+      const labelSpan = btnAskSubmit.querySelector("span");
+      if (labelSpan) {
+        if (task === "translate") labelSpan.textContent = "Translate";
+        else if (task === "explain_grammar") labelSpan.textContent = "Grammar";
+        else if (task === "explain_sense") labelSpan.textContent = "Sense";
+        else if (task === "mnemonic") labelSpan.textContent = "Mnemonic";
+        else labelSpan.textContent = "Ask AI";
+      }
+    }
+  });
+}
+
+if (settingLlmProvider) {
+  settingLlmProvider.addEventListener("change", () => {
+    syncLLMProviderUI(settingLlmProvider.value);
+  });
+}
+
+if (btnSaveLlmConfig) {
+  btnSaveLlmConfig.addEventListener("click", () => {
+    saveLLMConfig();
+  });
+}
+
+if (btnTestLlm) {
+  btnTestLlm.addEventListener("click", () => {
+    testLLMConnection();
+  });
+}
+
+if (btnDictAiTranslate) {
+  btnDictAiTranslate.addEventListener("click", () => {
+    executeQuickAiTask("translate");
+  });
+}
+
+if (btnDictAiSense) {
+  btnDictAiSense.addEventListener("click", () => {
+    executeQuickAiTask("explain_sense");
+  });
+}
+
+if (btnDictAiMnemonic) {
+  btnDictAiMnemonic.addEventListener("click", () => {
+    executeQuickAiTask("mnemonic");
+  });
+}
+
+if (btnDictAiClose) {
+  btnDictAiClose.addEventListener("click", () => {
+    if (dictAiResultCard) dictAiResultCard.hidden = true;
   });
 }
 
@@ -9389,8 +10951,58 @@ if (btnAskSubmit) {
   });
 }
 
+if (askFab) {
+  askFab.addEventListener("click", () => {
+    toggleAskFloat(askFab);
+  });
+}
+
+if (btnAskClose) {
+  btnAskClose.addEventListener("click", () => {
+    closeAskFloat();
+  });
+}
+
+if (btnAskMinimize) {
+  btnAskMinimize.addEventListener("click", () => {
+    minimizeAskFloat();
+  });
+}
+
+if (btnHeroAsk) {
+  btnHeroAsk.addEventListener("click", () => {
+    const expr = expression ? expression.textContent.trim() : "";
+    const rd = reading ? reading.textContent.trim() : "";
+    if (expr && expr !== "—") {
+      const contextText = (rd && rd !== expr) ? `${expr} (${rd})` : expr;
+      setAskContext(contextText, "Card Expression");
+      openAskFloat(btnHeroAsk);
+    }
+  });
+}
+
+if (btnVideoCueAsk) {
+  btnVideoCueAsk.addEventListener("click", () => {
+    const cueText = currentActiveCue?.text || (videoCurrentCuePreview ? videoCurrentCuePreview.textContent.trim() : "");
+    if (cueText && !cueText.startsWith("Waiting for")) {
+      setAskContext(cueText, "Video Subtitle");
+      openAskFloat(btnVideoCueAsk);
+    }
+  });
+}
+
+if (btnOcrAsk) {
+  btnOcrAsk.addEventListener("click", () => {
+    if (lastOcrText) {
+      setAskContext(lastOcrText, "OCR Capture");
+      openAskFloat(btnOcrAsk);
+    }
+  });
+}
+
 loadAutoCapturePreferences();
 checkLLMStatus().catch(() => {});
+loadLLMConfig().catch(() => {});
 loadJimakuApiKey().catch(() => {});
 loadSubtitleFolderPreferences().catch(() => {});
 checkHealthStatus().catch(() => {});
@@ -9401,9 +11013,15 @@ initEditorJapaneseMode().catch(() => {});
 updateDestinationIndicator();
 loadStoredSectionOrder().then(order => {
   applySectionOrder(order);
+  return loadStoredSectionPrefs();
+}).then(prefs => {
+  applySectionPrefs(prefs);
 }).catch(() => {});
 if (typeof updateCardPreview === "function") updateCardPreview();
 initQuickAdd();
+initServiceStatusPopover();
+updateUnifiedStatusIndicator();
+initHistoryOverflowMenu();
 
 if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
   chrome.runtime.sendMessage({type: "GET_MINING_MODE"}).then(res => {
@@ -9467,6 +11085,8 @@ if (typeof module !== "undefined" && module.exports) {
     renderHistoryCards,
     getLastCaptureSource: () => lastCaptureSource,
     setLastCaptureSource: (s) => { lastCaptureSource = s; },
+    applyTabVisibility,
+    applyHistoryVisibility,
     switchMiningTab,
     checkLLMStatus,
     sendAskQuery,
@@ -9475,6 +11095,88 @@ if (typeof module !== "undefined" && module.exports) {
     formatAIResponse,
     getAskChatHistory: () => askChatHistory,
     setAskChatHistory: (h) => { askChatHistory = h; },
+    fetchWithTimeout,
+    loadLLMConfig,
+    saveLLMConfig,
+    testLLMConnection,
+    executeQuickAiTask,
+    STORAGE_KEY_CARD_SECTION_PREFS,
+    defaultSectionPrefs,
+    normalizeSectionPrefs,
+    loadStoredSectionPrefs,
+    saveStoredSectionPrefs,
+    applySectionPrefs,
+    getCurrentSectionPrefs,
+    applyPreset,
+    syncSectionPrefsUI,
+    openLayoutSettings,
+    closeLayoutSettings,
+    resetLayoutSettings,
+    openAskFloat,
+    closeAskFloat,
+    toggleAskFloat,
+    minimizeAskFloat,
+    isAskFloatOpen,
+    updateAskPrivacyNotice,
+    getCurrentMiningTab: () => currentMiningTab,
+    getLastOcrText: () => lastOcrText,
+    setLastOcrText: (t) => { lastOcrText = t; },
+    updateHeroSearchState,
+    getCurrentHeroSearchState: () => currentHeroSearchState,
+    detectQueryMode,
+    selectQuickAddCandidate,
+    renderQuickAddSuggestions,
+    executeQuickAddLookup,
+    setQuickAddSearchMode,
+    getQuickAddSearchMode: () => currentQuickAddSearchMode,
+    loadQuickAddKanaMode,
+    initQuickAdd,
+    updateUnifiedStatusIndicator,
+    initServiceStatusPopover,
+    fetchAnkiConnectUrl,
+    initHistoryOverflowMenu,
+    getCurrentRenderedHistoryPage: () => currentRenderedHistoryPage,
+    HISTORY_PAGE_SIZE,
   };
+}
+
+if (typeof window !== "undefined") {
+  window.STORAGE_KEY_CARD_SECTION_PREFS = STORAGE_KEY_CARD_SECTION_PREFS;
+  window.defaultSectionPrefs = defaultSectionPrefs;
+  window.normalizeSectionPrefs = normalizeSectionPrefs;
+  window.loadStoredSectionPrefs = loadStoredSectionPrefs;
+  window.saveStoredSectionPrefs = saveStoredSectionPrefs;
+  window.applySectionPrefs = applySectionPrefs;
+  window.getCurrentSectionPrefs = getCurrentSectionPrefs;
+  window.applyPreset = applyPreset;
+  window.syncSectionPrefsUI = syncSectionPrefsUI;
+  window.openLayoutSettings = openLayoutSettings;
+  window.closeLayoutSettings = closeLayoutSettings;
+  window.resetLayoutSettings = resetLayoutSettings;
+  window.openAskFloat = openAskFloat;
+  window.closeAskFloat = closeAskFloat;
+  window.toggleAskFloat = toggleAskFloat;
+  window.minimizeAskFloat = minimizeAskFloat;
+  window.isAskFloatOpen = isAskFloatOpen;
+  window.updateAskPrivacyNotice = updateAskPrivacyNotice;
+  window.getCurrentMiningTab = () => currentMiningTab;
+  window.getLastOcrText = () => lastOcrText;
+  window.setLastOcrText = (t) => { lastOcrText = t; };
+  window.updateHeroSearchState = updateHeroSearchState;
+  window.getCurrentHeroSearchState = () => currentHeroSearchState;
+  window.detectQueryMode = detectQueryMode;
+  window.selectQuickAddCandidate = selectQuickAddCandidate;
+  window.renderQuickAddSuggestions = renderQuickAddSuggestions;
+  window.executeQuickAddLookup = executeQuickAddLookup;
+  window.setQuickAddSearchMode = setQuickAddSearchMode;
+  window.getQuickAddSearchMode = () => currentQuickAddSearchMode;
+  window.loadQuickAddKanaMode = loadQuickAddKanaMode;
+  window.initQuickAdd = initQuickAdd;
+  window.updateUnifiedStatusIndicator = updateUnifiedStatusIndicator;
+  window.initServiceStatusPopover = initServiceStatusPopover;
+  window.fetchAnkiConnectUrl = fetchAnkiConnectUrl;
+  window.initHistoryOverflowMenu = initHistoryOverflowMenu;
+  window.getCurrentRenderedHistoryPage = () => currentRenderedHistoryPage;
+  window.HISTORY_PAGE_SIZE = HISTORY_PAGE_SIZE;
 }
 

@@ -77,6 +77,11 @@ function createMockElement(tag = "div") {
     style: {},
     children: [],
     _listeners: {},
+    _attrs: {},
+    setAttribute(k, v) { this._attrs[k] = String(v); },
+    getAttribute(k) { return this._attrs[k] || null; },
+    removeAttribute(k) { delete this._attrs[k]; },
+    hasAttribute(k) { return k in this._attrs; },
     classList: {
       _classes: new Set(),
       add(...c) { c.forEach(x => this._classes.add(x)); },

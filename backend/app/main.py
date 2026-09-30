@@ -2,13 +2,15 @@ import base64
 import csv
 import io
 import os
+import re
+import time
 from contextlib import asynccontextmanager
 
-from typing import Union
+from typing import Any, Union
 
-from fastapi import Body, FastAPI, HTTPException, Query, status
+from fastapi import Body, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from app.config import APP_VERSION
 from app.db.connection import db_session, init_db
@@ -30,9 +32,13 @@ from app.schemas import (
     CardStatsResponse,
     DeleteCardResponse,
     HealthResponse,
+    LLMConfigResponse,
+    LLMConfigUpdateRequest,
     LLMRequest,
     LLMResponse,
     LLMStatusResponse,
+    LLMTestRequest,
+    LLMTestResponse,
     OcrRecognizeRequest,
     OcrRecognizeResponse,
     OcrStatusResponse,
@@ -41,6 +47,17 @@ from app.schemas import (
     SyncAllResponse,
     SyncCardResponse,
     YomitanDictionariesResponse,
+)
+from app.config import (
+    APP_VERSION,
+    get_llm_api_key,
+    get_llm_model,
+    get_llm_ollama_url,
+    get_llm_provider,
+    load_stored_llm_config,
+    resolve_default_llm_model,
+    resolve_llm_timeout,
+    save_stored_llm_config,
 )
 from app.services.card_service import CardService
 from app.services.ocr_service import (
@@ -66,6 +83,9 @@ from app.services.yomitan import YomitanError, YomitanService
 # Off by default so production/distributed builds do not expose developer APIs.
 _debug = os.getenv("KIROKU_DEBUG", "").strip().lower() in ("1", "true", "yes")
 
+ALLOWED_ORIGIN_REGEX = r"^(chrome-extension://.*|http://(localhost|127\.0\.0\.1)(:\d+)?)$"
+ALLOWED_ORIGIN_PATTERN = re.compile(ALLOWED_ORIGIN_REGEX)
+ALLOWED_HOST_PATTERN = re.compile(r"^(localhost|127\.0\.0\.1|testserver)(:\d+)?$", re.IGNORECASE)
 
 from app.services.ocr_process_manager import OcrProcessManager
 
@@ -88,16 +108,60 @@ app = FastAPI(
     docs_url="/docs" if _debug else None,
     redoc_url="/redoc" if _debug else None,
 )
+
+
+@app.middleware("http")
+async def validate_request_security(request: Request, call_next):
+    # 1. Host header validation (prevent DNS rebinding)
+    host = request.headers.get("host")
+    if host and not ALLOWED_HOST_PATTERN.match(host):
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": "Forbidden: Invalid Host header."},
+        )
+
+    # 2. State-changing methods Origin validation (prevent cross-site forged requests)
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        origin = request.headers.get("origin")
+        if origin and not ALLOWED_ORIGIN_PATTERN.match(origin):
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"detail": "Forbidden: Untrusted Origin."},
+            )
+
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^(chrome-extension://.*|http://(localhost|127\.0\.0\.1)(:\d+)?|null)$",
+    allow_origin_regex=ALLOWED_ORIGIN_REGEX,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+_health_cache: dict[str, Any] = {
+    "timestamp": 0.0,
+    "response": None,
+}
+HEALTH_CACHE_TTL_SECONDS = 3.0
+
+
+def clear_health_cache() -> None:
+    """Helper to clear health cache for testing or manual refresh."""
+    _health_cache["timestamp"] = 0.0
+    _health_cache["response"] = None
+
+
 @app.get("/api/health", response_model=HealthResponse)
 def get_health() -> HealthResponse:
+    now = time.monotonic()
+    if (
+        _health_cache["response"] is not None
+        and (now - _health_cache["timestamp"]) < HEALTH_CACHE_TTL_SECONDS
+    ):
+        return _health_cache["response"]
+
     # 1. Database check
     db_ok = False
     try:
@@ -133,7 +197,7 @@ def get_health() -> HealthResponse:
     except Exception:
         ocr_ok = False
 
-    return HealthResponse(
+    response = HealthResponse(
         status="ok",
         version=APP_VERSION,
         yomitan=yomitan_ok,
@@ -141,6 +205,9 @@ def get_health() -> HealthResponse:
         ocr=ocr_ok,
         db=db_ok,
     )
+    _health_cache["timestamp"] = now
+    _health_cache["response"] = response
+    return response
 
 
 @app.post("/api/capture", response_model=CaptureResponse)
@@ -244,13 +311,13 @@ def list_cards(
 def export_cards_csv(
     deck: str | None = None,
     deck_name: str | None = None,
-    status: str | None = None,
+    filter_status: str | None = Query(default=None, alias="status"),
     sync_status: str | None = None,
     search: str | None = None,
 ) -> Response:
     service = CardService()
     target_deck = deck or deck_name
-    target_status = status or sync_status
+    target_status = filter_status or sync_status
     records = service.repository.list_cards(
         search=search,
         deck_name=target_deck,
@@ -286,7 +353,7 @@ def get_cards_stats() -> CardStatsResponse:
 
 @app.delete("/api/cards/bulk", response_model=BulkDeleteCardsResponse)
 def delete_cards_bulk(
-    request: Union[BulkDeleteCardsRequest, list[Union[int, str]]] = Body(...),
+    request: Union[BulkDeleteCardsRequest, list[int]] = Body(...),
 ) -> BulkDeleteCardsResponse:
     if isinstance(request, BulkDeleteCardsRequest):
         raw_ids = request.card_ids
@@ -301,7 +368,7 @@ def delete_cards_bulk(
 
 @app.post("/api/cards/bulk-sync", response_model=SyncAllResponse)
 def sync_cards_bulk(
-    request: Union[BulkSyncCardsRequest, list[Union[int, str]]] = Body(...),
+    request: Union[BulkSyncCardsRequest, list[int]] = Body(...),
 ) -> SyncAllResponse:
     if isinstance(request, BulkSyncCardsRequest):
         raw_ids = request.card_ids
@@ -485,6 +552,40 @@ def get_kanji_strokes(character: str) -> Response:
 # LLM Assistant Endpoints
 # ============================================================================
 
+def _build_llm_config_response() -> LLMConfigResponse:
+    provider = get_llm_provider()
+    model = get_llm_model() or resolve_default_llm_model(provider)
+    ollama_url = get_llm_ollama_url()
+    raw_key = get_llm_api_key()
+    has_key = bool(raw_key and raw_key.strip())
+    key_preview = None
+    if has_key:
+        k = raw_key.strip()
+        if len(k) >= 8:
+            key_preview = f"{k[:4]}...{k[-4:]}"
+        else:
+            key_preview = "***"
+
+    if os.environ.get("KIROKU_LLM_PROVIDER"):
+        source = "env"
+    elif load_stored_llm_config().get("provider"):
+        source = "stored"
+    else:
+        source = "default"
+
+    timeout = resolve_llm_timeout()
+
+    return LLMConfigResponse(
+        provider=provider,
+        model=model,
+        ollama_url=ollama_url,
+        has_key=has_key,
+        key_preview=key_preview,
+        provider_source=source,
+        timeout=timeout,
+    )
+
+
 @app.get("/api/llm/status", response_model=LLMStatusResponse)
 def get_llm_status() -> LLMStatusResponse:
     """Check if backend LLM assistant is configured and return provider/model."""
@@ -494,6 +595,88 @@ def get_llm_status() -> LLMStatusResponse:
         provider=service.provider_name,
         model=service.model_name,
     )
+
+
+@app.get("/api/llm/config", response_model=LLMConfigResponse)
+def get_llm_config() -> LLMConfigResponse:
+    """Return active LLM configuration with masked API key."""
+    return _build_llm_config_response()
+
+
+@app.put("/api/llm/config", response_model=LLMConfigResponse)
+def update_llm_config(request: LLMConfigUpdateRequest) -> LLMConfigResponse:
+    """Update stored LLM settings in user data directory. Env vars still take precedence if set."""
+    stored = load_stored_llm_config()
+    if request.provider is not None:
+        stored["provider"] = request.provider.strip().lower()
+    if request.model is not None:
+        stored["model"] = request.model.strip()
+    if request.ollama_url is not None:
+        stored["ollama_url"] = request.ollama_url.strip().rstrip("/")
+    if request.api_key is not None:
+        if request.api_key.strip() == "":
+            stored.pop("api_key", None)
+        else:
+            stored["api_key"] = request.api_key.strip()
+    if request.timeout is not None:
+        stored["timeout"] = max(5.0, min(180.0, float(request.timeout)))
+
+    save_stored_llm_config(stored)
+    return _build_llm_config_response()
+
+
+@app.post("/api/llm/test", response_model=LLMTestResponse)
+def test_llm_connection(request: LLMTestRequest = Body(default=None)) -> LLMTestResponse:
+    """Execute a 1-token dummy query to verify provider connectivity and credentials."""
+    req = request or LLMTestRequest()
+    provider = req.provider or get_llm_provider()
+    api_key = req.api_key if req.api_key is not None else get_llm_api_key()
+    ollama_url = req.ollama_url or get_llm_ollama_url()
+    model = req.model or get_llm_model() or resolve_default_llm_model(provider)
+
+    if provider == "none":
+        return LLMTestResponse(
+            ok=False,
+            provider="none",
+            model=None,
+            error="No LLM provider configured.",
+        )
+
+    if provider in ("groq", "gemini") and not api_key:
+        return LLMTestResponse(
+            ok=False,
+            provider=provider,
+            model=model,
+            error=f"{provider.capitalize()} API key is required.",
+        )
+
+    service = get_llm_service(
+        provider=provider,
+        api_key=api_key,
+        ollama_url=ollama_url,
+        model=model,
+        timeout=10.0,
+    )
+
+    start = time.perf_counter()
+    try:
+        _, prov, mdl = service.ask(task="chat", text="1")
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        return LLMTestResponse(
+            ok=True,
+            provider=prov,
+            model=mdl,
+            duration_ms=duration_ms,
+        )
+    except Exception as exc:
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        return LLMTestResponse(
+            ok=False,
+            provider=provider,
+            model=model,
+            duration_ms=duration_ms,
+            error=str(exc),
+        )
 
 
 @app.post("/api/llm/ask", response_model=LLMResponse)
@@ -519,6 +702,11 @@ def ask_llm(request: LLMRequest) -> LLMResponse:
             provider=provider_name,
             model=model_name,
         )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
     except LLMNotConfiguredError as exc:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,

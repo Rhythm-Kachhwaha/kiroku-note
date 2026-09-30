@@ -14,9 +14,42 @@
     <header class="panel-header" id="panel-header">
       <div class="brand-section">
         <span class="brand-wordmark eyebrow">KIROKU</span>
-        
-        <!-- Minimal Service Dots (Yomi: Amber, Anki: Green, OCR: Green) -->
-        <div class="service-indicators connection-indicators" id="service-indicators" role="status" aria-label="Service connection status" title="Services: Yomitan (Amber), Anki (Green), OCR (Green)">
+
+        <!-- Unified Service Status Indicator with Popover -->
+        <div class="unified-service-status-wrap" id="unified-service-status-wrap">
+          <button type="button" class="unified-status-btn" id="unified-status-btn" aria-label="Services Status" aria-expanded="false" aria-haspopup="true">
+            <span class="unified-status-dot" id="unified-status-dot"></span>
+            <span class="unified-status-text" id="unified-status-text">Ready</span>
+          </button>
+          <div class="service-status-popover" id="service-status-popover" role="tooltip" hidden>
+            <div class="status-popover-header">Connected Services</div>
+            <ul class="status-popover-list">
+              <li class="status-popover-item">
+                <span class="status-dot-mini" id="popover-dot-yomitan"></span>
+                <span class="status-name">Yomitan</span>
+                <span class="status-detail" id="popover-detail-yomitan">Ready</span>
+              </li>
+              <li class="status-popover-item">
+                <span class="status-dot-mini" id="popover-dot-anki"></span>
+                <span class="status-name">Anki</span>
+                <span class="status-detail" id="popover-detail-anki">Checking…</span>
+              </li>
+              <li class="status-popover-item">
+                <span class="status-dot-mini" id="popover-dot-ocr"></span>
+                <span class="status-name">OCR</span>
+                <span class="status-detail" id="popover-detail-ocr">Checking…</span>
+              </li>
+              <li class="status-popover-item">
+                <span class="status-dot-mini" id="popover-dot-ai"></span>
+                <span class="status-name">AI</span>
+                <span class="status-detail" id="popover-detail-ai">Not configured</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Hidden legacy service dots for script & test compatibility -->
+        <div class="service-indicators connection-indicators" id="service-indicators" role="status" aria-label="Service connection status" title="Services: Yomitan (Amber), Anki (Green), OCR (Green)" style="display: none !important;" aria-hidden="true" hidden>
           <span id="indicator-yomitan" class="status-dot yomi indicator-pill" title="Yomitan: Ready" aria-label="Yomitan status">
             <span class="indicator-dot"></span>
           </span>
@@ -35,24 +68,22 @@
             <circle cx="8" cy="8" r="2"/>
           </svg>
         </button>
+        <button type="button" id="btn-ocr-ask" class="btn-ask-context-entry btn-ocr-ask" title="Ask AI about OCR capture" aria-label="Ask AI about OCR capture" hidden>
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M8 1a.75.75 0 0 1 .75.75V5a3 3 0 0 0 3 3h3.25a.75.75 0 0 1 0 1.5H11.75a3 3 0 0 0-3 3v3.25a.75.75 0 0 1-1.5 0V12.75a3 3 0 0 0-3-3H1a.75.75 0 0 1 0-1.5H4.25a3 3 0 0 0 3-3V1.75A.75.75 0 0 1 8 1z"/>
+          </svg>
+        </button>
       </div>
 
       <!-- Right Navigation Group -->
       <div class="header-right-nav">
-        <!-- Minimal Mode Tabs (Collapsible) -->
+        <!-- Minimal Mode Tabs -->
         <nav class="mode-nav-tabs mining-nav-tabs" role="tablist" aria-label="Primary Navigation">
           <button type="button" id="tab-btn-text" class="mode-tab-btn tab-btn active" role="tab" aria-selected="true" aria-controls="text-mining-view">Text</button>
           <button type="button" id="tab-btn-video" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="video-mining-view">Video</button>
-          <button type="button" id="tab-btn-quickadd" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="quickadd-mining-view">Quick</button>
-          <button type="button" id="tab-btn-ask" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="ask-mining-view">Ask</button>
+          <button type="button" id="tab-btn-ask" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="ask-mining-view" hidden style="display: none !important;">Ask</button>
           <button type="button" id="tab-btn-history" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="history-section">History</button>
         </nav>
-
-
-        <!-- Japanese Writing Mode Toggle [JP] (Located conveniently at top) -->
-        <button type="button" id="btn-editor-jp-mode" class="btn-jp-mode btn-editor-jp-mode" title="Toggle Japanese input assistance (Romaji → Kana)" aria-pressed="false">
-          <span class="jp-mode-tag">JP</span>
-        </button>
 
         <!-- Settings Gear Button (Opens Layout & Card Settings) -->
         <button type="button" id="btn-layout-settings" class="btn-settings-gear btn-layout-settings" title="Settings" aria-label="Settings" aria-expanded="false" aria-controls="layout-settings-popover">
@@ -61,12 +92,8 @@
           </svg>
         </button>
 
-        <!-- Minimal Arrow Toggle to Collapse/Expand Nav Tabs -->
-        <button type="button" id="btn-nav-collapse-toggle" class="btn-nav-collapse-toggle" title="Toggle Compact Header (Collapse / Expand Tabs)" aria-label="Toggle Navigation Header" aria-expanded="true">
-          <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 10l5-5 5 5"/>
-          </svg>
-        </button>
+        <!-- Hidden Nav Collapse Button for script compatibility -->
+        <button type="button" id="btn-nav-collapse-toggle" class="btn-nav-collapse-toggle" title="Toggle Compact Header" aria-label="Toggle Navigation Header" aria-expanded="true" hidden style="display: none !important;"></button>
       </div>
     </header>
 
@@ -96,7 +123,7 @@
         </div>
         <div class="clipboard-suggestion-actions">
           <button type="button" id="btn-clipboard-capture" class="btn-clipboard-action btn-clipboard-capture">Capture</button>
-          <button type="button" id="btn-clipboard-dismiss" class="btn-clipboard-action btn-clipboard-dismiss" aria-label="Dismiss clipboard suggestion">✕</button>
+          <button type="button" id="btn-clipboard-dismiss" class="btn-clipboard-action btn-clipboard-dismiss" aria-label="Dismiss clipboard suggestion">&times;</button>
         </div>
       </div>
       <!-- Live Mining Status Bar (Quiet, Subtle Dot - No Screaming Green) -->
@@ -117,9 +144,39 @@
     <div id="video-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-video" hidden>
       <section id="video-mining-section" class="video-mining-panel" aria-label="Video Mining Controls">
         
-        <!-- Subtitle Showing Panel (Kept Untouched as Requested) -->
+        <!-- 1. Source Bar (Load Subtitles, File Status, and Show Switch) -->
+        <div class="video-source-bar" id="video-source-bar">
+          <div class="subtitles-dropdown-wrapper">
+            <button type="button" id="load-subtitles-btn" class="btn-subtitles" aria-expanded="false" aria-haspopup="true">Load subtitles ▾</button>
+            <div id="subtitles-menu-dropdown" class="subtitles-menu-dropdown" hidden>
+              <button type="button" id="subtitles-menu-file" class="subtitles-menu-item">From file (.srt, .vtt, .ass)</button>
+              <button type="button" id="btn-select-subtitles-folder" class="btn-subtitles-folder subtitles-menu-item" title="Select subtitle folder">From folder</button>
+              <button type="button" id="btn-search-subtitles" class="btn-search-subtitles subtitles-menu-item" title="Search Japanese subtitles via Jimaku">Search (Jimaku)</button>
+              <div class="subtitles-menu-divider"></div>
+              <button type="button" id="clear-subtitles-btn" class="btn-clear-subtitles subtitles-menu-item" title="Clear loaded subtitles">Clear</button>
+            </div>
+          </div>
+          <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
+          <label class="ios-toggle-label video-source-toggle" for="toggle-subtitles-display" title="Toggle subtitle display on video on/off">
+            <span class="toggle-label">Show</span>
+            <div class="ios-switch">
+              <input type="checkbox" id="toggle-subtitles-display" class="ios-switch-input" checked>
+              <span class="ios-switch-slider"></span>
+            </div>
+          </label>
+          <input type="file" id="subtitles-file-input" accept=".srt,.vtt,.ass,.ssa" hidden>
+          <input type="file" id="subtitles-dir-input" webkitdirectory directory hidden>
+        </div>
+
+        <!-- 2. Subtitle Active Cue & Mine Sentence -->
         <div class="video-cue-preview-container video-sub-strip">
           <div id="video-current-cue-preview" class="video-cue-preview video-sub-text waiting">Waiting for playback…</div>
+          <button type="button" id="btn-video-cue-ask" class="btn-ask-context-entry btn-video-cue-ask" title="Ask AI about active subtitle" aria-label="Ask AI about active subtitle">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M8 1a.75.75 0 0 1 .75.75V5a3 3 0 0 0 3 3h3.25a.75.75 0 0 1 0 1.5H11.75a3 3 0 0 0-3 3v3.25a.75.75 0 0 1-1.5 0V12.75a3 3 0 0 0-3-3H1a.75.75 0 0 1 0-1.5H4.25a3 3 0 0 0 3-3V1.75A.75.75 0 0 1 8 1z"/>
+            </svg>
+            <span>Ask</span>
+          </button>
           <button type="button" id="btn-mine-full-sentence" class="btn-mine-sentence" title="Mine active subtitle sentence">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
               <path d="M2 4h12M2 8h12M2 12h8"/>
@@ -128,97 +185,78 @@
           </button>
         </div>
 
-        <!-- Subtitle In-Track Search / Jump (T4-B) -->
-        <div id="subtitle-search-section" class="video-search-section subtitle-search-section">
-          <div class="subtitle-search-input-wrap">
-            <svg class="search-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-              <circle cx="7" cy="7" r="5"/><path d="M11 11l4 4"/>
-            </svg>
-            <input type="text" id="subtitle-search-input" class="subtitle-search-input" placeholder="Search in subtitles… (e.g. 食べる)" autocomplete="off">
-            <button type="button" id="btn-clear-subtitle-search" class="btn-clear-search" title="Clear search" aria-label="Clear search" hidden>&times;</button>
-          </div>
-          <ul id="subtitle-search-results" class="subtitle-search-results" hidden></ul>
-        </div>
-
-        <!-- Subtitle History Hover Panel (Last 5 Cues - T4-C) -->
-        <div id="recent-cues-section" class="recent-cues-section" hidden>
-          <div class="recent-cues-header">
-            <span class="recent-cues-title">Recent Subtitles (Last 5)</span>
-            <span class="recent-cues-hint">Click word to mine</span>
-          </div>
-          <ul id="recent-cues-list" class="recent-cues-list"></ul>
-        </div>
-
-        <!-- Subtitle Folder Picker & Compact Offset Controls -->
-        <div class="video-bar-controls">
-          <div id="subtitle-folder-bar" class="video-folder-picker subtitle-folder-bar">
-            <span id="folder-name-label" class="video-folder-label folder-name-label" title="Active Subtitle Directory">
-              <svg class="folder-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round">
-                <path d="M1.5 3.5A1 1 0 0 1 2.5 2.5H6l1 1.5H13.5A1 1 0 0 1 14.5 5v7a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V3.5Z"/>
-              </svg>
-              Folder:
-            </span>
-            <select id="folder-subtitles-select" class="video-folder-select folder-subtitles-select" aria-label="Select subtitle from chosen folder">
-              <option value="">Select subtitle file…</option>
-            </select>
-          </div>
-
-          <div class="video-jog-btns-compact">
-            <span class="offset-label" style="font-size:10px; color:var(--text-muted); margin-right:4px;">Subtitle Offset: <span id="offset-display" class="subtitles-offset-val" data-alias="subtitles-offset-val">0 ms</span></span>
-            <select id="video-track-select" class="video-track-select" hidden aria-label="Select subtitle track">
-              <option value="">Default track</option>
-            </select>
-            <button type="button" id="offset-minus-btn" class="btn-jog-compact btn-offset btn-offset-minus" data-alias="btn-offset-minus" title="Decrease offset by 100 ms (-100 ms)">-100ms</button>
-            <button type="button" id="offset-reset-btn" class="btn-jog-compact btn-offset btn-offset-reset" data-alias="btn-offset-reset" title="Reset offset to 0 ms">Reset</button>
-            <button type="button" id="offset-plus-btn" class="btn-jog-compact btn-offset btn-offset-plus" data-alias="btn-offset-plus" title="Increase offset by 100 ms (+100 ms)">+100ms</button>
-          </div>
-        </div>
-
-        <!-- Subtitle Settings & Secondary Controls Collapsible Card -->
-        <div id="subtitle-controls-hidden-wrap" class="video-subtitle-settings-wrap">
-          <details id="subtitle-controls-details" class="subtitle-controls-details video-subtitle-settings-collapsible">
-            <summary class="subtitle-controls-summary">
-              <span class="subtitle-settings-header-title">Subtitle Settings</span>
-              <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
+        <!-- 3. Collapsed Video Tools Row (Search, Cues, Folder, Offset) -->
+        <div id="video-tools-wrap" class="video-tools-wrap">
+          <details id="video-tools-details" class="video-tools-details">
+            <summary class="video-tools-summary">
+              <span class="video-tools-summary-title">Tools (Search, Cues, Folder, Offset)</span>
             </summary>
-
-            <div class="video-subtitle-settings-content">
-              <div class="video-options-row video-load-subtitles-row">
-                <div class="subtitles-dropdown-wrapper">
-                  <button type="button" id="load-subtitles-btn" class="btn-subtitles" aria-expanded="false" aria-haspopup="true">Load subtitles ▾</button>
-                  <div id="subtitles-menu-dropdown" class="subtitles-menu-dropdown" hidden>
-                    <button type="button" id="subtitles-menu-file" class="subtitles-menu-item">From file (.srt, .vtt, .ass)</button>
-                    <button type="button" id="btn-select-subtitles-folder" class="btn-subtitles-folder subtitles-menu-item" title="Select subtitle folder">From folder</button>
-                    <button type="button" id="btn-search-subtitles" class="btn-search-subtitles subtitles-menu-item" title="Search Japanese subtitles via Jimaku">Search (Jimaku)</button>
-                    <div class="subtitles-menu-divider"></div>
-                    <button type="button" id="clear-subtitles-btn" class="btn-clear-subtitles subtitles-menu-item" title="Clear loaded subtitles">Clear</button>
-                  </div>
+            <div class="video-tools-content">
+              <!-- Subtitle In-Track Search / Jump (T4-B) -->
+              <div id="subtitle-search-section" class="video-search-section subtitle-search-section">
+                <div class="subtitle-search-input-wrap">
+                  <svg class="search-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <circle cx="7" cy="7" r="5"/><path d="M11 11l4 4"/>
+                  </svg>
+                  <input type="text" id="subtitle-search-input" class="subtitle-search-input" placeholder="Search in subtitles… (e.g. 食べる)" autocomplete="off">
+                  <button type="button" id="btn-clear-subtitle-search" class="btn-clear-search" title="Clear search" aria-label="Clear search" hidden>&times;</button>
                 </div>
-                <input type="file" id="subtitles-file-input" accept=".srt,.vtt,.ass,.ssa" hidden>
-                <input type="file" id="subtitles-dir-input" webkitdirectory directory hidden>
+                <ul id="subtitle-search-results" class="subtitle-search-results" hidden></ul>
               </div>
 
-              <div class="video-options-row">
-                <label class="ios-toggle-label" for="toggle-subtitles-display" title="Toggle subtitle display on video on/off">
-                  <span class="toggle-label">Show subtitles on video</span>
-                  <div class="ios-switch">
-                    <input type="checkbox" id="toggle-subtitles-display" class="ios-switch-input" checked>
-                    <span class="ios-switch-slider"></span>
-                  </div>
-                </label>
+              <!-- Subtitle History Hover Panel (Last 5 Cues - T4-C) -->
+              <div id="recent-cues-section" class="recent-cues-section" hidden>
+                <div class="recent-cues-header">
+                  <span class="recent-cues-title">Recent Subtitles (Last 5)</span>
+                  <span class="recent-cues-hint">Click word to mine</span>
+                </div>
+                <ul id="recent-cues-list" class="recent-cues-list"></ul>
               </div>
 
-              <div class="video-options-row">
+              <!-- Subtitle Folder Picker -->
+              <div id="subtitle-folder-bar" class="video-folder-picker subtitle-folder-bar">
+                <span id="folder-name-label" class="video-folder-label folder-name-label" title="Active Subtitle Directory">
+                  <svg class="folder-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round">
+                    <path d="M1.5 3.5A1 1 0 0 1 2.5 2.5H6l1 1.5H13.5A1 1 0 0 1 14.5 5v7a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V3.5Z"/>
+                  </svg>
+                  Folder:
+                </span>
+                <select id="folder-subtitles-select" class="video-folder-select folder-subtitles-select" aria-label="Select subtitle from chosen folder">
+                  <option value="">Select subtitle file…</option>
+                </select>
+              </div>
+
+              <!-- Streamlined Offset Stepper (− 0 ms +) -->
+              <div class="video-offset-stepper-wrap">
+                <span class="offset-label" style="font-size:11px; color:var(--text-muted); margin-right:4px;">Offset:</span>
+                <div class="video-offset-stepper">
+                  <button type="button" id="offset-minus-btn" class="btn-jog-compact btn-offset btn-offset-minus btn-offset-step" data-alias="btn-offset-minus" title="Decrease offset by 100 ms (−100 ms)" aria-label="Decrease offset">− 100ms</button>
+                  <span id="offset-display" class="subtitles-offset-val" data-alias="subtitles-offset-val">0 ms</span>
+                  <button type="button" id="offset-plus-btn" class="btn-jog-compact btn-offset btn-offset-plus btn-offset-step" data-alias="btn-offset-plus" title="Increase offset by 100 ms (+100 ms)" aria-label="Increase offset">+ 100ms</button>
+                  <button type="button" id="offset-reset-btn" class="btn-jog-compact btn-offset btn-offset-reset" data-alias="btn-offset-reset" title="Reset offset to 0 ms" aria-label="Reset offset">Reset</button>
+                </div>
+                <select id="video-track-select" class="video-track-select" hidden aria-label="Select subtitle track">
+                  <option value="">Default track</option>
+                </select>
+              </div>
+
+              <!-- Auto-pause on Subtitle Hover -->
+              <div class="video-options-row" style="margin-top: 6px;">
                 <label class="toggle-control" for="toggle-auto-pause-hover">
                   <input type="checkbox" id="toggle-auto-pause-hover" class="toggle-checkbox">
-                  <span class="toggle-label">Auto-pause on subtitle hover</span>
+                  <span class="toggle-label" style="font-size:11px;">Auto-pause on subtitle hover</span>
                 </label>
               </div>
             </div>
           </details>
+
+          <!-- Hidden legacy wrapper preserved for element ID lookup compatibility -->
+          <div id="subtitle-controls-hidden-wrap" style="display:none !important;" hidden>
+            <details id="subtitle-controls-details"><summary></summary></details>
+          </div>
         </div>
 
-        <!-- Jimaku Subtitles Search Modal -->
+        <!-- Jimaku Subtitles Search Modal (Decluttered, API Key in Settings -> Video) -->
         <div id="jimaku-search-modal" class="jimaku-modal" role="dialog" aria-modal="false" aria-label="Search Japanese Subtitles" hidden>
           <div class="jimaku-modal-header">
             <div class="jimaku-modal-title-row">
@@ -228,26 +266,8 @@
               <h3 class="jimaku-modal-title">Search Subtitles (Jimaku)</h3>
             </div>
             <button type="button" id="btn-close-jimaku-modal" class="btn-close-modal" title="Close subtitle search" aria-label="Close subtitle search">&times;</button>
-          </div>
-          <div class="jimaku-api-key-section">
-            <label for="jimaku-api-key-input" class="jimaku-label">API Key <span class="jimaku-hint">(stored locally)</span></label>
-            <div class="jimaku-key-row">
-              <input type="password" id="jimaku-api-key-input" class="jimaku-input" placeholder="Enter Jimaku API Key…" autocomplete="off">
-              <button type="button" id="btn-save-jimaku-key" class="btn-jimaku-action">Save</button>
-            </div>
-            <span id="jimaku-key-status" class="jimaku-status-note"></span>
-          </div>
-          <div class="jimaku-download-path-section">
-            <label for="jimaku-download-folder-input" class="jimaku-label">Download Subfolder / Destination</label>
-            <div class="jimaku-folder-row">
-              <input type="text" id="jimaku-download-folder-input" class="jimaku-input" placeholder="e.g. KirokuSubtitles or Subtitles" value="KirokuSubtitles" autocomplete="off">
-            </div>
-            <div class="jimaku-options-row">
-              <label class="toggle-control" for="toggle-save-subtitle-disk">
-                <input type="checkbox" id="toggle-save-subtitle-disk" class="toggle-checkbox" checked>
-                <span class="toggle-label">Auto-save downloaded subtitles to folder</span>
-              </label>
-            </div>
+          <div class="jimaku-settings-hint" style="font-size:11px; color:var(--text-muted); padding:4px 0 8px;">
+            Configure API key and download folder in Settings &rarr; Video.
           </div>
           <div class="jimaku-search-section">
             <label for="jimaku-search-input" class="jimaku-label">Anime / Media Title</label>
@@ -273,121 +293,111 @@
       </section>
     </div>
 
-    <!-- =========================================================
-         TAB 3: QUICK ADD VIEW (Spacious, Auto-Select on Click)
-         ========================================================= -->
-    <div id="quickadd-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-quickadd" hidden>
-      <div class="quickadd-container">
-        <div class="quickadd-header-row">
-          <div class="quickadd-header-left">
-            <span class="quickadd-help-text" id="quickadd-help-text">Type romaji — no IME needed.</span>
-            <span id="quickadd-session-count" class="session-counter">0 today</span>
-            <span id="quickadd-save-badge" class="badge" hidden></span>
-          </div>
-          <div class="quickadd-kana-mode-group qa-kana-toggle" role="radiogroup" aria-label="Input search mode">
-            <button type="button" id="quickadd-mode-hiragana" class="quickadd-mode-btn qa-kana-btn active" role="radio" aria-checked="true" title="Japanese / Kana mode (あ)">あ</button>
-            <button type="button" id="quickadd-mode-english" class="quickadd-mode-btn qa-kana-btn" role="radio" aria-checked="false" title="English meaning search mode (EN)">EN</button>
-          </div>
-        </div>
-        <div class="quickadd-input-row qa-input-box">
-          <div class="quickadd-input-wrapper" style="width:100%;">
-            <input
-              type="text"
-              id="quickadd-input"
-              class="quickadd-input qa-input-field"
-              placeholder="Type romaji or Japanese… (e.g. nomu)"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="none"
-              spellcheck="false"
-              aria-label="Quick Add word input"
-              aria-autocomplete="list"
-              aria-controls="quickadd-suggestions-list"
-              aria-expanded="false"
-            >
-            <button type="button" id="quickadd-clear-btn" class="quickadd-clear-btn" title="Clear input" aria-label="Clear input" hidden>&times;</button>
-          </div>
-        </div>
-        <div id="quickadd-suggestions-container" class="quickadd-suggestions-container qa-candidates-container" hidden>
-          <div class="quickadd-suggestions-header">SUGGESTIONS</div>
-          <ul id="quickadd-suggestions-list" class="quickadd-suggestions-list" role="listbox" aria-label="Quick Add suggestions"></ul>
-          <div class="quickadd-footer-hint">Click a candidate to immediately load into Card Editor</div>
-        </div>
-      </div>
-    </div>
 
     <!-- =========================================================
-         TAB 4: ASK (AI ASSISTANT TAB)
+         FLOATING ASK DRAWER (OVERLAY ACROSS ALL TABS)
          ========================================================= -->
-    <div id="ask-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-ask" hidden>
-      
-      <!-- 1. AI Assistant Status & Controls Bar -->
-      <div class="ask-status-bar">
-        <div class="ask-provider-pill" id="ask-provider-pill" title="Configured via backend KIROKU_LLM_PROVIDER">
-          <span class="ask-status-dot online" id="ask-status-dot"></span>
-          <span class="ask-provider-name" id="ask-provider-name">AI Assistant</span>
-          <span class="ask-model-tag" id="ask-model-tag">checking...</span>
+    <aside id="ask-float" class="ask-float-drawer" role="dialog" aria-modal="false" aria-label="Ask AI" hidden>
+      <div class="ask-float-handle" aria-hidden="true"></div>
+      <div class="ask-float-header">
+        <div class="ask-float-title">
+          <svg class="ask-sparkle-icon" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M8 1a.75.75 0 0 1 .75.75V5a3 3 0 0 0 3 3h3.25a.75.75 0 0 1 0 1.5H11.75a3 3 0 0 0-3 3v3.25a.75.75 0 0 1-1.5 0V12.75a3 3 0 0 0-3-3H1a.75.75 0 0 1 0-1.5H4.25a3 3 0 0 0 3-3V1.75A.75.75 0 0 1 8 1z"/>
+          </svg>
+          <span class="ask-title-text">Ask AI</span>
+          <span class="ask-cloud-notice" id="ask-cloud-notice" hidden title="Cloud provider active">Cloud</span>
         </div>
-        <div class="ask-top-actions">
-          <button type="button" class="btn-ask-reset" id="btn-ask-new-chat" title="Clear current conversation history">
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <line x1="8" y1="2" x2="8" y2="14"/>
-              <line x1="2" y1="8" x2="14" y2="8"/>
+        <div class="ask-header-controls">
+          <button type="button" class="btn-ask-float-control" id="btn-ask-minimize" title="Minimize drawer" aria-label="Minimize drawer">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M2 8a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 8z"/>
             </svg>
-            <span>New Chat</span>
+          </button>
+          <button type="button" class="btn-ask-float-control" id="btn-ask-close" title="Close drawer (Esc)" aria-label="Close drawer">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/>
+            </svg>
           </button>
         </div>
       </div>
 
-      <!-- 2. Active Context Detection Banner (Auto-detects active Video Subtitle or Webpage Selection) -->
-      <div class="ask-context-banner" id="ask-context-banner" hidden>
-        <div class="ask-context-header">
-          <span class="context-type-badge" id="context-type-badge">Detected Context</span>
-          <span class="context-source-badge" id="context-source-badge"></span>
-          <button type="button" class="btn-ask-context-dismiss" id="btn-dismiss-context" title="Dismiss context" aria-label="Dismiss context">&times;</button>
-        </div>
-        <div class="ask-context-text" id="ask-context-text"></div>
-        <div class="ask-context-actions">
-          <button type="button" class="btn-ask-context-action" id="btn-ctx-solve" data-task="answer_question">Solve &amp; Explain MCQ</button>
-          <button type="button" class="btn-ask-context-action" id="btn-ctx-grammar" data-task="explain_grammar">Grammar Breakdown</button>
-          <button type="button" class="btn-ask-context-action" id="btn-ctx-translate" data-task="translate">Translate</button>
-        </div>
-      </div>
-
-      <!-- 3. Scrollable Conversation Stream -->
-      <div class="ask-chat-stream" id="ask-chat-stream">
-        <div class="ask-empty-state" id="ask-empty-state">
-          <div class="ask-empty-title">Ask about Japanese</div>
-          <div class="ask-empty-subtitle">Select text on page, use video subtitles, or paste an MCQ to get step-by-step explanations.</div>
-        </div>
-      </div>
-
-      <!-- 4. Quick Task Prompt Chips -->
-      <div class="ask-prompt-chips-wrap" id="ask-prompt-chips-wrap">
-        <button type="button" class="prompt-chip active" data-task="answer_question">Answer MCQ / JLPT</button>
-        <button type="button" class="prompt-chip" data-task="explain_grammar">Explain Grammar</button>
-        <button type="button" class="prompt-chip" data-task="explain_sense">Sense in Context</button>
-        <button type="button" class="prompt-chip" data-task="translate">Translate</button>
-        <button type="button" class="prompt-chip" data-task="mnemonic">Mnemonic Hook</button>
-      </div>
-
-      <!-- 5. Composer Area (Textarea + Send) -->
-      <div class="ask-composer-container">
-        <textarea id="ask-input-box" class="ask-input-box" placeholder="Ask anything about Japanese, paste an MCQ or sentence..." rows="2" aria-label="Ask input"></textarea>
+      <div id="ask-mining-view" class="mining-tab-view ask-float-body" role="region" aria-labelledby="ask-fab">
         
-        <div class="ask-composer-toolbar">
-          <div class="composer-left-tools">
-            <span class="ask-char-count" id="ask-char-count"></span>
+        <!-- 1. AI Assistant Status & Controls Bar -->
+        <div class="ask-status-bar">
+          <div class="ask-provider-pill" id="ask-provider-pill" title="Configured via backend KIROKU_LLM_PROVIDER">
+            <span class="ask-status-dot checking" id="ask-status-dot"></span>
+            <span class="ask-provider-name" id="ask-provider-name">AI Assistant</span>
+            <span class="ask-model-tag" id="ask-model-tag">checking...</span>
           </div>
-
-          <button type="button" class="btn-ask-submit" id="btn-ask-submit">
-            <span>Ask AI</span>
-            <kbd>Enter</kbd>
-          </button>
+          <div class="ask-top-actions">
+            <button type="button" class="btn-ask-reset" id="btn-ask-new-chat" title="Clear current conversation history">
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="8" y1="2" x2="8" y2="14"/>
+                <line x1="2" y1="8" x2="14" y2="8"/>
+              </svg>
+              <span>New Chat</span>
+            </button>
+          </div>
         </div>
-      </div>
 
-    </div>
+        <!-- 2. Active Context Detection Banner (Auto-detects active Video Subtitle or Webpage Selection) -->
+        <div class="ask-context-banner" id="ask-context-banner" hidden>
+          <div class="ask-context-header">
+            <span class="context-type-badge" id="context-type-badge">Detected Context</span>
+            <span class="context-source-badge" id="context-source-badge"></span>
+            <button type="button" class="btn-ask-context-dismiss" id="btn-dismiss-context" title="Dismiss context" aria-label="Dismiss context">&times;</button>
+          </div>
+          <div class="ask-context-text" id="ask-context-text"></div>
+          <div class="ask-context-actions" style="display:none !important;" hidden>
+            <button type="button" class="btn-ask-context-action" id="btn-ctx-solve" data-task="answer_question">Solve &amp; Explain MCQ</button>
+            <button type="button" class="btn-ask-context-action" id="btn-ctx-grammar" data-task="explain_grammar">Grammar Breakdown</button>
+            <button type="button" class="btn-ask-context-action" id="btn-ctx-translate" data-task="translate">Translate</button>
+          </div>
+        </div>
+
+        <!-- 3. Scrollable Conversation Stream -->
+        <div class="ask-chat-stream" id="ask-chat-stream">
+          <div class="ask-empty-state" id="ask-empty-state">
+            <div class="ask-empty-title">Ask about Japanese</div>
+            <div class="ask-empty-subtitle">Select text on page, use video subtitles, or paste an MCQ to get step-by-step explanations.</div>
+          </div>
+        </div>
+
+        <!-- 4. Unified Task Prompt Chips Bar -->
+        <div class="ask-prompt-chips-wrap" id="ask-prompt-chips-wrap">
+          <button type="button" class="prompt-chip active" data-task="answer_question">Answer MCQ / JLPT</button>
+          <button type="button" class="prompt-chip" data-task="explain_grammar">Explain Grammar</button>
+          <button type="button" class="prompt-chip" data-task="explain_sense">Sense in Context</button>
+          <button type="button" class="prompt-chip" data-task="translate">Translate</button>
+          <button type="button" class="prompt-chip" data-task="mnemonic">Mnemonic Hook</button>
+        </div>
+
+        <!-- 5. Composer Area (Textarea + Send Icon Button) -->
+        <div class="ask-composer-container">
+          <textarea id="ask-input-box" class="ask-input-box" placeholder="Ask anything about Japanese, paste an MCQ or sentence..." rows="2" aria-label="Ask input"></textarea>
+          
+          <div class="ask-composer-toolbar">
+            <div class="composer-left-tools">
+              <span class="ask-char-count" id="ask-char-count"></span>
+            </div>
+
+            <button type="button" class="btn-ask-submit btn-ask-submit-icon" id="btn-ask-submit" title="Ask AI (Enter)" aria-label="Send query">
+              <svg class="send-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M1.591 1.056a.75.75 0 0 1 .816.057l12 8a.75.75 0 0 1 0 1.25l-12 8A.75.75 0 0 1 1.25 17.75v-6.234l7.108-1.523-7.108-1.523V2.25a.75.75 0 0 1 .341-.694z"/>
+              </svg>
+              <span class="btn-ask-label" style="display:none;">Ask AI</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 6. Cloud Provider Privacy Disclosure -->
+        <div class="ask-privacy-disclosure" id="ask-privacy-disclosure" hidden>
+          Selected text and sentences are sent to <span id="ask-privacy-provider">provider</span>.
+        </div>
+
+      </div><!-- ========================================================= -->
+    </aside>
 
     <!-- =========================================================
          CARD WORKSPACE: HERO + CARD EDITOR + PREVIEW + DICTIONARY
@@ -417,7 +427,42 @@
           <section id="captured-word-section" class="word-showcase-card captured-word-hero" aria-label="Captured Japanese Word">
             <div id="reading" class="word-reading-lead hero-reading"></div>
             <div class="hero-expression-row">
-              <h1 id="expression" class="word-main-term hero-expression">—</h1>
+              <h1 id="expression" class="word-main-term hero-expression" tabindex="0" role="button" aria-label="Captured Japanese word. Click to search or edit (/)" title="Click to search or edit (/)">—</h1>
+
+              <!-- Hero Search & Quick Add Input -->
+              <div id="hero-search-container" class="hero-search-container" role="search" aria-label="Quick dictionary search">
+                <div class="hero-search-input-wrap">
+                  <svg class="hero-search-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="7" cy="7" r="4.5"/>
+                    <path d="M10.5 10.5L14 14"/>
+                  </svg>
+                  <input
+                    type="text"
+                    id="hero-search-input"
+                    class="hero-search-input"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded="false"
+                    aria-controls="hero-search-popup"
+                    aria-label="Search Japanese word or English meaning"
+                    placeholder="Type romaji, kana or English…"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="none"
+                    spellcheck="false"
+                  >
+                  <button type="button" id="btn-hero-search-mode" class="hero-search-mode-btn" title="Toggle Search Mode: Auto / Kana (あ) / English (EN) [F6/F7]" aria-label="Toggle Search Mode">
+                    <span id="hero-search-mode-tag" class="hero-search-mode-tag">AUTO</span>
+                  </button>
+                  <button type="button" id="btn-hero-search-clear" class="hero-search-clear-btn" title="Clear search" aria-label="Clear search" hidden>&times;</button>
+                </div>
+              </div>
+
+              <button type="button" id="btn-hero-ask" class="btn-ask-context-entry hero-ask-btn" aria-label="Ask AI about this word" title="Ask AI about this word">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                  <path d="M8 1a.75.75 0 0 1 .75.75V5a3 3 0 0 0 3 3h3.25a.75.75 0 0 1 0 1.5H11.75a3 3 0 0 0-3 3v3.25a.75.75 0 0 1-1.5 0V12.75a3 3 0 0 0-3-3H1a.75.75 0 0 1 0-1.5H4.25a3 3 0 0 0 3-3V1.75A.75.75 0 0 1 8 1z"/>
+                </svg>
+              </button>
               <button type="button" id="btn-tts-play" class="btn-tts" aria-label="Play pronunciation" title="Play pronunciation" hidden>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
@@ -425,6 +470,17 @@
                 </svg>
               </button>
             </div>
+
+            <!-- Candidate Dropdown Popup -->
+            <div id="hero-search-popup" class="hero-search-popup" role="region" aria-label="Search suggestions" hidden>
+              <div class="hero-search-header-row">
+                <span class="hero-search-header-title">SUGGESTIONS</span>
+                <span id="hero-search-mode-indicator" class="hero-search-mode-indicator">Auto</span>
+              </div>
+              <ul id="hero-search-suggestions" class="hero-search-suggestions-list" role="listbox" aria-label="Search suggestions"></ul>
+              <div class="hero-search-footer-hint">Click or press Enter to load into card</div>
+            </div>
+
             <div id="word-meanings-summary" class="word-meanings-summary" hidden></div>
             <div class="word-badges-row" id="word-badges-row">
               <span id="showcase-jlpt-badge" class="kn-badge jlpt" hidden></span>
@@ -443,6 +499,24 @@
             </button>
           </div>
 
+          <!-- Media Status Chips: Immediate visual presence confirmation before saving -->
+          <div id="media-status-chips" class="media-status-chips" aria-label="Attached media status" hidden>
+            <div class="media-chip" id="media-chip-image" hidden title="Captured video frame">
+              <span class="media-chip-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="12" height="10" rx="2"/><circle cx="8" cy="9" r="2.5"/></svg>
+              </span>
+              <span class="media-chip-label" id="media-chip-image-label">Image ✓</span>
+              <button type="button" class="btn-media-chip-remove" id="btn-media-chip-remove-image" title="Remove image" aria-label="Remove image">&times;</button>
+            </div>
+            <div class="media-chip" id="media-chip-audio" hidden title="Captured audio clip">
+              <span class="media-chip-icon" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 1a2.5 2.5 0 0 0-2.5 2.5v5a2.5 2.5 0 0 0 5 0v-5A2.5 2.5 0 0 0 8 1z"/></svg>
+              </span>
+              <span class="media-chip-label" id="media-chip-audio-label">Audio ✓</span>
+              <button type="button" class="btn-media-chip-remove" id="btn-media-chip-remove-audio" title="Remove audio" aria-label="Remove audio">&times;</button>
+            </div>
+          </div>
+
           <!-- 3. Borderless Deck & Card Type Dropdowns (Unobtrusive & Subtle) -->
           <div id="card-settings-section" class="deck-selector-borderless card-settings-section" data-layout-section="settings">
             <div class="form-group deck-selector-group">
@@ -457,6 +531,10 @@
                 <option value="Basic">Basic</option>
               </select>
             </div>
+            <!-- Japanese Writing Mode Toggle [JP] (Relocated into Card Editor toolbar) -->
+            <button type="button" id="btn-editor-jp-mode" class="btn-jp-mode btn-editor-jp-mode" title="Toggle Japanese input assistance (Romaji → Kana)" aria-pressed="false">
+              <span class="jp-mode-tag">JP</span>
+            </button>
             <span id="anki-sync-status" class="sync-status-label" hidden></span>
             <div id="card-target-destination" class="card-target-destination" hidden>
               <span id="dest-deck-val">Default</span>
@@ -545,7 +623,9 @@
           <details id="media-preview-collapsible" class="media-preview-collapsible" data-layout-section="media" hidden style="display: none !important;">
             <summary class="media-collapsible-summary">
               <span class="media-summary-label">
-                <span class="media-summary-icon">📷</span>
+                <span class="media-summary-icon">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="4" width="12" height="10" rx="2"/><circle cx="8" cy="9" r="2.5"/><path d="M5 4l1.5-2h3L11 4"/></svg>
+                </span>
                 <span>Captured Media</span>
               </span>
               <span id="media-summary-badge" class="media-summary-badge">None</span>
@@ -560,7 +640,9 @@
                 </div>
                 <div class="media-thumbnail-wrapper">
                   <div id="image-empty-placeholder" class="media-empty-placeholder">
-                    <span class="media-placeholder-icon">📸</span>
+                    <span class="media-placeholder-icon">
+                      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="4" width="12" height="10" rx="2"/><circle cx="8" cy="9" r="2.5"/><path d="M5 4l1.5-2h3L11 4"/></svg>
+                    </span>
                     <span class="media-placeholder-text">No frame captured</span>
                   </div>
                   <img id="image-preview" class="media-thumbnail" alt="Captured video frame" src="" hidden style="display: none;">
@@ -580,7 +662,9 @@
                 </div>
                 <div class="media-audio-wrapper">
                   <div id="audio-empty-placeholder" class="media-empty-placeholder">
-                    <span class="media-placeholder-icon">🎙️</span>
+                    <span class="media-placeholder-icon">
+                      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 1a2.5 2.5 0 0 0-2.5 2.5v5a2.5 2.5 0 0 0 5 0v-5A2.5 2.5 0 0 0 8 1z"/><path d="M4 7.5a4 4 0 0 0 8 0M8 12v3M5 15h6"/></svg>
+                    </span>
                     <span id="audio-placeholder-text" class="media-placeholder-text">No audio clip</span>
                   </div>
                   <audio id="audio-preview" class="media-audio-player" controls preload="metadata" src="" hidden></audio>
@@ -593,10 +677,21 @@
           <section id="dictionary-section" class="dict-section-wrap dictionary-section" data-layout-section="dictionary" aria-label="Dictionary Information">
             <div class="dict-header-row section-header dict-section-header">
               <div class="dict-header-left dict-title-row">
+                <button type="button" id="btn-dict-collapse" class="btn-dict-collapse" aria-expanded="true" aria-controls="dict-body" title="Collapse or expand dictionary" aria-label="Collapse or expand dictionary">
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 6l4 4 4-4"/>
+                  </svg>
+                </button>
                 <h2 class="section-title">DICTIONARY</h2>
                 <span id="dict-jlpt-badge" class="kn-tag kn-jlpt dict-header-jlpt-badge" hidden></span>
+                <span id="dict-collapsed-summary" class="dict-collapsed-summary" hidden></span>
               </div>
               <div class="dict-actions-bar" id="dict-actions-bar">
+                <div class="dict-ai-actions" id="dict-ai-actions">
+                  <button type="button" id="btn-dict-ai-translate" class="btn-dict-action btn-ai-action" title="Translate current sentence via AI">Translate</button>
+                  <button type="button" id="btn-dict-ai-sense" class="btn-dict-action btn-ai-action" title="Explain word sense in context via AI">Sense</button>
+                  <button type="button" id="btn-dict-ai-mnemonic" class="btn-dict-action btn-ai-action" title="Generate mnemonic hook via AI">Mnemonic</button>
+                </div>
                 <button type="button" id="btn-copy-raw-dict" class="btn-copy-raw btn-dict-action" title="Copy raw dictionary text">
                   <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="5" y="5" width="8" height="8" rx="1.5"/>
@@ -606,13 +701,25 @@
                 </button>
               </div>
             </div>
-            <div id="dict-loading-indicator" class="dict-loading-indicator" hidden>
-              <span class="dict-loading-dot"></span>
-              <span class="dict-loading-text">Searching Yomitan dictionary…</span>
+            <div id="dict-body" class="collapsible-body dict-collapsible-body">
+              <div id="dict-loading-indicator" class="dict-loading-indicator" hidden>
+                <span class="dict-loading-dot"></span>
+                <span class="dict-loading-text">Searching Yomitan dictionary…</span>
+              </div>
+              <div id="dict-empty-notice" class="dict-empty-notice" hidden>No dictionary entries found for this term.</div>
+              <div id="dict-ai-result-card" class="dict-ai-result-card" hidden>
+                <div class="dict-ai-result-header">
+                  <span class="dict-ai-result-title" id="dict-ai-result-title">AI Assistant</span>
+                  <div class="dict-ai-result-actions">
+                    <button type="button" id="btn-dict-ai-add-notes" class="btn-chat-action btn-add-ai-notes" title="Add explanation to card notes">Add to Notes</button>
+                    <button type="button" id="btn-dict-ai-close" class="btn-chat-action btn-dict-ai-close" aria-label="Close AI result">&times;</button>
+                  </div>
+                </div>
+                <div class="dict-ai-result-body" id="dict-ai-result-body"></div>
+              </div>
+              <div id="meanings" class="details dict-study-view"></div>
+              <div id="examples" class="details" hidden></div>
             </div>
-            <div id="dict-empty-notice" class="dict-empty-notice" hidden>No dictionary entries found for this term.</div>
-            <div id="meanings" class="details dict-study-view"></div>
-            <div id="examples" class="details" hidden></div>
           </section>
 
         </div>
@@ -631,26 +738,40 @@
           <h2 class="section-title history-title">HISTORY</h2>
         </div>
         <div class="history-header-actions">
-          <div class="history-sync-progress-group" id="history-sync-progress-group" title="Sync progress">
+          <div class="history-sync-progress-group" id="history-sync-progress-group" title="Sync progress" style="display:none;">
             <div class="history-progress-track">
               <div id="history-progress-bar" class="history-progress-bar" style="width: 0%;"></div>
             </div>
             <span id="history-sync-label" class="history-sync-label">0 / 0 synced</span>
           </div>
-          <span id="history-count" class="history-count">0 cards</span>
-          <button type="button" id="btn-sync-all" class="btn-sync-all btn-act-anki" title="Sync all eligible cards to Anki" aria-label="Sync all eligible cards to Anki">
-            <span>Sync All</span>
-          </button>
-          <button type="button" id="btn-export-cards" class="btn-export-cards btn-secondary" title="Export cards to CSV" aria-label="Export cards to CSV">
-            <span>Export CSV</span>
-          </button>
+          <span id="history-count" class="history-count" style="display:none;">0 cards</span>
+          <div class="history-actions-menu-wrap" id="history-actions-menu-wrap">
+            <button type="button" id="btn-history-overflow" class="btn-history-overflow" aria-expanded="false" aria-haspopup="true" title="History Actions (Sort, Export, Bulk, Sync)" aria-label="History actions">⋯</button>
+            <div id="history-overflow-menu" class="history-overflow-menu" hidden>
+              <button type="button" id="btn-sync-all" class="history-overflow-item btn-sync-all btn-act-anki" title="Sync all eligible cards to Anki" aria-label="Sync all eligible cards to Anki">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 8A6 6 0 1 1 8 2M14 2v6h-6"/></svg>
+                <span>Sync All</span>
+              </button>
+              <button type="button" id="btn-export-cards" class="history-overflow-item btn-export-cards btn-secondary" title="Export cards to CSV" aria-label="Export cards to CSV">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12h12M8 2v8M4 6l4 4 4-4"/></svg>
+                <span>Export CSV</span>
+              </button>
+              <button type="button" id="btn-toggle-bulk-select" class="history-overflow-item btn-toggle-bulk-select" title="Toggle bulk selection checkboxes">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8l2 2 4-4"/></svg>
+                <span>Bulk Select</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       <div id="history-content-container" class="history-content-container" hidden>
+        <!-- Consolidated Single Line Summary ("12 today · 163/213 synced") -->
+        <div id="history-stats-summary-line" class="history-stats-summary-line">0 today · 0 / 0 synced</div>
+
         <!-- Mining Stats Dashboard (T3-F) -->
         <details id="history-stats-details" class="history-stats-details">
-          <summary id="history-stats-summary" class="history-stats-summary">Stats ▸</summary>
+          <summary id="history-stats-summary" class="history-stats-summary">Detailed breakdown ▸</summary>
           <div id="history-stats-content" class="history-stats-content">
             <div class="stats-loading">Loading stats…</div>
           </div>
@@ -662,7 +783,9 @@
         <div id="sync-progress-modal" class="sync-progress-modal" role="dialog" aria-modal="false" aria-label="Sync All Progress" hidden>
           <div class="sync-progress-modal-header">
             <div class="sync-progress-modal-title-row">
-              <span class="sync-progress-modal-icon" aria-hidden="true">🔄</span>
+              <span class="sync-progress-modal-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 8A6 6 0 1 1 8 2M14 2v6h-6"/></svg>
+              </span>
               <h3 class="sync-progress-modal-title">Sync All to Anki</h3>
             </div>
             <button type="button" id="btn-close-sync-modal" class="btn-close-modal" title="Close sync progress" aria-label="Close sync progress">&times;</button>
@@ -743,7 +866,7 @@
     <!-- =========================================================
          TAB 5: SETTINGS VIEW (Orange Headings + Full Features, No "Done" Button)
          ========================================================= -->
-    <div id="layout-settings-popover" class="card-settings-popover layout-settings-popover" role="dialog" aria-modal="false" aria-label="Card Settings" hidden>
+    <div id="layout-settings-popover" class="mining-tab-view settings-tab-view card-settings-popover layout-settings-popover" role="tabpanel" aria-labelledby="btn-layout-settings" hidden>
       <div class="card-settings-header layout-settings-header">
         <div class="card-settings-title-row layout-settings-title-row">
           <span class="card-settings-icon layout-settings-icon" aria-hidden="true">
@@ -758,9 +881,9 @@
 
       <div class="card-settings-body settings-content-body">
         
-        <!-- General Section -->
-        <div class="card-settings-group settings-group">
-          <span class="settings-group-title">General</span>
+        <!-- SECTION 1: DISPLAY -->
+        <div class="card-settings-group settings-group" id="settings-group-display">
+          <span class="settings-group-title">Display</span>
           <div class="settings-row">
             <label for="field-font-select" class="settings-label">Japanese Font</label>
             <select id="field-font-select" name="font_select" class="deck-select-subtle settings-select">
@@ -769,6 +892,138 @@
               <option value="system-ui">System Default</option>
             </select>
           </div>
+
+          <!-- Section Order & Visibility -->
+          <details class="settings-section-order-details" open style="margin-top: 10px;">
+            <summary class="settings-order-summary">Section Layout &amp; Visibility</summary>
+            <div class="layout-presets-bar">
+              <span class="settings-label">Presets:</span>
+              <button type="button" id="btn-preset-minimal" class="btn-preset btn-secondary">Minimal</button>
+              <button type="button" id="btn-preset-standard" class="btn-preset btn-secondary">Standard</button>
+              <button type="button" id="btn-preset-full" class="btn-preset btn-secondary">Full Study</button>
+            </div>
+            <div id="layout-sections-list" class="layout-sections-list" role="list" aria-label="Card sections order"></div>
+            <div class="layout-settings-footer">
+              <button type="button" id="btn-reset-layout" class="btn-reset-layout">Reset to Default</button>
+            </div>
+          </details>
+
+          <!-- Dictionary Contents Display Checklist -->
+          <div class="dict-contents-box" id="settings-group-dict-contents" style="margin-top: 12px;">
+            <span class="settings-group-subtitle">Dictionary Contents Display</span>
+            <div class="settings-subtext">Toggle which study components appear in definition view. All data remains saved to cards.</div>
+            <div class="dict-contents-checklist" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+              <div class="settings-row">
+                <span class="settings-label">Kanji Cards</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-dict-kanji" class="setting-checkbox switch-input" checked>
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row">
+                <span class="settings-label">Stroke Order Diagrams</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-dict-strokes" class="setting-checkbox switch-input" checked>
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row">
+                <span class="settings-label">Example Sentences</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-dict-examples" class="setting-checkbox switch-input" checked>
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row">
+                <span class="settings-label">Secondary / Other Dictionaries</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-dict-other-dicts" class="setting-checkbox switch-input" checked>
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row">
+                <span class="settings-label">Cross-References</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-dict-xrefs" class="setting-checkbox switch-input" checked>
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row">
+                <span class="settings-label">Sense &amp; POS Tags</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-dict-sense-tags" class="setting-checkbox switch-input" checked>
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 2: CARD -->
+        <div class="card-settings-group settings-group" id="settings-group-card">
+          <span class="settings-group-title">Card</span>
+          <div class="settings-subtext">Front and back card preview and export templates.</div>
+          
+          <!-- Compact Grid for Front / Back Card Fields -->
+          <div class="card-template-grid">
+            <div class="card-side-col">
+              <span class="card-side-label">Front Side</span>
+              <div class="settings-row compact">
+                <span class="settings-label">Reading</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-front-reading" class="setting-checkbox switch-input">
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row compact">
+                <span class="settings-label">Meaning</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-front-meaning" class="setting-checkbox switch-input">
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row compact">
+                <span class="settings-label">Kanji Reading</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-front-kanji-reading" class="setting-checkbox switch-input">
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row compact">
+                <span class="settings-label">Hint</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-front-hint" class="setting-checkbox switch-input">
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="card-side-col">
+              <span class="card-side-label">Back Side</span>
+              <div class="settings-row compact">
+                <span class="settings-label">Reading</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-back-reading" class="setting-checkbox switch-input" checked>
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row compact">
+                <span class="settings-label">Meaning</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-back-meaning" class="setting-checkbox switch-input" checked>
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+              <div class="settings-row compact">
+                <span class="settings-label">Hint</span>
+                <label class="switch-control setting-checkbox-label">
+                  <input type="checkbox" id="setting-back-hint" class="setting-checkbox switch-input" checked>
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
           <div class="settings-row">
             <span class="settings-label">Show JLPT Badge</span>
             <label class="switch-control setting-checkbox-label">
@@ -783,64 +1038,10 @@
               <span class="switch-slider"></span>
             </label>
           </div>
-          <div class="settings-row">
+          <div class="settings-row" hidden style="display:none;">
             <span class="settings-label">Show History</span>
             <label class="switch-control setting-checkbox-label">
               <input type="checkbox" id="setting-show-history" class="setting-checkbox switch-input" checked>
-              <span class="switch-slider"></span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Card Template Settings (Front / Back Side) -->
-        <div class="card-settings-group settings-group">
-          <span class="settings-group-title">Card Templates</span>
-          <div class="settings-row">
-            <span class="settings-label">Front: Show Reading</span>
-            <label class="switch-control setting-checkbox-label">
-              <input type="checkbox" id="setting-front-reading" class="setting-checkbox switch-input">
-              <span class="switch-slider"></span>
-            </label>
-          </div>
-          <div class="settings-row">
-            <span class="settings-label">Front: Show Meaning</span>
-            <label class="switch-control setting-checkbox-label">
-              <input type="checkbox" id="setting-front-meaning" class="setting-checkbox switch-input">
-              <span class="switch-slider"></span>
-            </label>
-          </div>
-          <div class="settings-row">
-            <span class="settings-label">Front: Show Kanji Reading</span>
-            <label class="switch-control setting-checkbox-label">
-              <input type="checkbox" id="setting-front-kanji-reading" class="setting-checkbox switch-input">
-              <span class="switch-slider"></span>
-            </label>
-          </div>
-          <div class="settings-row">
-            <span class="settings-label">Front: Show Hint</span>
-            <label class="switch-control setting-checkbox-label">
-              <input type="checkbox" id="setting-front-hint" class="setting-checkbox switch-input">
-              <span class="switch-slider"></span>
-            </label>
-          </div>
-          <div class="settings-row">
-            <span class="settings-label">Back: Show Reading</span>
-            <label class="switch-control setting-checkbox-label">
-              <input type="checkbox" id="setting-back-reading" class="setting-checkbox switch-input" checked>
-              <span class="switch-slider"></span>
-            </label>
-          </div>
-          <div class="settings-row">
-            <span class="settings-label">Back: Show Meaning</span>
-            <label class="switch-control setting-checkbox-label">
-              <input type="checkbox" id="setting-back-meaning" class="setting-checkbox switch-input" checked>
-              <span class="switch-slider"></span>
-            </label>
-          </div>
-          <div class="settings-row">
-            <span class="settings-label">Back: Show Hint</span>
-            <label class="switch-control setting-checkbox-label">
-              <input type="checkbox" id="setting-back-hint" class="setting-checkbox switch-input" checked>
               <span class="switch-slider"></span>
             </label>
           </div>
@@ -860,36 +1061,89 @@
           </div>
         </div>
 
-        <!-- Yomitan Dictionaries -->
-        <div class="card-settings-group dict-settings-group settings-group">
-          <div class="dict-settings-header-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <span class="settings-group-title">Dictionary (Yomitan)</span>
-            <button type="button" id="btn-refresh-dict-list" class="btn-refresh-dict-list" title="Scan Yomitan for available dictionaries">↻ Refresh</button>
+        <!-- SECTION 3: CONNECTIONS -->
+        <div class="card-settings-group settings-group" id="settings-group-connections">
+          <span class="settings-group-title">Connections</span>
+
+          <!-- AnkiConnect Subsection -->
+          <div class="connection-subgroup">
+            <span class="settings-group-subtitle">AnkiConnect</span>
+            <div class="settings-row">
+              <span class="settings-label">AnkiConnect URL</span>
+              <span id="anki-connect-url-val" class="settings-val">127.0.0.1:8765</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Status</span>
+              <span id="anki-connect-status-val" class="settings-val">Checking…</span>
+            </div>
           </div>
-          <div class="settings-subtext">Choose which dictionary sources appear in Reference View.</div>
-          <div class="dict-selection-toolbar">
-            <button type="button" id="btn-dict-select-all" class="btn-dict-quick-select">Select All</button>
-            <button type="button" id="btn-dict-clear-all" class="btn-dict-quick-select">Clear All</button>
-            <span id="dict-selected-count-label" class="dict-selected-count">Selected: 0</span>
+
+          <!-- Yomitan Dictionaries Subsection -->
+          <div class="dict-settings-group" style="margin-top: 12px;">
+            <div class="dict-settings-header-row" style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="settings-group-subtitle">Dictionary (Yomitan)</span>
+              <button type="button" id="btn-refresh-dict-list" class="btn-refresh-dict-list" title="Scan Yomitan for available dictionaries">↻ Refresh</button>
+            </div>
+            <div class="settings-subtext">Choose which dictionary sources appear in Reference View.</div>
+            <div class="dict-selection-toolbar">
+              <button type="button" id="btn-dict-select-all" class="btn-dict-quick-select">Select All</button>
+              <button type="button" id="btn-dict-clear-all" class="btn-dict-quick-select">Clear All</button>
+              <span id="dict-selected-count-label" class="dict-selected-count">Selected: 0</span>
+            </div>
+            <div id="dict-selection-list-container" class="dict-selection-list-container">
+              <div id="dict-selection-empty" class="dict-selection-empty" hidden>No dictionaries discovered yet. Look up words or click Refresh.</div>
+              <div id="dict-selection-items" class="dict-selection-items" role="group" aria-label="Available Yomitan dictionaries"></div>
+            </div>
           </div>
-          <div id="dict-selection-list-container" class="dict-selection-list-container">
-            <div id="dict-selection-empty" class="dict-selection-empty" hidden>No dictionaries discovered yet. Look up words or click Refresh.</div>
-            <div id="dict-selection-items" class="dict-selection-items" role="group" aria-label="Available Yomitan dictionaries"></div>
+
+          <!-- AI Assistant (LLM) Subsection -->
+          <div class="llm-settings-subgroup" id="settings-group-llm" style="margin-top: 12px;">
+            <span class="settings-group-subtitle">AI Assistant</span>
+            <div class="settings-row">
+              <span class="settings-label">Provider</span>
+              <span id="llm-provider-display" class="settings-val">None</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Status</span>
+              <span id="llm-status-label" class="settings-val">Not configured</span>
+            </div>
+            <div class="settings-row" style="margin-top: 6px;">
+              <label for="setting-llm-provider" class="settings-label">Active Provider</label>
+              <select id="setting-llm-provider" class="deck-select-subtle setting-select" aria-label="LLM Provider">
+                <option value="none">Disabled (None)</option>
+                <option value="groq">Groq</option>
+                <option value="gemini">Google Gemini</option>
+                <option value="ollama">Ollama (Local)</option>
+              </select>
+            </div>
+            <div class="settings-row" id="setting-llm-model-row" style="margin-top: 6px;">
+              <label for="setting-llm-model" class="settings-label">Model Name</label>
+              <input type="text" id="setting-llm-model" class="setting-text-input" placeholder="Default model (auto)" aria-label="LLM Model Name" autocomplete="off">
+            </div>
+            <div class="settings-row" id="setting-llm-key-row" style="margin-top: 6px;">
+              <label for="setting-llm-key" class="settings-label">API Key</label>
+              <input type="password" id="setting-llm-key" class="setting-text-input" placeholder="Enter API Key…" aria-label="LLM API Key" autocomplete="off">
+            </div>
+            <div class="settings-row" id="setting-llm-ollama-row" style="margin-top: 6px;" hidden>
+              <label for="setting-llm-ollama-url" class="settings-label">Ollama Host</label>
+              <input type="text" id="setting-llm-ollama-url" class="setting-text-input" placeholder="http://localhost:11434" aria-label="Ollama Server URL" autocomplete="off">
+            </div>
+            <div class="settings-row" style="margin-top: 8px; display: flex; gap: 8px; align-items: center;">
+              <button type="button" id="btn-test-llm" class="btn-secondary btn-test-llm">Test Connection</button>
+              <button type="button" id="btn-save-llm-config" class="btn-primary btn-save-llm-config">Save Settings</button>
+            </div>
+            <div class="settings-row" style="margin-top: 4px;">
+              <span id="llm-config-feedback" class="settings-status-note" role="status" aria-live="polite"></span>
+            </div>
+            <div class="settings-row" style="margin-top: 4px;">
+              <a href="https://github.com/Rhythm-Kachhwaha/kiroku-note/blob/main/docs/llm-setup.md" id="llm-setup-link" target="_blank" rel="noopener noreferrer" style="font-size:11px; color:var(--accent-reading); text-decoration:none;">AI Setup Guide &rarr;</a>
+            </div>
           </div>
         </div>
 
-        <!-- AnkiConnect Settings -->
-        <div class="card-settings-group settings-group">
-          <span class="settings-group-title">AnkiConnect</span>
-          <div class="settings-row">
-            <span class="settings-label">AnkiConnect URL</span>
-            <span class="settings-val">127.0.0.1:8765</span>
-          </div>
-        </div>
-
-        <!-- Video & Subtitles Settings -->
-        <div class="card-settings-group settings-group">
-          <span class="settings-group-title">Video &amp; Subtitles</span>
+        <!-- SECTION 4: VIDEO -->
+        <div class="card-settings-group settings-group" id="settings-group-video">
+          <span class="settings-group-title">Video</span>
           <div class="settings-row">
             <span class="settings-label">Auto-capture video frame</span>
             <label class="switch-control setting-checkbox-label">
@@ -904,54 +1158,44 @@
               <span class="switch-slider"></span>
             </label>
           </div>
-        </div>
 
-        <!-- AI Assistant (LLM) Settings -->
-        <div class="card-settings-group settings-group" id="settings-group-llm">
-          <span class="settings-group-title">AI Assistant</span>
-          <div class="settings-row">
-            <span class="settings-label">Provider</span>
-            <span id="llm-provider-display" class="settings-val">None</span>
-          </div>
-          <div class="settings-row">
-            <span class="settings-label">Status</span>
-            <span id="llm-status-label" class="settings-val">Not configured</span>
-          </div>
-          <div class="settings-row" style="margin-top:4px;">
-            <a href="https://github.com/Rhythm-Kachhwaha/kiroku-note/blob/main/docs/llm-setup.md" id="llm-setup-link" target="_blank" rel="noopener noreferrer" style="font-size:11px; color:var(--accent-reading); text-decoration:none;">AI Setup Guide &rarr;</a>
-          </div>
-        </div>
-
-        <!-- Connection Indicators Legend -->
-        <div class="card-settings-group settings-group">
-          <span class="settings-group-title">Connection Indicators</span>
-          <div class="service-legend-box">
-            <div class="legend-item">
-              <span class="status-dot yomi"></span>
-              <span><strong>Amber:</strong> Yomitan extension connected</span>
+          <!-- Jimaku Subtitles Configuration -->
+          <div class="connection-subgroup jimaku-settings-subgroup" style="margin-top: 14px;">
+            <span class="settings-group-subtitle">Jimaku Anime Subtitles</span>
+            <div class="settings-subtext">Fetch Japanese anime subtitles from Jimaku.cc via public API.</div>
+            <div class="jimaku-api-key-section" style="margin-top: 8px;">
+              <label for="jimaku-api-key-input" class="jimaku-label settings-label">API Key <span class="jimaku-hint">(stored locally)</span></label>
+              <div class="jimaku-key-row" style="display:flex; gap:6px; margin-top:4px;">
+                <input type="password" id="jimaku-api-key-input" class="jimaku-input setting-text-input" placeholder="Enter Jimaku API Key…" autocomplete="off">
+                <button type="button" id="btn-save-jimaku-key" class="btn-secondary btn-save-jimaku-key">Save</button>
+              </div>
+              <span id="jimaku-key-status" class="jimaku-status-note"></span>
             </div>
-            <div class="legend-item">
-              <span class="status-dot anki"></span>
-              <span><strong>Green:</strong> AnkiConnect &amp; OCR Companion online</span>
-            </div>
-            <div class="legend-item">
-              <span class="status-dot" style="background:var(--text-faint, #48433d);"></span>
-              <span><strong>Dim:</strong> Service checking or offline</span>
+            <div class="jimaku-download-path-section" style="margin-top: 10px;">
+              <label for="jimaku-download-folder-input" class="jimaku-label settings-label">Download Subfolder / Destination</label>
+              <div class="jimaku-folder-row" style="margin-top:4px;">
+                <input type="text" id="jimaku-download-folder-input" class="jimaku-input setting-text-input" placeholder="e.g. KirokuSubtitles or Subtitles" value="KirokuSubtitles" autocomplete="off">
+              </div>
+              <div class="jimaku-options-row" style="margin-top: 8px;">
+                <label class="toggle-control" for="toggle-save-subtitle-disk">
+                  <input type="checkbox" id="toggle-save-subtitle-disk" class="toggle-checkbox" checked>
+                  <span class="toggle-label" style="font-size:11px;">Auto-save downloaded subtitles to folder</span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
-
-        <!-- Section Order Details (Maintains customizable layout capability) -->
-        <details class="settings-section-order-details">
-          <summary class="settings-order-summary">Section Layout Order</summary>
-          <div id="layout-sections-list" class="layout-sections-list" role="list" aria-label="Card sections order"></div>
-          <div class="layout-settings-footer">
-            <button type="button" id="btn-reset-layout" class="btn-reset-layout">Reset to Default</button>
-          </div>
-        </details>
 
       </div>
     </div>
+
+    <!-- Floating Action Button for Ask AI Overlay -->
+    <button type="button" id="ask-fab" class="ask-fab" aria-label="Ask AI" aria-expanded="false" aria-controls="ask-float" title="Ask AI (Alt+Shift+A)">
+      <span class="ask-fab-unread-dot" id="ask-fab-unread-dot" hidden aria-hidden="true"></span>
+      <svg class="ask-fab-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M8 1a.75.75 0 0 1 .75.75V5a3 3 0 0 0 3 3h3.25a.75.75 0 0 1 0 1.5H11.75a3 3 0 0 0-3 3v3.25a.75.75 0 0 1-1.5 0V12.75a3 3 0 0 0-3-3H1a.75.75 0 0 1 0-1.5H4.25a3 3 0 0 0 3-3V1.75A.75.75 0 0 1 8 1z"/>
+      </svg>
+    </button>
 
     <!-- 5-Second Undo Toast on History Deletion (T3-C) -->
     <div id="undo-toast" class="undo-toast" role="status" aria-live="polite" hidden>

@@ -24,6 +24,39 @@ DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant"
 DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
 DEFAULT_OLLAMA_MODEL = "qwen2.5:1.5b"
+DEFAULT_LLM_TIMEOUT = 45.0
+MIN_LLM_TIMEOUT = 5.0
+MAX_LLM_TIMEOUT = 180.0
+
+
+def get_llm_config_file_path(env: dict[str, str] | None = None) -> Path:
+    """Resolve the JSON file path for stored LLM configuration."""
+    return get_data_dir(env) / "llm_config.json"
+
+
+def load_stored_llm_config(env: dict[str, str] | None = None) -> dict[str, Any]:
+    """Load stored LLM settings from JSON file in user data directory if present."""
+    config_path = get_llm_config_file_path(env)
+    if not config_path.is_file():
+        return {}
+    try:
+        import json
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {}
+
+
+def save_stored_llm_config(config_dict: dict[str, Any], env: dict[str, str] | None = None) -> None:
+    """Save stored LLM settings to JSON file in user data directory."""
+    config_path = get_llm_config_file_path(env)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    import json
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config_dict, f, indent=2, ensure_ascii=False)
 
 
 def get_app_data_dir(env: dict[str, str] | None = None) -> Path:
@@ -360,39 +393,75 @@ def resolve_ocr_dev_command(env: dict[str, str] | None = None) -> list[str] | No
     return [py_bin, str(run_ocr_py)]
 
 
+def resolve_llm_timeout(env: dict[str, str] | None = None) -> float:
+    """
+    Resolve LLM request timeout in seconds.
+    Clamped between MIN_LLM_TIMEOUT (5.0s) and MAX_LLM_TIMEOUT (180.0s).
+    Default is DEFAULT_LLM_TIMEOUT (45.0s).
+    """
+    env_dict = os.environ if env is None else env
+    val = env_dict.get("KIROKU_LLM_TIMEOUT")
+    if val is not None and str(val).strip():
+        try:
+            parsed = float(str(val).strip())
+            return max(MIN_LLM_TIMEOUT, min(MAX_LLM_TIMEOUT, parsed))
+        except (ValueError, TypeError):
+            pass
+    stored = load_stored_llm_config(env)
+    if "timeout" in stored:
+        try:
+            parsed = float(stored["timeout"])
+            return max(MIN_LLM_TIMEOUT, min(MAX_LLM_TIMEOUT, parsed))
+        except (ValueError, TypeError):
+            pass
+    return DEFAULT_LLM_TIMEOUT
+
+
 def get_llm_provider(env: dict[str, str] | None = None) -> str:
-    """Resolve configured LLM provider (groq, gemini, ollama, none)."""
+    """Resolve configured LLM provider (groq, gemini, ollama, none). Env takes precedence over stored config."""
     env_dict = os.environ if env is None else env
     val = env_dict.get("KIROKU_LLM_PROVIDER")
     if val and str(val).strip():
         return str(val).strip().lower()
+    stored = load_stored_llm_config(env)
+    if stored.get("provider") and str(stored["provider"]).strip():
+        return str(stored["provider"]).strip().lower()
     return DEFAULT_LLM_PROVIDER
 
 
 def get_llm_api_key(env: dict[str, str] | None = None) -> str | None:
-    """Resolve configured LLM API key for cloud providers."""
+    """Resolve configured LLM API key for cloud providers. Env takes precedence over stored config."""
     env_dict = os.environ if env is None else env
     val = env_dict.get("KIROKU_LLM_API_KEY")
     if val and str(val).strip():
         return str(val).strip()
+    stored = load_stored_llm_config(env)
+    if stored.get("api_key") and str(stored["api_key"]).strip():
+        return str(stored["api_key"]).strip()
     return None
 
 
 def get_llm_ollama_url(env: dict[str, str] | None = None) -> str:
-    """Resolve configured Ollama base URL."""
+    """Resolve configured Ollama base URL. Env takes precedence over stored config."""
     env_dict = os.environ if env is None else env
     val = env_dict.get("KIROKU_OLLAMA_URL")
     if val and str(val).strip():
         return str(val).strip().rstrip("/")
+    stored = load_stored_llm_config(env)
+    if stored.get("ollama_url") and str(stored["ollama_url"]).strip():
+        return str(stored["ollama_url"]).strip().rstrip("/")
     return DEFAULT_OLLAMA_URL
 
 
 def get_llm_model(env: dict[str, str] | None = None) -> str | None:
-    """Resolve user-specified LLM model override, if any."""
+    """Resolve user-specified LLM model override, if any. Env takes precedence over stored config."""
     env_dict = os.environ if env is None else env
     val = env_dict.get("KIROKU_LLM_MODEL")
     if val and str(val).strip():
         return str(val).strip()
+    stored = load_stored_llm_config(env)
+    if stored.get("model") and str(stored["model"]).strip():
+        return str(stored["model"]).strip()
     return None
 
 
@@ -416,4 +485,5 @@ def is_llm_configured(env: dict[str, str] | None = None) -> bool:
     if provider == "ollama":
         return bool(get_llm_ollama_url(env))
     return False
+
 

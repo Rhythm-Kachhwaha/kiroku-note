@@ -14,6 +14,7 @@ import urllib.request
 from typing import Optional
 
 from app.config import (
+    DEFAULT_LLM_TIMEOUT,
     DEFAULT_OLLAMA_URL,
     get_llm_api_key,
     get_llm_model,
@@ -21,6 +22,7 @@ from app.config import (
     get_llm_provider,
     is_llm_configured,
     resolve_default_llm_model,
+    resolve_llm_timeout,
 )
 from app.schemas import LLMChatMessage
 
@@ -97,13 +99,21 @@ PROMPT_CHAT = (
     "Answer concisely and accurately in English unless requested otherwise. Do not use emojis in your response."
 )
 
+SUPPORTED_LLM_TASKS = {
+    "translate",
+    "explain_sense",
+    "explain_grammar",
+    "mnemonic",
+    "answer_question",
+    "chat",
+}
 
 
 # ============================================================================
 # Native HTTP Request Helper
 # ============================================================================
 
-def _send_http_json(url: str, data: dict, headers: dict[str, str], timeout: float = 5.0) -> dict:
+def _send_http_json(url: str, data: dict, headers: dict[str, str], timeout: float = DEFAULT_LLM_TIMEOUT) -> dict:
     """Send JSON payload via standard library urllib and return parsed JSON response."""
     body_bytes = json.dumps(data).encode("utf-8")
     req = urllib.request.Request(url, data=body_bytes, headers=headers, method="POST")
@@ -119,7 +129,8 @@ def _send_http_json(url: str, data: dict, headers: dict[str, str], timeout: floa
             err_body = exc.read().decode("utf-8", errors="replace")
         except Exception:
             pass
-        raise LLMAPIError(f"LLM API error ({exc.code} {exc.reason}): {err_body or exc.reason}") from exc
+        sanitized_reason = str(exc.reason)
+        raise LLMAPIError(f"LLM API error ({exc.code} {sanitized_reason}): {err_body or sanitized_reason}") from exc
     except urllib.error.URLError as exc:
         if isinstance(exc.reason, (socket.timeout, TimeoutError)):
             raise LLMTimeoutError(f"LLM request timed out: {exc.reason}") from exc
@@ -137,7 +148,7 @@ def _send_http_json(url: str, data: dict, headers: dict[str, str], timeout: floa
 class BaseLLMProvider:
     name: str = "base"
     model: Optional[str] = None
-    timeout: float = 5.0
+    timeout: float = DEFAULT_LLM_TIMEOUT
 
     def ask(
         self,
@@ -166,7 +177,7 @@ class NoneProvider(BaseLLMProvider):
 class GroqProvider(BaseLLMProvider):
     name = "groq"
 
-    def __init__(self, api_key: str, model: Optional[str] = None, timeout: float = 5.0):
+    def __init__(self, api_key: str, model: Optional[str] = None, timeout: float = DEFAULT_LLM_TIMEOUT):
         self.api_key = api_key
         self.model = model or resolve_default_llm_model("groq") or "llama-3.1-8b-instant"
         self.timeout = timeout
@@ -210,7 +221,7 @@ class GroqProvider(BaseLLMProvider):
 class GeminiProvider(BaseLLMProvider):
     name = "gemini"
 
-    def __init__(self, api_key: str, model: Optional[str] = None, timeout: float = 5.0):
+    def __init__(self, api_key: str, model: Optional[str] = None, timeout: float = DEFAULT_LLM_TIMEOUT):
         self.api_key = api_key
         self.model = model or resolve_default_llm_model("gemini") or "gemini-2.0-flash"
         self.timeout = timeout
@@ -240,10 +251,11 @@ class GeminiProvider(BaseLLMProvider):
         contents.append({"role": "user", "parts": [{"text": prompt}]})
         payload["contents"] = contents
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={urllib.parse.quote(self.api_key)}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "KirokuNote-LLM/1.0",
+            "x-goog-api-key": self.api_key,
         }
         data = _send_http_json(url, payload, headers, timeout=self.timeout)
 
@@ -256,7 +268,7 @@ class GeminiProvider(BaseLLMProvider):
 class OllamaProvider(BaseLLMProvider):
     name = "ollama"
 
-    def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None, timeout: float = 5.0):
+    def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None, timeout: float = DEFAULT_LLM_TIMEOUT):
         self.base_url = (base_url or DEFAULT_OLLAMA_URL).rstrip("/")
         self.model = model or resolve_default_llm_model("ollama") or "qwen2.5:1.5b"
         self.timeout = timeout
@@ -306,28 +318,30 @@ class LLMService:
         api_key: Optional[str] = None,
         ollama_url: Optional[str] = None,
         model: Optional[str] = None,
-        timeout: float = 5.0,
+        timeout: Optional[float] = None,
     ):
         resolved_provider = provider if provider is not None else get_llm_provider()
         resolved_api_key = api_key if api_key is not None else get_llm_api_key()
         resolved_ollama_url = ollama_url if ollama_url is not None else get_llm_ollama_url()
         resolved_model = model if model is not None else get_llm_model()
+        resolved_timeout = timeout if timeout is not None else resolve_llm_timeout()
 
         self._provider_type = resolved_provider.lower()
+        self.timeout = resolved_timeout
         self.provider: BaseLLMProvider
 
         if self._provider_type == "groq":
             if not resolved_api_key:
                 self.provider = NoneProvider()
             else:
-                self.provider = GroqProvider(api_key=resolved_api_key, model=resolved_model, timeout=timeout)
+                self.provider = GroqProvider(api_key=resolved_api_key, model=resolved_model, timeout=self.timeout)
         elif self._provider_type == "gemini":
             if not resolved_api_key:
                 self.provider = NoneProvider()
             else:
-                self.provider = GeminiProvider(api_key=resolved_api_key, model=resolved_model, timeout=timeout)
+                self.provider = GeminiProvider(api_key=resolved_api_key, model=resolved_model, timeout=self.timeout)
         elif self._provider_type == "ollama":
-            self.provider = OllamaProvider(base_url=resolved_ollama_url, model=resolved_model, timeout=timeout)
+            self.provider = OllamaProvider(base_url=resolved_ollama_url, model=resolved_model, timeout=self.timeout)
         else:
             self.provider = NoneProvider()
 
@@ -354,6 +368,11 @@ class LLMService:
         Execute an assistant task prompt.
         Returns: (result_text, provider_name, model_name)
         """
+        if task not in SUPPORTED_LLM_TASKS:
+            raise ValueError(
+                f"Unsupported LLM task: '{task}'. Supported tasks: {', '.join(sorted(SUPPORTED_LLM_TASKS))}."
+            )
+
         if isinstance(self.provider, NoneProvider):
             raise LLMNotConfiguredError(
                 "LLM assistant is not configured. Please set KIROKU_LLM_PROVIDER."
@@ -387,15 +406,27 @@ class LLMService:
         elif task == "chat":
             system = PROMPT_CHAT
             prompt = text
-        else:
-            # Fallback
-            prompt = text
 
-        result = self.provider.ask(prompt=prompt, system=system, messages=messages)
+        # Retain only the last 10 messages for prompt construction
+        recent_messages = messages[-10:] if messages else None
+
+        result = self.provider.ask(prompt=prompt, system=system, messages=recent_messages)
         model = self.model_name or "unknown"
         return result, self.provider_name, model
 
 
-def get_llm_service() -> LLMService:
-    """Factory creating an LLMService instance from current environment variables."""
-    return LLMService()
+def get_llm_service(
+    provider: Optional[str] = None,
+    api_key: Optional[str] = None,
+    ollama_url: Optional[str] = None,
+    model: Optional[str] = None,
+    timeout: Optional[float] = None,
+) -> LLMService:
+    """Factory creating an LLMService instance from current environment variables or arguments."""
+    return LLMService(
+        provider=provider,
+        api_key=api_key,
+        ollama_url=ollama_url,
+        model=model,
+        timeout=timeout,
+    )

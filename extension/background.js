@@ -558,6 +558,8 @@ if (typeof chrome !== "undefined" && chrome.commands?.onCommand) {
           }
         });
       }
+    } else if (command === "toggle-ask") {
+      chrome.runtime?.sendMessage({ type: "TOGGLE_ASK_FLOAT" }).catch(() => {});
     }
   });
 }

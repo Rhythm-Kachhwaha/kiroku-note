@@ -44,7 +44,7 @@ def test_frozen_mode_windows_localappdata_resolution(tmp_path: Path):
     fake_localappdata.mkdir(parents=True)
     env = {"LOCALAPPDATA": str(fake_localappdata)}
 
-    with patch.object(sys, "frozen", True, create=True), patch("sys.platform", "win32"), patch("os.name", "nt"):
+    with patch.object(sys, "frozen", True, create=True), patch("sys.platform", "win32"):
         app_data = get_app_data_dir(env)
         expected_root = fake_localappdata / "KirokuNote"
         assert app_data == expected_root
@@ -70,7 +70,7 @@ def test_frozen_mode_fallback_to_legacy_db_if_exists(tmp_path: Path):
 
     env = {"LOCALAPPDATA": str(fake_localappdata)}
 
-    with patch.object(sys, "frozen", True, create=True), patch("sys.platform", "win32"), patch("os.name", "nt"):
+    with patch.object(sys, "frozen", True, create=True), patch("sys.platform", "win32"):
         db_path = get_db_path(env)
         assert db_path == legacy_db
 

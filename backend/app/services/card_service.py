@@ -671,13 +671,14 @@ class CardService:
     def get_anki_status(self) -> AnkiStatusResponse:
         """Check AnkiConnect reachability and version."""
         connected, error_msg = self.anki.is_connected()
+        endpoint_url = getattr(self.anki, "endpoint_url", "http://127.0.0.1:8765")
         if not connected:
-            return AnkiStatusResponse(connected=False, error=error_msg)
+            return AnkiStatusResponse(connected=False, error=error_msg, endpoint_url=endpoint_url)
         try:
             version = self.anki.get_version()
-            return AnkiStatusResponse(connected=True, version=version)
+            return AnkiStatusResponse(connected=True, version=version, endpoint_url=endpoint_url)
         except Exception as error:
-            return AnkiStatusResponse(connected=False, error=str(error))
+            return AnkiStatusResponse(connected=False, error=str(error), endpoint_url=endpoint_url)
 
     def get_anki_decks(self) -> AnkiDecksResponse:
         """Retrieve deck list from AnkiConnect or fallback to ['Default']."""
