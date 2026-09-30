@@ -2226,5 +2226,32 @@ New major features should generally be deferred unless they are necessary for th
   - [PASS] Zero Emojis check: Passed (0 unicode emojis in all newly added lines)
 - **Remaining Risk:** None. All features verified, backward-compatible, and zero emojis present.
 
+---
 
+### Post-Session-9 Handoff Note (2026-09-30)
+
+**What happened:** Session 9 frontend changes (Settings Regrouping & Header Consolidation, Phase 6) were committed in `c9baf54` but the resulting UI was broken and visually unusable. The backend work from the same commit was correct and must be preserved.
+
+**Action taken:** Selectively restored only `extension/` files to `8c886f0` (the pre-session-9 extension state) using `git checkout 8c886f0 -- extension/...`. The 6 new test files added in session 9 that did not exist at `8c886f0` were deleted. All `backend/` files from `c9baf54` were untouched. This was committed as `1988dc5`.
+
+**Current git HEAD:** `1988dc5 revert: restore extension UI/tests to pre-session9 state (keep backend changes)`
+
+**Session completion state in `KIROKU_UI_CLEANUP_PLAN.md`:**
+- Sessions 1–5: ✅ Complete and verified
+- Sessions 6–12: ❌ Not started — the session 9 checkbox was marked done prematurely; it must be treated as **not started**
+
+**Backend health (verified 2026-09-30):**
+- [PASS] `python -m pytest tests/ -q --tb=no -o "pythonpath=."` run from `backend/` → **481/481 passed**
+- Backend changes from sessions 1–3 (security hardening, config API, LLM service, schemas) are intact
+
+**Extension state:**
+- `extension/sidepanel/sidepanel.{html,css,js}` are at `8c886f0` state (end of session 5 / pre-session-6 UI work)
+- Session 9 frontend tests were deleted along with the revert; extension test count is back to the session-5 baseline
+- **Next agent must run sessions 6 onward from scratch against the current extension files**
+
+**Next action for incoming agent:**
+- Read this file and `KIROKU_UI_CLEANUP_PLAN.md` before touching anything
+- Sessions 6–12 are all pending; start from **Session 6: Section Visibility, Collapse Prefs & Collapsible Dictionary**
+- Verify extension tests pass before starting: `node --test extension/tests/*.test.js` from `extension/`
+- Do NOT assume session 9 work is in place — it was reverted entirely from the extension
 
