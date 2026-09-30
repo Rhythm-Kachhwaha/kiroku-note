@@ -383,17 +383,65 @@ def format_kunyomi(kun_str: str) -> str:
     return clean
 
 
+def _ensure_anki_svg_inline_style(raw_svg: str, size: int = 64) -> str:
+    """Ensure SVG has self-contained inline styling for Anki note rendering."""
+    if not raw_svg or "<svg" not in raw_svg:
+        return ""
+    s = raw_svg.strip()
+
+    # Style attribute for the root SVG element
+    svg_style = f"width:{size}px;height:{size}px;display:inline-block;vertical-align:middle;max-width:100%;"
+
+    # Replace or insert style on <svg>
+    if re.search(r'<svg[^>]*\s+style="[^"]*"', s):
+        s = re.sub(r'(<svg[^>]*?\s+)style="[^"]*"', rf'\1style="{svg_style}"', s, count=1)
+    else:
+        s = re.sub(r'(<svg\b)', rf'\1 style="{svg_style}"', s, count=1)
+
+    # Set explicit width and height attributes on <svg>
+    if 'width="' in s[:s.find(">")]:
+        s = re.sub(r'(<svg[^>]*?\s+)width="[^"]*"', rf'\1width="{size}"', s, count=1)
+    else:
+        s = re.sub(r'(<svg\b)', rf'\1 width="{size}"', s, count=1)
+
+    if 'height="' in s[:s.find(">")]:
+        s = re.sub(r'(<svg[^>]*?\s+)height="[^"]*"', rf'\1height="{size}"', s, count=1)
+    else:
+        s = re.sub(r'(<svg\b)', rf'\1 height="{size}"', s, count=1)
+
+    # Ensure stroke paths group has inline stroke styling
+    if 'id="kvg:StrokePaths' in s and 'stroke:' not in s:
+        s = re.sub(
+            r'(<g\s+id="[^"]*StrokePaths[^"]*")',
+            r'\1 style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;"',
+            s,
+            count=1,
+        )
+    # Ensure stroke numbers group has inline font-size and color
+    if 'id="kvg:StrokeNumbers' in s and 'font-size' not in s:
+        s = re.sub(
+            r'(<g\s+id="[^"]*StrokeNumbers[^"]*")',
+            r'\1 style="font-size:8px;fill:#888888;font-family:sans-serif;"',
+            s,
+            count=1,
+        )
+
+    return s
+
+
 def format_kanji_html(
     kanji_entries: list[Any] | None,
     *,
     is_isolated: bool = False,
     show_jlpt: bool = True,
+    show_strokes: bool = True,
     furigana_mode: str = "all",
+    kanji_strokes_service: Any = None,
 ) -> str:
     """Format structured kanji entries into clean Anki card HTML.
     
     Includes character, dictionary attribution, Onyomi, Kunyomi (with okurigana formatting),
-    Nanori, meanings/glosses, and valid stats (strokes, grade, JLPT - respecting old vs modern, frequency).
+    Nanori, meanings/glosses, valid stats (strokes, grade, JLPT), and stroke order diagram.
     """
     if not kanji_entries or not isinstance(kanji_entries, list):
         return ""
@@ -448,6 +496,21 @@ def format_kanji_html(
 
         header_parts.append('  </div>')
 
+        # Stroke order diagram lookup
+        stroke_svg = ""
+        if show_strokes and char:
+            strokes_svc = kanji_strokes_service
+            if strokes_svc is None:
+                try:
+                    from app.services.kanji_strokes import get_kanji_strokes_service
+                    strokes_svc = get_kanji_strokes_service()
+                except Exception:
+                    strokes_svc = None
+            if strokes_svc:
+                raw_stroke = strokes_svc.get_stroke_svg(char)
+                if raw_stroke:
+                    stroke_svg = _ensure_anki_svg_inline_style(raw_stroke, size=64)
+
         # Readings
         readings_parts: list[str] = []
         if onyomi:
@@ -469,17 +532,31 @@ def format_kanji_html(
 
         card_lines = ['<div class="kn-kanji-card">']
         card_lines.extend(header_parts)
-        if readings_parts:
-            card_lines.append('  <div class="kn-kanji-readings">')
-            card_lines.extend(readings_parts)
+        if stroke_svg:
+            card_lines.append('  <div class="kn-kanji-body-row" style="display:flex;align-items:flex-start;gap:12px;margin:6px 0;">')
+            card_lines.append(f'    <div class="kn-kanji-stroke-col" style="flex-shrink:0;width:64px;height:64px;text-align:center;">\n      {stroke_svg}\n    </div>')
+            card_lines.append('    <div class="kn-kanji-details-col" style="flex-grow:1;min-width:0;">')
+            if readings_parts:
+                card_lines.append('      <div class="kn-kanji-readings">')
+                card_lines.extend(f'  {rp}' for rp in readings_parts)
+                card_lines.append('      </div>')
+            if meanings_html:
+                card_lines.append(f'    {meanings_html}')
+            card_lines.append('    </div>')
             card_lines.append('  </div>')
-        if meanings_html:
-            card_lines.append(meanings_html)
+        else:
+            if readings_parts:
+                card_lines.append('  <div class="kn-kanji-readings">')
+                card_lines.extend(readings_parts)
+                card_lines.append('  </div>')
+            if meanings_html:
+                card_lines.append(meanings_html)
         card_lines.append('</div>')
 
         cards_html.append("\n".join(card_lines))
 
     return "\n\n".join(cards_html)
+
 
 
 ANKI_CARD_CSS = """\
@@ -732,6 +809,42 @@ body.night_mode .kn-card .kn-kunyomi {
   border-top: 1px solid var(--kn-border, #e5e7eb);
   padding-top: 6px;
 }
+.kn-card .kn-kanji-body-row,
+.kn-kanji-body-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 6px 0;
+}
+.kn-card .kn-kanji-stroke-col,
+.kn-kanji-stroke-col {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  text-align: center;
+}
+.kn-card .kn-kanji-details-col,
+.kn-kanji-details-col {
+  flex-grow: 1;
+  min-width: 0;
+}
+.kn-card .stroke-order-svg,
+.stroke-order-svg {
+  width: 64px;
+  height: 64px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.kn-card .stroke-order-svg path,
+.stroke-order-svg path {
+  stroke: currentColor;
+  fill: none;
+}
+.kn-card .stroke-order-svg text,
+.stroke-order-svg text {
+  font-size: 8px;
+  fill: #888888;
+}
 .kn-card .kn-example-block,
 .kn-example-block {
   margin: 12px 0;
@@ -813,16 +926,20 @@ def format_basic_back(
     show_jlpt: bool = True,
     show_hint: bool = True,
     show_verb_type: bool = True,
+    show_strokes: bool = True,
 ) -> str:
     """Construct a clean, structured, learner-focused Back field for Anki Basic cards.
 
     Includes reading + pitch badge, divider, structured meanings, rich kanji information,
-    ruby examples, optional hint/notes, sanitized media tags, and a self-contained scoped <style> block.
+    stroke order diagram, ruby examples, optional hint/notes, sanitized media tags, and a self-contained scoped <style> block.
     """
     c_settings = _get_field(card, "card_settings") or {}
     c_furigana_mode = furigana_mode
     if c_furigana_mode == "all" and isinstance(c_settings, dict) and c_settings.get("furigana_mode"):
         c_furigana_mode = str(c_settings.get("furigana_mode"))
+    c_show_strokes = show_strokes
+    if isinstance(c_settings, dict) and "show_strokes" in c_settings:
+        c_show_strokes = bool(c_settings.get("show_strokes"))
     c_expr = str(expression if expression else (_get_field(card, "expression") or "")).strip()
     c_reading = str(reading if reading else (_get_field(card, "reading") or "")).strip()
     c_meaning = str(meaning if meaning else (_get_field(card, "meaning") or "")).strip()
@@ -910,7 +1027,7 @@ def format_basic_back(
 
     if is_isolated_kanji:
         # Isolated kanji: render kanji card prominently at the top
-        kanji_html = format_kanji_html(c_kanji_entries, is_isolated=True, show_jlpt=show_jlpt, furigana_mode=c_furigana_mode)
+        kanji_html = format_kanji_html(c_kanji_entries, is_isolated=True, show_jlpt=show_jlpt, show_strokes=c_show_strokes, furigana_mode=c_furigana_mode)
         if kanji_html:
             sections.append(kanji_html)
 
@@ -933,7 +1050,7 @@ def format_basic_back(
 
         # If kanji entries exist, render compact kanji card below vocabulary senses
         if c_kanji_entries and isinstance(c_kanji_entries, list):
-            kanji_html = format_kanji_html(c_kanji_entries, is_isolated=False, show_jlpt=show_jlpt, furigana_mode=c_furigana_mode)
+            kanji_html = format_kanji_html(c_kanji_entries, is_isolated=False, show_jlpt=show_jlpt, show_strokes=c_show_strokes, furigana_mode=c_furigana_mode)
             if kanji_html:
                 sections.append(kanji_html)
 

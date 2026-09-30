@@ -16,6 +16,63 @@ const API_CARDS_STATS_URL = `${BACKEND_BASE_URL}/api/cards/stats`;
 const API_CARDS_BULK_DELETE_URL = `${BACKEND_BASE_URL}/api/cards/bulk`;
 const API_CARDS_BULK_SYNC_URL = `${BACKEND_BASE_URL}/api/cards/bulk-sync`;
 const API_CARDS_BULK_DECK_URL = `${BACKEND_BASE_URL}/api/cards/bulk-deck`;
+const API_KANJI_STROKES_URL = (char) => `${BACKEND_BASE_URL}/api/kanji/strokes/${encodeURIComponent(char)}`;
+
+const kanjiStrokesCache = new Map();
+
+async function getKanjiStrokeSvg(character) {
+  if (!character) return null;
+  const cleanChar = String(character).trim();
+  const char = cleanChar.length > 1 ? cleanChar[0] : cleanChar;
+  if (kanjiStrokesCache.has(char)) {
+    return kanjiStrokesCache.get(char);
+  }
+  try {
+    const res = await fetch(API_KANJI_STROKES_URL(char));
+    if (!res.ok) {
+      kanjiStrokesCache.set(char, null);
+      return null;
+    }
+    const svgText = await res.text();
+    kanjiStrokesCache.set(char, svgText);
+    return svgText;
+  } catch (err) {
+    return null;
+  }
+}
+
+function createStrokeSvgElement(svgText) {
+  if (!svgText) return null;
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgText, "image/svg+xml");
+      if (!doc.querySelector("parsererror")) {
+        const svg = doc.documentElement;
+        if (svg && svg.tagName && svg.tagName.toLowerCase() === "svg") {
+          svg.classList.add("stroke-order-svg");
+          return svg;
+        }
+      }
+    } catch (err) {
+      // fallback below
+    }
+  }
+  if (typeof document !== "undefined") {
+    try {
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = svgText;
+      const svg = tempDiv.querySelector("svg");
+      if (svg) {
+        svg.classList.add("stroke-order-svg");
+        return svg;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  return null;
+}
 
 if (typeof chrome === "undefined") {
   globalThis.chrome = {
@@ -3043,8 +3100,9 @@ function renderKanjiCard(kanji, options = { mode: "full", isProminent: false }) 
     const kunyomi = Array.isArray(kanji.kunyomi) ? kanji.kunyomi.filter(Boolean) : [];
     const nanori = Array.isArray(kanji.nanori) ? kanji.nanori.filter(Boolean) : [];
 
+    let readingsDiv = null;
     if (onyomi.length || kunyomi.length || nanori.length) {
-      const readingsDiv = document.createElement("div");
+      readingsDiv = document.createElement("div");
       readingsDiv.className = "kn-kanji-readings";
 
       if (onyomi.length) {
@@ -3088,17 +3146,46 @@ function renderKanjiCard(kanji, options = { mode: "full", isProminent: false }) 
         row.append(val);
         readingsDiv.append(row);
       }
-
-      card.append(readingsDiv);
     }
 
     // Meanings
     const meanings = Array.isArray(kanji.meanings) ? kanji.meanings.filter(Boolean) : [];
+    let meanDiv = null;
     if (meanings.length) {
-      const meanDiv = document.createElement("div");
+      meanDiv = document.createElement("div");
       meanDiv.className = "kn-kanji-meanings";
       meanDiv.textContent = meanings.join(", ");
-      card.append(meanDiv);
+    }
+
+    if (kanji.character) {
+      const char = kanji.character;
+      const bodyRow = document.createElement("div");
+      bodyRow.className = "kn-kanji-body-row";
+
+      const strokeCol = document.createElement("div");
+      strokeCol.className = "kn-kanji-stroke-col";
+
+      const detailsCol = document.createElement("div");
+      detailsCol.className = "kn-kanji-details-col";
+      if (readingsDiv) detailsCol.append(readingsDiv);
+      if (meanDiv) detailsCol.append(meanDiv);
+
+      bodyRow.append(strokeCol, detailsCol);
+      card.append(bodyRow);
+
+      getKanjiStrokeSvg(char).then((svgText) => {
+        if (svgText) {
+          const svgElem = createStrokeSvgElement(svgText);
+          if (svgElem) {
+            strokeCol.replaceChildren(svgElem);
+            return;
+          }
+        }
+        strokeCol.style.display = "none";
+      });
+    } else {
+      if (readingsDiv) card.append(readingsDiv);
+      if (meanDiv) card.append(meanDiv);
     }
 
     return card;
@@ -3121,12 +3208,15 @@ function renderKanjiCard(kanji, options = { mode: "full", isProminent: false }) 
   dictPill.textContent = kanji.dictionary || "Kanji";
   header.append(dictPill);
 
+  let strokePill = null;
   // Stats pills
   if (kanji.stats) {
     if (kanji.stats.strokes) {
-      const strokePill = document.createElement("span");
-      strokePill.className = "badge kanji-stat-badge";
-      strokePill.textContent = `${kanji.stats.strokes} strokes`;
+      strokePill = document.createElement("button");
+      strokePill.type = "button";
+      strokePill.className = "badge kanji-stat-badge kanji-stroke-toggle-btn";
+      strokePill.textContent = `${kanji.stats.strokes} strokes ✍`;
+      strokePill.title = "Click to toggle stroke order diagram";
       header.append(strokePill);
     }
     if (kanji.stats.grade) {
@@ -3314,6 +3404,68 @@ function renderKanjiCard(kanji, options = { mode: "full", isProminent: false }) 
   }
 
   card.append(body);
+
+  // Progressive disclosure stroke order diagram (only loads & shows when opened)
+  if (kanji.character) {
+    const char = kanji.character;
+    const strokesDetails = document.createElement("details");
+    strokesDetails.className = "study-kanji-strokes-accordion";
+
+    const strokesSummary = document.createElement("summary");
+    strokesSummary.className = "study-kanji-strokes-summary";
+    strokesSummary.title = "View stroke order diagram";
+
+    const iconSpan = document.createElement("span");
+    iconSpan.className = "stroke-summary-icon";
+    iconSpan.textContent = "✍";
+
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "stroke-summary-label";
+    labelSpan.textContent = "Stroke Order";
+
+    strokesSummary.append(iconSpan, labelSpan);
+    strokesDetails.append(strokesSummary);
+
+    const strokesPanel = document.createElement("div");
+    strokesPanel.className = "study-kanji-strokes-panel";
+
+    let hasLoaded = false;
+    async function loadStrokes() {
+      if (hasLoaded) return;
+      hasLoaded = true;
+      strokesPanel.textContent = "Loading stroke order…";
+      const svgText = await getKanjiStrokeSvg(char);
+      if (svgText) {
+        const svgElem = createStrokeSvgElement(svgText);
+        if (svgElem) {
+          strokesPanel.replaceChildren(svgElem);
+          return;
+        }
+      }
+      const emptyNotice = document.createElement("span");
+      emptyNotice.className = "study-kanji-strokes-empty";
+      emptyNotice.textContent = "Stroke diagram unavailable for this character.";
+      strokesPanel.replaceChildren(emptyNotice);
+    }
+
+    strokesDetails.addEventListener("toggle", () => {
+      if (strokesDetails.open) {
+        loadStrokes();
+      }
+    });
+
+    strokesDetails.append(strokesPanel);
+    card.append(strokesDetails);
+
+    if (strokePill) {
+      strokePill.onclick = (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        strokesDetails.open = !strokesDetails.open;
+        if (strokesDetails.open) loadStrokes();
+      };
+    }
+  }
+
   return card;
 }
 

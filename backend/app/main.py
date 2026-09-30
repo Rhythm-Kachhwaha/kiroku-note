@@ -453,5 +453,17 @@ def recognize_image(request: OcrRecognizeRequest) -> OcrRecognizeResponse:
         ) from error
 
 
+from app.services.kanji_strokes import get_kanji_strokes_service
 
 
+@app.get("/api/kanji/strokes/{character}")
+def get_kanji_strokes(character: str) -> Response:
+    """Return stroke order SVG for a kanji character or hex codepoint."""
+    service = get_kanji_strokes_service()
+    svg = service.get_stroke_svg(character)
+    if not svg:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Stroke diagram not found for character: {character}",
+        )
+    return Response(content=svg, media_type="image/svg+xml; charset=utf-8")

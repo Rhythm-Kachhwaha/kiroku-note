@@ -270,19 +270,21 @@ For architecture diagrams, design guidelines, and development documentation:
 
 ## <a id="third-party-data--attribution"></a>📚 Third-Party Data & Attribution
 
-Kiroku Note bundles an offline, local JLPT reference SQLite database (`jlpt_reference.sqlite`) to resolve modern JLPT levels (N5–N1) without sending lookups over the network:
+Kiroku Note bundles offline reference datasets to enrich vocabulary and kanji without sending lookups over the network:
 
 - **OpenJLPT:** Assembled by Evan Clan ([OpenJLPT Repository](https://github.com/evanclan/OpenJLPT)), licensed under [Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/).
 - **Jonathan Waller's JLPT Resources:** N5–N1 level vocabulary and kanji classifications ([tanos.co.uk/jlpt](http://www.tanos.co.uk/jlpt/)), licensed under [CC BY](https://creativecommons.org/licenses/by/3.0/).
 - **JMdict / EDICT & KANJIDIC2:** Electronic Dictionary Research and Development Group (EDRDG) ([edrdg.org](https://www.edrdg.org/)), licensed under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html).
 - **Tatoeba Project:** Example sentences and translations ([tatoeba.org](https://tatoeba.org/)), licensed under [CC BY 2.0 FR](https://creativecommons.org/licenses/by/2.0/fr/).
+- **KanjiVG:** Stroke order diagrams copyright (C) 2009-2023 Ulrich Apel and contributors ([kanjivg.tagaini.net](https://kanjivg.tagaini.net/)), licensed under [Creative Commons Attribution-Share Alike 3.0 (CC BY-SA 3.0)](https://creativecommons.org/licenses/by-sa/3.0/).
 
-For complete upstream attribution and legal notices, see [`backend/app/data/JLPT_REFERENCE_NOTICE.md`](backend/app/data/JLPT_REFERENCE_NOTICE.md).
+For complete upstream attribution and legal notices, see [`backend/app/data/JLPT_REFERENCE_NOTICE.md`](backend/app/data/JLPT_REFERENCE_NOTICE.md) and [`backend/app/data/KANJIVG_NOTICE.md`](backend/app/data/KANJIVG_NOTICE.md).
 
 ---
 
 ## <a id="license"></a>📄 License
 
 - **Software & Source Code:** Licensed under the [MIT License](LICENSE).
-- **Bundled Reference Data:** Sourced from OpenJLPT and upstream projects under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+- **Bundled Reference Data:** Sourced from OpenJLPT (CC BY-SA 4.0) and KanjiVG ([CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)).
+
 

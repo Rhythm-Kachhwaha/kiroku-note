@@ -1808,13 +1808,48 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ **Full Extension Test Suite:** **133/133 passed (100%)** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. All video playback invariants preserved, Intl.Segmenter used natively with zero external dependencies, no database migrations required.
 
+---
 
+### Tier 4 — Session 3: Stroke Order Diagrams (KanjiVG) & T4-D Deferral
 
-
-
-
-
-
-
-
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Implement Tier 4 Session 3 task **T4-E (Stroke Order Diagrams)** from `newfeatures.md`.
+  - Mark **T4-D ("↺ Re-scan" OCR button) as explicitly deferred/ignored** per user instruction.
+  - Comply with all guardrails:
+    - Ingest curated subset of ~2,211 common Joyo/JLPT kanji into local SQLite (never bundle 6,400 SVGs in extension bundle).
+    - Provide backend endpoint `GET /api/kanji/strokes/{character}` with in-memory LRU caching.
+    - Inline SVG styles in `anki_formatter.py` so diagrams render properly in Anki (which strips class-based CSS).
+    - Safe DOM injection inside existing kanji breakdown cards (`DOMParser` with `image/svg+xml` and `replaceChildren`).
+    - Progressive disclosure: stroke diagram rendered inside a collapsed `<details class="study-kanji-strokes-accordion">` (plus interactive toggle chip on `${strokes} strokes ✍`), ensuring the default UI is clean and uncluttered.
+    - Legal attribution: prominent **CC BY-SA 3.0** attribution for Ulrich Apel & KanjiVG in `README.md` and `backend/app/data/KANJIVG_NOTICE.md`.
+- **Implementation Deliverables:**
+  1. **KanjiVG Ingestion Script & Dataset:**
+     - Created [backend/scripts/import_kanjivg.py](file:///d:/Python/AnkiMiner/backend/scripts/import_kanjivg.py) to download official KanjiVG release (`r20250816`), clean SVGs (stripping multi-line DTD/DOCTYPE, XML comments, and non-standard kvg attributes while preserving stroke paths and stroke numbers), and store in SQLite.
+     - Generated [backend/app/data/kanji_strokes.sqlite](file:///d:/Python/AnkiMiner/backend/app/data/kanji_strokes.sqlite) (7.3 MB) containing 2,211 curated Joyo and JLPT kanji SVGs.
+     - Created [backend/app/data/KANJIVG_NOTICE.md](file:///d:/Python/AnkiMiner/backend/app/data/KANJIVG_NOTICE.md) detailing CC BY-SA 3.0 licensing and copyright attribution.
+     - Updated [README.md](file:///d:/Python/AnkiMiner/README.md) with third-party licensing attribution.
+     - Updated PyInstaller spec [packaging/kiroku_backend.spec](file:///d:/Python/AnkiMiner/packaging/kiroku_backend.spec) to bundle `kanji_strokes.sqlite` and `KANJIVG_NOTICE.md`.
+  2. **Backend Service & API Endpoint:**
+     - Implemented `KanjiStrokesService` in [backend/app/services/kanji_strokes.py](file:///d:/Python/AnkiMiner/backend/app/services/kanji_strokes.py) with `@functools.lru_cache(maxsize=500)` and read-only URI connection to `kanji_strokes.sqlite`.
+     - Exposed `GET /api/kanji/strokes/{character}` in [backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py) returning `image/svg+xml` or 404 for non-kanji/missing characters.
+  3. **Anki Card HTML Formatter:**
+     - Enhanced `AnkiFormatter` in [backend/app/services/anki_formatter.py](file:///d:/Python/AnkiMiner/backend/app/services/anki_formatter.py) with `_ensure_anki_svg_inline_style()` applying inline stroke colors, line caps, viewBox bounding, and stroke number typography.
+     - Integrated stroke diagram into `format_kanji_html()` with configurable `show_strokes: bool = True` (controlled via card settings in `anki_connect.py`).
+     - Added `.kn-card .kn-kanji-body-row`, `.kn-card .kn-kanji-stroke-col`, `.kn-card .kn-kanji-details-col`, and `.kn-card .stroke-order-svg` to scoped card CSS.
+  4. **Side Panel UI & Progressive Disclosure:**
+     - Added CSS styling in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css) for `.study-kanji-strokes-accordion`, `.study-kanji-strokes-summary`, `.study-kanji-strokes-panel`, and `.stroke-order-svg`.
+     - Added `getKanjiStrokeSvg()` with in-memory `Map` caching and safe `DOMParser` rendering in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
+     - In study view: added interactive stroke toggle badge (`${strokes} strokes ✍`) and collapsed `<details class="study-kanji-strokes-accordion">` that lazily fetches and renders the stroke diagram only when toggled/opened, preserving zero-clutter UI.
+     - In compact card preview: displayed 2-column layout (`.kn-kanji-body-row`) matching Anki output with async SVG injection.
+  5. **Task Management & Scope Control:**
+     - Marked **T4-D** as `Deferred` in [newfeatures.md](file:///d:/Python/AnkiMiner/newfeatures.md).
+     - Marked **T4-E** as `Completed` in [newfeatures.md](file:///d:/Python/AnkiMiner/newfeatures.md).
+- **Verification:**
+  - ✅ **Backend Stroke Service & API Test Suite:** [backend/tests/test_kanji_strokes.py](file:///d:/Python/AnkiMiner/backend/tests/test_kanji_strokes.py): **7/7 passed (100%)**
+  - ✅ **Backend Anki Formatter Test Suite:** [backend/tests/test_anki_formatter.py](file:///d:/Python/AnkiMiner/backend/tests/test_anki_formatter.py): **25/25 passed (100%)**
+  - ✅ **Extension Session 3 Test Suite:** [extension/tests/tier4-session3-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier4-session3-features.test.js): **3/3 passed (100%)**
+  - ✅ **Full Backend Pytest Suite:** **434/434 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - ✅ **Full Extension Test Suite:** **136/136 passed (100%)** (`node --test extension/tests/*.test.js`)
+- **Remaining Risk:** None. KanjiVG SVGs are served on-demand via the local backend, cached in memory, and rendered on-demand in the UI without cluttering the existing card presentation.
 

@@ -646,7 +646,77 @@ class TestAnkiFormatter(unittest.TestCase):
         self.assertNotIn('kn-verb-type', html_toggle_off)
         self.assertNotIn('kn-transitivity', html_toggle_off)
 
+    # 20. KanjiVG Stroke Order Diagrams in Anki Card Back (Tier 4 Session 3)
+    def test_20_kanji_stroke_order_svg_inline_styles(self):
+        """Verify stroke order SVG diagram has self-contained inline styles inside Anki note back template."""
+        kanji_card = {
+            "expression": "意",
+            "reading": "い",
+            "meaning": "idea, mind, heart",
+            "kanji_entries": [
+                {
+                    "character": "意",
+                    "dictionary": "KANJIDIC",
+                    "onyomi": ["イ"],
+                    "kunyomi": [],
+                    "meanings": ["idea", "mind", "heart", "taste", "thought"],
+                    "stats": {"strokes": 13, "grade": 3, "jlpt": "N3"},
+                }
+            ],
+        }
+
+        back_html = format_basic_back(kanji_card, show_strokes=True)
+        # 1. Back HTML contains .kn-card and style block
+        self.assertIn('<div class="kn-card">', back_html)
+        self.assertIn('<div class="kn-kanji-card">', back_html)
+
+        # 2. Back HTML contains the stroke order SVG
+        self.assertIn('<svg ', back_html)
+        self.assertIn('xmlns="http://www.w3.org/2000/svg"', back_html)
+        self.assertIn('class="stroke-order-svg"', back_html)
+        self.assertIn('viewBox="0 0 109 109"', back_html)
+
+        # 3. Stroke SVG has self-contained inline styles (Anki strips class CSS)
+        self.assertIn('width="64"', back_html)
+        self.assertIn('height="64"', back_html)
+        self.assertIn('style="width:64px;height:64px;', back_html)
+        self.assertIn('style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;"', back_html)
+        self.assertIn('style="font-size:8px;fill:#888888;', back_html)
+
+        # 4. Contains stroke paths and stroke numbers
+        self.assertIn('id="kvg:StrokePaths_0610f"', back_html)
+        self.assertIn('id="kvg:StrokeNumbers_0610f"', back_html)
+
+    def test_21_kanji_strokes_toggle_disabled(self):
+        """Verify setting show_strokes=False suppresses stroke diagram from Back HTML."""
+        kanji_card = {
+            "expression": "意",
+            "reading": "い",
+            "meaning": "idea",
+            "card_settings": {"show_strokes": False},
+            "kanji_entries": [
+                {
+                    "character": "意",
+                    "dictionary": "KANJIDIC",
+                    "onyomi": ["イ"],
+                    "meanings": ["idea"],
+                    "stats": {"strokes": 13},
+                }
+            ],
+        }
+
+        # Via card_settings
+        back_html = format_basic_back(kanji_card)
+        self.assertNotIn('class="stroke-order-svg"', back_html)
+        self.assertNotIn('StrokePaths', back_html)
+
+        # Via explicit keyword argument
+        back_html_kw = format_basic_back(kanji_card, show_strokes=False)
+        self.assertNotIn('class="stroke-order-svg"', back_html_kw)
+        self.assertNotIn('StrokePaths', back_html_kw)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

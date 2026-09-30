@@ -4592,6 +4592,120 @@ rt {
 }
 
 /* ==========================================================================
+   9.6. Kanji Stroke Order Diagrams (KanjiVG)
+   ========================================================================== */
+
+.study-kanji-strokes-accordion {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  margin-top: var(--space-2);
+  overflow: hidden;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.study-kanji-strokes-accordion[open] {
+  border-color: var(--border-strong);
+  background: var(--bg-surface-1);
+}
+
+.study-kanji-strokes-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-2);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.study-kanji-strokes-summary:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-3);
+}
+
+.study-kanji-strokes-summary .stroke-summary-icon {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.study-kanji-strokes-panel {
+  padding: var(--space-2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface-1);
+  min-height: 72px;
+}
+
+.stroke-order-svg {
+  width: 64px;
+  height: 64px;
+  max-width: 100%;
+  display: block;
+}
+
+.stroke-order-svg path {
+  stroke: var(--accent-reading, #5c7cfa);
+  fill: none;
+  transition: stroke var(--transition-fast);
+}
+
+.stroke-order-svg text {
+  font-size: 8px;
+  font-family: var(--font-mono, monospace);
+  fill: var(--text-muted, #8e8a81);
+}
+
+.study-kanji-strokes-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.kanji-stat-badge.kanji-stroke-toggle-btn {
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  font-family: inherit;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.kanji-stat-badge.kanji-stroke-toggle-btn:hover {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+/* Anki Card Preview Stroke Order */
+.kn-kanji-body-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 6px 0;
+}
+
+.kn-kanji-stroke-col {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kn-kanji-details-col {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+/* ==========================================================================
    10. First-Run Quick Setup Guide
    ========================================================================== */
 

@@ -79,6 +79,13 @@ if JLPT_DB.exists():
 if JLPT_NOTICE.exists():
     datas.append((str(JLPT_NOTICE), os.path.join("app", "data")))
 
+KANJIVG_DB = BACKEND_DIR / "app" / "data" / "kanji_strokes.sqlite"
+KANJIVG_NOTICE = BACKEND_DIR / "app" / "data" / "KANJIVG_NOTICE.md"
+if KANJIVG_DB.exists():
+    datas.append((str(KANJIVG_DB), os.path.join("app", "data")))
+if KANJIVG_NOTICE.exists():
+    datas.append((str(KANJIVG_NOTICE), os.path.join("app", "data")))
+
 a = Analysis(
     [str(PROJECT_ROOT / "run_tray.py")],
     pathex=[str(PROJECT_ROOT), str(BACKEND_DIR)],
