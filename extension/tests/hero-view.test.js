@@ -37,7 +37,7 @@ function createMockElement(id, tagName = "div") {
   };
 }
 
-test("Hero View - reading, meanings summary, and badges format matching screenshot", async (t) => {
+test("Hero View - reading, meanings summary, and badges format matching screenshot", (t) => {
   // Read sidepanel.js to extract tested functions
   const sidepanelJs = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.js"), "utf8");
 
@@ -83,7 +83,7 @@ test("Hero View - reading, meanings summary, and badges format matching screensh
   const fns = new Function(...Object.keys(sandbox), fnCode)(...Object.values(sandbox));
 
   // 1. Test updateHeroReading
-  await t.test("updateHeroReading formats Japanese reading with Romaji using middle dot separator", () => {
+  t.test("updateHeroReading formats Japanese reading with Romaji using middle dot separator", () => {
     fns.updateHeroReading("のむ", "飲む");
     assert.equal(mockReading.textContent, "のむ · nomu");
 
@@ -103,7 +103,7 @@ test("Hero View - reading, meanings summary, and badges format matching screensh
   });
 
   // 2. Test updateHeroMeanings
-  await t.test("updateHeroMeanings numbers senses and separates with middle dot", () => {
+  t.test("updateHeroMeanings numbers senses and separates with middle dot", () => {
     const meaningData = {
       meaning: "1. to drink\n2. to take; consume\n3. to swallow\n4. to engulf"
     };
@@ -126,7 +126,7 @@ test("Hero View - reading, meanings summary, and badges format matching screensh
   });
 
   // 3. Test updateHeroBadges for exact screenshot case: 飲む (JLPT N4, verb · godan, ⊚ heiban)
-  await t.test("updateHeroBadges formats JLPT, verb type, and pitch accent matching screenshot", () => {
+  t.test("updateHeroBadges formats JLPT, verb type, and pitch accent matching screenshot", () => {
     const body = {
       expression: "飲む",
       reading: "のむ",
@@ -169,7 +169,7 @@ test("Hero View - reading, meanings summary, and badges format matching screensh
   });
 
   // 4. Test other verb types & pitch patterns
-  await t.test("updateHeroBadges handles ichidan, suru, and non-zero pitch positions", () => {
+  t.test("updateHeroBadges handles ichidan, suru, and non-zero pitch positions", () => {
     const body = {
       expression: "食べる",
       reading: "たべる",

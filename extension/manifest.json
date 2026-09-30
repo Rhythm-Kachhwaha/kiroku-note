@@ -31,12 +31,6 @@
         "default": "Alt+Shift+K"
       },
       "description": "Open Kiroku Note side panel"
-    },
-    "toggle-ask": {
-      "suggested_key": {
-        "default": "Alt+Shift+A"
-      },
-      "description": "Toggle Ask AI drawer"
     }
   },
   "host_permissions": [
