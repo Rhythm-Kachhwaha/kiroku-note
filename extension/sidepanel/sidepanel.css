@@ -3443,6 +3443,10 @@ rt {
   justify-content: space-between;
 }
 
+.sync-all-status[hidden] {
+  display: none !important;
+}
+
 .sync-all-status.success {
   background: var(--accent-success-dim);
   border-color: var(--accent-success-border);
@@ -4873,6 +4877,13 @@ rt {
 }
 
 .layout-settings-popover {
+  position: fixed;
+  top: 44px; /* below header */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  background: var(--bg-app, #131211);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
