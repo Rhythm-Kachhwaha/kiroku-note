@@ -44,8 +44,10 @@
           <button type="button" id="tab-btn-text" class="mode-tab-btn tab-btn active" role="tab" aria-selected="true" aria-controls="text-mining-view">Text</button>
           <button type="button" id="tab-btn-video" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="video-mining-view">Video</button>
           <button type="button" id="tab-btn-quickadd" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="quickadd-mining-view">Quick</button>
+          <button type="button" id="tab-btn-ask" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="ask-mining-view">Ask</button>
           <button type="button" id="tab-btn-history" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="history-section">History</button>
         </nav>
+
 
         <!-- Japanese Writing Mode Toggle [JP] (Located conveniently at top) -->
         <button type="button" id="btn-editor-jp-mode" class="btn-jp-mode btn-editor-jp-mode" title="Toggle Japanese input assistance (Romaji → Kana)" aria-pressed="false">
@@ -314,11 +316,83 @@
       </div>
     </div>
 
+    <!-- =========================================================
+         TAB 4: ASK (AI ASSISTANT TAB)
+         ========================================================= -->
+    <div id="ask-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-ask" hidden>
+      
+      <!-- 1. AI Assistant Status & Controls Bar -->
+      <div class="ask-status-bar">
+        <div class="ask-provider-pill" id="ask-provider-pill" title="Configured via backend KIROKU_LLM_PROVIDER">
+          <span class="ask-status-dot online" id="ask-status-dot"></span>
+          <span class="ask-provider-name" id="ask-provider-name">AI Assistant</span>
+          <span class="ask-model-tag" id="ask-model-tag">checking...</span>
+        </div>
+        <div class="ask-top-actions">
+          <button type="button" class="btn-ask-reset" id="btn-ask-new-chat" title="Clear current conversation history">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="8" y1="2" x2="8" y2="14"/>
+              <line x1="2" y1="8" x2="14" y2="8"/>
+            </svg>
+            <span>New Chat</span>
+          </button>
+        </div>
+      </div>
 
+      <!-- 2. Active Context Detection Banner (Auto-detects active Video Subtitle or Webpage Selection) -->
+      <div class="ask-context-banner" id="ask-context-banner" hidden>
+        <div class="ask-context-header">
+          <span class="context-type-badge" id="context-type-badge">Detected Context</span>
+          <span class="context-source-badge" id="context-source-badge"></span>
+          <button type="button" class="btn-ask-context-dismiss" id="btn-dismiss-context" title="Dismiss context" aria-label="Dismiss context">&times;</button>
+        </div>
+        <div class="ask-context-text" id="ask-context-text"></div>
+        <div class="ask-context-actions">
+          <button type="button" class="btn-ask-context-action" id="btn-ctx-solve" data-task="answer_question">Solve &amp; Explain MCQ</button>
+          <button type="button" class="btn-ask-context-action" id="btn-ctx-grammar" data-task="explain_grammar">Grammar Breakdown</button>
+          <button type="button" class="btn-ask-context-action" id="btn-ctx-translate" data-task="translate">Translate</button>
+        </div>
+      </div>
+
+      <!-- 3. Scrollable Conversation Stream -->
+      <div class="ask-chat-stream" id="ask-chat-stream">
+        <div class="ask-empty-state" id="ask-empty-state">
+          <div class="ask-empty-title">Ask about Japanese</div>
+          <div class="ask-empty-subtitle">Select text on page, use video subtitles, or paste an MCQ to get step-by-step explanations.</div>
+        </div>
+      </div>
+
+      <!-- 4. Quick Task Prompt Chips -->
+      <div class="ask-prompt-chips-wrap" id="ask-prompt-chips-wrap">
+        <button type="button" class="prompt-chip active" data-task="answer_question">Answer MCQ / JLPT</button>
+        <button type="button" class="prompt-chip" data-task="explain_grammar">Explain Grammar</button>
+        <button type="button" class="prompt-chip" data-task="explain_sense">Sense in Context</button>
+        <button type="button" class="prompt-chip" data-task="translate">Translate</button>
+        <button type="button" class="prompt-chip" data-task="mnemonic">Mnemonic Hook</button>
+      </div>
+
+      <!-- 5. Composer Area (Textarea + Send) -->
+      <div class="ask-composer-container">
+        <textarea id="ask-input-box" class="ask-input-box" placeholder="Ask anything about Japanese, paste an MCQ or sentence..." rows="2" aria-label="Ask input"></textarea>
+        
+        <div class="ask-composer-toolbar">
+          <div class="composer-left-tools">
+            <span class="ask-char-count" id="ask-char-count"></span>
+          </div>
+
+          <button type="button" class="btn-ask-submit" id="btn-ask-submit">
+            <span>Ask AI</span>
+            <kbd>Enter</kbd>
+          </button>
+        </div>
+      </div>
+
+    </div>
 
     <!-- =========================================================
          CARD WORKSPACE: HERO + CARD EDITOR + PREVIEW + DICTIONARY
          ========================================================= -->
+
     <section id="card-editor-section" class="card-editor-section" aria-label="Card Editor">
       <div class="section-header card-workspace-header" style="display:none;">
         <h2 class="section-title">EDIT</h2>
@@ -829,6 +903,22 @@
               <input type="checkbox" id="toggle-auto-capture-audio" class="setting-checkbox switch-input" checked>
               <span class="switch-slider"></span>
             </label>
+          </div>
+        </div>
+
+        <!-- AI Assistant (LLM) Settings -->
+        <div class="card-settings-group settings-group" id="settings-group-llm">
+          <span class="settings-group-title">AI Assistant</span>
+          <div class="settings-row">
+            <span class="settings-label">Provider</span>
+            <span id="llm-provider-display" class="settings-val">None</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">Status</span>
+            <span id="llm-status-label" class="settings-val">Not configured</span>
+          </div>
+          <div class="settings-row" style="margin-top:4px;">
+            <a href="https://github.com/Rhythm-Kachhwaha/kiroku-note/blob/main/docs/llm-setup.md" id="llm-setup-link" target="_blank" rel="noopener noreferrer" style="font-size:11px; color:var(--accent-reading); text-decoration:none;">AI Setup Guide &rarr;</a>
           </div>
         </div>
 

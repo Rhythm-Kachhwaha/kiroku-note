@@ -1890,4 +1890,43 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ **Full Backend Pytest Suite:** **458/458 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
   - ✅ **Full Extension Test Suite:** **136/136 passed (100%)** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. The extension does not call any LLM directly; keys reside only in backend environment variables. Zero live network calls are made during tests or when unconfigured.
+
+---
+
+### Tier 5 — Session 2: "Ask" AI Assistant Tab, UI Integration & Context Automation
+
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Implement Tier 5 Session 2 UI tasks from `newfeatures.md`:
+    - Add dedicated new tab: "Ask" (`#tab-btn-ask` and `#ask-mining-view`) to the sidepanel.
+    - Minimalist design adhering strictly to "no emojis in UI and LLM output" user directive (clean SVGs and text badges).
+    - Reuse existing header controls: Universal `[JP]` mode toggle automatically enables Romaji-to-Kana conversion in `#ask-input-box` via WanaKana; Top `#ocr-capture-btn` populates `#ask-input-box` and active context when OCR is executed on the Ask tab.
+    - Auto-context detection banner (`#ask-context-banner`): captures active video subtitle cues or webpage text selections and provides quick action buttons (`Solve & Explain MCQ`, `Grammar Breakdown`, `Translate`).
+    - Scrollable multi-turn conversation stream (`#ask-chat-stream`) with user bubbles, AI answer cards, distractor breakdowns, `Copy` and `Add to Notes` buttons (appends AI explanation to card editor's notes).
+    - Quick task prompt chips (`Answer MCQ / JLPT`, `Explain Grammar`, `Sense in Context`, `Translate`, `Mnemonic Hook`).
+    - Settings popover AI Assistant status group (`#llm-provider-display`, `#llm-status-label`).
+- **Implementation Deliverables:**
+  1. **Sidepanel Markup ([extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html)):**
+     - Added `#tab-btn-ask` in navigation tabs.
+     - Added `#ask-mining-view` with status bar, context banner, chat stream, task chips, and composer.
+     - Added AI Assistant section in layout settings popover.
+     - Enforced strict absence of emojis.
+  2. **Sidepanel Styling ([extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css)):**
+     - Added Precision Dark Utility styling for `#ask-mining-view`, `.ask-status-bar`, `.ask-provider-pill`, `.ask-context-banner`, `.ask-chat-stream`, `.chat-message`, `.ai-direct-answer`, `.prompt-chip`, `.ask-composer-container`, `.btn-ask-submit`, and loading dots.
+  3. **Sidepanel Logic ([extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js)):**
+     - Added `API_LLM_STATUS_URL` and `API_LLM_ASK_URL` constants and DOM selectors.
+     - Extended `switchMiningTab` with `"ask"`, hiding the card editor when on the Ask tab to maximize chat stream space.
+     - Bound WanaKana IME in `setEditorJapaneseMode` to include `askInputBox`.
+     - Integrated OCR result routing to `askInputBox` and context when `currentMiningTab === "ask"`.
+     - Integrated subtitle cue changes to update context.
+     - Implemented `checkLLMStatus()`, `sendAskQuery()`, `setAskContext()`, `clearAskContext()`, `formatAIResponse()`, and `updateAskCharCount()`.
+     - Added `Copy` and `Add to Notes` action handlers.
+  4. **Automated Test Suite ([extension/tests/tier5-ask-tab.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier5-ask-tab.test.js)):**
+     - 9 automated tests validating DOM elements, absence of emojis, no redundant composer buttons, settings popover status, CSS definitions, JP mode binding, OCR text routing, and module exports.
+- **Verification:**
+  - ✅ **Ask Tab Test Suite:** [extension/tests/tier5-ask-tab.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier5-ask-tab.test.js): **9/9 passed (100%)**
+  - ✅ **Full Extension Test Suite:** **145/145 passed (100%)** (`node --test extension/tests/*.test.js`)
+  - ✅ **Full Backend Pytest Suite:** **458/458 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+- **Remaining Risk:** None. Zero external runtime dependencies added. The extension remains 100% vanilla HTML/CSS/JS and local-first.
+
 

@@ -17,6 +17,8 @@ const API_CARDS_BULK_DELETE_URL = `${BACKEND_BASE_URL}/api/cards/bulk`;
 const API_CARDS_BULK_SYNC_URL = `${BACKEND_BASE_URL}/api/cards/bulk-sync`;
 const API_CARDS_BULK_DECK_URL = `${BACKEND_BASE_URL}/api/cards/bulk-deck`;
 const API_KANJI_STROKES_URL = (char) => `${BACKEND_BASE_URL}/api/kanji/strokes/${encodeURIComponent(char)}`;
+const API_LLM_STATUS_URL = `${BACKEND_BASE_URL}/api/llm/status`;
+const API_LLM_ASK_URL = `${BACKEND_BASE_URL}/api/llm/ask`;
 
 const kanjiStrokesCache = new Map();
 
@@ -846,10 +848,35 @@ if (historyCollapseBtn) {
 const tabBtnText = document.querySelector("#tab-btn-text");
 const tabBtnVideo = document.querySelector("#tab-btn-video");
 const tabBtnQuickAdd = document.querySelector("#tab-btn-quickadd");
+const tabBtnAsk = document.querySelector("#tab-btn-ask");
 const tabBtnHistory = document.querySelector("#tab-btn-history");
 const textMiningView = document.querySelector("#text-mining-view");
 const videoMiningView = document.querySelector("#video-mining-view");
 const quickAddMiningView = document.querySelector("#quickadd-mining-view");
+const askMiningView = document.querySelector("#ask-mining-view");
+
+// Ask (AI Assistant) elements
+const askProviderPill = document.querySelector("#ask-provider-pill");
+const askStatusDot = document.querySelector("#ask-status-dot");
+const askProviderName = document.querySelector("#ask-provider-name");
+const askModelTag = document.querySelector("#ask-model-tag");
+const btnAskNewChat = document.querySelector("#btn-ask-new-chat");
+const askContextBanner = document.querySelector("#ask-context-banner");
+const contextTypeBadge = document.querySelector("#context-type-badge");
+const contextSourceBadge = document.querySelector("#context-source-badge");
+const btnDismissContext = document.querySelector("#btn-dismiss-context");
+const askContextText = document.querySelector("#ask-context-text");
+const btnCtxSolve = document.querySelector("#btn-ctx-solve");
+const btnCtxGrammar = document.querySelector("#btn-ctx-grammar");
+const btnCtxTranslate = document.querySelector("#btn-ctx-translate");
+const askChatStream = document.querySelector("#ask-chat-stream");
+const askEmptyState = document.querySelector("#ask-empty-state");
+const askPromptChipsWrap = document.querySelector("#ask-prompt-chips-wrap");
+const askInputBox = document.querySelector("#ask-input-box");
+const askCharCount = document.querySelector("#ask-char-count");
+const btnAskSubmit = document.querySelector("#btn-ask-submit");
+const llmProviderDisplay = document.querySelector("#llm-provider-display");
+const llmStatusLabel = document.querySelector("#llm-status-label");
 const cardEditorSection = document.querySelector("#card-editor-section");
 const btnNavCollapseToggle = document.querySelector("#btn-nav-collapse-toggle");
 const panelHeader = document.querySelector("#panel-header");
@@ -1384,6 +1411,16 @@ async function handleOcrCropProcess({ dataUrl, cropRect, rect, viewport }) {
     }
 
     setStatus(`OCR recognized: "${recognizedText}" — looking up dictionary…`);
+
+    if (currentMiningTab === "ask") {
+      if (askInputBox) {
+        askInputBox.value = recognizedText;
+        if (typeof updateAskCharCount === "function") updateAskCharCount();
+      }
+      if (typeof setAskContext === "function") {
+        setAskContext(recognizedText, "OCR Capture");
+      }
+    }
 
     // Track provenance
     if (typeof lastCaptureSource !== "undefined") {
@@ -3954,6 +3991,9 @@ async function identify(text) {
   if (currentMiningTab === "video" || videoCurrentCuePreview) {
     updateVideoCuePreviewText(currentActiveCue?.text, capturedText);
   }
+  if (currentMiningTab === "ask" && typeof setAskContext === "function") {
+    setAskContext(capturedText, "Text Selection");
+  }
   const requestId = ++currentCaptureId;
   setStatus("Identifying selection…");
   setIndicatorStatus(indicatorYomitan, "checking", "Yomitan: Identifying…");
@@ -4820,6 +4860,7 @@ function setEditorJapaneseMode(active) {
   // Guardrail 1: Japanese input mode is limited to free-form text fields.
   // NEVER bind WanaKana to Expression or Reading.
   const targetInputs = [fieldHint, fieldExampleSentence, fieldNotes].filter(Boolean);
+  if (askInputBox) targetInputs.push(askInputBox);
   if (typeof wanakana !== "undefined") {
     targetInputs.forEach(input => {
       try {
@@ -7940,7 +7981,7 @@ if (typeof window !== "undefined") {
 }
 
 function switchMiningTab(targetTab) {
-  const validTabs = ["text", "video", "quickadd", "history"];
+  const validTabs = ["text", "video", "quickadd", "ask", "history"];
   const tab = validTabs.includes(targetTab) ? targetTab : "text";
   currentMiningTab = tab;
 
@@ -7981,6 +8022,26 @@ function switchMiningTab(targetTab) {
     }
   }
 
+  if (tabBtnAsk) {
+    const isAsk = tab === "ask";
+    tabBtnAsk.classList.toggle("active", isAsk);
+    tabBtnAsk.setAttribute("aria-selected", String(isAsk));
+  }
+  if (askMiningView) {
+    askMiningView.hidden = tab !== "ask";
+    if (tab === "ask") {
+      if (askInputBox) {
+        setTimeout(() => askInputBox.focus(), 50);
+      }
+      if (typeof checkLLMStatus === "function") {
+        checkLLMStatus().catch(() => {});
+      }
+      if (typeof setAskContext === "function" && (!activeAskContext || !activeAskContext.text) && currentActiveCue?.text) {
+        setAskContext(currentActiveCue.text, "Video Subtitle");
+      }
+    }
+  }
+
   if (tabBtnHistory) {
     const isHistory = tab === "history";
     tabBtnHistory.classList.toggle("active", isHistory);
@@ -8003,7 +8064,7 @@ function switchMiningTab(targetTab) {
   }
 
   if (cardEditorSection) {
-    const hideEditor = tab === "history";
+    const hideEditor = tab === "history" || tab === "ask";
     cardEditorSection.hidden = hideEditor;
     cardEditorSection.style.display = hideEditor ? "none" : "";
   }
@@ -8060,6 +8121,9 @@ if (tabBtnVideo) {
 }
 if (tabBtnQuickAdd) {
   tabBtnQuickAdd.addEventListener("click", () => switchMiningTab("quickadd"));
+}
+if (tabBtnAsk) {
+  tabBtnAsk.addEventListener("click", () => switchMiningTab("ask"));
 }
 if (tabBtnHistory) {
   tabBtnHistory.addEventListener("click", () => switchMiningTab("history"));
@@ -8543,6 +8607,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     const highlight = typeof message.highlightTerm === "string" ? message.highlightTerm : undefined;
     updateVideoCuePreviewText(message.cue?.text, highlight);
+    if (message.cue?.text && typeof setAskContext === "function" && (!activeAskContext || !activeAskContext.text || currentMiningTab === "ask")) {
+      setAskContext(message.cue.text, "Video Subtitle");
+    }
     if (typeof btnMineFullSentence !== "undefined" && btnMineFullSentence) {
       btnMineFullSentence.disabled = !Boolean(message.cue?.text);
     }
@@ -8837,6 +8904,9 @@ function openLayoutSettings() {
   }
   syncCardTemplateSettingsUI();
   renderLayoutSettingsList(currentCardSectionOrder);
+  if (typeof checkLLMStatus === "function") {
+    checkLLMStatus().catch(() => {});
+  }
 }
 
 function closeLayoutSettings() {
@@ -8909,7 +8979,403 @@ if (btnDismissFirstRun) {
   btnDismissFirstRun.addEventListener("click", () => dismissFirstRunGuide());
 }
 
+/* ==========================================================================
+   TIER 5: ASK TAB (AI ASSISTANT) LOGIC & INTEGRATION
+   ========================================================================== */
+
+let activeAskContext = { text: "", source: "" };
+let askChatHistory = [];
+let isAskLoading = false;
+let currentAskTask = "answer_question";
+let lastLLMStatus = null;
+
+async function checkLLMStatus() {
+  try {
+    const res = await fetch(API_LLM_STATUS_URL);
+    if (!res.ok) {
+      throw new Error(`Status ${res.status}`);
+    }
+    const data = await res.json();
+    lastLLMStatus = data;
+    const isConfigured = Boolean(data.configured);
+    const provider = data.provider || "none";
+    const model = data.model || "";
+
+    if (askStatusDot) {
+      askStatusDot.className = `ask-status-dot ${isConfigured ? "online" : "offline"}`;
+    }
+    if (askProviderName) {
+      askProviderName.textContent = isConfigured
+        ? (provider.charAt(0).toUpperCase() + provider.slice(1))
+        : "AI Assistant";
+    }
+    if (askModelTag) {
+      askModelTag.textContent = isConfigured ? (model || provider) : "offline";
+    }
+    if (llmProviderDisplay) {
+      llmProviderDisplay.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
+    }
+    if (llmStatusLabel) {
+      llmStatusLabel.textContent = isConfigured ? `Ready (${model || "online"})` : "Not configured";
+      llmStatusLabel.style.color = isConfigured ? "var(--accent-success, #81c784)" : "var(--text-muted, #756e65)";
+    }
+    return data;
+  } catch (err) {
+    if (askStatusDot) {
+      askStatusDot.className = "ask-status-dot offline";
+    }
+    if (askModelTag) {
+      askModelTag.textContent = "offline";
+    }
+    if (llmProviderDisplay) {
+      llmProviderDisplay.textContent = "Unknown";
+    }
+    if (llmStatusLabel) {
+      llmStatusLabel.textContent = "Backend offline";
+      llmStatusLabel.style.color = "var(--accent-primary, #b84632)";
+    }
+    return null;
+  }
+}
+
+function setAskContext(text, source = "Detected Context") {
+  const clean = typeof text === "string" ? text.trim() : "";
+  if (!clean) {
+    clearAskContext();
+    return;
+  }
+  activeAskContext = { text: clean, source };
+  if (askContextText) {
+    askContextText.textContent = clean;
+  }
+  if (contextSourceBadge) {
+    contextSourceBadge.textContent = source;
+  }
+  if (askContextBanner) {
+    askContextBanner.hidden = false;
+  }
+}
+
+function clearAskContext() {
+  activeAskContext = { text: "", source: "" };
+  if (askContextBanner) {
+    askContextBanner.hidden = true;
+  }
+}
+
+function updateAskCharCount() {
+  if (!askCharCount || !askInputBox) return;
+  const count = askInputBox.value.length;
+  askCharCount.textContent = count > 0 ? `${count} chars` : "";
+}
+
+function formatBold(str) {
+  return str.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+}
+
+function formatAIResponse(rawText) {
+  if (!rawText) return "";
+  
+  const div = document.createElement("div");
+  div.textContent = rawText;
+  const safeText = div.innerHTML;
+
+  const lines = safeText.split("\n");
+  let formattedHtml = "";
+  let inDistractorList = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) {
+      if (inDistractorList) {
+        formattedHtml += "</ul>";
+        inDistractorList = false;
+      }
+      continue;
+    }
+
+    const answerMatch = line.match(/^(\*\*Answer\*\*|Answer):\s*(.+)$/i);
+    if (answerMatch) {
+      if (inDistractorList) {
+        formattedHtml += "</ul>";
+        inDistractorList = false;
+      }
+      formattedHtml += `<div class="ai-direct-answer"><span class="answer-badge">ANSWER</span><strong>${answerMatch[2]}</strong></div>`;
+      continue;
+    }
+
+    if (line.match(/^(\*\*Why other options are incorrect|\*\*Distractors|\*\*Incorrect options|Why other options are incorrect|Distractors)/i)) {
+      if (inDistractorList) {
+        formattedHtml += "</ul>";
+        inDistractorList = false;
+      }
+      formattedHtml += `<div class="ai-section-title">${line.replace(/\*\*/g, "")}</div><ul class="ai-distractor-list">`;
+      inDistractorList = true;
+      continue;
+    }
+
+    if (line.match(/^(\*\*Explanation|\*\*Why this is correct|\*\*Grammar Pattern|\*\*Breakdown|Explanation|Why this is correct|Grammar Pattern):/i)) {
+      if (inDistractorList) {
+        formattedHtml += "</ul>";
+        inDistractorList = false;
+      }
+      formattedHtml += `<div class="ai-section-title">${line.replace(/\*\*/g, "")}</div>`;
+      continue;
+    }
+
+    if (inDistractorList && (line.startsWith("-") || line.startsWith("*") || line.match(/^\d+\./))) {
+      const cleanItem = line.replace(/^[-*]|\d+\./, "").trim();
+      formattedHtml += `<li>${formatBold(cleanItem)}</li>`;
+      continue;
+    }
+
+    if (inDistractorList && !line.startsWith("-") && !line.startsWith("*")) {
+      formattedHtml += "</ul>";
+      inDistractorList = false;
+    }
+
+    formattedHtml += `<p>${formatBold(line)}</p>`;
+  }
+
+  if (inDistractorList) {
+    formattedHtml += "</ul>";
+  }
+
+  return `<div class="ai-explanation-section">${formattedHtml}</div>`;
+}
+
+async function sendAskQuery(task = currentAskTask, overrideText = null) {
+  if (isAskLoading) return;
+  const promptText = (typeof overrideText === "string" ? overrideText : (askInputBox ? askInputBox.value : "")).trim();
+  if (!promptText) return;
+
+  if (askInputBox && !overrideText) {
+    askInputBox.value = "";
+    updateAskCharCount();
+  }
+
+  if (askEmptyState) {
+    askEmptyState.style.display = "none";
+  }
+
+  // Append user message
+  const userMsgEl = document.createElement("div");
+  userMsgEl.className = "chat-message user-msg";
+  userMsgEl.innerHTML = `
+    <div class="chat-msg-header">
+      <span class="chat-sender">You</span>
+    </div>
+    <div class="chat-msg-body"></div>
+  `;
+  const userBody = userMsgEl.querySelector(".chat-msg-body");
+  if (userBody) userBody.textContent = promptText;
+  if (askChatStream) {
+    askChatStream.appendChild(userMsgEl);
+  }
+
+  // Append loading indicator
+  const loadingEl = document.createElement("div");
+  loadingEl.className = "ai-loading-indicator";
+  loadingEl.innerHTML = `
+    <span>Analyzing</span>
+    <div class="ai-loading-dots">
+      <span></span><span></span><span></span>
+    </div>
+  `;
+  if (askChatStream) {
+    askChatStream.appendChild(loadingEl);
+    askChatStream.scrollTop = askChatStream.scrollHeight;
+  }
+
+  isAskLoading = true;
+  if (btnAskSubmit) btnAskSubmit.disabled = true;
+
+  try {
+    const payload = {
+      task: task || currentAskTask,
+      text: promptText,
+      context: activeAskContext.text || undefined,
+      messages: askChatHistory.length > 0 ? askChatHistory : undefined
+    };
+
+    const res = await fetch(API_LLM_ASK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json().catch(() => ({}));
+    loadingEl.remove();
+
+    if (!res.ok) {
+      const errMsg = data.detail || `LLM request failed (status ${res.status})`;
+      const errEl = document.createElement("div");
+      errEl.className = "chat-message ai-msg ai-error";
+      errEl.innerHTML = `
+        <div class="chat-msg-header">
+          <div class="ai-sender-info">
+            <span class="ai-badge" style="color:#c94f3d; background:rgba(201,79,61,0.12); border-color:rgba(201,79,61,0.25);">ERROR</span>
+          </div>
+        </div>
+        <div class="chat-msg-body">${errMsg}</div>
+      `;
+      if (askChatStream) {
+        askChatStream.appendChild(errEl);
+        askChatStream.scrollTop = askChatStream.scrollHeight;
+      }
+      return;
+    }
+
+    const aiResult = data.result || "";
+    const aiProvider = data.provider || "AI";
+    const aiModel = data.model || "";
+
+    askChatHistory.push({ role: "user", content: promptText });
+    askChatHistory.push({ role: "assistant", content: aiResult });
+
+    const aiMsgEl = document.createElement("div");
+    aiMsgEl.className = "chat-message ai-msg";
+    aiMsgEl.innerHTML = `
+      <div class="chat-msg-header">
+        <div class="ai-sender-info">
+          <span class="ai-badge">AI</span>
+          <span class="ai-model-tag">${aiProvider}${aiModel ? ` (${aiModel})` : ""}</span>
+        </div>
+        <div class="chat-msg-actions">
+          <button type="button" class="btn-chat-action btn-copy-ai" title="Copy answer">Copy</button>
+          <button type="button" class="btn-chat-action btn-add-ai-notes" title="Add explanation to card notes">Add to Notes</button>
+        </div>
+      </div>
+      <div class="chat-msg-body">${formatAIResponse(aiResult)}</div>
+    `;
+
+    const btnCopy = aiMsgEl.querySelector(".btn-copy-ai");
+    if (btnCopy) {
+      btnCopy.addEventListener("click", async () => {
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(aiResult);
+          }
+          btnCopy.textContent = "Copied!";
+          setTimeout(() => { btnCopy.textContent = "Copy"; }, 1500);
+        } catch (_) {}
+      });
+    }
+
+    const btnAddNotes = aiMsgEl.querySelector(".btn-add-ai-notes");
+    if (btnAddNotes) {
+      btnAddNotes.addEventListener("click", () => {
+        if (fieldNotes) {
+          const currentNotes = fieldNotes.value ? fieldNotes.value.trim() + "\n\n" : "";
+          fieldNotes.value = currentNotes + aiResult;
+          fieldNotes.dispatchEvent(new Event("input", { bubbles: true }));
+          btnAddNotes.textContent = "Added!";
+          setTimeout(() => { btnAddNotes.textContent = "Add to Notes"; }, 1500);
+          setStatus("AI explanation added to card notes.");
+        }
+      });
+    }
+
+    if (askChatStream) {
+      askChatStream.appendChild(aiMsgEl);
+      askChatStream.scrollTop = askChatStream.scrollHeight;
+    }
+
+  } catch (err) {
+    loadingEl.remove();
+    const errEl = document.createElement("div");
+    errEl.className = "chat-message ai-msg ai-error";
+    errEl.innerHTML = `
+      <div class="chat-msg-header">
+        <div class="ai-sender-info">
+          <span class="ai-badge" style="color:#c94f3d; background:rgba(201,79,61,0.12); border-color:rgba(201,79,61,0.25);">ERROR</span>
+        </div>
+      </div>
+      <div class="chat-msg-body">Connection error: ${err.message}. Is backend running?</div>
+    `;
+    if (askChatStream) {
+      askChatStream.appendChild(errEl);
+      askChatStream.scrollTop = askChatStream.scrollHeight;
+    }
+  } finally {
+    isAskLoading = false;
+    if (btnAskSubmit) btnAskSubmit.disabled = false;
+  }
+}
+
+// Event listeners for Ask Tab
+if (askPromptChipsWrap) {
+  askPromptChipsWrap.addEventListener("click", (e) => {
+    const chip = e.target.closest(".prompt-chip");
+    if (!chip) return;
+    const task = chip.getAttribute("data-task");
+    if (!task) return;
+    currentAskTask = task;
+    askPromptChipsWrap.querySelectorAll(".prompt-chip").forEach(c => {
+      c.classList.toggle("active", c === chip);
+    });
+  });
+}
+
+if (btnCtxSolve) {
+  btnCtxSolve.addEventListener("click", () => {
+    sendAskQuery("answer_question", activeAskContext.text);
+  });
+}
+if (btnCtxGrammar) {
+  btnCtxGrammar.addEventListener("click", () => {
+    sendAskQuery("explain_grammar", activeAskContext.text);
+  });
+}
+if (btnCtxTranslate) {
+  btnCtxTranslate.addEventListener("click", () => {
+    sendAskQuery("translate", activeAskContext.text);
+  });
+}
+if (btnDismissContext) {
+  btnDismissContext.addEventListener("click", () => {
+    clearAskContext();
+  });
+}
+
+if (btnAskNewChat) {
+  btnAskNewChat.addEventListener("click", () => {
+    askChatHistory = [];
+    if (askChatStream) {
+      askChatStream.innerHTML = `
+        <div class="ask-empty-state" id="ask-empty-state">
+          <div class="ask-empty-title">Ask about Japanese</div>
+          <div class="ask-empty-subtitle">Select text on page, use video subtitles, or paste an MCQ to get step-by-step explanations.</div>
+        </div>
+      `;
+    }
+    clearAskContext();
+    if (askInputBox) {
+      askInputBox.value = "";
+      updateAskCharCount();
+      askInputBox.focus();
+    }
+  });
+}
+
+if (askInputBox) {
+  askInputBox.addEventListener("input", updateAskCharCount);
+  askInputBox.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendAskQuery();
+    }
+  });
+}
+
+if (btnAskSubmit) {
+  btnAskSubmit.addEventListener("click", () => {
+    sendAskQuery();
+  });
+}
+
 loadAutoCapturePreferences();
+checkLLMStatus().catch(() => {});
 loadJimakuApiKey().catch(() => {});
 loadSubtitleFolderPreferences().catch(() => {});
 checkHealthStatus().catch(() => {});
@@ -8986,6 +9452,14 @@ if (typeof module !== "undefined" && module.exports) {
     renderHistoryCards,
     getLastCaptureSource: () => lastCaptureSource,
     setLastCaptureSource: (s) => { lastCaptureSource = s; },
+    switchMiningTab,
+    checkLLMStatus,
+    sendAskQuery,
+    setAskContext,
+    clearAskContext,
+    formatAIResponse,
+    getAskChatHistory: () => askChatHistory,
+    setAskChatHistory: (h) => { askChatHistory = h; },
   };
 }
 

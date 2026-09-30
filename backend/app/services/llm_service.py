@@ -65,37 +65,38 @@ class LLMResponseError(LLMError):
 
 PROMPT_TRANSLATE = (
     "Translate the following Japanese text to English naturally. "
-    "Reply with only the translation."
+    "Reply with only the translation. Do not use emojis in your response."
 )
 
 PROMPT_EXPLAIN_SENSE = (
     "The word '{word}' appears in this Japanese sentence: '{text}'. "
     "The dictionary gives these meanings: '{context}'. "
-    "Which meaning best fits the sentence? Reply in one sentence."
+    "Which meaning best fits the sentence? Reply in one sentence. Do not use emojis in your response."
 )
 
 PROMPT_EXPLAIN_GRAMMAR = (
     "Explain the grammar pattern used in this Japanese sentence in simple English "
-    "for a language learner: '{text}'"
+    "for a language learner: '{text}'. Do not use emojis in your response."
 )
 
 PROMPT_MNEMONIC = (
     "Create a simple, memorable English mnemonic for remembering the Japanese word '{word}' "
-    "which means '{context}'. Be creative and brief."
+    "which means '{context}'. Be creative and brief. Do not use emojis in your response."
 )
 
 PROMPT_ANSWER_QUESTION = (
     "Answer the following Japanese question or multiple-choice question clearly. "
     "State the correct answer directly, and explain why that answer is correct with a concise, "
     "step-by-step explanation, breaking down any grammar points, vocabulary nuances, "
-    "or distractors for a Japanese language learner."
+    "or distractors for a Japanese language learner. Do not use emojis in your response."
 )
 
 PROMPT_CHAT = (
     "You are a friendly, expert Japanese language tutor assisting a language learner "
     "with vocabulary, grammar, and sentence mining. "
-    "Answer concisely and accurately in English unless requested otherwise."
+    "Answer concisely and accurately in English unless requested otherwise. Do not use emojis in your response."
 )
+
 
 
 # ============================================================================
@@ -365,15 +366,15 @@ class LLMService:
             system = PROMPT_TRANSLATE
             prompt = text
         elif task == "explain_sense":
-            system = "You are an expert Japanese lexicographer and language teacher. Answer concisely."
+            system = "You are an expert Japanese lexicographer and language teacher. Answer concisely. Do not use emojis in your response."
             target_word = word or text
             ctx = context or "None provided"
             prompt = PROMPT_EXPLAIN_SENSE.format(word=target_word, text=text, context=ctx)
         elif task == "explain_grammar":
-            system = "You are an expert Japanese grammar instructor. Answer concisely in simple English."
+            system = "You are an expert Japanese grammar instructor. Answer concisely in simple English. Do not use emojis in your response."
             prompt = PROMPT_EXPLAIN_GRAMMAR.format(text=text)
         elif task == "mnemonic":
-            system = "You are an expert Japanese memory coach. Create vivid, brief mnemonics."
+            system = "You are an expert Japanese memory coach. Create vivid, brief mnemonics. Do not use emojis in your response."
             target_word = word or text
             ctx = context or "None provided"
             prompt = PROMPT_MNEMONIC.format(word=target_word, context=ctx)
