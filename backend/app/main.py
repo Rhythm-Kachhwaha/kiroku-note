@@ -30,6 +30,9 @@ from app.schemas import (
     CardStatsResponse,
     DeleteCardResponse,
     HealthResponse,
+    LLMRequest,
+    LLMResponse,
+    LLMStatusResponse,
     OcrRecognizeRequest,
     OcrRecognizeResponse,
     OcrStatusResponse,
@@ -48,6 +51,15 @@ from app.services.ocr_service import (
     OcrUnavailableError,
 )
 from app.services.jlpt_reference import JlptReferenceService
+from app.services.llm_service import (
+    LLMAPIError,
+    LLMConnectionError,
+    LLMError,
+    LLMNotConfiguredError,
+    LLMResponseError,
+    LLMTimeoutError,
+    get_llm_service,
+)
 from app.services.yomitan import YomitanError, YomitanService
 
 # Debug mode: set KIROKU_DEBUG=1 to enable /docs, /redoc, and hot-reload.
@@ -467,3 +479,69 @@ def get_kanji_strokes(character: str) -> Response:
             detail=f"Stroke diagram not found for character: {character}",
         )
     return Response(content=svg, media_type="image/svg+xml; charset=utf-8")
+
+
+# ============================================================================
+# LLM Assistant Endpoints
+# ============================================================================
+
+@app.get("/api/llm/status", response_model=LLMStatusResponse)
+def get_llm_status() -> LLMStatusResponse:
+    """Check if backend LLM assistant is configured and return provider/model."""
+    service = get_llm_service()
+    return LLMStatusResponse(
+        configured=service.is_configured(),
+        provider=service.provider_name,
+        model=service.model_name,
+    )
+
+
+@app.post("/api/llm/ask", response_model=LLMResponse)
+def ask_llm(request: LLMRequest) -> LLMResponse:
+    """Execute an assistant task prompt (translate, explain sense/grammar, mnemonic, answer questions, chat)."""
+    service = get_llm_service()
+    if not service.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="LLM assistant is not configured. Please set KIROKU_LLM_PROVIDER.",
+        )
+
+    try:
+        result_text, provider_name, model_name = service.ask(
+            task=request.task,
+            text=request.text,
+            context=request.context,
+            word=request.word,
+            messages=request.messages,
+        )
+        return LLMResponse(
+            result=result_text,
+            provider=provider_name,
+            model=model_name,
+        )
+    except LLMNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail=str(exc),
+        ) from exc
+    except LLMTimeoutError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=str(exc),
+        ) from exc
+    except LLMConnectionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except (LLMAPIError, LLMResponseError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"LLM execution error: {exc}",
+        ) from exc
+

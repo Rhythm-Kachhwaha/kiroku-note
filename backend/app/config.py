@@ -19,6 +19,12 @@ DEFAULT_OCR_HOST = "127.0.0.1"
 DEFAULT_OCR_PORT = 21829
 DEFAULT_OCR_URL = f"http://{DEFAULT_OCR_HOST}:{DEFAULT_OCR_PORT}"
 
+DEFAULT_LLM_PROVIDER = "none"
+DEFAULT_OLLAMA_URL = "http://localhost:11434"
+DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant"
+DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
+DEFAULT_OLLAMA_MODEL = "qwen2.5:1.5b"
+
 
 def get_app_data_dir(env: dict[str, str] | None = None) -> Path:
     """
@@ -352,3 +358,62 @@ def resolve_ocr_dev_command(env: dict[str, str] | None = None) -> list[str] | No
 
     py_bin = str(venv_py) if venv_py.is_file() else sys.executable
     return [py_bin, str(run_ocr_py)]
+
+
+def get_llm_provider(env: dict[str, str] | None = None) -> str:
+    """Resolve configured LLM provider (groq, gemini, ollama, none)."""
+    env_dict = os.environ if env is None else env
+    val = env_dict.get("KIROKU_LLM_PROVIDER")
+    if val and str(val).strip():
+        return str(val).strip().lower()
+    return DEFAULT_LLM_PROVIDER
+
+
+def get_llm_api_key(env: dict[str, str] | None = None) -> str | None:
+    """Resolve configured LLM API key for cloud providers."""
+    env_dict = os.environ if env is None else env
+    val = env_dict.get("KIROKU_LLM_API_KEY")
+    if val and str(val).strip():
+        return str(val).strip()
+    return None
+
+
+def get_llm_ollama_url(env: dict[str, str] | None = None) -> str:
+    """Resolve configured Ollama base URL."""
+    env_dict = os.environ if env is None else env
+    val = env_dict.get("KIROKU_OLLAMA_URL")
+    if val and str(val).strip():
+        return str(val).strip().rstrip("/")
+    return DEFAULT_OLLAMA_URL
+
+
+def get_llm_model(env: dict[str, str] | None = None) -> str | None:
+    """Resolve user-specified LLM model override, if any."""
+    env_dict = os.environ if env is None else env
+    val = env_dict.get("KIROKU_LLM_MODEL")
+    if val and str(val).strip():
+        return str(val).strip()
+    return None
+
+
+def resolve_default_llm_model(provider: str) -> str | None:
+    """Resolve default model for a given provider if not overridden."""
+    norm = provider.lower()
+    if norm == "groq":
+        return DEFAULT_GROQ_MODEL
+    elif norm == "gemini":
+        return DEFAULT_GEMINI_MODEL
+    elif norm == "ollama":
+        return DEFAULT_OLLAMA_MODEL
+    return None
+
+
+def is_llm_configured(env: dict[str, str] | None = None) -> bool:
+    """Check whether a usable LLM provider is configured."""
+    provider = get_llm_provider(env)
+    if provider in ("groq", "gemini"):
+        return bool(get_llm_api_key(env))
+    if provider == "ollama":
+        return bool(get_llm_ollama_url(env))
+    return False
+

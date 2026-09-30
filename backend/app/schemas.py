@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -435,3 +435,50 @@ class CardStatsResponse(BaseModel):
         }
     )
     top_decks: list[DeckStat] = Field(default_factory=list)
+
+
+# ============================================================================
+# LLM Assistant Schemas
+# ============================================================================
+
+LLMTaskType = Literal[
+    "translate",
+    "explain_sense",
+    "explain_grammar",
+    "mnemonic",
+    "answer_question",
+    "chat",
+]
+
+
+class LLMChatMessage(BaseModel):
+    role: Literal["user", "assistant", "system"] = "user"
+    content: str = Field(..., max_length=10_000)
+
+
+class LLMRequest(BaseModel):
+    task: LLMTaskType
+    text: str = Field(..., max_length=10_000, description="The Japanese text, sentence, or user query")
+    context: Optional[str] = Field(default=None, max_length=10_000, description="Optional surrounding text, dictionary definitions, or question options")
+    word: Optional[str] = Field(default=None, max_length=200, description="Specific target word being analyzed")
+    messages: Optional[list[LLMChatMessage]] = Field(default=None, description="Optional previous conversational history")
+
+    @field_validator("text")
+    @classmethod
+    def text_must_not_be_blank(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Text must not be empty.")
+        return normalized
+
+
+class LLMResponse(BaseModel):
+    result: str
+    provider: str
+    model: str
+
+
+class LLMStatusResponse(BaseModel):
+    configured: bool
+    provider: str
+    model: Optional[str] = None

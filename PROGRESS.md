@@ -1852,4 +1852,42 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ **Full Backend Pytest Suite:** **434/434 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
   - ✅ **Full Extension Test Suite:** **136/136 passed (100%)** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. KanjiVG SVGs are served on-demand via the local backend, cached in memory, and rendered on-demand in the UI without cluttering the existing card presentation.
+
+---
+
+### Tier 5 — Session 1: LLM Assistant Backend Service, API Endpoints & Tests
+
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Implement Tier 5 Session 1 tasks from `newfeatures.md`:
+    - Configuration & environment resolution for LLM providers (`KIROKU_LLM_PROVIDER`, `KIROKU_LLM_API_KEY`, `KIROKU_OLLAMA_URL`, `KIROKU_LLM_MODEL`).
+    - Standard library `urllib` provider architecture supporting Groq, Gemini, Ollama, and unconfigured NoneProvider with zero new pip dependencies.
+    - Built-in prompt engineering for 5 assistant tasks (`translate`, `explain_sense`, `explain_grammar`, `mnemonic`, and user-requested `answer_question` for JLPT MCQ/explanations) plus conversational multi-turn `chat`.
+    - Pydantic schemas for request validation, multi-turn history (`LLMChatMessage`), and response formats (`LLMRequest`, `LLMResponse`, `LLMStatusResponse`).
+    - FastAPI endpoints `GET /api/llm/status` and `POST /api/llm/ask` with HTTP status mapping (501 for unconfigured, 422 for invalid payloads, 504 for timeouts, 502 for upstream API errors, 503 for network disconnects).
+    - Fully mocked HTTP test suite with zero external live network or key dependencies.
+- **Implementation Deliverables:**
+  1. **Configuration Layer ([backend/app/config.py](file:///d:/Python/AnkiMiner/backend/app/config.py)):**
+     - Added `DEFAULT_LLM_PROVIDER = "none"`, `DEFAULT_OLLAMA_URL = "http://localhost:11434"`, and default models per provider (`llama-3.1-8b-instant` for Groq, `gemini-2.0-flash` for Gemini, `qwen2.5:1.5b` for Ollama).
+     - Implemented `get_llm_provider()`, `get_llm_api_key()`, `get_llm_ollama_url()`, `get_llm_model()`, `resolve_default_llm_model()`, and `is_llm_configured()`.
+  2. **Schema Layer ([backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py)):**
+     - Defined `LLMTaskType = Literal["translate", "explain_sense", "explain_grammar", "mnemonic", "answer_question", "chat"]`.
+     - Defined `LLMChatMessage` with `role: Literal["user", "assistant", "system"]` and `content`.
+     - Defined `LLMRequest` with field validation on non-blank `text`, optional `context`, `word`, and `messages` conversational history.
+     - Defined `LLMResponse` and `LLMStatusResponse`.
+  3. **Core Service & Driver Layer ([backend/app/services/llm_service.py](file:///d:/Python/AnkiMiner/backend/app/services/llm_service.py)):**
+     - Built `NoneProvider`, `GroqProvider`, `GeminiProvider`, and `OllamaProvider` using standard library `urllib.request`.
+     - Implemented `_send_http_json()` with 5.0s timeout and exception mapping (`LLMTimeoutError`, `LLMConnectionError`, `LLMAPIError`, `LLMResponseError`).
+     - Added built-in system prompts including `PROMPT_ANSWER_QUESTION` for explaining and solving JLPT questions/MCQs, and `PROMPT_CHAT` for interactive follow-up tutoring.
+     - Implemented `LLMService` facade and `get_llm_service()` factory.
+  4. **FastAPI Endpoints ([backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py)):**
+     - Exposed `GET /api/llm/status` returning `LLMStatusResponse`.
+     - Exposed `POST /api/llm/ask` executing the requested task via `LLMService` with full HTTP error mapping.
+  5. **Automated Test Suite ([backend/tests/test_llm_service.py](file:///d:/Python/AnkiMiner/backend/tests/test_llm_service.py)):**
+     - 24 comprehensive mocked unit and integration tests covering config resolution, unconfigured 501, Groq, Gemini, Ollama, prompt task formatting, JLPT MCQ answering, multi-turn chat history, 422 validations, 504 timeouts, 502 upstream errors, and 503 connection refusals.
+- **Verification:**
+  - ✅ **LLM Service Test Suite:** [backend/tests/test_llm_service.py](file:///d:/Python/AnkiMiner/backend/tests/test_llm_service.py): **24/24 passed (100%)**
+  - ✅ **Full Backend Pytest Suite:** **458/458 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - ✅ **Full Extension Test Suite:** **136/136 passed (100%)** (`node --test extension/tests/*.test.js`)
+- **Remaining Risk:** None. The extension does not call any LLM directly; keys reside only in backend environment variables. Zero live network calls are made during tests or when unconfigured.
 
