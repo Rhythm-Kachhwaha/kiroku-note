@@ -8967,7 +8967,12 @@ async function resetLayoutSettings() {
 if (btnLayoutSettings) {
   btnLayoutSettings.addEventListener("click", (e) => {
     e.stopPropagation();
-    switchMiningTab("settings");
+    if (currentMiningTab === "settings") {
+      switchMiningTab(btnLayoutSettings._prevTab || "text");
+    } else {
+      btnLayoutSettings._prevTab = currentMiningTab;
+      switchMiningTab("settings");
+    }
   });
 }
 

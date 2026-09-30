@@ -4887,7 +4887,7 @@ rt {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 10px 12px;
+  padding: 14px 12px 10px;
   animation: fadeIn 0.15s ease-out;
 }
 
