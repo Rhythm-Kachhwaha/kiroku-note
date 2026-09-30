@@ -863,6 +863,7 @@ const tabBtnVideo = document.querySelector("#tab-btn-video");
 const tabBtnQuickAdd = document.querySelector("#tab-btn-quickadd");
 const tabBtnAsk = document.querySelector("#tab-btn-ask");
 const tabBtnHistory = document.querySelector("#tab-btn-history");
+const tabBtnSettings = document.querySelector("#tab-btn-settings");
 const textMiningView = document.querySelector("#text-mining-view");
 const videoMiningView = document.querySelector("#video-mining-view");
 const quickAddMiningView = document.querySelector("#quickadd-mining-view");
@@ -7996,13 +7997,11 @@ if (typeof window !== "undefined") {
 }
 
 function switchMiningTab(targetTab) {
-  const validTabs = ["text", "video", "quickadd", "ask", "history"];
+  const validTabs = ["text", "video", "quickadd", "ask", "history", "settings"];
   const tab = validTabs.includes(targetTab) ? targetTab : "text";
   currentMiningTab = tab;
 
-  if (typeof closeLayoutSettings === "function") {
-    closeLayoutSettings();
-  }
+  // Settings is now a full tab; no separate popover logic needed
 
   if (tabBtnText) {
     const isText = tab === "text";
@@ -8078,8 +8077,25 @@ function switchMiningTab(targetTab) {
     }
   }
 
+  if (tabBtnSettings) {
+    const isSettings = tab === "settings";
+    tabBtnSettings.classList.toggle("active", isSettings);
+    tabBtnSettings.setAttribute("aria-selected", String(isSettings));
+  }
+  const settingsPanel = layoutSettingsPopover || cardSettingsPopover;
+  if (settingsPanel) {
+    const isSettings = tab === "settings";
+    settingsPanel.hidden = !isSettings;
+    settingsPanel.style.display = isSettings ? "" : "none";
+    if (isSettings) {
+      syncCardTemplateSettingsUI();
+      renderLayoutSettingsList(currentCardSectionOrder);
+      if (typeof checkLLMStatus === "function") checkLLMStatus().catch(() => {});
+    }
+  }
+
   if (cardEditorSection) {
-    const hideEditor = tab === "history" || tab === "ask";
+    const hideEditor = tab === "history" || tab === "ask" || tab === "settings";
     cardEditorSection.hidden = hideEditor;
     cardEditorSection.style.display = hideEditor ? "none" : "";
   }
@@ -8142,6 +8158,9 @@ if (tabBtnAsk) {
 }
 if (tabBtnHistory) {
   tabBtnHistory.addEventListener("click", () => switchMiningTab("history"));
+}
+if (tabBtnSettings) {
+  tabBtnSettings.addEventListener("click", () => switchMiningTab("settings"));
 }
 
 if (btnNavCollapseToggle) {
@@ -8948,12 +8967,7 @@ async function resetLayoutSettings() {
 if (btnLayoutSettings) {
   btnLayoutSettings.addEventListener("click", (e) => {
     e.stopPropagation();
-    const popover = cardSettingsPopover || layoutSettingsPopover;
-    if (popover && !popover.hidden) {
-      closeLayoutSettings();
-    } else {
-      openLayoutSettings();
-    }
+    switchMiningTab("settings");
   });
 }
 
@@ -8976,19 +8990,11 @@ if (btnResetLayout) {
 }
 
 document.addEventListener("keydown", (e) => {
-  const popover = cardSettingsPopover || layoutSettingsPopover;
-  if (e.key === "Escape" && popover && !popover.hidden) {
-    closeLayoutSettings();
+  if (e.key === "Escape" && currentMiningTab === "settings") {
+    switchMiningTab("text");
   }
 });
 
-document.addEventListener("click", (e) => {
-  const popover = cardSettingsPopover || layoutSettingsPopover;
-  if (!popover || popover.hidden) return;
-  if (!popover.contains(e.target) && btnLayoutSettings && !btnLayoutSettings.contains(e.target)) {
-    closeLayoutSettings();
-  }
-});
 
 if (btnDismissFirstRun) {
   btnDismissFirstRun.addEventListener("click", () => dismissFirstRunGuide());

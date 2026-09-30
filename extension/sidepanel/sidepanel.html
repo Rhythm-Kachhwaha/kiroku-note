@@ -46,6 +46,9 @@
           <button type="button" id="tab-btn-quickadd" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="quickadd-mining-view">Quick</button>
           <button type="button" id="tab-btn-ask" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="ask-mining-view">Ask</button>
           <button type="button" id="tab-btn-history" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="history-section">History</button>
+          <button type="button" id="tab-btn-settings" class="mode-tab-btn tab-btn" role="tab" aria-selected="false" aria-controls="layout-settings-popover" title="Settings" aria-label="Settings">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6.5 1.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1.07a5.52 5.52 0 0 1 1.25.52l.76-.76a.5.5 0 0 1 .71 0l1.41 1.41a.5.5 0 0 1 0 .71l-.76.76c.22.39.4.81.52 1.25h1.07a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-1.07a5.52 5.52 0 0 1-.52 1.25l.76.76a.5.5 0 0 1 0 .71l-1.41 1.41a.5.5 0 0 1-.71 0l-.76-.76a5.52 5.52 0 0 1-1.25.52v1.07a.5.5 0 0 1-.5.5H7a.5.5 0 0 1-.5-.5v-1.07a5.52 5.52 0 0 1-1.25-.52l-.76.76a.5.5 0 0 1-.71 0L2.37 12.4a.5.5 0 0 1 0-.71l.76-.76a5.52 5.52 0 0 1-.52-1.25H1.5a.5.5 0 0 1-.5-.5V7a.5.5 0 0 1 .5-.5h1.07c.12-.44.3-.86.52-1.25l-.76-.76a.5.5 0 0 1 0-.71l1.41-1.41a.5.5 0 0 1 .71 0l.76.76c.39-.22.81-.4 1.25-.52V1.5zM8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>
+          </button>
         </nav>
 
 
@@ -54,8 +57,8 @@
           <span class="jp-mode-tag">JP</span>
         </button>
 
-        <!-- Settings Gear Button (Opens Layout & Card Settings) -->
-        <button type="button" id="btn-layout-settings" class="btn-settings-gear btn-layout-settings" title="Settings" aria-label="Settings" aria-expanded="false" aria-controls="layout-settings-popover">
+        <!-- Settings Gear Button (now redundant — settings is a nav tab) -->
+        <button type="button" id="btn-layout-settings" class="btn-settings-gear btn-layout-settings" title="Settings" aria-label="Settings" aria-expanded="false" aria-controls="layout-settings-popover" style="display:none;" aria-hidden="true">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
             <path d="M6.5 1.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1.07a5.52 5.52 0 0 1 1.25.52l.76-.76a.5.5 0 0 1 .71 0l1.41 1.41a.5.5 0 0 1 0 .71l-.76.76c.22.39.4.81.52 1.25h1.07a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-1.07a5.52 5.52 0 0 1-.52 1.25l.76.76a.5.5 0 0 1 0 .71l-1.41 1.41a.5.5 0 0 1-.71 0l-.76-.76a5.52 5.52 0 0 1-1.25.52v1.07a.5.5 0 0 1-.5.5H7a.5.5 0 0 1-.5-.5v-1.07a5.52 5.52 0 0 1-1.25-.52l-.76.76a.5.5 0 0 1-.71 0L2.37 12.4a.5.5 0 0 1 0-.71l.76-.76a5.52 5.52 0 0 1-.52-1.25H1.5a.5.5 0 0 1-.5-.5V7a.5.5 0 0 1 .5-.5h1.07c.12-.44.3-.86.52-1.25l-.76-.76a.5.5 0 0 1 0-.71l1.41-1.41a.5.5 0 0 1 .71 0l.76.76c.39-.22.81-.4 1.25-.52V1.5zM8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/>
           </svg>
@@ -743,7 +746,7 @@
     <!-- =========================================================
          TAB 5: SETTINGS VIEW (Orange Headings + Full Features, No "Done" Button)
          ========================================================= -->
-    <div id="layout-settings-popover" class="card-settings-popover layout-settings-popover" role="dialog" aria-modal="false" aria-label="Card Settings" hidden>
+    <div id="layout-settings-popover" class="mining-tab-view layout-settings-popover" role="tabpanel" aria-labelledby="tab-btn-settings" hidden>
       <div class="card-settings-header layout-settings-header">
         <div class="card-settings-title-row layout-settings-title-row">
           <span class="card-settings-icon layout-settings-icon" aria-hidden="true">
@@ -753,7 +756,8 @@
           </span>
           <h3 class="card-settings-title layout-settings-title">Settings</h3>
         </div>
-        <button type="button" id="btn-close-layout-settings" class="btn-close-card-settings btn-close-layout-settings" title="Close settings" aria-label="Close settings">&times;</button>
+        <!-- X close button hidden — tab nav replaces it -->
+        <button type="button" id="btn-close-layout-settings" class="btn-close-card-settings btn-close-layout-settings" title="Close settings" aria-label="Close settings" style="display:none;" aria-hidden="true">&times;</button>
       </div>
 
       <div class="card-settings-body settings-content-body">

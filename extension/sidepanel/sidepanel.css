@@ -3312,9 +3312,6 @@ rt {
    ========================================================================== */
 
 .history-section {
-  margin-top: 20px;
-  border-top: 1px solid var(--border-subtle);
-  padding-top: 14px;
 }
 
 .history-header {
@@ -3391,12 +3388,17 @@ rt {
   color: var(--text-secondary);
   font-size: 11px;
   font-weight: 500;
-  padding: 2px 8px;
+  padding: 3px 10px;
+  height: 26px;
+  min-width: 80px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  line-height: 1.3;
+  line-height: 1;
   transition: all var(--transition-fast);
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-sync-all:hover:not(:disabled),
@@ -4871,18 +4873,10 @@ rt {
 }
 
 .layout-settings-popover {
-  position: fixed;
-  top: 44px;  /* below the header */
-  right: 8px;
-  z-index: 200;
-  background: var(--bg-surface-1);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
-  padding: 10px 12px;
-  width: min(340px, calc(100vw - 16px));
-  max-height: calc(100vh - 56px);
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
+  padding: 10px 12px;
   animation: fadeIn 0.15s ease-out;
 }
 
