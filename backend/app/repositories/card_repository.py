@@ -707,6 +707,61 @@ class CardRepository:
             conn.commit()
             return cursor.rowcount > 0
 
+    def delete_many(self, ids: list[int | str]) -> int:
+        """Delete multiple card rows by id. Returns count of rows deleted."""
+        valid_ids = [int(i) for i in ids if str(i).isdigit() or (isinstance(i, int) and not isinstance(i, bool))]
+        if not valid_ids:
+            return 0
+        placeholders = ",".join("?" for _ in valid_ids)
+        with db_session(self._db_path) as conn:
+            cursor = conn.execute(f"DELETE FROM cards WHERE id IN ({placeholders})", valid_ids)
+            conn.commit()
+            return cursor.rowcount
+
+    def get_many(self, ids: list[int | str]) -> list[CardRecord]:
+        """Retrieve multiple cards by id."""
+        valid_ids = [int(i) for i in ids if str(i).isdigit() or (isinstance(i, int) and not isinstance(i, bool))]
+        if not valid_ids:
+            return []
+        placeholders = ",".join("?" for _ in valid_ids)
+        with db_session(self._db_path) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT id, expression, reading, meaning, hint, example_sentence, example_translation,
+                       image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
+                       normalized_expression, normalized_reading, normalized_deck_name,
+                       meanings_json, examples_json, status, created_at, updated_at,
+                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url
+                FROM cards
+                WHERE id IN ({placeholders})
+                ORDER BY id DESC
+                """,
+                valid_ids,
+            ).fetchall()
+            return [_row_to_record(row) for row in rows]
+
+    def update_deck_many(self, ids: list[int | str], deck_name: str) -> int:
+        """Update target deck for multiple cards."""
+        valid_ids = [int(i) for i in ids if str(i).isdigit() or (isinstance(i, int) and not isinstance(i, bool))]
+        if not valid_ids or not deck_name or not deck_name.strip():
+            return 0
+        norm_deck = normalize_deck(deck_name)
+        now_utc = datetime.now(timezone.utc).isoformat()
+        placeholders = ",".join("?" for _ in valid_ids)
+        with db_session(self._db_path) as conn:
+            cursor = conn.execute(
+                f"""
+                UPDATE cards SET
+                    deck_name = ?,
+                    normalized_deck_name = ?,
+                    updated_at = ?
+                WHERE id IN ({placeholders})
+                """,
+                [deck_name.strip(), norm_deck, now_utc, *valid_ids],
+            )
+            conn.commit()
+            return cursor.rowcount
+
     def get_stats(self) -> dict[str, Any]:
         """
         Aggregate mining statistics:

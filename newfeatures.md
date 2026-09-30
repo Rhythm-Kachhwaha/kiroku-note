@@ -45,7 +45,7 @@
 - [x] **T3-J** — Show live per-card ✓/✗ progress list during Sync All instead of just a count *(Implemented & verified 2026-09-29)*
 
 ### Tier 4 — Complex
-- [ ] **T4-A** — Checkboxes on History cards for bulk delete / bulk move to deck / bulk sync
+- [x] **T4-A** — Checkboxes on History cards for bulk delete / bulk move to deck / bulk sync *(Implemented & verified 2026-09-30)*
 - [ ] **T4-B** — Search box in Video tab to find a word in the subtitle track and jump to it
 - [ ] **T4-C** — "Last 5 cues" panel in Video tab — click any recent subtitle to mine from it
 - [ ] **T4-D** — "↺ Re-scan" button after OCR to re-use the last region without re-selecting

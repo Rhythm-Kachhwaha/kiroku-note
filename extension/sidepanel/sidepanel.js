@@ -13,6 +13,9 @@ const API_OCR_RECOGNIZE_URL = `${BACKEND_BASE_URL}/api/ocr/recognize`;
 const API_YOMITAN_DICTIONARIES_URL = `${BACKEND_BASE_URL}/api/yomitan/dictionaries`;
 const API_HEALTH_URL = `${BACKEND_BASE_URL}/api/health`;
 const API_CARDS_STATS_URL = `${BACKEND_BASE_URL}/api/cards/stats`;
+const API_CARDS_BULK_DELETE_URL = `${BACKEND_BASE_URL}/api/cards/bulk`;
+const API_CARDS_BULK_SYNC_URL = `${BACKEND_BASE_URL}/api/cards/bulk-sync`;
+const API_CARDS_BULK_DECK_URL = `${BACKEND_BASE_URL}/api/cards/bulk-deck`;
 
 if (typeof chrome === "undefined") {
   globalThis.chrome = {
@@ -712,6 +715,15 @@ const btnDismissSyncModal = document.querySelector("#btn-dismiss-sync-modal");
 const undoToast = document.querySelector("#undo-toast");
 const undoToastMessage = document.querySelector("#undo-toast-message");
 const btnUndoDelete = document.querySelector("#btn-undo-delete");
+
+// Bulk Operations Elements (T4-A)
+const bulkActionBar = typeof document !== "undefined" && document ? document.querySelector("#bulk-action-bar") : null;
+const bulkSelectAllCb = typeof document !== "undefined" && document ? document.querySelector("#bulk-select-all-cb") : null;
+const bulkSelectedCount = typeof document !== "undefined" && document ? document.querySelector("#bulk-selected-count") : null;
+const btnBulkSync = typeof document !== "undefined" && document ? document.querySelector("#btn-bulk-sync") : null;
+const btnBulkDelete = typeof document !== "undefined" && document ? document.querySelector("#btn-bulk-delete") : null;
+const btnBulkCancel = typeof document !== "undefined" && document ? document.querySelector("#btn-bulk-cancel") : null;
+const bulkDeckSelect = typeof document !== "undefined" && document ? document.querySelector("#bulk-deck-select") : null;
 
 // History Collapse Management (Guardrail 4)
 const STORAGE_KEY_HISTORY_COLLAPSED = "kiroku.history_collapsed";
@@ -5545,16 +5557,60 @@ function updateDeckFilterOptions(cards) {
   if (existingOptions.has(currentVal)) {
     historyDeckFilter.value = currentVal;
   }
+
+  if (typeof bulkDeckSelect !== "undefined" && bulkDeckSelect) {
+    const bulkExisting = new Set(Array.from(bulkDeckSelect.options).map(o => o.value));
+    existingOptions.forEach(deckName => {
+      if (deckName && deckName !== "all" && !bulkExisting.has(deckName)) {
+        const opt = document.createElement("option");
+        opt.value = deckName;
+        opt.textContent = deckName;
+        bulkDeckSelect.append(opt);
+        bulkExisting.add(deckName);
+      }
+    });
+  }
 }
 
 function renderHistoryCards(cards) {
   if (!historyCardsList) return;
   historyCardsList.replaceChildren();
 
+  if (typeof currentRenderedCardIds !== "undefined") {
+    currentRenderedCardIds = cards.map(c => c.id);
+  }
+
   cards.forEach(card => {
+    const isSelected = typeof selectedHistoryCardIds !== "undefined" && selectedHistoryCardIds.has(card.id);
     const item = document.createElement("article");
-    item.className = "history-item" + (selectedHistoryCardId === card.id ? " selected" : "");
+    item.className = "history-item" + (selectedHistoryCardId === card.id ? " selected" : "") + (isSelected ? " bulk-selected" : "");
     item.dataset.cardId = String(card.id);
+
+    const selectCb = document.createElement("input");
+    selectCb.type = "checkbox";
+    selectCb.className = "history-select-cb";
+    selectCb.checked = Boolean(isSelected);
+    selectCb.title = `Select ${card.expression}`;
+    selectCb.setAttribute("aria-label", `Select card ${card.expression}`);
+    selectCb.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+    selectCb.addEventListener("change", (e) => {
+      e.stopPropagation();
+      if (typeof selectedHistoryCardIds !== "undefined") {
+        if (selectCb.checked) {
+          selectedHistoryCardIds.add(card.id);
+          item.classList.add("bulk-selected");
+        } else {
+          selectedHistoryCardIds.delete(card.id);
+          item.classList.remove("bulk-selected");
+        }
+      }
+      if (typeof updateBulkActionBarState === "function") {
+        updateBulkActionBarState();
+      }
+    });
+    item.append(selectCb);
 
     const cardBtn = document.createElement("button");
     cardBtn.type = "button";
@@ -5679,6 +5735,10 @@ function renderHistoryCards(cards) {
     item.append(actions);
     historyCardsList.append(item);
   });
+
+  if (typeof updateBulkActionBarState === "function") {
+    updateBulkActionBarState();
+  }
 }
 
 async function openSavedCard(cardId) {
@@ -6047,6 +6107,197 @@ async function exportCardsCsv() {
 
 if (typeof btnExportCards !== "undefined" && btnExportCards) {
   btnExportCards.addEventListener("click", exportCardsCsv);
+}
+
+// Bulk Operations State & Handlers (T4-A)
+var selectedHistoryCardIds = (typeof globalThis !== "undefined" && globalThis.selectedHistoryCardIds) || new Set();
+var currentRenderedCardIds = (typeof globalThis !== "undefined" && globalThis.currentRenderedCardIds) || [];
+
+function updateBulkActionBarState() {
+  const count = typeof selectedHistoryCardIds !== "undefined" ? selectedHistoryCardIds.size : 0;
+  if (typeof bulkSelectedCount !== "undefined" && bulkSelectedCount) {
+    bulkSelectedCount.textContent = `${count} selected`;
+  }
+  if (typeof bulkActionBar !== "undefined" && bulkActionBar) {
+    bulkActionBar.hidden = count === 0;
+  }
+  if (typeof bulkSelectAllCb !== "undefined" && bulkSelectAllCb) {
+    if (!currentRenderedCardIds || currentRenderedCardIds.length === 0) {
+      bulkSelectAllCb.checked = false;
+      bulkSelectAllCb.indeterminate = false;
+    } else {
+      const allSelected = currentRenderedCardIds.length > 0 && currentRenderedCardIds.every(id => selectedHistoryCardIds.has(id));
+      const someSelected = currentRenderedCardIds.some(id => selectedHistoryCardIds.has(id));
+      bulkSelectAllCb.checked = allSelected;
+      bulkSelectAllCb.indeterminate = !allSelected && someSelected;
+    }
+  }
+}
+
+function clearBulkSelection() {
+  if (typeof selectedHistoryCardIds !== "undefined") {
+    selectedHistoryCardIds.clear();
+  }
+  if (typeof historyCardsList !== "undefined" && historyCardsList) {
+    historyCardsList.querySelectorAll(".history-select-cb").forEach(cb => {
+      cb.checked = false;
+    });
+    historyCardsList.querySelectorAll(".history-item").forEach(item => {
+      item.classList.remove("bulk-selected");
+    });
+  }
+  updateBulkActionBarState();
+}
+
+function selectAllVisibleCards() {
+  if (typeof currentRenderedCardIds !== "undefined" && currentRenderedCardIds && typeof selectedHistoryCardIds !== "undefined") {
+    currentRenderedCardIds.forEach(id => selectedHistoryCardIds.add(id));
+  }
+  if (typeof historyCardsList !== "undefined" && historyCardsList) {
+    historyCardsList.querySelectorAll(".history-select-cb").forEach(cb => {
+      cb.checked = true;
+    });
+    historyCardsList.querySelectorAll(".history-item").forEach(item => {
+      item.classList.add("bulk-selected");
+    });
+  }
+  updateBulkActionBarState();
+}
+
+async function performBulkDelete() {
+  if (typeof selectedHistoryCardIds === "undefined" || selectedHistoryCardIds.size === 0) return;
+  const idsToDelete = Array.from(selectedHistoryCardIds);
+  try {
+    const res = await fetch(API_CARDS_BULK_DELETE_URL, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ card_ids: idsToDelete }),
+    });
+    if (!res.ok) throw new Error("Bulk delete failed");
+    const data = await res.json();
+    clearBulkSelection();
+    if (typeof cachedStats !== "undefined") cachedStats = null;
+    if (typeof historyStatsDetails !== "undefined" && historyStatsDetails && historyStatsDetails.open && typeof loadHistoryStats === "function") {
+      loadHistoryStats(true).catch(() => {});
+    }
+    setStatus(`Deleted ${data.deleted_count || idsToDelete.length} cards from local database.`);
+    await loadHistory();
+  } catch (err) {
+    setStatus(`Bulk delete failed: ${err.message}`, true);
+  }
+}
+
+async function performBulkSync() {
+  if (typeof selectedHistoryCardIds === "undefined" || selectedHistoryCardIds.size === 0) return;
+  const idsToSync = Array.from(selectedHistoryCardIds);
+  try {
+    setStatus(`Syncing ${idsToSync.length} cards to Anki…`);
+    const res = await fetch(API_CARDS_BULK_SYNC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ card_ids: idsToSync }),
+    });
+    if (!res.ok) throw new Error("Bulk sync failed");
+    const data = await res.json();
+    clearBulkSelection();
+    if (typeof cachedStats !== "undefined") cachedStats = null;
+    if (typeof historyStatsDetails !== "undefined" && historyStatsDetails && historyStatsDetails.open && typeof loadHistoryStats === "function") {
+      loadHistoryStats(true).catch(() => {});
+    }
+    if (data.error) {
+      setStatus(`Bulk sync error: ${data.error}`, true);
+    } else {
+      setStatus(`Bulk sync complete: ${data.synced_count} synced, ${data.failed_count} failed.`);
+    }
+    await loadHistory();
+  } catch (err) {
+    setStatus(`Bulk sync failed: ${err.message}`, true);
+  }
+}
+
+async function performBulkDeckMove(targetDeck) {
+  if (!targetDeck || typeof selectedHistoryCardIds === "undefined" || selectedHistoryCardIds.size === 0) return;
+  const idsToMove = Array.from(selectedHistoryCardIds);
+  try {
+    setStatus(`Moving ${idsToMove.length} cards to "${targetDeck}"…`);
+    const res = await fetch(API_CARDS_BULK_DECK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ card_ids: idsToMove, deck_name: targetDeck }),
+    });
+    if (!res.ok) throw new Error("Bulk deck move failed");
+    const data = await res.json();
+    clearBulkSelection();
+    if (typeof bulkDeckSelect !== "undefined" && bulkDeckSelect) {
+      bulkDeckSelect.selectedIndex = 0;
+    }
+    if (typeof cachedStats !== "undefined") cachedStats = null;
+    if (typeof historyStatsDetails !== "undefined" && historyStatsDetails && historyStatsDetails.open && typeof loadHistoryStats === "function") {
+      loadHistoryStats(true).catch(() => {});
+    }
+    setStatus(`Moved ${data.updated_count || idsToMove.length} cards to "${targetDeck}".`);
+    await loadHistory();
+  } catch (err) {
+    setStatus(`Move to deck failed: ${err.message}`, true);
+  }
+}
+
+if (typeof bulkSelectAllCb !== "undefined" && bulkSelectAllCb && typeof bulkSelectAllCb.addEventListener === "function") {
+  bulkSelectAllCb.addEventListener("change", () => {
+    if (bulkSelectAllCb.checked) {
+      selectAllVisibleCards();
+    } else {
+      clearBulkSelection();
+    }
+  });
+}
+
+if (typeof btnBulkCancel !== "undefined" && btnBulkCancel && typeof btnBulkCancel.addEventListener === "function") {
+  btnBulkCancel.addEventListener("click", (e) => {
+    e.preventDefault();
+    clearBulkSelection();
+  });
+}
+
+if (typeof btnBulkDelete !== "undefined" && btnBulkDelete && typeof btnBulkDelete.addEventListener === "function") {
+  btnBulkDelete.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (!btnBulkDelete.classList || typeof btnBulkDelete.classList.contains !== "function" || !btnBulkDelete.classList.contains("confirm-delete")) {
+      if (btnBulkDelete.classList && typeof btnBulkDelete.classList.add === "function") {
+        btnBulkDelete.classList.add("confirm-delete");
+      }
+      const count = typeof selectedHistoryCardIds !== "undefined" ? selectedHistoryCardIds.size : 0;
+      btnBulkDelete.textContent = `Confirm (${count})`;
+      setTimeout(() => {
+        if (typeof btnBulkDelete !== "undefined" && btnBulkDelete && btnBulkDelete.classList && typeof btnBulkDelete.classList.contains === "function" && btnBulkDelete.classList.contains("confirm-delete")) {
+          btnBulkDelete.classList.remove("confirm-delete");
+          btnBulkDelete.textContent = "Delete";
+        }
+      }, 3000);
+      return;
+    }
+    if (btnBulkDelete.classList && typeof btnBulkDelete.classList.remove === "function") {
+      btnBulkDelete.classList.remove("confirm-delete");
+    }
+    btnBulkDelete.textContent = "Delete";
+    await performBulkDelete();
+  });
+}
+
+if (typeof btnBulkSync !== "undefined" && btnBulkSync && typeof btnBulkSync.addEventListener === "function") {
+  btnBulkSync.addEventListener("click", async (e) => {
+    e.preventDefault();
+    await performBulkSync();
+  });
+}
+
+if (typeof bulkDeckSelect !== "undefined" && bulkDeckSelect && typeof bulkDeckSelect.addEventListener === "function") {
+  bulkDeckSelect.addEventListener("change", async () => {
+    const val = bulkDeckSelect.value;
+    if (val) {
+      await performBulkDeckMove(val);
+    }
+  });
 }
 
 async function checkClipboardForJapanese() {

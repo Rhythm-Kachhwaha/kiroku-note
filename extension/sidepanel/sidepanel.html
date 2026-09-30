@@ -610,6 +610,28 @@
           </div>
         </div>
 
+        <!-- Floating / Sticky Bulk Action Bar (T4-A) -->
+        <div id="bulk-action-bar" class="bulk-action-bar" role="toolbar" aria-label="Bulk actions" hidden>
+          <div class="bulk-action-left">
+            <input type="checkbox" id="bulk-select-all-cb" class="bulk-select-all-cb" title="Select or deselect all cards" aria-label="Select or deselect all cards">
+            <span id="bulk-selected-count" class="bulk-selected-count">0 selected</span>
+          </div>
+          <div class="bulk-action-buttons">
+            <button type="button" id="btn-bulk-sync" class="btn-bulk-action btn-bulk-sync btn-act-anki" title="Sync selected cards to Anki" aria-label="Sync selected cards to Anki">
+              <span>Sync</span>
+            </button>
+            <div class="bulk-deck-assign-group">
+              <select id="bulk-deck-select" class="bulk-deck-select deck-select-subtle" aria-label="Move selected cards to deck">
+                <option value="" disabled selected>Move to deck…</option>
+              </select>
+            </div>
+            <button type="button" id="btn-bulk-delete" class="btn-bulk-action btn-bulk-delete" title="Delete selected cards" aria-label="Delete selected cards">
+              <span>Delete</span>
+            </button>
+            <button type="button" id="btn-bulk-cancel" class="btn-bulk-action btn-bulk-cancel" title="Clear selection" aria-label="Clear selection">&times;</button>
+          </div>
+        </div>
+
         <div id="history-list-container" class="history-list-container" role="region" aria-label="Saved cards list">
           <div id="history-empty" class="history-empty" hidden>No saved cards.</div>
           <div id="history-cards-list" class="history-cards-list history-items-list"></div>

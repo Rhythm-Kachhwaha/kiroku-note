@@ -1720,6 +1720,45 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ **Full Extension Test Suite:** **126/126 passed (100%)** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. All changes respect locked boundaries, require no database migrations, and pass 100% of all automated test suites.
 
+---
+
+### Tier 4 — Session 1: History Multi-Select & Bulk Operations
+
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Implement Tier 4 Session 1 tasks from `newfeatures.md`:
+    - **T4-A (History Multi-Select & Bulk Operations)**:
+      - Multi-select checkboxes on each History card row.
+      - Sticky/floating bulk action bar displaying dynamic selected count.
+      - Select all / Deselect all / Cancel selection controls.
+      - Bulk delete with 2-step confirmation.
+      - Bulk deck re-assignment (`Move to deck…`).
+      - Bulk sync to Anki via AnkiConnect.
+      - Preserves single-card delete undo toast (T3-C) and local-first SQLite invariants.
+      - Strictly guards all new DOM elements (`typeof elem !== 'undefined' && elem`) to avoid breaking sliced Node VM tests.
+- **Implementation Deliverables:**
+  1. **Database & Repository Layer:**
+     - Added `delete_many(ids)` to [backend/app/repositories/card_repository.py](file:///d:/Python/AnkiMiner/backend/app/repositories/card_repository.py) to atomically delete multiple rows by ID with parameterized queries.
+     - Added `get_many(ids)` to [backend/app/repositories/card_repository.py](file:///d:/Python/AnkiMiner/backend/app/repositories/card_repository.py) to fetch `CardRecord` instances in batch.
+     - Added `update_deck_many(ids, deck_name)` to [backend/app/repositories/card_repository.py](file:///d:/Python/AnkiMiner/backend/app/repositories/card_repository.py) to update card deck names and normalized deck identities in batch.
+  2. **Service Layer:**
+     - Added `delete_many_cards(ids)`, `sync_many_cards(ids)`, and `update_deck_many(ids, deck_name)` to [backend/app/services/card_service.py](file:///d:/Python/AnkiMiner/backend/app/services/card_service.py).
+     - Preserves individual card failure diagnostics in `sync_many_cards()` without failing the entire batch, adhering to SQLite-first resilience invariants.
+  3. **Schemas & API Layer:**
+     - Added `BulkDeleteCardsRequest`, `BulkDeleteCardsResponse`, `BulkSyncCardsRequest`, `BulkDeckUpdateRequest`, and `BulkDeckUpdateResponse` in [backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py).
+     - Added `DELETE /api/cards/bulk`, `POST /api/cards/bulk-sync`, and `POST /api/cards/bulk-deck` in [backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py) ahead of parameterized `/api/cards/{card_id}` routes.
+  4. **Extension DOM & Styling:**
+     - Added `<div id="bulk-action-bar">` with select-all checkbox, selection count label, sync button, deck select dropdown, delete button with 2-step confirmation, and cancel button in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html).
+     - Styled `.bulk-action-bar`, `.bulk-select-all-cb`, `.history-select-cb`, `.bulk-selected`, `.btn-bulk-delete`, `.btn-bulk-sync`, `.bulk-deck-select` in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css).
+     - Added `.history-select-cb` inside `renderHistoryCards()` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) with selection state management (`selectedHistoryCardIds` `Set`), select all / deselect all, 2-click delete confirmation, bulk sync, and bulk deck move.
+     - Fully guarded all new element references and event listener attachments with `typeof elem !== 'undefined' && elem`.
+- **Verification:**
+  - ✅ **Backend Bulk Operations Test Suite:** [backend/tests/test_cards_bulk.py](file:///d:/Python/AnkiMiner/backend/tests/test_cards_bulk.py): **8/8 passed (100%)**
+  - ✅ **Extension Tier 4 Session 1 Test Suite:** [extension/tests/tier4-session1-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier4-session1-features.test.js): **3/3 passed (100%)**
+  - ✅ **Full Backend Pytest Suite:** **425/425 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - ✅ **Full Extension Test Suite:** **129/129 passed (100%)** (`node --test extension/tests/*.test.js`)
+- **Remaining Risk:** None. All features are additive, adhere to local-first SQLite invariants, guard all VM-sliced elements, and pass 100% of all automated test suites.
+
 
 
 

@@ -3276,6 +3276,121 @@ rt {
   border-color: var(--border-focus);
 }
 
+/* Bulk Operations Toolbar & Floating Action Bar (T4-A) */
+.bulk-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bg-surface-2, #1c1c1f);
+  border: 1px solid var(--accent-primary, #e05a47);
+  border-radius: var(--radius-sm, 4px);
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.bulk-action-bar[hidden] {
+  display: none !important;
+}
+
+.bulk-action-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bulk-select-all-cb,
+.history-select-cb {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--accent-primary, #e05a47);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.bulk-selected-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.bulk-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.btn-bulk-action {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm, 3px);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.btn-bulk-sync {
+  background: var(--accent-anki, #68b723);
+  color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.btn-bulk-sync:hover {
+  filter: brightness(1.1);
+}
+
+.bulk-deck-select {
+  font-size: 11px;
+  padding: 3px 6px;
+  max-width: 110px;
+  background: var(--bg-surface-1);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm, 3px);
+}
+
+.btn-bulk-delete {
+  background: transparent;
+  color: var(--accent-danger, #e05a47);
+  border: 1px solid var(--accent-danger, #e05a47);
+}
+
+.btn-bulk-delete:hover {
+  background: rgba(224, 90, 71, 0.12);
+}
+
+.btn-bulk-delete.confirm-delete {
+  background: var(--accent-danger, #e05a47);
+  color: #ffffff;
+}
+
+.btn-bulk-cancel {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  font-size: 14px;
+  padding: 2px 6px;
+  line-height: 1;
+}
+
+.btn-bulk-cancel:hover {
+  color: var(--text-primary);
+}
+
+.history-item.bulk-selected {
+  border-color: var(--accent-primary, #e05a47);
+  background: rgba(224, 90, 71, 0.08);
+}
+
 .history-list-container {
   min-height: 60px;
 }

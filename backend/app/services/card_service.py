@@ -797,6 +797,94 @@ class CardService:
         """Delete a saved card from SQLite. Does not touch Anki notes."""
         return self.repository.delete(card_id)
 
+    def delete_many_cards(self, ids: list[int | str]) -> tuple[int, list[int]]:
+        """Delete multiple cards by IDs from SQLite. Returns (deleted_count, valid_ids)."""
+        valid_ids = [int(i) for i in ids if str(i).isdigit() or (isinstance(i, int) and not isinstance(i, bool))]
+        count = self.repository.delete_many(valid_ids)
+        return count, valid_ids
+
+    def sync_many_cards(self, ids: list[int | str]) -> SyncAllResponse:
+        """
+        Synchronize specified cards to AnkiConnect.
+        Invariants:
+        - Checks Anki reachability before processing.
+        - Synchronizes cards sequentially using sync_card() logic.
+        - Preserves individual card failure diagnostics without stopping the batch.
+        """
+        valid_ids = [int(i) for i in ids if str(i).isdigit() or (isinstance(i, int) and not isinstance(i, bool))]
+        if not valid_ids:
+            return SyncAllResponse(
+                total_eligible=0,
+                synced_count=0,
+                failed_count=0,
+                results=[],
+            )
+
+        connected, error_msg = self.anki.is_connected()
+        if not connected:
+            return SyncAllResponse(
+                total_eligible=len(valid_ids),
+                synced_count=0,
+                failed_count=len(valid_ids),
+                results=[],
+                error=f"Cannot connect to AnkiConnect: {error_msg or 'Connection refused'}",
+            )
+
+        cards = self.repository.get_many(valid_ids)
+        card_map = {c.id: c for c in cards}
+        results: list[SyncCardResponse] = []
+        synced_count = 0
+        failed_count = 0
+
+        for card_id in valid_ids:
+            if card_id not in card_map:
+                results.append(
+                    SyncCardResponse(
+                        id=card_id,
+                        sync_status="failed",
+                        error=f"Card with ID {card_id} does not exist.",
+                    )
+                )
+                failed_count += 1
+                continue
+
+            try:
+                res = self.sync_card(card_id)
+                results.append(res)
+                if res.sync_status == "synced":
+                    synced_count += 1
+                else:
+                    failed_count += 1
+            except Exception as err:
+                logger.warning("Unexpected error syncing card %s during bulk sync: %s", card_id, err)
+                card = card_map[card_id]
+                results.append(
+                    SyncCardResponse(
+                        id=card_id,
+                        sync_status="failed",
+                        anki_note_id=card.anki_note_id,
+                        deck_name=card.deck_name,
+                        model_name=card.model_name or None,
+                        error=str(err),
+                        synced_at=card.synced_at,
+                        expression=card.expression,
+                    )
+                )
+                failed_count += 1
+
+        return SyncAllResponse(
+            total_eligible=len(valid_ids),
+            synced_count=synced_count,
+            failed_count=failed_count,
+            results=results,
+        )
+
+    def update_deck_many(self, ids: list[int | str], deck_name: str) -> tuple[int, list[int]]:
+        """Update target deck for multiple cards."""
+        valid_ids = [int(i) for i in ids if str(i).isdigit() or (isinstance(i, int) and not isinstance(i, bool))]
+        count = self.repository.update_deck_many(valid_ids, deck_name)
+        return count, valid_ids
+
     def get_saved_decks(self) -> list[str]:
         """Retrieve distinct deck names from saved cards."""
         return self.repository.get_saved_decks()

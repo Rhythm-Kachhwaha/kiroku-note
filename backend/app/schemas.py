@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -344,6 +344,31 @@ class CardDetailResponse(BaseModel):
 class DeleteCardResponse(BaseModel):
     id: int
     deleted: bool
+
+
+class BulkDeleteCardsRequest(BaseModel):
+    card_ids: list[Union[int, str]] = Field(default_factory=list)
+
+
+class BulkDeleteCardsResponse(BaseModel):
+    deleted_count: int
+    deleted: bool = True
+    card_ids: list[int] = Field(default_factory=list)
+
+
+class BulkSyncCardsRequest(BaseModel):
+    card_ids: list[Union[int, str]] = Field(default_factory=list)
+
+
+class BulkDeckUpdateRequest(BaseModel):
+    card_ids: list[Union[int, str]] = Field(default_factory=list)
+    deck_name: str
+
+
+class BulkDeckUpdateResponse(BaseModel):
+    updated_count: int
+    deck_name: str
+    card_ids: list[int] = Field(default_factory=list)
 
 
 class OcrStatusResponse(BaseModel):

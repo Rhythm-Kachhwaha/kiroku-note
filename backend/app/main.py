@@ -4,7 +4,9 @@ import io
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Query, status
+from typing import Union
+
+from fastapi import Body, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 
@@ -16,6 +18,11 @@ from app.schemas import (
     AnkiModelCapabilitiesResponse,
     AnkiModelsResponse,
     AnkiStatusResponse,
+    BulkDeckUpdateRequest,
+    BulkDeckUpdateResponse,
+    BulkDeleteCardsRequest,
+    BulkDeleteCardsResponse,
+    BulkSyncCardsRequest,
     CaptureRequest,
     CaptureResponse,
     CardDetailResponse,
@@ -263,6 +270,42 @@ def export_cards_csv(
 def get_cards_stats() -> CardStatsResponse:
     service = CardService()
     return service.get_stats()
+
+
+@app.delete("/api/cards/bulk", response_model=BulkDeleteCardsResponse)
+def delete_cards_bulk(
+    request: Union[BulkDeleteCardsRequest, list[Union[int, str]]] = Body(...),
+) -> BulkDeleteCardsResponse:
+    if isinstance(request, BulkDeleteCardsRequest):
+        raw_ids = request.card_ids
+    elif isinstance(request, list):
+        raw_ids = request
+    else:
+        raw_ids = []
+    service = CardService()
+    count, deleted_ids = service.delete_many_cards(raw_ids)
+    return BulkDeleteCardsResponse(deleted_count=count, deleted=True, card_ids=deleted_ids)
+
+
+@app.post("/api/cards/bulk-sync", response_model=SyncAllResponse)
+def sync_cards_bulk(
+    request: Union[BulkSyncCardsRequest, list[Union[int, str]]] = Body(...),
+) -> SyncAllResponse:
+    if isinstance(request, BulkSyncCardsRequest):
+        raw_ids = request.card_ids
+    elif isinstance(request, list):
+        raw_ids = request
+    else:
+        raw_ids = []
+    service = CardService()
+    return service.sync_many_cards(raw_ids)
+
+
+@app.post("/api/cards/bulk-deck", response_model=BulkDeckUpdateResponse)
+def update_deck_bulk(request: BulkDeckUpdateRequest) -> BulkDeckUpdateResponse:
+    service = CardService()
+    count, updated_ids = service.update_deck_many(request.card_ids, request.deck_name)
+    return BulkDeckUpdateResponse(updated_count=count, deck_name=request.deck_name, card_ids=updated_ids)
 
 
 @app.get("/api/cards/{card_id}", response_model=CardDetailResponse)
