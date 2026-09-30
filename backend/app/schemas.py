@@ -493,13 +493,16 @@ class LLMStatusResponse(BaseModel):
     configured: bool
     provider: str
     model: Optional[str] = None
+    key_name: Optional[str] = None
 
 
 class LLMConfigResponse(BaseModel):
     provider: str = "none"
     model: Optional[str] = None
     ollama_url: str = "http://localhost:11434"
+    configured: bool = False
     has_key: bool = False
+    key_name: Optional[str] = None
     key_preview: Optional[str] = None
     provider_source: str = "default"
     timeout: float = 45.0
@@ -508,16 +511,39 @@ class LLMConfigResponse(BaseModel):
 class LLMConfigUpdateRequest(BaseModel):
     provider: Optional[str] = Field(default=None, max_length=50)
     model: Optional[str] = Field(default=None, max_length=100)
+    key_name: Optional[str] = Field(default=None, max_length=100)
     ollama_url: Optional[str] = Field(default=None, max_length=500)
-    api_key: Optional[str] = Field(default=None, max_length=500)
+    api_key: Optional[str] = Field(default=None, max_length=1000)
     timeout: Optional[float] = Field(default=None, ge=5.0, le=180.0)
+
+
+class LLMSecretSaveRequest(BaseModel):
+    api_key: str = Field(..., min_length=1, max_length=1000)
+    key_name: Optional[str] = Field(default=None, max_length=100)
+
+
+class LLMSecretSaveResponse(BaseModel):
+    ok: bool = True
+    configured: bool
+    provider: str
+    model: Optional[str] = None
+    key_name: Optional[str] = None
+    message: str = "API key configured securely."
+
+
+class LLMSecretDeleteResponse(BaseModel):
+    ok: bool = True
+    configured: bool
+    provider: str
+    model: Optional[str] = None
+    message: str = "API key removed."
 
 
 class LLMTestRequest(BaseModel):
     provider: Optional[str] = Field(default=None, max_length=50)
     model: Optional[str] = Field(default=None, max_length=100)
     ollama_url: Optional[str] = Field(default=None, max_length=500)
-    api_key: Optional[str] = Field(default=None, max_length=500)
+    api_key: Optional[str] = Field(default=None, max_length=1000)
 
 
 class LLMTestResponse(BaseModel):

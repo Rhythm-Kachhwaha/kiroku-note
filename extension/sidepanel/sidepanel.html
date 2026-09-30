@@ -911,16 +911,46 @@
 
         <!-- AI Assistant (LLM) Settings -->
         <div class="card-settings-group settings-group" id="settings-group-llm">
-          <span class="settings-group-title">AI Assistant</span>
+          <span class="settings-group-title">AI Assistant (LLM)</span>
           <div class="settings-row">
-            <span class="settings-label">Provider</span>
-            <span id="llm-provider-display" class="settings-val">None</span>
+            <label for="setting-llm-provider" class="settings-label">LLM Provider</label>
+            <select id="setting-llm-provider" class="deck-select-subtle settings-select">
+              <option value="groq" selected>Groq</option>
+              <option value="gemini">Gemini</option>
+              <option value="ollama">Ollama</option>
+            </select>
           </div>
           <div class="settings-row">
-            <span class="settings-label">Status</span>
-            <span id="llm-status-label" class="settings-val">Not configured</span>
+            <label for="setting-llm-model" class="settings-label">Model</label>
+            <input type="text" id="setting-llm-model" class="llm-settings-input" placeholder="openai/gpt-oss-120b" autocomplete="off" spellcheck="false">
           </div>
-          <div class="settings-row" style="margin-top:4px;">
+          <div class="settings-row" id="row-llm-key-name">
+            <label for="setting-llm-key-name" class="settings-label">API Key Name</label>
+            <input type="text" id="setting-llm-key-name" class="llm-settings-input" placeholder="Kiroku Groq" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="settings-row" id="row-llm-key">
+            <label for="setting-llm-key" class="settings-label">API Key</label>
+            <input type="password" id="setting-llm-key" class="llm-settings-input" placeholder="Enter API key..." autocomplete="new-password" spellcheck="false">
+          </div>
+          <div id="llm-key-status-msg" class="llm-key-status-msg" hidden>
+            <span class="llm-key-check-icon">&#10003;</span>
+            <span id="llm-key-status-text">Groq API key configured</span>
+          </div>
+          <div class="settings-row llm-actions-row" style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" id="btn-save-llm-key" class="btn-save-llm-key btn-primary-action">Save API Key</button>
+            <button type="button" id="btn-replace-llm-key" class="btn-replace-llm-key btn-secondary-action" hidden>Replace Key</button>
+            <button type="button" id="btn-remove-llm-key" class="btn-remove-llm-key btn-danger-action" hidden>Remove API Key</button>
+            <button type="button" id="btn-cancel-replace-llm-key" class="btn-cancel-replace-key btn-secondary-action" hidden>Cancel</button>
+          </div>
+          <div id="llm-security-notice" class="llm-security-notice">
+            Your API key is stored securely on this device and cannot be viewed again from Kiroku.
+          </div>
+          <div class="settings-row" style="margin-top:8px; font-size:11px;">
+            <span class="settings-label" style="font-size:11px;">Status</span>
+            <span id="llm-status-label" class="settings-val" style="font-size:11px;">Not configured</span>
+            <span id="llm-provider-display" class="settings-val" hidden>Groq</span>
+          </div>
+          <div class="settings-row" style="margin-top:2px;">
             <a href="https://github.com/Rhythm-Kachhwaha/kiroku-note/blob/main/docs/llm-setup.md" id="llm-setup-link" target="_blank" rel="noopener noreferrer" style="font-size:11px; color:var(--accent-reading); text-decoration:none;">AI Setup Guide &rarr;</a>
           </div>
         </div>

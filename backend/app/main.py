@@ -36,6 +36,9 @@ from app.schemas import (
     LLMConfigUpdateRequest,
     LLMRequest,
     LLMResponse,
+    LLMSecretDeleteResponse,
+    LLMSecretSaveRequest,
+    LLMSecretSaveResponse,
     LLMStatusResponse,
     LLMTestRequest,
     LLMTestResponse,
@@ -51,9 +54,11 @@ from app.schemas import (
 from app.config import (
     APP_VERSION,
     get_llm_api_key,
+    get_llm_key_name,
     get_llm_model,
     get_llm_ollama_url,
     get_llm_provider,
+    is_llm_configured,
     load_stored_llm_config,
     resolve_default_llm_model,
     resolve_llm_timeout,
@@ -205,7 +210,7 @@ def get_health() -> HealthResponse:
         ocr=ocr_ok,
         db=db_ok,
     )
-    _health_cache["timestamp"] = now
+    _health_cache["timestamp"] = time.monotonic()
     _health_cache["response"] = response
     return response
 
@@ -556,15 +561,8 @@ def _build_llm_config_response() -> LLMConfigResponse:
     provider = get_llm_provider()
     model = get_llm_model() or resolve_default_llm_model(provider)
     ollama_url = get_llm_ollama_url()
-    raw_key = get_llm_api_key()
-    has_key = bool(raw_key and raw_key.strip())
-    key_preview = None
-    if has_key:
-        k = raw_key.strip()
-        if len(k) >= 8:
-            key_preview = f"{k[:4]}...{k[-4:]}"
-        else:
-            key_preview = "***"
+    key_name = get_llm_key_name()
+    configured = is_llm_configured()
 
     if os.environ.get("KIROKU_LLM_PROVIDER"):
         source = "env"
@@ -575,12 +573,15 @@ def _build_llm_config_response() -> LLMConfigResponse:
 
     timeout = resolve_llm_timeout()
 
+    # Never expose raw key or key preview in responses
     return LLMConfigResponse(
         provider=provider,
         model=model,
         ollama_url=ollama_url,
-        has_key=has_key,
-        key_preview=key_preview,
+        configured=configured,
+        has_key=configured,
+        key_name=key_name,
+        key_preview=None,
         provider_source=source,
         timeout=timeout,
     )
@@ -588,41 +589,122 @@ def _build_llm_config_response() -> LLMConfigResponse:
 
 @app.get("/api/llm/status", response_model=LLMStatusResponse)
 def get_llm_status() -> LLMStatusResponse:
-    """Check if backend LLM assistant is configured and return provider/model."""
+    """Check if backend LLM assistant is configured and return provider/model/key_name."""
     service = get_llm_service()
+    key_name = get_llm_key_name()
     return LLMStatusResponse(
         configured=service.is_configured(),
         provider=service.provider_name,
         model=service.model_name,
+        key_name=key_name,
     )
 
 
 @app.get("/api/llm/config", response_model=LLMConfigResponse)
 def get_llm_config() -> LLMConfigResponse:
-    """Return active LLM configuration with masked API key."""
+    """Return active LLM configuration metadata without secrets."""
     return _build_llm_config_response()
 
 
 @app.put("/api/llm/config", response_model=LLMConfigResponse)
 def update_llm_config(request: LLMConfigUpdateRequest) -> LLMConfigResponse:
-    """Update stored LLM settings in user data directory. Env vars still take precedence if set."""
+    """Update stored LLM settings in user data directory. Secrets are routed strictly to SecretStore."""
     stored = load_stored_llm_config()
     if request.provider is not None:
         stored["provider"] = request.provider.strip().lower()
     if request.model is not None:
         stored["model"] = request.model.strip()
+    if request.key_name is not None:
+        if request.key_name.strip() == "":
+            stored.pop("key_name", None)
+        else:
+            stored["key_name"] = request.key_name.strip()
     if request.ollama_url is not None:
         stored["ollama_url"] = request.ollama_url.strip().rstrip("/")
-    if request.api_key is not None:
-        if request.api_key.strip() == "":
-            stored.pop("api_key", None)
-        else:
-            stored["api_key"] = request.api_key.strip()
     if request.timeout is not None:
         stored["timeout"] = max(5.0, min(180.0, float(request.timeout)))
 
+    # Securely handle api_key if supplied
+    if request.api_key is not None:
+        from app.services.secret_store import get_secret_store
+        store = get_secret_store()
+        raw_key = request.api_key.strip()
+        if raw_key == "":
+            store.delete_secret("llm_api_key")
+        else:
+            store.set_secret("llm_api_key", raw_key)
+        # Ensure raw key is removed from stored dict
+        stored.pop("api_key", None)
+
     save_stored_llm_config(stored)
     return _build_llm_config_response()
+
+
+@app.post("/api/llm/secret", response_model=LLMSecretSaveResponse)
+@app.post("/api/llm/key", response_model=LLMSecretSaveResponse)
+def save_llm_secret(request: LLMSecretSaveRequest) -> LLMSecretSaveResponse:
+    """
+    Save or replace the LLM API key in OS secure storage (Windows DPAPI).
+    The plaintext key is not retained, logged, or exposed in any response.
+    """
+    key = request.api_key.strip()
+    if not key:
+        raise HTTPException(status_code=422, detail="API key must not be empty.")
+
+    provider = get_llm_provider()
+    # Light validation without blocking non-standard valid keys
+    if provider == "groq" and len(key) < 10:
+        raise HTTPException(status_code=422, detail="Invalid Groq API key format.")
+
+    from app.services.secret_store import get_secret_store
+    store = get_secret_store()
+    store.set_secret("llm_api_key", key)
+
+    stored = load_stored_llm_config()
+    if request.key_name is not None and request.key_name.strip():
+        stored["key_name"] = request.key_name.strip()
+    elif not stored.get("key_name"):
+        stored["key_name"] = f"Kiroku {provider.capitalize()}"
+    save_stored_llm_config(stored)
+
+    model = get_llm_model() or resolve_default_llm_model(provider)
+    key_name = stored.get("key_name")
+
+    return LLMSecretSaveResponse(
+        ok=True,
+        configured=is_llm_configured(),
+        provider=provider,
+        model=model,
+        key_name=key_name,
+        message="API key configured securely.",
+    )
+
+
+@app.delete("/api/llm/secret", response_model=LLMSecretDeleteResponse)
+@app.delete("/api/llm/key", response_model=LLMSecretDeleteResponse)
+def delete_llm_secret() -> LLMSecretDeleteResponse:
+    """
+    Delete the LLM API key from OS secure storage.
+    If an environment variable (KIROKU_LLM_API_KEY) is present, backend will fall back to it.
+    """
+    from app.services.secret_store import get_secret_store
+    store = get_secret_store()
+    store.delete_secret("llm_api_key")
+
+    stored = load_stored_llm_config()
+    stored.pop("key_name", None)
+    save_stored_llm_config(stored)
+
+    provider = get_llm_provider()
+    model = get_llm_model() or resolve_default_llm_model(provider)
+
+    return LLMSecretDeleteResponse(
+        ok=True,
+        configured=is_llm_configured(),
+        provider=provider,
+        model=model,
+        message="API key removed.",
+    )
 
 
 @app.post("/api/llm/test", response_model=LLMTestResponse)

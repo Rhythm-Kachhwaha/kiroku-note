@@ -675,23 +675,31 @@ def test_llm_config_get_and_put(client, tmp_path):
         assert updated["provider"] == "groq"
         assert updated["model"] == "llama-3.3-70b-versatile"
         assert updated["has_key"] is True
-        assert updated["key_preview"] == "gsk_...cdef"
+        assert updated["configured"] is True
+        assert updated["key_preview"] is None
         assert updated["timeout"] == 30.0
         assert updated["provider_source"] == "stored"
 
-        # Raw key is NEVER returned
+        # Raw key is NEVER returned in response
         assert "1234567890" not in str(updated)
+
+        # Raw key is NEVER stored in llm_config.json
+        config_file = tmp_path / "llm_config.json"
+        if config_file.is_file():
+            assert "1234567890" not in config_file.read_text(encoding="utf-8")
 
         # 3. Subsequent GET confirms persisted config
         resp2 = client.get("/api/llm/config")
         assert resp2.status_code == 200
         assert resp2.json()["provider"] == "groq"
         assert resp2.json()["has_key"] is True
+        assert resp2.json()["configured"] is True
 
         # 4. PUT clear key
         resp3 = client.put("/api/llm/config", json={"api_key": ""})
         assert resp3.status_code == 200
         assert resp3.json()["has_key"] is False
+        assert resp3.json()["configured"] is False
         assert resp3.json()["key_preview"] is None
 
 
@@ -711,7 +719,9 @@ def test_llm_config_env_precedence(client, tmp_path):
         assert data["provider"] == "gemini"
         assert data["provider_source"] == "env"
         assert data["has_key"] is True
-        assert data["key_preview"] == "AIza...9999"
+        assert data["configured"] is True
+        assert data["key_preview"] is None
+        assert "AIzaSyEnvKey9999" not in str(data)
 
 
 # ============================================================================

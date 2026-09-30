@@ -2255,3 +2255,47 @@ New major features should generally be deferred unless they are necessary for th
 - Verify extension tests pass before starting: `node --test extension/tests/*.test.js` from `extension/`
 - Do NOT assume session 9 work is in place — it was reverted entirely from the extension
 
+---
+
+### Secure Persistent LLM API-Key Configuration
+
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Implement OS-level secure secret storage abstraction (`SecretStore`) using Windows DPAPI (`CryptProtectData`/`CryptUnprotectData`).
+  - Zero raw secrets stored in SQLite, `llm_config.json`, browser storage, GET endpoints, API responses, or application logs.
+  - Key precedence: 1. Explicitly configured secure stored key (`SecretStore`), 2. Environment variable fallback (`KIROKU_LLM_API_KEY`).
+  - Settings UI for LLM configuration: Provider select, Model input, API Key Name, masked password input with `••••••••••••••••`, Save API Key, Replace Key, and Remove API Key (with 2-click inline confirmation).
+  - Security disclosure: "Your API key is stored securely on this device and cannot be viewed again from Kiroku."
+  - Preserve all existing LLM Ask tasks, Groq/Gemini/Ollama integrations, and zero unicode emojis.
+- **Implementation Deliverables:**
+  1. **Secret Store Subsystem ([backend/app/services/secret_store.py](file:///d:/Python/AnkiMiner/backend/app/services/secret_store.py)):**
+     - Implemented `SecretStore` ABC with `get_secret`, `set_secret`, `delete_secret`, `has_secret`.
+     - Implemented `WindowsDPAPISecretStore` using standard library `ctypes.windll.crypt32` (`CryptProtectData`/`CryptUnprotectData`) tied to current user logon credentials with atomic file persistence (`.secrets.enc`).
+     - Implemented `InMemorySecretStore` for mock testing and cross-platform fallbacks.
+  2. **Config Layer ([backend/app/config.py](file:///d:/Python/AnkiMiner/backend/app/config.py)):**
+     - Updated `get_llm_api_key()` to check `SecretStore` before falling back to `KIROKU_LLM_API_KEY`.
+     - Updated `load_stored_llm_config()` and `save_stored_llm_config()` to migrate and strip any plaintext `api_key` from `llm_config.json`.
+     - Added `get_llm_key_name()` and `has_secure_llm_key()`.
+  3. **Schemas ([backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py)):**
+     - Added `key_name` and `configured` to `LLMStatusResponse` and `LLMConfigResponse`.
+     - Added `LLMSecretSaveRequest`, `LLMSecretSaveResponse`, `LLMSecretDeleteResponse`.
+  4. **FastAPI Endpoints ([backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py)):**
+     - `POST /api/llm/secret` (and `/api/llm/key`): saves/replaces secret via `SecretStore`, clears plaintext from memory, updates non-secret `key_name`, returns status without secret.
+     - `DELETE /api/llm/secret` (and `/api/llm/key`): removes key from `SecretStore` and falls back to env vars if present.
+     - `GET /api/llm/config` & `GET /api/llm/status`: returns configuration metadata with zero secrets or key previews.
+     - `PUT /api/llm/config`: updates metadata and securely routes any `api_key` to `SecretStore`.
+  5. **Side Panel UI & Styling ([extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html), [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css), [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js)):**
+     - Added LLM configuration form in Settings with masked password input, status check indicator, Replace Key, and 2-click Remove API Key confirmation.
+     - Wired `loadLlmConfigToSettings()`, `saveLlmSecretFromSettings()`, `startReplaceLlmKey()`, and `removeLlmSecretFromSettings()`.
+     - Input value is immediately cleared from JS memory upon saving.
+  6. **Automated Test Suites:**
+     - [backend/tests/test_secret_store.py](file:///d:/Python/AnkiMiner/backend/tests/test_secret_store.py): 3 tests for DPAPI encryption, persistence across restart, and ciphertext validation.
+     - [backend/tests/test_llm_settings_api.py](file:///d:/Python/AnkiMiner/backend/tests/test_llm_settings_api.py): 5 tests for secret save/replace/delete, env var precedence, Ask request using decrypted key, and canary security assertion.
+     - [extension/tests/llm-secure-settings.test.js](file:///d:/Python/AnkiMiner/extension/tests/llm-secure-settings.test.js): 7 tests for DOM structure, password masking, absence of "show key" button, zero emojis, and state machine transitions.
+- **Verification:**
+  - [PASS] Full backend test suite: **489/489 passed** (`python -m pytest tests/ -q --tb=short -o "pythonpath=."`)
+  - [PASS] Full extension test suite: **152/152 passed** (`node --test extension/tests/*.test.js`)
+  - [PASS] End-to-end manual verification passed: key save, backend restart, status check, Ask query authentication, and disk security audit.
+- **Remaining Risk:** None. All locked boundaries and security requirements preserved.
+
+

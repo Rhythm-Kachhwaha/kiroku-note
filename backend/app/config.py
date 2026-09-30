@@ -34,6 +34,15 @@ def get_llm_config_file_path(env: dict[str, str] | None = None) -> Path:
     return get_data_dir(env) / "llm_config.json"
 
 
+def get_secrets_file_path(env: dict[str, str] | None = None) -> Path:
+    """Resolve the encrypted secrets storage file path."""
+    env_dict = os.environ if env is None else env
+    custom = env_dict.get("KIROKU_SECRETS_PATH")
+    if custom and str(custom).strip():
+        return Path(str(custom).strip())
+    return get_data_dir(env_dict) / ".secrets.enc"
+
+
 def load_stored_llm_config(env: dict[str, str] | None = None) -> dict[str, Any]:
     """Load stored LLM settings from JSON file in user data directory if present."""
     config_path = get_llm_config_file_path(env)
@@ -44,6 +53,21 @@ def load_stored_llm_config(env: dict[str, str] | None = None) -> dict[str, Any]:
         with open(config_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, dict):
+                # Security migration: ensure raw api_key is NEVER stored in llm_config.json
+                if "api_key" in data:
+                    legacy_key = str(data.pop("api_key", "")).strip()
+                    if legacy_key:
+                        try:
+                            from app.services.secret_store import get_secret_store
+                            store = get_secret_store()
+                            if not store.has_secret("llm_api_key"):
+                                store.set_secret("llm_api_key", legacy_key)
+                        except Exception:
+                            pass
+                    try:
+                        save_stored_llm_config(data, env)
+                    except Exception:
+                        pass
                 return data
     except Exception:
         pass
@@ -51,12 +75,14 @@ def load_stored_llm_config(env: dict[str, str] | None = None) -> dict[str, Any]:
 
 
 def save_stored_llm_config(config_dict: dict[str, Any], env: dict[str, str] | None = None) -> None:
-    """Save stored LLM settings to JSON file in user data directory."""
+    """Save stored LLM settings to JSON file in user data directory (excluding secrets)."""
     config_path = get_llm_config_file_path(env)
     config_path.parent.mkdir(parents=True, exist_ok=True)
+    # Defense-in-depth: Never write raw api_key to JSON configuration file
+    cleaned = {k: v for k, v in config_dict.items() if k != "api_key"}
     import json
     with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(config_dict, f, indent=2, ensure_ascii=False)
+        json.dump(cleaned, f, indent=2, ensure_ascii=False)
 
 
 def get_app_data_dir(env: dict[str, str] | None = None) -> Path:
@@ -430,15 +456,50 @@ def get_llm_provider(env: dict[str, str] | None = None) -> str:
 
 
 def get_llm_api_key(env: dict[str, str] | None = None) -> str | None:
-    """Resolve configured LLM API key for cloud providers. Env takes precedence over stored config."""
+    """
+    Resolve configured LLM API key for cloud providers.
+
+    Precedence:
+      1. Explicitly configured secure stored key in SecretStore
+      2. Existing environment variable fallback (KIROKU_LLM_API_KEY)
+    """
+    # 1. Check secure OS SecretStore first
+    try:
+        from app.services.secret_store import get_secret_store
+        secrets_path = get_secrets_file_path(env)
+        store = get_secret_store(secrets_path=secrets_path)
+        key = store.get_secret("llm_api_key")
+        if key and key.strip():
+            return key.strip()
+    except Exception:
+        pass
+
+    # 2. Fall back to environment variable
     env_dict = os.environ if env is None else env
     val = env_dict.get("KIROKU_LLM_API_KEY")
     if val and str(val).strip():
         return str(val).strip()
-    stored = load_stored_llm_config(env)
-    if stored.get("api_key") and str(stored["api_key"]).strip():
-        return str(stored["api_key"]).strip()
+
     return None
+
+
+def get_llm_key_name(env: dict[str, str] | None = None) -> str | None:
+    """Resolve user-defined non-secret API key name from stored config."""
+    stored = load_stored_llm_config(env)
+    if stored.get("key_name") and str(stored["key_name"]).strip():
+        return str(stored["key_name"]).strip()
+    return None
+
+
+def has_secure_llm_key(env: dict[str, str] | None = None) -> bool:
+    """Check if an API key is stored in the secure SecretStore."""
+    try:
+        from app.services.secret_store import get_secret_store
+        secrets_path = get_secrets_file_path(env)
+        store = get_secret_store(secrets_path=secrets_path)
+        return store.has_secret("llm_api_key")
+    except Exception:
+        return False
 
 
 def get_llm_ollama_url(env: dict[str, str] | None = None) -> str:

@@ -19,6 +19,8 @@ const API_CARDS_BULK_DECK_URL = `${BACKEND_BASE_URL}/api/cards/bulk-deck`;
 const API_KANJI_STROKES_URL = (char) => `${BACKEND_BASE_URL}/api/kanji/strokes/${encodeURIComponent(char)}`;
 const API_LLM_STATUS_URL = `${BACKEND_BASE_URL}/api/llm/status`;
 const API_LLM_ASK_URL = `${BACKEND_BASE_URL}/api/llm/ask`;
+const API_LLM_CONFIG_URL = `${BACKEND_BASE_URL}/api/llm/config`;
+const API_LLM_SECRET_URL = `${BACKEND_BASE_URL}/api/llm/secret`;
 
 const kanjiStrokesCache = new Map();
 
@@ -891,6 +893,16 @@ const askCharCount = document.querySelector("#ask-char-count");
 const btnAskSubmit = document.querySelector("#btn-ask-submit");
 const llmProviderDisplay = document.querySelector("#llm-provider-display");
 const llmStatusLabel = document.querySelector("#llm-status-label");
+const settingLlmProvider = document.querySelector("#setting-llm-provider");
+const settingLlmModel = document.querySelector("#setting-llm-model");
+const settingLlmKeyName = document.querySelector("#setting-llm-key-name");
+const settingLlmKey = document.querySelector("#setting-llm-key");
+const llmKeyStatusMsg = document.querySelector("#llm-key-status-msg");
+const llmKeyStatusText = document.querySelector("#llm-key-status-text");
+const btnSaveLlmKey = document.querySelector("#btn-save-llm-key");
+const btnReplaceLlmKey = document.querySelector("#btn-replace-llm-key");
+const btnRemoveLlmKey = document.querySelector("#btn-remove-llm-key");
+const btnCancelReplaceLlmKey = document.querySelector("#btn-cancel-replace-llm-key");
 const cardEditorSection = document.querySelector("#card-editor-section");
 const btnNavCollapseToggle = document.querySelector("#btn-nav-collapse-toggle");
 const panelHeader = document.querySelector("#panel-header");
@@ -8941,6 +8953,9 @@ function openLayoutSettings() {
   if (typeof checkLLMStatus === "function") {
     checkLLMStatus().catch(() => {});
   }
+  if (typeof loadLlmConfigToSettings === "function") {
+    loadLlmConfigToSettings().catch(() => {});
+  }
 }
 
 function closeLayoutSettings() {
@@ -9061,6 +9076,245 @@ async function checkLLMStatus() {
       llmStatusLabel.style.color = "var(--accent-primary, #b84632)";
     }
     return null;
+  }
+}
+
+let removeKeyConfirmTimeout = null;
+
+async function loadLlmConfigToSettings() {
+  try {
+    const res = await fetch(API_LLM_CONFIG_URL);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (settingLlmProvider && data.provider) {
+      settingLlmProvider.value = data.provider;
+    }
+    if (settingLlmModel && data.model !== undefined) {
+      settingLlmModel.value = data.model || "";
+    }
+    if (settingLlmKeyName && data.key_name !== undefined) {
+      settingLlmKeyName.value = data.key_name || "";
+    }
+
+    const isConfigured = Boolean(data.configured || data.has_key);
+    applyLlmConfiguredState(isConfigured, data.provider);
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
+function applyLlmConfiguredState(isConfigured, provider = "groq") {
+  const normProvider = (provider || "Groq").charAt(0).toUpperCase() + (provider || "Groq").slice(1);
+  if (isConfigured) {
+    if (settingLlmKey) {
+      settingLlmKey.value = "••••••••••••••••";
+      settingLlmKey.disabled = true;
+    }
+    if (llmKeyStatusMsg) {
+      llmKeyStatusMsg.hidden = false;
+    }
+    if (llmKeyStatusText) {
+      llmKeyStatusText.textContent = `${normProvider} API key configured`;
+    }
+    if (btnSaveLlmKey) btnSaveLlmKey.hidden = true;
+    if (btnReplaceLlmKey) btnReplaceLlmKey.hidden = false;
+    if (btnRemoveLlmKey) {
+      btnRemoveLlmKey.hidden = false;
+      btnRemoveLlmKey.textContent = "Remove API Key";
+      btnRemoveLlmKey.classList.remove("confirm-active");
+    }
+    if (btnCancelReplaceLlmKey) btnCancelReplaceLlmKey.hidden = true;
+  } else {
+    if (settingLlmKey) {
+      settingLlmKey.value = "";
+      settingLlmKey.disabled = false;
+      settingLlmKey.placeholder = "Enter API key...";
+    }
+    if (llmKeyStatusMsg) {
+      llmKeyStatusMsg.hidden = true;
+    }
+    if (btnSaveLlmKey) {
+      btnSaveLlmKey.hidden = false;
+      btnSaveLlmKey.textContent = "Save API Key";
+    }
+    if (btnReplaceLlmKey) btnReplaceLlmKey.hidden = true;
+    if (btnRemoveLlmKey) btnRemoveLlmKey.hidden = true;
+    if (btnCancelReplaceLlmKey) btnCancelReplaceLlmKey.hidden = true;
+  }
+}
+
+async function saveLlmSecretFromSettings() {
+  if (!settingLlmKey) return;
+  const rawKey = settingLlmKey.value.trim();
+  if (!rawKey || rawKey === "••••••••••••••••") {
+    settingLlmKey.focus();
+    return;
+  }
+
+  const provider = settingLlmProvider ? settingLlmProvider.value : "groq";
+  const model = settingLlmModel ? settingLlmModel.value.trim() : "";
+  const keyName = settingLlmKeyName ? settingLlmKeyName.value.trim() : "";
+
+  try {
+    const res = await fetch(API_LLM_SECRET_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: rawKey,
+        key_name: keyName || `Kiroku ${provider.charAt(0).toUpperCase() + provider.slice(1)}`,
+      }),
+    });
+
+    // Minimize lifetime of plaintext key in memory: clear input value immediately
+    settingLlmKey.value = "";
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (typeof alert === "function") alert(err.detail || "Failed to save API key.");
+      return;
+    }
+
+    const data = await res.json();
+
+    // Also persist non-secret provider/model if changed
+    await fetch(API_LLM_CONFIG_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: provider,
+        model: model || undefined,
+        key_name: data.key_name || keyName,
+      }),
+    }).catch(() => {});
+
+    applyLlmConfiguredState(true, provider);
+    if (typeof checkLLMStatus === "function") {
+      await checkLLMStatus();
+    }
+  } catch (err) {
+    settingLlmKey.value = "";
+    if (typeof alert === "function") alert("Connection error: Failed to save API key.");
+  }
+}
+
+function startReplaceLlmKey() {
+  if (!settingLlmKey) return;
+  settingLlmKey.disabled = false;
+  settingLlmKey.value = "";
+  settingLlmKey.placeholder = "Enter new API key...";
+  settingLlmKey.focus();
+
+  if (btnSaveLlmKey) {
+    btnSaveLlmKey.hidden = false;
+    btnSaveLlmKey.textContent = "Save API Key";
+  }
+  if (btnReplaceLlmKey) btnReplaceLlmKey.hidden = true;
+  if (btnRemoveLlmKey) btnRemoveLlmKey.hidden = true;
+  if (btnCancelReplaceLlmKey) btnCancelReplaceLlmKey.hidden = false;
+}
+
+function cancelReplaceLlmKey() {
+  loadLlmConfigToSettings();
+}
+
+async function removeLlmSecretFromSettings() {
+  if (!btnRemoveLlmKey) return;
+
+  if (!btnRemoveLlmKey.classList.contains("confirm-active")) {
+    btnRemoveLlmKey.classList.add("confirm-active");
+    btnRemoveLlmKey.textContent = "Confirm Remove?";
+    if (removeKeyConfirmTimeout) clearTimeout(removeKeyConfirmTimeout);
+    removeKeyConfirmTimeout = setTimeout(() => {
+      if (btnRemoveLlmKey) {
+        btnRemoveLlmKey.classList.remove("confirm-active");
+        btnRemoveLlmKey.textContent = "Remove API Key";
+      }
+    }, 4000);
+    return;
+  }
+
+  if (removeKeyConfirmTimeout) {
+    clearTimeout(removeKeyConfirmTimeout);
+    removeKeyConfirmTimeout = null;
+  }
+  btnRemoveLlmKey.classList.remove("confirm-active");
+  btnRemoveLlmKey.textContent = "Remove API Key";
+
+  try {
+    const res = await fetch(API_LLM_SECRET_URL, { method: "DELETE" });
+    if (!res.ok) {
+      if (typeof alert === "function") alert("Failed to remove API key.");
+      return;
+    }
+    const data = await res.json();
+    applyLlmConfiguredState(Boolean(data.configured), data.provider);
+    if (typeof checkLLMStatus === "function") {
+      await checkLLMStatus();
+    }
+  } catch (err) {
+    if (typeof alert === "function") alert("Connection error: Failed to remove API key.");
+  }
+}
+
+function initLlmSettingsUI() {
+  if (btnSaveLlmKey) {
+    btnSaveLlmKey.addEventListener("click", saveLlmSecretFromSettings);
+  }
+  if (btnReplaceLlmKey) {
+    btnReplaceLlmKey.addEventListener("click", startReplaceLlmKey);
+  }
+  if (btnCancelReplaceLlmKey) {
+    btnCancelReplaceLlmKey.addEventListener("click", cancelReplaceLlmKey);
+  }
+  if (btnRemoveLlmKey) {
+    btnRemoveLlmKey.addEventListener("click", removeLlmSecretFromSettings);
+  }
+
+  if (settingLlmProvider) {
+    settingLlmProvider.addEventListener("change", async () => {
+      const prov = settingLlmProvider.value;
+      if (settingLlmModel) {
+        if (prov === "groq") settingLlmModel.placeholder = "openai/gpt-oss-120b";
+        else if (prov === "gemini") settingLlmModel.placeholder = "gemini-2.0-flash";
+        else if (prov === "ollama") settingLlmModel.placeholder = "qwen2.5:1.5b";
+      }
+      try {
+        await fetch(API_LLM_CONFIG_URL, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: prov }),
+        });
+        if (typeof checkLLMStatus === "function") await checkLLMStatus();
+      } catch (e) {}
+    });
+  }
+
+  if (settingLlmModel) {
+    settingLlmModel.addEventListener("change", async () => {
+      const val = settingLlmModel.value.trim();
+      try {
+        await fetch(API_LLM_CONFIG_URL, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: val || "" }),
+        });
+        if (typeof checkLLMStatus === "function") await checkLLMStatus();
+      } catch (e) {}
+    });
+  }
+
+  if (settingLlmKeyName) {
+    settingLlmKeyName.addEventListener("change", async () => {
+      const val = settingLlmKeyName.value.trim();
+      try {
+        await fetch(API_LLM_CONFIG_URL, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key_name: val || "" }),
+        });
+      } catch (e) {}
+    });
   }
 }
 
@@ -9402,6 +9656,8 @@ if (btnAskSubmit) {
 
 loadAutoCapturePreferences();
 checkLLMStatus().catch(() => {});
+initLlmSettingsUI();
+loadLlmConfigToSettings().catch(() => {});
 loadJimakuApiKey().catch(() => {});
 loadSubtitleFolderPreferences().catch(() => {});
 checkHealthStatus().catch(() => {});
@@ -9480,6 +9736,13 @@ if (typeof module !== "undefined" && module.exports) {
     setLastCaptureSource: (s) => { lastCaptureSource = s; },
     switchMiningTab,
     checkLLMStatus,
+    loadLlmConfigToSettings,
+    applyLlmConfiguredState,
+    saveLlmSecretFromSettings,
+    startReplaceLlmKey,
+    cancelReplaceLlmKey,
+    removeLlmSecretFromSettings,
+    initLlmSettingsUI,
     sendAskQuery,
     setAskContext,
     clearAskContext,

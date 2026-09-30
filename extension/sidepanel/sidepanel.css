@@ -8529,3 +8529,110 @@ div[data-content="example"],
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+/* LLM API Key & Settings Configuration */
+.llm-settings-input {
+  background: var(--bg-surface-1, #1e1e1e);
+  border: 1px solid var(--border-default, #333333);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--text-primary, #ffffff);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 5px 8px;
+  width: 100%;
+  max-width: 220px;
+  box-sizing: border-box;
+  transition: border-color var(--transition-fast, 0.15s ease);
+}
+
+.llm-settings-input:focus {
+  border-color: var(--accent-primary, #b84632);
+  outline: none;
+}
+
+.llm-settings-input:disabled {
+  background: var(--bg-surface-2, #181818);
+  color: var(--text-muted, #756e65);
+  border-color: var(--border-subtle, #282828);
+  cursor: not-allowed;
+  letter-spacing: 2px;
+}
+
+.llm-key-status-msg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--accent-success, #81c784);
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.llm-key-check-icon {
+  font-weight: 700;
+}
+
+.llm-security-notice {
+  font-size: 10.5px;
+  color: var(--text-muted, #8e8a81);
+  line-height: 1.4;
+  margin-top: 6px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-xs, 3px);
+  border-left: 2px solid var(--border-default, #444444);
+}
+
+.btn-primary-action {
+  background: var(--accent-primary, #b84632);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-xs, 3px);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: opacity var(--transition-fast, 0.15s ease);
+}
+
+.btn-primary-action:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn-secondary-action {
+  background: var(--bg-surface-2, #262626);
+  color: var(--text-secondary, #cccccc);
+  border: 1px solid var(--border-default, #333333);
+  border-radius: var(--radius-xs, 3px);
+  font-size: 11px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.btn-secondary-action:hover:not(:disabled) {
+  background: var(--bg-surface-3, #333333);
+  color: var(--text-primary, #ffffff);
+}
+
+.btn-danger-action {
+  background: transparent;
+  color: var(--accent-error, #e57373);
+  border: 1px solid rgba(229, 115, 115, 0.35);
+  border-radius: var(--radius-xs, 3px);
+  font-size: 11px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.btn-danger-action:hover:not(:disabled) {
+  background: rgba(229, 115, 115, 0.15);
+  border-color: var(--accent-error, #e57373);
+}
+
+.btn-danger-action.confirm-active {
+  background: var(--accent-error, #e57373);
+  color: #ffffff;
+}
+
+
