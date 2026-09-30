@@ -764,6 +764,121 @@ async function testSubtitleHoverMining() {
   console.log("PASS: Subtitle hover word extraction and auto-lookup dispatch verified.");
 }
 
+// -------------------------------------------------------------
+// Test 12: Subtitle Seek-To Message (T4-B)
+// -------------------------------------------------------------
+async function testSeekToMessage() {
+  const env = createMockDOMEnvironment({ isIframe: false });
+  const poc = env.context.window.__ANKIMINER_VIDEO_POC__;
+
+  const video = new env.MockVideoElement("seek-test-video");
+  env.rootBody.appendChild(video);
+  poc.instance.detector.checkVideos();
+  assert.equal(poc.instance.activeVideo, video);
+
+  poc.instance.syncEngine.setCues([
+    { startTime: 0, endTime: 5, text: "イントロ" },
+    { startTime: 5, endTime: 10, text: "本編開始" },
+    { startTime: 10, endTime: 15, text: "クライマックス" }
+  ]);
+
+  let responseData = null;
+  const handled = poc.instance.handleMessage({ type: "SEEK_TO", ms: 7500 }, null, (res) => {
+    responseData = res;
+  });
+
+  assert.equal(handled, true, "SEEK_TO message must be handled");
+  assert.ok(responseData && responseData.ok, "SEEK_TO response must be ok: true");
+  assert.equal(video.currentTime, 7.5, "Video currentTime must be set to ms / 1000");
+  assert.equal(poc.instance.syncEngine.currentCue?.text, "本編開始", "SyncEngine must update currentCue to matching timestamp");
+
+  // Test invalid time or missing video error handling
+  let errorResponse = null;
+  poc.instance.handleMessage({ type: "SEEK_TO", ms: NaN }, null, (res) => {
+    errorResponse = res;
+  });
+  assert.equal(errorResponse?.ok, false, "Invalid ms must return ok: false");
+
+  console.log("PASS: Subtitle SEEK_TO message handling and video jump verified.");
+}
+
+// -------------------------------------------------------------
+// Test 13: Recent Cues Rolling Buffer (T4-C)
+// -------------------------------------------------------------
+async function testRecentCuesRollingBuffer() {
+  const env = createMockDOMEnvironment({ isIframe: false });
+  const poc = env.context.window.__ANKIMINER_VIDEO_POC__;
+
+  const video = new env.MockVideoElement("recent-cues-video");
+  env.rootBody.appendChild(video);
+  poc.instance.detector.checkVideos();
+
+  poc.instance.syncEngine.setCues([
+    { startTime: 1.0, endTime: 3.0, text: "こんにちは" },
+    { startTime: 4.0, endTime: 6.0, text: "世界" },
+    { startTime: 7.0, endTime: 9.0, text: "日本語" },
+    { startTime: 10.0, endTime: 12.0, text: "勉強" },
+    { startTime: 13.0, endTime: 15.0, text: "アニメ" },
+    { startTime: 16.0, endTime: 18.0, text: "字幕" }
+  ]);
+
+  assert.equal(poc.instance.recentCues.length, 0, "recentCues starts empty");
+
+  // Advance video to cue 1 (2.0s)
+  video.seek(2.0);
+  assert.equal(poc.instance.recentCues.length, 1);
+  assert.equal(poc.instance.recentCues[0].text, "こんにちは");
+
+  // Repeat time in same cue -> must not duplicate in rolling buffer
+  video.seek(2.5);
+  assert.equal(poc.instance.recentCues.length, 1, "Duplicate active cue must not append to rolling buffer");
+
+  // Cue 2 (5.0s)
+  video.seek(5.0);
+  assert.equal(poc.instance.recentCues.length, 2);
+  assert.equal(poc.instance.recentCues[0].text, "世界");
+
+  // Cue 3 (8.0s)
+  video.seek(8.0);
+  assert.equal(poc.instance.recentCues.length, 3);
+  assert.equal(poc.instance.recentCues[0].text, "日本語");
+
+  // Cue 4 (11.0s)
+  video.seek(11.0);
+  assert.equal(poc.instance.recentCues.length, 4);
+  assert.equal(poc.instance.recentCues[0].text, "勉強");
+
+  // Cue 5 (14.0s)
+  video.seek(14.0);
+  assert.equal(poc.instance.recentCues.length, 5);
+  assert.equal(poc.instance.recentCues[0].text, "アニメ");
+
+  // Cue 6 (17.0s) -> buffer is capped at max 5 cues, oldest (こんにちは) is evicted
+  video.seek(17.0);
+  assert.equal(poc.instance.recentCues.length, 5, "recentCues must be capped at 5 elements");
+  assert.equal(poc.instance.recentCues[0].text, "字幕");
+  assert.equal(poc.instance.recentCues[4].text, "世界");
+
+  // Verify RECENT_CUES_UPDATED message dispatch
+  const recentMsg = env.sentMessages.filter(m => m.type === "RECENT_CUES_UPDATED");
+  assert.ok(recentMsg.length > 0, "Must send RECENT_CUES_UPDATED messages on new cues");
+  assert.equal(recentMsg[recentMsg.length - 1].cues.length, 5);
+
+  // Test GET_RECENT_CUES message handler
+  let getRecentRes = null;
+  poc.instance.handleMessage({ type: "GET_RECENT_CUES" }, null, (res) => {
+    getRecentRes = res;
+  });
+  assert.ok(getRecentRes && getRecentRes.ok);
+  assert.equal(getRecentRes.cues.length, 5);
+
+  // Test CLEAR_SUBTITLES resets recent cues
+  poc.instance.handleMessage({ type: "CLEAR_SUBTITLES" }, null, () => {});
+  assert.equal(poc.instance.recentCues.length, 0, "CLEAR_SUBTITLES must clear recentCues");
+
+  console.log("PASS: Subtitle recent cues rolling buffer (max 5) and updates verified.");
+}
+
 (async () => {
   await testVideoDetection();
   await testSubtitleSync();
@@ -776,6 +891,8 @@ async function testSubtitleHoverMining() {
   await testHiAnimeFullscreenBehavior();
   await testInactiveCueHiding();
   await testSubtitleHoverMining();
+  await testSeekToMessage();
+  await testRecentCuesRollingBuffer();
   console.log("\n>>> ALL VIDEO MINING POC AUTOMATED VERIFICATION TESTS PASSED SUCCESSFULLY! <<<\n");
   process.exit(0);
 })();

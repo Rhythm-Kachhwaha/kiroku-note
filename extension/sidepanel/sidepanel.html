@@ -118,6 +118,33 @@
         <!-- Subtitle Showing Panel (Kept Untouched as Requested) -->
         <div class="video-cue-preview-container video-sub-strip">
           <div id="video-current-cue-preview" class="video-cue-preview video-sub-text waiting">Waiting for playback…</div>
+          <button type="button" id="btn-mine-full-sentence" class="btn-mine-sentence" title="Mine active subtitle sentence">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+              <path d="M2 4h12M2 8h12M2 12h8"/>
+            </svg>
+            Mine sentence
+          </button>
+        </div>
+
+        <!-- Subtitle In-Track Search / Jump (T4-B) -->
+        <div id="subtitle-search-section" class="video-search-section subtitle-search-section">
+          <div class="subtitle-search-input-wrap">
+            <svg class="search-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+              <circle cx="7" cy="7" r="5"/><path d="M11 11l4 4"/>
+            </svg>
+            <input type="text" id="subtitle-search-input" class="subtitle-search-input" placeholder="Search in subtitles… (e.g. 食べる)" autocomplete="off">
+            <button type="button" id="btn-clear-subtitle-search" class="btn-clear-search" title="Clear search" aria-label="Clear search" hidden>&times;</button>
+          </div>
+          <ul id="subtitle-search-results" class="subtitle-search-results" hidden></ul>
+        </div>
+
+        <!-- Subtitle History Hover Panel (Last 5 Cues - T4-C) -->
+        <div id="recent-cues-section" class="recent-cues-section" hidden>
+          <div class="recent-cues-header">
+            <span class="recent-cues-title">Recent Subtitles (Last 5)</span>
+            <span class="recent-cues-hint">Click word to mine</span>
+          </div>
+          <ul id="recent-cues-list" class="recent-cues-list"></ul>
         </div>
 
         <!-- Subtitle Folder Picker & Compact Offset Controls -->

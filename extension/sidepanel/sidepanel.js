@@ -836,6 +836,20 @@ const toggleSubtitlesDisplay = document.querySelector("#toggle-subtitles-display
 const toggleAutoCaptureFrame = document.querySelector("#toggle-auto-capture-frame");
 const toggleAutoCaptureAudio = document.querySelector("#toggle-auto-capture-audio");
 
+// Subtitle Search, Recent Cues & Sentence Mining (T4-B, T4-C, T4-F)
+const btnMineFullSentence = document.querySelector("#btn-mine-full-sentence");
+const subtitleSearchSection = document.querySelector("#subtitle-search-section");
+const subtitleSearchInput = document.querySelector("#subtitle-search-input");
+const subtitleSearchResults = document.querySelector("#subtitle-search-results");
+const btnClearSubtitleSearch = document.querySelector("#btn-clear-subtitle-search");
+const recentCuesSection = document.querySelector("#recent-cues-section");
+const recentCuesList = document.querySelector("#recent-cues-list");
+
+let loadedSubtitleCues = [];
+let recentSubtitleCues = [];
+let subtitleSearchDebounceTimer = null;
+let pendingSentenceOverride = "";
+
 // Jimaku Search Modal Elements
 const jimakuSearchModal = document.querySelector("#jimaku-search-modal");
 const btnCloseJimakuModal = document.querySelector("#btn-close-jimaku-modal");
@@ -3874,7 +3888,11 @@ async function identify(text) {
       if (fieldReading) fieldReading.value = body.reading || "";
       if (fieldMeaning) fieldMeaning.value = body.meaning || "";
       if (fieldHint) fieldHint.value = body.hint || "";
-      if (fieldExampleSentence) fieldExampleSentence.value = body.example_sentence || "";
+      if (pendingSentenceOverride && fieldExampleSentence) {
+        fieldExampleSentence.value = pendingSentenceOverride;
+      } else if (fieldExampleSentence) {
+        fieldExampleSentence.value = body.example_sentence || "";
+      }
       if (fieldExampleTranslation) fieldExampleTranslation.value = body.example_translation || "";
       if (fieldImage) fieldImage.value = body.image || "";
       if (fieldAudio) fieldAudio.value = body.audio || "";
@@ -6379,6 +6397,7 @@ loadAutoPausePreference().catch(() => {});
 loadSubtitlesDisplayPreference().catch(() => {});
 loadSubtitleOffsetPreference().catch(() => {});
 loadJimakuApiKey().catch(() => {});
+loadActiveSubtitleCuesFromStorage().catch(() => {});
 
 // -------------------------------------------------------------
 // Video Mining Logic & Messaging
@@ -6475,6 +6494,10 @@ async function handleSubtitleFileSelect(file) {
       return;
     }
     loadedSubtitlesFilename = filename;
+    loadedSubtitleCues = cues;
+    recentSubtitleCues = [];
+    renderRecentCuesList();
+    clearSubtitleSearchResults();
     if (subtitlesFileStatus) {
       subtitlesFileStatus.textContent = filename;
       subtitlesFileStatus.classList.add("active");
@@ -6819,6 +6842,10 @@ async function loadJimakuFile(fileUrl, filename) {
     }
 
     loadedSubtitlesFilename = `Jimaku: ${filename}`;
+    loadedSubtitleCues = cues;
+    recentSubtitleCues = [];
+    renderRecentCuesList();
+    clearSubtitleSearchResults();
     if (subtitlesFileStatus) {
       subtitlesFileStatus.textContent = loadedSubtitlesFilename;
       subtitlesFileStatus.classList.add("active");
@@ -6886,6 +6913,10 @@ function resetOffset() {
 async function clearSubtitles() {
   if (subtitlesFileInput) subtitlesFileInput.value = "";
   loadedSubtitlesFilename = "";
+  loadedSubtitleCues = [];
+  recentSubtitleCues = [];
+  renderRecentCuesList();
+  clearSubtitleSearchResults();
   if (subtitlesFileStatus) {
     subtitlesFileStatus.textContent = "No subtitles";
     subtitlesFileStatus.classList.remove("active");
@@ -7466,6 +7497,296 @@ function updateVideoCuePreviewText(cueText, highlightTerm) {
   }
 }
 
+// -------------------------------------------------------------
+// Subtitle In-Track Search, Recent Cues & Sentence Mining (T4-B, T4-C, T4-F)
+// -------------------------------------------------------------
+async function loadActiveSubtitleCuesFromStorage() {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const result = await chrome.storage.local.get(["active_subtitle_cues", "active_subtitle_filename"]);
+      if (Array.isArray(result?.active_subtitle_cues)) {
+        loadedSubtitleCues = result.active_subtitle_cues;
+      }
+      if (result?.active_subtitle_filename && subtitlesFileStatus) {
+        subtitlesFileStatus.textContent = result.active_subtitle_filename;
+        subtitlesFileStatus.classList.add("active");
+        subtitlesFileStatus.title = `${result.active_subtitle_filename} (${loadedSubtitleCues.length} cues)`;
+      }
+    }
+  } catch (_) {}
+}
+
+function formatSubtitleTimestamp(sec) {
+  if (typeof sec !== "number" || isNaN(sec) || sec < 0) return "00:00";
+  const totalSec = Math.floor(sec);
+  const hrs = Math.floor(totalSec / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  const mm = String(mins).padStart(2, "0");
+  const ss = String(secs).padStart(2, "0");
+  if (hrs > 0) {
+    return `${hrs}:${mm}:${ss}`;
+  }
+  return `${mm}:${ss}`;
+}
+
+async function seekToSubtitleCue(cue) {
+  if (!cue) return;
+  const startMs = typeof cue.startMs === "number"
+    ? cue.startMs
+    : (typeof cue.startTime === "number" ? Math.round(cue.startTime * 1000) : 0);
+  await broadcastToActiveVideo({ type: "SEEK_TO", ms: startMs });
+  if (lastCaptureSource?.tabId && typeof chrome !== "undefined" && chrome.tabs?.sendMessage) {
+    chrome.tabs.sendMessage(lastCaptureSource.tabId, { type: "SEEK_TO", ms: startMs }).catch(() => {});
+  }
+}
+
+function clearSubtitleSearchResults() {
+  if (subtitleSearchResults) {
+    subtitleSearchResults.replaceChildren();
+    subtitleSearchResults.hidden = true;
+  }
+  if (btnClearSubtitleSearch) {
+    btnClearSubtitleSearch.hidden = true;
+  }
+}
+
+function searchSubtitles(query) {
+  if (!subtitleSearchResults) return;
+  const term = (query || "").trim();
+  if (!term) {
+    clearSubtitleSearchResults();
+    return;
+  }
+  if (btnClearSubtitleSearch) {
+    btnClearSubtitleSearch.hidden = false;
+  }
+  const lowerTerm = term.toLowerCase();
+  const matches = (loadedSubtitleCues || []).filter(cue =>
+    cue && typeof cue.text === "string" && cue.text.toLowerCase().includes(lowerTerm)
+  );
+
+  subtitleSearchResults.replaceChildren();
+  subtitleSearchResults.hidden = false;
+
+  if (matches.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty-item";
+    li.textContent = `No cues found matching "${term}"`;
+    subtitleSearchResults.appendChild(li);
+    return;
+  }
+
+  const displayLimit = Math.min(matches.length, 50);
+  for (let i = 0; i < displayLimit; i++) {
+    const cue = matches[i];
+    const li = document.createElement("li");
+    li.title = "Click to jump video to this subtitle cue";
+
+    const timeSpan = document.createElement("span");
+    timeSpan.className = "search-cue-time";
+    timeSpan.textContent = formatSubtitleTimestamp(cue.startTime !== undefined ? cue.startTime : (cue.startMs / 1000));
+    li.appendChild(timeSpan);
+
+    const textSpan = document.createElement("span");
+    textSpan.className = "search-cue-text";
+
+    const cueText = cue.text || "";
+    const matchIdx = cueText.toLowerCase().indexOf(lowerTerm);
+    if (matchIdx !== -1) {
+      const before = cueText.slice(0, matchIdx);
+      const matched = cueText.slice(matchIdx, matchIdx + term.length);
+      const after = cueText.slice(matchIdx + term.length);
+      if (before) textSpan.appendChild(document.createTextNode(before));
+      const mark = document.createElement("span");
+      mark.className = "search-match";
+      mark.textContent = matched;
+      textSpan.appendChild(mark);
+      if (after) textSpan.appendChild(document.createTextNode(after));
+    } else {
+      textSpan.textContent = cueText;
+    }
+    li.appendChild(textSpan);
+
+    li.addEventListener("click", () => {
+      seekToSubtitleCue(cue);
+    });
+
+    subtitleSearchResults.appendChild(li);
+  }
+}
+
+function renderRecentCuesList() {
+  if (!recentCuesList) return;
+  if (!Array.isArray(recentSubtitleCues) || recentSubtitleCues.length === 0) {
+    if (recentCuesSection) recentCuesSection.hidden = true;
+    recentCuesList.replaceChildren();
+    return;
+  }
+  if (recentCuesSection) recentCuesSection.hidden = false;
+  recentCuesList.replaceChildren();
+
+  const cuesToRender = recentSubtitleCues.slice(0, 5);
+  cuesToRender.forEach(cue => {
+    if (!cue || !cue.text) return;
+    const li = document.createElement("li");
+    li.className = "recent-cue-item";
+
+    const timeSpan = document.createElement("span");
+    timeSpan.className = "recent-cue-time";
+    timeSpan.textContent = formatSubtitleTimestamp(cue.startTime !== undefined ? cue.startTime : ((cue.startMs || 0) / 1000));
+    timeSpan.title = "Click to jump video to this cue";
+    timeSpan.addEventListener("click", (e) => {
+      e.stopPropagation();
+      seekToSubtitleCue(cue);
+    });
+    li.appendChild(timeSpan);
+
+    const textSpan = document.createElement("span");
+    textSpan.className = "recent-cue-text";
+
+    if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+      try {
+        const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
+        const segments = Array.from(segmenter.segment(cue.text));
+        segments.forEach(seg => {
+          const w = seg.segment;
+          if (/[\u3040-\u30ff\u4e00-\u9faf]/.test(w)) {
+            const wordSpan = document.createElement("span");
+            wordSpan.className = "recent-cue-word";
+            wordSpan.textContent = w;
+            wordSpan.title = `Click to mine "${w}"`;
+            wordSpan.addEventListener("click", (e) => {
+              e.stopPropagation();
+              pendingSentenceOverride = cue.text;
+              if (typeof insertExampleToCard === "function") {
+                insertExampleToCard(cue.text, "");
+              } else if (fieldExampleSentence) {
+                fieldExampleSentence.value = cue.text;
+                fieldExampleSentence.dispatchEvent(new Event("input", { bubbles: true }));
+              }
+              if (fieldSourceText) fieldSourceText.value = cue.text;
+              identify(w).then(() => {
+                if (pendingSentenceOverride && fieldExampleSentence) {
+                  fieldExampleSentence.value = pendingSentenceOverride;
+                }
+                pendingSentenceOverride = "";
+              });
+            });
+            textSpan.appendChild(wordSpan);
+          } else {
+            textSpan.appendChild(document.createTextNode(w));
+          }
+        });
+      } catch (_) {
+        textSpan.textContent = cue.text;
+      }
+    } else {
+      const wordSpan = document.createElement("span");
+      wordSpan.className = "recent-cue-word";
+      wordSpan.textContent = cue.text;
+      wordSpan.title = `Click to mine "${cue.text}"`;
+      wordSpan.addEventListener("click", () => {
+        pendingSentenceOverride = cue.text;
+        if (typeof insertExampleToCard === "function") {
+          insertExampleToCard(cue.text, "");
+        } else if (fieldExampleSentence) {
+          fieldExampleSentence.value = cue.text;
+        }
+        if (fieldSourceText) fieldSourceText.value = cue.text;
+        identify(cue.text);
+      });
+      textSpan.appendChild(wordSpan);
+    }
+
+    li.appendChild(textSpan);
+    recentCuesList.appendChild(li);
+  });
+}
+
+function findMostProminentWord(text) {
+  if (!text || typeof text !== "string") return "";
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    try {
+      const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
+      const segments = Array.from(segmenter.segment(trimmed));
+
+      // 1. Longest segment containing kanji (kanji compound heuristic)
+      const kanjiWords = segments
+        .map(s => s.segment.trim())
+        .filter(s => s.length > 0 && /[\u4e00-\u9faf\u3400-\u4dbf]/.test(s));
+      if (kanjiWords.length > 0) {
+        kanjiWords.sort((a, b) => b.length - a.length);
+        return kanjiWords[0];
+      }
+
+      // 2. Longest segment that is not pure punctuation or symbols
+      const isPunctuation = (str) => /^[\s\p{P}\p{S}、。！？「」『』（）〜…ー・]+$/u.test(str);
+      const validWords = segments
+        .map(s => s.segment.trim())
+        .filter(s => s.length > 0 && !isPunctuation(s));
+      if (validWords.length > 0) {
+        validWords.sort((a, b) => b.length - a.length);
+        return validWords[0];
+      }
+    } catch (_) {}
+  }
+
+  const kanjiMatches = trimmed.match(/[\u4e00-\u9faf\u3400-\u4dbf]+/g);
+  if (kanjiMatches && kanjiMatches.length > 0) {
+    kanjiMatches.sort((a, b) => b.length - a.length);
+    return kanjiMatches[0];
+  }
+  const jpMatches = trimmed.match(/[\u3040-\u30ff\u4e00-\u9faf]+/g);
+  if (jpMatches && jpMatches.length > 0) {
+    jpMatches.sort((a, b) => b.length - a.length);
+    return jpMatches[0];
+  }
+  return trimmed;
+}
+
+function handleMineFullSentence() {
+  const cueText = (
+    currentActiveCue?.text ||
+    (videoCurrentCuePreview && !videoCurrentCuePreview.classList.contains("waiting")
+      ? videoCurrentCuePreview.textContent
+      : "")
+  ).trim();
+  if (!cueText || cueText === "—" || cueText === "Waiting for playback…") {
+    setStatus("No active subtitle cue to mine.", true);
+    return;
+  }
+  const word = findMostProminentWord(cueText) || cueText;
+  pendingSentenceOverride = cueText;
+  if (typeof insertExampleToCard === "function") {
+    insertExampleToCard(cueText, "");
+  } else if (fieldExampleSentence) {
+    fieldExampleSentence.value = cueText;
+    fieldExampleSentence.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  if (fieldSourceText) {
+    fieldSourceText.value = cueText;
+  }
+  identify(word).then(() => {
+    if (pendingSentenceOverride && fieldExampleSentence) {
+      fieldExampleSentence.value = pendingSentenceOverride;
+      fieldExampleSentence.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    pendingSentenceOverride = "";
+  });
+}
+
+if (typeof window !== "undefined") {
+  window.findMostProminentWord = findMostProminentWord;
+  window.formatSubtitleTimestamp = formatSubtitleTimestamp;
+  window.searchSubtitles = searchSubtitles;
+  window.renderRecentCuesList = renderRecentCuesList;
+  window.handleMineFullSentence = handleMineFullSentence;
+}
+
 function switchMiningTab(targetTab) {
   const validTabs = ["text", "video", "quickadd", "history"];
   const tab = validTabs.includes(targetTab) ? targetTab : "text";
@@ -7866,6 +8187,29 @@ if (toggleAutoCaptureAudio) {
   });
 }
 
+if (typeof btnMineFullSentence !== "undefined" && btnMineFullSentence) {
+  btnMineFullSentence.addEventListener("click", () => {
+    handleMineFullSentence();
+  });
+}
+
+if (typeof subtitleSearchInput !== "undefined" && subtitleSearchInput) {
+  subtitleSearchInput.addEventListener("input", () => {
+    clearTimeout(subtitleSearchDebounceTimer);
+    subtitleSearchDebounceTimer = setTimeout(() => {
+      searchSubtitles(subtitleSearchInput.value);
+    }, 300);
+  });
+}
+
+if (typeof btnClearSubtitleSearch !== "undefined" && btnClearSubtitleSearch) {
+  btnClearSubtitleSearch.addEventListener("click", () => {
+    if (subtitleSearchInput) subtitleSearchInput.value = "";
+    clearSubtitleSearchResults();
+    if (subtitleSearchInput) subtitleSearchInput.focus();
+  });
+}
+
 // Default Yomitan indicator to ready state
 setIndicatorStatus(indicatorYomitan, "connected", "Yomitan: Ready");
 
@@ -8033,12 +8377,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse?.({ok: true});
     return true;
   }
+  if (message?.type === "RECENT_CUES_UPDATED") {
+    if (Array.isArray(message.cues)) {
+      recentSubtitleCues = message.cues;
+      renderRecentCuesList();
+    }
+    sendResponse?.({ok: true});
+    return true;
+  }
   if (message?.type === "SUBTITLE_CUE_CHANGED") {
     if (message.cue !== undefined) {
       currentActiveCue = message.cue;
     }
     const highlight = typeof message.highlightTerm === "string" ? message.highlightTerm : undefined;
     updateVideoCuePreviewText(message.cue?.text, highlight);
+    if (typeof btnMineFullSentence !== "undefined" && btnMineFullSentence) {
+      btnMineFullSentence.disabled = !Boolean(message.cue?.text);
+    }
     if (typeof message.offsetMs === "number") {
       if (message.offsetMs !== currentSubtitleOffsetMs) {
         updateOffsetDisplay(message.offsetMs);
@@ -8093,6 +8448,16 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === "local" && changes?.subtitle_timing_offset && typeof changes.subtitle_timing_offset.newValue === "number") {
       updateOffsetDisplay(changes.subtitle_timing_offset.newValue);
+    }
+    if (areaName === "local" && changes?.active_subtitle_cues) {
+      loadedSubtitleCues = Array.isArray(changes.active_subtitle_cues.newValue)
+        ? changes.active_subtitle_cues.newValue
+        : [];
+      if (changes.active_subtitle_filename?.newValue && subtitlesFileStatus) {
+        subtitlesFileStatus.textContent = changes.active_subtitle_filename.newValue;
+        subtitlesFileStatus.classList.add("active");
+        subtitlesFileStatus.title = `${changes.active_subtitle_filename.newValue} (${loadedSubtitleCues.length} cues)`;
+      }
     }
   });
 }

@@ -1733,6 +1733,7 @@
       this.netflixAdapter = null;
       this.timelineId = 1;
       this._heartbeatIntervalId = null;
+      this.recentCues = [];
 
       this._boundOnPlay = () => this.sendSyncHeartbeat();
       this._boundOnPause = () => this.sendSyncHeartbeat();
@@ -1823,6 +1824,31 @@
 
     broadcastActiveCue(cue) {
       try {
+        if (cue && cue.text) {
+          const isSameAsLatest = this.recentCues.length > 0 &&
+            this.recentCues[0].text === cue.text &&
+            Math.abs((this.recentCues[0].startTime || 0) - (cue.startTime || 0)) < 0.05;
+          if (!isSameAsLatest) {
+            const cueCopy = {
+              startTime: cue.startTime,
+              endTime: cue.endTime,
+              startMs: typeof cue.startMs === "number" ? cue.startMs : Math.round((cue.startTime || 0) * 1000),
+              endMs: typeof cue.endMs === "number" ? cue.endMs : Math.round((cue.endTime || 0) * 1000),
+              text: cue.text,
+              rawText: cue.rawText || cue.text
+            };
+            this.recentCues.unshift(cueCopy);
+            if (this.recentCues.length > 5) {
+              this.recentCues.length = 5;
+            }
+            if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+              chrome.runtime.sendMessage({
+                type: "RECENT_CUES_UPDATED",
+                cues: [...this.recentCues]
+              }).catch(() => {});
+            }
+          }
+        }
         if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
           chrome.runtime.sendMessage({
             type: "SUBTITLE_CUE_CHANGED",
@@ -2402,9 +2428,31 @@
         });
         return true;
       }
+      if (message?.type === "SEEK_TO") {
+        const ms = typeof message.ms === "number"
+          ? message.ms
+          : (typeof message.time === "number"
+            ? message.time * 1000
+            : (typeof message.seconds === "number" ? message.seconds * 1000 : null));
+        if (ms !== null && !isNaN(ms) && this.activeVideo) {
+          this.activeVideo.currentTime = Math.max(0, ms / 1000);
+          if (this.syncEngine && typeof this.syncEngine.sync === "function") {
+            this.syncEngine.sync(true);
+          }
+          sendResponse?.({ ok: true, currentTime: this.activeVideo.currentTime });
+          return true;
+        }
+        sendResponse?.({ ok: false, error: "NO_ACTIVE_VIDEO_OR_INVALID_TIME" });
+        return true;
+      }
+      if (message?.type === "GET_RECENT_CUES") {
+        sendResponse?.({ ok: true, cues: [...(this.recentCues || [])] });
+        return true;
+      }
       if (message?.type === "LOAD_SUBTITLE_CUES" && Array.isArray(message.cues)) {
         this.syncEngine.setCues(message.cues);
         if (message.filename) this.activeFilename = message.filename;
+        this.recentCues = [];
         this.renderer.ensureMounted();
         this.renderer.updatePosition();
         try {
@@ -2413,6 +2461,11 @@
               active_subtitle_cues: message.cues,
               active_subtitle_filename: message.filename || ""
             });
+          }
+        } catch (_) {}
+        try {
+          if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+            chrome.runtime.sendMessage({ type: "RECENT_CUES_UPDATED", cues: [] }).catch(() => {});
           }
         } catch (_) {}
         this.broadcastActiveCue(this.syncEngine.currentCue);
@@ -2424,9 +2477,15 @@
         this.syncEngine.setOffsetMs(0);
         this.persistOffset(0);
         this.activeFilename = "";
+        this.recentCues = [];
         try {
           if (typeof chrome !== "undefined" && chrome.storage?.local) {
             chrome.storage.local.remove(["active_subtitle_cues", "active_subtitle_filename"]);
+          }
+        } catch (_) {}
+        try {
+          if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+            chrome.runtime.sendMessage({ type: "RECENT_CUES_UPDATED", cues: [] }).catch(() => {});
           }
         } catch (_) {}
         this.renderer.renderCue(null);
@@ -2505,7 +2564,8 @@
           activeFilename: this.activeFilename,
           autoPauseEnabled: this.autoPauseController.enabled,
           subtitlesDisplayEnabled: this.renderer.displayEnabled !== false,
-          subtitlePosition: this.renderer.getPosition()
+          subtitlePosition: this.renderer.getPosition(),
+          recentCues: [...(this.recentCues || [])]
         });
         return true;
       }
@@ -2787,6 +2847,7 @@
       this.detector.stop();
       this.syncEngine.detach();
       this.renderer.unmount();
+      this.recentCues = [];
       this.activeVideo = null;
     }
   }

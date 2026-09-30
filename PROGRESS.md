@@ -1759,6 +1759,55 @@ New major features should generally be deferred unless they are necessary for th
   - ✅ **Full Extension Test Suite:** **129/129 passed (100%)** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. All features are additive, adhere to local-first SQLite invariants, guard all VM-sliced elements, and pass 100% of all automated test suites.
 
+---
+
+### Tier 4 — Session 2: Video Subtitle Navigation & Sentence Mining
+
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Implement Tier 4 Session 2 tasks from `newfeatures.md`:
+    - **T4-B (Subtitle In-Track Search / Jump)**:
+      - Search box in the Video tab (`#subtitle-search-input`, `#subtitle-search-results`, `#btn-clear-subtitle-search`) to filter loaded subtitle cues.
+      - Debounced query filter with substring highlighting in matching cues.
+      - User click seeks video to cue's exact timestamp via `SEEK_TO` message passing (`video.currentTime = ms / 1000`).
+      - Preserved video playback invariants: zero autoplay; seeking strictly user-initiated.
+    - **T4-C (Subtitle History Hover Panel - Last 5 Cues)**:
+      - Maintained `recentCues = []` rolling buffer (capped at 5 cues) in `video-mining-poc.js`.
+      - On active cue change, prepended new non-duplicate cue and broadcast `RECENT_CUES_UPDATED` message to Side Panel.
+      - Added `#recent-cues-section` and `#recent-cues-list` in Side Panel Video tab.
+      - Segmented cue sentences using native `Intl.Segmenter` (`granularity: 'word'`) to render clickable `.recent-cue-word` tokens that trigger `identify(word)` with the full cue pre-filled into `fieldExampleSentence`.
+      - Added click-to-jump on recent cue timestamp pills.
+    - **T4-F (Sentence-Level Mining from Subtitle Cue)**:
+      - Added `#btn-mine-full-sentence` ("Mine sentence") in Video tab active cue preview strip.
+      - Implemented `findMostProminentWord(text)` heuristic using native `Intl.Segmenter` to select the longest kanji compound (or longest meaningful segment) without external NLP libraries.
+      - Pre-filled full subtitle cue text into `fieldExampleSentence` and `fieldSourceText` and opened optional details accordion.
+      - Guarded against dictionary example override in `identify()`.
+- **Implementation Deliverables:**
+  1. **Content Script Layer:**
+     - Added `recentCues` circular rolling buffer (max 5), eviction, and `RECENT_CUES_UPDATED` dispatch in `broadcastActiveCue` in [extension/content/video-mining-poc.js](file:///d:/Python/AnkiMiner/extension/content/video-mining-poc.js).
+     - Added `SEEK_TO` and `GET_RECENT_CUES` message handlers in `VideoMiningPOC.handleMessage()`, seeking `activeVideo.currentTime` without triggering autoplay.
+     - Reset `recentCues` on `CLEAR_SUBTITLES` and `destroy()`.
+     - Added `testSeekToMessage` and `testRecentCuesRollingBuffer` to [extension/tests/video-mining-poc.test.js](file:///d:/Python/AnkiMiner/extension/tests/video-mining-poc.test.js).
+  2. **Extension UI & Styling Layer:**
+     - Added `#btn-mine-full-sentence` inside `.video-cue-preview-container` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html).
+     - Added `#subtitle-search-section`, `#subtitle-search-input`, `#subtitle-search-results`, and `#btn-clear-subtitle-search` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html).
+     - Added `#recent-cues-section` and `#recent-cues-list` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html).
+     - Styled `.btn-mine-sentence`, `.subtitle-search-section`, `.subtitle-search-input`, `.subtitle-search-results`, `.recent-cues-section`, `.recent-cue-item`, `.recent-cue-time`, `.recent-cue-text`, and `.recent-cue-word` in [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css).
+  3. **Extension Logic Layer:**
+     - Added `formatSubtitleTimestamp()`, `seekToSubtitleCue()`, `searchSubtitles()`, `clearSubtitleSearchResults()`, `renderRecentCuesList()`, `findMostProminentWord()`, and `handleMineFullSentence()` in [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js).
+     - Handled `RECENT_CUES_UPDATED` and dynamic button disabled state in `chrome.runtime.onMessage`.
+     - Synchronized `loadedSubtitleCues` on file drag-drop, Jimaku track download, and `chrome.storage.onChanged`.
+     - Preserved `pendingSentenceOverride` in `identify()` to prevent dictionary example collision.
+  4. **Automated Testing Suite:**
+     - Extended [extension/tests/video-mining-poc.test.js](file:///d:/Python/AnkiMiner/extension/tests/video-mining-poc.test.js) with 2 new comprehensive test cases (Tests 12 & 13).
+     - Created dedicated test suite [extension/tests/tier4-session2-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier4-session2-features.test.js) verifying HTML/CSS structure, `findMostProminentWord`, search/seek, and recent cues word click-to-mine.
+- **Verification:**
+  - ✅ **Target Verification Suite:** [extension/tests/video-mining-poc.test.js](file:///d:/Python/AnkiMiner/extension/tests/video-mining-poc.test.js): **13/13 passed (100%)**
+  - ✅ **Tier 4 Session 2 Test Suite:** [extension/tests/tier4-session2-features.test.js](file:///d:/Python/AnkiMiner/extension/tests/tier4-session2-features.test.js): **4/4 passed (100%)**
+  - ✅ **Full Backend Pytest Suite:** **425/425 passed (100%)** (`python -m pytest -o pythonpath=backend backend/tests`)
+  - ✅ **Full Extension Test Suite:** **133/133 passed (100%)** (`node --test extension/tests/*.test.js`)
+- **Remaining Risk:** None. All video playback invariants preserved, Intl.Segmenter used natively with zero external dependencies, no database migrations required.
+
 
 
 

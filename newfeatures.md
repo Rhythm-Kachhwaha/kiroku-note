@@ -46,11 +46,11 @@
 
 ### Tier 4 — Complex
 - [x] **T4-A** — Checkboxes on History cards for bulk delete / bulk move to deck / bulk sync *(Implemented & verified 2026-09-30)*
-- [ ] **T4-B** — Search box in Video tab to find a word in the subtitle track and jump to it
-- [ ] **T4-C** — "Last 5 cues" panel in Video tab — click any recent subtitle to mine from it
+- [x] **T4-B** — Search box in Video tab to find a word in the subtitle track and jump to it *(Implemented & verified 2026-09-30)*
+- [x] **T4-C** — "Last 5 cues" panel in Video tab — click any recent subtitle to mine from it *(Implemented & verified 2026-09-30)*
 - [ ] **T4-D** — "↺ Re-scan" button after OCR to re-use the last region without re-selecting
 - [ ] **T4-E** — Stroke order SVG diagram inside existing kanji breakdown cards (KanjiVG data)
-- [ ] **T4-F** — "Mine sentence" button in Video tab to mine the whole current subtitle cue at once
+- [x] **T4-F** — "Mine sentence" button in Video tab to mine the whole current subtitle cue at once *(Implemented & verified 2026-09-30)*
 
 ### Tier 5 — LLM (Optional AI Assistant)
 - [ ] **LLM-1** — Backend `LLMService` + `/api/llm/ask` + `/api/llm/status` endpoints
