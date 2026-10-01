@@ -138,7 +138,15 @@
           <ul id="recent-cues-list" class="recent-cues-list"></ul>
         </div>
 
-        <!-- Subtitle Folder Picker & Compact Offset Controls -->
+        <div id="subtitle-controls-hidden-wrap" class="video-subtitle-settings-wrap">
+          <details id="subtitle-controls-details" class="subtitle-controls-details video-subtitle-settings-collapsible">
+            <summary class="subtitle-controls-summary">
+              <span class="subtitle-settings-header-title">Subtitles</span>
+            </summary>
+            <div class="video-subtitle-settings-content">
+              <div class="subtitle-status-row">
+                <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
+              </div>
         <div class="video-bar-controls">
           <div id="subtitle-folder-bar" class="video-folder-picker subtitle-folder-bar">
             <span id="folder-name-label" class="video-folder-label folder-name-label" title="Active Subtitle Directory">
@@ -164,14 +172,6 @@
         </div>
 
         <!-- Subtitle Settings & Secondary Controls Collapsible Card -->
-        <div id="subtitle-controls-hidden-wrap" class="video-subtitle-settings-wrap">
-          <details id="subtitle-controls-details" class="subtitle-controls-details video-subtitle-settings-collapsible">
-            <summary class="subtitle-controls-summary">
-              <span class="subtitle-settings-header-title">Subtitle Settings</span>
-              <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
-            </summary>
-
-            <div class="video-subtitle-settings-content">
               <div class="video-options-row video-load-subtitles-row">
                 <div class="subtitles-dropdown-wrapper">
                   <button type="button" id="load-subtitles-btn" class="btn-subtitles" aria-expanded="false" aria-haspopup="true">Load subtitles ▾</button>

@@ -752,6 +752,7 @@ body {
    ========================================================================== */
 
 .video-mining-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -763,14 +764,18 @@ body {
 }
 
 .video-subtitle-settings-wrap {
-  margin-top: 8px;
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 40;
 }
 
 .subtitle-controls-details,
 .video-subtitle-settings-collapsible {
   display: block;
-  background: var(--bg-surface-1, #181715);
-  border: 1px solid var(--border-subtle, #24201c);
+  position: relative;
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-sm, 4px);
   overflow: visible;
 }
@@ -783,10 +788,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
-  font-size: 11px;
+  padding: 4px 8px;
+  font-size: 10px;
   font-weight: 500;
   color: var(--text-secondary, #9e978e);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
   transition: background var(--transition-fast, 0.15s ease), color var(--transition-fast, 0.15s ease);
 }
 
@@ -818,11 +826,28 @@ body {
 }
 
 .video-subtitle-settings-content {
-  padding: 8px 10px 10px;
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 41;
+  width: min(360px, calc(100vw - 64px));
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 10px;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.42);
   border-top: 1px solid var(--border-subtle, #24201c);
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.subtitle-status-row {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .video-subtitle-settings-content .video-options-row {
@@ -6664,17 +6689,16 @@ header.nav-collapsed .btn-nav-collapse-toggle svg {
   padding-bottom: 1px;
 }
 
-.video-bar-controls {
+.video-subtitle-settings-content .video-bar-controls {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  padding: 5px 10px;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  background: transparent;
+  border: 0;
+  padding: 0;
   font-size: 11px;
-  flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .video-folder-picker {
@@ -6697,9 +6721,10 @@ header.nav-collapsed .btn-nav-collapse-toggle svg {
   outline: none;
 }
 
-.video-jog-btns-compact {
+.video-subtitle-settings-content .video-jog-btns-compact {
   display: flex;
-  gap: 2px;
+  flex-wrap: wrap;
+  gap: 4px;
   align-items: center;
 }
 

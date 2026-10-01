@@ -77,6 +77,13 @@ assert.ok(html.includes('id="offset-plus-btn"'), "Offset plus button must exist"
 assert.ok(html.includes('id="offset-display"'), "Offset display element must exist");
 assert.ok(html.includes('id="video-current-cue-preview"'), "Video current cue preview element must exist");
 assert.ok(html.includes('id="toggle-auto-pause-hover"'), "Auto-pause on subtitle hover toggle must exist");
+const subtitleDetailsStart = html.indexOf('<details id="subtitle-controls-details"');
+const subtitleDetailsEnd = html.indexOf('</details>', subtitleDetailsStart);
+assert.ok(subtitleDetailsStart >= 0 && subtitleDetailsEnd > subtitleDetailsStart, "Subtitle controls disclosure must contain a details panel");
+const subtitleDetailsHtml = html.slice(subtitleDetailsStart, subtitleDetailsEnd);
+assert.ok(subtitleDetailsHtml.includes('id="folder-subtitles-select"'), "Folder subtitle picker must be inside the subtitle disclosure");
+assert.ok(subtitleDetailsHtml.includes('id="offset-minus-btn"'), "Subtitle offset controls must be inside the subtitle disclosure");
+assert.ok(subtitleDetailsHtml.includes('id="subtitles-file-status"'), "Subtitle source status must be inside the subtitle disclosure");
 assert.ok(html.includes('<script src="../lib/subtitle-parser.js"></script>'), "Subtitle parser script must be loaded in sidepanel");
 
 // Step 3 & Stage 7: Media Previews (Screenshot & Audio) without manual capture buttons
