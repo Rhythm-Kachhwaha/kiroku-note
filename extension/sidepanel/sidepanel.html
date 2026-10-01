@@ -10,24 +10,11 @@
 <body>
   <main class="panel sidepanel-container" role="region" aria-label="Kiroku Unified Side Panel">
     
-    <!-- Concept 6 Header: Wordmark + Service Dots + SVG OCR + Mode Tabs + JP Toggle + Settings Gear + Collapse Arrow -->
+    <!-- Concept 6 Header: Wordmark + SVG OCR + Mode Tabs + JP Toggle + Settings Gear + Collapse Arrow -->
     <header class="panel-header" id="panel-header">
       <div class="brand-section">
         <span class="brand-wordmark eyebrow">KIROKU</span>
         
-        <!-- Minimal Service Dots (Yomi: Amber, Anki: Green, OCR: Green) -->
-        <div class="service-indicators connection-indicators" id="service-indicators" role="status" aria-label="Service connection status" title="Services: Yomitan (Amber), Anki (Green), OCR (Green)">
-          <span id="indicator-yomitan" class="status-dot yomi indicator-pill" title="Yomitan: Ready" aria-label="Yomitan status">
-            <span class="indicator-dot"></span>
-          </span>
-          <span id="indicator-anki" class="status-dot anki indicator-pill" title="Anki: Checking…" aria-label="Anki status">
-            <span class="indicator-dot"></span>
-          </span>
-          <span id="indicator-ocr" class="status-dot ocr indicator-pill" title="OCR: Checking…" aria-label="OCR status">
-            <span class="indicator-dot"></span>
-          </span>
-        </div>
-
         <!-- Minimal Discreet OCR Icon (Clean SVG Crop/Viewfinder Icon - Zero Emojis) -->
         <button type="button" id="ocr-capture-btn" class="btn-ocr-icon btn-ocr" title="Capture Japanese text from screen via OCR (Alt+O)" aria-label="OCR Capture">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -766,6 +753,33 @@
       </div>
 
       <div class="card-settings-body settings-content-body">
+
+        <section class="settings-group system-status-group" aria-labelledby="system-status-title">
+          <span id="system-status-title" class="settings-group-title">System Status</span>
+          <div class="system-status-list" role="group" aria-label="Service status">
+            <div class="system-status-row">
+              <span class="system-status-name">Yomitan</span>
+              <span id="indicator-yomitan" class="indicator-pill connected" title="Yomitan: Ready" aria-label="Yomitan status">
+                <span class="indicator-dot"></span>
+                <span class="system-status-value">Ready</span>
+              </span>
+            </div>
+            <div class="system-status-row">
+              <span class="system-status-name">Anki</span>
+              <span id="indicator-anki" class="indicator-pill checking" title="Anki: Checking…" aria-label="Anki status">
+                <span class="indicator-dot"></span>
+                <span class="system-status-value">Checking…</span>
+              </span>
+            </div>
+            <div class="system-status-row">
+              <span class="system-status-name">OCR</span>
+              <span id="indicator-ocr" class="indicator-pill checking" title="OCR: Checking…" aria-label="OCR status">
+                <span class="indicator-dot"></span>
+                <span class="system-status-value">Checking…</span>
+              </span>
+            </div>
+          </div>
+        </section>
         
         <!-- General Section -->
         <div class="card-settings-group settings-group">
@@ -968,25 +982,6 @@
           </div>
           <div class="settings-row" style="margin-top:2px;">
             <a href="https://github.com/Rhythm-Kachhwaha/kiroku-note/blob/main/docs/llm-setup.md" id="llm-setup-link" target="_blank" rel="noopener noreferrer" style="font-size:11px; color:var(--accent-reading); text-decoration:none;">AI Setup Guide &rarr;</a>
-          </div>
-        </div>
-
-        <!-- Connection Indicators Legend -->
-        <div class="card-settings-group settings-group">
-          <span class="settings-group-title">Connection Indicators</span>
-          <div class="service-legend-box">
-            <div class="legend-item">
-              <span class="status-dot yomi"></span>
-              <span><strong>Amber:</strong> Yomitan extension connected</span>
-            </div>
-            <div class="legend-item">
-              <span class="status-dot anki"></span>
-              <span><strong>Green:</strong> AnkiConnect &amp; OCR Companion online</span>
-            </div>
-            <div class="legend-item">
-              <span class="status-dot" style="background:var(--text-faint, #48433d);"></span>
-              <span><strong>Dim:</strong> Service checking or offline</span>
-            </div>
           </div>
         </div>
 

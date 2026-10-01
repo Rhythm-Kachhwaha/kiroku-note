@@ -2380,6 +2380,15 @@ New major features should generally be deferred unless they are necessary for th
 - **Verification:** Ask/tab-focused suites passed (18/18 tests plus Quick Add tab-switch checks); full extension suite passed (170/170). Browser checks passed for fresh Text → Ask, Ask → Text → Ask, refresh with Ask selected, and Video/Quick/History → Ask; Ask remained visible with the card editor hidden in every case.
 - **Remaining Risk:** Browser checks used the local HTML page, not a packaged Chromium extension runtime; the page reports expected missing `chrome.runtime` API errors outside the extension host.
 
+### Settings System Status Placement
+
+- **Date:** 2026-10-01
+- **Implementation:** Removed the three service indicators from the main header and moved the same live indicator elements to a compact System Status section at the top of Settings. Visible status text mirrors each existing indicator title.
+- **Files:** `extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`, `extension/sidepanel/sidepanel.js`, `extension/tests/sidepanel.test.js`.
+- **Status Logic:** Yomitan, Anki, and OCR detection, polling, and state updates are unchanged; no backend changes.
+- **Verification:** Side-panel DOM test passed; Tier 1 status tests passed (5/5); kanji-rendering test passed; full extension suite passed (170/170).
+- **Remaining Risk:** No packaged Chromium visual smoke test was run.
+
 ### History Panel Startup Visibility Follow-Up
 
 - **Date:** 2026-10-01

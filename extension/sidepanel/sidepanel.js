@@ -1019,6 +1019,15 @@ function setIndicatorStatus(indicatorEl, state, titleText) {
   if (!indicatorEl) return;
   indicatorEl.className = `indicator-pill ${state}`;
   if (titleText) indicatorEl.title = titleText;
+  if (titleText && typeof indicatorEl.querySelector === "function") {
+    const statusValue = indicatorEl.querySelector(".system-status-value");
+    if (statusValue) {
+      const separatorIndex = titleText.indexOf(":");
+      statusValue.textContent = separatorIndex >= 0
+        ? titleText.slice(separatorIndex + 1).trim()
+        : titleText;
+    }
+  }
 }
 
 function updateSyncUI(state, error = "") {

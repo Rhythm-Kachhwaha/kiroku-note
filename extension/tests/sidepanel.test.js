@@ -17,6 +17,17 @@ assert.ok(html.includes('id="field-deck-name"'), "Hidden deck name fallback inpu
 // Phase 5 elements: Connection indicators, Japanese typography selector, Hero word display
 assert.ok(html.includes('id="indicator-yomitan"'), "Yomitan connection indicator must exist");
 assert.ok(html.includes('id="indicator-anki"'), "Anki connection indicator must exist");
+assert.ok(html.includes('id="indicator-ocr"'), "OCR connection indicator must exist");
+const headerHtml = html.slice(html.indexOf('id="panel-header"'), html.indexOf("</header>"));
+assert.ok(!headerHtml.includes("service-indicators"), "Service indicators must not appear in the header");
+assert.ok(headerHtml.includes('id="ocr-capture-btn"'), "OCR capture button must remain in the header");
+const settingsStatusIndex = html.indexOf('class="settings-group system-status-group"');
+const settingsBodyIndex = html.indexOf('class="card-settings-body settings-content-body"');
+const generalSectionIndex = html.indexOf("<!-- General Section -->");
+assert.ok(settingsStatusIndex > settingsBodyIndex && settingsStatusIndex < generalSectionIndex, "System statuses must be at the top of Settings");
+assert.ok(html.includes('class="system-status-name">Yomitan</span>'), "Yomitan status must be labeled");
+assert.ok(html.includes('class="system-status-name">Anki</span>'), "Anki status must be labeled");
+assert.ok(html.includes('class="system-status-name">OCR</span>'), "OCR status must be labeled");
 assert.ok(html.includes('id="expression"'), "Prominent expression display element must exist");
 assert.ok(html.includes('id="reading"'), "Prominent reading display element must exist");
 assert.ok(html.includes('id="field-font-select"'), "Japanese font selector must exist");

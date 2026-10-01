@@ -6862,6 +6862,59 @@ header.nav-collapsed .btn-nav-collapse-toggle svg {
   padding-bottom: 2px;
 }
 
+.system-status-group {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.system-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.system-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 22px;
+}
+
+.system-status-name {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.system-status-group .indicator-pill {
+  gap: 6px;
+  padding: 2px 0;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.system-status-group .indicator-dot {
+  width: 6px;
+  height: 6px;
+  opacity: 0.78;
+}
+
+.system-status-group .indicator-pill.connected {
+  color: var(--text-secondary);
+}
+
+.system-status-group .indicator-pill.checking,
+.system-status-group .indicator-pill.unavailable,
+.system-status-group .indicator-pill.error {
+  color: var(--text-muted);
+}
+
+.system-status-group .indicator-pill.checking .indicator-dot,
+.system-status-group .indicator-pill.unavailable .indicator-dot,
+.system-status-group .indicator-pill.error .indicator-dot {
+  background: var(--text-disabled);
+}
+
 .settings-row {
   display: flex;
   justify-content: space-between;
