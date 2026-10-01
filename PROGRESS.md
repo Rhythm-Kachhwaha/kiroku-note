@@ -8,6 +8,12 @@ Current development target: **V1.0**
 
 The core mining pipeline is functional. Current work is focused on polishing, reliability, UX, and preparing the project for public release.
 
+### Section Layout Visibility
+- Extended the existing Section Layout Order setting with per-section visibility, persisted alongside the order under the existing storage key.
+- Kept Card Fields permanently enabled, retained ordering for hidden sections, migrated legacy order arrays, and restored default visibility with Reset to Default.
+- Disabled sections are removed from the Text tab layout without changing their data or existing hidden/show lifecycle state.
+- Verification: 173/173 extension tests passed with `node --test extension/tests/*.test.js`, including customizable layout persistence, migration, reset, and disabled-section reordering.
+
 ---
 
 ## Core Stack

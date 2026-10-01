@@ -37,17 +37,21 @@ console.log("PASS 1: HTML markup and data-layout-section attributes verified.");
 // 2. Load and verify sidepanel.js layout functions
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
 const jsContent = fs.readFileSync(jsPath, "utf8");
+const css = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.css"), "utf8");
 
 assert.ok(jsContent.includes("STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER"), "Storage key constant must exist in sidepanel.js");
 assert.ok(jsContent.includes("DEFAULT_CARD_SECTION_ORDER"), "DEFAULT_CARD_SECTION_ORDER constant must exist in sidepanel.js");
+assert.ok(jsContent.includes("DEFAULT_CARD_SECTION_VISIBILITY"), "Default visibility must share the existing layout configuration");
 assert.ok(jsContent.includes("SECTION_METADATA"), "SECTION_METADATA constant must exist in sidepanel.js");
 assert.ok(jsContent.includes("function resolveValidSectionOrder"), "resolveValidSectionOrder function must exist");
+assert.ok(jsContent.includes("function resolveValidSectionVisibility"), "resolveValidSectionVisibility function must exist");
 assert.ok(jsContent.includes("async function loadStoredSectionOrder"), "loadStoredSectionOrder function must exist");
 assert.ok(jsContent.includes("async function saveStoredSectionOrder"), "saveStoredSectionOrder function must exist");
 assert.ok(jsContent.includes("function applySectionOrder"), "applySectionOrder function must exist");
 assert.ok(jsContent.includes("function moveSectionByDelta"), "moveSectionByDelta function must exist");
 assert.ok(jsContent.includes("function renderLayoutSettingsList"), "renderLayoutSettingsList function must exist");
 assert.ok(jsContent.includes("async function resetLayoutSettings"), "resetLayoutSettings function must exist");
+assert.ok(css.includes('[data-layout-visible="false"]') && css.includes("display: none !important;"), "Disabled sections must be removed from the Text tab layout");
 
 console.log("PASS 2: Required layout management functions exist in sidepanel.js.");
 
@@ -279,9 +283,11 @@ const STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER = "kiroku.layout.cardSectionOrder";
 
 const {
   resolveValidSectionOrder,
+  resolveValidSectionVisibility,
   getCurrentSectionOrder,
   loadStoredSectionOrder,
   saveStoredSectionOrder,
+  saveStoredSectionVisibility,
   applySectionOrder,
   moveSectionByDelta,
   renderLayoutSettingsList,
@@ -339,12 +345,20 @@ assertOrder(
 
 console.log("PASS 3: resolveValidSectionOrder robustness and migration verified.");
 
+const disabledDictionary = resolveValidSectionVisibility({ fields: false, dictionary: false, invalid: false });
+assert.equal(disabledDictionary.fields, true, "Card Fields must always remain enabled");
+assert.equal(disabledDictionary.dictionary, false, "Saved section visibility must be preserved");
+assert.equal(disabledDictionary.media, true, "Missing visibility values must use default visibility");
+
+console.log("PASS 3a: Section visibility validation and permanent Card Fields visibility verified.");
+
 // 5. Test DOM application and reordering
 const testOrder = ["dictionary", "media", "fields", "settings", "preview", "optional"];
 applySectionOrder(testOrder);
 
 const actualDomOrder = mockContainer.children.map(c => c.getAttribute("data-layout-section"));
 assertOrder(actualDomOrder, testOrder, "DOM container child order must match applied section order");
+assert.equal(mockContainer.querySelector('[data-layout-section="dictionary"]').getAttribute("data-layout-visible"), "true");
 
 console.log("PASS 4: applySectionOrder correctly re-parents DOM elements.");
 
@@ -355,6 +369,10 @@ assert.equal(mockLayoutSectionsList.children.length, 6, "Must render 6 section i
 
 // Check first item buttons
 const firstItem = mockLayoutSectionsList.children[0];
+const fieldsItem = mockLayoutSectionsList.children.find(item => item.getAttribute("data-section-id") === "fields");
+const fieldsVisibilityToggle = fieldsItem.querySelector(".layout-section-visibility");
+assert.equal(fieldsVisibilityToggle.checked, true, "Card Fields visibility toggle must remain checked");
+assert.equal(fieldsVisibilityToggle.disabled, true, "Card Fields visibility toggle must be disabled");
 const firstUpBtn = firstItem.querySelector(".btn-move-up");
 const firstDownBtn = firstItem.querySelector(".btn-move-down");
 assert.equal(firstUpBtn.disabled, true, "First item Move Up button must be disabled");
@@ -374,6 +392,16 @@ const orderAfterUp = getCurrentSectionOrder();
 assert.equal(orderAfterUp[lastIdx - 1], lastItemName, "Last item should have moved up by 1");
 
 console.log("PASS 5: Accessible moveSectionByDelta (Move Up / Move Down) verified.");
+
+const dictionaryItem = mockLayoutSectionsList.children.find(item => item.getAttribute("data-section-id") === "dictionary");
+const dictionaryVisibilityToggle = dictionaryItem.querySelector(".layout-section-visibility");
+dictionaryVisibilityToggle.checked = false;
+dictionaryVisibilityToggle.dispatchEvent("change");
+assert.equal(mockContainer.querySelector('[data-layout-section="dictionary"]').getAttribute("data-layout-visible"), "false");
+assert.equal(mockStorageStore[STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER].visibility.dictionary, false, "Checkbox changes must persist visibility immediately");
+const disabledDictionaryIndex = getCurrentSectionOrder().indexOf("dictionary");
+moveSectionByDelta(disabledDictionaryIndex, -1);
+assert.equal(mockStorageStore[STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER].visibility.dictionary, false, "Reordering a disabled section must preserve its visibility state");
 
 // 7. Test Popover open/close & reset to default
 openLayoutSettings();
@@ -399,19 +427,38 @@ assert.equal(mockBtnLayoutSettings.getAttribute("aria-expanded"), "false", "Gear
     "Reset must immediately restore canonical default order in DOM"
   );
   assertOrder(
-    mockStorageStore[STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER],
+    mockStorageStore[STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER].order,
     ["fields", "preview", "media", "settings", "optional", "dictionary"],
     "Reset must persist canonical default order to chrome.storage.local"
   );
+  assert.equal(
+    JSON.stringify(mockStorageStore[STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER].visibility),
+    JSON.stringify({ fields: true, preview: true, media: true, settings: true, optional: true, dictionary: true }),
+    "Reset must restore and persist default section visibility"
+  );
+  assert.equal(mockContainer.querySelector('[data-layout-section="dictionary"]').getAttribute("data-layout-visible"), "true");
   console.log("PASS 6: Reset to Default and storage persistence verified.");
 
   // Test storage load/save cycle
   const customSave = ["optional", "media", "preview", "settings", "fields", "dictionary"];
   await saveStoredSectionOrder(customSave);
-  assertOrder(mockStorageStore[STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER], customSave, "Custom order saved");
+  assertOrder(mockStorageStore[STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER].order, customSave, "Custom order saved");
+
+  await saveStoredSectionVisibility({ ...resolveValidSectionVisibility(null), dictionary: false });
+  assert.equal(mockStorageStore[STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER].visibility.dictionary, false, "Disabled visibility must persist");
+  assert.equal(mockContainer.querySelector('[data-layout-section="dictionary"]').getAttribute("data-layout-visible"), "false");
 
   const loaded = await loadStoredSectionOrder();
   assertOrder(loaded, customSave, "Custom order loaded correctly");
+  renderLayoutSettingsList(loaded);
+  const loadedDictionaryItem = mockLayoutSectionsList.children.find(item => item.getAttribute("data-section-id") === "dictionary");
+  assert.equal(loadedDictionaryItem.querySelector(".layout-section-visibility").checked, false, "Disabled visibility must load from storage");
+
+  mockStorageStore[STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER] = customSave;
+  await loadStoredSectionOrder();
+  renderLayoutSettingsList(customSave);
+  const migratedDictionaryItem = mockLayoutSectionsList.children.find(item => item.getAttribute("data-section-id") === "dictionary");
+  assert.equal(migratedDictionaryItem.querySelector(".layout-section-visibility").checked, true, "Legacy array storage must default visibility to enabled");
 
   console.log("PASS 7: Storage load & save roundtrip verified.");
   console.log("\n>>> ALL CUSTOMIZABLE CARD LAYOUT TESTS PASSED SUCCESSFULLY! <<<\n");

@@ -219,6 +219,15 @@ const DEFAULT_CARD_SECTION_ORDER = [
   "optional",
   "dictionary"
 ];
+const DEFAULT_CARD_SECTION_VISIBILITY = {
+  fields: true,
+  preview: true,
+  media: true,
+  settings: true,
+  optional: true,
+  dictionary: true
+};
+let currentCardSectionVisibility = { ...DEFAULT_CARD_SECTION_VISIBILITY };
 
 const SECTION_METADATA = {
   fields: { id: "fields", name: "Card Fields" },
@@ -8757,6 +8766,9 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
    ========================================================================== */
 
 function resolveValidSectionOrder(savedOrder) {
+  if (!Array.isArray(savedOrder) && Array.isArray(savedOrder?.order)) {
+    savedOrder = savedOrder.order;
+  }
   if (!Array.isArray(savedOrder)) {
     return [...DEFAULT_CARD_SECTION_ORDER];
   }
@@ -8782,6 +8794,16 @@ function resolveValidSectionOrder(savedOrder) {
   return result;
 }
 
+function resolveValidSectionVisibility(savedVisibility) {
+  const resolved = { ...DEFAULT_CARD_SECTION_VISIBILITY };
+  for (const sectionId of DEFAULT_CARD_SECTION_ORDER) {
+    if (sectionId !== "fields" && typeof savedVisibility?.[sectionId] === "boolean") {
+      resolved[sectionId] = savedVisibility[sectionId];
+    }
+  }
+  return resolved;
+}
+
 function getCurrentSectionOrder() {
   return [...currentCardSectionOrder];
 }
@@ -8803,31 +8825,69 @@ async function loadStoredSectionOrder() {
     }
     const resolved = resolveValidSectionOrder(stored);
     currentCardSectionOrder = resolved;
+    currentCardSectionVisibility = resolveValidSectionVisibility(
+      Array.isArray(stored) ? null : stored?.visibility
+    );
     return resolved;
   } catch (_) {
     currentCardSectionOrder = [...DEFAULT_CARD_SECTION_ORDER];
+    currentCardSectionVisibility = { ...DEFAULT_CARD_SECTION_VISIBILITY };
     return currentCardSectionOrder;
   }
+}
+
+async function persistStoredSectionLayout() {
+  const storedLayout = {
+    order: resolveValidSectionOrder(currentCardSectionOrder),
+    visibility: resolveValidSectionVisibility(currentCardSectionVisibility)
+  };
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      await chrome.storage.local.set({ [STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER]: storedLayout });
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER, JSON.stringify(storedLayout));
+    }
+  } catch (_) {}
+  return storedLayout;
 }
 
 async function saveStoredSectionOrder(order) {
   const validated = resolveValidSectionOrder(order);
   currentCardSectionOrder = validated;
-  try {
-    if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      await chrome.storage.local.set({ [STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER]: validated });
+  await persistStoredSectionLayout();
+  return validated;
+}
+
+async function saveStoredSectionVisibility(visibility) {
+  currentCardSectionVisibility = resolveValidSectionVisibility(visibility);
+  applySectionVisibility(currentCardSectionVisibility);
+  await persistStoredSectionLayout();
+  renderLayoutSettingsList(currentCardSectionOrder);
+  return currentCardSectionVisibility;
+}
+
+function applySectionVisibility(visibility = currentCardSectionVisibility) {
+  const validated = resolveValidSectionVisibility(visibility);
+  currentCardSectionVisibility = validated;
+  if (!cardLayoutContainer) return validated;
+
+  for (const sectionId of DEFAULT_CARD_SECTION_ORDER) {
+    const sectionEl = cardLayoutContainer.querySelector(`[data-layout-section="${sectionId}"]`);
+    if (sectionEl) {
+      sectionEl.setAttribute("data-layout-visible", String(validated[sectionId]));
     }
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER, JSON.stringify(validated));
-    }
-  } catch (_) {}
+  }
   return validated;
 }
 
 function applySectionOrder(order) {
   const validated = resolveValidSectionOrder(order);
   currentCardSectionOrder = validated;
-  if (!cardLayoutContainer) return validated;
+  if (!cardLayoutContainer) {
+    applySectionVisibility();
+    return validated;
+  }
 
   for (const sectionId of validated) {
     const sectionEl = cardLayoutContainer.querySelector(`[data-layout-section="${sectionId}"]`);
@@ -8835,6 +8895,7 @@ function applySectionOrder(order) {
       cardLayoutContainer.appendChild(sectionEl);
     }
   }
+  applySectionVisibility();
   return validated;
 }
 
@@ -8884,6 +8945,18 @@ function renderLayoutSettingsList(order = currentCardSectionOrder) {
     const actionsWrap = document.createElement("div");
     actionsWrap.className = "layout-section-actions";
 
+    const visibilityToggle = document.createElement("input");
+    visibilityToggle.type = "checkbox";
+    visibilityToggle.className = "layout-section-visibility";
+    visibilityToggle.checked = currentCardSectionVisibility[sectionId] !== false;
+    visibilityToggle.disabled = sectionId === "fields";
+    visibilityToggle.title = sectionId === "fields" ? "Card Fields are always visible" : `Show ${meta.name} in the Text tab`;
+    visibilityToggle.setAttribute("aria-label", visibilityToggle.title);
+    visibilityToggle.addEventListener("change", () => {
+      const nextVisibility = { ...currentCardSectionVisibility, [sectionId]: visibilityToggle.checked };
+      saveStoredSectionVisibility(nextVisibility);
+    });
+
     const upBtn = document.createElement("button");
     upBtn.type = "button";
     upBtn.className = "btn-move-section btn-move-up";
@@ -8908,6 +8981,7 @@ function renderLayoutSettingsList(order = currentCardSectionOrder) {
       moveSectionByDelta(index, 1);
     });
 
+    actionsWrap.appendChild(visibilityToggle);
     actionsWrap.appendChild(upBtn);
     actionsWrap.appendChild(downBtn);
 
@@ -8999,6 +9073,7 @@ function closeLayoutSettings() {
 
 async function resetLayoutSettings() {
   const defaultOrder = [...DEFAULT_CARD_SECTION_ORDER];
+  currentCardSectionVisibility = { ...DEFAULT_CARD_SECTION_VISIBILITY };
   applySectionOrder(defaultOrder);
   await saveStoredSectionOrder(defaultOrder);
   renderLayoutSettingsList(defaultOrder);

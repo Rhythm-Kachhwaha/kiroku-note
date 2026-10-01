@@ -5344,6 +5344,24 @@ rt {
   flex-direction: column;
 }
 
+.card-layout-container [data-layout-section][data-layout-visible="false"] {
+  display: none !important;
+}
+
+.layout-section-visibility {
+  width: 13px;
+  height: 13px;
+  margin: 0 5px 0 0;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.layout-section-visibility:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 /* ==========================================================================
    13. Reduced Motion Accessibility Override
    ========================================================================== */
