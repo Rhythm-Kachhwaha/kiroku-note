@@ -888,6 +888,11 @@ const btnCtxTranslate = document.querySelector("#btn-ctx-translate");
 const askChatStream = document.querySelector("#ask-chat-stream");
 const askEmptyState = document.querySelector("#ask-empty-state");
 const askPromptChipsWrap = document.querySelector("#ask-prompt-chips-wrap");
+const askModeToolbar = document.querySelector("#ask-mode-toolbar");
+const askModeSelect = document.querySelector("#ask-mode-select");
+const askResponseModeToggle = document.querySelector("#ask-response-mode-toggle");
+const btnModeShort = document.querySelector("#btn-mode-short");
+const btnModeDetailed = document.querySelector("#btn-mode-detailed");
 const askInputBox = document.querySelector("#ask-input-box");
 const askCharCount = document.querySelector("#ask-char-count");
 const btnAskSubmit = document.querySelector("#btn-ask-submit");
@@ -895,6 +900,7 @@ const llmProviderDisplay = document.querySelector("#llm-provider-display");
 const llmStatusLabel = document.querySelector("#llm-status-label");
 const settingLlmProvider = document.querySelector("#setting-llm-provider");
 const settingLlmModel = document.querySelector("#setting-llm-model");
+const settingLlmJlptLevel = document.querySelector("#setting-llm-jlpt-level");
 const settingLlmKeyName = document.querySelector("#setting-llm-key-name");
 const settingLlmKey = document.querySelector("#setting-llm-key");
 const llmKeyStatusMsg = document.querySelector("#llm-key-status-msg");
@@ -9028,6 +9034,8 @@ let activeAskContext = { text: "", source: "" };
 let askChatHistory = [];
 let isAskLoading = false;
 let currentAskTask = "answer_question";
+let currentAskResponseMode = "short";
+const STORAGE_KEY_ASK_RESPONSE_MODE = "kiroku.ask.responseMode";
 let lastLLMStatus = null;
 
 async function checkLLMStatus() {
@@ -9095,6 +9103,9 @@ async function loadLlmConfigToSettings() {
     if (settingLlmKeyName && data.key_name !== undefined) {
       settingLlmKeyName.value = data.key_name || "";
     }
+    if (settingLlmJlptLevel && data.jlpt_level) {
+      settingLlmJlptLevel.value = data.jlpt_level;
+    }
 
     const isConfigured = Boolean(data.configured || data.has_key);
     applyLlmConfiguredState(isConfigured, data.provider);
@@ -9155,6 +9166,7 @@ async function saveLlmSecretFromSettings() {
   const provider = settingLlmProvider ? settingLlmProvider.value : "groq";
   const model = settingLlmModel ? settingLlmModel.value.trim() : "";
   const keyName = settingLlmKeyName ? settingLlmKeyName.value.trim() : "";
+  const jlptLevel = settingLlmJlptLevel ? settingLlmJlptLevel.value : undefined;
 
   try {
     const res = await fetch(API_LLM_SECRET_URL, {
@@ -9177,7 +9189,7 @@ async function saveLlmSecretFromSettings() {
 
     const data = await res.json();
 
-    // Also persist non-secret provider/model if changed
+    // Also persist non-secret provider/model/jlpt_level if changed
     await fetch(API_LLM_CONFIG_URL, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -9185,6 +9197,7 @@ async function saveLlmSecretFromSettings() {
         provider: provider,
         model: model || undefined,
         key_name: data.key_name || keyName,
+        jlpt_level: jlptLevel,
       }),
     }).catch(() => {});
 
@@ -9316,6 +9329,19 @@ function initLlmSettingsUI() {
       } catch (e) {}
     });
   }
+
+  if (settingLlmJlptLevel) {
+    settingLlmJlptLevel.addEventListener("change", async () => {
+      const val = settingLlmJlptLevel.value;
+      try {
+        await fetch(API_LLM_CONFIG_URL, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jlpt_level: val }),
+        });
+      } catch (e) {}
+    });
+  }
 }
 
 function setAskContext(text, source = "Detected Context") {
@@ -9349,79 +9375,209 @@ function updateAskCharCount() {
   askCharCount.textContent = count > 0 ? `${count} chars` : "";
 }
 
-function formatBold(str) {
-  return str.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+function formatInlineMarkdown(str) {
+  if (!str) return "";
+  // Inline code: `code`
+  let res = str.replace(/`([^`]+)`/g, '<code class="ai-inline-code">$1</code>');
+  // Bold: **text**
+  res = res.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Italics: *text* (when not bold)
+  res = res.replace(/(^|[^*])\*([^*]+)\*([^*]|$)/g, '$1<em>$2</em>$3');
+  return res;
+}
+
+function parseMarkdownTable(tableLines) {
+  if (tableLines.length < 2) return null;
+  const parseRow = (line) => {
+    let raw = line.trim();
+    if (raw.startsWith("|")) raw = raw.slice(1);
+    if (raw.endsWith("|")) raw = raw.slice(0, -1);
+    return raw.split("|").map(c => c.trim());
+  };
+
+  const headerCells = parseRow(tableLines[0]);
+  const separatorLine = tableLines[1].trim();
+  const isSeparator = /^\|?(\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?$/.test(separatorLine);
+  if (!isSeparator) return null;
+
+  const bodyRows = tableLines.slice(2).map(parseRow);
+
+  let html = '<div class="ai-table-wrap"><table class="ai-table"><thead><tr>';
+  headerCells.forEach(cell => {
+    html += `<th>${formatInlineMarkdown(cell)}</th>`;
+  });
+  html += '</tr></thead>';
+
+  if (bodyRows.length > 0) {
+    html += '<tbody>';
+    bodyRows.forEach(row => {
+      html += '<tr>';
+      row.forEach(cell => {
+        html += `<td>${formatInlineMarkdown(cell)}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody>';
+  }
+  html += '</table></div>';
+  return html;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function formatAIResponse(rawText) {
   if (!rawText) return "";
   
-  const div = document.createElement("div");
-  div.textContent = rawText;
-  const safeText = div.innerHTML;
+  const safeText = escapeHtml(rawText);
 
   const lines = safeText.split("\n");
   let formattedHtml = "";
-  let inDistractorList = false;
+  let inList = false;
+  let inCodeBlock = false;
+  let codeBlockBuffer = [];
+  let tableBuffer = [];
+
+  const flushTable = () => {
+    if (tableBuffer.length > 0) {
+      const tableHtml = parseMarkdownTable(tableBuffer);
+      if (tableHtml) {
+        formattedHtml += tableHtml;
+      } else {
+        tableBuffer.forEach(tLine => {
+          formattedHtml += `<p>${formatInlineMarkdown(tLine)}</p>`;
+        });
+      }
+      tableBuffer = [];
+    }
+  };
+
+  const flushList = () => {
+    if (inList) {
+      formattedHtml += "</ul>";
+      inList = false;
+    }
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
+
+    // Handle code blocks (```)
+    if (line.startsWith("```")) {
+      flushTable();
+      flushList();
+      if (inCodeBlock) {
+        formattedHtml += `<pre class="ai-code-block"><code>${codeBlockBuffer.join("\n")}</code></pre>`;
+        codeBlockBuffer = [];
+        inCodeBlock = false;
+      } else {
+        inCodeBlock = true;
+        codeBlockBuffer = [];
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeBlockBuffer.push(lines[i]);
+      continue;
+    }
+
+    // Handle Markdown Tables
+    if (line.includes("|") && (line.startsWith("|") || line.endsWith("|") || line.includes(" | "))) {
+      flushList();
+      tableBuffer.push(line);
+      continue;
+    } else if (tableBuffer.length > 0) {
+      flushTable();
+    }
+
     if (!line) {
-      if (inDistractorList) {
-        formattedHtml += "</ul>";
-        inDistractorList = false;
-      }
+      flushList();
       continue;
     }
 
-    const answerMatch = line.match(/^(\*\*Answer\*\*|Answer):\s*(.+)$/i);
+    // Direct Answer Badge Highlight
+    const answerMatch = line.match(/^(\*\*Answer\*\*|Answer|\*\*Correct\*\*|Correct):\s*(.+)$/i);
     if (answerMatch) {
-      if (inDistractorList) {
-        formattedHtml += "</ul>";
-        inDistractorList = false;
-      }
-      formattedHtml += `<div class="ai-direct-answer"><span class="answer-badge">ANSWER</span><strong>${answerMatch[2]}</strong></div>`;
+      flushList();
+      formattedHtml += `<div class="ai-direct-answer"><span class="answer-badge">ANSWER</span><strong>${formatInlineMarkdown(answerMatch[2])}</strong></div>`;
       continue;
     }
 
-    if (line.match(/^(\*\*Why other options are incorrect|\*\*Distractors|\*\*Incorrect options|Why other options are incorrect|Distractors)/i)) {
-      if (inDistractorList) {
-        formattedHtml += "</ul>";
-        inDistractorList = false;
-      }
-      formattedHtml += `<div class="ai-section-title">${line.replace(/\*\*/g, "")}</div><ul class="ai-distractor-list">`;
-      inDistractorList = true;
+    // Section Titles (e.g. Breakdown, Explanation, Distractors, Meaning, Usage, Example)
+    const sectionMatch = line.match(/^(\*\*(?:Why other options are incorrect|Distractors|Incorrect options|Explanation|Why this is correct|Grammar Pattern|Breakdown|Meaning|Usage|Example|Formation|Nuance|Common Mistakes?|Notes?)\*\*|(?:Why other options are incorrect|Distractors|Incorrect options|Explanation|Why this is correct|Grammar Pattern|Breakdown|Meaning|Usage|Example|Formation|Nuance|Common Mistakes?|Notes?):|###\s*(.+))/i);
+    if (sectionMatch) {
+      flushList();
+      const titleText = line.replace(/^###\s*/, "").replace(/\*\*/g, "").replace(/:$/, "");
+      formattedHtml += `<div class="ai-section-title">${titleText}</div>`;
       continue;
     }
 
-    if (line.match(/^(\*\*Explanation|\*\*Why this is correct|\*\*Grammar Pattern|\*\*Breakdown|Explanation|Why this is correct|Grammar Pattern):/i)) {
-      if (inDistractorList) {
-        formattedHtml += "</ul>";
-        inDistractorList = false;
+    // Lists (- item or * item or 1. item)
+    if (line.startsWith("-") || line.startsWith("*") || line.match(/^\d+\./)) {
+      if (!inList) {
+        formattedHtml += '<ul class="ai-distractor-list">';
+        inList = true;
       }
-      formattedHtml += `<div class="ai-section-title">${line.replace(/\*\*/g, "")}</div>`;
-      continue;
-    }
-
-    if (inDistractorList && (line.startsWith("-") || line.startsWith("*") || line.match(/^\d+\./))) {
       const cleanItem = line.replace(/^[-*]|\d+\./, "").trim();
-      formattedHtml += `<li>${formatBold(cleanItem)}</li>`;
+      formattedHtml += `<li>${formatInlineMarkdown(cleanItem)}</li>`;
       continue;
     }
 
-    if (inDistractorList && !line.startsWith("-") && !line.startsWith("*")) {
-      formattedHtml += "</ul>";
-      inDistractorList = false;
-    }
-
-    formattedHtml += `<p>${formatBold(line)}</p>`;
+    flushList();
+    formattedHtml += `<p>${formatInlineMarkdown(line)}</p>`;
   }
 
-  if (inDistractorList) {
-    formattedHtml += "</ul>";
+  if (inCodeBlock && codeBlockBuffer.length > 0) {
+    formattedHtml += `<pre class="ai-code-block"><code>${codeBlockBuffer.join("\n")}</code></pre>`;
   }
+  flushTable();
+  flushList();
 
   return `<div class="ai-explanation-section">${formattedHtml}</div>`;
+}
+
+function setAskResponseMode(mode) {
+  if (mode !== "short" && mode !== "detailed") return;
+  currentAskResponseMode = mode;
+  try {
+    localStorage.setItem(STORAGE_KEY_ASK_RESPONSE_MODE, mode);
+  } catch (_) {}
+  if (btnModeShort && btnModeShort.classList) {
+    if (typeof btnModeShort.classList.toggle === "function") {
+      btnModeShort.classList.toggle("active", mode === "short");
+    } else if (mode === "short") {
+      btnModeShort.classList.add?.("active");
+    } else {
+      btnModeShort.classList.remove?.("active");
+    }
+  }
+  if (btnModeDetailed && btnModeDetailed.classList) {
+    if (typeof btnModeDetailed.classList.toggle === "function") {
+      btnModeDetailed.classList.toggle("active", mode === "detailed");
+    } else if (mode === "detailed") {
+      btnModeDetailed.classList.add?.("active");
+    } else {
+      btnModeDetailed.classList.remove?.("active");
+    }
+  }
+}
+
+function initAskResponseMode() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_ASK_RESPONSE_MODE);
+    if (saved === "short" || saved === "detailed") {
+      setAskResponseMode(saved);
+      return;
+    }
+  } catch (_) {}
+  setAskResponseMode("short");
 }
 
 async function sendAskQuery(task = currentAskTask, overrideText = null) {
@@ -9475,7 +9631,9 @@ async function sendAskQuery(task = currentAskTask, overrideText = null) {
       task: task || currentAskTask,
       text: promptText,
       context: activeAskContext.text || undefined,
-      messages: askChatHistory.length > 0 ? askChatHistory : undefined
+      messages: askChatHistory.length > 0 ? askChatHistory : undefined,
+      mode: currentAskResponseMode,
+      jlpt_level: (settingLlmJlptLevel && settingLlmJlptLevel.value) ? settingLlmJlptLevel.value : undefined
     };
 
     const res = await fetch(API_LLM_ASK_URL, {
@@ -9584,6 +9742,25 @@ async function sendAskQuery(task = currentAskTask, overrideText = null) {
 }
 
 // Event listeners for Ask Tab
+if (btnModeShort) {
+  btnModeShort.addEventListener("click", () => setAskResponseMode("short"));
+}
+if (btnModeDetailed) {
+  btnModeDetailed.addEventListener("click", () => setAskResponseMode("detailed"));
+}
+
+if (askModeSelect) {
+  askModeSelect.value = currentAskTask;
+  askModeSelect.addEventListener("change", () => {
+    currentAskTask = askModeSelect.value;
+    if (askPromptChipsWrap) {
+      askPromptChipsWrap.querySelectorAll(".prompt-chip").forEach(c => {
+        c.classList.toggle("active", c.getAttribute("data-task") === currentAskTask);
+      });
+    }
+  });
+}
+
 if (askPromptChipsWrap) {
   askPromptChipsWrap.addEventListener("click", (e) => {
     const chip = e.target.closest(".prompt-chip");
@@ -9591,6 +9768,9 @@ if (askPromptChipsWrap) {
     const task = chip.getAttribute("data-task");
     if (!task) return;
     currentAskTask = task;
+    if (askModeSelect) {
+      askModeSelect.value = task;
+    }
     askPromptChipsWrap.querySelectorAll(".prompt-chip").forEach(c => {
       c.classList.toggle("active", c === chip);
     });
@@ -9653,6 +9833,8 @@ if (btnAskSubmit) {
     sendAskQuery();
   });
 }
+
+initAskResponseMode();
 
 loadAutoCapturePreferences();
 checkLLMStatus().catch(() => {});
@@ -9749,6 +9931,10 @@ if (typeof module !== "undefined" && module.exports) {
     formatAIResponse,
     getAskChatHistory: () => askChatHistory,
     setAskChatHistory: (h) => { askChatHistory = h; },
+    getAskResponseMode: () => currentAskResponseMode,
+    setAskResponseMode,
+    getCurrentAskTask: () => currentAskTask,
+    setCurrentAskTask: (t) => { currentAskTask = t; },
   };
 }
 

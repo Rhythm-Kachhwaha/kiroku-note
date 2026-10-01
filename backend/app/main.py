@@ -54,6 +54,7 @@ from app.schemas import (
 from app.config import (
     APP_VERSION,
     get_llm_api_key,
+    get_llm_jlpt_level,
     get_llm_key_name,
     get_llm_model,
     get_llm_ollama_url,
@@ -63,6 +64,7 @@ from app.config import (
     resolve_default_llm_model,
     resolve_llm_timeout,
     save_stored_llm_config,
+    VALID_JLPT_LEVELS,
 )
 from app.services.card_service import CardService
 from app.services.ocr_service import (
@@ -572,6 +574,7 @@ def _build_llm_config_response() -> LLMConfigResponse:
         source = "default"
 
     timeout = resolve_llm_timeout()
+    jlpt_level = get_llm_jlpt_level()
 
     # Never expose raw key or key preview in responses
     return LLMConfigResponse(
@@ -584,6 +587,7 @@ def _build_llm_config_response() -> LLMConfigResponse:
         key_preview=None,
         provider_source=source,
         timeout=timeout,
+        jlpt_level=jlpt_level,
     )
 
 
@@ -623,6 +627,10 @@ def update_llm_config(request: LLMConfigUpdateRequest) -> LLMConfigResponse:
         stored["ollama_url"] = request.ollama_url.strip().rstrip("/")
     if request.timeout is not None:
         stored["timeout"] = max(5.0, min(180.0, float(request.timeout)))
+    if request.jlpt_level is not None:
+        norm_level = request.jlpt_level.strip().upper()
+        if norm_level in VALID_JLPT_LEVELS:
+            stored["jlpt_level"] = norm_level
 
     # Securely handle api_key if supplied
     if request.api_key is not None:
@@ -778,6 +786,8 @@ def ask_llm(request: LLMRequest) -> LLMResponse:
             context=request.context,
             word=request.word,
             messages=request.messages,
+            mode=request.mode,
+            jlpt_level=request.jlpt_level,
         )
         return LLMResponse(
             result=result_text,

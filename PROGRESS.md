@@ -2298,4 +2298,43 @@ New major features should generally be deferred unless they are necessary for th
   - [PASS] End-to-end manual verification passed: key save, backend restart, status check, Ask query authentication, and disk security audit.
 - **Remaining Risk:** None. All locked boundaries and security requirements preserved.
 
+---
+
+### LLM Prompting, Response Rendering & Ask UI Upgrade
+
+- **Date:** 2026-09-30
+- **Scope & Objectives:**
+  - Add configurable JLPT Level setting (`N5`, `N4`, `N3`, `N2`, `N1`, default `N3`) in Settings -> LLM and non-secret LLM configuration.
+  - Add Short (default) vs Detailed response mode control in the Ask UI and pass it to backend.
+  - Optimize task-specific system and user prompt assembly across all 6 Ask tasks (`translate`, `explain_sense`, `explain_grammar`, `answer_question`, `mnemonic`, `chat`) for conciseness, learner-awareness, direct answer first, and zero token waste or boilerplate section spam.
+  - Implement safe, lightweight Markdown table and formatted response renderer (`formatAIResponse`) in the Side Panel with XSS sanitization, code block formatting, inline markdown parsing, and horizontally scrollable styled tables (`.ai-table-wrap`, `.ai-table`).
+  - Streamline Ask UI into a compact toolbar (`#ask-mode-toolbar`) featuring `#ask-mode-select` and `#ask-response-mode-toggle`, eliminating clutter while preserving all 6 task capabilities and zero unicode emojis.
+  - Strictly preserve Windows DPAPI secure secret store architecture, provider abstraction (Groq/Gemini/Ollama), and API compatibility.
+- **Implementation Deliverables:**
+  1. **Configuration & Schemas:**
+     - [backend/app/config.py](file:///d:/Python/AnkiMiner/backend/app/config.py): Added `DEFAULT_LLM_JLPT_LEVEL = "N3"`, `VALID_JLPT_LEVELS = frozenset({"N1", "N2", "N3", "N4", "N5"})`, and `get_llm_jlpt_level(env)`.
+     - [backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py): Added `jlpt_level` to `LLMConfigResponse` and `LLMConfigUpdateRequest`; added `mode: Literal["short", "detailed"] = "short"` and `jlpt_level: Optional[Literal["N1", "N2", "N3", "N4", "N5"]] = None` to `LLMRequest`.
+     - [backend/app/main.py](file:///d:/Python/AnkiMiner/backend/app/main.py): Updated `/api/llm/config` (GET/PUT) and `/api/llm/ask` (POST) to handle `jlpt_level` and `mode`.
+  2. **Prompt Architecture ([backend/app/services/llm_service.py](file:///d:/Python/AnkiMiner/backend/app/services/llm_service.py)):**
+     - Compact shared base philosophy (`Kiroku is a concise, accurate Japanese-learning assistant...`).
+     - Dynamic learner level injection: `"Learner level: JLPT {jlpt_level}."`
+     - Dynamic response mode instructions (`"Response mode: short. Direct answer first. Concise explanation only if necessary..."` vs `"Response mode: detailed. Thorough explanation, nuances..."`).
+     - Task-specific instructions for `translate`, `explain_sense`, `explain_grammar`, `answer_question`, `mnemonic`, `chat`.
+     - Clean separation of system instruction from user content.
+  3. **Settings & Ask Tab UI ([extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html), [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css), [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js)):**
+     - Settings -> LLM: Added `#setting-llm-jlpt-level` dropdown (N5–N1) with real-time PUT persistence.
+     - Ask tab: Added `#ask-mode-toolbar` with `#ask-mode-select` (6 modes) and `#ask-response-mode-toggle` (Short/Detailed pills with localStorage persistence).
+     - Response formatting: Implemented `formatAIResponse(rawText)` and `parseMarkdownTable(lines)` converting Markdown tables into `.ai-table-wrap` > `.ai-table` with XSS sanitization, code blocks, bullet lists, bold/italics, and answer cards.
+  4. **Automated Verification:**
+     - [backend/tests/test_llm_config_jlpt.py](file:///d:/Python/AnkiMiner/backend/tests/test_llm_config_jlpt.py): 5 tests verifying JLPT level defaults, env vars, persistence, and invalid rejection.
+     - [backend/tests/test_llm_prompts.py](file:///d:/Python/AnkiMiner/backend/tests/test_llm_prompts.py): 38 tests verifying prompt construction across all 5 JLPT levels, both modes, and all 6 tasks.
+     - [extension/tests/llm-jlpt-settings.test.js](file:///d:/Python/AnkiMiner/extension/tests/llm-jlpt-settings.test.js): 3 tests verifying JLPT dropdown DOM, zero emojis, and API wiring.
+     - [extension/tests/ask-ui-modes.test.js](file:///d:/Python/AnkiMiner/extension/tests/ask-ui-modes.test.js): 5 tests verifying mode selector, Short/Detailed controls, zero emojis, CSS, and payload integration.
+     - [extension/tests/markdown-table-renderer.test.js](file:///d:/Python/AnkiMiner/extension/tests/markdown-table-renderer.test.js): 7 tests verifying table parsing, horizontal scroll, XSS sanitization, answer badges, code blocks, and distractor lists.
+- **Verification Results:**
+  - [PASS] Full backend test suite: **502/502 passed** (`python -m pytest tests/ -q --tb=short -o "pythonpath=."`)
+  - [PASS] Full extension test suite: **167/167 passed** (`node --test extension/tests/*.test.js`)
+- **Remaining Risk:** None. All security boundaries, DPAPI secret storage, and existing Ask workflows are verified.
+
+
 

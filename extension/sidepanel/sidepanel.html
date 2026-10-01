@@ -364,8 +364,28 @@
         </div>
       </div>
 
-      <!-- 4. Quick Task Prompt Chips -->
-      <div class="ask-prompt-chips-wrap" id="ask-prompt-chips-wrap">
+      <!-- 4. Ask Mode & Response Length Toolbar -->
+      <div class="ask-mode-toolbar" id="ask-mode-toolbar">
+        <div class="ask-mode-selector-wrap">
+          <label for="ask-mode-select" class="ask-toolbar-label">Mode</label>
+          <select id="ask-mode-select" class="ask-mode-select" aria-label="Ask Mode">
+            <option value="chat">Ask / Chat</option>
+            <option value="answer_question" selected>Answer MCQ / JLPT</option>
+            <option value="explain_grammar">Explain Grammar</option>
+            <option value="explain_sense">Sense in Context</option>
+            <option value="translate">Translate</option>
+            <option value="mnemonic">Mnemonic Hook</option>
+          </select>
+        </div>
+
+        <div class="ask-response-mode-wrap" id="ask-response-mode-toggle" role="group" aria-label="Response Length">
+          <button type="button" class="ask-mode-pill active" id="btn-mode-short" data-mode="short" title="Concise answer without filler">Short</button>
+          <button type="button" class="ask-mode-pill" id="btn-mode-detailed" data-mode="detailed" title="Detailed explanation and breakdown">Detailed</button>
+        </div>
+      </div>
+
+      <!-- Quick Task Prompt Chips (Preserved for compatibility) -->
+      <div class="ask-prompt-chips-wrap" id="ask-prompt-chips-wrap" style="display:none;" aria-hidden="true">
         <button type="button" class="prompt-chip active" data-task="answer_question">Answer MCQ / JLPT</button>
         <button type="button" class="prompt-chip" data-task="explain_grammar">Explain Grammar</button>
         <button type="button" class="prompt-chip" data-task="explain_sense">Sense in Context</button>
@@ -923,6 +943,16 @@
           <div class="settings-row">
             <label for="setting-llm-model" class="settings-label">Model</label>
             <input type="text" id="setting-llm-model" class="llm-settings-input" placeholder="openai/gpt-oss-120b" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="settings-row" id="row-llm-jlpt-level">
+            <label for="setting-llm-jlpt-level" class="settings-label">JLPT Level</label>
+            <select id="setting-llm-jlpt-level" class="deck-select-subtle settings-select">
+              <option value="N5">N5 (Beginner)</option>
+              <option value="N4">N4 (Elementary)</option>
+              <option value="N3" selected>N3 (Intermediate)</option>
+              <option value="N2">N2 (Upper-Intermediate)</option>
+              <option value="N1">N1 (Advanced)</option>
+            </select>
           </div>
           <div class="settings-row" id="row-llm-key-name">
             <label for="setting-llm-key-name" class="settings-label">API Key Name</label>

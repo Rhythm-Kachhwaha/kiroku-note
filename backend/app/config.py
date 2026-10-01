@@ -27,6 +27,8 @@ DEFAULT_OLLAMA_MODEL = "qwen2.5:1.5b"
 DEFAULT_LLM_TIMEOUT = 45.0
 MIN_LLM_TIMEOUT = 5.0
 MAX_LLM_TIMEOUT = 180.0
+DEFAULT_LLM_JLPT_LEVEL = "N3"
+VALID_JLPT_LEVELS = frozenset({"N1", "N2", "N3", "N4", "N5"})
 
 
 def get_llm_config_file_path(env: dict[str, str] | None = None) -> Path:
@@ -546,5 +548,23 @@ def is_llm_configured(env: dict[str, str] | None = None) -> bool:
     if provider == "ollama":
         return bool(get_llm_ollama_url(env))
     return False
+
+
+def get_llm_jlpt_level(env: dict[str, str] | None = None) -> str:
+    """
+    Resolve configured JLPT level for LLM prompting (N5, N4, N3, N2, N1).
+    Precedence:
+      1. KIROKU_LLM_JLPT_LEVEL environment variable
+      2. Stored non-secret config in llm_config.json
+      3. DEFAULT_LLM_JLPT_LEVEL (N3)
+    """
+    env_dict = os.environ if env is None else env
+    val = env_dict.get("KIROKU_LLM_JLPT_LEVEL")
+    if val and str(val).strip().upper() in VALID_JLPT_LEVELS:
+        return str(val).strip().upper()
+    stored = load_stored_llm_config(env)
+    if stored.get("jlpt_level") and str(stored["jlpt_level"]).strip().upper() in VALID_JLPT_LEVELS:
+        return str(stored["jlpt_level"]).strip().upper()
+    return DEFAULT_LLM_JLPT_LEVEL
 
 

@@ -14,9 +14,12 @@ import urllib.request
 from typing import Optional
 
 from app.config import (
+    DEFAULT_LLM_JLPT_LEVEL,
     DEFAULT_LLM_TIMEOUT,
     DEFAULT_OLLAMA_URL,
+    VALID_JLPT_LEVELS,
     get_llm_api_key,
+    get_llm_jlpt_level,
     get_llm_model,
     get_llm_ollama_url,
     get_llm_provider,
@@ -62,42 +65,8 @@ class LLMResponseError(LLMError):
 
 
 # ============================================================================
-# Built-in System Prompts
+# Task-Specific Prompt Synthesis
 # ============================================================================
-
-PROMPT_TRANSLATE = (
-    "Translate the following Japanese text to English naturally. "
-    "Reply with only the translation. Do not use emojis in your response."
-)
-
-PROMPT_EXPLAIN_SENSE = (
-    "The word '{word}' appears in this Japanese sentence: '{text}'. "
-    "The dictionary gives these meanings: '{context}'. "
-    "Which meaning best fits the sentence? Reply in one sentence. Do not use emojis in your response."
-)
-
-PROMPT_EXPLAIN_GRAMMAR = (
-    "Explain the grammar pattern used in this Japanese sentence in simple English "
-    "for a language learner: '{text}'. Do not use emojis in your response."
-)
-
-PROMPT_MNEMONIC = (
-    "Create a simple, memorable English mnemonic for remembering the Japanese word '{word}' "
-    "which means '{context}'. Be creative and brief. Do not use emojis in your response."
-)
-
-PROMPT_ANSWER_QUESTION = (
-    "Answer the following Japanese question or multiple-choice question clearly. "
-    "State the correct answer directly, and explain why that answer is correct with a concise, "
-    "step-by-step explanation, breaking down any grammar points, vocabulary nuances, "
-    "or distractors for a Japanese language learner. Do not use emojis in your response."
-)
-
-PROMPT_CHAT = (
-    "You are a friendly, expert Japanese language tutor assisting a language learner "
-    "with vocabulary, grammar, and sentence mining. "
-    "Answer concisely and accurately in English unless requested otherwise. Do not use emojis in your response."
-)
 
 SUPPORTED_LLM_TASKS = {
     "translate",
@@ -107,6 +76,107 @@ SUPPORTED_LLM_TASKS = {
     "answer_question",
     "chat",
 }
+
+
+def build_system_instruction(
+    task: str,
+    jlpt_level: Optional[str] = None,
+    mode: str = "short",
+) -> str:
+    """
+    Construct a compact, task-specific system instruction encoding Kiroku core behavior,
+    the learner's JLPT level, and response brevity mode.
+    """
+    level = (
+        jlpt_level.strip().upper()
+        if jlpt_level and str(jlpt_level).strip().upper() in VALID_JLPT_LEVELS
+        else get_llm_jlpt_level()
+    )
+    is_detailed = str(mode).strip().lower() == "detailed"
+    mode_desc = (
+        "Detailed mode (provide thorough nuance, formation, and distractor breakdowns without filler)"
+        if is_detailed
+        else "Short mode (concise, direct answer first, minimal essential explanation)"
+    )
+
+    base = (
+        f"You are Kiroku's Japanese language assistant. "
+        f"Learner level: JLPT {level}. "
+        f"Response mode: {mode_desc}. "
+        f"Be accurate, answer directly, and do not repeat the prompt. "
+        f"Do not use markdown tables unless they materially improve clarity. "
+        f"Do not use emojis in your response."
+    )
+
+    if task == "translate":
+        if is_detailed:
+            specific = "Translate the Japanese text to natural English, preserving meaning and tone. Briefly note any important nuance or ambiguity if helpful."
+        else:
+            specific = "Translate the Japanese text to natural English. Output only the translation without commentary."
+    elif task == "explain_sense":
+        if is_detailed:
+            specific = "Identify which provided dictionary sense best matches the sentence. Explain the contextual meaning in depth with nuance."
+        else:
+            specific = "Identify which provided dictionary sense best matches the sentence. Explain the contextual meaning in 1-2 concise sentences."
+    elif task == "explain_grammar":
+        if is_detailed:
+            specific = "Explain the grammar pattern in context. Include meaning, formation, nuance, key distinctions, and common mistakes where useful. Do not use markdown tables for ordinary explanations."
+        else:
+            specific = "Explain the grammar pattern concisely. Use a compact structure: Meaning, Usage, and Example. Do not use tables or textbook filler."
+    elif task == "answer_question":
+        if is_detailed:
+            specific = "State the correct choice immediately, then explain why it is correct. Explain distractors individually and break down relevant nuances."
+        else:
+            specific = "State the correct choice immediately, then explain why with a concise reason. Address distractors only when useful. Do not create lengthy tables or section spam."
+    elif task == "mnemonic":
+        specific = "Provide a brief, memorable English mnemonic linking pronunciation and meaning. Avoid complicated stories, false etymologies, or long explanations."
+    elif task == "chat":
+        specific = "Assist the learner with Japanese vocabulary, grammar, reading, or nuance. Answer directly and concisely for their JLPT level."
+    else:
+        specific = "Assist the learner accurately and concisely."
+
+    return f"{base}\n{specific}"
+
+
+def build_user_prompt(
+    task: str,
+    text: str,
+    context: Optional[str] = None,
+    word: Optional[str] = None,
+) -> str:
+    """
+    Format the user prompt with context and target word without redundant instruction duplication.
+    """
+    clean_text = text.strip()
+    clean_ctx = context.strip() if context and context.strip() else None
+    clean_word = word.strip() if word and word.strip() else None
+
+    if task == "translate":
+        return clean_text
+    elif task == "explain_sense":
+        target = clean_word or clean_text
+        ctx_str = clean_ctx or "No dictionary definitions provided."
+        return f"Target word: {target}\nSentence: {clean_text}\nDictionary senses:\n{ctx_str}"
+    elif task == "explain_grammar":
+        parts = [f"Sentence: {clean_text}"]
+        if clean_word:
+            parts.append(f"Grammar pattern: {clean_word}")
+        if clean_ctx:
+            parts.append(f"Context / Notes:\n{clean_ctx}")
+        return "\n\n".join(parts)
+    elif task == "mnemonic":
+        target = clean_word or clean_text
+        ctx_str = clean_ctx or "None"
+        return f"Target word: {target}\nMeaning / Context: {ctx_str}"
+    elif task == "answer_question":
+        if clean_ctx:
+            return f"Question / Problem:\n{clean_text}\n\nContext / Options / Notes:\n{clean_ctx}"
+        return clean_text
+    elif task == "chat":
+        if clean_ctx:
+            return f"{clean_text}\n\nContext:\n{clean_ctx}"
+        return clean_text
+    return clean_text
 
 
 # ============================================================================
@@ -356,6 +426,29 @@ class LLMService:
     def model_name(self) -> Optional[str]:
         return self.provider.model
 
+    def build_prompts(
+        self,
+        task: str,
+        text: str,
+        context: Optional[str] = None,
+        word: Optional[str] = None,
+        mode: str = "short",
+        jlpt_level: Optional[str] = None,
+    ) -> tuple[str, str]:
+        """Synthesize system instruction and user prompt for the given task."""
+        system_instruction = build_system_instruction(
+            task=task,
+            jlpt_level=jlpt_level,
+            mode=mode,
+        )
+        user_prompt = build_user_prompt(
+            task=task,
+            text=text,
+            context=context,
+            word=word,
+        )
+        return system_instruction, user_prompt
+
     def ask(
         self,
         task: str,
@@ -363,6 +456,8 @@ class LLMService:
         context: Optional[str] = None,
         word: Optional[str] = None,
         messages: Optional[list[LLMChatMessage]] = None,
+        mode: str = "short",
+        jlpt_level: Optional[str] = None,
     ) -> tuple[str, str, str]:
         """
         Execute an assistant task prompt.
@@ -378,34 +473,14 @@ class LLMService:
                 "LLM assistant is not configured. Please set KIROKU_LLM_PROVIDER."
             )
 
-        system: Optional[str] = None
-        prompt: str = text
-
-        if task == "translate":
-            system = PROMPT_TRANSLATE
-            prompt = text
-        elif task == "explain_sense":
-            system = "You are an expert Japanese lexicographer and language teacher. Answer concisely. Do not use emojis in your response."
-            target_word = word or text
-            ctx = context or "None provided"
-            prompt = PROMPT_EXPLAIN_SENSE.format(word=target_word, text=text, context=ctx)
-        elif task == "explain_grammar":
-            system = "You are an expert Japanese grammar instructor. Answer concisely in simple English. Do not use emojis in your response."
-            prompt = PROMPT_EXPLAIN_GRAMMAR.format(text=text)
-        elif task == "mnemonic":
-            system = "You are an expert Japanese memory coach. Create vivid, brief mnemonics. Do not use emojis in your response."
-            target_word = word or text
-            ctx = context or "None provided"
-            prompt = PROMPT_MNEMONIC.format(word=target_word, context=ctx)
-        elif task == "answer_question":
-            system = PROMPT_ANSWER_QUESTION
-            if context and context.strip():
-                prompt = f"Question / Problem:\n{text}\n\nContext / Options / Notes:\n{context.strip()}"
-            else:
-                prompt = text
-        elif task == "chat":
-            system = PROMPT_CHAT
-            prompt = text
+        system, prompt = self.build_prompts(
+            task=task,
+            text=text,
+            context=context,
+            word=word,
+            mode=mode,
+            jlpt_level=jlpt_level,
+        )
 
         # Retain only the last 10 messages for prompt construction
         recent_messages = messages[-10:] if messages else None

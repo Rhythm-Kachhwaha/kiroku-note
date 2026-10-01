@@ -452,6 +452,10 @@ LLMTaskType = Literal[
 ]
 
 
+LLMResponseMode = Literal["short", "detailed"]
+LLMJLPTLevel = Literal["N1", "N2", "N3", "N4", "N5"]
+
+
 class LLMChatMessage(BaseModel):
     role: Literal["user", "assistant"] = "user"
     content: str = Field(..., max_length=10_000)
@@ -463,6 +467,8 @@ class LLMRequest(BaseModel):
     context: Optional[str] = Field(default=None, max_length=10_000, description="Optional surrounding text, dictionary definitions, or question options")
     word: Optional[str] = Field(default=None, max_length=200, description="Specific target word being analyzed")
     messages: Optional[list[LLMChatMessage]] = Field(default=None, max_length=20, description="Optional previous conversational history")
+    mode: LLMResponseMode = Field(default="short", description="Response brevity mode: short (concise) or detailed (in-depth)")
+    jlpt_level: Optional[LLMJLPTLevel] = Field(default=None, description="Learner JLPT level override (N5 to N1)")
 
     @field_validator("text")
     @classmethod
@@ -506,6 +512,7 @@ class LLMConfigResponse(BaseModel):
     key_preview: Optional[str] = None
     provider_source: str = "default"
     timeout: float = 45.0
+    jlpt_level: str = "N3"
 
 
 class LLMConfigUpdateRequest(BaseModel):
@@ -515,6 +522,7 @@ class LLMConfigUpdateRequest(BaseModel):
     ollama_url: Optional[str] = Field(default=None, max_length=500)
     api_key: Optional[str] = Field(default=None, max_length=1000)
     timeout: Optional[float] = Field(default=None, ge=5.0, le=180.0)
+    jlpt_level: Optional[str] = Field(default=None, max_length=10)
 
 
 class LLMSecretSaveRequest(BaseModel):
