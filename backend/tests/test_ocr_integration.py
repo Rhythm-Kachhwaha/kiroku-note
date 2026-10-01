@@ -39,7 +39,7 @@ class LiveServer:
         self.thread = None
 
     def start(self):
-        config = uvicorn.Config(self.app, host="127.0.0.1", port=self.port, log_level="error")
+        config = uvicorn.Config(self.app, host="127.0.0.1", port=self.port, log_level="error", ws="none")
         self.server = uvicorn.Server(config)
         self.thread = threading.Thread(target=self.server.run, daemon=True)
         self.thread.start()

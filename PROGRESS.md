@@ -8,17 +8,14 @@ Current development target: **V1.0**
 
 The core mining pipeline is functional. Current work is focused on polishing, reliability, UX, and preparing the project for public release.
 
-### Section Layout Visibility
-- Extended the existing Section Layout Order setting with per-section visibility, persisted alongside the order under the existing storage key.
-- Kept Card Fields permanently enabled, retained ordering for hidden sections, migrated legacy order arrays, and restored default visibility with Reset to Default.
-- Disabled sections are removed from the Text tab layout without changing their data or existing hidden/show lifecycle state.
-- Verification: 173/173 extension tests passed with `node --test extension/tests/*.test.js`, including customizable layout persistence, migration, reset, and disabled-section reordering.
-
-### Card Preview Inline Editing
-- Added a compact SVG edit/done control inside the existing Card Preview header, with direct plain-text editing and vertical drag ordering for Basic note types only.
-- Kept Front and Back presentation text/order independently in existing `card_settings`; canonical card fields remain unchanged, and the presentation overrides round-trip through SQLite.
-- Routed supported edits and section ordering through the existing Basic Front/Back Anki serializer with HTML escaping; custom note types cannot enter Preview Edit Mode, and the mapper rejects unsupported stored layouts rather than dropping them.
-- Verification: 173/173 extension tests and 507 backend tests passed. AnkiConnect live write was not run because `127.0.0.1:8765` refused the connection; the edited/reordered dummy payload was rendered with the production serializer for inspection.
+### Codebase & Packaging Audit
+- Performed comprehensive static, logical, dependency, syntax, packaging, and test audits across the entire codebase.
+- Verified zero frontend changes were introduced to preserve UI behavior and appearance.
+- Aligned executable resource metadata in [version-info.txt](file:///D:/Python/AnkiMiner/packaging/version-info.txt) to `1.0.1` matching `backend/app/config.py` and `manifest.json`.
+- Fixed deprecation warning in [test_ocr_api.py](file:///D:/Python/AnkiMiner/backend/tests/test_ocr_api.py) (replaced deprecated constant with standard 422 HTTP status).
+- Suppressed redundant websocket protocol deprecation warning during OCR HTTP server tests in [test_ocr_integration.py](file:///D:/Python/AnkiMiner/backend/tests/test_ocr_integration.py).
+- Hardened Inno Setup metadata validation tests in [test_ocr_packaging_config.py](file:///D:/Python/AnkiMiner/backend/tests/test_ocr_packaging_config.py).
+- Verification: 173/173 extension unit/integration tests passed (`node --test extension/tests/*.test.js`); 507/507 backend pytest tests passed (`python -m pytest`) with 0 failures and 0 warnings.
 
 ---
 

@@ -101,7 +101,7 @@ def test_post_ocr_recognize_success_with_data_url():
 
 def test_post_ocr_recognize_empty_image():
     response = client.post("/api/ocr/recognize", json={"image": "   "})
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == 422
 
 
 def test_post_ocr_recognize_invalid_base64():
