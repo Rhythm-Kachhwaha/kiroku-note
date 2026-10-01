@@ -86,6 +86,30 @@ test("Ask UI: CSS Styling for Toolbar and Controls", () => {
   assert.match(css, /\.ask-mode-pill\.active\s*\{[^}]*rgba\(255, 255, 255/);
 });
 
+test("Ask UI: Composer is a neutral floating input", () => {
+  assert.ok(html.includes('<div class="ask-input-shell">'), "Composer must use a single input shell");
+  assert.ok(html.includes('id="btn-ask-submit" aria-label="Send question"'), "Send control must stay accessible");
+  assert.ok(html.includes('stroke="currentColor"'), "Send control must use a monochrome outline icon");
+  assert.ok(html.includes('<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>'), "Send control must use a simple upward arrow");
+  assert.equal(html.includes("Ask AI"), false, "Composer must not show the Ask AI label");
+  assert.equal(html.includes("<kbd>Enter</kbd>"), false, "Composer must not show an Enter badge");
+
+  const composerStyles = css.slice(css.indexOf(".ask-composer-container {"), css.indexOf("/* LLM API Key"));
+  assert.ok(composerStyles.includes(".ask-input-shell:focus-within"), "Input shell must own neutral focus styling");
+  assert.ok(composerStyles.includes("border-radius: 28px"), "Input shell must be pill-shaped");
+  assert.ok(composerStyles.includes("padding: 10px 8px 10px 6px"), "Textarea text must have comfortable left padding");
+  assert.ok(composerStyles.includes("resize: none"), "Textarea must not expose a native resize handle");
+  assert.ok(composerStyles.includes("max-height: 220px"), "Textarea must cap growth at 220px");
+  assert.ok(composerStyles.includes("flex: 0 0 32px"), "Send button must remain a fixed 32px circle");
+  assert.equal(composerStyles.includes("#d4884f"), false, "Composer styles must not use orange");
+  assert.equal(composerStyles.includes("#b84632"), false, "Composer styles must not use red");
+
+  assert.match(js, /function resizeAskInputBox\(\)/, "Textarea must have an autosize helper");
+  assert.match(js, /askInputBox\.style\.height = "auto"/, "Autosizing must recalculate from content height");
+  assert.match(js, /contentHeight > maxHeight \? "auto" : "hidden"/, "Long prompts must scroll at the maximum height");
+  assert.match(js, /askInputBox\.addEventListener\("input", \(\) => \{\s*resizeAskInputBox\(\);/, "Typing must resize the textarea");
+});
+
 test("Ask UI: @ picker uses keyboard navigation and existing task state", () => {
   assert.match(js, /function updateAskModePicker\(\)/);
   assert.match(js, /function selectAskMode\(option\)/);

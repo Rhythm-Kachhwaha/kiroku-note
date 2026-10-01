@@ -2347,5 +2347,27 @@ New major features should generally be deferred unless they are necessary for th
   - [PASS] Full extension test suite: **167/167 passed** (`node --test extension/tests/*.test.js`)
 - **Remaining Risk:** None. All security boundaries, DPAPI secret storage, and existing Ask workflows are verified.
 
+---
+
+### Ask Composer Floating Input Redesign
+
+- **Date:** 2026-10-01
+- **Scope:** Ask composer UI only; no backend or interaction logic changes.
+- **Implementation:** Removed the separate composer surface and bottom toolbar; placed the existing Short/Detailed controls above one rounded input shell; moved the existing textarea and submit button into the shell; retained the @ mode picker above it with compact neutral styling. The character-count node remains connected to its updater but is visually hidden.
+- **Files:** `extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`, `extension/tests/ask-ui-modes.test.js`.
+- **Verification:** `node --test extension/tests/ask-ui-modes.test.js extension/tests/tier5-ask-tab.test.js` passed (17/17).
+- **Remaining Risk:** Visual appearance has not been manually smoke-tested in the Chromium side panel.
+
+---
+
+### Ask Composer Input Sizing Polish
+
+- **Date:** 2026-10-01
+- **Scope:** Ask textarea and send-button sizing only; composer design, picker, response modes, and submit behavior unchanged.
+- **Implementation:** Added 6px textarea left padding, disabled native resizing, added a 220px-capped autosize recalculation for typed and programmatically changed text, reduced the send button to 32px, and replaced the text arrow with a monochrome outline icon.
+- **Files:** `extension/sidepanel/sidepanel.css`, `extension/sidepanel/sidepanel.js`, `extension/tests/ask-ui-modes.test.js`.
+- **Verification:** `node --test extension/tests/ask-ui-modes.test.js extension/tests/tier5-ask-tab.test.js` passed (17/17); `node --check extension/sidepanel/sidepanel.js` passed.
+- **Remaining Risk:** Visual appearance has not been manually smoke-tested in the Chromium side panel.
+
 
 

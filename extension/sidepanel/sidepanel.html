@@ -363,14 +363,6 @@
         </div>
       </div>
 
-      <!-- 4. Ask Response Length Control -->
-      <div class="ask-mode-toolbar" id="ask-mode-toolbar">
-        <div class="ask-response-mode-wrap" id="ask-response-mode-toggle" role="group" aria-label="Response Length">
-          <button type="button" class="ask-mode-pill active" id="btn-mode-short" data-mode="short" title="Concise answer without filler">Short</button>
-          <button type="button" class="ask-mode-pill" id="btn-mode-detailed" data-mode="detailed" title="Detailed explanation and breakdown">Detailed</button>
-        </div>
-      </div>
-
       <!-- Quick Task Prompt Chips (Preserved for compatibility) -->
       <div class="ask-prompt-chips-wrap" id="ask-prompt-chips-wrap" style="display:none;" aria-hidden="true">
         <button type="button" class="prompt-chip active" data-task="answer_question">Answer MCQ / JLPT</button>
@@ -382,6 +374,13 @@
 
       <!-- 5. Composer Area (Textarea + Send) -->
       <div class="ask-composer-container">
+        <div class="ask-mode-toolbar" id="ask-mode-toolbar">
+          <div class="ask-response-mode-wrap" id="ask-response-mode-toggle" role="group" aria-label="Response Length">
+            <button type="button" class="ask-mode-pill active" id="btn-mode-short" data-mode="short" title="Concise answer without filler">Short</button>
+            <button type="button" class="ask-mode-pill" id="btn-mode-detailed" data-mode="detailed" title="Detailed explanation and breakdown">Detailed</button>
+          </div>
+        </div>
+        <div class="ask-input-shell">
         <div class="ask-mode-picker" id="ask-mode-picker" role="listbox" aria-label="Ask mode" hidden>
           <button type="button" class="ask-mode-option" role="option" aria-selected="false" data-task="answer_question">Answer MCQ / JLPT</button>
           <button type="button" class="ask-mode-option" role="option" aria-selected="false" data-task="explain_grammar">Explain Grammar</button>
@@ -391,16 +390,8 @@
           <button type="button" class="ask-mode-option" role="option" aria-selected="false" data-task="chat">Ask / Chat</button>
         </div>
         <textarea id="ask-input-box" class="ask-input-box" placeholder="Type a question..." rows="2" aria-label="Ask input" aria-controls="ask-mode-picker" aria-expanded="false" autocomplete="off"></textarea>
-        
-        <div class="ask-composer-toolbar">
-          <div class="composer-left-tools">
-            <span class="ask-char-count" id="ask-char-count"></span>
-          </div>
-
-          <button type="button" class="btn-ask-submit" id="btn-ask-submit">
-            <span>Ask AI</span>
-            <kbd>Enter</kbd>
-          </button>
+        <span class="ask-char-count" id="ask-char-count" aria-live="polite"></span>
+        <button type="button" class="btn-ask-submit" id="btn-ask-submit" aria-label="Send question" title="Send question"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
         </div>
       </div>
 

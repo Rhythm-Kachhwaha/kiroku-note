@@ -1446,6 +1446,7 @@ async function handleOcrCropProcess({ dataUrl, cropRect, rect, viewport }) {
     if (currentMiningTab === "ask") {
       if (askInputBox) {
         askInputBox.value = recognizedText;
+        if (typeof resizeAskInputBox === "function") resizeAskInputBox();
         if (typeof updateAskCharCount === "function") updateAskCharCount();
       }
       if (typeof setAskContext === "function") {
@@ -9375,6 +9376,15 @@ function updateAskCharCount() {
   askCharCount.textContent = count > 0 ? `${count} chars` : "";
 }
 
+function resizeAskInputBox() {
+  if (!askInputBox) return;
+  const maxHeight = 220;
+  askInputBox.style.height = "auto";
+  const contentHeight = askInputBox.scrollHeight;
+  askInputBox.style.height = `${Math.min(contentHeight, maxHeight)}px`;
+  askInputBox.style.overflowY = contentHeight > maxHeight ? "auto" : "hidden";
+}
+
 function formatInlineMarkdown(str) {
   if (!str) return "";
   // Inline code: `code`
@@ -9587,6 +9597,7 @@ async function sendAskQuery(task = currentAskTask, overrideText = null) {
 
   if (askInputBox && !overrideText) {
     askInputBox.value = "";
+    resizeAskInputBox();
     updateAskCharCount();
   }
 
@@ -9817,6 +9828,7 @@ function selectAskMode(option) {
   if (askModePickerStart >= 0 && askModePickerEnd >= askModePickerStart) {
     askInputBox.value = askInputBox.value.slice(0, askModePickerStart) + askInputBox.value.slice(askModePickerEnd);
     askInputBox.setSelectionRange(askModePickerStart, askModePickerStart);
+    resizeAskInputBox();
     updateAskCharCount();
   }
   closeAskModePicker();
@@ -9878,6 +9890,7 @@ if (btnAskNewChat) {
     clearAskContext();
     if (askInputBox) {
       askInputBox.value = "";
+      resizeAskInputBox();
       updateAskCharCount();
       askInputBox.focus();
     }
@@ -9885,7 +9898,9 @@ if (btnAskNewChat) {
 }
 
 if (askInputBox) {
+  resizeAskInputBox();
   askInputBox.addEventListener("input", () => {
+    resizeAskInputBox();
     updateAskCharCount();
     updateAskModePicker();
   });
