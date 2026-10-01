@@ -335,7 +335,7 @@ function loadDeckTemplateSettings(deckName) {
 function applyHistoryVisibility() {
   const historySec = document.querySelector("#history-section");
   if (!historySec) return;
-  const showHistory = currentCardTemplateSettings?.show_history !== false;
+  const showHistory = currentMiningTab === "history" && currentCardTemplateSettings?.show_history !== false;
   historySec.hidden = !showHistory;
   historySec.style.display = showHistory ? "" : "none";
 }
@@ -920,6 +920,7 @@ const quickAddModeEnglish = document.querySelector("#quickadd-mode-english");
 const quickAddModeKatakana = document.querySelector("#quickadd-mode-katakana");
 
 let currentMiningTab = "text";
+let activeAskContext = { text: "", source: "" };
 let currentQuickAddKanaMode = "hiragana";
 let currentQuickAddSearchMode = "kana";
 let quickAddCandidates = [];
@@ -8019,6 +8020,12 @@ function switchMiningTab(targetTab) {
   const tab = validTabs.includes(targetTab) ? targetTab : "text";
   currentMiningTab = tab;
 
+  if (cardEditorSection) {
+    const hideEditor = tab === "history" || tab === "ask" || tab === "settings";
+    cardEditorSection.hidden = hideEditor;
+    cardEditorSection.style.display = hideEditor ? "none" : "";
+  }
+
   // Settings is now a full tab; no separate popover logic needed
 
   if (tabBtnText) {
@@ -8080,7 +8087,8 @@ function switchMiningTab(targetTab) {
     tabBtnHistory.setAttribute("aria-selected", String(isHistory));
   }
   if (historySection) {
-    if (tab === "history") {
+    const showHistory = tab === "history" && currentCardTemplateSettings?.show_history !== false;
+    if (showHistory) {
       historySection.hidden = false;
       historySection.style.display = "";
       if (historyContentContainer) {
@@ -8110,12 +8118,6 @@ function switchMiningTab(targetTab) {
       renderLayoutSettingsList(currentCardSectionOrder);
       if (typeof checkLLMStatus === "function") checkLLMStatus().catch(() => {});
     }
-  }
-
-  if (cardEditorSection) {
-    const hideEditor = tab === "history" || tab === "ask" || tab === "settings";
-    cardEditorSection.hidden = hideEditor;
-    cardEditorSection.style.display = hideEditor ? "none" : "";
   }
 
   try {
@@ -9030,7 +9032,6 @@ if (btnDismissFirstRun) {
    TIER 5: ASK TAB (AI ASSISTANT) LOGIC & INTEGRATION
    ========================================================================== */
 
-let activeAskContext = { text: "", source: "" };
 let askChatHistory = [];
 let isAskLoading = false;
 let currentAskTask = "answer_question";

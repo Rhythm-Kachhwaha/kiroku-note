@@ -2369,5 +2369,24 @@ New major features should generally be deferred unless they are necessary for th
 - **Verification:** `node --test extension/tests/ask-ui-modes.test.js extension/tests/tier5-ask-tab.test.js` passed (17/17); `node --check extension/sidepanel/sidepanel.js` passed.
 - **Remaining Risk:** Visual appearance has not been manually smoke-tested in the Chromium side panel.
 
+---
+
+### First-Open Ask Tab Rendering Fix
+
+- **Date:** 2026-10-01
+- **Root Cause:** Startup tab restoration can synchronously call `switchMiningTab("ask")` through the local-storage fallback before `activeAskContext` was initialized. The resulting temporal-dead-zone exception interrupted the transition before the shared card editor was hidden.
+- **Implementation:** Initialize Ask context state alongside the other early tab state, before startup restoration. Also apply the existing card-editor visibility state at the start of every tab transition so tab visibility is established before tab-specific setup.
+- **Files:** `extension/sidepanel/sidepanel.js`, `extension/tests/tier5-ask-tab.test.js`.
+- **Verification:** Ask/tab-focused suites passed (18/18 tests plus Quick Add tab-switch checks); full extension suite passed (170/170). Browser checks passed for fresh Text → Ask, Ask → Text → Ask, refresh with Ask selected, and Video/Quick/History → Ask; Ask remained visible with the card editor hidden in every case.
+- **Remaining Risk:** Browser checks used the local HTML page, not a packaged Chromium extension runtime; the page reports expected missing `chrome.runtime` API errors outside the extension host.
+
+### History Panel Startup Visibility Follow-Up
+
+- **Date:** 2026-10-01
+- **Root Cause:** Async card-template settings called `applyHistoryVisibility()`, which showed the entire History tab panel whenever the `show_history` preference was enabled, without checking the active tab. This could reveal History under Ask after the initial tab switch.
+- **Implementation:** Gate History panel visibility on both the active History tab and the existing preference, including tab transitions.
+- **Files:** `extension/sidepanel/sidepanel.js`, `extension/tests/real-world-ux-fixes.test.js`, `extension/tests/tier5-ask-tab.test.js`.
+- **Verification:** Full extension suite passed (170/170). Browser checks after delayed settings load passed for first Ask, Ask revisit after Text, active History, Ask after Video/Quick/History, and refresh on Ask; History stayed hidden outside its tab and visible on its tab.
+
 
 

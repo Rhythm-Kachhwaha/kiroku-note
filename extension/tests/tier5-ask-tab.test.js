@@ -193,6 +193,26 @@ test("Tier 5 Session 2: Universal [JP] Mode & OCR Capture Integration", () => {
     js.includes('hideEditor = tab === "history" || tab === "ask"'),
     "switchMiningTab must hide card editor section when on 'ask' tab"
   );
+
+  const tabSwitchBody = js.slice(
+    js.indexOf("function switchMiningTab(targetTab)"),
+    js.indexOf("async function loadTabPreference()")
+  );
+  assert.ok(
+    tabSwitchBody.indexOf("cardEditorSection.hidden = hideEditor") < tabSwitchBody.indexOf("if (askMiningView)"),
+    "Shared card editor must be hidden before Ask-specific setup can interrupt the first tab transition"
+  );
+
+  assert.ok(
+    js.indexOf("let activeAskContext = { text: \"\", source: \"\" };") < js.indexOf("loadTabPreference().catch(() => {});"),
+    "Ask context state must be initialized before startup tab restoration can select Ask"
+  );
+
+  const historyVisibilityBody = js.slice(
+    js.indexOf("function applyHistoryVisibility()"),
+    js.indexOf("async function loadStoredCardTemplateSettings()")
+  );
+  assert.match(historyVisibilityBody, /currentMiningTab === "history"/, "Async history settings must respect the active tab");
 });
 
 test("Tier 5 Session 2: sidepanel.js Module Exports for Ask Tab", () => {

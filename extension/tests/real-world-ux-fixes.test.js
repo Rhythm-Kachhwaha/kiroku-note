@@ -154,18 +154,22 @@ console.log("PASS 4: Contextual candidate token replacement verified.");
 // ==========================================================================
 // 5. Test History Visibility Toggle (Guardrail 4)
 // ==========================================================================
-function mockApplyHistoryVisibility(settings, mockElement) {
-  const showHistory = settings?.show_history !== false;
+function mockApplyHistoryVisibility(settings, activeTab, mockElement) {
+  const showHistory = activeTab === "history" && settings?.show_history !== false;
   mockElement.hidden = !showHistory;
   mockElement.style.display = showHistory ? "" : "none";
 }
 
 const mockHistorySec = { hidden: false, style: { display: "" } };
-mockApplyHistoryVisibility({ show_history: true }, mockHistorySec);
+mockApplyHistoryVisibility({ show_history: true }, "ask", mockHistorySec);
+assert.equal(mockHistorySec.hidden, true, "History section must stay hidden when Ask is active");
+assert.equal(mockHistorySec.style.display, "none", "History must not be displayed underneath Ask");
+
+mockApplyHistoryVisibility({ show_history: true }, "history", mockHistorySec);
 assert.equal(mockHistorySec.hidden, false, "History section must be visible when show_history: true");
 assert.equal(mockHistorySec.style.display, "", "Display style must be empty when visible");
 
-mockApplyHistoryVisibility({ show_history: false }, mockHistorySec);
+mockApplyHistoryVisibility({ show_history: false }, "history", mockHistorySec);
 assert.equal(mockHistorySec.hidden, true, "History section must be hidden when show_history: false");
 assert.equal(mockHistorySec.style.display, "none", "Display style must be 'none' when hidden to reclaim space");
 
