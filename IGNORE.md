@@ -45,3 +45,4 @@ Agents should not read, modify, or consider the following files/directories as p
 - Backend tests should be in `backend/tests/` only
 - Extension tests should be in `extension/tests/` only
 - Root-level Python files are typically throwaway scripts
+- `backend/data/.secrets.enc` - per-user encrypted credential store; never commit it

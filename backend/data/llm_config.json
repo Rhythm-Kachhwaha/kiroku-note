@@ -1,0 +1,6 @@
+{
+  "provider": "groq",
+  "jlpt_level": "N3",
+  "model": "openai/gpt-oss-120b",
+  "key_name": "Kiroku"
+}

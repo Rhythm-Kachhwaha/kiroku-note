@@ -2151,6 +2151,24 @@ New major features should generally be deferred unless they are necessary for th
 - **Files:** `extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`, `extension/tests/ask-ui-modes.test.js`.
 - **Remaining Risk:** Visual appearance has not been manually smoke-tested in the Chromium side panel.
 
+### JLPT-Aware LLM Answers
+
+- **Date:** 2026-10-01
+- **Scope:** Correct LLM responses to questions about the learner's configured JLPT level and reduce explanations of already-known lower-level fundamentals.
+- **Files:** `backend/app/services/llm_service.py`, `backend/tests/test_llm_prompts.py`
+- **Changes:** The shared system instruction now treats the configured level as known Settings data (not a measured exam result), answers level questions with that configured value, and directs the assistant to skip easier-level fundamentals unless requested or necessary.
+- **Verification:** The prompt regression suite passed (9 tests), and the prompt/config tests passed in the broader run. The combined LLM service run had 39 passes and 10 environment-related failures because locally persisted provider/key/model settings override tests' cleared environment variables; one affected connection test attempted a network request.
+- **Remaining Risk:** LLM output can vary by provider; this guides behavior but does not independently verify proficiency or guarantee identical wording.
+
+### Mined-Word Ask Composer Transfer
+
+- **Date:** 2026-10-01
+- **Scope:** Make the card editor's Ask action start an editable free-form request in the Ask tab.
+- **Files:** `extension/sidepanel/sidepanel.js`, `extension/tests/text-ask-transfer.test.js`
+- **Changes:** The action now clears the separate context banner, prefills the Ask textarea with a question and mined-word details, selects chat mode, and updates composer sizing and character count without sending automatically.
+- **Verification:** Updated the text-to-Ask transfer test to cover the new composer behavior.
+- **Remaining Risk:** None identified; manual Side Panel smoke testing remains useful for focus and sizing.
+
 ---
 
 ### Ask Composer Input Sizing Polish

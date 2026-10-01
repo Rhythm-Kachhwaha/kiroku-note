@@ -67,6 +67,7 @@ backend/data/media/
 backend/data/*.db
 backend/data/*.sqlite-shm
 backend/data/*.sqlite-wal
+backend/data/.secrets.enc
 backend/data/ankiminer.db*
 backend/data/kiroku.db*
 

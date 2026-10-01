@@ -8476,7 +8476,13 @@ if (tabBtnAsk) {
 if (btnAskFromText) {
   btnAskFromText.addEventListener("click", () => {
     const context = buildTextAskContext();
-    setAskContext(context, "Text Capture");
+    clearAskContext();
+    currentAskTask = "chat";
+    if (askInputBox && context) {
+      askInputBox.value = `Explain this mined word and how it is used:\n${context}`;
+      resizeAskInputBox();
+      updateAskCharCount();
+    }
     switchMiningTab("ask");
   });
 }

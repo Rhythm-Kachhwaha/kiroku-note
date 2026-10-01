@@ -14,6 +14,15 @@ def test_build_system_instruction_jlpt_levels():
         assert "emojis" in instr.lower()
 
 
+def test_chat_prompt_answers_from_configured_level_and_skips_basics():
+    instr = build_system_instruction(task="chat", jlpt_level="N3", mode="short")
+
+    assert "configured study level" in instr
+    assert "JLPT N3 is configured in Settings" in instr
+    assert "do not say you lack information" in instr
+    assert "skip those basics unless asked or needed" in instr
+
+
 def test_build_system_instruction_modes():
     short_instr = build_system_instruction(task="explain_grammar", jlpt_level="N3", mode="short")
     assert "short" in short_instr.lower()

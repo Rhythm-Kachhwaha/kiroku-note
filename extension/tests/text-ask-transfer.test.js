@@ -36,9 +36,14 @@ test("Text capture context includes available card and source details", () => {
   assert.equal(context.result, "Word: 合\nReading: ごう\nCurrent meaning: fit; match\nCaptured text: 話が合う");
 });
 
-test("Ask action transfers context and navigates without submitting a query", () => {
+test("Ask action prefills the editable composer and navigates without submitting", () => {
   const handler = js.match(/if \(btnAskFromText\) \{([\s\S]*?)\n\}/)?.[1] || "";
-  assert.match(handler, /setAskContext\(context, "Text Capture"\)/);
+  assert.match(handler, /clearAskContext\(\)/);
+  assert.match(handler, /currentAskTask = "chat"/);
+  assert.match(handler, /askInputBox\.value = `Explain this mined word and how it is used:/);
+  assert.match(handler, /resizeAskInputBox\(\)/);
+  assert.match(handler, /updateAskCharCount\(\)/);
   assert.match(handler, /switchMiningTab\("ask"\)/);
   assert.equal(handler.includes("sendAskQuery"), false);
+  assert.equal(handler.includes("setAskContext"), false);
 });
