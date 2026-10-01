@@ -2397,5 +2397,14 @@ New major features should generally be deferred unless they are necessary for th
 - **Files:** `extension/sidepanel/sidepanel.js`, `extension/tests/real-world-ux-fixes.test.js`, `extension/tests/tier5-ask-tab.test.js`.
 - **Verification:** Full extension suite passed (170/170). Browser checks after delayed settings load passed for first Ask, Ask revisit after Text, active History, Ask after Video/Quick/History, and refresh on Ask; History stayed hidden outside its tab and visible on its tab.
 
+### Settings Shell Alignment
+
+- **Date:** 2026-10-01
+- **Root Cause:** Settings used a viewport-fixed overlay with full-viewport width, independent of the centered `.panel` shell and its responsive horizontal padding.
+- **Implementation:** Anchored Settings to the shared `.panel` shell, matched its 8px/12px/16px responsive inset and the header's 14px inner padding, and compensated for the Settings scrollbar gutter at the right edge. Settings controls and appearance are otherwise unchanged.
+- **Files:** `extension/sidepanel/sidepanel.css`, `extension/tests/sidepanel.test.js`.
+- **Verification:** Side-panel alignment test passed; full extension suite passed (170/170).
+- **Remaining Risk:** Packaged Chromium-extension visual smoke testing was not run.
+
 
 

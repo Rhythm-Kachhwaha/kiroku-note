@@ -5,7 +5,11 @@ const path = require("node:path");
 const htmlPath = fs.existsSync("extension/sidepanel/sidepanel.html")
   ? "extension/sidepanel/sidepanel.html"
   : path.resolve(__dirname, "../sidepanel/sidepanel.html");
+const sidepanelCssPath = fs.existsSync("extension/sidepanel/sidepanel.css")
+  ? "extension/sidepanel/sidepanel.css"
+  : path.resolve(__dirname, "../sidepanel/sidepanel.css");
 const html = fs.readFileSync(htmlPath, "utf8");
+const sidepanelCss = fs.readFileSync(sidepanelCssPath, "utf8");
 
 // Verify required Phase 4 & 5 elements exist in the DOM
 assert.ok(html.includes('id="field-deck-select"'), "Deck selector select must exist");
@@ -28,6 +32,12 @@ assert.ok(settingsStatusIndex > settingsBodyIndex && settingsStatusIndex < gener
 assert.ok(html.includes('class="system-status-name">Yomitan</span>'), "Yomitan status must be labeled");
 assert.ok(html.includes('class="system-status-name">Anki</span>'), "Anki status must be labeled");
 assert.ok(html.includes('class="system-status-name">OCR</span>'), "OCR status must be labeled");
+assert.match(sidepanelCss, /\.panel\s*\{[^}]*position:\s*relative;/, "The shared panel must anchor overlays");
+assert.match(sidepanelCss, /\.layout-settings-popover\s*\{[^}]*position:\s*absolute;[^}]*left:\s*var\(--space-3\);[^}]*right:\s*var\(--space-3\);/, "Settings must use the shared panel's horizontal content bounds");
+assert.match(sidepanelCss, /\.panel \.layout-settings-popover\s*\{\s*left:\s*8px;\s*right:\s*8px;/, "Narrow Settings inset must match the panel's 8px padding");
+assert.match(sidepanelCss, /\.panel \.layout-settings-popover\s*\{\s*left:\s*16px;\s*right:\s*16px;/, "Wide Settings inset must match the panel's 16px padding");
+assert.ok(sidepanelCss.includes("padding: 24px 8px 10px 14px;"), "Settings content must account for the overlay scrollbar while matching header edges");
+assert.ok(sidepanelCss.includes("padding: 18px 0 32px !important;"), "Settings content must share the header's inner horizontal alignment");
 assert.ok(html.includes('id="expression"'), "Prominent expression display element must exist");
 assert.ok(html.includes('id="reading"'), "Prominent reading display element must exist");
 assert.ok(html.includes('id="field-font-select"'), "Japanese font selector must exist");
