@@ -9054,9 +9054,7 @@ async function checkLLMStatus() {
       askStatusDot.className = `ask-status-dot ${isConfigured ? "online" : "offline"}`;
     }
     if (askProviderName) {
-      askProviderName.textContent = isConfigured
-        ? (provider.charAt(0).toUpperCase() + provider.slice(1))
-        : "AI Assistant";
+      askProviderName.textContent = isConfigured ? "Online" : "Offline";
     }
     if (askModelTag) {
       askModelTag.textContent = isConfigured ? (model || provider) : "offline";
@@ -9072,6 +9070,9 @@ async function checkLLMStatus() {
   } catch (err) {
     if (askStatusDot) {
       askStatusDot.className = "ask-status-dot offline";
+    }
+    if (askProviderName) {
+      askProviderName.textContent = "Offline";
     }
     if (askModelTag) {
       askModelTag.textContent = "offline";

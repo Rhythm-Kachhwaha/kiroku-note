@@ -54,6 +54,22 @@ test("Tier 5 Session 2: DOM Structure - Ask Tab Mining View", () => {
   );
 });
 
+test("Tier 5 Session 2: Ask status and New Chat use an unframed compact row", () => {
+  assert.ok(html.includes('id="ask-status-dot"'), "Ask status indicator must remain present");
+  assert.ok(html.includes('id="ask-provider-name">Online</span>'), "Ask status must start as Online");
+  assert.ok(html.includes('id="btn-ask-new-chat"'), "New Chat control must remain present");
+  assert.equal(html.includes("ask-provider-pill"), false, "Ask status must not use a pill");
+  assert.match(js, /askProviderName\.textContent = isConfigured \? "Online" : "Offline"/);
+  assert.match(js, /askProviderName\.textContent = "Offline"/);
+
+  const statusStyles = css.match(/\.ask-status-bar\s*\{([^}]*)\}/)?.[1] || "";
+  assert.doesNotMatch(
+    statusStyles,
+    /^\s*(?:background(?:-[\w-]+)?|border(?:-[\w-]+)?)\s*:/m,
+    "Ask status row must not draw a separate surface"
+  );
+});
+
 test("Tier 5 Session 2: Visual Guardrail - Strict Absence of Emojis", () => {
   // Extract only the ask-mining-view section
   const askSectionMatch = html.match(/<div id="ask-mining-view"[\s\S]*?<\/div>\s*<!--\s*={5,}/);

@@ -7965,55 +7965,48 @@ div[data-content="example"],
   display: none !important;
 }
 
-/* 1. Ask Status Bar */
+/* 1. Ask status and conversation action */
 .ask-status-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--bg-surface-1, #181715);
-  border-bottom: 1px solid var(--border-subtle, #25221e);
+  min-height: 26px;
+  padding: 3px 12px 0;
+  box-sizing: border-box;
 }
 
-.ask-provider-pill {
+.ask-status-indicator {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  background: var(--bg-surface-2, #211f1c);
-  border: 1px solid var(--border-default, #302b25);
-  padding: 3px 9px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary, #9e948a);
+  gap: 5px;
+  color: var(--text-muted, #756e65);
+  font-size: 10px;
+  line-height: 1;
 }
 
 .ask-status-dot {
-  width: 7px;
-  height: 7px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background: #5ea36a;
-  box-shadow: 0 0 6px rgba(94, 163, 106, 0.6);
+  background: #729779;
   display: inline-block;
+  flex: 0 0 auto;
 }
 
 .ask-status-dot.offline {
-  background: #d4954f;
-  box-shadow: none;
+  background: #716d67;
+}
+
+.ask-status-dot.online + .ask-provider-name {
+  color: #78977c;
+}
+
+.ask-status-dot.offline + .ask-provider-name {
+  color: var(--text-muted, #756e65);
 }
 
 .ask-provider-name {
-  color: var(--text-primary, #ede8e1);
-  font-weight: 600;
-}
-
-.ask-model-tag {
-  font-family: var(--font-mono, monospace);
-  font-size: 10px;
-  color: #d4884f;
-  background: rgba(212, 136, 79, 0.12);
-  padding: 1px 5px;
-  border-radius: 3px;
+  color: inherit;
 }
 
 .ask-top-actions {
@@ -8024,11 +8017,11 @@ div[data-content="example"],
 
 .btn-ask-reset {
   background: transparent;
-  border: 1px solid var(--border-subtle, #25221e);
+  border: 0;
   color: var(--text-secondary, #9e948a);
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 4px;
+  font-size: 10px;
+  padding: 3px 0 3px 6px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.15s ease;
   display: inline-flex;
@@ -8037,9 +8030,7 @@ div[data-content="example"],
 }
 
 .btn-ask-reset:hover {
-  background: var(--bg-surface-3, #2b2723);
   color: var(--text-primary, #ede8e1);
-  border-color: var(--border-default, #302b25);
 }
 
 /* 2. Active Context Detection Banner */

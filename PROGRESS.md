@@ -358,6 +358,11 @@ The core application and media-mining functionality has already been implemented
 Before beginning each major V1 stage:
 
 1. Inspect the existing implementation.
+
+## Recent UI Update
+
+- Simplified the Ask tab status and New Chat controls into a small, unframed row; status now displays Online/Offline without provider or model labels.
+- Verification: `node --test extension/tests/tier5-ask-tab.test.js` (10 tests passed, including the new status-row regression assertion).
 2. Establish the current behavior.
 3. Make the smallest appropriate change.
 4. Run the existing test suites.

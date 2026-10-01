@@ -323,12 +323,11 @@
          ========================================================= -->
     <div id="ask-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-ask" hidden>
       
-      <!-- 1. AI Assistant Status & Controls Bar -->
+      <!-- 1. Ask status and conversation action -->
       <div class="ask-status-bar">
-        <div class="ask-provider-pill" id="ask-provider-pill" title="Configured via backend KIROKU_LLM_PROVIDER">
-          <span class="ask-status-dot online" id="ask-status-dot"></span>
-          <span class="ask-provider-name" id="ask-provider-name">AI Assistant</span>
-          <span class="ask-model-tag" id="ask-model-tag">checking...</span>
+        <div class="ask-status-indicator" title="AI service availability">
+          <span class="ask-status-dot online" id="ask-status-dot" aria-hidden="true"></span>
+          <span class="ask-provider-name" id="ask-provider-name">Online</span>
         </div>
         <div class="ask-top-actions">
           <button type="button" class="btn-ask-reset" id="btn-ask-new-chat" title="Clear current conversation history">
