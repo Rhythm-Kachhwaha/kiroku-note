@@ -192,6 +192,7 @@ const cardPreviewContainer = document.querySelector("#card-preview-container");
 const cardPreviewCard = document.querySelector("#card-preview-card");
 const previewTabFront = document.querySelector("#preview-tab-front");
 const previewTabBack = document.querySelector("#preview-tab-back");
+const previewEditToggle = document.querySelector("#preview-edit-toggle");
 
 // Media preview elements
 const mediaPreviewContainer = document.querySelector("#media-preview-container");
@@ -1577,6 +1578,9 @@ if (fieldModelSelect) {
     const val = fieldModelSelect.value;
     if (fieldModelName) fieldModelName.value = val;
     updateDestinationIndicator();
+    if (!canReorderPreviewBlocks()) setPreviewEditMode(false);
+    else updatePreviewEditButton();
+    scheduleCardPreviewUpdate();
     loadModelCapabilities(val).catch(() => {});
     try {
       if (typeof chrome !== "undefined" && chrome.storage?.local) {
@@ -1863,6 +1867,207 @@ function updateHeroBadges(body) {
 // ==========================================================================
 var currentPreviewSide = "back"; // "front" | "back"
 var previewUpdateTimer = null;
+var currentPreviewPresentation = { front: { text: {}, order: null }, back: { text: {}, order: null } };
+var previewContextKey = "";
+var isPreviewEditing = false;
+var draggedPreviewBlock = null;
+
+function emptyPreviewPresentation() {
+  return { front: { text: {}, order: null }, back: { text: {}, order: null } };
+}
+
+function normalizePreviewPresentation(value) {
+  const normalized = emptyPreviewPresentation();
+  if (!value || typeof value !== "object") return normalized;
+  for (const side of ["front", "back"]) {
+    const source = value[side];
+    if (!source || typeof source !== "object") continue;
+    normalized[side].text = source.text && typeof source.text === "object" ? { ...source.text } : {};
+    normalized[side].order = Array.isArray(source.order) ? source.order.filter(key => typeof key === "string") : null;
+  }
+  return normalized;
+}
+
+function getPreviewContextKey() {
+  const cardId = typeof fieldCardId !== "undefined" && fieldCardId ? String(fieldCardId.value || "").trim() : "";
+  if (cardId) return `card:${cardId}`;
+  const expressionValue = typeof fieldExpression !== "undefined" && fieldExpression ? String(fieldExpression.value || "").trim() : "";
+  return `draft:${expressionValue}`;
+}
+
+function ensurePreviewContext() {
+  const contextKey = getPreviewContextKey();
+  if (previewContextKey && contextKey !== previewContextKey) {
+    currentPreviewPresentation = emptyPreviewPresentation();
+    isPreviewEditing = false;
+    updatePreviewEditButton();
+  }
+  previewContextKey = contextKey;
+}
+
+function restorePreviewPresentation(value) {
+  currentPreviewPresentation = normalizePreviewPresentation(value);
+  previewContextKey = getPreviewContextKey();
+  isPreviewEditing = false;
+  updatePreviewEditButton();
+}
+
+function getCardSettingsWithPreview() {
+  ensurePreviewContext();
+  return {
+    ...(typeof currentCardTemplateSettings !== "undefined" && currentCardTemplateSettings ? currentCardTemplateSettings : {}),
+    preview_presentation: currentPreviewPresentation,
+  };
+}
+
+function canReorderPreviewBlocks() {
+  const model = (typeof fieldModelSelect !== "undefined" && fieldModelSelect && fieldModelSelect.value)
+    || (typeof fieldModelName !== "undefined" && fieldModelName && fieldModelName.value)
+    || "Basic";
+  return String(model).trim().toLowerCase() === "basic";
+}
+
+function updatePreviewEditButton() {
+  const button = previewEditToggle;
+  if (!button) return;
+  const supported = canReorderPreviewBlocks();
+  button.disabled = !supported;
+  button.setAttribute("aria-pressed", String(isPreviewEditing));
+  button.setAttribute("aria-label", supported ? (isPreviewEditing ? "Finish preview editing" : "Edit card preview") : "Preview editing requires Basic note type");
+  button.title = supported ? (isPreviewEditing ? "Finish editing" : "Edit preview") : "Preview editing requires Basic note type";
+  button.innerHTML = isPreviewEditing
+    ? '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 3.1 3.1L13 4.5" /></svg>'
+    : '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.7 2.3a1.6 1.6 0 0 1 2.3 2.3L6 12.6 3 13l.4-3z"/><path d="m10.7 3.3 2 2"/></svg>';
+}
+
+function collectPreviewNodes(root, callback) {
+  for (const child of Array.from(root.children || [])) {
+    callback(child);
+    collectPreviewNodes(child, callback);
+  }
+}
+
+function previewClassHas(element, className) {
+  return String(element.className || "").split(/\s+/).includes(className);
+}
+
+function applyPreviewBlockOrder(container, order) {
+  if (!Array.isArray(order) || !order.length || typeof container.replaceChildren !== "function") return;
+  const originalChildren = Array.from(container.children || []);
+  const blocks = new Map();
+  for (const child of originalChildren) {
+    const blockKey = child.getAttribute?.("data-preview-block");
+    if (!blockKey) continue;
+    if (!blocks.has(blockKey)) blocks.set(blockKey, []);
+    blocks.get(blockKey).push(child);
+  }
+  const orderedChildren = [];
+  for (const key of order) {
+    const block = blocks.get(key);
+    if (!block) continue;
+    orderedChildren.push(...block);
+    blocks.delete(key);
+  }
+  for (const child of originalChildren) {
+    const key = child.getAttribute?.("data-preview-block");
+    if (!key) orderedChildren.push(child);
+    else if (blocks.has(key)) {
+      orderedChildren.push(...blocks.get(key));
+      blocks.delete(key);
+    }
+  }
+  container.replaceChildren(...orderedChildren);
+}
+
+function decoratePreviewForEditing(container, side, sidePresentation) {
+  const directChildren = Array.from(container.children || []);
+  for (const child of directChildren) {
+    const key = side === "front"
+      ? (previewClassHas(child, "kn-front-expression") ? "expression"
+        : previewClassHas(child, "kn-front-tags") ? "jlpt"
+          : previewClassHas(child, "kn-front-reading") ? "reading"
+            : previewClassHas(child, "kn-front-kanji-reading") ? "kanji_reading"
+              : previewClassHas(child, "kn-front-meaning") ? "meaning"
+                : previewClassHas(child, "kn-hint") ? "hint" : "")
+      : (previewClassHas(child, "kn-reading") || previewClassHas(child, "kn-divider") ? "header"
+        : previewClassHas(child, "kn-meaning") || previewClassHas(child, "kn-meanings") ? "meaning"
+          : previewClassHas(child, "kn-kanji-card") ? "kanji"
+            : previewClassHas(child, "kn-example-block") ? "example"
+              : previewClassHas(child, "kn-hint") ? "hint"
+                : previewClassHas(child, "kn-notes") ? "notes"
+                  : previewClassHas(child, "kn-media") ? "media" : "");
+    if (key) child.setAttribute("data-preview-block", key);
+    child.draggable = Boolean(key && isPreviewEditing && canReorderPreviewBlocks());
+    if (key) child.setAttribute("draggable", String(child.draggable));
+  }
+
+  collectPreviewNodes(container, element => {
+    let editKey = "";
+    if (side === "front") {
+      if (previewClassHas(element, "kn-front-expression")) editKey = "expression";
+      else if (previewClassHas(element, "kn-front-reading")) editKey = "reading";
+      else if (previewClassHas(element, "kn-meaning") || previewClassHas(element, "kn-meanings")) editKey = "meaning";
+      else if (previewClassHas(element, "kn-hint")) editKey = "hint";
+    } else {
+      if (previewClassHas(element, "kn-kana")) editKey = "reading";
+      else if (previewClassHas(element, "kn-meaning") || previewClassHas(element, "kn-meanings")) editKey = "meaning";
+      else if (previewClassHas(element, "kn-example-ja")) editKey = "example_sentence";
+      else if (previewClassHas(element, "kn-example-en")) editKey = "example_translation";
+      else if (previewClassHas(element, "kn-hint")) editKey = "hint";
+      else if (previewClassHas(element, "kn-notes")) editKey = "notes";
+    }
+    if (editKey && isPreviewEditing) {
+      element.setAttribute("data-preview-edit-key", editKey);
+      element.setAttribute("contenteditable", "plaintext-only");
+      element.setAttribute("spellcheck", "false");
+    }
+  });
+
+  if (Array.isArray(sidePresentation.order)) applyPreviewBlockOrder(container, sidePresentation.order);
+}
+
+function setPreviewEditMode(enabled) {
+  if (enabled && !canReorderPreviewBlocks()) return;
+  isPreviewEditing = Boolean(enabled);
+  updatePreviewEditButton();
+  if (typeof cardPreviewCard !== "undefined" && typeof cardPreviewCard?.classList?.toggle === "function") {
+    cardPreviewCard.classList.toggle("preview-editing", isPreviewEditing);
+  }
+  updateCardPreview();
+}
+
+function handlePreviewInlineEdit(event) {
+  const target = event?.target;
+  const editKey = target?.getAttribute?.("data-preview-edit-key");
+  if (!isPreviewEditing || !editKey) return;
+  ensurePreviewContext();
+  const sidePresentation = currentPreviewPresentation[currentPreviewSide];
+  let value = String(target.innerText !== undefined ? target.innerText : target.textContent || "").trim();
+  if (editKey === "hint") value = value.replace(/^Hint:\s*/i, "");
+  if (editKey === "notes") value = value.replace(/^Notes:\s*/i, "");
+  sidePresentation.text[editKey] = value;
+  if (typeof isCardDraftDirtyState !== "undefined") isCardDraftDirtyState = true;
+}
+
+function reorderPreviewBlocks(sourceKey, targetKey, placeAfter) {
+  if (!canReorderPreviewBlocks() || !sourceKey || !targetKey || sourceKey === targetKey) return;
+  ensurePreviewContext();
+  const sidePresentation = currentPreviewPresentation[currentPreviewSide];
+  const keys = [];
+  for (const child of Array.from(cardPreviewCard.children || [])) {
+    const key = child.getAttribute?.("data-preview-block");
+    if (key && !keys.includes(key)) keys.push(key);
+  }
+  const sourceIndex = keys.indexOf(sourceKey);
+  const targetIndex = keys.indexOf(targetKey);
+  if (sourceIndex < 0 || targetIndex < 0) return;
+  keys.splice(sourceIndex, 1);
+  let insertIndex = keys.indexOf(targetKey) + (placeAfter ? 1 : 0);
+  keys.splice(insertIndex, 0, sourceKey);
+  sidePresentation.order = keys;
+  if (typeof isCardDraftDirtyState !== "undefined") isCardDraftDirtyState = true;
+  updateCardPreview();
+}
 var currentJlptLevel = null;
 var currentVerbMetadata = null;
 
@@ -1905,6 +2110,7 @@ function scheduleCardPreviewUpdate() {
 }
 
 function getCardPreviewData() {
+  ensurePreviewContext();
   const expr = fieldExpression ? (fieldExpression.value || "").trim() : "";
   const read = fieldReading ? (fieldReading.value || "").trim() : "";
   const mean = fieldMeaning ? (fieldMeaning.value || "").trim() : "";
@@ -2000,6 +2206,7 @@ function getCardPreviewData() {
     kanji_entries: (typeof currentKanjiEntries !== "undefined" && Array.isArray(currentKanjiEntries)) ? currentKanjiEntries : [],
     kanji_readings: kanjiReadings,
     template_settings: currentCardTemplateSettings,
+    preview_presentation: currentPreviewPresentation,
   };
 }
 
@@ -2112,6 +2319,19 @@ function renderPreviewMeanings(container, data) {
 
 function renderCardPreviewDOM(container, data, side = "back") {
   if (!container) return;
+  const presentation = data.preview_presentation || currentPreviewPresentation;
+  const sidePresentation = presentation?.[side] && typeof presentation[side] === "object"
+    ? presentation[side]
+    : { text: {}, order: null };
+  const textOverrides = sidePresentation.text && typeof sidePresentation.text === "object" ? sidePresentation.text : {};
+  const editableKeys = side === "front"
+    ? ["expression", "reading", "meaning", "hint"]
+    : ["reading", "meaning", "hint", "example_sentence", "example_translation", "notes"];
+  data = { ...data };
+  for (const key of editableKeys) {
+    if (Object.prototype.hasOwnProperty.call(textOverrides, key)) data[key] = String(textOverrides[key]);
+  }
+  if (Object.prototype.hasOwnProperty.call(textOverrides, "meaning")) data.entries = [];
   if (typeof container.replaceChildren === "function") {
     container.replaceChildren();
   }
@@ -2207,6 +2427,7 @@ function renderCardPreviewDOM(container, data, side = "back") {
       if (hintDiv.style) hintDiv.style.textAlign = "center";
       container.append(hintDiv);
     }
+    decoratePreviewForEditing(container, side, sidePresentation);
     return;
   }
 
@@ -2309,7 +2530,7 @@ function renderCardPreviewDOM(container, data, side = "back") {
     if (data.example_sentence) {
       const jaP = document.createElement("p");
       jaP.className = "kn-example-ja";
-      if (typeof renderRubyText === "function") {
+      if (!isPreviewEditing && typeof renderRubyText === "function") {
         renderRubyText(jaP, data.example_sentence, undefined, { furiganaMode: settings.furigana_mode });
       } else {
         jaP.textContent = data.example_sentence;
@@ -2367,12 +2588,15 @@ function renderCardPreviewDOM(container, data, side = "back") {
 
     container.append(mediaDiv);
   }
+
+  decoratePreviewForEditing(container, side, sidePresentation);
 }
 
 function updateCardPreview() {
   if (!cardPreviewCard) return;
   const data = getCardPreviewData();
   renderCardPreviewDOM(cardPreviewCard, data, currentPreviewSide);
+  if (typeof cardPreviewCard.classList?.toggle === "function") cardPreviewCard.classList.toggle("preview-editing", isPreviewEditing);
 }
 
 if (previewTabFront) {
@@ -2380,6 +2604,50 @@ if (previewTabFront) {
 }
 if (previewTabBack) {
   previewTabBack.addEventListener("click", () => setPreviewSide("back"));
+}
+
+if (previewEditToggle) {
+  previewEditToggle.addEventListener("click", () => setPreviewEditMode(!isPreviewEditing));
+}
+
+if (cardPreviewCard) {
+  cardPreviewCard.addEventListener("input", handlePreviewInlineEdit);
+  cardPreviewCard.addEventListener("focusout", () => scheduleCardPreviewUpdate());
+  cardPreviewCard.addEventListener("dragstart", event => {
+    const block = event.target?.closest?.("[data-preview-block]") || event.target;
+    const key = block?.getAttribute?.("data-preview-block");
+    if (!isPreviewEditing || !canReorderPreviewBlocks() || !key) {
+      event.preventDefault?.();
+      return;
+    }
+    draggedPreviewBlock = key;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", key);
+    }
+  });
+  cardPreviewCard.addEventListener("dragover", event => {
+    const block = event.target?.closest?.("[data-preview-block]") || event.target;
+    if (!draggedPreviewBlock || !block?.getAttribute?.("data-preview-block")) return;
+    event.preventDefault?.();
+    block.classList?.add("preview-drag-over");
+  });
+  cardPreviewCard.addEventListener("dragleave", event => {
+    const block = event.target?.closest?.("[data-preview-block]") || event.target;
+    block?.classList?.remove("preview-drag-over");
+  });
+  cardPreviewCard.addEventListener("drop", event => {
+    const block = event.target?.closest?.("[data-preview-block]") || event.target;
+    const targetKey = block?.getAttribute?.("data-preview-block");
+    block?.classList?.remove("preview-drag-over");
+    event.preventDefault?.();
+    if (!draggedPreviewBlock || !targetKey) return;
+    const rect = block.getBoundingClientRect?.();
+    const placeAfter = rect ? event.clientY > rect.top + rect.height / 2 : false;
+    reorderPreviewBlocks(draggedPreviewBlock, targetKey, placeAfter);
+    draggedPreviewBlock = null;
+  });
+  cardPreviewCard.addEventListener("dragend", () => { draggedPreviewBlock = null; });
 }
 
 // Live card editor input bindings
@@ -4675,7 +4943,9 @@ async function saveCard() {
     kanji_entries: (typeof currentKanjiEntries !== "undefined" && Array.isArray(currentKanjiEntries)) ? currentKanjiEntries : [],
     jlpt_level: typeof currentJlptLevel !== "undefined" ? currentJlptLevel : null,
     verb_metadata: typeof currentVerbMetadata !== "undefined" ? currentVerbMetadata : null,
-    card_settings: (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
+    card_settings: typeof getCardSettingsWithPreview === "function"
+      ? getCardSettingsWithPreview()
+      : (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
     source_type: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.type) || "text",
     source_url: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.url) || "",
   };
@@ -4692,6 +4962,7 @@ async function saveCard() {
     }
 
     if (typeof fieldCardId !== "undefined" && fieldCardId) fieldCardId.value = body.id || "";
+    previewContextKey = getPreviewContextKey();
     if (body.model_name && typeof fieldModelSelect !== "undefined" && fieldModelSelect) {
       fieldModelSelect.value = body.model_name;
       if (typeof fieldModelName !== "undefined" && fieldModelName) fieldModelName.value = body.model_name;
@@ -4827,15 +5098,21 @@ async function triggerAnkiSync() {
         kanji_entries: Array.isArray(currentKanjiEntries) ? currentKanjiEntries : [],
         jlpt_level: typeof currentJlptLevel !== "undefined" ? currentJlptLevel : null,
         verb_metadata: typeof currentVerbMetadata !== "undefined" ? currentVerbMetadata : null,
-        card_settings: (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
+        card_settings: typeof getCardSettingsWithPreview === "function"
+          ? getCardSettingsWithPreview()
+          : (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
         source_type: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.type) || "text",
         source_url: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.url) || "",
       };
-      await fetch(API_SAVE_URL, {
+      const saveResponse = await fetch(API_SAVE_URL, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(payload),
       });
+      const saveBody = await saveResponse.json().catch(() => ({}));
+      if (!saveResponse.ok) throw new Error(saveBody.detail || "Failed to save card edits before Anki sync.");
+      if (saveBody.id && fieldCardId) fieldCardId.value = saveBody.id;
+      previewContextKey = getPreviewContextKey();
       try {
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
           chrome.storage.local.set({ last_used_deck: targetDeck, preferred_anki_model: targetModel });
@@ -6021,6 +6298,7 @@ async function openSavedCard(cardId) {
       cardEditor.hidden = false;
       if (fieldCardId) fieldCardId.value = body.id || "";
       if (fieldExpression) fieldExpression.value = body.expression || "";
+      restorePreviewPresentation(body.card_settings?.preview_presentation);
       if (fieldReading) fieldReading.value = body.reading || "";
       if (fieldMeaning) fieldMeaning.value = body.meaning || "";
       if (fieldHint) fieldHint.value = body.hint || "";

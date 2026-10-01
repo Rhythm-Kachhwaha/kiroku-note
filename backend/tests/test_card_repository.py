@@ -51,6 +51,25 @@ class CardRepositoryTests(unittest.TestCase):
         self.assertIsNotNone(by_identity)
         self.assertEqual(by_identity.id, saved.id)
 
+    def test_preview_presentation_round_trips_without_changing_card_fields(self):
+        presentation = {
+            "front": {"order": ["jlpt", "expression"], "text": {"expression": "edited front"}},
+            "back": {"order": ["notes", "meaning"], "text": {"meaning": "edited back"}},
+        }
+        draft = CardDraft(
+            expression="和",
+            reading="わ",
+            meaning="harmony",
+            card_settings={"preview_presentation": presentation},
+        )
+
+        saved, _ = self.repo.save(draft)
+        reopened = self.repo.get_by_id(saved.id)
+
+        self.assertEqual(reopened.expression, "和")
+        self.assertEqual(reopened.meaning, "harmony")
+        self.assertEqual(reopened.card_settings["preview_presentation"], presentation)
+
     def test_3_duplicate_detection(self):
         draft = CardDraft(expression="映画", reading="えいが")
         saved1, is_new1 = self.repo.save(draft)

@@ -14,6 +14,12 @@ The core mining pipeline is functional. Current work is focused on polishing, re
 - Disabled sections are removed from the Text tab layout without changing their data or existing hidden/show lifecycle state.
 - Verification: 173/173 extension tests passed with `node --test extension/tests/*.test.js`, including customizable layout persistence, migration, reset, and disabled-section reordering.
 
+### Card Preview Inline Editing
+- Added a compact SVG edit/done control inside the existing Card Preview header, with direct plain-text editing and vertical drag ordering for Basic note types only.
+- Kept Front and Back presentation text/order independently in existing `card_settings`; canonical card fields remain unchanged, and the presentation overrides round-trip through SQLite.
+- Routed supported edits and section ordering through the existing Basic Front/Back Anki serializer with HTML escaping; custom note types cannot enter Preview Edit Mode, and the mapper rejects unsupported stored layouts rather than dropping them.
+- Verification: 173/173 extension tests and 507 backend tests passed. AnkiConnect live write was not run because `127.0.0.1:8765` refused the connection; the edited/reordered dummy payload was rendered with the production serializer for inspection.
+
 ---
 
 ## Core Stack

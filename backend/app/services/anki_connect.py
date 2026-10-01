@@ -500,6 +500,29 @@ class AnkiConnectService:
 
         # Extract JLPT level from card if present
         jlpt_level = card.get("jlpt_level") if isinstance(card, dict) else getattr(card, "jlpt_level", None)
+        settings = card.get("card_settings") if isinstance(card, dict) else getattr(card, "card_settings", None)
+        presentation = settings.get("preview_presentation", {}) if isinstance(settings, dict) else {}
+        presentation = presentation if isinstance(presentation, dict) else {}
+        front_presentation = presentation.get("front", {})
+        back_presentation = presentation.get("back", {})
+        front_presentation = front_presentation if isinstance(front_presentation, dict) else {}
+        back_presentation = back_presentation if isinstance(back_presentation, dict) else {}
+        front_text = front_presentation.get("text", {})
+        back_text = back_presentation.get("text", {})
+        front_text = front_text if isinstance(front_text, dict) else {}
+        back_text = back_text if isinstance(back_text, dict) else {}
+        expression_override = front_text.get("expression")
+        front_reading = str(front_text.get("reading", reading))
+        back_reading = str(back_text.get("reading", reading))
+        front_meaning = str(front_text.get("meaning", meaning))
+        back_meaning = str(back_text.get("meaning", meaning))
+        front_hint = str(front_text.get("hint", hint))
+        back_hint = str(back_text.get("hint", hint))
+        if expression_override is not None:
+            expr = str(expression_override)
+        example = str(back_text.get("example_sentence", example))
+        example_trans = str(back_text.get("example_translation", example_trans))
+        notes = str(back_text.get("notes", notes))
 
         # Media values sanitized for Anki
         raw_img = (card.get("image") or "").strip()
@@ -524,7 +547,6 @@ class AnkiConnectService:
             back_field = fields_lower["back"]
 
             # Template settings resolution (single source of truth)
-            settings = card.get("card_settings") if isinstance(card, dict) else getattr(card, "card_settings", None)
             settings = settings or {}
             front_cfg = settings.get("front", {}) if isinstance(settings, dict) else {}
             back_cfg = settings.get("back", {}) if isinstance(settings, dict) else {}
@@ -544,8 +566,17 @@ class AnkiConnectService:
 
             # Front: Japanese expression is base. Optional reading, kanji reading, meaning, hint
             front_elements = [escaped_expr]
-            if show_reading_front and reading:
-                front_elements.append(f'<div class="kn-front-reading">{escaped_reading}</div>')
+            front_sections = {"expression": f'<div class="kn-front-expression">{escaped_expr}</div>'}
+            front_reading_html = escape_html(front_reading)
+            front_meaning_html = format_meaning_html(
+                meaning_text=front_meaning,
+                entries=[] if "meaning" in front_text else entries,
+            )
+            front_hint_html = escape_html(front_hint)
+            if show_reading_front and front_reading:
+                reading_html = f'<div class="kn-front-reading">{front_reading_html}</div>'
+                front_elements.append(reading_html)
+                front_sections["reading"] = reading_html
             if show_kanji_reading_front and kanji_entries:
                 kanji_readings = []
                 for k in kanji_entries:
@@ -559,13 +590,34 @@ class AnkiConnectService:
                     if parts:
                         kanji_readings.append(" ".join(parts))
                 if kanji_readings:
-                    front_elements.append(f'<div class="kn-front-kanji-reading">{"<br>".join(kanji_readings)}</div>')
-            if show_meaning_front and formatted_meaning:
-                front_elements.append(f'<div class="kn-front-meaning">{formatted_meaning}</div>')
-            if show_hint_front and hint:
-                front_elements.append(f'<div class="kn-hint">Hint: {escaped_hint}</div>')
+                    kanji_reading_html = f'<div class="kn-front-kanji-reading">{"<br>".join(kanji_readings)}</div>'
+                    front_elements.append(kanji_reading_html)
+                    front_sections["kanji_reading"] = kanji_reading_html
+            if show_meaning_front and front_meaning_html:
+                meaning_html = f'<div class="kn-front-meaning">{front_meaning_html}</div>'
+                front_elements.append(meaning_html)
+                front_sections["meaning"] = meaning_html
+            if show_hint_front and front_hint:
+                hint_html = f'<div class="kn-hint">Hint: {front_hint_html}</div>'
+                front_elements.append(hint_html)
+                front_sections["hint"] = hint_html
 
-            if len(front_elements) > 1:
+            front_order = front_presentation.get("order")
+            if isinstance(front_order, list):
+                if show_jlpt and jlpt_level:
+                    jlpt_text = str(jlpt_level)
+                    if not jlpt_text.upper().startswith("JLPT"):
+                        jlpt_text = f"JLPT {jlpt_text}"
+                    front_sections["jlpt"] = f'<div class="kn-front-tags"><span class="kn-tag kn-jlpt">{escape_html(jlpt_text)}</span></div>'
+                ordered_front = []
+                for key in front_order:
+                    if isinstance(key, str) and key in front_sections and front_sections[key] not in ordered_front:
+                        ordered_front.append(front_sections[key])
+                for section in front_sections.values():
+                    if section not in ordered_front:
+                        ordered_front.append(section)
+                field_map[front_field] = "\n".join(ordered_front)
+            elif len(front_elements) > 1:
                 field_map[front_field] = f'<div class="kn-front-expression">{escaped_expr}</div>\n' + "\n".join(front_elements[1:])
             else:
                 field_map[front_field] = escaped_expr
@@ -595,14 +647,14 @@ class AnkiConnectService:
             field_map[back_field] = format_basic_back(
                 card=card,
                 expression=expr,
-                reading=reading,
-                meaning=meaning,
-                entries=entries,
+                reading=back_reading,
+                meaning=back_meaning,
+                entries=[] if "meaning" in back_text else entries,
                 kanji_entries=kanji_entries,
                 example_sentence=example,
                 example_reading=example_reading,
                 example_translation=example_trans,
-                hint=hint,
+                hint=back_hint,
                 notes=notes,
                 image=img_for_back,
                 audio=aud_for_back,
@@ -616,6 +668,7 @@ class AnkiConnectService:
                 show_verb_type=show_verb_type,
                 show_strokes=show_strokes,
                 furigana_mode=furigana_mode,
+                section_order=back_presentation.get("order") if isinstance(back_presentation.get("order"), list) else None,
             )
 
             # Assign to dedicated media fields if present
@@ -653,6 +706,25 @@ class AnkiConnectService:
         )
 
         # Specialized or multi-field model: match fields deterministically
+        if any(isinstance(side, dict) and isinstance(side.get("order"), list) for side in (front_presentation, back_presentation)):
+            raise AnkiActionError("Preview block ordering requires an Anki note type with Front and Back fields. Select Basic to send this card.")
+        for key, front_value, back_value in (
+            ("reading", front_text.get("reading"), back_text.get("reading")),
+            ("meaning", front_text.get("meaning"), back_text.get("meaning")),
+            ("hint", front_text.get("hint"), back_text.get("hint")),
+        ):
+            if front_value is not None and back_value is not None and str(front_value) != str(back_value):
+                raise AnkiActionError(f"This note type cannot store different Front and Back {key} text. Select Basic to send this card.")
+        reading = front_reading if "reading" in front_text else back_reading
+        meaning = front_meaning if "meaning" in front_text else back_meaning
+        hint = front_hint if "hint" in front_text else back_hint
+        escaped_reading = escape_html(reading)
+        escaped_hint = escape_html(hint)
+        formatted_meaning = format_meaning_html(
+            meaning_text=meaning,
+            entries=[] if "meaning" in front_text or "meaning" in back_text else entries,
+        )
+
         def assign(keys: tuple[str, ...], value: str) -> bool:
             if not value:
                 return False

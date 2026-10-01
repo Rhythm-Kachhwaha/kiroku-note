@@ -1007,6 +1007,103 @@ class TestStage5MediaDeduplication:
         assert "Audio" not in fields_no_aud
         assert "inu.wav" not in fields_no_aud["Notes"]
 
+
+class TestStage5MediaAndPreviewPresentationCompatibility:
+    def setup_method(self):
+        self.service = AnkiConnectService()
+
+    def test_basic_preview_text_and_both_orders_are_serialized_safely(self):
+        card = {
+            "expression": "和",
+            "reading": "わ",
+            "meaning": "harmony",
+            "hint": "original hint",
+            "example_sentence": "和を学ぶ",
+            "example_translation": "Learn harmony",
+            "notes": "original note",
+            "jlpt_level": "N3",
+            "card_settings": {
+                "front": {"show_reading": True, "show_meaning": True, "show_hint": True},
+                "back": {"show_reading": True, "show_meaning": True, "show_hint": True},
+                "preview_presentation": {
+                    "front": {
+                        "order": ["jlpt", "reading", "expression", "meaning", "hint"],
+                        "text": {"expression": "<script>front</script>", "reading": "まえ", "meaning": "front gloss", "hint": "front clue"},
+                    },
+                    "back": {
+                        "order": ["notes", "example", "meaning", "header", "hint", "media", "kanji"],
+                        "text": {
+                            "reading": "うしろ",
+                            "meaning": "<img src=x onerror=alert(1)>",
+                            "hint": "back clue",
+                            "example_sentence": "裏[うら]を見る",
+                            "example_translation": "Look at the back",
+                            "notes": "back note",
+                        },
+                    },
+                },
+            },
+        }
+
+        fields = self.service.map_card_to_fields(card, ["Front", "Back"])
+
+        assert fields["Front"].index("kn-front-tags") < fields["Front"].index("kn-front-reading")
+        assert fields["Front"].index("kn-front-reading") < fields["Front"].index("kn-front-expression")
+        assert "&lt;script&gt;front&lt;/script&gt;" in fields["Front"]
+        assert "<script>front</script>" not in fields["Front"]
+        assert "まえ" in fields["Front"]
+        assert "front gloss" in fields["Front"]
+        assert "うしろ" in fields["Back"]
+        assert "&lt;img src=x onerror=alert(1)&gt;" in fields["Back"]
+        assert "<img src=x onerror=alert(1)>" not in fields["Back"]
+        back_body = fields["Back"].split("</style>", 1)[1]
+        assert back_body.index("back note") < back_body.index("kn-example-block")
+        assert back_body.index("kn-example-block") < back_body.index("kn-meaning")
+        assert back_body.index("kn-meaning") < back_body.index("kn-reading")
+
+    def test_custom_model_rejects_unsupported_order_and_conflicting_side_text(self):
+        ordered_card = {
+            "expression": "猫",
+            "meaning": "cat",
+            "card_settings": {"preview_presentation": {"back": {"order": ["notes", "meaning"]}}},
+        }
+        with pytest.raises(AnkiActionError, match="requires an Anki note type with Front and Back fields"):
+            self.service.map_card_to_fields(ordered_card, ["Word", "Meaning"])
+
+        conflicting_card = {
+            "expression": "猫",
+            "meaning": "cat",
+            "card_settings": {
+                "preview_presentation": {
+                    "front": {"text": {"meaning": "cat front"}},
+                    "back": {"text": {"meaning": "cat back"}},
+                }
+            },
+        }
+        with pytest.raises(AnkiActionError, match="cannot store different Front and Back meaning text"):
+            self.service.map_card_to_fields(conflicting_card, ["Word", "Meaning"])
+
+    def test_custom_model_maps_a_single_preview_text_override(self):
+        card = {
+            "expression": "猫",
+            "meaning": "cat",
+            "card_settings": {"preview_presentation": {"back": {"text": {"meaning": "feline"}}}},
+        }
+        fields = self.service.map_card_to_fields(card, ["Word", "Meaning"])
+        assert fields["Word"] == "猫"
+        assert fields["Meaning"] == '<div class="kn-meaning">feline</div>'
+
+    def test_basic_preview_can_clear_dictionary_meaning_without_fallback(self):
+        card = {
+            "expression": "猫",
+            "meaning": "cat",
+            "entries": [{"dictionary": "Jitendex", "senses": [{"glosses": ["feline"]}]}],
+            "card_settings": {"preview_presentation": {"back": {"text": {"meaning": ""}}}},
+        }
+        fields = self.service.map_card_to_fields(card, ["Front", "Back"])
+        assert "feline" not in fields["Back"]
+        assert '<div class="kn-meaning">' not in fields["Back"]
+
     # 10. Basic with dedicated audio field -> audio in dedicated field, omitted from Back
     def test_10_basic_with_dedicated_audio_field_omitted_from_back(self):
         card_data = {

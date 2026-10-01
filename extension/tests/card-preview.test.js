@@ -14,6 +14,8 @@ assert.ok(html.includes('id="card-preview-container"'), "card-preview-container 
 assert.ok(html.includes('id="card-preview-card"'), "card-preview-card must exist in sidepanel.html");
 assert.ok(html.includes('id="preview-tab-front"'), "preview-tab-front button must exist in sidepanel.html");
 assert.ok(html.includes('id="preview-tab-back"'), "preview-tab-back button must exist in sidepanel.html");
+assert.ok(html.includes('id="preview-edit-toggle"'), "preview edit toggle must be inside Card Preview");
+assert.ok(html.includes('class="preview-edit-icon"'), "preview edit toggle must use an SVG icon");
 
 // Verify ordering: card-editor-section before card-preview-section before dictionary-section
 const cardEditorIdx = html.indexOf('id="card-editor-section"');
@@ -32,6 +34,8 @@ const css = fs.readFileSync(cssPath, "utf8");
 assert.ok(css.includes(".card-preview-section"), "CSS must define .card-preview-section");
 assert.ok(css.includes(".preview-tabs"), "CSS must define .preview-tabs");
 assert.ok(css.includes(".preview-tab-btn"), "CSS must define .preview-tab-btn");
+assert.ok(css.includes(".preview-edit-toggle"), "CSS must style the subtle preview edit toggle");
+assert.ok(css.includes(".preview-editing [data-preview-block]"), "CSS must reveal drag affordances only in edit mode");
 assert.ok(css.includes(".card-preview-card.kn-card") || css.includes(".kn-card"), "CSS must define .kn-card");
 assert.ok(css.includes(".kn-kana"), "CSS must define .kn-kana");
 assert.ok(css.includes(".kn-pitch"), "CSS must define .kn-pitch");
@@ -161,6 +165,7 @@ const mockDoc = {
 const mockCardPreviewCard = createMockElement("div");
 const mockPreviewTabFront = createMockElement("button");
 const mockPreviewTabBack = createMockElement("button");
+const mockPreviewEditToggle = createMockElement("button");
 const mockFieldExpression = createMockElement("input");
 const mockFieldReading = createMockElement("input");
 const mockFieldMeaning = createMockElement("textarea");
@@ -178,6 +183,7 @@ const vmContext = {
   cardPreviewCard: mockCardPreviewCard,
   previewTabFront: mockPreviewTabFront,
   previewTabBack: mockPreviewTabBack,
+  previewEditToggle: mockPreviewEditToggle,
   fieldExpression: mockFieldExpression,
   fieldReading: mockFieldReading,
   fieldMeaning: mockFieldMeaning,
@@ -417,6 +423,66 @@ assert.equal(vmContext.currentPreviewSide, "back");
 assert.ok(mockPreviewTabBack.classList.contains("active"));
 assert.ok(!mockPreviewTabFront.classList.contains("active"));
 console.log("PASS 7: Tab toggle updates currentPreviewSide and tab active states.");
+
+// Test 7b: Preview text overrides and Front/Back block orders remain independent
+vmContext.isPreviewEditing = true;
+const editablePreviewData = {
+  expression: "和",
+  reading: "わ",
+  meaning: "harmony",
+  jlpt_level: "N3",
+  notes: "peace",
+  template_settings: {
+    front: { show_reading: true, show_meaning: true },
+    back: { show_reading: true, show_meaning: true },
+  },
+  preview_presentation: {
+    front: {
+      order: ["jlpt", "expression", "reading", "meaning"],
+      text: { expression: "peace sign", reading: "まえ", meaning: "front meaning" },
+    },
+    back: {
+      order: ["notes", "meaning", "header"],
+      text: { reading: "うしろ", meaning: "back meaning", notes: "back note" },
+    },
+  },
+};
+renderCardPreviewDOM(mockCardPreviewCard, editablePreviewData, "front");
+const frontBlockKeys = mockCardPreviewCard.children.map(child => child.getAttribute("data-preview-block"));
+assert.deepEqual(frontBlockKeys, ["jlpt", "expression", "reading", "meaning"]);
+const editableExpression = mockCardPreviewCard.children.find(child => child.className === "kn-front-expression");
+assert.equal(editableExpression.textContent, "peace sign");
+assert.equal(editableExpression.getAttribute("contenteditable"), "plaintext-only");
+renderCardPreviewDOM(mockCardPreviewCard, {
+  ...editablePreviewData,
+  preview_presentation: { back: { text: {}, order: null }, front: { text: { meaning: "" }, order: null } },
+}, "front");
+assert.equal(findAll(mockCardPreviewCard, child => child.className === "kn-front-meaning").length, 1);
+assert.equal(findAll(mockCardPreviewCard, child => child.className === "kn-meaning" || child.className === "kn-meanings").length, 0);
+renderCardPreviewDOM(mockCardPreviewCard, editablePreviewData, "back");
+const backBlockKeys = mockCardPreviewCard.children.map(child => child.getAttribute("data-preview-block"));
+assert.deepEqual(backBlockKeys.slice(0, 3), ["notes", "meaning", "header"]);
+assert.equal(vmContext.currentPreviewPresentation.front.order, null, "Rendering data does not mutate live side state");
+vmContext.currentPreviewSide = "front";
+vmContext.handlePreviewInlineEdit({ target: { getAttribute: () => "expression", innerText: "edited front" } });
+vmContext.currentPreviewSide = "back";
+vmContext.handlePreviewInlineEdit({ target: { getAttribute: () => "notes", innerText: "Notes: edited back" } });
+assert.equal(vmContext.currentPreviewPresentation.front.text.expression, "edited front");
+assert.equal(vmContext.currentPreviewPresentation.back.text.notes, "edited back");
+vmContext.currentPreviewSide = "front";
+renderCardPreviewDOM(mockCardPreviewCard, editablePreviewData, "front");
+vmContext.reorderPreviewBlocks("jlpt", "expression", false);
+assert.equal(vmContext.currentPreviewPresentation.front.order[0], "jlpt");
+assert.equal(vmContext.currentPreviewPresentation.back.order, null, "Front reordering must not change Back order");
+vmContext.isPreviewEditing = false;
+vmContext.fieldModelSelect = { value: "Kaishi" };
+vmContext.setPreviewEditMode(true);
+assert.equal(vmContext.isPreviewEditing, false, "Unsupported note types must not enter Preview Edit Mode");
+vmContext.fieldModelSelect = { value: "Basic" };
+vmContext.currentPreviewPresentation = { front: { text: {}, order: null }, back: { text: {}, order: null } };
+vmContext.isPreviewEditing = false;
+vmContext.currentPreviewSide = "back";
+console.log("PASS 7b: Inline preview edits and independent Front/Back block ordering verified.");
 
 // Test 6: Meaning field renders in .kn-meaning div
 const singleSenseData = {

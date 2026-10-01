@@ -488,9 +488,17 @@
           <section id="card-preview-section" class="preview-card-strip card-preview-section" data-layout-section="preview" aria-label="Card Preview">
             <div class="preview-header section-header preview-section-header">
               <h2 class="section-title">CARD PREVIEW</h2>
-              <div class="preview-tabs preview-tabs-group" role="tablist" aria-label="Card Preview Side">
-                <button type="button" id="preview-tab-front" class="preview-tab-btn" role="tab" aria-selected="false" aria-controls="card-preview-container">Front</button>
-                <button type="button" id="preview-tab-back" class="preview-tab-btn active" role="tab" aria-selected="true" aria-controls="card-preview-container">Back</button>
+              <div class="preview-header-actions">
+                <button type="button" id="preview-edit-toggle" class="preview-edit-toggle" aria-label="Edit card preview" aria-pressed="false" title="Edit preview">
+                  <svg class="preview-edit-icon" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M11.7 2.3a1.6 1.6 0 0 1 2.3 2.3L6 12.6 3 13l.4-3z" />
+                    <path d="m10.7 3.3 2 2" />
+                  </svg>
+                </button>
+                <div class="preview-tabs preview-tabs-group" role="tablist" aria-label="Card Preview Side">
+                  <button type="button" id="preview-tab-front" class="preview-tab-btn" role="tab" aria-selected="false" aria-controls="card-preview-container">Front</button>
+                  <button type="button" id="preview-tab-back" class="preview-tab-btn active" role="tab" aria-selected="true" aria-controls="card-preview-container">Back</button>
+                </div>
               </div>
             </div>
             <div id="card-preview-container" class="card-preview-container">

@@ -6411,6 +6411,42 @@ header.nav-collapsed .btn-nav-collapse-toggle svg {
   font-weight: 600;
 }
 
+.preview-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.preview-edit-toggle {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.preview-edit-toggle:hover,
+.preview-edit-toggle[aria-pressed="true"] {
+  color: var(--text-primary);
+  background: var(--bg-surface-elevated);
+}
+
+.preview-edit-toggle:focus-visible {
+  outline: 2px solid var(--accent-reading);
+  outline-offset: 1px;
+}
+
+.preview-edit-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .preview-tabs-group {
   display: flex;
   background: var(--bg-canvas);
@@ -6436,6 +6472,30 @@ header.nav-collapsed .btn-nav-collapse-toggle svg {
   background: var(--bg-surface-elevated);
   color: var(--text-primary);
   font-weight: 600;
+}
+
+.preview-editing [contenteditable="plaintext-only"]:hover,
+.preview-editing [contenteditable="plaintext-only"]:focus {
+  outline: 1px solid rgba(142, 138, 129, 0.32);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.preview-editing [contenteditable="plaintext-only"] {
+  cursor: text;
+}
+
+.preview-editing [data-preview-block][draggable="true"] {
+  cursor: grab;
+}
+
+.preview-editing [data-preview-block][draggable="true"]:hover {
+  outline: 1px dashed rgba(142, 138, 129, 0.28);
+  outline-offset: 3px;
+}
+
+.preview-editing [data-preview-block].preview-drag-over {
+  box-shadow: inset 0 2px 0 rgba(142, 138, 129, 0.55);
 }
 
 .preview-body-front,

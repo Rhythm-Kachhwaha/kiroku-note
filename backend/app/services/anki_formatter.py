@@ -927,6 +927,7 @@ def format_basic_back(
     show_hint: bool = True,
     show_verb_type: bool = True,
     show_strokes: bool = True,
+    section_order: list[str] | None = None,
 ) -> str:
     """Construct a clean, structured, learner-focused Back field for Anki Basic cards.
 
@@ -951,6 +952,22 @@ def format_basic_back(
     c_ex_trans = str(example_translation if example_translation else (_get_field(card, "example_translation") or "")).strip()
     c_hint = str(hint if hint else (_get_field(card, "hint") or "")).strip()
     c_notes = str(notes if notes else (_get_field(card, "notes") or "")).strip()
+    presentation = c_settings.get("preview_presentation", {}) if isinstance(c_settings, dict) else {}
+    back_presentation = presentation.get("back", {}) if isinstance(presentation, dict) else {}
+    back_text = back_presentation.get("text", {}) if isinstance(back_presentation, dict) else {}
+    if isinstance(back_text, dict):
+        if "reading" in back_text:
+            c_reading = str(back_text["reading"]).strip()
+        if "meaning" in back_text:
+            c_meaning = str(back_text["meaning"]).strip()
+        if "example_sentence" in back_text:
+            c_ex_sentence = str(back_text["example_sentence"]).strip()
+        if "example_translation" in back_text:
+            c_ex_trans = str(back_text["example_translation"]).strip()
+        if "hint" in back_text:
+            c_hint = str(back_text["hint"]).strip()
+        if "notes" in back_text:
+            c_notes = str(back_text["notes"]).strip()
     # Respect explicitly passed image/audio (e.g. empty string if dedicated fields exist)
     if image is not None:
         c_image = str(image).strip()
@@ -1005,6 +1022,12 @@ def format_basic_back(
 
     # Build sections
     sections: list[str] = []
+    section_keys: list[str] = []
+
+    def append_section(key: str, content: str) -> None:
+        if content:
+            section_keys.append(key)
+            sections.append(content)
 
     # Header: Reading, JLPT, Verb Type & Pitch (respected via show_reading, show_jlpt, show_verb_type)
     if (show_reading and c_reading) or pitch_badge or (show_jlpt and c_jlpt) or verb_parts:
@@ -1020,39 +1043,40 @@ def format_basic_back(
             reading_parts.append(f'  <span class="kn-pitch">{escape_html(pitch_badge)}</span>')
         reading_parts.append('</div>')
         reading_parts.append('<hr class="kn-divider">')
-        sections.append("\n".join(reading_parts))
+        append_section("header", "\n".join(reading_parts))
 
     # Determine if isolated single-kanji card vs vocabulary card
-    is_isolated_kanji = bool(c_kanji_entries and len(c_expr) == 1)
+    source_expression = str(_get_field(card, "expression") or c_expr).strip()
+    is_isolated_kanji = bool(c_kanji_entries and len(source_expression) == 1)
 
     if is_isolated_kanji:
         # Isolated kanji: render kanji card prominently at the top
         kanji_html = format_kanji_html(c_kanji_entries, is_isolated=True, show_jlpt=show_jlpt, show_strokes=c_show_strokes, furigana_mode=c_furigana_mode)
         if kanji_html:
-            sections.append(kanji_html)
+            append_section("kanji", kanji_html)
 
         # If secondary vocabulary senses exist, render them below if show_meaning
         if show_meaning:
             if c_entries and isinstance(c_entries, list):
                 meanings_html = format_meaning_html(meaning_text="", entries=c_entries)
                 if meanings_html:
-                    sections.append(meanings_html)
+                    append_section("meaning", meanings_html)
             elif not kanji_html and c_meaning:
                 meanings_html = format_meaning_html(meaning_text=c_meaning, entries=None)
                 if meanings_html:
-                    sections.append(meanings_html)
+                    append_section("meaning", meanings_html)
     else:
         # Normal vocabulary card: render vocabulary meanings first if show_meaning
         if show_meaning:
             meanings_html = format_meaning_html(meaning_text=c_meaning, entries=c_entries)
             if meanings_html:
-                sections.append(meanings_html)
+                append_section("meaning", meanings_html)
 
         # If kanji entries exist, render compact kanji card below vocabulary senses
         if c_kanji_entries and isinstance(c_kanji_entries, list):
             kanji_html = format_kanji_html(c_kanji_entries, is_isolated=False, show_jlpt=show_jlpt, show_strokes=c_show_strokes, furigana_mode=c_furigana_mode)
             if kanji_html:
-                sections.append(kanji_html)
+                append_section("kanji", kanji_html)
 
     # Example block
     example_html = format_example_html(
@@ -1062,13 +1086,13 @@ def format_basic_back(
         furigana_mode=c_furigana_mode,
     )
     if example_html:
-        sections.append(example_html)
+        append_section("example", example_html)
 
     # Hint & Notes
     if show_hint and c_hint:
-        sections.append(f'<div class="kn-hint">Hint: {escape_html(c_hint)}</div>')
+        append_section("hint", f'<div class="kn-hint">Hint: {escape_html(c_hint)}</div>')
     if c_notes:
-        sections.append(f'<div class="kn-notes">Notes: {escape_html(c_notes)}</div>')
+        append_section("notes", f'<div class="kn-notes">Notes: {escape_html(c_notes)}</div>')
 
     # Media
     img_tag, aud_tag = sanitize_media_tags(image=c_image, audio=c_audio)
@@ -1079,7 +1103,20 @@ def format_basic_back(
         if aud_tag:
             media_parts.append(f'  {aud_tag}')
         media_parts.append('</div>')
-        sections.append("\n".join(media_parts))
+        append_section("media", "\n".join(media_parts))
+
+    if isinstance(section_order, list):
+        sections_by_key: dict[str, list[str]] = {}
+        for key, section in zip(section_keys, sections):
+            sections_by_key.setdefault(key, []).append(section)
+        ordered_sections: list[str] = []
+        for key in section_order:
+            if isinstance(key, str) and key in sections_by_key:
+                ordered_sections.extend(sections_by_key.pop(key))
+        for key in section_keys:
+            if key in sections_by_key:
+                ordered_sections.extend(sections_by_key.pop(key))
+        sections = ordered_sections
 
     if not sections:
         return ""
