@@ -363,20 +363,8 @@
         </div>
       </div>
 
-      <!-- 4. Ask Mode & Response Length Toolbar -->
+      <!-- 4. Ask Response Length Control -->
       <div class="ask-mode-toolbar" id="ask-mode-toolbar">
-        <div class="ask-mode-selector-wrap">
-          <label for="ask-mode-select" class="ask-toolbar-label">Mode</label>
-          <select id="ask-mode-select" class="ask-mode-select" aria-label="Ask Mode">
-            <option value="chat">Ask / Chat</option>
-            <option value="answer_question" selected>Answer MCQ / JLPT</option>
-            <option value="explain_grammar">Explain Grammar</option>
-            <option value="explain_sense">Sense in Context</option>
-            <option value="translate">Translate</option>
-            <option value="mnemonic">Mnemonic Hook</option>
-          </select>
-        </div>
-
         <div class="ask-response-mode-wrap" id="ask-response-mode-toggle" role="group" aria-label="Response Length">
           <button type="button" class="ask-mode-pill active" id="btn-mode-short" data-mode="short" title="Concise answer without filler">Short</button>
           <button type="button" class="ask-mode-pill" id="btn-mode-detailed" data-mode="detailed" title="Detailed explanation and breakdown">Detailed</button>
@@ -394,7 +382,15 @@
 
       <!-- 5. Composer Area (Textarea + Send) -->
       <div class="ask-composer-container">
-        <textarea id="ask-input-box" class="ask-input-box" placeholder="Ask anything about Japanese, paste an MCQ or sentence..." rows="2" aria-label="Ask input"></textarea>
+        <div class="ask-mode-picker" id="ask-mode-picker" role="listbox" aria-label="Ask mode" hidden>
+          <button type="button" class="ask-mode-option" role="option" aria-selected="false" data-task="answer_question">Answer MCQ / JLPT</button>
+          <button type="button" class="ask-mode-option" role="option" aria-selected="false" data-task="explain_grammar">Explain Grammar</button>
+          <button type="button" class="ask-mode-option" role="option" aria-selected="false" data-task="explain_sense">Sense in Context</button>
+          <button type="button" class="ask-mode-option" role="option" aria-selected="false" data-task="translate">Translate</button>
+          <button type="button" class="ask-mode-option" role="option" aria-selected="false" data-task="mnemonic">Mnemonic Hook</button>
+          <button type="button" class="ask-mode-option" role="option" aria-selected="false" data-task="chat">Ask / Chat</button>
+        </div>
+        <textarea id="ask-input-box" class="ask-input-box" placeholder="Type a question..." rows="2" aria-label="Ask input" aria-controls="ask-mode-picker" aria-expanded="false" autocomplete="off"></textarea>
         
         <div class="ask-composer-toolbar">
           <div class="composer-left-tools">

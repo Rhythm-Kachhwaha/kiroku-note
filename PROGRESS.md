@@ -285,6 +285,12 @@ The core mining pipeline is functional. Current work is focused on polishing, re
 - [x] Public documentation
 - [x] V1.0 package readiness verified
 
+### Ask Tab Composer Polish
+
+- [x] Replaced the composer mode dropdown with an inline `@` picker for all six existing Ask tasks; selection keeps using `currentAskTask` and removes the command text before submission.
+- [x] Kept Short / Detailed in place with a subtle monochrome active state and shortened the composer placeholder to `Type a question...`.
+- [x] Verification: Ask mode UI tests and Ask tab integration tests passed; full extension suite passed (169/169); Side Panel JavaScript syntax check passed.
+
 ---
 
 ## Deferred Features

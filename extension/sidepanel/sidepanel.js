@@ -888,8 +888,7 @@ const btnCtxTranslate = document.querySelector("#btn-ctx-translate");
 const askChatStream = document.querySelector("#ask-chat-stream");
 const askEmptyState = document.querySelector("#ask-empty-state");
 const askPromptChipsWrap = document.querySelector("#ask-prompt-chips-wrap");
-const askModeToolbar = document.querySelector("#ask-mode-toolbar");
-const askModeSelect = document.querySelector("#ask-mode-select");
+const askModePicker = document.querySelector("#ask-mode-picker");
 const askResponseModeToggle = document.querySelector("#ask-response-mode-toggle");
 const btnModeShort = document.querySelector("#btn-mode-short");
 const btnModeDetailed = document.querySelector("#btn-mode-detailed");
@@ -9750,15 +9749,84 @@ if (btnModeDetailed) {
   btnModeDetailed.addEventListener("click", () => setAskResponseMode("detailed"));
 }
 
-if (askModeSelect) {
-  askModeSelect.value = currentAskTask;
-  askModeSelect.addEventListener("change", () => {
-    currentAskTask = askModeSelect.value;
-    if (askPromptChipsWrap) {
-      askPromptChipsWrap.querySelectorAll(".prompt-chip").forEach(c => {
-        c.classList.toggle("active", c.getAttribute("data-task") === currentAskTask);
-      });
-    }
+let askModePickerStart = -1;
+let askModePickerEnd = -1;
+let askModePickerOptions = [];
+let askModePickerIndex = 0;
+
+function closeAskModePicker() {
+  if (!askModePicker) return;
+  askModePicker.hidden = true;
+  askInputBox?.setAttribute("aria-expanded", "false");
+  askModePickerStart = -1;
+  askModePickerEnd = -1;
+  askModePickerOptions = [];
+  askModePickerIndex = 0;
+}
+
+function updateAskModePicker() {
+  if (!askModePicker || !askInputBox || askInputBox.selectionStart !== askInputBox.selectionEnd) {
+    closeAskModePicker();
+    return;
+  }
+
+  const caret = askInputBox.selectionStart;
+  const beforeCaret = askInputBox.value.slice(0, caret);
+  const atIndex = beforeCaret.lastIndexOf("@");
+  if (atIndex < 0 || (atIndex > 0 && !/\s/.test(beforeCaret[atIndex - 1]))) {
+    closeAskModePicker();
+    return;
+  }
+
+  const query = beforeCaret.slice(atIndex + 1);
+  if (/\s/.test(query)) {
+    closeAskModePicker();
+    return;
+  }
+
+  askModePickerStart = atIndex;
+  askModePickerEnd = caret;
+  const allOptions = Array.from(askModePicker.querySelectorAll(".ask-mode-option"));
+  allOptions.forEach(option => { option.hidden = true; });
+  askModePickerOptions = allOptions
+    .filter(option => option.textContent.trim().toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+
+  if (!askModePickerOptions.length) {
+    closeAskModePicker();
+    return;
+  }
+
+  askModePickerIndex = 0;
+  askModePickerOptions.forEach((option, index) => {
+    option.hidden = false;
+    option.setAttribute("aria-selected", String(index === askModePickerIndex));
+  });
+  askModePicker.hidden = false;
+  askInputBox.setAttribute("aria-expanded", "true");
+}
+
+function selectAskMode(option) {
+  if (!askInputBox || !option) return;
+  currentAskTask = option.getAttribute("data-task") || currentAskTask;
+  if (askPromptChipsWrap) {
+    askPromptChipsWrap.querySelectorAll(".prompt-chip").forEach(chip => {
+      chip.classList.toggle("active", chip.getAttribute("data-task") === currentAskTask);
+    });
+  }
+
+  if (askModePickerStart >= 0 && askModePickerEnd >= askModePickerStart) {
+    askInputBox.value = askInputBox.value.slice(0, askModePickerStart) + askInputBox.value.slice(askModePickerEnd);
+    askInputBox.setSelectionRange(askModePickerStart, askModePickerStart);
+    updateAskCharCount();
+  }
+  closeAskModePicker();
+  askInputBox.focus();
+}
+
+if (askModePicker) {
+  askModePicker.addEventListener("click", event => {
+    const option = event.target.closest(".ask-mode-option");
+    if (option && !option.hidden) selectAskMode(option);
   });
 }
 
@@ -9769,9 +9837,6 @@ if (askPromptChipsWrap) {
     const task = chip.getAttribute("data-task");
     if (!task) return;
     currentAskTask = task;
-    if (askModeSelect) {
-      askModeSelect.value = task;
-    }
     askPromptChipsWrap.querySelectorAll(".prompt-chip").forEach(c => {
       c.classList.toggle("active", c === chip);
     });
@@ -9820,8 +9885,33 @@ if (btnAskNewChat) {
 }
 
 if (askInputBox) {
-  askInputBox.addEventListener("input", updateAskCharCount);
+  askInputBox.addEventListener("input", () => {
+    updateAskCharCount();
+    updateAskModePicker();
+  });
   askInputBox.addEventListener("keydown", (e) => {
+    if (!askModePicker?.hidden) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const direction = e.key === "ArrowDown" ? 1 : -1;
+        askModePickerIndex = (askModePickerIndex + direction + askModePickerOptions.length) % askModePickerOptions.length;
+        askModePickerOptions.forEach((option, index) => {
+          option.setAttribute("aria-selected", String(index === askModePickerIndex));
+        });
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        selectAskMode(askModePickerOptions[askModePickerIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        closeAskModePicker();
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendAskQuery();

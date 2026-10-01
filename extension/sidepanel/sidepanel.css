@@ -8457,51 +8457,14 @@ div[data-content="example"],
   border-top: 1px solid var(--border-subtle, #25221e);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
-}
-
-.ask-mode-selector-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-}
-
-.ask-toolbar-label {
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--text-muted, #756e65);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
-}
-
-.ask-mode-select {
-  background: var(--bg-surface-2, #211f1c);
-  border: 1px solid var(--border-default, #302b25);
-  color: var(--text-primary, #ede8e1);
-  font-size: 11.5px;
-  padding: 3px 6px;
-  border-radius: 4px;
-  outline: none;
-  cursor: pointer;
-  max-width: 170px;
-  transition: border-color 0.15s ease;
-}
-
-.ask-mode-select:focus {
-  border-color: #d4884f;
 }
 
 .ask-response-mode-wrap {
   display: inline-flex;
-  background: var(--bg-surface-2, #211f1c);
-  border: 1px solid var(--border-default, #302b25);
-  border-radius: 14px;
-  padding: 2px;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
 }
 
 .ask-mode-pill {
@@ -8510,8 +8473,8 @@ div[data-content="example"],
   color: var(--text-secondary, #9e948a);
   font-size: 10.5px;
   font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 12px;
+  padding: 3px 6px;
+  border-radius: 3px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -8521,8 +8484,8 @@ div[data-content="example"],
 }
 
 .ask-mode-pill.active {
-  background: rgba(212, 136, 79, 0.2);
-  color: #d4884f;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #ede8e1);
   font-weight: 600;
 }
 
@@ -8572,12 +8535,52 @@ div[data-content="example"],
 
 /* 5. Composer Area */
 .ask-composer-container {
+  position: relative;
   padding: 10px 12px 12px;
   background: var(--bg-surface-1, #181715);
   border-top: 1px solid var(--border-default, #302b25);
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.ask-mode-picker {
+  position: absolute;
+  z-index: 20;
+  left: 12px;
+  bottom: calc(100% - 3px);
+  width: min(250px, calc(100% - 24px));
+  max-height: 216px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--bg-surface-2, #211f1c);
+  border: 1px solid var(--border-default, #302b25);
+  border-radius: 5px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.38);
+}
+
+.ask-mode-picker[hidden] {
+  display: none;
+}
+
+.ask-mode-option {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary, #9e948a);
+  font: inherit;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ask-mode-option:hover,
+.ask-mode-option[aria-selected="true"] {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #ede8e1);
 }
 
 .ask-input-box {

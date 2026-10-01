@@ -1,6 +1,6 @@
 /**
- * Test Suite: Ask Tab Mode Selector & Short/Detailed Response Controls
- * Verifies compact toolbar, 6 mode options, Short/Detailed toggle, and zero emojis.
+ * Test Suite: Ask Tab @ Mode Picker & Short/Detailed Response Controls
+ * Verifies the compact picker, Short/Detailed toggle, and zero emojis.
  */
 
 const test = require("node:test");
@@ -16,17 +16,20 @@ const html = fs.readFileSync(htmlPath, "utf8");
 const css = fs.readFileSync(cssPath, "utf8");
 const js = fs.readFileSync(jsPath, "utf8");
 
-test("Ask UI: DOM Structure - Mode Selector Dropdown & 6 Modes", () => {
+test("Ask UI: DOM Structure - @ Picker & 6 Modes", () => {
   assert.ok(html.includes('id="ask-mode-toolbar"'), "HTML must define #ask-mode-toolbar");
-  assert.ok(html.includes('id="ask-mode-select"'), "HTML must define #ask-mode-select");
+  assert.ok(html.includes('id="ask-mode-picker"'), "HTML must define #ask-mode-picker");
+  assert.equal(html.includes('id="ask-mode-select"'), false, "Ask mode dropdown must be removed");
+  assert.ok(html.includes('placeholder="Type a question..."'), "Ask placeholder must stay minimal");
+  assert.equal(html.includes("Ask anything about Japanese, paste an MCQ or sentence..."), false);
 
   const requiredModes = [
-    'value="chat"',
-    'value="answer_question"',
-    'value="explain_grammar"',
-    'value="explain_sense"',
-    'value="translate"',
-    'value="mnemonic"',
+    'data-task="chat">Ask / Chat',
+    'data-task="answer_question">Answer MCQ / JLPT',
+    'data-task="explain_grammar">Explain Grammar',
+    'data-task="explain_sense">Sense in Context',
+    'data-task="translate">Translate',
+    'data-task="mnemonic">Mnemonic Hook',
   ];
 
   for (const mode of requiredModes) {
@@ -77,9 +80,20 @@ test("Ask UI: Zero Emojis Guardrail", () => {
 
 test("Ask UI: CSS Styling for Toolbar and Controls", () => {
   assert.ok(css.includes(".ask-mode-toolbar"), "CSS must style .ask-mode-toolbar");
-  assert.ok(css.includes(".ask-mode-select"), "CSS must style .ask-mode-select");
+  assert.ok(css.includes(".ask-mode-picker"), "CSS must style .ask-mode-picker");
   assert.ok(css.includes(".ask-response-mode-wrap"), "CSS must style .ask-response-mode-wrap");
   assert.ok(css.includes(".ask-mode-pill"), "CSS must style .ask-mode-pill");
+  assert.match(css, /\.ask-mode-pill\.active\s*\{[^}]*rgba\(255, 255, 255/);
+});
+
+test("Ask UI: @ picker uses keyboard navigation and existing task state", () => {
+  assert.match(js, /function updateAskModePicker\(\)/);
+  assert.match(js, /function selectAskMode\(option\)/);
+  assert.match(js, /allOptions\.forEach\(option => \{ option\.hidden = true; \}\)/);
+  assert.match(js, /currentAskTask = option\.getAttribute\("data-task"\)/);
+  assert.match(js, /askModePickerOptions\[askModePickerIndex\]/);
+  assert.match(js, /askInputBox\.value\.slice\(askModePickerEnd\)/);
+  assert.match(js, /mode: currentAskResponseMode/);
 });
 
 test("Ask UI: sidepanel.js Payload Integration", () => {
