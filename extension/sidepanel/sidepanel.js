@@ -183,6 +183,7 @@ const fieldTags = document.querySelector("#field-tags");
 const fieldNotes = document.querySelector("#field-notes");
 const saveCardBtn = document.querySelector("#save-card-btn");
 const syncAnkiBtn = document.querySelector("#sync-anki-btn");
+const btnAskFromText = document.querySelector("#btn-ask-from-text");
 const ankiSyncStatus = document.querySelector("#anki-sync-status");
 
 // Card preview elements
@@ -8185,6 +8186,13 @@ if (tabBtnQuickAdd) {
 if (tabBtnAsk) {
   tabBtnAsk.addEventListener("click", () => switchMiningTab("ask"));
 }
+if (btnAskFromText) {
+  btnAskFromText.addEventListener("click", () => {
+    const context = buildTextAskContext();
+    setAskContext(context, "Text Capture");
+    switchMiningTab("ask");
+  });
+}
 if (tabBtnHistory) {
   tabBtnHistory.addEventListener("click", () => switchMiningTab("history"));
 }
@@ -9353,6 +9361,23 @@ function initLlmSettingsUI() {
       } catch (e) {}
     });
   }
+}
+
+function buildTextAskContext() {
+  const word = fieldExpression?.value.trim() || "";
+  const reading = fieldReading?.value.trim() || "";
+  const meaning = fieldMeaning?.value.trim() || "";
+  const sourceText = fieldSourceText?.value.trim() || "";
+  const example = fieldExampleSentence?.value.trim() || "";
+  const lines = [];
+
+  if (word) lines.push(`Word: ${word}`);
+  if (reading) lines.push(`Reading: ${reading}`);
+  if (meaning) lines.push(`Current meaning: ${meaning}`);
+  if (sourceText && sourceText !== word) lines.push(`Captured text: ${sourceText}`);
+  if (example && example !== word && example !== sourceText) lines.push(`Example: ${example}`);
+
+  return lines.join("\n");
 }
 
 function setAskContext(text, source = "Detected Context") {

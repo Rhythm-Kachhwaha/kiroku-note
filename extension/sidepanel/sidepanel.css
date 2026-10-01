@@ -7160,10 +7160,12 @@ input:checked + .switch-slider:before {
   color: var(--text-muted) !important;
 }
 
-/* 4. Equal Primary Action Buttons: Compact Height, Sleek & Proportional */
+/* 4. Compact Text Tab Actions */
 .primary-actions-row {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-wrap: nowrap !important;
   gap: 8px !important;
   width: 100% !important;
 }
@@ -7171,48 +7173,82 @@ input:checked + .switch-slider:before {
 .btn-act-save,
 .btn-act-anki,
 #save-card-btn,
-#sync-anki-btn {
-  height: 34px !important;
-  min-height: 34px !important;
-  max-height: 34px !important;
-  padding: 6px 12px !important;
+#sync-anki-btn,
+#btn-ask-from-text {
+  height: 33px !important;
+  min-height: 33px !important;
+  max-height: 33px !important;
   font-size: 12.5px !important;
-  font-weight: 600 !important;
   border-radius: 4px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   box-sizing: border-box !important;
   cursor: pointer !important;
-  width: 100% !important;
-  transition: all 0.15s ease !important;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  padding: 5px 12px !important;
+  white-space: nowrap !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease !important;
 }
 
 .btn-act-save,
 #save-card-btn {
-  background: var(--accent-primary, #b84632) !important;
-  color: #ffffff !important;
-  border: none !important;
-  box-shadow: 0 2px 8px rgba(184, 70, 50, 0.25) !important;
+  background: var(--bg-surface-3) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-strong) !important;
+  box-shadow: none !important;
+  font-weight: 600 !important;
+  padding-right: 15px !important;
+  padding-left: 15px !important;
 }
 
 .btn-act-save:hover:not(:disabled),
 #save-card-btn:hover:not(:disabled) {
-  background: var(--accent-primary-hover, #cb503a) !important;
+  background: var(--bg-surface-elevated) !important;
+  border-color: var(--border-strong) !important;
+}
+
+#save-card-btn:active:not(:disabled) {
+  background: var(--bg-surface-2) !important;
 }
 
 .btn-act-anki,
-#sync-anki-btn {
+#sync-anki-btn,
+#btn-ask-from-text {
   background: var(--bg-surface, #181715) !important;
-  color: var(--text-primary, #ede8e1) !important;
+  color: var(--text-secondary) !important;
   border: 1px solid var(--border-default, #302b25) !important;
   box-shadow: none !important;
+  font-weight: 500 !important;
 }
 
 .btn-act-anki:hover:not(:disabled),
-#sync-anki-btn:hover:not(:disabled) {
+#sync-anki-btn:hover:not(:disabled),
+#btn-ask-from-text:hover {
   border-color: var(--text-muted) !important;
   background: var(--bg-surface-elevated, #211e1b) !important;
+}
+
+#sync-anki-btn:active:not(:disabled),
+#btn-ask-from-text:active {
+  background: var(--bg-surface-2) !important;
+}
+
+#save-card-btn:focus-visible,
+#sync-anki-btn:focus-visible,
+#btn-ask-from-text:focus-visible {
+  outline: 2px solid var(--text-muted) !important;
+  outline-offset: 2px !important;
+}
+
+#save-card-btn:disabled,
+#sync-anki-btn:disabled {
+  background: var(--bg-surface-1) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-disabled) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
 }
 
 /* 5. Borderless Deck & Card Type Selectors */

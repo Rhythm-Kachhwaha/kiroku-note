@@ -2406,5 +2406,14 @@ New major features should generally be deferred unless they are necessary for th
 - **Verification:** Side-panel alignment test passed; full extension suite passed (170/170).
 - **Remaining Risk:** Packaged Chromium-extension visual smoke testing was not run.
 
+### Text Tab Ask Action & Compact Button Row
+
+- **Date:** 2026-10-01
+- **Implementation:** Replaced the Text tab's full-width Save/Anki action layout with centered, single-row, content-sized Save, Send to Anki, and Ask buttons at 33px high. Save uses neutral monochrome fill and hover/active/focus states.
+- **Ask Behavior:** Transfers the current word, reading, meaning, captured text, and distinct example into the existing Ask context banner, then switches to the Ask tab. It does not populate a question or call `sendAskQuery`; the user remains responsible for submitting a prompt.
+- **Files:** `extension/sidepanel/sidepanel.html`, `extension/sidepanel/sidepanel.css`, `extension/sidepanel/sidepanel.js`, `extension/tests/text-ask-transfer.test.js`.
+- **Verification:** Focused Text-to-Ask tests passed (3/3); neighboring Ask and Side Panel suites passed (11/11); full extension suite passed (173/173); editor diagnostics reported no errors.
+- **Remaining Risk:** The action row has not been visually smoke-tested inside a packaged Chromium Side Panel.
+
 
 
