@@ -82,6 +82,7 @@ The core mining pipeline is functional. Current work is focused on polishing, re
 - [x] Anki sync state tracking
 - [x] DRM frame-capture fail-soft behavior
 - [x] Regression testing across supported video sites
+- [x] Fixed offscreen extension global-scope collision between loaded audio scripts (`WavEncoderClass`/related helpers) that caused the browser to abort before the capture engine initialized.
 
 ---
 

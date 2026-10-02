@@ -30,8 +30,44 @@ function testManifestAndOffscreenFiles() {
 }
 
 // -------------------------------------------------------------
-// 2. Unit Tests for OffscreenAudioRecorder
+// 2. Regression: browser-style global script loading
 // -------------------------------------------------------------
+function testOffscreenGlobalScriptCompatibility() {
+  const context = {
+    console,
+    require,
+    navigator: { mediaDevices: { getUserMedia: async () => ({}) } },
+    window: {},
+    self: {},
+    chrome: { runtime: { sendMessage: async () => ({ ok: true }) } },
+    AudioWorkletNode: class {},
+    AudioContext: class { },
+    Blob: globalThis.Blob,
+    FileReader: globalThis.FileReader,
+    URL: globalThis.URL,
+    setTimeout,
+    clearTimeout,
+    setInterval,
+    clearInterval
+  };
+
+  const files = [
+    "wav-encoder.js",
+    "rolling-pcm-buffer.js",
+    "audio-timeline-sync.js",
+    "offscreen.js"
+  ].map((name) => path.resolve(__dirname, "../offscreen", name));
+
+  files.forEach((filePath) => {
+    const code = fs.readFileSync(filePath, "utf8");
+    vm.runInNewContext(code, context, { filename: filePath });
+  });
+
+  const engineType = vm.runInNewContext("typeof PersistentAudioCaptureEngine", context);
+  assert.equal(engineType, "function", "PersistentAudioCaptureEngine should load from the same global context");
+  console.log("PASS: Offscreen scripts share a single browser global scope without duplicate declaration errors.");
+}
+
 const { OffscreenAudioRecorder } = require("../offscreen/offscreen.js");
 
 async function testOffscreenAudioRecorderLifecycle() {
@@ -618,6 +654,7 @@ async function testVideoMiningPOCAudioRecording() {
 async function runAllTests() {
   try {
     testManifestAndOffscreenFiles();
+    testOffscreenGlobalScriptCompatibility();
     await testOffscreenAudioRecorderLifecycle();
     await testOffscreenAudioRecorderDrmHandling();
     await testBackgroundAudioCoordination();

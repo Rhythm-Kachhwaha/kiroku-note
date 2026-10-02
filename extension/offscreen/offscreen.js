@@ -8,15 +8,15 @@
  * 4. Manages capture states: IDLE, STARTING, CAPTURING, PAUSED, ERROR, STOPPED.
  */
 
-let RollingPcmBufferClass = typeof RollingPcmBuffer !== "undefined"
+let OffscreenRollingPcmBufferClass = typeof RollingPcmBuffer !== "undefined"
   ? RollingPcmBuffer
   : (typeof require !== "undefined" ? require("./rolling-pcm-buffer.js").RollingPcmBuffer : null);
 
-let AudioTimelineSyncEngineClass = typeof AudioTimelineSyncEngine !== "undefined"
+let OffscreenAudioTimelineSyncEngineClass = typeof AudioTimelineSyncEngine !== "undefined"
   ? AudioTimelineSyncEngine
   : (typeof require !== "undefined" ? require("./audio-timeline-sync.js").AudioTimelineSyncEngine : null);
 
-let WavEncoderClass = typeof WavEncoder !== "undefined"
+let OffscreenWavEncoderClass = typeof WavEncoder !== "undefined"
   ? WavEncoder
   : (typeof require !== "undefined" ? require("./wav-encoder.js").WavEncoder : null);
 
@@ -40,14 +40,14 @@ class PersistentAudioCaptureEngine {
     this.lastError = null;
     this.isMirroring = false;
 
-    this.RollingPcmBuffer = options.RollingPcmBuffer || RollingPcmBufferClass;
+    this.RollingPcmBuffer = options.RollingPcmBuffer || OffscreenRollingPcmBufferClass;
     this.ringBuffer = new this.RollingPcmBuffer({
       sampleRate: options.sampleRate || 48000,
       durationSeconds: options.durationSeconds || 30
     });
 
-    this.AudioTimelineSyncEngine = options.AudioTimelineSyncEngine || AudioTimelineSyncEngineClass;
-    this.WavEncoder = options.WavEncoder || WavEncoderClass;
+    this.AudioTimelineSyncEngine = options.AudioTimelineSyncEngine || OffscreenAudioTimelineSyncEngineClass;
+    this.WavEncoder = options.WavEncoder || OffscreenWavEncoderClass;
     this.syncEngine = new this.AudioTimelineSyncEngine({
       ringBuffer: this.ringBuffer,
       sampleRate: options.sampleRate || 48000,
