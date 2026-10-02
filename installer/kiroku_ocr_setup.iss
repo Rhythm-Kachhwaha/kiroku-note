@@ -1,13 +1,13 @@
 ; ==============================================================================
 ; Kiroku Note — Windows Inno Setup OCR Add-on Script
 ; ==============================================================================
-; Produces a 64-bit Windows Add-on installer: Kiroku-Note-OCR-Setup-v1.0.1.exe
+; Produces a 64-bit Windows Add-on installer: Kiroku-Note-OCR-Setup-v2.0.0.exe
 ; Installs standalone KirokuOCR engine and dependencies into {app}\ocr\.
 ; User data is preserved and never bundled or overwritten.
 ; ==============================================================================
 
 #define MyAppName "Kiroku Note OCR Add-on"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "2.0.0"
 #define MyAppPublisher "Kiroku Note"
 #define MyAppExeName "KirokuOCR.exe"
 #define MyBaseAppName "Kiroku Note"

@@ -5,6 +5,7 @@ import json
 import logging
 import os
 from pathlib import Path
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -244,3 +245,118 @@ def test_security_assertions_raw_secret_never_exposed(client, tmp_path, caplog):
 def test_empty_or_invalid_secret_validation(client):
     resp = client.post("/api/llm/secret", json={"api_key": "   "})
     assert resp.status_code == 422
+
+
+def test_frozen_exe_llm_saving_api_workflow(client, tmp_path):
+    """
+    Verify that in frozen/packaged mode (sys.frozen=True), the LLM saving API works
+    end-to-end targeting %LOCALAPPDATA%\\KirokuNote\\data without relying on dev paths.
+    """
+    fake_localappdata = tmp_path / "AppData" / "Local"
+    fake_localappdata.mkdir(parents=True)
+    expected_data_dir = fake_localappdata / "KirokuNote" / "data"
+    expected_secrets_file = expected_data_dir / ".secrets.enc"
+    expected_config_file = expected_data_dir / "llm_config.json"
+
+    with patch.object(sys, "frozen", True, create=True), \
+         patch("sys.platform", "win32"), \
+         patch.dict("os.environ", {"LOCALAPPDATA": str(fake_localappdata)}, clear=True):
+
+        reset_secret_store()
+
+        # 1. Initially unconfigured
+        st0 = client.get("/api/llm/status").json()
+        assert st0["configured"] is False
+
+        # 2. Save API key in packaged mode
+        secret_key = "gsk_packaged_exe_secret_key_998877665544"
+        res_sec = client.post(
+            "/api/llm/secret",
+            json={"api_key": secret_key, "key_name": "Exe User Key"},
+        )
+        assert res_sec.status_code == 200
+        sec_data = res_sec.json()
+        assert sec_data["ok"] is True
+        assert sec_data["configured"] is True
+        assert sec_data["key_name"] == "Exe User Key"
+        assert secret_key not in str(sec_data)
+
+        # 3. Verify .secrets.enc is placed in LocalAppData and encrypted
+        assert expected_secrets_file.is_file(), f"Missing secrets file at {expected_secrets_file}"
+        raw_enc = expected_secrets_file.read_bytes()
+        assert secret_key.encode("utf-8") not in raw_enc
+
+        # 4. Save provider & preferences via PUT /api/llm/config
+        res_cfg = client.put(
+            "/api/llm/config",
+            json={"provider": "groq", "jlpt_level": "N2"},
+        )
+        assert res_cfg.status_code == 200
+        cfg_data = res_cfg.json()
+        assert cfg_data["configured"] is True
+        assert cfg_data["provider"] == "groq"
+        assert cfg_data["jlpt_level"] == "N2"
+        assert cfg_data["has_key"] is True
+        assert cfg_data["key_name"] == "Exe User Key"
+
+        # 5. Verify llm_config.json is placed in LocalAppData and has no secrets
+        assert expected_config_file.is_file(), f"Missing config file at {expected_config_file}"
+        saved_cfg_text = expected_config_file.read_text(encoding="utf-8")
+        assert secret_key not in saved_cfg_text
+        saved_cfg = json.loads(saved_cfg_text)
+        assert saved_cfg["provider"] == "groq"
+        assert saved_cfg["jlpt_level"] == "N2"
+        assert "api_key" not in saved_cfg
+
+        # 6. Simulate restart of packaged application
+        reset_secret_store()
+
+        from app.config import get_llm_api_key
+        assert get_llm_api_key() == secret_key
+
+        st_after = client.get("/api/llm/status").json()
+        assert st_after["configured"] is True
+        assert st_after["provider"] == "groq"
+        assert st_after["key_name"] == "Exe User Key"
+
+        # 7. Delete key from packaged storage
+        del_res = client.delete("/api/llm/secret")
+        assert del_res.status_code == 200
+        assert del_res.json()["configured"] is False
+        assert get_llm_api_key() is None
+
+
+def test_provider_switch_clears_mismatched_model(client, tmp_path):
+    """
+    Verify switching LLM provider in Settings clears previous provider's custom model.
+    """
+    secrets_file = tmp_path / "data" / ".secrets.enc"
+    with patch.dict(
+        "os.environ",
+        {
+            "KIROKU_DATA_DIR": str(tmp_path),
+            "KIROKU_SECRETS_PATH": str(secrets_file),
+        },
+        clear=True,
+    ):
+        reset_secret_store()
+
+        # Configure Groq with custom model
+        r1 = client.put(
+            "/api/llm/config",
+            json={"provider": "groq", "model": "llama-3.3-70b-versatile"},
+        )
+        assert r1.status_code == 200
+        assert r1.json()["provider"] == "groq"
+        assert r1.json()["model"] == "llama-3.3-70b-versatile"
+
+        # Switch to Gemini without specifying a model
+        r2 = client.put(
+            "/api/llm/config",
+            json={"provider": "gemini"},
+        )
+        assert r2.status_code == 200
+        assert r2.json()["provider"] == "gemini"
+        # Model should fall back to Gemini default, not retain Groq's custom model
+        assert r2.json()["model"] == "gemini-2.0-flash"
+

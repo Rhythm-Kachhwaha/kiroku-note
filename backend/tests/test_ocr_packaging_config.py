@@ -62,7 +62,7 @@ def test_ocr_installer_iss_configuration():
 
     # Verify AppName, Version and Architecture
     assert re.search(r'#define\s+MyAppName\s+"Kiroku Note OCR Add-on"', content), "MyAppName must be 'Kiroku Note OCR Add-on'"
-    assert re.search(r'#define\s+MyAppVersion\s+"1\.0\.[01]"', content), "MyAppVersion must be '1.0.0' or '1.0.1'"
+    assert re.search(r'#define\s+MyAppVersion\s+"(1\.0\.[01]|2\.0\.0)"', content), "MyAppVersion must be valid version string"
     assert "ArchitecturesInstallIn64BitMode=x64compatible" in content
     assert "PrivilegesRequired=lowest" in content
     assert "Kiroku-Note-OCR-Setup-v{#MyAppVersion}" in content

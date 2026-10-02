@@ -24,7 +24,7 @@ def test_installer_metadata_and_architecture():
 
     # Verify AppName and Version definitions
     assert re.search(r'#define\s+MyAppName\s+"Kiroku Note"', content), "MyAppName must be 'Kiroku Note'"
-    assert re.search(r'#define\s+MyAppVersion\s+"1\.0\.[01]"', content), "MyAppVersion must be '1.0.0' or '1.0.1'"
+    assert re.search(r'#define\s+MyAppVersion\s+"(1\.0\.[01]|2\.0\.0)"', content), "MyAppVersion must be valid version string"
     assert re.search(r'#define\s+MyAppExeName\s+"KirokuNote\.exe"', content), "MyAppExeName must be 'KirokuNote.exe'"
 
     # Verify 64-bit architecture settings
@@ -93,3 +93,23 @@ def test_installer_shortcuts_and_run():
 
     # Verify Post-install Launch
     assert 'Filename: "{app}\\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"' in content
+
+
+def test_installer_upgrade_and_ocr_preservation():
+    """
+    Ensure the installer reuses the previous install directory, closes both
+    backend and OCR processes before file replacement, and does not touch
+    co-located OCR binaries or add-on directories.
+    """
+    content = ISS_PATH.read_text(encoding="utf-8")
+
+    assert "UsePreviousAppDir=yes" in content, "Installer must set UsePreviousAppDir=yes to upgrade in-place"
+    assert "UsePreviousGroup=yes" in content
+    assert "UsePreviousPrivileges=yes" in content
+    assert re.search(r'CloseApplicationsFilter=\{#MyAppExeName\},KirokuOCR\.exe', content), (
+        "CloseApplicationsFilter must include both MyAppExeName and KirokuOCR.exe"
+    )
+
+    # Core installer must not bundle or overwrite {app}\ocr
+    assert r'DestDir: "{app}\ocr"' not in content, "Core installer must not overwrite {app}\\ocr add-on payload"
+

@@ -159,3 +159,52 @@ def test_ocr_service_recognize_triggers_controlled_startup(tmp_path: Path):
             res = service.recognize(b"valid_image_bytes")
             assert res.text == "漫画"
             mock_pm.start.assert_called_once_with(wait_for_health=True, timeout_seconds=5.0)
+
+
+def test_ocr_candidate_discovery_co_located(tmp_path: Path):
+    """
+    Verify candidate discovery identifies KirokuOCR when co-located in the same
+    folder as the executable (direct exe, subfolder 'ocr', or subfolder 'KirokuOCR').
+    """
+    from app.config import resolve_ocr_exe_path
+
+    # Scenario A: Frozen mode, direct KirokuOCR.exe alongside KirokuNote.exe
+    mock_exe_dir = tmp_path / "app_folder"
+    mock_exe_dir.mkdir(parents=True)
+    fake_note_exe = mock_exe_dir / "KirokuNote.exe"
+    fake_note_exe.write_text("dummy", encoding="utf-8")
+    fake_ocr_exe = mock_exe_dir / "KirokuOCR.exe"
+    fake_ocr_exe.write_text("dummy", encoding="utf-8")
+
+    with patch("sys.frozen", True, create=True):
+        with patch("sys.executable", str(fake_note_exe)):
+            with patch("app.config._get_registry_install_paths", return_value=[]):
+                resolved = resolve_ocr_exe_path(env={})
+                assert resolved == fake_ocr_exe
+
+    # Scenario B: Frozen mode, KirokuOCR in ocr/ subfolder
+    fake_ocr_exe.unlink()
+    ocr_sub = mock_exe_dir / "ocr"
+    ocr_sub.mkdir()
+    fake_sub_ocr = ocr_sub / "KirokuOCR.exe"
+    fake_sub_ocr.write_text("dummy", encoding="utf-8")
+
+    with patch("sys.frozen", True, create=True):
+        with patch("sys.executable", str(fake_note_exe)):
+            with patch("app.config._get_registry_install_paths", return_value=[]):
+                resolved = resolve_ocr_exe_path(env={})
+                assert resolved == fake_sub_ocr
+
+    # Scenario C: Frozen mode, KirokuOCR in KirokuOCR/ onedir subfolder
+    fake_sub_ocr.unlink()
+    onedir_sub = mock_exe_dir / "KirokuOCR"
+    onedir_sub.mkdir()
+    fake_onedir_ocr = onedir_sub / "KirokuOCR.exe"
+    fake_onedir_ocr.write_text("dummy", encoding="utf-8")
+
+    with patch("sys.frozen", True, create=True):
+        with patch("sys.executable", str(fake_note_exe)):
+            with patch("app.config._get_registry_install_paths", return_value=[]):
+                resolved = resolve_ocr_exe_path(env={})
+                assert resolved == fake_onedir_ocr
+

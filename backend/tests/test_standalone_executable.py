@@ -129,7 +129,75 @@ def test_standalone_executable_runtime_isolated():
                 cards = list_data.get("cards", [])
                 assert any(c.get("expression") == "約束" for c in cards)
 
-            # 5. Test port collision behavior
+            # 5. Test LLM saving API in the standalone executable
+            llm_status_req = urllib.request.Request(f"{base_url}/api/llm/status")
+            with urllib.request.urlopen(llm_status_req, timeout=3.0) as st_resp:
+                assert st_resp.status == 200
+                st_data = json.loads(st_resp.read().decode("utf-8"))
+                assert st_data.get("configured") is False
+
+            # Save secret via POST /api/llm/secret
+            llm_secret_payload = json.dumps({
+                "api_key": "gsk_standalone_exe_token_1234567890",
+                "key_name": "Exe Test Key",
+                "provider": "groq",
+            }).encode("utf-8")
+            llm_sec_req = urllib.request.Request(
+                f"{base_url}/api/llm/secret",
+                data=llm_secret_payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(llm_sec_req, timeout=3.0) as sec_resp:
+                assert sec_resp.status == 200
+                sec_data = json.loads(sec_resp.read().decode("utf-8"))
+                assert sec_data.get("ok") is True
+                assert sec_data.get("configured") is True
+                assert sec_data.get("key_name") == "Exe Test Key"
+                assert "gsk_standalone_exe_token_1234567890" not in str(sec_data)
+
+            # Update non-secret preferences via PUT /api/llm/config
+            llm_cfg_payload = json.dumps({
+                "provider": "groq",
+                "jlpt_level": "N2",
+            }).encode("utf-8")
+            llm_cfg_req = urllib.request.Request(
+                f"{base_url}/api/llm/config",
+                data=llm_cfg_payload,
+                headers={"Content-Type": "application/json"},
+                method="PUT",
+            )
+            with urllib.request.urlopen(llm_cfg_req, timeout=3.0) as cfg_resp:
+                assert cfg_resp.status == 200
+                cfg_data = json.loads(cfg_resp.read().decode("utf-8"))
+                assert cfg_data.get("configured") is True
+                assert cfg_data.get("jlpt_level") == "N2"
+                assert cfg_data.get("has_key") is True
+
+            # Verify status now reports configured
+            with urllib.request.urlopen(llm_status_req, timeout=3.0) as st_resp2:
+                st_data2 = json.loads(st_resp2.read().decode("utf-8"))
+                assert st_data2.get("configured") is True
+                assert st_data2.get("provider") == "groq"
+                assert st_data2.get("key_name") == "Exe Test Key"
+
+            # Delete secret via DELETE /api/llm/secret
+            llm_del_req = urllib.request.Request(
+                f"{base_url}/api/llm/secret",
+                headers={"Content-Type": "application/json"},
+                method="DELETE",
+            )
+            with urllib.request.urlopen(llm_del_req, timeout=3.0) as del_resp:
+                assert del_resp.status == 200
+                del_data = json.loads(del_resp.read().decode("utf-8"))
+                assert del_data.get("configured") is False
+
+            # Verify status returns to unconfigured
+            with urllib.request.urlopen(llm_status_req, timeout=3.0) as st_resp3:
+                st_data3 = json.loads(st_resp3.read().decode("utf-8"))
+                assert st_data3.get("configured") is False
+
+            # 6. Test port collision behavior
             # Attempt to launch a second instance on the exact same port
             collision_proc = subprocess.Popen(
                 [str(DIST_EXE)],

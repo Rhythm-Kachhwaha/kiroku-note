@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 
 APP_NAME = "KirokuNote"
-APP_VERSION = "1.0.1"
+APP_VERSION = "2.0.0"
 
 DEFAULT_KIROKU_HOST = "127.0.0.1"
 DEFAULT_KIROKU_PORT = 21828
@@ -180,6 +180,17 @@ def get_ocr_model_dir(env: dict[str, str] | None = None) -> Path:
             exe_dir / "models" / "manga-ocr-base",
             exe_dir / "ocr" / "models",
             exe_dir / "models",
+            exe_dir / "KirokuOCR" / "models" / "manga-ocr-base",
+            exe_dir / "KirokuOCR" / "models",
+        ]:
+            if candidate.is_dir():
+                return candidate
+
+    for reg_path in _get_registry_install_paths():
+        for candidate in [
+            reg_path / "ocr" / "models" / "manga-ocr-base",
+            reg_path / "models" / "manga-ocr-base",
+            reg_path / "KirokuOCR" / "models" / "manga-ocr-base",
         ]:
             if candidate.is_dir():
                 return candidate
@@ -359,6 +370,7 @@ def resolve_ocr_exe_path(env: dict[str, str] | None = None) -> Path | None:
         candidates.append(reg_path / "ocr" / "KirokuOCR.exe")
         candidates.append(reg_path / "ocr" / "KirokuOCR" / "KirokuOCR.exe")
         candidates.append(reg_path / "KirokuOCR.exe")
+        candidates.append(reg_path / "KirokuOCR" / "KirokuOCR.exe")
         candidates.append(reg_path / "Kiroku Note" / "ocr" / "KirokuOCR.exe")
 
     # 2. Frozen mode discovery
@@ -367,6 +379,7 @@ def resolve_ocr_exe_path(env: dict[str, str] | None = None) -> Path | None:
         candidates.append(exe_dir / "ocr" / "KirokuOCR.exe")
         candidates.append(exe_dir / "ocr" / "KirokuOCR" / "KirokuOCR.exe")
         candidates.append(exe_dir / "KirokuOCR.exe")
+        candidates.append(exe_dir / "KirokuOCR" / "KirokuOCR.exe")
         parent_dir = exe_dir.parent
         dir_name = exe_dir.name
         candidates.append(parent_dir / f"{dir_name}ocr" / "ocr" / "KirokuOCR.exe")
@@ -385,6 +398,10 @@ def resolve_ocr_exe_path(env: dict[str, str] | None = None) -> Path | None:
             base_local = Path.home() / "AppData" / "Local"
         
         candidates.append(base_local / APP_NAME / "ocr" / "KirokuOCR.exe")
+        candidates.append(base_local / APP_NAME / "KirokuOCR.exe")
+        candidates.append(base_local / APP_NAME / "KirokuOCR" / "KirokuOCR.exe")
+        candidates.append(base_local / "Programs" / "Kiroku Note" / "KirokuOCR.exe")
+        candidates.append(base_local / "Programs" / "Kiroku Note" / "KirokuOCR" / "KirokuOCR.exe")
         candidates.append(base_local / "Programs" / "Kiroku Note" / "ocr" / "KirokuOCR.exe")
         candidates.append(base_local / "Programs" / "Kiroku Note" / "ocr" / "KirokuOCR" / "KirokuOCR.exe")
 
@@ -516,13 +533,17 @@ def get_llm_ollama_url(env: dict[str, str] | None = None) -> str:
     return DEFAULT_OLLAMA_URL
 
 
-def get_llm_model(env: dict[str, str] | None = None) -> str | None:
+def get_llm_model(env: dict[str, str] | None = None, provider: str | None = None) -> str | None:
     """Resolve user-specified LLM model override, if any. Env takes precedence over stored config."""
     env_dict = os.environ if env is None else env
     val = env_dict.get("KIROKU_LLM_MODEL")
     if val and str(val).strip():
         return str(val).strip()
     stored = load_stored_llm_config(env)
+    stored_provider = stored.get("provider")
+    current_provider = provider or get_llm_provider(env)
+    if stored_provider and current_provider and str(stored_provider).strip().lower() != str(current_provider).strip().lower():
+        return None
     if stored.get("model") and str(stored["model"]).strip():
         return str(stored["model"]).strip()
     return None

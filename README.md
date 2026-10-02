@@ -19,6 +19,7 @@
   - [1. Text Mining Mode](#1--text-mining-mode)
   - [2. Video Mining Mode](#2--video-mining-mode)
   - [3. Quick Add Mode](#3--quick-add-mode)
+  - [4. AI / LLM Card & Nuance Enrichment](#4--ai--llm-card--nuance-enrichment)
 - [Purpose of Kiroku Backend Servers](#purpose-of-kiroku-backend-servers)
 - [Privacy & Local-First Philosophy](#privacy--local-first-philosophy)
 - [Troubleshooting & FAQ](#troubleshooting--faq)
@@ -41,6 +42,9 @@ Even if you have never used Python, a terminal, or built an extension before, yo
          │                           │
          v                           v
   Yomitan (:19633)          Optional OCR (:21829)
+                                     │
+                                     v
+                           Local LLM / Groq / Gemini
 ```
 
 ---
@@ -48,10 +52,11 @@ Even if you have never used Python, a terminal, or built an extension before, yo
 ### <a id="step-1-download--install-kiroku-note-windows"></a>Step 1: Download & Install Kiroku Note (Windows)
 
 1. Go to the [Kiroku Note Releases Page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
-2. Download the latest installer: **`Kiroku-Note-Setup-v1.0.1.exe`**.
+2. Download the latest installer: **`Kiroku-Note-Setup-v2.0.0.exe`**.
 3. Double-click the installer file to run it.
    > **Note on Windows SmartScreen:** Because this is a free, open-source application and not signed with an enterprise certificate, Windows may show a blue popup saying *"Windows protected your PC"*. Simply click **"More info"** and then click **"Run anyway"**.
 4. Follow the setup wizard and click **Finish**. Kiroku Note is now installed in your system!
+   *(Note: Upgrading from an earlier version will update the app in-place without duplicating directories or overwriting your database, cards, or co-located OCR engines!)*
 
 ---
 
@@ -72,7 +77,7 @@ Even if you have never used Python, a terminal, or built an extension before, yo
 
 Kiroku Note works on all modern Chromium-based browsers (**Brave**, **Google Chrome**, **Microsoft Edge**, **Vivaldi**, **Opera**).
 
-1. Download **`KirokuNote-extension-v1.0.1.zip`** from the [Releases page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases) and **Extract / Unzip** it to a permanent folder (e.g. `Documents\KirokuExtension`).  
+1. Download **`KirokuNote-extension-v2.0.0.zip`** from the [Releases page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases) and **Extract / Unzip** it to a permanent folder (e.g. `Documents\KirokuExtension`).  
    *(If you ran the Windows installer, the extension files are also already placed at `%LOCALAPPDATA%\Programs\Kiroku Note\extension`)*.
 2. Open your browser and navigate to the Extensions management page:
    - **Brave:** `brave://extensions`
@@ -116,7 +121,7 @@ For automatic Japanese subtitle matching on video and streaming platforms:
 
 Want to capture and mine Japanese text directly from manga, anime frames, or untranslatable images?
 
-1. Download **`Kiroku-Note-OCR-Setup-v1.0.1.exe`** from the [Releases page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
+1. Download **`Kiroku-Note-OCR-Setup-v2.0.0.exe`** from the [Releases page](https://github.com/Rhythm-Kachhwaha/kiroku-note/releases).
 2. Run the installer. It automatically detects your Kiroku Note installation directory (e.g. `D:\Kiroku Note` or `%LOCALAPPDATA%\Programs\Kiroku Note`) and places the CPU-optimized [manga-ocr](https://github.com/kha-white/manga-ocr) engine into Kiroku Note's directory under `\ocr`. *(If installing manually or choosing custom paths, ensure the OCR add-on is installed into the same main folder as Kiroku Note).*
 3. Once installed, Kiroku Note automatically detects the OCR engine and starts it in the background when you use the image capture tool — no manual running of `ocr.exe` is required!
 
@@ -157,12 +162,28 @@ For ultra-fast, single-click card creation without manual side panel review.
 
 ---
 
+### <a id="4--ai--llm-card--nuance-enrichment"></a>4. 🤖 AI / LLM Card & Nuance Enrichment
+Supercharge your vocabulary retention with local or cloud AI models directly inside the Side Panel:
+- **Supported Providers:**
+  - **Groq** (Ultra-fast cloud inference, defaults to `llama-3.1-8b-instant`)
+  - **Google Gemini** (`gemini-2.0-flash`)
+  - **Local Ollama** (100% offline & private, connects to `http://localhost:11434`)
+  - **OpenAI-Compatible Custom Endpoints**
+- **Smart Enrichment Features:**
+  - **Nuance & Context Explanations:** Explains how the mined word functions specifically in the captured sentence.
+  - **Furigana & Pitch-Accent Alignment:** Generates native example sentences with furigana readings.
+  - **JLPT-Aware Hints:** Calibrates explanations and mnemonics to your target comprehension level.
+- **Hardware-Backed DPAPI Security:**
+  - API keys are **never stored in plaintext** or committed to configuration files. On Windows, credentials are encrypted at rest using native Windows DPAPI (`CryptProtectData`) in `%LOCALAPPDATA%\KirokuNote\.secrets.enc`.
+
+---
+
 ## <a id="purpose-of-kiroku-backend-servers"></a>⚙️ Purpose of Kiroku Backend Servers
 
 Kiroku Note runs as a lightweight desktop service system on your local machine (`127.0.0.1`):
 
 1. **Main Kiroku Local Engine (Port `21828`)**:
-   - **Purpose**: Local source of truth and REST API backend. Handles card drafting, SQLite persistence (`kiroku.db`), audio/image media storage, Yomitan dictionary orchestration, offline JLPT level lookups (`jlpt_reference.sqlite`), and AnkiConnect sync.
+   - **Purpose**: Local source of truth and REST API backend. Handles card drafting, SQLite persistence (`kiroku.db`), audio/image media storage, Yomitan dictionary orchestration, offline JLPT level lookups (`jlpt_reference.sqlite`), secure DPAPI secret management, and AnkiConnect sync.
 2. **Kiroku System Tray Host**:
    - **Purpose**: Low-footprint Windows system tray application (`run_tray.py`). Manages server lifecycle, displays real-time health status for Yomitan/AnkiConnect/OCR, and provides toggle controls.
 3. **Optional Standalone OCR Engine (Port `21829`)**:
@@ -173,7 +194,8 @@ Kiroku Note runs as a lightweight desktop service system on your local machine (
 ## <a id="privacy--local-first-philosophy"></a>🛡️ Privacy & Local-First Philosophy
 
 - **No Cloud Accounts / No Telemetry:** Everything runs 100% locally on your machine (`127.0.0.1`).
-- **Zero Data Loss:** Cards are always stored in your local SQLite database (`%LOCALAPPDATA%\KirokuNote\data\kiroku.db`) before syncing. If Anki is closed, your cards are never lost.
+- **Zero Data Loss Guarantee:** Cards are always stored in your local SQLite database (`%LOCALAPPDATA%\KirokuNote\data\kiroku.db`) before syncing. If Anki is closed, your cards are never lost.
+- **Safe In-Place Upgrades:** Running the installer over an existing installation updates binaries in-place without duplicating directories. Your database, media, logs, and co-located OCR engines are 100% preserved.
 - **Persistent Media:** Screenshots and audio clips are saved locally in `%LOCALAPPDATA%\KirokuNote\media\`. Updating or uninstalling the app never wipes your mined data.
 
 ---
@@ -205,6 +227,7 @@ Your database and media are stored in your user profile:
 - Database: `%LOCALAPPDATA%\KirokuNote\data\kiroku.db`
 - Mined Media: `%LOCALAPPDATA%\KirokuNote\media\`
 - Logs: `%LOCALAPPDATA%\KirokuNote\logs\`
+- Encrypted Secrets: `%LOCALAPPDATA%\KirokuNote\.secrets.enc`
 </details>
 
 ---
@@ -239,7 +262,7 @@ python run_tray.py
 
 ### 4. Run Automated Tests
 ```bash
-# Run all backend unit & integration tests (371+ tests)
+# Run all backend unit & integration tests (512+ tests)
 python -m pytest -o pythonpath=backend backend/tests
 
 # Run extension tests (Node.js built-in runner)

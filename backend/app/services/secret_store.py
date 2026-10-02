@@ -19,6 +19,13 @@ logger = logging.getLogger(__name__)
 # DPAPI flag: CRYPTPROTECT_UI_FORBIDDEN prevents any prompt UI
 _CRYPTPROTECT_UI_FORBIDDEN = 0x1
 
+if sys.platform == "win32" or os.name == "nt":
+    import ctypes
+    from ctypes import wintypes
+else:
+    ctypes = None  # type: ignore
+    wintypes = None  # type: ignore
+
 
 class SecretStore(ABC):
     """Abstract interface for local secret storage."""

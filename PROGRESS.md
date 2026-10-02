@@ -4,17 +4,35 @@
 
 Kiroku Note is a local-first Japanese vocabulary and sentence mining tool.
 
-Current development target: **V1.0**
+Current development target: **V2.0**
 
 The core mining pipeline is functional. Current work is focused on polishing, reliability, UX, and preparing the project for public release.
 
-### Codebase & Packaging Audit
-- Performed comprehensive static, logical, dependency, syntax, packaging, and test audits across the entire codebase.
-- Verified zero frontend changes were introduced to preserve UI behavior and appearance.
-- Aligned executable resource metadata in [version-info.txt](file:///D:/Python/AnkiMiner/packaging/version-info.txt) to `1.0.1` matching `backend/app/config.py` and `manifest.json`.
-- Fixed deprecation warning in [test_ocr_api.py](file:///D:/Python/AnkiMiner/backend/tests/test_ocr_api.py) (replaced deprecated constant with standard 422 HTTP status).
-- Suppressed redundant websocket protocol deprecation warning during OCR HTTP server tests in [test_ocr_integration.py](file:///D:/Python/AnkiMiner/backend/tests/test_ocr_integration.py).
-- Hardened Inno Setup metadata validation tests in [test_ocr_packaging_config.py](file:///D:/Python/AnkiMiner/backend/tests/test_ocr_packaging_config.py).
+### V2.0 Release: Full LLM Card Enrichment, In-Place Upgrade Safety, and Co-Located OCR Hardening
+- **Packaged LLM Saving API Hardened:** Verified and hardened the complete LLM configuration and secure secret storage pipeline under packaged / frozen mode (`sys.frozen = True`, `%LOCALAPPDATA%\KirokuNote\data\`).
+  - Added explicit Windows DPAPI dependencies (`ctypes`, `ctypes.wintypes`, `winreg`, `PIL.ImageFont`) to `packaging/kiroku_backend.spec` `hidden_imports`.
+  - Added module-level `ctypes` and `wintypes` imports on Windows in `backend/app/services/secret_store.py` so PyInstaller's static analyzer detects DPAPI routines.
+  - Added `provider` parameter support to `LLMSecretSaveRequest` in `backend/app/schemas.py` and updated `backend/app/main.py` `save_llm_secret()` to avoid defaulting to `"none"` when a user saves their initial API key on a clean machine.
+  - Updated `extension/sidepanel/sidepanel.js` `saveLlmSecretFromSettings()` to include `provider` in `POST /api/llm/secret`.
+  - Fixed model mismatch on provider switching: `get_llm_model(env, provider)` now respects provider boundaries, and `PUT /api/llm/config` clears outdated models when switching providers without specifying a new model.
+- **Installer Upgrade Preservation & Zero Data Loss Guarantee:**
+  - Configured `installer/kiroku_setup.iss` with `UsePreviousAppDir=yes`, `UsePreviousGroup=yes`, and `UsePreviousPrivileges=yes`. When running the installer over an existing installation, it replaces the existing version in-place without creating duplicate directories.
+  - Verified physical directory separation: user database (`kiroku.db` / `ankiminer.db`), media, logs, and secrets reside in `%LOCALAPPDATA%\KirokuNote\`, while executable binaries reside in `{app}` (`%LOCALAPPDATA%\Programs\Kiroku Note\` or custom install directories like `D:\Kiroku Note\`). Inno Setup does not touch, purge, or overwrite `%LOCALAPPDATA%\KirokuNote\`.
+  - Configured `CloseApplicationsFilter={#MyAppExeName},KirokuOCR.exe` with `CloseApplications=force` to prevent file locking if either the main app or the OCR companion daemon is running during an upgrade.
+- **Co-Located OCR Add-on Protection & Discovery:**
+  - Confirmed Inno Setup file copy semantics: files placed in the application directory not specified in `[Files]` (such as `{app}\KirokuOCR.exe`, `{app}\ocr\`, or `{app}\KirokuOCR\`) are left 100% intact during upgrades.
+  - Expanded `backend/app/config.py` candidate discovery (`resolve_ocr_exe_path` and `get_ocr_model_dir`) to check co-located installations directly alongside `KirokuNote.exe`, in `ocr/`, in `KirokuOCR/`, in `%LOCALAPPDATA%\Programs\Kiroku Note\`, and via registry keys.
+- **Git & Packaging Hygiene:**
+  - Removed accidentally committed personal user config `backend/data/llm_config.json` from git tracking.
+  - Added `backend/data/*.json`, `backend/data/*.enc`, and `backend/data/*.bak` to `.gitignore` to prevent local development credentials and config from leaking into repository checkouts.
+  - Added `KANJIVG_NOTICE.md` to `installer/kiroku_setup.iss` alongside `JLPT_REFERENCE_NOTICE.md`.
+- **Verification Performed:**
+  - Full backend test suite: **512/512 passed** (`python -m pytest`).
+  - Full extension test suite: **173/173 passed** (`node` test runner).
+  - Standalone executable live runtime test: **2/2 passed** (`test_standalone_executable.py`), validating live HTTP card saving, 404 docs gating, live `POST /api/llm/secret` DPAPI encryption, live `PUT /api/llm/config`, live `DELETE /api/llm/secret`, and port collision handling against the compiled `KirokuNote.exe`.
+  - Co-located OCR discovery tests: **8/8 passed** (`test_ocr_process_manager.py`), validating same-folder `KirokuOCR.exe`, `ocr/KirokuOCR.exe`, and `KirokuOCR/KirokuOCR.exe` candidate paths.
+  - Full Windows installer build: **Passed** (`dist/installer/Kiroku-Note-Setup-v2.0.0.exe`, 50.63 MB).
+  - Clean extension packaging: **Passed** (`dist/extension/KirokuNote-extension-v2.0.0.zip`, 213.93 KB).
 
 ---
 

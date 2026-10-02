@@ -36,8 +36,12 @@ hidden_imports = (
         "sniffio",
         "unicodedata",
         "email.mime.multipart",
+        "ctypes",
+        "ctypes.wintypes",
+        "winreg",
         "PIL.Image",
         "PIL.ImageDraw",
+        "PIL.ImageFont",
     ]
 )
 

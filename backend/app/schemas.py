@@ -528,6 +528,7 @@ class LLMConfigUpdateRequest(BaseModel):
 class LLMSecretSaveRequest(BaseModel):
     api_key: str = Field(..., min_length=1, max_length=1000)
     key_name: Optional[str] = Field(default=None, max_length=100)
+    provider: Optional[str] = Field(default=None, max_length=50)
 
 
 class LLMSecretSaveResponse(BaseModel):

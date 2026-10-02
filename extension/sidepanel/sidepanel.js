@@ -9553,6 +9553,7 @@ async function saveLlmSecretFromSettings() {
       body: JSON.stringify({
         api_key: rawKey,
         key_name: keyName || `Kiroku ${provider.charAt(0).toUpperCase() + provider.slice(1)}`,
+        provider: provider,
       }),
     });
 

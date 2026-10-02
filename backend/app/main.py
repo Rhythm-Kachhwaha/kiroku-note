@@ -615,7 +615,10 @@ def update_llm_config(request: LLMConfigUpdateRequest) -> LLMConfigResponse:
     """Update stored LLM settings in user data directory. Secrets are routed strictly to SecretStore."""
     stored = load_stored_llm_config()
     if request.provider is not None:
-        stored["provider"] = request.provider.strip().lower()
+        new_provider = request.provider.strip().lower()
+        if stored.get("provider") != new_provider and request.model is None:
+            stored.pop("model", None)
+        stored["provider"] = new_provider
     if request.model is not None:
         stored["model"] = request.model.strip()
     if request.key_name is not None:
@@ -659,7 +662,11 @@ def save_llm_secret(request: LLMSecretSaveRequest) -> LLMSecretSaveResponse:
     if not key:
         raise HTTPException(status_code=422, detail="API key must not be empty.")
 
-    provider = get_llm_provider()
+    req_provider = request.provider.strip().lower() if request.provider and request.provider.strip() else None
+    provider = req_provider or get_llm_provider()
+    if provider == "none":
+        provider = "groq"
+
     # Light validation without blocking non-standard valid keys
     if provider == "groq" and len(key) < 10:
         raise HTTPException(status_code=422, detail="Invalid Groq API key format.")
@@ -669,13 +676,14 @@ def save_llm_secret(request: LLMSecretSaveRequest) -> LLMSecretSaveResponse:
     store.set_secret("llm_api_key", key)
 
     stored = load_stored_llm_config()
+    stored["provider"] = provider
     if request.key_name is not None and request.key_name.strip():
         stored["key_name"] = request.key_name.strip()
     elif not stored.get("key_name"):
         stored["key_name"] = f"Kiroku {provider.capitalize()}"
     save_stored_llm_config(stored)
 
-    model = get_llm_model() or resolve_default_llm_model(provider)
+    model = get_llm_model(provider=provider) or resolve_default_llm_model(provider)
     key_name = stored.get("key_name")
 
     return LLMSecretSaveResponse(

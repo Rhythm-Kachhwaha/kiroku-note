@@ -1,13 +1,13 @@
 ; ==============================================================================
 ; Kiroku Note — Windows Inno Setup Script
 ; ==============================================================================
-; Produces a 64-bit per-user Windows installer: Kiroku-Note-Setup-v1.0.1.exe
+; Produces a 64-bit per-user Windows installer: Kiroku-Note-Setup-v2.0.0.exe
 ; Installs standalone backend executable and unpacked Chromium MV3 extension.
 ; User data is isolated in %LOCALAPPDATA%\KirokuNote and never bundled or overwritten.
 ; ==============================================================================
 
 #define MyAppName "Kiroku Note"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "2.0.0"
 #define MyAppPublisher "Kiroku Note"
 #define MyAppExeName "KirokuNote.exe"
 #define MyAppId "{{8B84B425-4521-4E65-A6FB-1EE08C36A780}"
@@ -30,8 +30,11 @@ ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=lowest
 DisableProgramGroupPage=yes
 DisableDirPage=auto
+UsePreviousAppDir=yes
+UsePreviousGroup=yes
+UsePreviousPrivileges=yes
 CloseApplications=force
-CloseApplicationsFilter={#MyAppExeName}
+CloseApplicationsFilter={#MyAppExeName},KirokuOCR.exe
 UninstallDisplayIcon={app}\{#MyAppExeName}
 SetupIconFile=..\assets\icon.ico
 ShowLanguageDialog=no
@@ -56,6 +59,7 @@ Source: "extension_instructions.txt"; DestDir: "{app}"; Flags: ignoreversion
 ; Legal & License Notices
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\backend\app\data\JLPT_REFERENCE_NOTICE.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\backend\app\data\KANJIVG_NOTICE.md"; DestDir: "{app}"; Flags: ignoreversion
 
 ; NOTE: User data (kiroku.db, media files, logs) is explicitly excluded from installation.
 ; All persistent user data resides in %LOCALAPPDATA%\KirokuNote\ and is preserved during upgrades and uninstalls.
