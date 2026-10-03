@@ -8,6 +8,13 @@ Current development target: **V2.0**
 
 The core mining pipeline is functional. Current work is focused on polishing, reliability, UX, and preparing the project for public release.
 
+### Ask Response Readability and Markdown Parsing (2026-10-03)
+- Increased AI response text to 16px, widened its available area, and improved paragraph and list spacing; tables now use 14px text, bold headers, and neutral row backgrounds.
+- Fixed bold-led paragraphs being mistaken for bullets and added recovery for mismatched one/two-star emphasis, including bullet-like `* text**` output, while preserving nested and triple-star formatting.
+- Kept the Ask prompt composer and top navigation unchanged.
+- Synchronized the sidepanel JS/CSS into the existing `dist/extension/unpacked` build after confirming Brave was using the stale packaged copy; left the existing ZIP untouched.
+- Verification: renderer, Ask tab, and response mode suites passed (28/28).
+
 ### Quick Mode Kanji/Kana Front Selection, Hovered Kana Preservation, and Editing Mode Restoration
 - **Direct Kanji vs. Kana Front Selection in Quick Mode:**
   - Added clickable `[漢字]` and `[かな]` choice pills (`.qa-front-choice-group` and `.qa-choice-pill`) directly to candidate suggestion rows whenever a word has Kanji and a distinct reading.

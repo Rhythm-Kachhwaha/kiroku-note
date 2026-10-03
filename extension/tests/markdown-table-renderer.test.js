@@ -101,6 +101,42 @@ test("Markdown Renderer: Table with Inline Formatting (Bold & Code)", () => {
   assert.ok(rendered.includes("<em>water</em>"), "Must parse italics inside table cell");
 });
 
+test("Markdown Renderer: Bold-first paragraphs, emphasis markers, and bullets", () => {
+  const input = [
+    "**Important:** Keep *these words* readable.",
+    "***Combined emphasis*** and **bold with *nested emphasis***.",
+    "* A real bullet item",
+  ].join("\n");
+
+  const rendered = formatAIResponse(input);
+
+  assert.ok(rendered.includes("<p><strong>Important:</strong> Keep <em>these words</em> readable.</p>"));
+  assert.ok(rendered.includes("<strong><em>Combined emphasis</em></strong>"));
+  assert.ok(rendered.includes("<strong>bold with <em>nested emphasis</em></strong>"));
+  assert.ok(rendered.includes('<ul class="ai-distractor-list"><li>A real bullet item</li></ul>'));
+});
+
+test("Markdown Renderer: Recovers mismatched asterisk emphasis", () => {
+  const input = "*寝る** – 主に「横になる」意味。 **眠る* is also used. ***大切***。";
+  const rendered = formatAIResponse(input);
+
+  assert.ok(rendered.includes("<strong>寝る</strong> – 主に「横になる」意味。"));
+  assert.ok(rendered.includes("<strong>眠る</strong> is also used."));
+  assert.ok(rendered.includes("<strong><em>大切</em></strong>。"));
+  assert.equal(rendered.includes("*寝る**"), false);
+  assert.equal(rendered.includes("**眠る*"), false);
+});
+
+test("Markdown Renderer: Does not treat malformed star emphasis as a bullet", () => {
+  const input = "* 寝る** – meaning one.\n* 眠る** – meaning two.\n* Key difference**: action versus state.";
+  const rendered = formatAIResponse(input);
+
+  assert.ok(rendered.includes("<p><strong>寝る</strong> – meaning one.</p>"));
+  assert.ok(rendered.includes("<p><strong>眠る</strong> – meaning two.</p>"));
+  assert.ok(rendered.includes("<p><strong>Key difference</strong>: action versus state.</p>"));
+  assert.equal(rendered.includes('<ul class="ai-distractor-list">'), false);
+});
+
 test("Markdown Renderer: XSS Sanitization & HTML Escaping", () => {
   const maliciousInput = [
     '<script>alert("xss")</script>',
@@ -130,9 +166,11 @@ test("Markdown Renderer: Direct Answer Badge", () => {
 test("Markdown Renderer: Code Blocks", () => {
   const input = "```japanese\n食べた -> 食べない\n```";
   const rendered = formatAIResponse(input);
+  const inlineCode = formatAIResponse("Keep `*literal**` unchanged.");
 
   assert.ok(rendered.includes('<pre class="ai-code-block"><code>'), "Must format code blocks");
   assert.ok(rendered.includes("食べた -&gt; 食べない"), "Must escape content inside code block");
+  assert.ok(inlineCode.includes('<code class="ai-inline-code">*literal**</code>'));
 });
 
 test("Markdown Renderer: Distractor List and Section Titles", () => {
@@ -153,4 +191,16 @@ test("CSS Verification: Table Container is Horizontally Scrollable", () => {
   assert.ok(css.includes(".ai-table-wrap"), "CSS must style .ai-table-wrap");
   assert.ok(css.includes("overflow-x: auto"), ".ai-table-wrap must have overflow-x: auto");
   assert.ok(css.includes(".ai-table"), "CSS must style .ai-table");
+});
+
+test("CSS Verification: AI replies and tables use readable neutral typography", () => {
+  const replyStyles = css.match(/\.chat-message\.ai-msg \.chat-msg-body\s*\{([^}]*)\}/)?.[1] || "";
+  const tableStyles = css.match(/\.ai-table\s*\{([^}]*)\}/)?.[1] || "";
+  const headerStyles = css.match(/\.ai-table th\s*\{([^}]*)\}/)?.[1] || "";
+
+  assert.match(replyStyles, /font-size:\s*16px/);
+  assert.match(replyStyles, /width:\s*100%/);
+  assert.match(tableStyles, /font-size:\s*14px/);
+  assert.match(headerStyles, /font-weight:\s*700/);
+  assert.match(headerStyles, /background:\s*transparent/);
 });

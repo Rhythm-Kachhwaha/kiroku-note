@@ -9946,12 +9946,20 @@ function resizeAskInputBox() {
 
 function formatInlineMarkdown(str) {
   if (!str) return "";
-  // Inline code: `code`
-  let res = str.replace(/`([^`]+)`/g, '<code class="ai-inline-code">$1</code>');
-  // Bold: **text**
-  res = res.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  // Italics: *text* (when not bold)
-  res = res.replace(/(^|[^*])\*([^*]+)\*([^*]|$)/g, '$1<em>$2</em>$3');
+  const codeSegments = [];
+  let res = str.replace(/`([^`]+)`/g, (_, code) => {
+    const token = `\u0000CODE${codeSegments.length}\u0000`;
+    codeSegments.push(`<code class="ai-inline-code">${code}</code>`);
+    return token;
+  });
+  res = res.replace(/(^|[^*])(\*{1,2})([^*\n]+?)(\*{1,2})(?=\s|$|[、。，.!?;:：；）」』】〉）—–])/g, (match, prefix, opening, content, closing) => {
+    if (opening.length === closing.length) return match;
+    return `${prefix}<strong>${content}</strong>`;
+  });
+  res = res.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
+  res = res.replace(/\*\*(.+?)\*\*(?!\*)/g, "<strong>$1</strong>");
+  res = res.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+  res = res.replace(/\u0000CODE(\d+)\u0000/g, (_, index) => codeSegments[Number(index)]);
   return res;
 }
 
@@ -10035,7 +10043,7 @@ function formatAIResponse(rawText) {
   };
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+    const line = lines[i].trim().replace(/^\*\s+(.+?)\*\*(?=\s|$|[、。，.!?;:：；）」』】〉）—–])/, "**$1**");
 
     // Handle code blocks (```)
     if (line.startsWith("```")) {
@@ -10088,13 +10096,13 @@ function formatAIResponse(rawText) {
       continue;
     }
 
-    // Lists (- item or * item or 1. item)
-    if (line.startsWith("-") || line.startsWith("*") || line.match(/^\d+\./)) {
+    // Lists (- item, * item, + item, or 1. item)
+    if (/^(?:[-+*]\s+|\d+[.)]\s+)/.test(line)) {
       if (!inList) {
         formattedHtml += '<ul class="ai-distractor-list">';
         inList = true;
       }
-      const cleanItem = line.replace(/^[-*]|\d+\./, "").trim();
+      const cleanItem = line.replace(/^(?:[-+*]\s+|\d+[.)]\s+)/, "").trim();
       formattedHtml += `<li>${formatInlineMarkdown(cleanItem)}</li>`;
       continue;
     }
