@@ -186,6 +186,85 @@ const syncAnkiBtn = document.querySelector("#sync-anki-btn");
 const btnAskFromText = document.querySelector("#btn-ask-from-text");
 const ankiSyncStatus = document.querySelector("#anki-sync-status");
 
+// 1-Click Card Front Toggle (Kanji vs. Kana)
+const frontToggleRow = document.querySelector("#front-toggle-row");
+const btnFrontKanji = document.querySelector("#btn-front-kanji");
+const btnFrontKana = document.querySelector("#btn-front-kana");
+let currentActiveKanji = "";
+let currentActiveKana = "";
+let currentFrontPreference = "kanji"; // "kanji" | "kana"
+
+function isKanaOnly(str) {
+  if (!str || typeof str !== "string") return false;
+  const s = str.trim();
+  if (!s) return false;
+  return typeof wanakana !== "undefined" && typeof wanakana.isKana === "function"
+    ? wanakana.isKana(s)
+    : /^[\u3040-\u309f\u30a0-\u30ff\u31f0-\u31ff\uff66-\uff9f\u30fc\u30fb\s]+$/.test(s);
+}
+
+function hasKanji(str) {
+  if (!str || typeof str !== "string") return false;
+  return /[\u4e00-\u9faf\u3400-\u4dbf]/.test(str);
+}
+
+function updateFrontToggleUI(kanji, kana, currentFront) {
+  currentActiveKanji = kanji ? String(kanji).trim() : "";
+  currentActiveKana = kana ? String(kana).trim() : "";
+  currentFrontPreference = currentFront === "kana" ? "kana" : "kanji";
+
+  if (!frontToggleRow) return;
+
+  const hasBoth = Boolean(
+    currentActiveKanji &&
+    currentActiveKana &&
+    currentActiveKanji !== currentActiveKana &&
+    hasKanji(currentActiveKanji)
+  );
+
+  frontToggleRow.hidden = !hasBoth;
+  if (!hasBoth) return;
+
+  if (btnFrontKanji) {
+    btnFrontKanji.textContent = `漢字 ${currentActiveKanji}`;
+    btnFrontKanji.classList.toggle("active", currentFrontPreference === "kanji");
+    btnFrontKanji.setAttribute("aria-pressed", String(currentFrontPreference === "kanji"));
+  }
+  if (btnFrontKana) {
+    btnFrontKana.textContent = `かな ${currentActiveKana}`;
+    btnFrontKana.classList.toggle("active", currentFrontPreference === "kana");
+    btnFrontKana.setAttribute("aria-pressed", String(currentFrontPreference === "kana"));
+  }
+}
+
+function setCardFrontPreference(preference) {
+  if (preference !== "kana" && preference !== "kanji") return;
+  if (!currentActiveKanji && !currentActiveKana) return;
+
+  currentFrontPreference = preference;
+  const isKana = preference === "kana";
+  const newFront = isKana && currentActiveKana ? currentActiveKana : (currentActiveKanji || currentActiveKana);
+  const newReading = currentActiveKana || currentActiveKanji;
+
+  if (typeof fieldExpression !== "undefined" && fieldExpression) fieldExpression.value = newFront;
+  if (typeof fieldReading !== "undefined" && fieldReading) fieldReading.value = newReading;
+  if (typeof expression !== "undefined" && expression) expression.textContent = newFront || "—";
+  if (typeof updateHeroReading === "function") {
+    updateHeroReading(isKana ? (currentActiveKanji || "") : (currentActiveKana || ""), newFront);
+  }
+
+  updateFrontToggleUI(currentActiveKanji, currentActiveKana, preference);
+  if (typeof scheduleCardPreviewUpdate === "function") scheduleCardPreviewUpdate();
+  if (typeof isCardDraftDirtyState !== "undefined") isCardDraftDirtyState = true;
+}
+
+if (btnFrontKanji) {
+  btnFrontKanji.addEventListener("click", () => setCardFrontPreference("kanji"));
+}
+if (btnFrontKana) {
+  btnFrontKana.addEventListener("click", () => setCardFrontPreference("kana"));
+}
+
 // Card preview elements
 const cardPreviewSection = document.querySelector("#card-preview-section");
 const cardPreviewContainer = document.querySelector("#card-preview-container");
@@ -1897,7 +1976,7 @@ function getPreviewContextKey() {
 
 function ensurePreviewContext() {
   const contextKey = getPreviewContextKey();
-  if (previewContextKey && contextKey !== previewContextKey) {
+  if (previewContextKey && contextKey !== previewContextKey && !isPreviewEditing) {
     currentPreviewPresentation = emptyPreviewPresentation();
     isPreviewEditing = false;
     updatePreviewEditButton();
@@ -1930,11 +2009,10 @@ function canReorderPreviewBlocks() {
 function updatePreviewEditButton() {
   const button = previewEditToggle;
   if (!button) return;
-  const supported = canReorderPreviewBlocks();
-  button.disabled = !supported;
+  button.disabled = false;
   button.setAttribute("aria-pressed", String(isPreviewEditing));
-  button.setAttribute("aria-label", supported ? (isPreviewEditing ? "Finish preview editing" : "Edit card preview") : "Preview editing requires Basic note type");
-  button.title = supported ? (isPreviewEditing ? "Finish editing" : "Edit preview") : "Preview editing requires Basic note type";
+  button.setAttribute("aria-label", isPreviewEditing ? "Finish preview editing" : "Edit card preview");
+  button.title = isPreviewEditing ? "Finish editing" : "Edit preview";
   button.innerHTML = isPreviewEditing
     ? '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 3.1 3.1L13 4.5" /></svg>'
     : '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.7 2.3a1.6 1.6 0 0 1 2.3 2.3L6 12.6 3 13l.4-3z"/><path d="m10.7 3.3 2 2"/></svg>';
@@ -2027,7 +2105,6 @@ function decoratePreviewForEditing(container, side, sidePresentation) {
 }
 
 function setPreviewEditMode(enabled) {
-  if (enabled && !canReorderPreviewBlocks()) return;
   isPreviewEditing = Boolean(enabled);
   updatePreviewEditButton();
   if (typeof cardPreviewCard !== "undefined" && typeof cardPreviewCard?.classList?.toggle === "function") {
@@ -2046,6 +2123,29 @@ function handlePreviewInlineEdit(event) {
   if (editKey === "hint") value = value.replace(/^Hint:\s*/i, "");
   if (editKey === "notes") value = value.replace(/^Notes:\s*/i, "");
   sidePresentation.text[editKey] = value;
+
+  // Two-way synchronization with form fields and hero showcase
+  if (editKey === "expression") {
+    if (typeof fieldExpression !== "undefined" && fieldExpression) fieldExpression.value = value;
+    if (typeof expression !== "undefined" && expression) expression.textContent = value || "—";
+    previewContextKey = getPreviewContextKey();
+  } else if (editKey === "reading") {
+    if (typeof fieldReading !== "undefined" && fieldReading) fieldReading.value = value;
+    if (typeof updateHeroReading === "function") {
+      updateHeroReading(value, typeof fieldExpression !== "undefined" && fieldExpression ? fieldExpression.value : "");
+    }
+  } else if (editKey === "meaning") {
+    if (typeof fieldMeaning !== "undefined" && fieldMeaning) fieldMeaning.value = value;
+  } else if (editKey === "hint") {
+    if (typeof fieldHint !== "undefined" && fieldHint) fieldHint.value = value;
+  } else if (editKey === "notes") {
+    if (typeof fieldNotes !== "undefined" && fieldNotes) fieldNotes.value = value;
+  } else if (editKey === "example_sentence") {
+    if (typeof fieldExampleSentence !== "undefined" && fieldExampleSentence) fieldExampleSentence.value = value;
+  } else if (editKey === "example_translation") {
+    if (typeof fieldExampleTranslation !== "undefined" && fieldExampleTranslation) fieldExampleTranslation.value = value;
+  }
+
   if (typeof isCardDraftDirtyState !== "undefined") isCardDraftDirtyState = true;
 }
 
@@ -2612,7 +2712,10 @@ if (previewEditToggle) {
 
 if (cardPreviewCard) {
   cardPreviewCard.addEventListener("input", handlePreviewInlineEdit);
-  cardPreviewCard.addEventListener("focusout", () => scheduleCardPreviewUpdate());
+  cardPreviewCard.addEventListener("focusout", event => {
+    if (isPreviewEditing) return;
+    scheduleCardPreviewUpdate();
+  });
   cardPreviewCard.addEventListener("dragstart", event => {
     const block = event.target?.closest?.("[data-preview-block]") || event.target;
     const key = block?.getAttribute?.("data-preview-block");
@@ -4304,6 +4407,7 @@ function notifyVideoHighlightTerm(term) {
 }
 
 async function identify(text) {
+  const options = arguments.length > 1 && arguments[1] ? arguments[1] : {};
   const capturedText = typeof text === "string" ? text.trim() : "";
   if (!capturedText) return;
   lastVideoHighlightTerm = capturedText;
@@ -4362,9 +4466,25 @@ async function identify(text) {
 
     setIndicatorStatus(indicatorYomitan, "connected", "Yomitan: Connected");
 
+    const inputIsKana = isKanaOnly(capturedText);
+    const kanjiForm = hasKanji(body.expression) ? body.expression : (hasKanji(body.deinflected_text) ? body.deinflected_text : "");
+    const kanaForm = body.reading || (inputIsKana ? capturedText : "");
+
+    let resolvedFrontPreference = "kanji";
+    if (options && (options.preferredFront === "kana" || options.preferredFront === "kanji")) {
+      resolvedFrontPreference = options.preferredFront;
+    } else if (inputIsKana && kanjiForm) {
+      // Hovering or capturing Kana defaults to Kana front with 1-click toggle to Kanji available
+      resolvedFrontPreference = "kana";
+    }
+
+    const isKanaFront = resolvedFrontPreference === "kana" && Boolean(kanaForm);
+    const activeFront = isKanaFront ? kanaForm : (body.expression || "—");
+    const activeReading = isKanaFront ? (kanjiForm || kanaForm || body.reading || "") : (body.reading || "");
+
     // Populate prominent hero elements
-    expression.textContent = body.expression || "—";
-    updateHeroReading(body.reading, body.expression);
+    expression.textContent = activeFront;
+    updateHeroReading(isKanaFront ? (kanjiForm || "") : body.reading, activeFront);
     if (body.jlpt_level) {
       currentJlptLevel = body.jlpt_level;
     }
@@ -4372,6 +4492,7 @@ async function identify(text) {
     renderDetails(body);
     updateHeroMeanings(body);
     updateHeroBadges(body);
+    updateFrontToggleUI(kanjiForm, kanaForm, resolvedFrontPreference);
 
     // Populate Card Editor form
     if (cardEditor) {
@@ -4396,8 +4517,8 @@ async function identify(text) {
       updateDestinationIndicator();
       if (fieldSourceText) fieldSourceText.value = body.source_text || "";
       if (fieldDeinflectedText) fieldDeinflectedText.value = body.deinflected_text || "";
-      if (fieldExpression) fieldExpression.value = body.expression || "";
-      if (fieldReading) fieldReading.value = body.reading || "";
+      if (fieldExpression) fieldExpression.value = isKanaFront ? kanaForm : (body.expression || "");
+      if (fieldReading) fieldReading.value = activeReading;
       if (fieldMeaning) fieldMeaning.value = body.meaning || "";
       if (fieldHint) fieldHint.value = body.hint || "";
       if (pendingSentenceOverride && fieldExampleSentence) {
@@ -6371,6 +6492,11 @@ async function openSavedCard(cardId) {
       updateHeroMeanings(body);
       updateHeroBadges(body);
 
+      const savedIsKana = isKanaOnly(body.expression);
+      const savedKanji = !savedIsKana ? body.expression : (hasKanji(body.reading) ? body.reading : "");
+      const savedKana = savedIsKana ? body.expression : body.reading;
+      updateFrontToggleUI(savedKanji, savedKana, savedIsKana ? "kana" : "kanji");
+
       if (body.sync_status === "synced") {
         updateSyncUI("synced");
       } else if (body.sync_status === "failed") {
@@ -7511,7 +7637,7 @@ function updateQuickAddHighlight() {
   }
 }
 
-function selectQuickAddCandidate(candidate, candidateElement) {
+function selectQuickAddCandidate(candidate, candidateElement, preferredFront = null) {
   const targetExpression = candidate ? candidate.expression : (quickAddInput ? quickAddInput.value.trim() : "");
   if (!targetExpression) return;
 
@@ -7552,6 +7678,7 @@ function selectQuickAddCandidate(candidate, candidateElement) {
     }
   }
 
+  const resolvedFront = preferredFront || null;
   if (quickAddInput) {
     quickAddInput.value = targetExpression;
     updateQuickAddClearBtn();
@@ -7566,7 +7693,7 @@ function selectQuickAddCandidate(candidate, candidateElement) {
       title: "",
     };
   }
-  identify(targetExpression);
+  identify(targetExpression, { preferredFront: resolvedFront });
   // User remains on Quick Add mode as requested
 }
 
@@ -7672,6 +7799,43 @@ function renderQuickAddSuggestions(entries, savedCardExpressions = new Set()) {
       savedBadge.className = "quickadd-candidate-saved-pill";
       savedBadge.textContent = "SAVED";
       mainDiv.appendChild(savedBadge);
+    }
+
+    if (hasKanji(candidate.expression) && candidate.reading && candidate.reading !== candidate.expression) {
+      const choiceGroup = document.createElement("div");
+      choiceGroup.className = "qa-front-choice-group";
+      choiceGroup.setAttribute("role", "group");
+      choiceGroup.setAttribute("aria-label", "Card front preference");
+
+      const kanjiPill = document.createElement("button");
+      kanjiPill.type = "button";
+      kanjiPill.className = "qa-choice-pill";
+      kanjiPill.textContent = "漢字";
+      kanjiPill.title = "Make card with Kanji front";
+      kanjiPill.addEventListener("click", (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        selectQuickAddCandidate(candidate, li, "kanji");
+      });
+
+      const kanaPill = document.createElement("button");
+      kanaPill.type = "button";
+      kanaPill.className = "qa-choice-pill";
+      kanaPill.textContent = "かな";
+      kanaPill.title = "Make card with Kana front";
+      kanaPill.addEventListener("click", (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        selectQuickAddCandidate(candidate, li, "kana");
+      });
+
+      choiceGroup.appendChild(kanjiPill);
+      choiceGroup.appendChild(kanaPill);
+      mainDiv.appendChild(choiceGroup);
     }
 
     li.appendChild(mainDiv);

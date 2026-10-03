@@ -477,8 +477,10 @@ setImmediate(async () => {
   // 8. Verify Candidate Selection Commits via identify()
   // ==========================================================================
   let identifiedWord = null;
-  sandbox.identify = (word) => {
+  let identifiedOptions = null;
+  sandbox.identify = (word, options) => {
     identifiedWord = word;
+    identifiedOptions = options;
   };
 
   // Click on first candidate
@@ -664,6 +666,40 @@ setImmediate(async () => {
 
     console.log("PASS 11: Same-reading multi-candidate discovery, preservation, and non-first selection verified.");
 
-    console.log("\nALL QUICK ADD TESTS PASSED! (11/11 Test Suites)");
+    // Test 12: Kanji vs. Kana front preference choice pills in Quick Add suggestions
+    sandbox.renderQuickAddSuggestions([
+      { term: "食べる", reading: "たべる", senses: [{ glosses: ["to eat"] }] },
+    ]);
+    const candLi = mockQuickAddSuggestionsList.children[0];
+    const choiceGroup = candLi.children[0].children.find(c => c.className === "qa-front-choice-group");
+    assert.ok(choiceGroup, "Candidate with Kanji and differing reading must render qa-front-choice-group");
+    assert.equal(choiceGroup.children.length, 2, "Must have 2 choice pills: [漢字] and [かな]");
+    const kanjiPill = choiceGroup.children[0];
+    const kanaPill = choiceGroup.children[1];
+    assert.equal(kanjiPill.textContent, "漢字");
+    assert.equal(kanaPill.textContent, "かな");
+
+    // Click [かな] pill
+    identifiedWord = null;
+    identifiedOptions = null;
+    kanaPill.dispatchEvent({ type: "click", preventDefault: () => {}, stopPropagation: () => {} });
+    assert.equal(identifiedWord, "食べる", "Clicking [かな] pill must call identify('食べる')");
+    assert.equal(identifiedOptions?.preferredFront, "kana", "Preferred front must be 'kana'");
+
+    // Re-render and click [漢字] pill
+    sandbox.renderQuickAddSuggestions([
+      { term: "食べる", reading: "たべる", senses: [{ glosses: ["to eat"] }] },
+    ]);
+    const candLi2 = mockQuickAddSuggestionsList.children[0];
+    const choiceGroup2 = candLi2.children[0].children.find(c => c.className === "qa-front-choice-group");
+    identifiedWord = null;
+    identifiedOptions = null;
+    choiceGroup2.children[0].dispatchEvent({ type: "click", preventDefault: () => {}, stopPropagation: () => {} });
+    assert.equal(identifiedWord, "食べる", "Clicking [漢字] pill must call identify('食べる')");
+    assert.equal(identifiedOptions?.preferredFront, "kanji", "Preferred front must be 'kanji'");
+
+    console.log("PASS 12: Quick Add candidate [漢字] and [かな] front choice pills verified.");
+
+    console.log("\nALL QUICK ADD TESTS PASSED! (12/12 Test Suites)");
   }, 150);
 });

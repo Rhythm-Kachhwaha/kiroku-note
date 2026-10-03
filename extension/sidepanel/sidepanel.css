@@ -8969,4 +8969,103 @@ div[data-content="example"],
   color: #ffffff;
 }
 
+/* 1-Click Card Front Toggle (Kanji vs. Kana) */
+.front-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 4px 10px;
+  background: var(--bg-surface-secondary, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 4px);
+  font-size: 11px;
+}
+
+.front-toggle-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #8e8a81);
+}
+
+.front-toggle-pill-group {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.btn-front-toggle {
+  background: transparent;
+  color: var(--text-secondary, #b8b3a8);
+  border: 1px solid transparent;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-family: var(--font-japanese, inherit);
+  border-radius: var(--radius-xs, 3px);
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.btn-front-toggle:hover {
+  color: var(--text-primary, #ffffff);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.btn-front-toggle.active {
+  background: var(--bg-card, #1e1e1e);
+  color: var(--text-primary, #ffffff);
+  border-color: var(--border-subtle, rgba(255, 255, 255, 0.15));
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.btn-front-toggle:focus-visible {
+  outline: 2px solid var(--accent-primary, #d97706);
+  outline-offset: 1px;
+}
+
+/* Quick Mode Candidate Kanji/Kana Choice Pills */
+.qa-front-choice-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.qa-choice-pill {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs, 3px);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  background: var(--bg-surface-secondary, rgba(255, 255, 255, 0.04));
+  color: var(--text-secondary, #b8b3a8);
+  cursor: pointer;
+  font-family: var(--font-japanese, inherit);
+  line-height: 1.4;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.qa-choice-pill:hover {
+  background: var(--bg-card, #262626);
+  color: var(--text-primary, #ffffff);
+  border-color: var(--border-hover, rgba(255, 255, 255, 0.25));
+}
+
+.qa-choice-pill.qa-choice-kana {
+  color: var(--accent-primary, #d97706);
+}
+
+.qa-choice-pill.qa-choice-kana:hover {
+  border-color: var(--accent-primary, #d97706);
+}
+
+.qa-choice-pill:focus-visible {
+  outline: 2px solid var(--accent-primary, #d97706);
+  outline-offset: 1px;
+}
+
+
 

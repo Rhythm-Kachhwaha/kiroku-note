@@ -477,12 +477,12 @@ assert.equal(vmContext.currentPreviewPresentation.back.order, null, "Front reord
 vmContext.isPreviewEditing = false;
 vmContext.fieldModelSelect = { value: "Kaishi" };
 vmContext.setPreviewEditMode(true);
-assert.equal(vmContext.isPreviewEditing, false, "Unsupported note types must not enter Preview Edit Mode");
+assert.equal(vmContext.isPreviewEditing, true, "All note types can enter Preview Edit Mode for inline text editing");
 vmContext.fieldModelSelect = { value: "Basic" };
 vmContext.currentPreviewPresentation = { front: { text: {}, order: null }, back: { text: {}, order: null } };
 vmContext.isPreviewEditing = false;
 vmContext.currentPreviewSide = "back";
-console.log("PASS 7b: Inline preview edits and independent Front/Back block ordering verified.");
+console.log("PASS 7b: Inline preview edits, two-way sync, and independent Front/Back block ordering verified.");
 
 // Test 6: Meaning field renders in .kn-meaning div
 const singleSenseData = {

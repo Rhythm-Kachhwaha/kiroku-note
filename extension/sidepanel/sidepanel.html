@@ -426,6 +426,14 @@
               <span id="showcase-pos-badge" class="kn-badge" hidden></span>
               <span id="showcase-pitch-badge" class="kn-badge pitch" hidden></span>
             </div>
+            <!-- 1-Click Card Front Toggle (Kanji vs. Kana) -->
+            <div id="front-toggle-row" class="front-toggle-row" hidden>
+              <span class="front-toggle-label">Front:</span>
+              <div class="front-toggle-pill-group" role="group" aria-label="Card Front Form">
+                <button type="button" id="btn-front-kanji" class="btn-front-toggle active" aria-pressed="true" title="Use Kanji as card front">漢字</button>
+                <button type="button" id="btn-front-kana" class="btn-front-toggle" aria-pressed="false" title="Use Kana as card front">かな</button>
+              </div>
+            </div>
           </section>
 
           <!-- 2. Card Actions -->
@@ -460,9 +468,9 @@
             </div>
           </div>
 
-          <!-- 4. Card Editor Fields (Clean & Uncluttered from Concept 1) -->
-          <div id="card-fields-section" class="editor-fields-box card-fields-section" data-layout-section="fields" hidden style="display: none;">
-            <div class="form-row-duo form-row-compact" hidden style="display: none;">
+          <!-- 4. Card Editor Fields (Clean & Editable) -->
+          <div id="card-fields-section" class="editor-fields-box card-fields-section" data-layout-section="fields">
+            <div class="form-row-duo form-row-compact">
               <div class="field-group form-group flex-1">
                 <label for="field-expression" class="field-label">Expression</label>
                 <input type="text" id="field-expression" name="expression" required autocomplete="off" class="field-input jp japanese-input">
@@ -473,12 +481,12 @@
               </div>
             </div>
 
-            <div class="form-group meaning-form-group" hidden style="display: none;">
+            <div class="form-group meaning-form-group">
               <label for="field-meaning" class="field-label meaning-label">Meaning</label>
               <textarea id="field-meaning" name="meaning" rows="2" class="meaning-textarea" placeholder="Enter meaning or definition…"></textarea>
             </div>
 
-            <div class="field-group form-group" hidden style="display: none;">
+            <div class="field-group form-group">
               <label for="field-example-sentence" class="field-label">Sentence Context</label>
               <textarea id="field-example-sentence" name="example_sentence" rows="2" class="field-input sentence japanese-input" placeholder="Sentence context…"></textarea>
             </div>

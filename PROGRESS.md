@@ -8,6 +8,27 @@ Current development target: **V2.0**
 
 The core mining pipeline is functional. Current work is focused on polishing, reliability, UX, and preparing the project for public release.
 
+### Quick Mode Kanji/Kana Front Selection, Hovered Kana Preservation, and Editing Mode Restoration
+- **Direct Kanji vs. Kana Front Selection in Quick Mode:**
+  - Added clickable `[漢字]` and `[かな]` choice pills (`.qa-front-choice-group` and `.qa-choice-pill`) directly to candidate suggestion rows whenever a word has Kanji and a distinct reading.
+  - Clicking `[かな]` or `[漢字]` immediately selects the candidate with the desired front preference without having to navigate to Settings.
+- **Hovered / Text-Captured Kana Preservation:**
+  - When mining or hovering Kana text (e.g. `たべる`), `identify()` now defaults the card front to Kana instead of automatically forcing the Kanji headword (`食べる`).
+  - Added a 1-click Card Front Toggle row (`#front-toggle-row` with `#btn-front-kanji` and `#btn-front-kana`) directly under the captured word in the side panel workspace, allowing instant toggling between Kanji and Kana fronts at any time.
+  - Toggling synchronizes `#field-expression`, `#field-reading`, `#expression`, hero reading showcase, and live card preview.
+- **Restoration of Card Editing Mode:**
+  - Unhid `#card-fields-section` and child form groups (`.form-row-compact`, `.meaning-form-group`, `.field-group`) in `extension/sidepanel/sidepanel.html` which were previously blocked by `hidden style="display: none;"`.
+  - Enabled Preview Edit Mode across all note models (removing the restriction that locked inline editing to "Basic" only).
+  - Implemented real-time two-way synchronization in `handlePreviewInlineEdit()`: edits typed directly into the live preview immediately update `fieldExpression`, `fieldReading`, `fieldMeaning`, `fieldHint`, `fieldNotes`, and `fieldExampleSentence`.
+  - Fixed preview editing context wipe: guarded `ensurePreviewContext()` and `cardPreviewCard` `focusout` listener so active inline edits are preserved on blur and during saving.
+- **Verification Performed:**
+  - Full extension test suite: **174/174 passed** (`node --test extension/tests/*.test.js`).
+  - Dedicated front toggle and inline edit suite: **Passed** (`extension/tests/front-toggle-and-edit.test.js`).
+  - Card preview suite: **Passed** (`extension/tests/card-preview.test.js`).
+  - Quick Add suite: **12/12 passed** (`extension/tests/quick-add.test.js`).
+  - Full backend test suite: **512/512 passed** (`python -m pytest`).
+  - Zero unicode emojis verified across all modified files.
+
 ### V2.0 Release: Full LLM Card Enrichment, In-Place Upgrade Safety, and Co-Located OCR Hardening
 - **Packaged LLM Saving API Hardened:** Verified and hardened the complete LLM configuration and secure secret storage pipeline under packaged / frozen mode (`sys.frozen = True`, `%LOCALAPPDATA%\KirokuNote\data\`).
   - Added explicit Windows DPAPI dependencies (`ctypes`, `ctypes.wintypes`, `winreg`, `PIL.ImageFont`) to `packaging/kiroku_backend.spec` `hidden_imports`.
