@@ -715,6 +715,19 @@ class TestAnkiFormatter(unittest.TestCase):
         self.assertNotIn('class="stroke-order-svg"', back_html_kw)
         self.assertNotIn('StrokePaths', back_html_kw)
 
+    def test_subtitle_context_can_be_first_on_back(self):
+        card = {
+            "expression": "約束",
+            "reading": "やくそく",
+            "meaning": "promise",
+            "example_sentence": "約束してたじゃない",
+        }
+
+        back_html = format_basic_back(card, section_order=["example"])
+
+        self.assertLess(back_html.index('class="kn-example-block"'), back_html.index('class="kn-reading"'))
+        self.assertLess(back_html.index('class="kn-example-block"'), back_html.index('class="kn-meaning"'))
+
 
 if __name__ == "__main__":
     unittest.main()

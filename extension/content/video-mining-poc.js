@@ -1899,8 +1899,8 @@
               rawText: cue.rawText || cue.text
             };
             this.recentCues.unshift(cueCopy);
-            if (this.recentCues.length > 5) {
-              this.recentCues.length = 5;
+            if (this.recentCues.length > 9) {
+              this.recentCues.length = 9;
             }
             if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
               chrome.runtime.sendMessage({

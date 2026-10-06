@@ -51,25 +51,23 @@ test("Export CSV button is compact and styled cleanly without dominating header"
   assert.ok(css.includes("min-width: auto"), "Export CSV button must not have oversized min-width");
 });
 
-test("Subtitle setting has relative positioning and search subs is inside recent cues section", () => {
-  // CSS check: relative positioning for subtitle settings wrap
-  assert.ok(
-    /\.video-subtitle-settings-wrap\s*\{[^}]*position:\s*relative;/.test(css),
-    ".video-subtitle-settings-wrap must be position: relative (not position: absolute)"
-  );
-
-  // HTML check: subtitle search section must be located inside recent-cues-section
+test("Subtitle settings stay in Settings while subtitle search remains in playback view", () => {
+  // Search belongs to the always-visible playback view, outside optional recent cues.
+  const streamStart = html.indexOf('id="unified-subtitles-stream"');
   const recentSectionStart = html.indexOf('id="recent-cues-section"');
-  const recentListStart = html.indexOf('id="recent-cues-list"');
   const searchSectionStart = html.indexOf('id="subtitle-search-section"');
+  const settingsStart = html.indexOf('id="layout-settings-popover"');
+  const subtitleSettingsStart = html.indexOf('id="video-subtitle-settings"');
 
+  assert.ok(streamStart !== -1, "unified-subtitles-stream must exist");
   assert.ok(recentSectionStart !== -1, "recent-cues-section must exist");
   assert.ok(searchSectionStart !== -1, "subtitle-search-section must exist");
-  assert.ok(recentListStart !== -1, "recent-cues-list must exist");
+  assert.ok(subtitleSettingsStart > settingsStart, "Video subtitle settings must be inside Settings");
+  assert.ok(css.includes(".layout-settings-popover.video-settings-priority #video-subtitle-settings"));
 
   assert.ok(
-    searchSectionStart > recentSectionStart && searchSectionStart < recentListStart,
-    "subtitle-search-section must be inside recent-cues-section before recent-cues-list"
+    searchSectionStart > streamStart && searchSectionStart < recentSectionStart,
+    "subtitle-search-section must be in unified playback view before optional recent cues"
   );
 });
 

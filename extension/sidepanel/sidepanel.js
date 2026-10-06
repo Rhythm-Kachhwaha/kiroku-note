@@ -1050,15 +1050,12 @@ const subtitleSearchResults = document.querySelector("#subtitle-search-results")
 const btnClearSubtitleSearch = document.querySelector("#btn-clear-subtitle-search");
 const recentCuesSection = document.querySelector("#recent-cues-section");
 const recentCuesList = document.querySelector("#recent-cues-list");
-const btnToggleRecentSubs = document.querySelector("#btn-toggle-recent-subs");
 const toggleShowRecentSubs = document.querySelector("#toggle-show-recent-subs");
 
 let loadedSubtitleCues = [];
 let recentSubtitleCues = [];
-let isRecentSubsCollapsed = false;
 let isRecentSubsEnabled = true;
 let subtitleSearchDebounceTimer = null;
-let pendingSentenceOverride = "";
 
 // Jimaku Search Modal Elements
 const jimakuSearchModal = document.querySelector("#jimaku-search-modal");
@@ -1954,6 +1951,7 @@ var currentPreviewPresentation = { front: { text: {}, order: null }, back: { tex
 var previewContextKey = "";
 var isPreviewEditing = false;
 var draggedPreviewBlock = null;
+var isSubtitleContextDraft = false;
 
 function emptyPreviewPresentation() {
   return { front: { text: {}, order: null }, back: { text: {}, order: null } };
@@ -1969,6 +1967,13 @@ function normalizePreviewPresentation(value) {
     normalized[side].order = Array.isArray(source.order) ? source.order.filter(key => typeof key === "string") : null;
   }
   return normalized;
+}
+
+function prioritizeSubtitleContextOnBack() {
+  const backOrder = Array.isArray(currentPreviewPresentation.back.order)
+    ? currentPreviewPresentation.back.order
+    : [];
+  currentPreviewPresentation.back.order = ["example", ...backOrder.filter(key => key !== "example")];
 }
 
 function getPreviewContextKey() {
@@ -1990,6 +1995,7 @@ function ensurePreviewContext() {
 
 function restorePreviewPresentation(value) {
   currentPreviewPresentation = normalizePreviewPresentation(value);
+  isSubtitleContextDraft = false;
   previewContextKey = getPreviewContextKey();
   isPreviewEditing = false;
   updatePreviewEditButton();
@@ -4414,6 +4420,8 @@ async function identify(text) {
   const options = arguments.length > 1 && arguments[1] ? arguments[1] : {};
   const capturedText = typeof text === "string" ? text.trim() : "";
   if (!capturedText) return;
+  const contextSentence = typeof options.contextSentence === "string" ? options.contextSentence.trim() : "";
+  isSubtitleContextDraft = Boolean(contextSentence && options.videoContext === true);
   lastVideoHighlightTerm = capturedText;
   notifyVideoHighlightTerm(capturedText);
   if (currentMiningTab === "video" || videoCurrentCuePreview) {
@@ -4525,11 +4533,7 @@ async function identify(text) {
       if (fieldReading) fieldReading.value = activeReading;
       if (fieldMeaning) fieldMeaning.value = body.meaning || "";
       if (fieldHint) fieldHint.value = body.hint || "";
-      if (pendingSentenceOverride && fieldExampleSentence) {
-        fieldExampleSentence.value = pendingSentenceOverride;
-      } else if (fieldExampleSentence) {
-        fieldExampleSentence.value = body.example_sentence || "";
-      }
+      if (fieldExampleSentence) fieldExampleSentence.value = contextSentence || body.example_sentence || "";
       if (fieldExampleTranslation) fieldExampleTranslation.value = body.example_translation || "";
       if (fieldImage) fieldImage.value = body.image || "";
       if (fieldAudio) fieldAudio.value = body.audio || "";
@@ -4551,6 +4555,10 @@ async function identify(text) {
       updateMediaPreviews();
       if (fieldTags) fieldTags.value = body.tags || "";
       if (fieldNotes) fieldNotes.value = body.notes || "";
+      if (isSubtitleContextDraft) {
+        ensurePreviewContext();
+        prioritizeSubtitleContextOnBack();
+      }
 
       // Automatically trigger frame screenshot and sentence audio if enabled and media is not already saved.
       const shouldAutoCaptureFrame = toggleAutoCaptureFrame ? toggleAutoCaptureFrame.checked : true;
@@ -8239,6 +8247,50 @@ async function seekToSubtitleCue(cue) {
   }
 }
 
+function getSubtitleCueTargetTime(cue) {
+  if (typeof cue?.startTime === "number") return cue.startTime + 0.2;
+  if (typeof cue?.startMs === "number") return (cue.startMs / 1000) + 0.2;
+  return null;
+}
+
+function getVideoCaptureContextOptions(message) {
+  const isSubtitleCapture = currentMiningTab === "video"
+    || message?.source === "subtitle_hover"
+    || message?.sourceType === "video";
+  const cue = message?.cue || (isSubtitleCapture ? currentActiveCue : null);
+  const contextSentence = typeof message?.contextSentence === "string" && message.contextSentence.trim()
+    ? message.contextSentence.trim()
+    : (isSubtitleCapture ? String(cue?.text || "").trim() : "");
+  return {
+    ...(cue ? { cue } : {}),
+    contextSentence,
+    videoContext: isSubtitleCapture,
+  };
+}
+
+if (typeof window !== "undefined") {
+  window.getVideoCaptureContextOptions = getVideoCaptureContextOptions;
+}
+
+async function mineSubtitleCueWord(cue, word) {
+  if (!cue || !word) return;
+  if (typeof insertExampleToCard === "function") {
+    insertExampleToCard(cue.text || "", "");
+  } else if (typeof fieldExampleSentence !== "undefined" && fieldExampleSentence) {
+    fieldExampleSentence.value = cue.text || "";
+    fieldExampleSentence.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  if (typeof fieldSourceText !== "undefined" && fieldSourceText) fieldSourceText.value = cue.text || "";
+
+  const targetTime = getSubtitleCueTargetTime(cue);
+  await seekToSubtitleCue(cue);
+  currentActiveCue = cue;
+  updateVideoCuePreviewText(cue.text);
+  renderRecentCuesList();
+
+  await identify(word, { targetTime, cue, contextSentence: cue.text || "", videoContext: true });
+}
+
 function clearSubtitleSearchResults() {
   if (subtitleSearchResults) {
     subtitleSearchResults.replaceChildren();
@@ -8317,30 +8369,24 @@ function searchSubtitles(query) {
 function renderRecentCuesList() {
   if (!recentCuesList) return;
   const enabled = typeof isRecentSubsEnabled !== "undefined" ? isRecentSubsEnabled : true;
-  const collapsed = typeof isRecentSubsCollapsed !== "undefined" ? isRecentSubsCollapsed : false;
-  const toggleBtn = typeof btnToggleRecentSubs !== "undefined" ? btnToggleRecentSubs : null;
 
   if (!enabled) {
     if (recentCuesSection) recentCuesSection.hidden = true;
-    if (toggleBtn) toggleBtn.style.display = "none";
     recentCuesList.replaceChildren();
-    return;
-  }
-  if (toggleBtn) {
-    toggleBtn.style.display = "";
-    toggleBtn.classList.toggle("collapsed", collapsed);
-    toggleBtn.setAttribute("aria-expanded", String(!collapsed));
-  }
-
-  if (collapsed) {
-    if (recentCuesSection) recentCuesSection.hidden = true;
     return;
   }
 
   if (recentCuesSection) recentCuesSection.hidden = false;
   recentCuesList.replaceChildren();
 
-  const cuesToRender = Array.isArray(recentSubtitleCues) ? recentSubtitleCues.slice(0, 5) : [];
+  const cuesToRender = Array.isArray(recentSubtitleCues)
+    ? recentSubtitleCues.filter(cue => {
+        if (!currentActiveCue || !cue || cue.text !== currentActiveCue.text) return true;
+        const cueTime = typeof cue.startTime === "number" ? cue.startTime : (cue.startMs || 0) / 1000;
+        const activeTime = typeof currentActiveCue.startTime === "number" ? currentActiveCue.startTime : (currentActiveCue.startMs || 0) / 1000;
+        return Math.abs(cueTime - activeTime) >= 0.05;
+      }).slice(0, 8)
+    : [];
   cuesToRender.forEach(cue => {
     if (!cue || !cue.text) return;
     const li = document.createElement("li");
@@ -8374,40 +8420,7 @@ function renderRecentCuesList() {
             wordSpan.title = `Click to mine "${w}"`;
             wordSpan.addEventListener("click", async (e) => {
               e.stopPropagation();
-              if (typeof pendingSentenceOverride !== "undefined") {
-                pendingSentenceOverride = cue.text;
-              }
-              if (typeof insertExampleToCard === "function") {
-                insertExampleToCard(cue.text, "");
-              } else if (typeof fieldExampleSentence !== "undefined" && fieldExampleSentence) {
-                fieldExampleSentence.value = cue.text;
-                if (typeof fieldExampleSentence.dispatchEvent === "function") {
-                  fieldExampleSentence.dispatchEvent(new Event("input", { bubbles: true }));
-                }
-              }
-              if (typeof fieldSourceText !== "undefined" && fieldSourceText) fieldSourceText.value = cue.text;
-
-              const targetTime = (typeof cue.startTime === "number")
-                ? cue.startTime + 0.2
-                : ((typeof cue.startMs === "number") ? (cue.startMs / 1000) + 0.2 : null);
-
-              if (typeof seekToSubtitleCue === "function") {
-                seekToSubtitleCue(cue);
-              }
-              if (typeof currentActiveCue !== "undefined") {
-                currentActiveCue = cue;
-              }
-
-              if (typeof identify === "function") {
-                identify(w, { targetTime, cue }).then(() => {
-                  if (typeof pendingSentenceOverride !== "undefined" && pendingSentenceOverride && typeof fieldExampleSentence !== "undefined" && fieldExampleSentence) {
-                    fieldExampleSentence.value = pendingSentenceOverride;
-                  }
-                  if (typeof pendingSentenceOverride !== "undefined") {
-                    pendingSentenceOverride = "";
-                  }
-                }).catch(() => {});
-              }
+              await mineSubtitleCueWord(cue, w).catch(() => {});
             });
             textSpan.appendChild(wordSpan);
           } else {
@@ -8422,32 +8435,7 @@ function renderRecentCuesList() {
       wordSpan.className = "recent-cue-word";
       wordSpan.textContent = cue.text;
       wordSpan.title = `Click to mine "${cue.text}"`;
-      wordSpan.addEventListener("click", () => {
-        if (typeof pendingSentenceOverride !== "undefined") {
-          pendingSentenceOverride = cue.text;
-        }
-        if (typeof insertExampleToCard === "function") {
-          insertExampleToCard(cue.text, "");
-        } else if (typeof fieldExampleSentence !== "undefined" && fieldExampleSentence) {
-          fieldExampleSentence.value = cue.text;
-        }
-        if (typeof fieldSourceText !== "undefined" && fieldSourceText) fieldSourceText.value = cue.text;
-
-        const targetTime = (typeof cue.startTime === "number")
-          ? cue.startTime + 0.2
-          : ((typeof cue.startMs === "number") ? (cue.startMs / 1000) + 0.2 : null);
-
-        if (typeof seekToSubtitleCue === "function") {
-          seekToSubtitleCue(cue);
-        }
-        if (typeof currentActiveCue !== "undefined") {
-          currentActiveCue = cue;
-        }
-
-        if (typeof identify === "function") {
-          identify(cue.text, { targetTime, cue });
-        }
-      });
+      wordSpan.addEventListener("click", () => mineSubtitleCueWord(cue, cue.text).catch(() => {}));
       textSpan.appendChild(wordSpan);
     }
 
@@ -8512,7 +8500,6 @@ function handleMineFullSentence() {
     return;
   }
   const word = findMostProminentWord(cueText) || cueText;
-  pendingSentenceOverride = cueText;
   if (typeof insertExampleToCard === "function") {
     insertExampleToCard(cueText, "");
   } else if (fieldExampleSentence) {
@@ -8525,12 +8512,11 @@ function handleMineFullSentence() {
   const targetTime = currentActiveCue
     ? ((typeof currentActiveCue.startTime === "number") ? currentActiveCue.startTime + 0.2 : ((typeof currentActiveCue.startMs === "number") ? (currentActiveCue.startMs / 1000) + 0.2 : null))
     : null;
-  identify(word, { targetTime, cue: currentActiveCue }).then(() => {
-    if (pendingSentenceOverride && fieldExampleSentence) {
-      fieldExampleSentence.value = pendingSentenceOverride;
-      fieldExampleSentence.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-    pendingSentenceOverride = "";
+  return identify(word, {
+    targetTime,
+    cue: currentActiveCue,
+    contextSentence: cueText,
+    videoContext: true,
   });
 }
 
@@ -8539,10 +8525,10 @@ if (typeof window !== "undefined") {
   window.formatSubtitleTimestamp = formatSubtitleTimestamp;
   window.searchSubtitles = searchSubtitles;
   window.renderRecentCuesList = renderRecentCuesList;
+  window.mineSubtitleCueWord = mineSubtitleCueWord;
   window.handleMineFullSentence = handleMineFullSentence;
   window.setLoadedSubtitleCues = (cues) => { loadedSubtitleCues = cues; };
   window.setRecentSubtitleCues = (cues) => { recentSubtitleCues = cues; };
-  window.setRecentSubsCollapsed = (collapsed) => { isRecentSubsCollapsed = collapsed; };
   window.setRecentSubsEnabled = (enabled) => { isRecentSubsEnabled = enabled; };
   window.loadRecentSubsPreferences = loadRecentSubsPreferences;
 }
@@ -8550,6 +8536,11 @@ if (typeof window !== "undefined") {
 function switchMiningTab(targetTab) {
   const validTabs = ["text", "video", "quickadd", "ask", "history", "settings"];
   const tab = validTabs.includes(targetTab) ? targetTab : "text";
+  const previousTab = currentMiningTab;
+  const settingsPanel = layoutSettingsPopover || cardSettingsPopover;
+  const prioritizeVideoSettings = tab === "settings" && (
+    previousTab === "video" || (previousTab === "settings" && settingsPanel?.classList.contains("video-settings-priority"))
+  );
   currentMiningTab = tab;
 
   if (cardEditorSection) {
@@ -8640,9 +8631,9 @@ function switchMiningTab(targetTab) {
     tabBtnSettings.classList.toggle("active", isSettings);
     tabBtnSettings.setAttribute("aria-selected", String(isSettings));
   }
-  const settingsPanel = layoutSettingsPopover || cardSettingsPopover;
   if (settingsPanel) {
     const isSettings = tab === "settings";
+    settingsPanel.classList.toggle("video-settings-priority", prioritizeVideoSettings);
     settingsPanel.hidden = !isSettings;
     settingsPanel.style.display = isSettings ? "" : "none";
     if (isSettings) {
@@ -8981,24 +8972,15 @@ function setAutoCapturePreference(key, enabled) {
 async function loadRecentSubsPreferences() {
   try {
     let showRecent = true;
-    let collapsed = false;
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      const stored = await chrome.storage.local.get(["kiroku_show_recent_subs", "kiroku_recent_subs_collapsed"]);
+      const stored = await chrome.storage.local.get(["kiroku_show_recent_subs"]);
       if (typeof stored?.kiroku_show_recent_subs === "boolean") showRecent = stored.kiroku_show_recent_subs;
-      if (typeof stored?.kiroku_recent_subs_collapsed === "boolean") collapsed = stored.kiroku_recent_subs_collapsed;
     } else if (typeof localStorage !== "undefined") {
       const sr = localStorage.getItem("kiroku_show_recent_subs");
       if (sr !== null) showRecent = sr === "true";
-      const sc = localStorage.getItem("kiroku_recent_subs_collapsed");
-      if (sc !== null) collapsed = sc === "true";
     }
     isRecentSubsEnabled = showRecent;
-    isRecentSubsCollapsed = collapsed;
     if (toggleShowRecentSubs) toggleShowRecentSubs.checked = isRecentSubsEnabled;
-    if (btnToggleRecentSubs) {
-      btnToggleRecentSubs.setAttribute("aria-expanded", String(!isRecentSubsCollapsed));
-      btnToggleRecentSubs.classList.toggle("collapsed", isRecentSubsCollapsed);
-    }
     renderRecentCuesList();
   } catch (_) {}
 }
@@ -9041,16 +9023,6 @@ if (toggleShowRecentSubs) {
   toggleShowRecentSubs.addEventListener("change", (e) => {
     isRecentSubsEnabled = Boolean(e.target.checked);
     setRecentSubsPreference("kiroku_show_recent_subs", isRecentSubsEnabled);
-    renderRecentCuesList();
-  });
-}
-
-if (btnToggleRecentSubs) {
-  btnToggleRecentSubs.addEventListener("click", () => {
-    isRecentSubsCollapsed = !isRecentSubsCollapsed;
-    btnToggleRecentSubs.setAttribute("aria-expanded", String(!isRecentSubsCollapsed));
-    btnToggleRecentSubs.classList.toggle("collapsed", isRecentSubsCollapsed);
-    setRecentSubsPreference("kiroku_recent_subs_collapsed", isRecentSubsCollapsed);
     renderRecentCuesList();
   });
 }
@@ -9210,17 +9182,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.url) lastCaptureSource.url = message.url;
       if (message.title) lastCaptureSource.title = message.title;
     }
-    lastCaptureSource.type = message.sourceType || (currentMiningTab === "video" ? "video" : "text");
+    const contextOptions = getVideoCaptureContextOptions(message);
+    lastCaptureSource.type = message.sourceType || (contextOptions.videoContext ? "video" : "text");
     if (message.text) {
       lastVideoHighlightTerm = message.text.trim();
       updateVideoCuePreviewText(currentActiveCue?.text, lastVideoHighlightTerm);
     }
-    identify(message.text);
-    if (message.contextSentence) {
-      insertExampleToCard(message.contextSentence, "");
-    } else if (currentMiningTab === "video" && currentActiveCue?.text) {
-      insertExampleToCard(currentActiveCue.text, "");
-    }
+    if (contextOptions.contextSentence) insertExampleToCard(contextOptions.contextSentence, "");
+    identify(message.text, contextOptions);
     sendResponse?.({ok: true});
     return true;
   }
@@ -9259,6 +9228,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     const highlight = typeof message.highlightTerm === "string" ? message.highlightTerm : undefined;
     updateVideoCuePreviewText(message.cue?.text, highlight);
+    renderRecentCuesList();
     if (message.cue?.text && typeof setAskContext === "function" && (!activeAskContext || !activeAskContext.text || currentMiningTab === "ask")) {
       setAskContext(message.cue.text, "Video Subtitle");
     }

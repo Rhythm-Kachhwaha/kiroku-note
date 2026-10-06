@@ -1,5 +1,22 @@
 # Kiroku Note — Progress
 
+### Subtitle Settings Layout & Jimaku Modal Access (2026-10-06)
+- Removed the nested Subtitle Controls disclosure in Settings and kept subtitle options inline; aligned the subtitle-display switch’s checked/focus colors with the shared orange accent.
+- Moved the Jimaku dialog outside hidden tab panels and made it a fixed panel-level dialog, so Search (Jimaku) opens visibly from Settings.
+- Verification: full extension suite **190/190**; focused Settings/Jimaku/accessibility checks passed.
+
+### Video Context Sentences & Settings Relocation (2026-10-06)
+- Fixed the async video capture race by passing the full subtitle cue as explicit context through identification; the draft no longer loses its sentence when the backend response populates the editor.
+- Subtitle-mined cards keep the user's global template layout unchanged but save a per-card back order with the full subtitle sentence first, before reading, meaning, or other sections.
+- Moved subtitle file/folder/Jimaku/track/offset/display/hover settings and video capture toggles from the Video header into Settings. Opening Settings from Video expands and pins the Video & Subtitles group above the other settings; other entry paths retain the normal order.
+- Verification: full extension suite **190/190**, focused Video/Settings suite **15/15**, and Anki formatter suite **26/26** passed.
+
+### Unified Video Subtitle View & Timestamped Past-Cue Mining (2026-10-06)
+- Replaced the separate subtitle History dropdown with one larger playback subtitle view containing subtitle search, a prominent highlighted active cue, and dimmed recent cues; increased recent cue capacity from five to nine and constrained the list to a scrollable panel.
+- Kept the video word hero and card editor workspace below the subtitle view unchanged.
+- Past-cue word mining now awaits seeking the player to the selected cue before starting dictionary identification and frame capture at cue start + 0.2s.
+- Verification: focused extension subtitle UI/mining suites passed (**15/15**), and the full extension suite passed (**189/189**); regressions assert seek-before-identify, frame timestamp, and nine-cue rolling-buffer eviction.
+
 ### History Sync Count, Subtitle UI & Kana Mode Hero Fixes (2026-10-06)
 - **Accurate History Sync Count Across Pagination:**
   - Fixed issue where the history header always displayed `50 / <total> synced` when more than 50 cards existed due to counting synced status solely from the first loaded 50-card page.

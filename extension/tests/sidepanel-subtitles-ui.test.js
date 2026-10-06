@@ -26,10 +26,19 @@ test("Sidepanel UI - includes subtitle providers scripts and updated file input"
   assert.ok(sidepanelHtml.includes('id="jimaku-api-key-input"'), "Jimaku API key input must exist");
   assert.ok(sidepanelHtml.includes('id="jimaku-search-input"'), "Jimaku search input must exist");
   assert.ok(sidepanelHtml.includes('id="jimaku-results-list"'), "Jimaku results list must exist");
+  const videoViewEnd = sidepanelHtml.indexOf('id="quickadd-mining-view"');
+  const settingsViewStart = sidepanelHtml.indexOf('id="layout-settings-popover"');
+  const jimakuModalStart = sidepanelHtml.indexOf('id="jimaku-search-modal"');
+  assert.ok(jimakuModalStart > videoViewEnd, "Jimaku modal must not be trapped inside the hidden Video tab");
+  assert.ok(jimakuModalStart > settingsViewStart, "Jimaku modal must be available when launched from Settings");
+
+  assert.ok(!sidepanelHtml.includes('id="subtitle-controls-details"'), "Subtitle settings must not add a nested dropdown in Settings");
 });
 
 test("Sidepanel CSS - contains modal and button styles", () => {
   assert.ok(sidepanelCss.includes(".btn-search-subtitles"), "Must style search subtitles button");
   assert.ok(sidepanelCss.includes(".jimaku-modal"), "Must style Jimaku modal");
   assert.ok(sidepanelCss.includes(".jimaku-results-list"), "Must style Jimaku results list");
+  assert.match(sidepanelCss, /\.ios-switch-input:checked \+ \.ios-switch-slider\s*\{\s*background-color:\s*var\(--accent-primary\);/);
+  assert.match(sidepanelCss, /\.jimaku-modal\s*\{[^}]*position:\s*fixed;/s, "Jimaku dialog must open as a panel-level modal");
 });

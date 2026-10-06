@@ -80,15 +80,22 @@ test("Video Fullscreen Fix: Hook script redirects HTMLVideoElement.prototype.req
   assert.equal(video.fullscreenRequested, false, "Video directly must not request fullscreen when container exists");
 });
 
-test("Decluttered UI: sidepanel.html contains unified stream and header controls", () => {
+test("Subtitle view: sidepanel.html contains unified playback controls without a history toggle", () => {
   const html = fs.readFileSync(htmlPath, "utf8");
 
-  // Top header with dropdown/details
-  assert.ok(html.includes('id="subtitle-controls-details"'), "Must have collapsible subtitle controls details in header");
-  assert.ok(html.includes('id="btn-toggle-recent-subs"'), "Must have toggle button for recent subs");
+  // Subtitle setup stays in Settings, separate from the playback view.
+  const videoViewStart = html.indexOf('id="video-mining-view"');
+  const settingsViewStart = html.indexOf('id="layout-settings-popover"');
+  const subtitleSettingsStart = html.indexOf('id="video-subtitle-settings"');
+  assert.ok(settingsViewStart > videoViewStart, "Settings view must follow the Video view");
+  assert.ok(subtitleSettingsStart > settingsViewStart, "Subtitle controls must live in Settings");
+  assert.ok(!html.includes('id="subtitle-controls-details"'), "Subtitle controls must be inline without another dropdown");
+  assert.ok(!html.includes('id="btn-toggle-recent-subs"'), "Subtitle history toggle must be removed");
 
-  // Unified stream
+  // Unified subtitle view contains search, current cue, and recent cues.
   assert.ok(html.includes('id="unified-subtitles-stream"'), "Must have unified-subtitles-stream container");
+  assert.ok(html.includes('aria-label="Subtitle view"'), "Unified stream must be the subtitle view");
+  assert.ok(html.includes('id="subtitle-search-section"'), "Search must be in the playback view");
   assert.ok(html.includes('id="recent-cues-section"'), "Must have recent-cues-section");
   assert.ok(html.includes('id="recent-cues-list"'), "Must have recent-cues-list");
   assert.ok(html.includes('id="video-current-cue-preview"'), "Must have video-current-cue-preview");
@@ -98,7 +105,7 @@ test("Decluttered UI: sidepanel.html contains unified stream and header controls
   assert.ok(html.includes('id="toggle-show-recent-subs"'), "Must have toggle-show-recent-subs in settings");
 });
 
-test("Decluttered UI: sidepanel.css enforces huge typography and dimmed history", () => {
+test("Subtitle view: CSS makes recent cues readable and the active cue prominent", () => {
   const css = fs.readFileSync(cssPath, "utf8");
 
   // Recent cues: huge font (~19px) and dimmed opacity (~0.62)
@@ -106,13 +113,42 @@ test("Decluttered UI: sidepanel.css enforces huge typography and dimmed history"
   assert.ok(css.includes("opacity: 0.62"), "Recent cue item must be dimmed (opacity: 0.62)");
   assert.ok(css.includes("font-size: 19px"), "Recent cue text must have large font size (19px)");
 
-  // Active cue: highlighted, elevated font-size (24px)
-  assert.ok(css.includes("font-size: 24px"), "Active video cue preview must have prominent 24px font size");
-  assert.ok(css.includes(".btn-toggle-recent-subs"), "Must style recent subs toggle button");
-  assert.ok(css.includes(".btn-toggle-recent-subs.collapsed"), "Must support collapsed chevron state");
+  // Active cue: highlighted, elevated font-size.
+  assert.ok(css.includes("font-size: 26px"), "Active video cue preview must have prominent 26px font size");
+  assert.ok(css.includes("max-height: 300px"), "Recent subtitle list must use a larger scrollable view");
+  assert.ok(!css.includes(".btn-toggle-recent-subs"), "History toggle styling must be removed");
+  assert.ok(css.includes(".layout-settings-popover.video-settings-priority #video-subtitle-settings"), "Subtitle settings must be pinned first when opened from Video");
 });
 
-test("Recent Subtitles Toggle: renderRecentCuesList respects settings and dropdown collapse", () => {
+test("Video capture carries its cue sentence and subtitle cards prioritize it on the back", () => {
+  const js = fs.readFileSync(jsPath, "utf8");
+  const optionsCode = js.match(/function getVideoCaptureContextOptions[\s\S]*?\n\}/)?.[0];
+  const orderCode = js.match(/function prioritizeSubtitleContextOnBack[\s\S]*?\n\}/)?.[0];
+  assert.ok(optionsCode && orderCode, "Video context and back-order helpers must exist");
+
+  const sandbox = {
+    currentMiningTab: "video",
+    currentActiveCue: { startTime: 12, text: "字幕の文脈" },
+    currentPreviewPresentation: { front: { text: {}, order: null }, back: { text: {}, order: ["meaning", "example", "notes"] } }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(`${optionsCode}; ${orderCode}`, sandbox);
+
+  const videoOptions = JSON.parse(JSON.stringify(sandbox.getVideoCaptureContextOptions({ source: "subtitle_hover" })));
+  assert.equal(videoOptions.contextSentence, "字幕の文脈");
+  assert.equal(videoOptions.videoContext, true);
+  assert.equal(videoOptions.cue.text, "字幕の文脈");
+
+  sandbox.prioritizeSubtitleContextOnBack();
+  assert.deepEqual(Array.from(sandbox.currentPreviewPresentation.back.order), ["example", "meaning", "notes"]);
+
+  sandbox.currentMiningTab = "text";
+  const textOptions = JSON.parse(JSON.stringify(sandbox.getVideoCaptureContextOptions({ source: "selection" })));
+  assert.equal(textOptions.contextSentence, "");
+  assert.equal(textOptions.videoContext, false);
+});
+
+test("Subtitle view: renderRecentCuesList respects the recent-cue setting", () => {
   class MockDOMElement {
     constructor(tagName) {
       this.tagName = tagName.toUpperCase();
@@ -143,8 +179,6 @@ test("Recent Subtitles Toggle: renderRecentCuesList respects settings and dropdo
 
   const recentList = new MockDOMElement("ul");
   const recentSection = new MockDOMElement("div");
-  const toggleBtn = new MockDOMElement("button");
-
   const cues = [
     { startTime: 5.0, endTime: 7.0, text: "こんにちは" },
     { startTime: 8.0, endTime: 10.0, text: "世界" }
@@ -153,8 +187,8 @@ test("Recent Subtitles Toggle: renderRecentCuesList respects settings and dropdo
   const sandbox = {
     recentCuesList: recentList,
     recentCuesSection: recentSection,
-    btnToggleRecentSubs: toggleBtn,
     recentSubtitleCues: cues,
+    currentActiveCue: null,
     isRecentSubsEnabled: true,
     isRecentSubsCollapsed: false,
     formatSubtitleTimestamp: (s) => `${s}s`,
@@ -174,21 +208,11 @@ test("Recent Subtitles Toggle: renderRecentCuesList respects settings and dropdo
   sandbox.renderRecentCuesList();
   assert.equal(recentSection.hidden, false, "Section should be visible");
   assert.equal(recentList.children.length, 2, "Should render 2 cues");
-  assert.equal(toggleBtn.getAttribute("aria-expanded"), "true", "Toggle button aria-expanded should be true");
-  assert.equal(toggleBtn.classList.has("collapsed"), false, "Toggle button should not have collapsed class");
 
-  // Case 2: Collapsed via dropdown -> Section is hidden, aria-expanded false
-  sandbox.isRecentSubsCollapsed = true;
-  sandbox.renderRecentCuesList();
-  assert.equal(recentSection.hidden, true, "Section should be hidden when collapsed");
-  assert.equal(toggleBtn.getAttribute("aria-expanded"), "false", "Toggle button aria-expanded should be false");
-  assert.equal(toggleBtn.classList.has("collapsed"), true, "Toggle button should have collapsed class");
-
-  // Case 3: Completely disabled/vanished via Settings -> Section hidden, button hidden, cues cleared
+  // Settings can hide older cues without hiding the playback search/current cue.
   sandbox.isRecentSubsEnabled = false;
   sandbox.renderRecentCuesList();
   assert.equal(recentSection.hidden, true, "Section should be hidden when disabled");
-  assert.equal(toggleBtn.style.display, "none", "Toggle button should be hidden when disabled");
   assert.equal(recentList.children.length, 0, "Cues list should be empty when disabled");
 });
 

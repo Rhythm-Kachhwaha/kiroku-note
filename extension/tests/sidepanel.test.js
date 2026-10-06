@@ -77,13 +77,14 @@ assert.ok(html.includes('id="offset-plus-btn"'), "Offset plus button must exist"
 assert.ok(html.includes('id="offset-display"'), "Offset display element must exist");
 assert.ok(html.includes('id="video-current-cue-preview"'), "Video current cue preview element must exist");
 assert.ok(html.includes('id="toggle-auto-pause-hover"'), "Auto-pause on subtitle hover toggle must exist");
-const subtitleDetailsStart = html.indexOf('<details id="subtitle-controls-details"');
-const subtitleDetailsEnd = html.indexOf('</details>', subtitleDetailsStart);
-assert.ok(subtitleDetailsStart >= 0 && subtitleDetailsEnd > subtitleDetailsStart, "Subtitle controls disclosure must contain a details panel");
-const subtitleDetailsHtml = html.slice(subtitleDetailsStart, subtitleDetailsEnd);
-assert.ok(subtitleDetailsHtml.includes('id="folder-subtitles-select"'), "Folder subtitle picker must be inside the subtitle disclosure");
-assert.ok(subtitleDetailsHtml.includes('id="offset-minus-btn"'), "Subtitle offset controls must be inside the subtitle disclosure");
-assert.ok(subtitleDetailsHtml.includes('id="subtitles-file-status"'), "Subtitle source status must be inside the subtitle disclosure");
+const subtitleSettingsStart = html.indexOf('id="video-subtitle-settings"');
+const subtitleSettingsEnd = html.indexOf('<!-- AI Assistant (LLM) Settings -->', subtitleSettingsStart);
+assert.ok(subtitleSettingsStart >= 0 && subtitleSettingsEnd > subtitleSettingsStart, "Subtitle settings group must exist in Settings");
+const subtitleSettingsHtml = html.slice(subtitleSettingsStart, subtitleSettingsEnd);
+assert.ok(!subtitleSettingsHtml.includes("<details"), "Subtitle settings must be shown inline without an accordion");
+assert.ok(subtitleSettingsHtml.includes('id="folder-subtitles-select"'), "Folder subtitle picker must be in Settings");
+assert.ok(subtitleSettingsHtml.includes('id="offset-minus-btn"'), "Subtitle offset controls must be in Settings");
+assert.ok(subtitleSettingsHtml.includes('id="subtitles-file-status"'), "Subtitle source status must be in Settings");
 assert.ok(html.includes('<script src="../lib/subtitle-parser.js"></script>'), "Subtitle parser script must be loaded in sidepanel");
 
 // Step 3 & Stage 7: Media Previews (Screenshot & Audio) without manual capture buttons
@@ -258,11 +259,11 @@ assert.ok(
 
 console.log("sidepanel Stage 3B.4 Step 1 entries persistence tests passed");
 
-// Subtitle Controls Restoration & Video Settings Accordion
-assert.ok(!html.includes('id="subtitle-controls-hidden-wrap" style="display:none;"'), "#subtitle-controls-hidden-wrap must not be hidden via inline style");
-assert.ok(!html.includes('id="subtitle-controls-hidden-wrap" hidden'), "#subtitle-controls-hidden-wrap must not have hidden attribute");
-assert.ok(html.includes('class="subtitle-controls-details video-subtitle-settings-collapsible"'), "Subtitle details must have video-subtitle-settings-collapsible class");
+// Subtitle Controls are directly available in Settings without another dropdown.
+assert.ok(!html.includes('id="subtitle-controls-hidden-wrap"'), "Legacy Video-tab subtitle controls wrapper must be removed");
+assert.ok(!html.includes('id="subtitle-controls-details"'), "Nested subtitle controls disclosure must be removed");
 assert.ok(html.includes('id="toggle-subtitles-display"'), "Show subtitles on video toggle must exist");
+assert.ok(html.includes('id="jimaku-search-modal" class="jimaku-modal" role="dialog" aria-modal="true"'), "Jimaku modal must remain an accessible shared dialog");
 
 // Optional fields toggle single indicator
 assert.ok(html.includes('id="toggle-optional" class="btn-toggle-optional" aria-expanded="false" aria-controls="optional-fields">+ Optional fields</button>'), "Toggle optional button must start with '+ Optional fields'");

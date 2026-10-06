@@ -230,9 +230,11 @@ test("T4-B: Subtitle Search, In-Track Filtering & Jump", () => {
   assert.equal(mockSearchResults.children.length, 0);
 });
 
-test("T4-C: Recent Cues Panel & Word Click-to-Mine", () => {
+test("T4-C: Recent Cues Panel & Word Click-to-Mine", async () => {
   const identifiedWords = [];
   const exampleSentencesSet = [];
+  const miningSequence = [];
+  let identifiedOptions = null;
 
   class MockElement {
     constructor(tagName = "div") {
@@ -254,9 +256,10 @@ test("T4-C: Recent Cues Panel & Word Click-to-Mine", () => {
     addEventListener(evt, fn) {
       this._listeners[evt] = fn;
     }
+    dispatchEvent() {}
     click() {
       if (this._listeners.click) {
-        this._listeners.click({ stopPropagation: () => {} });
+        return this._listeners.click({ stopPropagation: () => {} });
       }
     }
   }
@@ -279,27 +282,40 @@ test("T4-C: Recent Cues Panel & Word Click-to-Mine", () => {
     recentCuesSection: mockRecentSection,
     recentCuesList: mockRecentList,
     recentSubtitleCues: cues,
+    currentActiveCue: null,
     fieldExampleSentence: mockFieldSentence,
     fieldSourceText: new MockElement("input"),
     insertExampleToCard: (sent) => {
       exampleSentencesSet.push(sent);
     },
-    identify: async (word) => {
+    identify: async (word, options) => {
       identifiedWords.push(word);
+      identifiedOptions = options;
+      miningSequence.push("identify");
     },
-    broadcastToActiveVideo: async () => {},
+    updateVideoCuePreviewText: () => {},
+    renderRecentCuesList: () => {},
+    pendingSentenceOverride: "",
+    Event,
+    broadcastToActiveVideo: async () => {
+      miningSequence.push("seek");
+    },
     lastCaptureSource: {}
   };
   vm.createContext(sandbox);
 
   const fmtCode = jsContent.match(/function formatSubtitleTimestamp[\s\S]*?\n\}/)?.[0];
   const seekCode = jsContent.match(/async function seekToSubtitleCue[\s\S]*?\n\}/)?.[0];
+  const targetTimeCode = jsContent.match(/function getSubtitleCueTargetTime[\s\S]*?\n\}/)?.[0];
+  const mineCode = jsContent.match(/async function mineSubtitleCueWord[\s\S]*?\n\}/)?.[0];
   const renderCode = jsContent.match(/function renderRecentCuesList[\s\S]*?\n\}/)?.[0];
 
-  assert.ok(fmtCode && seekCode && renderCode, "Recent cues functions must exist in sidepanel.js");
+  assert.ok(fmtCode && seekCode && targetTimeCode && mineCode && renderCode, "Recent cues functions must exist in sidepanel.js");
 
   vm.runInContext(fmtCode, sandbox);
   vm.runInContext(seekCode, sandbox);
+  vm.runInContext(targetTimeCode, sandbox);
+  vm.runInContext(mineCode, sandbox);
   vm.runInContext(renderCode, sandbox);
 
   // Render recent cues
@@ -318,8 +334,10 @@ test("T4-C: Recent Cues Panel & Word Click-to-Mine", () => {
   assert.ok(wordSpans.length > 0, "Must segment words into clickable word spans");
 
   // Click the first word span (e.g. 魔法)
-  wordSpans[0].click();
+  await wordSpans[0].click();
   assert.ok(identifiedWords.length > 0, "Clicking word span must trigger identify()");
   assert.ok(exampleSentencesSet.length > 0, "Clicking word span must set example sentence from cue");
   assert.equal(exampleSentencesSet[0], "魔法をかける");
+  assert.deepEqual(miningSequence, ["seek", "identify"], "Player must seek before lookup/frame capture begins");
+  assert.equal(identifiedOptions.targetTime, 12.2, "Frame capture must target 0.2s into the selected cue");
 });

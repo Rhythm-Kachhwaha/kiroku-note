@@ -23,7 +23,8 @@
     "tabs",
     "tabCapture",
     "offscreen",
-    "clipboardRead"
+    "clipboardRead",
+    "contextMenus"
   ],
   "commands": {
     "open-side-panel": {
@@ -31,6 +32,12 @@
         "default": "Alt+Shift+K"
       },
       "description": "Open Kiroku Note side panel"
+    },
+    "capture-tab-audio": {
+      "suggested_key": {
+        "default": "Alt+Shift+A"
+      },
+      "description": "Connect Kiroku Note tab audio"
     }
   },
   "host_permissions": [

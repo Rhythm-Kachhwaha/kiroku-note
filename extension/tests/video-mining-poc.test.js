@@ -819,7 +819,12 @@ async function testRecentCuesRollingBuffer() {
     { startTime: 7.0, endTime: 9.0, text: "日本語" },
     { startTime: 10.0, endTime: 12.0, text: "勉強" },
     { startTime: 13.0, endTime: 15.0, text: "アニメ" },
-    { startTime: 16.0, endTime: 18.0, text: "字幕" }
+    { startTime: 16.0, endTime: 18.0, text: "字幕" },
+    { startTime: 19.0, endTime: 21.0, text: "映画" },
+    { startTime: 22.0, endTime: 24.0, text: "会話" },
+    { startTime: 25.0, endTime: 27.0, text: "表現" },
+    { startTime: 28.0, endTime: 30.0, text: "確認" },
+    { startTime: 31.0, endTime: 33.0, text: "視聴" }
   ]);
 
   assert.equal(poc.instance.recentCues.length, 0, "recentCues starts empty");
@@ -853,16 +858,27 @@ async function testRecentCuesRollingBuffer() {
   assert.equal(poc.instance.recentCues.length, 5);
   assert.equal(poc.instance.recentCues[0].text, "アニメ");
 
-  // Cue 6 (17.0s) -> buffer is capped at max 5 cues, oldest (こんにちは) is evicted
+  // Cue 6 (17.0s)
   video.seek(17.0);
-  assert.equal(poc.instance.recentCues.length, 5, "recentCues must be capped at 5 elements");
+  assert.equal(poc.instance.recentCues.length, 6);
   assert.equal(poc.instance.recentCues[0].text, "字幕");
-  assert.equal(poc.instance.recentCues[4].text, "世界");
+
+  // Continue past the nine-cue capacity; the oldest cues should roll off.
+  video.seek(20.0);
+  video.seek(23.0);
+  video.seek(26.0);
+  assert.equal(poc.instance.recentCues.length, 9);
+  assert.equal(poc.instance.recentCues[0].text, "表現");
+  video.seek(29.0);
+  video.seek(32.0);
+  assert.equal(poc.instance.recentCues.length, 9, "recentCues must be capped at 9 elements");
+  assert.equal(poc.instance.recentCues[0].text, "視聴");
+  assert.equal(poc.instance.recentCues[8].text, "日本語");
 
   // Verify RECENT_CUES_UPDATED message dispatch
   const recentMsg = env.sentMessages.filter(m => m.type === "RECENT_CUES_UPDATED");
   assert.ok(recentMsg.length > 0, "Must send RECENT_CUES_UPDATED messages on new cues");
-  assert.equal(recentMsg[recentMsg.length - 1].cues.length, 5);
+  assert.equal(recentMsg[recentMsg.length - 1].cues.length, 9);
 
   // Test GET_RECENT_CUES message handler
   let getRecentRes = null;
@@ -870,13 +886,13 @@ async function testRecentCuesRollingBuffer() {
     getRecentRes = res;
   });
   assert.ok(getRecentRes && getRecentRes.ok);
-  assert.equal(getRecentRes.cues.length, 5);
+  assert.equal(getRecentRes.cues.length, 9);
 
   // Test CLEAR_SUBTITLES resets recent cues
   poc.instance.handleMessage({ type: "CLEAR_SUBTITLES" }, null, () => {});
   assert.equal(poc.instance.recentCues.length, 0, "CLEAR_SUBTITLES must clear recentCues");
 
-  console.log("PASS: Subtitle recent cues rolling buffer (max 5) and updates verified.");
+  console.log("PASS: Subtitle recent cues rolling buffer (max 9) and updates verified.");
 }
 
 (async () => {
