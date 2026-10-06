@@ -158,8 +158,8 @@ const btnKana = mockElements["#btn-front-kana"];
 // When word has Kanji and differing Kana reading, toggle row must be visible
 updateFrontToggleUI("食べる", "たべる", "kanji");
 assert.equal(frontRow.hidden, false, "Front toggle row must be visible when word has both kanji and kana");
-assert.equal(btnKanji.textContent, "漢字 食べる");
-assert.equal(btnKana.textContent, "かな たべる");
+assert.equal(btnKanji.textContent, "漢");
+assert.equal(btnKana.textContent, "あ");
 assert.equal(btnKanji.classList.contains("active"), true);
 assert.equal(btnKana.classList.contains("active"), false);
 

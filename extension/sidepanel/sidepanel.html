@@ -106,15 +106,89 @@
     <div id="video-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-video" hidden>
       <section id="video-mining-section" class="video-mining-panel" aria-label="Video Mining Controls">
         
-        <!-- Subtitle Showing Panel (Kept Untouched as Requested) -->
-        <div class="video-cue-preview-container video-sub-strip">
-          <div id="video-current-cue-preview" class="video-cue-preview video-sub-text waiting">Waiting for playback…</div>
-          <button type="button" id="btn-mine-full-sentence" class="btn-mine-sentence" title="Mine active subtitle sentence">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
-              <path d="M2 4h12M2 8h12M2 12h8"/>
-            </svg>
-            Mine sentence
-          </button>
+        <!-- Top Bar: Top-Left Subtitle Setup & Right-Side History Toggle -->
+        <div class="video-toolbar-header">
+          <div class="video-toolbar-left">
+            <div id="subtitle-controls-hidden-wrap" class="video-subtitle-settings-wrap">
+              <details id="subtitle-controls-details" class="subtitle-controls-details video-subtitle-settings-collapsible">
+                <summary class="subtitle-controls-summary" title="Subtitle file, folder, offset, and display settings">
+                  <svg class="sub-gear-icon" width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M6.5 1.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1.07a5.52 5.52 0 0 1 1.25.52l.76-.76a.5.5 0 0 1 .71 0l1.41 1.41a.5.5 0 0 1 0 .71l-.76.76c.22.39.4.81.52 1.25h1.07a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-1.07a5.52 5.52 0 0 1-.52 1.25l.76.76a.5.5 0 0 1 0 .71l-1.41 1.41a.5.5 0 0 1-.71 0l-.76-.76a5.52 5.52 0 0 1-1.25.52v1.07a.5.5 0 0 1-.5.5H7a.5.5 0 0 1-.5-.5v-1.07a5.52 5.52 0 0 1-1.25-.52l-.76-.76a.5.5 0 0 1-.71 0L2.37 12.4a.5.5 0 0 1 0-.71l.76-.76a5.52 5.52 0 0 1-.52-1.25H1.5a.5.5 0 0 1-.5-.5V7a.5.5 0 0 1 .5-.5h1.07c.12-.44.3-.86.52-1.25l-.76-.76a.5.5 0 0 1 0-.71l1.41-1.41a.5.5 0 0 1 .71 0l.76.76c.39-.22.81-.4 1.25-.52V1.5zM8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/>
+                  </svg>
+                  <span class="subtitle-settings-header-title">Subtitles</span>
+                  <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
+                  <span class="summary-caret">▾</span>
+                </summary>
+                <div class="video-subtitle-settings-content">
+                  <div class="video-options-row video-load-subtitles-row">
+                    <div class="subtitles-dropdown-wrapper">
+                      <button type="button" id="load-subtitles-btn" class="btn-subtitles" aria-expanded="false" aria-haspopup="true">Load subtitles ▾</button>
+                      <div id="subtitles-menu-dropdown" class="subtitles-menu-dropdown" hidden>
+                        <button type="button" id="subtitles-menu-file" class="subtitles-menu-item">From file (.srt, .vtt, .ass)</button>
+                        <button type="button" id="btn-select-subtitles-folder" class="btn-subtitles-folder subtitles-menu-item" title="Select subtitle folder">From folder</button>
+                        <button type="button" id="btn-search-subtitles" class="btn-search-subtitles subtitles-menu-item" title="Search Japanese subtitles via Jimaku">Search (Jimaku)</button>
+                        <div class="subtitles-menu-divider"></div>
+                        <button type="button" id="clear-subtitles-btn" class="btn-clear-subtitles subtitles-menu-item" title="Clear loaded subtitles">Clear</button>
+                      </div>
+                    </div>
+                    <input type="file" id="subtitles-file-input" accept=".srt,.vtt,.ass,.ssa" hidden>
+                    <input type="file" id="subtitles-dir-input" webkitdirectory directory hidden>
+                  </div>
+
+                  <div class="video-bar-controls">
+                    <div id="subtitle-folder-bar" class="video-folder-picker subtitle-folder-bar">
+                      <span id="folder-name-label" class="video-folder-label folder-name-label" title="Active Subtitle Directory">
+                        <svg class="folder-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round">
+                          <path d="M1.5 3.5A1 1 0 0 1 2.5 2.5H6l1 1.5H13.5A1 1 0 0 1 14.5 5v7a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V3.5Z"/>
+                        </svg>
+                        Folder:
+                      </span>
+                      <select id="folder-subtitles-select" class="video-folder-select folder-subtitles-select" aria-label="Select subtitle from chosen folder">
+                        <option value="">Select subtitle file…</option>
+                      </select>
+                    </div>
+
+                    <div class="video-jog-btns-compact">
+                      <span class="offset-label" style="font-size:10px; color:var(--text-muted); margin-right:4px;">Subtitle Offset: <span id="offset-display" class="subtitles-offset-val" data-alias="subtitles-offset-val">0 ms</span></span>
+                      <select id="video-track-select" class="video-track-select" hidden aria-label="Select subtitle track">
+                        <option value="">Default track</option>
+                      </select>
+                      <button type="button" id="offset-minus-btn" class="btn-jog-compact btn-offset btn-offset-minus" data-alias="btn-offset-minus" title="Decrease offset by 100 ms (-100 ms)">-100ms</button>
+                      <button type="button" id="offset-reset-btn" class="btn-jog-compact btn-offset btn-offset-reset" data-alias="btn-offset-reset" title="Reset offset to 0 ms">Reset</button>
+                      <button type="button" id="offset-plus-btn" class="btn-jog-compact btn-offset btn-offset-plus" data-alias="btn-offset-plus" title="Increase offset by 100 ms (+100 ms)">+100ms</button>
+                    </div>
+                  </div>
+
+                  <div class="video-options-row">
+                    <label class="ios-toggle-label" for="toggle-subtitles-display" title="Toggle subtitle display on video on/off">
+                      <span class="toggle-label">Show subtitles on video</span>
+                      <div class="ios-switch">
+                        <input type="checkbox" id="toggle-subtitles-display" class="ios-switch-input" checked>
+                        <span class="ios-switch-slider"></span>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div class="video-options-row">
+                    <label class="toggle-control" for="toggle-auto-pause-hover">
+                      <input type="checkbox" id="toggle-auto-pause-hover" class="toggle-checkbox">
+                      <span class="toggle-label">Auto-pause on subtitle hover</span>
+                    </label>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <div class="video-toolbar-right">
+            <!-- Dropdown Toggle for Recent History -->
+            <button type="button" id="btn-toggle-recent-subs" class="btn-toggle-recent-subs" title="Hide/show recent subtitles" aria-expanded="true">
+              <span id="recent-subs-toggle-label" class="recent-subs-toggle-label">History</span>
+              <svg id="recent-subs-toggle-arrow" class="recent-subs-chevron" width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <!-- Subtitle In-Track Search / Jump (T4-B) -->
@@ -129,82 +203,23 @@
           <ul id="subtitle-search-results" class="subtitle-search-results" hidden></ul>
         </div>
 
-        <!-- Subtitle History Hover Panel (Last 5 Cues - T4-C) -->
-        <div id="recent-cues-section" class="recent-cues-section" hidden>
-          <div class="recent-cues-header">
-            <span class="recent-cues-title">Recent Subtitles (Last 5)</span>
-            <span class="recent-cues-hint">Click word to mine</span>
+        <!-- UNIFIED SUBTITLE STREAM: Recent (Dimmed, Huge) + Current (Highlighted, Large) in ONE View -->
+        <div id="unified-subtitles-stream" class="unified-subtitles-stream">
+          <!-- Recent Subtitles list (Dimmed, Large, Collapsible) -->
+          <div id="recent-cues-section" class="recent-cues-section unified-recent-cues-wrap" hidden>
+            <ul id="recent-cues-list" class="recent-cues-list unified-recent-cues-list"></ul>
           </div>
-          <ul id="recent-cues-list" class="recent-cues-list"></ul>
-        </div>
 
-        <div id="subtitle-controls-hidden-wrap" class="video-subtitle-settings-wrap">
-          <details id="subtitle-controls-details" class="subtitle-controls-details video-subtitle-settings-collapsible">
-            <summary class="subtitle-controls-summary">
-              <span class="subtitle-settings-header-title">Subtitles</span>
-            </summary>
-            <div class="video-subtitle-settings-content">
-              <div class="subtitle-status-row">
-                <span id="subtitles-file-status" class="subtitles-status-pill">No subtitles</span>
-              </div>
-        <div class="video-bar-controls">
-          <div id="subtitle-folder-bar" class="video-folder-picker subtitle-folder-bar">
-            <span id="folder-name-label" class="video-folder-label folder-name-label" title="Active Subtitle Directory">
-              <svg class="folder-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round">
-                <path d="M1.5 3.5A1 1 0 0 1 2.5 2.5H6l1 1.5H13.5A1 1 0 0 1 14.5 5v7a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V3.5Z"/>
+          <!-- Current Active Subtitle (Prominently Highlighted, Large Font) -->
+          <div class="video-cue-preview-container video-sub-strip unified-current-cue-strip">
+            <div id="video-current-cue-preview" class="video-cue-preview video-sub-text waiting">Waiting for playback…</div>
+            <button type="button" id="btn-mine-full-sentence" class="btn-mine-sentence" title="Mine active subtitle sentence">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+                <path d="M2 4h12M2 8h12M2 12h8"/>
               </svg>
-              Folder:
-            </span>
-            <select id="folder-subtitles-select" class="video-folder-select folder-subtitles-select" aria-label="Select subtitle from chosen folder">
-              <option value="">Select subtitle file…</option>
-            </select>
+              Mine sentence
+            </button>
           </div>
-
-          <div class="video-jog-btns-compact">
-            <span class="offset-label" style="font-size:10px; color:var(--text-muted); margin-right:4px;">Subtitle Offset: <span id="offset-display" class="subtitles-offset-val" data-alias="subtitles-offset-val">0 ms</span></span>
-            <select id="video-track-select" class="video-track-select" hidden aria-label="Select subtitle track">
-              <option value="">Default track</option>
-            </select>
-            <button type="button" id="offset-minus-btn" class="btn-jog-compact btn-offset btn-offset-minus" data-alias="btn-offset-minus" title="Decrease offset by 100 ms (-100 ms)">-100ms</button>
-            <button type="button" id="offset-reset-btn" class="btn-jog-compact btn-offset btn-offset-reset" data-alias="btn-offset-reset" title="Reset offset to 0 ms">Reset</button>
-            <button type="button" id="offset-plus-btn" class="btn-jog-compact btn-offset btn-offset-plus" data-alias="btn-offset-plus" title="Increase offset by 100 ms (+100 ms)">+100ms</button>
-          </div>
-        </div>
-
-        <!-- Subtitle Settings & Secondary Controls Collapsible Card -->
-              <div class="video-options-row video-load-subtitles-row">
-                <div class="subtitles-dropdown-wrapper">
-                  <button type="button" id="load-subtitles-btn" class="btn-subtitles" aria-expanded="false" aria-haspopup="true">Load subtitles ▾</button>
-                  <div id="subtitles-menu-dropdown" class="subtitles-menu-dropdown" hidden>
-                    <button type="button" id="subtitles-menu-file" class="subtitles-menu-item">From file (.srt, .vtt, .ass)</button>
-                    <button type="button" id="btn-select-subtitles-folder" class="btn-subtitles-folder subtitles-menu-item" title="Select subtitle folder">From folder</button>
-                    <button type="button" id="btn-search-subtitles" class="btn-search-subtitles subtitles-menu-item" title="Search Japanese subtitles via Jimaku">Search (Jimaku)</button>
-                    <div class="subtitles-menu-divider"></div>
-                    <button type="button" id="clear-subtitles-btn" class="btn-clear-subtitles subtitles-menu-item" title="Clear loaded subtitles">Clear</button>
-                  </div>
-                </div>
-                <input type="file" id="subtitles-file-input" accept=".srt,.vtt,.ass,.ssa" hidden>
-                <input type="file" id="subtitles-dir-input" webkitdirectory directory hidden>
-              </div>
-
-              <div class="video-options-row">
-                <label class="ios-toggle-label" for="toggle-subtitles-display" title="Toggle subtitle display on video on/off">
-                  <span class="toggle-label">Show subtitles on video</span>
-                  <div class="ios-switch">
-                    <input type="checkbox" id="toggle-subtitles-display" class="ios-switch-input" checked>
-                    <span class="ios-switch-slider"></span>
-                  </div>
-                </label>
-              </div>
-
-              <div class="video-options-row">
-                <label class="toggle-control" for="toggle-auto-pause-hover">
-                  <input type="checkbox" id="toggle-auto-pause-hover" class="toggle-checkbox">
-                  <span class="toggle-label">Auto-pause on subtitle hover</span>
-                </label>
-              </div>
-            </div>
-          </details>
         </div>
 
         <!-- Jimaku Subtitles Search Modal -->
@@ -430,8 +445,8 @@
             <div id="front-toggle-row" class="front-toggle-row" hidden>
               <span class="front-toggle-label">Front:</span>
               <div class="front-toggle-pill-group" role="group" aria-label="Card Front Form">
-                <button type="button" id="btn-front-kanji" class="btn-front-toggle active" aria-pressed="true" title="Use Kanji as card front">漢字</button>
-                <button type="button" id="btn-front-kana" class="btn-front-toggle" aria-pressed="false" title="Use Kana as card front">かな</button>
+                <button type="button" id="btn-front-kanji" class="btn-front-toggle active" aria-pressed="true" title="Use Kanji as card front" aria-label="Use Kanji as card front">漢</button>
+                <button type="button" id="btn-front-kana" class="btn-front-toggle" aria-pressed="false" title="Use Kana as card front" aria-label="Use Kana as card front">あ</button>
               </div>
             </div>
           </section>
@@ -941,6 +956,13 @@
             <span class="settings-label">Auto-capture sentence audio</span>
             <label class="switch-control setting-checkbox-label">
               <input type="checkbox" id="toggle-auto-capture-audio" class="setting-checkbox switch-input" checked>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">Show recent subtitles in Video mode</span>
+            <label class="switch-control setting-checkbox-label">
+              <input type="checkbox" id="toggle-show-recent-subs" class="setting-checkbox switch-input" checked>
               <span class="switch-slider"></span>
             </label>
           </div>

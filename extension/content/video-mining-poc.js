@@ -79,9 +79,18 @@
     }
 
     findPrimaryVideo() {
-      const videos = this.findAllVideos().filter(v => {
+      const allVideos = this.findAllVideos();
+      if (this.activeVideo && this.activeVideo.isConnected) {
+        const fsEl = getFullscreenElement();
+        if (fsEl || (typeof document !== "undefined" && (document.fullscreenElement || document.webkitFullscreenElement))) {
+          return this.activeVideo;
+        }
+      }
+
+      const videos = allVideos.filter(v => {
         // Must be in DOM
         if (!v || !v.isConnected) return false;
+        if (v === this.activeVideo) return true;
         const rect = typeof v.getBoundingClientRect === "function" ? v.getBoundingClientRect() : null;
         if (!rect || !Number.isFinite(rect.width) || !Number.isFinite(rect.height)) return false;
         // Discard 0-size invisible tracking videos
@@ -901,28 +910,78 @@
     _onFullscreenChange() {
       this.ensureMounted();
       this.updatePosition();
+      if (this.currentCue) {
+        this.renderCue(this.currentCue);
+      }
       if (typeof requestAnimationFrame === "function") {
         requestAnimationFrame(() => {
           this.ensureMounted();
           this.updatePosition();
+          if (this.currentCue) {
+            this.renderCue(this.currentCue);
+          }
         });
       }
       setTimeout(() => {
         this.ensureMounted();
         this.updatePosition();
+        if (this.currentCue) {
+          this.renderCue(this.currentCue);
+        }
       }, 50);
       setTimeout(() => {
         this.ensureMounted();
         this.updatePosition();
+        if (this.currentCue) {
+          this.renderCue(this.currentCue);
+        }
       }, 150);
       setTimeout(() => {
         this.ensureMounted();
         this.updatePosition();
+        if (this.currentCue) {
+          this.renderCue(this.currentCue);
+        }
       }, 300);
       setTimeout(() => {
         this.ensureMounted();
         this.updatePosition();
+        if (this.currentCue) {
+          this.renderCue(this.currentCue);
+        }
       }, 600);
+    }
+
+    syncNativeTextTrack(cue) {
+      if (!this.video || typeof this.video.addTextTrack !== "function") return;
+      const fsEl = getFullscreenElement();
+      const isDirectVideoFs = Boolean(fsEl && fsEl === this.video);
+
+      if (!isDirectVideoFs) {
+        if (this._fallbackTrack) {
+          try { this._fallbackTrack.mode = "disabled"; } catch (_) {}
+        }
+        return;
+      }
+
+      try {
+        if (!this._fallbackTrack) {
+          this._fallbackTrack = this.video.addTextTrack("subtitles", "Kiroku Note", "ja");
+        }
+        this._fallbackTrack.mode = "showing";
+        if (this._fallbackTrack.cues) {
+          const cues = Array.from(this._fallbackTrack.cues);
+          cues.forEach(c => {
+            try { this._fallbackTrack.removeCue(c); } catch (_) {}
+          });
+        }
+        if (cue && cue.text && typeof VTTCue !== "undefined") {
+          const start = Math.max(0, this.video.currentTime - 0.2);
+          const end = this.video.currentTime + 10.0;
+          const vttCue = new VTTCue(start, end, cue.text);
+          this._fallbackTrack.addCue(vttCue);
+        }
+      } catch (_) {}
     }
 
     updatePosition() {
@@ -1075,6 +1134,7 @@
         setStyleProperty(this.container, "visibility", "visible", "important");
         this.container.setAttribute("data-active-cue", cue.text);
         this.updatePosition();
+        this.syncNativeTextTrack(cue);
       } else {
         if (!this.displayEnabled && cue && cue.text) {
           this.subtitleEl.textContent = cue.text;
@@ -1086,6 +1146,7 @@
         setStyleProperty(this.container, "visibility", "hidden", "important");
         setStyleProperty(this.container, "display", "none", "important");
         this.container.removeAttribute("data-active-cue");
+        this.syncNativeTextTrack(null);
       }
     }
 
@@ -2005,6 +2066,36 @@
           error: "IMAGE_CROPPER_MISSING",
           message: "ImageCropper utility is not loaded"
         };
+      }
+
+      const targetTime = (typeof options.targetTime === "number" && Number.isFinite(options.targetTime))
+        ? options.targetTime
+        : ((typeof options.timestamp === "number" && Number.isFinite(options.timestamp)) ? options.timestamp : null);
+
+      if (targetTime !== null && Math.abs(this.activeVideo.currentTime - targetTime) > 0.15) {
+        try {
+          await new Promise((resolve) => {
+            let settled = false;
+            const onSeeked = () => {
+              if (settled) return;
+              settled = true;
+              if (this.activeVideo && typeof this.activeVideo.removeEventListener === "function") {
+                this.activeVideo.removeEventListener("seeked", onSeeked);
+              }
+              resolve();
+            };
+            if (typeof this.activeVideo.addEventListener === "function") {
+              this.activeVideo.addEventListener("seeked", onSeeked, { once: true });
+            }
+            this.activeVideo.currentTime = Math.max(0, targetTime);
+            setTimeout(() => {
+              if (!settled) {
+                settled = true;
+                resolve();
+              }
+            }, 350);
+          });
+        } catch (_) {}
       }
 
       // Attempt Tier 1: Direct canvas capture from video element (untainted / local / same-origin)

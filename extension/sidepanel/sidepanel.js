@@ -226,12 +226,12 @@ function updateFrontToggleUI(kanji, kana, currentFront) {
   if (!hasBoth) return;
 
   if (btnFrontKanji) {
-    btnFrontKanji.textContent = `漢字 ${currentActiveKanji}`;
+    btnFrontKanji.textContent = "漢";
     btnFrontKanji.classList.toggle("active", currentFrontPreference === "kanji");
     btnFrontKanji.setAttribute("aria-pressed", String(currentFrontPreference === "kanji"));
   }
   if (btnFrontKana) {
-    btnFrontKana.textContent = `かな ${currentActiveKana}`;
+    btnFrontKana.textContent = "あ";
     btnFrontKana.classList.toggle("active", currentFrontPreference === "kana");
     btnFrontKana.setAttribute("aria-pressed", String(currentFrontPreference === "kana"));
   }
@@ -1050,9 +1050,13 @@ const subtitleSearchResults = document.querySelector("#subtitle-search-results")
 const btnClearSubtitleSearch = document.querySelector("#btn-clear-subtitle-search");
 const recentCuesSection = document.querySelector("#recent-cues-section");
 const recentCuesList = document.querySelector("#recent-cues-list");
+const btnToggleRecentSubs = document.querySelector("#btn-toggle-recent-subs");
+const toggleShowRecentSubs = document.querySelector("#toggle-show-recent-subs");
 
 let loadedSubtitleCues = [];
 let recentSubtitleCues = [];
+let isRecentSubsCollapsed = false;
+let isRecentSubsEnabled = true;
 let subtitleSearchDebounceTimer = null;
 let pendingSentenceOverride = "";
 
@@ -4553,14 +4557,14 @@ async function identify(text) {
       const shouldAutoCaptureAudio = toggleAutoCaptureAudio ? toggleAutoCaptureAudio.checked : true;
 
       if (!body.image && shouldAutoCaptureFrame && isVideoMiningActive()) {
-        retakeScreenshot(requestId);
+        retakeScreenshot(requestId, options.targetTime);
       }
 
       if (!body.audio && shouldAutoCaptureAudio && isVideoMiningActive()) {
         currentDraftMedia.audioStatus = "pending";
         currentDraftMedia.captureId = requestId;
         updateMediaPreviews();
-        retakeAudio(requestId);
+        retakeAudio(requestId, options.cue);
       }
 
       // Sync state update
@@ -4830,13 +4834,14 @@ function recordOrRetakeAudio() {
   retakeAudio(currentCaptureId);
 }
 
-function retakeScreenshot(captureId = null) {
+function retakeScreenshot(captureId = null, targetTime = null) {
   setStatus("Capturing video frame screenshot…");
   const capId = captureId || currentCaptureId;
   broadcastToActiveVideo({
     type: "TRIGGER_VIDEO_SCREENSHOT",
     options: {
       captureId: capId,
+      targetTime: (typeof targetTime === "number" && Number.isFinite(targetTime)) ? targetTime : null,
       maxWidth: 640,
       maxHeight: 360,
       quality: 0.92
@@ -4844,12 +4849,13 @@ function retakeScreenshot(captureId = null) {
   });
 }
 
-function retakeAudio(captureId = null) {
+function retakeAudio(captureId = null, cue = null) {
   setStatus("Recording sentence audio…");
   const capId = captureId || currentCaptureId;
+  const audioCue = cue || (typeof currentActiveCue !== "undefined" ? currentActiveCue : null);
   broadcastToActiveVideo({
     type: "TRIGGER_AUDIO_RECORDING",
-    cue: typeof currentActiveCue !== "undefined" ? currentActiveCue : null,
+    cue: audioCue,
     options: {
       captureId: capId,
       mimeType: "audio/webm;codecs=opus",
@@ -8305,6 +8311,27 @@ function searchSubtitles(query) {
 
 function renderRecentCuesList() {
   if (!recentCuesList) return;
+  const enabled = typeof isRecentSubsEnabled !== "undefined" ? isRecentSubsEnabled : true;
+  const collapsed = typeof isRecentSubsCollapsed !== "undefined" ? isRecentSubsCollapsed : false;
+  const toggleBtn = typeof btnToggleRecentSubs !== "undefined" ? btnToggleRecentSubs : null;
+
+  if (!enabled) {
+    if (recentCuesSection) recentCuesSection.hidden = true;
+    if (toggleBtn) toggleBtn.style.display = "none";
+    recentCuesList.replaceChildren();
+    return;
+  }
+  if (toggleBtn) {
+    toggleBtn.style.display = "";
+    toggleBtn.classList.toggle("collapsed", collapsed);
+    toggleBtn.setAttribute("aria-expanded", String(!collapsed));
+  }
+
+  if (collapsed) {
+    if (recentCuesSection) recentCuesSection.hidden = true;
+    return;
+  }
+
   if (!Array.isArray(recentSubtitleCues) || recentSubtitleCues.length === 0) {
     if (recentCuesSection) recentCuesSection.hidden = true;
     recentCuesList.replaceChildren();
@@ -8325,7 +8352,9 @@ function renderRecentCuesList() {
     timeSpan.title = "Click to jump video to this cue";
     timeSpan.addEventListener("click", (e) => {
       e.stopPropagation();
-      seekToSubtitleCue(cue);
+      if (typeof seekToSubtitleCue === "function") {
+        seekToSubtitleCue(cue);
+      }
     });
     li.appendChild(timeSpan);
 
@@ -8343,22 +8372,42 @@ function renderRecentCuesList() {
             wordSpan.className = "recent-cue-word";
             wordSpan.textContent = w;
             wordSpan.title = `Click to mine "${w}"`;
-            wordSpan.addEventListener("click", (e) => {
+            wordSpan.addEventListener("click", async (e) => {
               e.stopPropagation();
-              pendingSentenceOverride = cue.text;
+              if (typeof pendingSentenceOverride !== "undefined") {
+                pendingSentenceOverride = cue.text;
+              }
               if (typeof insertExampleToCard === "function") {
                 insertExampleToCard(cue.text, "");
-              } else if (fieldExampleSentence) {
+              } else if (typeof fieldExampleSentence !== "undefined" && fieldExampleSentence) {
                 fieldExampleSentence.value = cue.text;
-                fieldExampleSentence.dispatchEvent(new Event("input", { bubbles: true }));
-              }
-              if (fieldSourceText) fieldSourceText.value = cue.text;
-              identify(w).then(() => {
-                if (pendingSentenceOverride && fieldExampleSentence) {
-                  fieldExampleSentence.value = pendingSentenceOverride;
+                if (typeof fieldExampleSentence.dispatchEvent === "function") {
+                  fieldExampleSentence.dispatchEvent(new Event("input", { bubbles: true }));
                 }
-                pendingSentenceOverride = "";
-              });
+              }
+              if (typeof fieldSourceText !== "undefined" && fieldSourceText) fieldSourceText.value = cue.text;
+
+              const targetTime = (typeof cue.startTime === "number")
+                ? cue.startTime + 0.2
+                : ((typeof cue.startMs === "number") ? (cue.startMs / 1000) + 0.2 : null);
+
+              if (typeof seekToSubtitleCue === "function") {
+                seekToSubtitleCue(cue);
+              }
+              if (typeof currentActiveCue !== "undefined") {
+                currentActiveCue = cue;
+              }
+
+              if (typeof identify === "function") {
+                identify(w, { targetTime, cue }).then(() => {
+                  if (typeof pendingSentenceOverride !== "undefined" && pendingSentenceOverride && typeof fieldExampleSentence !== "undefined" && fieldExampleSentence) {
+                    fieldExampleSentence.value = pendingSentenceOverride;
+                  }
+                  if (typeof pendingSentenceOverride !== "undefined") {
+                    pendingSentenceOverride = "";
+                  }
+                }).catch(() => {});
+              }
             });
             textSpan.appendChild(wordSpan);
           } else {
@@ -8374,14 +8423,30 @@ function renderRecentCuesList() {
       wordSpan.textContent = cue.text;
       wordSpan.title = `Click to mine "${cue.text}"`;
       wordSpan.addEventListener("click", () => {
-        pendingSentenceOverride = cue.text;
+        if (typeof pendingSentenceOverride !== "undefined") {
+          pendingSentenceOverride = cue.text;
+        }
         if (typeof insertExampleToCard === "function") {
           insertExampleToCard(cue.text, "");
-        } else if (fieldExampleSentence) {
+        } else if (typeof fieldExampleSentence !== "undefined" && fieldExampleSentence) {
           fieldExampleSentence.value = cue.text;
         }
-        if (fieldSourceText) fieldSourceText.value = cue.text;
-        identify(cue.text);
+        if (typeof fieldSourceText !== "undefined" && fieldSourceText) fieldSourceText.value = cue.text;
+
+        const targetTime = (typeof cue.startTime === "number")
+          ? cue.startTime + 0.2
+          : ((typeof cue.startMs === "number") ? (cue.startMs / 1000) + 0.2 : null);
+
+        if (typeof seekToSubtitleCue === "function") {
+          seekToSubtitleCue(cue);
+        }
+        if (typeof currentActiveCue !== "undefined") {
+          currentActiveCue = cue;
+        }
+
+        if (typeof identify === "function") {
+          identify(cue.text, { targetTime, cue });
+        }
       });
       textSpan.appendChild(wordSpan);
     }
@@ -8457,7 +8522,10 @@ function handleMineFullSentence() {
   if (fieldSourceText) {
     fieldSourceText.value = cueText;
   }
-  identify(word).then(() => {
+  const targetTime = currentActiveCue
+    ? ((typeof currentActiveCue.startTime === "number") ? currentActiveCue.startTime + 0.2 : ((typeof currentActiveCue.startMs === "number") ? (currentActiveCue.startMs / 1000) + 0.2 : null))
+    : null;
+  identify(word, { targetTime, cue: currentActiveCue }).then(() => {
     if (pendingSentenceOverride && fieldExampleSentence) {
       fieldExampleSentence.value = pendingSentenceOverride;
       fieldExampleSentence.dispatchEvent(new Event("input", { bubbles: true }));
@@ -8474,6 +8542,9 @@ if (typeof window !== "undefined") {
   window.handleMineFullSentence = handleMineFullSentence;
   window.setLoadedSubtitleCues = (cues) => { loadedSubtitleCues = cues; };
   window.setRecentSubtitleCues = (cues) => { recentSubtitleCues = cues; };
+  window.setRecentSubsCollapsed = (collapsed) => { isRecentSubsCollapsed = collapsed; };
+  window.setRecentSubsEnabled = (enabled) => { isRecentSubsEnabled = enabled; };
+  window.loadRecentSubsPreferences = loadRecentSubsPreferences;
 }
 
 function switchMiningTab(targetTab) {
@@ -8907,6 +8978,41 @@ function setAutoCapturePreference(key, enabled) {
   } catch (_) {}
 }
 
+async function loadRecentSubsPreferences() {
+  try {
+    let showRecent = true;
+    let collapsed = false;
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const stored = await chrome.storage.local.get(["kiroku_show_recent_subs", "kiroku_recent_subs_collapsed"]);
+      if (typeof stored?.kiroku_show_recent_subs === "boolean") showRecent = stored.kiroku_show_recent_subs;
+      if (typeof stored?.kiroku_recent_subs_collapsed === "boolean") collapsed = stored.kiroku_recent_subs_collapsed;
+    } else if (typeof localStorage !== "undefined") {
+      const sr = localStorage.getItem("kiroku_show_recent_subs");
+      if (sr !== null) showRecent = sr === "true";
+      const sc = localStorage.getItem("kiroku_recent_subs_collapsed");
+      if (sc !== null) collapsed = sc === "true";
+    }
+    isRecentSubsEnabled = showRecent;
+    isRecentSubsCollapsed = collapsed;
+    if (toggleShowRecentSubs) toggleShowRecentSubs.checked = isRecentSubsEnabled;
+    if (btnToggleRecentSubs) {
+      btnToggleRecentSubs.setAttribute("aria-expanded", String(!isRecentSubsCollapsed));
+      btnToggleRecentSubs.classList.toggle("collapsed", isRecentSubsCollapsed);
+    }
+    renderRecentCuesList();
+  } catch (_) {}
+}
+
+function setRecentSubsPreference(key, val) {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ [key]: val });
+    } else if (typeof localStorage !== "undefined") {
+      localStorage.setItem(key, String(val));
+    }
+  } catch (_) {}
+}
+
 if (toggleAutoPauseHover) {
   toggleAutoPauseHover.addEventListener("change", (e) => {
     setAutoPausePreference(Boolean(e.target.checked));
@@ -8928,6 +9034,24 @@ if (toggleAutoCaptureFrame) {
 if (toggleAutoCaptureAudio) {
   toggleAutoCaptureAudio.addEventListener("change", (e) => {
     setAutoCapturePreference("auto_capture_audio", Boolean(e.target.checked));
+  });
+}
+
+if (toggleShowRecentSubs) {
+  toggleShowRecentSubs.addEventListener("change", (e) => {
+    isRecentSubsEnabled = Boolean(e.target.checked);
+    setRecentSubsPreference("kiroku_show_recent_subs", isRecentSubsEnabled);
+    renderRecentCuesList();
+  });
+}
+
+if (btnToggleRecentSubs) {
+  btnToggleRecentSubs.addEventListener("click", () => {
+    isRecentSubsCollapsed = !isRecentSubsCollapsed;
+    btnToggleRecentSubs.setAttribute("aria-expanded", String(!isRecentSubsCollapsed));
+    btnToggleRecentSubs.classList.toggle("collapsed", isRecentSubsCollapsed);
+    setRecentSubsPreference("kiroku_recent_subs_collapsed", isRecentSubsCollapsed);
+    renderRecentCuesList();
   });
 }
 
@@ -10510,6 +10634,7 @@ if (btnAskSubmit) {
 initAskResponseMode();
 
 loadAutoCapturePreferences();
+loadRecentSubsPreferences();
 checkLLMStatus().catch(() => {});
 initLlmSettingsUI();
 loadLlmConfigToSettings().catch(() => {});

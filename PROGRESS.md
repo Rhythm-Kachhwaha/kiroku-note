@@ -1,5 +1,9 @@
 # Kiroku Note — Progress
 
+### Compact Kanji/Kana Front Toggle (2026-10-06)
+- Replaced the long front-toggle button labels with compact `漢` and `あ` symbols while preserving accessible labels and the existing styling.
+- Reduced only the front-toggle padding; focused verification: `node --test extension/tests/front-toggle-and-edit.test.js`.
+
 ## Current Status
 
 Kiroku Note is a local-first Japanese vocabulary and sentence mining tool.
@@ -7,6 +11,27 @@ Kiroku Note is a local-first Japanese vocabulary and sentence mining tool.
 Current development target: **V2.0**
 
 The core mining pipeline is functional. Current work is focused on polishing, reliability, UX, and preparing the project for public release.
+
+### Video Mode Fullscreen Subtitle Fix, Timestamped Mining & Decluttered Unified Stream (2026-10-06)
+- **Fullscreen Subtitle Display Fix:**
+  - Added [extension/content/fullscreen-hook.js](file:///d:/Python/AnkiMiner/extension/content/fullscreen-hook.js) registered in `manifest.json` under `world: "MAIN"` at `document_start` across all URLs. Intercepts `HTMLVideoElement.prototype.requestFullscreen` and `webkitRequestFullscreen`, redirecting fullscreen requests to the player container wrapper (`.jwplayer`, `#player`, `.video-js`, `video.parentElement`). This guarantees the subtitle overlay remains in the browser's Fullscreen Top Layer.
+  - Implemented HTML5 native `TextTrack` (`VTTCue`) fallback synchronization in `SubtitleOverlayRenderer` for defense-in-depth if direct `<video>` fullscreen occurs.
+  - Hardened `VideoDetector.findPrimaryVideo()` to retain active video reference across fullscreen DOM repositioning and avoid transient detachment.
+  - Multi-tick cue resynchronization (0ms, rAF, 50ms, 150ms, 300ms, 600ms) upon `fullscreenchange` to guarantee immediate overlay re-rendering.
+- **Accurate Timestamped Frame Capture for Recent Subtitles:**
+  - Updated `captureCurrentFrame(options)` in `video-mining-poc.js` to accept `options.targetTime`. If provided, it seeks the video to `targetTime` and awaits the `seeked` render event before extracting canvas pixel data.
+  - Updated `identify(text, options)` in `sidepanel.js` to pass `options.targetTime` to `retakeScreenshot` and `options.cue` to `retakeAudio`.
+  - When clicking words in recent/past subtitles, cards now capture the exact screenshot frame and sentence audio corresponding to that subtitle cue rather than whatever playback frame the video is currently at.
+- **Decluttered UI & Unified Subtitle Stream:**
+  - Relocated subtitle file loading, folder selection, Jimaku search, and sync offsets into a clean, collapsible dropdown at the top-left toolbar (`#subtitle-controls-details`).
+  - Merged Recent Subtitles and Current Active Subtitle into ONE unified stream (`#unified-subtitles-stream`):
+    - Recent history cues are dimmed (`opacity: 0.62`), with huge, readable Japanese typography (`font-size: 19px`), expanding on hover (`opacity: 1`).
+    - The active playing subtitle is prominently highlighted with high-contrast elevated styling, accent borders, and 24px typography.
+  - Added dropdown toggle button (`#btn-toggle-recent-subs`) in the top toolbar to collapse/expand recent subtitle history with animated chevron.
+  - Added setting in Settings ("Show recent subtitles in Video mode", `#toggle-show-recent-subs`) to completely vanish the recent subtitles section and button from the UI.
+- **Verification Performed:**
+  - Automated tests: **185/185 passed** (`node --test extension/tests/*.test.js`).
+  - Added dedicated test suite [extension/tests/video-mode-declutter-and-fullscreen.test.js](file:///d:/Python/AnkiMiner/extension/tests/video-mode-declutter-and-fullscreen.test.js) (7/7 passing) verifying main-world hook registration, fullscreen redirection, unified stream DOM contracts, large typography CSS rules, collapsible & settings visibility toggles, and timestamped screenshot seeking.
 
 ### Ask Response Readability and Markdown Parsing (2026-10-03)
 - Increased AI response text to 16px, widened its available area, and improved paragraph and list spacing; tables now use 14px text, bold headers, and neutral row backgrounds.
