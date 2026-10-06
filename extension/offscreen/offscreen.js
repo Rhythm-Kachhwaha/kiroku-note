@@ -90,6 +90,12 @@ class PersistentAudioCaptureEngine {
     return this.state;
   }
 
+  async ensureAudioContextRunning() {
+    if (this.audioContext && this.audioContext.state === "suspended" && typeof this.audioContext.resume === "function") {
+      await this.audioContext.resume().catch(() => {});
+    }
+  }
+
   getStats() {
     return {
       state: this.state,
@@ -231,6 +237,9 @@ class PersistentAudioCaptureEngine {
           this.audioContext.addEventListener("statechange", () => {
             if (this.audioContext?.state === "suspended" && this.state === CaptureState.CAPTURING) {
               this.state = CaptureState.PAUSED;
+              if (typeof this.audioContext.resume === "function") {
+                this.audioContext.resume().catch(() => {});
+              }
             } else if (this.audioContext?.state === "running" && this.state === CaptureState.PAUSED) {
               this.state = CaptureState.CAPTURING;
             }
@@ -485,10 +494,15 @@ if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
 
     if (message?.type === "EXTRACT_SUBTITLE_AUDIO") {
       const engine = getEngineInstance();
-      const res = engine.syncEngine
-        ? engine.syncEngine.extractSubtitleAudio(message)
-        : { ok: false, error: "NO_SYNC_ENGINE" };
-      sendResponse(res);
+      Promise.resolve(engine.ensureAudioContextRunning?.()).then(() => {
+        return engine.syncEngine
+          ? engine.syncEngine.extractSubtitleAudio(message)
+          : { ok: false, error: "NO_SYNC_ENGINE" };
+      }).then((res) => {
+        sendResponse(res);
+      }).catch((err) => {
+        sendResponse({ ok: false, error: "EXTRACTION_FAILED", message: err?.message });
+      });
       return true;
     }
 

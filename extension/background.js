@@ -1,7 +1,13 @@
 let isMiningModeEnabled = false;
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.sidePanel.setPanelBehavior({openPanelOnActionClick: true}).catch(() => {});
+  if (typeof chrome !== "undefined" && chrome.contextMenus?.create) {
+    chrome.contextMenus.create({
+      id: "kiroku-connect-tab-audio",
+      title: "Kiroku: Connect Tab Audio",
+      contexts: ["page", "video", "frame"]
+    });
+  }
 });
 
 async function activeTab() {
@@ -80,6 +86,57 @@ async function ensureOffscreenDocument() {
 
 let isRecordingAudio = false;
 let activeCaptureTabId = null;
+
+function isTabCapturable(url) {
+  if (!url || typeof url !== "string") return false;
+  return !url.startsWith("chrome://") && !url.startsWith("chrome-extension://") && !url.startsWith("about:") && !url.startsWith("edge://") && !url.startsWith("brave://");
+}
+
+function broadcastCaptureState(state, tabId = null) {
+  try {
+    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      chrome.runtime.sendMessage({
+        type: "AUDIO_CAPTURE_STATE_CHANGED",
+        state,
+        tabId: tabId || activeCaptureTabId,
+        capturing: state === "capturing"
+      }).catch(() => {});
+    }
+  } catch (_) {}
+}
+
+async function handleUserInitiatedCapture(tab) {
+  let targetTab = tab;
+  if (!targetTab?.id) {
+    targetTab = await activeTab().catch(() => null);
+  }
+  if (!targetTab?.id) return;
+  if (targetTab.windowId && chrome.sidePanel?.open) {
+    await chrome.sidePanel.open({ windowId: targetTab.windowId }).catch(() => {});
+  } else if (chrome.sidePanel?.open) {
+    try {
+      chrome.windows?.getCurrent((win) => {
+        if (win?.id) {
+          chrome.sidePanel.open({ windowId: win.id }).catch(() => {});
+        }
+      });
+    } catch (_) {}
+  }
+  if (!isTabCapturable(targetTab.url)) return;
+
+  isMiningModeEnabled = true;
+  try {
+    if (chrome.tabCapture?.getMediaStreamId) {
+      const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: targetTab.id }).catch(() => null);
+      if (streamId) {
+        await startPersistentCaptureForTab(targetTab.id, streamId);
+        broadcastCaptureState("capturing", targetTab.id);
+      }
+    }
+  } catch (err) {
+    console.warn("[Kiroku Background] Tab capture initiation error:", err);
+  }
+}
 
 async function startPersistentCaptureForTab(tabId, providedStreamId = null) {
   if (!tabId || typeof chrome === "undefined") {
@@ -275,9 +332,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         if (await hasOffscreenDocument()) {
           const stateRes = await chrome.runtime.sendMessage({ type: "GET_CAPTURE_STATE" });
-          sendResponse(stateRes || { ok: true, state: "idle" });
+          const state = stateRes?.state || (activeCaptureTabId ? "capturing" : "idle");
+          const capturing = stateRes?.capturing ?? (state === "capturing");
+          sendResponse({
+            ok: true,
+            capturing,
+            tabId: activeCaptureTabId,
+            state,
+            ...stateRes
+          });
         } else {
-          sendResponse({ ok: true, state: "idle" });
+          sendResponse({
+            ok: true,
+            capturing: Boolean(activeCaptureTabId),
+            tabId: activeCaptureTabId,
+            state: activeCaptureTabId ? "capturing" : "idle"
+          });
         }
       } catch (err) {
         sendResponse({ ok: false, error: err?.message || "FAILED_TO_GET_STATE" });
@@ -546,18 +616,22 @@ chrome.tabs.onRemoved?.addListener?.((tabId) => {
   }
 });
 
+if (typeof chrome !== "undefined" && chrome.action?.onClicked) {
+  chrome.action.onClicked.addListener(handleUserInitiatedCapture);
+}
+
 if (typeof chrome !== "undefined" && chrome.commands?.onCommand) {
   chrome.commands.onCommand.addListener((command, tab) => {
-    if (command === "open-side-panel") {
-      if (tab?.windowId && chrome.sidePanel?.open) {
-        chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
-      } else if (chrome.sidePanel?.open) {
-        chrome.windows?.getCurrent((win) => {
-          if (win?.id) {
-            chrome.sidePanel.open({ windowId: win.id }).catch(() => {});
-          }
-        });
-      }
+    if (command === "open-side-panel" || command === "capture-tab-audio") {
+      return handleUserInitiatedCapture(tab);
+    }
+  });
+}
+
+if (typeof chrome !== "undefined" && chrome.contextMenus?.onClicked) {
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === "kiroku-connect-tab-audio" && tab) {
+      return handleUserInitiatedCapture(tab);
     }
   });
 }
@@ -571,6 +645,9 @@ if (typeof module !== "undefined" && module.exports) {
     OFFSCREEN_DOCUMENT_PATH,
     isAllowedTimedtextUrl,
     isAllowedJimakuUrl,
+    isTabCapturable,
+    handleUserInitiatedCapture,
+    broadcastCaptureState,
   };
 }
 

@@ -154,6 +154,7 @@ let currentKanjiEntries = [];
 const indicatorYomitan = document.querySelector("#indicator-yomitan");
 const indicatorAnki = document.querySelector("#indicator-anki");
 const indicatorOcr = document.querySelector("#indicator-ocr");
+const indicatorTabAudio = document.querySelector("#indicator-tab-audio");
 
 let ocrAvailable = false;
 let ocrLoaded = false;
@@ -1118,6 +1119,28 @@ function setIndicatorStatus(indicatorEl, state, titleText) {
         ? titleText.slice(separatorIndex + 1).trim()
         : titleText;
     }
+  }
+}
+
+function updateTabAudioIndicator(capturing) {
+  if (!indicatorTabAudio) return;
+  const labelEl = (typeof indicatorTabAudio.querySelector === "function")
+    ? (indicatorTabAudio.querySelector(".system-status-value") || indicatorTabAudio.querySelector(".indicator-label"))
+    : null;
+  if (capturing) {
+    if (indicatorTabAudio.classList) {
+      indicatorTabAudio.classList.add("tab-audio-connected");
+      indicatorTabAudio.classList.add("connected");
+    }
+    indicatorTabAudio.title = "Tab Audio Capture: Active (Streaming audio into rolling buffer)";
+    if (labelEl) labelEl.textContent = "Active";
+  } else {
+    if (indicatorTabAudio.classList) {
+      indicatorTabAudio.classList.remove("tab-audio-connected");
+      indicatorTabAudio.classList.remove("connected");
+    }
+    indicatorTabAudio.title = "Tab Audio Capture: Inactive. Click toolbar icon or press Alt+Shift+K to connect.";
+    if (labelEl) labelEl.textContent = "Inactive";
   }
 }
 
@@ -4861,14 +4884,16 @@ function retakeAudio(captureId = null, cue = null) {
   setStatus("Recording sentence audio…");
   const capId = captureId || currentCaptureId;
   const audioCue = cue || (typeof currentActiveCue !== "undefined" ? currentActiveCue : null);
+  const timelineId = (typeof lastCaptureSource !== "undefined" && lastCaptureSource) ? lastCaptureSource.timelineId : null;
   broadcastToActiveVideo({
     type: "TRIGGER_AUDIO_RECORDING",
     cue: audioCue,
+    timelineId: timelineId || null,
     options: {
       captureId: capId,
-      mimeType: "audio/webm;codecs=opus",
+      mimeType: "audio/wav",
       allowPausedPlayback: true,
-      allowFallbackRecording: true
+      allowFallbackRecording: false
     }
   });
 }
@@ -9052,6 +9077,16 @@ if (typeof btnClearSubtitleSearch !== "undefined" && btnClearSubtitleSearch) {
 
 // Default Yomitan indicator to ready state
 setIndicatorStatus(indicatorYomitan, "connected", "Yomitan: Ready");
+updateTabAudioIndicator(false);
+try {
+  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+    chrome.runtime.sendMessage({ type: "GET_AUDIO_CAPTURE_STATE" }, (response) => {
+      if (response?.ok) {
+        updateTabAudioIndicator(Boolean(response.capturing));
+      }
+    });
+  }
+} catch (_) {}
 
 toggle.addEventListener("click", () => {
   setMiningMode(!miningMode).catch(error => {
@@ -9075,6 +9110,11 @@ if (ocrCaptureBtn) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "AUDIO_CAPTURE_STATE_CHANGED") {
+    updateTabAudioIndicator(Boolean(message.capturing));
+    sendResponse?.({ ok: true });
+    return true;
+  }
   if (message?.type === "SCREENSHOT_CAPTURED") {
     if (message.captureId && currentCaptureId && message.captureId !== currentCaptureId) {
       sendResponse?.({ok: false, error: "STALE_CAPTURE"});
@@ -9181,6 +9221,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else {
       if (message.url) lastCaptureSource.url = message.url;
       if (message.title) lastCaptureSource.title = message.title;
+    }
+    if (message.cue) {
+      currentActiveCue = message.cue;
+    }
+    if (message.timelineId) {
+      lastCaptureSource.timelineId = message.timelineId;
     }
     const contextOptions = getVideoCaptureContextOptions(message);
     lastCaptureSource.type = message.sourceType || (contextOptions.videoContext ? "video" : "text");

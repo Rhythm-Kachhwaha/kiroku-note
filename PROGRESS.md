@@ -1,9 +1,66 @@
 # Kiroku Note — Progress
 
+### End-to-End WAV Audio Persistence & AnkiConnect Verification (2026-10-06)
+- **End-to-End WAV Audio Integration Suite (Task 5)**:
+  - Created `backend/tests/test_audio_end_to_end_sync.py` verifying full end-to-end integration:
+    - Base64 data URL (`data:audio/wav;base64,...`) handling in `POST /api/cards/save`.
+    - Binary WAV file storage (`ankiminer_audio_*.wav`) and HTTP retrieval via `GET /api/media/{filename}` with `RIFF/WAVE` header and sample byte verification.
+    - AnkiConnect sync flow via `POST /api/cards/{id}/sync`: mocks `store_media_file` and `add_note`, confirming WAV media upload and `[sound:...]` field mapping.
+    - Dedicated note model audio field mapping (`SentenceAudio` / `Audio`), verifying sound tag isolation from regular text fields.
+    - Fail-soft resilience when AnkiConnect is offline or unreachable: card retains local SQLite persistence, `sync_status = "failed"`, and intact audio without data loss.
+- **Verification**:
+  - Dedicated audio end-to-end suite: **4/4 passed** (`python -m pytest tests/test_audio_end_to_end_sync.py`).
+  - Full backend test suite: **518/518 passed** (`python -m pytest` in `backend`).
+  - Full extension test suite: **210/210 passed** (`node --test --test-concurrency=1 extension/tests/*.test.js`).
+
+### Side Panel Audio Indicator & Offscreen Capture Hardening (2026-10-06)
+- **Side Panel Audio Status Indicator (Task 3)**:
+  - Added `#indicator-tab-audio` status badge in `extension/sidepanel/sidepanel.html` within the System Status group (`.system-status-list`).
+  - Implemented CSS styling for `.indicator-tab-audio` and `.tab-audio-connected` / `.connected` in `extension/sidepanel/sidepanel.css`.
+  - Implemented `updateTabAudioIndicator(capturing)` in `extension/sidepanel/sidepanel.js` with defensive checks for mock DOM test harnesses.
+  - Added runtime message handling for `AUDIO_CAPTURE_STATE_CHANGED` and startup query via `GET_AUDIO_CAPTURE_STATE`.
+  - Preserved active subtitle cue and timeline ID (`currentActiveCue`, `lastCaptureSource.timelineId`) across `JAPANESE_TEXT_CAPTURED` events.
+  - Updated `retakeAudio` to broadcast `TRIGGER_AUDIO_RECORDING` with exact `cue`, `timelineId`, and `options.mimeType = "audio/wav"`.
+- **Offscreen AudioWorklet & Mirroring Hardening (Task 4)**:
+  - Added `ensureAudioContextRunning()` on `PersistentAudioCaptureEngine` in `extension/offscreen/offscreen.js` to dynamically recover suspended audio contexts.
+  - Hardened `AudioContext` statechange listener to automatically attempt auto-resume on unexpected suspension (power saving / background throttling).
+  - Wrapped `EXTRACT_SUBTITLE_AUDIO` message handler to ensure running AudioContext before slicing rolling buffer.
+  - Verified speaker mirroring (`audioSource.connect(audioContext.destination)`) preserving unity gain speaker playback.
+  - Synchronized updated files to `dist/extension/unpacked/`.
+- **Verification**:
+  - Dedicated Side Panel audio status test suite: **4/4 passed** (`extension/tests/sidepanel-audio-status-ui.test.js`).
+  - Dedicated offscreen hardening test suite: **5/5 passed** (`extension/tests/offscreen-capture-hardening.test.js`).
+  - Full extension test suite: **210/210 passed** (`node --test --test-concurrency=1 extension/tests/*.test.js`).
+  - Full backend test suite: **514/514 passed** (`python -m pytest backend/tests`).
+
+### Subtitle Cue Audio Pass-Through & WAV Alignment (2026-10-06)
+- **Subtitle Cue Metadata Pass-Through**: Updated `SubtitleOverlayRenderer._boundSubtitleMouseMove` to pass the full subtitle `cue`, `timelineId`, and `offset` alongside `text` and `source: "subtitle_hover"` in `JAPANESE_TEXT_CAPTURED`.
+- Linked `SubtitleOverlayRenderer` to the parent `VideoMiningPOC` instance with reactive getters for `timelineId` and `syncEngine`, updating across video discontinuities.
+- **WAV Extraction & Fail-Soft Guard**: Updated `recordSentenceAudio` to request `preferredMimeType: "audio/wav"` with `EXTRACT_SUBTITLE_AUDIO` and broadcast `AUDIO_CAPTURED` with canonical `audio/wav` format.
+- Removed flawed `_captureStreamFallback` and replaced with fail-soft `AUDIO_CAPTURE_STATUS` broadcasting descriptive offline guidance when offscreen audio capture is not connected.
+- Exported `VideoMiningPOC` to `module.exports` for robust unit testing.
+- Synchronized updated `video-mining-poc.js` to `dist/extension/unpacked/content/`.
+- **Verification**:
+  - Dedicated cue audio test suite: **4/4 passed** (`extension/tests/video-mining-cue-audio.test.js`).
+  - Offscreen audio recording suite: **Passed** (`node extension/tests/audio-recording.test.js`).
+  - Full extension test suite: **201/201 passed** (`node --test --test-concurrency=1 extension/tests/*.test.js`).
+  - Full backend test suite: **514/514 passed** (`python -m pytest`).
+
+### Tab Audio User-Gesture Handover & Lifecycle Management (2026-10-06)
+- **Manifest V3 User-Gesture & Stream Lifecycle**: Replaced automatic `openPanelOnActionClick: true` with an explicit `chrome.action.onClicked` listener, `chrome.commands.onCommand` (`open-side-panel` / `Alt+Shift+K` and dedicated `capture-tab-audio` / `Alt+Shift+A`), and context menu item `kiroku-connect-tab-audio`.
+- Guaranteed that tab capture stream acquisition (`chrome.tabCapture.getMediaStreamId({ targetTabId })`) occurs within a valid user gesture context on active, capturable tabs, passing `streamId` to the offscreen document and broadcasting capture state (`AUDIO_CAPTURE_STATE_CHANGED`).
+- Gated internal URLs (`chrome://`, `chrome-extension://`, `about:`, `edge://`, `brave://`) via `isTabCapturable` to prevent invalid stream requests.
+- Implemented `GET_AUDIO_CAPTURE_STATE` message handling returning `{ ok: true, capturing, tabId, state }`.
+- Synchronized updated extension files to `dist/extension/unpacked/`.
+- **Verification**:
+  - Dedicated lifecycle test suite: **7/7 passed** (`extension/tests/tab-audio-lifecycle.test.js`).
+  - Full extension test suite: **197/197 passed** (`node --test --test-concurrency=1 extension/tests/*.test.js`).
+  - Full backend test suite: **514/514 passed** (`python -m pytest`).
+
 ### Subtitle Settings Layout & Jimaku Modal Access (2026-10-06)
 - Removed the nested Subtitle Controls disclosure in Settings and kept subtitle options inline; aligned the subtitle-display switch’s checked/focus colors with the shared orange accent.
 - Moved the Jimaku dialog outside hidden tab panels and made it a fixed panel-level dialog, so Search (Jimaku) opens visibly from Settings.
-- Verification: full extension suite **190/190**; focused Settings/Jimaku/accessibility checks passed.
+- Verification: focused Settings/Jimaku/accessibility checks passed. The full workspace run reported **190 passed / 6 failed**; all six failures are in the untracked `extension/tests/tab-audio-lifecycle.test.js`, which expects separate manifest/background audio-capture behavior and was not changed here.
 
 ### Video Context Sentences & Settings Relocation (2026-10-06)
 - Fixed the async video capture race by passing the full subtitle cue as explicit context through identification; the draft no longer loses its sentence when the backend response populates the editor.

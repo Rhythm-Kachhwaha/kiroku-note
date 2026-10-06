@@ -93,7 +93,7 @@ sequenceDiagram
 - Produces messages: `START_PERSISTENT_CAPTURE`, `STOP_PERSISTENT_CAPTURE`, `AUDIO_CAPTURE_STATE_CHANGED`.
 - Produces state API: `GET_AUDIO_CAPTURE_STATE` returning `{ ok: true, capturing: boolean, tabId: number, state: string }`.
 
-- [ ] **Step 1: Write failing tests for background user-gesture tab capture handover**
+- [x] **Step 1: Write failing tests for background user-gesture tab capture handover**
 
 Create `extension/tests/tab-audio-lifecycle.test.js`:
 ```javascript
@@ -195,12 +195,12 @@ test("Background Service Worker Tab Capture Handover Contract", async (t) => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --test extension/tests/tab-audio-lifecycle.test.js`
 Expected: FAIL (`assert.ok(manifest.permissions.includes("contextMenus"))` or `action._listener is not a function`).
 
-- [ ] **Step 3: Implement user-gesture action and shortcut handover in background**
+- [x] **Step 3: Implement user-gesture action and shortcut handover in background**
 
 Update [manifest.json](file:///D:/Python/AnkiMiner/extension/manifest.json):
 ```json
@@ -302,12 +302,12 @@ function broadcastCaptureState(state, tabId = null) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --test extension/tests/tab-audio-lifecycle.test.js`
 Expected: PASS (All test assertions pass).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add extension/manifest.json extension/background.js extension/tests/tab-audio-lifecycle.test.js
@@ -328,7 +328,7 @@ git commit -m "fix(audio): implement user-gesture tab capture handover via actio
 - Consumes: `TRIGGER_AUDIO_RECORDING` with `{ cue, options: { captureId, paddingStart, paddingEnd } }`.
 - Produces: `EXTRACT_SUBTITLE_AUDIO` with `{ startTime, endTime, timelineId, offset, paddingStart, paddingEnd, captureId, mimeType: "audio/wav" }`.
 
-- [ ] **Step 1: Write failing tests for subtitle cue metadata pass-through**
+- [x] **Step 1: Write failing tests for subtitle cue metadata pass-through**
 
 Create `extension/tests/video-mining-cue-audio.test.js`:
 ```javascript
@@ -399,12 +399,12 @@ test("Video Mining POC Cue Audio Coordination", async (t) => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --test extension/tests/video-mining-cue-audio.test.js`
 Expected: FAIL or mismatch on payload structure.
 
-- [ ] **Step 3: Update `video-mining-poc.js` to pass active cue metadata and use WAV**
+- [x] **Step 3: Update `video-mining-poc.js` to pass active cue metadata and use WAV**
 
 In [video-mining-poc.js](file:///D:/Python/AnkiMiner/extension/content/video-mining-poc.js):
 Pass `this.currentCue` with `JAPANESE_TEXT_CAPTURED`:
@@ -479,12 +479,12 @@ if (!recResult?.ok) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --test extension/tests/video-mining-cue-audio.test.js`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add extension/content/video-mining-poc.js extension/tests/video-mining-cue-audio.test.js
@@ -507,7 +507,7 @@ git commit -m "fix(audio): pass full subtitle cue metadata and timelineId with c
 - Consumes: `cue` from `JAPANESE_TEXT_CAPTURED` and sets `currentActiveCue`.
 - Produces: `TRIGGER_AUDIO_RECORDING` with exact `cue`, `timelineId`, and `mimeType: "audio/wav"`.
 
-- [ ] **Step 1: Write failing tests for Side Panel Audio Status Indicator**
+- [x] **Step 1: Write failing tests for Side Panel Audio Status Indicator**
 
 Create `extension/tests/sidepanel-audio-status-ui.test.js`:
 ```javascript
@@ -528,12 +528,12 @@ test("Side Panel Audio Status UI & Cue Triggering Contracts", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --test extension/tests/sidepanel-audio-status-ui.test.js`
 Expected: FAIL (`assert.ok(html.includes('id="indicator-tab-audio"'))`).
 
-- [ ] **Step 3: Implement indicator DOM, CSS, and message listener in Side Panel**
+- [x] **Step 3: Implement indicator DOM, CSS, and message listener in Side Panel**
 
 In [sidepanel.html](file:///D:/Python/AnkiMiner/extension/sidepanel/sidepanel.html):
 Add `#indicator-tab-audio` inside the service indicators group (`#service-indicators`):
@@ -617,12 +617,12 @@ function retakeAudio(captureId = null) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --test extension/tests/sidepanel-audio-status-ui.test.js`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add extension/sidepanel/sidepanel.html extension/sidepanel/sidepanel.css extension/sidepanel/sidepanel.js extension/tests/sidepanel-audio-status-ui.test.js
@@ -642,7 +642,7 @@ git commit -m "feat(audio): add tab audio connection indicator and cue-linked au
 - Ensures: `audioSource.connect(audioContext.destination)` preserves 100% volume speaker playback without distortion.
 - Ensures: AudioContext resumes automatically if suspended by browser power-saving.
 
-- [ ] **Step 1: Write failing tests for offscreen AudioContext lifecycle and worklet loading**
+- [x] **Step 1: Write failing tests for offscreen AudioContext lifecycle and worklet loading**
 
 Create `extension/tests/offscreen-capture-hardening.test.js`:
 ```javascript
@@ -723,12 +723,12 @@ test("Offscreen Capture Engine Hardening", async (t) => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --test extension/tests/offscreen-capture-hardening.test.js`
 Expected: Passes or highlights missing mock bindings.
 
-- [ ] **Step 3: Harden worklet URL resolution and state change listener in `offscreen.js`**
+- [x] **Step 3: Harden worklet URL resolution and state change listener in `offscreen.js`**
 
 In [offscreen.js](file:///D:/Python/AnkiMiner/extension/offscreen/offscreen.js):
 Ensure dynamic resume on user audio request:
@@ -738,12 +738,12 @@ if (this.audioContext && this.audioContext.state === "suspended") {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --test extension/tests/offscreen-capture-hardening.test.js`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add extension/offscreen/offscreen.js extension/tests/offscreen-capture-hardening.test.js
@@ -762,7 +762,7 @@ git commit -m "fix(audio): harden offscreen AudioContext auto-resume and worklet
 **Interfaces:**
 - Validates: End-to-end payload flow from extracted WAV Data URL -> `POST /api/cards/save` -> SQLite disk persistence -> `POST /api/cards/{id}/sync` -> Anki note `[sound:kiroku_audio_xxx.wav]`.
 
-- [ ] **Step 1: Write end-to-end integration test for audio saving and Anki syncing**
+- [x] **Step 1: Write end-to-end integration test for audio saving and Anki syncing**
 
 Create `backend/tests/test_audio_end_to_end_sync.py`:
 ```python
@@ -810,12 +810,12 @@ def test_save_card_with_wav_audio_and_sync(tmp_path, monkeypatch):
     assert detail_res.json()["audio"] == card["audio"]
 ```
 
-- [ ] **Step 2: Run test to verify it passes**
+- [x] **Step 2: Run test to verify it passes**
 
 Run: `pytest backend/tests/test_audio_end_to_end_sync.py -v`
 Expected: PASS (All assertions pass).
 
-- [ ] **Step 3: Run full backend and extension regression suites**
+- [x] **Step 3: Run full backend and extension regression suites**
 
 Run:
 1. `python -m pytest backend/tests`
@@ -823,7 +823,7 @@ Run:
 
 Expected: 100% PASS across all tests.
 
-- [ ] **Step 4: Update `PROGRESS.md` with verification results**
+- [x] **Step 4: Update `PROGRESS.md` with verification results**
 
 Update [PROGRESS.md](file:///D:/Python/AnkiMiner/PROGRESS.md) documenting:
 - Audio capture activation via user gesture (`action.onClicked`, `Alt+Shift+K`, `Alt+Shift+A`, context menu).
@@ -831,7 +831,7 @@ Update [PROGRESS.md](file:///D:/Python/AnkiMiner/PROGRESS.md) documenting:
 - Side Panel live connection badge (`#indicator-tab-audio`).
 - Test suite outcomes.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/tests/test_audio_end_to_end_sync.py PROGRESS.md

@@ -453,6 +453,9 @@
       this.activeHighlightTerm = "";
       this.currentCue = null;
       this.pendingCue = undefined;
+      this.poc = null;
+      this._syncEngine = null;
+      this._timelineId = null;
       this.position = { relX: 0.5, relY: 0.78 };
       this.isDragging = false;
       this._dragStartX = 0;
@@ -485,7 +488,10 @@
         }
         if (this._hoverWordTimer) clearTimeout(this._hoverWordTimer);
         this._hoverWordTimer = setTimeout(() => {
-          const word = extractJapaneseWordAtPosition(this.subtitleEl, e.clientX, e.clientY);
+          const extractWordFn = (typeof window !== "undefined" && typeof window.extractJapaneseWordAtPosition === "function")
+            ? window.extractJapaneseWordAtPosition
+            : (typeof extractJapaneseWordAtPosition === "function" ? extractJapaneseWordAtPosition : null);
+          const word = extractWordFn ? extractWordFn(this.subtitleEl, e.clientX, e.clientY) : null;
           if (word && word !== this._lastHoverWord) {
             this._lastHoverWord = word;
             this.activeHighlightTerm = word;
@@ -497,7 +503,10 @@
                 chrome.runtime.sendMessage({
                   type: "JAPANESE_TEXT_CAPTURED",
                   text: word,
-                  source: "subtitle_hover"
+                  source: "subtitle_hover",
+                  cue: this.currentCue ? { ...this.currentCue } : null,
+                  timelineId: this.timelineId,
+                  offset: this.syncEngine?.offset || 0.0
                 }).catch(() => {});
                 chrome.runtime.sendMessage({
                   type: "HIGHLIGHT_SUBTITLE_WORD",
@@ -661,6 +670,22 @@
           this.onFileDropped(file);
         }
       };
+    }
+
+    get timelineId() {
+      if (this._timelineId !== undefined && this._timelineId !== null) return this._timelineId;
+      return this.poc?.timelineId ?? null;
+    }
+    set timelineId(val) {
+      this._timelineId = val;
+    }
+
+    get syncEngine() {
+      if (this._syncEngine) return this._syncEngine;
+      return this.poc?.syncEngine ?? null;
+    }
+    set syncEngine(val) {
+      this._syncEngine = val;
     }
 
     setPosition(pos) {
@@ -1780,10 +1805,13 @@
   class VideoMiningPOC {
     constructor() {
       this.renderer = new SubtitleOverlayRenderer();
+      this.renderer.poc = this;
       this.syncEngine = new SubtitleSynchronizer([], (cue) => {
         this.renderer.renderCue(cue);
         this.broadcastActiveCue(cue);
       });
+      this.renderer.syncEngine = this.syncEngine;
+      this.renderer.timelineId = this.timelineId;
       this.detector = new VideoDetector((video) => {
         this.onVideoDetected(video);
       });
@@ -1989,6 +2017,9 @@
 
     onTimelineDiscontinuity(reason = "unknown") {
       this.timelineId++;
+      if (this.renderer) {
+        this.renderer.timelineId = this.timelineId;
+      }
       this.sendSyncHeartbeat();
     }
 
@@ -2309,7 +2340,8 @@
         paddingStart,
         paddingEnd,
         cue: targetCue,
-        captureId: options.captureId || null
+        captureId: options.captureId || null,
+        preferredMimeType: "audio/wav"
       };
 
       let recResult;
@@ -2359,38 +2391,20 @@
         return recResult;
       }
 
-      // Fallback: If offscreen sync is not active (legacy/offline mode) and fallback is allowed
-      if (!recResult?.ok && options.allowFallbackRecording && !options._skipCaptureStreamFallback) {
-        const fallbackResult = await this._captureStreamFallback(3000, options);
-        if (fallbackResult?.ok) {
-          recResult = fallbackResult;
-          try {
-            if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-              chrome.runtime.sendMessage({
-                type: "AUDIO_CAPTURED",
-                dataUrl: recResult.dataUrl,
-                mimeType: recResult.mimeType || "audio/webm",
-                cue: targetCue,
-                captureId: options.captureId || null
-              }).catch(() => {});
-            }
-          } catch (_) {}
-          return recResult;
-        }
+      if (!recResult?.ok) {
+        try {
+          if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+            chrome.runtime.sendMessage({
+              type: "AUDIO_CAPTURE_STATUS",
+              ok: false,
+              error: recResult?.error || "AUDIO_NOT_CONNECTED",
+              message: recResult?.message || "Tab audio capture is not active. Click Kiroku icon or press Alt+Shift+K to connect.",
+              captureId: options.captureId || null
+            }).catch(() => {});
+          }
+        } catch (_) {}
+        return recResult;
       }
-
-      // Non-blocking error broadcast
-      try {
-        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-          chrome.runtime.sendMessage({
-            type: "AUDIO_CAPTURE_STATUS",
-            ok: false,
-            error: recResult?.error || "AUDIO_UNAVAILABLE",
-            message: recResult?.message || "Audio unavailable for this source",
-            captureId: options.captureId || null
-          }).catch(() => {});
-        }
-      } catch (_) {}
 
       return recResult;
     }
@@ -2949,6 +2963,7 @@
 
   const pocExport = {
     instance: pocInstance,
+    VideoMiningPOC,
     VideoDetector,
     SubtitleSynchronizer,
     SubtitleOverlayRenderer,
@@ -2959,6 +2974,10 @@
     isNetflixPlatform,
     inspectNativeTextTracks
   };
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = pocExport;
+  }
 
   window.__KIROKU_VIDEO_POC__ = pocExport;
   window.__ANKIMINER_VIDEO_POC__ = pocExport;

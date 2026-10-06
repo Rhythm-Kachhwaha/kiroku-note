@@ -298,4 +298,75 @@ test("Background Service Worker Tab Capture Handover Contract", async (t) => {
     await mockChrome.action._listener({ id: 104, windowId: 1, url: "chrome://settings" });
     assert.equal(capturedStreamId, null, "Must not capture stream for chrome:// internal pages");
   });
+
+  await t.test("GET_AUDIO_CAPTURE_STATE returns ok, capturing, tabId, and state", async () => {
+    let onMessageListener = null;
+    let offscreenCapturing = false;
+
+    const mockChrome = {
+      runtime: {
+        onInstalled: { addListener: () => {} },
+        onMessage: { addListener: (fn) => { onMessageListener = fn; } },
+        sendMessage: async (msg) => {
+          if (msg.type === "START_PERSISTENT_CAPTURE") {
+            offscreenCapturing = true;
+            return { ok: true, state: "capturing" };
+          }
+          if (msg.type === "GET_CAPTURE_STATE") {
+            return { ok: true, state: offscreenCapturing ? "capturing" : "idle", capturing: offscreenCapturing };
+          }
+          return { ok: true };
+        },
+        getURL: (p) => `chrome-extension://test/${p}`
+      },
+      sidePanel: { open: async () => true, setPanelBehavior: async () => {} },
+      action: { onClicked: { addListener: (fn) => { mockChrome.action._listener = fn; } } },
+      commands: { onCommand: { addListener: () => {} } },
+      contextMenus: { create: () => {}, onClicked: { addListener: () => {} } },
+      tabCapture: {
+        getMediaStreamId: async () => "stream_205"
+      },
+      tabs: {
+        query: async () => [{ id: 205, windowId: 1, url: "https://www.youtube.com/watch?v=xyz" }],
+        sendMessage: async () => ({ ok: true }),
+        onUpdated: { addListener: () => {} },
+        onRemoved: { addListener: () => {} }
+      },
+      offscreen: {
+        hasDocument: async () => true,
+        createDocument: async () => {}
+      },
+      scripting: { executeScript: async () => {} }
+    };
+
+    const sandbox = {
+      chrome: mockChrome,
+      console,
+      setTimeout,
+      clearTimeout,
+      module: { exports: {} }
+    };
+
+    vm.runInNewContext(bgCode, sandbox);
+
+    // Initial state before capture
+    let stateBefore;
+    onMessageListener({ type: "GET_AUDIO_CAPTURE_STATE" }, {}, (res) => { stateBefore = res; });
+    await new Promise(r => setTimeout(r, 10));
+    assert.equal(stateBefore.ok, true);
+    assert.equal(stateBefore.capturing, false);
+    assert.equal(stateBefore.state, "idle");
+
+    // Initiate capture
+    await mockChrome.action._listener({ id: 205, windowId: 1, url: "https://www.youtube.com/watch?v=xyz" });
+
+    // State after capture
+    let stateAfter;
+    onMessageListener({ type: "GET_AUDIO_CAPTURE_STATE" }, {}, (res) => { stateAfter = res; });
+    await new Promise(r => setTimeout(r, 10));
+    assert.equal(stateAfter.ok, true);
+    assert.equal(stateAfter.capturing, true);
+    assert.equal(stateAfter.tabId, 205);
+    assert.equal(stateAfter.state, "capturing");
+  });
 });

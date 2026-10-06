@@ -254,6 +254,22 @@ body {
   background: var(--accent-error);
 }
 
+.indicator-tab-audio .indicator-dot {
+  background-color: var(--text-muted);
+}
+
+.indicator-tab-audio.tab-audio-connected .indicator-dot,
+.indicator-tab-audio.connected .indicator-dot {
+  background-color: var(--color-success, #4ade80);
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.4);
+}
+
+.indicator-tab-audio.tab-audio-connected,
+.indicator-tab-audio.connected {
+  border-color: rgba(74, 222, 128, 0.3);
+  color: var(--text-secondary);
+}
+
 .btn-layout-settings {
   background: transparent;
   border: 1px solid var(--border-subtle);
