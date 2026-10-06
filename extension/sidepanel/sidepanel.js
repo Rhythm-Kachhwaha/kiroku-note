@@ -250,7 +250,7 @@ function setCardFrontPreference(preference) {
   if (typeof fieldReading !== "undefined" && fieldReading) fieldReading.value = newReading;
   if (typeof expression !== "undefined" && expression) expression.textContent = newFront || "—";
   if (typeof updateHeroReading === "function") {
-    updateHeroReading(isKana ? (currentActiveKanji || "") : (currentActiveKana || ""), newFront);
+    updateHeroReading(currentActiveKana || currentActiveKanji || "", newFront);
   }
 
   updateFrontToggleUI(currentActiveKanji, currentActiveKana, preference);
@@ -4484,11 +4484,11 @@ async function identify(text) {
 
     const isKanaFront = resolvedFrontPreference === "kana" && Boolean(kanaForm);
     const activeFront = isKanaFront ? kanaForm : (body.expression || "—");
-    const activeReading = isKanaFront ? (kanjiForm || kanaForm || body.reading || "") : (body.reading || "");
+    const activeReading = isKanaFront ? (kanaForm || body.reading || "") : (body.reading || "");
 
     // Populate prominent hero elements
     expression.textContent = activeFront;
-    updateHeroReading(isKanaFront ? (kanjiForm || "") : body.reading, activeFront);
+    updateHeroReading(activeReading, activeFront);
     if (body.jlpt_level) {
       currentJlptLevel = body.jlpt_level;
     }
@@ -6095,7 +6095,9 @@ async function loadHistory() {
 
     checkFirstRunStatus(total);
 
-    const synced = cards.filter(c => c.sync_status === "synced").length;
+    const synced = typeof data.synced_total === "number"
+      ? data.synced_total
+      : (syncStatus === "synced" ? total : (syncStatus !== "all" && syncStatus ? 0 : cards.filter(c => c.sync_status === "synced").length));
 
     if (historyCount) {
       historyCount.textContent = `${total} card${total === 1 ? "" : "s"}`;
@@ -6499,7 +6501,10 @@ async function openSavedCard(cardId) {
       updateHeroBadges(body);
 
       const savedIsKana = isKanaOnly(body.expression);
-      const savedKanji = !savedIsKana ? body.expression : (hasKanji(body.reading) ? body.reading : "");
+      const entryKanji = (Array.isArray(body.entries) && body.entries[0] && hasKanji(body.entries[0].expression || body.entries[0].headword))
+        ? (body.entries[0].expression || body.entries[0].headword)
+        : "";
+      const savedKanji = !savedIsKana ? body.expression : (hasKanji(body.reading) ? body.reading : entryKanji);
       const savedKana = savedIsKana ? body.expression : body.reading;
       updateFrontToggleUI(savedKanji, savedKana, savedIsKana ? "kana" : "kanji");
 
@@ -8332,15 +8337,10 @@ function renderRecentCuesList() {
     return;
   }
 
-  if (!Array.isArray(recentSubtitleCues) || recentSubtitleCues.length === 0) {
-    if (recentCuesSection) recentCuesSection.hidden = true;
-    recentCuesList.replaceChildren();
-    return;
-  }
   if (recentCuesSection) recentCuesSection.hidden = false;
   recentCuesList.replaceChildren();
 
-  const cuesToRender = recentSubtitleCues.slice(0, 5);
+  const cuesToRender = Array.isArray(recentSubtitleCues) ? recentSubtitleCues.slice(0, 5) : [];
   cuesToRender.forEach(cue => {
     if (!cue || !cue.text) return;
     const li = document.createElement("li");

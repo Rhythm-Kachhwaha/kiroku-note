@@ -737,6 +737,16 @@ class CardService:
             deck_name=deck_name,
             sync_status=sync_status,
         )
+        if sync_status and sync_status.strip().lower() == "synced":
+            synced_total = total
+        elif sync_status and sync_status.strip().lower() in ("pending", "failed"):
+            synced_total = 0
+        else:
+            synced_total = self.repository.count_cards(
+                search=search,
+                deck_name=deck_name,
+                sync_status="synced",
+            )
         cards = [
             CardSummary(
                 id=r.id,
@@ -756,7 +766,13 @@ class CardService:
             )
             for r in records
         ]
-        return CardListResponse(cards=cards, total=total, limit=limit, offset=offset)
+        return CardListResponse(
+            cards=cards,
+            total=total,
+            limit=limit,
+            offset=offset,
+            synced_total=synced_total,
+        )
 
     def get_card(self, card_id: int) -> CardDetailResponse | None:
         """Retrieve full details of a saved card by ID."""

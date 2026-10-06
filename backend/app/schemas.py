@@ -309,6 +309,8 @@ class CardListResponse(BaseModel):
     total: int = 0
     limit: int = 50
     offset: int = 0
+    synced_total: int = 0
+
 
 
 class CardDetailResponse(BaseModel):

@@ -191,22 +191,22 @@
           </div>
         </div>
 
-        <!-- Subtitle In-Track Search / Jump (T4-B) -->
-        <div id="subtitle-search-section" class="video-search-section subtitle-search-section">
-          <div class="subtitle-search-input-wrap">
-            <svg class="search-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-              <circle cx="7" cy="7" r="5"/><path d="M11 11l4 4"/>
-            </svg>
-            <input type="text" id="subtitle-search-input" class="subtitle-search-input" placeholder="Search in subtitles… (e.g. 食べる)" autocomplete="off">
-            <button type="button" id="btn-clear-subtitle-search" class="btn-clear-search" title="Clear search" aria-label="Clear search" hidden>&times;</button>
-          </div>
-          <ul id="subtitle-search-results" class="subtitle-search-results" hidden></ul>
-        </div>
-
         <!-- UNIFIED SUBTITLE STREAM: Recent (Dimmed, Huge) + Current (Highlighted, Large) in ONE View -->
         <div id="unified-subtitles-stream" class="unified-subtitles-stream">
           <!-- Recent Subtitles list (Dimmed, Large, Collapsible) -->
           <div id="recent-cues-section" class="recent-cues-section unified-recent-cues-wrap" hidden>
+            <!-- Subtitle In-Track Search / Jump (T4-B) -->
+            <div id="subtitle-search-section" class="video-search-section subtitle-search-section">
+              <div class="subtitle-search-input-wrap">
+                <svg class="search-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                  <circle cx="7" cy="7" r="5"/><path d="M11 11l4 4"/>
+                </svg>
+                <input type="text" id="subtitle-search-input" class="subtitle-search-input" placeholder="Search in subtitles… (e.g. 食べる)" autocomplete="off">
+                <button type="button" id="btn-clear-subtitle-search" class="btn-clear-search" title="Clear search" aria-label="Clear search" hidden>&times;</button>
+              </div>
+              <ul id="subtitle-search-results" class="subtitle-search-results" hidden></ul>
+            </div>
+
             <ul id="recent-cues-list" class="recent-cues-list unified-recent-cues-list"></ul>
           </div>
 
@@ -668,8 +668,8 @@
           <button type="button" id="btn-sync-all" class="btn-sync-all btn-act-anki" title="Sync all eligible cards to Anki" aria-label="Sync all eligible cards to Anki">
             <span>Sync All</span>
           </button>
-          <button type="button" id="btn-export-cards" class="btn-export-cards btn-secondary" title="Export cards to CSV" aria-label="Export cards to CSV">
-            <span>Export CSV</span>
+          <button type="button" id="btn-export-cards" class="btn-export-cards btn-secondary" title="Export CSV" aria-label="Export CSV">
+            <span>CSV</span>
           </button>
         </div>
       </div>

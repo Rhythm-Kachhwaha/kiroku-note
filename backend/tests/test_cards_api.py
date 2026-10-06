@@ -108,6 +108,36 @@ class CardsApiTests(unittest.TestCase):
         self.assertEqual(resp_pending.json()["total"], 1)
         self.assertEqual(resp_pending.json()["cards"][0]["expression"], "犬")
 
+    def test_list_cards_synced_total_accurate_across_pages(self):
+        # Create 10 cards, mark 8 as synced
+        card_ids = []
+        for i in range(10):
+            c, _ = self.repo.save(CardDraft(expression=f"単語{i}", reading=f"たんご{i}", meaning=f"word {i}"))
+            card_ids.append(c.id)
+        for cid in card_ids[:8]:
+            self.repo.mark_synced(cid, anki_note_id=1000 + cid)
+
+        # Fetch with limit=2 (page 1)
+        resp = self.client.get("/api/cards?limit=2&offset=0")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["total"], 10)
+        self.assertEqual(len(data["cards"]), 2)
+        # synced_total must reflect the true total synced cards (8), not just the current page count (2)
+        self.assertEqual(data["synced_total"], 8)
+
+        # Filter by synced
+        resp_synced = self.client.get("/api/cards?sync_status=synced&limit=2")
+        self.assertEqual(resp_synced.status_code, 200)
+        self.assertEqual(resp_synced.json()["synced_total"], 8)
+        self.assertEqual(resp_synced.json()["total"], 8)
+
+        # Filter by pending
+        resp_pending = self.client.get("/api/cards?sync_status=pending&limit=2")
+        self.assertEqual(resp_pending.status_code, 200)
+        self.assertEqual(resp_pending.json()["synced_total"], 0)
+        self.assertEqual(resp_pending.json()["total"], 2)
+
     def test_get_card_by_id_success_and_not_found(self):
         c, _ = self.repo.save(CardDraft(
             expression="林檎",

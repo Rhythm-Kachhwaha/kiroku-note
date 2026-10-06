@@ -764,9 +764,9 @@ body {
 }
 
 .video-subtitle-settings-wrap {
-  position: absolute;
-  top: 14px;
-  left: 14px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   z-index: 40;
 }
 
@@ -3471,8 +3471,7 @@ rt {
   font-weight: 500;
 }
 
-.btn-sync-all,
-.btn-export-cards {
+.btn-sync-all {
   background: var(--bg-surface-2);
   border: 1px solid var(--border-default);
   color: var(--text-secondary);
@@ -3480,7 +3479,7 @@ rt {
   font-weight: 500;
   padding: 3px 10px;
   height: 26px;
-  min-width: 80px;
+  min-width: 72px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   line-height: 1;
@@ -3489,6 +3488,26 @@ rt {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.btn-export-cards {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 7px;
+  height: 22px;
+  min-width: auto;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 1;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
 }
 
 .btn-sync-all:hover:not(:disabled),

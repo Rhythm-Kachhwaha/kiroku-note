@@ -1,5 +1,23 @@
 # Kiroku Note — Progress
 
+### History Sync Count, Subtitle UI & Kana Mode Hero Fixes (2026-10-06)
+- **Accurate History Sync Count Across Pagination:**
+  - Fixed issue where the history header always displayed `50 / <total> synced` when more than 50 cards existed due to counting synced status solely from the first loaded 50-card page.
+  - Added `synced_total: int = 0` to [backend/app/schemas.py](file:///d:/Python/AnkiMiner/backend/app/schemas.py) `CardListResponse` and populated it in [backend/app/services/card_service.py](file:///d:/Python/AnkiMiner/backend/app/services/card_service.py) via repository `count_cards(sync_status="synced")`.
+  - Updated [extension/sidepanel/sidepanel.js](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.js) `loadHistoryCards()` to use `data.synced_total` with filter-aware fallbacks, displaying accurate counts (e.g., `120 / 120 synced`) and 100% progress bars.
+- **Compact Export CSV Button:**
+  - Styled `#btn-export-cards` as a clean, compact 22px badge button labeled `CSV` with `title="Export CSV"` in [extension/sidepanel/sidepanel.html](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.html) and [extension/sidepanel/sidepanel.css](file:///d:/Python/AnkiMiner/extension/sidepanel/sidepanel.css), preventing header crowding alongside `Sync All`.
+- **Subtitle Settings Position & Search In-History:**
+  - Resolved irregular floating position of `.video-subtitle-settings-wrap` by switching from `position: absolute; top: 14px; left: 14px;` to `position: relative; display: inline-flex;` inside the top-left toolbar `.video-toolbar-left`.
+  - Relocated `#subtitle-search-section` from in front of the active stream into `#recent-cues-section` (the Subtitle History dropdown), keeping the active video playback view clean and unobstructed while preserving full search-in-track capability when history is opened.
+- **Kana Mode Romaji Preservation in Hero View:**
+  - Fixed logic in `setCardFrontPreference("kana")` and `identify()` that passed the Kanji headword (`kanjiForm` / `currentActiveKanji`) to `updateHeroReading`, which previously wiped out the romaji display and replaced it with kanji.
+  - `updateHeroReading` now receives the kana reading consistently across both Kanji and Kana modes, correctly displaying `${text} · ${romaji}` (e.g. `たべる · taberu`).
+- **Verification:**
+  - Backend tests: **513/513 passed** (`python -m pytest`), including new pagination synced count test in `test_cards_api.py`.
+  - Extension tests: **189/189 passed** (`node --test extension/tests/*.test.js`), including new dedicated test suite [extension/tests/sync-count-and-kana-fixes.test.js](file:///d:/Python/AnkiMiner/extension/tests/sync-count-and-kana-fixes.test.js) (4/4 passed).
+  - Synchronized updated sidepanel files to `dist/extension/unpacked/sidepanel/`.
+
 ### Compact Kanji/Kana Front Toggle (2026-10-06)
 - Replaced the long front-toggle button labels with compact `漢` and `あ` symbols while preserving accessible labels and the existing styling.
 - Reduced only the front-toggle padding; focused verification: `node --test extension/tests/front-toggle-and-edit.test.js`.
