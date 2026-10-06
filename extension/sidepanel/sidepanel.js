@@ -973,6 +973,7 @@ const contextTypeBadge = document.querySelector("#context-type-badge");
 const contextSourceBadge = document.querySelector("#context-source-badge");
 const btnDismissContext = document.querySelector("#btn-dismiss-context");
 const askContextText = document.querySelector("#ask-context-text");
+const btnCtxInsert = document.querySelector("#btn-ctx-insert");
 const btnCtxSolve = document.querySelector("#btn-ctx-solve");
 const btnCtxGrammar = document.querySelector("#btn-ctx-grammar");
 const btnCtxTranslate = document.querySelector("#btn-ctx-translate");
@@ -8281,6 +8282,8 @@ function getSubtitleCueTargetTime(cue) {
 function getVideoCaptureContextOptions(message) {
   const isSubtitleCapture = currentMiningTab === "video"
     || message?.source === "subtitle_hover"
+    || message?.source === "subtitle_click"
+    || message?.source === "subtitle_selection"
     || message?.sourceType === "video";
   const cue = message?.cue || (isSubtitleCapture ? currentActiveCue : null);
   const contextSentence = typeof message?.contextSentence === "string" && message.contextSentence.trim()
@@ -8432,37 +8435,108 @@ function renderRecentCuesList() {
     const textSpan = document.createElement("span");
     textSpan.className = "recent-cue-text";
 
-    if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    function segmentSubtitleCueTokens(text) {
+      if (!text || typeof text !== "string") return [];
+      if (typeof Intl === "undefined" || typeof Intl.Segmenter !== "function") {
+        return [{ text, isWord: /[\u3040-\u30ff\u4e00-\u9faf]/.test(text) }];
+      }
+
+      const isKanji = (ch) => /[\u4e00-\u9faf]/.test(ch);
+      const isHiragana = (ch) => /[\u3040-\u309f]/.test(ch);
+      const isJapanese = (ch) => /[\u3040-\u30ff\u4e00-\u9faf]/.test(ch);
+      const loneParticles = new Set(["に", "を", "は", "で", "が", "と", "へ", "も", "よ", "ね", "か", "の", "や"]);
+      const compoundParticles = new Set(["から", "まで", "より", "について", "にとって", "として", "ばかり", "くらい", "ぐらい", "ほど", "だけ", "など"]);
+
       try {
         const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
-        const segments = Array.from(segmenter.segment(cue.text));
-        segments.forEach(seg => {
-          const w = seg.segment;
-          if (/[\u3040-\u30ff\u4e00-\u9faf]/.test(w)) {
-            const wordSpan = document.createElement("span");
-            wordSpan.className = "recent-cue-word";
-            wordSpan.textContent = w;
-            wordSpan.title = `Click to mine "${w}"`;
-            wordSpan.addEventListener("click", async (e) => {
-              e.stopPropagation();
-              await mineSubtitleCueWord(cue, w).catch(() => {});
-            });
-            textSpan.appendChild(wordSpan);
-          } else {
-            textSpan.appendChild(document.createTextNode(w));
+        const rawSegments = Array.from(segmenter.segment(text));
+        const tokens = [];
+
+        for (let i = 0; i < rawSegments.length; i++) {
+          let seg = rawSegments[i].segment;
+          const hasJp = Array.from(seg).some(isJapanese);
+
+          if (!hasJp) {
+            tokens.push({ text: seg, isWord: false });
+            continue;
           }
-        });
+
+          // 1. Contiguous Kanji expansion (e.g. 学校 + 生活 -> 学校生活, 東京 + 大学 -> 東京大学)
+          if (Array.from(seg).every(isKanji)) {
+            while (i + 1 < rawSegments.length) {
+              const nextSeg = rawSegments[i + 1].segment;
+              if (Array.from(nextSeg).every(isKanji)) {
+                seg += nextSeg;
+                i++;
+              } else {
+                break;
+              }
+            }
+          }
+
+          // 2. Verb / adjective inflection suffix attachment (e.g. 話 + しま + しょう -> 話しましょう, 食 + べた -> 食べた, 行 + った -> 行った)
+          if (Array.from(seg).some(isKanji)) {
+            while (i + 1 < rawSegments.length) {
+              const nextSeg = rawSegments[i + 1].segment;
+              if (!nextSeg || !Array.from(nextSeg).every(isHiragana)) break;
+              if (loneParticles.has(nextSeg) || compoundParticles.has(nextSeg)) {
+                if (!(/^[てでただ]$/.test(nextSeg) && /[っん]$/.test(seg))) {
+                  break;
+                }
+              }
+              seg += nextSeg;
+              i++;
+            }
+          }
+
+          // 3. Lone 1-character particle check (e.g. に, を, は, で)
+          if (seg.length === 1 && isHiragana(seg) && loneParticles.has(seg)) {
+            tokens.push({ text: seg, isWord: false });
+            continue;
+          }
+
+          tokens.push({ text: seg, isWord: true });
+        }
+
+        return tokens;
       } catch (_) {
-        textSpan.textContent = cue.text;
+        return [{ text, isWord: /[\u3040-\u30ff\u4e00-\u9faf]/.test(text) }];
       }
-    } else {
-      const wordSpan = document.createElement("span");
-      wordSpan.className = "recent-cue-word";
-      wordSpan.textContent = cue.text;
-      wordSpan.title = `Click to mine "${cue.text}"`;
-      wordSpan.addEventListener("click", () => mineSubtitleCueWord(cue, cue.text).catch(() => {}));
-      textSpan.appendChild(wordSpan);
     }
+
+    // Support drag-selection across words in recent subtitle cue history
+    textSpan.addEventListener("mouseup", (e) => {
+      if (typeof window !== "undefined" && window.getSelection) {
+        const sel = window.getSelection();
+        const selText = sel ? sel.toString().trim() : "";
+        if (selText && selText.length > 0) {
+          e.stopPropagation();
+          mineSubtitleCueWord(cue, selText).catch(() => {});
+        }
+      }
+    });
+
+    const tokens = segmentSubtitleCueTokens(cue.text);
+    tokens.forEach(tok => {
+      if (tok.isWord) {
+        const wordSpan = document.createElement("span");
+        wordSpan.className = "recent-cue-word";
+        wordSpan.textContent = tok.text;
+        wordSpan.title = `Click to mine "${tok.text}"`;
+        wordSpan.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          if (typeof window !== "undefined" && window.getSelection) {
+            const sel = window.getSelection();
+            const selText = sel ? sel.toString().trim() : "";
+            if (selText && selText.length > 0) return; // User was drag-selecting
+          }
+          await mineSubtitleCueWord(cue, tok.text).catch(() => {});
+        });
+        textSpan.appendChild(wordSpan);
+      } else {
+        textSpan.appendChild(document.createTextNode(tok.text));
+      }
+    });
 
     li.appendChild(textSpan);
     recentCuesList.appendChild(li);
@@ -10559,6 +10633,25 @@ if (askPromptChipsWrap) {
     askPromptChipsWrap.querySelectorAll(".prompt-chip").forEach(c => {
       c.classList.toggle("active", c === chip);
     });
+  });
+}
+
+if (btnCtxInsert) {
+  btnCtxInsert.addEventListener("click", () => {
+    const textToInsert = (activeAskContext?.text || (askContextText ? askContextText.textContent : "") || "").trim();
+    if (!textToInsert || !askInputBox) return;
+    if (askInputBox.value.trim().length > 0) {
+      askInputBox.value = `${askInputBox.value}\n${textToInsert}`;
+    } else {
+      askInputBox.value = textToInsert;
+    }
+    askInputBox.dispatchEvent(new Event("input", { bubbles: true }));
+    updateAskCharCount();
+    resizeAskInputBox();
+    askInputBox.focus();
+    if (typeof askInputBox.setSelectionRange === "function") {
+      askInputBox.setSelectionRange(askInputBox.value.length, askInputBox.value.length);
+    }
   });
 }
 

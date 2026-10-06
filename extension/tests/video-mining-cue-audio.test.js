@@ -173,14 +173,13 @@ test("Video Mining POC Cue Audio Coordination", async (t) => {
     // Mock extractJapaneseWordAtPosition
     sandbox.window.extractJapaneseWordAtPosition = () => "日本語";
 
-    // Simulate mouse move over subtitle
-    renderer._boundSubtitleMouseMove({ clientX: 100, clientY: 100 });
-    await new Promise((r) => setTimeout(r, 220));
+    // Simulate click over subtitle
+    renderer._boundSubtitleClick({ clientX: 100, clientY: 100 });
 
     const capturedMsg = sentMessages.find(m => m.type === "JAPANESE_TEXT_CAPTURED");
-    assert.ok(capturedMsg, "Must send JAPANESE_TEXT_CAPTURED on subtitle hover");
+    assert.ok(capturedMsg, "Must send JAPANESE_TEXT_CAPTURED on subtitle click");
     assert.equal(capturedMsg.text, "日本語");
-    assert.equal(capturedMsg.source, "subtitle_hover");
+    assert.equal(capturedMsg.source, "subtitle_click");
     assert.ok(capturedMsg.cue, "Must include cue object");
     assert.equal(capturedMsg.cue.text, "日本語の勉強");
     assert.equal(capturedMsg.timelineId, "tl_hover_42", "Must forward timelineId");

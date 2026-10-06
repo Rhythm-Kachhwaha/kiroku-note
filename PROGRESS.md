@@ -1,5 +1,51 @@
 # Kiroku Note — Progress
 
+### Fullscreen Subtitle Drag Capture (2026-10-06)
+- The subtitle drag handle now captures the active pointer on pointerdown, keeping drag movement attached to the handle while repositioning in fullscreen.
+- Updated the movable-overlay regression test to simulate an actual fullscreen pointer drag and verify its position persists after exiting fullscreen.
+- Verification: `node --test extension/tests/movable-subtitle-overlay.test.js` passed. No Side Panel UI changes.
+
+### Anki Back Layout Polish (2026-10-06)
+- Moved images to the beginning of generated Basic backs and reduced their maximum size to 85% width / 180px height.
+- Video-origin cards now include `source_text` in a labeled, bordered context panel with clear spacing before the labeled `Example:` section; example translations remain inside the Example block. Other capture sources do not expose source text there.
+- Kanji breakdowns now render last, regardless of saved section ordering.
+- The generated Back field does not append the vocabulary expression. If a duplicate word still appears after the back content in Anki, it is produced by that note type's card template, not by Kiroku's Back HTML.
+- Verification: Anki formatter tests **28/28** and AnkiConnect mapping tests **63/63** passed. No frontend files changed.
+
+### Subtitle Selection, Compound Extraction, History Highlighting & Ask Mode Insertion (2026-10-06)
+- **Subtitle History Compound Word Highlighting & Selection**:
+  - Upgraded Subtitle History rendering (`renderRecentCuesList` in `extension/sidepanel/sidepanel.js`):
+    - Replaced raw lexical word splitting with smart compound tokenization (`segmentSubtitleCueTokens`):
+      - Contiguous Kanji segments (e.g. `学校生活`, `東京大学`, `自然科学`) are merged into unified compound word tokens.
+      - Verb and adjective okurigana/inflections (e.g. `話しましょう`, `食べた`, `行った`, `読んでください`) are unified with their stems into complete words instead of breaking into single characters.
+      - Lone 1-character particles (e.g. `に`, `を`, `は`, `で`, `が`, `と`, `へ`) are excluded from `.recent-cue-word` spans so they never turn orange on hover or get accidentally mined as isolated letters.
+    - Preserved orange hover highlighting (`.recent-cue-word:hover` with accent color and underline) exclusively for Subtitle History.
+    - Added drag-selection support (`mouseup`) in history items so users can select and mine arbitrary custom text spans directly from past cues.
+- **Live Video Subtitle Clean Text Enforcement**:
+  - Verified and locked boundary: the live video subtitle overlay on the video screen strictly renders clean, pristine text without any orange highlighting, DOM span wrappers, or hover auto-selection.
+  - Video overlay subtitle element (`#ankiminer-video-subtitle`) retains crisp white text with text shadow and standard browser text selection (`user-select: text !important`), free from intrusive orange highlight spans.
+- **Subtitle User Selection & Click Capture**:
+  - Replaced automatic hover capture/orange DOM replacement on the video subtitle overlay with user mouse selection and single-click capture:
+    - Drag-selecting text across any compound word or phrase triggers `mouseup` capture (`source: "subtitle_selection"`).
+    - Single-clicking without drag selection triggers `click` capture (`source: "subtitle_click"`), identifying the word at the clicked position.
+    - Added `e.stopPropagation()` on `mousedown`, `mouseup`, and `click` on the subtitle box and text to prevent video players (such as in fullscreen) from toggling play/pause or stealing selection focus.
+- **Compound Word & Single-Letter Hiragana Extraction Fix**:
+  - Upgraded `extractJapaneseWordAtPosition` in `extension/content/video-mining-poc.js`:
+    - Added compound noun expansion across contiguous Kanji segments (e.g., `学校生活`, `東京大学`, `自然科学`) instead of splitting into isolated sub-words.
+    - Handled verb inflection suffixes (e.g. `行った`, `食べた`) by joining inflectional kana with the stem rather than isolating 1-letter characters like `た` or `る`.
+    - Avoided extracting isolated 1-character hiragana particles (e.g. `に`, `を`, `は`, `で`) by preferring adjacent substantive tokens or falling back cleanly.
+- **Fullscreen Support Across Iframe Video Players**:
+  - Added `"all_frames": true` and `"match_about_blank": true` to `content/fullscreen-hook.js` in `extension/manifest.json`, ensuring iframe-based video players (common on anime and embed streaming sites) intercept fullscreen requests.
+  - Extended `fullscreen-hook.js` to intercept `Element.prototype.requestFullscreen` and `webkitRequestFullscreen` for `<video>` elements, redirecting fullscreen to the player container.
+- **Ask Mode "Add to Input" Button**:
+  - Added `<button id="btn-ctx-insert">Add to Input</button>` to `.ask-context-actions` in `extension/sidepanel/sidepanel.html`.
+  - Implemented click handler in `extension/sidepanel/sidepanel.js` populating `#ask-input-box` with detected context text, auto-resizing the textarea, updating character count, and focusing without sending.
+- **Verification**:
+  - Dedicated new test suite: **12/12 passed** (`node --test extension/tests/subtitle-selection-and-ask-mode.test.js`).
+  - Full extension test suite: **219/219 passed** (`node --test --test-concurrency=1 extension/tests/*.test.js`).
+  - Full backend test suite: **518/518 passed** (`python -m pytest` in `backend`).
+  - Build synchronization: updated files mirrored to `dist/extension/unpacked/`.
+
 ### End-to-End WAV Audio Persistence & AnkiConnect Verification (2026-10-06)
 - **End-to-End WAV Audio Integration Suite (Task 5)**:
   - Created `backend/tests/test_audio_end_to_end_sync.py` verifying full end-to-end integration:

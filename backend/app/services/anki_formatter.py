@@ -303,7 +303,7 @@ def format_example_html(
     if not ja_html and not trans_html:
         return ""
 
-    parts = ['<div class="kn-example-block">']
+    parts = ['<div class="kn-example-block">', '  <p class="kn-example-label">Example:</p>']
     if ja_html:
         parts.append(f'  <p class="kn-example-ja">{ja_html}</p>')
     if trans_html:
@@ -861,6 +861,30 @@ body.night_mode .kn-card .kn-kunyomi {
   font-weight: 500;
   color: var(--kn-text, #1f2937);
 }
+.kn-card .kn-example-label,
+.kn-example-label {
+    margin: 0 0 4px 0;
+    font-size: 0.78em;
+    font-weight: 600;
+    color: var(--kn-muted, #6b7280);
+}
+.kn-card .kn-video-context,
+.kn-video-context {
+    margin: 10px 0 24px 0;
+    padding: 10px 12px;
+    background: var(--kn-surface, #f9fafb);
+    border: 1px solid var(--kn-surface-border, #e5e7eb);
+    border-left: 3px solid var(--kn-pitch-border, #bfdbfe);
+    border-radius: 6px;
+    color: var(--kn-text, #1f2937);
+}
+.kn-card .kn-video-context-label,
+.kn-video-context-label {
+    margin-bottom: 4px;
+    font-size: 0.75em;
+    font-weight: 600;
+    color: var(--kn-muted, #6b7280);
+}
 .kn-card .kn-example-ja ruby rt,
 .kn-example-ja ruby rt {
   font-size: 0.58em;
@@ -886,8 +910,8 @@ body.night_mode .kn-card .kn-kunyomi {
 }
 .kn-card .kn-image,
 .kn-image {
-  max-width: 100%;
-  max-height: 240px;
+    max-width: 85%;
+    max-height: 180px;
   height: auto;
   object-fit: contain;
   border-radius: 6px;
@@ -1029,6 +1053,13 @@ def format_basic_back(
             section_keys.append(key)
             sections.append(content)
 
+    img_tag, aud_tag = sanitize_media_tags(image=c_image, audio=c_audio)
+    if img_tag:
+        append_section("image", f'<div class="kn-media">\n  {img_tag}\n</div>')
+
+    source_type = str(_get_field(card, "source_type") or "").strip().lower()
+    video_context = str(_get_field(card, "source_text") or "").strip() if source_type == "video" else ""
+
     # Header: Reading, JLPT, Verb Type & Pitch (respected via show_reading, show_jlpt, show_verb_type)
     if (show_reading and c_reading) or pitch_badge or (show_jlpt and c_jlpt) or verb_parts:
         reading_parts = ['<div class="kn-reading">']
@@ -1049,11 +1080,12 @@ def format_basic_back(
     source_expression = str(_get_field(card, "expression") or c_expr).strip()
     is_isolated_kanji = bool(c_kanji_entries and len(source_expression) == 1)
 
+    kanji_section = ""
     if is_isolated_kanji:
-        # Isolated kanji: render kanji card prominently at the top
+        # Keep isolated kanji details in the final section as well.
         kanji_html = format_kanji_html(c_kanji_entries, is_isolated=True, show_jlpt=show_jlpt, show_strokes=c_show_strokes, furigana_mode=c_furigana_mode)
         if kanji_html:
-            append_section("kanji", kanji_html)
+            kanji_section = kanji_html
 
         # If secondary vocabulary senses exist, render them below if show_meaning
         if show_meaning:
@@ -1076,7 +1108,13 @@ def format_basic_back(
         if c_kanji_entries and isinstance(c_kanji_entries, list):
             kanji_html = format_kanji_html(c_kanji_entries, is_isolated=False, show_jlpt=show_jlpt, show_strokes=c_show_strokes, furigana_mode=c_furigana_mode)
             if kanji_html:
-                append_section("kanji", kanji_html)
+                kanji_section = kanji_html
+
+    if video_context:
+        append_section(
+            "context",
+            f'<div class="kn-video-context"><div class="kn-video-context-label">Video context</div>{escape_html(video_context)}</div>',
+        )
 
     # Example block
     example_html = format_example_html(
@@ -1095,28 +1133,43 @@ def format_basic_back(
         append_section("notes", f'<div class="kn-notes">Notes: {escape_html(c_notes)}</div>')
 
     # Media
-    img_tag, aud_tag = sanitize_media_tags(image=c_image, audio=c_audio)
-    if img_tag or aud_tag:
+    if aud_tag:
         media_parts = ['<div class="kn-media">']
-        if img_tag:
-            media_parts.append(f'  {img_tag}')
-        if aud_tag:
-            media_parts.append(f'  {aud_tag}')
+        media_parts.append(f'  {aud_tag}')
         media_parts.append('</div>')
         append_section("media", "\n".join(media_parts))
 
+    image_sections = [section for key, section in zip(section_keys, sections) if key == "image"]
+    context_sections = [section for key, section in zip(section_keys, sections) if key == "context"]
+    ordered_keys = [key for key in section_keys if key not in ("image", "context", "kanji")]
+    ordered_sections = [section for key, section in zip(section_keys, sections) if key not in ("image", "context", "kanji")]
     if isinstance(section_order, list):
         sections_by_key: dict[str, list[str]] = {}
-        for key, section in zip(section_keys, sections):
+        for key, section in zip(ordered_keys, ordered_sections):
             sections_by_key.setdefault(key, []).append(section)
-        ordered_sections: list[str] = []
+        custom_ordered_sections: list[str] = []
+        custom_ordered_keys: list[str] = []
         for key in section_order:
             if isinstance(key, str) and key in sections_by_key:
-                ordered_sections.extend(sections_by_key.pop(key))
-        for key in section_keys:
+                matching_sections = sections_by_key.pop(key)
+                custom_ordered_sections.extend(matching_sections)
+                custom_ordered_keys.extend([key] * len(matching_sections))
+        for key in ordered_keys:
             if key in sections_by_key:
-                ordered_sections.extend(sections_by_key.pop(key))
-        sections = ordered_sections
+                matching_sections = sections_by_key.pop(key)
+                custom_ordered_sections.extend(matching_sections)
+                custom_ordered_keys.extend([key] * len(matching_sections))
+        ordered_sections = custom_ordered_sections
+        ordered_keys = custom_ordered_keys
+
+    example_index = next(
+        (index for index, key in enumerate(ordered_keys) if key == "example"),
+        len(ordered_sections),
+    )
+    sections = image_sections + ordered_sections[:example_index] + context_sections + ordered_sections[example_index:]
+
+    if kanji_section:
+        sections.append(kanji_section)
 
     if not sections:
         return ""

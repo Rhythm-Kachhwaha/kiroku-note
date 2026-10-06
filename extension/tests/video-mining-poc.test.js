@@ -747,21 +747,18 @@ async function testSubtitleHoverMining() {
     env.mockDocument.caretRangeFromPoint = origCaret;
   }
 
-  // Trigger subtitle mousemove
+  // Trigger subtitle click
   subtitle.dispatchEvent({
-    type: "mousemove",
+    type: "click",
     clientX: 100,
     clientY: 100
   });
 
-  // Advance timer beyond 180ms debounce
-  await new Promise((r) => setTimeout(r, 260));
-
-  const captureMsg = env.sentMessages.find((m) => m.type === "JAPANESE_TEXT_CAPTURED" && m.source === "subtitle_hover");
-  assert.ok(captureMsg, "Hovering subtitle must trigger JAPANESE_TEXT_CAPTURED with source: subtitle_hover");
+  const captureMsg = env.sentMessages.find((m) => m.type === "JAPANESE_TEXT_CAPTURED" && m.source === "subtitle_click");
+  assert.ok(captureMsg, "Clicking subtitle must trigger JAPANESE_TEXT_CAPTURED with source: subtitle_click");
   assert.equal(captureMsg.text, "日本語");
 
-  console.log("PASS: Subtitle hover word extraction and auto-lookup dispatch verified.");
+  console.log("PASS: Subtitle click word extraction and lookup dispatch verified.");
 }
 
 // -------------------------------------------------------------

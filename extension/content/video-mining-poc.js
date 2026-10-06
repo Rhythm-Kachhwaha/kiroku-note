@@ -384,14 +384,70 @@
       try {
         const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
         const segments = Array.from(segmenter.segment(text));
-        const matched = segments.find((s) => s.index <= charIdx && charIdx < s.index + s.segment.length);
-        if (matched) {
-          if (matched.isWordLike && Array.from(matched.segment).some(isJapaneseChar)) {
-            return matched.segment.trim();
+        let matchIdx = segments.findIndex((s) => s.index <= charIdx && charIdx < s.index + s.segment.length);
+        if (matchIdx !== -1) {
+          let matched = segments[matchIdx];
+
+          // Handle single-letter hiragana particles or inflections (e.g. に, を, は, た, る)
+          const isSingleHiragana = matched.segment.length === 1 && isHiragana(matched.segment);
+          if (isSingleHiragana) {
+            const prev = matchIdx > 0 ? segments[matchIdx - 1] : null;
+            if (prev && prev.isWordLike && Array.from(prev.segment).some(isJapaneseChar)) {
+              if (/^[ただてる]$/.test(matched.segment)) {
+                matched = {
+                  ...matched,
+                  segment: prev.segment + matched.segment,
+                  index: prev.index,
+                  isWordLike: true
+                };
+                matchIdx = matchIdx - 1;
+              } else {
+                matched = prev;
+                matchIdx = matchIdx - 1;
+              }
+            } else {
+              const next = matchIdx < segments.length - 1 ? segments[matchIdx + 1] : null;
+              if (next && next.isWordLike && Array.from(next.segment).some(isJapaneseChar)) {
+                matched = next;
+                matchIdx = matchIdx + 1;
+              }
+            }
           }
-          const prev = segments.find((s) => s.index + s.segment.length === charIdx);
-          if (prev && prev.isWordLike && Array.from(prev.segment).some(isJapaneseChar)) {
-            return prev.segment.trim();
+
+          // Compound noun expansion across contiguous Kanji segments
+          // (e.g. 学校 + 生活 = 学校生活, 東京 + 大学 = 東京大学, 自然 + 科学 = 自然科学)
+          if (Array.from(matched.segment).some(isKanji)) {
+            let startIdx = matchIdx;
+            let endIdx = matchIdx;
+
+            while (startIdx > 0) {
+              const p = segments[startIdx - 1];
+              if (p && p.isWordLike && Array.from(p.segment).every(isKanji)) {
+                startIdx--;
+              } else {
+                break;
+              }
+            }
+
+            while (endIdx < segments.length - 1) {
+              const n = segments[endIdx + 1];
+              if (n && n.isWordLike && Array.from(n.segment).every(isKanji)) {
+                endIdx++;
+              } else {
+                break;
+              }
+            }
+
+            if (startIdx !== endIdx) {
+              const compound = segments.slice(startIdx, endIdx + 1).map((s) => s.segment).join("").trim();
+              if (compound.length > 0) return compound;
+            }
+          }
+
+          if (matched.isWordLike && Array.from(matched.segment).some(isJapaneseChar)) {
+            if (!(matched.segment.length === 1 && isHiragana(matched.segment))) {
+              return matched.segment.trim();
+            }
           }
         }
       } catch (_) {}
@@ -413,15 +469,23 @@
         end++;
       }
     } else if (initialIsHiragana) {
-      // Hiragana cluster (e.g. ちょっと, に, から) - stops at Kanji, Katakana, punctuation
+      // Hiragana cluster (e.g. ちょっと)
       while (start > 0 && isHiragana(text[start - 1]) && !isJapanesePunctuationOrSpace(text[start - 1])) {
         start--;
       }
       while (end < text.length - 1 && isHiragana(text[end + 1]) && !isJapanesePunctuationOrSpace(text[end + 1])) {
         end++;
       }
+      // If single hiragana particle, expand backward to Kanji if present (e.g. 公園に -> 公園)
+      if (start === end && start > 0 && isKanji(text[start - 1])) {
+        let kanjiStart = start - 1;
+        while (kanjiStart > 0 && isKanji(text[kanjiStart - 1]) && !isJapanesePunctuationOrSpace(text[kanjiStart - 1])) {
+          kanjiStart--;
+        }
+        return text.slice(kanjiStart, start).trim();
+      }
     } else {
-      // Kanji compound (e.g. 向こう, 温泉, 勉強する) - expands across Kanji and attached okurigana
+      // Kanji compound (e.g. 学校生活, 向こう, 温泉, 勉強する)
       while (start > 0 && isKanji(text[start - 1]) && !isJapanesePunctuationOrSpace(text[start - 1])) {
         start--;
       }
@@ -431,6 +495,9 @@
     }
 
     const word = text.slice(start, end + 1).trim();
+    if (word.length === 1 && isHiragana(word)) {
+      return null;
+    }
     return word.length > 0 ? word : null;
   }
 
@@ -474,59 +541,85 @@
         if (!this.isDragging) {
           this.setHoverLocked(false);
         }
-        if (this._hoverWordTimer) {
-          clearTimeout(this._hoverWordTimer);
-          this._hoverWordTimer = null;
-        }
-        this._lastHoverWord = "";
       };
-      this._boundSubtitleMouseMove = (e) => {
+      this._boundSubtitleMouseMove = () => {
+        if (this.isDragging) return;
+        this.setHoverLocked(true);
+      };
+
+      this._boundSubtitleMouseDown = (e) => {
+        if (typeof e?.stopPropagation === "function") {
+          e.stopPropagation();
+        }
+      };
+
+      this._boundSubtitleMouseUp = (e) => {
+        if (typeof e?.stopPropagation === "function") {
+          e.stopPropagation();
+        }
         if (this.isDragging) return;
         if (typeof window !== "undefined" && window.getSelection) {
           const sel = window.getSelection();
-          if (sel && sel.toString().trim().length > 0) return;
-        }
-        if (this._hoverWordTimer) clearTimeout(this._hoverWordTimer);
-        this._hoverWordTimer = setTimeout(() => {
-          const extractWordFn = (typeof window !== "undefined" && typeof window.extractJapaneseWordAtPosition === "function")
-            ? window.extractJapaneseWordAtPosition
-            : (typeof extractJapaneseWordAtPosition === "function" ? extractJapaneseWordAtPosition : null);
-          const word = extractWordFn ? extractWordFn(this.subtitleEl, e.clientX, e.clientY) : null;
-          if (word && word !== this._lastHoverWord) {
-            this._lastHoverWord = word;
-            this.activeHighlightTerm = word;
-            if (this.currentCue) {
-              this.renderCue(this.currentCue);
-            }
+          const selText = sel ? sel.toString().trim() : "";
+          if (selText && selText.length > 0) {
+            this.activeHighlightTerm = selText;
             try {
               if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
                 chrome.runtime.sendMessage({
                   type: "JAPANESE_TEXT_CAPTURED",
-                  text: word,
-                  source: "subtitle_hover",
+                  text: selText,
+                  source: "subtitle_selection",
+                  sourceType: "video",
                   cue: this.currentCue ? { ...this.currentCue } : null,
                   timelineId: this.timelineId,
                   offset: this.syncEngine?.offset || 0.0
                 }).catch(() => {});
                 chrome.runtime.sendMessage({
                   type: "HIGHLIGHT_SUBTITLE_WORD",
-                  text: word
+                  text: selText
                 }).catch(() => {});
               }
             } catch (_) {}
           }
-        }, 180);
+        }
       };
-      this._boundSubtitleMouseUp = () => {
+
+      this._boundSubtitleClick = (e) => {
+        if (typeof e?.stopPropagation === "function") {
+          e.stopPropagation();
+        }
+        if (this.isDragging) return;
         if (typeof window !== "undefined" && window.getSelection) {
           const sel = window.getSelection();
           const selText = sel ? sel.toString().trim() : "";
-          if (selText) {
-            this.activeHighlightTerm = selText;
-            if (this.currentCue) {
-              this.renderCue(this.currentCue);
+          if (selText && selText.length > 0) return;
+        }
+
+        const extractWordFn = (typeof window !== "undefined" && typeof window.extractJapaneseWordAtPosition === "function")
+          ? window.extractJapaneseWordAtPosition
+          : (typeof extractJapaneseWordAtPosition === "function" ? extractJapaneseWordAtPosition : null);
+        const clientX = typeof e?.clientX === "number" ? e.clientX : 0;
+        const clientY = typeof e?.clientY === "number" ? e.clientY : 0;
+        const word = extractWordFn ? extractWordFn(this.subtitleEl, clientX, clientY) : null;
+        if (word) {
+          this.activeHighlightTerm = word;
+          try {
+            if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+              chrome.runtime.sendMessage({
+                type: "JAPANESE_TEXT_CAPTURED",
+                text: word,
+                source: "subtitle_click",
+                sourceType: "video",
+                cue: this.currentCue ? { ...this.currentCue } : null,
+                timelineId: this.timelineId,
+                offset: this.syncEngine?.offset || 0.0
+              }).catch(() => {});
+              chrome.runtime.sendMessage({
+                type: "HIGHLIGHT_SUBTITLE_WORD",
+                text: word
+              }).catch(() => {});
             }
-          }
+          } catch (_) {}
         }
       };
 
@@ -552,6 +645,9 @@
         this.isDragging = true;
         this._dragStartX = typeof e.clientX === "number" ? e.clientX : 0;
         this._dragStartY = typeof e.clientY === "number" ? e.clientY : 0;
+        if (e.type === "pointerdown" && Number.isFinite(e.pointerId) && this.handleEl?.setPointerCapture) {
+          try { this.handleEl.setPointerCapture(e.pointerId); } catch (_) {}
+        }
 
         const relX = (typeof this.position?.relX === "number" && !isNaN(this.position.relX)) ? this.position.relX : 0.5;
         const relY = (typeof this.position?.relY === "number" && !isNaN(this.position.relY)) ? this.position.relY : 0.78;
@@ -777,7 +873,8 @@
           "box-sizing: border-box !important",
           "max-width: 100% !important",
           "gap: 6px !important",
-          "user-select: none !important"
+          "user-select: text !important",
+          "-webkit-user-select: text !important"
         ].join("; ");
 
         const handle = document.createElement("div");
@@ -890,7 +987,14 @@
         this.subtitleEl.addEventListener("mouseenter", this._boundSubtitleMouseEnter);
         this.subtitleEl.addEventListener("mouseleave", this._boundSubtitleMouseLeave);
         this.subtitleEl.addEventListener("mousemove", this._boundSubtitleMouseMove);
+        this.subtitleEl.addEventListener("mousedown", this._boundSubtitleMouseDown);
         this.subtitleEl.addEventListener("mouseup", this._boundSubtitleMouseUp);
+        this.subtitleEl.addEventListener("click", this._boundSubtitleClick);
+      }
+      if (this.boxEl && typeof this.boxEl.addEventListener === "function") {
+        this.boxEl.addEventListener("mousedown", this._boundSubtitleMouseDown);
+        this.boxEl.addEventListener("mouseup", this._boundSubtitleMouseUp);
+        this.boxEl.addEventListener("click", this._boundSubtitleClick);
       }
 
       // Attach handle dragging listeners
@@ -1136,23 +1240,6 @@
 
       if (cue && cue.text && this.displayEnabled !== false) {
         this.subtitleEl.textContent = cue.text;
-        const highlightTerm = (typeof this.activeHighlightTerm === "string" ? this.activeHighlightTerm.trim() : "");
-        if (highlightTerm && cue.text.includes(highlightTerm) && typeof this.subtitleEl.replaceChildren === "function" && typeof document !== "undefined" && typeof document.createTextNode === "function") {
-          this.subtitleEl.replaceChildren();
-          const parts = cue.text.split(highlightTerm);
-          parts.forEach((part, idx) => {
-            if (part) {
-              this.subtitleEl.appendChild(document.createTextNode(part));
-            }
-            if (idx < parts.length - 1) {
-              const highlightSpan = document.createElement("span");
-              highlightSpan.className = "video-sub-highlight";
-              highlightSpan.textContent = highlightTerm;
-              highlightSpan.style.cssText = "color: #d4884f !important; border-bottom: 2px solid #b84632 !important; padding-bottom: 1px !important; font-weight: 600 !important; cursor: text !important; user-select: text !important;";
-              this.subtitleEl.appendChild(highlightSpan);
-            }
-          });
-        }
         setStyleProperty(this.subtitleEl, "display", "inline-block", "important");
         setStyleProperty(this.container, "display", "flex", "important");
         setStyleProperty(this.container, "opacity", "1", "important");
@@ -1203,7 +1290,14 @@
         this.subtitleEl.removeEventListener("mouseenter", this._boundSubtitleMouseEnter);
         this.subtitleEl.removeEventListener("mouseleave", this._boundSubtitleMouseLeave);
         this.subtitleEl.removeEventListener("mousemove", this._boundSubtitleMouseMove);
+        this.subtitleEl.removeEventListener("mousedown", this._boundSubtitleMouseDown);
         this.subtitleEl.removeEventListener("mouseup", this._boundSubtitleMouseUp);
+        this.subtitleEl.removeEventListener("click", this._boundSubtitleClick);
+      }
+      if (this.boxEl && typeof this.boxEl.removeEventListener === "function") {
+        this.boxEl.removeEventListener("mousedown", this._boundSubtitleMouseDown);
+        this.boxEl.removeEventListener("mouseup", this._boundSubtitleMouseUp);
+        this.boxEl.removeEventListener("click", this._boundSubtitleClick);
       }
       if (this.handleEl && typeof this.handleEl.removeEventListener === "function") {
         this.handleEl.removeEventListener("pointerdown", this._boundHandlePointerDown);
@@ -2602,9 +2696,7 @@
       if (message?.type === "HIGHLIGHT_SUBTITLE_WORD" || message?.type === "JAPANESE_TEXT_CAPTURED") {
         if (typeof message.text === "string" && message.text.trim()) {
           this.renderer.activeHighlightTerm = message.text.trim();
-          if (this.syncEngine?.currentCue) {
-            this.renderer.renderCue(this.syncEngine.currentCue);
-          }
+          // Orange highlighting strictly belongs to Subtitle History & Side Panel preview, not the live video overlay
         }
         sendResponse?.({ ok: true });
         return true;

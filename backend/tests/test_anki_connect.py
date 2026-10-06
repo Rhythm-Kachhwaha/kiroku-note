@@ -221,7 +221,7 @@ class TestAnkiConnectService:
         assert fields["Reading"] == "えいが"
         assert fields["Meaning"] == '<div class="kn-meaning">movie</div>'
         assert fields["Hint"] == "cinema"
-        assert fields["Example Sentence"] == '<div class="kn-example-block">\n  <p class="kn-example-ja">映画を見る</p>\n</div>'
+        assert fields["Example Sentence"] == '<div class="kn-example-block">\n  <p class="kn-example-label">Example:</p>\n  <p class="kn-example-ja">映画を見る</p>\n</div>'
         assert fields["Example Translation"] == "watch a movie"
 
     def test_mapping_yomitan_default_template(self):
@@ -237,7 +237,7 @@ class TestAnkiConnectService:
         assert fields["Expression"] == "約束"
         assert fields["Reading"] == "やくそく"
         assert fields["Glossary"] == '<div class="kn-meaning">promise; agreement</div>'
-        assert fields["Sentence"] == '<div class="kn-example-block">\n  <p class="kn-example-ja">約束を守る</p>\n</div>'
+        assert fields["Sentence"] == '<div class="kn-example-block">\n  <p class="kn-example-label">Example:</p>\n  <p class="kn-example-ja">約束を守る</p>\n</div>'
         assert fields["Audio"] == "[sound:audio.mp3]"
 
     def test_mapping_core_2k_template(self):
@@ -253,7 +253,7 @@ class TestAnkiConnectService:
         assert fields["Word"] == "桜"
         assert fields["Kana"] == "さくら"
         assert fields["Meaning"] == '<div class="kn-meaning">cherry blossom</div>'
-        assert fields["Sentence-Expression"] == '<div class="kn-example-block">\n  <p class="kn-example-ja">桜が咲いた</p>\n</div>'
+        assert fields["Sentence-Expression"] == '<div class="kn-example-block">\n  <p class="kn-example-label">Example:</p>\n  <p class="kn-example-ja">桜が咲いた</p>\n</div>'
         assert fields["Sentence-English"] == "The cherry blossoms bloomed"
 
     def test_mapping_kaishi_template(self):
@@ -269,7 +269,7 @@ class TestAnkiConnectService:
         assert fields["Word"] == "猫"
         assert fields["Reading"] == "ねこ"
         assert fields["Meaning"] == '<div class="kn-meaning">cat</div>'
-        assert fields["Example Sentence"] == '<div class="kn-example-block">\n  <p class="kn-example-ja">猫がいる</p>\n</div>'
+        assert fields["Example Sentence"] == '<div class="kn-example-block">\n  <p class="kn-example-label">Example:</p>\n  <p class="kn-example-ja">猫がいる</p>\n</div>'
         assert fields["Example Sentence Meaning"] == "There is a cat"
 
     def test_mapping_anime_mining_template(self):
@@ -289,7 +289,7 @@ class TestAnkiConnectService:
         assert fields["VocabKanji"] == "食べる"
         assert fields["VocabFurigana"] == "たべる"
         assert fields["VocabDef"] == '<div class="kn-meaning">to eat</div>'
-        assert fields["Sentence"] == '<div class="kn-example-block">\n  <p class="kn-example-ja">ご飯を食べる</p>\n</div>'
+        assert fields["Sentence"] == '<div class="kn-example-block">\n  <p class="kn-example-label">Example:</p>\n  <p class="kn-example-ja">ご飯を食べる</p>\n</div>'
         assert fields["SentenceAudio"] == "[sound:taberu.mp3]"
         assert fields["SentenceImage"] == '<img src="taberu.jpg">'
 
@@ -324,6 +324,23 @@ class TestAnkiConnectService:
         assert fields["Front"] == "遅刻"
         assert '<img src="ankiminer_img_123.jpg" class="kn-image">' in fields["Back"]
         assert '[sound:ankiminer_audio_456.webm]' in fields["Back"]
+
+    def test_mapping_video_context_into_basic_back(self):
+        service = AnkiConnectService()
+        card_data = {
+            "expression": "ぜひ",
+            "meaning": "by all means",
+            "source_type": "video",
+            "source_text": "ぜひテニス部へ入ってください。",
+            "example_sentence": "ぜひ参加してください。",
+            "image": "video-frame.jpg",
+        }
+        fields = service.map_card_to_fields(card_data, ["Front", "Back"])
+        back = fields["Back"]
+        assert back.index('<img src="video-frame.jpg"') < back.index("by all means")
+        assert back.index("ぜひテニス部へ入ってください。") < back.index("Example:")
+        assert back.count("ぜひテニス部へ入ってください。") == 1
+        assert back.count("ぜひ参加してください。") == 1
 
     def test_mapping_arbitrary_two_field_fallback(self):
         service = AnkiConnectService()

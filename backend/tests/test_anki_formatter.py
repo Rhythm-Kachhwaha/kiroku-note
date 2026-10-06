@@ -354,8 +354,8 @@ class TestAnkiFormatter(unittest.TestCase):
         self.assertIn("Noto Sans JP", css)
 
         # 4. Media constraints
-        self.assertIn("max-height: 240px;", css)
-        self.assertIn("max-width: 100%;", css)
+        self.assertIn("max-height: 180px;", css)
+        self.assertIn("max-width: 85%;", css)
         self.assertIn("object-fit: contain;", css)
 
         # 5. Embedded in Basic Back HTML
@@ -552,6 +552,54 @@ class TestAnkiFormatter(unittest.TestCase):
         self.assertLess(pos_pos, kanji_pos, "Vocabulary senses must appear before kanji block for multi-kanji cards")
         self.assertIn('<span class="kn-onyomi">ショク, ジキ</span>', back_html)
         self.assertIn('<span class="kn-kunyomi">た(べる), く(う)</span>', back_html)
+
+    def test_video_context_and_media_section_order(self):
+        card = {
+            "expression": "ぜひ",
+            "reading": "ぜひ",
+            "meaning": "by all means",
+            "source_type": "video",
+            "source_text": "ぜひテニス部へ入ってください。",
+            "example_sentence": "ぜひ参加してください。",
+            "example_translation": "Please join us.",
+            "image": "video-frame.jpg",
+        }
+        kanji_entries = [{
+            "character": "是",
+            "onyomi": ["ゼ"],
+            "meanings": ["just so"],
+            "stats": {"strokes": 9},
+        }]
+
+        back_html = format_basic_back(
+            card,
+            kanji_entries=kanji_entries,
+            section_order=["example", "meaning", "context", "image", "kanji"],
+        )
+
+        image_index = back_html.index('<img src="video-frame.jpg"')
+        meaning_index = back_html.index("by all means")
+        context_index = back_html.index("ぜひテニス部へ入ってください。")
+        example_index = back_html.index("<p class=\"kn-example-label\">Example:</p>")
+        kanji_index = back_html.index('<div class="kn-kanji-card">')
+        context_end = back_html.index("</div>", context_index)
+        self.assertLess(image_index, meaning_index)
+        self.assertLess(context_index, example_index)
+        self.assertLess(context_end, example_index)
+        self.assertNotIn("Please join us.", back_html[context_index:context_end])
+        self.assertIn("Please join us.", back_html[example_index:kanji_index])
+        self.assertGreater(kanji_index, example_index)
+        self.assertNotIn("ぜひテニス部へ入ってください。", back_html[kanji_index:])
+
+    def test_non_video_source_text_is_not_rendered_as_context(self):
+        back_html = format_basic_back({
+            "expression": "見る",
+            "meaning": "to see",
+            "source_type": "selection",
+            "source_text": "映画を見る。",
+        })
+        self.assertNotIn('class="kn-video-context"', back_html)
+        self.assertNotIn("映画を見る。", back_html)
 
     # 21. format_basic_back with JLPT level and show_jlpt toggle
     def test_21_format_basic_back_jlpt(self):

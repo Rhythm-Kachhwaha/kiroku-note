@@ -154,6 +154,7 @@ function createMockEnvironment({ isIframe = false, isHiAnime = true, initialPosi
     setAttribute(name, val) { this._attrs[name] = val; }
     getAttribute(name) { return this._attrs[name] || null; }
     removeAttribute(name) { delete this._attrs[name]; }
+    setPointerCapture(pointerId) { this.capturedPointerId = pointerId; }
 
     getBoundingClientRect() { return this.rect; }
 
@@ -702,7 +703,24 @@ async function runTests() {
     assert.equal(poc.instance.renderer.getPosition().relY, 0.3, "Position preserved in fullscreen");
 
     // 2. Drag to new position inside fullscreen
-    poc.instance.renderer.setPosition({ relX: 0.2, relY: 0.85 });
+    const handle = env.mockDocument.getElementById("ankiminer-video-subtitle-handle");
+    handle.dispatchEvent({
+      type: "pointerdown",
+      button: 0,
+      pointerId: 7,
+      clientX: 1200,
+      clientY: 400,
+      preventDefault: () => {},
+      stopPropagation: () => {}
+    });
+    env.mockWindow.dispatchEvent({ type: "pointermove", clientX: 800, clientY: 800 });
+    env.mockWindow.dispatchEvent({ type: "pointerup" });
+
+    assert.equal(poc.instance.renderer.isDragging, false, "Fullscreen drag ends on pointerup");
+    assert.equal(handle.capturedPointerId, 7, "Fullscreen drag captures the pointer on its handle");
+    assert.ok(poc.instance.renderer.getPosition().relX < 0.75, "Pointer drag moves the overlay in fullscreen");
+    assert.ok(poc.instance.renderer.getPosition().relY > 0.3, "Pointer drag updates vertical position in fullscreen");
+    const fullscreenPosition = poc.instance.renderer.getPosition();
 
     // 3. Exit fullscreen
     playerWrapper.rect = { top: 100, left: 50, width: 800, height: 450 };
@@ -710,8 +728,8 @@ async function runTests() {
     env.mockDocument.fullscreenElement = null;
     env.mockDocument.dispatchEvent({ type: "fullscreenchange" });
 
-    assert.equal(poc.instance.renderer.getPosition().relX, 0.2, "New position from fullscreen preserved upon exit");
-    assert.equal(poc.instance.renderer.getPosition().relY, 0.85, "New position from fullscreen preserved upon exit");
+    assert.equal(poc.instance.renderer.getPosition().relX, fullscreenPosition.relX, "Dragged horizontal position is preserved upon exit");
+    assert.equal(poc.instance.renderer.getPosition().relY, fullscreenPosition.relY, "Dragged vertical position is preserved upon exit");
 
     console.log("PASS: Test 9 - Fullscreen roundtrip position preservation verified.");
   }
@@ -772,20 +790,20 @@ async function runTests() {
     subtitle.dispatchEvent({ type: "mouseup" });
 
     assert.equal(poc.instance.renderer.isDragging, false, "Selecting text must NOT start dragging");
+    const selectMsg = env.sentMessages.find(m => m.type === "JAPANESE_TEXT_CAPTURED" && m.source === "subtitle_selection");
+    assert.ok(selectMsg, "Text selection must dispatch JAPANESE_TEXT_CAPTURED");
+    assert.equal(selectMsg.text, "日本語");
 
-    // Clear selection for hover detection test
+    // Clear selection for click detection test
     env.setSelection("");
 
-    // Hover word detection
-    subtitle.dispatchEvent({ type: "mouseenter" });
-    subtitle.dispatchEvent({ type: "mousemove", clientX: 100, clientY: 100 });
+    // Click word detection
+    subtitle.dispatchEvent({ type: "click", clientX: 100, clientY: 100 });
 
-    await new Promise(r => setTimeout(r, 220));
+    const clickMsg = env.sentMessages.find(m => m.type === "JAPANESE_TEXT_CAPTURED" && m.source === "subtitle_click");
+    assert.ok(clickMsg, "Click word lookup must fire smoothly");
 
-    const hoverMsg = env.sentMessages.find(m => m.type === "JAPANESE_TEXT_CAPTURED" && m.source === "subtitle_hover");
-    assert.ok(hoverMsg, "Hover word lookup must fire smoothly");
-
-    console.log("PASS: Test 11 - Text selection & hover mining independence verified.");
+    console.log("PASS: Test 11 - Text selection & click mining independence verified.");
   }
 
   // -------------------------------------------------------------
