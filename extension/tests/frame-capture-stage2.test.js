@@ -327,6 +327,7 @@ async function testVideoMiningPocAndPlaybackInvariant() {
 
   const capRes = await pocInstance.captureCurrentFrame({
     captureId: "cap_test_100",
+    targetTime: 80,
     loadImage: async () => mockImage,
     createCanvas: () => mockCanvas
   });
@@ -484,7 +485,6 @@ function testSidePanelIsolation() {
     currentDraftMedia,
     cardEditor: { hidden: false },
     fieldImage: { value: "" },
-    fieldAudio: { value: "" },
     updateMediaPreviews: () => {},
     setStatus: (msg) => { statusLogs.push(msg); },
     identify: () => {},
@@ -544,23 +544,7 @@ function testSidePanelIsolation() {
   assert.equal(validDrmRes?.ok, true, "Current DRM status handled");
   assert.equal(currentDraftMedia.imageBase64, "data:image/jpeg;base64,validImage", "Image intact after DRM status");
 
-  // Test 5.5: Image and Audio coexistence
-  registeredListener({
-    type: "AUDIO_CAPTURED",
-    captureId: 200,
-    dataUrl: "data:audio/wav;base64,validAudioWav",
-    mimeType: "audio/wav"
-  }, null, () => {});
-
-  assert.equal(currentDraftMedia.imageBase64, "data:image/jpeg;base64,validImage", "Image intact after audio capture");
-  assert.equal(currentDraftMedia.audioBase64, "data:audio/wav;base64,validAudioWav", "Audio attached correctly");
-
-  // Clear image does not affect audio
-  currentDraftMedia.imageBase64 = null;
-  assert.equal(currentDraftMedia.imageBase64, null, "Image cleared");
-  assert.equal(currentDraftMedia.audioBase64, "data:audio/wav;base64,validAudioWav", "Audio remains intact after image clear");
-
-  console.log("PASS: Side panel stale capture rejection and DRM isolation verified.");
+  console.log("PASS: Side panel screenshot stale-capture rejection and DRM isolation verified.");
 }
 
 // -------------------------------------------------------------

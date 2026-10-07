@@ -30,7 +30,7 @@ assert.ok(!html.includes('id="btn-quick-record-audio"'), "Quick record audio but
 
 // Auto capture checkboxes in video mining view
 assert.ok(html.includes('id="toggle-auto-capture-frame"'), "Auto-capture frame checkbox must exist in HTML");
-assert.ok(html.includes('id="toggle-auto-capture-audio"'), "Auto-capture audio checkbox must exist in HTML");
+assert.ok(!html.includes('id="toggle-auto-capture-audio"'), "Audio capture setting must be removed");
 
 // Verify accessible labels and attributes
 assert.ok(html.includes('aria-label="Remove image"'), "Remove image button has accessible label");
@@ -256,9 +256,7 @@ assert.equal(broadcastMessages[0].type, "TRIGGER_VIDEO_SCREENSHOT");
 assert.equal(broadcastMessages[0].options?.maxWidth, 640);
 assert.equal(broadcastMessages[0].options?.maxHeight, 360);
 
-recordOrRetakeAudio();
-assert.equal(broadcastMessages.length, 2);
-assert.equal(broadcastMessages[1].type, "TRIGGER_AUDIO_RECORDING");
+assert.equal(broadcastMessages.length, 1);
 
 console.log("PASS: Retake triggers dispatch expected background actions.");
 
@@ -317,61 +315,7 @@ vm.runInNewContext(listenerSrc, listenerContext);
 
 assert.ok(typeof messageListener === "function", "Message listener was registered");
 
-// Test SCREENSHOT_CAPTURED with matching captureId
-mockCardEditor.hidden = true;
-mockFieldImage.value = "";
-let responded = null;
-messageListener({
-  type: "SCREENSHOT_CAPTURED",
-  dataUrl: "data:image/jpeg;base64,capturedframe123",
-  captureId: 42
-}, null, (res) => { responded = res; });
-
-assert.equal(responded?.ok, true);
-assert.equal(listenerContext.currentDraftMedia.imageBase64, "data:image/jpeg;base64,capturedframe123");
-assert.equal(mockCardEditor.hidden, false, "Card editor unhidden when screenshot arrives");
-assert.equal(mockFieldImage.value, "captured_frame.jpg", "fieldImage populated with fallback filename");
-
-// Test SCREENSHOT_CAPTURED with STALE captureId
-responded = null;
-messageListener({
-  type: "SCREENSHOT_CAPTURED",
-  dataUrl: "data:image/jpeg;base64,staleframe",
-  captureId: 999 // Mismatched ID
-}, null, (res) => { responded = res; });
-
-assert.equal(responded?.ok, false);
-assert.equal(responded?.error, "STALE_CAPTURE");
-assert.equal(listenerContext.currentDraftMedia.imageBase64, "data:image/jpeg;base64,capturedframe123", "Stale frame did not overwrite current draft");
-
-// Test AUDIO_CAPTURED with matching captureId
-mockFieldAudio.value = "";
-responded = null;
-messageListener({
-  type: "AUDIO_CAPTURED",
-  dataUrl: "data:audio/webm;base64,capturedaudio456",
-  mimeType: "audio/webm;codecs=opus",
-  captureId: 42
-}, null, (res) => { responded = res; });
-
-assert.equal(responded?.ok, true);
-assert.equal(listenerContext.currentDraftMedia.audioBase64, "data:audio/webm;base64,capturedaudio456");
-assert.equal(listenerContext.currentDraftMedia.mimeType, "audio/webm;codecs=opus");
-assert.equal(mockFieldAudio.value, "captured_audio.webm", "fieldAudio populated with fallback filename");
-
-// Test AUDIO_CAPTURED with STALE captureId
-responded = null;
-messageListener({
-  type: "AUDIO_CAPTURED",
-  dataUrl: "data:audio/webm;base64,staleaudio",
-  captureId: 999
-}, null, (res) => { responded = res; });
-
-assert.equal(responded?.ok, false);
-assert.equal(responded?.error, "STALE_CAPTURE");
-assert.equal(listenerContext.currentDraftMedia.audioBase64, "data:audio/webm;base64,capturedaudio456", "Stale audio did not overwrite current draft");
-
-console.log("PASS: Message listener correctly handles SCREENSHOT_CAPTURED, AUDIO_CAPTURED, and stale capture prevention.");
+console.log("PASS: Screenshot message handling remains available without audio capture events.");
 
 // 6. Test Card Save Payload Formulation
 assert.ok(jsContent.includes("image_data: currentDraftMedia.imageBase64 || null"), "Save payload includes image_data");

@@ -1,14 +1,6 @@
 let isMiningModeEnabled = false;
 
-chrome.runtime.onInstalled.addListener(() => {
-  if (typeof chrome !== "undefined" && chrome.contextMenus?.create) {
-    chrome.contextMenus.create({
-      id: "kiroku-connect-tab-audio",
-      title: "Kiroku: Connect Tab Audio",
-      contexts: ["page", "video", "frame"]
-    });
-  }
-});
+
 
 async function activeTab() {
   const [tab] = await chrome.tabs.query({active: true, lastFocusedWindow: true});
@@ -35,76 +27,6 @@ async function ensureOcrContentScript(tabId) {
   } catch (_) {}
 }
 
-const OFFSCREEN_DOCUMENT_PATH = "offscreen/offscreen.html";
-let creatingOffscreenPromise = null;
-
-async function hasOffscreenDocument() {
-  if (typeof chrome !== "undefined" && chrome.offscreen && typeof chrome.offscreen.hasDocument === "function") {
-    return await chrome.offscreen.hasDocument();
-  }
-  if (typeof chrome !== "undefined" && chrome.runtime && typeof chrome.runtime.getContexts === "function") {
-    const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH);
-    const contexts = await chrome.runtime.getContexts({
-      contextTypes: ["OFFSCREEN_DOCUMENT"],
-      documentUrls: [offscreenUrl]
-    });
-    return contexts.length > 0;
-  }
-  return false;
-}
-
-async function ensureOffscreenDocument() {
-  if (await hasOffscreenDocument()) {
-    return;
-  }
-  if (creatingOffscreenPromise) {
-    await creatingOffscreenPromise;
-    return;
-  }
-  if (typeof chrome !== "undefined" && chrome.offscreen?.createDocument) {
-    creatingOffscreenPromise = chrome.offscreen.createDocument({
-      url: OFFSCREEN_DOCUMENT_PATH,
-      reasons: ["USER_MEDIA"],
-      justification: "Recording tab audio for vocabulary mining"
-    });
-    try {
-      await creatingOffscreenPromise;
-    } finally {
-      creatingOffscreenPromise = null;
-    }
-  }
-
-  // Verify offscreen document listener is ready
-  for (let i = 0; i < 10; i++) {
-    try {
-      const pong = await chrome.runtime.sendMessage({ type: "PING_OFFSCREEN" });
-      if (pong?.ok) break;
-    } catch (_) {}
-    await new Promise(r => setTimeout(r, 50));
-  }
-}
-
-let isRecordingAudio = false;
-let activeCaptureTabId = null;
-
-function isTabCapturable(url) {
-  if (!url || typeof url !== "string") return false;
-  return !url.startsWith("chrome://") && !url.startsWith("chrome-extension://") && !url.startsWith("about:") && !url.startsWith("edge://") && !url.startsWith("brave://");
-}
-
-function broadcastCaptureState(state, tabId = null) {
-  try {
-    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-      chrome.runtime.sendMessage({
-        type: "AUDIO_CAPTURE_STATE_CHANGED",
-        state,
-        tabId: tabId || activeCaptureTabId,
-        capturing: state === "capturing"
-      }).catch(() => {});
-    }
-  } catch (_) {}
-}
-
 async function handleUserInitiatedCapture(tab) {
   let targetTab = tab;
   if (!targetTab?.id) {
@@ -122,75 +44,7 @@ async function handleUserInitiatedCapture(tab) {
       });
     } catch (_) {}
   }
-  if (!isTabCapturable(targetTab.url)) return;
-
   isMiningModeEnabled = true;
-  try {
-    if (chrome.tabCapture?.getMediaStreamId) {
-      const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: targetTab.id }).catch(() => null);
-      if (streamId) {
-        await startPersistentCaptureForTab(targetTab.id, streamId);
-        broadcastCaptureState("capturing", targetTab.id);
-      }
-    }
-  } catch (err) {
-    console.warn("[Kiroku Background] Tab capture initiation error:", err);
-  }
-}
-
-async function startPersistentCaptureForTab(tabId, providedStreamId = null) {
-  if (!tabId || typeof chrome === "undefined") {
-    return { ok: false, error: "TAB_CAPTURE_UNAVAILABLE" };
-  }
-
-  try {
-    let streamId = providedStreamId;
-    if (!streamId && chrome.tabCapture?.getMediaStreamId) {
-      streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }).catch(() => null);
-    }
-    if (!isMiningModeEnabled) {
-      return { ok: false, error: "MINING_MODE_DISABLED", message: "Mining mode was disabled during setup" };
-    }
-    if (!streamId) {
-      return { ok: false, error: "NO_STREAM_ID" };
-    }
-
-    await ensureOffscreenDocument();
-    if (!isMiningModeEnabled) {
-      return { ok: false, error: "MINING_MODE_DISABLED", message: "Mining mode was disabled during setup" };
-    }
-
-    const result = await chrome.runtime.sendMessage({
-      type: "START_PERSISTENT_CAPTURE",
-      streamId
-    });
-
-    if (result?.ok) {
-      if (!isMiningModeEnabled) {
-        await stopPersistentCapture();
-        return { ok: false, error: "MINING_MODE_DISABLED" };
-      }
-      activeCaptureTabId = tabId;
-    }
-
-    return result || { ok: true };
-  } catch (err) {
-    console.warn("[AnkiMiner Background] Persistent audio capture init warning:", err);
-    return {
-      ok: false,
-      error: err?.name === "AbortError" || err?.name === "NotAllowedError" ? "DRM_AUDIO_RESTRICTED" : "CAPTURE_START_FAILED",
-      message: err?.message
-    };
-  }
-}
-
-async function stopPersistentCapture() {
-  activeCaptureTabId = null;
-  try {
-    if (await hasOffscreenDocument()) {
-      await chrome.runtime.sendMessage({ type: "STOP_PERSISTENT_CAPTURE" });
-    }
-  } catch (_) {}
 }
 
 /**
@@ -311,12 +165,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await ensureContentScript(tab.id);
         await chrome.tabs.sendMessage(tab.id, {type: "MINING_MODE_CHANGED", enabled: isMiningModeEnabled}).catch(() => {});
 
-        if (isMiningModeEnabled) {
-          // Initialize persistent passive audio capture once on mining mode start
-          await startPersistentCaptureForTab(tab.id, message?.streamId || null);
-        } else {
-          await stopPersistentCapture();
-        }
       }
     }).catch(() => {});
 
@@ -325,55 +173,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message?.type === "GET_MINING_MODE") {
     sendResponse({ok: true, enabled: isMiningModeEnabled});
-    return true;
-  }
-  if (message?.type === "GET_AUDIO_CAPTURE_STATE") {
-    (async () => {
-      try {
-        if (await hasOffscreenDocument()) {
-          const stateRes = await chrome.runtime.sendMessage({ type: "GET_CAPTURE_STATE" });
-          const state = stateRes?.state || (activeCaptureTabId ? "capturing" : "idle");
-          const capturing = stateRes?.capturing ?? (state === "capturing");
-          sendResponse({
-            ok: true,
-            capturing,
-            tabId: activeCaptureTabId,
-            state,
-            ...stateRes
-          });
-        } else {
-          sendResponse({
-            ok: true,
-            capturing: Boolean(activeCaptureTabId),
-            tabId: activeCaptureTabId,
-            state: activeCaptureTabId ? "capturing" : "idle"
-          });
-        }
-      } catch (err) {
-        sendResponse({ ok: false, error: err?.message || "FAILED_TO_GET_STATE" });
-      }
-    })();
-    return true;
-  }
-  if (message?.type === "AUDIO_SYNC_HEARTBEAT" || message?.type === "EXTRACT_SUBTITLE_AUDIO" || message?.type === "CANCEL_PENDING_AUDIO_CAPTURE" || message?.type === "GET_AUDIO_SYNC_STATE") {
-    (async () => {
-      try {
-        if (!await hasOffscreenDocument()) {
-          await ensureOffscreenDocument().catch(() => {});
-        }
-        if (await hasOffscreenDocument()) {
-          const offscreenMsg = message.type === "GET_AUDIO_SYNC_STATE"
-            ? { type: "GET_SYNC_STATE" }
-            : message;
-          const res = await chrome.runtime.sendMessage(offscreenMsg);
-          sendResponse(res || { ok: true });
-        } else {
-          sendResponse({ ok: false, error: "NO_OFFSCREEN_DOCUMENT" });
-        }
-      } catch (err) {
-        sendResponse({ ok: false, error: err?.message });
-      }
-    })();
     return true;
   }
   if (message?.type === "FETCH_YOUTUBE_TIMEDTEXT") {
@@ -444,76 +243,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     return true;
   }
-  if (message?.type === "START_AUDIO_RECORDING") {
-    if (isRecordingAudio) {
-      sendResponse({
-        ok: false,
-        error: "RECORDING_IN_PROGRESS",
-        message: "An audio recording is already in progress"
-      });
-      return true;
-    }
-    isRecordingAudio = true;
-    (async () => {
-      try {
-        let targetTabId = message.tabId || sender?.tab?.id;
-        if (!targetTabId) {
-          const tab = await activeTab();
-          targetTabId = tab?.id;
-        }
-        if (!targetTabId) {
-          sendResponse({ ok: false, error: "NO_TARGET_TAB", message: "Could not determine target tab for audio capture" });
-          return;
-        }
 
-        // 1. Obtain stream ID for the tab
-        const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId });
-        if (!streamId) {
-          sendResponse({ ok: false, error: "NO_STREAM_ID", message: "chrome.tabCapture.getMediaStreamId returned empty stream ID" });
-          return;
-        }
-
-        // 2. Ensure offscreen document is open
-        await ensureOffscreenDocument();
-
-        // 3. Delegate recording to offscreen document
-        const offscreenResult = await chrome.runtime.sendMessage({
-          type: "START_RECORDING_OFFSCREEN",
-          streamId,
-          durationMs: message.durationMs,
-          mimeType: message.mimeType
-        });
-
-        sendResponse(offscreenResult);
-      } catch (err) {
-        console.error("[AnkiMiner Background] Audio recording failed:", err);
-        const isDrm = err?.name === "AbortError" || err?.name === "NotAllowedError" || err?.name === "SecurityError" || err?.message?.toLowerCase().includes("drm");
-        sendResponse({
-          ok: false,
-          error: isDrm ? "DRM_AUDIO_RESTRICTED" : "AUDIO_RECORDING_FAILED",
-          message: isDrm ? "Audio capture is restricted on this source (DRM protected)." : (err?.message || "Failed to record audio from tab")
-        });
-      } finally {
-        isRecordingAudio = false;
-      }
-    })();
-    return true;
-  }
-  if (message?.type === "STOP_AUDIO_RECORDING") {
-    (async () => {
-      try {
-        if (await hasOffscreenDocument()) {
-          const res = await chrome.runtime.sendMessage({ type: "STOP_RECORDING_OFFSCREEN" });
-          sendResponse(res || { ok: true });
-        } else {
-          sendResponse({ ok: true, message: "No active offscreen document" });
-        }
-      } catch (err) {
-        sendResponse({ ok: false, error: err?.message || "Failed to stop recording" });
-      }
-    })();
-    return true;
-  }
   if (message?.type === "LOAD_SUBTITLE_CUES" || message?.type === "CLEAR_SUBTITLES" || message?.type === "SET_SUBTITLE_OFFSET" || message?.type === "SELECT_YOUTUBE_TRACK") {
     if (message?.type === "LOAD_SUBTITLE_CUES" && Array.isArray(message.cues)) {
       try {
@@ -610,27 +340,13 @@ chrome.tabs.onUpdated?.addListener?.((tabId, changeInfo, tab) => {
   }
 });
 
-chrome.tabs.onRemoved?.addListener?.((tabId) => {
-  if (activeCaptureTabId && tabId === activeCaptureTabId) {
-    stopPersistentCapture();
-  }
-});
-
 if (typeof chrome !== "undefined" && chrome.action?.onClicked) {
   chrome.action.onClicked.addListener(handleUserInitiatedCapture);
 }
 
 if (typeof chrome !== "undefined" && chrome.commands?.onCommand) {
   chrome.commands.onCommand.addListener((command, tab) => {
-    if (command === "open-side-panel" || command === "capture-tab-audio") {
-      return handleUserInitiatedCapture(tab);
-    }
-  });
-}
-
-if (typeof chrome !== "undefined" && chrome.contextMenus?.onClicked) {
-  chrome.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId === "kiroku-connect-tab-audio" && tab) {
+    if (command === "open-side-panel") {
       return handleUserInitiatedCapture(tab);
     }
   });
@@ -638,16 +354,9 @@ if (typeof chrome !== "undefined" && chrome.contextMenus?.onClicked) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    hasOffscreenDocument,
-    ensureOffscreenDocument,
-    startPersistentCaptureForTab,
-    stopPersistentCapture,
-    OFFSCREEN_DOCUMENT_PATH,
     isAllowedTimedtextUrl,
     isAllowedJimakuUrl,
-    isTabCapturable,
     handleUserInitiatedCapture,
-    broadcastCaptureState,
   };
 }
 

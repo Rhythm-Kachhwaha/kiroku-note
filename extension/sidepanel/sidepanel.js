@@ -154,7 +154,6 @@ let currentKanjiEntries = [];
 const indicatorYomitan = document.querySelector("#indicator-yomitan");
 const indicatorAnki = document.querySelector("#indicator-anki");
 const indicatorOcr = document.querySelector("#indicator-ocr");
-const indicatorTabAudio = document.querySelector("#indicator-tab-audio");
 
 let ocrAvailable = false;
 let ocrLoaded = false;
@@ -1042,7 +1041,6 @@ const videoCurrentCuePreview = document.querySelector("#video-current-cue-previe
 const toggleAutoPauseHover = document.querySelector("#toggle-auto-pause-hover");
 const toggleSubtitlesDisplay = document.querySelector("#toggle-subtitles-display");
 const toggleAutoCaptureFrame = document.querySelector("#toggle-auto-capture-frame");
-const toggleAutoCaptureAudio = document.querySelector("#toggle-auto-capture-audio");
 
 // Subtitle Search, Recent Cues & Sentence Mining (T4-B, T4-C, T4-F)
 const btnMineFullSentence = document.querySelector("#btn-mine-full-sentence");
@@ -1102,9 +1100,6 @@ let ankiConnected = false;
 let currentDraftMedia = {
   imageBase64: null,
   audioBase64: null,
-  audioStatus: "idle", // "available" | "pending" | "unavailable" | "expired" | "discontinuity" | "idle"
-  audioError: null,
-  mimeType: null,
   captureId: null
 };
 
@@ -1120,28 +1115,6 @@ function setIndicatorStatus(indicatorEl, state, titleText) {
         ? titleText.slice(separatorIndex + 1).trim()
         : titleText;
     }
-  }
-}
-
-function updateTabAudioIndicator(capturing) {
-  if (!indicatorTabAudio) return;
-  const labelEl = (typeof indicatorTabAudio.querySelector === "function")
-    ? (indicatorTabAudio.querySelector(".system-status-value") || indicatorTabAudio.querySelector(".indicator-label"))
-    : null;
-  if (capturing) {
-    if (indicatorTabAudio.classList) {
-      indicatorTabAudio.classList.add("tab-audio-connected");
-      indicatorTabAudio.classList.add("connected");
-    }
-    indicatorTabAudio.title = "Tab Audio Capture: Active (Streaming audio into rolling buffer)";
-    if (labelEl) labelEl.textContent = "Active";
-  } else {
-    if (indicatorTabAudio.classList) {
-      indicatorTabAudio.classList.remove("tab-audio-connected");
-      indicatorTabAudio.classList.remove("connected");
-    }
-    indicatorTabAudio.title = "Tab Audio Capture: Inactive. Click toolbar icon or press Alt+Shift+K to connect.";
-    if (labelEl) labelEl.textContent = "Inactive";
   }
 }
 
@@ -1405,11 +1378,6 @@ function updateModelCapabilityWarnings() {
   if (btnRetakeImage) {
     if (!currentModelCapabilities.supports_image && ankiConnected) {
       btnRetakeImage.title = "Selected Anki model lacks image field (saved locally only)";
-    }
-  }
-  if (btnRetakeAudio) {
-    if (!currentModelCapabilities.supports_audio && ankiConnected) {
-      btnRetakeAudio.title = "Selected Anki model lacks audio field (saved locally only)";
     }
   }
 }
@@ -2845,21 +2813,9 @@ function updateMiningUI(enabled) {
 
 async function setMiningMode(enabled) {
   updateMiningUI(enabled);
-  let streamId = null;
-  if (enabled && typeof chrome !== "undefined" && chrome.tabCapture?.getMediaStreamId && chrome.tabs?.query) {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-      if (tab?.id) {
-        streamId = await Promise.race([
-          chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("tabCapture timeout")), 2000))
-        ]).catch(() => null);
-      }
-    } catch (_) {}
-  }
   if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
     try {
-      const result = await chrome.runtime.sendMessage({type: "SET_MINING_MODE", enabled, streamId});
+      const result = await chrome.runtime.sendMessage({type: "SET_MINING_MODE", enabled});
       if (!result?.ok) {
         setStatus(result?.error || "Capture setup failed.", true);
       }
@@ -4584,19 +4540,11 @@ async function identify(text) {
         prioritizeSubtitleContextOnBack();
       }
 
-      // Automatically trigger frame screenshot and sentence audio if enabled and media is not already saved.
+      // Automatically capture a video frame when a video card has no image yet.
       const shouldAutoCaptureFrame = toggleAutoCaptureFrame ? toggleAutoCaptureFrame.checked : true;
-      const shouldAutoCaptureAudio = toggleAutoCaptureAudio ? toggleAutoCaptureAudio.checked : true;
 
       if (!body.image && shouldAutoCaptureFrame && isVideoMiningActive()) {
         retakeScreenshot(requestId, options.targetTime);
-      }
-
-      if (!body.audio && shouldAutoCaptureAudio && isVideoMiningActive()) {
-        currentDraftMedia.audioStatus = "pending";
-        currentDraftMedia.captureId = requestId;
-        updateMediaPreviews();
-        retakeAudio(requestId, options.cue);
       }
 
       // Sync state update
@@ -4817,41 +4765,17 @@ function clearImageMedia() {
 }
 
 function clearAudioMedia() {
-  if (currentDraftMedia.captureId) {
-    try {
-      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-        chrome.runtime.sendMessage({
-          type: "CANCEL_PENDING_AUDIO_CAPTURE",
-          captureId: currentDraftMedia.captureId
-        }).catch(() => {});
-      }
-    } catch (_) {}
-  }
   currentDraftMedia.audioBase64 = null;
   currentDraftMedia.audioStatus = "idle";
-  currentDraftMedia.audioError = null;
-  currentDraftMedia.mimeType = null;
   if (fieldAudio) fieldAudio.value = "";
   updateMediaPreviews();
   setStatus("Audio cleared.");
 }
 
 function clearAllMedia() {
-  if (currentDraftMedia.captureId) {
-    try {
-      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-        chrome.runtime.sendMessage({
-          type: "CANCEL_PENDING_AUDIO_CAPTURE",
-          captureId: currentDraftMedia.captureId
-        }).catch(() => {});
-      }
-    } catch (_) {}
-  }
   currentDraftMedia.imageBase64 = null;
   currentDraftMedia.audioBase64 = null;
   currentDraftMedia.audioStatus = "idle";
-  currentDraftMedia.audioError = null;
-  currentDraftMedia.mimeType = null;
   currentDraftMedia.captureId = null;
   updateMediaPreviews();
 }
@@ -4859,11 +4783,6 @@ function clearAllMedia() {
 function captureOrRetakeScreenshot() {
   if (cardEditor && cardEditor.hidden) cardEditor.hidden = false;
   retakeScreenshot(currentCaptureId);
-}
-
-function recordOrRetakeAudio() {
-  if (cardEditor && cardEditor.hidden) cardEditor.hidden = false;
-  retakeAudio(currentCaptureId);
 }
 
 function retakeScreenshot(captureId = null, targetTime = null) {
@@ -4877,24 +4796,6 @@ function retakeScreenshot(captureId = null, targetTime = null) {
       maxWidth: 640,
       maxHeight: 360,
       quality: 0.92
-    }
-  });
-}
-
-function retakeAudio(captureId = null, cue = null) {
-  setStatus("Recording sentence audio…");
-  const capId = captureId || currentCaptureId;
-  const audioCue = cue || (typeof currentActiveCue !== "undefined" ? currentActiveCue : null);
-  const timelineId = (typeof lastCaptureSource !== "undefined" && lastCaptureSource) ? lastCaptureSource.timelineId : null;
-  broadcastToActiveVideo({
-    type: "TRIGGER_AUDIO_RECORDING",
-    cue: audioCue,
-    timelineId: timelineId || null,
-    options: {
-      captureId: capId,
-      mimeType: "audio/wav",
-      allowPausedPlayback: true,
-      allowFallbackRecording: false
     }
   });
 }
@@ -8311,7 +8212,6 @@ async function mineSubtitleCueWord(cue, word) {
   if (typeof fieldSourceText !== "undefined" && fieldSourceText) fieldSourceText.value = cue.text || "";
 
   const targetTime = getSubtitleCueTargetTime(cue);
-  await seekToSubtitleCue(cue);
   currentActiveCue = cue;
   updateVideoCuePreviewText(cue.text);
   renderRecentCuesList();
@@ -9042,19 +8942,14 @@ function setSubtitlesDisplayPreference(enabled) {
 async function loadAutoCapturePreferences() {
   try {
     let autoFrame = true;
-    let autoAudio = true;
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      const stored = await chrome.storage.local.get(["auto_capture_frame", "auto_capture_audio"]);
+      const stored = await chrome.storage.local.get(["auto_capture_frame"]);
       if (typeof stored?.auto_capture_frame === "boolean") autoFrame = stored.auto_capture_frame;
-      if (typeof stored?.auto_capture_audio === "boolean") autoAudio = stored.auto_capture_audio;
     } else if (typeof localStorage !== "undefined") {
       const sf = localStorage.getItem("auto_capture_frame");
       if (sf !== null) autoFrame = sf === "true";
-      const sa = localStorage.getItem("auto_capture_audio");
-      if (sa !== null) autoAudio = sa === "true";
     }
     if (toggleAutoCaptureFrame) toggleAutoCaptureFrame.checked = autoFrame;
-    if (toggleAutoCaptureAudio) toggleAutoCaptureAudio.checked = autoAudio;
   } catch (_) {}
 }
 
@@ -9112,12 +9007,6 @@ if (toggleAutoCaptureFrame) {
   });
 }
 
-if (toggleAutoCaptureAudio) {
-  toggleAutoCaptureAudio.addEventListener("change", (e) => {
-    setAutoCapturePreference("auto_capture_audio", Boolean(e.target.checked));
-  });
-}
-
 if (toggleShowRecentSubs) {
   toggleShowRecentSubs.addEventListener("change", (e) => {
     isRecentSubsEnabled = Boolean(e.target.checked);
@@ -9151,16 +9040,6 @@ if (typeof btnClearSubtitleSearch !== "undefined" && btnClearSubtitleSearch) {
 
 // Default Yomitan indicator to ready state
 setIndicatorStatus(indicatorYomitan, "connected", "Yomitan: Ready");
-updateTabAudioIndicator(false);
-try {
-  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-    chrome.runtime.sendMessage({ type: "GET_AUDIO_CAPTURE_STATE" }, (response) => {
-      if (response?.ok) {
-        updateTabAudioIndicator(Boolean(response.capturing));
-      }
-    });
-  }
-} catch (_) {}
 
 toggle.addEventListener("click", () => {
   setMiningMode(!miningMode).catch(error => {
@@ -9184,11 +9063,6 @@ if (ocrCaptureBtn) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message?.type === "AUDIO_CAPTURE_STATE_CHANGED") {
-    updateTabAudioIndicator(Boolean(message.capturing));
-    sendResponse?.({ ok: true });
-    return true;
-  }
   if (message?.type === "SCREENSHOT_CAPTURED") {
     if (message.captureId && currentCaptureId && message.captureId !== currentCaptureId) {
       sendResponse?.({ok: false, error: "STALE_CAPTURE"});
@@ -9217,70 +9091,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const statusText = isDrm
         ? "Image unavailable for this source (DRM protected)."
         : (message.message || "Image unavailable for this source.");
-      setStatus(statusText);
-    }
-    sendResponse?.({ ok: true });
-    return true;
-  }
-  if (message?.type === "AUDIO_CAPTURED") {
-    if (message.captureId && currentCaptureId && message.captureId !== currentCaptureId) {
-      sendResponse?.({ok: false, error: "STALE_CAPTURE"});
-      return true;
-    }
-    if (message.dataUrl) {
-      currentDraftMedia.audioBase64 = message.dataUrl;
-      currentDraftMedia.audioStatus = "available";
-      currentDraftMedia.audioError = null;
-      currentDraftMedia.mimeType = message.mimeType || "audio/wav";
-      currentDraftMedia.captureId = currentCaptureId;
-      if (cardEditor && cardEditor.hidden) cardEditor.hidden = false;
-      if (fieldAudio && !fieldAudio.value) {
-        fieldAudio.value = (message.mimeType && message.mimeType.includes("wav"))
-          ? "captured_audio.wav"
-          : "captured_audio.webm";
-      }
-      updateMediaPreviews();
-      setStatus(message.wasPending ? "Audio snippet finalized on resume." : "Audio snippet extracted.");
-    }
-    sendResponse?.({ok: true});
-    return true;
-  }
-  if (message?.type === "AUDIO_CAPTURE_STATUS") {
-    if (message.captureId && currentCaptureId && message.captureId !== currentCaptureId) {
-      sendResponse?.({ok: false, error: "STALE_CAPTURE"});
-      return true;
-    }
-    if (message.pending || message.status === "PENDING") {
-      currentDraftMedia.audioStatus = "pending";
-      currentDraftMedia.audioBase64 = null;
-      updateMediaPreviews();
-      setStatus("Audio queued (capturing on playback resume)...");
-    } else if (!message.ok) {
-      const isDrm = message.error === "DRM_AUDIO_RESTRICTED" || message.error === "DRM_AUDIO";
-      const isExpired = message.error === "AUDIO_BUFFER_EXPIRED";
-      const isDiscontinuity = message.error === "AUDIO_DISCONTINUITY" || message.error === "TIMELINE_DISCONTINUITY";
-
-      if (isExpired) {
-        currentDraftMedia.audioStatus = "expired";
-      } else if (isDiscontinuity) {
-        currentDraftMedia.audioStatus = "discontinuity";
-      } else if (isDrm) {
-        currentDraftMedia.audioStatus = "unavailable";
-        currentDraftMedia.audioError = "DRM_AUDIO_RESTRICTED";
-      } else {
-        currentDraftMedia.audioStatus = "unavailable";
-        currentDraftMedia.audioError = message.error || "AUDIO_UNAVAILABLE";
-      }
-      currentDraftMedia.audioBase64 = null;
-      updateMediaPreviews();
-
-      const statusText = isDrm
-        ? "Audio unavailable for this source (DRM protected)."
-        : isExpired
-          ? "Audio expired from 30s rolling buffer."
-          : isDiscontinuity
-            ? "Audio segment changed due to seek."
-            : (message.message || "Audio unavailable for this source.");
       setStatus(statusText);
     }
     sendResponse?.({ ok: true });

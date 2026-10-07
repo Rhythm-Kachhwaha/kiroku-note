@@ -119,6 +119,9 @@
     }
 
     checkVideos() {
+      if (this.activeVideo && this.activeVideo.isConnected && !this.activeVideo.paused && this.activeVideo.readyState > 2) {
+        return;
+      }
       const primary = this.findPrimaryVideo();
       if (primary !== this.activeVideo) {
         this.activeVideo = primary;
@@ -520,9 +523,6 @@
       this.activeHighlightTerm = "";
       this.currentCue = null;
       this.pendingCue = undefined;
-      this.poc = null;
-      this._syncEngine = null;
-      this._timelineId = null;
       this.position = { relX: 0.5, relY: 0.78 };
       this.isDragging = false;
       this._dragStartX = 0;
@@ -531,7 +531,16 @@
       this._initialClampedTop = 0;
       this._hoverWordTimer = null;
       this._lastHoverWord = "";
+      this._rafPositionId = null;
+      this._fsTimer = null;
+      this._lastBaseSize = null;
+      this._lastRelLeft = null;
+      this._lastRelTop = null;
+      this._lastAbsLeft = null;
+      this._lastAbsTop = null;
+      this._lastPositionMode = null;
       this._boundUpdatePosition = this.updatePosition.bind(this);
+      this._boundScheduleUpdatePosition = this.scheduleUpdatePosition.bind(this);
       this._boundFullscreenChange = this._onFullscreenChange.bind(this);
 
       this._boundSubtitleMouseEnter = () => {
@@ -571,8 +580,6 @@
                   source: "subtitle_selection",
                   sourceType: "video",
                   cue: this.currentCue ? { ...this.currentCue } : null,
-                  timelineId: this.timelineId,
-                  offset: this.syncEngine?.offset || 0.0
                 }).catch(() => {});
                 chrome.runtime.sendMessage({
                   type: "HIGHLIGHT_SUBTITLE_WORD",
@@ -611,8 +618,6 @@
                 source: "subtitle_click",
                 sourceType: "video",
                 cue: this.currentCue ? { ...this.currentCue } : null,
-                timelineId: this.timelineId,
-                offset: this.syncEngine?.offset || 0.0
               }).catch(() => {});
               chrome.runtime.sendMessage({
                 type: "HIGHLIGHT_SUBTITLE_WORD",
@@ -768,22 +773,6 @@
       };
     }
 
-    get timelineId() {
-      if (this._timelineId !== undefined && this._timelineId !== null) return this._timelineId;
-      return this.poc?.timelineId ?? null;
-    }
-    set timelineId(val) {
-      this._timelineId = val;
-    }
-
-    get syncEngine() {
-      if (this._syncEngine) return this._syncEngine;
-      return this.poc?.syncEngine ?? null;
-    }
-    set syncEngine(val) {
-      this._syncEngine = val;
-    }
-
     setPosition(pos) {
       if (!pos) return;
       const relX = typeof pos.relX === "number" && !isNaN(pos.relX) ? Math.max(0, Math.min(1.0, pos.relX)) : 0.5;
@@ -863,9 +852,7 @@
           "align-items: center !important",
           "position: relative !important",
           "pointer-events: auto !important",
-          "background: rgba(18, 17, 15, 0.88) !important",
-          "backdrop-filter: blur(4px) !important",
-          "-webkit-backdrop-filter: blur(4px) !important",
+          "background: rgba(18, 17, 15, 0.92) !important",
           "padding: 4px 12px 4px 8px !important",
           "border-radius: 6px !important",
           "border: 1px solid rgba(255, 255, 255, 0.2) !important",
@@ -1013,23 +1000,23 @@
         this.video.addEventListener("dragover", this._boundDragOver);
         this.video.addEventListener("dragleave", this._boundDragLeave);
         this.video.addEventListener("drop", this._boundDrop);
-        this.video.addEventListener("resize", this._boundUpdatePosition);
-        this.video.addEventListener("loadedmetadata", this._boundUpdatePosition);
-        this.video.addEventListener("loadeddata", this._boundUpdatePosition);
-        this.video.addEventListener("canplay", this._boundUpdatePosition);
-        this.video.addEventListener("play", this._boundUpdatePosition);
-        this.video.addEventListener("seeked", this._boundUpdatePosition);
+        this.video.addEventListener("resize", this._boundScheduleUpdatePosition);
+        this.video.addEventListener("loadedmetadata", this._boundScheduleUpdatePosition);
+        this.video.addEventListener("loadeddata", this._boundScheduleUpdatePosition);
+        this.video.addEventListener("canplay", this._boundScheduleUpdatePosition);
+        this.video.addEventListener("play", this._boundScheduleUpdatePosition);
+        this.video.addEventListener("seeked", this._boundScheduleUpdatePosition);
       }
 
       this.updatePosition();
 
       // Listen for resizing, scroll, and fullscreen changes
       if (typeof ResizeObserver !== "undefined") {
-        this.resizeObserver = new ResizeObserver(() => this.updatePosition());
+        this.resizeObserver = new ResizeObserver(() => this.scheduleUpdatePosition());
         this.resizeObserver.observe(video);
       }
-      window.addEventListener("resize", this._boundUpdatePosition);
-      window.addEventListener("scroll", this._boundUpdatePosition, true);
+      window.addEventListener("resize", this._boundScheduleUpdatePosition);
+      window.addEventListener("scroll", this._boundScheduleUpdatePosition, { passive: true });
       document.addEventListener("fullscreenchange", this._boundFullscreenChange);
       document.addEventListener("webkitfullscreenchange", this._boundFullscreenChange);
       document.addEventListener("mozfullscreenchange", this._boundFullscreenChange);
@@ -1042,43 +1029,14 @@
       if (this.currentCue) {
         this.renderCue(this.currentCue);
       }
-      if (typeof requestAnimationFrame === "function") {
-        requestAnimationFrame(() => {
-          this.ensureMounted();
-          this.updatePosition();
-          if (this.currentCue) {
-            this.renderCue(this.currentCue);
-          }
-        });
-      }
-      setTimeout(() => {
+      if (this._fsTimer) clearTimeout(this._fsTimer);
+      this._fsTimer = setTimeout(() => {
         this.ensureMounted();
         this.updatePosition();
         if (this.currentCue) {
           this.renderCue(this.currentCue);
         }
-      }, 50);
-      setTimeout(() => {
-        this.ensureMounted();
-        this.updatePosition();
-        if (this.currentCue) {
-          this.renderCue(this.currentCue);
-        }
-      }, 150);
-      setTimeout(() => {
-        this.ensureMounted();
-        this.updatePosition();
-        if (this.currentCue) {
-          this.renderCue(this.currentCue);
-        }
-      }, 300);
-      setTimeout(() => {
-        this.ensureMounted();
-        this.updatePosition();
-        if (this.currentCue) {
-          this.renderCue(this.currentCue);
-        }
-      }, 600);
+      }, 80);
     }
 
     syncNativeTextTrack(cue) {
@@ -1113,6 +1071,18 @@
       } catch (_) {}
     }
 
+    scheduleUpdatePosition() {
+      if (this._rafPositionId !== null) return;
+      if (typeof requestAnimationFrame === "function") {
+        this._rafPositionId = requestAnimationFrame(() => {
+          this._rafPositionId = null;
+          this.updatePosition();
+        });
+      } else {
+        this.updatePosition();
+      }
+    }
+
     updatePosition() {
       if (!this.container || !this.video) return;
       if (this.displayEnabled === false) return;
@@ -1130,8 +1100,11 @@
 
       if (this.subtitleEl) {
         const baseSize = Math.max(16, Math.min(38, Math.round(vRect.height * 0.045)));
-        setStyleProperty(this.subtitleEl, "fontSize", `${baseSize}px`, "important");
-        setStyleProperty(this.subtitleEl, "font-size", `${baseSize}px`, "important");
+        if (this._lastBaseSize !== baseSize) {
+          this._lastBaseSize = baseSize;
+          setStyleProperty(this.subtitleEl, "fontSize", `${baseSize}px`, "important");
+          setStyleProperty(this.subtitleEl, "font-size", `${baseSize}px`, "important");
+        }
       }
 
       const boxRect = (this.boxEl && typeof this.boxEl.getBoundingClientRect === "function")
@@ -1172,24 +1145,34 @@
         const relLeft = Math.round(vRect.left - tRect.left + clampedLeftInVideo);
         const relTop = Math.round(vRect.top - tRect.top + clampedTopInVideo);
 
-        setStyleProperty(this.container, "position", "absolute", "important");
-        setStyleProperty(this.container, "top", `${relTop}px`, "important");
-        setStyleProperty(this.container, "left", `${relLeft}px`, "important");
-        setStyleProperty(this.container, "width", "auto", "important");
-        setStyleProperty(this.container, "bottom", "auto", "important");
-        setStyleProperty(this.container, "height", "auto", "important");
-        setStyleProperty(this.container, "z-index", "2147483647", "important");
+        if (this._lastRelLeft !== relLeft || this._lastRelTop !== relTop || this._lastPositionMode !== "absolute") {
+          this._lastRelLeft = relLeft;
+          this._lastRelTop = relTop;
+          this._lastPositionMode = "absolute";
+          setStyleProperty(this.container, "position", "absolute", "important");
+          setStyleProperty(this.container, "top", `${relTop}px`, "important");
+          setStyleProperty(this.container, "left", `${relLeft}px`, "important");
+          setStyleProperty(this.container, "width", "auto", "important");
+          setStyleProperty(this.container, "bottom", "auto", "important");
+          setStyleProperty(this.container, "height", "auto", "important");
+          setStyleProperty(this.container, "z-index", "2147483647", "important");
+        }
       } else {
         const absLeft = Math.round(vRect.left + clampedLeftInVideo);
         const absTop = Math.round(vRect.top + clampedTopInVideo);
 
-        setStyleProperty(this.container, "position", "fixed", "important");
-        setStyleProperty(this.container, "top", `${absTop}px`, "important");
-        setStyleProperty(this.container, "left", `${absLeft}px`, "important");
-        setStyleProperty(this.container, "width", "auto", "important");
-        setStyleProperty(this.container, "bottom", "auto", "important");
-        setStyleProperty(this.container, "height", "auto", "important");
-        setStyleProperty(this.container, "z-index", "2147483647", "important");
+        if (this._lastAbsLeft !== absLeft || this._lastAbsTop !== absTop || this._lastPositionMode !== "fixed") {
+          this._lastAbsLeft = absLeft;
+          this._lastAbsTop = absTop;
+          this._lastPositionMode = "fixed";
+          setStyleProperty(this.container, "position", "fixed", "important");
+          setStyleProperty(this.container, "top", `${absTop}px`, "important");
+          setStyleProperty(this.container, "left", `${absLeft}px`, "important");
+          setStyleProperty(this.container, "width", "auto", "important");
+          setStyleProperty(this.container, "bottom", "auto", "important");
+          setStyleProperty(this.container, "height", "auto", "important");
+          setStyleProperty(this.container, "z-index", "2147483647", "important");
+        }
       }
     }
 
@@ -1213,9 +1196,13 @@
           setStyleProperty(this.container, "opacity", "0", "important");
           setStyleProperty(this.container, "visibility", "hidden", "important");
           setStyleProperty(this.container, "display", "none", "important");
+          setStyleProperty(this.container, "pointer-events", "none", "important");
           this.container.removeAttribute("data-active-cue");
         }
       } else {
+        if (this.container) {
+          setStyleProperty(this.container, "display", "flex", "important");
+        }
         if (this.currentCue && this.currentCue.text) {
           this.renderCue(this.currentCue);
         } else {
@@ -1244,6 +1231,7 @@
         setStyleProperty(this.container, "display", "flex", "important");
         setStyleProperty(this.container, "opacity", "1", "important");
         setStyleProperty(this.container, "visibility", "visible", "important");
+        setStyleProperty(this.container, "pointer-events", "auto", "important");
         this.container.setAttribute("data-active-cue", cue.text);
         this.updatePosition();
         this.syncNativeTextTrack(cue);
@@ -1257,6 +1245,7 @@
         setStyleProperty(this.container, "opacity", "0", "important");
         setStyleProperty(this.container, "visibility", "hidden", "important");
         setStyleProperty(this.container, "display", "none", "important");
+        setStyleProperty(this.container, "pointer-events", "none", "important");
         this.container.removeAttribute("data-active-cue");
         this.syncNativeTextTrack(null);
       }
@@ -1265,6 +1254,16 @@
     unmount() {
       this.isHoverLocked = false;
       this.pendingCue = undefined;
+      if (this._rafPositionId !== null) {
+        if (typeof cancelAnimationFrame === "function") {
+          cancelAnimationFrame(this._rafPositionId);
+        }
+        this._rafPositionId = null;
+      }
+      if (this._fsTimer !== null) {
+        clearTimeout(this._fsTimer);
+        this._fsTimer = null;
+      }
       if (this.isDragging) {
         this.isDragging = false;
         if (typeof window !== "undefined" && typeof window.removeEventListener === "function") {
@@ -1279,6 +1278,8 @@
         this.resizeObserver.disconnect();
         this.resizeObserver = null;
       }
+      window.removeEventListener("resize", this._boundScheduleUpdatePosition);
+      window.removeEventListener("scroll", this._boundScheduleUpdatePosition, { passive: true });
       window.removeEventListener("resize", this._boundUpdatePosition);
       window.removeEventListener("scroll", this._boundUpdatePosition, true);
       document.removeEventListener("fullscreenchange", this._boundFullscreenChange);
@@ -1318,6 +1319,12 @@
         this.video.removeEventListener("dragover", this._boundDragOver);
         this.video.removeEventListener("dragleave", this._boundDragLeave);
         this.video.removeEventListener("drop", this._boundDrop);
+        this.video.removeEventListener("resize", this._boundScheduleUpdatePosition);
+        this.video.removeEventListener("loadedmetadata", this._boundScheduleUpdatePosition);
+        this.video.removeEventListener("loadeddata", this._boundScheduleUpdatePosition);
+        this.video.removeEventListener("canplay", this._boundScheduleUpdatePosition);
+        this.video.removeEventListener("play", this._boundScheduleUpdatePosition);
+        this.video.removeEventListener("seeked", this._boundScheduleUpdatePosition);
         this.video.removeEventListener("resize", this._boundUpdatePosition);
         this.video.removeEventListener("loadedmetadata", this._boundUpdatePosition);
         this.video.removeEventListener("loadeddata", this._boundUpdatePosition);
@@ -1899,13 +1906,10 @@
   class VideoMiningPOC {
     constructor() {
       this.renderer = new SubtitleOverlayRenderer();
-      this.renderer.poc = this;
       this.syncEngine = new SubtitleSynchronizer([], (cue) => {
         this.renderer.renderCue(cue);
         this.broadcastActiveCue(cue);
       });
-      this.renderer.syncEngine = this.syncEngine;
-      this.renderer.timelineId = this.timelineId;
       this.detector = new VideoDetector((video) => {
         this.onVideoDetected(video);
       });
@@ -1914,17 +1918,7 @@
       this.subtitlesDisplayEnabled = true;
       this.ytAdapter = null;
       this.netflixAdapter = null;
-      this.timelineId = 1;
-      this._heartbeatIntervalId = null;
       this.recentCues = [];
-
-      this._boundOnPlay = () => this.sendSyncHeartbeat();
-      this._boundOnPause = () => this.sendSyncHeartbeat();
-      this._boundOnRateChange = () => this.sendSyncHeartbeat();
-      this._boundOnSeeking = () => this.onTimelineDiscontinuity("seeking");
-      this._boundOnSeeked = () => this.sendSyncHeartbeat();
-      this._boundOnLoadStart = () => this.onTimelineDiscontinuity("loadstart");
-      this._boundOnEmptied = () => this.onTimelineDiscontinuity("emptied");
 
       this.hotkeyController = new SubtitleHotkeyController({
         getVideo: () => this.activeVideo,
@@ -2109,57 +2103,6 @@
       }
     }
 
-    onTimelineDiscontinuity(reason = "unknown") {
-      this.timelineId++;
-      if (this.renderer) {
-        this.renderer.timelineId = this.timelineId;
-      }
-      this.sendSyncHeartbeat();
-    }
-
-    startHeartbeatTicker() {
-      this.stopHeartbeatTicker();
-      const setInt = typeof setInterval === "function"
-        ? setInterval
-        : (typeof window !== "undefined" && typeof window.setInterval === "function" ? window.setInterval : null);
-      if (setInt) {
-        this._heartbeatIntervalId = setInt(() => {
-          if (this.activeVideo && this.activeVideo.isConnected && !this.activeVideo.paused) {
-            this.sendSyncHeartbeat();
-          }
-        }, 200);
-      }
-    }
-
-    stopHeartbeatTicker() {
-      if (this._heartbeatIntervalId !== null) {
-        const clearInt = typeof clearInterval === "function"
-          ? clearInterval
-          : (typeof window !== "undefined" && typeof window.clearInterval === "function" ? window.clearInterval : null);
-        if (clearInt) {
-          clearInt(this._heartbeatIntervalId);
-        }
-        this._heartbeatIntervalId = null;
-      }
-    }
-
-    sendSyncHeartbeat() {
-      if (!this.activeVideo || !this.activeVideo.isConnected) return;
-      const payload = {
-        type: "AUDIO_SYNC_HEARTBEAT",
-        timelineId: this.timelineId,
-        videoTime: this.activeVideo.currentTime,
-        wallClock: typeof performance !== "undefined" && performance.now ? performance.now() : Date.now(),
-        playbackRate: this.activeVideo.playbackRate || 1.0,
-        paused: this.activeVideo.paused
-      };
-      try {
-        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-          chrome.runtime.sendMessage(payload).catch(() => {});
-        }
-      } catch (_) {}
-    }
-
     async captureCurrentFrame(options = {}) {
       if (!this.activeVideo || !this.activeVideo.isConnected) {
         return {
@@ -2197,7 +2140,7 @@
         ? options.targetTime
         : ((typeof options.timestamp === "number" && Number.isFinite(options.timestamp)) ? options.timestamp : null);
 
-      if (targetTime !== null && Math.abs(this.activeVideo.currentTime - targetTime) > 0.15) {
+      if (targetTime !== null && this.activeVideo.paused && Math.abs(this.activeVideo.currentTime - targetTime) > 0.15) {
         try {
           await new Promise((resolve) => {
             let settled = false;
@@ -2363,267 +2306,12 @@
       return cropResult;
     }
 
-    async recordSentenceAudio(cue = null, options = {}) {
-      if (!this.activeVideo || !this.activeVideo.isConnected) {
-        return {
-          ok: false,
-          error: "NO_ACTIVE_VIDEO",
-          message: "No active video element detected"
-        };
-      }
-
-      let targetCue = cue || this.syncEngine?.currentCue;
-      if (!targetCue && this.syncEngine && Array.isArray(this.syncEngine.cues) && this.syncEngine.cues.length > 0) {
-        targetCue = (typeof this.syncEngine.findCueAtTime === "function" ? this.syncEngine.findCueAtTime(this.activeVideo.currentTime) : null) || this.syncEngine.lastActiveCue || null;
-      }
-
-      // Fallback: if no cue at all and fallback slice is enabled, synthesize a 3-second slice preceding currentTime
-      if (!targetCue && (options.fallbackSlice || options.allowFallbackSlice)) {
-        const ct = this.activeVideo.currentTime || 0;
-        const sliceStart = Math.max(0, ct - 3.0);
-        const sliceEnd = ct;
-        targetCue = { startTime: sliceStart, endTime: sliceEnd, text: "" };
-      }
-
-      const rawStart = typeof targetCue?.start === "number"
-        ? targetCue.start
-        : (typeof targetCue?.startTime === "number" ? targetCue.startTime : null);
-      const rawEnd = typeof targetCue?.end === "number"
-        ? targetCue.end
-        : (typeof targetCue?.endTime === "number" ? targetCue.endTime : null);
-
-      if (!targetCue || rawStart === null || rawEnd === null) {
-        return {
-          ok: false,
-          error: "NO_ACTIVE_CUE",
-          message: "No subtitle cue available for audio capture"
-        };
-      }
-
-      const paddingStart = typeof options.audioPaddingStart === "number"
-        ? options.audioPaddingStart
-        : 0.15; // 150 ms
-      const paddingEnd = typeof options.audioPaddingEnd === "number"
-        ? options.audioPaddingEnd
-        : 0.20; // 200 ms
-      const offset = typeof options.offset === "number"
-        ? options.offset
-        : (this.syncEngine?.offset || 0.0);
-
-      // Send passive extraction request to background / offscreen sync engine
-      const sendMsg = options.sendMessage || (
-        typeof chrome !== "undefined" && chrome.runtime?.sendMessage
-          ? chrome.runtime.sendMessage.bind(chrome.runtime)
-          : null
-      );
-
-      if (!sendMsg) {
-        return {
-          ok: false,
-          error: "MESSAGING_UNAVAILABLE",
-          message: "chrome.runtime.sendMessage is not available"
-        };
-      }
-
-      const extractReq = {
-        type: "EXTRACT_SUBTITLE_AUDIO",
-        startTime: rawStart,
-        endTime: rawEnd,
-        timelineId: this.timelineId,
-        offset,
-        paddingStart,
-        paddingEnd,
-        cue: targetCue,
-        captureId: options.captureId || null,
-        preferredMimeType: "audio/wav"
-      };
-
-      let recResult;
-      try {
-        recResult = await sendMsg(extractReq);
-      } catch (err) {
-        recResult = {
-          ok: false,
-          error: "EXTRACTION_REQUEST_FAILED",
-          message: err?.message || "Audio extraction communication failed"
-        };
-      }
-
-      // If passive buffer extraction succeeded immediately
-      if (recResult?.ok && recResult.status === "READY") {
-        try {
-          if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-            chrome.runtime.sendMessage({
-              type: "AUDIO_CAPTURED",
-              dataUrl: recResult.dataUrl,
-              mimeType: recResult.mimeType || "audio/wav",
-              startTime: recResult.startTime,
-              endTime: recResult.endTime,
-              durationMs: recResult.durationMs,
-              cue: targetCue,
-              captureId: options.captureId || null
-            }).catch(() => {});
-          }
-        } catch (_) {}
-        return recResult;
-      }
-
-      // If passive extraction is pending natural playback completion
-      if (recResult?.ok && recResult.status === "PENDING") {
-        try {
-          if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-            chrome.runtime.sendMessage({
-              type: "AUDIO_CAPTURE_STATUS",
-              ok: true,
-              status: "PENDING",
-              pending: true,
-              message: "Audio capture queued (capturing on playback resume)",
-              captureId: options.captureId || null
-            }).catch(() => {});
-          }
-        } catch (_) {}
-        return recResult;
-      }
-
-      if (!recResult?.ok) {
-        try {
-          if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-            chrome.runtime.sendMessage({
-              type: "AUDIO_CAPTURE_STATUS",
-              ok: false,
-              error: recResult?.error || "AUDIO_NOT_CONNECTED",
-              message: recResult?.message || "Tab audio capture is not active. Click Kiroku icon or press Alt+Shift+K to connect.",
-              captureId: options.captureId || null
-            }).catch(() => {});
-          }
-        } catch (_) {}
-        return recResult;
-      }
-
-      return recResult;
-    }
-
-    /**
-     * Tier-2 fallback: Record audio directly from the video element's captureStream.
-     * Used when background tabCapture fails (gesture restriction, offscreen error, etc).
-     */
-    async _captureStreamFallback(durationMs, options = {}) {
-      try {
-        const video = this.activeVideo;
-        if (!video || !video.isConnected) {
-          return { ok: false, error: "NO_ACTIVE_VIDEO", message: "No video for captureStream fallback" };
-        }
-
-        // Get stream from video element
-        const captureStreamFn = video.captureStream || video.mozCaptureStream;
-        if (typeof captureStreamFn !== "function") {
-          return { ok: false, error: "CAPTURE_STREAM_UNSUPPORTED", message: "captureStream not supported on this video element" };
-        }
-
-        let stream;
-        try {
-          stream = captureStreamFn.call(video);
-        } catch (err) {
-          return { ok: false, error: "CAPTURE_STREAM_FAILED", message: err?.message || "Failed to get captureStream" };
-        }
-
-        if (!stream || !stream.getAudioTracks || stream.getAudioTracks().length === 0) {
-          return { ok: false, error: "NO_AUDIO_TRACKS", message: "No audio tracks in captured stream" };
-        }
-
-        // Create audio-only stream
-        const audioStream = new MediaStream(stream.getAudioTracks());
-
-        const mimeType = options.mimeType || "audio/webm;codecs=opus";
-        const supportedMime = typeof MediaRecorder !== "undefined" && typeof MediaRecorder.isTypeSupported === "function" && MediaRecorder.isTypeSupported(mimeType) ? mimeType : "audio/webm";
-
-        return new Promise((resolve) => {
-          const chunks = [];
-          let recorder;
-          try {
-            recorder = new MediaRecorder(audioStream, { mimeType: supportedMime });
-          } catch (err) {
-            resolve({ ok: false, error: "MEDIARECORDER_FAILED", message: err?.message || "Failed to create MediaRecorder" });
-            return;
-          }
-
-          recorder.ondataavailable = (e) => {
-            if (e.data && e.data.size > 0) {
-              chunks.push(e.data);
-            }
-          };
-
-          recorder.onstop = () => {
-            // Cleanup audio stream tracks
-            try {
-              audioStream.getTracks().forEach(t => t.stop());
-            } catch (_) {}
-
-            if (chunks.length === 0) {
-              resolve({ ok: false, error: "NO_AUDIO_DATA", message: "MediaRecorder produced no data" });
-              return;
-            }
-
-            const blob = new Blob(chunks, { type: supportedMime });
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              resolve({
-                ok: true,
-                dataUrl: reader.result,
-                mimeType: supportedMime,
-                source: "captureStream"
-              });
-            };
-            reader.onerror = () => {
-              resolve({ ok: false, error: "BLOB_READ_FAILED", message: "Failed to read recorded audio blob" });
-            };
-            reader.readAsDataURL(blob);
-          };
-
-          recorder.onerror = (e) => {
-            try {
-              audioStream.getTracks().forEach(t => t.stop());
-            } catch (_) {}
-            resolve({ ok: false, error: "RECORDING_ERROR", message: e?.error?.message || "MediaRecorder error" });
-          };
-
-          recorder.start();
-
-          // Stop after specified duration
-          const safeDuration = Math.max(100, Math.min(durationMs || 3000, 30000));
-          setTimeout(() => {
-            try {
-              if (recorder.state === "recording") {
-                recorder.stop();
-              }
-            } catch (_) {
-              try {
-                audioStream.getTracks().forEach(t => t.stop());
-              } catch (__) {}
-              resolve({ ok: false, error: "STOP_FAILED", message: "Failed to stop MediaRecorder" });
-            }
-          }, safeDuration);
-        });
-      } catch (err) {
-        return { ok: false, error: "CAPTURE_STREAM_EXCEPTION", message: err?.message || "captureStream fallback failed" };
-      }
-    }
-
     handleMessage(message, _sender, sendResponse) {
       if (message?.type === "TRIGGER_VIDEO_SCREENSHOT") {
         this.captureCurrentFrame(message.options).then(res => {
           sendResponse?.(res);
         }).catch(err => {
           sendResponse?.({ ok: false, error: err?.message || "SCREENSHOT_FAILED" });
-        });
-        return true;
-      }
-      if (message?.type === "TRIGGER_AUDIO_RECORDING") {
-        const audioOpts = Object.assign({ allowPausedPlayback: true, fallbackSlice: true, allowFallbackRecording: true }, message.options);
-        this.recordSentenceAudio(message.cue, audioOpts).then(res => {
-          sendResponse?.(res);
-        }).catch(err => {
-          sendResponse?.({ ok: false, error: err?.message || "AUDIO_RECORDING_FAILED" });
         });
         return true;
       }
@@ -2961,41 +2649,12 @@
     }
 
     onVideoDetected(video) {
-      if (this.activeVideo && this.activeVideo !== video) {
-        if (typeof this.activeVideo.removeEventListener === "function") {
-          this.activeVideo.removeEventListener("play", this._boundOnPlay);
-          this.activeVideo.removeEventListener("pause", this._boundOnPause);
-          this.activeVideo.removeEventListener("ratechange", this._boundOnRateChange);
-          this.activeVideo.removeEventListener("seeking", this._boundOnSeeking);
-          this.activeVideo.removeEventListener("seeked", this._boundOnSeeked);
-          this.activeVideo.removeEventListener("loadstart", this._boundOnLoadStart);
-          this.activeVideo.removeEventListener("emptied", this._boundOnEmptied);
-        }
-        this.stopHeartbeatTicker();
-      }
-
-      const isNewVideo = Boolean(video && video !== this.activeVideo);
       this.activeVideo = video;
       this.autoPauseController.attachVideo(video);
       if (this.netflixAdapter && typeof this.netflixAdapter.setVideo === "function") {
         this.netflixAdapter.setVideo(video);
       }
       if (video) {
-        if (isNewVideo) {
-          this.onTimelineDiscontinuity("video_element_changed");
-        }
-        if (typeof video.addEventListener === "function") {
-          video.addEventListener("play", this._boundOnPlay);
-          video.addEventListener("pause", this._boundOnPause);
-          video.addEventListener("ratechange", this._boundOnRateChange);
-          video.addEventListener("seeking", this._boundOnSeeking);
-          video.addEventListener("seeked", this._boundOnSeeked);
-          video.addEventListener("loadstart", this._boundOnLoadStart);
-          video.addEventListener("emptied", this._boundOnEmptied);
-        }
-        this.startHeartbeatTicker();
-        this.sendSyncHeartbeat();
-
         console.log("[AnkiMiner Video POC] Primary video detected:", video);
         try {
           const trackReport = inspectNativeTextTracks(video);
@@ -3006,7 +2665,6 @@
         this.syncEngine.attach(video);
       } else {
         console.log("[AnkiMiner Video POC] No active video present.");
-        this.stopHeartbeatTicker();
         this.autoPauseController.detachOverlay();
         this.autoPauseController.detachVideo();
         this.syncEngine.detach();
@@ -3015,17 +2673,6 @@
     }
 
     destroy() {
-      if (this.activeVideo && typeof this.activeVideo.removeEventListener === "function") {
-        this.activeVideo.removeEventListener("play", this._boundOnPlay);
-        this.activeVideo.removeEventListener("pause", this._boundOnPause);
-        this.activeVideo.removeEventListener("ratechange", this._boundOnRateChange);
-        this.activeVideo.removeEventListener("seeking", this._boundOnSeeking);
-        this.activeVideo.removeEventListener("seeked", this._boundOnSeeked);
-        this.activeVideo.removeEventListener("loadstart", this._boundOnLoadStart);
-        this.activeVideo.removeEventListener("emptied", this._boundOnEmptied);
-      }
-      this.stopHeartbeatTicker();
-
       if (this.hotkeyController) {
         this.hotkeyController.detach();
       }

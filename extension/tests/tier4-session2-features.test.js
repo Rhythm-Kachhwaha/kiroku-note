@@ -338,6 +338,6 @@ test("T4-C: Recent Cues Panel & Word Click-to-Mine", async () => {
   assert.ok(identifiedWords.length > 0, "Clicking word span must trigger identify()");
   assert.ok(exampleSentencesSet.length > 0, "Clicking word span must set example sentence from cue");
   assert.equal(exampleSentencesSet[0], "魔法をかける");
-  assert.deepEqual(miningSequence, ["seek", "identify"], "Player must seek before lookup/frame capture begins");
+  assert.deepEqual(miningSequence, ["identify"], "Mining a recent cue word must not interrupt active playback");
   assert.equal(identifiedOptions.targetTime, 12.2, "Frame capture must target 0.2s into the selected cue");
 });

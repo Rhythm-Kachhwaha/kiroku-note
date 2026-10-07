@@ -106,12 +106,6 @@ $RuntimeItems = @(
     "lib\jimaku-provider.js",
     "lib\wanakana.js",
     "lib\yomitan-reference-renderer.js",
-    "offscreen\audio-timeline-sync.js",
-    "offscreen\offscreen.html",
-    "offscreen\offscreen.js",
-    "offscreen\pcm-worklet-processor.js",
-    "offscreen\rolling-pcm-buffer.js",
-    "offscreen\wav-encoder.js",
     "sidepanel\sidepanel.css",
     "sidepanel\sidepanel.html",
     "sidepanel\sidepanel.js"

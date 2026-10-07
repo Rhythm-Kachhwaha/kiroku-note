@@ -1,5 +1,11 @@
 # Kiroku Note — Progress
 
+### Audio Capture Removal & Video Playback Stability (2026-10-07)
+- Removed the tab-audio capture pipeline, disabled message stubs, status/settings UI, offscreen recorder assets, package references, and capture-only extension tests.
+- Recent subtitle word mining no longer seeks active playback. Screenshot capture honors a requested cue time only while the video is paused; active playback is captured at its current frame without modifying `currentTime`.
+- Preserved optional card-level audio attachment/playback and backend persistence, which are separate from tab audio capture.
+- Verification: focused frame capture, Side Panel media, subtitle mining, and extension packaging checks passed; complete extension test suite passed with the compact dot reporter.
+
 ### Fullscreen Subtitle Drag Capture (2026-10-06)
 - The subtitle drag handle now captures the active pointer on pointerdown, keeping drag movement attached to the handle while repositioning in fullscreen.
 - Updated the movable-overlay regression test to simulate an actual fullscreen pointer drag and verify its position persists after exiting fullscreen.

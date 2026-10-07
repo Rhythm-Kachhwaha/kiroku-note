@@ -241,11 +241,12 @@ test("Recent Subtitle Mining: Words clicked pass cue timestamp to identify and r
   assert.equal(capturedScreenshotTime, 15.6, "retakeScreenshot must receive cue targetTime");
 });
 
-test("Video Mining POC: captureCurrentFrame seeks to targetTime when specified", async () => {
+test("Video Mining POC: captureCurrentFrame only seeks to targetTime while paused", async () => {
   const videoMiningPocPath = path.join(__dirname, "../content/video-mining-poc.js");
   const code = fs.readFileSync(videoMiningPocPath, "utf8");
 
   assert.ok(code.includes("options.targetTime"), "captureCurrentFrame must handle options.targetTime");
-  assert.ok(code.includes("this.activeVideo.currentTime = Math.max(0, targetTime);"), "video must seek to targetTime");
+  assert.ok(code.includes("this.activeVideo.paused && Math.abs(this.activeVideo.currentTime - targetTime) > 0.15"), "playing video must not be scrubbed for a screenshot");
+  assert.ok(code.includes("this.activeVideo.currentTime = Math.max(0, targetTime);"), "paused video may seek to targetTime");
   assert.ok(code.includes("video.addEventListener(\"seeked\""), "captureCurrentFrame must await seeked event");
 });
