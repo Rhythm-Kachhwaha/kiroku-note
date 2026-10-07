@@ -2434,4 +2434,17 @@ New major features should generally be deferred unless they are necessary for th
 - **Remaining Risk:** The action row has not been visually smoke-tested inside a packaged Chromium Side Panel.
 
 
+### Release Setup Rebuild (v2.0.0 Updated Code)
 
+- **Date:** 2026-10-06
+- **Status:** Complete
+- **Build Targets:**
+  - Standalone Backend Executable: `dist/backend/KirokuNote/KirokuNote.exe` (19.34 MB) rebuilt using PyInstaller with latest backend codebase.
+  - Extension Runtime Package: `dist/extension/unpacked` (29 runtime files) and `dist/extension/KirokuNote-extension-v2.0.0.zip` (221.58 KB) packaged with latest sidepanel and content scripts including `fullscreen-hook.js`.
+  - Windows Inno Setup Installer: `dist/installer/Kiroku-Note-Setup-v2.0.0.exe` (50.64 MB) compiled via Inno Setup 6.
+- **Verification:**
+  - PyInstaller build passed with exit code 0.
+  - Extension manifest and package audit passed (`node --test extension/tests/extension-packaging.test.js`).
+  - Backend test verification passed (`python -m pytest backend/tests/test_anki_formatter.py`).
+  - Inno Setup compiler exited cleanly with 0 errors.
+- **Scope Control:** Zero application source code modifications made.

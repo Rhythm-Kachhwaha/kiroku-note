@@ -93,6 +93,7 @@ $RuntimeItems = @(
     "icons\icon128.png",
     "content\capture-utils.js",
     "content\content.js",
+    "content\fullscreen-hook.js",
     "content\video-mining-poc.js",
     "content\ocr-selection.js",
     "content\adapters\netflix-adapter.js",
