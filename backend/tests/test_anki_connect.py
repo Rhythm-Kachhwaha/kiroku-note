@@ -1182,4 +1182,67 @@ class TestStage5MediaAndPreviewPresentationCompatibility:
         assert '<div class="kn-hint">Hint: irregular verb</div>' in fields_custom["Front"]
         assert '<div class="kn-hint">Hint: irregular verb</div>' not in fields_custom["Back"]
 
+    def test_note_matches_card_model_without_reading_field(self):
+        service = AnkiConnectService()
+        with patch.object(service, "_invoke") as mock_invoke:
+            mock_invoke.return_value = [
+                {
+                    "noteId": 1790674331880,
+                    "deckName": "N3 vocabs",
+                    "modelName": "japanese mining",
+                    "fields": {
+                        "Front": {"value": "取り替える"},
+                        "Back": {"value": "<div>to exchange</div>"},
+                        "word": {"value": "取り替える"},
+                    },
+                }
+            ]
+            matches = service.note_matches_card(
+                note_id=1790674331880,
+                expression="取り替える",
+                reading="とりかえる",
+                deck_name="N3 vocabs",
+            )
+            assert matches is True
+
+    def test_note_matches_card_deck_difference_still_validates_identity(self):
+        service = AnkiConnectService()
+        with patch.object(service, "_invoke") as mock_invoke:
+            mock_invoke.return_value = [
+                {
+                    "noteId": 1791306085736,
+                    "deckName": "N3 vocabs",
+                    "modelName": "Basic",
+                    "fields": {
+                        "Front": {"value": "喫茶店"},
+                        "Back": {"value": "coffee shop"},
+                    },
+                }
+            ]
+            matches = service.note_matches_card(
+                note_id=1791306085736,
+                expression="喫茶店",
+                reading="きっさてん",
+                deck_name="Default",
+            )
+            assert matches is True
+
+    def test_update_note_fields_invokes_action(self):
+        service = AnkiConnectService()
+        with patch.object(service, "_invoke", return_value=None) as mock_invoke:
+            service.update_note_fields(1791306085736, {"Front": "喫茶店", "Back": "cafe"})
+            mock_invoke.assert_called_once_with(
+                "updateNoteFields",
+                note={"id": 1791306085736, "fields": {"Front": "喫茶店", "Back": "cafe"}},
+            )
+
+    def test_invoke_passes_origin_header(self):
+        service = AnkiConnectService()
+        with patch("urllib.request.urlopen") as mock_open:
+            mock_open.return_value.__enter__.return_value = _make_mock_response(json_data={"result": 6, "error": None})
+            service.get_version()
+            assert mock_open.called
+            req = mock_open.call_args[0][0]
+            assert req.headers.get("Origin") == "http://localhost"
+
 

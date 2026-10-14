@@ -278,10 +278,10 @@ def get_anki_model_capabilities(model_name: str | None = None) -> AnkiModelCapab
 
 
 @app.post("/api/cards/{card_id}/sync", response_model=SyncCardResponse)
-def sync_card(card_id: int) -> SyncCardResponse:
+def sync_card(card_id: int, force: bool = False) -> SyncCardResponse:
     service = CardService()
     try:
-        return service.sync_card(card_id)
+        return service.sync_card(card_id, force=force)
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 

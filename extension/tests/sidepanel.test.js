@@ -147,8 +147,8 @@ assert.equal(mockBtn.textContent, "Sending…");
 assert.equal(mockStatus.className, "sync-status-label syncing");
 
 updateSyncUI("synced");
-assert.equal(mockBtn.disabled, true);
-assert.equal(mockBtn.textContent, "Sent to Anki");
+assert.equal(mockBtn.disabled, false);
+assert.equal(mockBtn.textContent, "Resync to Anki");
 assert.equal(mockStatus.className, "sync-status-label synced");
 
 updateSyncUI("failed", "Timeout");

@@ -3865,6 +3865,16 @@ rt {
   border-color: var(--border-focus);
 }
 
+.btn-history-retry.btn-history-resync {
+  background: var(--accent-success-dim, rgba(126, 178, 126, 0.15));
+  border: 1px solid var(--accent-success-border, rgba(126, 178, 126, 0.35));
+  color: var(--accent-success, #7eb27e);
+}
+
+.btn-history-retry.btn-history-resync:hover {
+  background: rgba(126, 178, 126, 0.25);
+}
+
 .btn-history-delete {
   background: transparent;
   border: 1px solid transparent;

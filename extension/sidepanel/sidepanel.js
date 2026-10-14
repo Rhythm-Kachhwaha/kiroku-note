@@ -1152,8 +1152,8 @@ function updateSyncUI(state, error = "") {
       if (typeof setIndicatorStatus === "function") setIndicatorStatus(indicatorAnki, "checking", "Anki: Syncing…");
       break;
     case "synced":
-      syncAnkiBtn.disabled = true;
-      syncAnkiBtn.textContent = "Sent to Anki";
+      syncAnkiBtn.disabled = false;
+      syncAnkiBtn.textContent = "Resync to Anki";
       ankiSyncStatus.textContent = "Anki: Synced";
       ankiSyncStatus.className = "sync-status-label synced";
       if (typeof setIndicatorStatus === "function") setIndicatorStatus(indicatorAnki, "connected", "Anki: Connected");
@@ -1273,6 +1273,14 @@ async function loadDecks() {
         }
       } catch (_) {}
 
+      if (lastDeck && !decks.includes(lastDeck)) {
+        decks.push(lastDeck);
+        const opt = document.createElement("option");
+        opt.value = lastDeck;
+        opt.textContent = lastDeck;
+        fieldDeckSelect.append(opt);
+      }
+
       // Prioritize stored lastDeck if present in decks, otherwise currentSelected if present, then Default or first deck
       let targetDeck = "";
       if (lastDeck && decks.includes(lastDeck)) {
@@ -1321,6 +1329,14 @@ async function loadModels() {
           preferredModel = localStorage.getItem("preferred_anki_model");
         }
       } catch (_) {}
+
+      if (preferredModel && !models.includes(preferredModel)) {
+        models.push(preferredModel);
+        const opt = document.createElement("option");
+        opt.value = preferredModel;
+        opt.textContent = preferredModel;
+        fieldModelSelect.append(opt);
+      }
 
       // Prioritize stored preferredModel if present in models, otherwise currentSelected if present, then Basic or first model
       let targetModel = "";
@@ -5186,7 +5202,7 @@ async function triggerAnkiSync() {
       updateDestinationIndicator();
     }
 
-    const response = await fetch(API_CARD_SYNC_URL(cardId), {
+    const response = await fetch(`${API_CARD_SYNC_URL(cardId)}?force=true`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
     });
@@ -6319,9 +6335,21 @@ function renderHistoryCards(cards) {
       retryBtn.setAttribute("aria-label", `Retry syncing ${card.expression} to Anki`);
       retryBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        retrySyncFromHistory(card.id);
+        retrySyncFromHistory(card.id, false);
       });
       actions.append(retryBtn);
+    } else if (card.sync_status === "synced") {
+      const resyncBtn = document.createElement("button");
+      resyncBtn.type = "button";
+      resyncBtn.className = "btn-history-retry btn-history-resync";
+      resyncBtn.textContent = "Resync";
+      resyncBtn.title = "Resync card to Anki (re-send fields and media)";
+      resyncBtn.setAttribute("aria-label", `Resync ${card.expression} to Anki`);
+      resyncBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        retrySyncFromHistory(card.id, true);
+      });
+      actions.append(resyncBtn);
     }
 
     const delBtn = document.createElement("button");
@@ -6625,16 +6653,17 @@ async function deleteLocalCard(cardId, cardExpr, delBtn) {
   setStatus(`"${cardExpr}" deleted (Undo available for 5s)`);
 }
 
-async function retrySyncFromHistory(cardId) {
+async function retrySyncFromHistory(cardId, force = false) {
   try {
-    setStatus("Retrying Anki sync…");
-    const res = await fetch(API_CARD_SYNC_URL(cardId), { method: "POST", headers: { "Content-Type": "application/json" } });
+    setStatus(force ? "Resyncing card to Anki…" : "Retrying Anki sync…");
+    const syncUrl = force ? `${API_CARD_SYNC_URL(cardId)}?force=true` : API_CARD_SYNC_URL(cardId);
+    const res = await fetch(syncUrl, { method: "POST", headers: { "Content-Type": "application/json" } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.sync_status === "failed") {
       const errMsg = data.error || data.detail || "Sync failed";
-      setStatus(`Anki sync retry failed: ${errMsg}`, true);
+      setStatus(`Anki sync ${force ? "resync" : "retry"} failed: ${errMsg}`, true);
     } else {
-      setStatus("Card synchronized to Anki.");
+      setStatus(force ? "Card resynchronized to Anki." : "Card synchronized to Anki.");
     }
     await loadHistory();
     if (fieldCardId && fieldCardId.value === String(cardId)) {
@@ -6645,7 +6674,7 @@ async function retrySyncFromHistory(cardId) {
       }
     }
   } catch (err) {
-    setStatus(`Retry failed: ${formatErrorMessage(err)}`, true);
+    setStatus(`Sync failed: ${formatErrorMessage(err)}`, true);
   }
 }
 

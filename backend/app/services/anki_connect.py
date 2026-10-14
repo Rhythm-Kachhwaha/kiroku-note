@@ -97,7 +97,10 @@ class AnkiConnectService:
         req = urllib.request.Request(
             self.endpoint_url,
             data=data,
-            headers={"Content-Type": "application/json; charset=utf-8"},
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "Origin": "http://localhost",
+            },
             method="POST",
         )
 
@@ -285,6 +288,8 @@ class AnkiConnectService:
         """Check whether a stored Anki note still matches the local card identity."""
         try:
             note_infos = self._invoke("notesInfo", notes=[int(note_id)])
+        except AnkiConnectionError:
+            raise
         except Exception:
             return False
         if not isinstance(note_infos, list) or not note_infos:
@@ -294,10 +299,9 @@ class AnkiConnectService:
         if not isinstance(note, dict):
             return False
 
-        if deck_name:
-            note_deck = note.get("deckName")
-            if note_deck and normalize_deck(str(note_deck)) != normalize_deck(str(deck_name)):
-                return False
+        # We intentionally do not reject solely on deck mismatch:
+        # A note ID in Anki is a unique primary key. If a user moved the card in Anki
+        # or local card was assigned 'Default', the note identity still matches.
 
         fields = note.get("fields", {})
         found_expr = ""
@@ -330,9 +334,27 @@ class AnkiConnectService:
             if not effective_read:
                 brackets = re.findall(r"\[([^\]]+)\]", found_expr)
                 effective_read = "".join(brackets).strip()
-            return normalize_reading(effective_read) == norm_target_read
+            if effective_read:
+                return normalize_reading(effective_read) == norm_target_read
 
         return True
+
+    def get_note_deck(self, note_id: int) -> str | None:
+        """Retrieve the deck name of an existing note by ID."""
+        try:
+            note_infos = self._invoke("notesInfo", notes=[int(note_id)])
+            if isinstance(note_infos, list) and note_infos and isinstance(note_infos[0], dict):
+                deck = note_infos[0].get("deckName")
+                return str(deck) if deck else None
+        except Exception:
+            return None
+        return None
+
+    def update_note_fields(self, note_id: int, fields: dict[str, str]) -> None:
+        """Update fields on an existing note via AnkiConnect updateNoteFields."""
+        if not fields:
+            return
+        self._invoke("updateNoteFields", note={"id": int(note_id), "fields": fields})
 
     def _model_supports_card(self, field_names: list[str]) -> bool:
         """Check if model fields contain at least one prompt field and one answer field."""

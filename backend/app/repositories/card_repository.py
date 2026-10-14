@@ -283,6 +283,47 @@ class CardRepository:
     def __init__(self, db_path: Path | str | None = None):
         self._db_path = db_path
         init_db(self._db_path)
+        self.heal_validation_failed_cards()
+
+    def heal_validation_failed_cards(self) -> int:
+        """
+        Self-healing migration:
+        Restore cards that were erroneously flipped to 'failed' due to stale
+        or overly strict Anki note validation when they still have a valid anki_note_id.
+        """
+        with db_session(self._db_path) as conn:
+            cursor = conn.execute(
+                """
+                UPDATE cards SET
+                    sync_status = 'synced',
+                    sync_error = ''
+                WHERE sync_status = 'failed'
+                  AND sync_error = 'Existing Anki note validation failed; retrying sync.'
+                  AND anki_note_id IS NOT NULL;
+                """
+            )
+            conn.commit()
+            return cursor.rowcount
+
+    def update_card_deck(self, card_id: int, deck_name: str) -> CardRecord | None:
+        """Update the deck name for a single card."""
+        if not isinstance(deck_name, str) or not deck_name.strip():
+            return self.get_by_id(card_id)
+        norm_deck = normalize_deck(deck_name)
+        now_utc = datetime.now(timezone.utc).isoformat()
+        with db_session(self._db_path) as conn:
+            conn.execute(
+                """
+                UPDATE cards SET
+                    deck_name = ?,
+                    normalized_deck_name = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (deck_name.strip(), norm_deck, now_utc, card_id),
+            )
+            conn.commit()
+        return self.get_by_id(card_id)
 
     def find_by_identity(self, expression: str, reading: str, deck_name: str | None = None) -> CardRecord | None:
         """Find a card by its normalized duplicate identity."""

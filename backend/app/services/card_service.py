@@ -28,7 +28,7 @@ from app.schemas import (
     SyncCardResponse,
     VerbMetadataSchema,
 )
-from app.services.anki_connect import AnkiConnectService, AnkiError
+from app.services.anki_connect import AnkiConnectService, AnkiConnectionError, AnkiError
 from app.services.media_storage import MediaStorageService
 from app.services.yomitan import YomitanError, YomitanService
 
@@ -406,21 +406,105 @@ class CardService:
             updated_at=card_record.updated_at,
         )
 
-    def sync_card(self, card_id: int) -> SyncCardResponse:
+    def _sync_card_media(self, card: CardRecord) -> tuple[str, str]:
+        """Upload image and audio files to Anki collection if present."""
+        storage = MediaStorageService()
+        clean_image_file = ""
+        if card.image:
+            clean_img = os.path.basename(re.sub(r'<img\s+[^>]*src=["\']([^"\']+)["\']', r'\1', card.image, flags=re.IGNORECASE).strip())
+            img_bytes = storage.get_media_bytes(clean_img)
+            if not img_bytes and card.image.startswith("data:image/"):
+                try:
+                    clean_img = storage.save_media(card.image, media_type="image")
+                    img_bytes = storage.get_media_bytes(clean_img)
+                except Exception as err:
+                    logger.warning("Failed to save raw data URL image: %s", err)
+            if img_bytes:
+                clean_image_file = clean_img
+                try:
+                    self.anki.store_media_file(filename=clean_img, data_bytes=img_bytes)
+                except Exception as err:
+                    logger.warning("Failed to store image in Anki: %s", err)
+            elif clean_img:
+                clean_image_file = clean_img
+
+        clean_audio_file = ""
+        if card.audio:
+            clean_aud = os.path.basename(re.sub(r'\[sound:([^\]]+)\]', r'\1', card.audio, flags=re.IGNORECASE).strip())
+            aud_bytes = storage.get_media_bytes(clean_aud)
+            if not aud_bytes and card.audio.startswith("data:audio/"):
+                try:
+                    clean_aud = storage.save_media(card.audio, media_type="audio")
+                    aud_bytes = storage.get_media_bytes(clean_aud)
+                except Exception as err:
+                    logger.warning("Failed to save raw data URL audio: %s", err)
+            if aud_bytes:
+                clean_audio_file = clean_aud
+                try:
+                    self.anki.store_media_file(filename=clean_aud, data_bytes=aud_bytes)
+                except Exception as err:
+                    logger.warning("Failed to store audio in Anki: %s", err)
+            elif clean_aud:
+                clean_audio_file = clean_aud
+
+        return clean_image_file, clean_audio_file
+
+    def _build_card_data(self, card: CardRecord, clean_image_file: str = "", clean_audio_file: str = "") -> dict[str, Any]:
+        """Build dictionary for note fields formatting."""
+        card_jlpt = None
+        if card.entries:
+            for entry in card.entries:
+                e_tags = entry.get("tags") if isinstance(entry, dict) else getattr(entry, "tags", [])
+                for tag in e_tags or []:
+                    t = str(tag).strip()
+                    if m := re.match(r"^jlpt-n([1-5])$", t, re.IGNORECASE):
+                        card_jlpt = f"N{m.group(1)}"
+                        break
+                    if m := re.match(r"^n([1-5])$", t, re.IGNORECASE):
+                        card_jlpt = f"N{m.group(1)}"
+                        break
+                if card_jlpt:
+                    break
+        if not card_jlpt and card.expression:
+            try:
+                from app.services.jlpt_reference import JlptReferenceService
+                card_jlpt = JlptReferenceService().lookup_word(card.expression)
+            except Exception:
+                pass
+
+        return {
+            "expression": card.expression,
+            "reading": card.reading,
+            "meaning": card.meaning,
+            "hint": card.hint,
+            "example_sentence": card.example_sentence,
+            "example_translation": card.example_translation,
+            "image": clean_image_file or card.image,
+            "audio": clean_audio_file or card.audio,
+            "tags": card.tags,
+            "notes": card.notes,
+            "entries": card.entries,
+            "examples": card.examples,
+            "kanji_entries": card.kanji_entries,
+            "card_settings": card.card_settings,
+            "jlpt_level": card_jlpt,
+        }
+
+    def sync_card(self, card_id: int, force: bool = False) -> SyncCardResponse:
         """
         Synchronize one locally saved card to AnkiConnect.
         Invariants:
         - SQLite remains authoritative; local card is never deleted or rolled back on failure.
-        - Check Anki duplicate identity before note creation.
-        - Link existing Anki note ID if found.
-        - Safe retry without creating duplicates.
+        - Check Anki connectivity before changing status; offline Anki never corrupts synced cards.
+        - Safe retry/resync: if force=True and note exists, updates note fields and media without duplicates.
+        - Syncs deck name if note resides in a different deck in Anki (prevents duplicate to Default).
         """
         card = self.repository.get_by_id(card_id)
         if not card:
             raise ValueError(f"Card with ID {card_id} does not exist.")
 
-        # If already marked synced and has anki_note_id, re-validate the external note before trusting it.
-        if card.sync_status == "synced" and card.anki_note_id:
+        # Handle already-synced note verification and force re-sync
+        if (card.sync_status == "synced" or force) and card.anki_note_id:
             note_matches = False
             try:
                 note_matches = self.anki.note_matches_card(
@@ -429,34 +513,120 @@ class CardService:
                     reading=card.reading,
                     deck_name=card.deck_name,
                 )
-            except Exception as err:
-                logger.warning("Could not revalidate synced note %s for card %s: %s", card.anki_note_id, card.id, err)
-
-            if note_matches:
+            except AnkiConnectionError as err:
+                logger.warning("Could not reach Anki to revalidate note %s for card %s: %s", card.anki_note_id, card.id, err)
+                if card.sync_status == "synced" and not force:
+                    # Offline Anki: preserve existing synced status without corrupting DB
+                    return SyncCardResponse(
+                        id=card.id,
+                        sync_status="synced",
+                        anki_note_id=card.anki_note_id,
+                        deck_name=card.deck_name,
+                        model_name=card.model_name or None,
+                        synced_at=card.synced_at,
+                        expression=card.expression,
+                        error=f"Cannot connect to AnkiConnect: {err}",
+                    )
+                self.repository.mark_failed(card_id, f"Cannot connect to AnkiConnect: {err}")
                 return SyncCardResponse(
                     id=card.id,
-                    sync_status="synced",
+                    sync_status="failed",
                     anki_note_id=card.anki_note_id,
                     deck_name=card.deck_name,
                     model_name=card.model_name or None,
+                    error=f"Cannot connect to AnkiConnect: {err}",
                     synced_at=card.synced_at,
+                    expression=card.expression,
                 )
+            except Exception as err:
+                logger.warning("Could not validate note %s for card %s: %s", card.anki_note_id, card.id, err)
+                note_matches = False
 
-            # A stale or orphaned note cannot be trusted; proceed with normal re-sync logic.
-            self.repository.mark_failed(card_id, "Existing Anki note validation failed; retrying sync.")
+            if note_matches:
+                try:
+                    anki_deck = self.anki.get_note_deck(card.anki_note_id)
+                    if isinstance(anki_deck, str) and anki_deck.strip() and anki_deck.strip() != card.deck_name:
+                        self.repository.update_card_deck(card.id, anki_deck.strip())
+                        card = self.repository.get_by_id(card_id) or card
+                except Exception as deck_err:
+                    logger.debug("Could not verify note deck in Anki: %s", deck_err)
+
+                if not force and card.sync_status == "synced":
+                    return SyncCardResponse(
+                        id=card.id,
+                        sync_status="synced",
+                        anki_note_id=card.anki_note_id,
+                        deck_name=card.deck_name,
+                        model_name=card.model_name or None,
+                        synced_at=card.synced_at,
+                        expression=card.expression,
+                    )
+
+                # Force re-sync or re-synchronizing validated existing note:
+                # Update fields and media in Anki
+                try:
+                    clean_image_file, clean_audio_file = self._sync_card_media(card)
+                    card_data = self._build_card_data(card, clean_image_file, clean_audio_file)
+                    note_infos = self.anki._invoke("notesInfo", notes=[int(card.anki_note_id)])
+                    existing_model = note_infos[0].get("modelName") if note_infos and isinstance(note_infos, list) and isinstance(note_infos[0], dict) else None
+                    explicit_model = card.model_name.strip() if card.model_name and card.model_name.strip() else existing_model
+                    model_name, model_fields = self.anki.resolve_note_model(explicit_model)
+                    mapped_fields = self.anki.map_card_to_fields(card_data, model_fields)
+                    self.anki.update_note_fields(card.anki_note_id, mapped_fields)
+                    updated = self.repository.mark_synced(card_id, card.anki_note_id)
+                    return SyncCardResponse(
+                        id=card.id,
+                        sync_status="synced",
+                        anki_note_id=card.anki_note_id,
+                        deck_name=card.deck_name,
+                        model_name=model_name,
+                        synced_at=updated.synced_at if updated else None,
+                        expression=card.expression,
+                    )
+                except Exception as err:
+                    logger.warning("Failed updating note fields for %s: %s", card.id, err)
+            elif card.sync_status == "synced":
+                self.repository.mark_failed(card_id, "Existing Anki note validation failed; retrying sync.")
 
         # Transition to syncing in SQLite
         self.repository.mark_syncing(card_id)
 
         try:
-            # 1. Duplicate check in Anki (by expression + reading in target deck)
+            # 1. Duplicate check in Anki: first in target deck, then in any deck
             existing_note_id = self.anki.find_existing_note(
                 deck_name=card.deck_name,
                 expression=card.expression,
                 reading=card.reading,
             )
+            if existing_note_id is None and card.deck_name:
+                existing_note_id = self.anki.find_existing_note(
+                    deck_name="",
+                    expression=card.expression,
+                    reading=card.reading,
+                )
 
             if existing_note_id is not None:
+                try:
+                    found_deck = self.anki.get_note_deck(existing_note_id)
+                    if isinstance(found_deck, str) and found_deck.strip() and found_deck.strip() != card.deck_name:
+                        self.repository.update_card_deck(card.id, found_deck.strip())
+                        card = self.repository.get_by_id(card_id) or card
+                except Exception as deck_err:
+                    logger.debug("Could not verify note deck in Anki: %s", deck_err)
+
+                if force:
+                    try:
+                        clean_image_file, clean_audio_file = self._sync_card_media(card)
+                        card_data = self._build_card_data(card, clean_image_file, clean_audio_file)
+                        note_infos = self.anki._invoke("notesInfo", notes=[int(existing_note_id)])
+                        existing_model = note_infos[0].get("modelName") if note_infos and isinstance(note_infos, list) and isinstance(note_infos[0], dict) else None
+                        explicit_model = card.model_name.strip() if card.model_name and card.model_name.strip() else existing_model
+                        model_name, model_fields = self.anki.resolve_note_model(explicit_model)
+                        mapped_fields = self.anki.map_card_to_fields(card_data, model_fields)
+                        self.anki.update_note_fields(existing_note_id, mapped_fields)
+                    except Exception as err:
+                        logger.warning("Failed updating fields for existing note %s: %s", existing_note_id, err)
+
                 updated = self.repository.mark_synced(card_id, existing_note_id)
                 return SyncCardResponse(
                     id=card.id,
@@ -465,89 +635,15 @@ class CardService:
                     deck_name=card.deck_name,
                     model_name=card.model_name or None,
                     synced_at=updated.synced_at if updated else None,
+                    expression=card.expression,
                 )
 
             # 2. Upload media files to Anki collection if present
-            storage = MediaStorageService()
-            clean_image_file = ""
-            if card.image:
-                clean_img = os.path.basename(re.sub(r'<img\s+[^>]*src=["\']([^"\']+)["\']', r'\1', card.image, flags=re.IGNORECASE).strip())
-                img_bytes = storage.get_media_bytes(clean_img)
-                if not img_bytes and card.image.startswith("data:image/"):
-                    try:
-                        clean_img = storage.save_media(card.image, media_type="image")
-                        img_bytes = storage.get_media_bytes(clean_img)
-                    except Exception as err:
-                        logger.warning("Failed to save raw data URL image: %s", err)
-                if img_bytes:
-                    clean_image_file = clean_img
-                    try:
-                        self.anki.store_media_file(filename=clean_img, data_bytes=img_bytes)
-                    except Exception as err:
-                        logger.warning("Failed to store image in Anki: %s", err)
-                elif clean_img:
-                    clean_image_file = clean_img
-
-            clean_audio_file = ""
-            if card.audio:
-                clean_aud = os.path.basename(re.sub(r'\[sound:([^\]]+)\]', r'\1', card.audio, flags=re.IGNORECASE).strip())
-                aud_bytes = storage.get_media_bytes(clean_aud)
-                if not aud_bytes and card.audio.startswith("data:audio/"):
-                    try:
-                        clean_aud = storage.save_media(card.audio, media_type="audio")
-                        aud_bytes = storage.get_media_bytes(clean_aud)
-                    except Exception as err:
-                        logger.warning("Failed to save raw data URL audio: %s", err)
-                if aud_bytes:
-                    clean_audio_file = clean_aud
-                    try:
-                        self.anki.store_media_file(filename=clean_aud, data_bytes=aud_bytes)
-                    except Exception as err:
-                        logger.warning("Failed to store audio in Anki: %s", err)
-                elif clean_aud:
-                    clean_audio_file = clean_aud
+            clean_image_file, clean_audio_file = self._sync_card_media(card)
 
             # 3. Add note to Anki
-            card_jlpt = None
-            if card.entries:
-                for entry in card.entries:
-                    e_tags = entry.get("tags") if isinstance(entry, dict) else getattr(entry, "tags", [])
-                    for tag in e_tags or []:
-                        t = str(tag).strip()
-                        if m := re.match(r"^jlpt-n([1-5])$", t, re.IGNORECASE):
-                            card_jlpt = f"N{m.group(1)}"
-                            break
-                        if m := re.match(r"^n([1-5])$", t, re.IGNORECASE):
-                            card_jlpt = f"N{m.group(1)}"
-                            break
-                    if card_jlpt:
-                        break
-            if not card_jlpt and card.expression:
-                try:
-                    from app.services.jlpt_reference import JlptReferenceService
-                    card_jlpt = JlptReferenceService().lookup_word(card.expression)
-                except Exception:
-                    pass
-
-            card_data = {
-                "expression": card.expression,
-                "reading": card.reading,
-                "meaning": card.meaning,
-                "hint": card.hint,
-                "example_sentence": card.example_sentence,
-                "example_translation": card.example_translation,
-                "image": clean_image_file or card.image,
-                "audio": clean_audio_file or card.audio,
-                "tags": card.tags,
-                "notes": card.notes,
-                "entries": card.entries,
-                "examples": card.examples,
-                "kanji_entries": card.kanji_entries,
-                "card_settings": card.card_settings,
-                "jlpt_level": card_jlpt,
-            }
+            card_data = self._build_card_data(card, clean_image_file, clean_audio_file)
             tags_list = [t.strip() for t in card.tags.split(",") if t.strip()] if card.tags else []
-
             explicit_model = card.model_name.strip() if card.model_name and card.model_name.strip() else None
 
             new_note_id = self.anki.add_note(
@@ -616,6 +712,9 @@ class CardService:
                     reading=card.reading,
                     deck_name=card.deck_name,
                 )
+            except AnkiConnectionError as err:
+                logger.warning("Could not reach Anki to revalidate synced note %s: %s", card.anki_note_id, err)
+                continue
             except Exception as err:
                 logger.warning("Could not revalidate synced note %s for card %s: %s", card.anki_note_id, card.id, err)
                 note_matches = False
@@ -681,14 +780,22 @@ class CardService:
             return AnkiStatusResponse(connected=False, error=str(error), endpoint_url=endpoint_url)
 
     def get_anki_decks(self) -> AnkiDecksResponse:
-        """Retrieve deck list from AnkiConnect or fallback to ['Default']."""
+        """Retrieve deck list from AnkiConnect unioned with saved decks, or fallback."""
+        saved_decks = self.repository.get_saved_decks()
         try:
-            decks = self.anki.list_decks()
-            if "Default" not in decks:
-                decks = ["Default"] + decks
-            return AnkiDecksResponse(decks=decks, connected=True)
+            anki_decks = self.anki.list_decks()
+            all_decks = list(anki_decks)
+            for d in saved_decks:
+                if d not in all_decks:
+                    all_decks.append(d)
+            if "Default" not in all_decks:
+                all_decks = ["Default"] + all_decks
+            return AnkiDecksResponse(decks=all_decks, connected=True)
         except Exception:
-            return AnkiDecksResponse(decks=["Default"], connected=False)
+            fallback = list(saved_decks)
+            if "Default" not in fallback:
+                fallback = ["Default"] + fallback
+            return AnkiDecksResponse(decks=fallback, connected=False)
 
     def get_anki_models(self) -> AnkiModelsResponse:
         """Retrieve model/note-type list from AnkiConnect or fallback to ['Basic']."""

@@ -1,5 +1,134 @@
 # Kiroku Note — Progress
 
+### AnkiConnect CORS Policy Support, Validation Resilience, Card Resync & Release v2.0.0 Packaging (2026-10-14)
+
+**Objective**: Resolve AnkiConnect CORS connection failures (`webCorsOriginList: ["http://localhost"]`), fix note validation and false sync failures, prevent cards from falling back to `Default` deck, allow explicit user resync for already-synced cards in both card editor and mining history, automatically heal corrupted history statistics in SQLite, and build updated distribution binaries.
+
+**Root Causes Diagnosed**:
+1. **AnkiConnect CORS Policy Rejection**: AnkiConnect 2024+ defaults `webCorsOriginList` to `["http://localhost"]` and enforces explicit `Origin` headers on HTTP POST invocations from loopback processes, rejecting requests lacking `Origin`.
+2. **False Negative Note Validation**: `note_matches_card` previously rejected existing notes if the deck did not match exactly, or if the user's note model in Anki did not possess a Furigana/Reading field. Moreover, any connection error was treated as `False` instead of propagating, causing background `sync_all` to mark valid cards as `failed`.
+3. **Deck Retention / Fallback to Default**: When Anki was briefly offline, `get_anki_decks()` fell back to `["Default"]`, causing `loadDecks()` in the extension to drop the user's selected deck (`N3 vocabs`) and save `last_used_deck: "Default"`.
+4. **No Resync Option**: Once marked `synced`, cards had disabled sync buttons and could not be updated or re-synced to Anki.
+5. **Mining History Misreporting**: Over 500 cards in the user database were falsely marked as `failed` with `"Existing Anki note validation failed; retrying sync."` because of the above issues.
+
+**Changes Implemented**:
+- `backend/app/services/anki_connect.py`:
+  - Added default header `Origin: http://localhost` to all `_invoke()` POST calls for full AnkiConnect 2024+ CORS compatibility.
+  - Updated `note_matches_card()`: removed strict deck rejection; handles note models lacking separate reading fields; re-raises `AnkiConnectionError` on network errors instead of returning `False`.
+  - Added `get_note_deck(note_id: int) -> str | None` and `update_note_fields(note_id: int, fields: dict[str, str]) -> None`.
+- `backend/app/repositories/card_repository.py`:
+  - Added `heal_validation_failed_cards()` migration called automatically on DB startup to restore falsely failed cards with intact `anki_note_id` back to `synced`.
+  - Added `update_card_deck(card_id: int, deck_name: str) -> CardRecord | None` to sync SQLite card deck when notes are stored or moved in Anki.
+- `backend/app/services/card_service.py`:
+  - Added `force: bool = False` support to `sync_card(card_id, force)`: allows re-syncing already-synced cards to update fields and media in Anki.
+  - If a note is found in a different deck in Anki, updates SQLite card `deck_name` to prevent duplicate creation to Default.
+  - In `get_anki_decks()`, unions saved decks from SQLite with AnkiConnect decks so user decks like `N3 vocabs` are never lost when Anki is offline.
+  - In `sync_all()`, catches `AnkiConnectionError` so offline/transient drops never corrupt synced cards.
+- `backend/app/main.py`:
+  - Updated `POST /api/cards/{card_id}/sync` to accept query parameter `force: bool = False`.
+- `extension/sidepanel/sidepanel.js` & `sidepanel.css`:
+  - `updateSyncUI("synced")`: keeps sync button enabled with label `"Resync to Anki"`.
+  - `triggerAnkiSync()`: passes `?force=true` to force sync fields and media.
+  - `renderHistoryCards()`: adds `.btn-history-retry.btn-history-resync` ("Resync") button for synced cards to allow one-click resync from History.
+  - `retrySyncFromHistory(cardId, force = false)`: handles `force` resync with status notifications.
+  - `loadDecks()` & `loadModels()`: preserves stored `last_used_deck` and `preferred_anki_model` in select dropdown even if offline.
+- `release/`:
+  - Rebuilt Chrome MV3 extension package: `dist/extension/KirokuNote-extension-v2.0.0.zip` (200.28 KB).
+  - Staged unpacked extension: `dist/extension/unpacked/` (23 runtime files).
+  - Rebuilt standalone backend: `dist/backend/KirokuNote/KirokuNote.exe` (19.35 MB).
+  - Rebuilt Windows Setup installer: `dist/installer/Kiroku-Note-Setup-v2.0.0.exe` (50.63 MB).
+
+**Verification**:
+- `pytest tests/`: **530 passed, 0 failed** in 45.95s.
+- `node --test extension/tests/*.test.js`: **192 passed, 0 failed** in 16.96s.
+- Verified live user database `kiroku.db`: 612 cards restored to `synced`, 0 failed, 560 in `N3 vocabs`.
+- `mcp_anki_test/` strictly untouched.
+
+---
+
+### ChatGPT MCP Destination Deck Configuration & Cloud Run + Supabase Deployment Checklist (2026-10-13)
+
+**Objective**: Configure the intended destination deck as `N3 vocabs` across all prototype entry points, audit ChatGPT custom MCP requirements vs. plan tier limitations (ChatGPT Go), and prepare a comprehensive deployment checklist for Google Cloud Run + Supabase PostgreSQL without deploying or incurring costs.
+
+**Files changed in `mcp_anki_test/`**:
+- `server.py`: Set default `ANKI_DECK_NAME` to `"N3 vocabs"`; updated `handle_send_vocab_card` to respect optional `deck_name` argument; added `deck_name` property to `TOOLS` inputSchema.
+- `queue_adapter.py`: Set `VocabCard` default `deck_name` to `"N3 vocabs"` in dataclass and `from_dict()`.
+- `queue_db.py`: Updated SQLite default schema and `enqueue()` default signature to `"N3 vocabs"`.
+- `.env` & `.env.example`: Configured `ANKI_DECK_NAME=N3 vocabs`.
+- `DEPLOYMENT_CHECKLIST.md`: Created detailed checklist for Google Cloud Run + Supabase PostgreSQL deployment, including DDL schema migration script, Dockerfile specifications, dual-protocol MCP vs. Custom GPT Actions compatibility analysis, cost estimates ($0/mo free tier), and isolation rules.
+- `CLOUD_READINESS.md`: Updated Section 7 with confirmed destination deck (`N3 vocabs`), selected stack (Cloud Run + Supabase), and reference to `DEPLOYMENT_CHECKLIST.md`.
+- `tests/`: Added tests for default and overridden deck propagation in `test_mcp_protocol.py` and `test_worker.py` (total test suite expanded to **43 passed**).
+
+**Verification**: `pytest tests/ -v` → **43 passed, 0 failed** in 1.41s. Zero Kiroku source files, schemas, or databases modified.
+
+---
+
+### ChatGPT MCP Cloud Readiness Audit & Prototype Resilience Hardening (2026-10-13)
+
+**Objective**: Audit the prototype for cloud-backed queue deployment (offline mobile capture -> local PC worker sync), harden local queue resilience and error handling, and document technical requirements in `CLOUD_READINESS.md`.
+
+**Files changed in `mcp_anki_test/`**:
+- `queue_adapter.py`: Wrapped `httpx.HTTPError` network exceptions in `QueueError` across all `CloudQueueAdapter` calls (`enqueue`, `fetch_pending`, `ack`, `nack`, `stats`) to prevent transport leakages; added `_sanitize_error()` to ensure secret tokens are never exposed in error text.
+- `worker.py`: Hardened item acknowledgment (`adapter.ack()`) with `try-except QueueError` handling; prevents transient queue acknowledge dropouts from crashing the entire batch when cards are safely persisted in Kiroku; records `saved_ack_failed` and retains pending count.
+- `queue_db.py`: Added queue-level deduplication for identical pending submissions (`expression`, `reading`, `deck_name`) to avoid redundant duplicate queue entries; added dead-letter status transition to `'failed'` upon reaching `MAX_ATTEMPTS`.
+- `CLOUD_READINESS.md`: Comprehensive audit document detailing current architecture, implemented features vs placeholders, technical queue requirements (durability, HTTPS auth, idempotency, lease locks, outbound-only worker), deployment options & cost estimates, and decisions requiring user approval.
+- `tests/`: Added 4 new test cases across `test_queue.py`, `test_queue_adapter.py`, and `test_worker.py` (total test suite expanded to **41 passed**).
+
+**Verification**: `pytest tests/ -v` → **41 passed, 0 failed** in 1.46s. Zero Kiroku source files, schemas, or databases modified.
+
+---
+
+### ChatGPT MCP → Local Queue → Worker → Kiroku → Anki Live Pipeline Verification (2026-10-13)
+
+**Objective**: Verify the live end-to-end pipeline (MCP server → local development queue → worker → Kiroku backend API → Anki via AnkiConnect).
+
+**Isolation & Scope**:
+- Work performed strictly within `mcp_anki_test/` (plus recording progress here). Zero Kiroku source files, schemas, or configurations modified.
+- All temporary background processes (`uvicorn server:app`, `python run_backend.py`, Anki) were started, used for validation, and cleanly terminated.
+
+**Validation executed**:
+1. **Initial Reachability Check**: Verified AnkiConnect (port 8765) and Kiroku backend (port 21828) were initially offline. Checked Anki installation and profiles (`User 1`, AnkiConnect add-on present).
+2. **Prototype & Backend Execution**:
+   - Launched Anki and Kiroku backend (`python run_backend.py`) for live validation without modifying any backend code or settings.
+   - Configured `mcp_anki_test/.env` (`MCP_SECRET=test-mcp-secret-12345`, `QUEUE_BACKEND=local`, `ANKI_DECK_NAME=Default`).
+   - Started MCP prototype server on `http://127.0.0.1:8100/mcp`.
+3. **Card Ingestion**:
+   - Checked existing data: note for `映画` existed in `N3 vocabs` deck from prior study, but did not exist in target `Default` deck or in Kiroku database.
+   - Submitted test card via MCP tool call `send_vocab_card` with `expression="映画"`, `reading="えいが"`, `meaning="movie"`, `sentence="映画を見た"`.
+   - MCP server validated card and stored it into local SQLite queue (`mcp_anki_test/mcp.db`, table `queued_cards`, ID 1, `status="pending"`).
+4. **Worker Processing**:
+   - Ran `worker.py --once`.
+   - Worker fetched pending item 1, checked Kiroku liveness (`GET /api/health` -> 200), persisted card via `POST /api/cards/save` (created Kiroku card ID 184).
+   - Triggered Anki sync via `POST /api/cards/184/sync`, which communicated with AnkiConnect on port 8765 and created Anki note ID `1791904711184` in deck `Default`.
+   - Acknowledged card in queue (`queued_cards` updated to `status="sent"`).
+5. **Direct Anki Verification**:
+   - Queried AnkiConnect directly with `notesInfo`: confirmed note ID `1791904711184` exists in Anki with model `japanese mining`, front `映画`, and synced card data.
+6. **Duplicate Prevention Verification**:
+   - Submitted a duplicate `映画` card via MCP tool (queued as item 2).
+   - Ran `worker.py --once`: Kiroku API returned `is_duplicate=True`; worker logged duplicate detection, acknowledged item 2, and avoided creating duplicate Anki notes (`deck:Default 映画` remains exactly 1 note in Anki).
+7. **Cleanup & Regression**:
+   - Cleaned up all temporary processes (ports 8100, 21828, and 8765 closed).
+   - Full automated test suite inside `mcp_anki_test/` passed: **37/37 passed**.
+   - `git status` confirms zero files outside `mcp_anki_test/` modified.
+
+---
+
+### ChatGPT MCP → Cloud Queue → Kiroku → Anki Prototype Refactoring (2026-10-10)
+
+**Files changed**: `mcp_anki_test/` (new, fully isolated directory — zero existing Kiroku files modified)
+- `mcp_anki_test/queue_adapter.py` — abstract `QueueAdapter` interface with `enqueue`, `fetch_pending`, `ack`, `nack`, `stats`. Includes `LocalDevQueueAdapter` (SQLite-backed for offline local development) and `CloudQueueAdapter` (target cloud queue client, raising `CloudQueueNotConfiguredError` when unconfigured).
+- `mcp_anki_test/server.py` — MCP server refactored to focus solely on receiving ChatGPT tool calls and writing cards to the persistent queue adapter. Decoupled from Kiroku and AnkiConnect so it can be hosted in the cloud while the PC is off.
+- `mcp_anki_test/worker.py` — standalone local PC worker that pulls pending cards from the queue adapter, checks Kiroku liveness, invokes `POST /api/cards/save` and `POST /api/cards/{id}/sync`, acknowledges duplicates and saved cards, and handles offline pauses/nacks.
+- `mcp_anki_test/kiroku_client.py` — loopback HTTP client reused as-is.
+- `mcp_anki_test/.env.example` & `mcp_anki_test/README.md` — updated with target architecture diagrams, local development workflow, future cloud deployment steps, and environment variable documentation.
+- `mcp_anki_test/tests/` — expanded test suite (37 tests across 5 files: `test_auth.py`, `test_mcp_protocol.py`, `test_queue.py`, `test_queue_adapter.py`, `test_worker.py`).
+
+**Verification**: `pytest tests/ -v` → **37 passed, 0 failed**. `git status` confirms only `mcp_anki_test/` and `PROGRESS.md` touched — zero existing Kiroku files modified.
+
+**Remaining limitations & future cloud work**: No cloud infrastructure has been created or deployed yet. The prototype is locally runnable with `QUEUE_BACKEND=local`. Deploying to production requires hosting `server.py` on a cloud container service (e.g. Cloud Run / Modal) and connecting a persistent cloud queue service.
+
+---
+
 ### Audio Capture Removal & Video Playback Stability (2026-10-07)
 - Removed the tab-audio capture pipeline, disabled message stubs, status/settings UI, offscreen recorder assets, package references, and capture-only extension tests.
 - Recent subtitle word mining no longer seeks active playback. Screenshot capture honors a requested cue time only while the video is paused; active playback is captured at its current frame without modifying `currentTime`.
