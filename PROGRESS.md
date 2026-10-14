@@ -1,5 +1,39 @@
 # Kiroku Note — Progress
 
+### AnkiConnect 2026 Search Query Parser Fix & End-to-End Card Sync Recovery (2026-10-14)
+
+**Objective**: Fix card synchronization failure to Anki where cards were saved in SQLite but failed to sync with `AnkiConnect error on 'findNotes': Invalid search: a pair of double quotes '""' was found...`, ensure empty-deck duplicate searches across all decks omit `deck:""`, and restore end-to-end sync.
+
+**Root Cause**:
+- In `backend/app/services/card_service.py:603`, when duplicate detection fails to match a card in the target deck, it performs a fallback check across all decks in Anki: `self.anki.find_existing_note(deck_name="", expression=..., reading=...)`.
+- In `backend/app/services/anki_connect.py:224`, `find_existing_note()` previously interpolated `safe_deck` unconditionally into `query = f'deck:"{safe_deck}" "{safe_term}"'`.
+- When `deck_name` was empty or whitespace, this produced `deck:"" "{safe_term}"`.
+- Anki's search engine (enforced strictly in recent AnkiConnect updates) rejected `deck:""` with `Invalid search: a pair of double quotes '""' was found, but there was nothing between them to search for. If you want to search for literal double quotes, prepend backslashes: '\"\"'`.
+- Furthermore, `find_existing_note`'s subsequent candidate deck check `if "deckName" in note and note["deckName"]: if normalize_deck(...) != normalize_deck(deck_name): continue` would have mistakenly rejected candidate notes when searching across all decks (`deck_name=""`).
+
+**Key Changes Delivered**:
+1. **`backend/app/services/anki_connect.py`**:
+   - Sanitized and stripped `safe_deck = (deck_name or "").strip().replace('"', '\\"').replace("'", "")`.
+   - Conditioned query generation: if `safe_deck` is present, construct `deck:"{safe_deck}" "{safe_term}"`; otherwise emit `"{safe_term}"` to search across all decks without the invalid `deck:""` clause.
+   - Guarded candidate deck validation with `if safe_deck:`, ensuring candidates from any deck are correctly matched and linked when cross-deck duplicate search is performed.
+2. **`backend/tests/test_anki_connect.py`**:
+   - Added `test_find_existing_note_empty_deck_searches_all_decks` covering empty and whitespace-only `deck_name`, verifying query format omits `deck:""` and matches notes across different decks.
+
+**Verification Delivered**:
+1. **Automated Unit Testing**:
+   - `test_find_existing_note_empty_deck_searches_all_decks` verified failing before fix and passing after fix.
+   - `python -m pytest tests/test_anki_connect.py`: 68/68 passed (0 failed).
+   - `python -m pytest tests/test_sync_lifecycle.py tests/test_sync_all.py`: 27/27 passed (0 failed).
+   - Full backend test suite: 530/530 passed (0 failed).
+2. **Live Live-AnkiConnect Smoke Verification**:
+   - Tested real `findNotes` against live Anki instance on port 8765: confirmed `"{safe_term}"` and `deck:"N3 vocabs" "{safe_term}"` execute successfully without search syntax errors.
+   - Synchronized unsynced failed cards (ID 190 `入れる` and 191 `さつ`) to live Anki instance: both transitioned to `sync_status = "synced"` with Anki note IDs `1791994939667` and `1791994940148`.
+   - Verified cards directly via AnkiConnect `notesInfo` in Anki Desktop with full note templates, kanji stroke diagrams, and furigana markup.
+   - Verified `POST /api/cards/sync-all` over live HTTP (`http://127.0.0.1:21828`): recovered all 6 unsynced cards, leaving 0 failed.
+
+**Remaining Risk**:
+- None identified for Anki note queries. Standard Anki search syntax compliance is verified against live AnkiConnect.
+
 ### Production Cloud Deployment: Render + Neon Free-Tier (2026-10-14)
 
 **Objective**: Provision free-tier Neon PostgreSQL and Render Python web service, enforce strict authentication token separation, verify zero-data-loss persistence and duplicate handling over public HTTPS, and configure local Windows worker.
