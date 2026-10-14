@@ -95,47 +95,40 @@ def _extract_bearer_token(request: Request) -> str:
 def _authenticate_submit(request: Request) -> None:
     """Validate token for iPhone Shortcut / public card submissions."""
     token = _extract_bearer_token(request)
-    valid_tokens = [
+    submit_tokens = [
         t for t in [
             os.getenv("SUBMIT_TOKEN"),
             os.getenv("PHONE_SECRET"),
-            os.getenv("WORKER_TOKEN"),
-            os.getenv("WORKER_SECRET"),
-            os.getenv("CLOUD_QUEUE_API_KEY"),
-            os.getenv("MCP_SECRET"),
-            MCP_SECRET,
         ] if t
     ]
-    if not valid_tokens:
+    if not submit_tokens:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Server authentication secrets not configured.",
+            detail="Server submission authentication secret (SUBMIT_TOKEN) not configured.",
         )
-    if not any(secrets.compare_digest(token, vt) for vt in valid_tokens):
+    if not any(secrets.compare_digest(token, st) for st in submit_tokens):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token.",
+            detail="Invalid submission authentication token.",
         )
 
 
 def _authenticate_worker(request: Request) -> None:
     """Validate token for local worker operations (pending, ack, nack, stats)."""
     token = _extract_bearer_token(request)
-    valid_tokens = [
+    worker_tokens = [
         t for t in [
             os.getenv("WORKER_TOKEN"),
             os.getenv("WORKER_SECRET"),
             os.getenv("CLOUD_QUEUE_API_KEY"),
-            os.getenv("MCP_SECRET"),
-            MCP_SECRET,
         ] if t
     ]
-    if not valid_tokens:
+    if not worker_tokens:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Server worker secrets not configured.",
+            detail="Server worker authentication secret (WORKER_TOKEN) not configured.",
         )
-    if not any(secrets.compare_digest(token, vt) for vt in valid_tokens):
+    if not any(secrets.compare_digest(token, wt) for wt in worker_tokens):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid worker authentication token.",
@@ -251,6 +244,11 @@ async def lifespan(app: FastAPI):
         log.warning("Database schema initialization warning: %s", exc)
     log.info("Server started with queue store: %s", type(store).__name__ if store else "None")
     yield
+    if store and hasattr(store, "close"):
+        try:
+            store.close()
+        except Exception:
+            pass
 
 
 app = FastAPI(title="Kiroku Cloud Queue API", lifespan=lifespan, docs_url=None, redoc_url=None)
