@@ -1,6 +1,6 @@
 # Cloud Readiness Audit & Deployment Plan
 
-**Directory**: `mcp_anki_test/`  
+**Directory**: `kiroku_cloud_queue/`  
 **Status**: Local prototype fully tested & verified; Cloud deployment pending configuration  
 **Date**: 2026-10-13  
 

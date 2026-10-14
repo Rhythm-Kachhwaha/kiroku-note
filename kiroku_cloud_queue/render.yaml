@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: kiroku-cloud-queue
+    runtime: python
+    rootDir: kiroku_cloud_queue
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: DATABASE_URL
+        sync: false # Paste your Neon PostgreSQL connection string here
+      - key: SUBMIT_TOKEN
+        generateValue: true # Used by iPhone Shortcut (Bearer token)
+      - key: WORKER_TOKEN
+        generateValue: true # Used by Windows worker.py (Bearer token)
+      - key: MCP_SECRET
+        generateValue: true # Used by MCP / ChatGPT integration (Bearer token)
+      - key: ANKI_DECK_NAME
+        value: N3 vocabs

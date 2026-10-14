@@ -1,0 +1,277 @@
+"""
+test_cloud_api.py -- Tests for the public cloud submission API and worker queue endpoints.
+"""
+import json
+import os
+import sys
+from pathlib import Path
+import pytest
+from fastapi.testclient import TestClient
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+SUBMIT_TOKEN = "test-phone-token-xyz"
+WORKER_TOKEN = "test-worker-token-123"
+
+os.environ["SUBMIT_TOKEN"] = SUBMIT_TOKEN
+os.environ["WORKER_TOKEN"] = WORKER_TOKEN
+os.environ["MCP_SECRET"] = WORKER_TOKEN
+
+import server
+from queue_store import SqliteQueueStore
+import queue_store
+
+
+@pytest.fixture()
+def client(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("SUBMIT_TOKEN", SUBMIT_TOKEN)
+    monkeypatch.setenv("WORKER_TOKEN", WORKER_TOKEN)
+    monkeypatch.setenv("MCP_SECRET", WORKER_TOKEN)
+    test_db = tmp_path / "test_api_queue.db"
+    store = SqliteQueueStore(db_path=test_db)
+    server.store = store
+    with TestClient(server.app, raise_server_exceptions=False) as c:
+        yield c
+
+
+def test_submit_text_plain_valid_payload(client: TestClient):
+    body = json.dumps({
+        "expression": "映画",
+        "reading": "えいが",
+        "meaning": "movie; film",
+        "sentence": "昨日、映画を見た。",
+        "sentence_meaning": "I watched a movie yesterday.",
+    }, ensure_ascii=False)
+
+    headers = {
+        "Authorization": f"Bearer {SUBMIT_TOKEN}",
+        "Content-Type": "text/plain; charset=utf-8",
+    }
+    resp = client.post("/submit", content=body.encode("utf-8"), headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "queued"
+    assert "id" in data
+    assert data["expression"] == "映画"
+
+
+def test_submit_markdown_code_block_payload(client: TestClient):
+    body = "```json\n" + json.dumps({
+        "expression": "約束",
+        "reading": "やくそく",
+        "meaning": "promise",
+        "sentence": "約束を守る。",
+        "sentence_meaning": "Keep a promise.",
+    }, ensure_ascii=False) + "\n```"
+
+    headers = {
+        "Authorization": f"Bearer {SUBMIT_TOKEN}",
+        "Content-Type": "text/plain; charset=utf-8",
+    }
+    resp = client.post("/submit", content=body.encode("utf-8"), headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["expression"] == "約束"
+
+
+def test_submit_ios_smart_quotes_payload(client: TestClient):
+    # iOS often auto-converts " to “ and ”
+    smart_quotes_body = (
+        '{\n'
+        '  “expression”: “刹那”,\n'
+        '  “reading”: “せつな”,\n'
+        '  “meaning”: “a moment, an instant”,\n'
+        '  “sentence”: “刹那の出来事だった。”,\n'
+        '  “sentence_meaning”: “It was a momentary event.”,\n'
+        '  “deck_name”: “N3 vocabs”\n'
+        '}'
+    )
+    headers = {
+        "Authorization": f"Bearer {SUBMIT_TOKEN}",
+        "Content-Type": "text/plain; charset=utf-8",
+    }
+    resp = client.post("/submit", content=smart_quotes_body.encode("utf-8"), headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["expression"] == "刹那"
+
+
+def test_submit_surrounding_chat_prose(client: TestClient):
+    body = (
+        "Here is the card you requested:\n\n"
+        '{"expression": "瞬間", "reading": "しゅんかん", "meaning": "moment"}\n\n'
+        "Hope this helps with your Anki deck!"
+    )
+    headers = {
+        "Authorization": f"Bearer {SUBMIT_TOKEN}",
+        "Content-Type": "text/plain; charset=utf-8",
+    }
+    resp = client.post("/submit", content=body.encode("utf-8"), headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["expression"] == "瞬間"
+
+
+
+def test_submit_application_json_valid_payload(client: TestClient):
+    body = {
+        "expression": "音楽",
+        "reading": "おんがく",
+        "meaning": "music",
+        "sentence": "音楽を聴く。",
+        "sentence_meaning": "Listen to music.",
+        "deck_name": "N3 vocabs",
+    }
+    headers = {
+        "Authorization": f"Bearer {SUBMIT_TOKEN}",
+    }
+    resp = client.post("/submit", json=body, headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "queued"
+    assert data["expression"] == "音楽"
+
+
+def test_submit_accepts_expression_only_payload(client: TestClient):
+    body = {"expression": "桜"}
+    headers = {"Authorization": f"Bearer {SUBMIT_TOKEN}"}
+    resp = client.post("/submit", json=body, headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "queued"
+    assert data["expression"] == "桜"
+
+
+def test_submit_rejects_missing_field(client: TestClient):
+    # Missing required expression
+    body = json.dumps({
+        "reading": "ほん",
+        "meaning": "book",
+        "sentence": "本を読む。",
+    }, ensure_ascii=False)
+
+    headers = {
+        "Authorization": f"Bearer {SUBMIT_TOKEN}",
+        "Content-Type": "text/plain",
+    }
+    resp = client.post("/submit", content=body.encode("utf-8"), headers=headers)
+    assert resp.status_code in (400, 422)
+    assert "expression" in resp.text
+
+
+def test_submit_rejects_empty_string_field(client: TestClient):
+    # Blank expression is rejected
+    body = {
+        "expression": "   ",
+        "reading": "いぬ",
+        "meaning": "dog",
+    }
+    headers = {"Authorization": f"Bearer {SUBMIT_TOKEN}"}
+    resp = client.post("/submit", json=body, headers=headers)
+    assert resp.status_code in (400, 422)
+    assert "expression" in resp.text
+
+
+def test_submit_rejects_invalid_field_types(client: TestClient):
+    # Non-string reading is rejected
+    body = {
+        "expression": "犬",
+        "reading": 12345,
+        "meaning": "dog",
+    }
+    headers = {"Authorization": f"Bearer {SUBMIT_TOKEN}"}
+    resp = client.post("/submit", json=body, headers=headers)
+    assert resp.status_code in (400, 422)
+    assert "reading" in resp.text
+
+
+def test_submit_rejects_malformed_json(client: TestClient):
+    headers = {
+        "Authorization": f"Bearer {SUBMIT_TOKEN}",
+        "Content-Type": "text/plain",
+    }
+    resp = client.post("/submit", content=b"{not valid json", headers=headers)
+    assert resp.status_code in (400, 422)
+
+
+def test_submit_rejects_oversized_payload(client: TestClient):
+    huge_text = "A" * 70000  # > 64KB
+    headers = {
+        "Authorization": f"Bearer {SUBMIT_TOKEN}",
+        "Content-Type": "text/plain",
+    }
+    resp = client.post("/submit", content=huge_text.encode("utf-8"), headers=headers)
+    assert resp.status_code in (400, 413)
+
+
+def test_submit_unauthorized(client: TestClient):
+    body = json.dumps({"expression": "猫", "reading": "ねこ", "meaning": "cat", "sentence": "猫", "sentence_meaning": "cat"})
+    # No auth
+    resp = client.post("/submit", content=body.encode("utf-8"), headers={"Content-Type": "text/plain"})
+    assert resp.status_code == 401
+
+    # Wrong token
+    resp = client.post(
+        "/submit",
+        content=body.encode("utf-8"),
+        headers={"Content-Type": "text/plain", "Authorization": "Bearer bad-token"}
+    )
+    assert resp.status_code == 401
+
+
+def test_worker_pending_ack_nack_lifecycle(client: TestClient):
+    # 1. Submit card
+    body = {
+        "expression": "約束",
+        "reading": "やくそく",
+        "meaning": "promise",
+        "sentence": "約束を守る。",
+        "sentence_meaning": "Keep a promise.",
+    }
+    sub_resp = client.post("/submit", json=body, headers={"Authorization": f"Bearer {SUBMIT_TOKEN}"})
+    assert sub_resp.status_code == 200
+    item_id = sub_resp.json()["id"]
+
+    # 2. Worker fetches pending (claims item)
+    worker_headers = {"Authorization": f"Bearer {WORKER_TOKEN}"}
+    pend_resp = client.get("/pending?limit=10", headers=worker_headers)
+    assert pend_resp.status_code == 200
+    items = pend_resp.json()["items"]
+    assert len(items) == 1
+    claimed = items[0]
+    assert claimed["id"] == item_id
+    assert claimed["claim_token"] != ""
+
+    # 3. Worker acknowledges item
+    ack_resp = client.post(f"/ack/{item_id}", json={"claim_token": claimed["claim_token"]}, headers=worker_headers)
+    assert ack_resp.status_code == 200
+
+    # 4. Check stats: 1 completed, 0 pending
+    stats_resp = client.get("/stats", headers=worker_headers)
+    assert stats_resp.status_code == 200
+    assert stats_resp.json().get("completed") == 1
+    assert stats_resp.json().get("pending", 0) == 0
+
+
+def test_health_check_public(client: TestClient):
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+    assert "database" in data
+    assert "backend" in data
+    # Health endpoint must never leak secret tokens or keys
+    for k in ("token", "secret", "key", "password", "auth"):
+        assert k not in data
+        assert k not in str(data).lower() or k == "backend"  # 'backend' is safe string
+
+
+def test_server_cli_args_parsing(monkeypatch):
+    import argparse
+    import server
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--host", default=os.getenv("QUEUE_HOST", "127.0.0.1"))
+    parser.add_argument("--port", type=int, default=int(os.getenv("QUEUE_PORT", "8100")))
+
+    args = parser.parse_args(["--host", "192.168.1.100", "--port", "8200"])
+    assert args.host == "192.168.1.100"
+    assert args.port == 8200
+

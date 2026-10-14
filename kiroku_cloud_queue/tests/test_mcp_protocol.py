@@ -72,8 +72,27 @@ def test_tools_list_schema_has_required_fields(client):
     assert "meaning" in props
     assert "sentence" in props
     assert "expression" in schema["required"]
-    assert "meaning" in schema["required"]
+    assert "meaning" not in schema["required"]
+    assert "reading" not in schema["required"]
     assert "sentence" not in schema["required"]
+
+
+def test_tools_call_with_only_expression(client):
+    r = post(client, {
+        "jsonrpc": "2.0", "id": 41, "method": "tools/call",
+        "params": {
+            "name": "send_vocab_card",
+            "arguments": {
+                "expression": "桜",
+            },
+        },
+    })
+    assert r.status_code == 200
+    result = r.json()["result"]
+    assert result["isError"] is False
+    payload = json.loads(result["content"][0]["text"])
+    assert payload["status"] == "queued"
+    assert payload["expression"] == "桜"
 
 
 # --- tools/call ---
@@ -154,7 +173,7 @@ def test_tools_call_missing_expression_returns_error(client):
     assert "expression" in payload["message"]
 
 
-def test_tools_call_missing_meaning_returns_error(client):
+def test_tools_call_missing_meaning_enqueues_card(client):
     r = post(client, {
         "jsonrpc": "2.0", "id": 6, "method": "tools/call",
         "params": {
@@ -164,10 +183,10 @@ def test_tools_call_missing_meaning_returns_error(client):
     })
     assert r.status_code == 200
     result = r.json()["result"]
-    assert result["isError"] is True
+    assert result["isError"] is False
     payload = json.loads(result["content"][0]["text"])
-    assert payload["status"] == "error"
-    assert "meaning" in payload["message"]
+    assert payload["status"] == "queued"
+    assert payload["expression"] == "本"
 
 
 def test_tools_call_cloud_unconfigured_returns_informative_error(client, monkeypatch):

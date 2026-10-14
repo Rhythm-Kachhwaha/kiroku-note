@@ -1,4 +1,4 @@
-﻿"""
+"""
 test_auth.py -- Authentication middleware tests for the MCP server.
 Uses FastAPI TestClient (no real HTTP).
 """
@@ -16,11 +16,13 @@ import server  # noqa: E402 -- must import after env vars are set
 
 
 @pytest.fixture()
-def client(tmp_path):
+def client(tmp_path, monkeypatch):
     # Point queue to temp db so tests don't interfere
     import queue_db as qdb
     qdb._DEFAULT_DB_PATH = tmp_path / "test_mcp.db"
     qdb.init_queue()
+    monkeypatch.setenv("MCP_SECRET", "test-secret-abc123")
+    server.MCP_SECRET = "test-secret-abc123"
     with TestClient(server.app, raise_server_exceptions=False) as c:
         yield c
 

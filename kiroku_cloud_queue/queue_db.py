@@ -1,11 +1,14 @@
 """
-queue_db.py -- SQLite-backed queue for offline card buffering.
+queue_db.py -- SQLite-backed queue for offline MCP card buffering.
 
-Cards are written here when Kiroku is unreachable. The retry loop in
-server.py processes them once Kiroku comes back online.
+Cards are written here when Kiroku is unreachable in local development.
+The database file (mcp.db) lives inside kiroku_cloud_queue/ and is completely
+separate from Kiroku's kiroku.db and the production queue store in cloud_queue.db.
 
-The database file (mcp.db) lives inside mcp_anki_test/ and is completely
-separate from Kiroku's kiroku.db. It is safe to delete for cleanup.
+Note on divergent schema vs queue_store.py:
+  - queue_db.py uses INTEGER AUTOINCREMENT primary keys in `mcp.db` (local dev adapter).
+  - queue_store.py uses UUID primary keys, idempotency keys, and leases in `cloud_queue.db` / Postgres.
+  These two database files are intentionally isolated and must never point to the same file.
 """
 from __future__ import annotations
 

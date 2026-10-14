@@ -433,7 +433,7 @@
           <details id="media-preview-collapsible" class="media-preview-collapsible" data-layout-section="media" hidden style="display: none !important;">
             <summary class="media-collapsible-summary">
               <span class="media-summary-label">
-                <span class="media-summary-icon">📷</span>
+                <span class="media-summary-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
                 <span>Captured Media</span>
               </span>
               <span id="media-summary-badge" class="media-summary-badge">None</span>
@@ -448,7 +448,7 @@
                 </div>
                 <div class="media-thumbnail-wrapper">
                   <div id="image-empty-placeholder" class="media-empty-placeholder">
-                    <span class="media-placeholder-icon">📸</span>
+                    <span class="media-placeholder-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
                     <span class="media-placeholder-text">No frame captured</span>
                   </div>
                   <img id="image-preview" class="media-thumbnail" alt="Captured video frame" src="" hidden style="display: none;">
@@ -468,7 +468,7 @@
                 </div>
                 <div class="media-audio-wrapper">
                   <div id="audio-empty-placeholder" class="media-empty-placeholder">
-                    <span class="media-placeholder-icon">🎙️</span>
+                    <span class="media-placeholder-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span>
                     <span id="audio-placeholder-text" class="media-placeholder-text">No audio clip</span>
                   </div>
                   <audio id="audio-preview" class="media-audio-player" controls preload="metadata" src="" hidden></audio>
@@ -529,6 +529,9 @@
           <button type="button" id="btn-sync-all" class="btn-sync-all btn-act-anki" title="Sync all eligible cards to Anki" aria-label="Sync all eligible cards to Anki">
             <span>Sync All</span>
           </button>
+          <button type="button" id="btn-sync-cloud-all" class="btn-sync-cloud-all btn-act-anki" title="Sync all eligible cloud cards to Anki" aria-label="Sync all eligible cloud cards to Anki" style="display:none;">
+            <span>Sync Cloud Cards</span>
+          </button>
           <button type="button" id="btn-export-cards" class="btn-export-cards btn-secondary" title="Export CSV" aria-label="Export CSV">
             <span>CSV</span>
           </button>
@@ -550,7 +553,7 @@
         <div id="sync-progress-modal" class="sync-progress-modal" role="dialog" aria-modal="false" aria-label="Sync All Progress" hidden>
           <div class="sync-progress-modal-header">
             <div class="sync-progress-modal-title-row">
-              <span class="sync-progress-modal-icon" aria-hidden="true">🔄</span>
+              <span class="sync-progress-modal-icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg></span>
               <h3 class="sync-progress-modal-title">Sync All to Anki</h3>
             </div>
             <button type="button" id="btn-close-sync-modal" class="btn-close-modal" title="Close sync progress" aria-label="Close sync progress">&times;</button>
@@ -565,6 +568,17 @@
           <div class="sync-progress-modal-footer">
             <button type="button" id="btn-dismiss-sync-modal" class="btn-secondary btn-dismiss-sync-modal" hidden>Close</button>
           </div>
+        </div>
+
+        <!-- History Source Subnav (All, Local Mined, Cloud Queue) -->
+        <div class="history-source-subnav" role="tablist" aria-label="History source filter" style="display:flex; gap:6px; margin: 4px 0 8px 0; padding: 0 2px;">
+          <button type="button" id="history-source-all" class="history-source-btn active" role="tab" aria-selected="true" style="padding: 3px 10px; font-size: 11px; font-weight: 600; border-radius: 12px; border: 1px solid var(--border-default, #333); background: var(--bg-surface-2, #2a2a2a); color: var(--text-primary, #fff); cursor: pointer;">All</button>
+          <button type="button" id="history-source-local" class="history-source-btn" role="tab" aria-selected="false" style="padding: 3px 10px; font-size: 11px; font-weight: 500; border-radius: 12px; border: 1px solid var(--border-default, #333); background: transparent; color: var(--text-secondary, #aaa); cursor: pointer;">Local</button>
+          <button type="button" id="history-source-cloud" class="history-source-btn" role="tab" aria-selected="false" style="padding: 3px 10px; font-size: 11px; font-weight: 500; border-radius: 12px; border: 1px solid var(--border-default, #333); background: transparent; color: var(--text-secondary, #aaa); cursor: pointer; display: inline-flex; align-items: center;">
+            <svg class="icon-cloud" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+            <span>Cloud</span>
+            <span id="history-cloud-count-badge" style="margin-left: 4px; font-size: 10px; padding: 1px 5px; border-radius: 8px; background: var(--accent-primary, #f97316); color: #fff; display: none;">0</span>
+          </button>
         </div>
 
         <div class="history-toolbar">

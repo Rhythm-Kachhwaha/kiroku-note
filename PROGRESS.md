@@ -1,5 +1,222 @@
 # Kiroku Note — Progress
 
+### Cloud Queue Static Audit Fixes & Gitignore Hardening (2026-10-14)
+
+**Objective**: Resolve all 20 critical, high, medium, and low issues identified in the `kiroku_cloud_queue/` static audit report, add automated regression tests, and update `.gitignore` for cloud queue artifacts and local scratch dumps.
+
+**Key Fixes Delivered**:
+1. **Critical Production Fixes**:
+   - **Postgres `enqueue` TOCTOU Race (#1)**: Converted `enqueue` to use atomic `INSERT ... ON CONFLICT (idempotency_key) DO NOTHING RETURNING id`, eliminating the race condition on duplicate submissions.
+   - **Atomic `nack` Status Calculation (#2)**: Replaced read-then-update logic in both `postgres_store.py` and `queue_store.py` with atomic SQL `CASE WHEN attempts >= MAX_ATTEMPTS THEN 'failed' ELSE 'pending' END`.
+   - **Full Card Schema Retrieval in Postgres `get_item` (#3)**: Added `payload_json` to the SELECT query and unified deserialization via `_row_to_item`, preserving `extra_data`, `notes`, `hint`, `context`, `jlpt_level`, `tags`, and `model_name`.
+   - **Validated `Content-Length` Header (#4)**: Wrapped `int(content_length)` in `try/except ValueError` in `server.py`, returning 400 Bad Request instead of crashing with 500.
+   - **Render Blueprint `MCP_SECRET` (#5)**: Added `MCP_SECRET` with `generateValue: true` to `render.yaml`.
+   - **Postgres Schema `claimed_at` Column (#13)**: Added `claimed_at TIMESTAMP WITH TIME ZONE DEFAULT NULL` to `CREATE TABLE IF NOT EXISTS` and added self-healing `ALTER TABLE queued_cards ADD COLUMN IF NOT EXISTS claimed_at` in `init_db()`.
+2. **High Severity Fixes**:
+   - **PostgreSQL Connection Pooling (#6)**: Implemented `_pool` via `psycopg_pool.ConnectionPool` (with `SimpleConnectionPool` fallback), adding context-managed connection checkout and `close()`. Added `psycopg[binary,pool]>=3.1.0` to `requirements.txt`.
+   - **Idempotency Hashing with Meaning (#7)**: Included `card.meaning.strip()` in `compute_idempotency_key()` so distinct definitions for the same expression do not collide.
+   - **Safe Type Conversion in LocalDevQueueAdapter (#8)**: Safely wrapped `int(item_id)` in `ack()` and `nack()` to prevent `ValueError` crashes on UUID strings.
+   - **Accurate Worker Offline Status (#9)**: Set `skipped_offline=True` in `BatchResult` when mid-batch skip is triggered.
+   - **Paginated Cloud Cards Sync (#10)**: Replaced hardcoded 500-card limit in `worker.py:sync_cloud_cards` with a paginated while loop.
+3. **Medium & Low Quality Fixes**:
+   - **Queue Schema Role Separation (#11)**: Documented distinct architecture roles of `queue_db.py` (`mcp.db` local-dev adapter) vs `queue_store.py` (canonical `cloud_queue.db` / Postgres).
+   - **MCP Auth Error Handling (#12)**: Removed redundant `globals()` call and raised clean `HTTPException(503)` if `MCP_SECRET` is unset.
+   - **Enrichment Error Wrapping (#14)**: Added `except EnrichmentError: raise` in `enrichment.py` to prevent confusing double-wrapping.
+   - **CORS Configuration (#15)**: Set `allow_credentials=False` to align with `allow_origins=["*"]`.
+   - **Centralized Environment Loader (#16)**: Extracted duplicate `_load_env_file()` implementations into shared `env_utils.py`.
+   - **Resilient Cloud Diagnostics (#17)**: Guarded `last_failed_payload.txt` write with `(OSError, IOError)` exception handling.
+   - **Lean Requirements (#18)**: Removed `pytest` and `pytest-asyncio` from `requirements.txt`; created `requirements-dev.txt`.
+   - **Graceful Store Lifecycle (#19)**: Added graceful import-time initialization with finalized lifecycle binding in `lifespan`.
+   - **Type-Safe QueueItem Construction (#20)**: Initialized `claim_token` directly in the `QueueItem` constructor, eliminating `setattr`.
+4. **Gitignore Hardening**:
+   - Added `last_failed_payload.txt`, `kiroku_cloud_queue/last_failed_payload.txt`, and `kiroku_cloud_queue/*.db*` to `.gitignore`.
+
+**Verification**:
+- `kiroku_cloud_queue\.venv\Scripts\python.exe -m pytest kiroku_cloud_queue\tests`: 103/103 passed (0 failed).
+- Added `kiroku_cloud_queue/tests/test_audit_fixes.py` with 9 targeted unit tests covering all audit fix areas.
+
+### Optional Entries, Vector SVG UI Icons & Render + Neon Cloud Deployment (2026-10-14)
+
+**Objective**: Make card fields optional (allowing single-expression submission like `{"expression": "刹那"}` with automatic Yomitan enrichment of reading, meaning, and kanji breakdowns), replace all raw OS emojis with clean vector SVG icons across the Side Panel UI, and complete cloud deployment audit/setup for Render (FastAPI) and Neon (Serverless PostgreSQL).
+
+**Key Behaviors Delivered**:
+1. **Optional Entries & Single-Expression Ingestion**:
+   - Relaxed MCP tool schema `send_vocab_card` to require only `expression`; all other fields (`reading`, `meaning`, `sentence`, `tags`, etc.) are now optional.
+   - Updated `server.py` `/submit` and `/enqueue` endpoints to accept single-expression JSON objects `{"expression": "刹那"}` as well as plain single-word strings without requiring `reading` or `meaning`.
+   - Connected directly to worker's conditional enrichment: when `meaning` is omitted, the worker triggers Kiroku's local Yomitan capture pipeline, generating dictionary definitions, readings, and full kanji breakdown entries (`kanji_entries`) saved into SQLite and passed to AnkiConnect note building.
+2. **Vector SVG UI Icons (Zero OS Emojis)**:
+   - Replaced all raw emojis across the Side Panel extension with clean, accessible vector SVGs matching Kiroku's dark theme:
+     - Cloud subnav tab: `<svg class="icon-cloud">` with stroke/fill matching subnav tokens.
+     - Modal refresh icon: Vector SVG reload symbol.
+     - History source origin badges: Vector SVGs for `cloud` (cloud), `quick_add` (lightning bolt), `video` (film camera), `ocr` (scan box), and `text` (document).
+     - Media summary & placeholder icons: Vector camera and microphone SVGs replacing `📷`, `📸`, and `🎙️`.
+     - Subtitle folder label: Clean folder text prefix replacing `📁`.
+3. **Render + Neon Cloud Deployment Audit & Automation**:
+   - **Neon Auto-Detection**: `queue_store.py` auto-detects Neon/Postgres when `DATABASE_URL` or `POSTGRES_URL` begins with `postgres://` or `postgresql://`.
+   - **URL Normalization**: Automatically normalizes legacy `postgres://` to modern `postgresql://` required by psycopg 3.
+   - **Zero-Config Schema Initialization**: Added `store.init_db()` to `BaseQueueStore`, `SqliteQueueStore`, and `PostgresQueueStore`. Executes `CREATE TABLE IF NOT EXISTS queued_cards (...)` and creates all performance indexes on startup automatically.
+   - **CORS Middleware**: Configured FastAPI `CORSMiddleware` on `server.py` to allow cross-origin webhooks, iOS Shortcuts, and client tools.
+   - **Cloud Host Binding**: Automatically binds to `0.0.0.0` when `PORT` or `RENDER` environment variables are present.
+   - **Blueprint & Guide**: Created `kiroku_cloud_queue/render.yaml` for 1-click deployment and `kiroku_cloud_queue/RENDER_NEON_SETUP.md` with step-by-step instructions.
+   - Added `psycopg[binary]>=3.1.0` to `requirements.txt` and verified in `.venv`.
+
+**Verification**:
+- `node --test extension/tests/*.test.js`: 195/195 passed (0 failed).
+- `node --test extension/tests/cloud-queue-history-dom.test.js`: 3/3 passed.
+- `.\kiroku_cloud_queue\.venv\Scripts\python.exe -m pytest kiroku_cloud_queue\tests`: 94/94 passed (0 failed).
+
+**Files Modified/Added**:
+- `kiroku_cloud_queue/server.py`: Relaxed schema, added CORS, DB auto-init in lifespan, cloud host binding.
+- `kiroku_cloud_queue/queue_store.py`: Postgres URL auto-detection, `init_db()` base method.
+- `kiroku_cloud_queue/postgres_store.py`: URL normalization, `init_db()` implementation.
+- `kiroku_cloud_queue/requirements.txt`: Added `psycopg[binary]`.
+- `kiroku_cloud_queue/render.yaml`: Render Blueprint specification.
+- `kiroku_cloud_queue/RENDER_NEON_SETUP.md`: Comprehensive deployment and setup guide.
+- `extension/sidepanel/sidepanel.html`: Replaced cloud, refresh, and media emojis with vector SVGs.
+- `extension/sidepanel/sidepanel.js`: Replaced source badge and folder emojis with SVG elements.
+- `extension/tests/tier3-session2-features.test.js`: Updated icon badge assertions to test SVG icon classes.
+- `kiroku_cloud_queue/tests/test_queue_store.py`: Added tests for URL normalization and auto-detection.
+- `kiroku_cloud_queue/tests/test_cloud_history_and_persistence.py`: Updated SVG icon assertions.
+
+
+**Objective**: Verify end-to-end flow from physical iPhone Shortcut to local Windows PC queue server and worker, and fix the History tab UI display in the Side Panel.
+
+**Verification & Results Delivered**:
+1. **Physical iPhone Wi-Fi Submission Verified**:
+   - iPhone Shortcut sent card payload (`刹那`) over local Wi-Fi to `http://192.168.29.62:8100/submit` with Bearer token authentication.
+   - Server returned HTTP 200 OK and acknowledged item queued.
+2. **Worker Processing & Local Persistence Verified**:
+   - Worker executed `worker.py --backend cloud --once`, fetched 4 pending cards (`映画`, `音楽`, `約束`, `刹那`) from the LAN queue.
+   - All 4 cards saved locally via Kiroku backend `POST /api/cards/save` with `source_type="cloud"`, `sync_status="pending"`.
+   - Items acknowledged and transitioned to completed in the queue store.
+   - Verified all 76 cards (including earlier mining history) intact in SQLite database.
+3. **History Tab DOM & JS Fixes Delivered**:
+   - Fixed missing `</div>` tag closing `#sync-progress-modal` in `extension/sidepanel/sidepanel.html` (which was causing elements below `Stats ▸` to be hidden).
+   - Fixed typo in `extension/sidepanel/sidepanel.js` line 6805: corrected `loadHistoryCards()` to `loadHistory()`.
+   - **Root Cause of `sidepanel.js:6035` Crash**: Identified that `historyCardsList` was accessed at line 6035 (`if (!historyCardsList) return;`) but was never declared in `sidepanel.js`. In Chrome, evaluating an undeclared identifier threw a runtime `ReferenceError: historyCardsList is not defined`, aborting `loadHistory()` on startup and leaving the history view blank.
+   - Declared `const historyCardsList = document.querySelector("#history-cards-list");` at line 864 and exported it in `module.exports`.
+   - Declared `const btnRetakeImage` safely to prevent secondary runtime ReferenceErrors.
+   - Added automated regression tests in `extension/tests/cloud-queue-history-dom.test.js` validating DOM ordering, function calls, and element declarations.
+   - All 194 extension tests pass; all 90 queue tests pass.
+
+### Kiroku Cloud Cards, Conditional Enrichment, and History/Sync Integration (2026-10-14)
+
+**Objective**: Complete Kiroku Cloud Cards schema expansion, conditional Yomitan enrichment, local persistence vs. manual Anki sync separation, and note builder verification in `D:\Python\AnkiMiner\kiroku_cloud_queue\` without modifying core Kiroku protected files.
+
+**Key Architecture & Behaviors Delivered**:
+1. **Full Kiroku Card Field Model & Schema Policy**:
+   - Expanded `VocabCard` to support all applicable textual, metadata, and tagging fields: `expression`, `reading`, `meaning`, `sentence`, `sentence_meaning`, `notes`, `hint`, `context`, `jlpt_level`, `tags`, `deck_name`, `model_name`, `extra_data`.
+   - Media exclusion: Image and audio fields are explicitly stripped/excluded from the cloud pipeline.
+   - Unknown/unrecognized fields policy: Retained losslessly in `extra_data` dictionary and stored in `payload_json` column (SQLite `TEXT`, Postgres `JSONB`).
+   - Japanese Unicode characters, punctuation, and emoji are preserved verbatim.
+2. **Conditional Kiroku Enrichment (`enrichment.py`)**:
+   - Central rule: If `meaning` is supplied and non-empty, **zero** dictionary/Yomitan calls are made.
+   - If `meaning` is missing, empty, or whitespace-only, invokes Kiroku's existing Yomitan enrichment pipeline (`POST /api/capture`).
+   - Populates missing fields (`reading`, `sentence`, `sentence_meaning`, `hint`, `notes`, `jlpt_level`, tags) without overwriting supplied values.
+   - Enrichment failure handling: If enrichment fails or cannot obtain a usable meaning, raises `EnrichmentError`, worker NACKs the item with actionable diagnostics, and never falsely acknowledges or silently creates an incomplete card.
+3. **Local Persistence Separated from Anki Sync**:
+   - Fetching cards from cloud queue persists them locally in Kiroku SQLite (`source_type="cloud"`, `sync_status="pending"`), keeping them across PC and worker restarts.
+   - Fetching **NEVER** automatically triggers Anki note creation or sync (`auto_sync=False` default).
+   - Added manual sync for individual card (`worker.sync_single_card(card_id)`).
+   - Added manual sync for all eligible cloud cards (`worker.sync_cloud_cards(deck_name)`), filtering specifically by `source_type in ('cloud', 'iphone_cloud_queue')` and calling `POST /api/cards/bulk-sync` without touching unrelated local cards.
+   - Idempotency & duplicate prevention: duplicate submissions and repeated syncs are recognized by existing note validation, updating fields without creating duplicate notes.
+4. **Kiroku Note Builder & HTML Pipeline Reuse**:
+   - Downstream Anki note creation reuses Kiroku's existing `CardService._build_card_data()` and `AnkiConnectService.map_card_to_fields()`.
+   - Verified 100% equivalence in prepared fields, HTML structure, escaping, ruby annotations, and JLPT tags between cloud cards and normal Kiroku workflow cards across Basic, Japanese Mining, and Kaishi models.
+5. **Dedicated Cloud Section in History & Manual Sync Actions (Delivered)**:
+   - Added a segmented source sub-tab control (`All`, `Local`, `Cloud`) with a dynamic cloud counter badge directly above the History card list in `extension/sidepanel/sidepanel.html`.
+   - Separated cloud and local history views cleanly with custom empty states for both `Cloud` ("No cloud cards in local history") and `Local` ("No locally mined cards found").
+   - Added `☁️ Cloud` origin badge in history card metadata for cards with `source_type in ('cloud', 'iphone_cloud_queue')`.
+   - Added an individual **Sync** action button on pending cards (`.btn-history-sync`) invoking Kiroku's existing `retrySyncFromHistory(cardId, false)` to sync that specific card to Anki on demand.
+   - Added a **Sync Cloud Cards** header action button (`#btn-sync-cloud-all`) that dynamically replaces the global Sync All button when the Cloud sub-tab is active.
+   - Guarded bulk sync safety: `triggerSyncCloudCards()` queries cards, strictly filters for `(source_type === "cloud" || source_type === "iphone_cloud_queue") && (sync_status === "pending" || sync_status === "failed")`, and submits only eligible cloud card IDs to `POST /api/cards/bulk-sync`. Ordinary local cards are never selected or synced by cloud actions.
+   - Verified that fetched cloud cards remain Pending in local storage without triggering Anki note creation until explicit user sync.
+
+**Files Changed/Added**:
+- `extension/sidepanel/sidepanel.html`: Added `#history-source-subnav` segmented control, badge, and `#btn-sync-cloud-all` action button.
+- `extension/sidepanel/sidepanel.js`: Added source filtering state, badge count, separate empty states, `☁️ Cloud` badge, individual pending card Sync button, and `triggerSyncCloudCards()` bulk action.
+- Added in `kiroku_cloud_queue/`:
+  - `kiroku_cloud_queue/enrichment.py`: Conditional enrichment module.
+  - `kiroku_cloud_queue/tests/test_conditional_enrichment.py`: 6 tests covering all conditional enrichment rules.
+  - `kiroku_cloud_queue/tests/test_field_preservation_and_schema.py`: 6 tests for full fields, Unicode, and schema policy.
+  - `kiroku_cloud_queue/tests/test_cloud_history_and_persistence.py`: 7 tests for persistence, manual sync, local safety, and extension contract.
+  - `kiroku_cloud_queue/tests/test_kiroku_note_builder_comparison.py`: 4 tests proving 100% equivalence with Kiroku's pipeline.
+6. **Local Wi-Fi LAN Smoke Test Configuration & Security (Delivered)**:
+   - Added CLI arguments (`--host`, `--port`) and environment variable fallbacks (`QUEUE_HOST`, `QUEUE_PORT`) to `kiroku_cloud_queue/server.py`. Allows binding strictly to the PC's private Wi-Fi LAN IPv4 address without opening to all network interfaces or exposing loopback-only Kiroku (`127.0.0.1:21828`) or AnkiConnect (`127.0.0.1:8765`).
+   - Added zero-dependency `.env` loader in `server.py`, `worker.py`, and `queue_adapter.py` to prevent token leakage on the command line while ensuring existing secrets are read seamlessly.
+   - Updated `CloudQueueAdapter` to gracefully fall back to `WORKER_TOKEN` or `MCP_SECRET` when `CLOUD_QUEUE_API_KEY` is not explicitly set.
+   - Confirmed `/health` endpoint remains completely unauthenticated and leaks zero secret tokens.
+   - Preserved `text/plain` UTF-8 payload parsing matching the iOS Shortcut clipboard configuration. Added resilience against iOS smart/curly quotes, markdown code fences, UTF-8 BOM, and chat prose wrappers.
+
+**Files Changed/Added**:
+- `extension/sidepanel/sidepanel.html`: Added `#history-source-subnav` segmented control, badge, and `#btn-sync-cloud-all` action button.
+- `extension/sidepanel/sidepanel.js`: Added source filtering state, badge count, separate empty states, `☁️ Cloud` badge, individual pending card Sync button, and `triggerSyncCloudCards()` bulk action.
+- Added in `kiroku_cloud_queue/`:
+  - `kiroku_cloud_queue/enrichment.py`: Conditional enrichment module.
+  - `kiroku_cloud_queue/tests/test_conditional_enrichment.py`: 6 tests covering all conditional enrichment rules.
+  - `kiroku_cloud_queue/tests/test_field_preservation_and_schema.py`: 6 tests for full fields, Unicode, and schema policy.
+  - `kiroku_cloud_queue/tests/test_cloud_history_and_persistence.py`: 7 tests for persistence, manual sync, local safety, and extension contract.
+  - `kiroku_cloud_queue/tests/test_kiroku_note_builder_comparison.py`: 4 tests proving 100% equivalence with Kiroku's pipeline.
+- Modified in `kiroku_cloud_queue/`:
+  - `kiroku_cloud_queue/queue_adapter.py`: Added full field attributes, media stripping, extra_data handling, env loader, token fallback.
+  - `kiroku_cloud_queue/queue_store.py` & `postgres_store.py`: Added `payload_json` column and migrations.
+  - `kiroku_cloud_queue/kiroku_client.py`: Added `capture_term()`, `sync_cards_bulk()`, `list_cards()`, `get_card()`.
+  - `kiroku_cloud_queue/server.py`: Accepts optional fields, preserves full JSON payloads in queue, added `--host`/`--port` CLI entrypoint, `.env` loader, and iOS clipboard quirk resilience.
+  - `kiroku_cloud_queue/worker.py`: Integrates `enrich_card()`, decouples fetch from sync (`auto_sync=False`), adds `sync_single_card()` and `sync_cloud_cards()`, added `.env` loader.
+
+**Verification**:
+- `extension/tests/*.test.js`: **192 passed, 0 failed** in 3.94s (Node native test runner).
+- `kiroku_cloud_queue/tests/`: **90 passed, 0 failed** in 2.19s (`kiroku_cloud_queue/.venv/Scripts/python.exe -m pytest`).
+- `backend/tests/`: **530 passed, 0 failed** in 61.60s (`pytest -o pythonpath=backend backend/tests`).
+- Zero modifications to core Kiroku database schemas, note-building models, or backend dependencies.
+- **Remaining Risk**: Real AnkiConnect synchronization and iOS Shortcut end-to-end execution depend on local runtime network services (Anki desktop running with AnkiConnect on port 8765, and local Kiroku backend on port 21828), which must be smoke-tested by the user before any production cloud deployment.
+
+---
+
+
+
+**Objective**: Complete the server-side API, durable queue engine, and client/worker integration for the iOS Shortcut → Cloud Queue → Windows Worker → Kiroku → Anki pipeline. Transition the isolated prototype from `mcp_anki_test` to `kiroku_cloud_queue` without modifying any core Kiroku source files, schemas, or databases.
+
+**Key Architecture & Behaviors Delivered**:
+1. **Directory Transition**: Renamed prototype directory `mcp_anki_test` to `kiroku_cloud_queue` using `git mv`. Updated all internal imports, documentation, scripts, and test runners (`pytest.ini`, `DEPLOYMENT_CHECKLIST.md`, `CLOUD_READINESS.md`, `README.md`).
+2. **Schema & Contract Alignment**:
+   - Expanded `VocabCard` dataclass with `sentence_meaning` (non-empty string), full serialization (`to_dict`/`from_dict`), and default deck `N3 vocabs`.
+   - Updated `KirokuClient.save_card()` to map `sentence_meaning` to Kiroku's backend `example_translation` field.
+   - Added `claim_token` tracking to `QueueItem` for safe distributed acknowledgements.
+3. **Public Ingestion API (`POST /submit` & `/enqueue`)**:
+   - Designed to accept the confirmed iOS Shortcut payload delivered with `Content-Type: text/plain` (raw UTF-8 JSON) as well as standard `application/json`.
+   - Enforces a 64 KB maximum request body size limit to prevent memory exhaustion attacks.
+   - Strictly validates all 5 non-empty fields (`expression`, `reading`, `meaning`, `sentence`, `sentence_meaning`), preserving Japanese Unicode characters verbatim without lossy transformations.
+   - Constant-time Bearer token authentication via `secrets.compare_digest`, supporting separate credentials for submission (`SUBMIT_TOKEN`) and worker polling (`WORKER_TOKEN`).
+   - Clean structured HTTP errors (400, 401, 413, 422, 500) that never log or leak sensitive authorization headers or tokens.
+4. **Durable Persistence & Queue Semantics (`queue_store.py`, `postgres_store.py`)**:
+   - Implemented `SqliteQueueStore` (for local development/testing) with WAL mode and `PostgresQueueStore` (for production cloud deployments) utilizing `SELECT ... FOR UPDATE SKIP LOCKED`.
+   - Content-based deduplication: computes a SHA-256 idempotency key (`expression:reading:sentence:deck_name`) preventing duplicate queue items when iOS back-tap triggers repeatedly.
+   - Atomic claims with recoverable leases (`lease_expires_at`, default 60s) preventing worker races while ensuring crashed workers automatically release jobs.
+   - Conditional acknowledgement (`ack`) requiring matching `claim_token`, and dead-letter failure routing (`nack`) to status `failed` after `MAX_ATTEMPTS = 5`.
+5. **Local Windows Worker Hardening (`worker.py`)**:
+   - Outbound-only polling over HTTPS; never exposes local PC ports publicly.
+   - Propagates `sentence_meaning` through to Kiroku, and only issues `adapter.ack(item_id, claim_token)` after local Kiroku persistence confirms success.
+   - Maintains safe duplicate handling (if card already exists in Kiroku/Anki, marks queue job acknowledged without creating duplicate Anki notes).
+6. **Containerization & Deployment Assets**:
+   - Created production `Dockerfile` (Python 3.11-slim, non-root user, multi-stage, gunicorn/uvicorn worker).
+   - Created PostgreSQL DDL schema migration script (`postgres_schema.sql`).
+   - Updated `.env.example` with token generation instructions (`python -c "import secrets; print(secrets.token_urlsafe(32))"`).
+   - Documented exact iOS Shortcut configuration and testing steps in `README.md`.
+
+**Files Changed/Added in `kiroku_cloud_queue/`**:
+- Renamed: `mcp_anki_test/` → `kiroku_cloud_queue/`
+- Added: `kiroku_cloud_queue/queue_store.py`, `kiroku_cloud_queue/postgres_store.py`, `kiroku_cloud_queue/postgres_schema.sql`, `kiroku_cloud_queue/Dockerfile`, `kiroku_cloud_queue/IMPLEMENTATION_PLAN.md`
+- Modified: `kiroku_cloud_queue/server.py`, `kiroku_cloud_queue/worker.py`, `kiroku_cloud_queue/queue_adapter.py`, `kiroku_cloud_queue/kiroku_client.py`, `kiroku_cloud_queue/queue_db.py`, `kiroku_cloud_queue/README.md`, `kiroku_cloud_queue/.env.example`, `kiroku_cloud_queue/pytest.ini`
+- Tests Added: `kiroku_cloud_queue/tests/test_card_model_and_client.py`, `kiroku_cloud_queue/tests/test_cloud_api.py`, `kiroku_cloud_queue/tests/test_queue_store.py`, `kiroku_cloud_queue/tests/test_worker_leases_and_meaning.py`, `kiroku_cloud_queue/tests/test_end_to_end_pipeline.py`
+
+**Verification**:
+- `kiroku_cloud_queue/tests/`: **62 passed, 0 failed** in 2.76s (expanded from 43 to 62 automated tests covering auth, payload validation, idempotency, atomic leases, worker logic, and end-to-end pipeline simulation).
+- Core Kiroku test suite (`backend/tests/`): **530 passed, 4 subtests passed** in 65.92s.
+- Zero modifications to core Kiroku source code, schemas, or databases.
+
+---
+
 ### AnkiConnect CORS Policy Support, Validation Resilience, Card Resync & Release v2.0.0 Packaging (2026-10-14)
 
 **Objective**: Resolve AnkiConnect CORS connection failures (`webCorsOriginList: ["http://localhost"]`), fix note validation and false sync failures, prevent cards from falling back to `Default` deck, allow explicit user resync for already-synced cards in both card editor and mining history, automatically heal corrupted history statistics in SQLite, and build updated distribution binaries.

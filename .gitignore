@@ -97,3 +97,10 @@ AudioFeatureReport.md
 UI-exploration/
 docs/
 superpowers/plans/
+
+# Cloud Queue local artifacts & diagnostics
+last_failed_payload.txt
+kiroku_cloud_queue/last_failed_payload.txt
+kiroku_cloud_queue/*.db
+kiroku_cloud_queue/*.db-shm
+kiroku_cloud_queue/*.db-wal

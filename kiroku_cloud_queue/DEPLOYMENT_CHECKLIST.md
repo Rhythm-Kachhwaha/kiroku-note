@@ -1,10 +1,12 @@
-# Deployment Checklist: Google Cloud Run + Supabase PostgreSQL
+# Deployment Checklist: Render + Neon PostgreSQL (or Google Cloud Run + Supabase)
 
-**Project**: Kiroku Note — ChatGPT MCP to Anki Ingestion  
-**Directory**: `mcp_anki_test/`  
-**Target Stack**: Google Cloud Run (FastAPI Server) + Supabase (PostgreSQL Queue) + Local PC Worker  
+**Project**: Kiroku Note — Mobile / ChatGPT MCP to Anki Ingestion  
+**Directory**: `kiroku_cloud_queue/`  
+**Primary Target Stack**: Render (FastAPI Web Service) + Neon (Serverless PostgreSQL Queue) + Local PC Worker  
+**Alternative Stack**: Google Cloud Run + Supabase PostgreSQL  
+**Quickstart Guide**: See `RENDER_NEON_SETUP.md` and `render.yaml`  
 **Intended Destination Deck**: `N3 vocabs`  
-**Status**: Pre-Deployment Audit Complete. No cloud resources or accounts provisioned yet.
+**Status**: Ready for Deployment. Auto-init schema and connection detection enabled.
 
 ---
 
@@ -90,7 +92,7 @@ CREATE INDEX IF NOT EXISTS idx_queued_cards_pending_dedup
 ### Phase 2: Packaging Cloud Run Container (Estimated time: 5 minutes)
 *No cost (Google Cloud Run Free Tier: 2 million requests/month, 360,000 GB-seconds memory)*
 
-- [ ] **2.1. Create `Dockerfile` inside `mcp_anki_test/`**:
+- [ ] **2.1. Create `Dockerfile` inside `kiroku_cloud_queue/`**:
   ```dockerfile
   FROM python:3.11-slim
   WORKDIR /app
@@ -136,7 +138,7 @@ CREATE INDEX IF NOT EXISTS idx_queued_cards_pending_dedup
 
 ### Phase 4: Local PC Worker Configuration (Estimated time: 2 minutes)
 
-- [ ] **4.1. Update `mcp_anki_test/.env` on your local PC**:
+- [ ] **4.1. Update `kiroku_cloud_queue/.env` on your local PC**:
   ```ini
   MCP_SECRET=<your-mcp-secret>
   ANKI_DECK_NAME=N3 vocabs
@@ -148,7 +150,7 @@ CREATE INDEX IF NOT EXISTS idx_queued_cards_pending_dedup
 
 - [ ] **4.2. Verify Outbound Fetch (PC Online)**:
   ```powershell
-  cd D:\Python\AnkiMiner\mcp_anki_test
+  cd D:\Python\AnkiMiner\kiroku_cloud_queue
   .venv\Scripts\python.exe worker.py --once
   ```
 

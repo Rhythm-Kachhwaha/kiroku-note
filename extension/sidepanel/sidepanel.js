@@ -279,6 +279,7 @@ const imagePreviewContainer = document.querySelector("#image-preview-container")
 const imagePreview = document.querySelector("#image-preview");
 const imageEmptyPlaceholder = document.querySelector("#image-empty-placeholder");
 const btnClearImage = document.querySelector("#btn-clear-image");
+const btnRetakeImage = typeof document !== "undefined" && document ? document.querySelector("#btn-retake-image") : null;
 const audioPreviewContainer = document.querySelector("#audio-preview-container");
 const audioPreview = document.querySelector("#audio-preview");
 const audioEmptyPlaceholder = document.querySelector("#audio-empty-placeholder");
@@ -861,9 +862,15 @@ const historySearchInput = document.querySelector("#history-search-input");
 const historyDeckFilter = document.querySelector("#history-deck-filter");
 const historySyncFilter = document.querySelector("#history-sync-filter");
 const historyListContainer = document.querySelector("#history-list-container");
-const historyEmpty = document.querySelector("#history-empty");
 const historyCardsList = document.querySelector("#history-cards-list");
+const historyEmpty = document.querySelector("#history-empty");
 const btnSyncAll = document.querySelector("#btn-sync-all");
+const btnSyncCloudAll = document.querySelector("#btn-sync-cloud-all");
+const historySourceAll = document.querySelector("#history-source-all");
+const historySourceLocal = document.querySelector("#history-source-local");
+const historySourceCloud = document.querySelector("#history-source-cloud");
+const historyCloudCountBadge = document.querySelector("#history-cloud-count-badge");
+let currentHistorySource = "all"; // "all" | "local" | "cloud"
 const btnExportCards = document.querySelector("#btn-export-cards");
 const syncAllStatus = document.querySelector("#sync-all-status");
 
@@ -5990,9 +5997,9 @@ function renderHistoryStats(stats) {
         <div class="stat-sync-bar failed" style="width: ${failedPct}%;" title="${failed} failed"></div>
       </div>
       <div class="stat-sync-legend">
-        <span>✓ ${synced} Synced</span>
-        <span>⏳ ${pending} Pending</span>
-        <span>⚠️ ${failed} Failed</span>
+        <span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px; color:var(--accent-green, #22c55e);"><polyline points="20 6 9 17 4 12"/></svg>${synced} Synced</span>
+        <span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px; color:var(--accent-orange, #f97316);"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${pending} Pending</span>
+        <span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px; color:var(--accent-red, #ef4444);"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>${failed} Failed</span>
       </div>
     </div>
 
@@ -6044,6 +6051,33 @@ async function loadHistory() {
     const cards = Array.isArray(data.cards) ? data.cards : [];
     const total = typeof data.total === "number" ? data.total : cards.length;
 
+    // Track cloud cards and pending count for badge
+    const cloudCards = cards.filter(c => {
+      const s = String(c.source_type || "").toLowerCase();
+      return s === "cloud" || s === "iphone_cloud_queue";
+    });
+    const cloudUnsyncedCount = cloudCards.filter(c => c.sync_status === "pending" || c.sync_status === "failed").length;
+    if (historyCloudCountBadge) {
+      if (cloudCards.length > 0) {
+        historyCloudCountBadge.style.display = "inline-block";
+        historyCloudCountBadge.textContent = cloudUnsyncedCount > 0 ? String(cloudUnsyncedCount) : String(cloudCards.length);
+        historyCloudCountBadge.title = `${cloudUnsyncedCount} unsynced, ${cloudCards.length} total cloud cards`;
+      } else {
+        historyCloudCountBadge.style.display = "none";
+      }
+    }
+
+    // Filter cards according to active source subtab
+    let displayCards = cards;
+    if (currentHistorySource === "cloud") {
+      displayCards = cloudCards;
+    } else if (currentHistorySource === "local") {
+      displayCards = cards.filter(c => {
+        const s = String(c.source_type || "").toLowerCase();
+        return s !== "cloud" && s !== "iphone_cloud_queue";
+      });
+    }
+
     checkFirstRunStatus(total);
 
     const synced = typeof data.synced_total === "number"
@@ -6051,17 +6085,41 @@ async function loadHistory() {
       : (syncStatus === "synced" ? total : (syncStatus !== "all" && syncStatus ? 0 : cards.filter(c => c.sync_status === "synced").length));
 
     if (historyCount) {
-      historyCount.textContent = `${total} card${total === 1 ? "" : "s"}`;
+      if (currentHistorySource === "cloud") {
+        historyCount.textContent = `${displayCards.length} cloud card${displayCards.length === 1 ? "" : "s"}`;
+      } else if (currentHistorySource === "local") {
+        historyCount.textContent = `${displayCards.length} local card${displayCards.length === 1 ? "" : "s"}`;
+      } else {
+        historyCount.textContent = `${total} card${total === 1 ? "" : "s"}`;
+      }
     }
     if (historySyncLabel) {
-      historySyncLabel.textContent = `${synced} / ${total} synced`;
+      if (currentHistorySource === "cloud") {
+        const cloudSynced = cloudCards.filter(c => c.sync_status === "synced").length;
+        historySyncLabel.textContent = `${cloudSynced} / ${cloudCards.length} synced`;
+      } else {
+        historySyncLabel.textContent = `${synced} / ${total} synced`;
+      }
     }
     if (historyProgressBar) {
-      const pct = total > 0 ? Math.min(100, Math.round((synced / total) * 100)) : 0;
+      const denom = currentHistorySource === "cloud" ? cloudCards.length : total;
+      const num = currentHistorySource === "cloud" ? cloudCards.filter(c => c.sync_status === "synced").length : synced;
+      const pct = denom > 0 ? Math.min(100, Math.round((num / denom) * 100)) : 0;
       historyProgressBar.style.width = `${pct}%`;
     }
 
-    if (cards.length === 0) {
+    // Toggle Sync All vs Sync Cloud Cards button
+    if (btnSyncAll && btnSyncCloudAll) {
+      if (currentHistorySource === "cloud") {
+        btnSyncAll.style.display = "none";
+        btnSyncCloudAll.style.display = "inline-flex";
+      } else {
+        btnSyncAll.style.display = "";
+        btnSyncCloudAll.style.display = "none";
+      }
+    }
+
+    if (displayCards.length === 0) {
       historyCardsList.replaceChildren();
       if (historyEmpty) {
         historyEmpty.hidden = false;
@@ -6073,9 +6131,18 @@ async function loadHistory() {
         const emptyDiv = document.createElement("div");
         emptyDiv.className = "empty-state history-empty-state";
         const isFiltered = Boolean(search || deck !== "all" || syncStatus !== "all");
+        let emptyMsg = isFiltered ? "No matching cards found." : "No cards mined yet.";
+        let emptyHint = isFiltered ? "Try adjusting your search query or filters." : "Start mining to see your history here.";
+        if (currentHistorySource === "cloud" && !isFiltered) {
+          emptyMsg = "No cloud cards in local history.";
+          emptyHint = "Cards queued from iPhone Shortcut or cloud worker appear here once fetched.";
+        } else if (currentHistorySource === "local" && !isFiltered) {
+          emptyMsg = "No locally mined cards found.";
+          emptyHint = "Start mining from webpages or subtitles to see your history here.";
+        }
         emptyDiv.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-state-icon" aria-hidden="true"><rect x="2" y="7" width="16" height="14" rx="2"/><path d="M6 3h14a2 2 0 0 1 2 2v12"/></svg>` +
-          `<p class="empty-state-text">${isFiltered ? "No matching cards found." : "No cards mined yet."}</p>` +
-          `<p class="empty-state-hint">${isFiltered ? "Try adjusting your search query or filters." : "Start mining to see your history here."}</p>`;
+          `<p class="empty-state-text">${emptyMsg}</p>` +
+          `<p class="empty-state-hint">${emptyHint}</p>`;
         historyEmpty.append(emptyDiv);
       }
     } else {
@@ -6083,7 +6150,7 @@ async function loadHistory() {
         historyEmpty.hidden = true;
         if (typeof historyEmpty.replaceChildren === "function") historyEmpty.replaceChildren();
       }
-      renderHistoryCards(sortHistoryCards(cards, currentHistorySort));
+      renderHistoryCards(sortHistoryCards(displayCards, currentHistorySort));
     }
 
     updateDeckFilterOptions(cards);
@@ -6291,17 +6358,20 @@ function renderHistoryCards(cards) {
       const srcType = card.source_type || "text";
       const sourceBadge = document.createElement("span");
       sourceBadge.className = "history-item-source";
-      let icon = "📄";
+      let iconSvg = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
       let label = "Text";
       if (srcType === "video") {
-        icon = "🎬";
+        iconSvg = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>';
         label = "Video";
       } else if (srcType === "ocr") {
-        icon = "🔲";
+        iconSvg = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></svg>';
         label = "OCR";
       } else if (srcType === "quick_add" || srcType === "quickadd") {
-        icon = "⚡";
+        iconSvg = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align:-1px; margin-right:3px;" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
         label = "Quick Add";
+      } else if (srcType === "cloud" || srcType === "iphone_cloud_queue") {
+        iconSvg = '<svg class="icon-cloud" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:3px;" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>';
+        label = "Cloud";
       }
 
       let host = "";
@@ -6314,7 +6384,16 @@ function renderHistoryCards(cards) {
         }
       }
 
-      sourceBadge.textContent = host ? `${icon} ${host}` : `${icon} ${label}`;
+      const displayText = host || label;
+      const iconSpan = document.createElement("span");
+      iconSpan.className = `icon-source icon-source-${srcType}`;
+      iconSpan.setAttribute("aria-hidden", "true");
+      iconSpan.innerHTML = iconSvg;
+
+      const labelSpan = document.createElement("span");
+      labelSpan.textContent = displayText;
+
+      sourceBadge.append(iconSpan, labelSpan);
       sourceBadge.title = card.source_url ? `Mined from ${label}: ${card.source_url}` : `Mined from: ${label}`;
       meta.append(sourceBadge);
     }
@@ -6350,6 +6429,18 @@ function renderHistoryCards(cards) {
         retrySyncFromHistory(card.id, true);
       });
       actions.append(resyncBtn);
+    } else if (card.sync_status === "pending") {
+      const syncBtn = document.createElement("button");
+      syncBtn.type = "button";
+      syncBtn.className = "btn-history-retry btn-history-sync";
+      syncBtn.textContent = "Sync";
+      syncBtn.title = "Sync card to Anki";
+      syncBtn.setAttribute("aria-label", `Sync ${card.expression} to Anki`);
+      syncBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        retrySyncFromHistory(card.id, false);
+      });
+      actions.append(syncBtn);
     }
 
     const delBtn = document.createElement("button");
@@ -6704,6 +6795,92 @@ if (historySortSelect) {
     saveStoredHistorySort(historySortSelect.value);
     loadHistory();
   });
+}
+
+function setHistorySourceFilter(source) {
+  currentHistorySource = source;
+  const items = [
+    { el: historySourceAll, key: "all" },
+    { el: historySourceLocal, key: "local" },
+    { el: historySourceCloud, key: "cloud" },
+  ];
+  items.forEach(({ el, key }) => {
+    if (!el) return;
+    const isActive = key === source;
+    el.classList.toggle("active", isActive);
+    el.setAttribute("aria-selected", String(isActive));
+    el.style.background = isActive ? "var(--bg-surface-2, #2a2a2a)" : "transparent";
+    el.style.color = isActive ? "var(--text-primary, #fff)" : "var(--text-secondary, #aaa)";
+    el.style.fontWeight = isActive ? "600" : "500";
+  });
+  loadHistory();
+}
+
+if (historySourceAll) historySourceAll.addEventListener("click", () => setHistorySourceFilter("all"));
+if (historySourceLocal) historySourceLocal.addEventListener("click", () => setHistorySourceFilter("local"));
+if (historySourceCloud) historySourceCloud.addEventListener("click", () => setHistorySourceFilter("cloud"));
+
+async function triggerSyncCloudCards() {
+  if (isSyncAllRunning) return;
+  try {
+    if (btnSyncCloudAll) {
+      btnSyncCloudAll.disabled = true;
+      btnSyncCloudAll.textContent = "Syncing…";
+    }
+    setStatus("Scanning for unsynced cloud cards…");
+
+    const res = await fetch(`${API_CARDS_URL}?limit=500`);
+    if (!res.ok) throw new Error("Could not retrieve cards list.");
+    const data = await res.json().catch(() => ({}));
+    const all = Array.isArray(data.cards) ? data.cards : [];
+
+    // Strictly select ONLY cloud cards with pending or failed status
+    const eligibleCloud = all.filter(c => {
+      const src = String(c.source_type || "").toLowerCase();
+      const st = String(c.sync_status || "").toLowerCase();
+      return (src === "cloud" || src === "iphone_cloud_queue") && (st === "pending" || st === "failed");
+    });
+
+    if (eligibleCloud.length === 0) {
+      setStatus("No pending or retryable cloud cards to sync.");
+      return;
+    }
+
+    const cloudCardIds = eligibleCloud.map(c => c.id);
+    setStatus(`Syncing ${cloudCardIds.length} cloud card(s) to Anki…`);
+
+    const syncRes = await fetch(API_CARDS_BULK_SYNC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ card_ids: cloudCardIds }),
+    });
+    const syncData = await syncRes.json().catch(() => ({}));
+
+    if (!syncRes.ok || syncData.error) {
+      const errMsg = syncData.error || syncData.detail || "Bulk sync failed";
+      setStatus(`Cloud sync failed: ${errMsg}`, true);
+    } else {
+      const syncedCount = typeof syncData.synced_count === "number" ? syncData.synced_count : cloudCardIds.length;
+      const failedCount = typeof syncData.failed_count === "number" ? syncData.failed_count : 0;
+      if (failedCount > 0) {
+        setStatus(`Cloud sync: ${syncedCount} synced, ${failedCount} failed.`, true);
+      } else {
+        setStatus(`Successfully synced ${syncedCount} cloud card(s) to Anki.`);
+      }
+    }
+    await loadHistory();
+  } catch (err) {
+    setStatus(`Cloud sync failed: ${formatErrorMessage(err)}`, true);
+  } finally {
+    if (btnSyncCloudAll) {
+      btnSyncCloudAll.disabled = false;
+      btnSyncCloudAll.textContent = "Sync Cloud Cards";
+    }
+  }
+}
+
+if (btnSyncCloudAll) {
+  btnSyncCloudAll.addEventListener("click", () => triggerSyncCloudCards());
 }
 
 async function exportCardsCsv() {
@@ -7190,7 +7367,7 @@ async function loadSubtitleFolderPreferences() {
     if (jimakuDownloadFolderInput) jimakuDownloadFolderInput.value = downloadFolder;
     if (toggleSaveSubtitleDisk) toggleSaveSubtitleDisk.checked = autoSave;
     if (savedFolderName && folderNameLabel) {
-      folderNameLabel.textContent = `📁 ${savedFolderName}:`;
+      folderNameLabel.textContent = `${savedFolderName}:`;
     }
   } catch (_) {}
 }
@@ -7258,7 +7435,7 @@ async function handleSubtitleFolderSelect(files) {
   }
 
   if (folderNameLabel) {
-    folderNameLabel.textContent = `📁 ${folderName} (${subtitleFiles.length}):`;
+    folderNameLabel.textContent = `${folderName} (${subtitleFiles.length}):`;
   }
   if (subtitleFolderBar) {
     subtitleFolderBar.hidden = false;
@@ -10660,6 +10837,7 @@ if (typeof module !== "undefined" && module.exports) {
     renderRubyText,
     renderStudySenseItem,
     renderHistoryCards,
+    historyCardsList,
     getLastCaptureSource: () => lastCaptureSource,
     setLastCaptureSource: (s) => { lastCaptureSource = s; },
     switchMiningTab,

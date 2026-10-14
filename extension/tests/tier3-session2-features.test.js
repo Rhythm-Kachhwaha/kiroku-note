@@ -404,21 +404,21 @@ test("T3-I: Capture Provenance Tracking - Metadata & History Badge", () => {
   const item101 = historyItems[0];
   const sourceBadge101 = findSelector(item101, ".history-item-source");
   assert.ok(sourceBadge101, "Video card has history-item-source badge");
-  assert.ok(sourceBadge101.textContent.includes("🎬"), "Contains video icon");
+  assert.ok(findSelector(sourceBadge101, ".icon-source-video"), "Contains video icon");
   assert.ok(sourceBadge101.textContent.includes("youtube.com"), "Contains domain name");
 
   // Check card 102 (ocr source)
   const item102 = historyItems[1];
   const sourceBadge102 = findSelector(item102, ".history-item-source");
   assert.ok(sourceBadge102, "OCR card has history-item-source badge");
-  assert.ok(sourceBadge102.textContent.includes("🔲"), "Contains OCR icon");
+  assert.ok(findSelector(sourceBadge102, ".icon-source-ocr"), "Contains OCR icon");
   assert.ok(sourceBadge102.textContent.includes("OCR"), "Contains OCR text");
 
   // Check card 103 (quick_add source)
   const item103 = historyItems[2];
   const sourceBadge103 = findSelector(item103, ".history-item-source");
   assert.ok(sourceBadge103, "Quick Add card has history-item-source badge");
-  assert.ok(sourceBadge103.textContent.includes("⚡"), "Contains Quick Add icon");
+  assert.ok(findSelector(sourceBadge103, ".icon-source-quick_add"), "Contains Quick Add icon");
   assert.ok(sourceBadge103.textContent.includes("Quick Add"), "Contains Quick Add text");
 
   // Check card 104 (no source)

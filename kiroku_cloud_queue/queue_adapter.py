@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import abc
 import os
+import logging
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +24,13 @@ from typing import Any, Optional
 import httpx
 
 import queue_db as qdb
+from env_utils import load_env_file
+
+log = logging.getLogger("kiroku_queue_adapter")
+
+_load_env_file = load_env_file
+load_env_file()
+
 
 
 # ---------------------------------------------------------------------------
@@ -35,19 +43,70 @@ class VocabCard:
     reading: str = ""
     meaning: str = ""
     sentence: str = ""
+    sentence_meaning: str = ""
+    notes: str = ""
+    hint: str = ""
+    context: str = ""
+    jlpt_level: str = ""
+    tags: str = ""
     deck_name: str = "N3 vocabs"
+    model_name: str = ""
+    extra_data: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, str]:
-        return asdict(self)
+    def to_dict(self) -> dict[str, Any]:
+        d = asdict(self)
+        if not d.get("extra_data"):
+            d.pop("extra_data", None)
+        return d
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "VocabCard":
+        if not isinstance(data, dict):
+            return cls(expression="")
+
+        # Aliases
+        sentence_val = data.get("sentence") or data.get("example_sentence") or ""
+        sentence_meaning_val = data.get("sentence_meaning") or data.get("example_translation") or ""
+        context_val = data.get("context") or data.get("source_text") or ""
+        jlpt_val = data.get("jlpt_level") or data.get("jlpt") or ""
+
+        # Tags normalization (string or list[str])
+        tags_raw = data.get("tags", "")
+        if isinstance(tags_raw, list):
+            tags_val = ", ".join(str(t).strip() for t in tags_raw if str(t).strip())
+        else:
+            tags_val = str(tags_raw or "").strip()
+
+        # Schema policy: capture any unknown fields into extra_data, excluding media
+        known_keys = {
+            "expression", "reading", "meaning", "sentence", "example_sentence",
+            "sentence_meaning", "example_translation", "notes", "hint",
+            "context", "source_text", "jlpt_level", "jlpt", "tags",
+            "deck_name", "model_name", "extra_data",
+            # Excluded media keys:
+            "image", "audio", "image_data", "audio_data", "media_mime_type",
+        }
+        extra_data = {
+            k: v for k, v in data.items()
+            if k not in known_keys
+        }
+        if isinstance(data.get("extra_data"), dict):
+            extra_data.update(data["extra_data"])
+
         return cls(
             expression=str(data.get("expression", "")).strip(),
             reading=str(data.get("reading", "")).strip(),
             meaning=str(data.get("meaning", "")).strip(),
-            sentence=str(data.get("sentence", "")).strip(),
+            sentence=str(sentence_val).strip(),
+            sentence_meaning=str(sentence_meaning_val).strip(),
+            notes=str(data.get("notes", "")).strip(),
+            hint=str(data.get("hint", "")).strip(),
+            context=str(context_val).strip(),
+            jlpt_level=str(jlpt_val).strip(),
+            tags=tags_val,
             deck_name=str(data.get("deck_name", "N3 vocabs")).strip() or "N3 vocabs",
+            model_name=str(data.get("model_name", "")).strip(),
+            extra_data=extra_data,
         )
 
 
@@ -58,6 +117,7 @@ class QueueItem:
     card: VocabCard
     status: str = "pending"
     attempts: int = 0
+    claim_token: str = ""
     error: str = ""
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -118,7 +178,7 @@ class QueueAdapter(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def ack(self, item_id: str) -> None:
+    async def ack(self, item_id: str, claim_token: Optional[str] = None) -> None:
         """
         Acknowledge successful processing.
         The item is marked as sent/processed or removed from the queue.
@@ -127,7 +187,7 @@ class QueueAdapter(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def nack(self, item_id: str, error: str) -> None:
+    async def nack(self, item_id: str, error: str, claim_token: Optional[str] = None) -> None:
         """
         Record processing failure, increment attempts, and log error message.
         """
@@ -189,11 +249,21 @@ class LocalDevQueueAdapter(QueueAdapter):
             ))
         return items
 
-    async def ack(self, item_id: str) -> None:
-        qdb.mark_sent(int(item_id), db_path=self.db_path)
+    async def ack(self, item_id: str, claim_token: Optional[str] = None) -> None:
+        try:
+            int_id = int(item_id)
+        except (ValueError, TypeError):
+            log.warning("LocalDevQueueAdapter received non-integer item_id %r; ignoring", item_id)
+            return
+        qdb.mark_sent(int_id, db_path=self.db_path)
 
-    async def nack(self, item_id: str, error: str) -> None:
-        qdb.mark_failed(int(item_id), error=error, db_path=self.db_path)
+    async def nack(self, item_id: str, error: str, claim_token: Optional[str] = None) -> None:
+        try:
+            int_id = int(item_id)
+        except (ValueError, TypeError):
+            log.warning("LocalDevQueueAdapter received non-integer item_id %r; ignoring", item_id)
+            return
+        qdb.mark_failed(int_id, error=error, db_path=self.db_path)
 
     async def stats(self) -> dict[str, int]:
         return qdb.queue_stats(db_path=self.db_path)
@@ -229,8 +299,10 @@ class CloudQueueAdapter(QueueAdapter):
         api_key: Optional[str] = None,
         timeout: float = 10.0,
     ):
-        self.queue_url = (queue_url or os.getenv("CLOUD_QUEUE_URL", "")).rstrip("/")
-        self.api_key = api_key or os.getenv("CLOUD_QUEUE_API_KEY", "")
+        self.queue_url = (queue_url if queue_url is not None else os.getenv("CLOUD_QUEUE_URL", "")).rstrip("/")
+        self.api_key = api_key if api_key is not None else (
+            os.getenv("CLOUD_QUEUE_API_KEY") or os.getenv("WORKER_TOKEN") or os.getenv("MCP_SECRET") or ""
+        )
         self.timeout = timeout
 
     @property
@@ -295,6 +367,7 @@ class CloudQueueAdapter(QueueAdapter):
                         card=card,
                         status=item.get("status", "pending"),
                         attempts=item.get("attempts", 0),
+                        claim_token=str(item.get("claim_token", "")),
                         error=item.get("error", ""),
                         created_at=item.get("created_at", ""),
                         updated_at=item.get("updated_at", ""),
@@ -305,12 +378,14 @@ class CloudQueueAdapter(QueueAdapter):
         except httpx.HTTPError as exc:
             raise QueueError(self._sanitize_error(f"Cloud queue network error: {exc}")) from exc
 
-    async def ack(self, item_id: str) -> None:
+    async def ack(self, item_id: str, claim_token: Optional[str] = None) -> None:
         self._ensure_configured()
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
+                body = {"claim_token": claim_token} if claim_token else None
                 resp = await client.post(
                     f"{self.queue_url}/ack/{item_id}",
+                    json=body,
                     headers=self._headers(),
                 )
                 if resp.status_code != 200:
@@ -320,13 +395,16 @@ class CloudQueueAdapter(QueueAdapter):
         except httpx.HTTPError as exc:
             raise QueueError(self._sanitize_error(f"Cloud queue network error: {exc}")) from exc
 
-    async def nack(self, item_id: str, error: str) -> None:
+    async def nack(self, item_id: str, error: str, claim_token: Optional[str] = None) -> None:
         self._ensure_configured()
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
+                payload: dict[str, Any] = {"error": error}
+                if claim_token:
+                    payload["claim_token"] = claim_token
                 resp = await client.post(
                     f"{self.queue_url}/nack/{item_id}",
-                    json={"error": error},
+                    json=payload,
                     headers=self._headers(),
                 )
                 if resp.status_code != 200:

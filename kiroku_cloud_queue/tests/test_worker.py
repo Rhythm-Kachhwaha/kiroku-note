@@ -42,7 +42,7 @@ async def test_worker_successful_card_processing(adapter: LocalDevQueueAdapter):
     with patch("kiroku_client.is_kiroku_alive", new=AsyncMock(return_value=True)), \
          patch("kiroku_client.save_card", new=AsyncMock(return_value=save_resp)) as mock_save, \
          patch("kiroku_client.sync_card", new=AsyncMock(return_value=sync_resp)) as mock_sync:
-        batch_res = await worker.process_batch(adapter=adapter)
+        batch_res = await worker.process_batch(adapter=adapter, auto_sync=True)
 
     assert batch_res.total_fetched == 1
     assert batch_res.processed == 1
@@ -50,13 +50,14 @@ async def test_worker_successful_card_processing(adapter: LocalDevQueueAdapter):
     assert batch_res.failed == 0
     assert batch_res.skipped_offline is False
 
-    mock_save.assert_called_once_with(
-        expression="約束",
-        reading="やくそく",
-        meaning="promise",
-        sentence="約束を守る",
-        deck_name="N3 vocabs",
-    )
+    assert mock_save.call_count == 1
+    call_kwargs = mock_save.call_args.kwargs
+    assert call_kwargs["expression"] == "約束"
+    assert call_kwargs["reading"] == "やくそく"
+    assert call_kwargs["meaning"] == "promise"
+    assert call_kwargs["sentence"] == "約束を守る"
+    assert call_kwargs["deck_name"] == "N3 vocabs"
+    assert call_kwargs["source_type"] == "cloud"
     mock_sync.assert_called_once_with(101)
 
     # Card must be acknowledged and removed from pending
@@ -199,12 +200,11 @@ async def test_worker_passes_custom_deck_name_to_kiroku(adapter: LocalDevQueueAd
         batch_res = await worker.process_batch(adapter=adapter)
 
     assert batch_res.processed == 1
-    mock_save.assert_called_once_with(
-        expression="星",
-        reading="ほし",
-        meaning="star",
-        sentence="",
-        deck_name="Custom Mining Deck",
-    )
+    assert mock_save.call_count == 1
+    call_kwargs = mock_save.call_args.kwargs
+    assert call_kwargs["expression"] == "星"
+    assert call_kwargs["reading"] == "ほし"
+    assert call_kwargs["meaning"] == "star"
+    assert call_kwargs["deck_name"] == "Custom Mining Deck"
 
 
