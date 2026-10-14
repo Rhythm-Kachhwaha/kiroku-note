@@ -40,3 +40,14 @@ test('Sidepanel UI: Cloud subnav and card badges use vector SVG icons rather tha
   assert.ok(!js.includes('icon = "⚡"'), 'No raw lightning emoji in history card source badges');
 });
 
+test('Sidepanel UI: Cloud queue refresh button uses vector SVG icon and connects to cloud pull', () => {
+  const html = fs.readFileSync('extension/sidepanel/sidepanel.html', 'utf8');
+  assert.ok(html.includes('id="btn-refresh-cloud-queue"'), 'btn-refresh-cloud-queue exists in sidepanel.html');
+  assert.ok(html.includes('class="icon-refresh"'), 'Refresh button uses SVG icon with icon-refresh class');
+  assert.ok(!html.includes('🔄'), 'No raw reload emoji used');
+
+  const js = fs.readFileSync('extension/sidepanel/sidepanel.js', 'utf8');
+  assert.ok(js.includes('btnRefreshCloudQueue'), 'btnRefreshCloudQueue element is queried in JS');
+  assert.ok(js.includes('/api/cloud/pull'), 'Calls /api/cloud/pull endpoint');
+});
+

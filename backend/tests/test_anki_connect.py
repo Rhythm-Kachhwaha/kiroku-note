@@ -147,6 +147,44 @@ class TestAnkiConnectService:
             assert result2 is None
             assert "findNotes" not in invoke_calls, "Must not call findNotes when expression reduces to empty after sanitization"
 
+    def test_find_existing_note_empty_deck_searches_all_decks(self):
+        """When deck_name is empty or whitespace, findNotes query must search across all decks
+        without generating 'deck:""' which crashes Anki's search parser, and must match notes from any deck."""
+        service = AnkiConnectService()
+        captured_query = []
+        def mock_invoke(action, **params):
+            if action == "findNotes":
+                captured_query.append(params.get("query"))
+                return [101]
+            if action == "notesInfo":
+                return [
+                    {
+                        "noteId": 101,
+                        "deckName": "N3 vocabs",
+                        "modelName": "japanese mining",
+                        "fields": {
+                            "word": {"value": "食べる"},
+                            "reading": {"value": "たべる"},
+                        },
+                    }
+                ]
+            return None
+
+        with patch.object(service, "_invoke", side_effect=mock_invoke):
+            found_id = service.find_existing_note("", "食べる", "たべる")
+            assert len(captured_query) == 1
+            assert captured_query[0] == '"食べる"'
+            assert 'deck:""' not in captured_query[0]
+            assert 'deck:' not in captured_query[0]
+            assert found_id == 101, "Candidate from 'N3 vocabs' must match even when searching with empty deck_name"
+
+        captured_query.clear()
+        with patch.object(service, "_invoke", side_effect=mock_invoke):
+            found_id2 = service.find_existing_note("   ", "食べる", "たべる")
+            assert len(captured_query) == 1
+            assert captured_query[0] == '"食べる"'
+            assert found_id2 == 101
+
     def test_deterministic_basic_model_mapping(self):
         service = AnkiConnectService()
         card_data = {

@@ -211,7 +211,7 @@ class AnkiConnectService:
         norm_target_read = normalize_reading(reading)
 
         # Sanitize deck and expression for query: strip quotes and backslashes
-        safe_deck = deck_name.replace('"', '\\"').replace("'", "")
+        safe_deck = (deck_name or "").strip().replace('"', '\\"').replace("'", "")
         # Search candidates in deck with expression token
         safe_term = expression.strip().replace('"', '\\"').replace("'", "").replace("*", "")
 
@@ -221,7 +221,10 @@ class AnkiConnectService:
         if not safe_term:
             return None
 
-        query = f'deck:"{safe_deck}" "{safe_term}"'
+        if safe_deck:
+            query = f'deck:"{safe_deck}" "{safe_term}"'
+        else:
+            query = f'"{safe_term}"'
 
         candidate_ids = self._invoke("findNotes", query=query)
         if not isinstance(candidate_ids, list) or not candidate_ids:
@@ -236,8 +239,8 @@ class AnkiConnectService:
             if not isinstance(note, dict):
                 continue
 
-            # Optional deck validation if note includes deckName
-            if "deckName" in note and note["deckName"]:
+            # Optional deck validation if note includes deckName and deck_name was explicitly specified
+            if safe_deck and "deckName" in note and note["deckName"]:
                 if normalize_deck(note["deckName"]) != normalize_deck(deck_name):
                     continue
 

@@ -833,3 +833,72 @@ def ask_llm(request: LLMRequest) -> LLMResponse:
             detail=f"LLM execution error: {exc}",
         ) from exc
 
+@app.post("/api/cloud/pull")
+async def pull_cloud_queue() -> JSONResponse:
+    """
+    Check and drain pending cards from the cloud queue into local SQLite.
+    Does NOT automatically sync to Anki (leaves sync_status='pending' for manual review).
+    """
+    import sys
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parent.parent.parent
+    cloud_queue_dir = project_root / "kiroku_cloud_queue"
+    if str(cloud_queue_dir) not in sys.path and cloud_queue_dir.exists():
+        sys.path.insert(0, str(cloud_queue_dir))
+
+    try:
+        from worker import process_batch
+        from queue_adapter import CloudQueueNotConfiguredError, QueueError
+    except ImportError as e:
+        return JSONResponse({
+            "status": "error",
+            "fetched": 0,
+            "processed": 0,
+            "duplicates": 0,
+            "failed": 0,
+            "message": f"Cloud queue module unavailable: {e}",
+        })
+
+    try:
+        result = await process_batch(auto_sync=False)
+        return JSONResponse({
+            "status": "ok",
+            "fetched": result.total_fetched,
+            "processed": result.processed,
+            "duplicates": result.duplicates,
+            "failed": result.failed,
+            "skipped_offline": result.skipped_offline,
+            "message": (
+                f"Imported {result.processed} new card(s) from cloud queue."
+                if result.processed > 0
+                else ("No new cards in cloud queue." if not result.skipped_offline else "Kiroku backend offline check.")
+            ),
+        })
+    except CloudQueueNotConfiguredError:
+        return JSONResponse({
+            "status": "not_configured",
+            "fetched": 0,
+            "processed": 0,
+            "duplicates": 0,
+            "failed": 0,
+            "message": "Cloud queue is not configured (check kiroku_cloud_queue/.env).",
+        })
+    except QueueError as e:
+        return JSONResponse({
+            "status": "error",
+            "fetched": 0,
+            "processed": 0,
+            "duplicates": 0,
+            "failed": 0,
+            "message": f"Cloud queue error: {e}",
+        })
+    except Exception as e:
+        return JSONResponse({
+            "status": "error",
+            "fetched": 0,
+            "processed": 0,
+            "duplicates": 0,
+            "failed": 0,
+            "message": f"Failed to pull cloud queue: {e}",
+        })

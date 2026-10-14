@@ -9089,5 +9089,27 @@ div[data-content="example"],
   outline-offset: 1px;
 }
 
+/* Cloud Queue Refresh Button & Spin Animation */
+.btn-refresh-cloud {
+  transition: all 0.15s ease-in-out;
+}
 
+.btn-refresh-cloud:hover {
+  background: var(--bg-surface-2, #2a2a2a) !important;
+  color: var(--text-primary, #fff) !important;
+  border-color: var(--border-hover, #555) !important;
+}
 
+.btn-refresh-cloud:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.icon-refresh.spinning {
+  animation: kiroku-spin 0.8s linear infinite;
+}
+
+@keyframes kiroku-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

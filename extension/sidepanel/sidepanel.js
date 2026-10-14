@@ -16,6 +16,7 @@ const API_CARDS_STATS_URL = `${BACKEND_BASE_URL}/api/cards/stats`;
 const API_CARDS_BULK_DELETE_URL = `${BACKEND_BASE_URL}/api/cards/bulk`;
 const API_CARDS_BULK_SYNC_URL = `${BACKEND_BASE_URL}/api/cards/bulk-sync`;
 const API_CARDS_BULK_DECK_URL = `${BACKEND_BASE_URL}/api/cards/bulk-deck`;
+const API_CLOUD_PULL_URL = `${BACKEND_BASE_URL}/api/cloud/pull`;
 const API_KANJI_STROKES_URL = (char) => `${BACKEND_BASE_URL}/api/kanji/strokes/${encodeURIComponent(char)}`;
 const API_LLM_STATUS_URL = `${BACKEND_BASE_URL}/api/llm/status`;
 const API_LLM_ASK_URL = `${BACKEND_BASE_URL}/api/llm/ask`;
@@ -870,6 +871,7 @@ const historySourceAll = document.querySelector("#history-source-all");
 const historySourceLocal = document.querySelector("#history-source-local");
 const historySourceCloud = document.querySelector("#history-source-cloud");
 const historyCloudCountBadge = document.querySelector("#history-cloud-count-badge");
+const btnRefreshCloudQueue = document.querySelector("#btn-refresh-cloud-queue");
 let currentHistorySource = "all"; // "all" | "local" | "cloud"
 const btnExportCards = document.querySelector("#btn-export-cards");
 const syncAllStatus = document.querySelector("#sync-all-status");
@@ -6108,7 +6110,7 @@ async function loadHistory() {
       historyProgressBar.style.width = `${pct}%`;
     }
 
-    // Toggle Sync All vs Sync Cloud Cards button
+    // Toggle Sync All vs Sync Cloud Cards button & Cloud Refresh button
     if (btnSyncAll && btnSyncCloudAll) {
       if (currentHistorySource === "cloud") {
         btnSyncAll.style.display = "none";
@@ -6117,6 +6119,9 @@ async function loadHistory() {
         btnSyncAll.style.display = "";
         btnSyncCloudAll.style.display = "none";
       }
+    }
+    if (btnRefreshCloudQueue) {
+      btnRefreshCloudQueue.style.display = currentHistorySource === "cloud" ? "inline-flex" : "none";
     }
 
     if (displayCards.length === 0) {
@@ -6881,6 +6886,47 @@ async function triggerSyncCloudCards() {
 
 if (btnSyncCloudAll) {
   btnSyncCloudAll.addEventListener("click", () => triggerSyncCloudCards());
+}
+
+async function triggerRefreshCloudQueue() {
+  if (!btnRefreshCloudQueue) return;
+  const icon = btnRefreshCloudQueue.querySelector(".icon-refresh");
+  const label = btnRefreshCloudQueue.querySelector("#btn-refresh-cloud-label");
+
+  btnRefreshCloudQueue.disabled = true;
+  if (icon) icon.classList.add("spinning");
+  if (label) label.textContent = "Checking…";
+  setStatus("Checking cloud queue for new cards…");
+
+  try {
+    const res = await fetch(API_CLOUD_PULL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && (data.status === "ok" || data.status === "success")) {
+      const processed = Number(data.processed || 0);
+      if (processed > 0) {
+        setStatus(`Imported ${processed} new card(s) from cloud.`);
+      } else {
+        setStatus(data.message || "Cloud queue is up to date.");
+      }
+    } else {
+      const msg = data.message || data.detail || "Cloud check failed";
+      setStatus(`Cloud queue: ${msg}`);
+    }
+  } catch (err) {
+    setStatus(`Cannot connect to Kiroku backend: ${formatErrorMessage(err)}`);
+  } finally {
+    btnRefreshCloudQueue.disabled = false;
+    if (icon) icon.classList.remove("spinning");
+    if (label) label.textContent = "Check Queue";
+    await loadHistory();
+  }
+}
+
+if (btnRefreshCloudQueue) {
+  btnRefreshCloudQueue.addEventListener("click", () => triggerRefreshCloudQueue());
 }
 
 async function exportCardsCsv() {
@@ -10859,6 +10905,8 @@ if (typeof module !== "undefined" && module.exports) {
     setAskResponseMode,
     getCurrentAskTask: () => currentAskTask,
     setCurrentAskTask: (t) => { currentAskTask = t; },
+    btnRefreshCloudQueue,
+    triggerRefreshCloudQueue,
   };
 }
 

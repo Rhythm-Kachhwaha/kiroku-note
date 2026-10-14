@@ -234,6 +234,16 @@ class CardsApiTests(unittest.TestCase):
         self.assertEqual(cards["素晴らしい"]["jlpt_level"], "N3")
         self.assertEqual(cards["本"]["jlpt_level"], "N5")
 
+    def test_cloud_pull_endpoint(self):
+        resp = self.client.post("/api/cloud/pull")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("status", data)
+        self.assertIn("fetched", data)
+        self.assertIn("processed", data)
+        self.assertIn("message", data)
+
 
 if __name__ == "__main__":
     unittest.main()
+
