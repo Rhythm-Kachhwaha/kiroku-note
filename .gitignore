@@ -83,6 +83,9 @@ backend/data/kiroku.db*
 *.env
 *.secrets
 .secrets.*
+!.env.example
+!*.env.example
+!**/.env.example
 
 # Node / Web
 node_modules/

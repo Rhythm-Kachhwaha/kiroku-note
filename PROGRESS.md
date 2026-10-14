@@ -1,5 +1,45 @@
 # Kiroku Note — Progress
 
+### Production Cloud Deployment: Render + Neon Free-Tier (2026-10-14)
+
+**Objective**: Provision free-tier Neon PostgreSQL and Render Python web service, enforce strict authentication token separation, verify zero-data-loss persistence and duplicate handling over public HTTPS, and configure local Windows worker.
+
+**Cloud Resources Provisioned (Free Tier)**:
+1. **Neon PostgreSQL Database**:
+   - Project: `kiroku-cloud-queue-db` (Project ID: `hidden-lake-25209330`)
+   - Region: `aws-us-west-2` (Oregon, 0.5 GB storage, 0.25 compute, scales to zero when idle)
+   - Connection: Neon pooled connection string with SSL mode required
+   - Schema: Automatically created `queued_cards` with `TEXT` expression/reading/meaning columns and performance indexes on startup via `store.init_db()`.
+2. **Render Web Service**:
+   - Service: `kiroku-cloud-queue` (ID: `srv-db7q7r0u01pc739nbnbg`)
+   - Plan: Free tier (512 MB RAM, spins down after 15 minutes of inactivity)
+   - Public HTTPS Endpoint: `https://kiroku-cloud-queue.onrender.com`
+   - Region: `oregon` (co-located with Neon database)
+   - Environment: 256-bit cryptographically secure tokens configured directly in Render dashboard environment variables (`SUBMIT_TOKEN`, `WORKER_TOKEN`, `MCP_SECRET`, `DATABASE_URL`, `PYTHON_VERSION=3.11.10`, `ANKI_DECK_NAME=N3 vocabs`).
+
+**Live End-to-End Verification Delivered**:
+1. **Health & Connectivity**: `GET https://kiroku-cloud-queue.onrender.com/health` returns `200 OK`, `{"status": "ok", "backend": "local", "database": "connected"}`.
+2. **Authentication Isolation**:
+   - `POST /submit` without token -> `401 Unauthorized` (passed).
+   - `POST /submit` with `WORKER_TOKEN` -> `401 Unauthorized` (strict separation verified).
+   - `GET /pending` with `SUBMIT_TOKEN` -> `401 Unauthorized` (worker route protected).
+3. **iPhone Shortcut Ingestion**:
+   - Sent test payload via `POST /submit` with `Content-Type: text/plain` containing UTF-8 JSON.
+   - Successfully queued and verified `200 OK` with generated UUID.
+4. **Idempotency & Duplicate Protection**:
+   - Re-submitted duplicate payload -> returned `200 OK` with `is_duplicate: true` and identical card ID.
+5. **Neon Direct Database Inspection**:
+   - Verified row persistence in Neon PostgreSQL table `queued_cards` via Neon MCP `run_sql`.
+6. **Worker Lease, Retry & Acknowledgment Lifecycle**:
+   - Worker claimed card via `GET /pending` with `WORKER_TOKEN`; item leased with `claim_token`.
+   - Simulated failure recorded via `POST /nack/{id}`; attempt count incremented to 2 and error captured.
+   - Successfully completed and committed via `POST /ack/{id}`.
+   - Cleaned up disposable test rows directly via Neon `run_sql` (`COUNT(*)` restored to 0).
+7. **Local PC Worker Configuration**:
+   - Configured `kiroku_cloud_queue/.env` (gitignored) for cloud draining (`QUEUE_BACKEND=cloud`, `CLOUD_QUEUE_URL=https://kiroku-cloud-queue.onrender.com`, `CLOUD_QUEUE_API_KEY=[WORKER_TOKEN]`).
+   - Verified `python worker.py --once` safely detects local Kiroku state before attempting batch ingestion.
+
+
 ### Cloud Queue Static Audit Fixes & Gitignore Hardening (2026-10-14)
 
 **Objective**: Resolve all 20 critical, high, medium, and low issues identified in the `kiroku_cloud_queue/` static audit report, add automated regression tests, and update `.gitignore` for cloud queue artifacts and local scratch dumps.
