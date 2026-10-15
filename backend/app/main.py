@@ -842,10 +842,20 @@ async def pull_cloud_queue() -> JSONResponse:
     import sys
     from pathlib import Path
 
-    project_root = Path(__file__).resolve().parent.parent.parent
-    cloud_queue_dir = project_root / "kiroku_cloud_queue"
-    if str(cloud_queue_dir) not in sys.path and cloud_queue_dir.exists():
-        sys.path.insert(0, str(cloud_queue_dir))
+    if getattr(sys, "frozen", False):
+        candidates = [
+            Path(getattr(sys, "_MEIPASS", "")) / "kiroku_cloud_queue",
+            Path(sys.executable).resolve().parent / "_internal" / "kiroku_cloud_queue",
+            Path(sys.executable).resolve().parent / "kiroku_cloud_queue",
+        ]
+        for c in candidates:
+            if c.exists() and str(c) not in sys.path:
+                sys.path.insert(0, str(c))
+    else:
+        project_root = Path(__file__).resolve().parent.parent.parent
+        cloud_queue_dir = project_root / "kiroku_cloud_queue"
+        if str(cloud_queue_dir) not in sys.path and cloud_queue_dir.exists():
+            sys.path.insert(0, str(cloud_queue_dir))
 
     try:
         from worker import process_batch

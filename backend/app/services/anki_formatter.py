@@ -1087,13 +1087,13 @@ def format_basic_back(
         if kanji_html:
             kanji_section = kanji_html
 
-        # If secondary vocabulary senses exist, render them below if show_meaning
+        # If secondary vocabulary senses or meaning exist, render them below if show_meaning
         if show_meaning:
             if c_entries and isinstance(c_entries, list):
-                meanings_html = format_meaning_html(meaning_text="", entries=c_entries)
+                meanings_html = format_meaning_html(meaning_text=c_meaning, entries=c_entries)
                 if meanings_html:
                     append_section("meaning", meanings_html)
-            elif not kanji_html and c_meaning:
+            elif c_meaning:
                 meanings_html = format_meaning_html(meaning_text=c_meaning, entries=None)
                 if meanings_html:
                     append_section("meaning", meanings_html)

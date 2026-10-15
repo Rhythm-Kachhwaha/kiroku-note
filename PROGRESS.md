@@ -1,5 +1,46 @@
 # Kiroku Note — Progress
 
+### Kanji Breakdown on Anki Sync, Cloud Queue Robustness, UI Fixes, & v2.0.0 Release Installer (2026-10-15)
+
+**Objective**: Ensure vocabulary cards captured via cloud queue with user/LLM-supplied meanings retain their meanings without Yomitan dictionary enrichment while guaranteeing kanji breakdown occurs when synced to Anki; harden cloud queue auth defaults for zero-env deployment; fix side panel settings popover `aria-expanded` and popover toggle accessibility without altering visual UI; and build the release Windows installer.
+
+**Key Changes Delivered**:
+1. **Lazy Kanji Breakdown Service & SQLite Storage**:
+   - `backend/app/services/yomitan.py`: Added `lookup_kanji(text: str, allow_fallback: bool = True) -> list[KanjiEntry]`, querying Yomitan `/kanjiEntries` for each kanji character in the term, enriching entries with JLPT levels, and gracefully falling back to `JlptReferenceService` if Yomitan is offline. Refactored `enrich()` to delegate kanji resolution to `lookup_kanji(allow_fallback=False)`.
+   - `backend/app/repositories/card_repository.py`: Added `update_kanji_entries(card_id: int, kanji_entries: list[Any]) -> None`, safely updating `meanings_json` on the card row in SQLite with `kanji_entries` without modifying definitions or other fields.
+   - `backend/app/services/card_service.py`: In `_build_card_data()`, if a card's `kanji_entries` is empty and `card.expression` contains kanji characters, lazily invokes `self.yomitan.lookup_kanji(card.expression, allow_fallback=True)`, caches the entries in SQLite via `self.repository.update_kanji_entries(card.id, kanji_entries)`, and passes them to note formatting.
+   - `backend/app/services/anki_connect.py`: Expanded kanji field matching in `map_card_to_fields()` to include `kanjibreakdown`, `kanjimeaning`, `kanjimeanings`, `kanjiinfo`, `kanjidetails`, `kanjinotes`, `kanji_breakdown`, `kanjis`, and `characters`.
+   - `backend/app/services/anki_formatter.py`: Fixed latent bug in `format_basic_back()` where `elif not kanji_html and c_meaning:` omitted vocabulary meaning for single-kanji words when a kanji section was rendered. Now `c_meaning` is always rendered when `show_meaning` is True.
+2. **Cloud Queue Packaging & Hardcoded Auth Defaults**:
+   - `kiroku_cloud_queue/env_utils.py`: Added in-code default configuration dictionary (`DEFAULT_CLOUD_CONFIG`) ensuring that packaged standalone binaries run out-of-the-box without requiring an external `.env` file (`CLOUD_QUEUE_URL="https://kiroku-cloud-queue.onrender.com"`, `WORKER_TOKEN="VPrKduR-bMVOFb1tch-NtGGZ7Yriqyg8vgh7cmyIWoA"`, `QUEUE_BACKEND="cloud"`, `ANKI_DECK_NAME="N3 vocabs"`).
+   - `backend/app/main.py`: Added PyInstaller frozen path resolution (`sys._MEIPASS / "kiroku_cloud_queue"`) in `pull_cloud_queue()`.
+   - `packaging/kiroku_backend.spec`: Bundled `kiroku_cloud_queue/*.py` into PyInstaller `datas`, added `CLOUD_QUEUE_DIR` to `pathex`, and explicitly included `worker`, `queue_adapter`, `enrichment`, `env_utils`, `kiroku_client`, `queue_db`, and `queue_store` in `hidden_imports`.
+3. **Side Panel UI & Settings Popover Accessibility**:
+   - `extension/sidepanel/sidepanel.js`: Fixed `#btn-layout-settings` to toggle `aria-expanded="true"` / `"false"` in sync with `switchMiningTab("settings")`. Added click/keyboard listeners so that outside clicks and Escape key properly dismiss the settings drawer and restore `aria-expanded="false"`. Guarded `currentMiningTab` and `popover.style` in `openLayoutSettings` and `closeLayoutSettings` for sandbox test compatibility.
+4. **Standalone Binary & Inno Setup Installer Production**:
+   - Compiled backend standalone executable via `release/build-backend.ps1`: produced `dist/backend/KirokuNote/KirokuNote.exe` (19.4 MB) bundled with `kiroku_cloud_queue`.
+   - Packaged unpacked MV3 extension via `release/build-extension.ps1`: produced `dist/extension/unpacked` (23 runtime files).
+   - Built 64-bit per-user Inno Setup Windows installer via `release/build-installer.ps1`: generated `dist/installer/Kiroku-Note-Setup-v2.0.0.exe` (50.71 MB).
+
+**Verification Delivered**:
+1. **Automated Backend Tests**:
+   - `pytest -o pythonpath=backend backend/tests`: 536/536 passed (0 failed).
+2. **Automated Cloud Queue Tests**:
+   - `kiroku_cloud_queue\.venv\Scripts\python.exe -m pytest kiroku_cloud_queue\tests`: 103/103 passed (0 failed).
+3. **Automated Extension Tests**:
+   - `node --test extension/tests/*.test.js`: 196/196 passed (0 failed).
+4. **Playwright E2E UI & Life-Cycle Verification (`test_plan_verification.py`)**:
+   - All 13 test sections PASSED cleanly against a live backend on port 21828:
+     - 1.1 Wordmark, 1.2 Status Indicators, 1.3 OCR Control & Alt+O, 1.4 Navigation Tabs, 1.5 JP Writing Mode, 1.6 Settings Control & aria-expanded, 1.7 Header Collapse.
+     - 2.1 Mining Toggle, 3.1 Video Controls & Offset Joggers, 4.1 Quick Add, 5.1 Card Editor Save & Details Esc Toggle, 6.1 History Library, 7.1 Settings Popover.
+     - Zero console/page errors detected during browser sessions.
+5. **Installer Verification**:
+   - Executable: `dist/installer/Kiroku-Note-Setup-v2.0.0.exe` (53,168,819 bytes).
+   - Inno Setup compiler: ISCC 6.7.3 verified clean build with zero user data leaks and proper 64-bit architecture flags.
+
+**Remaining Risk**:
+- None identified. All unit, integration, browser, and build pipelines completed with 100% pass rates.
+
 ### Cloud Queue Manual Polling & History Refresh Button (2026-10-14)
 
 **Objective**: Provide a manual refresh icon in the History Cloud subnav to poll the remote queue for pending cards, enrich them, and store them locally in SQLite without automatically pushing to Anki.

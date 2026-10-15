@@ -297,7 +297,7 @@ class CloudQueueAdapter(QueueAdapter):
         self,
         queue_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        timeout: float = 10.0,
+        timeout: float = 25.0,
     ):
         self.queue_url = (queue_url if queue_url is not None else os.getenv("CLOUD_QUEUE_URL", "")).rstrip("/")
         self.api_key = api_key if api_key is not None else (

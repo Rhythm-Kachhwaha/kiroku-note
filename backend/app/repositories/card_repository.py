@@ -930,3 +930,26 @@ class CardRepository:
                 "top_decks": top_decks,
             }
 
+    def update_kanji_entries(self, card_id: int, kanji_entries: list[Any]) -> None:
+        """Update and persist kanji_entries for an existing card without modifying meaning or other fields."""
+        if not kanji_entries:
+            return
+        with db_session(self._db_path) as conn:
+            row = conn.execute("SELECT meanings_json FROM cards WHERE id = ?", (card_id,)).fetchone()
+            if not row:
+                return
+            meanings_raw = row["meanings_json"] or "[]"
+            try:
+                parsed = json.loads(meanings_raw)
+            except Exception:
+                parsed = {}
+            if isinstance(parsed, list):
+                parsed = {"entries": parsed}
+            elif not isinstance(parsed, dict):
+                parsed = {}
+            parsed["kanji_entries"] = _serialize_items(kanji_entries)
+            new_json = json.dumps(parsed, ensure_ascii=False)
+            conn.execute("UPDATE cards SET meanings_json = ? WHERE id = ?", (new_json, card_id))
+            conn.commit()
+
+

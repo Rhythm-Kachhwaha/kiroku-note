@@ -90,9 +90,24 @@ if KANJIVG_DB.exists():
 if KANJIVG_NOTICE.exists():
     datas.append((str(KANJIVG_NOTICE), os.path.join("app", "data")))
 
+CLOUD_QUEUE_DIR = PROJECT_ROOT / "kiroku_cloud_queue"
+if CLOUD_QUEUE_DIR.exists():
+    for py_file in CLOUD_QUEUE_DIR.glob("*.py"):
+        datas.append((str(py_file), "kiroku_cloud_queue"))
+
+hidden_imports.extend([
+    "worker",
+    "queue_adapter",
+    "enrichment",
+    "env_utils",
+    "kiroku_client",
+    "queue_db",
+    "queue_store",
+])
+
 a = Analysis(
     [str(PROJECT_ROOT / "run_tray.py")],
-    pathex=[str(PROJECT_ROOT), str(BACKEND_DIR)],
+    pathex=[str(PROJECT_ROOT), str(BACKEND_DIR), str(CLOUD_QUEUE_DIR)],
     binaries=[],
     datas=datas,
     hiddenimports=hidden_imports,

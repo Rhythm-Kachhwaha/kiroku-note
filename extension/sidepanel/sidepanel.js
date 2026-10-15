@@ -8882,6 +8882,11 @@ function switchMiningTab(targetTab) {
     tabBtnSettings.classList.toggle("active", isSettings);
     tabBtnSettings.setAttribute("aria-selected", String(isSettings));
   }
+  if (btnLayoutSettings) {
+    const isSettings = tab === "settings";
+    btnLayoutSettings.setAttribute("aria-expanded", String(isSettings));
+    btnLayoutSettings.classList.toggle("active", isSettings);
+  }
   if (settingsPanel) {
     const isSettings = tab === "settings";
     settingsPanel.classList.toggle("video-settings-priority", prioritizeVideoSettings);
@@ -9761,37 +9766,33 @@ function renderLayoutSettingsList(order = currentCardSectionOrder) {
 }
 
 function openLayoutSettings() {
-  const popover = cardSettingsPopover || layoutSettingsPopover;
-  if (!popover) return;
-  popover.hidden = false;
-  if (popover.style) {
-    popover.style.display = "block";
+  const popover = layoutSettingsPopover || cardSettingsPopover;
+  if (popover) {
+    popover.hidden = false;
+    if (popover.style) popover.style.display = "";
   }
   if (btnLayoutSettings) {
     btnLayoutSettings.setAttribute("aria-expanded", "true");
     btnLayoutSettings.classList.add("active");
   }
-  syncCardTemplateSettingsUI();
-  renderLayoutSettingsList(currentCardSectionOrder);
-  if (typeof checkLLMStatus === "function") {
-    checkLLMStatus().catch(() => {});
-  }
-  if (typeof loadLlmConfigToSettings === "function") {
-    loadLlmConfigToSettings().catch(() => {});
+  if (typeof currentMiningTab !== "undefined" && currentMiningTab !== "settings") {
+    if (btnLayoutSettings) btnLayoutSettings._prevTab = currentMiningTab;
+    if (typeof switchMiningTab === "function") switchMiningTab("settings");
   }
 }
 
 function closeLayoutSettings() {
-  const popover = cardSettingsPopover || layoutSettingsPopover;
-  if (!popover) return;
-  popover.hidden = true;
-  if (popover.style) {
-    popover.style.display = "none";
+  const popover = layoutSettingsPopover || cardSettingsPopover;
+  if (popover) {
+    popover.hidden = true;
+    if (popover.style) popover.style.display = "none";
   }
   if (btnLayoutSettings) {
     btnLayoutSettings.setAttribute("aria-expanded", "false");
     btnLayoutSettings.classList.remove("active");
-    btnLayoutSettings.focus();
+  }
+  if (typeof currentMiningTab !== "undefined" && currentMiningTab === "settings") {
+    if (typeof switchMiningTab === "function") switchMiningTab(btnLayoutSettings?._prevTab || "text");
   }
 }
 
@@ -9815,6 +9816,13 @@ if (btnLayoutSettings) {
   });
 }
 
+const settingsPopoverTarget = layoutSettingsPopover || cardSettingsPopover;
+if (settingsPopoverTarget) {
+  settingsPopoverTarget.addEventListener("click", (e) => {
+    e.stopPropagation();
+  });
+}
+
 if (btnCloseLayoutSettings) {
   btnCloseLayoutSettings.addEventListener("click", () => {
     closeLayoutSettings();
@@ -9835,7 +9843,16 @@ if (btnResetLayout) {
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && currentMiningTab === "settings") {
-    switchMiningTab("text");
+    switchMiningTab(btnLayoutSettings?._prevTab || "text");
+  }
+});
+
+document.addEventListener("click", (e) => {
+  if (currentMiningTab === "settings") {
+    const popover = layoutSettingsPopover || cardSettingsPopover;
+    if (popover && !popover.contains(e.target) && btnLayoutSettings && !btnLayoutSettings.contains(e.target)) {
+      switchMiningTab(btnLayoutSettings?._prevTab || "text");
+    }
   }
 });
 

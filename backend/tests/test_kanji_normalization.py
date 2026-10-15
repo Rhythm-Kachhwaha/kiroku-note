@@ -224,3 +224,96 @@ def test_yomitan_service_enrich_gracefully_handles_kanji_failure(monkeypatch):
     assert len(enriched.entries) == 1
     assert enriched.kanji_entries == []
     assert enriched.dictionary_error is None
+
+
+def test_yomitan_service_lookup_kanji_direct(monkeypatch):
+    service = YomitanService()
+
+    def mock_post_json(path, payload):
+        assert path == "/kanjiEntries"
+        assert payload["character"] == "約束"
+        return [
+            {
+                "type": "kanji",
+                "character": "約",
+                "dictionary": "KANJIDIC",
+                "onyomi": ["ヤク"],
+                "kunyomi": ["つづ.まる"],
+                "definitions": ["promise", "approximate"],
+                "stats": {"misc": [{"name": "jlpt", "value": "3"}]},
+            },
+            {
+                "type": "kanji",
+                "character": "束",
+                "dictionary": "KANJIDIC",
+                "onyomi": ["ソク"],
+                "kunyomi": ["たば"],
+                "definitions": ["bundle", "sheaf"],
+                "stats": {"misc": [{"name": "jlpt", "value": "3"}]},
+            },
+        ]
+
+    monkeypatch.setattr(service, "_post_json", mock_post_json)
+    entries = service.lookup_kanji("約束")
+    assert len(entries) == 2
+    assert entries[0].character == "約"
+    assert entries[0].onyomi == ["ヤク"]
+    assert entries[0].meanings == ["promise", "approximate"]
+    assert entries[0].stats.get("jlpt") == "N3"
+    assert entries[1].character == "束"
+    assert entries[1].onyomi == ["ソク"]
+
+
+def test_yomitan_service_lookup_kanji_offline_fallback(monkeypatch):
+    service = YomitanService()
+
+    def mock_post_json(path, payload):
+        from app.services.yomitan import YomitanUnavailableError
+        raise YomitanUnavailableError("Yomitan offline")
+
+    monkeypatch.setattr(service, "_post_json", mock_post_json)
+    # Even if Yomitan is offline, fallback extracts kanji characters and queries JLPT db
+    entries = service.lookup_kanji("約束")
+    assert len(entries) == 2
+    chars = [e.character for e in entries]
+    assert "約" in chars
+    assert "束" in chars
+    for e in entries:
+        assert e.dictionary == "JLPT Reference"
+        assert e.stats.get("jlpt") == "N3"
+
+
+def test_card_repository_update_kanji_entries(tmp_path):
+    from app.repositories.card_repository import CardRepository, CardDraft
+
+    db_path = tmp_path / "test_kiroku.db"
+    repo = CardRepository(db_path=db_path)
+    draft = CardDraft(
+        expression="約束",
+        reading="やくそく",
+        meaning="promise",
+        source_type="cloud",
+    )
+    saved, _, _, _ = repo.save_or_update(draft)
+    assert saved.id is not None
+    assert saved.kanji_entries == []
+
+    # Update kanji entries
+    repo.update_kanji_entries(
+        saved.id,
+        [
+            {
+                "character": "約",
+                "dictionary": "KANJIDIC",
+                "onyomi": ["ヤク"],
+                "meanings": ["promise"],
+            }
+        ],
+    )
+
+    reloaded = repo.get_by_id(saved.id)
+    assert reloaded is not None
+    assert len(reloaded.kanji_entries) == 1
+    assert reloaded.kanji_entries[0]["character"] == "約"
+    assert reloaded.meaning == "promise"  # Meaning untouched!
+

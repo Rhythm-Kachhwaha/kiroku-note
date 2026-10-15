@@ -472,6 +472,30 @@ class CardService:
             except Exception:
                 pass
 
+        kanji_entries = card.kanji_entries or []
+        if not kanji_entries and card.expression:
+            has_kanji = any(
+                "\u4e00" <= ch <= "\u9fff"
+                or "\u3400" <= ch <= "\u4dbf"
+                or "\uf900" <= ch <= "\ufaff"
+                for ch in card.expression
+            )
+            if has_kanji:
+                try:
+                    looked_up = self.yomitan.lookup_kanji(card.expression, allow_fallback=True)
+                    if looked_up:
+                        kanji_entries = [
+                            k.to_dict() if hasattr(k, "to_dict") else asdict(k)
+                            for k in looked_up
+                        ]
+                        if getattr(card, "id", None):
+                            try:
+                                self.repository.update_kanji_entries(card.id, kanji_entries)
+                            except Exception as repo_err:
+                                logger.debug("Failed saving lazy kanji entries for card %s: %s", card.id, repo_err)
+                except Exception as err:
+                    logger.debug("Lazy kanji lookup failed on sync for '%s': %s", card.expression, err)
+
         return {
             "expression": card.expression,
             "reading": card.reading,
@@ -485,7 +509,7 @@ class CardService:
             "notes": card.notes,
             "entries": card.entries,
             "examples": card.examples,
-            "kanji_entries": card.kanji_entries,
+            "kanji_entries": kanji_entries,
             "card_settings": card.card_settings,
             "jlpt_level": card_jlpt,
         }

@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import json, os, re
+import json, logging, os, re
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlparse
 from urllib.request import Request, urlopen
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_YOMITAN_ENDPOINT = "http://127.0.0.1:19633"
 class YomitanError(Exception): pass
@@ -172,57 +174,7 @@ class YomitanService:
             except YomitanError:
                 pass
 
-        kanji_entries: list[KanjiEntry] = []
-        has_kanji = any(
-            "\u4e00" <= ch <= "\u9fff"
-            or "\u3400" <= ch <= "\u4dbf"
-            or "\uf900" <= ch <= "\ufaff"
-            for ch in term.expression
-        )
-        if has_kanji:
-            try:
-                raw_kanji = self._post_json("/kanjiEntries", {"character": term.expression})
-                kanji_entries = self.normalize_kanji_entries_response(raw_kanji)
-            except Exception:
-                pass
-
-        # Enrich kanji entries with modern JLPT level from tags or JlptReferenceService fallback
-        if kanji_entries:
-            updated_kanji: list[KanjiEntry] = []
-            for k in kanji_entries:
-                modern_k_jlpt = None
-                for tag in k.tags:
-                    t = str(tag).strip()
-                    if m := re.match(r"^jlpt-n([1-5])$", t, re.IGNORECASE):
-                        modern_k_jlpt = f"N{m.group(1)}"
-                        break
-                    if m := re.match(r"^n([1-5])$", t, re.IGNORECASE):
-                        modern_k_jlpt = f"N{m.group(1)}"
-                        break
-
-                if not modern_k_jlpt and self._jlpt_reference:
-                    modern_k_jlpt = self._jlpt_reference.lookup_kanji(k.character)
-
-                k_stats = dict(k.stats)
-                if modern_k_jlpt:
-                    k_stats["jlpt"] = modern_k_jlpt
-                elif "jlpt" in k_stats and not str(k_stats["jlpt"]).strip().upper().startswith("N"):
-                    # Remove reliance on KANJIDIC deprecated 1-4 scale
-                    del k_stats["jlpt"]
-
-                updated_kanji.append(KanjiEntry(
-                    character=k.character,
-                    dictionary=k.dictionary,
-                    onyomi=k.onyomi,
-                    kunyomi=k.kunyomi,
-                    nanori=k.nanori,
-                    meanings=k.meanings,
-                    tags=k.tags,
-                    stats=k_stats,
-                    dictionary_alias=k.dictionary_alias,
-                    frequencies=k.frequencies,
-                ))
-            kanji_entries = updated_kanji
+        kanji_entries: list[KanjiEntry] = self.lookup_kanji(term.expression, allow_fallback=False)
 
         has_usable_terms = any(s.glosses for entry in entries for s in entry.senses)
         has_usable_kanji = any(k.meanings or k.onyomi or k.kunyomi for k in kanji_entries)
@@ -275,6 +227,94 @@ class YomitanService:
             kanji_entries=kanji_entries,
             verb_metadata=verb_metadata,
         )
+
+    def lookup_kanji(self, text: str, allow_fallback: bool = True) -> list[KanjiEntry]:
+        """Lookup kanji breakdown for characters in text using Yomitan and local JLPT reference."""
+        if not text or not str(text).strip():
+            return []
+
+        clean_text = str(text).strip()
+        kanji_chars = [
+            ch for ch in clean_text
+            if "\u4e00" <= ch <= "\u9fff"
+            or "\u3400" <= ch <= "\u4dbf"
+            or "\uf900" <= ch <= "\ufaff"
+        ]
+        if not kanji_chars:
+            return []
+
+        kanji_entries: list[KanjiEntry] = []
+        try:
+            raw_kanji = self._post_json("/kanjiEntries", {"character": clean_text})
+            kanji_entries = self.normalize_kanji_entries_response(raw_kanji)
+        except Exception as err:
+            logger.debug("Yomitan /kanjiEntries lookup failed for '%s': %s", clean_text, err)
+
+        if kanji_entries:
+            updated_kanji: list[KanjiEntry] = []
+            for k in kanji_entries:
+                modern_k_jlpt = None
+                for tag in k.tags:
+                    t = str(tag).strip()
+                    if m := re.match(r"^jlpt-n([1-5])$", t, re.IGNORECASE):
+                        modern_k_jlpt = f"N{m.group(1)}"
+                        break
+                    if m := re.match(r"^n([1-5])$", t, re.IGNORECASE):
+                        modern_k_jlpt = f"N{m.group(1)}"
+                        break
+
+                if not modern_k_jlpt and self._jlpt_reference:
+                    modern_k_jlpt = self._jlpt_reference.lookup_kanji(k.character)
+
+                k_stats = dict(k.stats)
+                if modern_k_jlpt:
+                    k_stats["jlpt"] = modern_k_jlpt
+                elif "jlpt" in k_stats and not str(k_stats["jlpt"]).strip().upper().startswith("N"):
+                    del k_stats["jlpt"]
+
+                updated_kanji.append(
+                    KanjiEntry(
+                        character=k.character,
+                        dictionary=k.dictionary,
+                        onyomi=k.onyomi,
+                        kunyomi=k.kunyomi,
+                        nanori=k.nanori,
+                        meanings=k.meanings,
+                        tags=k.tags,
+                        stats=k_stats,
+                        dictionary_alias=k.dictionary_alias,
+                        frequencies=k.frequencies,
+                    )
+                )
+            return updated_kanji
+
+        # Fallback if Yomitan returned no entries or is offline
+        if allow_fallback and self._jlpt_reference:
+            fallback_entries: list[KanjiEntry] = []
+            seen: set[str] = set()
+            for ch in kanji_chars:
+                if ch in seen:
+                    continue
+                seen.add(ch)
+                lvl = self._jlpt_reference.lookup_kanji(ch)
+                stats = {"jlpt": lvl} if lvl else {}
+                fallback_entries.append(
+                    KanjiEntry(
+                        character=ch,
+                        dictionary="JLPT Reference",
+                        onyomi=[],
+                        kunyomi=[],
+                        nanori=[],
+                        meanings=[],
+                        tags=[f"jlpt-{lvl.lower()}"] if lvl else [],
+                        stats=stats,
+                        dictionary_alias="JLPT",
+                        frequencies=[],
+                    )
+                )
+            return fallback_entries
+
+        return []
 
     def discover_available_dictionaries(self) -> list[str]:
         """Discover available dictionaries returned by Yomitan across common seed terms.

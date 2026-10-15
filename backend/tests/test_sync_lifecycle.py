@@ -485,3 +485,49 @@ class TestSyncLifecycle:
                     mock_add_note.assert_called_once()
                     _, kwargs = mock_add_note.call_args
                     assert kwargs["model_name"] == "Japanese Mining Note"
+
+    def test_cloud_card_with_supplied_meaning_triggers_kanji_breakdown_on_sync(self, temp_db):
+        """Verify that cards saved via cloud with supplied meaning lazily resolve kanji breakdown on sync."""
+        client = TestClient(app)
+
+        with patch("app.main.init_db"):
+            with patch.dict(os.environ, {"ANKIMINER_DB_PATH": str(temp_db)}):
+                # 1. Save card without kanji_entries (cloud card behavior)
+                save_resp = client.post(
+                    "/api/cards/save",
+                    json={
+                        "expression": "約束",
+                        "reading": "やくそく",
+                        "meaning": "a promise or agreement",
+                        "deck_name": "N3 vocabs",
+                        "source_type": "cloud",
+                    },
+                )
+                assert save_resp.status_code == 200
+                card_id = save_resp.json()["id"]
+
+                repo = CardRepository(db_path=temp_db)
+                initial_card = repo.get_by_id(card_id)
+                assert initial_card.kanji_entries == []
+                assert initial_card.meaning == "a promise or agreement"
+
+                # 2. Sync to Anki
+                with patch("app.services.card_service.AnkiConnectService.find_existing_note", return_value=None), \
+                     patch("app.services.card_service.AnkiConnectService.add_note", return_value=123456) as mock_add_note:
+                    sync_resp = client.post(f"/api/cards/{card_id}/sync")
+                    assert sync_resp.status_code == 200
+
+                    # Verify add_note received populated kanji_entries
+                    mock_add_note.assert_called_once()
+                    card_data_arg = mock_add_note.call_args[1]["card_data"]
+                    assert len(card_data_arg["kanji_entries"]) > 0
+                    kanji_chars = [k["character"] for k in card_data_arg["kanji_entries"]]
+                    assert "約" in kanji_chars
+                    assert "束" in kanji_chars
+                    assert card_data_arg["meaning"] == "a promise or agreement"
+
+                # 3. Verify SQLite cached the kanji entries and preserved original meaning
+                reloaded = repo.get_by_id(card_id)
+                assert len(reloaded.kanji_entries) > 0
+                assert reloaded.meaning == "a promise or agreement"
+

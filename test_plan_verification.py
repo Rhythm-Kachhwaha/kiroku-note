@@ -219,6 +219,16 @@ async def run_verification():
         await tab_video.click()
         await page.wait_for_timeout(100)
 
+        cue_preview = page.locator("#video-current-cue-preview")
+        assert await cue_preview.is_visible() is True
+        cue_text = await cue_preview.text_content()
+        print("Cue preview text:", cue_text)
+
+        # In decluttered layout, subtitle configuration & offset live in Settings (prioritized from video tab)
+        gear_btn = page.locator("#btn-layout-settings")
+        await gear_btn.click()
+        await page.wait_for_timeout(150)
+
         offset_display = page.locator("#offset-display")
         offset_minus = page.locator("#offset-minus-btn")
         offset_plus = page.locator("#offset-plus-btn")
@@ -240,10 +250,10 @@ async def run_verification():
         print("Offset after -100ms:", minus_text)
         assert "0" in minus_text, f"Offset should return to 0, got {minus_text}"
 
-        cue_preview = page.locator("#video-current-cue-preview")
-        assert await cue_preview.is_visible() is True
-        cue_text = await cue_preview.text_content()
-        print("Cue preview text:", cue_text)
+        # Close settings and return to video mode
+        await page.keyboard.press("Escape")
+        await page.wait_for_timeout(100)
+
         results["3.1_video_controls"] = "PASS"
 
         # Switch back to text view

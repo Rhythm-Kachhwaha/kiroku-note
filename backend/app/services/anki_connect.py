@@ -780,7 +780,22 @@ class AnkiConnectService:
         if kanji_entries and isinstance(kanji_entries, list):
             formatted_kanji = format_kanji_html(kanji_entries)
             if formatted_kanji:
-                assign(("kanjidata", "kanjientries", "kanjiinfo", "kanjidetails"), formatted_kanji)
+                assign(
+                    (
+                        "kanjidata",
+                        "kanjientries",
+                        "kanjiinfo",
+                        "kanjidetails",
+                        "kanjibreakdown",
+                        "kanjimeaning",
+                        "kanjimeanings",
+                        "kanjinotes",
+                        "kanji_breakdown",
+                        "kanjis",
+                        "characters",
+                    ),
+                    formatted_kanji,
+                )
 
         image_keys = IMAGE_FIELD_KEYWORDS
         img_assigned = assign(image_keys, formatted_img)
