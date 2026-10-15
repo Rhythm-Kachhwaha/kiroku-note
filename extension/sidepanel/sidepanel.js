@@ -1736,12 +1736,8 @@ if (fieldMeaning) {
 
 function updateTtsPlayButton(exprText) {
   if (!btnTtsPlay) return;
-  const text = (exprText !== undefined ? exprText : (fieldExpression ? fieldExpression.value : (expression ? expression.textContent : ""))).trim();
-  if (text && text !== "—") {
-    btnTtsPlay.hidden = false;
-  } else {
-    btnTtsPlay.hidden = true;
-  }
+  btnTtsPlay.hidden = true;
+  btnTtsPlay.style.display = "none";
 }
 
 if (btnTtsPlay) {

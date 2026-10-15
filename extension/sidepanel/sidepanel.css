@@ -1506,30 +1506,6 @@ body {
 }
 
 .btn-tts {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: var(--radius-sm, 4px);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: color var(--transition-fast, 0.15s), background var(--transition-fast, 0.15s);
-  flex-shrink: 0;
-}
-
-.btn-tts:hover {
-  color: var(--accent-primary, #e2945a);
-  background: var(--surface-hover, rgba(255, 255, 255, 0.05));
-}
-
-.btn-tts:focus-visible {
-  outline: 2px solid var(--accent-primary, #e2945a);
-  outline-offset: 2px;
-}
-
-.btn-tts[hidden] {
   display: none !important;
 }
 

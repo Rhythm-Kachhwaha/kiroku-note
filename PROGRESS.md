@@ -17,6 +17,7 @@
    - `packaging/kiroku_backend.spec`: Bundled `kiroku_cloud_queue/*.py` into PyInstaller `datas`, added `CLOUD_QUEUE_DIR` to `pathex`, and explicitly included `worker`, `queue_adapter`, `enrichment`, `env_utils`, `kiroku_client`, `queue_db`, and `queue_store` in `hidden_imports`.
 3. **Side Panel UI & Settings Popover Accessibility**:
    - `extension/sidepanel/sidepanel.js`: Fixed `#btn-layout-settings` to toggle `aria-expanded="true"` / `"false"` in sync with `switchMiningTab("settings")`. Added click/keyboard listeners so that outside clicks and Escape key properly dismiss the settings drawer and restore `aria-expanded="false"`. Guarded `currentMiningTab` and `popover.style` in `openLayoutSettings` and `closeLayoutSettings` for sandbox test compatibility.
+   - Removed the unreliable speaker pronunciation button (`#btn-tts-play`) from the hero captured word showcase in `sidepanel.html`, `sidepanel.css`, and `sidepanel.js`.
 4. **Standalone Binary & Inno Setup Installer Production**:
    - Compiled backend standalone executable via `release/build-backend.ps1`: produced `dist/backend/KirokuNote/KirokuNote.exe` (19.4 MB) bundled with `kiroku_cloud_queue`.
    - Packaged unpacked MV3 extension via `release/build-extension.ps1`: produced `dist/extension/unpacked` (23 runtime files).
