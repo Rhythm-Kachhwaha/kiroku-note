@@ -281,6 +281,11 @@ def submit_headers():
     return {"Authorization": f"Bearer {SUBMIT_TOKEN}"}
 
 
+@pytest.fixture()
+def worker_headers():
+    return {"Authorization": f"Bearer {WORKER_TOKEN}"}
+
+
 def test_recent_returns_empty_when_no_cards(client: TestClient, submit_headers):
     resp = client.get("/recent", headers=submit_headers)
     assert resp.status_code == 200
@@ -321,4 +326,10 @@ def test_dashboard_endpoint_public_returns_html(client: TestClient):
     assert "Kiroku" in resp.text
     assert "Recent Cards" in resp.text
     assert "kiroku_submit_token" in resp.text
+
+
+def test_recent_accepts_worker_token(client: TestClient, worker_headers):
+    resp = client.get("/recent", headers=worker_headers)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
 

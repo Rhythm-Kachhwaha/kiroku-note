@@ -135,6 +135,30 @@ def _authenticate_worker(request: Request) -> None:
         )
 
 
+def _authenticate_recent(request: Request) -> None:
+    """Validate token for recent cards / dashboard inspection (accepts SUBMIT_TOKEN or WORKER_TOKEN)."""
+    token = _extract_bearer_token(request)
+    allowed_tokens = [
+        t for t in [
+            os.getenv("SUBMIT_TOKEN"),
+            os.getenv("PHONE_SECRET"),
+            os.getenv("WORKER_TOKEN"),
+            os.getenv("WORKER_SECRET"),
+            os.getenv("CLOUD_QUEUE_API_KEY"),
+        ] if t
+    ]
+    if not allowed_tokens:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server authentication secret (SUBMIT_TOKEN or WORKER_TOKEN) not configured.",
+        )
+    if not any(secrets.compare_digest(token, at) for at in allowed_tokens):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token.",
+        )
+
+
 # ---------------------------------------------------------------------------
 # MCP Tool Definition
 # ---------------------------------------------------------------------------
@@ -530,9 +554,9 @@ async def stats_endpoint(request: Request) -> JSONResponse:
 async def recent_cards_endpoint(request: Request, limit: int = 20) -> JSONResponse:
     """
     Returns the most recently submitted cards, newest first.
-    Authenticated with SUBMIT_TOKEN (same token used by iPhone Shortcut).
+    Authenticated with SUBMIT_TOKEN or WORKER_TOKEN.
     """
-    _authenticate_submit(request)
+    _authenticate_recent(request)
     limit = min(max(1, limit), 50)
     items = store.recent(limit=limit)
     return JSONResponse({
@@ -890,8 +914,8 @@ _DASHBOARD_HTML = """<!DOCTYPE html>
     <div id="future-stats-panel"></div>
 
     <div id="token-box" style="display: none;">
-      <h2>Submit Token Configuration</h2>
-      <p>Enter your <code>SUBMIT_TOKEN</code> or <code>PHONE_SECRET</code>. Saved only in your device's <code>localStorage</code>.</p>
+      <h2>Token Configuration</h2>
+      <p>Enter your <code>WORKER_TOKEN</code> or <code>SUBMIT_TOKEN</code>. Saved only in your device's <code>localStorage</code>.</p>
       <div class="token-input-row">
         <input type="password" id="token-input" placeholder="Paste Bearer token..." autocomplete="off">
         <button onclick="saveToken()">Save</button>
