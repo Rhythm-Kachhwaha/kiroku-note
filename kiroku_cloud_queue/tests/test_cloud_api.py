@@ -275,3 +275,50 @@ def test_server_cli_args_parsing(monkeypatch):
     assert args.host == "192.168.1.100"
     assert args.port == 8200
 
+
+@pytest.fixture()
+def submit_headers():
+    return {"Authorization": f"Bearer {SUBMIT_TOKEN}"}
+
+
+def test_recent_returns_empty_when_no_cards(client: TestClient, submit_headers):
+    resp = client.get("/recent", headers=submit_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+    assert data["items"] == []
+    assert data["count"] == 0
+
+
+def test_recent_returns_submitted_cards(client: TestClient, submit_headers):
+    # Submit one card first
+    card_payload = {"expression": "桜", "reading": "さくら", "meaning": "cherry blossom"}
+    client.post("/submit", content=json.dumps(card_payload).encode("utf-8"), headers={**submit_headers, "Content-Type": "text/plain"})
+
+    resp = client.get("/recent", headers=submit_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["count"] >= 1
+    expressions = [item["expression"] for item in data["items"]]
+    assert "桜" in expressions
+
+
+def test_recent_requires_auth(client: TestClient):
+    resp = client.get("/recent")
+    assert resp.status_code == 401
+
+
+def test_recent_limit_param(client: TestClient, submit_headers):
+    resp = client.get("/recent?limit=5", headers=submit_headers)
+    assert resp.status_code == 200
+    assert len(resp.json()["items"]) <= 5
+
+
+def test_dashboard_endpoint_public_returns_html(client: TestClient):
+    resp = client.get("/dashboard")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers.get("content-type", "")
+    assert "Kiroku" in resp.text
+    assert "Recent Cards" in resp.text
+    assert "kiroku_submit_token" in resp.text
+

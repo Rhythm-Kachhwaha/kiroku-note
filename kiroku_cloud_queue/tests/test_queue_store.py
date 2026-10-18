@@ -164,3 +164,49 @@ def test_postgres_store_init_db_contract():
     assert hasattr(store, "init_db")
     assert callable(store.init_db)
 
+
+def test_postgres_store_recent_method_exists():
+    from postgres_store import PostgresQueueStore
+    store = PostgresQueueStore("postgresql://localhost:5432/mockdb")
+    assert hasattr(store, "recent")
+    assert callable(store.recent)
+
+
+def test_recent_returns_newest_first(store: SqliteQueueStore):
+    import time
+    cards = [
+        VocabCard(expression="食べ物", reading="たべもの", meaning="food", sentence="", sentence_meaning="", deck_name="N3 vocabs"),
+        VocabCard(expression="飲み物", reading="のみもの", meaning="drink", sentence="", sentence_meaning="", deck_name="N3 vocabs"),
+        VocabCard(expression="場所", reading="ばしょ", meaning="place", sentence="", sentence_meaning="", deck_name="N3 vocabs"),
+    ]
+    for c in cards:
+        store.enqueue(c)
+        time.sleep(0.01)
+
+    result = store.recent(limit=20)
+    assert len(result) == 3
+    # newest enqueued last — should come first
+    assert result[0]["expression"] == "場所"
+    assert result[-1]["expression"] == "食べ物"
+    # each item has the required keys
+    for item in result:
+        assert "id" in item
+        assert "expression" in item
+        assert "reading" in item
+        assert "meaning" in item
+        assert "deck_name" in item
+        assert "status" in item
+        assert "created_at" in item
+        assert "error" in item
+
+
+def test_recent_respects_limit(store: SqliteQueueStore):
+    for i in range(10):
+        store.enqueue(VocabCard(expression=f"単語{i}", reading=f"たんご{i}", meaning=f"word{i}", sentence="", sentence_meaning=""))
+    result = store.recent(limit=3)
+    assert len(result) == 3
+
+
+def test_recent_empty_store_returns_empty_list(store: SqliteQueueStore):
+    assert store.recent(limit=20) == []
+

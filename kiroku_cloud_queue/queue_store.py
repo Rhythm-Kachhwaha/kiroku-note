@@ -112,6 +112,16 @@ class BaseQueueStore(abc.ABC):
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def recent(self, limit: int = 20) -> list[dict[str, Any]]:
+        """
+        Return the most recently submitted cards, newest first.
+        Each dict contains: id, expression, reading, meaning, deck_name,
+        status, created_at, error.
+        Limit is clamped to max 50.
+        """
+        raise NotImplementedError
+
     def init_db(self) -> None:
         """
         Idempotently initialize storage tables and indexes.
@@ -321,6 +331,21 @@ class SqliteQueueStore(BaseQueueStore):
         with self._conn() as conn:
             row = conn.execute("SELECT * FROM queued_cards WHERE id = ?", (item_id,)).fetchone()
             return self._row_to_item(row) if row else None
+
+    def recent(self, limit: int = 20) -> list[dict[str, Any]]:
+        limit = min(max(1, limit), 50)
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, expression, reading, meaning, deck_name,
+                       status, created_at, error
+                FROM queued_cards
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
 
     @staticmethod
     def _row_to_item(r: sqlite3.Row) -> QueueItem:

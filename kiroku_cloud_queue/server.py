@@ -38,7 +38,7 @@ if sys.platform == "win32":
         pass
 
 from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from queue_adapter import (
     CloudQueueNotConfiguredError,
@@ -524,6 +524,577 @@ async def stats_endpoint(request: Request) -> JSONResponse:
     """Worker/diagnostic endpoint for queue metrics."""
     _authenticate_worker(request)
     return JSONResponse(store.stats())
+
+
+@app.get("/recent")
+async def recent_cards_endpoint(request: Request, limit: int = 20) -> JSONResponse:
+    """
+    Returns the most recently submitted cards, newest first.
+    Authenticated with SUBMIT_TOKEN (same token used by iPhone Shortcut).
+    """
+    _authenticate_submit(request)
+    limit = min(max(1, limit), 50)
+    items = store.recent(limit=limit)
+    return JSONResponse({
+        "status": "ok",
+        "items": items,
+        "count": len(items),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Mobile & Desktop Web Dashboard (Read-Only)
+# ---------------------------------------------------------------------------
+
+_DASHBOARD_HTML = """<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kiroku">
+  <title>Kiroku · Recent Cards</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0d13;
+      --surface: #141722;
+      --surface-hover: #1b2030;
+      --border: #232838;
+      --text: #f1f3f9;
+      --text-muted: #828a9e;
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.15);
+      --green: #22c55e;
+      --green-bg: rgba(34, 197, 94, 0.12);
+      --yellow: #f59e0b;
+      --yellow-bg: rgba(245, 158, 11, 0.12);
+      --red: #ef4444;
+      --red-bg: rgba(239, 68, 68, 0.12);
+      --radius: 12px;
+      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      --font-ja: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      min-height: 100vh;
+      padding: max(1.25rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(2rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+      -webkit-font-smoothing: antialiased;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .brand-icon {
+      font-size: 1.35rem;
+      background: var(--accent-glow);
+      color: var(--accent);
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+    h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    h1 span {
+      color: var(--accent);
+      font-size: 0.85em;
+      font-weight: 500;
+      margin-left: 0.3rem;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    button.icon-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 8px;
+      padding: 0.45rem 0.65rem;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.15s ease;
+    }
+    button.icon-btn:hover, button.icon-btn:active {
+      color: var(--text);
+      background: var(--surface-hover);
+      border-color: var(--text-muted);
+    }
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .stat-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.55rem 0.6rem;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 1.1rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .stat-lbl {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 0.15rem;
+    }
+    .stat-num.done { color: var(--green); }
+    .stat-num.pending { color: var(--yellow); }
+    .stat-num.failed { color: var(--red); }
+    .stat-num.total { color: var(--text); }
+
+    /* FUTURE_SCOPE: All-time universal stats & local PC sync section placeholder */
+    #future-stats-panel {
+      display: none; /* Reserved for local backend sync & AnkiConnect metrics */
+    }
+
+    #token-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.15rem;
+      margin-bottom: 1.25rem;
+    }
+    #token-box h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+    #token-box p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 0.85rem;
+      line-height: 1.4;
+    }
+    .token-input-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .token-input-row input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.55rem 0.75rem;
+      font-size: 0.85rem;
+      outline: none;
+      font-family: monospace;
+    }
+    .token-input-row input:focus {
+      border-color: var(--accent);
+    }
+    .token-input-row button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .card-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.85rem 1rem;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+    .card-item:active {
+      background: var(--surface-hover);
+    }
+    .card-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.2rem;
+    }
+    .expr-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .expr {
+      font-family: var(--font-ja);
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .reading {
+      font-family: var(--font-ja);
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+    .status-badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 20px;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .status-badge.completed {
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid rgba(34, 197, 94, 0.25);
+    }
+    .status-badge.pending, .status-badge.claimed {
+      background: var(--yellow-bg);
+      color: var(--yellow);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+    .status-badge.failed {
+      background: var(--red-bg);
+      color: var(--red);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+    .meaning {
+      font-size: 0.9rem;
+      color: var(--text);
+      line-height: 1.35;
+      margin-bottom: 0.35rem;
+    }
+    .meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      border-top: 1px dashed rgba(255, 255, 255, 0.06);
+      padding-top: 0.35rem;
+      margin-top: 0.35rem;
+    }
+    .deck-tag {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+    }
+    .error-box {
+      font-size: 0.75rem;
+      color: var(--red);
+      background: var(--red-bg);
+      border-radius: 6px;
+      padding: 0.35rem 0.5rem;
+      margin-top: 0.4rem;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+    }
+    .empty-state .icon {
+      font-size: 2.2rem;
+      margin-bottom: 0.6rem;
+      opacity: 0.6;
+    }
+    .empty-state p {
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+    }
+    .dot-live {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+      animation: pulse 2s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="brand-icon">記</div>
+        <div>
+          <h1>Kiroku <span>Cloud</span></h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="refresh-btn" onclick="fetchRecent(true)" title="Refresh now">
+          <span id="refresh-icon">↻</span> Refresh
+        </button>
+        <button class="icon-btn" onclick="toggleTokenBox()" title="Configure Access Token">
+          ⚙ Key
+        </button>
+      </div>
+    </header>
+
+    <div class="stats-bar" id="stats-bar">
+      <div class="stat-pill"><div class="stat-num total" id="stat-total">-</div><div class="stat-lbl">Recent</div></div>
+      <div class="stat-pill"><div class="stat-num done" id="stat-done">-</div><div class="stat-lbl">Synced</div></div>
+      <div class="stat-pill"><div class="stat-num pending" id="stat-pending">-</div><div class="stat-lbl">Pending</div></div>
+      <div class="stat-pill"><div class="stat-num failed" id="stat-failed">-</div><div class="stat-lbl">Failed</div></div>
+    </div>
+
+    <!-- FUTURE_SCOPE: Hook container for all-time universal statistics -->
+    <div id="future-stats-panel"></div>
+
+    <div id="token-box" style="display: none;">
+      <h2>Submit Token Configuration</h2>
+      <p>Enter your <code>SUBMIT_TOKEN</code> or <code>PHONE_SECRET</code>. Saved only in your device's <code>localStorage</code>.</p>
+      <div class="token-input-row">
+        <input type="password" id="token-input" placeholder="Paste Bearer token..." autocomplete="off">
+        <button onclick="saveToken()">Save</button>
+      </div>
+    </div>
+
+    <div id="card-list">
+      <div class="empty-state">
+        <div class="icon">⏳</div>
+        <p>Loading recent cards...</p>
+      </div>
+    </div>
+
+    <footer>
+      <span class="dot-live"></span>
+      <span id="footer-status">Auto-refresh active (30s)</span>
+    </footer>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'kiroku_submit_token';
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function timeAgo(dateString) {
+      if (!dateString) return '';
+      const now = new Date();
+      const past = new Date(dateString);
+      const diffSec = Math.floor((now.getTime() - past.getTime()) / 1000);
+      if (isNaN(diffSec) || diffSec < 0) return 'just now';
+      if (diffSec < 45) return 'just now';
+      if (diffSec < 90) return '1m ago';
+      if (diffSec < 3600) return Math.floor(diffSec / 60) + 'm ago';
+      if (diffSec < 7200) return '1h ago';
+      if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'h ago';
+      return Math.floor(diffSec / 86400) + 'd ago';
+    }
+
+    function getToken() {
+      return localStorage.getItem(STORAGE_KEY) || '';
+    }
+
+    function toggleTokenBox() {
+      const box = document.getElementById('token-box');
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+      if (box.style.display === 'block') {
+        const inp = document.getElementById('token-input');
+        inp.value = getToken();
+        inp.focus();
+      }
+    }
+
+    function saveToken() {
+      const val = document.getElementById('token-input').value.trim();
+      if (val) {
+        localStorage.setItem(STORAGE_KEY, val);
+        document.getElementById('token-box').style.display = 'none';
+        fetchRecent(true);
+      }
+    }
+
+    async function fetchRecent(manual = false) {
+      const token = getToken();
+      const listEl = document.getElementById('card-list');
+      const footerStatus = document.getElementById('footer-status');
+
+      if (!token) {
+        document.getElementById('token-box').style.display = 'block';
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">🔑</div>
+            <p><strong>Submit token required</strong><br>Enter your token above to view recent cards.</p>
+          </div>
+        `;
+        return;
+      }
+
+      if (manual) {
+        footerStatus.textContent = 'Updating...';
+      }
+
+      try {
+        const resp = await fetch('/recent?limit=25', {
+          headers: {
+            'Authorization': 'Bearer ' + token
+          }
+        });
+
+        if (resp.status === 401) {
+          document.getElementById('token-box').style.display = 'block';
+          listEl.innerHTML = `
+            <div class="empty-state">
+              <div class="icon">🚫</div>
+              <p><strong>Invalid Token</strong><br>The token was rejected. Please re-enter your submit token above.</p>
+            </div>
+          `;
+          footerStatus.textContent = 'Auth failed';
+          return;
+        }
+
+        if (!resp.ok) {
+          throw new Error('Server responded with HTTP ' + resp.status);
+        }
+
+        const data = await resp.json();
+        const items = data.items || [];
+
+        let completedCount = 0;
+        let pendingCount = 0;
+        let failedCount = 0;
+
+        items.forEach(it => {
+          if (it.status === 'completed') completedCount++;
+          else if (it.status === 'failed') failedCount++;
+          else pendingCount++;
+        });
+
+        document.getElementById('stat-total').textContent = items.length;
+        document.getElementById('stat-done').textContent = completedCount;
+        document.getElementById('stat-pending').textContent = pendingCount;
+        document.getElementById('stat-failed').textContent = failedCount;
+
+        if (items.length === 0) {
+          listEl.innerHTML = `
+            <div class="empty-state">
+              <div class="icon">📥</div>
+              <p><strong>No cards submitted yet</strong><br>Use your iPhone Shortcut to send vocabulary here.</p>
+            </div>
+          `;
+        } else {
+          listEl.innerHTML = items.map(item => {
+            const st = item.status || 'pending';
+            let badgeClass = 'pending';
+            let badgeText = 'Queued';
+            if (st === 'completed') {
+              badgeClass = 'completed';
+              badgeText = 'Synced';
+            } else if (st === 'failed') {
+              badgeClass = 'failed';
+              badgeText = 'Failed';
+            } else if (st === 'claimed') {
+              badgeClass = 'pending';
+              badgeText = 'Processing';
+            }
+
+            return `
+              <div class="card-item">
+                <div class="card-top">
+                  <div class="expr-wrap">
+                    <span class="expr">${escapeHtml(item.expression)}</span>
+                    ${item.reading ? `<span class="reading">${escapeHtml(item.reading)}</span>` : ''}
+                  </div>
+                  <span class="status-badge ${badgeClass}">${badgeText}</span>
+                </div>
+                ${item.meaning ? `<div class="meaning">${escapeHtml(item.meaning)}</div>` : ''}
+                <div class="meta-row">
+                  <span class="deck-tag">${escapeHtml(item.deck_name || 'N3 vocabs')}</span>
+                  <span>${timeAgo(item.created_at)}</span>
+                </div>
+                ${item.error ? `<div class="error-box">⚠ ${escapeHtml(item.error)}</div>` : ''}
+              </div>
+            `;
+          }).join('');
+        }
+
+        const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        footerStatus.textContent = 'Updated at ' + nowStr + ' · auto-refreshes every 30s';
+      } catch (err) {
+        footerStatus.textContent = 'Connection error. Retrying in 30s...';
+        if (manual) {
+          listEl.innerHTML = `
+            <div class="empty-state">
+              <div class="icon">⚡</div>
+              <p><strong>Could not connect to server</strong><br>${escapeHtml(err.message)}<br><small style="color:var(--text-muted)">If hosted on Render free tier, server may be waking up.</small></p>
+            </div>
+          `;
+        }
+      }
+    }
+
+    // Auto-refresh interval
+    fetchRecent();
+    setInterval(() => fetchRecent(false), 30000);
+  </script>
+</body>
+</html>"""
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_endpoint() -> HTMLResponse:
+    """
+    Public read-only dashboard page. Token is entered once client-side
+    and stored in localStorage. Calls GET /recent via fetch().
+    """
+    return HTMLResponse(content=_DASHBOARD_HTML)
 
 
 # ---------------------------------------------------------------------------

@@ -357,3 +357,29 @@ class PostgresQueueStore(BaseQueueStore):
                 if not r:
                     return None
                 return self._row_to_item(r)
+
+    def recent(self, limit: int = 20) -> list[dict[str, Any]]:
+        limit = min(max(1, limit), 50)
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, expression, reading, meaning, deck_name,
+                           status, created_at, error
+                    FROM queued_cards
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (limit,),
+                )
+                cols = [desc[0] for desc in cur.description]
+                rows = cur.fetchall()
+                results = []
+                for row in rows:
+                    item_dict = dict(zip(cols, row))
+                    if "created_at" in item_dict and item_dict["created_at"] is not None:
+                        item_dict["created_at"] = str(item_dict["created_at"])
+                    if "id" in item_dict and item_dict["id"] is not None:
+                        item_dict["id"] = str(item_dict["id"])
+                    results.append(item_dict)
+                return results

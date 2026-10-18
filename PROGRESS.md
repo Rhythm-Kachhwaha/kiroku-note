@@ -1,6 +1,35 @@
 # Kiroku Note — Progress
 
-### Kanji Breakdown on Anki Sync, Cloud Queue Robustness, UI Fixes, & v2.0.0 Release Installer (2026-10-15)
+### Cloud Queue Mobile/Desktop Dashboard & Recent Cards Inspection API (2026-10-18)
+
+**Objective**: Deliver immediate card confirmation feedback on mobile (iPhone Shortcuts) after running `POST /submit`, implement a clean read-only `GET /recent` API for card inspection, and provide an inline `/dashboard` web interface for both iPhone and desktop browsers with future all-time stats readiness.
+
+**Key Changes Delivered**:
+1. **Queue Store Ingestion Queries (`BaseQueueStore`, `SqliteQueueStore`, `PostgresQueueStore`)**:
+   - `kiroku_cloud_queue/queue_store.py`: Added abstract `recent(limit: int = 20) -> list[dict[str, Any]]` to `BaseQueueStore`. Implemented in `SqliteQueueStore` ordering by `created_at DESC` clamped to max 50 items.
+   - `kiroku_cloud_queue/postgres_store.py`: Implemented `recent()` on `PostgresQueueStore` using `ORDER BY created_at DESC LIMIT %s`, ensuring string-serialized `id` and `created_at` fields for robust JSON transport.
+2. **Recent Cards API Endpoint (`server.py`)**:
+   - Added `GET /recent?limit=20` to `kiroku_cloud_queue/server.py`. Authenticated via existing `SUBMIT_TOKEN` / `PHONE_SECRET` header, returning items list with expressions, readings, meanings, status, deck name, and created timestamps.
+3. **Mobile & Desktop Web Dashboard (`GET /dashboard`)**:
+   - Implemented self-contained, inline `_DASHBOARD_HTML` in `kiroku_cloud_queue/server.py` served directly via FastAPI's `HTMLResponse`.
+   - Minimalist, dark-mode responsive design tailored for mobile Safari (`viewport-fit=cover`, safe-area-inset padding, home-screen web app meta tags) and desktop browsers.
+   - Live status summary counters (Total, Synced 🟢, Pending 🟡, Failed 🔴), clean Japanese typography, auto-refresh every 30s, manual refresh button, and client-side `localStorage` token persistence.
+   - XSS prevention with HTML entity escaping on all user-supplied card text.
+   - Reserved future-scope extension hooks for universal all-time stats and local PC synchronization.
+4. **iPhone Shortcut Notification Configuration**:
+   - Documented the two-step action sequence in Shortcuts app: extract `message` from `Contents of URL` JSON dictionary and trigger native `Show Notification`.
+
+**Verification Delivered**:
+1. **Automated Queue Store & API Tests**:
+   - `kiroku_cloud_queue\.venv\Scripts\python.exe -m pytest kiroku_cloud_queue\tests\test_queue_store.py kiroku_cloud_queue\tests\test_cloud_api.py -v`: 32/32 passed.
+   - Verified `test_recent_returns_newest_first`, `test_recent_respects_limit`, `test_recent_empty_store_returns_empty_list`, `test_postgres_store_recent_method_exists`, `test_recent_requires_auth`, `test_recent_returns_submitted_cards`, `test_dashboard_endpoint_public_returns_html`.
+2. **Full Cloud Queue Test Suite**:
+   - `kiroku_cloud_queue\.venv\Scripts\python.exe -m pytest kiroku_cloud_queue\tests`: 112/112 passed (0 failed).
+3. **Full Backend Test Suite**:
+   - `pytest -o pythonpath=backend backend/tests`: 536/536 passed (0 failed).
+
+**Remaining Risk**:
+- None. The changes are strictly additive and introduce zero runtime dependencies.
 
 **Objective**: Ensure vocabulary cards captured via cloud queue with user/LLM-supplied meanings retain their meanings without Yomitan dictionary enrichment while guaranteeing kanji breakdown occurs when synced to Anki; harden cloud queue auth defaults for zero-env deployment; fix side panel settings popover `aria-expanded` and popover toggle accessibility without altering visual UI; and build the release Windows installer.
 
