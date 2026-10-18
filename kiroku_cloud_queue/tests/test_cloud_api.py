@@ -333,3 +333,52 @@ def test_recent_accepts_worker_token(client: TestClient, worker_headers):
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
 
+
+def test_anki_stats_push_requires_worker_auth(client: TestClient, submit_headers):
+    # Unauthenticated
+    resp = client.post("/api/stats/anki", json={"current_streak": 1})
+    assert resp.status_code == 401
+
+    # Submit token rejected for worker push
+    resp = client.post("/api/stats/anki", json={"current_streak": 1}, headers=submit_headers)
+    assert resp.status_code == 401
+
+
+def test_anki_stats_push_validates_json_object(client: TestClient, worker_headers):
+    resp = client.post("/api/stats/anki", content=b"12345", headers={**worker_headers, "Content-Type": "application/json"})
+    assert resp.status_code == 400
+
+
+def test_anki_stats_lifecycle(client: TestClient, worker_headers, submit_headers):
+    # Initially empty
+    resp = client.get("/api/stats/anki", headers=submit_headers)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "empty"
+
+    # Push snapshot
+    snapshot = {
+        "synced_at": "2026-10-18T10:00:00Z",
+        "current_streak": 7,
+        "best_streak": 14,
+        "today_reviewed": 25,
+        "cards_reviewed_by_day": [["2026-10-18", 25]],
+        "summary": {"total_cards": 500, "total_due_today": 12},
+    }
+    resp = client.post("/api/stats/anki", json=snapshot, headers=worker_headers)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+
+    # Read back snapshot via GET /api/stats/anki (accessible with submit_headers)
+    resp = client.get("/api/stats/anki", headers=submit_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+    assert data["stats"]["current_streak"] == 7
+    assert data["stats"]["today_reviewed"] == 25
+    assert data["stats"]["summary"]["total_cards"] == 500
+
+    # Also works via un-prefixed alias /stats/anki
+    resp_alias = client.get("/stats/anki", headers=worker_headers)
+    assert resp_alias.status_code == 200
+    assert resp_alias.json()["status"] == "ok"
+

@@ -28,6 +28,13 @@ CREATE INDEX IF NOT EXISTS idx_qc_status_lease ON queued_cards (status, lease_ex
 -- Index for instant idempotency lookups
 CREATE INDEX IF NOT EXISTS idx_qc_idempotency ON queued_cards (idempotency_key);
 
+-- Table for latest Anki study statistics snapshot
+CREATE TABLE IF NOT EXISTS anki_stats (
+    id               VARCHAR(64) PRIMARY KEY,
+    payload_json     JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Trigger to automatically update updated_at timestamp on row modification
 CREATE OR REPLACE FUNCTION update_queued_cards_updated_at()
 RETURNS TRIGGER AS $$

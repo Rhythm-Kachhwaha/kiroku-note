@@ -124,6 +124,12 @@ class PostgresQueueStore(BaseQueueStore):
         -- Self-healing migration for existing tables created before claimed_at was added
         ALTER TABLE queued_cards ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 
+        CREATE TABLE IF NOT EXISTS anki_stats (
+            id VARCHAR(64) PRIMARY KEY,
+            payload_json TEXT DEFAULT '{}',
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+
         CREATE INDEX IF NOT EXISTS idx_queued_cards_status_attempts
             ON queued_cards (status, attempts);
 
@@ -383,3 +389,39 @@ class PostgresQueueStore(BaseQueueStore):
                         item_dict["id"] = str(item_dict["id"])
                     results.append(item_dict)
                 return results
+
+    def save_anki_stats(self, payload: dict[str, Any]) -> None:
+        payload_str = json.dumps(payload, ensure_ascii=False)
+        upsert_sql = """
+        INSERT INTO anki_stats (id, payload_json, updated_at)
+        VALUES ('latest', %s, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+            payload_json = EXCLUDED.payload_json,
+            updated_at = NOW();
+        """
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(upsert_sql, (payload_str,))
+            conn.commit()
+
+    def get_anki_stats(self) -> Optional[dict[str, Any]]:
+        query = "SELECT payload_json, updated_at FROM anki_stats WHERE id = 'latest';"
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query)
+                row = cur.fetchone()
+                if not row:
+                    return None
+                payload_val = row[0]
+                updated_at_val = row[1]
+                if isinstance(payload_val, dict):
+                    data = payload_val
+                else:
+                    try:
+                        data = json.loads(payload_val)
+                    except Exception:
+                        return None
+                if isinstance(data, dict):
+                    data.setdefault("updated_at", str(updated_at_val))
+                    return data
+                return {"data": data, "updated_at": str(updated_at_val)}

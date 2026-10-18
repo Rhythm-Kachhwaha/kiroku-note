@@ -208,3 +208,80 @@ async def test_worker_passes_custom_deck_name_to_kiroku(adapter: LocalDevQueueAd
     assert call_kwargs["deck_name"] == "Custom Mining Deck"
 
 
+def test_fetch_anki_connect_stats_returns_none_when_unreachable():
+    # Calling non-existent port returns None gracefully
+    result = worker.fetch_anki_connect_stats(anki_url="http://127.0.0.1:59999", timeout_seconds=0.1)
+    assert result is None
+
+
+def test_fetch_anki_connect_stats_computes_metrics_correctly():
+    import json
+    import io
+    from unittest.mock import MagicMock
+
+    mock_responses = {
+        "version": {"result": 6, "error": None},
+        "getNumCardsReviewedByDay": {
+            "result": [
+                ["2026-10-16", 10],
+                ["2026-10-17", 15],
+                ["2026-10-18", 20],
+            ],
+            "error": None,
+        },
+        "getNumCardsReviewedToday": {"result": 20, "error": None},
+        "deckNames": {"result": ["Default", "Japanese"], "error": None},
+        "getDeckStats": {
+            "result": {
+                "1": {"name": "Default", "new_count": 5, "learn_count": 2, "review_count": 8, "total_in_deck": 100},
+                "2": {"name": "Japanese", "new_count": 10, "learn_count": 5, "review_count": 25, "total_in_deck": 450},
+            },
+            "error": None,
+        },
+    }
+
+    def fake_urlopen(req, timeout=3.0):
+        body = json.loads(req.data.decode("utf-8"))
+        action = body["action"]
+        resp_data = mock_responses.get(action, {"result": None, "error": None})
+        resp_mock = MagicMock()
+        resp_mock.read.return_value = json.dumps(resp_data).encode("utf-8")
+        resp_mock.__enter__.return_value = resp_mock
+        return resp_mock
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        stats = worker.fetch_anki_connect_stats("http://127.0.0.1:8765")
+
+    assert stats is not None
+    assert stats["today_reviewed"] == 20
+    assert stats["current_streak"] >= 3
+    assert stats["best_streak"] >= 3
+    assert stats["total_reviews"] == 45
+    assert len(stats["decks"]) == 2
+    assert stats["summary"]["total_cards"] == 550
+    assert stats["summary"]["total_due_today"] == 55
+
+
+@pytest.mark.asyncio
+async def test_sync_anki_stats_to_cloud_offline_skips(adapter: LocalDevQueueAdapter):
+    with patch("worker.fetch_anki_connect_stats", return_value=None):
+        result = await worker.sync_anki_stats_to_cloud(adapter=adapter)
+        assert result is False
+
+
+@pytest.mark.asyncio
+async def test_sync_anki_stats_to_cloud_success(adapter: LocalDevQueueAdapter):
+    fake_stats = {
+        "synced_at": "2026-10-18T12:00:00Z",
+        "today_reviewed": 30,
+        "current_streak": 5,
+        "best_streak": 10,
+        "total_reviews": 500,
+        "summary": {"total_cards": 1200, "total_due_today": 35},
+    }
+    with patch("worker.fetch_anki_connect_stats", return_value=fake_stats):
+        result = await worker.sync_anki_stats_to_cloud(adapter=adapter)
+        assert result is True
+
+
+

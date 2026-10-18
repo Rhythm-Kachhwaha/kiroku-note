@@ -64,6 +64,11 @@ CREATE TABLE IF NOT EXISTS queued_cards (
     created_at       TEXT NOT NULL,
     updated_at       TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS anki_stats (
+    id               TEXT PRIMARY KEY,
+    payload_json     TEXT NOT NULL DEFAULT '{}',
+    updated_at       TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_qc_status_lease ON queued_cards (status, lease_expires_at);
 CREATE INDEX IF NOT EXISTS idx_qc_idempotency ON queued_cards (idempotency_key);
 """
@@ -119,6 +124,20 @@ class BaseQueueStore(abc.ABC):
         Each dict contains: id, expression, reading, meaning, deck_name,
         status, created_at, error.
         Limit is clamped to max 50.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def save_anki_stats(self, payload: dict[str, Any]) -> None:
+        """
+        Store latest Anki stats snapshot durably.
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_anki_stats(self) -> Optional[dict[str, Any]]:
+        """
+        Retrieve latest Anki stats snapshot.
         """
         raise NotImplementedError
 
@@ -346,6 +365,38 @@ class SqliteQueueStore(BaseQueueStore):
                 (limit,),
             ).fetchall()
             return [dict(r) for r in rows]
+
+    def save_anki_stats(self, payload: dict[str, Any]) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        payload_str = json.dumps(payload, ensure_ascii=False)
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO anki_stats (id, payload_json, updated_at)
+                VALUES ('latest', ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    payload_json = excluded.payload_json,
+                    updated_at = excluded.updated_at
+                """,
+                (payload_str, now),
+            )
+            conn.commit()
+
+    def get_anki_stats(self) -> Optional[dict[str, Any]]:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT payload_json, updated_at FROM anki_stats WHERE id = 'latest'"
+            ).fetchone()
+            if not row:
+                return None
+            try:
+                data = json.loads(row["payload_json"])
+                if isinstance(data, dict):
+                    data.setdefault("updated_at", row["updated_at"])
+                    return data
+                return {"data": data, "updated_at": row["updated_at"]}
+            except Exception:
+                return None
 
     @staticmethod
     def _row_to_item(r: sqlite3.Row) -> QueueItem:

@@ -198,6 +198,10 @@ class QueueAdapter(abc.ABC):
         """Return diagnostic metrics (e.g. pending, sent, failed counts)."""
         raise NotImplementedError
 
+    async def push_anki_stats(self, stats: dict[str, Any]) -> bool:
+        """Push local Anki study metrics snapshot to cloud queue service."""
+        return False
+
 
 # ---------------------------------------------------------------------------
 # Local Development Adapter (Offline Testing Only)
@@ -267,6 +271,37 @@ class LocalDevQueueAdapter(QueueAdapter):
 
     async def stats(self) -> dict[str, int]:
         return qdb.queue_stats(db_path=self.db_path)
+
+    async def push_anki_stats(self, stats: dict[str, Any]) -> bool:
+        try:
+            import json
+            now = datetime.now(timezone.utc).isoformat()
+            payload_str = json.dumps(stats, ensure_ascii=False)
+            with qdb._conn(self.db_path) as conn:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS anki_stats (
+                        id TEXT PRIMARY KEY,
+                        payload_json TEXT NOT NULL DEFAULT '{}',
+                        updated_at TEXT NOT NULL
+                    );
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO anki_stats (id, payload_json, updated_at)
+                    VALUES ('latest', ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        payload_json = excluded.payload_json,
+                        updated_at = excluded.updated_at
+                    """,
+                    (payload_str, now),
+                )
+                conn.commit()
+            return True
+        except Exception as exc:
+            log.warning("Failed to save local Anki stats: %s", exc)
+            return False
 
 
 # ---------------------------------------------------------------------------
@@ -429,6 +464,20 @@ class CloudQueueAdapter(QueueAdapter):
             raise
         except httpx.HTTPError as exc:
             raise QueueError(self._sanitize_error(f"Cloud queue network error: {exc}")) from exc
+
+    async def push_anki_stats(self, stats: dict[str, Any]) -> bool:
+        self._ensure_configured()
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.post(
+                    f"{self.queue_url}/api/stats/anki",
+                    json=stats,
+                    headers=self._headers(),
+                )
+                return resp.status_code == 200
+        except Exception as exc:
+            log.warning("Failed to push Anki stats to cloud queue: %s", exc)
+            return False
 
 
 

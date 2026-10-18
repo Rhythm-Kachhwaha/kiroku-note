@@ -210,3 +210,24 @@ def test_recent_respects_limit(store: SqliteQueueStore):
 def test_recent_empty_store_returns_empty_list(store: SqliteQueueStore):
     assert store.recent(limit=20) == []
 
+
+def test_anki_stats_store_lifecycle(store: SqliteQueueStore):
+    assert store.get_anki_stats() is None
+
+    payload = {"current_streak": 3, "today_reviewed": 15, "total_reviews": 120}
+    store.save_anki_stats(payload)
+
+    data = store.get_anki_stats()
+    assert data is not None
+    assert data["current_streak"] == 3
+    assert data["today_reviewed"] == 15
+    assert "updated_at" in data
+
+    updated_payload = {"current_streak": 4, "today_reviewed": 25, "total_reviews": 130}
+    store.save_anki_stats(updated_payload)
+
+    new_data = store.get_anki_stats()
+    assert new_data["current_streak"] == 4
+    assert new_data["today_reviewed"] == 25
+
+

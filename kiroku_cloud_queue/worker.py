@@ -16,10 +16,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 import os
 import sys
+import time
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -257,6 +262,186 @@ async def sync_cloud_cards(deck_name: Optional[str] = None) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# AnkiConnect Real Stats Collector & Cloud Sync
+# ---------------------------------------------------------------------------
+
+def fetch_anki_connect_stats(
+    anki_url: Optional[str] = None,
+    timeout_seconds: float = 3.0,
+) -> Optional[dict[str, Any]]:
+    """
+    Connect to local AnkiConnect (http://127.0.0.1:8765) and retrieve study statistics.
+    Returns None if Anki is not running or unreachable.
+    """
+    endpoint = anki_url or os.getenv("ANKICONNECT_URL", "http://127.0.0.1:8765")
+
+    def _invoke(action: str, **params: Any) -> Any:
+        req_payload = {"action": action, "version": 6, "params": params}
+        data = json.dumps(req_payload).encode("utf-8")
+        req = urllib.request.Request(
+            endpoint,
+            data=data,
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "Origin": "http://localhost",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            if body.get("error"):
+                raise ValueError(f"AnkiConnect error on '{action}': {body['error']}")
+            return body.get("result")
+
+    try:
+        ver = _invoke("version")
+        if not ver:
+            return None
+    except Exception as exc:
+        log.debug("AnkiConnect unreachable at %s: %s", endpoint, exc)
+        return None
+
+    try:
+        raw_reviews_by_day = _invoke("getNumCardsReviewedByDay") or []
+        today_reviewed = _invoke("getNumCardsReviewedToday") or 0
+        deck_names = _invoke("deckNames") or []
+        deck_stats_raw = _invoke("getDeckStats", decks=deck_names) if deck_names else {}
+    except Exception as exc:
+        log.warning("Failed querying AnkiConnect stats: %s", exc)
+        return None
+
+    daily_map: dict[str, int] = {}
+    for entry in raw_reviews_by_day:
+        if isinstance(entry, (list, tuple)) and len(entry) >= 2:
+            d_str = str(entry[0]).strip()
+            try:
+                cnt = int(entry[1])
+            except (ValueError, TypeError):
+                cnt = 0
+            if d_str:
+                daily_map[d_str] = cnt
+
+    today_local = datetime.now().strftime("%Y-%m-%d")
+    if today_reviewed > 0 or today_local not in daily_map:
+        daily_map[today_local] = max(daily_map.get(today_local, 0), int(today_reviewed))
+
+    sorted_days = sorted(daily_map.keys())
+    current_streak = 0
+    best_streak = 0
+    temp_streak = 0
+    prev_date = None
+
+    for d_str in sorted_days:
+        try:
+            cur_date = datetime.strptime(d_str, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        cnt = daily_map[d_str]
+        if cnt > 0:
+            if prev_date is not None and (cur_date - prev_date).days == 1:
+                temp_streak += 1
+            else:
+                temp_streak = 1
+            if temp_streak > best_streak:
+                best_streak = temp_streak
+            prev_date = cur_date
+        else:
+            temp_streak = 0
+            prev_date = None
+
+    today_date = datetime.now().date()
+    yesterday_date = today_date - timedelta(days=1)
+
+    check_date = today_date if daily_map.get(today_date.strftime("%Y-%m-%d"), 0) > 0 else yesterday_date
+    while True:
+        d_str = check_date.strftime("%Y-%m-%d")
+        if daily_map.get(d_str, 0) > 0:
+            current_streak += 1
+            check_date -= timedelta(days=1)
+        else:
+            break
+
+    total_reviews = sum(daily_map.values())
+    one_year_ago = (today_date - timedelta(days=365)).strftime("%Y-%m-%d")
+    recent_reviews_by_day = [
+        [d, daily_map[d]] for d in sorted_days if d >= one_year_ago
+    ]
+    days_studied_past_year = sum(1 for d, c in recent_reviews_by_day if c > 0)
+
+    decks_list = []
+    total_cards = 0
+    total_new = 0
+    total_learn = 0
+    total_review = 0
+
+    if isinstance(deck_stats_raw, dict):
+        for d_id, d_data in deck_stats_raw.items():
+            if not isinstance(d_data, dict):
+                continue
+            d_name = d_data.get("name", f"Deck {d_id}")
+            t_cards = int(d_data.get("total_in_deck", 0))
+            n_cards = int(d_data.get("new_count", 0))
+            l_cards = int(d_data.get("learn_count", 0))
+            r_cards = int(d_data.get("review_count", 0))
+            decks_list.append({
+                "name": d_name,
+                "total": t_cards,
+                "new": n_cards,
+                "learn": l_cards,
+                "review": r_cards,
+            })
+            total_cards += t_cards
+            total_new += n_cards
+            total_learn += l_cards
+            total_review += r_cards
+
+    decks_list.sort(key=lambda d: d["total"], reverse=True)
+
+    return {
+        "synced_at": datetime.now(timezone.utc).isoformat(),
+        "today_reviewed": int(today_reviewed),
+        "current_streak": current_streak,
+        "best_streak": max(best_streak, current_streak),
+        "total_reviews": total_reviews,
+        "days_studied_past_year": days_studied_past_year,
+        "cards_reviewed_by_day": recent_reviews_by_day,
+        "decks": decks_list,
+        "summary": {
+            "total_cards": total_cards,
+            "total_due_today": total_new + total_review + total_learn,
+            "total_new_due": total_new,
+            "total_review_due": total_review,
+            "total_learn_due": total_learn,
+        },
+    }
+
+
+async def sync_anki_stats_to_cloud(
+    adapter: Optional[QueueAdapter] = None,
+    anki_url: Optional[str] = None,
+) -> bool:
+    """
+    Collect real study metrics from local AnkiConnect and push to the cloud queue service.
+    Returns True if stats were collected and pushed; False if Anki was closed or push failed.
+    """
+    stats = fetch_anki_connect_stats(anki_url=anki_url)
+    if not stats:
+        log.info("Anki is not currently running; skipping study stats sync.")
+        return False
+
+    queue = adapter or get_queue_adapter()
+    success = await queue.push_anki_stats(stats)
+    if success:
+        log.info(
+            "Successfully synced Anki stats to cloud: streak=%d days, today=%d reviews, total_cards=%d",
+            stats["current_streak"], stats["today_reviewed"], stats["summary"]["total_cards"]
+        )
+    else:
+        log.warning("Failed to push Anki stats to queue adapter.")
+    return success
+
+
+# ---------------------------------------------------------------------------
 # Batch Processing
 # ---------------------------------------------------------------------------
 
@@ -361,14 +546,27 @@ async def run_worker_loop(
 ) -> None:
     """
     Continuously drain the queue at specified interval until cancelled.
+    Also syncs real Anki study metrics periodically (every 5 minutes) when Anki is running.
     """
     queue = adapter or get_queue_adapter()
     log.info("Worker started. Polling every %ds with adapter %s (auto_sync=%s)...",
              poll_interval, type(queue).__name__, auto_sync)
 
+    last_stats_sync = 0.0
+    STATS_SYNC_INTERVAL = 300.0  # Sync stats every 5 minutes
+
     while True:
         if stop_event and stop_event.is_set():
             break
+
+        now = time.time()
+        if now - last_stats_sync >= STATS_SYNC_INTERVAL:
+            try:
+                synced = await sync_anki_stats_to_cloud(adapter=queue)
+                if synced:
+                    last_stats_sync = now
+            except Exception as exc:
+                log.debug("Periodic stats sync skipped or failed: %s", exc)
 
         try:
             batch = await process_batch(adapter=queue, auto_sync=auto_sync)
@@ -401,8 +599,15 @@ def main() -> None:
     parser.add_argument("--auto-sync", action="store_true", help="Automatically push saved cards to Anki during fetch")
     parser.add_argument("--sync-card", type=int, default=None, help="Manually sync a single card ID to Anki")
     parser.add_argument("--sync-cloud-all", action="store_true", help="Manually sync all eligible cloud cards to Anki")
+    parser.add_argument("--sync-stats", action="store_true", help="Sync local AnkiConnect study stats to cloud and exit")
     parser.add_argument("--deck", type=str, default=None, help="Filter deck for --sync-cloud-all")
     args = parser.parse_args()
+
+    if args.sync_stats:
+        adapter = get_queue_adapter(backend=args.backend)
+        result = asyncio.run(sync_anki_stats_to_cloud(adapter=adapter))
+        print(f"Anki stats sync: {'success' if result else 'skipped (Anki not running or push failed)'}")
+        return
 
     if args.sync_card is not None:
         result = asyncio.run(sync_single_card(args.sync_card))

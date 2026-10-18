@@ -1,5 +1,39 @@
 # Kiroku Note — Progress
 
+### Cloud Dashboard v2: Real Anki Stats Sync & Minimalist Japanese UI (2026-10-18)
+
+**Objective**: Deliver Dashboard v2 with real Anki statistics sync via AnkiConnect, complete separation of recent cards queue from learning stats into dedicated views, official Kiroku dark obsidian + terracotta aesthetics, and Google Fonts Noto Sans Japanese typography.
+
+**Key Changes Delivered**:
+1. **Real AnkiConnect Statistics Collector & Sync (`worker.py`, `queue_adapter.py`)**:
+   - `kiroku_cloud_queue/worker.py`: Implemented `fetch_anki_connect_stats()` which connects to local AnkiConnect (`127.0.0.1:8765`), queries `getNumCardsReviewedByDay`, `getNumCardsReviewedToday`, `deckNames`, and `getDeckStats`, and computes current streak, best streak, total reviews, and collection summaries in Python. If Anki is closed, it fails fast and gracefully without raising exceptions.
+   - Added `sync_anki_stats_to_cloud()` and wired it into `run_worker_loop()` with debouncing (every 5 minutes when Anki is running) plus a dedicated `--sync-stats` CLI flag.
+   - `kiroku_cloud_queue/queue_adapter.py`: Added `push_anki_stats()` method across `QueueAdapter`, `LocalDevQueueAdapter`, and `CloudQueueAdapter`.
+2. **Cloud Queue Storage & Stats API (`queue_store.py`, `postgres_store.py`, `server.py`)**:
+   - `kiroku_cloud_queue/queue_store.py`: Added `anki_stats` table in SQLite schema and implemented `save_anki_stats()` / `get_anki_stats()` with atomic upserts.
+   - `kiroku_cloud_queue/postgres_store.py`: Added `anki_stats` table to Postgres `init_db()` and implemented PostgreSQL upsert (`ON CONFLICT (id) DO UPDATE`).
+   - `kiroku_cloud_queue/postgres_schema.sql`: Documented `anki_stats` table for cloud migrations.
+   - `kiroku_cloud_queue/server.py`: Added `POST /api/stats/anki` (authenticated with `WORKER_TOKEN`) and `GET /api/stats/anki` (authenticated with `SUBMIT_TOKEN` or `WORKER_TOKEN`), with un-prefixed aliases.
+3. **Dashboard v2 Redesign (`dashboard_template.py`, `server.py`)**:
+   - Created `kiroku_cloud_queue/dashboard_template.py` containing self-contained, responsive HTML/CSS/JS.
+   - Stripped away all cold indigo/blue (`#6366f1`) and removed the unneeded Kanji `記` icon.
+   - Applied official Kiroku palette: deep obsidian base (`#121110`), warm charcoal cards (`#181715`, `#211e1b`), hairline dividers (`#25211e`), warm terracotta brand accents (`#b84632`), and warm amber reading badges (`#d4884f`).
+   - Integrated Google Fonts `Noto Sans JP` across Japanese text (`.expression`, `.reading`), headings, and interface labels.
+   - Separated into two distinct tabs:
+     - **Cards Queue**: Live status pills (Total, Synced, Pending, Failed), responsive cards feed with Japanese typography, deck tags, relative time, and collapsible error diagnostics.
+     - **Anki Stats**: Real desktop sync status indicator, 4 metric cards (Streak with best streak subtext, Today's reviews with due count, Total collection size, Days studied in past year), 52-week horizontal calendar contribution heatmap with interactive hover/tap tooltips and intensity scale, decks breakdown, and clean guidance when Anki hasn't been synced yet.
+   - Clean client-side token management (`localStorage.getItem('kiroku_token')`) and auto-refresh every 30s.
+4. **Comprehensive Automated Tests**:
+   - `kiroku_cloud_queue/tests/test_cloud_api.py`: Added auth and lifecycle tests for `POST` and `GET /api/stats/anki`.
+   - `kiroku_cloud_queue/tests/test_queue_store.py`: Added store tests for `save_anki_stats()` and `get_anki_stats()`.
+   - `kiroku_cloud_queue/tests/test_worker.py`: Added offline tolerance tests and metric calculation tests for `fetch_anki_connect_stats()` and `sync_anki_stats_to_cloud()`.
+
+**Verification Delivered**:
+- `kiroku_cloud_queue\.venv\Scripts\python.exe -m pytest kiroku_cloud_queue/tests`: 121/121 passed (0 failed).
+
+**Remaining Risk**:
+- None. When Anki is closed on PC, the worker gracefully skips stats synchronization without affecting queue polling or card persistence.
+
 ### Cloud Queue Mobile/Desktop Dashboard & Recent Cards Inspection API (2026-10-18)
 
 **Objective**: Deliver immediate card confirmation feedback on mobile (iPhone Shortcuts) after running `POST /submit`, implement a clean read-only `GET /recent` API for card inspection, and provide an inline `/dashboard` web interface for both iPhone and desktop browsers with future all-time stats readiness.
