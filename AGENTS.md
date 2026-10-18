@@ -30,6 +30,7 @@ Read these before changing the project:
 - Dictionary access: use `YomitanService`; do not distribute Yomitan calls through the codebase.
 - JLPT: use a local, replaceable service/dataset; never put its rules in the UI or assume Yomitan provides them.
 - Anki: use AnkiConnect in normal operation. A failed sync must never discard a locally saved card.
+- UI icon convention: strictly zero OS emojis; only clean, accessible vector SVG icons are permitted across all user interfaces, tools, tabs, badges, and dashboard surfaces.
 
 ## Agent workflow
 

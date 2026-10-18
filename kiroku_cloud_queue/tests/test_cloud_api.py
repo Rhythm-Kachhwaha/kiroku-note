@@ -320,12 +320,21 @@ def test_recent_limit_param(client: TestClient, submit_headers):
 
 
 def test_dashboard_endpoint_public_returns_html(client: TestClient):
+    import re
     resp = client.get("/dashboard")
     assert resp.status_code == 200
     assert "text/html" in resp.headers.get("content-type", "")
     assert "Kiroku" in resp.text
     assert "Recent Cards" in resp.text
     assert "kiroku_submit_token" in resp.text
+    assert "kiroku cloud" in resp.text
+    assert "hero-modal" in resp.text
+    assert "sync-banner" not in resp.text
+
+    # Verify zero emojis anywhere in the dashboard HTML
+    emojis = re.findall(r'[\U00010000-\U0010ffff\u2600-\u26ff\u2700-\u27bf\u2300-\u23ff\u2b50\u2b55\u25b6\u25c0\u2705\u274c]', resp.text)
+    assert len(emojis) == 0, f"Found emojis in dashboard HTML: {emojis}"
+
 
 
 def test_recent_accepts_worker_token(client: TestClient, worker_headers):

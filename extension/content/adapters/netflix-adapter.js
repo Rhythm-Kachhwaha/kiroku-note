@@ -64,7 +64,7 @@
       this.observer = null;
       this.timedtextEl = null;
       this.currentText = "";
-      this.displayEnabled = true;
+      this.displayEnabled = false;
       this.discoveryObserver = null;
     }
 

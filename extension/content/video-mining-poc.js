@@ -519,7 +519,7 @@
       this.onFileDropped = null;
       this.onPositionChanged = null;
       this.isHoverLocked = false;
-      this.displayEnabled = true;
+      this.displayEnabled = false;
       this.activeHighlightTerm = "";
       this.currentCue = null;
       this.pendingCue = undefined;
@@ -1085,7 +1085,6 @@
 
     updatePosition() {
       if (!this.container || !this.video) return;
-      if (this.displayEnabled === false) return;
 
       this.ensureMounted();
 
@@ -1915,7 +1914,8 @@
       });
       this.activeVideo = null;
       this.activeFilename = "";
-      this.subtitlesDisplayEnabled = true;
+      this.subtitlesDisplayEnabled = false;
+      this.renderer.setDisplayEnabled(false);
       this.ytAdapter = null;
       this.netflixAdapter = null;
       this.recentCues = [];
@@ -2576,12 +2576,14 @@
         }
       } catch (_) {}
 
-      // Initialize subtitle display preference from storage
+      // Initialize subtitle display preference from storage (defaults to false)
       try {
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
           chrome.storage.local.get("subtitles_display_enabled", (result) => {
             if (typeof result?.subtitles_display_enabled === "boolean") {
               this.setSubtitlesDisplay(result.subtitles_display_enabled);
+            } else {
+              this.setSubtitlesDisplay(false);
             }
           });
           if (chrome.storage?.onChanged) {
@@ -2595,9 +2597,15 @@
           const stored = localStorage.getItem("subtitles_display_enabled");
           if (stored !== null) {
             this.setSubtitlesDisplay(stored === "true");
+          } else {
+            this.setSubtitlesDisplay(false);
           }
+        } else {
+          this.setSubtitlesDisplay(false);
         }
-      } catch (_) {}
+      } catch (_) {
+        this.setSubtitlesDisplay(false);
+      }
 
       // Check for YouTube adapter
       const ytMod = typeof YouTubeAdapter !== "undefined"

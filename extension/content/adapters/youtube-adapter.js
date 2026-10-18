@@ -211,7 +211,7 @@
       this.tracks = [];
       this.activeTrack = null;
       this.currentVideoId = null;
-      this.displayEnabled = true;
+      this.displayEnabled = false;
       this._boundCheck = this.checkAndLoad.bind(this);
       this._boundBridgeMessage = this.handleBridgeMessage.bind(this);
     }

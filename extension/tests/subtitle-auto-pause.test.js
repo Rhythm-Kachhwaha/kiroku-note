@@ -13,10 +13,13 @@ const youtubeAdapterSrc = fs.readFileSync(path.resolve(__dirname, "../content/ad
 const netflixAdapterSrc = fs.readFileSync(path.resolve(__dirname, "../content/adapters/netflix-adapter.js"), "utf8");
 const videoMiningSrc = fs.readFileSync(path.resolve(__dirname, "../content/video-mining-poc.js"), "utf8");
 
-function createMockEnvironment({ isYouTube = false, isNetflix = false, isHiAnime = false, initialAutoPause = false } = {}) {
+function createMockEnvironment({ isYouTube = false, isNetflix = false, isHiAnime = false, initialAutoPause = false, subtitlesDisplayEnabled = true } = {}) {
   const sentMessages = [];
   const messageListeners = [];
-  const storageData = { auto_pause_on_hover: initialAutoPause };
+  const storageData = {
+    auto_pause_on_hover: initialAutoPause,
+    subtitles_display_enabled: subtitlesDisplayEnabled
+  };
   const storageChangeListeners = [];
 
   const mockChrome = {

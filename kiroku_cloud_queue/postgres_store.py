@@ -391,6 +391,7 @@ class PostgresQueueStore(BaseQueueStore):
                 cur.execute(
                     """
                     SELECT id, expression, reading, meaning, deck_name,
+                           sentence, sentence_meaning, payload_json,
                            status, created_at, error
                     FROM queued_cards
                     ORDER BY created_at DESC

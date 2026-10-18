@@ -9160,7 +9160,7 @@ function setAutoPausePreference(enabled) {
 
 async function loadSubtitlesDisplayPreference() {
   try {
-    let enabled = true;
+    let enabled = false;
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
       const stored = await chrome.storage.local.get("subtitles_display_enabled");
       if (typeof stored?.subtitles_display_enabled === "boolean") {

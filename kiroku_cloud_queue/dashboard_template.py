@@ -5,8 +5,11 @@ Aesthetics:
   - Deep obsidian base (#121110) + warm charcoal surfaces (#181715, #211e1b)
   - Signature Kiroku terracotta brand accent (#b84632)
   - Warm amber reading badge (#d4884f)
+  - Pure white unified brand heading ("kiroku cloud")
+  - Zero OS emojis -- pure vector SVG icons everywhere
+  - Interactive Card Hero Inspection Modal matching the Kiroku Extension Side Panel
   - Typography powered by Google Fonts 'Noto Sans JP'
-  - Separated views: [Cards Queue] and [Anki Stats]
+  - Separated views: [Cards] and [Anki Stats]
 """
 
 DASHBOARD_HTML = """<!DOCTYPE html>
@@ -73,26 +76,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
     .brand {
       display: flex;
-      align-items: baseline;
-      gap: 0.5rem;
+      align-items: center;
     }
     .brand-title {
       font-size: 1.28rem;
       font-weight: 700;
-      letter-spacing: -0.03em;
-      color: var(--text);
+      letter-spacing: -0.02em;
+      color: #ffffff;
       font-family: var(--font-ja);
-    }
-    .brand-badge {
-      font-size: 0.72rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--accent);
-      background: var(--accent-dim);
-      padding: 0.15rem 0.45rem;
-      border-radius: 4px;
-      border: 1px solid rgba(184, 70, 50, 0.25);
     }
     .header-actions {
       display: flex;
@@ -110,7 +101,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 0.35rem;
+      gap: 0.45rem;
       font-family: var(--font-ja);
       transition: all 0.15s ease;
       touch-action: manipulation;
@@ -119,6 +110,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       color: var(--text);
       background: var(--surface-hover);
       border-color: var(--border-focus);
+    }
+    .svg-icon {
+      width: 15px;
+      height: 15px;
+      stroke-width: 2;
+      stroke: currentColor;
+      fill: none;
+      flex-shrink: 0;
+      display: inline-block;
+      vertical-align: middle;
     }
     .spin {
       animation: spin 0.7s linear infinite;
@@ -150,10 +151,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.4rem;
+      gap: 0.45rem;
       font-family: var(--font-ja);
       transition: all 0.15s ease;
       touch-action: manipulation;
+    }
+    .nav-tab .svg-icon {
+      width: 17px;
+      height: 17px;
     }
     .nav-tab.active {
       background: var(--surface-elevated);
@@ -225,7 +230,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       background: var(--accent-hover);
     }
 
-    /* Queue View Styles */
+    /* Cards View Styles */
     .stats-bar {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -275,11 +280,23 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       border-radius: var(--radius);
       padding: 0.95rem 1.1rem;
       min-width: 0;
-      transition: border-color 0.15s ease, background 0.15s ease;
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
     .vocab-card:hover {
       background: var(--surface-hover);
       border-color: var(--border-default);
+      transform: translateY(-1px);
+    }
+    .vocab-card:active {
+      transform: translateY(0);
+    }
+    .vocab-card:focus-visible {
+      outline: 2px solid var(--border-focus);
+      outline-offset: 2px;
     }
     .card-top {
       display: flex;
@@ -314,13 +331,21 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     .badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.3rem;
+      gap: 0.35rem;
       font-size: 0.72rem;
       font-weight: 600;
       padding: 0.22rem 0.55rem;
       border-radius: 6px;
       white-space: nowrap;
       letter-spacing: 0.02em;
+      flex-shrink: 0;
+    }
+    .badge-icon {
+      width: 11px;
+      height: 11px;
+      stroke-width: 2.2;
+      stroke: currentColor;
+      fill: none;
       flex-shrink: 0;
     }
     .badge.synced {
@@ -366,6 +391,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .card-click-hint {
+      margin-left: auto;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      opacity: 0.8;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+    }
     .error-toggle {
       font-size: 0.74rem;
       color: var(--red);
@@ -389,34 +423,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     /* Anki Stats View Styles */
-    .sync-banner {
-      background: var(--surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius);
-      padding: 0.75rem 1rem;
-      margin-bottom: 1.25rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-      font-size: 0.8rem;
-    }
-    .sync-info {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      color: var(--text-secondary);
-    }
-    .sync-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--green);
-    }
-    .sync-dot.offline {
-      background: var(--text-muted);
-    }
-
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -454,9 +460,18 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
     }
     .metric-val.streak {
       color: #f97316;
+    }
+    .streak-icon {
+      width: 22px;
+      height: 22px;
+      fill: #f97316;
+      flex-shrink: 0;
     }
     .metric-title {
       font-size: 0.75rem;
@@ -596,22 +611,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       color: var(--text-secondary);
     }
 
-    /* Responsive Mobile Overrides */
-    @media (max-width: 480px) {
-      body {
-        padding: max(0.9rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(2.5rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
-      }
-      .brand-title { font-size: 1.15rem; }
-      .metrics-grid { gap: 0.5rem; }
-      .metric-card { padding: 0.85rem 0.75rem; }
-      .metric-val { font-size: 1.4rem; }
-      .stats-bar { gap: 0.35rem; }
-      .stat-pill { padding: 0.5rem 0.25rem; }
-      .stat-num { font-size: 1.05rem; }
-      .stat-lbl { font-size: 0.62rem; }
-      .section-card { padding: 1rem 0.85rem; }
-    }
-
     /* Offline Anki Guide */
     .anki-guide-card {
       background: var(--surface-elevated);
@@ -622,8 +621,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       text-align: center;
     }
     .anki-guide-card .guide-icon {
-      font-size: 1.5rem;
-      margin-bottom: 0.4rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      justify-content: center;
+      color: var(--text-muted);
     }
     .anki-guide-card h4 {
       font-size: 0.92rem;
@@ -636,16 +637,18 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       line-height: 1.45;
     }
 
-    /* Empty State & Footer */
+    /* Empty State */
     .empty-state {
       text-align: center;
       padding: 3rem 1.5rem;
       color: var(--text-muted);
     }
     .empty-state .icon {
-      font-size: 2.2rem;
-      margin-bottom: 0.6rem;
-      opacity: 0.7;
+      margin-bottom: 0.85rem;
+      display: flex;
+      justify-content: center;
+      color: var(--text-muted);
+      opacity: 0.85;
     }
     .empty-state h3 {
       font-size: 1rem;
@@ -655,6 +658,180 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     .empty-state p {
       font-size: 0.82rem;
       line-height: 1.5;
+    }
+
+    /* Card Hero Modal (Extension Showcase Replica) */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.76);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 1200;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    .modal-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+    }
+    .hero-modal-card {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 88vh;
+      overflow-y: auto;
+      padding: 1.6rem 1.4rem;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75);
+      position: relative;
+      transform: translateY(12px) scale(0.98);
+      transition: transform 0.2s ease;
+    }
+    .modal-backdrop.open .hero-modal-card {
+      transform: translateY(0) scale(1);
+    }
+    .hero-modal-close {
+      position: absolute;
+      top: 0.85rem;
+      right: 0.85rem;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      touch-action: manipulation;
+    }
+    .hero-modal-close:hover, .hero-modal-close:active {
+      background: var(--surface-hover);
+      color: #ffffff;
+      border-color: var(--border-default);
+    }
+
+    /* Hero Showcase Elements */
+    .hero-showcase {
+      text-align: center;
+      padding: 0.5rem 0 1.25rem;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 1.25rem;
+    }
+    .hero-reading-lead {
+      font-family: var(--font-ja);
+      font-size: 1.05rem;
+      font-weight: 500;
+      color: var(--accent-reading);
+      letter-spacing: 0.03em;
+      min-height: 1.4rem;
+      margin-bottom: 0.35rem;
+      word-break: break-word;
+    }
+    .hero-expression-lead {
+      font-family: var(--font-ja);
+      font-size: 2.6rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+      margin: 0 0 0.85rem;
+      word-break: break-word;
+    }
+    .hero-badges-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .jlpt-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.18rem 0.55rem;
+      border-radius: 4px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(184, 70, 50, 0.35);
+      letter-spacing: 0.05em;
+    }
+
+    /* Modal Content Sections */
+    .modal-section {
+      margin-bottom: 1.15rem;
+    }
+    .modal-section-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 0.45rem;
+    }
+    .modal-meaning-box {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+    }
+    .meaning-item {
+      font-size: 0.94rem;
+      color: var(--text);
+      line-height: 1.55;
+      margin-bottom: 0.35rem;
+    }
+    .meaning-item:last-child { margin-bottom: 0; }
+    
+    .modal-sentence-box {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+    }
+    .sentence-jp {
+      font-family: var(--font-ja);
+      font-size: 1rem;
+      line-height: 1.6;
+      color: var(--text);
+      margin-bottom: 0.45rem;
+      word-break: break-word;
+    }
+    .sentence-jp mark.highlight {
+      background: transparent;
+      color: #ffffff;
+      font-weight: 700;
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 1px;
+    }
+    .sentence-en {
+      font-size: 0.84rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .modal-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.65rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .modal-meta-item strong {
+      display: block;
+      color: var(--text-secondary);
+      font-weight: 600;
+      margin-bottom: 0.15rem;
     }
 
     footer {
@@ -679,21 +856,56 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.4; transform: scale(0.85); }
     }
+
+    /* Responsive Mobile Overrides */
+    @media (max-width: 480px) {
+      body {
+        padding: max(0.9rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(2.5rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+      }
+      .brand-title { font-size: 1.15rem; }
+      .metrics-grid { gap: 0.5rem; }
+      .metric-card { padding: 0.85rem 0.75rem; }
+      .metric-val { font-size: 1.4rem; }
+      .stats-bar { gap: 0.35rem; }
+      .stat-pill { padding: 0.5rem 0.25rem; }
+      .stat-num { font-size: 1.05rem; }
+      .stat-lbl { font-size: 0.62rem; }
+      .section-card { padding: 1rem 0.85rem; }
+
+      .modal-backdrop {
+        align-items: flex-end;
+        padding: 0;
+      }
+      .hero-modal-card {
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        max-height: 85vh;
+        padding: 1.5rem 1.15rem max(1.5rem, env(safe-area-inset-bottom));
+        transform: translateY(100%);
+      }
+      .modal-backdrop.open .hero-modal-card {
+        transform: translateY(0);
+      }
+      .hero-expression-lead { font-size: 2.2rem; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
       <div class="brand">
-        <h1 class="brand-title">kiroku</h1>
-        <span class="brand-badge">cloud</span>
+        <h1 class="brand-title">kiroku cloud</h1>
       </div>
       <div class="header-actions">
-        <button class="icon-btn" id="refresh-btn" onclick="refreshActive(true)" title="Refresh">
-          <span id="refresh-icon">↻</span> Refresh
+        <button class="icon-btn" id="refresh-btn" onclick="refreshActive(true)" title="Refresh data">
+          <span id="refresh-icon">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          </span>
+          Refresh
         </button>
         <button class="icon-btn" onclick="toggleTokenBox()" title="Configure Access Token">
-          ⚙ Key
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="m15.5 8.5 5 5-2 2-2-2-2 2-1.5-1.5M7 14a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
+          Key
         </button>
       </div>
     </header>
@@ -701,10 +913,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <!-- Navigation Tabs -->
     <div class="nav-tabs" role="tablist">
       <button class="nav-tab active" id="tab-btn-queue" onclick="switchTab('queue')">
-        📥 Cards Queue
+        <svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="14" rx="2"/><path d="M6 3h14a2 2 0 0 1 2 2v12"/></svg>
+        Cards
       </button>
       <button class="nav-tab" id="tab-btn-stats" onclick="switchTab('stats')">
-        📊 Anki Stats
+        <svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Anki Stats
       </button>
     </div>
 
@@ -718,18 +932,20 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- VIEW 1: Cards Queue -->
+    <!-- VIEW 1: Cards -->
     <div id="view-queue" class="view-panel active">
       <div class="stats-bar" id="stats-bar">
         <div class="stat-pill"><div class="stat-num total" id="stat-total">-</div><div class="stat-lbl">Recent</div></div>
         <div class="stat-pill"><div class="stat-num done" id="stat-done">-</div><div class="stat-lbl">Synced</div></div>
-        <div class="stat-pill"><div class="stat-num pending" id="stat-pending">-</div><div class="stat-lbl">Pending</div></div>
+        <div class="stat-pill"><div class="stat-num pending" id="stat-pending">-</div><div class="stat-lbl">Queued</div></div>
         <div class="stat-pill"><div class="stat-num failed" id="stat-failed">-</div><div class="stat-lbl">Failed</div></div>
       </div>
 
       <div class="card-list" id="card-list">
         <div class="empty-state">
-          <div class="icon">⏳</div>
+          <div class="icon">
+            <svg class="svg-icon spin" style="width:32px;height:32px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="12"/></svg>
+          </div>
           <p>Loading recent cards...</p>
         </div>
       </div>
@@ -737,17 +953,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     <!-- VIEW 2: Anki Learning Stats -->
     <div id="view-stats" class="view-panel">
-      <div class="sync-banner" id="sync-banner">
-        <div class="sync-info">
-          <span class="sync-dot offline" id="sync-dot"></span>
-          <span id="sync-text">Checking Anki sync status...</span>
-        </div>
-        <span id="sync-sub" style="color:var(--text-muted);font-size:0.75rem;">Desktop AnkiConnect</span>
-      </div>
-
       <!-- Offline / Not Yet Synced Guidance Card -->
       <div class="anki-guide-card" id="anki-guide" style="display: none;">
-        <div class="guide-icon">🔌</div>
+        <div class="guide-icon">
+          <svg class="svg-icon" style="width:30px;height:30px;" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
         <h4>Anki Desktop Not Synced Yet</h4>
         <p>No study statistics have been sent from AnkiConnect yet.<br>When you open Anki on your PC and run your local Kiroku worker, your real streak, review count, and contribution heatmap will sync here automatically.</p>
       </div>
@@ -818,10 +1028,62 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </footer>
   </div>
 
+  <!-- Card Hero Inspection Modal (Extension Showcase Replica) -->
+  <div id="hero-modal" class="modal-backdrop" onclick="onModalBackdropClick(event)">
+    <div class="hero-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-expression">
+      <button class="hero-modal-close" onclick="closeHeroModal()" title="Close (Esc)" aria-label="Close modal">
+        <svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <div class="hero-showcase">
+        <div id="modal-reading" class="hero-reading-lead"></div>
+        <h2 id="modal-expression" class="hero-expression-lead">-</h2>
+        <div id="modal-badges" class="hero-badges-row"></div>
+      </div>
+
+      <div class="modal-section" id="modal-section-meaning">
+        <div class="modal-section-title">Definition</div>
+        <div class="modal-meaning-box" id="modal-meaning-content"></div>
+      </div>
+
+      <div class="modal-section" id="modal-section-sentence" style="display: none;">
+        <div class="modal-section-title">Context Sentence</div>
+        <div class="modal-sentence-box">
+          <div class="sentence-jp" id="modal-sentence-jp"></div>
+          <div class="sentence-en" id="modal-sentence-en"></div>
+        </div>
+      </div>
+
+      <div class="modal-meta-grid">
+        <div class="modal-meta-item">
+          <strong>Deck</strong>
+          <span id="modal-meta-deck">-</span>
+        </div>
+        <div class="modal-meta-item">
+          <strong>Captured</strong>
+          <span id="modal-meta-time">-</span>
+        </div>
+      </div>
+
+      <div id="modal-error-wrap" style="display: none; margin-top: 1rem;">
+        <div class="error-box" id="modal-error-content"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const STORAGE_KEY = 'kiroku_token';
     const LEGACY_STORAGE_KEY = 'kiroku_submit_token';
     const TAB_KEY = 'kiroku_active_tab';
+
+    // SVG icon constants for zero-emoji rendering
+    const SVG_CHECK = '<svg class="badge-icon" viewBox="0 0 16 16"><polyline points="3 8.5 6.5 12 13 4.5"/></svg>';
+    const SVG_CLOCK = '<svg class="badge-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><polyline points="8 4.5 8 8 10.5 9.5"/></svg>';
+    const SVG_CROSS = '<svg class="badge-icon" viewBox="0 0 16 16"><line x1="4.5" y1="4.5" x2="11.5" y2="11.5"/><line x1="11.5" y1="4.5" x2="4.5" y2="11.5"/></svg>';
+    const SVG_FLAME = '<svg class="streak-icon" viewBox="0 0 24 24"><path d="M12 23c-4.97 0-9-3.8-9-8.5 0-3.35 2.1-6.73 4.56-9.17a1 1 0 0 1 1.63.48c.32 1.5.89 3.03 1.81 4.19.2.25.56.29.81.08.3-.26.39-.7.21-1.05C11.13 7.22 11 5.3 11 3.5a1 1 0 0 1 1.54-.84C15.93 4.8 21 9.57 21 14.5c0 4.7-4.03 8.5-9 8.5z"/></svg>';
+
+    // In-memory cache of loaded cards for modal inspection
+    window.__cardsCache = [];
 
     // Auto-detect token in URL query parameter (?token=... or ?key=...)
     try {
@@ -909,7 +1171,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       }
     }
 
-    function toggleError(id) {
+    function toggleError(id, event) {
+      if (event) event.stopPropagation();
       const el = document.getElementById(`err-${id}`);
       if (el) el.style.display = (el.style.display === 'none') ? 'block' : 'none';
     }
@@ -923,7 +1186,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         document.getElementById('token-box').style.display = 'block';
         listEl.innerHTML = `
           <div class="empty-state">
-            <div class="icon">🔑</div>
+            <div class="icon">
+              <svg class="svg-icon" style="width:36px;height:36px;" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
             <h3>Authentication Required</h3>
             <p>Please enter your <code>WORKER_TOKEN</code> or <code>SUBMIT_TOKEN</code> in the box above to view your recent cards.</p>
           </div>
@@ -948,9 +1213,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         if (resp.status === 401) {
           listEl.innerHTML = `
             <div class="empty-state">
-              <div class="icon">⚠️</div>
+              <div class="icon">
+                <svg class="svg-icon" style="width:36px;height:36px;" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
               <h3>Invalid Authentication Token</h3>
-              <p>The token you entered was rejected. Click <strong>⚙ Key</strong> to update it.</p>
+              <p>The token you entered was rejected. Click <strong>Key</strong> in the header to update it.</p>
             </div>
           `;
           return;
@@ -962,6 +1229,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         const data = await resp.json();
         const items = data.items || [];
+        window.__cardsCache = items;
 
         let total = items.length;
         let synced = 0;
@@ -982,37 +1250,41 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         if (items.length === 0) {
           listEl.innerHTML = `
             <div class="empty-state">
-              <div class="icon">📭</div>
+              <div class="icon">
+                <svg class="svg-icon" style="width:36px;height:36px;" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              </div>
               <h3>No Cards in Queue</h3>
               <p>Cards you capture and send from your iPhone or ChatGPT will appear here automatically.</p>
             </div>
           `;
         } else {
-          listEl.innerHTML = items.map(it => {
+          listEl.innerHTML = items.map((it, idx) => {
             const isSynced = it.status === 'completed' || it.status === 'synced';
             const isPending = it.status === 'pending' || it.status === 'claimed';
             const badgeClass = isSynced ? 'synced' : (isPending ? 'pending' : 'failed');
-            const badgeLabel = isSynced ? '✓ Synced' : (isPending ? '⏳ Queued' : '✕ Failed');
+            const badgeIcon = isSynced ? SVG_CHECK : (isPending ? SVG_CLOCK : SVG_CROSS);
+            const badgeLabel = isSynced ? 'Synced' : (isPending ? 'Queued' : 'Failed');
             const timeText = timeAgo(it.created_at);
             const hasError = it.error && it.error.trim().length > 0;
             const errId = String(it.id).replace(/[^a-zA-Z0-9_-]/g, '_');
 
             return `
-              <div class="vocab-card">
+              <div class="vocab-card" tabindex="0" role="button" aria-label="Open card details for ${escapeHtml(it.expression)}" onclick="openHeroModal(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openHeroModal(${idx});}">
                 <div class="card-top">
                   <div class="word-group">
                     <span class="expression">${escapeHtml(it.expression)}</span>
                     ${it.reading ? `<span class="reading">${escapeHtml(it.reading)}</span>` : ''}
                   </div>
-                  <span class="badge ${badgeClass}">${badgeLabel}</span>
+                  <span class="badge ${badgeClass}">${badgeIcon}<span>${badgeLabel}</span></span>
                 </div>
                 ${it.meaning ? `<div class="meaning">${escapeHtml(it.meaning)}</div>` : ''}
                 <div class="card-meta">
                   <span class="deck-tag">${escapeHtml(it.deck_name || 'N3 vocabs')}</span>
                   <span>${escapeHtml(timeText)}</span>
-                  ${hasError ? `<span class="error-toggle" onclick="toggleError('${errId}')">view error</span>` : ''}
+                  ${hasError ? `<span class="error-toggle" onclick="toggleError('${errId}', event)">view error</span>` : ''}
+                  <span class="card-click-hint">view details &rsaquo;</span>
                 </div>
-                ${hasError ? `<div class="error-box" id="err-${errId}" style="display:none;">${escapeHtml(it.error)}</div>` : ''}
+                ${hasError ? `<div class="error-box" id="err-${errId}" style="display:none;" onclick="event.stopPropagation()">${escapeHtml(it.error)}</div>` : ''}
               </div>
             `;
           }).join('');
@@ -1025,7 +1297,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         if (manual) {
           listEl.innerHTML = `
             <div class="empty-state">
-              <div class="icon">⚡</div>
+              <div class="icon">
+                <svg class="svg-icon" style="width:36px;height:36px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
               <h3>Could not connect to server</h3>
               <p>${escapeHtml(err.message)}<br><small style="color:var(--text-muted)">If hosted on Render free tier, server may be waking up.</small></p>
             </div>
@@ -1034,10 +1308,139 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       }
     }
 
+    /* Hero Modal Handlers (Extension Showcase Replica) */
+    function openHeroModal(index) {
+      const card = window.__cardsCache[index];
+      if (!card) return;
+
+      const modal = document.getElementById('hero-modal');
+      const readingEl = document.getElementById('modal-reading');
+      const exprEl = document.getElementById('modal-expression');
+      const badgesEl = document.getElementById('modal-badges');
+      const meaningContent = document.getElementById('modal-meaning-content');
+      const sentenceSection = document.getElementById('modal-section-sentence');
+      const sentenceJp = document.getElementById('modal-sentence-jp');
+      const sentenceEn = document.getElementById('modal-sentence-en');
+      const metaDeck = document.getElementById('modal-meta-deck');
+      const metaTime = document.getElementById('modal-meta-time');
+      const errorWrap = document.getElementById('modal-error-wrap');
+      const errorContent = document.getElementById('modal-error-content');
+
+      // 1. Reading
+      readingEl.textContent = (card.reading || '').trim();
+
+      // 2. Expression
+      exprEl.textContent = card.expression || '—';
+
+      // 3. Badges
+      let jlptLevel = card.jlpt_level || '';
+      if (!jlptLevel && card.payload_json) {
+        try {
+          const payload = typeof card.payload_json === 'string' ? JSON.parse(card.payload_json) : card.payload_json;
+          if (payload && payload.jlpt_level) jlptLevel = payload.jlpt_level;
+          else if (payload && Array.isArray(payload.tags)) {
+            for (const t of payload.tags) {
+              const m = String(t).match(/^jlpt[-_]?n([1-5])$/i) || String(t).match(/^n([1-5])$/i);
+              if (m) { jlptLevel = 'N' + m[1]; break; }
+            }
+          }
+        } catch (e) {}
+      }
+
+      const isSynced = card.status === 'completed' || card.status === 'synced';
+      const isPending = card.status === 'pending' || card.status === 'claimed';
+      const badgeClass = isSynced ? 'synced' : (isPending ? 'pending' : 'failed');
+      const badgeIcon = isSynced ? SVG_CHECK : (isPending ? SVG_CLOCK : SVG_CROSS);
+      const badgeLabel = isSynced ? 'Synced' : (isPending ? 'Queued' : 'Failed');
+
+      let badgesHtml = '';
+      if (jlptLevel) {
+        badgesHtml += `<span class="jlpt-badge">${escapeHtml(jlptLevel.toUpperCase())}</span>`;
+      }
+      badgesHtml += `<span class="badge ${badgeClass}">${badgeIcon}<span>${badgeLabel}</span></span>`;
+      badgesHtml += `<span class="deck-tag">${escapeHtml(card.deck_name || 'N3 vocabs')}</span>`;
+      badgesEl.innerHTML = badgesHtml;
+
+      // 4. Meanings (clean split into bulleted/numbered lines matching extension)
+      const rawMeaning = (card.meaning || '').trim();
+      if (!rawMeaning) {
+        meaningContent.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;">No definitions recorded for this card.</div>';
+      } else {
+        let parts = [];
+        if (rawMeaning.includes('\\n')) {
+          parts = rawMeaning.split(/\\r?\\n/).map(s => s.trim().replace(/^\\d+[\\.\\)]\\s*/, '').trim()).filter(Boolean);
+        } else if (/^\\s*\\d+[\\.\\)]/.test(rawMeaning)) {
+          parts = rawMeaning.split(/(?:^|\\s+)\\d+[\\.\\)]\\s*/).map(s => s.trim()).filter(Boolean);
+        } else if (rawMeaning.includes(';')) {
+          parts = rawMeaning.split(/;/).map(s => s.trim().replace(/^\\d+[\\.\\)]\\s*/, '').trim()).filter(Boolean);
+        } else {
+          parts = [rawMeaning];
+        }
+
+        if (parts.length <= 1) {
+          meaningContent.innerHTML = `<div class="meaning-item">${escapeHtml(rawMeaning)}</div>`;
+        } else {
+          meaningContent.innerHTML = parts.map((p, i) => `<div class="meaning-item"><strong>${i + 1}.</strong> ${escapeHtml(p)}</div>`).join('');
+        }
+      }
+
+      // 5. Context Sentence
+      const sentence = (card.sentence || '').trim();
+      const sentenceMeaning = (card.sentence_meaning || '').trim();
+      if (sentence) {
+        sentenceSection.style.display = 'block';
+        const expr = card.expression || '';
+        let highlightedSentence = escapeHtml(sentence);
+        if (expr && highlightedSentence.includes(escapeHtml(expr))) {
+          highlightedSentence = highlightedSentence.split(escapeHtml(expr)).join(`<mark class="highlight">${escapeHtml(expr)}</mark>`);
+        }
+        sentenceJp.innerHTML = highlightedSentence;
+        sentenceEn.textContent = sentenceMeaning;
+        sentenceEn.style.display = sentenceMeaning ? 'block' : 'none';
+      } else {
+        sentenceSection.style.display = 'none';
+      }
+
+      // 6. Meta info
+      metaDeck.textContent = card.deck_name || 'N3 vocabs';
+      metaTime.textContent = card.created_at ? `${timeAgo(card.created_at)} (${new Date(card.created_at).toLocaleString()})` : '-';
+
+      // 7. Error info
+      if (card.error && card.error.trim().length > 0) {
+        errorWrap.style.display = 'block';
+        errorContent.textContent = card.error;
+      } else {
+        errorWrap.style.display = 'none';
+      }
+
+      // Open Modal
+      modal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeHeroModal() {
+      const modal = document.getElementById('hero-modal');
+      if (modal) {
+        modal.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    }
+
+    function onModalBackdropClick(event) {
+      if (event.target && event.target.id === 'hero-modal') {
+        closeHeroModal();
+      }
+    }
+
+    // Keyboard support: Escape closes modal
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        closeHeroModal();
+      }
+    });
+
     async function fetchAnkiStats(manual = false) {
       const token = getToken();
-      const syncText = document.getElementById('sync-text');
-      const syncDot = document.getElementById('sync-dot');
       const guideCard = document.getElementById('anki-guide');
 
       if (!token) return;
@@ -1061,12 +1464,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const data = await resp.json();
 
         if (data.status === 'empty' || !data.stats) {
-          syncDot.classList.add('offline');
-          syncText.textContent = 'Not synced with Anki yet';
           if (guideCard) guideCard.style.display = 'block';
 
-          // Set clean default metrics
-          document.getElementById('metric-streak').textContent = '0d';
+          // Set clean default metrics with SVG flame icon
+          document.getElementById('metric-streak').innerHTML = `${SVG_FLAME}<span>0d</span>`;
           document.getElementById('metric-streak-best').textContent = 'Best: 0 days';
           document.getElementById('metric-today').textContent = '0';
           document.getElementById('metric-due-today').textContent = '0 cards due';
@@ -1078,13 +1479,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         }
 
         if (guideCard) guideCard.style.display = 'none';
-        syncDot.classList.remove('offline');
         const stats = data.stats;
-        const syncedAgo = timeAgo(stats.synced_at);
-        syncText.textContent = `Synced from Desktop AnkiConnect ${syncedAgo}`;
 
-        // Top Metrics
-        document.getElementById('metric-streak').textContent = `🔥 ${stats.current_streak || 0}d`;
+        // Top Metrics with vector SVG flame
+        document.getElementById('metric-streak').innerHTML = `${SVG_FLAME}<span>${stats.current_streak || 0}d</span>`;
         document.getElementById('metric-streak-best').textContent = `Best: ${stats.best_streak || 0} days`;
         document.getElementById('metric-today').textContent = `${stats.today_reviewed || 0}`;
         const sum = stats.summary || {};

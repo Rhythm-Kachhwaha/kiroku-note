@@ -6,13 +6,14 @@ const fs = require("node:fs");
 const pocScriptPath = path.resolve(__dirname, "../content/video-mining-poc.js");
 const pocScript = fs.readFileSync(pocScriptPath, "utf-8");
 
-function createMockEnvironment({ isIframe = false, isHiAnime = true, initialPosition = null } = {}) {
+function createMockEnvironment({ isIframe = false, isHiAnime = true, initialPosition = null, subtitlesDisplayEnabled = true } = {}) {
   const sentMessages = [];
   const eventListeners = {};
   const docEventListeners = {};
   const winEventListeners = {};
   const storageState = {
-    subtitle_overlay_position: initialPosition || null
+    subtitle_overlay_position: initialPosition || null,
+    subtitles_display_enabled: subtitlesDisplayEnabled
   };
 
   const mockChrome = {
@@ -360,6 +361,17 @@ function createMockEnvironment({ isIframe = false, isHiAnime = true, initialPosi
 
 async function runTests() {
   console.log("Starting Movable Subtitle Overlay & HiAnime Fullscreen Regression Tests...");
+
+  // -------------------------------------------------------------
+  // Test 0: Subtitle display is disabled by default when no preference in storage
+  // -------------------------------------------------------------
+  {
+    const env = createMockEnvironment({ subtitlesDisplayEnabled: false });
+    const poc = env.context.window.__ANKIMINER_VIDEO_POC__;
+    assert.equal(poc.instance.subtitlesDisplayEnabled, false, "Subtitles display must be off by default");
+    assert.equal(poc.instance.renderer.displayEnabled, false, "Renderer display must be off by default");
+    console.log("PASS: Test 0 - Default subtitle display is OFF.");
+  }
 
   // -------------------------------------------------------------
   // Test 1: Subtitle overlay renders normally with default bottom-center position

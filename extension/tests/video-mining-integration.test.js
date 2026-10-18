@@ -475,6 +475,7 @@ async function testYouTubeIntegration() {
 
   // Trigger YouTube caption check
   assert.ok(poc.instance.ytAdapter, "ytAdapter must be initialized on YouTube");
+  poc.instance.setSubtitlesDisplay(true);
   await poc.instance.ytAdapter.checkAndLoad();
 
   // Verify timedtext was requested
@@ -592,6 +593,7 @@ async function testNetflixIntegration() {
   poc.instance.detector.checkVideos();
 
   assert.ok(poc.instance.netflixAdapter, "netflixAdapter must be initialized on Netflix");
+  poc.instance.setSubtitlesDisplay(true);
   poc.instance.netflixAdapter._observeElement(timedtextContainer);
 
   // Verify suppression stylesheet was added

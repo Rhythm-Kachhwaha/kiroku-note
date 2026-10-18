@@ -198,6 +198,9 @@ def test_recent_returns_newest_first(store: SqliteQueueStore):
         assert "status" in item
         assert "created_at" in item
         assert "error" in item
+        assert "sentence" in item
+        assert "sentence_meaning" in item
+        assert "payload_json" in item
 
 
 def test_recent_respects_limit(store: SqliteQueueStore):

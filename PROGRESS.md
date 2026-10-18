@@ -1,5 +1,77 @@
 # Kiroku Note — Progress
 
+### Subtitle Default OFF Fix & Release Build Audit (2026-10-18)
+
+**Objective**: Fix the video mining subtitle display issue where subtitles were displayed on page injection even when "Show Subtitles" was toggled off in settings; ensure subtitles overlay is strictly OFF by default and only displays when explicitly enabled by user; verify zero regressions across all 855 test suites; and produce release standalone executables (`kiroku.exe`) and Inno Setup installer (`setup.exe`).
+
+**Key Changes Delivered**:
+1. **Subtitle Default Display OFF (`extension/content/video-mining-poc.js`)**:
+   - `SubtitleOverlayRenderer`: Initialized `this.displayEnabled = false;` by default.
+   - `VideoMiningPOC`: Initialized `this.subtitlesDisplayEnabled = false;` and called `this.renderer.setDisplayEnabled(false);` on instantiation.
+   - Preference loading: `chrome.storage.local.get("subtitles_display_enabled")` and `localStorage` now strictly default to `false` when the setting is undefined, missing, or non-boolean.
+   - `updatePosition()`: Removed premature early-return on `displayEnabled === false`, allowing `ensureMounted()` to establish positioning attributes (`position: absolute/fixed`) while maintaining `display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important;`.
+2. **Platform Adapters Subtitle Default OFF (`youtube-adapter.js`, `netflix-adapter.js`)**:
+   - `YouTubeAdapter`: Initialized `this.displayEnabled = false;` by default.
+   - `NetflixAdapter`: Initialized `this.displayEnabled = false;` by default.
+3. **Side Panel Settings Default OFF (`sidepanel.js`, `sidepanel.html`)**:
+   - `sidepanel.js`: `loadSubtitlesDisplayPreference()` initialized `let enabled = false;` by default.
+   - `sidepanel.html`: Removed `checked` attribute from `<input type="checkbox" id="toggle-subtitles-display">`.
+4. **Test Suite Verification & Regression Protection**:
+   - Updated `extension/tests/video-mining-poc.test.js`, `movable-subtitle-overlay.test.js`, `subtitle-auto-pause.test.js`, `subtitle-hotkeys.test.js`, and `video-mining-integration.test.js` to assert default `subtitlesDisplayEnabled === false` and verify dynamic enabling/toggling behavior.
+   - Ran all 196 extension unit tests (`node --test extension/tests/*.test.js`) ➔ 196 passed.
+   - Ran all 537 backend unit/integration tests (`pytest -o pythonpath=backend backend/tests`) ➔ 537 passed.
+   - Ran all 122 cloud queue tests (`pytest kiroku_cloud_queue/tests`) ➔ 122 passed.
+   - Total automated verification: 855/855 tests passed (100%).
+
+**Remaining Risk**:
+- None. Subtitle display behavior is strictly opt-in and all regression suites pass.
+
+### Cloud Dashboard Refinements: Zero-Emoji Purge, Unified Brand, & Extension Hero Modal (2026-10-18)
+
+**Objective**: Completely eliminate all OS emoji clutter across the Cloud Queue Dashboard in favor of accessible vector SVG icons; unify the top-left wordmark into a single, crisp white "kiroku cloud"; remove the redundant AnkiConnect sync banner; rename "Cards Queue" to "Cards"; make each card clickable to open the read-only Extension Hero view showcase; extend `recent()` data queries to supply context sentences; and lock the zero-emoji rule into repository guidance.
+
+**Key Changes Delivered**:
+1. **Zero-Emoji Purge & Vector SVG Iconography (`dashboard_template.py`)**:
+   - Replaced all Unicode/OS emojis (`⚙`, `📥`, `📊`, `⏳`, `🔌`, `🔑`, `⚠️`, `📭`, `⚡`, `🔥`, `✓`, `✕`) with handcrafted, inline vector SVG icons matching Kiroku's dark theme:
+     - Header: clean SVG reload symbol for Refresh; minimalist SVG key for Access Key configuration.
+     - Tabs: layered cards SVG for `Cards`; analytics/barchart SVG for `Anki Stats`.
+     - Empty states: minimal vector icons for loading (animated spinner), authentication required (shield lock), invalid token (alert triangle), empty queue (inbox), and offline guide (desktop monitor).
+     - Status badges: vector checkmark for `Synced`, vector timer clock for `Queued`, vector x-mark for `Failed`.
+     - Metrics: terracotta/orange vector flame icon for streak count.
+2. **Unified Brand Header (`dashboard_template.py`)**:
+   - Replaced `<div class="brand"><h1 class="brand-title">kiroku</h1><span class="brand-badge">cloud</span></div>` with a unified, high-contrast white title: `<h1 class="brand-title" style="color: #ffffff;">kiroku cloud</h1>`, eliminating the disjointed badge box.
+3. **Removal of Redundant AnkiConnect Banner (`dashboard_template.py`)**:
+   - Deleted `#sync-banner` ("Synced from Desktop AnkiConnect...") and all related JavaScript references, removing visual clutter as sync status is already monitored by live metric cards and the auto-refresh footer indicator.
+4. **Navigation Tab Simplification (`dashboard_template.py`)**:
+   - Renamed `📥 Cards Queue` to `Cards` with the vector cards icon.
+5. **Interactive Card Inspection & Extension Hero Modal (`dashboard_template.py`)**:
+   - Made each `.vocab-card` interactive (`tabindex="0"`, `role="button"`, hover elevation, active press, keyboard Enter/Space triggers).
+   - Created read-only modal overlay replicating the Kiroku Extension Side Panel Hero showcase:
+     - Reading lead: warm amber (`#d4884f`, 17px, medium weight) placed above the expression.
+     - Central expression: prominent 38–42px bold Japanese expression in pure white (`#ffffff`) using `Noto Sans JP`.
+     - Metadata badges: JLPT pill, status badge with vector icon, and target deck tag.
+     - Formatted definition: clean split into numbered items matching extension's `updateHeroMeanings()`.
+     - Context sentence: if captured, displays the Japanese sentence with highlighted expression in terracotta bold + English sentence meaning.
+     - Responsive behavior: centered dialog on desktop; smooth bottom-sheet drawer on mobile screens (<480px) with safe-area insets.
+     - Dismiss controls: close button, clicking backdrop, and `Esc` key listener.
+6. **Data Store Query Expansion (`queue_store.py`, `postgres_store.py`)**:
+   - Extended `recent()` in both `SqliteQueueStore` and `PostgresQueueStore` to select and return `sentence`, `sentence_meaning`, and `payload_json`, delivering full sentence context to the dashboard.
+7. **Locked Boundary & Rule Documentation (`skills/frontend/SKILL.md`, `AGENTS.md`)**:
+   - Documented explicit locked boundary in `AGENTS.md` and `skills/frontend/SKILL.md`: strictly zero OS emojis; only clean, accessible vector SVG icons are permitted across all user interfaces, tools, tabs, badges, and dashboard surfaces.
+
+**Verification Delivered**:
+1. **Full Automated Test Suites (855/855 Passed)**:
+   - Backend suite: 537/537 passed (`pytest -o pythonpath=backend backend/tests`).
+   - Cloud Queue suite: 122/122 passed (`kiroku_cloud_queue\.venv\Scripts\python.exe -m pytest kiroku_cloud_queue/tests`).
+   - Extension suite: 196/196 passed (`node --test extension/tests/*.test.js`).
+2. **Dedicated HTML & Emoji Regex Audits**:
+   - Automated regex verified exactly 0 emoji characters exist anywhere in `dashboard_template.py`.
+   - Verified `/dashboard` returns `kiroku cloud`, `Cards`, `hero-modal`, and excludes `sync-banner`.
+   - Verified `/recent` returns items with `sentence`, `sentence_meaning`, and `payload_json`.
+
+**Remaining Risk**:
+- None. All changes are backward-compatible and introduce zero external dependencies.
+
 ### Cloud Audit, 15-Minute Background Auto-Poll, & iPhone/PC Responsive Dashboard (2026-10-18)
 
 **Objective**: Audit the entire cloud queue and stats sync system, fix all latent bugs (AnkiConnect `getDeckStats` empty deck crash, Neon serverless connection drops), implement 15-minute background auto-polling in the Kiroku backend, polish mobile responsiveness and token UX on iPhone Safari, and verify live AnkiConnect stats end-to-end on Render.

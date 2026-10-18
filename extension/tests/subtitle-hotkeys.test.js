@@ -550,6 +550,7 @@ async function testNetflixHotkeyIntegration() {
   assert.equal(video.paused, true, "Space must NOT toggle video play/pause on Netflix");
 
   // 2. Verify Netflix subtitle detection, live observation, and rendering remain intact
+  poc.instance.setSubtitlesDisplay(true);
   poc.instance.netflixAdapter.onCue({
     startTime: 12.0,
     endTime: 16.0,

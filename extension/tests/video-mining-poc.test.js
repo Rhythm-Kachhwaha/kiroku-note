@@ -378,6 +378,7 @@ async function testOverlayRendering() {
   env.rootBody.appendChild(video);
 
   const renderer = new poc.SubtitleOverlayRenderer();
+  assert.equal(renderer.displayEnabled, false, "Subtitle overlay must be disabled by default");
   renderer.mount(video);
 
   const container = env.mockDocument.getElementById("ankiminer-video-overlay-container");
@@ -389,7 +390,12 @@ async function testOverlayRendering() {
   assert.ok(subtitle.style.cssText.includes("user-select: text"), "user-select must be text");
   assert.ok(subtitle.style.cssText.includes("pointer-events: auto"), "pointer-events must be auto");
 
-  // Render cue
+  // When disabled by default, renderCue does not show overlay
+  renderer.renderCue({ startTime: 10, endTime: 15, text: "見間違えた" });
+  assert.equal(container.style.display, "none");
+
+  // Enable display and render cue
+  renderer.setDisplayEnabled(true);
   renderer.renderCue({ startTime: 10, endTime: 15, text: "見間違えた" });
   assert.equal(subtitle.textContent, "見間違えた");
   assert.equal(container.getAttribute("data-active-cue"), "見間違えた");
@@ -417,9 +423,12 @@ async function testSubtitleDisplayToggle() {
 
   const container = env.mockDocument.getElementById("ankiminer-video-overlay-container");
   const subtitle = env.mockDocument.getElementById("ankiminer-video-subtitle");
-  assert.equal(subtitle.textContent, "表示切替テスト");
+  // Default must be OFF
+  assert.equal(poc.instance.subtitlesDisplayEnabled, false, "Must default to subtitles off");
+  assert.equal(poc.instance.renderer.displayEnabled, false, "Renderer must default to disabled");
+  assert.equal(container.style.display, "none", "Container must be hidden initially");
 
-  for (const enabled of [false, true, false, true, false, true]) {
+  for (const enabled of [true, false, true, false, true, false]) {
     poc.instance.setSubtitlesDisplay(enabled);
     assert.equal(poc.instance.renderer.displayEnabled, enabled);
     assert.equal(poc.instance.syncEngine.currentCue.text, "表示切替テスト", "Hidden display must preserve mining cue data");
@@ -592,6 +601,9 @@ async function testHiAnimeFullscreenBehavior() {
   const container = env.mockDocument.getElementById("ankiminer-video-overlay-container");
   const subtitle = env.mockDocument.getElementById("ankiminer-video-subtitle");
 
+  // Enable subtitle display for fullscreen testing
+  poc.instance.setSubtitlesDisplay(true);
+
   // Normal playback at 7.0s
   video.seek(7.0);
   assert.equal(subtitle.textContent, "フルスクリーンテスト");
@@ -643,6 +655,7 @@ async function testInactiveCueHiding() {
     { startTime: 10.0, endTime: 12.0, text: "セリフ１" },
     { startTime: 16.0, endTime: 18.0, text: "セリフ２" }
   ]);
+  poc.instance.setSubtitlesDisplay(true);
 
   const container = env.mockDocument.getElementById("ankiminer-video-overlay-container");
   const subtitle = env.mockDocument.getElementById("ankiminer-video-subtitle");
