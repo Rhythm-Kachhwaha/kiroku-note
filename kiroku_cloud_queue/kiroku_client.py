@@ -252,3 +252,32 @@ async def get_card(card_id: int) -> dict[str, Any]:
         return r.json()
     raise KirokuAPIError(r.status_code, r.text[:300])
 
+
+async def lookup_jlpt_batch(expressions: list[str]) -> dict[str, Any]:
+    """
+    POST /api/jlpt/batch -- batch lookup JLPT levels for list of expressions.
+    Returns mapping {expression: level_str | None}.
+    Fails soft (returns empty dict) if backend is unreachable or returns error.
+    """
+    if not expressions:
+        return {}
+    results: dict[str, Any] = {}
+    chunk_size = 500
+    for i in range(0, len(expressions), chunk_size):
+        chunk = expressions[i : i + chunk_size]
+        try:
+            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+                r = await client.post(
+                    f"{_kiroku_url()}/api/jlpt/batch",
+                    json={"expressions": chunk},
+                    headers=_headers(),
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    results.update(data.get("levels", {}))
+        except Exception:
+            # Backend stopped or unreachable; fail soft and leave null
+            pass
+    return results
+
+

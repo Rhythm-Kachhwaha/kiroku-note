@@ -38,6 +38,8 @@ from queue_adapter import (
     VocabCard,
     get_queue_adapter,
 )
+from anki_mirror import sync_anki_mirror
+
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -450,7 +452,7 @@ async def sync_anki_stats_to_cloud(
     Collect real study metrics from local AnkiConnect and push to the cloud queue service.
     Returns True if stats were collected and pushed; False if Anki was closed or push failed.
     """
-    stats = fetch_anki_connect_stats(anki_url=anki_url)
+    stats = await asyncio.to_thread(fetch_anki_connect_stats, anki_url=anki_url)
     if not stats:
         log.info("Anki is not currently running; skipping study stats sync.")
         return False
@@ -464,6 +466,13 @@ async def sync_anki_stats_to_cloud(
         )
     else:
         log.warning("Failed to push Anki stats to queue adapter.")
+
+    # Trigger mirror sync without failing stats sync on mirror errors
+    try:
+        await sync_anki_mirror(queue)
+    except Exception as exc:
+        log.warning("Anki mirror sync failed (continuing normally): %s", exc)
+
     return success
 
 
@@ -626,8 +635,20 @@ def main() -> None:
     parser.add_argument("--sync-card", type=int, default=None, help="Manually sync a single card ID to Anki")
     parser.add_argument("--sync-cloud-all", action="store_true", help="Manually sync all eligible cloud cards to Anki")
     parser.add_argument("--sync-stats", action="store_true", help="Sync local AnkiConnect study stats to cloud and exit")
+    parser.add_argument("--sync-cards", action="store_true", help="Run incremental Anki cards mirror sync to cloud and exit")
+    parser.add_argument("--full-resync", action="store_true", help="Force a full reconcile of all Anki cards to cloud and exit")
+    parser.add_argument("--allow-shrink", action="store_true", help="Allow reconcile to delete cards even if collection shrinks by >50%")
     parser.add_argument("--deck", type=str, default=None, help="Filter deck for --sync-cloud-all")
     args = parser.parse_args()
+
+    if args.sync_cards or args.full_resync:
+        adapter = get_queue_adapter(backend=args.backend)
+        from anki_mirror import sync_anki_mirror
+        res = asyncio.run(sync_anki_mirror(adapter, full=args.full_resync, allow_shrink=args.allow_shrink))
+        print(f"Anki card mirror ({res.mode}): status={res.status}, seen={res.cards_seen}, "
+              f"changed={res.cards_changed}, pushed={res.cards_pushed}, "
+              f"daily={res.daily_rows_pushed}, deleted={res.deleted_on_reconcile} ({res.duration_s:.2f}s)")
+        return
 
     if args.sync_stats:
         adapter = get_queue_adapter(backend=args.backend)

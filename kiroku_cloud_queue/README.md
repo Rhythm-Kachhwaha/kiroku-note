@@ -77,7 +77,11 @@ Tested and verified on iOS 18.6 with ChatGPT Go:
 - **Authentication**: `Authorization: Bearer <SUBMIT_TOKEN>`
 - **Content-Type**: `text/plain` (default from iOS Shortcut) or `application/json`
 - **Max Body Size**: 64 KB (enforced against denial of service)
-- **Validation**: Strict validation of required fields: `expression`, `reading`, `meaning`, `sentence`, `sentence_meaning` (non-empty strings). Preserves exact Japanese Unicode without normalization or translation.
+### `POST /submit` (alias `/enqueue`)
+- **Authentication**: `Authorization: Bearer <SUBMIT_TOKEN>`
+- **Content-Type**: `text/plain` (default from iOS Shortcut) or `application/json`
+- **Max Body Size**: 64 KB (enforced against denial of service)
+- **Validation**: Only `expression` is strictly required (non-empty string). The remaining fields (`reading`, `meaning`, `sentence`, `sentence_meaning`) are optional and default to empty strings if omitted. Preserves exact Japanese Unicode without normalization or translation.
 - **Idempotency**: Automatic content deduplication via SHA-256 hash. Accidental double-taps reuse the existing queue ID and return `is_duplicate: true`.
 - **Response (200 OK)**:
   ```json
@@ -113,9 +117,28 @@ Tested and verified on iOS 18.6 with ChatGPT Go:
 
 ---
 
-## 4. Local Windows Worker Configuration
+## 4. Anki Mirror & Cloud Study Endpoints
 
-The local worker runs on your Windows PC and connects outbound over HTTPS to drain cards into Kiroku:
+### Worker Endpoints (`Authorization: Bearer <WORKER_TOKEN>`)
+- `POST /api/anki/cards`: Upsert mirrored cards in batches of up to 500 cards.
+- `POST /api/anki/daily`: Upsert daily activity and historical reconstructed growth/retention series in batches of up to 1000 days.
+- `POST /api/anki/reconcile`: Full card ID list reconciliation. Removes cards deleted from Anki Desktop and cleans orphaned study states.
+- `POST /api/anki/meta`: Store sync metadata (timestamps, total cards count, rollover hour).
+
+### Dashboard & Phone Endpoints (`Authorization: Bearer <SUBMIT_TOKEN>` or `<WORKER_TOKEN>`)
+- `GET /api/cards`: Browse mirrored cards with search (`q`), filters (`state`, `label`, `deck`, `jlpt`, `due_within`), and sorted server-side pagination (`sort`, `dir`, `limit`, `offset`).
+- `GET /api/cards/{card_id}`: Fetch single card detail including all text fields, lapses, reps, again rates, answer times, and interval.
+- `GET /api/stats/overview?range=30d|90d|1y|all`: Returns all comprehensive series (growth curve, state breakdown, true retention, answer buttons, due forecast, difficulty distribution, weak words top 20, JLPT coverage, queue activity) in a single fast payload (<25ms).
+- `GET /api/anki/status`: Returns mirror sync freshness (`synced_at`), total mirrored card count, and last full reconcile timestamp.
+- `GET /api/study/session?mode=weakest|leeches|jlpt|recent|never_practiced|cloud_due|custom&limit=20`: Seed an extra-practice study session.
+- `POST /api/study/review`: Record a 5-box Leitner review rating (`rating`: 1=Again, 2=Hard, 3=Good, 4=Easy) with client `review_uuid` idempotency.
+- `GET /api/study/summary`: Returns study mode performance (reviewed today, 7d count, box distribution, hardest practiced cards).
+
+---
+
+## 5. Local Windows Worker Configuration & CLI Flags
+
+The local worker runs on your Windows PC and connects outbound over HTTPS to drain cards into Kiroku and sync the Anki card mirror:
 
 1. Configure `.env`:
    ```ini
@@ -130,14 +153,18 @@ The local worker runs on your Windows PC and connects outbound over HTTPS to dra
    .venv\Scripts\python.exe worker.py --once
    ```
 
-3. Run in continuous background polling mode:
+3. Run in continuous background polling mode (auto-syncs cards and reviews every 300s):
    ```powershell
    .venv\Scripts\python.exe worker.py --interval 10
    ```
 
+4. Mirror sync CLI flags:
+   - `--sync-cards`: Run an incremental Anki mirror sync and exit immediately.
+   - `--full-resync`: Force a full reconciliation sync (re-verifies all card IDs and reconstructs daily historical series).
+
 ---
 
-## 5. Running Automated Tests
+## 6. Running Automated Tests
 
 Run the complete isolated test suite:
 
@@ -146,9 +173,14 @@ cd D:\Python\AnkiMiner\kiroku_cloud_queue
 .venv\Scripts\python.exe -m pytest tests/ -v
 ```
 
-All 62 tests cover:
-- Authentication and security validation
+All 181 tests cover:
+- Authentication, security validation, and request body limits
 - Payload parsing (`text/plain` and `application/json`), UTF-8 Japanese decoding, error reporting
 - Idempotency, deduplication, and atomic lease claims
-- Worker draining, Kiroku API mapping (`sentence_meaning`), and duplicate handling
-- End-to-end pipeline simulation
+- Worker draining, Kiroku API mapping, and duplicate handling
+- Pure compute functions (field mapping, cleaning, FSRS difficulty scoring, daily series reconstruction)
+- Anki mirror worker sync with mock AnkiConnect (full sync, incremental sync, reconciliation, offline handling)
+- Dual storage parity (SQLite and PostgreSQL)
+- Cards search, filtering, and pagination
+- Leitner 5-box cloud study mode transitions, idempotency, and sessions
+- Dashboard template HTML/CSS/JS syntax validation via `node --check` and strict zero-emoji assertion

@@ -640,6 +640,42 @@ def get_kanji_strokes(character: str) -> Response:
     return Response(content=svg, media_type="image/svg+xml; charset=utf-8")
 
 
+@app.post("/api/jlpt/batch")
+async def batch_jlpt_lookup(request: Request) -> JSONResponse:
+    """Batch lookup JLPT levels for a list of vocabulary expressions."""
+    try:
+        body = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Malformed JSON: {exc}")
+
+    if isinstance(body, list):
+        expressions = body
+    elif isinstance(body, dict):
+        expressions = body.get("expressions", [])
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Body must be a list of expressions or a dict containing 'expressions'.",
+        )
+
+    if not isinstance(expressions, list):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="'expressions' must be a list.",
+        )
+
+    service = JlptReferenceService()
+    results: dict[str, Any] = {}
+    for expr in expressions:
+        if isinstance(expr, str) and expr.strip():
+            clean_str = expr.strip()
+            results[clean_str] = service.lookup_word_with_kanji_fallback(clean_str)
+        elif expr is not None:
+            results[str(expr)] = None
+
+    return JSONResponse({"status": "ok", "levels": results})
+
+
 # ============================================================================
 # LLM Assistant Endpoints
 # ============================================================================

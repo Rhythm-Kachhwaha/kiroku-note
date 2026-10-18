@@ -1,0 +1,3338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kiroku">
+  <title>Kiroku Cloud · Recent Cards &amp; Study</title>
+  
+  <!-- Noto Sans Japanese font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #121110;
+      --surface: #181715;
+      --surface-elevated: #211e1b;
+      --surface-hover: #27231f;
+      --border-subtle: #25211e;
+      --border-default: #312b26;
+      --border-focus: #b84632;
+      --text: #ede8e1;
+      --text-secondary: #9e948a;
+      --text-muted: #8e8a81;
+      --accent: #b84632;
+      --accent-hover: #c8503a;
+      --accent-dim: rgba(184, 70, 50, 0.15);
+      --accent-reading: #d4884f;
+      --green: #5ea36a;
+      --green-dim: rgba(94, 163, 106, 0.15);
+      --yellow: #d4954f;
+      --yellow-dim: rgba(212, 149, 79, 0.15);
+      --red: #cc4f4f;
+      --red-dim: rgba(204, 79, 79, 0.15);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --font-ja: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ja);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: max(1.25rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(3rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+      -webkit-font-smoothing: antialiased;
+    }
+    .container {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      flex: 1;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.15rem;
+      gap: 0.75rem;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .brand-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+    .brand-badge {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(184, 70, 50, 0.25);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .icon-btn {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-default);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      padding: 0.45rem 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      min-height: 34px;
+    }
+    .icon-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--text-muted);
+      color: var(--text);
+    }
+    .svg-icon {
+      width: 15px;
+      height: 15px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+    .spin {
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Navigation Tabs */
+    .nav-tabs {
+      display: flex;
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 0.25rem;
+      margin-bottom: 1.2rem;
+      gap: 0.25rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+    .nav-tab {
+      flex: 1;
+      min-width: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      padding: 0.55rem 0.65rem;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+      min-height: 40px;
+    }
+    .nav-tab.active {
+      background: var(--surface-elevated);
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .nav-tab:hover:not(.active) {
+      color: var(--text);
+      background: rgba(255,255,255,0.02);
+    }
+
+    /* View Panels */
+    .view-panel {
+      display: none;
+    }
+    .view-panel.active {
+      display: block;
+    }
+
+    /* Token Configuration Box */
+    #token-box {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius);
+      padding: 1.15rem;
+      margin-bottom: 1.25rem;
+    }
+    #token-box h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      color: var(--text);
+    }
+    #token-box p {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.75rem;
+      line-height: 1.4;
+    }
+    .token-input-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .token-input-row input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 0.75rem;
+      color: var(--text);
+      font-size: 0.85rem;
+      font-family: inherit;
+      outline: none;
+    }
+    .token-input-row input:focus {
+      border-color: var(--border-focus);
+    }
+    .token-input-row button {
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 1.1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .token-input-row button:hover {
+      background: var(--accent-hover);
+    }
+
+    /* Sync Freshness Bar */
+    .freshness-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.45rem 0.85rem;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+    .freshness-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .freshness-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+    }
+    .freshness-dot.stale {
+      background: var(--yellow);
+    }
+    .freshness-dot.offline {
+      background: var(--red);
+    }
+    .reconcile-skipped-banner {
+      background: rgba(220, 160, 40, 0.12);
+      border: 1px solid rgba(220, 160, 40, 0.35);
+      color: #e5b342;
+      padding: 0.6rem 0.9rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      line-height: 1.4;
+    }
+
+    /* CARDS TAB CONTROLS */
+    .cards-controls-card {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin-bottom: 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .search-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    .search-input-wrap .search-icon {
+      position: absolute;
+      left: 0.75rem;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .cards-search-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 0.55rem 0.75rem 0.55rem 2.25rem;
+      color: var(--text);
+      font-size: 0.88rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .cards-search-input:focus {
+      border-color: var(--border-focus);
+    }
+    .chips-row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 0.2rem;
+    }
+    .chips-row::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 9999px;
+      padding: 0.28rem 0.65rem;
+      font-size: 0.74rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+      min-height: 28px;
+    }
+    .filter-chip:hover {
+      color: var(--text);
+      border-color: var(--border-default);
+    }
+    .filter-chip.active {
+      background: rgba(255,255,255,0.08);
+      color: #ffffff;
+      border-color: var(--text-muted);
+      font-weight: 600;
+    }
+    .filter-chip.chip-leech.active { background: var(--red-dim); color: var(--red); border-color: var(--red); }
+    .filter-chip.chip-hard.active { background: var(--red-dim); color: var(--red); border-color: var(--red); }
+    .filter-chip.chip-normal.active { background: var(--yellow-dim); color: var(--yellow); border-color: var(--yellow); }
+    .filter-chip.chip-easy.active { background: var(--green-dim); color: var(--green); border-color: var(--green); }
+    .filter-chip.chip-solid.active { background: var(--green-dim); color: var(--green); border-color: var(--green); }
+    .filter-chip.chip-new.active { background: rgba(158,148,138,0.2); color: var(--text); border-color: var(--text-secondary); }
+
+    .dropdowns-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .select-wrap select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 0.42rem 0.6rem;
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+      min-height: 34px;
+    }
+    .select-wrap select:focus {
+      border-color: var(--border-focus);
+      color: var(--text);
+    }
+    .sort-control-group {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .sort-control-group select {
+      flex: 1;
+    }
+    .dir-toggle-btn {
+      background: var(--bg);
+      border: 1px solid var(--border-default);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      padding: 0.42rem 0.55rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      min-width: 34px;
+    }
+    .dir-toggle-btn:hover {
+      border-color: var(--text-muted);
+      color: var(--text);
+    }
+
+    /* Mirrored Card List */
+    .cards-count-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 0.65rem;
+      padding: 0 0.2rem;
+    }
+    .mirrored-card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .mirrored-card-row {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 0.85rem 1.05rem;
+      cursor: pointer;
+      transition: transform 0.1s, border-color 0.15s, background 0.15s;
+      min-height: 52px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-width: 0;
+      touch-action: manipulation;
+    }
+    .mirrored-card-row:hover {
+      border-color: var(--border-default);
+      background: var(--surface-hover);
+    }
+    .mirrored-card-row:active {
+      transform: scale(0.995);
+    }
+    .row-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.75rem;
+      min-width: 0;
+    }
+    .row-word-group {
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+      min-width: 0;
+      flex: 1;
+    }
+    .row-expression {
+      font-family: var(--font-ja);
+      font-size: 1.22rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .row-reading {
+      font-size: 0.84rem;
+      color: var(--accent-reading);
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .row-badges-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .diff-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      letter-spacing: 0.02em;
+      text-transform: capitalize;
+    }
+    .diff-leech { background: var(--red-dim); color: var(--red); border: 1px solid rgba(204, 79, 79, 0.3); }
+    .diff-hard { background: var(--red-dim); color: var(--red); border: 1px solid rgba(204, 79, 79, 0.3); }
+    .diff-normal { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(212, 149, 79, 0.3); }
+    .diff-easy { background: var(--green-dim); color: var(--green); border: 1px solid rgba(94, 163, 106, 0.3); }
+    .diff-solid { background: var(--green-dim); color: var(--green); border: 1px solid rgba(94, 163, 106, 0.3); }
+    .diff-new { background: rgba(158, 148, 138, 0.15); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+
+    .state-badge {
+      font-size: 0.68rem;
+      font-weight: 500;
+      padding: 0.12rem 0.4rem;
+      border-radius: 4px;
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+      text-transform: capitalize;
+    }
+    .due-badge {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.12rem 0.4rem;
+      border-radius: 4px;
+      background: rgba(212, 149, 79, 0.12);
+      color: var(--yellow);
+      border: 1px solid rgba(212, 149, 79, 0.25);
+    }
+    .due-badge.overdue {
+      background: var(--red-dim);
+      color: var(--red);
+      border-color: rgba(204, 79, 79, 0.25);
+    }
+    .row-meaning {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .row-meta-line {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 0.15rem;
+      flex-wrap: wrap;
+    }
+    .row-meta-line span strong {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    /* Load more button */
+    .cards-load-more-wrap {
+      text-align: center;
+      margin: 1.25rem 0;
+    }
+    .cards-load-more-btn {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-default);
+      color: var(--text);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 1.75rem;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      min-height: 44px;
+    }
+    .cards-load-more-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--text-muted);
+    }
+    .cards-load-more-btn:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    /* Skeletons */
+    .skeleton-card {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 1rem;
+      height: 72px;
+      position: relative;
+      overflow: hidden;
+    }
+    .skeleton-card::after {
+      content: "";
+      position: absolute;
+      top: 0; right: 0; bottom: 0; left: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    /* STATS TAB RESTYLE & SVG CHARTS */
+    .stats-range-controls {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.2rem;
+      margin-bottom: 1.15rem;
+      width: fit-content;
+      margin-left: auto;
+    }
+    .range-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      border-radius: 6px;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.74rem;
+      font-weight: 500;
+      cursor: pointer;
+      min-height: 28px;
+    }
+    .range-btn.active {
+      background: var(--surface-elevated);
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    @media (min-width: 600px) {
+      .metrics-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 1rem;
+      min-width: 0;
+    }
+    .metric-card.accent {
+      border-color: rgba(184, 70, 50, 0.4);
+      background: linear-gradient(135deg, var(--surface) 0%, rgba(184, 70, 50, 0.08) 100%);
+    }
+    .metric-val {
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.15;
+      margin-bottom: 0.25rem;
+      letter-spacing: -0.02em;
+    }
+    .metric-val.streak {
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .streak-icon {
+      width: 22px;
+      height: 22px;
+      stroke: var(--accent);
+      fill: none;
+      stroke-width: 2;
+    }
+    .metric-title {
+      font-size: 0.74rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .metric-sub {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      margin-top: 0.15rem;
+    }
+
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 1.15rem;
+      margin-bottom: 1.25rem;
+      min-width: 0;
+    }
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 0.85rem;
+      gap: 0.5rem;
+    }
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .section-subtitle {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+    .svg-chart-wrap {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .svg-chart {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* Heatmap */
+    .heatmap-wrap {
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+    }
+    .heatmap-grid {
+      display: inline-grid;
+      grid-template-rows: repeat(7, 12px);
+      grid-auto-flow: column;
+      grid-auto-columns: 12px;
+      gap: 3px;
+    }
+    .heatmap-cell {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      background: var(--surface-elevated);
+      cursor: pointer;
+      position: relative;
+      touch-action: manipulation;
+    }
+    .heatmap-cell:hover {
+      outline: 1px solid var(--text-secondary);
+      z-index: 2;
+    }
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.35rem;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .legend-box {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    /* Tooltip */
+    #dashboard-tooltip {
+      position: fixed;
+      display: none;
+      background: #000;
+      color: #fff;
+      font-size: 0.74rem;
+      padding: 0.35rem 0.6rem;
+      border-radius: 6px;
+      pointer-events: none;
+      z-index: 1000;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+      border: 1px solid var(--border-default);
+      white-space: nowrap;
+    }
+
+    /* Weak Words List */
+    .weak-words-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .weak-word-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      min-width: 0;
+    }
+    .weak-word-left {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      min-width: 0;
+      flex: 1;
+    }
+    .weak-expr {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text);
+    }
+    .weak-reading {
+      font-size: 0.8rem;
+      color: var(--accent-reading);
+    }
+    .weak-meaning {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+    .weak-stats {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    /* STUDY TAB STYLES */
+    .study-disclaimer {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--accent-reading);
+      background: rgba(212, 136, 79, 0.12);
+      border: 1px solid rgba(212, 136, 79, 0.25);
+      border-radius: var(--radius-sm);
+      padding: 0.35rem 0.65rem;
+      margin-bottom: 1rem;
+    }
+    .study-setup-card {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .study-field-group {
+      margin-bottom: 1rem;
+    }
+    .study-field-group label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 0.4rem;
+    }
+    .study-start-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      min-height: 48px;
+    }
+    .study-start-btn:hover {
+      background: var(--accent-hover);
+    }
+
+    /* Study In-Session Card */
+    .study-session-card {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius);
+      padding: 1.5rem 1.25rem;
+      min-height: 380px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+    .study-progress-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--surface-elevated);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 1.2rem;
+    }
+    .study-progress-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.2s ease-out;
+    }
+    .study-card-content {
+      text-align: center;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem 0;
+    }
+    .study-prompt-lead {
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.2;
+      margin-bottom: 0.5rem;
+    }
+    .study-reading-reveal {
+      font-size: 1.15rem;
+      color: var(--accent-reading);
+      margin-bottom: 0.75rem;
+      font-weight: 500;
+    }
+    .study-meaning-reveal {
+      font-size: 1rem;
+      color: var(--text);
+      line-height: 1.5;
+      max-width: 500px;
+      margin-bottom: 1rem;
+    }
+    .study-sentence-reveal {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      background: var(--surface-elevated);
+      padding: 0.65rem 0.95rem;
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--accent);
+      text-align: left;
+      width: 100%;
+      max-width: 550px;
+      margin-top: 0.5rem;
+    }
+    .study-audio-btn {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 9999px;
+      color: var(--text-secondary);
+      padding: 0.4rem 0.75rem;
+      font-size: 0.75rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      cursor: pointer;
+      margin-bottom: 0.85rem;
+    }
+    .study-audio-btn:hover {
+      color: var(--text);
+      border-color: var(--border-default);
+    }
+    .study-actions-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      margin-top: 1.25rem;
+    }
+    .rating-btn {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-default);
+      color: var(--text);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.35rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.15rem;
+      cursor: pointer;
+      min-height: 52px;
+      touch-action: manipulation;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .rating-btn strong {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .rating-btn span {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+    .rating-btn.again { border-color: rgba(204, 79, 79, 0.4); }
+    .rating-btn.again:hover { background: var(--red-dim); }
+    .rating-btn.hard { border-color: rgba(212, 149, 79, 0.4); }
+    .rating-btn.hard:hover { background: var(--yellow-dim); }
+    .rating-btn.good { border-color: rgba(94, 163, 106, 0.4); }
+    .rating-btn.good:hover { background: var(--green-dim); }
+    .rating-btn.easy { border-color: rgba(94, 163, 106, 0.6); }
+    .rating-btn.easy:hover { background: var(--green-dim); }
+
+    .study-reveal-btn {
+      width: 100%;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-default);
+      color: var(--text);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      min-height: 52px;
+    }
+
+    /* QUEUE TAB (Original functionality preserved) */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1.15rem;
+    }
+    .stat-pill {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 0.4rem;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 0.15rem;
+    }
+    .stat-num.total { color: var(--text); }
+    .stat-num.done { color: var(--green); }
+    .stat-num.pending { color: var(--yellow); }
+    .stat-num.failed { color: var(--red); }
+    .stat-lbl {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .vocab-card {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 0.95rem 1.15rem;
+      margin-bottom: 0.65rem;
+      cursor: pointer;
+      transition: transform 0.1s, border-color 0.15s, background 0.15s;
+      min-height: 50px;
+    }
+    .vocab-card:hover {
+      border-color: var(--border-default);
+      background: var(--surface-hover);
+    }
+    .card-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.25rem;
+    }
+    .word-group {
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+      min-width: 0;
+      flex: 1;
+    }
+    .expression {
+      font-family: var(--font-ja);
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .reading {
+      font-size: 0.84rem;
+      color: var(--accent-reading);
+      font-weight: 500;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      letter-spacing: 0.02em;
+      flex-shrink: 0;
+    }
+    .badge.synced { background: var(--green-dim); color: var(--green); border: 1px solid rgba(94, 163, 106, 0.3); }
+    .badge.pending { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(212, 149, 79, 0.3); }
+    .badge.failed { background: var(--red-dim); color: var(--red); border: 1px solid rgba(204, 79, 79, 0.3); }
+    .badge-icon { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2.2; }
+    .meaning {
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      margin-bottom: 0.4rem;
+    }
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+    .deck-tag {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 0.1rem 0.35rem;
+      color: var(--text-secondary);
+      font-size: 0.7rem;
+    }
+    .error-toggle {
+      color: var(--red);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .error-box {
+      margin-top: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--red-dim);
+      border: 1px solid rgba(204, 79, 79, 0.3);
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      color: var(--red);
+      word-break: break-all;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .hero-modal-card {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 580px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 1.75rem 1.5rem;
+      position: relative;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.7);
+      transform: translateY(12px) scale(0.98);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .modal-backdrop.open .hero-modal-card {
+      transform: translateY(0) scale(1);
+    }
+    .hero-modal-close {
+      position: absolute;
+      top: 1rem; right: 1rem;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 50%;
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .hero-modal-close:hover {
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+    .hero-showcase {
+      text-align: center;
+      margin-bottom: 1.25rem;
+    }
+    .hero-reading-lead {
+      font-size: 1.05rem;
+      color: var(--accent-reading);
+      font-weight: 500;
+      min-height: 1.3rem;
+    }
+    .hero-expression-lead {
+      font-family: var(--font-ja);
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.2;
+      margin: 0.15rem 0 0.5rem 0;
+    }
+    .hero-badges-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+    .jlpt-badge {
+      background: rgba(184, 70, 50, 0.18);
+      color: var(--accent);
+      border: 1px solid rgba(184, 70, 50, 0.35);
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.15rem 0.45rem;
+    }
+    .modal-section {
+      margin-bottom: 1rem;
+    }
+    .modal-section-title {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+    .modal-meaning-box {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+    .sentence-jp {
+      font-family: var(--font-ja);
+      font-size: 1rem;
+      line-height: 1.6;
+      color: var(--text);
+      margin-bottom: 0.45rem;
+    }
+    .sentence-jp mark.highlight {
+      background: transparent;
+      color: #ffffff;
+      font-weight: 700;
+      border-bottom: 2px solid var(--accent);
+    }
+    .sentence-en {
+      font-size: 0.84rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+    .modal-hint-box {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      color: var(--text);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .modal-notes-box {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.88rem;
+      color: var(--text);
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .modal-context-box {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .modal-tags-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .modal-tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+      letter-spacing: 0.02em;
+    }
+    .modal-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.65rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .modal-meta-item strong {
+      display: block;
+      color: var(--text-secondary);
+      font-weight: 600;
+      margin-bottom: 0.15rem;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+    }
+    .dot-live {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+      animation: pulse 2s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Empty states */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1.5rem;
+      color: var(--text-muted);
+    }
+    .empty-state .icon {
+      margin-bottom: 0.85rem;
+      display: flex;
+      justify-content: center;
+      color: var(--text-muted);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <h1 class="brand-title">kiroku cloud</h1>
+        <span class="brand-badge">companion</span>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="refresh-btn" onclick="refreshActive(true)" title="Refresh data">
+          <span id="refresh-icon">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          </span>
+          Refresh
+        </button>
+        <button class="icon-btn" onclick="toggleTokenBox()" title="Configure Access Token">
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="m15.5 8.5 5 5-2 2-2-2-2 2-1.5-1.5M7 14a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
+          Key
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-tabs" role="tablist">
+      <button class="nav-tab active" id="tab-btn-cards" onclick="switchTab('cards')">
+        <svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 10 21 10"/></svg>
+        Cards
+      </button>
+      <button class="nav-tab" id="tab-btn-queue" onclick="switchTab('queue')">
+        <svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="14" rx="2"/><path d="M6 3h14a2 2 0 0 1 2 2v12"/></svg>
+        Queue
+      </button>
+      <button class="nav-tab" id="tab-btn-stats" onclick="switchTab('stats')">
+        <svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Stats
+      </button>
+      <button class="nav-tab" id="tab-btn-study" onclick="switchTab('study')">
+        <svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
+        Study
+      </button>
+    </div>
+
+    <!-- Token Configuration Box -->
+    <div id="token-box" style="display: none;">
+      <h2>Access Token Configuration</h2>
+      <p>Enter your <code>WORKER_TOKEN</code> or <code>SUBMIT_TOKEN</code>. Stored locally in your browser.</p>
+      <div class="token-input-row">
+        <input type="password" id="token-input" placeholder="Paste Bearer token..." autocomplete="off">
+        <button onclick="saveToken()">Save</button>
+      </div>
+    </div>
+
+    <!-- VIEW 1: Mirrored Cards (M3) -->
+    <div id="view-cards" class="view-panel active">
+      <div class="freshness-bar" id="cards-freshness-bar">
+        <div class="freshness-indicator">
+          <span class="freshness-dot" id="cards-freshness-dot"></span>
+          <span id="cards-freshness-text">Checking sync freshness...</span>
+        </div>
+        <span id="cards-total-stat">-</span>
+      </div>
+
+      <!-- Non-alarming notice if reconcile was skipped -->
+      <div id="reconcile-skipped-banner" class="reconcile-skipped-banner" style="display:none;">
+        <svg class="svg-icon" style="width:16px;height:16px;flex-shrink:0;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span id="reconcile-skipped-text">Card reconcile was safely skipped.</span>
+      </div>
+
+      <!-- Controls Card -->
+      <div class="cards-controls-card">
+        <div class="search-input-wrap">
+          <span class="search-icon">
+            <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input type="search" id="cards-search" class="cards-search-input" placeholder="Search expression, reading, meaning..." autocomplete="off">
+        </div>
+
+        <!-- Difficulty Label Chips -->
+        <div class="chips-row" id="difficulty-chips">
+          <button class="filter-chip active" data-label="" onclick="setCardFilter('label', '')">All</button>
+          <button class="filter-chip chip-leech" data-label="leech" onclick="setCardFilter('label', 'leech')">Leech</button>
+          <button class="filter-chip chip-hard" data-label="hard" onclick="setCardFilter('label', 'hard')">Hard</button>
+          <button class="filter-chip chip-normal" data-label="normal" onclick="setCardFilter('label', 'normal')">Normal</button>
+          <button class="filter-chip chip-easy" data-label="easy" onclick="setCardFilter('label', 'easy')">Easy</button>
+          <button class="filter-chip chip-solid" data-label="solid" onclick="setCardFilter('label', 'solid')">Solid</button>
+          <button class="filter-chip chip-new" data-label="new" onclick="setCardFilter('label', 'new')">New</button>
+        </div>
+
+        <!-- Dropdowns Row -->
+        <div class="dropdowns-row">
+          <div class="select-wrap">
+            <select id="cards-state-select" onchange="setCardFilter('state', this.value)">
+              <option value="">All States</option>
+              <option value="new">New</option>
+              <option value="learning">Learning</option>
+              <option value="young">Young</option>
+              <option value="mature">Mature</option>
+              <option value="relearning">Relearning</option>
+              <option value="suspended">Suspended</option>
+              <option value="buried">Buried</option>
+            </select>
+          </div>
+          <div class="select-wrap">
+            <select id="cards-jlpt-select" onchange="setCardFilter('jlpt', this.value)">
+              <option value="">All JLPT</option>
+              <option value="N5">N5</option>
+              <option value="N4">N4</option>
+              <option value="N3">N3</option>
+              <option value="N2">N2</option>
+              <option value="N1">N1</option>
+            </select>
+          </div>
+          <div class="sort-control-group">
+            <div class="select-wrap" style="flex:1;">
+              <select id="cards-sort-select" onchange="setCardFilter('sort', this.value)">
+                <option value="difficulty">Difficulty</option>
+                <option value="lapses">Lapses</option>
+                <option value="interval">Interval</option>
+                <option value="due">Due Soon</option>
+                <option value="created">Created Date</option>
+                <option value="last_review">Last Reviewed</option>
+                <option value="reps">Total Reps</option>
+              </select>
+            </div>
+            <button class="dir-toggle-btn" id="cards-dir-btn" onclick="toggleSortDir()" title="Toggle Sort Direction">
+              <span id="sort-dir-icon">
+                <svg class="svg-icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Count Readout -->
+      <div class="cards-count-bar">
+        <span id="cards-count-readout">0 cards found</span>
+        <span id="cards-loading-indicator" style="display:none;">Loading...</span>
+      </div>
+
+      <!-- Mirrored Cards List -->
+      <div id="mirrored-card-list" class="mirrored-card-list">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Load More Button -->
+      <div class="cards-load-more-wrap" id="cards-load-more-wrap" style="display:none;">
+        <button class="cards-load-more-btn" id="cards-load-more-btn" onclick="loadMoreCards()">Load more cards</button>
+      </div>
+    </div>
+
+    <!-- VIEW 2: Ingestion Queue (Original View) -->
+    <div id="view-queue" class="view-panel">
+      <div class="stats-bar" id="stats-bar">
+        <div class="stat-pill"><div class="stat-num total" id="stat-total">-</div><div class="stat-lbl">Recent</div></div>
+        <div class="stat-pill"><div class="stat-num done" id="stat-done">-</div><div class="stat-lbl">Synced</div></div>
+        <div class="stat-pill"><div class="stat-num pending" id="stat-pending">-</div><div class="stat-lbl">Queued</div></div>
+        <div class="stat-pill"><div class="stat-num failed" id="stat-failed">-</div><div class="stat-lbl">Failed</div></div>
+      </div>
+
+      <div class="card-list" id="card-list">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- VIEW 3: Rich Anki Stats (M4) -->
+    <div id="view-stats" class="view-panel">
+      <div class="freshness-bar" id="stats-freshness-bar">
+        <div class="freshness-indicator">
+          <span class="freshness-dot" id="stats-freshness-dot"></span>
+          <span id="stats-freshness-text">Checking sync freshness...</span>
+        </div>
+        <!-- Segmented Range Control -->
+        <div class="stats-range-controls">
+          <button class="range-btn" data-range="30d" onclick="setStatsRange('30d')">30d</button>
+          <button class="range-btn active" data-range="90d" onclick="setStatsRange('90d')">90d</button>
+          <button class="range-btn" data-range="1y" onclick="setStatsRange('1y')">1y</button>
+          <button class="range-btn" data-range="all" onclick="setStatsRange('all')">All</button>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card accent">
+          <div class="metric-val streak" id="metric-streak">-</div>
+          <div class="metric-title">Current Streak</div>
+          <div class="metric-sub" id="metric-streak-best">Best: - days</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val" id="metric-today">-</div>
+          <div class="metric-title">Reviewed Today</div>
+          <div class="metric-sub" id="metric-due-today">- cards due</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val" id="metric-total-cards">-</div>
+          <div class="metric-title">Total Collection</div>
+          <div class="metric-sub" id="metric-deck-count">- decks active</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val" id="metric-year-days">-</div>
+          <div class="metric-title">Days Studied</div>
+          <div class="metric-sub">Past 365 days</div>
+        </div>
+      </div>
+
+      <!-- 1. Card Growth Curve -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Card Growth & New Additions</div>
+            <div class="section-subtitle">Cumulative collection size and weekly new cards</div>
+          </div>
+          <div id="growth-summary" style="font-size:0.75rem;color:var(--text-secondary);"></div>
+        </div>
+        <div class="svg-chart-wrap" id="chart-growth-wrap">
+          <!-- Inline SVG rendered by JS -->
+        </div>
+      </div>
+
+      <!-- 2. State Breakdown Over Time -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Card Lifecycle Distribution</div>
+            <div class="section-subtitle">Mature, Young, Learning, New, Suspended history</div>
+          </div>
+        </div>
+        <div class="svg-chart-wrap" id="chart-states-wrap">
+          <!-- Inline SVG rendered by JS -->
+        </div>
+      </div>
+
+      <!-- 3. True Retention Rate -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">True Retention Rate</div>
+            <div class="section-subtitle">Pass rate on mature reviews (interval &ge; 21d)</div>
+          </div>
+          <div id="retention-summary" style="font-size:0.8rem;color:var(--green);font-weight:700;"></div>
+        </div>
+        <div class="svg-chart-wrap" id="chart-retention-wrap">
+          <!-- Inline SVG rendered by JS -->
+        </div>
+      </div>
+
+      <!-- 4. Answer Buttons Share -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Answer Button Distribution</div>
+            <div class="section-subtitle">Again, Hard, Good, Easy rating ratios</div>
+          </div>
+        </div>
+        <div class="svg-chart-wrap" id="chart-buttons-wrap">
+          <!-- Inline SVG rendered by JS -->
+        </div>
+      </div>
+
+      <!-- 5. Due Forecast -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Upcoming Review Forecast</div>
+            <div class="section-subtitle">Due cards for the next 30 days and overdue backlog</div>
+          </div>
+        </div>
+        <div class="svg-chart-wrap" id="chart-due-wrap">
+          <!-- Inline SVG rendered by JS -->
+        </div>
+      </div>
+
+      <!-- 6. Difficulty Distribution -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Difficulty Distribution</div>
+            <div class="section-subtitle">Cards by FSRS-informed difficulty tiers</div>
+          </div>
+        </div>
+        <div class="svg-chart-wrap" id="chart-diff-wrap">
+          <!-- Inline SVG rendered by JS -->
+        </div>
+      </div>
+
+      <!-- 7. Weak Words Top 20 -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Hardest Words (Leeches First)</div>
+            <div class="section-subtitle">Highest difficulty cards needing review</div>
+          </div>
+          <button class="icon-btn" onclick="studyWeakWords()" id="study-weak-words-btn">
+            <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Study These
+          </button>
+        </div>
+        <div class="weak-words-list" id="weak-words-list">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- 8. JLPT Coverage -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">JLPT Level Coverage</div>
+            <div class="section-subtitle">Cards per level split by maturity</div>
+          </div>
+        </div>
+        <div class="svg-chart-wrap" id="chart-jlpt-wrap">
+          <!-- Inline SVG rendered by JS -->
+        </div>
+      </div>
+
+      <!-- 9. Existing Heatmap & Decks -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Review Activity Heatmap</div>
+            <div class="section-subtitle">Real daily reviews completed in Anki</div>
+          </div>
+          <div id="heatmap-total-reviews" style="font-size:0.8rem;color:var(--text-secondary);font-weight:600;"></div>
+        </div>
+        <div class="heatmap-wrap">
+          <div class="heatmap-grid" id="heatmap-grid"></div>
+        </div>
+        <div class="heatmap-legend">
+          <span>Less</span>
+          <div class="legend-box" style="background:var(--surface-elevated)"></div>
+          <div class="legend-box" style="background:rgba(184, 70, 50, 0.35)"></div>
+          <div class="legend-box" style="background:rgba(184, 70, 50, 0.60)"></div>
+          <div class="legend-box" style="background:rgba(184, 70, 50, 0.85)"></div>
+          <div class="legend-box" style="background:#b84632"></div>
+          <span>More</span>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-title">Anki Decks Summary</div>
+          <div class="section-subtitle">Deck size and due counts</div>
+        </div>
+        <div class="deck-list" id="deck-list">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 4: Cloud Study Mode (M5) -->
+    <div id="view-study" class="view-panel">
+      <div class="study-disclaimer">
+        <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        Extra practice — separate from Anki scheduling
+      </div>
+
+      <!-- Study Session Setup Screen -->
+      <div id="study-setup-screen">
+        <div class="study-setup-card">
+          <h2 style="font-size:1.15rem;font-weight:700;margin-bottom:0.4rem;color:#fff;">Start Study Session</h2>
+          <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:1.15rem;line-height:1.45;">Practice cards in your cloud queue with Leitner 5-box intervals. Results are tracked here without modifying Anki schedules.</p>
+
+          <div class="study-field-group">
+            <label for="study-mode-select">Practice Focus</label>
+            <div class="select-wrap">
+              <select id="study-mode-select" onchange="onStudyModeChange()">
+                <option value="weakest">Weakest 20 Cards (High Difficulty)</option>
+                <option value="leeches">Leeches Only</option>
+                <option value="due">Due in Cloud Leitner Schedule</option>
+                <option value="unseen">Never Practiced Here</option>
+                <option value="recent">Recently Added (Last 14 Days)</option>
+                <option value="jlpt">By JLPT Level</option>
+                <option value="custom" id="study-mode-custom-opt" style="display:none;">Custom Selection</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="study-field-group" id="study-level-group" style="display:none;">
+            <label for="study-level-select">JLPT Target</label>
+            <div class="select-wrap">
+              <select id="study-level-select">
+                <option value="N5">JLPT N5</option>
+                <option value="N4">JLPT N4</option>
+                <option value="N3">JLPT N3</option>
+                <option value="N2">JLPT N2</option>
+                <option value="N1">JLPT N1</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="study-field-group">
+            <label for="study-limit-select">Session Size</label>
+            <div class="select-wrap">
+              <select id="study-limit-select">
+                <option value="10">10 Cards</option>
+                <option value="20" selected>20 Cards</option>
+                <option value="50">50 Cards</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="study-field-group">
+            <label for="study-front-select">Prompt Side</label>
+            <div class="select-wrap">
+              <select id="study-front-select">
+                <option value="ja">Japanese Expression (Recall English)</option>
+                <option value="en">English Meaning (Recall Japanese)</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="study-start-btn" onclick="startStudySession()">Begin Practice Session</button>
+        </div>
+
+        <!-- Practice Summary Stats -->
+        <div class="section-card" id="study-summary-card">
+          <div class="section-header">
+            <div class="section-title">Cloud Study Activity</div>
+          </div>
+          <div class="modal-meta-grid" id="study-summary-stats" style="border:none;padding:0;">
+            <div class="modal-meta-item">
+              <strong>Practiced Today</strong>
+              <span id="study-today-count">0 cards</span>
+            </div>
+            <div class="modal-meta-item">
+              <strong>Last 7 Days</strong>
+              <span id="study-week-count">0 reviews</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- In-Session Active Card Screen -->
+      <div id="study-session-screen" style="display:none;">
+        <div class="study-session-card">
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;font-size:0.75rem;color:var(--text-muted);">
+              <span id="study-card-counter">Card 1 of 20</span>
+              <button class="icon-btn" onclick="exitStudySession()" style="padding:0.2rem 0.5rem;min-height:26px;">Exit</button>
+            </div>
+            <div class="study-progress-bar">
+              <div class="study-progress-fill" id="study-progress-fill"></div>
+            </div>
+          </div>
+
+          <div class="study-card-content">
+            <div class="study-prompt-lead" id="study-prompt-lead">-</div>
+            
+            <button class="study-audio-btn" id="study-tts-btn" onclick="playJapaneseTTS()" style="display:none;">
+              <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              Listen
+            </button>
+
+            <!-- Revealed Content -->
+            <div id="study-revealed-content" style="display:none;width:100%;display:flex;flex-direction:column;align-items:center;">
+              <div class="study-reading-reveal" id="study-reading-reveal"></div>
+              <div class="study-meaning-reveal" id="study-meaning-reveal"></div>
+              <div class="study-sentence-reveal" id="study-sentence-reveal" style="display:none;"></div>
+            </div>
+          </div>
+
+          <div>
+            <button class="study-reveal-btn" id="study-reveal-btn" onclick="revealStudyAnswer()">Reveal Answer (Space)</button>
+            <div class="study-actions-row" id="study-rating-row" style="display:none;">
+              <button class="rating-btn again" onclick="submitStudyRating(1)">
+                <strong>Again (1)</strong>
+                <span>10m / retry</span>
+              </button>
+              <button class="rating-btn hard" onclick="submitStudyRating(2)">
+                <strong>Hard (2)</strong>
+                <span>in-session</span>
+              </button>
+              <button class="rating-btn good" onclick="submitStudyRating(3)">
+                <strong>Good (3)</strong>
+                <span id="label-interval-good">+1 box</span>
+              </button>
+              <button class="rating-btn easy" onclick="submitStudyRating(4)">
+                <strong>Easy (4)</strong>
+                <span id="label-interval-easy">+2 boxes</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session Completed Screen -->
+      <div id="study-complete-screen" style="display:none;">
+        <div class="section-card" style="text-align:center;padding:2.5rem 1.5rem;">
+          <h2 style="font-size:1.4rem;font-weight:700;color:#fff;margin-bottom:0.5rem;">Session Completed!</h2>
+          <p style="font-size:0.86rem;color:var(--text-secondary);margin-bottom:1.5rem;">All cards in this practice queue have been reviewed and Leitner boxes updated.</p>
+
+          <div class="modal-meta-grid" style="max-width:360px;margin:0 auto 1.5rem auto;text-align:left;">
+            <div class="modal-meta-item">
+              <strong>Cards Reviewed</strong>
+              <span id="complete-total-count">20</span>
+            </div>
+            <div class="modal-meta-item">
+              <strong>Passed Rate</strong>
+              <span id="complete-pass-rate">85%</span>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:0.5rem;justify-content:center;">
+            <button class="icon-btn" onclick="repeatMissedCards()" id="repeat-missed-btn" style="display:none;">Practice Missed Cards</button>
+            <button class="study-start-btn" style="width:auto;padding:0.6rem 1.5rem;" onclick="exitStudySession()">Done</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <span class="dot-live"></span>
+      <span id="footer-status">Connected to Kiroku Cloud</span>
+    </footer>
+  </div>
+
+  <!-- Card Hero Inspection Modal -->
+  <div id="hero-modal" class="modal-backdrop" onclick="onModalBackdropClick(event)">
+    <div class="hero-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-expression">
+      <button class="hero-modal-close" onclick="closeHeroModal()" title="Close (Esc)" aria-label="Close modal">
+        <svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <div class="hero-showcase">
+        <div id="modal-reading" class="hero-reading-lead"></div>
+        <h2 id="modal-expression" class="hero-expression-lead">-</h2>
+        <div id="modal-badges" class="hero-badges-row"></div>
+      </div>
+
+      <div class="modal-section" id="modal-section-meaning">
+        <div class="modal-section-title">Definition</div>
+        <div class="modal-meaning-box" id="modal-meaning-content"></div>
+      </div>
+
+      <div class="modal-section" id="modal-section-sentence" style="display: none;">
+        <div class="modal-section-title">Context Sentence</div>
+        <div class="modal-meaning-box">
+          <div class="sentence-jp" id="modal-sentence-jp"></div>
+          <div class="sentence-en" id="modal-sentence-en"></div>
+        </div>
+      </div>
+
+      <div class="modal-section" id="modal-section-hint" style="display: none;">
+        <div class="modal-section-title">Hint</div>
+        <div class="modal-hint-box" id="modal-hint-content"></div>
+      </div>
+
+      <div class="modal-section" id="modal-section-notes" style="display: none;">
+        <div class="modal-section-title">Notes</div>
+        <div class="modal-notes-box" id="modal-notes-content"></div>
+      </div>
+
+      <div class="modal-section" id="modal-section-context" style="display: none;">
+        <div class="modal-section-title">Source Context</div>
+        <div class="modal-context-box" id="modal-context-content"></div>
+      </div>
+
+      <div class="modal-section" id="modal-section-tags" style="display: none;">
+        <div class="modal-section-title">Tags</div>
+        <div class="modal-tags-row" id="modal-tags-content"></div>
+      </div>
+
+      <div class="modal-meta-grid" id="modal-meta-grid">
+        <div class="modal-meta-item">
+          <strong>Deck</strong>
+          <span id="modal-meta-deck">-</span>
+        </div>
+        <div class="modal-meta-item">
+          <strong>Interval / Lapses</strong>
+          <span id="modal-meta-ivl">-</span>
+        </div>
+        <div class="modal-meta-item">
+          <strong>Due Date</strong>
+          <span id="modal-meta-due">-</span>
+        </div>
+        <div class="modal-meta-item">
+          <strong>Difficulty Score</strong>
+          <span id="modal-meta-difficulty">-</span>
+        </div>
+      </div>
+
+      <div id="modal-error-wrap" style="display: none; margin-top: 1rem;">
+        <div class="error-box" id="modal-error-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Tooltip -->
+  <div id="dashboard-tooltip"></div>
+
+  <!-- Dashboard JavaScript -->
+  <script>
+    const STORAGE_KEY = 'kiroku_token';
+    const LEGACY_STORAGE_KEY = 'kiroku_submit_token';
+    const TAB_KEY = 'kiroku_active_tab';
+
+    // SVG icon constants
+    const SVG_CHECK = '<svg class="badge-icon" viewBox="0 0 16 16"><polyline points="3 8.5 6.5 12 13 4.5"/></svg>';
+    const SVG_CLOCK = '<svg class="badge-icon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><polyline points="8 4.5 8 8 10.5 9.5"/></svg>';
+    const SVG_CROSS = '<svg class="badge-icon" viewBox="0 0 16 16"><line x1="4.5" y1="4.5" x2="11.5" y2="11.5"/><line x1="11.5" y1="4.5" x2="4.5" y2="11.5"/></svg>';
+    const SVG_FLAME = '<svg class="streak-icon" viewBox="0 0 24 24"><path d="M12 23c-4.97 0-9-3.8-9-8.5 0-3.35 2.1-6.73 4.56-9.17a1 1 0 0 1 1.63.48c.32 1.5.89 3.03 1.81 4.19.2.25.56.29.81.08.3-.26.39-.7.21-1.05C11.13 7.22 11 5.3 11 3.5a1 1 0 0 1 1.54-.84C15.93 4.8 21 9.57 21 14.5c0 4.7-4.03 8.5-9 8.5z"/></svg>';
+
+    // State Objects
+    window.__cardsCache = [];
+    window.__mirroredCards = [];
+    window.__statsOverview = null;
+
+    const cardsState = {
+      q: '',
+      label: '',
+      state: '',
+      jlpt: '',
+      sort: 'difficulty',
+      dir: 'desc',
+      limit: 30,
+      offset: 0,
+      total: 0,
+      isLoading: false,
+    };
+
+    const studyState = {
+      sessionCards: [],
+      currentIndex: 0,
+      ratings: [],
+      missedCards: [],
+      frontSide: 'ja',
+      startTime: 0,
+      sessionId: '',
+    };
+
+    // Auto-detect token in query (?token=... or ?key=...)
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryToken = (urlParams.get('token') || urlParams.get('key') || '').trim();
+      if (queryToken) {
+        localStorage.setItem(STORAGE_KEY, queryToken);
+        const cleanUrl = window.location.pathname + (window.location.hash || '');
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    } catch (e) {
+      console.debug('Query param token error:', e);
+    }
+
+    function getToken() {
+      return localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY) || '';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function timeAgo(dateString) {
+      if (!dateString) return '';
+      try {
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return String(dateString);
+        const diffMs = Date.now() - d.getTime();
+        const diffSec = Math.floor(diffMs / 1000);
+        if (diffSec < 60) return 'just now';
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) return `${diffMin}m ago`;
+        const diffHour = Math.floor(diffMin / 60);
+        if (diffHour < 24) return `${diffHour}h ago`;
+        const diffDay = Math.floor(diffHour / 24);
+        if (diffDay < 30) return `${diffDay}d ago`;
+        return d.toLocaleDateString();
+      } catch (e) {
+        return String(dateString);
+      }
+    }
+
+    function toggleTokenBox() {
+      const box = document.getElementById('token-box');
+      const isHidden = box.style.display === 'none';
+      box.style.display = isHidden ? 'block' : 'none';
+      if (isHidden) {
+        document.getElementById('token-input').value = getToken();
+        document.getElementById('token-input').focus();
+      }
+    }
+
+    function saveToken() {
+      const val = document.getElementById('token-input').value.trim();
+      if (!val) {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      } else {
+        localStorage.setItem(STORAGE_KEY, val);
+      }
+      document.getElementById('token-box').style.display = 'none';
+      refreshActive(true);
+    }
+
+    function switchTab(tabName) {
+      localStorage.setItem(TAB_KEY, tabName);
+      document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+
+      const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+      const activePanel = document.getElementById(`view-${tabName}`);
+      if (activeBtn) activeBtn.classList.add('active');
+      if (activePanel) activePanel.classList.add('active');
+
+      if (tabName === 'cards') {
+        fetchMirroredCards(true);
+        fetchAnkiStatus();
+      } else if (tabName === 'queue') {
+        fetchRecent();
+      } else if (tabName === 'stats') {
+        fetchStatsOverview();
+        fetchAnkiStats();
+        fetchAnkiStatus();
+      } else if (tabName === 'study') {
+        fetchStudySummary();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // M3: MIRRORED CARDS BROWSER
+    // -------------------------------------------------------------------------
+    let searchDebounceTimer = null;
+    document.getElementById('cards-search').addEventListener('input', (e) => {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        cardsState.q = e.target.value.trim();
+        fetchMirroredCards(true);
+      }, 250);
+    });
+
+    function setCardFilter(key, val) {
+      if (key === 'label') {
+        cardsState.label = val;
+        document.querySelectorAll('#difficulty-chips .filter-chip').forEach(btn => {
+          btn.classList.toggle('active', btn.getAttribute('data-label') === val);
+        });
+      } else if (key === 'state') {
+        cardsState.state = val;
+      } else if (key === 'jlpt') {
+        cardsState.jlpt = val;
+      } else if (key === 'sort') {
+        cardsState.sort = val;
+      }
+      fetchMirroredCards(true);
+    }
+
+    function toggleSortDir() {
+      cardsState.dir = (cardsState.dir === 'desc') ? 'asc' : 'desc';
+      const icon = document.getElementById('sort-dir-icon');
+      if (cardsState.dir === 'asc') {
+        icon.innerHTML = '<svg class="svg-icon" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>';
+      } else {
+        icon.innerHTML = '<svg class="svg-icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>';
+      }
+      fetchMirroredCards(true);
+    }
+
+    async function fetchAnkiStatus() {
+      const token = getToken();
+      if (!token) return;
+
+      try {
+        const resp = await fetch('/api/anki/status', {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+
+        const countStr = Number(data.card_count || 0).toLocaleString();
+        document.getElementById('cards-total-stat').textContent = `${countStr} mirrored`;
+
+        const lastSync = data.last_mirror_sync_at;
+        const textEl = document.getElementById('cards-freshness-text');
+        const dotEl = document.getElementById('cards-freshness-dot');
+        const statsTextEl = document.getElementById('stats-freshness-text');
+        const statsDotEl = document.getElementById('stats-freshness-dot');
+
+        if (!lastSync) {
+          const msg = 'Not yet synced with Anki';
+          textEl.textContent = msg;
+          statsTextEl.textContent = msg;
+          dotEl.className = 'freshness-dot offline';
+          statsDotEl.className = 'freshness-dot offline';
+          return;
+        }
+
+        const ago = timeAgo(lastSync);
+        const isStale = (Date.now() - new Date(lastSync).getTime()) > 86400000;
+        const label = isStale ? `Sync stale (${ago})` : `Synced with Anki ${ago}`;
+
+        textEl.textContent = label;
+        statsTextEl.textContent = label;
+        dotEl.className = isStale ? 'freshness-dot stale' : 'freshness-dot';
+        statsDotEl.className = isStale ? 'freshness-dot stale' : 'freshness-dot';
+
+        const skippedReason = data.reconcile_skipped_reason;
+        const bannerEl = document.getElementById('reconcile-skipped-banner');
+        if (bannerEl) {
+          if (skippedReason) {
+            document.getElementById('reconcile-skipped-text').textContent = `Notice: Card reconcile was skipped (${skippedReason})`;
+            bannerEl.style.display = 'flex';
+          } else {
+            bannerEl.style.display = 'none';
+          }
+        }
+      } catch (err) {
+        console.debug('Failed to fetch anki status:', err);
+      }
+    }
+
+    async function fetchMirroredCards(reset = false) {
+      const token = getToken();
+      const listEl = document.getElementById('mirrored-card-list');
+      const loadMoreWrap = document.getElementById('cards-load-more-wrap');
+      const countEl = document.getElementById('cards-count-readout');
+      const indicator = document.getElementById('cards-loading-indicator');
+
+      if (!token) {
+        document.getElementById('token-box').style.display = 'block';
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">
+              <svg class="svg-icon" style="width:36px;height:36px;" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <h3>Authentication Required</h3>
+            <p>Enter your <code>WORKER_TOKEN</code> or <code>SUBMIT_TOKEN</code> above to inspect cards.</p>
+          </div>
+        `;
+        return;
+      }
+
+      if (reset) {
+        cardsState.offset = 0;
+        window.__mirroredCards = [];
+        listEl.innerHTML = `
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        `;
+      }
+
+      cardsState.isLoading = true;
+      indicator.style.display = 'inline';
+
+      // Cold start detection timer
+      const coldStartTimer = setTimeout(() => {
+        if (cardsState.isLoading && reset) {
+          countEl.textContent = 'Waking up server (Render cold start)...';
+        }
+      }, 4000);
+
+      const params = new URLSearchParams({
+        limit: String(cardsState.limit),
+        offset: String(cardsState.offset),
+        sort: cardsState.sort,
+        dir: cardsState.dir,
+      });
+      if (cardsState.q) params.set('q', cardsState.q);
+      if (cardsState.label) params.set('label', cardsState.label);
+      if (cardsState.state) params.set('state', cardsState.state);
+      if (cardsState.jlpt) params.set('jlpt', cardsState.jlpt);
+
+      try {
+        const resp = await fetch(`/api/cards?${params.toString()}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        });
+        clearTimeout(coldStartTimer);
+        cardsState.isLoading = false;
+        indicator.style.display = 'none';
+
+        if (resp.status === 401) {
+          listEl.innerHTML = `
+            <div class="empty-state">
+              <div class="icon">
+                <svg class="svg-icon" style="width:36px;height:36px;" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>
+              </div>
+              <h3>Invalid Authentication Token</h3>
+              <p>Please click Key in the top right to provide a valid token.</p>
+            </div>
+          `;
+          return;
+        }
+
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}`);
+        }
+
+        const data = await resp.json();
+        const items = data.items || [];
+        cardsState.total = data.total || 0;
+
+        if (reset) {
+          window.__mirroredCards = items;
+        } else {
+          window.__mirroredCards.push(...items);
+        }
+
+        countEl.textContent = `${Number(cardsState.total).toLocaleString()} card${cardsState.total === 1 ? '' : 's'} found`;
+
+        if (window.__mirroredCards.length === 0) {
+          if (cardsState.q || cardsState.label || cardsState.state || cardsState.jlpt) {
+            listEl.innerHTML = `
+              <div class="empty-state">
+                <p>No cards match the active filters.</p>
+              </div>
+            `;
+          } else {
+            listEl.innerHTML = `
+              <div class="empty-state">
+                <div class="icon">
+                  <svg class="svg-icon" style="width:36px;height:36px;" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                </div>
+                <h3>No Mirrored Cards Yet</h3>
+                <p>Run the Kiroku worker with Anki open to mirror your cards into cloud storage.</p>
+              </div>
+            `;
+          }
+          loadMoreWrap.style.display = 'none';
+          return;
+        }
+
+        renderMirroredCardRows();
+
+        const hasMore = window.__mirroredCards.length < cardsState.total;
+        loadMoreWrap.style.display = hasMore ? 'block' : 'none';
+      } catch (err) {
+        clearTimeout(coldStartTimer);
+        cardsState.isLoading = false;
+        indicator.style.display = 'none';
+        countEl.textContent = 'Connection error';
+        if (reset) {
+          listEl.innerHTML = `
+            <div class="empty-state">
+              <p>Failed to load cards: ${escapeHtml(err.message)}</p>
+              <button class="icon-btn" onclick="fetchMirroredCards(true)" style="margin-top:0.75rem;">Retry</button>
+            </div>
+          `;
+        }
+      }
+    }
+
+    function renderMirroredCardRows() {
+      const listEl = document.getElementById('mirrored-card-list');
+      const items = window.__mirroredCards;
+
+      listEl.innerHTML = items.map((card, idx) => {
+        const diffClass = `diff-${card.difficulty_label || 'new'}`;
+        const diffLabel = card.difficulty_score !== null ? `${card.difficulty_label} · ${card.difficulty_score}` : 'new';
+        
+        let dueBadge = '';
+        if (card.due_in_days !== null && card.due_in_days !== undefined) {
+          if (card.due_in_days < 0) dueBadge = '<span class="due-badge overdue">Overdue</span>';
+          else if (card.due_in_days === 0) dueBadge = '<span class="due-badge">Due today</span>';
+          else if (card.due_in_days <= 30) dueBadge = `<span class="due-badge">Due in ${card.due_in_days}d</span>`;
+        }
+
+        const jlptBadge = card.jlpt_level ? `<span class="jlpt-badge">${escapeHtml(card.jlpt_level)}</span>` : '';
+        const ivlText = card.interval_days > 0 ? `${card.interval_days}d ivl` : '0d ivl';
+        const lapsesText = `${card.lapses || 0} lapse${card.lapses === 1 ? '' : 's'}`;
+
+        return `
+          <div class="mirrored-card-row" tabindex="0" role="button" aria-label="Card details for ${escapeHtml(card.expression)}" onclick="openMirroredDetailModal(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMirroredDetailModal(${idx});}">
+            <div class="row-header">
+              <div class="row-word-group">
+                <span class="row-expression">${escapeHtml(card.expression)}</span>
+                ${card.reading ? `<span class="row-reading">${escapeHtml(card.reading)}</span>` : ''}
+              </div>
+              <div class="row-badges-wrap">
+                ${jlptBadge}
+                <span class="diff-badge ${diffClass}">${escapeHtml(diffLabel)}</span>
+                <span class="state-badge">${escapeHtml(card.state)}</span>
+                ${dueBadge}
+              </div>
+            </div>
+            ${card.meaning ? `<div class="row-meaning">${escapeHtml(card.meaning)}</div>` : ''}
+            <div class="row-meta-line">
+              <span>${escapeHtml(card.deck_name || 'Deck')}</span>
+              <span>&bull;</span>
+              <span><strong>${escapeHtml(ivlText)}</strong></span>
+              <span>&bull;</span>
+              <span>${escapeHtml(lapsesText)}</span>
+              ${card.again_rate_10 > 0 ? `<span>&bull;</span><span>Again: ${Math.round(card.again_rate_10 * 100)}%</span>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function loadMoreCards() {
+      if (cardsState.isLoading) return;
+      cardsState.offset += cardsState.limit;
+      fetchMirroredCards(false);
+    }
+
+    function openMirroredDetailModal(idx) {
+      const card = window.__mirroredCards[idx];
+      if (!card) return;
+
+      const modal = document.getElementById('hero-modal');
+      document.getElementById('modal-reading').textContent = card.reading || '';
+      document.getElementById('modal-expression').textContent = card.expression || '—';
+
+      const diffClass = `diff-${card.difficulty_label || 'new'}`;
+      const diffLabel = card.difficulty_score !== null ? `${card.difficulty_label} (${card.difficulty_score})` : 'new';
+      
+      let badgesHtml = '';
+      if (card.jlpt_level) badgesHtml += `<span class="jlpt-badge">${escapeHtml(card.jlpt_level)}</span>`;
+      badgesHtml += `<span class="diff-badge ${diffClass}">${escapeHtml(diffLabel)}</span>`;
+      badgesHtml += `<span class="state-badge">${escapeHtml(card.state)}</span>`;
+      if (card.is_leech) badgesHtml += `<span class="due-badge overdue">Leech</span>`;
+      document.getElementById('modal-badges').innerHTML = badgesHtml;
+
+      document.getElementById('modal-meaning-content').textContent = card.meaning || 'No definition recorded.';
+
+      const sSec = document.getElementById('modal-section-sentence');
+      if (card.sentence) {
+        sSec.style.display = 'block';
+        document.getElementById('modal-sentence-jp').textContent = card.sentence;
+        document.getElementById('modal-sentence-en').textContent = card.sentence_meaning || '';
+      } else {
+        sSec.style.display = 'none';
+      }
+
+      document.getElementById('modal-meta-deck').textContent = card.deck_name || '—';
+      document.getElementById('modal-meta-ivl').textContent = `${card.interval_days || 0}d / ${card.lapses || 0} lapses`;
+      document.getElementById('modal-meta-due').textContent = (card.due_in_days !== null && card.due_in_days !== undefined) ? `${card.due_in_days}d` : 'None';
+      document.getElementById('modal-meta-difficulty').textContent = card.difficulty_score !== null ? `${card.difficulty_score} / 100` : 'None (New)';
+
+      modal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeHeroModal() {
+      const modal = document.getElementById('hero-modal');
+      if (modal) {
+        modal.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    }
+
+    function onModalBackdropClick(event) {
+      if (event.target && event.target.id === 'hero-modal') {
+        closeHeroModal();
+      }
+    }
+
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeHeroModal();
+    });
+
+    // -------------------------------------------------------------------------
+    // M4: RICH STATS TAB & SVG CHARTS
+    // -------------------------------------------------------------------------
+    let currentStatsRange = '90d';
+
+    function setStatsRange(range) {
+      currentStatsRange = range;
+      document.querySelectorAll('.range-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-range') === range);
+      });
+      fetchStatsOverview();
+    }
+
+    async function fetchStatsOverview() {
+      const token = getToken();
+      if (!token) return;
+
+      try {
+        const resp = await fetch(`/api/stats/overview?range=${currentStatsRange}`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        window.__statsOverview = data;
+
+        renderGrowthChart(data.growth_curve || data.card_growth || data.growth || []);
+        renderStateDistributionChart(data.state_breakdown || data.states || []);
+        renderRetentionChart(data.true_retention || data.retention || []);
+        renderButtonsChart(data.answer_buttons || data.buttons || []);
+        renderDueForecastChart(data.due_forecast || []);
+        renderDifficultyChart(data.difficulty_distribution || data.difficulty || []);
+        renderWeakWords(data.weak_words || []);
+        renderJlptCoverage(data.jlpt_coverage || []);
+      } catch (err) {
+        console.warn('Failed to load stats overview:', err);
+      }
+    }
+
+    function renderGrowthChart(growthData) {
+      const wrap = document.getElementById('chart-growth-wrap');
+      if (!wrap || !growthData.length) {
+        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No growth history available yet.</div>';
+        return;
+      }
+
+      const totalVals = growthData.map(d => d.total_cards || 0);
+      const minVal = Math.min(...totalVals);
+      const maxVal = Math.max(...totalVals, 1);
+      const pointsCount = growthData.length;
+
+      const w = 600;
+      const h = 180;
+      const padL = 45;
+      const padR = 20;
+      const padT = 20;
+      const padB = 30;
+
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+
+      const pts = growthData.map((d, i) => {
+        const x = padL + (i / (pointsCount - 1 || 1)) * plotW;
+        const y = padT + (1 - (d.total_cards - minVal) / (maxVal - minVal || 1)) * plotH;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+
+      const svgHtml = `
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Card growth curve chart">
+          <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
+          <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
+          <text x="${padL - 6}" y="${padT + 10}" fill="var(--text-muted)" font-size="10" text-anchor="end">${maxVal}</text>
+          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="10" text-anchor="end">${minVal}</text>
+          <polyline fill="none" stroke="var(--accent)" stroke-width="2.5" points="${pts}"/>
+          <text x="${padL}" y="${h - 8}" fill="var(--text-muted)" font-size="10">${escapeHtml(growthData[0].day)}</text>
+          <text x="${w - padR}" y="${h - 8}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(growthData[growthData.length - 1].day)}</text>
+        </svg>
+      `;
+      wrap.innerHTML = svgHtml;
+    }
+
+    function renderStateDistributionChart(stateData) {
+      const wrap = document.getElementById('chart-states-wrap');
+      if (!wrap || !stateData.length) {
+        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No lifecycle distribution data available.</div>';
+        return;
+      }
+
+      const w = 600;
+      const h = 180;
+      const padL = 40;
+      const padR = 20;
+      const padT = 15;
+      const padB = 25;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+
+      const last = stateData[stateData.length - 1];
+      const maxTotal = Math.max(...stateData.map(d => (d.n_mature || 0) + (d.n_young || 0) + (d.n_learning || 0) + (d.n_new || 0)), 1);
+
+      const maturePts = [];
+      const youngPts = [];
+
+      stateData.forEach((d, i) => {
+        const x = padL + (i / (stateData.length - 1 || 1)) * plotW;
+        const total = (d.n_mature || 0) + (d.n_young || 0) + (d.n_learning || 0) + (d.n_new || 0);
+        const yMature = padT + (1 - (d.n_mature || 0) / maxTotal) * plotH;
+        maturePts.push(`${x.toFixed(1)},${yMature.toFixed(1)}`);
+      });
+
+      const svgHtml = `
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Card state distribution stacked curve">
+          <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
+          <polyline fill="none" stroke="var(--green)" stroke-width="2" points="${maturePts.join(' ')}"/>
+          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(stateData[0].day)}</text>
+          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">Mature: ${(last.n_mature || 0).toLocaleString()}</text>
+        </svg>
+      `;
+      wrap.innerHTML = svgHtml;
+    }
+
+    function renderRetentionChart(retentionData) {
+      const wrap = document.getElementById('chart-retention-wrap');
+      const sumEl = document.getElementById('retention-summary');
+      if (!wrap || !retentionData.length) {
+        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No retention data recorded.</div>';
+        return;
+      }
+
+      let totalNum = 0;
+      let totalDen = 0;
+      retentionData.forEach(d => {
+        totalNum += (d.mature_retention_num || 0);
+        totalDen += (d.mature_retention_den || 0);
+      });
+
+      const rate = totalDen >= 30 ? Math.round((totalNum / totalDen) * 100) : null;
+      if (sumEl) {
+        sumEl.textContent = rate !== null ? `${rate}% (n=${totalDen})` : `n=${totalDen} (<30 samples)`;
+      }
+
+      const w = 600;
+      const h = 120;
+      const padL = 40;
+      const padR = 20;
+      const padT = 15;
+      const padB = 25;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+
+      const pts = retentionData.map((d, i) => {
+        const x = padL + (i / (retentionData.length - 1 || 1)) * plotW;
+        const den = d.mature_retention_den || 0;
+        const num = d.mature_retention_num || 0;
+        const r = den > 0 ? (num / den) : 0.8;
+        const y = padT + (1 - r) * plotH;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+
+      wrap.innerHTML = `
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="True retention rate curve">
+          <line x1="${padL}" y1="${padT + plotH * 0.1}" x2="${w - padR}" y2="${padT + plotH * 0.1}" stroke="rgba(94, 163, 106, 0.2)" stroke-dasharray="3,3"/>
+          <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
+          <polyline fill="none" stroke="var(--green)" stroke-width="2" points="${pts}"/>
+          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(retentionData[0].day)}</text>
+          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(retentionData[retentionData.length - 1].day)}</text>
+        </svg>
+      `;
+    }
+
+    function renderButtonsChart(buttonsData) {
+      const wrap = document.getElementById('chart-buttons-wrap');
+      if (!wrap || !buttonsData.length) {
+        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No answer button logs available.</div>';
+        return;
+      }
+
+      const w = 600;
+      const h = 120;
+      const padL = 30;
+      const padR = 20;
+      const barW = Math.max(2, Math.min(18, (w - padL - padR) / buttonsData.length - 2));
+
+      const bars = buttonsData.map((d, i) => {
+        const total = (d.again || 0) + (d.hard || 0) + (d.good || 0) + (d.easy || 0);
+        if (total === 0) return '';
+        const x = padL + i * ((w - padL - padR) / buttonsData.length);
+        const yGood = (d.good / total) * 80;
+        const yAgain = (d.again / total) * 80;
+        return `
+          <rect x="${x}" y="${100 - yGood - yAgain}" width="${barW}" height="${yGood}" fill="var(--green)"/>
+          <rect x="${x}" y="${100 - yAgain}" width="${barW}" height="${yAgain}" fill="var(--red)"/>
+        `;
+      }).join('');
+
+      wrap.innerHTML = `
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Answer buttons share stacked bars">
+          <line x1="${padL}" y1="100" x2="${w - padR}" y2="100" stroke="var(--border-default)"/>
+          ${bars}
+        </svg>
+      `;
+    }
+
+    function renderDueForecastChart(dueData) {
+      const wrap = document.getElementById('chart-due-wrap');
+      if (!wrap || !dueData.length) {
+        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No due forecast data.</div>';
+        return;
+      }
+
+      const w = 600;
+      const h = 140;
+      const padL = 35;
+      const padR = 20;
+      const maxCount = Math.max(...dueData.map(d => d.count || 0), 1);
+      const barW = Math.max(4, (w - padL - padR) / dueData.length - 3);
+
+      const bars = dueData.map((d, i) => {
+        const x = padL + i * ((w - padL - padR) / dueData.length);
+        const barH = (d.count / maxCount) * 90;
+        const fill = d.day < 0 ? 'var(--red)' : (d.day === 0 ? 'var(--accent)' : 'var(--yellow)');
+        return `
+          <rect x="${x}" y="${115 - barH}" width="${barW}" height="${barH}" fill="${fill}" rx="2"/>
+        `;
+      }).join('');
+
+      wrap.innerHTML = `
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Due forecast 30-day bars">
+          <line x1="${padL}" y1="115" x2="${w - padR}" y2="115" stroke="var(--border-default)"/>
+          ${bars}
+          <text x="${padL}" y="132" fill="var(--text-muted)" font-size="10">Overdue / Today</text>
+          <text x="${w - padR}" y="132" fill="var(--text-muted)" font-size="10" text-anchor="end">+30 Days</text>
+        </svg>
+      `;
+    }
+
+    function renderDifficultyChart(diffData) {
+      const wrap = document.getElementById('chart-diff-wrap');
+      if (!wrap || !diffData.length) {
+        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No difficulty distribution available.</div>';
+        return;
+      }
+
+      const total = diffData.reduce((acc, d) => acc + (d.count || 0), 0) || 1;
+      const w = 600;
+      const h = 50;
+
+      let curX = 0;
+      const colors = {
+        leech: 'var(--red)',
+        hard: 'rgba(204, 79, 79, 0.75)',
+        normal: 'var(--yellow)',
+        easy: 'var(--green)',
+        solid: 'rgba(94, 163, 106, 0.75)',
+        new: 'var(--text-secondary)',
+      };
+
+      const rects = diffData.map(d => {
+        const width = (d.count / total) * w;
+        const r = `<rect x="${curX}" y="10" width="${width}" height="20" fill="${colors[d.difficulty_label] || 'var(--text-muted)'}"/>`;
+        curX += width;
+        return r;
+      }).join('');
+
+      wrap.innerHTML = `
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Difficulty distribution horizontal bar">
+          ${rects}
+        </svg>
+      `;
+    }
+
+    function renderWeakWords(weakList) {
+      const listEl = document.getElementById('weak-words-list');
+      if (!listEl) return;
+
+      if (!weakList.length) {
+        listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:0.5rem 0;">No weak vocabulary cards found.</div>';
+        return;
+      }
+
+      listEl.innerHTML = weakList.map(w => `
+        <div class="weak-word-row">
+          <div class="weak-word-left">
+            <span class="weak-expr">${escapeHtml(w.expression)}</span>
+            ${w.reading ? `<span class="weak-reading">${escapeHtml(w.reading)}</span>` : ''}
+            <span class="weak-meaning">${escapeHtml(w.meaning)}</span>
+          </div>
+          <div class="weak-stats">
+            <span class="diff-badge diff-${w.difficulty_label}">${escapeHtml(w.difficulty_label)}</span>
+            <span>${w.lapses || 0} lapses</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function studyWeakWords() {
+      if (!window.__statsOverview || !window.__statsOverview.weak_words) return;
+      const ids = window.__statsOverview.weak_words.map(w => w.card_id);
+      if (!ids.length) return;
+
+      switchTab('study');
+      document.getElementById('study-mode-select').value = 'custom';
+      document.getElementById('study-mode-custom-opt').style.display = 'block';
+      studyState.customIds = ids;
+      startStudySession();
+    }
+
+    function renderJlptCoverage(jlptData) {
+      const wrap = document.getElementById('chart-jlpt-wrap');
+      if (!wrap || !jlptData.length) {
+        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No JLPT tagged cards yet.</div>';
+        return;
+      }
+
+      const rows = jlptData.map(d => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.35rem 0;font-size:0.82rem;">
+          <span style="font-weight:600;color:var(--accent);">${escapeHtml(d.level)}</span>
+          <span style="color:var(--text);">${(d.count || 0).toLocaleString()} cards</span>
+        </div>
+      `).join('');
+      wrap.innerHTML = rows;
+    }
+
+    // -------------------------------------------------------------------------
+    // M5: CLOUD STUDY MODE (EXTRA PRACTICE)
+    // -------------------------------------------------------------------------
+    function onStudyModeChange() {
+      const mode = document.getElementById('study-mode-select').value;
+      const jlptGroup = document.getElementById('study-level-group');
+      jlptGroup.style.display = (mode === 'jlpt') ? 'block' : 'none';
+    }
+
+    async function fetchStudySummary() {
+      const token = getToken();
+      if (!token) return;
+
+      try {
+        const resp = await fetch('/api/study/summary', {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        document.getElementById('study-today-count').textContent = `${data.reviewed_today || 0} cards`;
+        document.getElementById('study-week-count').textContent = `${data.reviewed_7d || 0} reviews`;
+      } catch (err) {
+        console.debug('Study summary error:', err);
+      }
+    }
+
+    async function startStudySession() {
+      const token = getToken();
+      if (!token) {
+        document.getElementById('token-box').style.display = 'block';
+        return;
+      }
+
+      const mode = document.getElementById('study-mode-select').value;
+      const limit = document.getElementById('study-limit-select').value;
+      const level = document.getElementById('study-level-select').value;
+      studyState.frontSide = document.getElementById('study-front-select').value;
+
+      const params = new URLSearchParams({ mode, limit });
+      if (mode === 'jlpt') params.set('level', level);
+      if (mode === 'custom' && studyState.customIds) {
+        params.set('custom_ids', studyState.customIds.join(','));
+      }
+
+      try {
+        const resp = await fetch(`/api/study/session?${params.toString()}`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+        });
+        if (!resp.ok) throw new Error('Failed to start session');
+        const cards = data.cards || data.items || [];
+
+        if (cards.length === 0) {
+          alert('No cards found for the selected study mode.');
+          return;
+        }
+
+        studyState.sessionCards = cards;
+        studyState.currentIndex = 0;
+        studyState.ratings = [];
+        studyState.missedCards = [];
+        studyState.sessionId = String(Date.now());
+
+        document.getElementById('study-setup-screen').style.display = 'none';
+        document.getElementById('study-session-screen').style.display = 'block';
+        document.getElementById('study-complete-screen').style.display = 'none';
+
+        renderCurrentStudyCard();
+      } catch (err) {
+        alert(`Error launching study session: ${err.message}`);
+      }
+    }
+
+    function renderCurrentStudyCard() {
+      const cards = studyState.sessionCards;
+      const idx = studyState.currentIndex;
+      if (idx >= cards.length) {
+        finishStudySession();
+        return;
+      }
+
+      const card = cards[idx];
+      studyState.startTime = Date.now();
+
+      document.getElementById('study-card-counter').textContent = `Card ${idx + 1} of ${cards.length}`;
+      const pct = Math.round((idx / cards.length) * 100);
+      document.getElementById('study-progress-fill').style.width = `${pct}%`;
+
+      const promptLead = document.getElementById('study-prompt-lead');
+      const readingReveal = document.getElementById('study-reading-reveal');
+      const meaningReveal = document.getElementById('study-meaning-reveal');
+      const sentenceReveal = document.getElementById('study-sentence-reveal');
+      const ttsBtn = document.getElementById('study-tts-btn');
+
+      if (studyState.frontSide === 'en') {
+        promptLead.textContent = card.meaning || '—';
+        promptLead.style.fontSize = '1.4rem';
+        readingReveal.textContent = card.reading ? `${card.reading} (${card.expression})` : card.expression;
+        meaningReveal.textContent = '';
+      } else {
+        promptLead.textContent = card.expression || '—';
+        promptLead.style.fontSize = '2.4rem';
+        readingReveal.textContent = card.reading || '';
+        meaningReveal.textContent = card.meaning || '';
+      }
+
+      if (card.sentence) {
+        sentenceReveal.textContent = card.sentence + (card.sentence_meaning ? ` — ${card.sentence_meaning}` : '');
+        sentenceReveal.style.display = 'none';
+      } else {
+        sentenceReveal.style.display = 'none';
+      }
+
+      document.getElementById('study-revealed-content').style.display = 'none';
+      document.getElementById('study-reveal-btn').style.display = 'block';
+      document.getElementById('study-rating-row').style.display = 'none';
+      ttsBtn.style.display = 'none';
+    }
+
+    function revealStudyAnswer() {
+      document.getElementById('study-revealed-content').style.display = 'flex';
+      document.getElementById('study-reveal-btn').style.display = 'none';
+      document.getElementById('study-rating-row').style.display = 'grid';
+
+      const card = studyState.sessionCards[studyState.currentIndex];
+      if (card && card.sentence) {
+        document.getElementById('study-sentence-reveal').style.display = 'block';
+      }
+
+      // Check TTS support
+      if ('speechSynthesis' in window) {
+        document.getElementById('study-tts-btn').style.display = 'inline-flex';
+      }
+    }
+
+    function playJapaneseTTS() {
+      const card = studyState.sessionCards[studyState.currentIndex];
+      if (!card || !('speechSynthesis' in window)) return;
+
+      const text = card.expression || card.reading;
+      if (!text) return;
+
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'ja-JP';
+      window.speechSynthesis.speak(utter);
+    }
+
+    const PENDING_REVIEWS_STORAGE_KEY = 'kiroku_pending_study_reviews';
+
+    function getPendingReviews() {
+      try {
+        const raw = localStorage.getItem(PENDING_REVIEWS_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function savePendingReviews(reviews) {
+      try {
+        localStorage.setItem(PENDING_REVIEWS_STORAGE_KEY, JSON.stringify(reviews));
+      } catch (e) {
+        console.debug('Failed saving pending reviews to localStorage:', e);
+      }
+    }
+
+    let isFlushingReviews = false;
+    async function flushPendingReviews() {
+      if (isFlushingReviews) return;
+      const token = getToken();
+      if (!token) return;
+
+      const queue = getPendingReviews();
+      if (!queue.length) return;
+
+      isFlushingReviews = true;
+      const remaining = [];
+
+      for (const item of queue) {
+        try {
+          const resp = await fetch('/api/study/review', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(item),
+          });
+          if (!resp.ok && resp.status >= 500) {
+            remaining.push(item);
+          }
+        } catch (err) {
+          remaining.push(item);
+        }
+      }
+
+      savePendingReviews(remaining);
+      isFlushingReviews = false;
+    }
+
+    window.addEventListener('online', flushPendingReviews);
+
+    async function submitStudyRating(rating) {
+      const card = studyState.sessionCards[studyState.currentIndex];
+      if (!card) return;
+
+      const timeMs = Date.now() - studyState.startTime;
+      studyState.ratings.push({ cardId: card.card_id, rating, timeMs });
+
+      // If rated Again (1), requeue after 3 cards
+      if (rating === 1) {
+        studyState.missedCards.push(card);
+        const insertIdx = Math.min(studyState.currentIndex + 4, studyState.sessionCards.length);
+        studyState.sessionCards.splice(insertIdx, 0, card);
+      }
+
+      // Record review to server with retry resilience
+      const reviewPayload = {
+        card_id: card.card_id,
+        rating: rating,
+        time_ms: timeMs,
+        session_id: studyState.sessionId,
+        review_uuid: `${studyState.sessionId}-${card.card_id}-${Date.now()}`,
+      };
+      const pending = getPendingReviews();
+      pending.push(reviewPayload);
+      savePendingReviews(pending);
+      flushPendingReviews();
+
+      studyState.currentIndex++;
+      renderCurrentStudyCard();
+    }
+
+    function finishStudySession() {
+      document.getElementById('study-session-screen').style.display = 'none';
+      document.getElementById('study-complete-screen').style.display = 'block';
+
+      const totalRated = studyState.ratings.length;
+      const passed = studyState.ratings.filter(r => r.rating >= 2).length;
+      const passPct = totalRated > 0 ? Math.round((passed / totalRated) * 100) : 100;
+
+      document.getElementById('complete-total-count').textContent = totalRated;
+      document.getElementById('complete-pass-rate').textContent = `${passPct}%`;
+
+      const repeatBtn = document.getElementById('repeat-missed-btn');
+      if (studyState.missedCards.length > 0) {
+        repeatBtn.style.display = 'inline-flex';
+      } else {
+        repeatBtn.style.display = 'none';
+      }
+
+      fetchStudySummary();
+    }
+
+    function repeatMissedCards() {
+      if (!studyState.missedCards.length) return;
+      studyState.sessionCards = [...studyState.missedCards];
+      studyState.currentIndex = 0;
+      studyState.ratings = [];
+      studyState.missedCards = [];
+      studyState.sessionId = String(Date.now());
+
+      document.getElementById('study-complete-screen').style.display = 'none';
+      document.getElementById('study-session-screen').style.display = 'block';
+      renderCurrentStudyCard();
+    }
+
+    function exitStudySession() {
+      document.getElementById('study-setup-screen').style.display = 'block';
+      document.getElementById('study-session-screen').style.display = 'none';
+      document.getElementById('study-complete-screen').style.display = 'none';
+      fetchStudySummary();
+    }
+
+    // Keyboard shortcuts for study mode
+    window.addEventListener('keydown', e => {
+      const sessionScreen = document.getElementById('study-session-screen');
+      if (sessionScreen && sessionScreen.style.display !== 'none') {
+        const revealBtn = document.getElementById('study-reveal-btn');
+        if (e.code === 'Space' && revealBtn.style.display !== 'none') {
+          e.preventDefault();
+          revealStudyAnswer();
+        } else if (['Digit1', 'Numpad1'].includes(e.code)) {
+          submitStudyRating(1);
+        } else if (['Digit2', 'Numpad2'].includes(e.code)) {
+          submitStudyRating(2);
+        } else if (['Digit3', 'Numpad3'].includes(e.code)) {
+          submitStudyRating(3);
+        } else if (['Digit4', 'Numpad4'].includes(e.code)) {
+          submitStudyRating(4);
+        }
+      }
+    });
+
+    // -------------------------------------------------------------------------
+    // QUEUE TAB (Original fetchRecent implementation)
+    // -------------------------------------------------------------------------
+    async function fetchRecent(manual = false) {
+      const token = getToken();
+      const listEl = document.getElementById('card-list');
+      const footerStatus = document.getElementById('footer-status');
+
+      if (!token) {
+        document.getElementById('token-box').style.display = 'block';
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">
+              <svg class="svg-icon" style="width:36px;height:36px;" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <h3>Authentication Required</h3>
+            <p>Please enter your <code>WORKER_TOKEN</code> or <code>SUBMIT_TOKEN</code> above to inspect cards.</p>
+          </div>
+        `;
+        return;
+      }
+
+      if (manual) {
+        const icon = document.getElementById('refresh-icon');
+        icon.classList.add('spin');
+        setTimeout(() => icon.classList.remove('spin'), 700);
+      }
+
+      try {
+        const resp = await fetch('/recent?limit=25', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        });
+
+        if (resp.status === 401) {
+          listEl.innerHTML = '<div class="empty-state"><p>Invalid token. Click Key to update.</p></div>';
+          return;
+        }
+
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+        const data = await resp.json();
+        const items = data.items || [];
+        window.__cardsCache = items;
+
+        let total = items.length;
+        let synced = 0;
+        let pending = 0;
+        let failed = 0;
+
+        items.forEach(it => {
+          if (it.status === 'completed' || it.status === 'synced') synced++;
+          else if (it.status === 'pending' || it.status === 'claimed') pending++;
+          else if (it.status === 'failed') failed++;
+        });
+
+        document.getElementById('stat-total').textContent = total;
+        document.getElementById('stat-done').textContent = synced;
+        document.getElementById('stat-pending').textContent = pending;
+        document.getElementById('stat-failed').textContent = failed;
+
+        if (items.length === 0) {
+          listEl.innerHTML = '<div class="empty-state"><p>No cards in queue right now.</p></div>';
+        } else {
+          listEl.innerHTML = items.map((it, idx) => {
+            const isSynced = it.status === 'completed' || it.status === 'synced';
+            const isPending = it.status === 'pending' || it.status === 'claimed';
+            const badgeClass = isSynced ? 'synced' : (isPending ? 'pending' : 'failed');
+            const badgeIcon = isSynced ? SVG_CHECK : (isPending ? SVG_CLOCK : SVG_CROSS);
+            const badgeLabel = isSynced ? 'Synced' : (isPending ? 'Queued' : 'Failed');
+            const timeText = timeAgo(it.created_at);
+
+            return `
+              <div class="vocab-card" tabindex="0" role="button" aria-label="Open card details for ${escapeHtml(it.expression)}" onclick="openQueueHeroModal(${idx})">
+                <div class="card-top">
+                  <div class="word-group">
+                    <span class="expression">${escapeHtml(it.expression)}</span>
+                    ${it.reading ? `<span class="reading">${escapeHtml(it.reading)}</span>` : ''}
+                  </div>
+                  <span class="badge ${badgeClass}">${badgeIcon}<span>${badgeLabel}</span></span>
+                </div>
+                ${it.meaning ? `<div class="meaning">${escapeHtml(it.meaning)}</div>` : ''}
+                <div class="card-meta">
+                  <span class="deck-tag">${escapeHtml(it.deck_name || 'N3 vocabs')}</span>
+                  <span>${escapeHtml(timeText)}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        footerStatus.textContent = `Updated at ${nowStr} · auto-refreshes every 30s`;
+      } catch (err) {
+        footerStatus.textContent = 'Connection error. Retrying in 30s...';
+      }
+    }
+
+    function openQueueHeroModal(index) {
+      const card = window.__cardsCache[index];
+      if (!card) return;
+
+      const modal = document.getElementById('hero-modal');
+      document.getElementById('modal-reading').textContent = card.reading || '';
+      document.getElementById('modal-expression').textContent = card.expression || '—';
+
+      const isSynced = card.status === 'completed' || card.status === 'synced';
+      const isPending = card.status === 'pending' || card.status === 'claimed';
+      const badgeClass = isSynced ? 'synced' : (isPending ? 'pending' : 'failed');
+      const badgeIcon = isSynced ? SVG_CHECK : (isPending ? SVG_CLOCK : SVG_CROSS);
+      const badgeLabel = isSynced ? 'Synced' : (isPending ? 'Queued' : 'Failed');
+
+      document.getElementById('modal-badges').innerHTML = `
+        <span class="badge ${badgeClass}">${badgeIcon}<span>${badgeLabel}</span></span>
+        <span class="deck-tag">${escapeHtml(card.deck_name || 'N3 vocabs')}</span>
+      `;
+
+      document.getElementById('modal-meaning-content').textContent = card.meaning || 'No definition recorded.';
+
+      const sSec = document.getElementById('modal-section-sentence');
+      if (card.sentence) {
+        sSec.style.display = 'block';
+        document.getElementById('modal-sentence-jp').textContent = card.sentence;
+        document.getElementById('modal-sentence-en').textContent = card.sentence_meaning || '';
+      } else {
+        sSec.style.display = 'none';
+      }
+
+      document.getElementById('modal-meta-deck').textContent = card.deck_name || '—';
+      document.getElementById('modal-meta-ivl').textContent = 'Queue item';
+      document.getElementById('modal-meta-due').textContent = timeAgo(card.created_at);
+      document.getElementById('modal-meta-difficulty').textContent = '—';
+
+      modal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    async function fetchAnkiStats(manual = false) {
+      const token = getToken();
+      if (!token) return;
+
+      try {
+        const resp = await fetch('/api/stats/anki', {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const stats = data.stats;
+        if (!stats) return;
+
+        document.getElementById('metric-streak').innerHTML = `${SVG_FLAME}<span>${stats.current_streak || 0}d</span>`;
+        document.getElementById('metric-streak-best').textContent = `Best: ${stats.best_streak || 0} days`;
+        document.getElementById('metric-today').textContent = `${stats.today_reviewed || 0}`;
+        const sum = stats.summary || {};
+        document.getElementById('metric-due-today').textContent = `${sum.total_due_today || 0} cards due`;
+        document.getElementById('metric-total-cards').textContent = (sum.total_cards || 0).toLocaleString();
+        const decks = stats.decks || [];
+        document.getElementById('metric-deck-count').textContent = `${decks.length} active deck${decks.length === 1 ? '' : 's'}`;
+        document.getElementById('metric-year-days').textContent = `${stats.days_studied_past_year || 0}d`;
+
+        if (stats.total_reviews) {
+          document.getElementById('heatmap-total-reviews').textContent = `${Number(stats.total_reviews).toLocaleString()} total reviews`;
+        }
+
+        renderHeatmap(stats.cards_reviewed_by_day || []);
+        renderDecks(decks);
+      } catch (err) {
+        console.debug('Failed to fetch anki stats snapshot:', err);
+      }
+    }
+
+    function renderHeatmap(dailyList) {
+      const grid = document.getElementById('heatmap-grid');
+      const tooltip = document.getElementById('dashboard-tooltip');
+      if (!grid) return;
+
+      const reviewMap = {};
+      dailyList.forEach(entry => {
+        if (Array.isArray(entry) && entry.length >= 2) {
+          reviewMap[entry[0]] = Number(entry[1]) || 0;
+        }
+      });
+
+      const cells = [];
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const totalDays = 52 * 7;
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - totalDays + (6 - dayOfWeek));
+
+      for (let i = 0; i < totalDays; i++) {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const dateKey = `${yyyy}-${mm}-${dd}`;
+        const count = reviewMap[dateKey] || 0;
+
+        let bg = 'var(--surface-elevated)';
+        if (count > 0 && count < 10) bg = 'rgba(184, 70, 50, 0.35)';
+        else if (count >= 10 && count < 25) bg = 'rgba(184, 70, 50, 0.60)';
+        else if (count >= 25 && count < 50) bg = 'rgba(184, 70, 50, 0.85)';
+        else if (count >= 50) bg = '#b84632';
+
+        cells.push(`<div class="heatmap-cell" style="background:${bg}" data-date="${dateKey}" data-count="${count}"></div>`);
+      }
+
+      grid.innerHTML = cells.join('');
+
+      const wrap = document.querySelector('.heatmap-wrap');
+      if (wrap) {
+        requestAnimationFrame(() => {
+          wrap.scrollLeft = wrap.scrollWidth;
+        });
+      }
+
+      grid.querySelectorAll('.heatmap-cell').forEach(cell => {
+        const dateStr = cell.getAttribute('data-date');
+        const count = cell.getAttribute('data-count');
+        const text = `${dateStr}: ${count} review${count === '1' ? '' : 's'}`;
+
+        cell.addEventListener('mouseenter', e => showTooltip(e.clientX, e.clientY, text));
+        cell.addEventListener('mousemove', e => showTooltip(e.clientX, e.clientY, text));
+        cell.addEventListener('mouseleave', hideTooltip);
+        cell.addEventListener('click', e => {
+          e.stopPropagation();
+          showTooltip(e.clientX, e.clientY, text);
+          setTimeout(hideTooltip, 2500);
+        });
+      });
+    }
+
+    function showTooltip(clientX, clientY, text) {
+      const tooltip = document.getElementById('dashboard-tooltip');
+      if (!tooltip) return;
+      tooltip.textContent = text;
+      tooltip.style.display = 'block';
+
+      const pad = 12;
+      let x = clientX - 45;
+      let y = clientY - 38;
+      if (x < pad) x = pad;
+      if (x + 150 > window.innerWidth - pad) x = window.innerWidth - pad - 150;
+      if (y < pad) y = clientY + 22;
+
+      tooltip.style.left = `${Math.round(x)}px`;
+      tooltip.style.top = `${Math.round(y)}px`;
+    }
+
+    function hideTooltip() {
+      const tooltip = document.getElementById('dashboard-tooltip');
+      if (tooltip) tooltip.style.display = 'none';
+    }
+
+    function renderDecks(decks) {
+      const container = document.getElementById('deck-list');
+      if (!container) return;
+
+      if (!decks || decks.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:0.5rem 0;">No active decks found.</div>';
+        return;
+      }
+
+      container.innerHTML = decks.map(d => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 0;border-bottom:1px solid var(--border-subtle);">
+          <div style="font-size:0.88rem;color:var(--text);font-weight:500;">${escapeHtml(d.name || 'Deck')}</div>
+          <div style="display:flex;align-items:center;gap:0.5rem;font-size:0.75rem;">
+            <span style="background:var(--surface-elevated);padding:0.15rem 0.45rem;border-radius:4px;color:var(--text-secondary);">${d.new || 0} new</span>
+            <span style="background:var(--surface-elevated);padding:0.15rem 0.45rem;border-radius:4px;color:var(--text-secondary);">${d.review || 0} due</span>
+            <span style="color:var(--text);font-weight:600;min-width:45px;text-align:right;">${(d.total || 0).toLocaleString()}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function refreshActive(manual = false) {
+      const activeTab = localStorage.getItem(TAB_KEY) || 'cards';
+      if (activeTab === 'cards') {
+        fetchMirroredCards(true);
+        fetchAnkiStatus();
+      } else if (activeTab === 'queue') {
+        fetchRecent(manual);
+      } else if (activeTab === 'stats') {
+        fetchStatsOverview();
+        fetchAnkiStats(manual);
+        fetchAnkiStatus();
+      } else if (activeTab === 'study') {
+        fetchStudySummary();
+      }
+    }
+
+    // Initialize Active Tab
+    const savedTab = localStorage.getItem(TAB_KEY) || 'cards';
+    switchTab(savedTab);
+
+    // Auto-refresh interval (30s)
+    setInterval(() => {
+      refreshActive(false);
+    }, 30000);
+  </script>
+</body>
+</html>

@@ -106,4 +106,8 @@ last_failed_payload.txt
 kiroku_cloud_queue/last_failed_payload.txt
 kiroku_cloud_queue/*.db
 kiroku_cloud_queue/*.db-shm
-kiroku_cloud_queue/*.db-wal
+kiroku_cloud_queue/*.db-wal
+*.mirror_state.json
+.mirror_state.json
+kiroku_cloud_queue/.mirror_state.json
+
