@@ -349,12 +349,26 @@ class SqliteQueueStore(BaseQueueStore):
 
     def init_schema(self) -> None:
         with self._conn() as conn:
+            # Migration check for existing legacy tables (e.g. from queue_db.py) before running script
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='queued_cards';")
+            if cursor.fetchone():
+                cursor_cols = conn.execute("PRAGMA table_info(queued_cards);")
+                cols = {row["name"] for row in cursor_cols.fetchall()}
+                if "idempotency_key" not in cols:
+                    conn.execute("ALTER TABLE queued_cards ADD COLUMN idempotency_key TEXT;")
+                if "sentence_meaning" not in cols:
+                    conn.execute("ALTER TABLE queued_cards ADD COLUMN sentence_meaning TEXT NOT NULL DEFAULT '';")
+                if "claim_token" not in cols:
+                    conn.execute("ALTER TABLE queued_cards ADD COLUMN claim_token TEXT;")
+                if "claimed_at" not in cols:
+                    conn.execute("ALTER TABLE queued_cards ADD COLUMN claimed_at TEXT;")
+                if "lease_expires_at" not in cols:
+                    conn.execute("ALTER TABLE queued_cards ADD COLUMN lease_expires_at TEXT;")
+                if "payload_json" not in cols:
+                    conn.execute("ALTER TABLE queued_cards ADD COLUMN payload_json TEXT NOT NULL DEFAULT '{}';")
+                conn.commit()
+
             conn.executescript(_SQLITE_SCHEMA)
-            # Migration check for existing DBs
-            cursor = conn.execute("PRAGMA table_info(queued_cards);")
-            cols = [row["name"] for row in cursor.fetchall()]
-            if "payload_json" not in cols:
-                conn.execute("ALTER TABLE queued_cards ADD COLUMN payload_json TEXT NOT NULL DEFAULT '{}';")
             conn.commit()
 
     def enqueue(self, card: VocabCard, idempotency_key: Optional[str] = None) -> tuple[str, bool]:

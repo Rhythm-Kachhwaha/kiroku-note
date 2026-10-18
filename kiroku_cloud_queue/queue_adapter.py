@@ -211,9 +211,9 @@ class QueueAdapter(abc.ABC):
         """Push a batch of historical daily study series to cloud queue service."""
         return False
 
-    async def reconcile_anki_cards(self, all_card_ids: list[int]) -> bool:
-        """Reconcile mirrored cards with the full list of active Anki card IDs."""
-        return False
+    async def reconcile_anki_cards(self, all_card_ids: list[int]) -> int:
+        """Reconcile mirrored cards with the full list of active Anki card IDs. Returns count of deleted cards."""
+        return 0
 
     async def push_anki_meta(self, meta: dict[str, str]) -> bool:
         """Push collection metadata key-values to cloud queue service."""
@@ -343,13 +343,12 @@ class LocalDevQueueAdapter(QueueAdapter):
             log.warning("LocalDevQueueAdapter: failed to upsert anki daily: %s", exc)
             return False
 
-    async def reconcile_anki_cards(self, all_card_ids: list[int]) -> bool:
+    async def reconcile_anki_cards(self, all_card_ids: list[int]) -> int:
         try:
-            self._store.reconcile_anki_cards(all_card_ids)
-            return True
+            return int(self._store.reconcile_anki_cards(all_card_ids))
         except Exception as exc:
             log.warning("LocalDevQueueAdapter: failed to reconcile anki cards: %s", exc)
-            return False
+            return 0
 
     async def push_anki_meta(self, meta: dict[str, str]) -> bool:
         try:
@@ -536,7 +535,7 @@ class CloudQueueAdapter(QueueAdapter):
             log.warning("Failed to push Anki stats to cloud queue: %s", exc)
             return False
 
-    async def _post_with_retry(self, path: str, payload: dict[str, Any], max_retries: int = 3) -> bool:
+    async def _post_json_with_retry(self, path: str, payload: dict[str, Any], max_retries: int = 3) -> Optional[dict[str, Any]]:
         self._ensure_configured()
         url = f"{self.queue_url}{path}"
         headers = self._headers()
@@ -548,13 +547,16 @@ class CloudQueueAdapter(QueueAdapter):
                 async with httpx.AsyncClient(timeout=batch_timeout) as client:
                     resp = await client.post(url, json=payload, headers=headers)
                     if resp.status_code == 200:
-                        return True
+                        try:
+                            return resp.json()
+                        except Exception:
+                            return {}
                     if resp.status_code < 500:
                         log.warning(
                             "Cloud queue rejected %s with HTTP %d: %s",
                             path, resp.status_code, self._sanitize_error(resp.text)
                         )
-                        return False
+                        return None
                     log.warning(
                         "Cloud queue returned HTTP %d for %s (attempt %d/%d)",
                         resp.status_code, path, attempt, max_retries
@@ -567,7 +569,11 @@ class CloudQueueAdapter(QueueAdapter):
             if attempt < max_retries:
                 await asyncio.sleep(backoff)
                 backoff *= 2.0
-        return False
+        return None
+
+    async def _post_with_retry(self, path: str, payload: dict[str, Any], max_retries: int = 3) -> bool:
+        res = await self._post_json_with_retry(path, payload, max_retries=max_retries)
+        return res is not None
 
     async def push_anki_cards(self, cards: list[dict[str, Any]], schema_version: int = 1) -> bool:
         return await self._post_with_retry("/api/anki/cards", {"schema_version": schema_version, "cards": cards})
@@ -575,8 +581,11 @@ class CloudQueueAdapter(QueueAdapter):
     async def push_anki_daily(self, days: list[dict[str, Any]], schema_version: int = 1) -> bool:
         return await self._post_with_retry("/api/anki/daily", {"schema_version": schema_version, "days": days})
 
-    async def reconcile_anki_cards(self, all_card_ids: list[int]) -> bool:
-        return await self._post_with_retry("/api/anki/reconcile", {"card_ids": all_card_ids, "total": len(all_card_ids)})
+    async def reconcile_anki_cards(self, all_card_ids: list[int]) -> int:
+        res = await self._post_json_with_retry("/api/anki/reconcile", {"card_ids": all_card_ids, "total": len(all_card_ids)})
+        if isinstance(res, dict):
+            return int(res.get("deleted", 0))
+        return 0
 
     async def push_anki_meta(self, meta: dict[str, str]) -> bool:
         return await self._post_with_retry("/api/anki/meta", {"meta": meta})

@@ -69,6 +69,38 @@
 **Remaining Risk**:
 - Postgres integration test was skipped because `TEST_DATABASE_URL` is not set in this local environment; verified against identical SQLite schema and syntax-verified Postgres DDL/queries.
 
+### Cloud Dashboard Card Mirror: M2 Worker, Difficulty & Daily Series (2026-10-18)
+
+**Objective**: Implement Milestone 2 Anki mirror worker module (`kiroku_cloud_queue/anki_mirror.py`), pure computation routines for field cleaning, generic note field mapping, FSRS-aware difficulty scoring, daily time series reconstruction, backend JLPT batch lookup endpoint, worker integration with non-blocking `asyncio.to_thread`, and CLI flags.
+
+**Key Changes Delivered**:
+1. **Pure Computation Routines (`anki_mirror.py`)**:
+   - `clean_field`: Strips `[sound:...]` tags, converts `<br>/<div>/<p>` to newlines, decodes HTML entities, normalizes horizontal whitespace and non-breaking spaces (`\xa0`, `\u3000`), optionally strips ruby furigana brackets (`漢字[かんじ] -> 漢字`), collapses excessive newlines, and enforces length caps (500 chars meaning, 400 chars sentences).
+   - `map_fields`: Generic case-insensitive, separator-insensitive field mapping across candidate aliases (expression, reading, meaning, sentence, sentence_meaning) with first-field fallback.
+   - `classify_state`: Precedence-aware lifecycle classification (`suspended`, `buried`, `relearning`, `mature` if interval >= 21, `young` if interval < 21, `learning`, `new`).
+   - `compute_difficulty`: Deterministic, monotonic weighted formula (lapse weight 0.40, again rate 0.35, answer time 0.10, low interval 0.15) with 50/50 FSRS difficulty blend when present; labels `leech`, `hard`, `normal`, `easy`, `solid`, `new`.
+   - `compute_due_days`: Relative due day mapping from `prop:due=N` horizon queries.
+   - `build_daily_series`: Time series aggregator with 4 am day rollover, true retention calculation (review type 1 only; types 3 and 4 ignored), mature retention (lastIvl >= 21), and historical card lifecycle state reconstruction by day.
+2. **Worker Integration & Orchestrator (`anki_mirror.py`, `worker.py`)**:
+   - `AnkiClient`: Transport with 500-card chunking and injectable transport for unit tests.
+   - `sync_anki_mirror`: Module-level `asyncio.Lock()` to prevent overlapping sync runs; dispatches all blocking AnkiConnect calls via `asyncio.to_thread`; supports incremental sync (via `cardsModTime`) and full reconcile (with deletion sync and atomic state file updates to `.mirror_state.json`). Fail-soft: returns `status="offline"` if Anki is closed without crashing.
+   - Non-blocking `worker.py`: Wrapped `fetch_anki_connect_stats` in `asyncio.to_thread` to prevent event loop blocking. Added safe try/except invocation of `sync_anki_mirror(queue)` in `sync_anki_stats_to_cloud`.
+   - Worker CLI flags: Added `--sync-cards` (run incremental mirror sync and exit) and `--full-resync` (force full reconcile).
+3. **Backend JLPT Batch Endpoint (`backend/app/main.py`)**:
+   - Added `POST /api/jlpt/batch` accepting expressions list and returning `{expression: level | null}` using local `jlpt_reference` service.
+   - Isolated and tested with `backend/tests/test_jlpt_batch.py`.
+4. **Adapter & Storage Fixes (`queue_adapter.py`, `queue_store.py`)**:
+   - Updated `reconcile_anki_cards` contract across `QueueAdapter`, `LocalDevQueueAdapter`, and `CloudQueueAdapter` to return the integer count of deleted cards.
+   - Enhanced `SqliteQueueStore.init_schema()` with pre-flight migration check for legacy SQLite databases initialized by `queue_db.py`.
+5. **Verification**:
+   - `tests/test_anki_mirror_compute.py`: 20 tests covering field cleaning, mapping, state classification, difficulty monotonicity, FSRS blend, and hand-computed daily series.
+   - `tests/test_anki_mirror_sync.py`: 9 integration tests covering full sync, incremental sync, card modification, reconcile deletion, offline fail-soft, degraded action handling, corrupt state file recovery, lock contention, and worker isolation.
+   - `backend/tests/test_jlpt_batch.py`: 4 tests for empty, single, mixed, and invalid payloads.
+   - Full test suites passing: `kiroku_cloud_queue` (170 passed, 1 skipped), `backend` (541 passed, 4 subtests).
+
+**Remaining Risk**:
+- Live sync against running Anki Desktop remains unverified in this offline headless test environment; comprehensively verified against fake AnkiConnect transport adhering to AnkiConnect API specifications.
+
 ### Cloud Dashboard Hero Modal: Hint, Notes, Context & Tags Support (2026-10-18)
 
 **Objective**: Fix the Cloud Dashboard Hero card inspection modal to display hints, notes, source context, and tags whenever available, while hiding them if empty; preserve existing UI aesthetics, typography, and zero-emoji compliance.
