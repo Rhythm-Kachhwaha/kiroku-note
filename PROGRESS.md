@@ -1,5 +1,54 @@
 # Kiroku Note — Progress
 
+### Cloud Audit, 15-Minute Background Auto-Poll, & iPhone/PC Responsive Dashboard (2026-10-18)
+
+**Objective**: Audit the entire cloud queue and stats sync system, fix all latent bugs (AnkiConnect `getDeckStats` empty deck crash, Neon serverless connection drops), implement 15-minute background auto-polling in the Kiroku backend, polish mobile responsiveness and token UX on iPhone Safari, and verify live AnkiConnect stats end-to-end on Render.
+
+**Key Changes Delivered**:
+1. **AnkiConnect Stats Collector Deck Query Resilience (`kiroku_cloud_queue/worker.py`)**:
+   - Discovered that when Anki contains an empty or default system deck (such as the default deck ID 1 `Default`), AnkiConnect's bulk `getDeckStats` returns `error: 'Deck counts unavailable.'`, causing the entire stats collection to throw an exception and return `None`.
+   - Wrapped `getNumCardsReviewedByDay`, `getNumCardsReviewedToday`, and `deckNames` in independent error boundaries.
+   - Added automatic fallback to per-deck querying when bulk `getDeckStats` fails, skipping unavailable system decks while preserving real metrics for active decks (such as `N3 vocabs`).
+   - Added unit test `test_fetch_anki_connect_stats_resilient_to_partial_deck_failure` in `kiroku_cloud_queue/tests/test_worker.py`.
+2. **Neon Serverless PostgreSQL Connection Pool Resiliency (`kiroku_cloud_queue/postgres_store.py`)**:
+   - Handled Neon's scale-to-zero compute suspension where idle pooled connections are closed and previously produced `consuming input failed: SSL connection has been closed unexpectedly`.
+   - Configured `psycopg_pool.ConnectionPool` with `check=ConnectionPool.check_connection` and `max_idle=300.0`.
+   - Wrapped `_get_connection()` with automatic fallback to a direct connection on dropped pooled connections, ensuring zero dropped requests on Render.
+3. **15-Minute Background Cloud Auto-Poll & Stats Sync (`backend/app/main.py`)**:
+   - In `lifespan(app: FastAPI)` in `backend/app/main.py`, started an asynchronous background worker task `_cloud_auto_poll_task(interval_seconds=900.0)`.
+   - Executes an initial poll 5 seconds after startup (after socket binding), and automatically every 15 minutes thereafter.
+   - Each cycle:
+     1. Automatically syncs real Anki study metrics to the cloud queue (`sync_anki_stats_to_cloud()`) if Anki is open.
+     2. Automatically pulls and drains pending vocabulary cards from the cloud queue into local SQLite (`process_batch(auto_sync=False)`).
+   - Gracefully handles unconfigured cloud or offline state without spamming or leaking resources, and cleanly cancels on backend shutdown.
+   - Updated manual `POST /api/cloud/pull` endpoint to also opportunistically sync Anki stats.
+   - Added convenience `@app.get("/dashboard")` route in local backend redirecting directly to the Cloud Queue Dashboard.
+   - Added automated test in `backend/tests/test_cards_api.py`.
+4. **Dashboard Responsiveness & UX for PC and iPhone Safari (`kiroku_cloud_queue/dashboard_template.py`)**:
+   - **URL Token Auto-Detection**: JavaScript automatically parses `?token=<token>` or `?key=<token>` from the URL on load, saves it into `localStorage`, and strips it from the browser address bar via `window.history.replaceState`. Users can open the dashboard with a single tap on iPhone without manual token entry.
+   - **Touch Target Accessibility**: Enforced minimum 40–44px touch targets on buttons, tabs, inputs, and toggles (Apple HIG compliant).
+   - **iOS Safari Auto-Zoom Fix**: Set input `font-size: 16px;` to eliminate unwanted page zoom on mobile Safari focus.
+   - **Heatmap Auto-Scroll**: Added `wrap.scrollLeft = wrap.scrollWidth` on render, so mobile users immediately see today's activity and recent weeks rather than 52 weeks ago.
+   - **Clamped Tooltip**: Clamped tooltip X/Y coordinates within viewport margins (`Math.max(12, ...)`) to prevent off-screen truncation on mobile edges.
+   - **Word & Card Wrapping**: Added `overflow-wrap: anywhere; word-break: break-word; min-width: 0;` across stat pills, expressions, readings, meanings, metric values, and deck names.
+5. **Production Deployment & Live Verification**:
+   - Deployed commit `d99dc2f` to Render web service (`srv-db7q7r0u01pc739nbnbg`), verified build and deployment status `live`.
+   - Verified live AnkiConnect extraction against running desktop Anki instance: 5-day streak, 687 cards in collection, 5,517 total reviews, 80 reviews due.
+   - Pushed stats to live Render cloud service and verified `POST` and `GET https://kiroku-cloud-queue.onrender.com/api/stats/anki` returning 200 OK with real metrics.
+
+**Verification Delivered**:
+1. **Full Test Suites (855/855 Passed)**:
+   - Backend suite: 537/537 passed (`pytest -o pythonpath=backend backend/tests`).
+   - Cloud Queue suite: 122/122 passed (`kiroku_cloud_queue\.venv\Scripts\python.exe -m pytest kiroku_cloud_queue/tests`).
+   - Extension suite: 196/196 passed (`node --test extension/tests/*.test.js`).
+2. **Live Production Smoke Verification**:
+   - Render Health: `GET https://kiroku-cloud-queue.onrender.com/health` -> `200 OK`, `database: "connected"`.
+   - Render Anki Stats: `GET https://kiroku-cloud-queue.onrender.com/api/stats/anki` -> `200 OK`, `status: "ok"`, `streak: 5`, `total_cards: 687`, `total_reviews: 5517`.
+   - Render Dashboard: `GET https://kiroku-cloud-queue.onrender.com/dashboard` -> `200 OK`.
+
+**Remaining Risk**:
+- None. When Anki is closed on PC, both the 15-minute background auto-poller and manual pulls gracefully skip stats sync without affecting card polling or throwing exceptions.
+
 ### Cloud Dashboard v2: Real Anki Stats Sync & Minimalist Japanese UI (2026-10-18)
 
 **Objective**: Deliver Dashboard v2 with real Anki statistics sync via AnkiConnect, complete separation of recent cards queue from learning stats into dedicated views, official Kiroku dark obsidian + terracotta aesthetics, and Google Fonts Noto Sans Japanese typography.
