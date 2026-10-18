@@ -609,6 +609,304 @@ async def get_anki_stats_endpoint(request: Request) -> JSONResponse:
 
 
 # ---------------------------------------------------------------------------
+# Anki Mirror Endpoints (Worker Write & Dashboard Read)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/anki/cards")
+async def save_anki_cards_endpoint(request: Request) -> JSONResponse:
+    """Worker endpoint to push mirrored Anki card rows in batches (max 500)."""
+    _authenticate_worker(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Malformed JSON body: {exc}")
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Payload must be a JSON object.")
+
+    cards = payload.get("cards", [])
+    if not isinstance(cards, list):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="'cards' must be a list.")
+
+    if len(cards) > 500:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Batch size limit exceeded: maximum 500 cards per request (received {len(cards)}).",
+        )
+
+    inserted = store.upsert_anki_cards(cards)
+    return JSONResponse({
+        "status": "ok",
+        "inserted": inserted,
+        "count": len(cards),
+    })
+
+
+@app.post("/api/anki/daily")
+async def save_anki_daily_endpoint(request: Request) -> JSONResponse:
+    """Worker endpoint to push daily review and card growth metrics (max 1000)."""
+    _authenticate_worker(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Malformed JSON body: {exc}")
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Payload must be a JSON object.")
+
+    days = payload.get("days", [])
+    if not isinstance(days, list):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="'days' must be a list.")
+
+    if len(days) > 1000:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Batch size limit exceeded: maximum 1000 daily entries per request (received {len(days)}).",
+        )
+
+    inserted = store.upsert_anki_daily(days)
+    return JSONResponse({
+        "status": "ok",
+        "inserted": inserted,
+        "count": len(days),
+    })
+
+
+@app.post("/api/anki/reconcile")
+async def reconcile_anki_cards_endpoint(request: Request) -> JSONResponse:
+    """Worker endpoint to reconcile mirrored cards against all live Anki card IDs."""
+    _authenticate_worker(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Malformed JSON body: {exc}")
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Payload must be a JSON object.")
+
+    card_ids = payload.get("card_ids")
+    if not isinstance(card_ids, list):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="'card_ids' must be a list of integer IDs.")
+
+    deleted = store.reconcile_anki_cards(card_ids)
+    return JSONResponse({
+        "status": "ok",
+        "deleted": deleted,
+        "reconciled_total": len(card_ids),
+    })
+
+
+@app.post("/api/anki/meta")
+async def save_anki_meta_endpoint(request: Request) -> JSONResponse:
+    """Worker endpoint to record sync metadata (key/value pairs or 'meta' mapping)."""
+    _authenticate_worker(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Malformed JSON body: {exc}")
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Payload must be a JSON object.")
+
+    if "meta" in payload and isinstance(payload["meta"], dict):
+        for k, v in payload["meta"].items():
+            store.set_anki_meta(str(k), str(v))
+    elif "key" in payload and "value" in payload:
+        store.set_anki_meta(str(payload["key"]), str(payload["value"]))
+    else:
+        for k, v in payload.items():
+            store.set_anki_meta(str(k), str(v))
+
+    return JSONResponse({"status": "ok"})
+
+
+@app.get("/api/cards")
+async def query_cards_endpoint(
+    request: Request,
+    q: Optional[str] = None,
+    state: Optional[str] = None,
+    label: Optional[str] = None,
+    deck: Optional[str] = None,
+    jlpt: Optional[str] = None,
+    due_within: Optional[int] = None,
+    sort: str = "difficulty",
+    dir: str = "desc",
+    limit: int = 30,
+    offset: int = 0,
+) -> JSONResponse:
+    """Dashboard endpoint to search, filter, and paginate mirrored Anki cards."""
+    _authenticate_recent(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+
+    limit = min(max(1, limit), 100)
+    offset = max(0, offset)
+
+    filters: dict[str, Any] = {}
+    if q is not None and q.strip():
+        filters["q"] = q.strip()
+    if state is not None and state.strip():
+        filters["state"] = state.strip()
+    if label is not None and label.strip():
+        filters["label"] = label.strip()
+    if deck is not None and deck.strip():
+        filters["deck"] = deck.strip()
+    if jlpt is not None and jlpt.strip():
+        filters["jlpt"] = jlpt.strip()
+    if due_within is not None:
+        filters["due_within"] = due_within
+
+    try:
+        items, total = store.query_anki_cards(
+            filters=filters,
+            sort=sort,
+            dir=dir,
+            limit=limit,
+            offset=offset,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    status_data = store.get_anki_status()
+    return JSONResponse({
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "synced_at": status_data.get("synced_at"),
+    })
+
+
+@app.get("/api/cards/{card_id}")
+async def get_card_endpoint(card_id: int, request: Request) -> JSONResponse:
+    """Dashboard endpoint to fetch a single mirrored card detail."""
+    _authenticate_recent(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+
+    card = store.get_anki_card(card_id)
+    if not card:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Card {card_id} not found.")
+
+    return JSONResponse({
+        "status": "ok",
+        "card": card,
+    })
+
+
+@app.get("/api/stats/overview")
+async def get_stats_overview_endpoint(request: Request, range: str = "90d") -> JSONResponse:
+    """Dashboard endpoint returning all comprehensive Anki stats series for the Stats tab."""
+    _authenticate_recent(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+
+    overview = store.get_stats_overview(range_key=range)
+    return JSONResponse(overview)
+
+
+@app.get("/api/anki/status")
+async def get_anki_status_endpoint(request: Request) -> JSONResponse:
+    """Dashboard endpoint returning mirror sync freshness, card count, and last reconcile."""
+    _authenticate_recent(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+
+    status_data = store.get_anki_status()
+    return JSONResponse(status_data)
+
+
+# ---------------------------------------------------------------------------
+# Cloud Study Mode Endpoints (Extra Practice)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/study/session")
+async def get_study_session_endpoint(
+    request: Request,
+    mode: str = "weakest",
+    level: Optional[str] = None,
+    limit: int = 20,
+    card_ids: Optional[str] = None,
+) -> JSONResponse:
+    """Dashboard endpoint to seed a cloud study session."""
+    _authenticate_recent(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+
+    custom_ids: Optional[list[int]] = None
+    if card_ids:
+        try:
+            custom_ids = [int(x.strip()) for x in card_ids.split(",") if x.strip()]
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="card_ids must be comma-separated integers.")
+
+    limit = min(max(1, limit), 100)
+    cards = store.get_study_session(mode=mode, level=level, limit=limit, custom_card_ids=custom_ids)
+    return JSONResponse({
+        "status": "ok",
+        "mode": mode,
+        "count": len(cards),
+        "cards": cards,
+    })
+
+
+@app.post("/api/study/review")
+async def record_study_review_endpoint(request: Request) -> JSONResponse:
+    """Dashboard endpoint to record an extra-practice review using 5-box Leitner scheduling."""
+    _authenticate_recent(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Malformed JSON body: {exc}")
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Payload must be a JSON object.")
+
+    card_id = payload.get("card_id")
+    if not isinstance(card_id, int):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="'card_id' must be an integer.")
+
+    rating = payload.get("rating")
+    if not isinstance(rating, int) or rating not in (1, 2, 3, 4):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="'rating' must be 1 (Again), 2 (Hard), 3 (Good), or 4 (Easy).")
+
+    time_ms = payload.get("time_ms", 0)
+    session_id = payload.get("session_id")
+    review_uuid = payload.get("review_uuid")
+
+    result = store.record_study_review(
+        card_id=card_id,
+        rating=rating,
+        time_ms=int(time_ms) if isinstance(time_ms, (int, float)) else 0,
+        session_id=str(session_id) if session_id else None,
+        review_uuid=str(review_uuid) if review_uuid else None,
+    )
+    if not result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Card {card_id} not found in mirror.")
+
+    return JSONResponse({"status": "ok", **result})
+
+
+@app.get("/api/study/summary")
+async def get_study_summary_endpoint(request: Request) -> JSONResponse:
+    """Dashboard endpoint returning cloud practice stats (practiced today, 7d, box distribution)."""
+    _authenticate_recent(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+
+    summary = store.get_study_summary()
+    return JSONResponse({"status": "ok", **summary})
+# ---------------------------------------------------------------------------
 # Mobile & Desktop Web Dashboard (Read-Only)
 # ---------------------------------------------------------------------------
 

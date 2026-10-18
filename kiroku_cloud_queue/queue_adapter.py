@@ -14,6 +14,7 @@ Implementations:
 from __future__ import annotations
 
 import abc
+import asyncio
 import os
 import logging
 from dataclasses import asdict, dataclass, field
@@ -202,6 +203,22 @@ class QueueAdapter(abc.ABC):
         """Push local Anki study metrics snapshot to cloud queue service."""
         return False
 
+    async def push_anki_cards(self, cards: list[dict[str, Any]], schema_version: int = 1) -> bool:
+        """Push a batch of mirrored Anki cards to cloud queue service."""
+        return False
+
+    async def push_anki_daily(self, days: list[dict[str, Any]], schema_version: int = 1) -> bool:
+        """Push a batch of historical daily study series to cloud queue service."""
+        return False
+
+    async def reconcile_anki_cards(self, all_card_ids: list[int]) -> bool:
+        """Reconcile mirrored cards with the full list of active Anki card IDs."""
+        return False
+
+    async def push_anki_meta(self, meta: dict[str, str]) -> bool:
+        """Push collection metadata key-values to cloud queue service."""
+        return False
+
 
 # ---------------------------------------------------------------------------
 # Local Development Adapter (Offline Testing Only)
@@ -301,6 +318,46 @@ class LocalDevQueueAdapter(QueueAdapter):
             return True
         except Exception as exc:
             log.warning("Failed to save local Anki stats: %s", exc)
+            return False
+
+    @property
+    def _store(self):
+        if getattr(self, "_lazy_store", None) is None:
+            from queue_store import SqliteQueueStore
+            self._lazy_store = SqliteQueueStore(db_path=self.db_path)
+        return self._lazy_store
+
+    async def push_anki_cards(self, cards: list[dict[str, Any]], schema_version: int = 1) -> bool:
+        try:
+            self._store.upsert_anki_cards(cards)
+            return True
+        except Exception as exc:
+            log.warning("LocalDevQueueAdapter: failed to upsert anki cards: %s", exc)
+            return False
+
+    async def push_anki_daily(self, days: list[dict[str, Any]], schema_version: int = 1) -> bool:
+        try:
+            self._store.upsert_anki_daily(days)
+            return True
+        except Exception as exc:
+            log.warning("LocalDevQueueAdapter: failed to upsert anki daily: %s", exc)
+            return False
+
+    async def reconcile_anki_cards(self, all_card_ids: list[int]) -> bool:
+        try:
+            self._store.reconcile_anki_cards(all_card_ids)
+            return True
+        except Exception as exc:
+            log.warning("LocalDevQueueAdapter: failed to reconcile anki cards: %s", exc)
+            return False
+
+    async def push_anki_meta(self, meta: dict[str, str]) -> bool:
+        try:
+            for k, v in meta.items():
+                self._store.set_anki_meta(k, v)
+            return True
+        except Exception as exc:
+            log.warning("LocalDevQueueAdapter: failed to push anki meta: %s", exc)
             return False
 
 
@@ -478,6 +535,51 @@ class CloudQueueAdapter(QueueAdapter):
         except Exception as exc:
             log.warning("Failed to push Anki stats to cloud queue: %s", exc)
             return False
+
+    async def _post_with_retry(self, path: str, payload: dict[str, Any], max_retries: int = 3) -> bool:
+        self._ensure_configured()
+        url = f"{self.queue_url}{path}"
+        headers = self._headers()
+        backoff = 1.0
+        for attempt in range(1, max_retries + 1):
+            try:
+                # Use a generous timeout for batch operations
+                batch_timeout = max(self.timeout, 35.0)
+                async with httpx.AsyncClient(timeout=batch_timeout) as client:
+                    resp = await client.post(url, json=payload, headers=headers)
+                    if resp.status_code == 200:
+                        return True
+                    if resp.status_code < 500:
+                        log.warning(
+                            "Cloud queue rejected %s with HTTP %d: %s",
+                            path, resp.status_code, self._sanitize_error(resp.text)
+                        )
+                        return False
+                    log.warning(
+                        "Cloud queue returned HTTP %d for %s (attempt %d/%d)",
+                        resp.status_code, path, attempt, max_retries
+                    )
+            except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPError) as exc:
+                log.warning(
+                    "Network error during %s (attempt %d/%d): %s",
+                    path, attempt, max_retries, self._sanitize_error(str(exc))
+                )
+            if attempt < max_retries:
+                await asyncio.sleep(backoff)
+                backoff *= 2.0
+        return False
+
+    async def push_anki_cards(self, cards: list[dict[str, Any]], schema_version: int = 1) -> bool:
+        return await self._post_with_retry("/api/anki/cards", {"schema_version": schema_version, "cards": cards})
+
+    async def push_anki_daily(self, days: list[dict[str, Any]], schema_version: int = 1) -> bool:
+        return await self._post_with_retry("/api/anki/daily", {"schema_version": schema_version, "days": days})
+
+    async def reconcile_anki_cards(self, all_card_ids: list[int]) -> bool:
+        return await self._post_with_retry("/api/anki/reconcile", {"card_ids": all_card_ids, "total": len(all_card_ids)})
+
+    async def push_anki_meta(self, meta: dict[str, str]) -> bool:
+        return await self._post_with_retry("/api/anki/meta", {"meta": meta})
 
 
 

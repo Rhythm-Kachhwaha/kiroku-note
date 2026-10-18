@@ -19,6 +19,56 @@
 4. **Deviations from Prompt**:
    - None. All requirements, formulas, schema parity across 3 files, locked boundaries, and zero-emoji rules will be followed exactly.
 
+### Cloud Dashboard Card Mirror: M1 Storage & API (2026-10-18)
+
+**Objective**: Implement Milestone 1 storage layer parity and API endpoints for Anki card mirror, daily history, and cloud study mode. Ensure complete schema parity across SQLite (`queue_store.py`), Postgres (`postgres_store.py`), and `postgres_schema.sql`. Expose worker batch write endpoints, dashboard read endpoints, and Leitner 5-box cloud study endpoints with strict token segregation.
+
+**Key Changes Delivered**:
+1. **Database Schema Parity Across 3 Files**:
+   - `anki_cards`: Mirrored Anki cards with cleaned fields (`expression`, `reading`, `meaning`, `sentence`, `sentence_meaning`), derived fields (`state`, `interval_days`, `reps`, `lapses`, `again_count_10`, `reviews_10`, `again_rate_10`, `avg_time_ms`, `difficulty_score`, `difficulty_label`, `is_leech`, `due_in_days`), FSRS nullable fields (`fsrs_difficulty`, `fsrs_stability`, `fsrs_retrievability`), timestamps and 8 indexes (`difficulty_label`, `state`, `deck_name`, `jlpt_level`, `difficulty_score`, `lapses`, `due_in_days`, `created_at`).
+   - `anki_daily`: Daily series history (`day` PK, `reviews`, `again`, `hard`, `good`, `easy`, `time_ms`, `true_retention_num/den`, `mature_retention_num/den`, `new_cards_added`, `total_cards`, `n_new`, `n_learning`, `n_young`, `n_mature`, `n_suspended`).
+   - `anki_meta`: Key/value metadata (`last_full_reconcile_at`, `last_mirror_sync_at`, `card_count`, `schema_version`, `collection_day_rollover_hour`).
+   - `cloud_study_state`: Leitner 5-box study state (`card_id` PK, `box` 1..5, `due_at`, `times_seen`, `again_count`, `last_result`, `last_seen_at`, `streak`).
+   - `cloud_study_reviews`: Extra practice review log (`id` PK, `card_id`, `reviewed_at`, `rating` 1..4, `time_ms`, `session_id`).
+   - Updated `_SQLITE_SCHEMA` in `queue_store.py`, `PostgresQueueStore.init_db()` in `postgres_store.py`, and DDL in `postgres_schema.sql`.
+2. **Store Methods Implementation (`queue_store.py`, `postgres_store.py`)**:
+   - `upsert_anki_cards(rows)`: Batch `ON CONFLICT(card_id) DO UPDATE` in a single transaction.
+   - `reconcile_anki_cards(all_card_ids)`: Temporary staging table set-difference delete avoiding SQLite/Postgres parameter limits; cascades cleanup of orphaned `cloud_study_state`.
+   - `upsert_anki_daily(rows)`: Batch `ON CONFLICT(day) DO UPDATE`.
+   - `set_anki_meta(key, value)` & `get_anki_meta()`.
+   - `query_anki_cards(filters, sort, dir, limit, offset)`: Whitelist-validated sorting (`difficulty`, `lapses`, `interval`, `due`, `created`, `last_review`, `reps`, `expression`), LIKE escaping for `%` and `_`, pagination with total count.
+   - `get_anki_card(card_id)` & `get_anki_status()`.
+   - `get_stats_overview(range_key)`: Computes growth curve, state breakdown, retention, answer buttons, due forecast, difficulty distribution, top 20 weak words, JLPT coverage, and queue activity in one call.
+   - `get_study_session(mode, level, limit, custom_ids)`: Leitner session selection for weakest, leeches, jlpt level, recent, unseen, and due cards.
+   - `record_study_review(card_id, rating, time_ms, session_id, review_uuid)`: Leitner 5-box state transitions (Again -> box 1, Hard -> cur_box, Good -> cur_box+1, Easy -> cur_box+2; max 5), idempotent duplicate handling via `review_uuid`.
+   - `get_study_summary()`: Summarizes practiced today, 7d, box distribution, and hardest cloud cards.
+3. **Queue Adapters (`queue_adapter.py`)**:
+   - Added abstract defaults on `QueueAdapter`: `push_anki_cards`, `push_anki_daily`, `reconcile_anki_cards`, `push_anki_meta`.
+   - Implemented local store delegation on `LocalDevQueueAdapter`.
+   - Implemented HTTP push with backoff retry on `CloudQueueAdapter`.
+4. **API Endpoints (`server.py`)**:
+   - Worker writes (`_authenticate_worker`):
+     - `POST /api/anki/cards`: Max 500 cards (rejects larger with 413).
+     - `POST /api/anki/daily`: Max 1000 days (rejects larger with 413).
+     - `POST /api/anki/reconcile`: Reconciles against live Anki IDs.
+     - `POST /api/anki/meta`: Sync metadata recording.
+   - Dashboard reads (`_authenticate_recent`):
+     - `GET /api/cards`: Search, filter, paginate mirrored cards (empty tables return 200 with `{items: [], total: 0}`).
+     - `GET /api/cards/{card_id}`: Detail view (404 on missing).
+     - `GET /api/stats/overview`: Overview series with `range` parameter (`30d`, `90d`, `1y`, `all`).
+     - `GET /api/anki/status`: Sync freshness and status.
+   - Cloud Study mode (`_authenticate_recent`):
+     - `GET /api/study/session`: Session card generator.
+     - `POST /api/study/review`: Extra practice review recording.
+     - `GET /api/study/summary`: Extra practice statistics.
+5. **Verification**:
+   - Created `tests/test_anki_store.py` (9 tests covering SQLite upsert, reconcile, LIKE escaping, sort whitelist rejection, pagination, stats overview, Leitner transitions, and Postgres URL skip check).
+   - Created `tests/test_anki_api.py` (9 tests covering worker auth, size limits 413, reconcile, meta, empty table 200 responses, query filters, overview shape, and study review flow).
+   - Test results: 141 passed, 1 skipped (0 failures, 8 deprecation warnings) across entire `kiroku_cloud_queue` suite (`.\.venv\Scripts\python.exe -m pytest tests -q`).
+
+**Remaining Risk**:
+- Postgres integration test was skipped because `TEST_DATABASE_URL` is not set in this local environment; verified against identical SQLite schema and syntax-verified Postgres DDL/queries.
+
 ### Cloud Dashboard Hero Modal: Hint, Notes, Context & Tags Support (2026-10-18)
 
 **Objective**: Fix the Cloud Dashboard Hero card inspection modal to display hints, notes, source context, and tags whenever available, while hiding them if empty; preserve existing UI aesthetics, typography, and zero-emoji compliance.
