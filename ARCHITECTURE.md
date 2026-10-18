@@ -194,7 +194,14 @@ The card mirror is strictly one-way and read-only: Anki Desktop to the cloud dat
      - Answer time pressure: `min(1.0, avg_time_ms / 15000.0) * 0.10`
      - Low interval pressure: `(1.0 - min(1.0, interval_days / 90.0)) * 0.15`
      - Real FSRS blend: if `cardsInfo` returns native FSRS difficulty (0..1), blends 50% FSRS score with 50% heuristic score.
-   - Difficulty labels: `leech` (`is_leech=True` or score >= 85), `hard` (60..84), `normal` (30..59), `easy` (10..29), `solid` (<10 and interval >= 21), and `new` (`reps == 0`).
+   - Difficulty labels: `leech` (`is_leech=True` only, via `tag:leech` or `lapses >= 8`), `hard` (score >= 50 without the leech flag), `normal` (30..49), `easy` (10..29), `solid` (<10 and interval >= 21), and `new` (`reps == 0`).
+4. **Read-Only Whitelist Guarantee**:
+   - `AnkiClient` enforces an immutable whitelist of approved read actions (`version`, `deckNames`, `findCards`, `cardsInfo`, `cardsModTime`, `getReviewsOfCards`, `cardReviews`, `getLatestReviewID`, `getNumCardsReviewedByDay`, `getNumCardsReviewedToday`, `getDeckStats`, `getActiveProfile`).
+   - Any other action name raises `PermissionError` immediately before network dispatch, guaranteeing the mirror cannot modify the user's Anki collection.
+5. **Reconcile Safety & Profile Guards**:
+   - Reconcile never proceeds if Anki returns 0 cards (preventing accidental total wiping of the cloud database).
+   - If the returned card count is less than 50% of the previous mirrored count (recorded in `anki_meta`), the deletion step is skipped, a warning is logged, and `reconcile_skipped_reason` is set in status, unless deliberately overridden via `--allow-shrink`.
+   - If `getActiveProfile` indicates an Anki profile change compared to saved metadata, synchronization is safely skipped to prevent cross-profile contamination.
 
 ### ADR-010: Leitner 5-box Cloud Extra Practice Mode
 

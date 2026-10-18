@@ -1,5 +1,94 @@
 # Kiroku Note — Progress
 
+### Cloud Dashboard Card Mirror: Follow-Up Verification, Hardening & Merge (2026-10-18)
+
+**Objective**: Verify, fix deviations, harden safety guards, benchmark performance on Neon Postgres, and prepare `feature/dashboard-card-mirror` for merging into `main`.
+
+**1. Fixes for Deviations & Postgres Scope Reconciliation**:
+- **Leech Label Deviation Fixed**: Modified `compute_difficulty` in `anki_mirror.py` so a card is classified as `leech` *strictly* when `is_leech == True` (either tagged with `leech` in Anki or `lapses >= 8`). Cards scoring above the hard threshold without the leech flag are classified as `hard`. Updated docstrings, `ARCHITECTURE.md`, seed scripts, and tests in `test_anki_mirror_compute.py`.
+- **Postgres Store Scope Diff**: Ran `git diff main...feature/dashboard-card-mirror -- kiroku_cloud_queue/postgres_store.py`. Verified that the connection pool resiliency code was already on `main` at commit `d99dc2f` (`feat(cloud): add background poll worker and resilient database pool`). The feature branch strictly added the mirror and study mode tables (`anki_cards`, `anki_daily`, `anki_meta`, `cloud_study_state`, `cloud_study_reviews`) and their respective queries.
+- **Out-of-Scope Changes**: None. All modified files are strictly confined to `kiroku_cloud_queue/`, `backend/app/main.py`, `backend/tests/test_jlpt_batch.py`, `PROGRESS.md`, `ARCHITECTURE.md`, and `.gitignore`.
+
+**2. Postgres Verification (PostgreSQL 16.15 on Neon)**:
+- **Disposable Neon Branch**: Provisioned disposable branch `test-card-mirror-temp` (`br-crimson-bird-arbubkb2`) on Neon project `hidden-lake-25209330` via Neon MCP.
+- **Postgres Engine Version**: PostgreSQL 16.15 (Ubuntu 16.15-1.pgdg24.04+1) on AWS us-west-2.
+- **Schema Isolation**: Implemented schema isolation (`self.schema`, `CREATE SCHEMA IF NOT EXISTS`, `SET search_path`, `drop_schema`) in `PostgresQueueStore` and test fixtures. Connection pool session state leaks across tests were eliminated by explicitly setting `search_path` in `_prepare_conn`.
+- **Full Test Parity**:
+  - `tests/test_anki_store.py` (including `test_postgres_store_parity`): 19/19 PASSED against Postgres 16.15.
+  - `tests/test_anki_api.py` & `tests/test_study_api.py`: 28/28 PASSED against Postgres 16.15.
+- **Post-Verification Cleanup**: Disposable Neon branch `br-crimson-bird-arbubkb2` was cleanly deleted; only the primary `main` branch remains on Neon.
+
+**3. Live Anki Verification**:
+- **Action Inspection (`scripts/verify_anki_actions.py`)**: Executed with Anki Desktop active. Summary:
+  - AnkiConnect Version: 6 (protocol version 6).
+  - Decks: `Default` (57 cards), `N3 vocabs` (633 cards) — total 690 cards.
+  - Active Profile: `User 1` (retrieved via `getActiveProfile`).
+  - Action shapes verified: `cardsInfo` returns SM-2 fields (`factor`, `interval`, `reps`, `lapses`); native FSRS keys (`fsrsDifficulty`, `fsrsStability`, `fsrsRetrievability`) were absent/None in AnkiConnect, triggering graceful heuristic difficulty fallback. `cardsModTime` returns list of integer timestamps; `getReviewsOfCards` returns dictionary of review event lists.
+- **Read-Only Whitelist Guarantee**: Added `ANKI_READ_ACTIONS_WHITELIST` to `anki_mirror.py`. `AnkiClient.invoke()` validates action names and raises `PermissionError` before dispatching any network request if the action is not in the approved read list (`version`, `deckNames`, `findCards`, `cardsInfo`, `cardsModTime`, `getReviewsOfCards`, `cardReviews`, `getLatestReviewID`, `getNumCardsReviewedByDay`, `getNumCardsReviewedToday`, `getDeckStats`, `getActiveProfile`). Verified with unit test `test_read_actions_whitelist_enforced`.
+- **Local End-to-End Sync Run**:
+  - Full resync: `python worker.py --sync-cards --full-resync` with Anki open against a fresh local SQLite store.
+  - Duration: 5.31 seconds.
+  - Results: 690 cards pushed, 28 daily series rows, 0 errors, 0 warnings.
+  - Incremental sync: Second run completed in 2.50s with 0 cards pushed and 0 daily rows.
+- **Real Collection Analysis**:
+  - Note models: `japanese mining` (633 cards: `Front`, `Back`, `word`, `Audio`, `Image`, `Source`, `URL`), `Basic` (57 cards: `Front`, `Back`).
+  - Empty field count: 0 expressions empty, 0 meanings empty.
+  - Field cleaning: Enhanced `clean_field` to strip `<style>...</style>` and `<script>...</script>` blocks. Kanjidic definitions now extract pristine plain text without embedded CSS rules.
+  - Five Cleaned vs Raw Examples:
+    1. Raw: `<div>単語</div><style>.kanjidic{color:#888;}</style>` -> Cleaned: `単語`
+    2. Raw: `読[よ]む` -> Cleaned: `読む` (reading: `よむ`)
+    3. Raw: `[sound:audio_123.mp3] Meaning text` -> Cleaned: `Meaning text`
+    4. Raw: `&nbsp;&lt;b&gt;bold&lt;/b&gt;&nbsp;` -> Cleaned: `bold`
+    5. Raw: `<span>漢字</span>[sound:rec.wav]` -> Cleaned: `漢字`
+  - Real Difficulty Distribution on 690 Cards:
+    - Adjusted thresholds: `HARD_THRESHOLD = 50.0`, `NORMAL_THRESHOLD = 30.0` (target 10-20% hard+leech).
+    - Hard: 97 cards (14.1%)
+    - Leech: 0 cards (0.0%, no cards with tag:leech or lapses >= 8)
+    - Normal: 137 cards (19.9%)
+    - Easy: 276 cards (40.0%)
+    - Solid: 176 cards (25.5%)
+    - New: 4 cards (0.6%)
+    - Total Hard + Leech: **14.1%** (perfectly within target range).
+  - JLPT Enrichment:
+    - Backend stopped: 0/690 filled (0.0%), fields stay null, zero crash (fails soft).
+    - Backend running (`POST /api/jlpt/batch`): 653/690 filled (**94.6% fill rate**: N5: 167, N4: 143, N3: 214, N2: 77, N1: 52, Unknown: 37).
+
+**4. Safety Guards for Cloud Mirror**:
+- **Reconcile Safety**:
+  - 0 Cards: Reconcile is aborted when Anki returns 0 cards, preventing collection wipeouts on misconfigured queries.
+  - <50% Shrink Protection: Reconcile skips deletion and records `reconcile_skipped_reason` when incoming card count is < 50% of `card_count` in `anki_meta` unless explicitly overridden via `--allow-shrink`.
+  - Dashboard Notice: Added non-alarming warning banner on the Cards tab in `dashboard.html` that displays when `reconcile_skipped_reason` is populated.
+- **Profile Mismatch Guard**: Records active Anki profile in `anki_meta`. If `getActiveProfile` returns a differing profile, sync is skipped with warning `Profile mismatch: expected X, got Y`.
+- **Failure Isolation**: Verified that an AnkiConnect timeout or cloud 5xx failure never crashes `sync_anki_stats_to_cloud`, queue draining, or the background poll worker.
+
+**5. Performance & Neon Latency**:
+- **SQL Query Optimization**:
+  - `GET /api/cards`: Exactly 2 queries (`SELECT COUNT(*)` and `SELECT * ... LIMIT %s OFFSET %s`) inside a single connection.
+  - `GET /api/stats/overview`: 7 focused queries executed in a single connection and transaction.
+  - Removed redundant `CREATE SCHEMA IF NOT EXISTS` and `SET search_path = public` from connection checkout loop.
+- **5,000 Synthetic Card Benchmark**:
+  - SQLite (Local In-Process):
+    - Overview latency: **10.28 ms** (target: <800 ms)
+    - Cards page (50) latency: **6.56 ms** (target: <400 ms)
+    - Filtered cards (hard) latency: **3.94 ms** (target: <400 ms)
+  - Neon PostgreSQL (WAN from local PC to AWS us-west-2, ~350ms network RTT):
+    - Overview latency: 4478.5 ms (7 round-trips over Pacific WAN)
+    - Cards page (50) latency: 3368.6 ms (2 round-trips + payload transfer)
+    - On co-located Render deployment (same cloud region, <1ms RTT), latency is estimated at <25ms.
+- **Dashboard Cold-Start & Study Retry Queue**:
+  - Cold-start: 4-second timeout timer in `dashboard.html` displays `Waking up server (Render cold start)...` when the initial cards fetch is delayed.
+  - Retry Queue: Leitner study ratings are persisted in `localStorage` under `kiroku_pending_reviews`. Unflushed reviews automatically retry on window `online` events and before submitting subsequent ratings.
+
+**6. Test Verification Summary**:
+- `kiroku_cloud_queue` suite: **187 passed, 24 skipped** (Postgres parametrized tests skipped when `TEST_DATABASE_URL` unset) in 43.71s.
+- Postgres run: **19/19 store tests passed, 28/28 API tests passed** on Neon PostgreSQL 16.15.
+- `backend` suite: **541 passed, 0 failures** in 87.61s (`$env:PYTHONPATH="backend"; pytest backend/tests`).
+- Dashboard template: **6 passed in 0.10s** (`test_scripts_pass_node_check` with Node.js v24.20.0, `test_zero_emojis_in_dashboard` passed).
+- Zero emojis: Verified across all code files (0 violations).
+- Tracked files: Confirmed `.mirror_state.json`, `.db`, `.env` are not tracked in git.
+
+---
+
 ### Cloud Dashboard Card Mirror & Study Mode: M0 Recon (2026-10-18)
 
 **Objective**: Complete reconnaissance milestone M0 for Anki card mirror, per-card difficulty scoring, rich stats, and cloud study mode. Record baseline test runs, verify local AnkiConnect availability with a read-only script, decide dashboard template backslash strategy, and establish design spec.
