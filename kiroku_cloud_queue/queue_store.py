@@ -21,8 +21,10 @@ from __future__ import annotations
 import abc
 import hashlib
 import json
+import logging
 import os
 import sqlite3
+import time
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -30,6 +32,8 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 
 from queue_adapter import QueueItem, VocabCard
+
+log = logging.getLogger("kiroku_queue_store")
 
 MAX_ATTEMPTS = 5
 DEFAULT_LEASE_SECONDS = 60
@@ -805,6 +809,7 @@ class SqliteQueueStore(BaseQueueStore):
         limit: int = 30,
         offset: int = 0,
     ) -> tuple[list[dict[str, Any]], int]:
+        t0 = time.perf_counter()
         filters = filters or {}
         limit = max(1, min(100, int(limit)))
         offset = max(0, int(offset))
@@ -897,6 +902,8 @@ class SqliteQueueStore(BaseQueueStore):
                 if "is_leech" in d:
                     d["is_leech"] = bool(d["is_leech"])
                 items.append(d)
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            log.debug("query_anki_cards completed in %.2fms (total=%d, returned=%d)", elapsed_ms, total, len(items))
             return items, total
 
     def get_anki_card(self, card_id: int) -> Optional[dict[str, Any]]:
@@ -924,9 +931,12 @@ class SqliteQueueStore(BaseQueueStore):
                 "last_reconcile_at": last_reconcile,
                 "schema_version": str(meta.get("schema_version", "1")),
                 "collection_day_rollover_hour": int(meta.get("collection_day_rollover_hour", 4)),
+                "active_profile": meta.get("active_profile", ""),
+                "reconcile_skipped_reason": meta.get("reconcile_skipped_reason", ""),
             }
 
     def get_stats_overview(self, range_filter: Optional[str] = None, range_key: Optional[str] = None) -> dict[str, Any]:
+        t0 = time.perf_counter()
         now_dt = datetime.now()
         now_date = now_dt.date()
 
@@ -1168,7 +1178,7 @@ class SqliteQueueStore(BaseQueueStore):
                 "weekly": weekly_retention,
             }
 
-            return {
+            result_overview = {
                 "range": rf,
                 "card_count": card_count,
                 "growth_curve": growth_curve,
@@ -1189,6 +1199,9 @@ class SqliteQueueStore(BaseQueueStore):
                 "jlpt_coverage": jlpt_coverage,
                 "queue_activity": queue_activity,
             }
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            log.debug("get_stats_overview completed in %.2fms (range=%s)", elapsed_ms, rf)
+            return result_overview
 
     def get_study_session(
         self,
@@ -1511,4 +1524,5 @@ def get_queue_store(db_path: Optional[Path | str] = None) -> BaseQueueStore:
         # Import lazily to keep SQLite-only environments dependency-free
         from postgres_store import PostgresQueueStore
         return PostgresQueueStore(pg_url)
-    return SqliteQueueStore(db_path=db_path)
+    db = db_path or os.getenv("SQLITE_DB_PATH") or os.getenv("CLOUD_QUEUE_DB")
+    return SqliteQueueStore(db_path=db)

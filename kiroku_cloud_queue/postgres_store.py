@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -25,12 +26,31 @@ from queue_store import (
 log = logging.getLogger("kiroku_postgres_store")
 
 
+def _to_pg_timestamp(val: Any) -> Optional[datetime]:
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val if val.tzinfo else val.replace(tzinfo=timezone.utc)
+    if isinstance(val, (int, float)):
+        return datetime.fromtimestamp(val, tz=timezone.utc)
+    if isinstance(val, str):
+        val = val.strip()
+        if not val:
+            return None
+        try:
+            return datetime.fromisoformat(val)
+        except Exception:
+            return None
+    return None
+
+
 class PostgresQueueStore(BaseQueueStore):
-    def __init__(self, connection_url: str):
+    def __init__(self, connection_url: str, schema: Optional[str] = None):
         # Normalize postgres:// to postgresql:// for modern psycopg/SQL drivers
         if connection_url.startswith("postgres://"):
             connection_url = "postgresql://" + connection_url[len("postgres://"):]
         self.connection_url = connection_url
+        self.schema = schema
         self._pool = None
         try:
             import psycopg  # psycopg 3
@@ -72,6 +92,15 @@ class PostgresQueueStore(BaseQueueStore):
                     "PostgresQueueStore requires 'psycopg' or 'psycopg2-binary'. "
                     "Install it via: pip install 'psycopg[binary,pool]'"
                 )
+        if self.schema:
+            try:
+                import psycopg
+                with psycopg.connect(self.connection_url) as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{self.schema}";')
+                    conn.commit()
+            except Exception as e:
+                log.debug("Schema creation in init: %s", e)
 
     def close(self) -> None:
         """Close connection pool if open."""
@@ -82,6 +111,20 @@ class PostgresQueueStore(BaseQueueStore):
                 pass
             self._pool = None
 
+    def drop_schema(self) -> None:
+        """Drop isolated test schema if configured."""
+        if self.schema:
+            import psycopg
+            with psycopg.connect(self.connection_url) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(f'DROP SCHEMA IF EXISTS "{self.schema}" CASCADE;')
+                conn.commit()
+
+    def _prepare_conn(self, conn: Any) -> None:
+        if self.schema:
+            with conn.cursor() as cur:
+                cur.execute(f'SET search_path = "{self.schema}", public;')
+
     @contextmanager
     def _get_connection(self):
         """Context manager providing an active connection, preferring the connection pool."""
@@ -89,15 +132,18 @@ class PostgresQueueStore(BaseQueueStore):
             if self._driver == "psycopg":
                 try:
                     with self._pool.connection() as conn:
+                        self._prepare_conn(conn)
                         yield conn
                 except Exception as exc:
                     log.warning("Pooled connection dropped or failed (%s); falling back to direct connection", exc)
                     import psycopg
                     with psycopg.connect(self.connection_url) as conn:
+                        self._prepare_conn(conn)
                         yield conn
             else:
                 conn = self._pool.getconn()
                 try:
+                    self._prepare_conn(conn)
                     yield conn
                 except Exception:
                     raise
@@ -106,11 +152,13 @@ class PostgresQueueStore(BaseQueueStore):
         elif self._driver == "psycopg":
             import psycopg
             with psycopg.connect(self.connection_url) as conn:
+                self._prepare_conn(conn)
                 yield conn
         else:
             import psycopg2
             conn = psycopg2.connect(self.connection_url)
             try:
+                self._prepare_conn(conn)
                 yield conn
             finally:
                 conn.close()
@@ -573,11 +621,11 @@ class PostgresQueueStore(BaseQueueStore):
                 float(r["fsrs_stability"]) if r.get("fsrs_stability") is not None else None,
                 float(r["fsrs_retrievability"]) if r.get("fsrs_retrievability") is not None else None,
                 int(r["due_in_days"]) if r.get("due_in_days") is not None else None,
-                r.get("created_at") or datetime.now(timezone.utc),
-                r.get("first_review_at"),
-                r.get("last_review_at"),
-                r.get("mod_at") or datetime.now(timezone.utc),
-                r.get("synced_at") or datetime.now(timezone.utc),
+                _to_pg_timestamp(r.get("created_at")) or datetime.now(timezone.utc),
+                _to_pg_timestamp(r.get("first_review_at")),
+                _to_pg_timestamp(r.get("last_review_at")),
+                _to_pg_timestamp(r.get("mod_at")) or datetime.now(timezone.utc),
+                _to_pg_timestamp(r.get("synced_at")) or datetime.now(timezone.utc),
             ))
 
         sql = """
@@ -756,6 +804,7 @@ class PostgresQueueStore(BaseQueueStore):
         limit: int = 30,
         offset: int = 0,
     ) -> tuple[list[dict[str, Any]], int]:
+        t0 = time.perf_counter()
         filters = filters or {}
         limit = max(1, min(100, int(limit)))
         offset = max(0, int(offset))
@@ -854,6 +903,8 @@ class PostgresQueueStore(BaseQueueStore):
                         if d.get(date_col) is not None:
                             d[date_col] = str(d[date_col])
                     items.append(d)
+                elapsed_ms = (time.perf_counter() - t0) * 1000.0
+                log.debug("query_anki_cards completed in %.2fms (total=%d, returned=%d)", elapsed_ms, total, len(items))
                 return items, total
 
     def get_anki_card(self, card_id: int) -> Optional[dict[str, Any]]:
@@ -891,9 +942,12 @@ class PostgresQueueStore(BaseQueueStore):
                     "last_reconcile_at": last_reconcile,
                     "schema_version": str(meta.get("schema_version", "1")),
                     "collection_day_rollover_hour": int(meta.get("collection_day_rollover_hour", 4)),
+                    "active_profile": meta.get("active_profile", ""),
+                    "reconcile_skipped_reason": meta.get("reconcile_skipped_reason", ""),
                 }
 
     def get_stats_overview(self, range_filter: Optional[str] = None, range_key: Optional[str] = None) -> dict[str, Any]:
+        t0 = time.perf_counter()
         now_dt = datetime.now(timezone.utc)
         now_date = now_dt.date()
 
@@ -1008,6 +1062,7 @@ class PostgresQueueStore(BaseQueueStore):
                         "total": total_b,
                     })
 
+                # 3. due_forecast
                 cur.execute(
                     """
                     SELECT
@@ -1025,6 +1080,7 @@ class PostgresQueueStore(BaseQueueStore):
                 )
                 due_forecast = [{"day": int(r[0]), "count": int(r[1])} for r in cur.fetchall()]
 
+                # 4. diff_rows
                 cur.execute(
                     """
                     SELECT difficulty_label, state, COUNT(*) as count
@@ -1050,6 +1106,7 @@ class PostgresQueueStore(BaseQueueStore):
                     for lbl in standard_labels
                 ]
 
+                # 5. weak_words
                 cur.execute(
                     """
                     SELECT card_id, expression, reading, meaning, lapses, again_rate_10,
@@ -1065,6 +1122,7 @@ class PostgresQueueStore(BaseQueueStore):
                 weak_cols = [desc[0] for desc in cur.description]
                 weak_words = [dict(zip(weak_cols, r)) for r in cur.fetchall()]
 
+                # 6. jlpt_rows
                 cur.execute(
                     """
                     SELECT COALESCE(NULLIF(jlpt_level, ''), 'unknown') as level, state, COUNT(*) as count
@@ -1090,6 +1148,7 @@ class PostgresQueueStore(BaseQueueStore):
                     for lvl in jlpt_levels if lvl in jlpt_map
                 ]
 
+                # 7. queued_cards activity
                 cur.execute(
                     """
                     SELECT to_char(created_at, 'YYYY-"W"IW') as week, status, COUNT(*) as count
@@ -1122,7 +1181,7 @@ class PostgresQueueStore(BaseQueueStore):
                     "weekly": weekly_retention,
                 }
 
-                return {
+                res_overview = {
                     "range": rf,
                     "card_count": card_count,
                     "growth_curve": growth_curve,
@@ -1143,6 +1202,9 @@ class PostgresQueueStore(BaseQueueStore):
                     "jlpt_coverage": jlpt_coverage,
                     "queue_activity": queue_activity,
                 }
+                elapsed_ms = (time.perf_counter() - t0) * 1000.0
+                log.debug("get_stats_overview completed in %.2fms (range=%s)", elapsed_ms, rf)
+                return res_overview
 
     def get_study_session(
         self,

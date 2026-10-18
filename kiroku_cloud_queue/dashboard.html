@@ -262,6 +262,19 @@
     .freshness-dot.offline {
       background: var(--red);
     }
+    .reconcile-skipped-banner {
+      background: rgba(220, 160, 40, 0.12);
+      border: 1px solid rgba(220, 160, 40, 0.35);
+      color: #e5b342;
+      padding: 0.6rem 0.9rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      line-height: 1.4;
+    }
 
     /* CARDS TAB CONTROLS */
     .cards-controls-card {
@@ -1409,6 +1422,12 @@
         <span id="cards-total-stat">-</span>
       </div>
 
+      <!-- Non-alarming notice if reconcile was skipped -->
+      <div id="reconcile-skipped-banner" class="reconcile-skipped-banner" style="display:none;">
+        <svg class="svg-icon" style="width:16px;height:16px;flex-shrink:0;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span id="reconcile-skipped-text">Card reconcile was safely skipped.</span>
+      </div>
+
       <!-- Controls Card -->
       <div class="cards-controls-card">
         <div class="search-input-wrap">
@@ -2138,6 +2157,17 @@
         statsTextEl.textContent = label;
         dotEl.className = isStale ? 'freshness-dot stale' : 'freshness-dot';
         statsDotEl.className = isStale ? 'freshness-dot stale' : 'freshness-dot';
+
+        const skippedReason = data.reconcile_skipped_reason;
+        const bannerEl = document.getElementById('reconcile-skipped-banner');
+        if (bannerEl) {
+          if (skippedReason) {
+            document.getElementById('reconcile-skipped-text').textContent = `Notice: Card reconcile was skipped (${skippedReason})`;
+            bannerEl.style.display = 'flex';
+          } else {
+            bannerEl.style.display = 'none';
+          }
+        }
       } catch (err) {
         console.debug('Failed to fetch anki status:', err);
       }
@@ -2854,6 +2884,61 @@
       window.speechSynthesis.speak(utter);
     }
 
+    const PENDING_REVIEWS_STORAGE_KEY = 'kiroku_pending_study_reviews';
+
+    function getPendingReviews() {
+      try {
+        const raw = localStorage.getItem(PENDING_REVIEWS_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function savePendingReviews(reviews) {
+      try {
+        localStorage.setItem(PENDING_REVIEWS_STORAGE_KEY, JSON.stringify(reviews));
+      } catch (e) {
+        console.debug('Failed saving pending reviews to localStorage:', e);
+      }
+    }
+
+    let isFlushingReviews = false;
+    async function flushPendingReviews() {
+      if (isFlushingReviews) return;
+      const token = getToken();
+      if (!token) return;
+
+      const queue = getPendingReviews();
+      if (!queue.length) return;
+
+      isFlushingReviews = true;
+      const remaining = [];
+
+      for (const item of queue) {
+        try {
+          const resp = await fetch('/api/study/review', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(item),
+          });
+          if (!resp.ok && resp.status >= 500) {
+            remaining.push(item);
+          }
+        } catch (err) {
+          remaining.push(item);
+        }
+      }
+
+      savePendingReviews(remaining);
+      isFlushingReviews = false;
+    }
+
+    window.addEventListener('online', flushPendingReviews);
+
     async function submitStudyRating(rating) {
       const card = studyState.sessionCards[studyState.currentIndex];
       if (!card) return;
@@ -2868,24 +2953,18 @@
         studyState.sessionCards.splice(insertIdx, 0, card);
       }
 
-      // Record review to server in background
-      const token = getToken();
-      if (token) {
-        fetch('/api/study/review', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            card_id: card.card_id,
-            rating: rating,
-            time_ms: timeMs,
-            session_id: studyState.sessionId,
-            review_uuid: `${studyState.sessionId}-${card.card_id}-${Date.now()}`,
-          }),
-        }).catch(err => console.debug('Review record network retry later:', err));
-      }
+      // Record review to server with retry resilience
+      const reviewPayload = {
+        card_id: card.card_id,
+        rating: rating,
+        time_ms: timeMs,
+        session_id: studyState.sessionId,
+        review_uuid: `${studyState.sessionId}-${card.card_id}-${Date.now()}`,
+      };
+      const pending = getPendingReviews();
+      pending.push(reviewPayload);
+      savePendingReviews(pending);
+      flushPendingReviews();
 
       studyState.currentIndex++;
       renderCurrentStudyCard();

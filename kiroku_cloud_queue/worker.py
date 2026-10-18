@@ -637,13 +637,14 @@ def main() -> None:
     parser.add_argument("--sync-stats", action="store_true", help="Sync local AnkiConnect study stats to cloud and exit")
     parser.add_argument("--sync-cards", action="store_true", help="Run incremental Anki cards mirror sync to cloud and exit")
     parser.add_argument("--full-resync", action="store_true", help="Force a full reconcile of all Anki cards to cloud and exit")
+    parser.add_argument("--allow-shrink", action="store_true", help="Allow reconcile to delete cards even if collection shrinks by >50%")
     parser.add_argument("--deck", type=str, default=None, help="Filter deck for --sync-cloud-all")
     args = parser.parse_args()
 
     if args.sync_cards or args.full_resync:
         adapter = get_queue_adapter(backend=args.backend)
         from anki_mirror import sync_anki_mirror
-        res = asyncio.run(sync_anki_mirror(adapter, full=args.full_resync))
+        res = asyncio.run(sync_anki_mirror(adapter, full=args.full_resync, allow_shrink=args.allow_shrink))
         print(f"Anki card mirror ({res.mode}): status={res.status}, seen={res.cards_seen}, "
               f"changed={res.cards_changed}, pushed={res.cards_pushed}, "
               f"daily={res.daily_rows_pushed}, deleted={res.deleted_on_reconcile} ({res.duration_s:.2f}s)")

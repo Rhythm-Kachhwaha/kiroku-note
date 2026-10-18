@@ -187,6 +187,16 @@ def test_compute_difficulty_leech_label():
     assert label2 == "leech"
 
 
+def test_compute_difficulty_hard_label_without_leech():
+    # A card with high difficulty score (lapses=7, repeated agains -> score >= 60 or >= 85)
+    # but without is_leech (lapses < 8 and not tagged leech) must be labeled 'hard', never 'leech'.
+    card_hard = {"reps": 10, "lapses": 7, "interval": 1, "is_leech": False}
+    revs_again = [{"type": 1, "ease": 1, "time": 10000} for _ in range(10)]
+    score, label = compute_difficulty(card_hard, revs_again)
+    assert score is not None and score >= 60.0
+    assert label == "hard"
+
+
 def test_compute_difficulty_solid_label():
     # Low score (<10) and interval >= 21
     card_solid = {"reps": 20, "lapses": 0, "interval": 120}

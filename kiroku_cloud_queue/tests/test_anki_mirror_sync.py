@@ -33,6 +33,7 @@ class FakeAnkiTransport:
         self.leeches: set[int] = set()
         self.due_overdue: set[int] = set()
         self.due_map: dict[int, set[int]] = {}  # day -> set(card_ids)
+        self.active_profile = "User 1"
         self.is_offline = False
         self.fail_actions: set[str] = set()
 
@@ -101,6 +102,9 @@ class FakeAnkiTransport:
 
         if action == "version":
             return self.version
+
+        if action == "getActiveProfile":
+            return self.active_profile
 
         if action == "findCards":
             query = params.get("query", "")
@@ -356,3 +360,124 @@ async def test_worker_stats_sync_isolated_from_mirror_failure(local_adapter: Loc
         stored_stats = store.get_anki_stats()
         assert stored_stats is not None
         assert stored_stats["today_reviewed"] == 15
+
+
+def test_anki_client_read_only_whitelist_guard():
+    client = AnkiClient()
+    # Calling a write/forbidden action raises PermissionError before network call
+    with pytest.raises(PermissionError) as exc_info:
+        client.invoke("addNote", note={"deckName": "test"})
+    assert "Forbidden AnkiConnect action 'addNote'" in str(exc_info.value)
+    assert "strictly read-only" in str(exc_info.value)
+
+    with pytest.raises(PermissionError):
+        client.invoke("deleteNotes", notes=[1, 2, 3])
+
+    with pytest.raises(PermissionError):
+        client.invoke("guiAddCards")
+
+
+@pytest.mark.asyncio
+async def test_reconcile_zero_cards_safety_guard(fake_anki: FakeAnkiTransport, local_adapter: LocalDevQueueAdapter, tmp_path: Path):
+    client = AnkiClient(transport=fake_anki.invoke)
+    state_file = tmp_path / "state.json"
+
+    # Initial sync with 3 cards
+    await sync_anki_mirror(local_adapter, full=True, anki_client=client, state_file=state_file)
+    store = local_adapter._store
+    _, count = store.query_anki_cards()
+    assert count == 3
+
+    # Anki returns 0 cards (e.g., Anki closed or temporary anomaly)
+    fake_anki.cards.clear()
+    fake_anki.mods.clear()
+
+    result = await sync_anki_mirror(local_adapter, full=True, anki_client=client, state_file=state_file)
+    assert result.status == "ok"
+    assert result.deleted_on_reconcile == 0
+
+    # Safety guard: cards should NOT have been wiped from DB
+    _, count_after = store.query_anki_cards()
+    assert count_after == 3
+
+    status = store.get_anki_status()
+    assert "0 cards" in (status.get("reconcile_skipped_reason") or "")
+
+
+@pytest.mark.asyncio
+async def test_reconcile_shrink_safety_guard_skips_without_flag(fake_anki: FakeAnkiTransport, local_adapter: LocalDevQueueAdapter, tmp_path: Path):
+    client = AnkiClient(transport=fake_anki.invoke)
+    state_file = tmp_path / "state.json"
+
+    # Add 10 cards
+    for i in range(10, 20):
+        fake_anki.add_card(i, f"word{i}")
+
+    await sync_anki_mirror(local_adapter, full=True, anki_client=client, state_file=state_file)
+    store = local_adapter._store
+    _, count = store.query_anki_cards()
+    assert count == 13
+
+    # Now drop to 4 cards (< 50% of 13)
+    cids = list(fake_anki.cards.keys())
+    for cid in cids[4:]:
+        del fake_anki.cards[cid]
+        del fake_anki.mods[cid]
+    assert len(fake_anki.cards) == 4
+
+    # Full reconcile without allow_shrink flag
+    result = await sync_anki_mirror(local_adapter, full=True, allow_shrink=False, anki_client=client, state_file=state_file)
+    assert result.status == "ok"
+    assert result.deleted_on_reconcile == 0
+
+    # Ensure DB was not deleted
+    _, count_after = store.query_anki_cards()
+    assert count_after == 13
+    status = store.get_anki_status()
+    assert "less than 50%" in (status.get("reconcile_skipped_reason") or "")
+
+
+@pytest.mark.asyncio
+async def test_reconcile_shrink_safety_guard_proceeds_with_flag(fake_anki: FakeAnkiTransport, local_adapter: LocalDevQueueAdapter, tmp_path: Path):
+    client = AnkiClient(transport=fake_anki.invoke)
+    state_file = tmp_path / "state.json"
+
+    for i in range(10, 20):
+        fake_anki.add_card(i, f"word{i}")
+
+    await sync_anki_mirror(local_adapter, full=True, anki_client=client, state_file=state_file)
+    store = local_adapter._store
+
+    cids = list(fake_anki.cards.keys())
+    for cid in cids[4:]:
+        del fake_anki.cards[cid]
+        del fake_anki.mods[cid]
+    assert len(fake_anki.cards) == 4
+
+    # Full reconcile WITH allow_shrink=True
+    result = await sync_anki_mirror(local_adapter, full=True, allow_shrink=True, anki_client=client, state_file=state_file)
+    assert result.status == "ok"
+    assert result.deleted_on_reconcile == 9
+
+    _, count_after = store.query_anki_cards()
+    assert count_after == 4
+
+
+@pytest.mark.asyncio
+async def test_profile_mismatch_guard(fake_anki: FakeAnkiTransport, local_adapter: LocalDevQueueAdapter, tmp_path: Path):
+    client = AnkiClient(transport=fake_anki.invoke)
+    state_file = tmp_path / "state.json"
+
+    # Initial sync with "User 1"
+    fake_anki.active_profile = "User 1"
+    await sync_anki_mirror(local_adapter, full=True, anki_client=client, state_file=state_file)
+
+    # Anki switches profile to "User 2"
+    fake_anki.active_profile = "User 2"
+    result = await sync_anki_mirror(local_adapter, full=True, anki_client=client, state_file=state_file)
+
+    assert result.status == "skipped"
+    assert result.mode == "profile_mismatch"
+    assert "Profile mismatch" in result.message
+    assert result.cards_pushed == 0
+

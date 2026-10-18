@@ -75,11 +75,26 @@ def _sample_daily(day: str = "2026-01-10", **kwargs) -> dict:
     return base
 
 
-@pytest.fixture
-def sqlite_store(tmp_path) -> SqliteQueueStore:
-    db_file = str(tmp_path / "test_anki_queue.db")
-    store = SqliteQueueStore(db_path=db_file)
-    yield store
+@pytest.fixture(params=["sqlite", "postgres"])
+def sqlite_store(request, tmp_path) -> BaseQueueStore:
+    if request.param == "sqlite":
+        db_file = str(tmp_path / "test_anki_queue.db")
+        store = SqliteQueueStore(db_path=db_file)
+        yield store
+    elif request.param == "postgres":
+        test_pg_url = os.getenv("TEST_DATABASE_URL")
+        if not test_pg_url:
+            pytest.skip("TEST_DATABASE_URL not set; skipping Postgres test.")
+        import uuid
+        from postgres_store import PostgresQueueStore
+        schema_name = f"test_anki_store_{uuid.uuid4().hex[:8]}"
+        pg_store = PostgresQueueStore(test_pg_url, schema=schema_name)
+        pg_store.init_db()
+        try:
+            yield pg_store
+        finally:
+            pg_store.drop_schema()
+            pg_store.close()
 
 
 def test_sqlite_upsert_and_get_card(sqlite_store: SqliteQueueStore):
@@ -284,12 +299,14 @@ def test_sqlite_study_leitner_lifecycle(sqlite_store: SqliteQueueStore):
     assert summary["box_distribution"]["box_1"] == 1
 
 
-def test_postgres_store_skipped_or_run():
+def test_postgres_store_parity():
     test_pg_url = os.getenv("TEST_DATABASE_URL")
     if not test_pg_url:
         pytest.skip("TEST_DATABASE_URL not set; skipping PostgresQueueStore live integration test.")
+    import uuid
     from postgres_store import PostgresQueueStore
-    pg_store = PostgresQueueStore(test_pg_url)
+    schema_name = f"test_parity_{uuid.uuid4().hex[:8]}"
+    pg_store = PostgresQueueStore(test_pg_url, schema=schema_name)
     try:
         pg_store.init_db()
         card = _sample_card(999, expression="テストPG")
@@ -299,4 +316,5 @@ def test_postgres_store_skipped_or_run():
         assert fetched["expression"] == "テストPG"
         assert pg_store.reconcile_anki_cards([]) >= 1
     finally:
+        pg_store.drop_schema()
         pg_store.close()

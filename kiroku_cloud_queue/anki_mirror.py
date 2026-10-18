@@ -45,7 +45,7 @@ DIFFICULTY_CONSTANTS = {
     "MAX_ANSWER_TIME_MS": 60000.0,
     "TIME_MEDIAN_FACTOR": 2.0,
     "LEECH_LAPSE_THRESHOLD": 8,
-    "HARD_THRESHOLD": 60.0,
+    "HARD_THRESHOLD": 50.0,
     "NORMAL_THRESHOLD": 30.0,
     "EASY_THRESHOLD": 10.0,
     "MATURE_INTERVAL_DAYS": 21,
@@ -101,10 +101,14 @@ def clean_field(val: Any, max_len: Optional[int] = None, strip_ruby_brackets: bo
     # 1. Strip [sound:filename.mp3]
     text = re.sub(r"\[sound:[^\]]*\]", "", text, flags=re.IGNORECASE)
 
-    # 2. Convert line break and block tags to newlines
+    # 2. Strip <style>...</style> and <script>...</script> blocks
+    text = re.sub(r"(?is)<style.*?</style>", "", text)
+    text = re.sub(r"(?is)<script.*?</script>", "", text)
+
+    # 3. Convert line break and block tags to newlines
     text = re.sub(r"(?i)<(br\s*/?|/?div|/?p)>", "\n", text)
 
-    # 3. Strip all remaining HTML tags
+    # 4. Strip all remaining HTML tags
     text = re.sub(r"<[^>]+>", "", text)
 
     # 4. Decode HTML entities and replace non-breaking spaces
@@ -214,7 +218,13 @@ def compute_difficulty(
           * answer-time pressure vs collection median (weight 0.10)
           * low-interval pressure (weight 0.15)
           * Optional 50/50 blend with real FSRS difficulty if provided
-      - Labels: leech, hard, normal, easy, solid, new
+      - Labels:
+          * leech: is_leech only (tag:leech or lapses >= 8)
+          * hard: score >= 60 without is_leech
+          * normal: 30..59
+          * easy: 10..29
+          * solid: score < 10 and interval >= 21
+          * new: reps == 0
     """
     reps = int(card_info.get("reps", 0))
     if reps == 0:
@@ -490,8 +500,25 @@ def build_daily_series(
 
 
 # ---------------------------------------------------------------------------
-# AnkiClient Transport
+# AnkiClient Transport & Read-Only Whitelist
 # ---------------------------------------------------------------------------
+
+ANKI_READ_ACTIONS_WHITELIST: frozenset[str] = frozenset({
+    "version",
+    "deckNames",
+    "findCards",
+    "cardsInfo",
+    "cardsModTime",
+    "getReviewsOfCards",
+    "cardReviews",
+    "getLatestReviewID",
+    "getNumCardsReviewedByDay",
+    "getNumCardsReviewedToday",
+    "getDeckStats",
+    "getActiveProfile",
+    "getProfileNames",
+})
+
 
 class AnkiClient:
     """Thin, synchronous loopback client for AnkiConnect with injectable transport for tests."""
@@ -507,6 +534,12 @@ class AnkiClient:
         self._transport = transport
 
     def invoke(self, action: str, **params: Any) -> Any:
+        if action not in ANKI_READ_ACTIONS_WHITELIST:
+            raise PermissionError(
+                f"Forbidden AnkiConnect action '{action}'. "
+                f"The mirror is strictly read-only and restricted to: {sorted(ANKI_READ_ACTIONS_WHITELIST)}"
+            )
+
         if self._transport is not None:
             return self._transport(action, params)
 
@@ -582,6 +615,7 @@ async def sync_anki_mirror(
     adapter: Any,
     *,
     full: bool = False,
+    allow_shrink: bool = False,
     anki_client: Optional[AnkiClient] = None,
     state_file: Path = STATE_FILE_PATH,
 ) -> MirrorResult:
@@ -590,6 +624,8 @@ async def sync_anki_mirror(
       - Uses module-level asyncio.Lock() to prevent concurrent execution.
       - Dispatches all blocking Anki calls via asyncio.to_thread.
       - Performs incremental sync by default, or full reconcile when requested/first run.
+      - Reconcile safety: prevents wiping mirror on 0 cards or >50% shrink without --allow-shrink.
+      - Profile guard: checks getActiveProfile against saved profile to avoid cross-profile contamination.
       - Never raises into callers; returns structured MirrorResult.
     """
     if _SYNC_LOCK.locked():
@@ -608,6 +644,30 @@ async def sync_anki_mirror(
         except Exception as exc:
             log.debug("AnkiConnect unreachable: %s", exc)
             return MirrorResult(status="offline", message=f"AnkiConnect unreachable: {exc}")
+
+        # Profile check: prevent cross-profile contamination
+        saved_state = _load_state(state_file)
+        active_profile = None
+        try:
+            active_profile = await asyncio.to_thread(client.invoke, "getActiveProfile")
+        except Exception as exc:
+            log.debug("getActiveProfile unavailable: %s", exc)
+
+        saved_profile = saved_state.get("active_profile")
+        if active_profile and saved_profile and active_profile != saved_profile:
+            msg = f"Profile mismatch: expected '{saved_profile}', but active Anki profile is '{active_profile}'. Sync skipped to prevent cross-profile contamination."
+            log.warning("Safety guard: %s", msg)
+            return MirrorResult(
+                status="skipped",
+                mode="profile_mismatch",
+                cards_seen=0,
+                cards_changed=0,
+                cards_pushed=0,
+                daily_rows_pushed=0,
+                deleted_on_reconcile=0,
+                duration_s=0.0,
+                message=msg,
+            )
 
         # Step 2: Fetch all live card IDs
         try:
@@ -687,6 +747,21 @@ async def sync_anki_mirror(
         if target_ids:
             reviews_map = await asyncio.to_thread(client.get_reviews_of_cards_batched, target_ids)
 
+        # Pre-fetch JLPT levels for target cards via local backend if reachable
+        jlpt_lookup: dict[str, Any] = {}
+        target_expressions = []
+        for cinfo in cards_info:
+            mapped = map_fields(cinfo.get("fields", {}))
+            expr = mapped.get("expression")
+            if expr:
+                target_expressions.append(expr)
+        if target_expressions:
+            try:
+                from kiroku_client import lookup_jlpt_batch
+                jlpt_lookup = await lookup_jlpt_batch(list(set(target_expressions)))
+            except Exception as exc:
+                log.debug("JLPT batch lookup skipped/failed soft: %s", exc)
+
         # Process each card row
         now_iso = start_time.isoformat()
         card_rows: list[dict[str, Any]] = []
@@ -733,7 +808,7 @@ async def sync_anki_mirror(
                 "meaning": fields_mapped["meaning"],
                 "sentence": fields_mapped["sentence"],
                 "sentence_meaning": fields_mapped["sentence_meaning"],
-                "jlpt_level": None,  # Lazy filled
+                "jlpt_level": jlpt_lookup.get(fields_mapped["expression"]),
                 "state": state_label,
                 "queue_code": int(cinfo.get("queue", 0)),
                 "interval_days": int(cinfo.get("interval", 0)),
@@ -779,22 +854,39 @@ async def sync_anki_mirror(
                     if ok:
                         daily_rows_pushed += len(batch)
 
-        # Step 6: Reconcile deletions if in full mode
+        # Step 6: Reconcile deletions if in full mode with safety guards
         deleted_count = 0
+        reconcile_skipped_reason = None
         if is_full_mode:
-            try:
-                deleted_count = await adapter.reconcile_anki_cards(all_card_ids)
-            except Exception as exc:
-                log.warning("reconcile_anki_cards failed: %s", exc)
+            if len(all_card_ids) == 0:
+                reconcile_skipped_reason = "Anki returned 0 cards; reconcile skipped to prevent accidental collection wipe."
+                log.warning("Safety guard: %s", reconcile_skipped_reason)
+            else:
+                prev_count = len(saved_mods)
+                if prev_count > 0 and len(all_card_ids) < 0.5 * prev_count and not allow_shrink:
+                    reconcile_skipped_reason = (
+                        f"Safety guard: new card count ({len(all_card_ids)}) is less than 50% of previous "
+                        f"mirrored count ({prev_count}). Reconcile delete skipped without --allow-shrink."
+                    )
+                    log.warning("%s", reconcile_skipped_reason)
+                else:
+                    try:
+                        deleted_count = await adapter.reconcile_anki_cards(all_card_ids)
+                    except Exception as exc:
+                        log.warning("reconcile_anki_cards failed: %s", exc)
 
         # Step 7: Push metadata
-        await adapter.push_anki_meta({
+        meta_payload = {
             "last_mirror_sync_at": now_iso,
             "last_full_reconcile_at": now_iso if is_full_mode else last_reconcile,
             "card_count": len(all_card_ids),
             "schema_version": "1.0",
             "collection_day_rollover_hour": ANKI_DAY_ROLLOVER_HOUR,
-        })
+            "reconcile_skipped_reason": reconcile_skipped_reason or "",
+        }
+        if active_profile:
+            meta_payload["active_profile"] = str(active_profile)
+        await adapter.push_anki_meta(meta_payload)
 
         # Step 8: Update state file
         new_state = {
@@ -803,6 +895,8 @@ async def sync_anki_mirror(
             "last_sync_at": now_iso,
             "card_mods": {str(k): v for k, v in current_mods.items()},
         }
+        if active_profile:
+            new_state["active_profile"] = str(active_profile)
         _save_state(new_state, state_file)
 
         elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
