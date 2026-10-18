@@ -153,4 +153,67 @@ The core Kiroku Note distribution (~50 MB) does not bundle PyTorch or manga-ocr.
 
 Subtitle tracks from all sources (local files, YouTube CC, Netflix timedtext, Jimaku API) are parsed and normalized into standard cue streams. Hovering or clicking Japanese words in subtitle cues invokes the exact same `POST /api/capture` endpoint as text selection and OCR. No separate subtitle databases, custom card editors, or alternate enrichment paths exist. External subtitle search API keys (Jimaku) are stored strictly locally in `chrome.storage.local` with SSRF-safe background proxying.
 
+## Anki Card Mirror & Cloud Queue Subsystem
+
+The cloud queue repository (`kiroku_cloud_queue/`) provides mobile-to-desktop capture and serves as a mobile-friendly companion dashboard (`/dashboard`) deployed on FastAPI/PostgreSQL (Neon) or SQLite:
+
+```
+[Anki Desktop (127.0.0.1:8765)]
+       │ AnkiConnect (read-only, non-blocking via asyncio.to_thread)
+       ▼
+[anki_mirror.py (inside worker.py / backend poll)] ──(POST /api/jlpt/batch)──> [Kiroku Backend :21828]
+       │
+       │ HTTPS / Worker Bearer Token (batches of 500 cards, 1000 daily rows)
+       ▼
+[Cloud Service (FastAPI / Render)]
+       │
+       ▼
+[Cloud Database (Neon Postgres / SQLite)]
+ (tables: anki_cards, anki_daily, anki_meta, cloud_study_state, cloud_study_reviews)
+       │
+       ▼
+[Web Dashboard (Phone / Desktop)]
+ (Tabs: Queue, Cards, Rich Stats Inline SVGs, Leitner Extra Practice)
+```
+
+### ADR-009: One-way Read-Only Anki Card Mirror & Revlog Semantics
+
+The card mirror is strictly one-way and read-only: Anki Desktop to the cloud database. The cloud service never modifies, reschedules, or writes cards back to Anki Desktop.
+
+1. **Storage Parity**: Mirrors card fields into `anki_cards` and daily historical metrics into `anki_daily` across both SQLite and PostgreSQL schemas identically. Raw Anki review logs remain on the user's PC to preserve Neon free-tier storage; only aggregated daily counts and lean plain-text card rows are transmitted.
+2. **Revlog Semantics**:
+   - `ivl < 0`: Represents learning steps in seconds (not mature); treated as non-mature learning cards.
+   - `type`: Retention mathematics strictly enforce `type == 1` (standard reviews). Types 3 (filtered/cram) and 4 (manual reschedule) are excluded from retention calculations.
+   - **Day Rollover**: Defaults to 4:00 AM local time (`ANKI_DAY_ROLLOVER_HOUR = 4`), configurable via environment variable.
+   - **Imported Card IDs**: Card IDs correspond to millisecond creation timestamps. Shared/imported decks retain original epoch IDs, so historical growth curves for imported decks represent card creation rather than import dates.
+3. **FSRS-Aware Difficulty Scoring**:
+   - Ease factors are ignored because the user operates under FSRS.
+   - 0-100 score formula combines:
+     - Lapse pressure: `min(1.0, lapses / 6.0) * 0.40`
+     - Recent again rate: exponential recency decay weighting over the last 10 reviews (`* 0.35`)
+     - Answer time pressure: `min(1.0, avg_time_ms / 15000.0) * 0.10`
+     - Low interval pressure: `(1.0 - min(1.0, interval_days / 90.0)) * 0.15`
+     - Real FSRS blend: if `cardsInfo` returns native FSRS difficulty (0..1), blends 50% FSRS score with 50% heuristic score.
+   - Difficulty labels: `leech` (`is_leech=True` or score >= 85), `hard` (60..84), `normal` (30..59), `easy` (10..29), `solid` (<10 and interval >= 21), and `new` (`reps == 0`).
+
+### ADR-010: Leitner 5-box Cloud Extra Practice Mode
+
+Cloud study mode provides a separate "extra practice" study environment over mirrored vocabulary cards.
+
+1. **Isolation from Anki Scheduling**: Practice results in the cloud are persisted in `cloud_study_state` and `cloud_study_reviews` and never modify Anki card intervals, ease factors, or review history.
+2. **Leitner 5-Box Intervals**:
+   - Box 1: 10 minutes (re-queued in the active session after 3-5 cards)
+   - Box 2: 1 day
+   - Box 3: 3 days
+   - Box 4: 7 days
+   - Box 5: 21 days
+3. **Rating Transitions**:
+   - 1 (Again): Drop to Box 1, streak resets to 0.
+   - 2 (Hard): Retains current box, re-shown in same session.
+   - 3 (Good): Advances +1 box (max 5), streak += 1.
+   - 4 (Easy): Advances +2 boxes (max 5), streak += 1.
+4. **Offline Resilience & Idempotency**: Mobile client generates `review_uuid` per rating tap, allowing duplicate POST retries without inflating review counts or corrupting intervals.
+5. **Speech Synthesis**: Japanese audio pronunciation relies exclusively on native browser `speechSynthesis` (`ja-JP` voice) without hosting or transmitting audio media.
+
+
 

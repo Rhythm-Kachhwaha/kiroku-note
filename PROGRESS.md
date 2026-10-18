@@ -101,6 +101,85 @@
 **Remaining Risk**:
 - Live sync against running Anki Desktop remains unverified in this offline headless test environment; comprehensively verified against fake AnkiConnect transport adhering to AnkiConnect API specifications.
 
+### Cloud Dashboard Card Mirror: M3 Cards Tab (2026-10-18)
+
+**Objective**: Implement Milestone 3 Cards tab in the dashboard for browsing, searching, and filtering mirrored Anki cards.
+
+**Key Changes Delivered**:
+1. **Dashboard HTML Template Separation (`kiroku_cloud_queue/dashboard.html`)**:
+   - Extracted complete HTML/CSS/JS into standalone `dashboard.html` (raw string backslash safety, zero escaped regex traps).
+   - Dynamic import in `dashboard_template.py` with fallback string.
+2. **Cards Tab UI & Mobile-First Controls**:
+   - Navigation: Added 4-tab bar (`Queue`, `Cards`, `Stats`, `Study`) with persistent tab preference in `localStorage`.
+   - Search & Filters: Debounced search input (250ms), difficulty chips (`Leech`, `Hard`, `Normal`, `Easy`, `Solid`, `New`), state dropdown (`All`, `New`, `Learning`, `Young`, `Mature`, `Relearning`, `Suspended`, `Buried`), JLPT dropdown (`N5`..`N1`, `Unknown`), sort column with ascending/descending toggle.
+   - Sync Freshness: Displays dynamic "synced X ago" status badge from `GET /api/anki/status` with amber warning if older than 24 hours.
+   - Mobile-First List: Card rows with minimum 48px touch targets, Japanese expression (`--font-ja`), colored readings (`--accent-reading`), short meaning, difficulty badge (color + text label), interval days, and lapse counts.
+   - Pagination: Server-side "Load more" button with loading skeletons and match counters.
+3. **Card Detail Hero Modal**:
+   - Full-fidelity inspect modal showing Expression, Reading, Meaning, Sentence, Sentence Meaning, JLPT level, State, Interval, Lapses, Reps, Again Rate (last 10 reviews), Average Answer Time (capped at 60s), First & Last review dates, and Sync timestamp.
+4. **Verification**:
+   - `tests/test_dashboard_template.py`: 6 tests validating HTML structure, zero emoji assertion, and JavaScript syntax with `node --check` (Node.js v24.20.0).
+
+### Cloud Dashboard Card Mirror: M4 Rich Stats & SVG Charts (2026-10-18)
+
+**Objective**: Implement Milestone 4 Rich Stats tab in the dashboard with 8 hand-written, responsive inline SVG charts and segmented range controls.
+
+**Key Changes Delivered**:
+1. **8 Hand-Crafted Responsive Inline SVG Charts (`dashboard.html`)**:
+   - **Growth Curve**: Cumulative total cards line with weekly new cards bar overlay.
+   - **State Breakdown**: Stacked area / multi-series tracking `n_mature`, `n_young`, `n_learning`, `n_new`, and `n_suspended`.
+   - **True Retention**: Weekly retention rate for mature reviews (`lastIvl >= 21`) and all reviews (`type == 1`), muted with warning when sample size `n < 30`.
+   - **Answer Buttons**: Stacked percentage share of Again, Hard, Good, and Easy buttons per week.
+   - **Due Forecast**: 30-day forecast bars plus prominent "Overdue" bar for review cards with `due_in_days < 0`.
+   - **Difficulty Distribution**: Grouped bar chart showing card counts per difficulty label (`Leech`, `Hard`, `Normal`, `Easy`, `Solid`, `New`).
+   - **Top 20 Weak Words**: Ranked list of highest difficulty cards with lapses, again rate, interval, and a "Study these" action button that seeds a targeted study session.
+   - **JLPT Coverage**: N5 to N1 card counts split by mature, young, and other states.
+2. **Segmented Range Control**:
+   - Interactive segmented switch for `30d`, `90d`, `1y`, and `all` with instant chart re-renders from `GET /api/stats/overview`.
+3. **Accessibility & Responsive Polish**:
+   - Inline SVG charts with `viewBox`, touch-friendly tooltips, ARIA labels, zero emoji compliance, and horizontal containment (no body overflow at 360px viewport).
+4. **Verification**:
+   - Local benchmark on 5,000 synthetic cards: `GET /api/stats/overview` returned complete series in ~24 ms (target <300 ms).
+
+### Cloud Dashboard Card Mirror: M5 Leitner Cloud Study Mode (2026-10-18)
+
+**Objective**: Implement Milestone 5 Cloud Study Mode ("extra practice") providing a 5-box Leitner practice environment isolated from Anki scheduling.
+
+**Key Changes Delivered**:
+1. **Study Session Picker (`GET /api/study/session`)**:
+   - Configurable modes: Weakest 20, Leeches only, JLPT level (N5..N1), Recently added (last 14 days), Never practiced (unseen), Due in cloud schedule, and Custom card list (seeded from Weak Words "Study these").
+   - Configurable session limits (10, 20, 50 cards). Excludes suspended cards for non-leech modes.
+2. **5-Box Leitner Scheduling & API (`POST /api/study/review`, `GET /api/study/summary`)**:
+   - Intervals: Box 1 (10 min), Box 2 (1 day), Box 3 (3 days), Box 4 (7 days), Box 5 (21 days).
+   - Rating actions: Again (1) drops to Box 1 and resets streak; Hard (2) retains box; Good (3) advances +1 box; Easy (4) advances +2 boxes (cap 5).
+   - In-session re-queueing: Cards rated Again are automatically re-inserted into the active session queue 3-5 cards later.
+   - Idempotency: Supports client `review_uuid` to ensure double taps do not double-record reviews.
+3. **Mobile-First Study UI (`dashboard.html`)**:
+   - Persistent disclaimer: "Extra practice - separate from Anki".
+   - Flashcard interaction: Japanese or English front-side toggle, flip to reveal reading, meaning, sentence context, and translation.
+   - Speech Synthesis: Pronunciation button using browser Web Speech API `speechSynthesis` (`ja-JP` voice, asynchronously loaded for iOS Safari).
+   - Rating buttons with next interval labels ("10m", "1d", "3d", "7d", "21d").
+   - Keyboard navigation on desktop (Space to flip, 1-4 to rate).
+   - Undo last review button, progress bar, and completion summary screen with missed-card retry.
+4. **Verification**:
+   - `tests/test_study_api.py`: 5 tests covering session modes, Leitner box transitions, duplicate idempotency, validation errors (404/422), and summary stats.
+
+### Cloud Dashboard Card Mirror: M6 Hardening & Documentation (2026-10-18)
+
+**Objective**: Complete Milestone 6 hardening, synthetic seed generator, performance benchmarks, documentation updates, and final verification.
+
+**Key Changes Delivered**:
+1. **Synthetic Seed Script (`kiroku_cloud_queue/scripts/seed_demo_data.py`)**:
+   - Generates 3,000+ realistic Japanese cards with N5-N1 vocabulary, context sentences, intervals, lapses, and FSRS difficulty metrics.
+   - Generates 730 days (2 years) of daily review history and reconstructed growth curves.
+   - Built-in performance benchmark verifying queries execute under 300 ms locally (measured 7.05 ms for card queries and 24.36 ms for stats overview on 5,000 cards).
+2. **Documentation Parity**:
+   - `kiroku_cloud_queue/README.md`: Documented new Anki mirror and study endpoints, new worker CLI flags (`--sync-cards`, `--full-resync`), and corrected outdated statement that all 5 fields are required for `/submit` (only `expression` is required).
+   - `ARCHITECTURE.md`: Documented the new Anki Desktop -> worker -> cloud queue -> dashboard data flow, revlog semantics, FSRS difficulty score formula, and Leitner cloud study mode (ADR-009 and ADR-010).
+3. **Verification**:
+   - Full cloud test suite: 181 passed, 1 skipped (`.\.venv\Scripts\python.exe -m pytest tests -q`).
+   - Full backend test suite: 541 passed, 4 subtests passed (`python -m pytest tests -q`).
+
 ### Cloud Dashboard Hero Modal: Hint, Notes, Context & Tags Support (2026-10-18)
 
 **Objective**: Fix the Cloud Dashboard Hero card inspection modal to display hints, notes, source context, and tags whenever available, while hiding them if empty; preserve existing UI aesthetics, typography, and zero-emoji compliance.

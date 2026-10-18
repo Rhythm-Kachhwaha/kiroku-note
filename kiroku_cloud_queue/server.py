@@ -835,21 +835,23 @@ async def get_study_session_endpoint(
     level: Optional[str] = None,
     limit: int = 20,
     card_ids: Optional[str] = None,
+    custom_ids: Optional[str] = None,
 ) -> JSONResponse:
     """Dashboard endpoint to seed a cloud study session."""
     _authenticate_recent(request)
     if store is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
 
-    custom_ids: Optional[list[int]] = None
-    if card_ids:
+    raw_ids = card_ids or custom_ids
+    parsed_ids: Optional[list[int]] = None
+    if raw_ids:
         try:
-            custom_ids = [int(x.strip()) for x in card_ids.split(",") if x.strip()]
+            parsed_ids = [int(x.strip()) for x in raw_ids.split(",") if x.strip()]
         except ValueError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="card_ids must be comma-separated integers.")
 
     limit = min(max(1, limit), 100)
-    cards = store.get_study_session(mode=mode, level=level, limit=limit, custom_card_ids=custom_ids)
+    cards = store.get_study_session(mode=mode, level=level, limit=limit, custom_card_ids=parsed_ids)
     return JSONResponse({
         "status": "ok",
         "mode": mode,
@@ -884,13 +886,17 @@ async def record_study_review_endpoint(request: Request) -> JSONResponse:
     session_id = payload.get("session_id")
     review_uuid = payload.get("review_uuid")
 
-    result = store.record_study_review(
-        card_id=card_id,
-        rating=rating,
-        time_ms=int(time_ms) if isinstance(time_ms, (int, float)) else 0,
-        session_id=str(session_id) if session_id else None,
-        review_uuid=str(review_uuid) if review_uuid else None,
-    )
+    try:
+        result = store.record_study_review(
+            card_id=card_id,
+            rating=rating,
+            time_ms=int(time_ms) if isinstance(time_ms, (int, float)) else 0,
+            session_id=str(session_id) if session_id else None,
+            review_uuid=str(review_uuid) if review_uuid else None,
+        )
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Card {card_id} not found in mirror.")
+
     if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Card {card_id} not found in mirror.")
 

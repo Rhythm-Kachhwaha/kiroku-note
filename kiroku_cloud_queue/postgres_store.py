@@ -1176,11 +1176,11 @@ class PostgresQueueStore(BaseQueueStore):
                             """,
                             (limit,),
                         )
-                    elif clean_mode == "level" and level:
+                    elif clean_mode in ("level", "jlpt") and level:
                         cur.execute(
                             """
                             SELECT * FROM anki_cards
-                            WHERE state != 'suspended' AND jlpt_level = %s
+                            WHERE state != 'suspended' AND UPPER(jlpt_level) = UPPER(%s)
                             ORDER BY difficulty_score DESC NULLS LAST, lapses DESC
                             LIMIT %s;
                             """,
@@ -1304,7 +1304,7 @@ class PostgresQueueStore(BaseQueueStore):
                     streak += 1
                 elif rating == 4:
                     new_box = min(5, cur_box + 2)
-                    streak += 2
+                    streak += 1
                 else:
                     new_box = cur_box
 
@@ -1390,8 +1390,11 @@ class PostgresQueueStore(BaseQueueStore):
 
                 return {
                     "practiced_today": practiced_today,
+                    "reviewed_today": practiced_today,
                     "practiced_7d": practiced_7d,
+                    "reviewed_7d": practiced_7d,
                     "box_counts": box_counts,
+                    "boxes": box_counts,
                     "box_distribution": {f"box_{k}": v for k, v in box_counts.items()},
                     "hardest_cards": hardest_cards,
                     "hardest_cloud_cards": hardest_cards,
