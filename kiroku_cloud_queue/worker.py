@@ -301,14 +301,40 @@ def fetch_anki_connect_stats(
         log.debug("AnkiConnect unreachable at %s: %s", endpoint, exc)
         return None
 
+    raw_reviews_by_day = []
+    today_reviewed = 0
+    deck_names = []
+    deck_stats_raw = {}
+
     try:
         raw_reviews_by_day = _invoke("getNumCardsReviewedByDay") or []
-        today_reviewed = _invoke("getNumCardsReviewedToday") or 0
-        deck_names = _invoke("deckNames") or []
-        deck_stats_raw = _invoke("getDeckStats", decks=deck_names) if deck_names else {}
     except Exception as exc:
-        log.warning("Failed querying AnkiConnect stats: %s", exc)
-        return None
+        log.warning("Failed querying Anki getNumCardsReviewedByDay: %s", exc)
+
+    try:
+        today_reviewed = _invoke("getNumCardsReviewedToday") or 0
+    except Exception as exc:
+        log.warning("Failed querying Anki getNumCardsReviewedToday: %s", exc)
+
+    try:
+        deck_names = _invoke("deckNames") or []
+    except Exception as exc:
+        log.warning("Failed querying Anki deckNames: %s", exc)
+
+    if deck_names:
+        try:
+            res = _invoke("getDeckStats", decks=deck_names)
+            if isinstance(res, dict):
+                deck_stats_raw = res
+        except Exception as bulk_exc:
+            log.debug("Bulk getDeckStats failed (%s); falling back to per-deck queries", bulk_exc)
+            for d in deck_names:
+                try:
+                    res = _invoke("getDeckStats", decks=[d])
+                    if isinstance(res, dict):
+                        deck_stats_raw.update(res)
+                except Exception:
+                    pass
 
     daily_map: dict[str, int] = {}
     for entry in raw_reviews_by_day:

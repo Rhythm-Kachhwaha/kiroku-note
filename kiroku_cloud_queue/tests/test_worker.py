@@ -4,10 +4,12 @@ Verifies queue draining, Kiroku API interactions, duplicate handling, and failur
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -282,6 +284,62 @@ async def test_sync_anki_stats_to_cloud_success(adapter: LocalDevQueueAdapter):
     with patch("worker.fetch_anki_connect_stats", return_value=fake_stats):
         result = await worker.sync_anki_stats_to_cloud(adapter=adapter)
         assert result is True
+
+
+def test_fetch_anki_connect_stats_resilient_to_partial_deck_failure():
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    mock_responses = {
+        "version": {"result": 6, "error": None},
+        "getNumCardsReviewedByDay": {
+            "result": [["2026-10-16", 15], ["2026-10-17", 25]],
+            "error": None,
+        },
+        "getNumCardsReviewedToday": {"result": 5, "error": None},
+        "deckNames": {"result": ["Default", "N3 vocabs"], "error": None},
+    }
+
+    def fake_urlopen(req, timeout=3.0):
+        body = json.loads(req.data.decode("utf-8"))
+        action = body["action"]
+        params = body.get("params", {})
+        if action == "getDeckStats":
+            decks = params.get("decks", [])
+            if "Default" in decks and len(decks) > 1:
+                # Bulk call with Default fails just like real AnkiConnect
+                resp_data = {"result": None, "error": "Deck counts unavailable."}
+            elif decks == ["Default"]:
+                resp_data = {"result": None, "error": "Deck counts unavailable."}
+            else:
+                resp_data = {
+                    "result": {
+                        "2": {
+                            "deck_id": 2,
+                            "name": "N3 vocabs",
+                            "total_in_deck": 600,
+                            "new_count": 0,
+                            "learn_count": 0,
+                            "review_count": 50,
+                        }
+                    },
+                    "error": None,
+                }
+        else:
+            resp_data = mock_responses.get(action, {"result": None, "error": None})
+
+        resp_mock = MagicMock()
+        resp_mock.read.return_value = json.dumps(resp_data).encode("utf-8")
+        resp_mock.__enter__.return_value = resp_mock
+        return resp_mock
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        stats = worker.fetch_anki_connect_stats("http://127.0.0.1:8765")
+
+    assert stats is not None
+    assert stats["today_reviewed"] == 5
+    assert len(stats["decks"]) == 1
+    assert stats["decks"][0]["name"] == "N3 vocabs"
+    assert stats["summary"]["total_cards"] == 600
+
 
 
 

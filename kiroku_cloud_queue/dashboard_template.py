@@ -104,14 +104,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       border: 1px solid var(--border-default);
       color: var(--text-secondary);
       border-radius: var(--radius-sm);
-      padding: 0.45rem 0.65rem;
-      font-size: 0.82rem;
+      padding: 0.5rem 0.8rem;
+      min-height: 40px;
+      font-size: 0.85rem;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 0.35rem;
       font-family: var(--font-ja);
       transition: all 0.15s ease;
+      touch-action: manipulation;
     }
     button.icon-btn:hover, button.icon-btn:active {
       color: var(--text);
@@ -136,11 +138,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
     .nav-tab {
       flex: 1;
-      padding: 0.55rem 0.75rem;
+      padding: 0.6rem 0.75rem;
+      min-height: 44px;
       border: none;
       background: transparent;
       color: var(--text-muted);
-      font-size: 0.88rem;
+      font-size: 0.9rem;
       font-weight: 600;
       border-radius: 9px;
       cursor: pointer;
@@ -150,6 +153,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       gap: 0.4rem;
       font-family: var(--font-ja);
       transition: all 0.15s ease;
+      touch-action: manipulation;
     }
     .nav-tab.active {
       background: var(--surface-elevated);
@@ -194,9 +198,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       background: var(--bg);
       border: 1px solid var(--border-default);
       color: var(--text);
-      padding: 0.5rem 0.75rem;
+      padding: 0.6rem 0.75rem;
+      min-height: 42px;
       border-radius: var(--radius-sm);
-      font-size: 0.85rem;
+      font-size: 16px; /* 16px prevents iOS Safari auto-zoom */
       font-family: monospace;
       outline: none;
     }
@@ -207,12 +212,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       background: var(--accent);
       color: #fff;
       border: none;
-      padding: 0.5rem 1rem;
+      padding: 0.6rem 1.15rem;
+      min-height: 42px;
       border-radius: var(--radius-sm);
       font-weight: 600;
-      font-size: 0.85rem;
+      font-size: 0.88rem;
       cursor: pointer;
       font-family: var(--font-ja);
+      touch-action: manipulation;
     }
     .token-input-row button:hover {
       background: var(--accent-hover);
@@ -229,20 +236,29 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       background: var(--surface);
       border: 1px solid var(--border-subtle);
       border-radius: 10px;
-      padding: 0.55rem 0.6rem;
+      padding: 0.55rem 0.4rem;
       text-align: center;
+      min-width: 0;
+      overflow: hidden;
     }
     .stat-num {
       font-size: 1.15rem;
       font-weight: 700;
       line-height: 1.2;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .stat-lbl {
       font-size: 0.68rem;
       color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
       margin-top: 0.2rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .stat-num.done { color: var(--green); }
     .stat-num.pending { color: var(--yellow); }
@@ -258,6 +274,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius);
       padding: 0.95rem 1.1rem;
+      min-width: 0;
       transition: border-color 0.15s ease, background 0.15s ease;
     }
     .vocab-card:hover {
@@ -276,18 +293,23 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       align-items: baseline;
       gap: 0.55rem;
       flex-wrap: wrap;
+      min-width: 0;
     }
     .expression {
       font-family: var(--font-ja);
       font-size: 1.28rem;
       font-weight: 700;
       letter-spacing: 0.02em;
+      word-break: break-word;
+      overflow-wrap: anywhere;
     }
     .reading {
       font-family: var(--font-ja);
       font-size: 0.95rem;
       color: var(--accent-reading);
       font-weight: 500;
+      word-break: break-word;
+      overflow-wrap: anywhere;
     }
     .badge {
       display: inline-flex;
@@ -299,6 +321,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       border-radius: 6px;
       white-space: nowrap;
       letter-spacing: 0.02em;
+      flex-shrink: 0;
     }
     .badge.synced {
       background: var(--green-dim);
@@ -320,6 +343,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       color: var(--text-secondary);
       line-height: 1.45;
       margin-bottom: 0.45rem;
+      word-break: break-word;
+      overflow-wrap: anywhere;
     }
     .card-meta {
       display: flex;
@@ -327,6 +352,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       gap: 0.6rem;
       font-size: 0.74rem;
       color: var(--text-muted);
+      flex-wrap: wrap;
     }
     .deck-tag {
       background: var(--surface-elevated);
@@ -335,6 +361,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       border: 1px solid var(--border-subtle);
       color: var(--text-secondary);
       font-size: 0.7rem;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .error-toggle {
       font-size: 0.74rem;
@@ -343,6 +373,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       text-decoration: underline;
       margin-top: 0.35rem;
       display: inline-block;
+      min-height: 32px;
+      line-height: 32px;
     }
     .error-box {
       margin-top: 0.45rem;
@@ -398,6 +430,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       padding: 1rem;
       position: relative;
       overflow: hidden;
+      min-width: 0;
     }
     .metric-card::before {
       content: "";
@@ -417,6 +450,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       letter-spacing: -0.02em;
       line-height: 1.2;
       margin-bottom: 0.2rem;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .metric-val.streak {
       color: #f97316;
@@ -427,11 +464,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .metric-sub {
       font-size: 0.72rem;
       color: var(--text-secondary);
       margin-top: 0.3rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     /* Section & Heatmap */
@@ -441,12 +484,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       border-radius: var(--radius);
       padding: 1.15rem;
       margin-bottom: 1.25rem;
+      min-width: 0;
     }
     .section-header {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
       margin-bottom: 0.85rem;
+      gap: 0.5rem;
     }
     .section-title {
       font-size: 0.95rem;
@@ -462,6 +507,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       overflow-x: auto;
       padding-bottom: 0.5rem;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
     }
     .heatmap-grid {
       display: inline-grid;
@@ -477,6 +523,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       background: var(--surface-elevated);
       cursor: pointer;
       position: relative;
+      touch-action: manipulation;
     }
     .heatmap-cell:hover {
       outline: 1px solid var(--text-secondary);
@@ -490,6 +537,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       font-size: 0.7rem;
       color: var(--text-muted);
       margin-top: 0.75rem;
+      flex-wrap: wrap;
     }
     .legend-box {
       width: 10px;
@@ -503,12 +551,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       display: none;
       background: #000;
       color: #fff;
-      font-size: 0.72rem;
-      padding: 0.3rem 0.55rem;
-      border-radius: 5px;
+      font-size: 0.74rem;
+      padding: 0.35rem 0.6rem;
+      border-radius: 6px;
       pointer-events: none;
       z-index: 1000;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.6);
       border: 1px solid var(--border-default);
       white-space: nowrap;
     }
@@ -518,26 +566,50 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0.7rem 0;
+      gap: 0.75rem;
+      padding: 0.75rem 0;
       border-bottom: 1px solid var(--border-subtle);
+      min-width: 0;
     }
     .deck-item:last-child { border-bottom: none; }
     .deck-name {
       font-size: 0.88rem;
       font-weight: 500;
       color: var(--text);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
     }
     .deck-counts {
       display: flex;
       align-items: center;
       gap: 0.6rem;
       font-size: 0.75rem;
+      flex-shrink: 0;
     }
     .deck-count-pill {
       background: var(--surface-elevated);
       padding: 0.15rem 0.45rem;
       border-radius: 4px;
       color: var(--text-secondary);
+    }
+
+    /* Responsive Mobile Overrides */
+    @media (max-width: 480px) {
+      body {
+        padding: max(0.9rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(2.5rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+      }
+      .brand-title { font-size: 1.15rem; }
+      .metrics-grid { gap: 0.5rem; }
+      .metric-card { padding: 0.85rem 0.75rem; }
+      .metric-val { font-size: 1.4rem; }
+      .stats-bar { gap: 0.35rem; }
+      .stat-pill { padding: 0.5rem 0.25rem; }
+      .stat-num { font-size: 1.05rem; }
+      .stat-lbl { font-size: 0.62rem; }
+      .section-card { padding: 1rem 0.85rem; }
     }
 
     /* Offline Anki Guide */
@@ -750,6 +822,19 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     const STORAGE_KEY = 'kiroku_token';
     const LEGACY_STORAGE_KEY = 'kiroku_submit_token';
     const TAB_KEY = 'kiroku_active_tab';
+
+    // Auto-detect token in URL query parameter (?token=... or ?key=...)
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryToken = (urlParams.get('token') || urlParams.get('key') || '').trim();
+      if (queryToken) {
+        localStorage.setItem(STORAGE_KEY, queryToken);
+        const cleanUrl = window.location.pathname + (window.location.hash || '');
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    } catch (e) {
+      console.debug('Query param extraction skipped:', e);
+    }
 
     function getToken() {
       return localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY) || '';
@@ -1065,32 +1150,51 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
       grid.innerHTML = cells.join('');
 
+      // Auto-scroll to the right so current date is immediately visible on mobile
+      const wrap = document.querySelector('.heatmap-wrap');
+      if (wrap) {
+        requestAnimationFrame(() => {
+          wrap.scrollLeft = wrap.scrollWidth;
+        });
+      }
+
+      function showTooltip(clientX, clientY, text) {
+        if (!tooltip) return;
+        tooltip.textContent = text;
+        tooltip.style.display = 'block';
+
+        const pad = 12;
+        const approxWidth = 150;
+        let x = clientX - 45;
+        let y = clientY - 38;
+
+        if (x < pad) x = pad;
+        if (x + approxWidth > window.innerWidth - pad) {
+          x = window.innerWidth - pad - approxWidth;
+        }
+        if (y < pad) {
+          y = clientY + 22;
+        }
+
+        tooltip.style.left = `${Math.round(x)}px`;
+        tooltip.style.top = `${Math.round(y)}px`;
+      }
+
       // Add tooltip interactions
       grid.querySelectorAll('.heatmap-cell').forEach(cell => {
-        cell.addEventListener('mouseenter', e => {
-          const dateStr = cell.getAttribute('data-date');
-          const count = cell.getAttribute('data-count');
-          tooltip.textContent = `${dateStr}: ${count} review${count === '1' ? '' : 's'}`;
-          tooltip.style.display = 'block';
-          tooltip.style.left = `${e.clientX + 10}px`;
-          tooltip.style.top = `${e.clientY + 10}px`;
-        });
-        cell.addEventListener('mousemove', e => {
-          tooltip.style.left = `${e.clientX + 10}px`;
-          tooltip.style.top = `${e.clientY + 10}px`;
-        });
-        cell.addEventListener('mouseleave', () => {
-          tooltip.style.display = 'none';
-        });
+        const dateStr = cell.getAttribute('data-date');
+        const count = cell.getAttribute('data-count');
+        const text = `${dateStr}: ${count} review${count === '1' ? '' : 's'}`;
+
+        cell.addEventListener('mouseenter', e => showTooltip(e.clientX, e.clientY, text));
+        cell.addEventListener('mousemove', e => showTooltip(e.clientX, e.clientY, text));
+        cell.addEventListener('mouseleave', () => { if (tooltip) tooltip.style.display = 'none'; });
+
         // Mobile tap support
         cell.addEventListener('click', e => {
-          const dateStr = cell.getAttribute('data-date');
-          const count = cell.getAttribute('data-count');
-          tooltip.textContent = `${dateStr}: ${count} review${count === '1' ? '' : 's'}`;
-          tooltip.style.display = 'block';
-          tooltip.style.left = `${e.clientX - 40}px`;
-          tooltip.style.top = `${e.clientY - 35}px`;
-          setTimeout(() => { tooltip.style.display = 'none'; }, 2500);
+          e.stopPropagation();
+          showTooltip(e.clientX, e.clientY, text);
+          setTimeout(() => { if (tooltip) tooltip.style.display = 'none'; }, 2800);
         });
       });
     }

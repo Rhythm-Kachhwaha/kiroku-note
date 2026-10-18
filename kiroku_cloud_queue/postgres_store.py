@@ -37,13 +37,25 @@ class PostgresQueueStore(BaseQueueStore):
             self._driver = "psycopg"
             try:
                 from psycopg_pool import ConnectionPool
-                self._pool = ConnectionPool(
-                    self.connection_url,
-                    min_size=1,
-                    max_size=10,
-                    open=True,
-                    timeout=30.0,
-                )
+                pool_kwargs: dict[str, Any] = {
+                    "min_size": 1,
+                    "max_size": 10,
+                    "open": True,
+                    "timeout": 30.0,
+                }
+                if hasattr(ConnectionPool, "check_connection"):
+                    pool_kwargs["check"] = ConnectionPool.check_connection
+                pool_kwargs["max_idle"] = 300.0
+                try:
+                    self._pool = ConnectionPool(self.connection_url, **pool_kwargs)
+                except TypeError:
+                    self._pool = ConnectionPool(
+                        self.connection_url,
+                        min_size=1,
+                        max_size=10,
+                        open=True,
+                        timeout=30.0,
+                    )
             except Exception as pool_err:
                 log.debug("psycopg_pool not available or failed to initialize: %s", pool_err)
         except ImportError:
@@ -75,12 +87,20 @@ class PostgresQueueStore(BaseQueueStore):
         """Context manager providing an active connection, preferring the connection pool."""
         if self._pool is not None:
             if self._driver == "psycopg":
-                with self._pool.connection() as conn:
-                    yield conn
+                try:
+                    with self._pool.connection() as conn:
+                        yield conn
+                except Exception as exc:
+                    log.warning("Pooled connection dropped or failed (%s); falling back to direct connection", exc)
+                    import psycopg
+                    with psycopg.connect(self.connection_url) as conn:
+                        yield conn
             else:
                 conn = self._pool.getconn()
                 try:
                     yield conn
+                except Exception:
+                    raise
                 finally:
                     self._pool.putconn(conn)
         elif self._driver == "psycopg":

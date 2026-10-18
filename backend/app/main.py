@@ -1,6 +1,8 @@
+import asyncio
 import base64
 import csv
 import io
+import logging
 import os
 import re
 import time
@@ -97,6 +99,79 @@ ALLOWED_HOST_PATTERN = re.compile(r"^(localhost|127\.0\.0\.1|testserver)(:\d+)?$
 from app.services.ocr_process_manager import OcrProcessManager
 
 
+log = logging.getLogger("kiroku_backend")
+
+
+def _setup_cloud_queue_path() -> None:
+    """Ensure kiroku_cloud_queue directory is on sys.path for both dev and frozen environments."""
+    import sys
+    from pathlib import Path
+
+    if getattr(sys, "frozen", False):
+        candidates = [
+            Path(getattr(sys, "_MEIPASS", "")) / "kiroku_cloud_queue",
+            Path(sys.executable).resolve().parent / "_internal" / "kiroku_cloud_queue",
+            Path(sys.executable).resolve().parent / "kiroku_cloud_queue",
+        ]
+        for c in candidates:
+            if c.exists() and str(c) not in sys.path:
+                sys.path.insert(0, str(c))
+    else:
+        project_root = Path(__file__).resolve().parent.parent.parent
+        cloud_queue_dir = project_root / "kiroku_cloud_queue"
+        if str(cloud_queue_dir) not in sys.path and cloud_queue_dir.exists():
+            sys.path.insert(0, str(cloud_queue_dir))
+
+
+async def _execute_cloud_poll_cycle() -> None:
+    """
+    Execute one cycle of cloud sync:
+    1. If Anki is open, sync real study statistics to cloud queue (/api/stats/anki).
+    2. Drain pending vocabulary cards from cloud queue to local SQLite without pushing to Anki.
+    """
+    _setup_cloud_queue_path()
+    try:
+        from worker import process_batch, sync_anki_stats_to_cloud
+        from queue_adapter import CloudQueueNotConfiguredError, QueueError
+    except ImportError as e:
+        log.debug("Cloud queue modules not importable: %s", e)
+        return
+
+    # Step 1: Sync Anki stats to cloud (gracefully skips if Anki is closed)
+    try:
+        await sync_anki_stats_to_cloud()
+    except Exception as exc:
+        log.debug("Background Anki stats sync skipped or failed: %s", exc)
+
+    # Step 2: Pull and drain pending cards to local SQLite
+    try:
+        batch_res = await process_batch(auto_sync=False)
+        if batch_res.processed > 0:
+            log.info("Cloud auto-poll imported %d card(s) to local database.", batch_res.processed)
+    except CloudQueueNotConfiguredError:
+        log.debug("Cloud queue not configured; skipping auto-poll.")
+    except QueueError as q_err:
+        log.warning("Cloud queue auto-poll error: %s", q_err)
+    except Exception as exc:
+        log.debug("Cloud auto-poll exception: %s", exc)
+
+
+async def _cloud_auto_poll_task(interval_seconds: float = 900.0) -> None:
+    """
+    Background worker loop:
+    Waits 5 seconds after startup for backend socket binding, then performs an initial poll.
+    Thereafter, polls every interval_seconds (default 15 minutes / 900s) until cancelled.
+    """
+    try:
+        await asyncio.sleep(5.0)
+        await _execute_cloud_poll_cycle()
+        while True:
+            await asyncio.sleep(interval_seconds)
+            await _execute_cloud_poll_cycle()
+    except asyncio.CancelledError:
+        log.debug("Cloud auto-poll background task cancelled.")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -104,8 +179,18 @@ async def lifespan(app: FastAPI):
     pm = OcrProcessManager.get_instance()
     if pm.is_installed():
         pm.start(wait_for_health=False)
+
+    # Start 15-minute background cloud auto-poll task (900 seconds)
+    poll_task = asyncio.create_task(_cloud_auto_poll_task(interval_seconds=900.0))
+
     yield
-    # On Kiroku backend shutdown: clean up any child OCR subprocess
+
+    # On Kiroku backend shutdown: clean up background task and child OCR subprocess
+    poll_task.cancel()
+    try:
+        await poll_task
+    except (asyncio.CancelledError, Exception):
+        pass
     pm.stop()
 
 
@@ -838,27 +923,12 @@ async def pull_cloud_queue() -> JSONResponse:
     """
     Check and drain pending cards from the cloud queue into local SQLite.
     Does NOT automatically sync to Anki (leaves sync_status='pending' for manual review).
+    Also synchronizes current Anki study statistics to cloud queue if Anki is open.
     """
-    import sys
-    from pathlib import Path
-
-    if getattr(sys, "frozen", False):
-        candidates = [
-            Path(getattr(sys, "_MEIPASS", "")) / "kiroku_cloud_queue",
-            Path(sys.executable).resolve().parent / "_internal" / "kiroku_cloud_queue",
-            Path(sys.executable).resolve().parent / "kiroku_cloud_queue",
-        ]
-        for c in candidates:
-            if c.exists() and str(c) not in sys.path:
-                sys.path.insert(0, str(c))
-    else:
-        project_root = Path(__file__).resolve().parent.parent.parent
-        cloud_queue_dir = project_root / "kiroku_cloud_queue"
-        if str(cloud_queue_dir) not in sys.path and cloud_queue_dir.exists():
-            sys.path.insert(0, str(cloud_queue_dir))
+    _setup_cloud_queue_path()
 
     try:
-        from worker import process_batch
+        from worker import process_batch, sync_anki_stats_to_cloud
         from queue_adapter import CloudQueueNotConfiguredError, QueueError
     except ImportError as e:
         return JSONResponse({
@@ -869,6 +939,12 @@ async def pull_cloud_queue() -> JSONResponse:
             "failed": 0,
             "message": f"Cloud queue module unavailable: {e}",
         })
+
+    # Opportunistically sync latest Anki stats
+    try:
+        await sync_anki_stats_to_cloud()
+    except Exception as exc:
+        log.debug("Manual check Anki stats sync skipped or failed: %s", exc)
 
     try:
         result = await process_batch(auto_sync=False)
@@ -912,3 +988,16 @@ async def pull_cloud_queue() -> JSONResponse:
             "failed": 0,
             "message": f"Failed to pull cloud queue: {e}",
         })
+
+
+@app.get("/dashboard")
+def get_dashboard_redirect() -> Response:
+    """Convenience redirect from local backend to the Cloud Queue Dashboard."""
+    from fastapi.responses import RedirectResponse
+    cloud_url = os.getenv("CLOUD_QUEUE_URL", "https://kiroku-cloud-queue.onrender.com").rstrip("/")
+    token = os.getenv("WORKER_TOKEN", os.getenv("SUBMIT_TOKEN", ""))
+    target = f"{cloud_url}/dashboard"
+    if token:
+        target += f"?token={token}"
+    return RedirectResponse(url=target)
+

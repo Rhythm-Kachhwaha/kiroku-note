@@ -243,7 +243,14 @@ class CardsApiTests(unittest.TestCase):
         self.assertIn("processed", data)
         self.assertIn("message", data)
 
+    def test_cloud_auto_poll_cycle_executes_cleanly(self):
+        import asyncio
+        from app.main import _execute_cloud_poll_cycle
+        # Must execute cleanly without uncaught exceptions
+        asyncio.run(_execute_cloud_poll_cycle())
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
