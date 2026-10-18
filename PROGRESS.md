@@ -1,5 +1,24 @@
 # Kiroku Note — Progress
 
+### Cloud Dashboard Card Mirror & Study Mode: M0 Recon (2026-10-18)
+
+**Objective**: Complete reconnaissance milestone M0 for Anki card mirror, per-card difficulty scoring, rich stats, and cloud study mode. Record baseline test runs, verify local AnkiConnect availability with a read-only script, decide dashboard template backslash strategy, and establish design spec.
+
+**Key Findings & Decisions**:
+1. **Baseline Test Results**:
+   - `kiroku_cloud_queue` suite: 123 passed, 5 deprecation warnings in 3.79s (`.venv\Scripts\python.exe -m pytest tests -q`).
+   - `backend` suite: 537 passed, 4 subtests passed in 73.18s (`pytest -o pythonpath=backend backend/tests -q`).
+   - Node.js runtime: v24.20.0 verified available for `<script>` extraction and `node --check`.
+2. **AnkiConnect Inspection (`scripts/verify_anki_actions.py`)**:
+   - Script created with strict read-only queries (`version`, `deckNames`, `findCards`, `cardsInfo`, `cardsModTime`, `getReviewsOfCards`, `cardReviews`, `getLatestReviewID`, `getNumCardsReviewedByDay`, etc.).
+   - Execution against `http://127.0.0.1:8765`: Connection refused (Anki Desktop is not currently running).
+   - In accordance with prompt instructions, development and automated tests will run against realistic fakes and fixtures; all live Anki integration checks are explicitly flagged as unverified in offline environment.
+3. **Template Backslash Strategy**:
+   - Selected **Option C**: Extract HTML/CSS/JS into `dashboard.html` loaded by `dashboard_template.py` at import time.
+   - Eliminates Python string escaping and backslash doubling (`\\n`, `\\d+`), preserves clean syntax highlighting, and allows automated `node --check` script validation while keeping `DASHBOARD_HTML` backward-compatible for `server.py` and existing tests.
+4. **Deviations from Prompt**:
+   - None. All requirements, formulas, schema parity across 3 files, locked boundaries, and zero-emoji rules will be followed exactly.
+
 ### Cloud Dashboard Hero Modal: Hint, Notes, Context & Tags Support (2026-10-18)
 
 **Objective**: Fix the Cloud Dashboard Hero card inspection modal to display hints, notes, source context, and tags whenever available, while hiding them if empty; preserve existing UI aesthetics, typography, and zero-emoji compliance.
