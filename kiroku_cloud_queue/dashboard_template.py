@@ -818,6 +818,58 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       line-height: 1.45;
     }
 
+    .modal-hint-box {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      color: var(--text);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .modal-notes-box {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.88rem;
+      color: var(--text);
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .modal-context-box {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .modal-tags-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .modal-tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      background: var(--surface-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+      letter-spacing: 0.02em;
+    }
+
     .modal-meta-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -1052,6 +1104,26 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <div class="sentence-jp" id="modal-sentence-jp"></div>
           <div class="sentence-en" id="modal-sentence-en"></div>
         </div>
+      </div>
+
+      <div class="modal-section" id="modal-section-hint" style="display: none;">
+        <div class="modal-section-title">Hint</div>
+        <div class="modal-hint-box" id="modal-hint-content"></div>
+      </div>
+
+      <div class="modal-section" id="modal-section-notes" style="display: none;">
+        <div class="modal-section-title">Notes</div>
+        <div class="modal-notes-box" id="modal-notes-content"></div>
+      </div>
+
+      <div class="modal-section" id="modal-section-context" style="display: none;">
+        <div class="modal-section-title">Source Context</div>
+        <div class="modal-context-box" id="modal-context-content"></div>
+      </div>
+
+      <div class="modal-section" id="modal-section-tags" style="display: none;">
+        <div class="modal-section-title">Tags</div>
+        <div class="modal-tags-row" id="modal-tags-content"></div>
       </div>
 
       <div class="modal-meta-grid">
@@ -1326,25 +1398,27 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       const errorWrap = document.getElementById('modal-error-wrap');
       const errorContent = document.getElementById('modal-error-content');
 
+      // Resolve card payload if available
+      let payload = {};
+      if (card.payload_json) {
+        try {
+          payload = typeof card.payload_json === 'string' ? JSON.parse(card.payload_json) : (card.payload_json || {});
+        } catch (e) {}
+      }
+
       // 1. Reading
-      readingEl.textContent = (card.reading || '').trim();
+      readingEl.textContent = (card.reading || payload.reading || '').trim();
 
       // 2. Expression
-      exprEl.textContent = card.expression || '—';
+      exprEl.textContent = card.expression || payload.expression || '—';
 
       // 3. Badges
-      let jlptLevel = card.jlpt_level || '';
-      if (!jlptLevel && card.payload_json) {
-        try {
-          const payload = typeof card.payload_json === 'string' ? JSON.parse(card.payload_json) : card.payload_json;
-          if (payload && payload.jlpt_level) jlptLevel = payload.jlpt_level;
-          else if (payload && Array.isArray(payload.tags)) {
-            for (const t of payload.tags) {
-              const m = String(t).match(/^jlpt[-_]?n([1-5])$/i) || String(t).match(/^n([1-5])$/i);
-              if (m) { jlptLevel = 'N' + m[1]; break; }
-            }
-          }
-        } catch (e) {}
+      let jlptLevel = card.jlpt_level || payload.jlpt_level || '';
+      if (!jlptLevel && Array.isArray(payload.tags)) {
+        for (const t of payload.tags) {
+          const m = String(t).match(/^jlpt[-_]?n([1-5])$/i) || String(t).match(/^n([1-5])$/i);
+          if (m) { jlptLevel = 'N' + m[1]; break; }
+        }
       }
 
       const isSynced = card.status === 'completed' || card.status === 'synced';
@@ -1358,11 +1432,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         badgesHtml += `<span class="jlpt-badge">${escapeHtml(jlptLevel.toUpperCase())}</span>`;
       }
       badgesHtml += `<span class="badge ${badgeClass}">${badgeIcon}<span>${badgeLabel}</span></span>`;
-      badgesHtml += `<span class="deck-tag">${escapeHtml(card.deck_name || 'N3 vocabs')}</span>`;
+      badgesHtml += `<span class="deck-tag">${escapeHtml(card.deck_name || payload.deck_name || 'N3 vocabs')}</span>`;
       badgesEl.innerHTML = badgesHtml;
 
       // 4. Meanings (clean split into bulleted/numbered lines matching extension)
-      const rawMeaning = (card.meaning || '').trim();
+      const rawMeaning = (card.meaning || payload.meaning || '').trim();
       if (!rawMeaning) {
         meaningContent.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;">No definitions recorded for this card.</div>';
       } else {
@@ -1385,11 +1459,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       }
 
       // 5. Context Sentence
-      const sentence = (card.sentence || '').trim();
-      const sentenceMeaning = (card.sentence_meaning || '').trim();
+      const sentence = (card.sentence || payload.sentence || payload.example_sentence || '').trim();
+      const sentenceMeaning = (card.sentence_meaning || payload.sentence_meaning || payload.example_translation || '').trim();
       if (sentence) {
         sentenceSection.style.display = 'block';
-        const expr = card.expression || '';
+        const expr = card.expression || payload.expression || '';
         let highlightedSentence = escapeHtml(sentence);
         if (expr && highlightedSentence.includes(escapeHtml(expr))) {
           highlightedSentence = highlightedSentence.split(escapeHtml(expr)).join(`<mark class="highlight">${escapeHtml(expr)}</mark>`);
@@ -1401,11 +1475,61 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         sentenceSection.style.display = 'none';
       }
 
-      // 6. Meta info
-      metaDeck.textContent = card.deck_name || 'N3 vocabs';
+      // 6. Hint (conditional - shown only if filled)
+      const hintSection = document.getElementById('modal-section-hint');
+      const hintContent = document.getElementById('modal-hint-content');
+      const rawHint = (card.hint || payload.hint || '').trim();
+      if (rawHint && hintSection && hintContent) {
+        hintContent.textContent = rawHint;
+        hintSection.style.display = 'block';
+      } else if (hintSection) {
+        hintSection.style.display = 'none';
+      }
+
+      // 7. Notes (conditional - shown only if filled)
+      const notesSection = document.getElementById('modal-section-notes');
+      const notesContent = document.getElementById('modal-notes-content');
+      const rawNotes = (card.notes || payload.notes || '').trim();
+      if (rawNotes && notesSection && notesContent) {
+        notesContent.textContent = rawNotes;
+        notesSection.style.display = 'block';
+      } else if (notesSection) {
+        notesSection.style.display = 'none';
+      }
+
+      // 8. Source Context (conditional - shown if distinct from sentence & meaning)
+      const contextSection = document.getElementById('modal-section-context');
+      const contextContent = document.getElementById('modal-context-content');
+      const rawContext = (card.context || payload.context || payload.source_text || '').trim();
+      if (rawContext && rawContext !== sentence && rawContext !== rawMeaning && contextSection && contextContent) {
+        contextContent.textContent = rawContext;
+        contextSection.style.display = 'block';
+      } else if (contextSection) {
+        contextSection.style.display = 'none';
+      }
+
+      // 9. Tags (conditional - shown only if filled)
+      const tagsSection = document.getElementById('modal-section-tags');
+      const tagsContent = document.getElementById('modal-tags-content');
+      const rawTags = card.tags || payload.tags || '';
+      let tagsList = [];
+      if (Array.isArray(rawTags)) {
+        tagsList = rawTags.map(t => String(t).trim()).filter(Boolean);
+      } else if (typeof rawTags === 'string' && rawTags.trim()) {
+        tagsList = rawTags.split(/[,;\\s]+/).map(t => t.trim().replace(/^#/, '')).filter(Boolean);
+      }
+      if (tagsList.length > 0 && tagsSection && tagsContent) {
+        tagsContent.innerHTML = tagsList.map(tag => `<span class="modal-tag-chip">#${escapeHtml(tag)}</span>`).join('');
+        tagsSection.style.display = 'block';
+      } else if (tagsSection) {
+        tagsSection.style.display = 'none';
+      }
+
+      // 10. Meta info
+      metaDeck.textContent = card.deck_name || payload.deck_name || 'N3 vocabs';
       metaTime.textContent = card.created_at ? `${timeAgo(card.created_at)} (${new Date(card.created_at).toLocaleString()})` : '-';
 
-      // 7. Error info
+      // 11. Error info
       if (card.error && card.error.trim().length > 0) {
         errorWrap.style.display = 'block';
         errorContent.textContent = card.error;

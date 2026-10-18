@@ -329,11 +329,46 @@ def test_dashboard_endpoint_public_returns_html(client: TestClient):
     assert "kiroku_submit_token" in resp.text
     assert "kiroku cloud" in resp.text
     assert "hero-modal" in resp.text
+    assert "modal-section-hint" in resp.text
+    assert "modal-section-notes" in resp.text
+    assert "modal-section-context" in resp.text
+    assert "modal-section-tags" in resp.text
     assert "sync-banner" not in resp.text
 
     # Verify zero emojis anywhere in the dashboard HTML
     emojis = re.findall(r'[\U00010000-\U0010ffff\u2600-\u26ff\u2700-\u27bf\u2300-\u23ff\u2b50\u2b55\u25b6\u25c0\u2705\u274c]', resp.text)
     assert len(emojis) == 0, f"Found emojis in dashboard HTML: {emojis}"
+
+
+def test_dashboard_hero_modal_extended_fields_present(client: TestClient):
+    """Verify that Hero modal includes Hint, Notes, Context, and Tags boxes, styling, and JS handlers."""
+    resp = client.get("/dashboard")
+    assert resp.status_code == 200
+    html = resp.text
+
+    # HTML Elements
+    assert 'id="modal-section-hint"' in html
+    assert 'id="modal-hint-content"' in html
+    assert 'id="modal-section-notes"' in html
+    assert 'id="modal-notes-content"' in html
+    assert 'id="modal-section-context"' in html
+    assert 'id="modal-context-content"' in html
+    assert 'id="modal-section-tags"' in html
+    assert 'id="modal-tags-content"' in html
+
+    # CSS classes
+    assert '.modal-hint-box' in html
+    assert '.modal-notes-box' in html
+    assert '.modal-context-box' in html
+    assert '.modal-tags-row' in html
+    assert '.modal-tag-chip' in html
+
+    # JS Handlers in openHeroModal
+    assert "modal-section-hint" in html
+    assert "modal-section-notes" in html
+    assert "modal-section-context" in html
+    assert "modal-section-tags" in html
+    assert "modal-tag-chip" in html
 
 
 

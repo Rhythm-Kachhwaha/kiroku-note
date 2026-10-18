@@ -1,5 +1,31 @@
 # Kiroku Note — Progress
 
+### Cloud Dashboard Hero Modal: Hint, Notes, Context & Tags Support (2026-10-18)
+
+**Objective**: Fix the Cloud Dashboard Hero card inspection modal to display hints, notes, source context, and tags whenever available, while hiding them if empty; preserve existing UI aesthetics, typography, and zero-emoji compliance.
+
+**Key Changes Delivered**:
+1. **Dynamic Hero Modal Content Sections (`dashboard_template.py`)**:
+   - Added conditional modal sections for Hint (`#modal-section-hint`), Notes (`#modal-section-notes`), Source Context (`#modal-section-context`), and Tags (`#modal-section-tags`).
+   - Default visibility for each section is `display: none`.
+2. **Design-System Styling (`dashboard_template.py`)**:
+   - `.modal-hint-box`: Dark surface (`var(--surface-elevated)`), subtle border, and warm coral left accent border (`3px solid var(--accent)`).
+   - `.modal-notes-box`: Multi-line preservation (`white-space: pre-wrap; word-break: break-word;`), 1.55 line height, and clean subtle container.
+   - `.modal-context-box`: Subtle container for distinct source dialogue/text.
+   - `.modal-tags-row` & `.modal-tag-chip`: Flexible row of pill tags with subtle borders and clean letter-spacing.
+3. **Data Extraction & Rendering (`dashboard_template.py`)**:
+   - `openHeroModal(index)` resolves fields from both the top-level card object and the parsed `payload_json` (preserving extended fields from mobile iPhone shortcuts and MCP ingestion).
+   - Fields are HTML-escaped and displayed only when non-empty (`trim().length > 0`).
+   - Tags parse both list arrays and comma/whitespace-separated strings.
+   - Context is shown only when present and distinct from the context sentence and definition.
+4. **Verification (`test_cloud_api.py`)**:
+   - Added test assertions in `test_cloud_api.py` verifying presence of all extended modal elements and classes in `/dashboard` HTML.
+   - Verified zero OS emoji rule compliance.
+   - Verified all 123 cloud queue tests pass (`123 passed, 0 failures`).
+
+**Remaining Risk**:
+- None. All additional fields degrade gracefully to hidden when empty.
+
 ### Subtitle Default OFF Fix & Release Build Audit (2026-10-18)
 
 **Objective**: Fix the video mining subtitle display issue where subtitles were displayed on page injection even when "Show Subtitles" was toggled off in settings; ensure subtitles overlay is strictly OFF by default and only displays when explicitly enabled by user; verify zero regressions across all 855 test suites; and produce release standalone executables (`kiroku.exe`) and Inno Setup installer (`setup.exe`).
