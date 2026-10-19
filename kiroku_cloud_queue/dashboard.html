@@ -45,10 +45,20 @@
       color: var(--text);
       font-family: var(--font-ja);
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    .app-layout {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+    }
+    .app-main {
+      flex: 1;
+      min-width: 0;
+      width: 100%;
       display: flex;
       flex-direction: column;
-      padding: max(1.25rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(3rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-      -webkit-font-smoothing: antialiased;
+      padding: max(1.25rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(5rem, calc(4.5rem + env(safe-area-inset-bottom))) max(1rem, env(safe-area-inset-left));
     }
     .container {
       width: 100%;
@@ -531,6 +541,48 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    @media (max-width: 640px) {
+      .mirrored-card-row {
+        padding: 0.75rem 0.85rem;
+        gap: 0.4rem;
+      }
+      .row-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+        width: 100%;
+      }
+      .row-word-group {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 0.35rem 0.6rem;
+      }
+      .row-expression {
+        white-space: normal;
+        word-break: break-all;
+        font-size: 1.18rem;
+        line-height: 1.3;
+      }
+      .row-reading {
+        white-space: normal;
+        word-break: break-all;
+        font-size: 0.86rem;
+        color: var(--accent-reading);
+      }
+      .row-badges-wrap {
+        width: 100%;
+        justify-content: flex-start;
+        gap: 0.3rem;
+        margin-top: 0.15rem;
+      }
+      .row-meaning {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
     }
     .row-meta-line {
       display: flex;
@@ -1555,27 +1607,494 @@
       color: var(--text-muted);
     }
 
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
+    /* =========================================================================
+       Navigation & Layout (Desktop Sidebar & Mobile Bottom Bar)
+       ========================================================================= */
+    .app-sidebar {
+      display: none; /* Hidden by default on mobile */
+    }
+    .mobile-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.15rem;
+      gap: 0.75rem;
+    }
+    .mobile-bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(56px + env(safe-area-inset-bottom, 0px));
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      background: rgba(24, 23, 21, 0.95);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      z-index: 1000;
+    }
+    .mob-nav-btn {
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.2rem;
+      font-size: 0.68rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: color 0.15s, transform 0.1s;
+    }
+    .mob-nav-btn .svg-icon {
+      width: 18px;
+      height: 18px;
+    }
+    .mob-nav-btn.active {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .mob-nav-btn.active .svg-icon {
+      stroke: var(--accent);
+    }
+    .mob-nav-plus-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Desktop Viewport (> 768px) */
+    @media (min-width: 769px) {
+      .mobile-header {
+        display: none;
       }
+      .mobile-bottom-nav {
+        display: none;
+      }
+      .app-sidebar {
+        display: flex;
+        flex-direction: column;
+        width: 220px;
+        min-width: 220px;
+        background: var(--surface);
+        border-right: 1px solid var(--border-subtle);
+        padding: 1.5rem 1rem;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+      }
+      .sidebar-brand {
+        margin-bottom: 1.75rem;
+        padding-left: 0.25rem;
+      }
+      .sidebar-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        flex: 1;
+      }
+      .sidebar-nav .nav-tab {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0.75rem;
+        padding: 0.65rem 0.85rem;
+        border-radius: var(--radius-sm);
+        color: var(--text-secondary);
+        font-size: 0.86rem;
+        font-weight: 500;
+        text-align: left;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+        border-left: 3px solid transparent;
+      }
+      .sidebar-nav .nav-tab:hover {
+        background: var(--surface-hover);
+        color: var(--text);
+      }
+      .sidebar-nav .nav-tab.active {
+        background: var(--surface-elevated);
+        color: #ffffff;
+        font-weight: 600;
+        border-left: 3px solid var(--accent);
+      }
+      .sidebar-nav .nav-tab.active .svg-icon {
+        stroke: var(--accent);
+      }
+      .sidebar-footer {
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-subtle);
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .sidebar-footer .icon-btn {
+        width: 100%;
+        justify-content: flex-start;
+      }
+    }
+
+    /* Mobile Viewport (<= 768px) */
+    @media (max-width: 768px) {
+      .nav-tabs {
+        display: none; /* Replaced by bottom nav */
+      }
+    }
+
+    /* =========================================================================
+       Cloud Quick Add Styles
+       ========================================================================= */
+    .quickadd-box {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .qa-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .qa-title-group h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.2rem;
+    }
+    .qa-title-group p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .qa-mode-pills {
+      display: inline-flex;
+      background: var(--bg);
+      border: 1px solid var(--border-default);
+      border-radius: 9999px;
+      padding: 0.2rem;
+      gap: 0.2rem;
+    }
+    .qa-mode-pill {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      font-family: inherit;
+    }
+    .qa-mode-pill.active {
+      background: var(--accent);
+      color: #ffffff;
+    }
+    .qa-search-bar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 0.5rem;
+    }
+    .qa-search-bar input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 4rem 0.75rem 1rem;
+      color: var(--text);
+      font-size: 1.05rem;
+      font-family: var(--font-ja);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .qa-search-bar input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 2px var(--accent-dim);
+    }
+    .qa-input-actions {
+      position: absolute;
+      right: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .qa-action-icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0.35rem;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .qa-action-icon-btn:hover {
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+    .qa-shortcuts-hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      display: flex;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+    }
+    .qa-shortcuts-hint kbd {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: 3px;
+      padding: 0.1rem 0.35rem;
+      font-size: 0.68rem;
+      color: var(--text-secondary);
+      font-family: monospace;
+    }
+    .qa-suggestions-list {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      margin-bottom: 1rem;
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+    }
+    .qa-candidate-item {
+      padding: 0.6rem 0.85rem;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.75rem;
+      transition: background 0.12s;
+    }
+    .qa-candidate-item:last-child {
+      border-bottom: none;
+    }
+    .qa-candidate-item:hover, .qa-candidate-item.highlighted {
+      background: var(--surface-hover);
+    }
+    .qa-cand-term {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    .qa-cand-reading {
+      color: var(--accent-reading);
+      font-size: 0.8rem;
+      margin-left: 0.45rem;
+    }
+    .qa-cand-meaning {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: right;
+      flex: 1;
+    }
+    .qa-draft-card {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+    .qa-form-row-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    @media (max-width: 600px) {
+      .qa-form-row-2col {
+        grid-template-columns: 1fr;
+      }
+    }
+    .qa-field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .qa-field-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .qa-field-input, .qa-field-textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 0.55rem 0.75rem;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .qa-field-input:focus, .qa-field-textarea:focus {
+      border-color: var(--border-focus);
+    }
+    .qa-field-input.japanese {
+      font-family: var(--font-ja);
+      font-weight: 700;
+      font-size: 1.15rem;
+    }
+    .qa-field-input.reading {
+      font-family: var(--font-ja);
+      color: var(--accent-reading);
+    }
+    .qa-kanji-chips-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.2rem;
+    }
+    .qa-kanji-chip {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.35rem 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.76rem;
+    }
+    .qa-kanji-char {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1;
+    }
+    .qa-kanji-info {
+      color: var(--text-secondary);
+      line-height: 1.25;
+    }
+    .qa-submit-bar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    .qa-primary-btn {
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 1.4rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .qa-primary-btn:hover {
+      background: var(--accent-hover);
+    }
+    .qa-primary-btn:active {
+      transform: scale(0.98);
+    }
+    .qa-secondary-btn {
+      background: transparent;
+      border: 1px solid var(--border-default);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .qa-secondary-btn:hover {
+      background: var(--surface-hover);
+      color: var(--text);
+    }
+    .qa-status-toast {
+      padding: 0.65rem 0.85rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      font-weight: 500;
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .qa-status-toast.success {
+      background: var(--green-dim);
+      border: 1px solid var(--green);
+      color: #79c787;
+    }
+    .qa-status-toast.error {
+      background: var(--red-dim);
+      border: 1px solid var(--red);
+      color: #f17878;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="brand">
-        <h1 class="brand-title">kiroku cloud</h1>
-        <span class="brand-badge">companion</span>
+  <div class="app-layout">
+    <!-- Desktop Left Sidebar (> 768px) -->
+    <aside class="app-sidebar" aria-label="Desktop Navigation">
+      <div class="sidebar-brand">
+        <div class="brand">
+          <h1 class="brand-title">kiroku cloud</h1>
+          <span class="brand-badge">companion</span>
+        </div>
       </div>
-      <div class="header-actions">
-        <button class="icon-btn" id="refresh-btn" onclick="refreshActive(true)" title="Refresh data">
-          <span id="refresh-icon">
-            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-          </span>
+      <nav class="sidebar-nav" role="tablist">
+        <button class="nav-tab active" id="tab-btn-cards" data-tab="cards" onclick="switchTab('cards')">
+          <svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 10 21 10"/></svg>
+          Cards
+        </button>
+        <button class="nav-tab" id="tab-btn-quickadd" data-tab="quickadd" onclick="switchTab('quickadd')">
+          <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Quick Add
+        </button>
+        <button class="nav-tab" id="tab-btn-queue" data-tab="queue" onclick="switchTab('queue')">
+          <svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="14" rx="2"/><path d="M6 3h14a2 2 0 0 1 2 2v12"/></svg>
+          Queue
+        </button>
+        <button class="nav-tab" id="tab-btn-stats" data-tab="stats" onclick="switchTab('stats')">
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+          Stats
+        </button>
+        <button class="nav-tab" id="tab-btn-study" data-tab="study" onclick="switchTab('study')">
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
+          Study
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="icon-btn" onclick="refreshActive(true)" title="Refresh data">
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
           Refresh
         </button>
         <button class="icon-btn" onclick="toggleTokenBox()" title="Configure Access Token">
@@ -1583,37 +2102,64 @@
           Key
         </button>
       </div>
-    </header>
+    </aside>
 
-    <!-- Navigation Tabs -->
-    <div class="nav-tabs" role="tablist">
-      <button class="nav-tab active" id="tab-btn-cards" onclick="switchTab('cards')">
-        <svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 10 21 10"/></svg>
-        Cards
-      </button>
-      <button class="nav-tab" id="tab-btn-queue" onclick="switchTab('queue')">
-        <svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="14" rx="2"/><path d="M6 3h14a2 2 0 0 1 2 2v12"/></svg>
-        Queue
-      </button>
-      <button class="nav-tab" id="tab-btn-stats" onclick="switchTab('stats')">
-        <svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-        Stats
-      </button>
-      <button class="nav-tab" id="tab-btn-study" onclick="switchTab('study')">
-        <svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
-        Study
-      </button>
-    </div>
+    <!-- Main Content Area -->
+    <main class="app-main">
+      <div class="container">
+        <!-- Mobile Header (<= 768px) -->
+        <header class="mobile-header">
+          <div class="brand">
+            <h1 class="brand-title">kiroku cloud</h1>
+            <span class="brand-badge">companion</span>
+          </div>
+          <div class="header-actions">
+            <button class="icon-btn" id="refresh-btn" onclick="refreshActive(true)" title="Refresh data">
+              <span id="refresh-icon">
+                <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+              </span>
+              Refresh
+            </button>
+            <button class="icon-btn" onclick="toggleTokenBox()" title="Configure Access Token">
+              <svg class="svg-icon" viewBox="0 0 24 24"><path d="m15.5 8.5 5 5-2 2-2-2-2 2-1.5-1.5M7 14a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
+              Key
+            </button>
+          </div>
+        </header>
 
-    <!-- Token Configuration Box -->
-    <div id="token-box" style="display: none;">
-      <h2>Access Token Configuration</h2>
-      <p>Enter your <code>WORKER_TOKEN</code> or <code>SUBMIT_TOKEN</code>. Stored locally in your browser.</p>
-      <div class="token-input-row">
-        <input type="password" id="token-input" placeholder="Paste Bearer token..." autocomplete="off">
-        <button onclick="saveToken()">Save</button>
-      </div>
-    </div>
+        <!-- Legacy horizontal tabs retained for backwards-compatibility -->
+        <div class="nav-tabs" role="tablist">
+          <button class="nav-tab active" data-tab="cards" onclick="switchTab('cards')">
+            <svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 10 21 10"/></svg>
+            Cards
+          </button>
+          <button class="nav-tab" data-tab="quickadd" onclick="switchTab('quickadd')">
+            <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            Quick Add
+          </button>
+          <button class="nav-tab" data-tab="queue" onclick="switchTab('queue')">
+            <svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="14" rx="2"/><path d="M6 3h14a2 2 0 0 1 2 2v12"/></svg>
+            Queue
+          </button>
+          <button class="nav-tab" data-tab="stats" onclick="switchTab('stats')">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            Stats
+          </button>
+          <button class="nav-tab" data-tab="study" onclick="switchTab('study')">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
+            Study
+          </button>
+        </div>
+
+        <!-- Token Configuration Box -->
+        <div id="token-box" style="display: none;">
+          <h2>Access Token Configuration</h2>
+          <p>Enter your <code>WORKER_TOKEN</code> or <code>SUBMIT_TOKEN</code>. Stored locally in your browser.</p>
+          <div class="token-input-row">
+            <input type="password" id="token-input" placeholder="Paste Bearer token..." autocomplete="off">
+            <button onclick="saveToken()">Save</button>
+          </div>
+        </div>
 
     <!-- VIEW 1: Mirrored Cards (M3) -->
     <div id="view-cards" class="view-panel active">
@@ -1713,7 +2259,112 @@
       </div>
     </div>
 
-    <!-- VIEW 2: Ingestion Queue (Original View) -->
+    <!-- VIEW: Cloud Quick Add (New!) -->
+    <div id="view-quickadd" class="view-panel">
+      <div class="quickadd-box">
+        <div class="qa-header-row">
+          <div class="qa-title-group">
+            <h2>Quick Add Card</h2>
+            <p>Lookup vocabulary with local dictionary &amp; send to Anki queue</p>
+          </div>
+          <div class="qa-mode-pills" role="radiogroup" aria-label="Input Mode">
+            <button type="button" class="qa-mode-pill active" id="qa-mode-kana" onclick="setQuickAddMode('kana')" title="Kana Mode (F6): Type Romaji to auto-convert to Hiragana">あ Kana</button>
+            <button type="button" class="qa-mode-pill" id="qa-mode-english" onclick="setQuickAddMode('english')" title="English Mode (F7): Search directly by English meaning">EN English</button>
+          </div>
+        </div>
+
+        <!-- Search Input with Action Icons -->
+        <div class="qa-search-bar">
+          <input type="text" id="quickadd-input" placeholder="Type romaji or Japanese… (e.g. taberu)" autocomplete="off" spellcheck="false">
+          <div class="qa-input-actions">
+            <span id="qa-search-spinner" class="spin" style="display:none;color:var(--accent);margin-right:4px;">
+              <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            </span>
+            <button type="button" id="quickadd-clear-btn" class="qa-action-icon-btn" onclick="clearQuickAddInput()" title="Clear input" style="display:none;">
+              <svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <button type="button" class="qa-action-icon-btn" onclick="executeQuickAddLookup(true)" title="Lookup term">
+              <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="qa-shortcuts-hint">
+          <span><kbd>Enter</kbd> Lookup / Select</span>
+          <span><kbd>F6</kbd> Kana</span>
+          <span><kbd>F7</kbd> English</span>
+          <span><kbd>Ctrl+Enter</kbd> Add Card</span>
+        </div>
+
+        <!-- Candidate Suggestions Dropdown -->
+        <div id="quickadd-suggestions" class="qa-suggestions-list"></div>
+
+        <!-- Card Draft Editor Form -->
+        <div id="qa-draft-wrap" style="display:none;margin-top:1rem;">
+          <div class="qa-draft-card">
+            <div class="qa-form-row-2col">
+              <div class="qa-field-group">
+                <label class="qa-field-label" for="qa-expression">
+                  <span>Expression</span>
+                  <span id="qa-jlpt-badge" class="brand-badge" style="display:none;font-size:0.65rem;"></span>
+                </label>
+                <input type="text" id="qa-expression" class="qa-field-input japanese" placeholder="e.g. 食べる">
+              </div>
+              <div class="qa-field-group">
+                <label class="qa-field-label" for="qa-reading">Reading</label>
+                <input type="text" id="qa-reading" class="qa-field-input reading" placeholder="e.g. たべる">
+              </div>
+            </div>
+
+            <div class="qa-field-group">
+              <label class="qa-field-label" for="qa-meaning">Meaning &amp; Glosses</label>
+              <textarea id="qa-meaning" class="qa-field-textarea" rows="2" placeholder="e.g. to eat; to have a meal"></textarea>
+            </div>
+
+            <!-- Kanji Breakdown Section -->
+            <div id="qa-kanji-section" class="qa-field-group" style="display:none;">
+              <label class="qa-field-label">Kanji Breakdown</label>
+              <div id="qa-kanji-wrap" class="qa-kanji-chips-wrap"></div>
+            </div>
+
+            <div class="qa-form-row-2col">
+              <div class="qa-field-group">
+                <label class="qa-field-label" for="qa-sentence">Example Sentence (optional)</label>
+                <textarea id="qa-sentence" class="qa-field-textarea" rows="2" placeholder="e.g. 朝ご飯を食べました。"></textarea>
+              </div>
+              <div class="qa-field-group">
+                <label class="qa-field-label" for="qa-sentence-meaning">Sentence Meaning (optional)</label>
+                <textarea id="qa-sentence-meaning" class="qa-field-textarea" rows="2" placeholder="e.g. I ate breakfast."></textarea>
+              </div>
+            </div>
+
+            <div class="qa-form-row-2col">
+              <div class="qa-field-group">
+                <label class="qa-field-label" for="qa-deck-name">Target Anki Deck</label>
+                <input type="text" id="qa-deck-name" class="qa-field-input" value="N3 vocabs">
+              </div>
+              <div class="qa-field-group">
+                <label class="qa-field-label" for="qa-tags">Tags (comma-separated)</label>
+                <input type="text" id="qa-tags" class="qa-field-input" value="kiroku-note, quick-add">
+              </div>
+            </div>
+
+            <div class="qa-submit-bar">
+              <button type="button" class="qa-secondary-btn" onclick="resetQuickAddForm()">Reset</button>
+              <button type="button" class="qa-primary-btn" id="qa-submit-btn" onclick="submitQuickAddCard()">
+                <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                Add to Cloud Queue (Ctrl+Enter)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toast / Feedback Banner -->
+        <div id="qa-status-toast" class="qa-status-toast"></div>
+      </div>
+    </div>
+
+    <!-- VIEW 3: Ingestion Queue (Original View) -->
     <div id="view-queue" class="view-panel">
       <div class="stats-bar" id="stats-bar">
         <div class="stat-pill"><div class="stat-num total" id="stat-total">-</div><div class="stat-lbl">Recent</div></div>
@@ -2188,10 +2839,43 @@
         <div class="error-box" id="modal-error-content"></div>
       </div>
     </div>
+      </div>
+    </main>
+
+    <!-- Mobile Bottom Navigation Bar (<= 768px) -->
+    <nav class="mobile-bottom-nav" aria-label="Mobile Bottom Navigation">
+      <button type="button" class="mob-nav-btn active" id="mob-tab-btn-cards" data-tab="cards" onclick="switchTab('cards')">
+        <svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 10 21 10"/></svg>
+        <span>Cards</span>
+      </button>
+      <button type="button" class="mob-nav-btn" id="mob-tab-btn-quickadd" data-tab="quickadd" onclick="switchTab('quickadd')">
+        <div class="mob-nav-plus-icon">
+          <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </div>
+        <span>Quick Add</span>
+      </button>
+      <button type="button" class="mob-nav-btn" id="mob-tab-btn-queue" data-tab="queue" onclick="switchTab('queue')">
+        <svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="14" rx="2"/><path d="M6 3h14a2 2 0 0 1 2 2v12"/></svg>
+        <span>Queue</span>
+      </button>
+      <button type="button" class="mob-nav-btn" id="mob-tab-btn-stats" data-tab="stats" onclick="switchTab('stats')">
+        <svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        <span>Stats</span>
+      </button>
+      <button type="button" class="mob-nav-btn" id="mob-tab-btn-study" data-tab="study" onclick="switchTab('study')">
+        <svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
+        <span>Study</span>
+      </button>
+    </nav>
   </div>
 
   <!-- Floating Tooltip -->
   <div id="dashboard-tooltip"></div>
+
+  <!-- WanaKana v5.3.1 (MIT License - Offline Vendored) -->
+  <script>
+    !function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t((e="undefined"!=typeof globalThis?globalThis:e||self).wanakana={})}(this,(function(e){"use strict";function t(e){return null===e?"null":e!==Object(e)?typeof e:{}.toString.call(e).slice(8,-1).toLowerCase()}function n(e){return"string"!==t(e)||!e.length}function r(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"",t=arguments.length>1?arguments[1]:void 0,r=arguments.length>2?arguments[2]:void 0;if(n(e))return!1;const o=e.charCodeAt(0);return t<=o&&o<=r}const o={HIRAGANA:"toHiragana",KATAKANA:"toKatakana"},i={HEPBURN:"hepburn"},a={useObsoleteKana:!1,passRomaji:!1,convertLongVowelMark:!0,upcaseKatakana:!1,IMEMode:!1,romanization:i.HEPBURN},u=65,s=90,c=12353,l=12438,f=12449,d=12540,h=19968,g=40879,v=12293,p=12540,m=12539,b=[65313,65338],j=[65345,65370],y=[65377,65381],E=[[12288,12351],y,[12539,12540],[65281,65295],[65306,65311],[65339,65343],[65371,65376],[65504,65518]],A=[...[[12352,12447],[12448,12543],y,[65382,65439]],...E,b,j,[65296,65305],[19968,40959],[13312,19903]],O=[[0,127],[256,257],[274,275],[298,299],[332,333],[362,363]],N=[[32,47],[58,63],[91,96],[123,126],[8216,8217],[8220,8221]];function w(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return A.some((t=>{let[n,o]=t;return r(e,n,o)}))}function k(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"",r=arguments.length>1?arguments[1]:void 0;const o="regexp"===t(r);return!n(e)&&[...e].every((e=>{const t=w(e);return o?t||r.test(e):t}))}var M=Number.isNaN||function(e){return"number"==typeof e&&e!=e};function S(e,t){if(e.length!==t.length)return!1;for(var n=0;n<e.length;n++)if(r=e[n],o=t[n],!(r===o||M(r)&&M(o)))return!1;var r,o;return!0}function C(e,t){void 0===t&&(t=S);var n=null;function r(){for(var r=[],o=0;o<arguments.length;o++)r[o]=arguments[o];if(n&&n.lastThis===this&&t(r,n.lastArgs))return n.lastResult;var i=e.apply(this,r);return n={lastResult:i,lastArgs:r,lastThis:this},i}return r.clear=function(){n=null},r}var K=Object.prototype.hasOwnProperty;function R(e,t,n){for(n of e.keys())if(J(n,t))return n}function J(e,t){var n,r,o;if(e===t)return!0;if(e&&t&&(n=e.constructor)===t.constructor){if(n===Date)return e.getTime()===t.getTime();if(n===RegExp)return e.toString()===t.toString();if(n===Array){if((r=e.length)===t.length)for(;r--&&J(e[r],t[r]););return-1===r}if(n===Set){if(e.size!==t.size)return!1;for(r of e){if((o=r)&&"object"==typeof o&&!(o=R(t,o)))return!1;if(!t.has(o))return!1}return!0}if(n===Map){if(e.size!==t.size)return!1;for(r of e){if((o=r[0])&&"object"==typeof o&&!(o=R(t,o)))return!1;if(!J(r[1],t.get(o)))return!1}return!0}if(n===ArrayBuffer)e=new Uint8Array(e),t=new Uint8Array(t);else if(n===DataView){if((r=e.byteLength)===t.byteLength)for(;r--&&e.getInt8(r)===t.getInt8(r););return-1===r}if(ArrayBuffer.isView(e)){if((r=e.byteLength)===t.byteLength)for(;r--&&e[r]===t[r];);return-1===r}if(!n||"object"==typeof e){for(n in r=0,e){if(K.call(e,n)&&++r&&!K.call(t,n))return!1;if(!(n in t)||!J(e[n],t[n]))return!1}return Object.keys(t).length===r}}return e!=e&&t!=t}const z=function(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return Object.assign({},a,e)};function I(e,t,n){const r=t;function o(e,t){const n=e.charAt(0);return i(Object.assign({"":n},r[n]),e.slice(1),t,t+1)}function i(e,t,r,a){if(!t)return n||1===Object.keys(e).length?e[""]?[[r,a,e[""]]]:[]:[[r,a,null]];if(1===Object.keys(e).length)return[[r,a,e[""]]].concat(o(t,a));const u=function(e,t){if(void 0!==e[t])return Object.assign({"":e[""]+t},e[t])}(e,t.charAt(0));return void 0===u?[[r,a,e[""]]].concat(o(t,a)):i(u,t.slice(1),r,a+1)}return o(e,0)}function L(e){return Object.entries(e).reduce(((e,n)=>{let[r,o]=n;const i="string"===t(o);return e[r]=i?{"":o}:L(o),e}),{})}function T(e,t){return t.split("").reduce(((e,t)=>(void 0===e[t]&&(e[t]={}),e[t])),e)}function H(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};const n={};return"object"===t(e)&&Object.entries(e).forEach((e=>{let[t,r]=e,o=n;t.split("").forEach((e=>{void 0===o[e]&&(o[e]={}),o=o[e]})),o[""]=r})),function(e){return function e(n,r){return void 0===n||"string"===t(n)?r:Object.entries(r).reduce(((t,r)=>{let[o,i]=r;return t[o]=e(n[o],i),t}),n)}(JSON.parse(JSON.stringify(e)),n)}}function U(e,n){return n?"function"===t(n)?n(e):H(n)(e):e}const $={a:"あ",i:"い",u:"う",e:"え",o:"お",k:{a:"か",i:"き",u:"く",e:"け",o:"こ"},s:{a:"さ",i:"し",u:"す",e:"せ",o:"そ"},t:{a:"た",i:"ち",u:"つ",e:"て",o:"と"},n:{a:"な",i:"に",u:"ぬ",e:"ね",o:"の"},h:{a:"は",i:"ひ",u:"ふ",e:"へ",o:"ほ"},m:{a:"ま",i:"み",u:"む",e:"め",o:"も"},y:{a:"や",u:"ゆ",o:"よ"},r:{a:"ら",i:"り",u:"る",e:"れ",o:"ろ"},w:{a:"わ",i:"ゐ",e:"ゑ",o:"を"},g:{a:"が",i:"ぎ",u:"ぐ",e:"げ",o:"ご"},z:{a:"ざ",i:"じ",u:"ず",e:"ぜ",o:"ぞ"},d:{a:"だ",i:"ぢ",u:"づ",e:"で",o:"ど"},b:{a:"ば",i:"び",u:"ぶ",e:"べ",o:"ぼ"},p:{a:"ぱ",i:"ぴ",u:"ぷ",e:"ぺ",o:"ぽ"},v:{a:"ゔぁ",i:"ゔぃ",u:"ゔ",e:"ゔぇ",o:"ゔぉ"}},x={".":"。",",":"、",":":"：","/":"・","!":"！","?":"？","~":"〜","-":"ー","‘":"「","’":"」","“":"『","”":"』","[":"［","]":"］","(":"（",")":"）","{":"｛","}":"｝"},P={k:"き",s:"し",t:"ち",n:"に",h:"ひ",m:"み",r:"り",g:"ぎ",z:"じ",d:"ぢ",b:"び",p:"ぴ",v:"ゔ",q:"く",f:"ふ"},_={ya:"ゃ",yi:"ぃ",yu:"ゅ",ye:"ぇ",yo:"ょ"},D={a:"ぁ",i:"ぃ",u:"ぅ",e:"ぇ",o:"ぉ"},q={sh:"sy",ch:"ty",cy:"ty",chy:"ty",shy:"sy",j:"zy",jy:"zy",shi:"si",chi:"ti",tsu:"tu",ji:"zi",fu:"hu"},B=Object.assign({tu:"っ",wa:"ゎ",ka:"ヵ",ke:"ヶ"},D,_),V={yi:"い",wu:"う",ye:"いぇ",wi:"うぃ",we:"うぇ",kwa:"くぁ",whu:"う",tha:"てゃ",thu:"てゅ",tho:"てょ",dha:"でゃ",dhu:"でゅ",dho:"でょ"},G={wh:"う",kw:"く",qw:"く",q:"く",gw:"ぐ",sw:"す",ts:"つ",th:"て",tw:"と",dh:"で",dw:"ど",fw:"ふ",f:"ふ"};function W(){const e=L($),t=t=>T(e,t);function n(e){return Object.entries(e).reduce(((e,t)=>{let[r,o]=t;return e[r]=r?n(o):`っ${o}`,e}),{})}return Object.entries(P).forEach((e=>{let[n,r]=e;Object.entries(_).forEach((e=>{let[o,i]=e;t(n+o)[""]=r+i}))})),Object.entries(x).forEach((e=>{let[n,r]=e;t(n)[""]=r})),Object.entries(G).forEach((e=>{let[n,r]=e;Object.entries(D).forEach((e=>{let[o,i]=e;t(n+o)[""]=r+i}))})),["n","n'","xn"].forEach((e=>{t(e)[""]="ん"})),e.c=JSON.parse(JSON.stringify(e.k)),Object.entries(q).forEach((e=>{let[n,r]=e;const o=n.slice(0,n.length-1),i=n.charAt(n.length-1);t(o)[i]=JSON.parse(JSON.stringify(t(r)))})),Object.entries(B).forEach((e=>{let[n,r]=e;const o=e=>e.charAt(e.length-1),i=e=>e.slice(0,e.length-1),a=t(`x${n}`);a[""]=r;var u;t(`l${i(n)}`)[o(n)]=a,(u=n,[...Object.entries(q),["c","k"]].reduce(((e,t)=>{let[n,r]=t;return u.startsWith(r)?e.concat(u.replace(r,n)):e}),[])).forEach((e=>{["l","x"].forEach((r=>{t(r+i(e))[o(e)]=t(r+n)}))}))})),Object.entries(V).forEach((e=>{let[n,r]=e;t(n)[""]=r})),[...Object.keys(P),"c","y","w","j"].forEach((t=>{const r=e[t];r[t]=n(r)})),delete e.n.n,Object.freeze(JSON.parse(JSON.stringify(e)))}let X=null;const Z=H({wi:"ゐ",we:"ゑ"});function F(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&r(e,u,s)}function Q(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&e.charCodeAt(0)===p}function Y(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&e.charCodeAt(0)===m}function ee(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&(!!Q(e)||r(e,c,l))}function te(){const e=[];return(arguments.length>0&&void 0!==arguments[0]?arguments[0]:"").split("").forEach((t=>{if(Q(t)||Y(t))e.push(t);else if(ee(t)){const n=t.charCodeAt(0)+(f-c),r=String.fromCharCode(n);e.push(r)}else e.push(t)})),e.join("")}const ne=C(((e,t,n)=>{let r=(null==X&&(X=W()),X);return r=e?function(e){const t=JSON.parse(JSON.stringify(e));return t.n.n={"":"ん"},t.n[" "]={"":"ん"},t}(r):r,r=t?Z(r):r,n&&(r=U(r,n)),r}),J);function re(){let e,t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"",n=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{},r=arguments.length>2?arguments[2]:void 0;return r?e=n:(e=z(n),r=ne(e.IMEMode,e.useObsoleteKana,e.customKanaMapping)),function(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"",t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{},n=arguments.length>2?arguments[2]:void 0;const{IMEMode:r,useObsoleteKana:o,customKanaMapping:i}=t;n||(n=ne(r,o,i));return I(e.toLowerCase(),n,!r)}(t,e,r).map((n=>{const[r,i,a]=n;if(null===a)return t.slice(r);const u=e.IMEMode===o.HIRAGANA,s=e.IMEMode===o.KATAKANA||[...t.slice(r,i)].every(F);return u||!s?a:te(a)})).join("")}let oe=[];function ie(e){const t=Object.assign({},z(e),{IMEMode:e.IMEMode||!0}),n=ne(t.IMEMode,t.useObsoleteKana,t.customKanaMapping),r=[...Object.keys(n),...Object.keys(n).map((e=>e.toUpperCase()))];return function(e){let{target:o}=e;undefined!==o.value&&"true"!==o.dataset.ignoreComposition&&function(e,t,n,r,o){const[i,a,u]=function(){let e,t,n,r=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"",o=arguments.length>1&&void 0!==arguments[1]?arguments[1]:0,i=arguments.length>2&&void 0!==arguments[2]?arguments[2]:[];0===o&&i.includes(r[0])?[e,t,n]=function(e,t){return["",...ue(e,(e=>t.includes(e)||!k(e,/[0-9]/)))]}(r,i):o>0?[e,t,n]=function(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"",t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:0;const[n,r]=ue([...e.slice(0,t)].reverse(),(ch=>!k(ch)&&!/\s|[.,\/#!$%\^&\*;:{}=\-_~()\[\]\"?<>]/.test(ch)));const _token=n.split("").reverse().join("");if(_token.length>4&&/[a-zA-Z]/.test(re(_token))){return[e.slice(0,t),"",e.slice(t)];}return[r.reverse().join(""),_token,e.slice(t)]}(r,o):([e,t]=ue(r,(e=>!i.includes(e))),[t,n]=ue(t,(e=>!k(e))));return[e,t,n]}(e.value,e.selectionEnd,r),s=re(a,t,n);if(a!==s){const t=i.length+s.length,n=i+s+u;e.value=n,u.length?setTimeout((()=>e.setSelectionRange(t,t)),1):e.setSelectionRange(t,t)}else e.value}(o,t,n,r)}}function ae(e){let{type:t,target:n,data:r}=e;/Mac/.test(window.navigator&&window.navigator.platform)&&("compositionupdate"===t&&k(r)&&(n.dataset.ignoreComposition="true"),"compositionend"===t&&(n.dataset.ignoreComposition="false"))}function ue(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:e=>!!e;const n=[],{length:r}=e;let o=0;for(;o<r&&t(e[o],o);)n.push(e[o]),o+=1;return[n.join(""),e.slice(o)]}const se={input:e=>{let{target:{value:t,selectionStart:n,selectionEnd:r}}=e;return console.log("input:",{value:t,selectionStart:n,selectionEnd:r})},compositionstart:()=>console.log("compositionstart"),compositionupdate:e=>{let{target:{value:t,selectionStart:n,selectionEnd:r},data:o}=e;return console.log("compositionupdate",{data:o,value:t,selectionStart:n,selectionEnd:r})},compositionend:()=>console.log("compositionend")},ce=["TEXTAREA","INPUT"];let le=0;function fe(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&O.some((t=>{let[n,o]=t;return r(e,n,o)}))}function de(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"",r=arguments.length>1?arguments[1]:void 0;const o="regexp"===t(r);return!n(e)&&[...e].every((e=>{const t=fe(e);return o?t||r.test(e):t}))}function he(){return r(arguments.length>0&&void 0!==arguments[0]?arguments[0]:"",f,d)}function ge(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&(ee(e)||he(e))}function ve(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&[...e].every(ge)}function pe(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&[...e].every(ee)}function me(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&[...e].every(he)}function be(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&e.charCodeAt(0)===v}function je(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return r(e,h,g)||be(e)}function ye(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&[...e].every(je)}function Ee(){const e=[...arguments.length>0&&void 0!==arguments[0]?arguments[0]:""];let t=!1;return(arguments.length>1&&void 0!==arguments[1]?arguments[1]:{passKanji:!0}).passKanji||(t=e.some(ye)),(e.some(pe)||e.some(me))&&e.some(de)&&!t}const Ae=(e,t)=>Q(e)&&t<1,Oe=(e,t)=>Q(e)&&t>0,Ne=e=>["ヶ","ヵ"].includes(e),we={a:"あ",i:"い",u:"う",e:"え",o:"う"};function ke(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"",t=arguments.length>1?arguments[1]:void 0,{isDestinationRomaji:n,convertLongVowelMark:r}=arguments.length>2&&void 0!==arguments[2]?arguments[2]:{},o="";return e.split("").reduce(((i,a,u)=>{if(Y(a)||Ae(a,u)||Ne(a))return i.concat(a);if(r&&o&&Oe(a,u)){const r=t(o).slice(-1);return he(e[u-1])&&"o"===r&&n?i.concat("お"):i.concat(we[r])}if(!Q(a)&&he(a)){const e=a.charCodeAt(0)+(c-f),t=String.fromCharCode(e);return o=t,i.concat(t)}return o="",i.concat(a)}),[]).join("")}let Me=null;const Se={"あ":"a","い":"i","う":"u","え":"e","お":"o","か":"ka","き":"ki","く":"ku","け":"ke","こ":"ko","さ":"sa","し":"shi","す":"su","せ":"se","そ":"so","た":"ta","ち":"chi","つ":"tsu","て":"te","と":"to","な":"na","に":"ni","ぬ":"nu","ね":"ne","の":"no","は":"ha","ひ":"hi","ふ":"fu","へ":"he","ほ":"ho","ま":"ma","み":"mi","む":"mu","め":"me","も":"mo","ら":"ra","り":"ri","る":"ru","れ":"re","ろ":"ro","や":"ya","ゆ":"yu","よ":"yo","わ":"wa","ゐ":"wi","ゑ":"we","を":"wo","ん":"n","が":"ga","ぎ":"gi","ぐ":"gu","げ":"ge","ご":"go","ざ":"za","じ":"ji","ず":"zu","ぜ":"ze","ぞ":"zo","だ":"da","ぢ":"ji","づ":"zu","で":"de","ど":"do","ば":"ba","び":"bi","ぶ":"bu","べ":"be","ぼ":"bo","ぱ":"pa","ぴ":"pi","ぷ":"pu","ぺ":"pe","ぽ":"po","ゔぁ":"va","ゔぃ":"vi","ゔ":"vu","ゔぇ":"ve","ゔぉ":"vo"},Ce={"。":".","、":",","：":":","・":"/","！":"!","？":"?","〜":"~","ー":"-","「":"‘","」":"’","『":"“","』":"”","［":"[","］":"]","（":"(","）":")","｛":"{","｝":"}","　":" "},Ke=["あ","い","う","え","お","や","ゆ","よ"],Re={"ゃ":"ya","ゅ":"yu","ょ":"yo"},Je={"ぃ":"yi","ぇ":"ye"},ze={"ぁ":"a","ぃ":"i","ぅ":"u","ぇ":"e","ぉ":"o"},Ie=["き","に","ひ","み","り","ぎ","び","ぴ","ゔ","く","ふ"],Le={"し":"sh","ち":"ch","じ":"j","ぢ":"j"},Te={"っ":"","ゃ":"ya","ゅ":"yu","ょ":"yo","ぁ":"a","ぃ":"i","ぅ":"u","ぇ":"e","ぉ":"o"},He={b:"b",c:"t",d:"d",f:"f",g:"g",h:"h",j:"j",k:"k",m:"m",p:"p",q:"q",r:"r",s:"s",t:"t",v:"v",w:"w",x:"x",z:"z"};function Ue(){return null==Me&&(Me=function(){const e=L(Se),t=t=>T(e,t),n=(e,n)=>{t(e)[""]=n};return Object.entries(Ce).forEach((e=>{let[n,r]=e;t(n)[""]=r})),[...Object.entries(Re),...Object.entries(ze)].forEach((e=>{let[t,r]=e;n(t,r)})),Ie.forEach((e=>{const r=t(e)[""][0];Object.entries(Re).forEach((t=>{let[o,i]=t;n(e+o,r+i)})),Object.entries(Je).forEach((t=>{let[o,i]=t;n(e+o,r+i)}))})),Object.entries(Le).forEach((e=>{let[t,r]=e;Object.entries(Re).forEach((e=>{let[o,i]=e;n(t+o,r+i[1])})),n(`${t}ぃ`,`${r}yi`),n(`${t}ぇ`,`${r}e`)})),e["っ"]=$e(e),Object.entries(Te).forEach((e=>{let[t,r]=e;n(t,r)})),Ke.forEach((e=>{n(`ん${e}`,`n'${t(e)[""]}`)})),Object.freeze(JSON.parse(JSON.stringify(e)))}()),Me}function $e(e){return Object.entries(e).reduce(((e,t)=>{let[n,r]=t;if(n)e[n]=$e(r);else{const t=r.charAt(0);e[n]=Object.keys(He).includes(t)?He[t]+r:r}return e}),{})}const xe=C(((e,t)=>{let n=function(e){return e===i.HEPBURN?Ue():{}}(e);return t&&(n=U(n,t)),n}),J);function Pe(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"",t=arguments.length>2?arguments[2]:void 0;const n=z(arguments.length>1&&void 0!==arguments[1]?arguments[1]:{});return t||(t=xe(n.romanization,n.customRomajiMapping)),function(e,t,n){n||(n=xe(t.romanization,t.customRomajiMapping));const r=Object.assign({},{isDestinationRomaji:!0},t);return I(ke(e,Pe,r),n,!t.IMEMode)}(e,n,t).map((t=>{const[r,o,i]=t;return n.upcaseKatakana&&me(e.slice(r,o))?i.toUpperCase():i})).join("")}function _e(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&N.some((t=>{let[n,o]=t;return r(e,n,o)}))}function De(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";return!n(e)&&!be(e)&&E.some((t=>{let[n,o]=t;return r(e,n,o)}))}const qe=e=>" "===e,Be=e=>"　"===e,Ve=e=>/[０-９]/.test(e),Ge=e=>/[0-9]/.test(e),We={EN:"en",JA:"ja",EN_NUM:"englishNumeral",JA_NUM:"japaneseNumeral",EN_PUNC:"englishPunctuation",JA_PUNC:"japanesePunctuation",KANJI:"kanji",HIRAGANA:"hiragana",KATAKANA:"katakana",SPACE:"space",OTHER:"other"};function Xe(e){let t=arguments.length>1&&void 0!==arguments[1]&&arguments[1];const{EN:n,JA:r,EN_NUM:o,JA_NUM:i,EN_PUNC:a,JA_PUNC:u,KANJI:s,HIRAGANA:c,KATAKANA:l,SPACE:f,OTHER:d}=We;if(t)switch(!0){case Ve(e):case Ge(e):return d;case qe(e):return n;case _e(e):return d;case Be(e):return r;case De(e):return d;case w(e):return r;case fe(e):return n;default:return d}else switch(!0){case Be(e):case qe(e):return f;case Ve(e):return i;case Ge(e):return o;case _e(e):return a;case De(e):return u;case je(e):return s;case ee(e):return c;case he(e):return l;case w(e):return r;case fe(e):return n;default:return d}}function Ze(e){let{compact:t=!1,detailed:r=!1}=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{};if(null==e||n(e))return[];const o=[...e];let i=o.shift(),a=Xe(i,t);i=r?{type:a,value:i}:i;return o.reduce(((e,n)=>{const o=Xe(n,t),i=o===a;a=o;let u=n;return i&&(u=(r?e.pop().value:e.pop())+u),r?e.concat({type:o,value:u}):e.concat(u)}),[i])}e.ROMANIZATIONS=i,e.TO_KANA_METHODS=o,e.VERSION="5.3.1",e.bind=function(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{},n=arguments.length>2&&void 0!==arguments[2]&&arguments[2];if(!ce.includes(e.nodeName))throw new Error(`Element provided to Wanakana bind() was not a valid input or textarea element.\n Received: (${JSON.stringify(e)})`);if(e.hasAttribute("data-wanakana-id"))return;const r=ie(t),o=(le+=1,`${Date.now()}${le}`),i={};var a;[{name:"data-wanakana-id",value:o},{name:"lang",value:"ja"},{name:"autoCapitalize",value:"none"},{name:"autoCorrect",value:"off"},{name:"autoComplete",value:"off"},{name:"spellCheck",value:"false"}].forEach((t=>{i[t.name]=e.getAttribute(t.name),e.setAttribute(t.name,t.value)})),e.dataset.previousAttributes=JSON.stringify(i),e.addEventListener("input",r),e.addEventListener("compositionupdate",ae),e.addEventListener("compositionend",ae),function(e,t,n){oe=oe.concat({id:e,inputHandler:t,compositionHandler:n})}(o,r,ae),!0===n&&(a=e,Object.entries(se).forEach((e=>{let[t,n]=e;return a.addEventListener(t,n)})))},e.isHiragana=pe,e.isJapanese=k,e.isKana=ve,e.isKanji=ye,e.isKatakana=me,e.isMixed=Ee,e.isRomaji=de,e.stripOkurigana=function(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"",{leading:t=!1,matchKanji:n=""}=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{};if(!k(e)||((e,t)=>t&&!ve(e[0]))(e,t)||((e,t)=>!t&&!ve(e[e.length-1]))(e,t)||((e,t)=>t&&![...t].some(ye)||!t&&ve(e))(e,n))return e;const r=n||e,o=new RegExp(t?`^${Ze(r).shift()}`:`${Ze(r).pop()}$`);return e.replace(o,"")},e.toHiragana=function(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";const t=z(arguments.length>1&&void 0!==arguments[1]?arguments[1]:{});if(t.passRomaji)return ke(e,Pe,t);if(Ee(e,{passKanji:!0})){return re(ke(e,Pe,t).toLowerCase(),t)}return de(e)||_e(e)?re(e.toLowerCase(),t):ke(e,Pe,t)},e.toKana=re,e.toKatakana=function(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";const t=z(arguments.length>1&&void 0!==arguments[1]?arguments[1]:{});if(t.passRomaji)return te(e);if(Ee(e)||de(e)||_e(e)){return te(re(e.toLowerCase(),t))}return te(e)},e.toRomaji=Pe,e.tokenize=Ze,e.unbind=function(e){let t=arguments.length>1&&void 0!==arguments[1]&&arguments[1];const n=(r=e)&&oe.find((e=>{let{id:t}=e;return t===r.getAttribute("data-wanakana-id")}));var r;if(null==n)throw new Error(`Element provided to Wanakana unbind() had no listener registered.\n Received: ${JSON.stringify(e)}`);const{inputHandler:o,compositionHandler:i}=n,a=JSON.parse(e.dataset.previousAttributes);var u;Object.keys(a).forEach((t=>{a[t]?e.setAttribute(t,a[t]):e.removeAttribute(t)})),e.removeAttribute("data-previous-attributes"),e.removeAttribute("data-ignore-composition"),e.removeEventListener("input",o),e.removeEventListener("compositionstart",i),e.removeEventListener("compositionupdate",i),e.removeEventListener("compositionend",i),function(e){let{id:t}=e;oe=oe.filter((e=>{let{id:n}=e;return n!==t}))}(n),!0===t&&(u=e,Object.entries(se).forEach((e=>{let[t,n]=e;return u.removeEventListener(t,n)})))}}));
+  </script>
 
   <!-- Dashboard JavaScript -->
   <script>
@@ -2304,17 +2988,20 @@
 
     function switchTab(tabName) {
       localStorage.setItem(TAB_KEY, tabName);
-      document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.nav-tab, .mob-nav-btn').forEach(btn => {
+        const matches = btn.getAttribute('data-tab') === tabName || btn.id === `tab-btn-${tabName}`;
+        btn.classList.toggle('active', matches);
+      });
       document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
 
-      const activeBtn = document.getElementById(`tab-btn-${tabName}`);
       const activePanel = document.getElementById(`view-${tabName}`);
-      if (activeBtn) activeBtn.classList.add('active');
       if (activePanel) activePanel.classList.add('active');
 
       if (tabName === 'cards') {
         fetchMirroredCards(true);
         fetchAnkiStatus();
+      } else if (tabName === 'quickadd') {
+        initQuickAddCloud();
       } else if (tabName === 'queue') {
         fetchRecent();
       } else if (tabName === 'stats') {
@@ -2323,6 +3010,401 @@
         fetchAnkiStatus();
       } else if (tabName === 'study') {
         fetchStudySummary();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // QUICK ADD CLOUD LOGIC (WITH WANAKANA & MODE SWITCHER)
+    // -------------------------------------------------------------------------
+    const QA_MODE_KEY = 'kiroku_cloud_qa_mode';
+    let currentQaMode = localStorage.getItem(QA_MODE_KEY) || 'kana';
+    let qaLookupDebounce = null;
+    let qaCandidates = [];
+    let qaHighlightedIndex = -1;
+    let qaCurrentMatch = null;
+    let qaIsSubmitting = false;
+
+    function initQuickAddCloud() {
+      const input = document.getElementById('quickadd-input');
+      if (!input) return;
+
+      // Apply saved mode
+      setQuickAddMode(currentQaMode, false);
+
+      // Bind input events once
+      if (!input.dataset.qaInitialized) {
+        input.dataset.qaInitialized = 'true';
+        input.addEventListener('input', onQuickAddInput);
+        input.addEventListener('keydown', onQuickAddKeydown);
+      }
+      input.focus();
+    }
+
+    function setQuickAddMode(mode, focus = true) {
+      currentQaMode = mode === 'english' ? 'english' : 'kana';
+      localStorage.setItem(QA_MODE_KEY, currentQaMode);
+
+      const kanaBtn = document.getElementById('qa-mode-kana');
+      const engBtn = document.getElementById('qa-mode-english');
+      const input = document.getElementById('quickadd-input');
+
+      if (kanaBtn) kanaBtn.classList.toggle('active', currentQaMode === 'kana');
+      if (engBtn) engBtn.classList.toggle('active', currentQaMode === 'english');
+
+      if (input) {
+        input.placeholder = currentQaMode === 'english'
+          ? 'Search by English meaning… (e.g. eat, water, happy)'
+          : 'Type romaji or Japanese… (e.g. taberu)';
+
+        if (typeof wanakana !== 'undefined') {
+          try {
+            if (typeof wanakana.unbind === 'function' && input.hasAttribute('data-wanakana-id')) {
+              wanakana.unbind(input);
+            }
+            if (currentQaMode === 'kana' && typeof wanakana.bind === 'function') {
+              wanakana.bind(input, { IMEMode: true });
+            }
+          } catch (err) {
+            console.warn('WanaKana bind error:', err);
+          }
+        }
+        if (focus) input.focus();
+      }
+    }
+
+    function onQuickAddInput(e) {
+      const input = document.getElementById('quickadd-input');
+      const clearBtn = document.getElementById('quickadd-clear-btn');
+      const val = input ? input.value : '';
+
+      if (clearBtn) {
+        clearBtn.style.display = val.length > 0 ? 'inline-flex' : 'none';
+      }
+
+      clearTimeout(qaLookupDebounce);
+      if (!val.trim()) {
+        hideQuickAddSuggestions();
+        return;
+      }
+
+      qaLookupDebounce = setTimeout(() => {
+        executeQuickAddLookup(false);
+      }, 350);
+    }
+
+    function clearQuickAddInput() {
+      const input = document.getElementById('quickadd-input');
+      const clearBtn = document.getElementById('quickadd-clear-btn');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      if (clearBtn) clearBtn.style.display = 'none';
+      hideQuickAddSuggestions();
+    }
+
+    function onQuickAddKeydown(e) {
+      const suggList = document.getElementById('quickadd-suggestions');
+      const hasSuggestions = suggList && suggList.style.display !== 'none' && qaCandidates.length > 0;
+
+      if (e.key === 'ArrowDown') {
+        if (hasSuggestions) {
+          e.preventDefault();
+          qaHighlightedIndex = (qaHighlightedIndex + 1) % qaCandidates.length;
+          updateQaSuggestionHighlight();
+        }
+      } else if (e.key === 'ArrowUp') {
+        if (hasSuggestions) {
+          e.preventDefault();
+          qaHighlightedIndex = qaHighlightedIndex <= 0 ? qaCandidates.length - 1 : qaHighlightedIndex - 1;
+          updateQaSuggestionHighlight();
+        }
+      } else if (e.key === 'Enter') {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          submitQuickAddCard();
+          return;
+        }
+        e.preventDefault();
+        if (hasSuggestions && qaHighlightedIndex >= 0 && qaCandidates[qaHighlightedIndex]) {
+          selectQaCandidate(qaCandidates[qaHighlightedIndex]);
+        } else {
+          executeQuickAddLookup(true);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        hideQuickAddSuggestions();
+      } else if (e.key === 'F6') {
+        e.preventDefault();
+        setQuickAddMode('kana');
+      } else if (e.key === 'F7') {
+        e.preventDefault();
+        setQuickAddMode('english');
+      }
+    }
+
+    async function executeQuickAddLookup(showImmediate = true) {
+      const input = document.getElementById('quickadd-input');
+      const query = (input ? input.value : '').trim();
+      if (!query) return;
+
+      const token = getToken();
+      const statusIcon = document.getElementById('qa-search-spinner');
+      if (statusIcon) statusIcon.style.display = 'inline-block';
+
+      try {
+        const resp = await fetch('/api/dictionary/lookup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ text: query, max_results: 10 })
+        });
+
+        if (statusIcon) statusIcon.style.display = 'none';
+
+        if (!resp.ok) {
+          if (resp.status === 401) {
+            showQaStatus('Authentication required. Configure token via Key button.', 'error');
+          } else if (resp.status === 503) {
+            showQaStatus('Dictionary database not loaded on cloud.', 'error');
+          } else {
+            showQaStatus(`Lookup failed (HTTP ${resp.status})`, 'error');
+          }
+          return;
+        }
+
+        const data = await resp.json();
+        if (data.status === 'ok') {
+          if (data.match) {
+            populateQuickAddDraft(data.match);
+            hideQuickAddSuggestions();
+          } else {
+            if (showImmediate) {
+              showQaStatus(`No dictionary matches for "${query}".`, 'error');
+            }
+          }
+
+          if (data.candidates && data.candidates.length > 1) {
+            qaCandidates = data.candidates;
+            renderQuickAddSuggestions(data.candidates);
+          } else {
+            qaCandidates = [];
+            hideQuickAddSuggestions();
+          }
+        }
+      } catch (err) {
+        if (statusIcon) statusIcon.style.display = 'none';
+        console.error('Quick Add lookup error:', err);
+      }
+    }
+
+    function renderQuickAddSuggestions(candidates) {
+      const list = document.getElementById('quickadd-suggestions');
+      if (!list) return;
+
+      qaHighlightedIndex = -1;
+      list.innerHTML = candidates.map((c, i) => `
+        <div class="qa-candidate-item" data-index="${i}" onclick="selectQaCandidateByIndex(${i})">
+          <div>
+            <span class="qa-cand-term">${escapeHtml(c.expression || '')}</span>
+            <span class="qa-cand-reading">${escapeHtml(c.reading || '')}</span>
+          </div>
+          <div class="qa-cand-meaning">${escapeHtml((c.meanings && c.meanings[0]) || '')}</div>
+        </div>
+      `).join('');
+      list.style.display = 'block';
+    }
+
+    function updateQaSuggestionHighlight() {
+      const list = document.getElementById('quickadd-suggestions');
+      if (!list) return;
+      const items = list.querySelectorAll('.qa-candidate-item');
+      items.forEach((item, i) => {
+        item.classList.toggle('highlighted', i === qaHighlightedIndex);
+        if (i === qaHighlightedIndex) {
+          item.scrollIntoView({ block: 'nearest' });
+        }
+      });
+    }
+
+    function selectQaCandidateByIndex(idx) {
+      if (qaCandidates && qaCandidates[idx]) {
+        selectQaCandidate(qaCandidates[idx]);
+      }
+    }
+
+    function selectQaCandidate(cand) {
+      hideQuickAddSuggestions();
+      const input = document.getElementById('quickadd-input');
+      if (input) input.value = cand.expression;
+      executeQuickAddLookup(true);
+    }
+
+    function hideQuickAddSuggestions() {
+      const list = document.getElementById('quickadd-suggestions');
+      if (list) list.style.display = 'none';
+      qaHighlightedIndex = -1;
+    }
+
+    function populateQuickAddDraft(match) {
+      qaCurrentMatch = match;
+      const draftWrap = document.getElementById('qa-draft-wrap');
+      if (draftWrap) draftWrap.style.display = 'block';
+
+      const expInput = document.getElementById('qa-expression');
+      const readingInput = document.getElementById('qa-reading');
+      const meaningInput = document.getElementById('qa-meaning');
+      const jlptBadge = document.getElementById('qa-jlpt-badge');
+      const kanjiWrap = document.getElementById('qa-kanji-wrap');
+      const kanjiSection = document.getElementById('qa-kanji-section');
+
+      if (expInput) expInput.value = match.expression || '';
+      if (readingInput) readingInput.value = match.reading || '';
+      if (meaningInput) {
+        meaningInput.value = (match.meanings || []).slice(0, 5).join('; ');
+      }
+
+      if (jlptBadge) {
+        if (match.jlpt_level) {
+          jlptBadge.textContent = match.jlpt_level;
+          jlptBadge.style.display = 'inline-block';
+        } else {
+          jlptBadge.style.display = 'none';
+        }
+      }
+
+      if (kanjiWrap && kanjiSection) {
+        if (match.kanji_entries && match.kanji_entries.length > 0) {
+          kanjiWrap.innerHTML = match.kanji_entries.map(k => `
+            <div class="qa-kanji-chip">
+              <span class="qa-kanji-char">${escapeHtml(k.character)}</span>
+              <div class="qa-kanji-info">
+                <div>${escapeHtml((k.meanings || []).slice(0, 2).join(', '))}</div>
+                <div style="font-size:0.68rem;color:var(--text-muted);">${k.onyomi ? escapeHtml(k.onyomi.slice(0,2).join(', ')) : ''}${k.strokes ? ' · ' + k.strokes + ' str' : ''}</div>
+              </div>
+            </div>
+          `).join('');
+          kanjiSection.style.display = 'block';
+        } else {
+          kanjiWrap.innerHTML = '';
+          kanjiSection.style.display = 'none';
+        }
+      }
+    }
+
+    function resetQuickAddForm() {
+      clearQuickAddInput();
+      qaCurrentMatch = null;
+      const draftWrap = document.getElementById('qa-draft-wrap');
+      if (draftWrap) draftWrap.style.display = 'none';
+      const expInput = document.getElementById('qa-expression');
+      const readingInput = document.getElementById('qa-reading');
+      const meaningInput = document.getElementById('qa-meaning');
+      const sentenceInput = document.getElementById('qa-sentence');
+      const sentenceMeaningInput = document.getElementById('qa-sentence-meaning');
+
+      if (expInput) expInput.value = '';
+      if (readingInput) readingInput.value = '';
+      if (meaningInput) meaningInput.value = '';
+      if (sentenceInput) sentenceInput.value = '';
+      if (sentenceMeaningInput) sentenceMeaningInput.value = '';
+      hideQaStatus();
+    }
+
+    function showQaStatus(msg, type = 'success') {
+      const toast = document.getElementById('qa-status-toast');
+      if (!toast) return;
+      toast.className = `qa-status-toast ${type}`;
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 4500);
+    }
+
+    function hideQaStatus() {
+      const toast = document.getElementById('qa-status-toast');
+      if (toast) toast.style.display = 'none';
+    }
+
+    async function submitQuickAddCard() {
+      if (qaIsSubmitting) return;
+
+      const exp = (document.getElementById('qa-expression')?.value || '').trim();
+      const reading = (document.getElementById('qa-reading')?.value || '').trim();
+      const meaning = (document.getElementById('qa-meaning')?.value || '').trim();
+      const sentence = (document.getElementById('qa-sentence')?.value || '').trim();
+      const sentenceMeaning = (document.getElementById('qa-sentence-meaning')?.value || '').trim();
+      const deckName = (document.getElementById('qa-deck-name')?.value || 'N3 vocabs').trim();
+      const rawTags = (document.getElementById('qa-tags')?.value || '').trim();
+      const tagsList = rawTags ? rawTags.split(',').map(t => t.trim()).filter(Boolean) : ['kiroku-note', 'quick-add'];
+
+      if (!exp) {
+        showQaStatus('Expression is required.', 'error');
+        document.getElementById('qa-expression')?.focus();
+        return;
+      }
+      if (!meaning) {
+        showQaStatus('Meaning is required.', 'error');
+        document.getElementById('qa-meaning')?.focus();
+        return;
+      }
+
+      const token = getToken();
+      if (!token) {
+        showQaStatus('No access token configured. Click Key to save your token.', 'error');
+        return;
+      }
+
+      const payload = {
+        expression: exp,
+        reading: reading || exp,
+        meaning: meaning,
+        sentence: sentence,
+        sentence_meaning: sentenceMeaning,
+        deck_name: deckName,
+        tags: tagsList,
+        source_title: 'Cloud Quick Add',
+        jlpt_level: qaCurrentMatch?.jlpt_level || ''
+      };
+
+      const btn = document.getElementById('qa-submit-btn');
+      qaIsSubmitting = true;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Enqueuing...';
+      }
+
+      try {
+        const resp = await fetch('/submit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          const errMsg = errData.detail || `Submission failed (HTTP ${resp.status})`;
+          showQaStatus(errMsg, 'error');
+        } else {
+          showQaStatus(`Enqueued "${exp}" to ${deckName}!`, 'success');
+          resetQuickAddForm();
+          fetchRecent();
+        }
+      } catch (err) {
+        console.error('Submit error:', err);
+        showQaStatus('Failed to send card: network or server error.', 'error');
+      } finally {
+        qaIsSubmitting = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Add to Cloud Queue (Ctrl+Enter)';
+        }
       }
     }
 
@@ -3639,6 +4721,8 @@
       if (activeTab === 'cards') {
         fetchMirroredCards(true);
         fetchAnkiStatus();
+      } else if (activeTab === 'quickadd') {
+        initQuickAddCloud();
       } else if (activeTab === 'queue') {
         fetchRecent(manual);
       } else if (activeTab === 'stats') {

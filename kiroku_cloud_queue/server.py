@@ -288,6 +288,232 @@ app.add_middleware(
 
 
 # ---------------------------------------------------------------------------
+# Dictionary Engine Lookup (In-process Standalone Dictionary)
+# ---------------------------------------------------------------------------
+
+_DICT_ENGINE: Any = None
+
+def _get_dictionary_engine() -> Any:
+    global _DICT_ENGINE
+    if _DICT_ENGINE is not None:
+        return _DICT_ENGINE
+
+    custom_path = os.getenv("KIROKU_DICT_SQLITE")
+    candidate_paths = [
+        custom_path,
+        str(Path(__file__).resolve().parent / "kiroku_dict.sqlite"),
+        str(Path(__file__).resolve().parent.parent / "kiroku_dict.sqlite"),
+    ]
+    db_path = next((p for p in candidate_paths if p and os.path.exists(p)), None)
+    if not db_path:
+        log.warning("kiroku_dict.sqlite database file not found for cloud dictionary engine.")
+        return None
+
+    try:
+        try:
+            from kiroku_dictionary import DictionaryEngine
+        except ImportError:
+            repo_root = str(Path(__file__).resolve().parent.parent)
+            if repo_root not in sys.path:
+                sys.path.insert(0, repo_root)
+            from kiroku_dictionary import DictionaryEngine
+
+        _DICT_ENGINE = DictionaryEngine(db_path)
+        log.info("Initialized Cloud DictionaryEngine with db: %s", db_path)
+        return _DICT_ENGINE
+    except Exception as exc:
+        log.error("Failed to initialize DictionaryEngine: %s", exc)
+        return None
+
+
+def _extract_text_from_node(node: Any, include_rt: bool = False, depth: int = 0) -> str:
+    if depth > 40:
+        return ""
+    if isinstance(node, (str, int, float)):
+        return str(node).strip()
+    if isinstance(node, list):
+        parts = [_extract_text_from_node(x, include_rt, depth + 1) for x in node]
+        return " ".join(p for p in parts if p).strip()
+    if isinstance(node, dict):
+        tag = node.get("tag")
+        if not include_rt and tag == "rt":
+            return ""
+        if include_rt and tag == "rt":
+            return f"[{_extract_text_from_node(node.get('content'), include_rt, depth + 1)}]"
+        return _extract_text_from_node(node.get("content"), include_rt, depth + 1)
+    return ""
+
+
+def _find_marked_nodes(node: Any, marker: str, depth: int = 0) -> list[Any]:
+    if depth > 40:
+        return []
+    results: list[Any] = []
+    if isinstance(node, list):
+        for x in node:
+            results.extend(_find_marked_nodes(x, marker, depth + 1))
+    elif isinstance(node, dict):
+        data = node.get("data")
+        m = str(data.get("content", "")).lower() if isinstance(data, dict) else ""
+        if m == marker:
+            results.append(node)
+        results.extend(_find_marked_nodes(node.get("content"), marker, depth + 1))
+    return results
+
+
+def _extract_plain_text_glossary(glossary_items: Any) -> list[str]:
+    """Recursively extracts clean plain text glosses from dictionary glossary entries (handling strings, AST, Jitendex)."""
+    if not isinstance(glossary_items, list):
+        glossary_items = [glossary_items]
+
+    # 1. First check for marked 'glossary' nodes (Jitendex style)
+    gloss_nodes = _find_marked_nodes(glossary_items, "glossary")
+    all_glosses: list[str] = []
+    if gloss_nodes:
+        for gn in gloss_nodes:
+            content = gn.get("content")
+            if isinstance(content, list):
+                for li in content:
+                    txt = _extract_text_from_node(li)
+                    if txt and txt not in all_glosses:
+                        all_glosses.append(txt)
+            else:
+                txt = _extract_text_from_node(content)
+                if txt and txt not in all_glosses:
+                    all_glosses.append(txt)
+
+    # 2. If no marked nodes, extract text directly from leaves
+    if not all_glosses:
+        for item in glossary_items:
+            txt = _extract_text_from_node(item)
+            if txt and txt not in all_glosses:
+                all_glosses.append(txt)
+
+    return all_glosses
+
+
+@app.get("/api/dictionary/status")
+async def dictionary_status_endpoint(request: Request) -> JSONResponse:
+    _authenticate_recent(request)
+    engine = _get_dictionary_engine()
+    return JSONResponse({
+        "status": "ok",
+        "available": engine is not None,
+    })
+
+
+@app.post("/api/dictionary/lookup")
+async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
+    _authenticate_recent(request)
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body.")
+
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Body must be a JSON object.")
+
+    raw_text = str(body.get("text") or "").strip()
+    if not raw_text:
+        raise HTTPException(status_code=400, detail="Search text must not be empty.")
+
+    engine = _get_dictionary_engine()
+    if engine is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Dictionary engine database not found in cloud environment.",
+        )
+
+    max_results = min(int(body.get("max_results") or 5), 20)
+    term_groups = engine.lookup_terms(raw_text, max_results=max_results)
+    if not term_groups:
+        return JSONResponse({
+            "status": "ok",
+            "query": raw_text,
+            "match": None,
+            "candidates": [],
+        })
+
+    primary = term_groups[0]
+    kanji_res = engine.lookup_kanji(primary.term)
+    kanji_entries = [
+        {
+            "character": k.character,
+            "onyomi": k.onyomi,
+            "kunyomi": k.kunyomi,
+            "meanings": k.meanings,
+            "strokes": k.stats.get("strokes"),
+            "grade": k.stats.get("grade"),
+            "jlpt": k.stats.get("jlpt"),
+            "tags": k.tags,
+        }
+        for k in kanji_res
+    ]
+
+    all_glosses: list[str] = []
+    formatted_senses: list[dict[str, Any]] = []
+    for d in primary.definitions:
+        g_list = _extract_plain_text_glossary(d.glossary)
+        all_glosses.extend(g_list)
+        formatted_senses.append({
+            "glosses": g_list,
+            "pos": d.def_tags,
+            "tags": d.term_tags,
+            "dictionary": d.dictionary,
+        })
+
+    import re
+    jlpt_level = None
+    for tag in primary.tags:
+        if m := re.match(r"^jlpt-n([1-5])$", str(tag).strip(), re.IGNORECASE):
+            jlpt_level = f"N{m.group(1)}"
+            break
+        if m := re.match(r"^n([1-5])$", str(tag).strip(), re.IGNORECASE):
+            jlpt_level = f"N{m.group(1)}"
+            break
+    if not jlpt_level and kanji_res:
+        for k in kanji_res:
+            if k.stats.get("jlpt"):
+                val = str(k.stats["jlpt"]).strip().upper()
+                if not val.startswith("N") and val.isdigit():
+                    val = f"N{val}"
+                jlpt_level = val
+                break
+
+    primary_pos = primary.definitions[0].def_tags if primary.definitions else []
+    primary_rules = primary.definitions[0].rules if primary.definitions else ""
+
+    match_payload = {
+        "expression": primary.term,
+        "reading": primary.reading,
+        "source": primary.source,
+        "deinflected": primary.term,
+        "rules": primary_rules,
+        "jlpt_level": jlpt_level,
+        "meanings": all_glosses,
+        "parts_of_speech": primary_pos,
+        "senses": formatted_senses,
+        "kanji_entries": kanji_entries,
+    }
+
+    candidates = [
+        {
+            "expression": g.term,
+            "reading": g.reading,
+            "meanings": _extract_plain_text_glossary(g.definitions[0].glossary[:2]) if g.definitions and g.definitions[0].glossary else [],
+            "source": g.source,
+        }
+        for g in term_groups
+    ]
+
+    return JSONResponse({
+        "status": "ok",
+        "query": raw_text,
+        "match": match_payload,
+        "candidates": candidates,
+    })
+
+
+# ---------------------------------------------------------------------------
 # Public Submission Endpoint (iPhone Shortcut & Webhook)
 # ---------------------------------------------------------------------------
 

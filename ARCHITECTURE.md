@@ -48,9 +48,22 @@ Duplicate prevention is first-class. The proposed per-deck identity is normalize
 
 ## External service boundaries
 
-### Yomitan
+### Dictionary (`YomitanService`, `DictionaryProvider` & `kiroku_dictionary`)
 
-Yomitan's default endpoint is `http://127.0.0.1:19633`. `YomitanService` is the sole integration boundary. Tokenization and dictionary lookup are separate operations; normalize both request and response forms before returning application data. Unavailability and malformed/unsupported responses must degrade gracefully. No other layer may depend on Yomitan-specific endpoints or payload shapes.
+Dictionary access is encapsulated behind `YomitanService` and the `DictionaryProvider` abstraction boundary (`backend/app/services/dictionary_provider.py`):
+1. **`YomitanHttpProvider`** (default): Connects to the local Yomitan HTTP daemon on port `19633` (`http://127.0.0.1:19633`).
+2. **`LocalDictionaryProvider`**: Pluggable local dictionary provider backed by `kiroku_dictionary`, a zero-daemon standalone SQLite engine.
+3. **`DICTIONARY_BACKEND` configuration**:
+   - `yomitan` (default): Preserves existing Yomitan HTTP behavior byte-for-byte.
+   - `local`: Direct lookup through `kiroku_dict.sqlite`.
+   - `auto`: Attempts Yomitan HTTP first, gracefully falling back to the local dictionary engine when Yomitan is unavailable.
+
+`kiroku_dictionary/` is a top-level, standalone Python package strictly decoupled from `backend/app` with zero third-party dependencies (Python standard library only: `sqlite3`, `json`, `zipfile`, `re`, `unicodedata`, `dataclasses`, `zlib`, `threading`):
+- **Cleanroom Implementation**: Built under MIT license with no GPL-3.0 code from Yomitan.
+- **SQLite Storage**: Stores Jitendex (terms) and KANJIDIC (kanji) with zlib level-6 compressed verbatim AST blobs and minimal B-tree indexes (`term`, `reading`, `norm_reading`), operating in read-only WAL mode.
+- **Morphological Deinflector**: Table-driven deinflector handling godan verbs across all rows, ichidan verbs, suru/kuru irregulars, adjectives (`adj-i`), te/ta forms, polite forms, causative, passive, potential, volitional, imperative, conditional, and colloquial contractions (`ちゃう`, `てる`, `とく`).
+- **Payload Adapter**: Formats internal entries into verbatim Yomitan AST payload structures so that `normalize_term_entries_response` and `normalize_kanji_entries_response` remain the single source of truth for AST parsing without modification.
+- **Cloud Readiness**: Directly importable in cloud container environments (such as Render or cloud web workers) without requiring a browser extension or GUI daemon.
 
 ### JLPT
 

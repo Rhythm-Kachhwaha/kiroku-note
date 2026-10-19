@@ -1,6 +1,114 @@
 # Kiroku Note — Progress
 
-### Cloud Linear Audit, Clean Resync, Reconcile Media Safety & End-to-End Playwright Verification (2026-10-19)
+### Cloud Quick Add, Navigation Redesign & Local Dictionary Hardening (2026-10-19)
+
+**Objective**: Harden the standalone local dictionary engine, implement Cloud Quick Add in `kiroku_cloud_queue/dashboard.html` with offline WanaKana conversion and mode switching matching Kiroku's Original Quick Add, fix the mobile card list truncation bug, and introduce a modern desktop left sidebar and mobile bottom navigation bar.
+
+**1. Delivered Behaviors & Features**:
+- **Local Dictionary Engine Hardening**:
+  - Bracket and punctuation stripping (`「」『』（）［］【】〈〉《》〔〕“”‘’\"'.,、。`) in `kiroku_dictionary/lookup.py`.
+  - Colloquial contractions (`なきゃ`, `なくちゃ`, `ちゃった` -> `ない`/`た`) in `kiroku_dictionary/deinflect.py`.
+  - Multi-threaded read-only concurrency verified with 16 parallel worker threads.
+- **Cloud Dictionary API**:
+  - `GET /api/dictionary/status`: Inspects if `kiroku_dict.sqlite` is present and active.
+  - `POST /api/dictionary/lookup`: Authenticated vocabulary and kanji enrichment endpoint with recursive AST plain-text glossary extraction supporting both Jitendex structured content and simple dictionary formats.
+- **Mobile Card List Layout Fix**:
+  - Fixed mobile card row bug where long readings or multi-kanji terms were cut off.
+  - Implemented `@media (max-width: 640px)` column layout with full-width word group (`white-space: normal; word-break: break-all`), prominent unobstructed reading display, and 2-line clamped meaning.
+- **Modern Responsive Navigation**:
+  - **Desktop (> 768px)**: Sleek left sidebar (`.app-sidebar`) with Cards, Quick Add, Queue, Stats, Study, Refresh, and Key token management, with active tab indicator and subtle hover effects.
+  - **Mobile (<= 768px)**: Fixed bottom navigation bar (`.mobile-bottom-nav`) with touch targets, safe-area padding for iPhone home indicators, and compact iconography.
+  - **Zero OS Emojis**: Strictly vector SVG icons across all sidebar links, mobile nav items, action buttons, and form badges.
+- **Cloud Quick Add (matching Kiroku Note Original Quick Add)**:
+  - Vendored WanaKana v5.3.1 (offline IIFE, zero external network calls) directly into `dashboard.html`.
+  - Mode switcher pills (`あ Kana` vs `EN English`), supporting live IMEMode binding/unbinding and keyboard shortcuts (F6 for Kana, F7 for English).
+  - Live debounced lookup with candidate suggestions dropdown, arrow key navigation, and Enter to select.
+  - Full card draft editor with Expression, Reading, JLPT badge, Kanji breakdown chips, Meaning, Sentence, Sentence Translation, Deck selection, and Tags.
+  - "Add to Cloud Queue (Ctrl+Enter)" submits directly to `/submit` for automatic background sync to local Anki.
+
+**2. Files Changed**:
+- `kiroku_dictionary/lookup.py`: Added punctuation/bracket trimming.
+- `kiroku_dictionary/deinflect.py`: Added colloquial contraction rules.
+- `backend/tests/test_dictionary_hardening.py`: 3 tests verifying sanitization, contractions, and 16-thread concurrency.
+- `kiroku_cloud_queue/server.py`: Added dictionary lookup endpoints and recursive AST plain-text glossary extractor `_extract_plain_text_glossary`.
+- `kiroku_cloud_queue/dashboard.html`: Mobile card row CSS fixes, desktop sidebar, mobile bottom nav, offline WanaKana script, Quick Add UI & JavaScript.
+- `kiroku_cloud_queue/tests/test_server_dictionary.py`: 5 tests for dictionary lookup API.
+- `kiroku_cloud_queue/tests/test_dashboard_template.py`: 10 tests for HTML structure, zero emojis, node syntax, and responsive CSS.
+- `kiroku_cloud_queue/tests/test_quick_add_e2e.py`: End-to-end integration test for Cloud Quick Add.
+
+**3. Verification Run & Results**:
+- `kiroku_cloud_queue/tests/test_quick_add_e2e.py`: **1/1 passed**.
+- `kiroku_cloud_queue/tests/test_server_dictionary.py`: **5/5 passed**.
+- `kiroku_cloud_queue/tests/test_dashboard_template.py`: **10/10 passed** (including `node --check` syntax check).
+- `kiroku_cloud_queue/tests/test_cloud_api.py`, `test_anki_api.py`, `test_study_api.py`: **55/55 passed**.
+- `backend/tests/`: **67/67 passed** (256 subtests, 0 failures).
+
+**4. Remaining Risk**:
+- When deployed to cloud (e.g. Render), `kiroku_dict.sqlite` must be placed in the root or pointed to via `KIROKU_DICT_SQLITE`. If omitted, the server reports 503 Service Unavailable for lookup while all other queue operations continue functioning normally.
+
+---
+
+### Standalone Local Dictionary Engine (Jitendex + KANJIDIC) & Optional Provider Seam (2026-10-19)
+
+**Objective**: Build a standalone local dictionary engine (`kiroku_dictionary/`) using Jitendex (terms) and KANJIDIC (kanji) in Yomitan zip format to act as an optional local backend equivalent to Yomitan's lookup/enrichment without external daemon dependencies, while preserving the existing Yomitan workflow byte-for-byte by default.
+
+**1. Architecture & Cleanroom Implementation**:
+- **Zero Third-Party Dependencies**: Pure Python standard library only (`sqlite3`, `json`, `zipfile`, `re`, `unicodedata`, `dataclasses`, `zlib`, `threading`). Completely decoupled from `backend/app`.
+- **Cleanroom & Licensing**: MIT license for Kiroku Note; no GPL-3.0 code copied from Yomitan. Complete attribution in `kiroku_dictionary/ATTRIBUTION_NOTICE.md`.
+- **Files Created**:
+  - `kiroku_dictionary/__init__.py`: Package entrypoint exporting `DictionaryEngine`, `Deinflector`, and result dataclasses.
+  - `kiroku_dictionary/schema.py`: Schema DDL, Katakana-to-Hiragana folding, NFKC unicode normalization, and zlib level 6 compression.
+  - `kiroku_dictionary/importer.py`: Fast bulk importer with streaming JSON parsing, single-pass batching, and index creation post-insert.
+  - `kiroku_dictionary/build.py`: CLI tool for downloading and building the SQLite dictionary from official release zips.
+  - `kiroku_dictionary/deinflect.py`: Table-driven morphological deinflector handling godan, ichidan, suru/kuru, irregulars, adjectives, and contractions.
+  - `kiroku_dictionary/lookup.py`: Multi-connection pooled dictionary engine with longest-prefix matching, matched-prefix length ratio weighting, and headword grouping.
+  - `kiroku_dictionary/yomitan_payload.py`: Verbatim AST payload adapter matching Yomitan's `/termEntries` and `/kanjiEntries` response shapes.
+  - `backend/app/services/dictionary_provider.py`: `DictionaryProvider` interface with `YomitanHttpProvider` and `LocalDictionaryProvider`.
+  - `tools/dictionary_parity.py`: Live parity evaluation harness with AnkiConnect read-only safety guard.
+  - `backend/tests/test_kiroku_dictionary.py`: Importer, normalization, compression, and architecture regression guard tests.
+  - `backend/tests/test_deinflector.py`: 252 inflection rule tests.
+  - `backend/tests/test_dictionary_lookup.py`: Engine lookup, ranking, homophones, and latency benchmarks.
+  - `backend/tests/test_dictionary_provider.py`: Provider seam, config flags, error states, and YomitanService wiring tests.
+
+**2. Database Build & Storage Metrics**:
+- **Build Time**: 38.06 seconds for 436,555 term entries and 10,384 kanji characters.
+- **Database Size**: 264.55 MB (`kiroku_dict.sqlite`).
+  - Content blobs alone are 166.8 MB compressed with zlib level 6.
+  - Minimal indexes: `idx_terms_term`, `idx_terms_reading`, `idx_terms_norm_reading`.
+- **Runtime Footprint**:
+  - Read-only SQLite connection pool with `PRAGMA query_only = ON`, `temp_store = MEMORY`.
+  - Memory RSS during lookup: < 85 MB (well under 150 MB ceiling).
+  - Latency: p50 = 1.10 ms, p95 = 9.05 ms (well below 30 ms budget).
+
+**3. Parity Results (vs Live Yomitan)**:
+- **Real Anki / SQLite Cards**: **100.0% match** (68/68) (acceptance threshold: >= 95%).
+- **Synthetic Inflections**: **96.3% match** (289/300) (289 exact top-1 matches; remaining 11 returned valid headwords within top 3).
+- **Kana-only Terms**: **100.0% match** (29/29).
+- **Kanji Breakdown**: **100.0% match** (33/33).
+
+**4. Backend Integration Behind Flag**:
+- **Seam**: `DictionaryProvider` in `backend/app/services/dictionary_provider.py`.
+- **YomitanService Wiring**:
+  - `DICTIONARY_BACKEND=yomitan` (default): Existing HTTP calls to `127.0.0.1:19633` preserved byte-for-byte.
+  - `DICTIONARY_BACKEND=local`: Uses `LocalDictionaryProvider` and `kiroku_dict.sqlite`.
+  - `DICTIONARY_BACKEND=auto`: Tries Yomitan HTTP first, falling back to local dictionary if Yomitan is offline.
+- **Normalizer Integrity**: `normalize_term_entries_response`, `normalize_kanji_entries_response`, and AST helpers were untouched.
+
+**5. Verification & Test Suite**:
+- Full backend test suite: **555/555 passed** (100% pass rate, 0 regressions).
+- Deinflector tests: **252/252 passed**.
+- Dictionary lookup & benchmark tests: **6/6 passed**.
+- Importer & regression guard tests: **5/5 passed**.
+- Provider & integration tests: **7/7 passed**.
+- Live parity harness: **419/430 (97.4% overall)**.
+
+**6. Cloud-Readiness & Known Limitations**:
+- **Cloud Quick-Add**: `kiroku_dictionary` can be imported directly into any cloud worker/container without requiring a browser or desktop Yomitan daemon.
+- **Full-Sentence Tokenization**: Full-sentence segmentation requires Yomitan (scanning parser) or MeCab; `LocalDictionaryProvider` includes a sentence guard advising the user to input word/phrase tokens when offline.
+- **Pitch & Frequencies**: Pitch accents and frequency lists are not bundled in base Jitendex JSON; these return empty lists locally unless auxiliary dictionaries are imported.
+
+---
+
 
 **Objective**: Perform a linear code audit across all cloud features, endpoints, data stores, and UI renderers to ensure absolute resilience; fix all bugs and subtle edge cases discovered; add card clearing mechanism to wipe outdated mirror data; execute a pristine full resync of all 690 Anki cards + 77 compressed WebP images + study stats to both local SQLite and live Neon PostgreSQL cloud; and verify all cloud features end-to-end via headless Playwright browser automation with 0 errors.
 

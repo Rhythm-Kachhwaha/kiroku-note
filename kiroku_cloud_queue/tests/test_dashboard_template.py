@@ -104,3 +104,39 @@ def test_start_study_session_awaits_json():
     assert "const data = await resp.json();" in body
 
 
+def test_quick_add_elements_and_wanakana_present():
+    """Ensure Quick Add view panel, mode toggles, draft inputs, and WanaKana are present."""
+    assert 'id="view-quickadd"' in DASHBOARD_HTML
+    assert 'id="tab-btn-quickadd"' in DASHBOARD_HTML
+    assert 'id="qa-mode-kana"' in DASHBOARD_HTML
+    assert 'id="qa-mode-english"' in DASHBOARD_HTML
+    assert 'id="quickadd-input"' in DASHBOARD_HTML
+    assert 'id="quickadd-clear-btn"' in DASHBOARD_HTML
+    assert 'id="quickadd-suggestions"' in DASHBOARD_HTML
+    assert 'id="qa-expression"' in DASHBOARD_HTML
+    assert 'id="qa-reading"' in DASHBOARD_HTML
+    assert 'id="qa-meaning"' in DASHBOARD_HTML
+    assert 'id="qa-submit-btn"' in DASHBOARD_HTML
+    # Check WanaKana offline bundled
+    assert 'wanakana' in DASHBOARD_HTML
+    assert 'wanakana.bind' in DASHBOARD_HTML
+    assert 'wanakana.unbind' in DASHBOARD_HTML
+
+
+def test_desktop_sidebar_and_mobile_bottom_nav_present():
+    """Ensure desktop sidebar and mobile bottom nav exist in dashboard markup."""
+    assert 'class="app-sidebar"' in DASHBOARD_HTML
+    assert 'class="mobile-bottom-nav"' in DASHBOARD_HTML
+    assert 'class="mobile-header"' in DASHBOARD_HTML
+    assert 'id="mob-tab-btn-cards"' in DASHBOARD_HTML
+    assert 'id="mob-tab-btn-quickadd"' in DASHBOARD_HTML
+
+
+def test_mobile_card_row_media_query_present():
+    """Ensure responsive CSS exists to prevent kanji truncation on mobile."""
+    assert '@media (max-width: 640px)' in DASHBOARD_HTML
+    assert '.row-header' in DASHBOARD_HTML
+    assert 'white-space: normal;' in DASHBOARD_HTML
+    assert 'word-break: break-all;' in DASHBOARD_HTML
+
+
