@@ -1,5 +1,46 @@
 # Kiroku Note — Progress
 
+### Cloud Linear Audit, Clean Resync, Reconcile Media Safety & End-to-End Playwright Verification (2026-10-19)
+
+**Objective**: Perform a linear code audit across all cloud features, endpoints, data stores, and UI renderers to ensure absolute resilience; fix all bugs and subtle edge cases discovered; add card clearing mechanism to wipe outdated mirror data; execute a pristine full resync of all 690 Anki cards + 77 compressed WebP images + study stats to both local SQLite and live Neon PostgreSQL cloud; and verify all cloud features end-to-end via headless Playwright browser automation with 0 errors.
+
+**1. Linear Audit Bug Discoveries & Fixes**:
+- **Media Orphan Bug in `reconcile_anki_cards`**:
+  - *Discovery*: Both `queue_store.py` (lines 798-802, 815-817) and `postgres_store.py` (lines 773-778, 789-791) removed deleted card IDs from `anki_cards`, `cloud_study_reviews`, and `cloud_study_state`, but omitted `anki_card_media`.
+  - *Fix*: Added `DELETE FROM anki_card_media` to the full wipe branch, and `DELETE FROM anki_card_media WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids)` to the reconcile branch across SQLite and PostgreSQL stores.
+- **Study Mode Alias Mismatch**:
+  - *Discovery*: `dashboard.html` practice focus dropdown sends `unseen` and `due`. `postgres_store.py` only checked `clean_mode == "never_practiced"` and `clean_mode == "cloud_due"`, causing selections for "Due in Cloud Leitner Schedule" and "Never Practiced Here" to silently fall back to `weakest`.
+  - *Fix*: Updated both stores to accept `clean_mode in ("never_practiced", "unseen")` and `clean_mode in ("cloud_due", "due")`.
+- **Chart Date Label Fallbacks**:
+  - *Discovery*: In `dashboard.html`, `renderGrowthChart` and `renderStateDistributionChart` referenced `.day` directly on points without checking `.date` or `.week`.
+  - *Fix*: Added `${escapeHtml(d.day || d.date || '')}` fallback ensuring graceful label rendering across any dataset.
+- **Card Clear & Wipe Mechanism**:
+  - *Addition*: Implemented `clear_all_cards(include_stats: bool = False)` in `QueueStoreInterface`, `SqliteQueueStore`, `PostgresQueueStore`, and `LocalDevQueueAdapter`.
+  - *Endpoint*: Added `POST /api/anki/cards/clear` authenticated with `WORKER_TOKEN`.
+  - *CLI Worker*: Added `--clear-cards` and `--clear-stats` CLI flags in `worker.py` that wipe cloud/local cards, unlink `.mirror_state.json`, and proceed with fresh sync.
+
+**2. Clean Slate Wipe & Pristine Anki Resync**:
+- **Cloud Wipe**: Executed `POST /api/anki/cards/clear` against Render production cloud (`https://kiroku-cloud-queue.onrender.com`). Successfully purged 690 stale cards and 77 media files.
+- **Local Wipe**: Executed `worker.py --backend local --clear-cards`, removing local database cards and unlinking `.mirror_state.json`.
+- **Live Anki Full Resync**: Executed `worker.py --sync-cards --full-resync --allow-shrink` against Anki Desktop:
+  - Total seen: 690 cards
+  - Pushed: 690 cards (batches of 500)
+  - Converted & compressed WebP media: 77 images (batches of 50)
+  - Daily history rows: 28 rows
+  - Reconcile status: 0 deleted, mode: full (28.91s duration)
+- **Local SQLite Parity**: Executed full resync to local store with 690 cards, 77 media, and 28 daily stats rows (16.41s duration).
+
+**3. Comprehensive End-to-End Playwright Verification**:
+- Automated test script `verify_cloud_all_features.py` and `test_filters.py` executed against live Render deployment (`status: live` at deploy `dep-dbaok6rm8hqs73bkpsg0`):
+  - **Cards Tab**: 690 cards displayed, search for Japanese expression (`救助`) returned 1 card, quick filter chip (`Hard`) returned 690 cards, JLPT dropdown (`N3`) returned 42 cards.
+  - **Hero Modal**: Opens cleanly displaying amber reading badge, expression, difficulty badge, state badge, and full KANJIDIC card formatting with ruby furigana.
+  - **Queue Tab**: Renders navigation and status containers with 0 page/console errors.
+  - **Stats Tab**: Rendered all 6 SVG charts (Growth curve, Lifecycle distribution, Retention, Buttons, Due forecast, JLPT coverage), range selector toggled to `all` cleanly.
+  - **Study Mode**: Launched session for Weakest 20 cards. Prompt displayed without ruby bracket pollution (`救助`), TTS audio button present, Spacebar reveals card back with sticky rating bar, Digit3 advances to Card 2 of 20, Exit button cleans up session and updates Leitner box activity metrics.
+  - **Results**: `ALL CLOUD FEATURES VERIFIED SUCCESSFULLY WITH 0 PAGE ERRORS!`
+
+---
+
 ### Cloud Study Mode Fixes, Rich Card Formatting & Compressed Image Sync (2026-10-19)
 
 **Objective**: Fix Study Mode launch crash, fix blank Stats tab SVG charts, restore rich Kiroku Note card formatting (ruby, pitch, kanjidic) while extracting clean primary text, extract JLPT levels from Anki note tags/deck names, raise hard difficulty threshold to 60.0, implement client-side compressed WebP image sync pipeline with mature-card image flushing, and maintain separate Cloud Study Mode analytics.
