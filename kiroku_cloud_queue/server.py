@@ -25,7 +25,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import secrets
+import sqlite3
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -38,7 +40,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from queue_adapter import (
@@ -158,6 +160,28 @@ def _authenticate_recent(request: Request) -> None:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token.",
         )
+
+
+def _optional_authenticate_recent(request: Request) -> None:
+    """Validate token if provided; allow public read-only access for dictionary searches if omitted."""
+    auth = request.headers.get("authorization", "")
+    if auth.startswith("Bearer "):
+        token = auth[len("Bearer "):].strip()
+        allowed_tokens = [
+            t for t in [
+                os.getenv("SUBMIT_TOKEN"),
+                os.getenv("PHONE_SECRET"),
+                os.getenv("WORKER_TOKEN"),
+                os.getenv("WORKER_SECRET"),
+                os.getenv("CLOUD_QUEUE_API_KEY"),
+            ] if t
+        ]
+        if allowed_tokens and not any(secrets.compare_digest(token, at) for at in allowed_tokens):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication token.",
+            )
+
 
 
 # ---------------------------------------------------------------------------
@@ -295,9 +319,211 @@ import threading
 
 _DICT_ENGINE: Any = None
 _DICT_BUILD_LOCK = threading.Lock()
+_DICT_BUILDING: bool = False
+_DICT_BUILD_ERROR: Optional[str] = None
+
+# Romaji to Hiragana map for quick add search
+_ROMAJI_TO_KANA = {
+    'kya': 'きゃ', 'kyu': 'きゅ', 'kyo': 'きょ',
+    'sha': 'しゃ', 'shu': 'しゅ', 'sho': 'しょ',
+    'cha': 'ちゃ', 'chu': 'ちゅ', 'cho': 'ちょ',
+    'nya': 'にゃ', 'nyu': 'にゅ', 'nyo': 'にょ',
+    'hya': 'ひゃ', 'hyu': 'ひゅ', 'hyo': 'ひょ',
+    'mya': 'みゃ', 'myu': 'みゅ', 'myo': 'みょ',
+    'rya': 'りゃ', 'ryu': 'りゅ', 'ryo': 'りょ',
+    'gya': 'ぎゃ', 'gyu': 'ぎゅ', 'gyo': 'ぎょ',
+    'ja': 'じゃ', 'ju': 'じゅ', 'jo': 'じょ', 'jya': 'じゃ', 'jyu': 'じゅ', 'jyo': 'じょ',
+    'bya': 'びゃ', 'byu': 'びゅ', 'byo': 'びょ',
+    'pya': 'ぴゃ', 'pyu': 'ぴゅ', 'pyo': 'ぴょ',
+    'shi': 'し', 'chi': 'ち', 'tsu': 'つ', 'fu': 'ふ',
+    'ka': 'か', 'ki': 'き', 'ku': 'く', 'ke': 'け', 'ko': 'こ',
+    'sa': 'さ', 'su': 'す', 'se': 'せ', 'so': 'そ',
+    'ta': 'た', 'te': 'て', 'to': 'と',
+    'na': 'な', 'ni': 'に', 'nu': 'ぬ', 'ne': 'ね', 'no': 'の',
+    'ha': 'は', 'hi': 'ひ', 'he': 'へ', 'ho': 'ほ',
+    'ma': 'ま', 'mi': 'み', 'mu': 'む', 'me': 'め', 'mo': 'も',
+    'ya': 'や', 'yu': 'ゆ', 'yo': 'よ',
+    'ra': 'ら', 'ri': 'り', 'ru': 'る', 're': 'れ', 'ro': 'ろ',
+    'wa': 'わ', 'wo': 'を', 'nn': 'ん',
+    'ga': 'が', 'gi': 'ぎ', 'gu': 'ぐ', 'ge': 'げ', 'go': 'ご',
+    'za': 'ざ', 'ji': 'じ', 'zu': 'ず', 'ze': 'ぜ', 'zo': 'ぞ',
+    'da': 'だ', 'di': 'ぢ', 'du': 'づ', 'de': 'で', 'do': 'ど',
+    'ba': 'ば', 'bi': 'び', 'bu': 'ぶ', 'be': 'べ', 'bo': 'ぼ',
+    'pa': 'ぱ', 'pi': 'ぴ', 'pu': 'ぷ', 'pe': 'ぺ', 'po': 'ぽ',
+    'a': 'あ', 'i': 'い', 'u': 'う', 'e': 'え', 'o': 'お',
+    '-': 'ー'
+}
+
+
+def romaji_to_hiragana(text: str) -> str:
+    """Convert Romaji input string to Hiragana."""
+    text = text.lower().strip()
+    res = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if i + 1 < n and text[i] == text[i+1] and text[i] not in 'aeioun':
+            res.append('っ')
+            i += 1
+            continue
+        matched = False
+        for l in (3, 2, 1):
+            if i + l <= n:
+                chunk = text[i:i+l]
+                if chunk in _ROMAJI_TO_KANA:
+                    res.append(_ROMAJI_TO_KANA[chunk])
+                    i += l
+                    matched = True
+                    break
+        if not matched:
+            if text[i] == 'n' and (i + 1 == n or text[i+1] not in 'aeiouy'):
+                res.append('ん')
+                i += 1
+            else:
+                res.append(text[i])
+                i += 1
+    return ''.join(res)
+
+
+# ---------------------------------------------------------------------------
+# JLPT Reference Database & English Search
+# ---------------------------------------------------------------------------
+_JLPT_CONN: Optional[sqlite3.Connection] = None
+_JLPT_CONN_LOCK = threading.Lock()
+
+
+def _get_jlpt_connection() -> Optional[sqlite3.Connection]:
+    global _JLPT_CONN
+    if _JLPT_CONN is not None:
+        return _JLPT_CONN
+    with _JLPT_CONN_LOCK:
+        if _JLPT_CONN is not None:
+            return _JLPT_CONN
+        base_dir = Path(__file__).resolve().parent
+        candidates = [
+            os.getenv("KIROKU_JLPT_DB_PATH"),
+            str(base_dir / "data" / "jlpt_reference.sqlite"),
+            str(base_dir.parent / "backend" / "app" / "data" / "jlpt_reference.sqlite"),
+            str(base_dir.parent / "data" / "jlpt_reference.sqlite"),
+        ]
+        db_path = next((p for p in candidates if p and os.path.exists(p)), None)
+        if not db_path:
+            return None
+        try:
+            abs_p = Path(db_path).resolve().as_posix()
+            conn = sqlite3.connect(f"file:{abs_p}?mode=ro", uri=True, check_same_thread=False)
+            _JLPT_CONN = conn
+            log.info("Connected to JLPT reference dataset: %s", db_path)
+            return conn
+        except Exception:
+            try:
+                conn = sqlite3.connect(db_path, check_same_thread=False)
+                _JLPT_CONN = conn
+                log.info("Connected to JLPT reference dataset (standard mode): %s", db_path)
+                return conn
+            except Exception as e:
+                log.warning("Could not connect to jlpt_reference.sqlite at %s: %s", db_path, e)
+                return None
+
+
+def search_english_vocab(query: str, limit: int = 20) -> list[dict[str, Any]]:
+    """Search vocabulary by English meaning keywords/phrases using JLPT reference."""
+    clean_query = query.strip().lower()
+    if not clean_query:
+        return []
+    norm_query = re.sub(r"^(to|a|an)\s+", "", clean_query)
+    words = re.findall(r"\b[a-z0-9'-]+\b", norm_query)
+    if not words:
+        return []
+    conn = _get_jlpt_connection()
+    if not conn:
+        return []
+    try:
+        where_clauses = ["meanings LIKE ?" for _ in words]
+        params = [f"%{w}%" for w in words]
+        sql = f"SELECT word, reading, meanings, level FROM vocab WHERE {' AND '.join(where_clauses)} LIMIT 100;"
+        rows = conn.cursor().execute(sql, params).fetchall()
+
+        scored_entries = []
+        level_weights = {"N5": 50, "N4": 40, "N3": 30, "N2": 20, "N1": 10}
+
+        for word, reading, meanings_raw, level in rows:
+            try:
+                meanings_list = json.loads(meanings_raw) if meanings_raw else []
+            except Exception:
+                meanings_list = [meanings_raw] if meanings_raw else []
+
+            matched = False
+            exact_gloss = False
+            starts_with_gloss = False
+            for m in meanings_list:
+                m_lower = str(m).lower()
+                all_words_present = all(re.search(r"\b" + re.escape(w) + r"\b", m_lower) for w in words)
+                if all_words_present:
+                    matched = True
+                    if m_lower == clean_query or m_lower == f"to {clean_query}":
+                        exact_gloss = True
+                    elif m_lower.startswith(clean_query) or m_lower.startswith(f"to {clean_query}"):
+                        starts_with_gloss = True
+
+            if not matched:
+                continue
+
+            norm_lvl = (level or "").strip().upper()
+            if norm_lvl and not norm_lvl.startswith("N") and norm_lvl.isdigit():
+                norm_lvl = f"N{norm_lvl}"
+            score = level_weights.get(norm_lvl, 0)
+            if exact_gloss:
+                score += 100
+            elif starts_with_gloss:
+                score += 50
+
+            scored_entries.append({
+                "score": score,
+                "term": word,
+                "reading": reading or word,
+                "meanings": meanings_list,
+                "jlpt_level": norm_lvl,
+            })
+
+        scored_entries.sort(key=lambda x: x["score"], reverse=True)
+        return scored_entries[:limit]
+    except Exception as err:
+        log.warning("search_english_vocab error: %s", err)
+        return []
+
+
+def _run_dict_build_thread(j_zip_str: str, k_zip_str: str, target_out_str: str) -> None:
+    global _DICT_ENGINE, _DICT_BUILDING, _DICT_BUILD_ERROR
+    try:
+        log.info("Background compilation started for kiroku_dict.sqlite from %s...", j_zip_str)
+        base_dir = Path(__file__).resolve().parent
+        try:
+            from kiroku_dictionary.importer import build_database
+        except ImportError:
+            if str(base_dir) not in sys.path:
+                sys.path.insert(0, str(base_dir))
+            if str(base_dir.parent) not in sys.path:
+                sys.path.insert(0, str(base_dir.parent))
+            from kiroku_dictionary.importer import build_database
+
+        build_database(j_zip_str, k_zip_str, target_out_str)
+        if os.path.exists(target_out_str):
+            try:
+                from kiroku_dictionary import DictionaryEngine
+            except ImportError:
+                from kiroku_dictionary import DictionaryEngine
+            _DICT_ENGINE = DictionaryEngine(target_out_str)
+            log.info("Background dictionary compilation complete: %s (%d bytes)", target_out_str, os.path.getsize(target_out_str))
+    except Exception as err:
+        _DICT_BUILD_ERROR = str(err)
+        log.warning("Background compilation of dictionary failed: %s", err)
+    finally:
+        _DICT_BUILDING = False
+
 
 def _get_dictionary_engine() -> Any:
-    global _DICT_ENGINE
+    global _DICT_ENGINE, _DICT_BUILDING
     if _DICT_ENGINE is not None:
         return _DICT_ENGINE
 
@@ -315,8 +541,8 @@ def _get_dictionary_engine() -> Any:
         ]
         db_path = next((p for p in candidate_paths if p and os.path.exists(p)), None)
 
-        # 1. If SQLite file missing, check if source zips exist to auto-build on startup
-        if not db_path:
+        # 1. If SQLite file missing and not currently compiling, launch non-blocking background build
+        if not db_path and not _DICT_BUILDING:
             zip_candidates = [
                 (base_dir / "data" / "jitendex-yomitan.zip", base_dir / "data" / "KANJIDIC_english.zip"),
                 (base_dir.parent / "data" / "jitendex-yomitan.zip", base_dir.parent / "data" / "KANJIDIC_english.zip"),
@@ -324,61 +550,18 @@ def _get_dictionary_engine() -> Any:
             for j_zip, k_zip in zip_candidates:
                 if j_zip.exists() and k_zip.exists():
                     target_out = base_dir / "kiroku_dict.sqlite"
-                    log.info("Auto-building kiroku_dict.sqlite from %s and %s...", j_zip, k_zip)
-                    try:
-                        try:
-                            from kiroku_dictionary.importer import build_database
-                        except ImportError:
-                            if str(base_dir) not in sys.path:
-                                sys.path.insert(0, str(base_dir))
-                            if str(base_dir.parent) not in sys.path:
-                                sys.path.insert(0, str(base_dir.parent))
-                            from kiroku_dictionary.importer import build_database
-
-                        build_database(str(j_zip), str(k_zip), str(target_out))
-                        if target_out.exists():
-                            db_path = str(target_out)
-                            log.info("Auto-build complete: %s (%d bytes)", db_path, target_out.stat().st_size)
-                            break
-                    except Exception as b_err:
-                        log.warning("Auto-build of dictionary failed: %s", b_err)
-
-        # 2. If still missing, check if an auto-download URL is configured via environment variable
-        if not db_path:
-            dl_url = os.getenv("KIROKU_DICT_URL") or os.getenv("DICT_DOWNLOAD_URL")
-            if dl_url and dl_url.strip():
-                try:
-                    import urllib.request
-                    import gzip
-                    import shutil
-
-                    target_out = base_dir / "kiroku_dict.sqlite"
-                    if not os.access(base_dir, os.W_OK):
-                        target_out = Path("/tmp/kiroku_dict.sqlite")
-                    temp_dl = target_out.with_suffix(".tmp")
-                    log.info("Downloading dictionary database from %s to %s...", dl_url, target_out)
-                    req = urllib.request.Request(dl_url.strip(), headers={"User-Agent": "KirokuCloudQueue/1.0"})
-                    with urllib.request.urlopen(req, timeout=180.0) as resp, open(temp_dl, "wb") as out_f:
-                        shutil.copyfileobj(resp, out_f)
-
-                    if dl_url.strip().endswith(".gz"):
-                        with gzip.open(temp_dl, "rb") as gz_in, open(target_out, "wb") as out_f:
-                            shutil.copyfileobj(gz_in, out_f)
-                        if temp_dl.exists():
-                            temp_dl.unlink()
-                    else:
-                        if target_out.exists():
-                            target_out.unlink()
-                        temp_dl.rename(target_out)
-
-                    if target_out.exists():
-                        db_path = str(target_out)
-                        log.info("Successfully downloaded dictionary database (%d bytes).", target_out.stat().st_size)
-                except Exception as dl_err:
-                    log.warning("Failed to download dictionary database from %s: %s", dl_url, dl_err)
+                    _DICT_BUILDING = True
+                    th = threading.Thread(
+                        target=_run_dict_build_thread,
+                        args=(str(j_zip), str(k_zip), str(target_out)),
+                        daemon=True,
+                        name="DictionaryCompilerThread"
+                    )
+                    th.start()
+                    log.info("Spawned asynchronous compiler thread for kiroku_dict.sqlite (prevents 502 gateway timeouts).")
+                    break
 
         if not db_path:
-            log.warning("kiroku_dict.sqlite database file not found for cloud dictionary engine.")
             return None
 
         try:
@@ -397,6 +580,7 @@ def _get_dictionary_engine() -> Any:
         except Exception as exc:
             log.error("Failed to initialize DictionaryEngine: %s", exc)
             return None
+
 
 
 def _extract_text_from_node(node: Any, include_rt: bool = False, depth: int = 0) -> str:
@@ -466,17 +650,40 @@ def _extract_plain_text_glossary(glossary_items: Any) -> list[str]:
 
 @app.get("/api/dictionary/status")
 async def dictionary_status_endpoint(request: Request) -> JSONResponse:
-    _authenticate_recent(request)
+    _optional_authenticate_recent(request)
     engine = _get_dictionary_engine()
+    jlpt_conn = _get_jlpt_connection()
     return JSONResponse({
         "status": "ok",
         "available": engine is not None,
+        "building": _DICT_BUILDING,
+        "english_search_available": jlpt_conn is not None,
+    })
+
+
+@app.get("/api/dictionary/search-english")
+async def search_dictionary_english_endpoint(
+    request: Request,
+    query: str = Query(default="", max_length=100),
+    limit: int = Query(default=10, ge=1, le=50),
+) -> JSONResponse:
+    """Public endpoint to search Japanese vocabulary by English meaning."""
+    _optional_authenticate_recent(request)
+    entries = search_english_vocab(query, limit=limit)
+    return JSONResponse({
+        "status": "ok",
+        "query": query,
+        "entries": entries,
+        "count": len(entries),
     })
 
 
 @app.post("/api/dictionary/lookup")
 async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
-    _authenticate_recent(request)
+    """
+    Public lookup endpoint supporting Japanese expressions, Kana, Romaji, and English meanings.
+    """
+    _optional_authenticate_recent(request)
     try:
         body = await request.json()
     except Exception:
@@ -489,16 +696,165 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
     if not raw_text:
         raise HTTPException(status_code=400, detail="Search text must not be empty.")
 
+    mode = str(body.get("mode") or "").strip().lower()
+    max_results = min(int(body.get("max_results") or 10), 20)
+
+    has_japanese = any(0x3040 <= ord(c) <= 0x9FFF for c in raw_text) or any(ord(c) in (0x30FC, 0x30FB) for c in raw_text)
+    is_english_mode = (mode == "english")
+    is_english_text = not has_japanese and bool(re.match(r"^[a-zA-Z\s'-]+$", raw_text)) and mode != "kana"
+
     engine = _get_dictionary_engine()
+
+    # 1. Direct English search if explicitly in English mode or English words entered
+    if is_english_mode or is_english_text:
+        en_results = search_english_vocab(raw_text, limit=max_results)
+        if en_results:
+            top = en_results[0]
+            kanji_entries = []
+            if engine is not None:
+                try:
+                    k_res = engine.lookup_kanji(top["term"])
+                    kanji_entries = [
+                        {
+                            "character": k.character,
+                            "onyomi": k.onyomi,
+                            "kunyomi": k.kunyomi,
+                            "meanings": k.meanings,
+                            "strokes": k.stats.get("strokes"),
+                            "grade": k.stats.get("grade"),
+                            "jlpt": k.stats.get("jlpt"),
+                            "tags": k.tags,
+                        }
+                        for k in k_res
+                    ]
+                except Exception:
+                    kanji_entries = []
+
+            match_payload = {
+                "expression": top["term"],
+                "reading": top["reading"],
+                "source": "english_search",
+                "deinflected": top["term"],
+                "rules": "",
+                "jlpt_level": top.get("jlpt_level"),
+                "meanings": top.get("meanings", []),
+                "parts_of_speech": [],
+                "senses": [{"glosses": top.get("meanings", []), "pos": [], "tags": [], "dictionary": "OpenJLPT"}],
+                "kanji_entries": kanji_entries,
+            }
+            candidates = [
+                {
+                    "expression": r["term"],
+                    "reading": r["reading"],
+                    "meanings": r.get("meanings", [])[:2],
+                    "jlpt_level": r.get("jlpt_level"),
+                    "source": "english_search",
+                }
+                for r in en_results
+            ]
+            return JSONResponse({
+                "status": "ok",
+                "query": raw_text,
+                "mode": "english",
+                "match": match_payload,
+                "candidates": candidates,
+            })
+
+    # 2. Japanese / Kana / Romaji search
     if engine is None:
+        if _DICT_BUILDING:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Dictionary engine is compiling in the background. Please retry in a few moments.",
+            )
+        # Fallback to English search if dictionary engine is absent
+        fallback_results = search_english_vocab(raw_text, limit=max_results)
+        if fallback_results:
+            top = fallback_results[0]
+            return JSONResponse({
+                "status": "ok",
+                "query": raw_text,
+                "mode": "fallback",
+                "match": {
+                    "expression": top["term"],
+                    "reading": top["reading"],
+                    "source": "fallback",
+                    "meanings": top.get("meanings", []),
+                    "jlpt_level": top.get("jlpt_level"),
+                    "kanji_entries": [],
+                },
+                "candidates": [
+                    {
+                        "expression": r["term"],
+                        "reading": r["reading"],
+                        "meanings": r.get("meanings", [])[:2],
+                        "jlpt_level": r.get("jlpt_level"),
+                    }
+                    for r in fallback_results
+                ],
+            })
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Dictionary engine database not found in cloud environment.",
         )
 
-    max_results = min(int(body.get("max_results") or 5), 20)
+    # First attempt: lookup raw text directly
     term_groups = engine.lookup_terms(raw_text, max_results=max_results)
+
+    # Second attempt: if no match and text is Romaji, convert to Hiragana and lookup
+    if not term_groups and not has_japanese:
+        kana_converted = romaji_to_hiragana(raw_text)
+        if kana_converted != raw_text:
+            term_groups = engine.lookup_terms(kana_converted, max_results=max_results)
+
+    # Third attempt: if still no match, fallback to English meaning search
     if not term_groups:
+        fallback = search_english_vocab(raw_text, limit=max_results)
+        if fallback:
+            top = fallback[0]
+            kanji_entries = []
+            try:
+                k_res = engine.lookup_kanji(top["term"])
+                kanji_entries = [
+                    {
+                        "character": k.character,
+                        "onyomi": k.onyomi,
+                        "kunyomi": k.kunyomi,
+                        "meanings": k.meanings,
+                        "strokes": k.stats.get("strokes"),
+                        "grade": k.stats.get("grade"),
+                        "jlpt": k.stats.get("jlpt"),
+                        "tags": k.tags,
+                    }
+                    for k in k_res
+                ]
+            except Exception:
+                kanji_entries = []
+
+            return JSONResponse({
+                "status": "ok",
+                "query": raw_text,
+                "mode": "english_fallback",
+                "match": {
+                    "expression": top["term"],
+                    "reading": top["reading"],
+                    "source": "english_fallback",
+                    "deinflected": top["term"],
+                    "meanings": top.get("meanings", []),
+                    "jlpt_level": top.get("jlpt_level"),
+                    "kanji_entries": kanji_entries,
+                },
+                "candidates": [
+                    {
+                        "expression": r["term"],
+                        "reading": r["reading"],
+                        "meanings": r.get("meanings", [])[:2],
+                        "jlpt_level": r.get("jlpt_level"),
+                        "source": "english_fallback",
+                    }
+                    for r in fallback
+                ],
+            })
         return JSONResponse({
             "status": "ok",
             "query": raw_text,
@@ -534,7 +890,6 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
             "dictionary": d.dictionary,
         })
 
-    import re
     jlpt_level = None
     for tag in primary.tags:
         if m := re.match(r"^jlpt-n([1-5])$", str(tag).strip(), re.IGNORECASE):

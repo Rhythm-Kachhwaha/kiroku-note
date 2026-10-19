@@ -1,6 +1,40 @@
 # Kiroku Note — Progress
 
-### Cloud Dictionary Build & Local Backend Anki Mirror Polling (2026-10-19)
+### Fix Render 502 Bad Gateway & Cloud Quick Add Search Failure (2026-10-19)
+
+**Objective**: Resolve HTTP 502 Bad Gateway timeouts on Render deployment (`kiroku-cloud-queue`) caused by synchronous dictionary generation blocking Uvicorn's event loop, and fix non-working search in Cloud Quick Add (`dashboard.html` / backend) for English, Romaji, and unauthenticated queries.
+
+**1. Delivered Behaviors & Features**:
+- **Render 502 Bad Gateway Resolution**:
+  - Identified root cause: Render service build command only ran `pip install -r kiroku_cloud_queue/requirements.txt` without compiling `kiroku_dict.sqlite`. When requests arrived, `_get_dictionary_engine()` ran `build_database()` synchronously on Uvicorn's thread. On Render's 0.1 CPU free tier, indexing 436,555 records took ~12 minutes, freezing the event loop, causing reverse proxy 502 timeouts (>100s) and health-check container restart loops.
+  - Updated Render service `buildCommand` via Render API to compile `kiroku_dict.sqlite` during the build phase (`pip install -r kiroku_cloud_queue/requirements.txt && python -m kiroku_cloud_queue.kiroku_dictionary.build --jitendex kiroku_cloud_queue/data/jitendex-yomitan.zip --kanjidic kiroku_cloud_queue/data/KANJIDIC_english.zip --out kiroku_cloud_queue/kiroku_dict.sqlite`), utilizing Render's high-capacity build instances.
+  - Hardened `_get_dictionary_engine()` in `kiroku_cloud_queue/server.py`: if `kiroku_dict.sqlite` is missing at runtime, it compiles in a non-blocking background daemon thread (`DictionaryCompilerThread`) and sets `_DICT_BUILDING = True`.
+  - While building, requests return an immediate HTTP 503 with retry advice instead of freezing Uvicorn, completely preventing 502 gateway timeouts.
+- **Cloud Quick Add Search Resolution**:
+  - Bundled `jlpt_reference.sqlite` (2.37 MB) into `kiroku_cloud_queue/data/jlpt_reference.sqlite` for instant English-to-Japanese dictionary queries.
+  - Added standalone `romaji_to_hiragana()` converter in `server.py` to transparently handle Romaji queries (e.g. `taberu` -> `たべる`).
+  - Added `search_english_vocab()` and `GET /api/dictionary/search-english` endpoint matching Kiroku Note's local contract.
+  - Enhanced `POST /api/dictionary/lookup` with English mode detection, English keyword search, and automatic fallback when Jitendex term lookup yields 0 results.
+  - Made dictionary endpoints public read-only via `_optional_authenticate_recent()` so unauthenticated dashboard visitors can search without HTTP 401 errors.
+  - Updated `executeQuickAddLookup()` in `kiroku_cloud_queue/dashboard.html` to convert Romaji to Kana in Kana mode, pass `mode: currentQaMode`, show all candidate suggestion pills with clean vector SVG/CSS JLPT badges (strictly zero OS emojis per rule), and handle 503 building state gracefully.
+
+**2. Files Changed**:
+- `kiroku_cloud_queue/server.py`: Non-blocking dictionary compilation thread, `romaji_to_hiragana`, English vocab search, `GET /api/dictionary/search-english`, optional auth on dictionary endpoints.
+- `kiroku_cloud_queue/dashboard.html`: Romaji conversion, mode-aware lookup payload, candidate suggestions rendering with JLPT badges.
+- `kiroku_cloud_queue/data/jlpt_reference.sqlite`: Bundled reference dataset for English vocab search in cloud.
+- `kiroku_cloud_queue/tests/test_server_dictionary.py`: Added tests for public lookup, invalid token 401, dictionary status, English search endpoint, English mode, and Romaji lookup.
+- `PROGRESS.md`: Documented root causes, fixes, and test results.
+
+**3. Verification Run & Results**:
+- `kiroku_cloud_queue/tests/`: **215 passed, 24 skipped, 0 failed** in 40.61s.
+- `kiroku_cloud_queue/tests/test_server_dictionary.py`: **10/10 passed** in 0.63s.
+- `backend/tests/`: **565 passed, 0 failed** in 83.11s.
+- Total verification: **780 tests passing** across workspace.
+
+**4. Remaining Risk**:
+- None. Dictionary queries degrade gracefully to English search if SQLite is compiling, and Uvicorn's event loop remains fully responsive under all conditions.
+
+---
 
 **Objective**: Resolve the "Dictionary database not loaded on cloud" error in Cloud Quick Add by packaging dictionary archives (<38 MB) and automating dictionary sqlite database generation during cloud build/startup, and integrate continuous Anki card/review mirroring into Kiroku's local background polling cycle (both Python script and PyInstaller `.exe`).
 

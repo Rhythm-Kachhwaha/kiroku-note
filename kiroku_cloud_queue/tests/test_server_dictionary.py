@@ -28,8 +28,16 @@ class ServerDictionaryLookupTests(unittest.TestCase):
         os.environ["KIROKU_DICT_SQLITE"] = str(REPO_ROOT / "kiroku_dict.sqlite")
         self.client = TestClient(server.app, raise_server_exceptions=False)
 
-    def test_lookup_unauthenticated_returns_401(self):
+    def test_lookup_unauthenticated_succeeds(self):
         resp = self.client.post("/api/dictionary/lookup", json={"text": "食べる"})
+        self.assertEqual(resp.status_code, 200)
+
+    def test_lookup_invalid_token_returns_401(self):
+        resp = self.client.post(
+            "/api/dictionary/lookup",
+            json={"text": "食べる"},
+            headers={"Authorization": "Bearer invalid-token"},
+        )
         self.assertEqual(resp.status_code, 401)
 
     def test_lookup_empty_text_returns_400(self):
@@ -83,6 +91,38 @@ class ServerDictionaryLookupTests(unittest.TestCase):
             json={"text": "食べちゃった"},
             headers={"Authorization": f"Bearer {self.submit_token}"},
         )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["match"]["expression"], "食べる")
+
+    def test_dictionary_status(self):
+        resp = self.client.get("/api/dictionary/status")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertIn("available", data)
+        self.assertIn("english_search_available", data)
+
+    def test_search_english_endpoint(self):
+        resp = self.client.get("/api/dictionary/search-english?query=eat&limit=5")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertGreater(len(data["entries"]), 0)
+        self.assertEqual(data["entries"][0]["term"], "食べる")
+
+    def test_lookup_english_mode(self):
+        resp = self.client.post("/api/dictionary/lookup", json={"text": "eat", "mode": "english"})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["match"]["expression"], "食べる")
+
+    def test_lookup_romaji(self):
+        if not os.path.exists(os.environ["KIROKU_DICT_SQLITE"]):
+            self.skipTest("kiroku_dict.sqlite not found")
+        resp = self.client.post("/api/dictionary/lookup", json={"text": "taberu", "mode": "kana"})
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertEqual(data["status"], "ok")

@@ -3145,8 +3145,17 @@
 
     async function executeQuickAddLookup(showImmediate = true) {
       const input = document.getElementById('quickadd-input');
-      const query = (input ? input.value : '').trim();
+      let query = (input ? input.value : '').trim();
       if (!query) return;
+
+      // In kana mode, convert romaji to hiragana if entered or pasted
+      if (currentQaMode === 'kana' && typeof wanakana !== 'undefined' && typeof wanakana.toHiragana === 'function') {
+        const converted = wanakana.toHiragana(query);
+        if (converted && converted !== query) {
+          query = converted;
+          if (showImmediate && input) input.value = converted;
+        }
+      }
 
       const token = getToken();
       const statusIcon = document.getElementById('qa-search-spinner');
@@ -3159,7 +3168,11 @@
             'Content-Type': 'application/json',
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           },
-          body: JSON.stringify({ text: query, max_results: 10 })
+          body: JSON.stringify({
+            text: query,
+            mode: currentQaMode,
+            max_results: 10
+          })
         });
 
         if (statusIcon) statusIcon.style.display = 'none';
@@ -3179,14 +3192,13 @@
         if (data.status === 'ok') {
           if (data.match) {
             populateQuickAddDraft(data.match);
-            hideQuickAddSuggestions();
           } else {
             if (showImmediate) {
               showQaStatus(`No dictionary matches for "${query}".`, 'error');
             }
           }
 
-          if (data.candidates && data.candidates.length > 1) {
+          if (data.candidates && data.candidates.length > 0) {
             qaCandidates = data.candidates;
             renderQuickAddSuggestions(data.candidates);
           } else {
@@ -3207,9 +3219,10 @@
       qaHighlightedIndex = -1;
       list.innerHTML = candidates.map((c, i) => `
         <div class="qa-candidate-item" data-index="${i}" onclick="selectQaCandidateByIndex(${i})">
-          <div>
+          <div style="display:flex;align-items:center;gap:6px;">
             <span class="qa-cand-term">${escapeHtml(c.expression || '')}</span>
             <span class="qa-cand-reading">${escapeHtml(c.reading || '')}</span>
+            ${c.jlpt_level ? `<span class="qa-badge-jlpt" style="margin-left:auto;font-size:0.65rem;padding:1px 5px;border-radius:4px;background:var(--surface-sunken);color:var(--text-muted);border:1px solid var(--border-subtle);">${escapeHtml(c.jlpt_level)}</span>` : ''}
           </div>
           <div class="qa-cand-meaning">${escapeHtml((c.meanings && c.meanings[0]) || '')}</div>
         </div>
