@@ -18,7 +18,7 @@ def test_get_version():
     assert version is not None
     assert isinstance(version, str)
     assert len(version.split(".")) >= 2
-    assert version == "2.0.0"
+    assert version == "2.1.0"
 
 
 def test_find_iscc():

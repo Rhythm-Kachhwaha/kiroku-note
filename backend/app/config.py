@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 
 APP_NAME = "KirokuNote"
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.1.0"
 
 DEFAULT_KIROKU_HOST = "127.0.0.1"
 DEFAULT_KIROKU_PORT = 21828

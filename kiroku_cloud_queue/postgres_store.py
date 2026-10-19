@@ -1339,6 +1339,26 @@ class PostgresQueueStore(BaseQueueStore):
                     "weekly": weekly_retention,
                 }
 
+                # 8. Decks breakdown
+                cur.execute(
+                    """
+                    SELECT deck_name,
+                           COUNT(*) as total,
+                           SUM(CASE WHEN state = 'mature' THEN 1 ELSE 0 END) as mature,
+                           SUM(CASE WHEN state = 'young' THEN 1 ELSE 0 END) as young,
+                           SUM(CASE WHEN state = 'learning' THEN 1 ELSE 0 END) as learning,
+                           SUM(CASE WHEN state = 'new' THEN 1 ELSE 0 END) as new,
+                           SUM(CASE WHEN state = 'suspended' THEN 1 ELSE 0 END) as suspended,
+                           SUM(CASE WHEN due_in_days <= 0 THEN 1 ELSE 0 END) as due_today,
+                           ROUND(AVG(interval_days), 1) as avg_interval
+                    FROM anki_cards
+                    GROUP BY deck_name
+                    ORDER BY total DESC;
+                    """
+                )
+                deck_cols = [desc[0] for desc in cur.description]
+                deck_breakdown = [dict(zip(deck_cols, r)) for r in cur.fetchall()]
+
                 res_overview = {
                     "range": rf,
                     "card_count": card_count,
@@ -1359,6 +1379,7 @@ class PostgresQueueStore(BaseQueueStore):
                     "weak_words": weak_words,
                     "jlpt_coverage": jlpt_coverage,
                     "queue_activity": queue_activity,
+                    "deck_breakdown": deck_breakdown,
                 }
                 elapsed_ms = (time.perf_counter() - t0) * 1000.0
                 log.debug("get_stats_overview completed in %.2fms (range=%s)", elapsed_ms, rf)
@@ -1372,7 +1393,7 @@ class PostgresQueueStore(BaseQueueStore):
         custom_ids: Optional[list[int]] = None,
         custom_card_ids: Optional[list[int]] = None,
     ) -> list[dict[str, Any]]:
-        limit = max(1, min(100, int(limit)))
+        limit = max(1, min(2000, int(limit)))
         now_dt = datetime.now(timezone.utc)
         effective_ids = custom_ids or custom_card_ids
 
@@ -1438,6 +1459,16 @@ class PostgresQueueStore(BaseQueueStore):
                             LIMIT %s;
                             """,
                             (now_dt, limit),
+                        )
+                    elif clean_mode == "all":
+                        cur.execute(
+                            """
+                            SELECT * FROM anki_cards
+                            WHERE state != 'suspended'
+                            ORDER BY card_id ASC
+                            LIMIT %s;
+                            """,
+                            (limit,),
                         )
                     else:  # default: weakest
                         cur.execute(

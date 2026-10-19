@@ -2058,6 +2058,165 @@
       border: 1px solid var(--red);
       color: #f17878;
     }
+    /* Hero Showcase View for Quick Add */
+    .qa-hero-showcase {
+      background: var(--surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 1.1rem 1rem 0.9rem 1rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      position: relative;
+    }
+    .qa-hero-reading {
+      font-size: 0.95rem;
+      color: var(--accent-reading);
+      font-family: var(--font-ja);
+      min-height: 1.25rem;
+      letter-spacing: 0.04em;
+    }
+    .qa-hero-expr-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+    .qa-hero-expression {
+      font-size: 2.3rem;
+      font-weight: 700;
+      color: #ffffff;
+      font-family: var(--font-ja);
+      margin: 0;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+    .qa-hero-meanings-summary {
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+      max-width: 90%;
+      line-height: 1.4;
+      margin-top: 0.15rem;
+    }
+    .qa-hero-badges-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      margin-top: 0.35rem;
+    }
+    .qa-hero-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      border: 1px solid var(--border-default);
+      background: var(--surface-sunken);
+      color: var(--text-secondary);
+    }
+    .qa-hero-badge.jlpt {
+      border-color: rgba(184, 70, 50, 0.4);
+      background: rgba(184, 70, 50, 0.12);
+      color: #e06c58;
+    }
+    .qa-hero-badge.pos {
+      border-color: rgba(94, 163, 186, 0.4);
+      background: rgba(94, 163, 186, 0.12);
+      color: #79bfd6;
+    }
+    /* Immediate Top Action Bar (Right below hero view) */
+    .qa-action-bar-top {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.65rem;
+      padding: 0.35rem 0 0.25rem 0;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 0.45rem;
+    }
+    @media (max-width: 768px) {
+      .qa-btn-kbd {
+        display: none !important;
+      }
+      .qa-action-bar-top {
+        justify-content: stretch;
+      }
+      .qa-action-bar-top .qa-primary-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 0.65rem 0.85rem;
+        font-size: 0.84rem;
+      }
+      .qa-action-bar-top .qa-secondary-btn {
+        padding: 0.65rem 0.85rem;
+      }
+    }
+    /* Stats Tables & Breakdown UI */
+    .stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      color: var(--text);
+    }
+    .stats-table th {
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.6rem 0.65rem;
+      border-bottom: 1px solid var(--border-default);
+      background: var(--surface);
+    }
+    .stats-table td {
+      padding: 0.6rem 0.65rem;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+    }
+    .stats-table tr:hover td {
+      background: var(--surface-hover);
+    }
+    .stats-card-filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-top: 0.5rem;
+    }
+    .stats-pagination-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.75rem;
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+    }
+    .stats-legend-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.6rem;
+    }
+    .stats-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .stats-legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
   </style>
 </head>
 <body>
@@ -2067,7 +2226,6 @@
       <div class="sidebar-brand">
         <div class="brand">
           <h1 class="brand-title">kiroku cloud</h1>
-          <span class="brand-badge">companion</span>
         </div>
       </div>
       <nav class="sidebar-nav" role="tablist">
@@ -2111,7 +2269,6 @@
         <header class="mobile-header">
           <div class="brand">
             <h1 class="brand-title">kiroku cloud</h1>
-            <span class="brand-badge">companion</span>
           </div>
           <div class="header-actions">
             <button class="icon-btn" id="refresh-btn" onclick="refreshActive(true)" title="Refresh data">
@@ -2302,23 +2459,59 @@
         <!-- Card Draft Editor Form -->
         <div id="qa-draft-wrap" style="display:none;margin-top:1rem;">
           <div class="qa-draft-card">
+            <!-- 1. Focused Hero View Showcase (Matching Kiroku Side Panel) -->
+            <div class="qa-hero-showcase" id="qa-hero-showcase">
+              <div class="qa-hero-reading" id="qa-hero-reading"></div>
+              <div class="qa-hero-expr-row">
+                <h1 class="qa-hero-expression" id="qa-hero-expression">—</h1>
+              </div>
+              <div class="qa-hero-meanings-summary" id="qa-hero-meanings-summary"></div>
+              <div class="qa-hero-badges-row" id="qa-hero-badges-row">
+                <span id="qa-hero-jlpt" class="qa-hero-badge jlpt" style="display:none;"></span>
+                <span id="qa-hero-pos" class="qa-hero-badge pos" style="display:none;"></span>
+              </div>
+            </div>
+
+            <!-- 2. Immediate Action Bar (Right below hero view - No scrolling needed) -->
+            <div class="qa-action-bar-top">
+              <button type="button" class="qa-secondary-btn" onclick="resetQuickAddForm()">Reset</button>
+              <button type="button" class="qa-primary-btn qa-btn-submit" id="qa-submit-btn-top" onclick="submitQuickAddCard()">
+                <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Add to Cloud Queue</span>
+                <span class="qa-btn-kbd"> (Ctrl+Enter)</span>
+              </button>
+            </div>
+
+            <!-- 3. Notes & Hints (Right after Hero View, just like normal Kiroku) -->
+            <div class="qa-form-row-2col">
+              <div class="qa-field-group">
+                <label class="qa-field-label" for="qa-hint">Hint</label>
+                <input type="text" id="qa-hint" class="qa-field-input" placeholder="" autocomplete="off">
+              </div>
+              <div class="qa-field-group">
+                <label class="qa-field-label" for="qa-notes">Notes</label>
+                <input type="text" id="qa-notes" class="qa-field-input" placeholder="" autocomplete="off">
+              </div>
+            </div>
+
+            <!-- 4. Core Vocabulary Fields -->
             <div class="qa-form-row-2col">
               <div class="qa-field-group">
                 <label class="qa-field-label" for="qa-expression">
                   <span>Expression</span>
                   <span id="qa-jlpt-badge" class="brand-badge" style="display:none;font-size:0.65rem;"></span>
                 </label>
-                <input type="text" id="qa-expression" class="qa-field-input japanese" placeholder="e.g. 食べる">
+                <input type="text" id="qa-expression" class="qa-field-input japanese" placeholder="" autocomplete="off">
               </div>
               <div class="qa-field-group">
                 <label class="qa-field-label" for="qa-reading">Reading</label>
-                <input type="text" id="qa-reading" class="qa-field-input reading" placeholder="e.g. たべる">
+                <input type="text" id="qa-reading" class="qa-field-input reading" placeholder="" autocomplete="off">
               </div>
             </div>
 
             <div class="qa-field-group">
               <label class="qa-field-label" for="qa-meaning">Meaning &amp; Glosses</label>
-              <textarea id="qa-meaning" class="qa-field-textarea" rows="2" placeholder="e.g. to eat; to have a meal"></textarea>
+              <textarea id="qa-meaning" class="qa-field-textarea" rows="2" placeholder=""></textarea>
             </div>
 
             <!-- Kanji Breakdown Section -->
@@ -2327,17 +2520,19 @@
               <div id="qa-kanji-wrap" class="qa-kanji-chips-wrap"></div>
             </div>
 
+            <!-- Example Sentence & Translation (empty placeholders) -->
             <div class="qa-form-row-2col">
               <div class="qa-field-group">
                 <label class="qa-field-label" for="qa-sentence">Example Sentence (optional)</label>
-                <textarea id="qa-sentence" class="qa-field-textarea" rows="2" placeholder="e.g. 朝ご飯を食べました。"></textarea>
+                <textarea id="qa-sentence" class="qa-field-textarea" rows="2" placeholder=""></textarea>
               </div>
               <div class="qa-field-group">
                 <label class="qa-field-label" for="qa-sentence-meaning">Sentence Meaning (optional)</label>
-                <textarea id="qa-sentence-meaning" class="qa-field-textarea" rows="2" placeholder="e.g. I ate breakfast."></textarea>
+                <textarea id="qa-sentence-meaning" class="qa-field-textarea" rows="2" placeholder=""></textarea>
               </div>
             </div>
 
+            <!-- Deck & Tags -->
             <div class="qa-form-row-2col">
               <div class="qa-field-group">
                 <label class="qa-field-label" for="qa-deck-name">Target Anki Deck</label>
@@ -2349,11 +2544,13 @@
               </div>
             </div>
 
+            <!-- 5. Bottom Action Bar -->
             <div class="qa-submit-bar">
               <button type="button" class="qa-secondary-btn" onclick="resetQuickAddForm()">Reset</button>
-              <button type="button" class="qa-primary-btn" id="qa-submit-btn" onclick="submitQuickAddCard()">
+              <button type="button" class="qa-primary-btn qa-btn-submit" id="qa-submit-btn" onclick="submitQuickAddCard()">
                 <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                Add to Cloud Queue (Ctrl+Enter)
+                <span>Add to Cloud Queue</span>
+                <span class="qa-btn-kbd"> (Ctrl+Enter)</span>
               </button>
             </div>
           </div>
@@ -2559,6 +2756,90 @@
           <!-- Rendered by JS -->
         </div>
       </div>
+
+      <!-- 10. Deck Performance Breakdown Table -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Deck Performance Breakdown</div>
+            <div class="section-subtitle">Aggregated status, maturity rates, and interval metrics per deck</div>
+          </div>
+        </div>
+        <div class="table-responsive" style="overflow-x:auto;">
+          <table class="stats-table" id="stats-deck-table">
+            <thead>
+              <tr>
+                <th>Deck</th>
+                <th style="text-align:right;">Total</th>
+                <th style="text-align:right;">Mature</th>
+                <th style="text-align:right;">Young</th>
+                <th style="text-align:right;">Learn</th>
+                <th style="text-align:right;">New</th>
+                <th style="text-align:right;">Due Today</th>
+                <th style="text-align:right;">Avg Ivl</th>
+              </tr>
+            </thead>
+            <tbody id="stats-deck-tbody">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 11. Card-Wise Metrics Breakdown (Collection Explorer) -->
+      <div class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Card-Wise Metrics Breakdown</div>
+            <div class="section-subtitle">Searchable, sortable collection breakdown with lapse and interval metrics</div>
+          </div>
+          <div style="font-size:0.78rem;color:var(--text-muted);" id="stats-card-count-readout">Loading cards...</div>
+        </div>
+        <div class="stats-card-filter-row">
+          <input type="text" id="stats-card-search" class="qa-field-input" placeholder="Search expression, reading, meaning..." style="max-width:280px;" autocomplete="off">
+          <div class="select-wrap" style="max-width:140px;">
+            <select id="stats-card-state-filter" onchange="filterStatsCardsTable()">
+              <option value="">All States</option>
+              <option value="mature">Mature</option>
+              <option value="young">Young</option>
+              <option value="learning">Learning</option>
+              <option value="new">New</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          </div>
+          <div class="select-wrap" style="max-width:160px;">
+            <select id="stats-card-sort" onchange="filterStatsCardsTable()">
+              <option value="lapses">Most Lapses</option>
+              <option value="difficulty">Highest Difficulty</option>
+              <option value="interval_desc">Longest Interval</option>
+              <option value="interval_asc">Shortest Interval</option>
+              <option value="due">Due Soonest</option>
+              <option value="reps">Most Reps</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-responsive" style="overflow-x:auto;margin-top:0.75rem;">
+          <table class="stats-table" id="stats-cards-table">
+            <thead>
+              <tr>
+                <th>Word</th>
+                <th>Deck</th>
+                <th>State</th>
+                <th>Difficulty</th>
+                <th style="text-align:right;">Interval</th>
+                <th style="text-align:right;">Lapses</th>
+                <th style="text-align:right;">Reps</th>
+                <th>Due</th>
+                <th style="text-align:center;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="stats-cards-tbody">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+        <div id="stats-cards-pagination" class="stats-pagination-row"></div>
+      </div>
     </div>
 
     <!-- VIEW 4: Cloud Study Mode (M5) -->
@@ -2584,6 +2865,7 @@
                 <option value="unseen">Never Practiced Here</option>
                 <option value="recent">Recently Added (Last 14 Days)</option>
                 <option value="jlpt">By JLPT Level</option>
+                <option value="all">All Cards in Collection</option>
                 <option value="custom" id="study-mode-custom-opt" style="display:none;">Custom Selection</option>
               </select>
             </div>
@@ -2609,6 +2891,8 @@
                 <option value="10">10 Cards</option>
                 <option value="20" selected>20 Cards</option>
                 <option value="50">50 Cards</option>
+                <option value="100">100 Cards</option>
+                <option value="all">All Available</option>
               </select>
             </div>
           </div>
@@ -3143,7 +3427,7 @@
       }
     }
 
-    async function executeQuickAddLookup(showImmediate = true) {
+    async function executeQuickAddLookup(showImmediate = true, showSuggestions = true) {
       const input = document.getElementById('quickadd-input');
       let query = (input ? input.value : '').trim();
       if (!query) return;
@@ -3198,7 +3482,7 @@
             }
           }
 
-          if (data.candidates && data.candidates.length > 0) {
+          if (showSuggestions && data.candidates && data.candidates.length > 0) {
             qaCandidates = data.candidates;
             renderQuickAddSuggestions(data.candidates);
           } else {
@@ -3260,10 +3544,13 @@
           expression: cand.expression,
           reading: cand.reading || cand.expression,
           meanings: cand.meanings || [],
-          jlpt_level: cand.jlpt_level || ''
+          jlpt_level: cand.jlpt_level || '',
+          example_sentence: cand.example_sentence || '',
+          example_translation: cand.example_translation || '',
         });
       }
-      executeQuickAddLookup(true);
+      // Pass showSuggestions = false so suggestions collapse immediately!
+      executeQuickAddLookup(true, false);
     }
 
     function hideQuickAddSuggestions() {
@@ -3272,23 +3559,89 @@
       qaHighlightedIndex = -1;
     }
 
+    // Dismiss suggestion popup when clicking outside
+    document.addEventListener('click', (e) => {
+      const qaSearch = document.querySelector('.qa-search-bar');
+      const qaSuggestions = document.getElementById('quickadd-suggestions');
+      if (qaSuggestions && qaSuggestions.style.display !== 'none') {
+        if (!qaSearch?.contains(e.target) && !qaSuggestions.contains(e.target)) {
+          hideQuickAddSuggestions();
+        }
+      }
+    });
+
     function populateQuickAddDraft(match) {
       qaCurrentMatch = match;
       const draftWrap = document.getElementById('qa-draft-wrap');
       if (draftWrap) draftWrap.style.display = 'block';
 
+      // 1. Update Hero View Showcase
+      const heroReading = document.getElementById('qa-hero-reading');
+      const heroExpr = document.getElementById('qa-hero-expression');
+      const heroMeanings = document.getElementById('qa-hero-meanings-summary');
+      const heroJlpt = document.getElementById('qa-hero-jlpt');
+      const heroPos = document.getElementById('qa-hero-pos');
+
+      const expr = match.expression || '';
+      const reading = match.reading || '';
+      let readingLead = reading;
+      if (reading && typeof wanakana !== 'undefined' && typeof wanakana.toRomaji === 'function') {
+        const romaji = wanakana.toRomaji(reading);
+        if (romaji && romaji !== reading) {
+          readingLead = `${reading} · ${romaji}`;
+        }
+      }
+
+      if (heroReading) heroReading.textContent = readingLead;
+      if (heroExpr) heroExpr.textContent = expr || '—';
+      if (heroMeanings) {
+        heroMeanings.textContent = (match.meanings || []).slice(0, 3).join('; ');
+      }
+
+      if (heroJlpt) {
+        if (match.jlpt_level) {
+          heroJlpt.textContent = match.jlpt_level;
+          heroJlpt.style.display = 'inline-flex';
+        } else {
+          heroJlpt.style.display = 'none';
+        }
+      }
+
+      if (heroPos) {
+        const p = match.pos || (match.senses && match.senses[0] && match.senses[0].pos);
+        if (p) {
+          heroPos.textContent = Array.isArray(p) ? p.slice(0, 2).join(' · ') : String(p);
+          heroPos.style.display = 'inline-flex';
+        } else {
+          heroPos.style.display = 'none';
+        }
+      }
+
+      // 2. Populate Form Inputs
       const expInput = document.getElementById('qa-expression');
       const readingInput = document.getElementById('qa-reading');
       const meaningInput = document.getElementById('qa-meaning');
+      const sentenceInput = document.getElementById('qa-sentence');
+      const sentenceMeaningInput = document.getElementById('qa-sentence-meaning');
+      const hintInput = document.getElementById('qa-hint');
+      const notesInput = document.getElementById('qa-notes');
       const jlptBadge = document.getElementById('qa-jlpt-badge');
       const kanjiWrap = document.getElementById('qa-kanji-wrap');
       const kanjiSection = document.getElementById('qa-kanji-section');
 
-      if (expInput) expInput.value = match.expression || '';
-      if (readingInput) readingInput.value = match.reading || '';
+      if (expInput) expInput.value = expr;
+      if (readingInput) readingInput.value = reading;
       if (meaningInput) {
         meaningInput.value = (match.meanings || []).slice(0, 5).join('; ');
       }
+      if (sentenceInput) {
+        sentenceInput.value = match.example_sentence || '';
+      }
+      if (sentenceMeaningInput) {
+        sentenceMeaningInput.value = match.example_translation || '';
+      }
+      if (hintInput) hintInput.value = match.hint || '';
+      if (notesInput) notesInput.value = match.notes || '';
 
       if (jlptBadge) {
         if (match.jlpt_level) {
@@ -3318,6 +3671,26 @@
       }
     }
 
+    // Keep live hero display synced as user edits expression or reading
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('qa-expression')?.addEventListener('input', (e) => {
+        const heroExpr = document.getElementById('qa-hero-expression');
+        if (heroExpr) heroExpr.textContent = e.target.value.trim() || '—';
+      });
+      document.getElementById('qa-reading')?.addEventListener('input', (e) => {
+        const heroReading = document.getElementById('qa-hero-reading');
+        const val = e.target.value.trim();
+        if (heroReading) {
+          if (val && typeof wanakana !== 'undefined' && typeof wanakana.toRomaji === 'function') {
+            const romaji = wanakana.toRomaji(val);
+            heroReading.textContent = romaji && romaji !== val ? `${val} · ${romaji}` : val;
+          } else {
+            heroReading.textContent = val;
+          }
+        }
+      });
+    });
+
     function resetQuickAddForm() {
       clearQuickAddInput();
       qaCurrentMatch = null;
@@ -3328,12 +3701,28 @@
       const meaningInput = document.getElementById('qa-meaning');
       const sentenceInput = document.getElementById('qa-sentence');
       const sentenceMeaningInput = document.getElementById('qa-sentence-meaning');
+      const hintInput = document.getElementById('qa-hint');
+      const notesInput = document.getElementById('qa-notes');
 
       if (expInput) expInput.value = '';
       if (readingInput) readingInput.value = '';
       if (meaningInput) meaningInput.value = '';
       if (sentenceInput) sentenceInput.value = '';
       if (sentenceMeaningInput) sentenceMeaningInput.value = '';
+      if (hintInput) hintInput.value = '';
+      if (notesInput) notesInput.value = '';
+
+      const heroReading = document.getElementById('qa-hero-reading');
+      const heroExpr = document.getElementById('qa-hero-expression');
+      const heroMeanings = document.getElementById('qa-hero-meanings-summary');
+      const heroJlpt = document.getElementById('qa-hero-jlpt');
+      const heroPos = document.getElementById('qa-hero-pos');
+      if (heroReading) heroReading.textContent = '';
+      if (heroExpr) heroExpr.textContent = '—';
+      if (heroMeanings) heroMeanings.textContent = '';
+      if (heroJlpt) heroJlpt.style.display = 'none';
+      if (heroPos) heroPos.style.display = 'none';
+
       hideQaStatus();
     }
 
@@ -3361,6 +3750,8 @@
       const meaning = (document.getElementById('qa-meaning')?.value || '').trim();
       const sentence = (document.getElementById('qa-sentence')?.value || '').trim();
       const sentenceMeaning = (document.getElementById('qa-sentence-meaning')?.value || '').trim();
+      const hint = (document.getElementById('qa-hint')?.value || '').trim();
+      const notes = (document.getElementById('qa-notes')?.value || '').trim();
       const deckName = (document.getElementById('qa-deck-name')?.value || 'N3 vocabs').trim();
       const rawTags = (document.getElementById('qa-tags')?.value || '').trim();
       const tagsList = rawTags ? rawTags.split(',').map(t => t.trim()).filter(Boolean) : ['kiroku-note', 'quick-add'];
@@ -3388,18 +3779,25 @@
         meaning: meaning,
         sentence: sentence,
         sentence_meaning: sentenceMeaning,
+        hint: hint,
+        notes: notes,
         deck_name: deckName,
         tags: tagsList,
         source_title: 'Cloud Quick Add',
         jlpt_level: qaCurrentMatch?.jlpt_level || ''
       };
 
-      const btn = document.getElementById('qa-submit-btn');
+      const btns = [
+        document.getElementById('qa-submit-btn'),
+        document.getElementById('qa-submit-btn-top')
+      ].filter(Boolean);
+
       qaIsSubmitting = true;
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = 'Enqueuing...';
-      }
+      btns.forEach(b => {
+        b.disabled = true;
+        const textSpan = b.querySelector('span');
+        if (textSpan) textSpan.textContent = 'Enqueuing...';
+      });
 
       try {
         const resp = await fetch('/submit', {
@@ -3425,10 +3823,11 @@
         showQaStatus('Failed to send card: network or server error.', 'error');
       } finally {
         qaIsSubmitting = false;
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = 'Add to Cloud Queue (Ctrl+Enter)';
-        }
+        btns.forEach(b => {
+          b.disabled = false;
+          const textSpan = b.querySelector('span');
+          if (textSpan) textSpan.textContent = 'Add to Cloud Queue';
+        });
       }
     }
 
@@ -3817,6 +4216,8 @@
         renderDifficultyChart(data.difficulty_distribution || data.difficulty || []);
         renderWeakWords(data.weak_words || []);
         renderJlptCoverage(data.jlpt_coverage || []);
+        renderDecksBreakdown(data.deck_breakdown || []);
+        fetchStatsCardsBreakdown();
       } catch (err) {
         console.warn('Failed to load stats overview:', err);
       }
@@ -3824,14 +4225,20 @@
 
     function renderGrowthChart(growthData) {
       const wrap = document.getElementById('chart-growth-wrap');
-      if (!wrap || !growthData.length) {
+      const sumEl = document.getElementById('growth-summary');
+      if (!wrap || !growthData || !growthData.length) {
         if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No growth history available yet.</div>';
         return;
       }
 
       const totalVals = growthData.map(d => (d.total_cards != null ? d.total_cards : (d.total != null ? d.total : 0)));
-      const minVal = Math.min(...totalVals);
-      const maxVal = Math.max(...totalVals, 1);
+      const dataMin = Math.min(...totalVals);
+      const dataMax = Math.max(...totalVals, 1);
+      const diff = dataMax - dataMin;
+      // Provide healthy vertical padding so constant or small ranges don't flatline at bottom
+      const minVal = diff === 0 ? Math.max(0, Math.floor(dataMin * 0.8)) : Math.max(0, Math.floor(dataMin - diff * 0.15));
+      const maxVal = diff === 0 ? Math.ceil(dataMax * 1.2 || 10) : Math.ceil(dataMax + diff * 0.15);
+      const valRange = maxVal - minVal || 1;
       const pointsCount = growthData.length;
 
       const w = 600;
@@ -3847,64 +4254,114 @@
       const pts = growthData.map((d, i) => {
         const x = padL + (i / (pointsCount - 1 || 1)) * plotW;
         const val = (d.total_cards != null ? d.total_cards : (d.total != null ? d.total : 0));
-        const y = padT + (1 - (val - minVal) / (maxVal - minVal || 1)) * plotH;
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      }).join(' ');
+        const y = padT + (1 - (val - minVal) / valRange) * plotH;
+        return { x, y, val, day: d.day || d.date || '' };
+      });
 
-      const svgHtml = `
+      const polyPoints = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      const areaPoints = `${padL},${h - padB} ${polyPoints} ${(padL + plotW).toFixed(1)},${h - padB}`;
+
+      const yMid = padT + plotH * 0.5;
+      const midVal = Math.round((maxVal + minVal) / 2);
+
+      const dotsHtml = pts.map(p => `
+        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="var(--accent)" stroke="#181715" stroke-width="1.5" class="chart-point" data-tip="${escapeHtml(p.day)}: ${p.val.toLocaleString()} cards" style="cursor:pointer;"/>
+      `).join('');
+
+      wrap.innerHTML = `
         <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Card growth curve chart">
-          <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
+          <defs>
+            <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.32"/>
+              <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.0"/>
+            </linearGradient>
+          </defs>
+          <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
+          <line x1="${padL}" y1="${yMid.toFixed(1)}" x2="${w - padR}" y2="${yMid.toFixed(1)}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
           <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
-          <text x="${padL - 6}" y="${padT + 10}" fill="var(--text-muted)" font-size="10" text-anchor="end">${maxVal}</text>
-          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="10" text-anchor="end">${minVal}</text>
-          <polyline fill="none" stroke="var(--accent)" stroke-width="2.5" points="${pts}"/>
+          <text x="${padL - 6}" y="${padT + 4}" fill="var(--text-muted)" font-size="10" text-anchor="end">${maxVal.toLocaleString()}</text>
+          <text x="${padL - 6}" y="${(yMid + 4).toFixed(1)}" fill="var(--text-muted)" font-size="10" text-anchor="end">${midVal.toLocaleString()}</text>
+          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="10" text-anchor="end">${minVal.toLocaleString()}</text>
+          <polygon fill="url(#growthGrad)" points="${areaPoints}"/>
+          <polyline fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${polyPoints}"/>
+          ${dotsHtml}
           <text x="${padL}" y="${h - 8}" fill="var(--text-muted)" font-size="10">${escapeHtml(growthData[0].day || growthData[0].date || '')}</text>
           <text x="${w - padR}" y="${h - 8}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(growthData[growthData.length - 1].day || growthData[growthData.length - 1].date || '')}</text>
         </svg>
       `;
-      wrap.innerHTML = svgHtml;
+
+      if (sumEl) {
+        const latestVal = totalVals[totalVals.length - 1] || 0;
+        const newToday = growthData[growthData.length - 1].new_cards_added || 0;
+        sumEl.textContent = `Total: ${latestVal.toLocaleString()} cards${newToday > 0 ? ` (+${newToday} added today)` : ''}`;
+      }
+
+      wrap.querySelectorAll('.chart-point').forEach(pt => {
+        pt.addEventListener('mouseenter', e => showTooltip(e.clientX, e.clientY, pt.getAttribute('data-tip')));
+        pt.addEventListener('mouseleave', hideTooltip);
+      });
     }
 
     function renderStateDistributionChart(stateData) {
       const wrap = document.getElementById('chart-states-wrap');
-      if (!wrap || !stateData.length) {
+      if (!wrap || !stateData || !stateData.length) {
         if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No lifecycle distribution data available.</div>';
         return;
       }
 
       const w = 600;
-      const h = 180;
-      const padL = 40;
+      const h = 190;
+      const padL = 45;
       const padR = 20;
-      const padT = 15;
+      const padT = 30;
       const padB = 25;
       const plotW = w - padL - padR;
       const plotH = h - padT - padB;
 
-      const last = stateData[stateData.length - 1];
       const getMat = d => (d.n_mature != null ? d.n_mature : (d.mature || 0));
       const getYoung = d => (d.n_young != null ? d.n_young : (d.young || 0));
       const getLearn = d => (d.n_learning != null ? d.n_learning : (d.learning || 0));
       const getNew = d => (d.n_new != null ? d.n_new : (d.new || 0));
-      const maxTotal = Math.max(...stateData.map(d => getMat(d) + getYoung(d) + getLearn(d) + getNew(d)), 1);
+
+      const totals = stateData.map(d => getMat(d) + getYoung(d) + getLearn(d) + getNew(d));
+      const maxTotal = Math.max(...totals, 1);
+      const pointsCount = stateData.length;
 
       const maturePts = [];
+      const youngPts = [];
+      const learnPts = [];
+      const newPts = [];
 
       stateData.forEach((d, i) => {
-        const x = padL + (i / (stateData.length - 1 || 1)) * plotW;
-        const yMature = padT + (1 - getMat(d) / maxTotal) * plotH;
-        maturePts.push(`${x.toFixed(1)},${yMature.toFixed(1)}`);
+        const x = padL + (i / (pointsCount - 1 || 1)) * plotW;
+        maturePts.push(`${x.toFixed(1)},${(padT + (1 - getMat(d) / maxTotal) * plotH).toFixed(1)}`);
+        youngPts.push(`${x.toFixed(1)},${(padT + (1 - getYoung(d) / maxTotal) * plotH).toFixed(1)}`);
+        learnPts.push(`${x.toFixed(1)},${(padT + (1 - getLearn(d) / maxTotal) * plotH).toFixed(1)}`);
+        newPts.push(`${x.toFixed(1)},${(padT + (1 - getNew(d) / maxTotal) * plotH).toFixed(1)}`);
       });
 
-      const svgHtml = `
-        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Card state distribution stacked curve">
+      const last = stateData[stateData.length - 1];
+
+      wrap.innerHTML = `
+        <div class="stats-legend-bar">
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--green)"></span>Mature: ${getMat(last).toLocaleString()}</span>
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:#5ea3ba"></span>Young: ${getYoung(last).toLocaleString()}</span>
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--yellow)"></span>Learning: ${getLearn(last).toLocaleString()}</span>
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:#9e9a93"></span>New: ${getNew(last).toLocaleString()}</span>
+        </div>
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Card state distribution curves">
+          <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
           <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
+          <text x="${padL - 6}" y="${padT + 4}" fill="var(--text-muted)" font-size="10" text-anchor="end">${maxTotal.toLocaleString()}</text>
+          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="10" text-anchor="end">0</text>
           <polyline fill="none" stroke="var(--green)" stroke-width="2" points="${maturePts.join(' ')}"/>
+          <polyline fill="none" stroke="#5ea3ba" stroke-width="2" points="${youngPts.join(' ')}"/>
+          <polyline fill="none" stroke="var(--yellow)" stroke-width="2" points="${learnPts.join(' ')}"/>
+          <polyline fill="none" stroke="#9e9a93" stroke-width="2" points="${newPts.join(' ')}"/>
           <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(stateData[0].day || stateData[0].date || '')}</text>
-          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">Mature: ${getMat(last).toLocaleString()}</text>
+          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(last.day || last.date || '')}</text>
         </svg>
       `;
-      wrap.innerHTML = svgHtml;
     }
 
     function renderRetentionChart(rawRetention) {
@@ -3927,39 +4384,60 @@
 
       const rate = totalDen >= 30 ? Math.round((totalNum / totalDen) * 100) : null;
       if (sumEl) {
-        sumEl.textContent = rate !== null ? `${rate}% (n=${totalDen})` : `n=${totalDen} (<30 samples)`;
+        sumEl.textContent = rate !== null ? `${rate}% (n=${totalDen.toLocaleString()})` : `n=${totalDen} (<30 mature reviews)`;
       }
 
       const w = 600;
-      const h = 120;
+      const h = 140;
       const padL = 40;
       const padR = 20;
-      const padT = 15;
+      const padT = 20;
       const padB = 25;
       const plotW = w - padL - padR;
       const plotH = h - padT - padB;
+
+      const minPct = 0.5;
+      const maxPct = 1.0;
+      const pctRange = maxPct - minPct;
 
       const pts = retentionData.map((d, i) => {
         const x = padL + (i / (retentionData.length - 1 || 1)) * plotW;
         const den = d.mature_retention_den != null ? d.mature_retention_den : (d.mature_n != null ? d.mature_n : (d.n || 0));
         const num = d.mature_retention_num != null ? d.mature_retention_num : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : 0);
-        const r = den > 0 ? (num / den) : 0.8;
-        const y = padT + (1 - r) * plotH;
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      }).join(' ');
+        const r = den > 0 ? (num / den) : 0.85;
+        const clampedR = Math.max(minPct, Math.min(maxPct, r));
+        const y = padT + (1 - (clampedR - minPct) / pctRange) * plotH;
+        const label = d.day || d.week || '';
+        const pctLabel = `${Math.round(r * 100)}% (n=${den})`;
+        return { x, y, r, label, pctLabel };
+      });
 
-      const firstLabel = retentionData[0].day || retentionData[0].week || '';
-      const lastLabel = retentionData[retentionData.length - 1].day || retentionData[retentionData.length - 1].week || '';
+      const polyPoints = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      const yTarget = padT + (1 - (0.85 - minPct) / pctRange) * plotH;
+
+      const dotsHtml = pts.map(p => `
+        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="var(--green)" stroke="#181715" stroke-width="1.5" class="chart-point" data-tip="${escapeHtml(p.label)}: ${escapeHtml(p.pctLabel)}" style="cursor:pointer;"/>
+      `).join('');
 
       wrap.innerHTML = `
         <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="True retention rate curve">
-          <line x1="${padL}" y1="${padT + plotH * 0.1}" x2="${w - padR}" y2="${padT + plotH * 0.1}" stroke="rgba(94, 163, 106, 0.2)" stroke-dasharray="3,3"/>
+          <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
+          <line x1="${padL}" y1="${yTarget.toFixed(1)}" x2="${w - padR}" y2="${yTarget.toFixed(1)}" stroke="rgba(94, 163, 106, 0.45)" stroke-dasharray="3,3"/>
           <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
-          <polyline fill="none" stroke="var(--green)" stroke-width="2" points="${pts}"/>
-          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(firstLabel)}</text>
-          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(lastLabel)}</text>
+          <text x="${padL - 6}" y="${padT + 4}" fill="var(--text-muted)" font-size="10" text-anchor="end">100%</text>
+          <text x="${padL - 6}" y="${(yTarget + 4).toFixed(1)}" fill="var(--green)" font-size="9" text-anchor="end">85%</text>
+          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="10" text-anchor="end">50%</text>
+          <polyline fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" points="${polyPoints}"/>
+          ${dotsHtml}
+          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(retentionData[0].day || retentionData[0].week || '')}</text>
+          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(retentionData[retentionData.length - 1].day || retentionData[retentionData.length - 1].week || '')}</text>
         </svg>
       `;
+
+      wrap.querySelectorAll('.chart-point').forEach(pt => {
+        pt.addEventListener('mouseenter', e => showTooltip(e.clientX, e.clientY, pt.getAttribute('data-tip')));
+        pt.addEventListener('mouseleave', hideTooltip);
+      });
     }
 
     function renderButtonsChart(rawButtons) {
@@ -3970,30 +4448,83 @@
         return;
       }
 
+      let againTot = 0, hardTot = 0, goodTot = 0, easyTot = 0;
+      if (rawButtons && !Array.isArray(rawButtons) && rawButtons.again != null) {
+        againTot = rawButtons.again || 0;
+        hardTot = rawButtons.hard || 0;
+        goodTot = rawButtons.good || 0;
+        easyTot = rawButtons.easy || 0;
+      } else {
+        buttonsData.forEach(d => {
+          againTot += d.again || 0;
+          hardTot += d.hard || 0;
+          goodTot += d.good || 0;
+          easyTot += d.easy || 0;
+        });
+      }
+      const grandTotal = againTot + hardTot + goodTot + easyTot || 1;
+      const againPct = Math.round((againTot / grandTotal) * 100);
+      const hardPct = Math.round((hardTot / grandTotal) * 100);
+      const goodPct = Math.round((goodTot / grandTotal) * 100);
+      const easyPct = Math.round((easyTot / grandTotal) * 100);
+
       const w = 600;
-      const h = 120;
-      const padL = 30;
+      const h = 150;
+      const padL = 35;
       const padR = 20;
-      const barW = Math.max(2, Math.min(18, (w - padL - padR) / buttonsData.length - 2));
+      const padT = 30;
+      const padB = 25;
+      const plotH = h - padT - padB;
+      const barSlotW = (w - padL - padR) / buttonsData.length;
+      const barW = Math.max(6, Math.min(26, barSlotW * 0.7));
 
       const bars = buttonsData.map((d, i) => {
         const total = (d.again || 0) + (d.hard || 0) + (d.good || 0) + (d.easy || 0);
         if (total === 0) return '';
-        const x = padL + i * ((w - padL - padR) / buttonsData.length);
-        const yGood = (d.good / total) * 80;
-        const yAgain = (d.again / total) * 80;
+        const x = padL + i * barSlotW + (barSlotW - barW) / 2;
+
+        const hAgain = (d.again / total) * plotH;
+        const hHard = (d.hard / total) * plotH;
+        const hGood = (d.good / total) * plotH;
+        const hEasy = (d.easy / total) * plotH;
+
+        const yAgain = padT + plotH - hAgain;
+        const yHard = yAgain - hHard;
+        const yGood = yHard - hGood;
+        const yEasy = yGood - hEasy;
+
+        const label = d.week || d.day || '';
+        const tip = `${label}: Again ${d.again || 0}, Hard ${d.hard || 0}, Good ${d.good || 0}, Easy ${d.easy || 0} (${total.toLocaleString()} total)`;
+
         return `
-          <rect x="${x}" y="${100 - yGood - yAgain}" width="${barW}" height="${yGood}" fill="var(--green)"/>
-          <rect x="${x}" y="${100 - yAgain}" width="${barW}" height="${yAgain}" fill="var(--red)"/>
+          <g class="chart-point" data-tip="${escapeHtml(tip)}" style="cursor:pointer;">
+            <rect x="${x.toFixed(1)}" y="${yAgain.toFixed(1)}" width="${barW.toFixed(1)}" height="${hAgain.toFixed(1)}" fill="var(--red)"/>
+            <rect x="${x.toFixed(1)}" y="${yHard.toFixed(1)}" width="${barW.toFixed(1)}" height="${hHard.toFixed(1)}" fill="#d4884f"/>
+            <rect x="${x.toFixed(1)}" y="${yGood.toFixed(1)}" width="${barW.toFixed(1)}" height="${hGood.toFixed(1)}" fill="var(--green)"/>
+            <rect x="${x.toFixed(1)}" y="${yEasy.toFixed(1)}" width="${barW.toFixed(1)}" height="${hEasy.toFixed(1)}" fill="#5ea3ba"/>
+          </g>
         `;
       }).join('');
 
       wrap.innerHTML = `
+        <div class="stats-legend-bar">
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--red)"></span>Again: ${againTot.toLocaleString()} (${againPct}%)</span>
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:#d4884f"></span>Hard: ${hardTot.toLocaleString()} (${hardPct}%)</span>
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--green)"></span>Good: ${goodTot.toLocaleString()} (${goodPct}%)</span>
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:#5ea3ba"></span>Easy: ${easyTot.toLocaleString()} (${easyPct}%)</span>
+        </div>
         <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Answer buttons share stacked bars">
-          <line x1="${padL}" y1="100" x2="${w - padR}" y2="100" stroke="var(--border-default)"/>
+          <line x1="${padL}" y1="${(padT + plotH).toFixed(1)}" x2="${w - padR}" y2="${(padT + plotH).toFixed(1)}" stroke="var(--border-default)"/>
           ${bars}
+          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(buttonsData[0].week || buttonsData[0].day || '')}</text>
+          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(buttonsData[buttonsData.length - 1].week || buttonsData[buttonsData.length - 1].day || '')}</text>
         </svg>
       `;
+
+      wrap.querySelectorAll('.chart-point').forEach(pt => {
+        pt.addEventListener('mouseenter', e => showTooltip(e.clientX, e.clientY, pt.getAttribute('data-tip')));
+        pt.addEventListener('mouseleave', hideTooltip);
+      });
     }
 
     function renderDueForecastChart(dueData) {
@@ -4014,8 +4545,9 @@
         const x = padL + i * ((w - padL - padR) / dueData.length);
         const barH = (d.count / maxCount) * 90;
         const fill = d.day < 0 ? 'var(--red)' : (d.day === 0 ? 'var(--accent)' : 'var(--yellow)');
+        const tip = `${d.day < 0 ? 'Overdue' : (d.day === 0 ? 'Due Today' : `In ${d.day} days`)}: ${d.count} cards`;
         return `
-          <rect x="${x}" y="${115 - barH}" width="${barW}" height="${barH}" fill="${fill}" rx="2"/>
+          <rect class="chart-point" data-tip="${escapeHtml(tip)}" x="${x.toFixed(1)}" y="${(115 - barH).toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${fill}" rx="2" style="cursor:pointer;"/>
         `;
       }).join('');
 
@@ -4027,6 +4559,11 @@
           <text x="${w - padR}" y="132" fill="var(--text-muted)" font-size="10" text-anchor="end">+30 Days</text>
         </svg>
       `;
+
+      wrap.querySelectorAll('.chart-point').forEach(pt => {
+        pt.addEventListener('mouseenter', e => showTooltip(e.clientX, e.clientY, pt.getAttribute('data-tip')));
+        pt.addEventListener('mouseleave', hideTooltip);
+      });
     }
 
     function renderDifficultyChart(diffData) {
@@ -4038,32 +4575,53 @@
 
       const total = diffData.reduce((acc, d) => acc + (d.count != null ? d.count : (d.total || 0)), 0) || 1;
       const w = 600;
-      const h = 50;
+      const h = 45;
 
       let curX = 0;
       const colors = {
         leech: 'var(--red)',
-        hard: 'rgba(204, 79, 79, 0.75)',
+        hard: '#d4884f',
         normal: 'var(--yellow)',
         easy: 'var(--green)',
-        solid: 'rgba(94, 163, 106, 0.75)',
-        new: 'var(--text-secondary)',
+        solid: '#5ea3ba',
+        new: '#9e9a93',
       };
 
       const rects = diffData.map(d => {
         const cnt = (d.count != null ? d.count : (d.total || 0));
         const lbl = d.difficulty_label || d.label || '';
         const width = (cnt / total) * w;
-        const r = `<rect x="${curX}" y="10" width="${width}" height="20" fill="${colors[lbl] || 'var(--text-muted)'}"/>`;
+        const tip = `${lbl}: ${cnt.toLocaleString()} cards (${Math.round((cnt/total)*100)}%)`;
+        const r = `<rect class="chart-point" data-tip="${escapeHtml(tip)}" x="${curX.toFixed(1)}" y="10" width="${width.toFixed(1)}" height="22" fill="${colors[lbl] || 'var(--text-muted)'}" style="cursor:pointer;"/>`;
         curX += width;
         return r;
+      }).join('');
+
+      const legendItems = diffData.map(d => {
+        const cnt = (d.count != null ? d.count : (d.total || 0));
+        const lbl = d.difficulty_label || d.label || '';
+        const pct = Math.round((cnt / total) * 100);
+        return `
+          <span class="stats-legend-item">
+            <span class="stats-legend-dot" style="background:${colors[lbl] || 'var(--text-muted)'}"></span>
+            ${escapeHtml(lbl)}: ${cnt.toLocaleString()} (${pct}%)
+          </span>
+        `;
       }).join('');
 
       wrap.innerHTML = `
         <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Difficulty distribution horizontal bar">
           ${rects}
         </svg>
+        <div class="stats-legend-bar" style="margin-top:0.5rem;">
+          ${legendItems}
+        </div>
       `;
+
+      wrap.querySelectorAll('.chart-point').forEach(pt => {
+        pt.addEventListener('mouseenter', e => showTooltip(e.clientX, e.clientY, pt.getAttribute('data-tip')));
+        pt.addEventListener('mouseleave', hideTooltip);
+      });
     }
 
     function renderWeakWords(weakList) {
@@ -4120,6 +4678,175 @@
       }).join('');
       wrap.innerHTML = rows;
     }
+
+    function renderDecksBreakdown(deckList) {
+      const tbody = document.getElementById('stats-deck-tbody');
+      if (!tbody) return;
+      if (!deckList || !deckList.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:1rem;">No deck metrics available yet. Sync Anki to populate.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = deckList.map(d => {
+        const matPct = d.total > 0 ? Math.round((d.mature / d.total) * 100) : 0;
+        return `
+          <tr>
+            <td style="font-weight:600;color:var(--text);">${escapeHtml(d.deck_name)}</td>
+            <td style="text-align:right;font-weight:600;">${d.total.toLocaleString()}</td>
+            <td style="text-align:right;color:var(--green);">${d.mature.toLocaleString()} <span style="font-size:0.7rem;color:var(--text-muted);">(${matPct}%)</span></td>
+            <td style="text-align:right;color:#5ea3ba;">${(d.young || 0).toLocaleString()}</td>
+            <td style="text-align:right;color:var(--yellow);">${(d.learning || 0).toLocaleString()}</td>
+            <td style="text-align:right;color:var(--text-secondary);">${(d.new || 0).toLocaleString()}</td>
+            <td style="text-align:right;color:${d.due_today > 0 ? 'var(--accent)' : 'var(--text-muted)'};font-weight:600;">${(d.due_today || 0).toLocaleString()}</td>
+            <td style="text-align:right;">${d.avg_interval != null ? d.avg_interval + 'd' : '—'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    let statsCardsData = [];
+    let statsCardsFiltered = [];
+    let statsCardsPage = 0;
+    const STATS_CARDS_PAGE_SIZE = 25;
+
+    async function fetchStatsCardsBreakdown() {
+      const token = getToken();
+      if (!token) return;
+
+      try {
+        const resp = await fetch('/api/cards?limit=500&sort=difficulty&dir=desc', {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        statsCardsData = data.items || [];
+        filterStatsCardsTable();
+      } catch (err) {
+        console.warn('Failed to load card-wise stats:', err);
+      }
+    }
+
+    function filterStatsCardsTable() {
+      const query = (document.getElementById('stats-card-search')?.value || '').trim().toLowerCase();
+      const stateFilter = document.getElementById('stats-card-state-filter')?.value || '';
+      const sortVal = document.getElementById('stats-card-sort')?.value || 'lapses';
+
+      statsCardsFiltered = statsCardsData.filter(c => {
+        if (stateFilter && c.state !== stateFilter) return false;
+        if (query) {
+          const matchExpr = (c.expression || '').toLowerCase().includes(query);
+          const matchRead = (c.reading || '').toLowerCase().includes(query);
+          const matchMean = (c.meaning || '').toLowerCase().includes(query);
+          if (!matchExpr && !matchRead && !matchMean) return false;
+        }
+        return true;
+      });
+
+      statsCardsFiltered.sort((a, b) => {
+        if (sortVal === 'lapses') return (b.lapses || 0) - (a.lapses || 0);
+        if (sortVal === 'difficulty') return (b.difficulty_score || 0) - (a.difficulty_score || 0);
+        if (sortVal === 'interval_desc') return (b.interval_days || 0) - (a.interval_days || 0);
+        if (sortVal === 'interval_asc') return (a.interval_days || 0) - (b.interval_days || 0);
+        if (sortVal === 'due') return (a.due_in_days != null ? a.due_in_days : 9999) - (b.due_in_days != null ? b.due_in_days : 9999);
+        if (sortVal === 'reps') return (b.reps || 0) - (a.reps || 0);
+        return 0;
+      });
+
+      statsCardsPage = 0;
+      renderStatsCardsPage();
+    }
+
+    function renderStatsCardsPage() {
+      const tbody = document.getElementById('stats-cards-tbody');
+      const countEl = document.getElementById('stats-card-count-readout');
+      const pagEl = document.getElementById('stats-cards-pagination');
+      if (!tbody) return;
+
+      if (countEl) {
+        countEl.textContent = `${statsCardsFiltered.length.toLocaleString()} card${statsCardsFiltered.length === 1 ? '' : 's'} matching`;
+      }
+
+      if (!statsCardsFiltered.length) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:1rem;">No cards match the active filter.</td></tr>';
+        if (pagEl) pagEl.innerHTML = '';
+        return;
+      }
+
+      const start = statsCardsPage * STATS_CARDS_PAGE_SIZE;
+      const end = Math.min(start + STATS_CARDS_PAGE_SIZE, statsCardsFiltered.length);
+      const pageSlice = statsCardsFiltered.slice(start, end);
+
+      tbody.innerHTML = pageSlice.map(card => {
+        let mirrorIdx = window.__mirroredCards ? window.__mirroredCards.findIndex(m => m.card_id === card.card_id) : -1;
+        if (mirrorIdx === -1) {
+          if (!window.__mirroredCards) window.__mirroredCards = [];
+          mirrorIdx = window.__mirroredCards.length;
+          window.__mirroredCards.push(card);
+        }
+
+        const diffClass = `diff-${card.difficulty_label || 'new'}`;
+        const diffLabel = card.difficulty_score !== null ? `${card.difficulty_label} (${card.difficulty_score})` : 'new';
+        let dueBadge = '—';
+        if (card.due_in_days !== null && card.due_in_days !== undefined) {
+          if (card.due_in_days < 0) dueBadge = '<span class="due-badge overdue">Overdue</span>';
+          else if (card.due_in_days === 0) dueBadge = '<span class="due-badge">Today</span>';
+          else dueBadge = `${card.due_in_days}d`;
+        }
+
+        return `
+          <tr>
+            <td>
+              <div style="font-weight:700;font-size:0.95rem;font-family:var(--font-ja);color:#fff;">${escapeHtml(card.expression)}</div>
+              ${card.reading ? `<div style="font-size:0.75rem;color:var(--accent-reading);font-family:var(--font-ja);">${escapeHtml(card.reading)}</div>` : ''}
+            </td>
+            <td style="color:var(--text-secondary);font-size:0.76rem;">${escapeHtml(card.deck_name || 'N3 vocabs')}</td>
+            <td><span class="state-badge">${escapeHtml(card.state || 'new')}</span></td>
+            <td><span class="diff-badge ${diffClass}">${escapeHtml(diffLabel)}</span></td>
+            <td style="text-align:right;font-weight:600;">${card.interval_days || 0}d</td>
+            <td style="text-align:right;color:${(card.lapses || 0) > 3 ? 'var(--red)' : 'var(--text)'};">${card.lapses || 0}</td>
+            <td style="text-align:right;">${card.reps || 0}</td>
+            <td>${dueBadge}</td>
+            <td style="text-align:center;">
+              <button type="button" class="icon-btn" onclick="openMirroredDetailModal(${mirrorIdx})" style="padding:0.25rem 0.5rem;font-size:0.72rem;" title="Inspect card">
+                Inspect
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      if (pagEl) {
+        const totalPages = Math.ceil(statsCardsFiltered.length / STATS_CARDS_PAGE_SIZE);
+        pagEl.innerHTML = `
+          <span>Showing ${start + 1}–${end} of ${statsCardsFiltered.length}</span>
+          <div style="display:flex;gap:0.4rem;">
+            <button type="button" class="icon-btn" ${statsCardsPage === 0 ? 'disabled' : ''} onclick="prevStatsCardsPage()">Prev</button>
+            <span style="padding:0.3rem 0.6rem;font-weight:600;">${statsCardsPage + 1} / ${totalPages || 1}</span>
+            <button type="button" class="icon-btn" ${statsCardsPage >= totalPages - 1 ? 'disabled' : ''} onclick="nextStatsCardsPage()">Next</button>
+          </div>
+        `;
+      }
+    }
+
+    function prevStatsCardsPage() {
+      if (statsCardsPage > 0) {
+        statsCardsPage--;
+        renderStatsCardsPage();
+      }
+    }
+
+    function nextStatsCardsPage() {
+      const totalPages = Math.ceil(statsCardsFiltered.length / STATS_CARDS_PAGE_SIZE);
+      if (statsCardsPage < totalPages - 1) {
+        statsCardsPage++;
+        renderStatsCardsPage();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('stats-card-search')?.addEventListener('input', () => {
+        filterStatsCardsTable();
+      });
+    });
 
     // -------------------------------------------------------------------------
     // M5: CLOUD STUDY MODE (EXTRA PRACTICE)
@@ -4178,7 +4905,8 @@
       }
 
       const mode = document.getElementById('study-mode-select').value;
-      const limit = document.getElementById('study-limit-select').value;
+      const rawLimit = document.getElementById('study-limit-select').value;
+      const limit = rawLimit === 'all' ? '2000' : rawLimit;
       const level = document.getElementById('study-level-select').value;
       studyState.frontSide = document.getElementById('study-front-select').value;
 

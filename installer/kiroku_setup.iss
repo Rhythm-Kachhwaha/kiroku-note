@@ -1,13 +1,13 @@
 ; ==============================================================================
 ; Kiroku Note — Windows Inno Setup Script
 ; ==============================================================================
-; Produces a 64-bit per-user Windows installer: Kiroku-Note-Setup-v2.0.0.exe
+; Produces a 64-bit per-user Windows installer: Kiroku-Note-Setup-v2.1.0.exe
 ; Installs standalone backend executable and unpacked Chromium MV3 extension.
 ; User data is isolated in %LOCALAPPDATA%\KirokuNote and never bundled or overwritten.
 ; ==============================================================================
 
 #define MyAppName "Kiroku Note"
-#define MyAppVersion "2.0.0"
+#define MyAppVersion "2.1.0"
 #define MyAppPublisher "Kiroku Note"
 #define MyAppExeName "KirokuNote.exe"
 #define MyAppId "{{8B84B425-4521-4E65-A6FB-1EE08C36A780}"

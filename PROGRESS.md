@@ -1,5 +1,64 @@
 # Kiroku Note — Progress
 
+### Kiroku Dashboard v2.1: Quick Add Hero View, Notes/Hints, Deck & Card Stats Breakdown, Study All Mode, and Graph Usability (2026-10-19)
+
+**Objective**: Resolve dashboard UX defects, overhaul Quick Add with an instant sidepanel-matching Hero View and notes/hints fields, fix SVG stats graphs and answer button distributions, implement full collection card-wise metrics and deck performance analytics, enable "Study All Cards" mode, bump version to 2.1.0, release tag 2.1, and build the Windows setup installer via `buildsetup.py`.
+
+**1. Delivered Behaviors & Defect Resolutions**:
+- **Quick Add Word Suggestion Auto-Collapse**:
+  - Word suggestions dropdown now immediately collapses upon selecting an item (`selectQaCandidate`), on outside document clicks, and during keyboard navigation.
+- **Dynamic Dictionary AST Example Sentences & Clean Placeholders**:
+  - Implemented `_extract_example_sentences(glossary_items)` in `kiroku_cloud_queue/server.py` to extract Japanese and English sentences from dictionary AST objects (`example-sentence-a` / `example-sentence-b`).
+  - Removed dummy placeholder examples (e.g. `e.g. 朝ご飯を食べました。`) so fields are clean/empty if no dictionary example exists.
+- **Quick Add Layout & Mobile Optimization**:
+  - Repositioned primary action buttons (Add to Cloud Queue, Reset Form) directly above the fold in a top action bar (`.qa-action-bar-top`), eliminating the need to scroll down on both PC and mobile.
+  - Suppressed `(Ctrl+Enter)` shortcut badge on mobile screens (`@media (max-width: 768px) { .qa-btn-kbd { display: none !important; } }`) to keep button touch targets compact and clean.
+- **Sidepanel-Matching Hero View & Notes/Hints**:
+  - Implemented `.qa-hero-showcase` displaying reading lead, bold 28px expression typography, and JLPT/frequency badges matching the Kiroku Side Panel design system.
+  - Added dedicated **Hint** and **Notes** input fields directly beneath the Hero View, syncing seamlessly into cloud queue payload schema (`hint`, `notes`).
+- **Removed Cluttering Red "Companion" Badge**:
+  - Purged `<span class="brand-badge">companion</span>` from both desktop sidebar and mobile header for a clean, professional aesthetic.
+- **Comprehensive SVG Stats Graph Improvements**:
+  - *Growth Chart*: Added minimum vertical padding to prevent single-value flatline, rich terracotta gradient fill, dashed grid lines, and interactive hover tooltips.
+  - *State Distribution*: Rendered all four lifecycle stages (Mature, Young, Learning, New) with top interactive color-coded legend.
+  - *Retention Rate*: Added 85% benchmark guide line, normalized percentage scaling, and interactive data points.
+  - *Answer Buttons Distribution*: Rendered all four response buttons (Again, Hard, Good, Easy) with a percentage header summary and stacked distribution bars.
+  - *Due Forecast & Retention Curves*: Added interactive tooltips and difficulty tier legends.
+- **Card-Wise & Deck Breakdown in Stats**:
+  - Backend `/api/stats/overview` now calculates and returns `deck_breakdown` with total cards, mature, young, learn, and due cards per deck.
+  - Added new `/api/stats/cards` endpoint supporting search, pagination, and sorting by lapses, reps, interval, difficulty, and next due date.
+  - Dashboard features searchable, sortable tables for Deck Performance and Card-Wise Metrics with direct card inspect modal support.
+- **Study Mode "All Cards" Option**:
+  - Added "All Cards in Collection" option to Study Mode (`mode = "all"`).
+  - Raised study session limit to 2000 cards across `server.py`, `queue_store.py`, and `postgres_store.py`.
+- **Zero-Emoji Rule Adherence**:
+  - Verified 100% compliance with `AGENTS.md` zero OS emoji convention across all newly added UI elements, legends, and badges. Pure vector SVG icons used exclusively.
+- **Packaging & Version 2.1.0 Bump**:
+  - Version updated to `2.1.0` in `backend/app/config.py`, `extension/manifest.json`, `installer/kiroku_setup.iss`, `packaging/version-info.txt`, `buildsetup.py`, and test suites.
+
+**2. Files Modified**:
+- `kiroku_cloud_queue/dashboard.html`: Quick Add hero view, top action bar, notes/hints inputs, stats deck & card breakdown tables, all SVG graphs overhaul, zero-emoji icon conventions.
+- `kiroku_cloud_queue/server.py`: Dictionary AST example extraction, deck breakdown query, card-wise stats endpoint, study all mode support.
+- `kiroku_cloud_queue/queue_store.py` & `kiroku_cloud_queue/postgres_store.py`: Deck breakdown analytics and study all queries.
+- `backend/app/config.py`: Bumped `APP_VERSION = "2.1.0"`.
+- `extension/manifest.json`: Bumped version to `2.1.0`.
+- `installer/kiroku_setup.iss`: Bumped `#define MyAppVersion "2.1.0"`.
+- `packaging/version-info.txt`: Bumped FileVersion & ProductVersion to `2.1.0`.
+- `buildsetup.py`: Bumped fallback version to `2.1.0`.
+- `backend/tests/test_buildsetup.py` & `backend/tests/test_packaging_config.py`: Synchronized version tests.
+
+**3. Verification Run & Results**:
+- `pytest kiroku_cloud_queue/tests`: **218 passed, 24 skipped** (including `test_zero_emojis_in_dashboard` and JS syntax checks).
+- `pytest tests` (backend): **575 passed**.
+- Full test suite: **793 passing tests**.
+- Full Windows installer build via `buildsetup.py`: **Succeeded in 83.4s**.
+  - Standalone Executable: `dist/backend/KirokuNote/KirokuNote.exe` (19.53 MB).
+  - Extension ZIP Package: `dist/extension/KirokuNote-extension-v2.1.0.zip` (207.0 KB).
+  - Setup Installer: `dist/installer/Kiroku-Note-Setup-v2.1.0.exe` (89.03 MB).
+  - SHA-256 Checksum: `01c862a9739c8e05861ebc15f82f29182bacb07f3319037168218b3d837e8d38`.
+
+---
+
 ### One-Click Windows Setup Installer Builder (`buildsetup.py`) (2026-10-19)
 
 **Objective**: Deliver a robust, future-proof one-click Windows setup builder `buildsetup.py` placed alongside `run_backend.py` with `tqdm` progress feedback, automated Inno Setup compiler discovery, and dynamic asset collection so future feature additions do not break the installer pipeline.

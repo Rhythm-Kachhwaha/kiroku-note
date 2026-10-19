@@ -579,21 +579,21 @@ def _get_dictionary_engine() -> Any:
 
 
 
-def _extract_text_from_node(node: Any, include_rt: bool = False, depth: int = 0) -> str:
+def _extract_text_from_node(node: Any, include_rt: bool = False, depth: int = 0, join_char: str = " ") -> str:
     if depth > 40:
         return ""
     if isinstance(node, (str, int, float)):
         return str(node).strip()
     if isinstance(node, list):
-        parts = [_extract_text_from_node(x, include_rt, depth + 1) for x in node]
-        return " ".join(p for p in parts if p).strip()
+        parts = [_extract_text_from_node(x, include_rt, depth + 1, join_char) for x in node]
+        return join_char.join(p for p in parts if p).strip()
     if isinstance(node, dict):
         tag = node.get("tag")
-        if not include_rt and tag == "rt":
+        if not include_rt and tag in ("rt", "rp"):
             return ""
         if include_rt and tag == "rt":
-            return f"[{_extract_text_from_node(node.get('content'), include_rt, depth + 1)}]"
-        return _extract_text_from_node(node.get("content"), include_rt, depth + 1)
+            return f"[{_extract_text_from_node(node.get('content'), include_rt, depth + 1, join_char)}]"
+        return _extract_text_from_node(node.get("content"), include_rt, depth + 1, join_char)
     return ""
 
 
@@ -611,6 +611,35 @@ def _find_marked_nodes(node: Any, marker: str, depth: int = 0) -> list[Any]:
             results.append(node)
         results.extend(_find_marked_nodes(node.get("content"), marker, depth + 1))
     return results
+
+
+def _extract_example_sentences(glossary_items: Any) -> list[dict[str, str]]:
+    """Extracts clean example sentences (Japanese and English translation) from dictionary AST."""
+    if not isinstance(glossary_items, list):
+        glossary_items = [glossary_items]
+
+    ex_nodes = _find_marked_nodes(glossary_items, "example-sentence")
+    examples: list[dict[str, str]] = []
+
+    for ex in ex_nodes:
+        content = ex.get("content")
+        raw_a = _find_marked_nodes(content, "example-sentence-a")
+        raw_b = _find_marked_nodes(content, "example-sentence-b")
+
+        ja = ""
+        en = ""
+        if raw_a:
+            node_a = raw_a[0].get("content") if isinstance(raw_a[0], dict) else raw_a[0]
+            ja = _extract_text_from_node(node_a, include_rt=False, join_char="")
+        if raw_b:
+            node_b = raw_b[0].get("content") if isinstance(raw_b[0], dict) else raw_b[0]
+            en = _extract_text_from_node(node_b, include_rt=False, join_char=" ")
+            en = re.sub(r"\[\d+\]", "", en).strip()
+
+        if ja:
+            examples.append({"japanese": ja, "translation": en})
+
+    return examples
 
 
 def _extract_plain_text_glossary(glossary_items: Any) -> list[str]:
@@ -727,6 +756,23 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
                 except Exception:
                     kanji_entries = []
 
+            ex_ja = ""
+            ex_en = ""
+            ex_list = []
+            if engine is not None:
+                try:
+                    t_res = engine.lookup_terms(top["term"])
+                    if t_res and t_res[0].definitions:
+                        for d in t_res[0].definitions:
+                            exs = _extract_example_sentences(d.glossary)
+                            if exs:
+                                ex_list.extend(exs)
+                        if ex_list:
+                            ex_ja = ex_list[0].get("japanese", "")
+                            ex_en = ex_list[0].get("translation", "")
+                except Exception:
+                    pass
+
             match_payload = {
                 "expression": top["term"],
                 "reading": top["reading"],
@@ -738,6 +784,9 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
                 "parts_of_speech": [],
                 "senses": [{"glosses": top.get("meanings", []), "pos": [], "tags": [], "dictionary": "OpenJLPT"}],
                 "kanji_entries": kanji_entries,
+                "example_sentence": ex_ja,
+                "example_translation": ex_en,
+                "examples": ex_list,
             }
             candidates = [
                 {
@@ -881,10 +930,14 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
     ]
 
     all_glosses: list[str] = []
+    all_examples: list[dict[str, str]] = []
     formatted_senses: list[dict[str, Any]] = []
     for d in primary.definitions:
         g_list = _extract_plain_text_glossary(d.glossary)
         all_glosses.extend(g_list)
+        exs = _extract_example_sentences(d.glossary)
+        if exs:
+            all_examples.extend(exs)
         formatted_senses.append({
             "glosses": g_list,
             "pos": d.def_tags,
@@ -923,6 +976,9 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
         "parts_of_speech": primary_pos,
         "senses": formatted_senses,
         "kanji_entries": kanji_entries,
+        "example_sentence": all_examples[0]["japanese"] if all_examples else "",
+        "example_translation": all_examples[0]["translation"] if all_examples else "",
+        "examples": all_examples,
     }
 
     candidates = []
@@ -942,12 +998,22 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
             if cand_en and cand_en[0].get("term") == g.term:
                 cand_jlpt = cand_en[0].get("jlpt_level")
 
+        cand_ex_ja = ""
+        cand_ex_en = ""
+        if g.definitions and g.definitions[0].glossary:
+            cand_exs = _extract_example_sentences(g.definitions[0].glossary)
+            if cand_exs:
+                cand_ex_ja = cand_exs[0].get("japanese", "")
+                cand_ex_en = cand_exs[0].get("translation", "")
+
         candidates.append({
             "expression": g.term,
             "reading": g.reading,
             "meanings": _extract_plain_text_glossary(g.definitions[0].glossary[:2]) if g.definitions and g.definitions[0].glossary else [],
             "jlpt_level": cand_jlpt,
             "source": g.source,
+            "example_sentence": cand_ex_ja,
+            "example_translation": cand_ex_en,
         })
 
     return JSONResponse({
@@ -1612,7 +1678,7 @@ async def get_study_session_endpoint(
         except ValueError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="card_ids must be comma-separated integers.")
 
-    limit = min(max(1, limit), 100)
+    limit = min(max(1, limit), 2000)
     cards = store.get_study_session(mode=mode, level=level, limit=limit, custom_card_ids=parsed_ids)
     return JSONResponse({
         "status": "ok",

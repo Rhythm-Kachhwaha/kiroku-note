@@ -1352,6 +1352,25 @@ class SqliteQueueStore(BaseQueueStore):
                 "weekly": weekly_retention,
             }
 
+            # 9. Decks breakdown
+            deck_rows = conn.execute(
+                """
+                SELECT deck_name,
+                       COUNT(*) as total,
+                       SUM(CASE WHEN state = 'mature' THEN 1 ELSE 0 END) as mature,
+                       SUM(CASE WHEN state = 'young' THEN 1 ELSE 0 END) as young,
+                       SUM(CASE WHEN state = 'learning' THEN 1 ELSE 0 END) as learning,
+                       SUM(CASE WHEN state = 'new' THEN 1 ELSE 0 END) as new,
+                       SUM(CASE WHEN state = 'suspended' THEN 1 ELSE 0 END) as suspended,
+                       SUM(CASE WHEN due_in_days <= 0 THEN 1 ELSE 0 END) as due_today,
+                       ROUND(AVG(interval_days), 1) as avg_interval
+                FROM anki_cards
+                GROUP BY deck_name
+                ORDER BY total DESC;
+                """
+            ).fetchall()
+            deck_breakdown = [dict(r) for r in deck_rows]
+
             result_overview = {
                 "range": rf,
                 "card_count": card_count,
@@ -1372,6 +1391,7 @@ class SqliteQueueStore(BaseQueueStore):
                 "weak_words": weak_words,
                 "jlpt_coverage": jlpt_coverage,
                 "queue_activity": queue_activity,
+                "deck_breakdown": deck_breakdown,
             }
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             log.debug("get_stats_overview completed in %.2fms (range=%s)", elapsed_ms, rf)
@@ -1385,7 +1405,7 @@ class SqliteQueueStore(BaseQueueStore):
         custom_ids: Optional[list[int]] = None,
         custom_card_ids: Optional[list[int]] = None,
     ) -> list[dict[str, Any]]:
-        limit = max(1, min(100, int(limit)))
+        limit = max(1, min(2000, int(limit)))
         now_iso = datetime.now(timezone.utc).isoformat()
         effective_ids = custom_ids or custom_card_ids
 
@@ -1459,6 +1479,16 @@ class SqliteQueueStore(BaseQueueStore):
                     LIMIT ?;
                     """,
                     (now_iso, limit),
+                ).fetchall()
+            elif clean_mode == "all":
+                rows = conn.execute(
+                    """
+                    SELECT * FROM anki_cards
+                    WHERE state != 'suspended'
+                    ORDER BY card_id ASC
+                    LIMIT ?;
+                    """,
+                    (limit,),
                 ).fetchall()
             else:  # default: weakest
                 rows = conn.execute(
