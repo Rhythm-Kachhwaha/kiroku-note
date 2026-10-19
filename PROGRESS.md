@@ -1,5 +1,49 @@
 # Kiroku Note — Progress
 
+### Cloud Dictionary Build & Local Backend Anki Mirror Polling (2026-10-19)
+
+**Objective**: Resolve the "Dictionary database not loaded on cloud" error in Cloud Quick Add by packaging dictionary archives (<38 MB) and automating dictionary sqlite database generation during cloud build/startup, and integrate continuous Anki card/review mirroring into Kiroku's local background polling cycle (both Python script and PyInstaller `.exe`).
+
+**1. Delivered Behaviors & Features**:
+- **Automated Cloud Dictionary Generation**:
+  - Identified root cause of `Dictionary database not loaded on cloud`: `kiroku_dict.sqlite` (264 MB) exceeds GitHub's 100 MB hard limit and is gitignored, meaning the Render deployment container lacked the dictionary file.
+  - Bundled source dictionary archives `jitendex-yomitan.zip` (37.0 MB) and `KANJIDIC_english.zip` (0.7 MB) into `kiroku_cloud_queue/data/`, unignoring zip files under that directory.
+  - Mirrored `kiroku_dictionary/` package into `kiroku_cloud_queue/kiroku_dictionary/` for zero-configuration standalone imports on Render.
+  - Configured `render.yaml` buildCommand and `Dockerfile` to automatically compile `kiroku_dict.sqlite` (~37s) during build if not present.
+  - Added safe fallback in `_get_dictionary_engine()`: if database is missing on startup, auto-builds on the fly from bundled zips with thread safety (`_DICT_BUILD_LOCK`), or downloads from `KIROKU_DICT_URL` / `DICT_DOWNLOAD_URL`.
+- **Anki Mirror Cloud Sync in Local Backend Poll Cycle**:
+  - Integrated `sync_anki_mirror(adapter, full=False)` into `_execute_cloud_poll_cycle()` in `backend/app/main.py`.
+  - Every 10s poll cycle, the backend:
+    1. Drains new pending cards from cloud queue to local SQLite.
+    2. Pushes daily Anki review counts and overall study stats to cloud.
+    3. Mirrors new cards, card edits, interval/reps, leech flags (`lapses >= 8` or `leech` tag), and difficulty scores to the cloud cards database.
+  - Fails soft when Anki is closed in the background (`status == "offline"`), logging debug messages without raising exceptions or breaking the poll loop.
+  - Added `POST /api/cloud/poll` endpoint in `backend/app/main.py` allowing instant manual polling triggers.
+- **PyInstaller Frozen Executable (.exe) Readiness**:
+  - Updated `kiroku_cloud_queue/anki_mirror.py` to store state file `.mirror_state.json` inside `%LOCALAPPDATA%/KirokuNote/` when frozen (`sys.frozen`) to avoid write-permission errors inside temporary `sys._MEIPASS`.
+  - Updated `kiroku_cloud_queue/env_utils.py` to look for `.env` in `%LOCALAPPDATA%/KirokuNote/` as well as project root.
+  - Updated `packaging/kiroku_backend.spec` to add `anki_mirror`, `anki_stats`, and `kiroku_dictionary` to `hidden_imports`.
+
+**2. Files Changed**:
+- `kiroku_cloud_queue/server.py`: Auto-build dictionary on missing DB, support download URL, thread-safe initialization.
+- `kiroku_cloud_queue/render.yaml`: Updated `buildCommand` with python dictionary build script.
+- `kiroku_cloud_queue/Dockerfile`: Added dictionary build layer.
+- `kiroku_cloud_queue/anki_mirror.py`: Persistent `%LOCALAPPDATA%/KirokuNote` state path when frozen, added `sys` import.
+- `kiroku_cloud_queue/env_utils.py`: Added `%LOCALAPPDATA%/KirokuNote/.env` search path.
+- `backend/app/main.py`: Connected `sync_anki_mirror` into `_execute_cloud_poll_cycle`, added `POST /api/cloud/poll`.
+- `packaging/kiroku_backend.spec`: Added `anki_mirror`, `anki_stats`, and `kiroku_dictionary` hidden imports.
+- `.gitignore`: Un-ignored `kiroku_cloud_queue/data/*.zip`.
+
+**3. Verification Run & Results**:
+- `backend/tests/test_cards_api.py -k "cloud"`: **2/2 passed** (verified automatic poll cycle and pull endpoint).
+- `kiroku_cloud_queue/tests/test_anki_mirror_compute.py`, `test_server_dictionary.py`, `test_quick_add_e2e.py`: **29/29 passed**.
+- `backend/tests/`: **563/563 passed** (256 subtests, 0 failures).
+
+**4. Remaining Risk**:
+- Render deployment will take ~40-50 seconds longer on the next git push because it compiles `kiroku_dict.sqlite` from the bundled zip archives.
+
+---
+
 ### Cloud Quick Add, Navigation Redesign & Local Dictionary Hardening (2026-10-19)
 
 **Objective**: Harden the standalone local dictionary engine, implement Cloud Quick Add in `kiroku_cloud_queue/dashboard.html` with offline WanaKana conversion and mode switching matching Kiroku's Original Quick Add, fix the mobile card list truncation bug, and introduce a modern desktop left sidebar and mobile bottom navigation bar.
