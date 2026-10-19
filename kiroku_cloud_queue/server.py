@@ -151,11 +151,9 @@ def _authenticate_recent(request: Request) -> None:
         ] if t
     ]
     if not allowed_tokens:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Server authentication secret (SUBMIT_TOKEN or WORKER_TOKEN) not configured.",
-        )
-    if not any(secrets.compare_digest(token, at) for at in allowed_tokens):
+        # Development / standalone mode: allow read-only dashboard access if no tokens are configured
+        return
+    if not token or not any(secrets.compare_digest(token, at) for at in allowed_tokens):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token.",
@@ -1575,7 +1573,7 @@ async def query_cards_endpoint(
     if store is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
 
-    limit = min(max(1, limit), 100)
+    limit = min(max(1, limit), 500)
     offset = max(0, offset)
 
     filters: dict[str, Any] = {}

@@ -2475,7 +2475,7 @@
             <!-- 2. Immediate Action Bar (Right below hero view - No scrolling needed) -->
             <div class="qa-action-bar-top">
               <button type="button" class="qa-secondary-btn" onclick="resetQuickAddForm()">Reset</button>
-              <button type="button" class="qa-primary-btn qa-btn-submit" id="qa-submit-btn-top" onclick="submitQuickAddCard()">
+              <button type="button" class="qa-primary-btn qa-btn-submit" id="qa-submit-btn" onclick="submitQuickAddCard()">
                 <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
                 <span>Add to Cloud Queue</span>
                 <span class="qa-btn-kbd"> (Ctrl+Enter)</span>
@@ -2542,16 +2542,6 @@
                 <label class="qa-field-label" for="qa-tags">Tags (comma-separated)</label>
                 <input type="text" id="qa-tags" class="qa-field-input" value="kiroku-note, quick-add">
               </div>
-            </div>
-
-            <!-- 5. Bottom Action Bar -->
-            <div class="qa-submit-bar">
-              <button type="button" class="qa-secondary-btn" onclick="resetQuickAddForm()">Reset</button>
-              <button type="button" class="qa-primary-btn qa-btn-submit" id="qa-submit-btn" onclick="submitQuickAddCard()">
-                <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Add to Cloud Queue</span>
-                <span class="qa-btn-kbd"> (Ctrl+Enter)</span>
-              </button>
             </div>
           </div>
         </div>
@@ -2796,8 +2786,19 @@
           <div style="font-size:0.78rem;color:var(--text-muted);" id="stats-card-count-readout">Loading cards...</div>
         </div>
         <div class="stats-card-filter-row">
-          <input type="text" id="stats-card-search" class="qa-field-input" placeholder="Search expression, reading, meaning..." style="max-width:280px;" autocomplete="off">
+          <input type="text" id="stats-card-search" class="qa-field-input" placeholder="Search expression, reading, meaning..." style="max-width:260px;" autocomplete="off">
           <div class="select-wrap" style="max-width:140px;">
+            <select id="stats-card-diff-filter" onchange="filterStatsCardsTable()">
+              <option value="">All Difficulty</option>
+              <option value="hard">Hard Cards</option>
+              <option value="leech">Leech</option>
+              <option value="normal">Normal</option>
+              <option value="easy">Easy</option>
+              <option value="solid">Solid</option>
+              <option value="new">New</option>
+            </select>
+          </div>
+          <div class="select-wrap" style="max-width:130px;">
             <select id="stats-card-state-filter" onchange="filterStatsCardsTable()">
               <option value="">All States</option>
               <option value="mature">Mature</option>
@@ -2807,10 +2808,10 @@
               <option value="suspended">Suspended</option>
             </select>
           </div>
-          <div class="select-wrap" style="max-width:160px;">
+          <div class="select-wrap" style="max-width:150px;">
             <select id="stats-card-sort" onchange="filterStatsCardsTable()">
-              <option value="lapses">Most Lapses</option>
               <option value="difficulty">Highest Difficulty</option>
+              <option value="lapses">Most Lapses</option>
               <option value="interval_desc">Longest Interval</option>
               <option value="interval_asc">Shortest Interval</option>
               <option value="due">Due Soonest</option>
@@ -3872,11 +3873,9 @@
 
     async function fetchAnkiStatus() {
       const token = getToken();
-      if (!token) return;
-
       try {
         const resp = await fetch('/api/anki/status', {
-          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Accept': 'application/json' },
         });
         if (!resp.ok) return;
         const data = await resp.json();
@@ -4198,28 +4197,49 @@
 
     async function fetchStatsOverview() {
       const token = getToken();
-      if (!token) return;
+      const wrap = document.getElementById('chart-growth-wrap');
 
       try {
         const resp = await fetch(`/api/stats/overview?range=${currentStatsRange}`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Accept': 'application/json' },
         });
-        if (!resp.ok) return;
+        if (!resp.ok) {
+          if (resp.status === 401 || resp.status === 403) {
+            document.getElementById('token-box').style.display = 'block';
+            if (wrap) {
+              wrap.innerHTML = `
+                <div class="empty-state" style="padding:2rem 1rem;">
+                  <div class="icon">
+                    <svg class="svg-icon" style="width:32px;height:32px;" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  </div>
+                  <h3 style="font-size:1rem;margin-bottom:0.4rem;">Authentication Required</h3>
+                  <p style="font-size:0.8rem;color:var(--text-secondary);">Enter your <code>WORKER_TOKEN</code> or <code>SUBMIT_TOKEN</code> above to view stats and graphs.</p>
+                </div>
+              `;
+            }
+          } else {
+            if (wrap) {
+              wrap.innerHTML = `<div style="color:var(--red);padding:1.5rem;font-size:0.85rem;">Failed to load statistics (HTTP ${resp.status}).</div>`;
+            }
+          }
+          return;
+        }
         const data = await resp.json();
         window.__statsOverview = data;
 
-        renderGrowthChart(data.growth_curve || data.card_growth || data.growth || []);
-        renderStateDistributionChart(data.state_breakdown || data.states || []);
-        renderRetentionChart(data.true_retention || data.retention || []);
-        renderButtonsChart(data.answer_buttons || data.buttons || []);
-        renderDueForecastChart(data.due_forecast || []);
-        renderDifficultyChart(data.difficulty_distribution || data.difficulty || []);
-        renderWeakWords(data.weak_words || []);
-        renderJlptCoverage(data.jlpt_coverage || []);
-        renderDecksBreakdown(data.deck_breakdown || []);
-        fetchStatsCardsBreakdown();
+        try { renderGrowthChart(data.growth_curve || data.card_growth || data.growth || []); } catch (e) { console.warn('renderGrowthChart error:', e); }
+        try { renderStateDistributionChart(data.state_breakdown || data.states || []); } catch (e) { console.warn('renderStateDistributionChart error:', e); }
+        try { renderRetentionChart(data.true_retention || data.retention || []); } catch (e) { console.warn('renderRetentionChart error:', e); }
+        try { renderButtonsChart(data.answer_buttons || data.buttons || []); } catch (e) { console.warn('renderButtonsChart error:', e); }
+        try { renderDueForecastChart(data.due_forecast || []); } catch (e) { console.warn('renderDueForecastChart error:', e); }
+        try { renderDifficultyChart(data.difficulty_distribution || data.difficulty || []); } catch (e) { console.warn('renderDifficultyChart error:', e); }
+        try { renderWeakWords(data.weak_words || []); } catch (e) { console.warn('renderWeakWords error:', e); }
+        try { renderJlptCoverage(data.jlpt_coverage || []); } catch (e) { console.warn('renderJlptCoverage error:', e); }
+        try { renderDecksBreakdown(data.deck_breakdown || []); } catch (e) { console.warn('renderDecksBreakdown error:', e); }
+        try { fetchStatsCardsBreakdown(); } catch (e) { console.warn('fetchStatsCardsBreakdown error:', e); }
       } catch (err) {
         console.warn('Failed to load stats overview:', err);
+        if (wrap) wrap.innerHTML = '<div style="color:var(--red);padding:1.5rem;font-size:0.85rem;">Unable to connect to queue server to retrieve statistics.</div>';
       }
     }
 
@@ -4251,12 +4271,23 @@
       const plotW = w - padL - padR;
       const plotH = h - padT - padB;
 
-      const pts = growthData.map((d, i) => {
-        const x = padL + (i / (pointsCount - 1 || 1)) * plotW;
+      let pts = [];
+      if (pointsCount === 1) {
+        const d = growthData[0];
         const val = (d.total_cards != null ? d.total_cards : (d.total != null ? d.total : 0));
-        const y = padT + (1 - (val - minVal) / valRange) * plotH;
-        return { x, y, val, day: d.day || d.date || '' };
-      });
+        const y = padT + plotH * 0.5;
+        pts = [
+          { x: padL, y, val, day: d.day || d.date || '' },
+          { x: padL + plotW, y, val, day: d.day || d.date || '' },
+        ];
+      } else {
+        pts = growthData.map((d, i) => {
+          const x = padL + (i / (pointsCount - 1 || 1)) * plotW;
+          const val = (d.total_cards != null ? d.total_cards : (d.total != null ? d.total : 0));
+          const y = padT + (1 - (val - minVal) / valRange) * plotH;
+          return { x, y, val, day: d.day || d.date || '' };
+        });
+      }
 
       const polyPoints = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
       const areaPoints = `${padL},${h - padB} ${polyPoints} ${(padL + plotW).toFixed(1)},${h - padB}`;
@@ -4332,13 +4363,25 @@
       const learnPts = [];
       const newPts = [];
 
-      stateData.forEach((d, i) => {
-        const x = padL + (i / (pointsCount - 1 || 1)) * plotW;
-        maturePts.push(`${x.toFixed(1)},${(padT + (1 - getMat(d) / maxTotal) * plotH).toFixed(1)}`);
-        youngPts.push(`${x.toFixed(1)},${(padT + (1 - getYoung(d) / maxTotal) * plotH).toFixed(1)}`);
-        learnPts.push(`${x.toFixed(1)},${(padT + (1 - getLearn(d) / maxTotal) * plotH).toFixed(1)}`);
-        newPts.push(`${x.toFixed(1)},${(padT + (1 - getNew(d) / maxTotal) * plotH).toFixed(1)}`);
-      });
+      if (pointsCount === 1) {
+        const d = stateData[0];
+        const yMat = (padT + (1 - getMat(d) / maxTotal) * plotH).toFixed(1);
+        const yYoung = (padT + (1 - getYoung(d) / maxTotal) * plotH).toFixed(1);
+        const yLearn = (padT + (1 - getLearn(d) / maxTotal) * plotH).toFixed(1);
+        const yNew = (padT + (1 - getNew(d) / maxTotal) * plotH).toFixed(1);
+        maturePts.push(`${padL},${yMat}`, `${padL + plotW},${yMat}`);
+        youngPts.push(`${padL},${yYoung}`, `${padL + plotW},${yYoung}`);
+        learnPts.push(`${padL},${yLearn}`, `${padL + plotW},${yLearn}`);
+        newPts.push(`${padL},${yNew}`, `${padL + plotW},${yNew}`);
+      } else {
+        stateData.forEach((d, i) => {
+          const x = padL + (i / (pointsCount - 1 || 1)) * plotW;
+          maturePts.push(`${x.toFixed(1)},${(padT + (1 - getMat(d) / maxTotal) * plotH).toFixed(1)}`);
+          youngPts.push(`${x.toFixed(1)},${(padT + (1 - getYoung(d) / maxTotal) * plotH).toFixed(1)}`);
+          learnPts.push(`${x.toFixed(1)},${(padT + (1 - getLearn(d) / maxTotal) * plotH).toFixed(1)}`);
+          newPts.push(`${x.toFixed(1)},${(padT + (1 - getNew(d) / maxTotal) * plotH).toFixed(1)}`);
+        });
+      }
 
       const last = stateData[stateData.length - 1];
 
@@ -4367,7 +4410,19 @@
     function renderRetentionChart(rawRetention) {
       const wrap = document.getElementById('chart-retention-wrap');
       const sumEl = document.getElementById('retention-summary');
-      const retentionData = Array.isArray(rawRetention) ? rawRetention : (rawRetention && rawRetention.weekly ? rawRetention.weekly : []);
+      let retentionData = Array.isArray(rawRetention) ? rawRetention : (rawRetention && rawRetention.weekly ? rawRetention.weekly : []);
+      if (!retentionData.length && rawRetention && rawRetention.range && rawRetention.range.rate != null) {
+        retentionData = [{
+          week: 'Current',
+          day: 'Current',
+          rate: rawRetention.range.rate,
+          n: rawRetention.range.den || 0,
+          mature_rate: rawRetention.range.mature_rate,
+          mature_n: rawRetention.range.mature_den || 0,
+          mature_retention_num: rawRetention.range.mature_num || 0,
+          mature_retention_den: rawRetention.range.mature_den || 0,
+        }];
+      }
       if (!wrap || !retentionData.length) {
         if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No retention data recorded.</div>';
         return;
@@ -4376,15 +4431,19 @@
       let totalNum = 0;
       let totalDen = 0;
       retentionData.forEach(d => {
-        const den = d.mature_retention_den != null ? d.mature_retention_den : (d.mature_n != null ? d.mature_n : (d.n || 0));
-        const num = d.mature_retention_num != null ? d.mature_retention_num : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : 0);
+        const den = (d.mature_retention_den != null && d.mature_retention_den > 0)
+          ? d.mature_retention_den
+          : (d.mature_n != null && d.mature_n > 0 ? d.mature_n : (d.n || 0));
+        const num = (d.mature_retention_num != null && d.mature_retention_num > 0)
+          ? d.mature_retention_num
+          : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : (d.rate != null ? Math.round(den * (d.rate / 100)) : 0));
         totalNum += num;
         totalDen += den;
       });
 
-      const rate = totalDen >= 30 ? Math.round((totalNum / totalDen) * 100) : null;
+      const rate = totalDen > 0 ? Math.round((totalNum / totalDen) * 100) : (rawRetention && rawRetention.range ? rawRetention.range.rate : null);
       if (sumEl) {
-        sumEl.textContent = rate !== null ? `${rate}% (n=${totalDen.toLocaleString()})` : `n=${totalDen} (<30 mature reviews)`;
+        sumEl.textContent = rate !== null ? `${rate}% (n=${totalDen.toLocaleString()})` : `n=${totalDen} reviews`;
       }
 
       const w = 600;
@@ -4400,17 +4459,41 @@
       const maxPct = 1.0;
       const pctRange = maxPct - minPct;
 
-      const pts = retentionData.map((d, i) => {
-        const x = padL + (i / (retentionData.length - 1 || 1)) * plotW;
-        const den = d.mature_retention_den != null ? d.mature_retention_den : (d.mature_n != null ? d.mature_n : (d.n || 0));
-        const num = d.mature_retention_num != null ? d.mature_retention_num : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : 0);
-        const r = den > 0 ? (num / den) : 0.85;
+      let pts = [];
+      if (retentionData.length === 1) {
+        const d = retentionData[0];
+        const den = (d.mature_retention_den != null && d.mature_retention_den > 0)
+          ? d.mature_retention_den
+          : (d.mature_n != null && d.mature_n > 0 ? d.mature_n : (d.n || 0));
+        const num = (d.mature_retention_num != null && d.mature_retention_num > 0)
+          ? d.mature_retention_num
+          : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : (d.rate != null ? Math.round(den * (d.rate / 100)) : 0));
+        const r = den > 0 ? (num / den) : (d.rate != null ? d.rate / 100 : 0.85);
         const clampedR = Math.max(minPct, Math.min(maxPct, r));
         const y = padT + (1 - (clampedR - minPct) / pctRange) * plotH;
         const label = d.day || d.week || '';
         const pctLabel = `${Math.round(r * 100)}% (n=${den})`;
-        return { x, y, r, label, pctLabel };
-      });
+        pts = [
+          { x: padL, y, r, label, pctLabel },
+          { x: padL + plotW, y, r, label, pctLabel }
+        ];
+      } else {
+        pts = retentionData.map((d, i) => {
+          const x = padL + (i / (retentionData.length - 1 || 1)) * plotW;
+          const den = (d.mature_retention_den != null && d.mature_retention_den > 0)
+            ? d.mature_retention_den
+            : (d.mature_n != null && d.mature_n > 0 ? d.mature_n : (d.n || 0));
+          const num = (d.mature_retention_num != null && d.mature_retention_num > 0)
+            ? d.mature_retention_num
+            : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : (d.rate != null ? Math.round(den * (d.rate / 100)) : 0));
+          const r = den > 0 ? (num / den) : (d.rate != null ? d.rate / 100 : 0.85);
+          const clampedR = Math.max(minPct, Math.min(maxPct, r));
+          const y = padT + (1 - (clampedR - minPct) / pctRange) * plotH;
+          const label = d.day || d.week || '';
+          const pctLabel = `${Math.round(r * 100)}% (n=${den})`;
+          return { x, y, r, label, pctLabel };
+        });
+      }
 
       const polyPoints = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
       const yTarget = padT + (1 - (0.85 - minPct) / pctRange) * plotH;
@@ -4442,7 +4525,16 @@
 
     function renderButtonsChart(rawButtons) {
       const wrap = document.getElementById('chart-buttons-wrap');
-      const buttonsData = Array.isArray(rawButtons) ? rawButtons : (rawButtons && rawButtons.weekly ? rawButtons.weekly : []);
+      let buttonsData = Array.isArray(rawButtons) ? rawButtons : (rawButtons && rawButtons.weekly ? rawButtons.weekly : []);
+      if (!buttonsData.length && rawButtons && (rawButtons.again != null || rawButtons.hard != null)) {
+        buttonsData = [{
+          week: 'Total',
+          again: rawButtons.again || 0,
+          hard: rawButtons.hard || 0,
+          good: rawButtons.good || 0,
+          easy: rawButtons.easy || 0,
+        }];
+      }
       if (!wrap || !buttonsData.length) {
         if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No answer button logs available.</div>';
         return;
@@ -4476,7 +4568,7 @@
       const padB = 25;
       const plotH = h - padT - padB;
       const barSlotW = (w - padL - padR) / buttonsData.length;
-      const barW = Math.max(6, Math.min(26, barSlotW * 0.7));
+      const barW = buttonsData.length === 1 ? 140 : Math.max(6, Math.min(26, barSlotW * 0.7));
 
       const bars = buttonsData.map((d, i) => {
         const total = (d.again || 0) + (d.hard || 0) + (d.good || 0) + (d.easy || 0);
@@ -4591,8 +4683,8 @@
         const cnt = (d.count != null ? d.count : (d.total || 0));
         const lbl = d.difficulty_label || d.label || '';
         const width = (cnt / total) * w;
-        const tip = `${lbl}: ${cnt.toLocaleString()} cards (${Math.round((cnt/total)*100)}%)`;
-        const r = `<rect class="chart-point" data-tip="${escapeHtml(tip)}" x="${curX.toFixed(1)}" y="10" width="${width.toFixed(1)}" height="22" fill="${colors[lbl] || 'var(--text-muted)'}" style="cursor:pointer;"/>`;
+        const tip = `${lbl}: ${cnt.toLocaleString()} cards (${Math.round((cnt/total)*100)}%) — Click to filter`;
+        const r = `<rect class="chart-point" data-tip="${escapeHtml(tip)}" x="${curX.toFixed(1)}" y="10" width="${width.toFixed(1)}" height="22" fill="${colors[lbl] || 'var(--text-muted)'}" style="cursor:pointer;" onclick="filterCardsByDifficulty('${escapeHtml(lbl)}')"/>`;
         curX += width;
         return r;
       }).join('');
@@ -4602,10 +4694,10 @@
         const lbl = d.difficulty_label || d.label || '';
         const pct = Math.round((cnt / total) * 100);
         return `
-          <span class="stats-legend-item">
+          <button type="button" class="stats-legend-item" onclick="filterCardsByDifficulty('${escapeHtml(lbl)}')" style="background:transparent;border:none;cursor:pointer;color:var(--text-secondary);font-family:inherit;font-size:0.75rem;display:inline-flex;align-items:center;padding:2px 4px;border-radius:4px;">
             <span class="stats-legend-dot" style="background:${colors[lbl] || 'var(--text-muted)'}"></span>
-            ${escapeHtml(lbl)}: ${cnt.toLocaleString()} (${pct}%)
-          </span>
+            <strong style="color:var(--text);margin-right:2px;">${escapeHtml(lbl)}:</strong> ${cnt.toLocaleString()} (${pct}%)
+          </button>
         `;
       }).join('');
 
@@ -4628,24 +4720,59 @@
       const listEl = document.getElementById('weak-words-list');
       if (!listEl) return;
 
-      if (!weakList.length) {
-        listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:0.5rem 0;">No weak vocabulary cards found.</div>';
+      if (!weakList || !weakList.length) {
+        listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:0.5rem 0;">No high-difficulty vocabulary cards found.</div>';
         return;
       }
 
-      listEl.innerHTML = weakList.map(w => `
-        <div class="weak-word-row">
-          <div class="weak-word-left">
-            <span class="weak-expr">${escapeHtml(w.expression)}</span>
-            ${w.reading ? `<span class="weak-reading">${escapeHtml(w.reading)}</span>` : ''}
-            <span class="weak-meaning">${escapeHtml(w.meaning)}</span>
+      const rows = weakList.map(w => {
+        let mirrorIdx = window.__mirroredCards ? window.__mirroredCards.findIndex(m => m.card_id === w.card_id) : -1;
+        if (mirrorIdx === -1) {
+          if (!window.__mirroredCards) window.__mirroredCards = [];
+          mirrorIdx = window.__mirroredCards.length;
+          window.__mirroredCards.push(w);
+        }
+        const diffScoreText = w.difficulty_score != null ? `${Math.round(w.difficulty_score)}% difficulty` : '';
+        const lapsesText = `${w.lapses || 0} lapse${(w.lapses || 0) === 1 ? '' : 's'}`;
+
+        return `
+          <div class="weak-word-row" style="cursor:pointer;" onclick="openMirroredDetailModal(${mirrorIdx})" title="Click to view full card details">
+            <div class="weak-word-left">
+              <span class="weak-expr" style="font-family:var(--font-ja);">${escapeHtml(w.expression)}</span>
+              ${w.reading ? `<span class="weak-reading" style="font-family:var(--font-ja);">${escapeHtml(w.reading)}</span>` : ''}
+              <span class="weak-meaning">${escapeHtml(w.meaning)}</span>
+            </div>
+            <div class="weak-stats">
+              <span class="diff-badge diff-${escapeHtml(w.difficulty_label || 'hard')}" onclick="event.stopPropagation(); filterCardsByDifficulty('${escapeHtml(w.difficulty_label || 'hard')}')" title="Filter card list to ${escapeHtml(w.difficulty_label || 'hard')} cards" style="cursor:pointer;">
+                ${escapeHtml(w.difficulty_label || 'hard')}
+              </span>
+              ${diffScoreText ? `<span style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;">${diffScoreText}</span>` : ''}
+              <span style="font-size:0.75rem;color:${(w.lapses || 0) > 3 ? 'var(--red)' : 'var(--text-muted)'};font-weight:600;">${lapsesText}</span>
+              <svg class="svg-icon" style="width:14px;height:14px;color:var(--text-muted);" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
           </div>
-          <div class="weak-stats">
-            <span class="diff-badge diff-${w.difficulty_label}">${escapeHtml(w.difficulty_label)}</span>
-            <span>${w.lapses || 0} lapses</span>
-          </div>
+        `;
+      }).join('');
+
+      listEl.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
+          <span style="font-size:0.76rem;color:var(--text-secondary);">Showing top ${weakList.length} highest-difficulty cards. Click any row to view details.</span>
+          <button type="button" class="icon-btn" onclick="filterCardsByDifficulty('hard')" style="font-size:0.72rem;padding:0.2rem 0.5rem;">
+            View All Hard Cards &darr;
+          </button>
         </div>
-      `).join('');
+        ${rows}
+      `;
+    }
+
+    function filterCardsByDifficulty(diffLabel) {
+      const select = document.getElementById('stats-card-diff-filter');
+      if (select) {
+        select.value = diffLabel;
+        filterStatsCardsTable();
+        const table = document.getElementById('stats-cards-table');
+        if (table) table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
 
     function studyWeakWords() {
@@ -4710,13 +4837,17 @@
 
     async function fetchStatsCardsBreakdown() {
       const token = getToken();
-      if (!token) return;
-
       try {
         const resp = await fetch('/api/cards?limit=500&sort=difficulty&dir=desc', {
-          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Accept': 'application/json' },
         });
-        if (!resp.ok) return;
+        if (!resp.ok) {
+          const tbody = document.getElementById('stats-cards-tbody');
+          if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:1.5rem;">${resp.status === 401 ? 'Authentication required. Enter token above to view cards.' : 'Failed to load card list.'}</td></tr>`;
+          }
+          return;
+        }
         const data = await resp.json();
         statsCardsData = data.items || [];
         filterStatsCardsTable();
@@ -4727,11 +4858,13 @@
 
     function filterStatsCardsTable() {
       const query = (document.getElementById('stats-card-search')?.value || '').trim().toLowerCase();
-      const stateFilter = document.getElementById('stats-card-state-filter')?.value || '';
-      const sortVal = document.getElementById('stats-card-sort')?.value || 'lapses';
+      const diffFilter = (document.getElementById('stats-card-diff-filter')?.value || '').trim().toLowerCase();
+      const stateFilter = (document.getElementById('stats-card-state-filter')?.value || '').trim().toLowerCase();
+      const sortVal = document.getElementById('stats-card-sort')?.value || 'difficulty';
 
       statsCardsFiltered = statsCardsData.filter(c => {
-        if (stateFilter && c.state !== stateFilter) return false;
+        if (diffFilter && (c.difficulty_label || '').toLowerCase() !== diffFilter) return false;
+        if (stateFilter && (c.state || '').toLowerCase() !== stateFilter) return false;
         if (query) {
           const matchExpr = (c.expression || '').toLowerCase().includes(query);
           const matchRead = (c.reading || '').toLowerCase().includes(query);
@@ -4742,8 +4875,8 @@
       });
 
       statsCardsFiltered.sort((a, b) => {
-        if (sortVal === 'lapses') return (b.lapses || 0) - (a.lapses || 0);
         if (sortVal === 'difficulty') return (b.difficulty_score || 0) - (a.difficulty_score || 0);
+        if (sortVal === 'lapses') return (b.lapses || 0) - (a.lapses || 0);
         if (sortVal === 'interval_desc') return (b.interval_days || 0) - (a.interval_days || 0);
         if (sortVal === 'interval_asc') return (a.interval_days || 0) - (b.interval_days || 0);
         if (sortVal === 'due') return (a.due_in_days != null ? a.due_in_days : 9999) - (b.due_in_days != null ? b.due_in_days : 9999);
@@ -5331,11 +5464,9 @@
 
     async function fetchAnkiStats(manual = false) {
       const token = getToken();
-      if (!token) return;
-
       try {
         const resp = await fetch('/api/stats/anki', {
-          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Accept': 'application/json' },
         });
         if (!resp.ok) return;
         const data = await resp.json();

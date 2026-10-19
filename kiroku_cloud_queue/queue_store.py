@@ -939,7 +939,7 @@ class SqliteQueueStore(BaseQueueStore):
     ) -> tuple[list[dict[str, Any]], int]:
         t0 = time.perf_counter()
         filters = filters or {}
-        limit = max(1, min(100, int(limit)))
+        limit = max(1, min(500, int(limit)))
         offset = max(0, int(offset))
         effective_dir = str(dir if dir is not None else (sort_dir or "desc")).lower().strip()
         direction = "ASC" if effective_dir == "asc" else "DESC"
@@ -1261,18 +1261,19 @@ class SqliteQueueStore(BaseQueueStore):
                 for lbl in standard_labels
             ]
 
-            # 6. Weak words (top 20)
+            # 6. Weak words (top 25 hardest cards / leeches)
             weak_rows = conn.execute(
                 """
                 SELECT card_id, expression, reading, meaning, lapses, again_rate_10,
                        interval_days, difficulty_score, difficulty_label, is_leech
                 FROM anki_cards
-                WHERE reps > 0
+                WHERE reps > 0 OR difficulty_label IN ('hard', 'leech') OR lapses > 0
                 ORDER BY is_leech DESC,
+                         CASE WHEN difficulty_label = 'hard' THEN 0 ELSE 1 END,
                          CASE WHEN difficulty_score IS NULL THEN 1 ELSE 0 END,
                          difficulty_score DESC,
                          lapses DESC
-                LIMIT 20;
+                LIMIT 25;
                 """
             ).fetchall()
             weak_words = [dict(r) for r in weak_rows]

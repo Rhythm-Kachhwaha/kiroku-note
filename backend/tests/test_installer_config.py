@@ -24,7 +24,7 @@ def test_installer_metadata_and_architecture():
 
     # Verify AppName and Version definitions
     assert re.search(r'#define\s+MyAppName\s+"Kiroku Note"', content), "MyAppName must be 'Kiroku Note'"
-    assert re.search(r'#define\s+MyAppVersion\s+"(1\.0\.[01]|2\.0\.0)"', content), "MyAppVersion must be valid version string"
+    assert re.search(r'#define\s+MyAppVersion\s+"(1\.0\.[01]|2\.[01]\.0)"', content), "MyAppVersion must be valid version string"
     assert re.search(r'#define\s+MyAppExeName\s+"KirokuNote\.exe"', content), "MyAppExeName must be 'KirokuNote.exe'"
 
     # Verify 64-bit architecture settings
