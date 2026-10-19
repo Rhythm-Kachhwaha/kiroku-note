@@ -225,11 +225,26 @@ class PostgresQueueStore(BaseQueueStore):
             fsrs_stability      REAL DEFAULT NULL,
             fsrs_retrievability REAL DEFAULT NULL,
             due_in_days         INTEGER DEFAULT NULL,
+            raw_html            TEXT NOT NULL DEFAULT '',
+            has_media           BOOLEAN NOT NULL DEFAULT FALSE,
             created_at          TIMESTAMPTZ NOT NULL,
             first_review_at     TIMESTAMPTZ DEFAULT NULL,
             last_review_at      TIMESTAMPTZ DEFAULT NULL,
             mod_at              TIMESTAMPTZ NOT NULL,
             synced_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        -- Self-healing migrations for existing tables
+        ALTER TABLE anki_cards ADD COLUMN IF NOT EXISTS raw_html TEXT NOT NULL DEFAULT '';
+        ALTER TABLE anki_cards ADD COLUMN IF NOT EXISTS has_media BOOLEAN NOT NULL DEFAULT FALSE;
+
+        CREATE TABLE IF NOT EXISTS anki_card_media (
+            card_id     BIGINT PRIMARY KEY REFERENCES anki_cards(card_id) ON DELETE CASCADE,
+            media_name  TEXT NOT NULL,
+            mime_type   VARCHAR(32) NOT NULL DEFAULT 'image/webp',
+            image_webp  BYTEA NOT NULL,
+            size_bytes  INTEGER NOT NULL,
+            created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
 
         CREATE INDEX IF NOT EXISTS idx_ac_diff_label ON anki_cards (difficulty_label);
@@ -621,6 +636,8 @@ class PostgresQueueStore(BaseQueueStore):
                 float(r["fsrs_stability"]) if r.get("fsrs_stability") is not None else None,
                 float(r["fsrs_retrievability"]) if r.get("fsrs_retrievability") is not None else None,
                 int(r["due_in_days"]) if r.get("due_in_days") is not None else None,
+                str(r.get("raw_html", "") or ""),
+                bool(r.get("has_media")),
                 _to_pg_timestamp(r.get("created_at")) or datetime.now(timezone.utc),
                 _to_pg_timestamp(r.get("first_review_at")),
                 _to_pg_timestamp(r.get("last_review_at")),
@@ -635,6 +652,7 @@ class PostgresQueueStore(BaseQueueStore):
             interval_days, reps, lapses, again_count_10, reviews_10, again_rate_10,
             avg_time_ms, difficulty_score, difficulty_label, is_leech,
             fsrs_difficulty, fsrs_stability, fsrs_retrievability, due_in_days,
+            raw_html, has_media,
             created_at, first_review_at, last_review_at, mod_at, synced_at
         ) VALUES (
             %s, %s, %s, %s, %s, %s,
@@ -642,6 +660,7 @@ class PostgresQueueStore(BaseQueueStore):
             %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s,
             %s, %s, %s, %s,
+            %s, %s,
             %s, %s, %s, %s, %s
         )
         ON CONFLICT(card_id) DO UPDATE SET
@@ -670,6 +689,8 @@ class PostgresQueueStore(BaseQueueStore):
             fsrs_stability = EXCLUDED.fsrs_stability,
             fsrs_retrievability = EXCLUDED.fsrs_retrievability,
             due_in_days = EXCLUDED.due_in_days,
+            raw_html = EXCLUDED.raw_html,
+            has_media = EXCLUDED.has_media,
             created_at = EXCLUDED.created_at,
             first_review_at = EXCLUDED.first_review_at,
             last_review_at = EXCLUDED.last_review_at,
@@ -681,6 +702,70 @@ class PostgresQueueStore(BaseQueueStore):
                 cur.executemany(sql, norm_rows)
             conn.commit()
         return len(norm_rows)
+
+    def save_card_media(self, card_id: int, media_name: str, image_bytes: bytes, mime_type: str = "image/webp") -> None:
+        now_dt = datetime.now(timezone.utc)
+        sql = """
+        INSERT INTO anki_card_media (card_id, media_name, mime_type, image_webp, size_bytes, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT(card_id) DO UPDATE SET
+            media_name = EXCLUDED.media_name,
+            mime_type = EXCLUDED.mime_type,
+            image_webp = EXCLUDED.image_webp,
+            size_bytes = EXCLUDED.size_bytes,
+            created_at = EXCLUDED.created_at;
+        """
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (int(card_id), media_name, mime_type, image_bytes, len(image_bytes), now_dt))
+                cur.execute("UPDATE anki_cards SET has_media = TRUE WHERE card_id = %s;", (int(card_id),))
+            conn.commit()
+
+    def get_card_media(self, card_id: int) -> Optional[dict[str, Any]]:
+        sql = "SELECT card_id, media_name, mime_type, image_webp, size_bytes, created_at FROM anki_card_media WHERE card_id = %s;"
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (int(card_id),))
+                row = cur.fetchone()
+                if not row:
+                    return None
+                return {
+                    "card_id": row[0],
+                    "media_name": row[1],
+                    "mime_type": row[2],
+                    "image_webp": bytes(row[3]),
+                    "size_bytes": row[4],
+                    "created_at": str(row[5]),
+                }
+
+    def delete_card_media(self, card_id: int) -> bool:
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM anki_card_media WHERE card_id = %s;", (int(card_id),))
+                rc = cur.rowcount
+                cur.execute("UPDATE anki_cards SET has_media = FALSE WHERE card_id = %s;", (int(card_id),))
+            conn.commit()
+            return rc > 0
+
+    def flush_mature_card_media(self, min_interval_days: int = 21) -> int:
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT m.card_id FROM anki_card_media m
+                    JOIN anki_cards c ON m.card_id = c.card_id
+                    WHERE c.interval_days >= %s;
+                    """,
+                    (int(min_interval_days),),
+                )
+                rows = cur.fetchall()
+                if not rows:
+                    return 0
+                flushed_ids = [r[0] for r in rows]
+                cur.execute("DELETE FROM anki_card_media WHERE card_id = ANY(%s);", (flushed_ids,))
+                cur.execute("UPDATE anki_cards SET has_media = FALSE WHERE card_id = ANY(%s);", (flushed_ids,))
+            conn.commit()
+            return len(flushed_ids)
 
     def reconcile_anki_cards(self, all_card_ids: list[int]) -> int:
         with self._get_connection() as conn:
@@ -866,7 +951,7 @@ class PostgresQueueStore(BaseQueueStore):
             if val == "UNKNOWN":
                 where_clauses.append("(jlpt_level IS NULL OR jlpt_level = '')")
             else:
-                where_clauses.append("jlpt_level = %s")
+                where_clauses.append("UPPER(jlpt_level) = %s")
                 params.append(val)
 
         due_within = filters.get("due_within")
@@ -980,7 +1065,13 @@ class PostgresQueueStore(BaseQueueStore):
                     sampled_daily = daily_rows
 
                 growth_curve = [
-                    {"day": r["day"], "total": r["total_cards"], "new": r["new_cards_added"]}
+                    {
+                        "day": r["day"],
+                        "total": r["total_cards"],
+                        "total_cards": r["total_cards"],
+                        "new": r["new_cards_added"],
+                        "new_cards_added": r["new_cards_added"],
+                    }
                     for r in sampled_daily
                 ]
 
@@ -988,10 +1079,15 @@ class PostgresQueueStore(BaseQueueStore):
                     {
                         "day": r["day"],
                         "mature": r["n_mature"],
+                        "n_mature": r["n_mature"],
                         "young": r["n_young"],
+                        "n_young": r["n_young"],
                         "learning": r["n_learning"],
+                        "n_learning": r["n_learning"],
                         "new": r["n_new"],
+                        "n_new": r["n_new"],
                         "suspended": r["n_suspended"],
+                        "n_suspended": r["n_suspended"],
                     }
                     for r in sampled_daily
                 ]
@@ -1023,10 +1119,13 @@ class PostgresQueueStore(BaseQueueStore):
                     mat_rate = round(vals["mat_num"] / vals["mat_den"] * 100.0, 1) if vals["mat_den"] > 0 else None
                     weekly_retention.append({
                         "week": wk,
+                        "day": wk,
                         "rate": rate,
                         "n": vals["den"],
                         "mature_rate": mat_rate,
                         "mature_n": vals["mat_den"],
+                        "mature_retention_num": vals["mat_num"],
+                        "mature_retention_den": vals["mat_den"],
                     })
 
                 tot_again = sum(r["again"] for r in daily_rows)
@@ -1089,11 +1188,20 @@ class PostgresQueueStore(BaseQueueStore):
                     """
                 )
                 diff_rows = cur.fetchall()
-                diff_map: dict[str, dict[str, int]] = {}
+                diff_map: dict[str, dict[str, Any]] = {}
                 for r in diff_rows:
                     lbl, st, cnt = r[0], r[1], int(r[2])
-                    d_entry = diff_map.setdefault(lbl, {"label": lbl, "total": 0, "mature": 0, "young": 0, "other": 0})
+                    d_entry = diff_map.setdefault(lbl, {
+                        "label": lbl,
+                        "difficulty_label": lbl,
+                        "count": 0,
+                        "total": 0,
+                        "mature": 0,
+                        "young": 0,
+                        "other": 0,
+                    })
                     d_entry["total"] += cnt
+                    d_entry["count"] += cnt
                     if st == "mature":
                         d_entry["mature"] += cnt
                     elif st == "young":
@@ -1102,7 +1210,15 @@ class PostgresQueueStore(BaseQueueStore):
                         d_entry["other"] += cnt
                 standard_labels = ["leech", "hard", "normal", "easy", "solid", "new"]
                 difficulty_distribution = [
-                    diff_map.get(lbl, {"label": lbl, "total": 0, "mature": 0, "young": 0, "other": 0})
+                    diff_map.get(lbl, {
+                        "label": lbl,
+                        "difficulty_label": lbl,
+                        "count": 0,
+                        "total": 0,
+                        "mature": 0,
+                        "young": 0,
+                        "other": 0,
+                    })
                     for lbl in standard_labels
                 ]
 
@@ -1131,11 +1247,19 @@ class PostgresQueueStore(BaseQueueStore):
                     """
                 )
                 jlpt_rows = cur.fetchall()
-                jlpt_map: dict[str, dict[str, int]] = {}
+                jlpt_map: dict[str, dict[str, Any]] = {}
                 for r in jlpt_rows:
                     lvl, st, cnt = r[0].upper(), r[1], int(r[2])
-                    j_entry = jlpt_map.setdefault(lvl, {"level": lvl, "total": 0, "mature": 0, "young": 0, "other": 0})
+                    j_entry = jlpt_map.setdefault(lvl, {
+                        "level": lvl,
+                        "count": 0,
+                        "total": 0,
+                        "mature": 0,
+                        "young": 0,
+                        "other": 0,
+                    })
                     j_entry["total"] += cnt
+                    j_entry["count"] += cnt
                     if st == "mature":
                         j_entry["mature"] += cnt
                     elif st == "young":
@@ -1144,7 +1268,14 @@ class PostgresQueueStore(BaseQueueStore):
                         j_entry["other"] += cnt
                 jlpt_levels = ["N5", "N4", "N3", "N2", "N1", "UNKNOWN"]
                 jlpt_coverage = [
-                    jlpt_map.get(lvl, {"level": lvl, "total": 0, "mature": 0, "young": 0, "other": 0})
+                    jlpt_map.get(lvl, {
+                        "level": lvl,
+                        "count": 0,
+                        "total": 0,
+                        "mature": 0,
+                        "young": 0,
+                        "other": 0,
+                    })
                     for lvl in jlpt_levels if lvl in jlpt_map
                 ]
 
@@ -1428,6 +1559,36 @@ class PostgresQueueStore(BaseQueueStore):
                 )
                 practiced_7d = cur.fetchone()[0]
 
+                cur.execute(
+                    "SELECT COUNT(*), COUNT(CASE WHEN rating >= 2 THEN 1 END) FROM cloud_study_reviews;"
+                )
+                total_rev_row = cur.fetchone()
+                total_reviews = total_rev_row[0] if total_rev_row else 0
+                passed_reviews = total_rev_row[1] if total_rev_row else 0
+                accuracy_pct = round((passed_reviews / total_reviews) * 100.0, 1) if total_reviews > 0 else 100.0
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM cloud_study_reviews WHERE reviewed_at >= %s;",
+                    (today_start,),
+                )
+                reviews_today = cur.fetchone()[0]
+
+                cur.execute("SELECT COUNT(*) FROM cloud_study_state;")
+                cards_in_cloud_study = cur.fetchone()[0]
+
+                cur.execute(
+                    "SELECT DISTINCT TO_CHAR(reviewed_at, 'YYYY-MM-DD') FROM cloud_study_reviews ORDER BY 1 DESC;"
+                )
+                date_rows = cur.fetchall()
+                review_dates = {r[0] for r in date_rows if r[0]}
+                streak_days = 0
+                check_date = now_dt.date()
+                if check_date.isoformat() not in review_dates:
+                    check_date = check_date - timedelta(days=1)
+                while check_date.isoformat() in review_dates:
+                    streak_days += 1
+                    check_date = check_date - timedelta(days=1)
+
                 cur.execute("SELECT box, COUNT(*) as count FROM cloud_study_state GROUP BY box;")
                 box_rows = cur.fetchall()
                 box_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
@@ -1451,10 +1612,15 @@ class PostgresQueueStore(BaseQueueStore):
                 hardest_cards = [dict(zip(hardest_cols, r)) for r in cur.fetchall()]
 
                 return {
+                    "total_reviews": total_reviews,
+                    "reviews_today": reviews_today,
                     "practiced_today": practiced_today,
                     "reviewed_today": practiced_today,
                     "practiced_7d": practiced_7d,
                     "reviewed_7d": practiced_7d,
+                    "accuracy_pct": accuracy_pct,
+                    "streak_days": streak_days,
+                    "cards_in_cloud_study": cards_in_cloud_study,
                     "box_counts": box_counts,
                     "boxes": box_counts,
                     "box_distribution": {f"box_{k}": v for k, v in box_counts.items()},

@@ -94,3 +94,13 @@ def test_escape_html_present_and_used_in_script():
     assert "function escapeHtml(str)" in DASHBOARD_HTML
     assert "escapeHtml(card.expression)" in DASHBOARD_HTML
     assert "escapeHtml(card.meaning)" in DASHBOARD_HTML
+
+
+def test_start_study_session_awaits_json():
+    """Ensure startStudySession parses JSON response into data before accessing data.cards."""
+    match = re.search(r"async function startStudySession\(\) \{(.*?)\n    function ", DASHBOARD_HTML, re.DOTALL)
+    assert match is not None
+    body = match.group(1)
+    assert "const data = await resp.json();" in body
+
+

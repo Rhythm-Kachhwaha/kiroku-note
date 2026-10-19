@@ -103,6 +103,8 @@ CREATE TABLE IF NOT EXISTS anki_cards (
     fsrs_stability      REAL DEFAULT NULL,
     fsrs_retrievability REAL DEFAULT NULL,
     due_in_days         INTEGER DEFAULT NULL,
+    raw_html            TEXT NOT NULL DEFAULT '',
+    has_media           INTEGER NOT NULL DEFAULT 0,
     created_at          TEXT NOT NULL,
     first_review_at     TEXT DEFAULT NULL,
     last_review_at      TEXT DEFAULT NULL,
@@ -117,6 +119,16 @@ CREATE INDEX IF NOT EXISTS idx_ac_diff_score ON anki_cards (difficulty_score);
 CREATE INDEX IF NOT EXISTS idx_ac_lapses ON anki_cards (lapses);
 CREATE INDEX IF NOT EXISTS idx_ac_due ON anki_cards (due_in_days);
 CREATE INDEX IF NOT EXISTS idx_ac_created ON anki_cards (created_at);
+
+CREATE TABLE IF NOT EXISTS anki_card_media (
+    card_id INTEGER PRIMARY KEY,
+    media_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL DEFAULT 'image/webp',
+    image_webp BLOB NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (card_id) REFERENCES anki_cards(card_id) ON DELETE CASCADE
+);
 
 CREATE TABLE IF NOT EXISTS anki_daily (
     day                  TEXT PRIMARY KEY,
@@ -267,6 +279,18 @@ class BaseQueueStore(abc.ABC):
     def get_anki_card(self, card_id: int) -> Optional[dict[str, Any]]:
         return None
 
+    def save_card_media(self, card_id: int, media_name: str, image_bytes: bytes, mime_type: str = "image/webp") -> None:
+        pass
+
+    def get_card_media(self, card_id: int) -> Optional[dict[str, Any]]:
+        return None
+
+    def delete_card_media(self, card_id: int) -> bool:
+        return False
+
+    def flush_mature_card_media(self, min_interval_days: int = 21) -> int:
+        return 0
+
     def get_anki_status(self) -> dict[str, Any]:
         return {
             "synced_at": None,
@@ -370,6 +394,17 @@ class SqliteQueueStore(BaseQueueStore):
                     conn.execute("ALTER TABLE queued_cards ADD COLUMN lease_expires_at TEXT;")
                 if "payload_json" not in cols:
                     conn.execute("ALTER TABLE queued_cards ADD COLUMN payload_json TEXT NOT NULL DEFAULT '{}';")
+                conn.commit()
+
+            # Migration check for anki_cards table
+            cur_ac = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='anki_cards';")
+            if cur_ac.fetchone():
+                cursor_cols_ac = conn.execute("PRAGMA table_info(anki_cards);")
+                cols_ac = {row["name"] for row in cursor_cols_ac.fetchall()}
+                if "raw_html" not in cols_ac:
+                    conn.execute("ALTER TABLE anki_cards ADD COLUMN raw_html TEXT NOT NULL DEFAULT '';")
+                if "has_media" not in cols_ac:
+                    conn.execute("ALTER TABLE anki_cards ADD COLUMN has_media INTEGER NOT NULL DEFAULT 0;")
                 conn.commit()
 
             conn.executescript(_SQLITE_SCHEMA)
@@ -629,6 +664,8 @@ class SqliteQueueStore(BaseQueueStore):
                 float(r["fsrs_stability"]) if r.get("fsrs_stability") is not None else None,
                 float(r["fsrs_retrievability"]) if r.get("fsrs_retrievability") is not None else None,
                 int(r["due_in_days"]) if r.get("due_in_days") is not None else None,
+                str(r.get("raw_html", "") or ""),
+                1 if r.get("has_media") else 0,
                 str(r.get("created_at") or datetime.now(timezone.utc).isoformat()),
                 str(r["first_review_at"]) if r.get("first_review_at") else None,
                 str(r["last_review_at"]) if r.get("last_review_at") else None,
@@ -643,6 +680,7 @@ class SqliteQueueStore(BaseQueueStore):
             interval_days, reps, lapses, again_count_10, reviews_10, again_rate_10,
             avg_time_ms, difficulty_score, difficulty_label, is_leech,
             fsrs_difficulty, fsrs_stability, fsrs_retrievability, due_in_days,
+            raw_html, has_media,
             created_at, first_review_at, last_review_at, mod_at, synced_at
         ) VALUES (
             ?, ?, ?, ?, ?, ?,
@@ -650,6 +688,7 @@ class SqliteQueueStore(BaseQueueStore):
             ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?,
             ?, ?, ?, ?,
+            ?, ?,
             ?, ?, ?, ?, ?
         )
         ON CONFLICT(card_id) DO UPDATE SET
@@ -678,6 +717,8 @@ class SqliteQueueStore(BaseQueueStore):
             fsrs_stability = excluded.fsrs_stability,
             fsrs_retrievability = excluded.fsrs_retrievability,
             due_in_days = excluded.due_in_days,
+            raw_html = excluded.raw_html,
+            has_media = excluded.has_media,
             created_at = excluded.created_at,
             first_review_at = excluded.first_review_at,
             last_review_at = excluded.last_review_at,
@@ -688,6 +729,68 @@ class SqliteQueueStore(BaseQueueStore):
             conn.executemany(sql, norm_rows)
             conn.commit()
         return len(norm_rows)
+
+    def save_card_media(self, card_id: int, media_name: str, image_bytes: bytes, mime_type: str = "image/webp") -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO anki_card_media (card_id, media_name, mime_type, image_webp, size_bytes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(card_id) DO UPDATE SET
+                    media_name = excluded.media_name,
+                    mime_type = excluded.mime_type,
+                    image_webp = excluded.image_webp,
+                    size_bytes = excluded.size_bytes,
+                    created_at = excluded.created_at;
+                """,
+                (int(card_id), media_name, mime_type, image_bytes, len(image_bytes), now),
+            )
+            conn.execute("UPDATE anki_cards SET has_media = 1 WHERE card_id = ?;", (int(card_id),))
+            conn.commit()
+
+    def get_card_media(self, card_id: int) -> Optional[dict[str, Any]]:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT card_id, media_name, mime_type, image_webp, size_bytes, created_at FROM anki_card_media WHERE card_id = ?;",
+                (int(card_id),),
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "card_id": row["card_id"],
+                "media_name": row["media_name"],
+                "mime_type": row["mime_type"],
+                "image_webp": bytes(row["image_webp"]),
+                "size_bytes": row["size_bytes"],
+                "created_at": row["created_at"],
+            }
+
+    def delete_card_media(self, card_id: int) -> bool:
+        with self._conn() as conn:
+            cur = conn.execute("DELETE FROM anki_card_media WHERE card_id = ?;", (int(card_id),))
+            conn.execute("UPDATE anki_cards SET has_media = 0 WHERE card_id = ?;", (int(card_id),))
+            conn.commit()
+            return cur.rowcount > 0
+
+    def flush_mature_card_media(self, min_interval_days: int = 21) -> int:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT m.card_id FROM anki_card_media m
+                JOIN anki_cards c ON m.card_id = c.card_id
+                WHERE c.interval_days >= ?;
+                """,
+                (int(min_interval_days),),
+            ).fetchall()
+            if not rows:
+                return 0
+            flushed_ids = [r["card_id"] for r in rows]
+            placeholders = ",".join("?" for _ in flushed_ids)
+            conn.execute(f"DELETE FROM anki_card_media WHERE card_id IN ({placeholders});", flushed_ids)
+            conn.execute(f"UPDATE anki_cards SET has_media = 0 WHERE card_id IN ({placeholders});", flushed_ids)
+            conn.commit()
+            return len(flushed_ids)
 
     def reconcile_anki_cards(self, all_card_ids: list[int]) -> int:
         with self._conn() as conn:
@@ -871,7 +974,7 @@ class SqliteQueueStore(BaseQueueStore):
             if val == "UNKNOWN":
                 where_clauses.append("(jlpt_level IS NULL OR jlpt_level = '')")
             else:
-                where_clauses.append("jlpt_level = ?")
+                where_clauses.append("UPPER(jlpt_level) = ?")
                 params.append(val)
 
         due_within = filters.get("due_within")
@@ -971,7 +1074,13 @@ class SqliteQueueStore(BaseQueueStore):
                 sampled_daily = list(daily_rows)
 
             growth_curve = [
-                {"day": r["day"], "total": r["total_cards"], "new": r["new_cards_added"]}
+                {
+                    "day": r["day"],
+                    "total": r["total_cards"],
+                    "total_cards": r["total_cards"],
+                    "new": r["new_cards_added"],
+                    "new_cards_added": r["new_cards_added"],
+                }
                 for r in sampled_daily
             ]
 
@@ -979,10 +1088,15 @@ class SqliteQueueStore(BaseQueueStore):
                 {
                     "day": r["day"],
                     "mature": r["n_mature"],
+                    "n_mature": r["n_mature"],
                     "young": r["n_young"],
+                    "n_young": r["n_young"],
                     "learning": r["n_learning"],
+                    "n_learning": r["n_learning"],
                     "new": r["n_new"],
+                    "n_new": r["n_new"],
                     "suspended": r["n_suspended"],
+                    "n_suspended": r["n_suspended"],
                 }
                 for r in sampled_daily
             ]
@@ -1017,10 +1131,13 @@ class SqliteQueueStore(BaseQueueStore):
                 mat_rate = round(vals["mat_num"] / vals["mat_den"] * 100.0, 1) if vals["mat_den"] > 0 else None
                 weekly_retention.append({
                     "week": wk,
+                    "day": wk,
                     "rate": rate,
                     "n": vals["den"],
                     "mature_rate": mat_rate,
                     "mature_n": vals["mat_den"],
+                    "mature_retention_num": vals["mat_num"],
+                    "mature_retention_den": vals["mat_den"],
                 })
 
             # 3. Answer buttons
@@ -1083,13 +1200,22 @@ class SqliteQueueStore(BaseQueueStore):
                 GROUP BY difficulty_label, state;
                 """
             ).fetchall()
-            diff_map: dict[str, dict[str, int]] = {}
+            diff_map: dict[str, dict[str, Any]] = {}
             for r in diff_rows:
                 lbl = r["difficulty_label"]
                 st = r["state"]
                 cnt = int(r["count"])
-                d_entry = diff_map.setdefault(lbl, {"label": lbl, "total": 0, "mature": 0, "young": 0, "other": 0})
+                d_entry = diff_map.setdefault(lbl, {
+                    "label": lbl,
+                    "difficulty_label": lbl,
+                    "count": 0,
+                    "total": 0,
+                    "mature": 0,
+                    "young": 0,
+                    "other": 0,
+                })
                 d_entry["total"] += cnt
+                d_entry["count"] += cnt
                 if st == "mature":
                     d_entry["mature"] += cnt
                 elif st == "young":
@@ -1098,7 +1224,15 @@ class SqliteQueueStore(BaseQueueStore):
                     d_entry["other"] += cnt
             standard_labels = ["leech", "hard", "normal", "easy", "solid", "new"]
             difficulty_distribution = [
-                diff_map.get(lbl, {"label": lbl, "total": 0, "mature": 0, "young": 0, "other": 0})
+                diff_map.get(lbl, {
+                    "label": lbl,
+                    "difficulty_label": lbl,
+                    "count": 0,
+                    "total": 0,
+                    "mature": 0,
+                    "young": 0,
+                    "other": 0,
+                })
                 for lbl in standard_labels
             ]
 
@@ -1126,13 +1260,21 @@ class SqliteQueueStore(BaseQueueStore):
                 GROUP BY level, state;
                 """
             ).fetchall()
-            jlpt_map: dict[str, dict[str, int]] = {}
+            jlpt_map: dict[str, dict[str, Any]] = {}
             for r in jlpt_rows:
                 lvl = r["level"].upper()
                 st = r["state"]
                 cnt = int(r["count"])
-                j_entry = jlpt_map.setdefault(lvl, {"level": lvl, "total": 0, "mature": 0, "young": 0, "other": 0})
+                j_entry = jlpt_map.setdefault(lvl, {
+                    "level": lvl,
+                    "count": 0,
+                    "total": 0,
+                    "mature": 0,
+                    "young": 0,
+                    "other": 0,
+                })
                 j_entry["total"] += cnt
+                j_entry["count"] += cnt
                 if st == "mature":
                     j_entry["mature"] += cnt
                 elif st == "young":
@@ -1141,7 +1283,14 @@ class SqliteQueueStore(BaseQueueStore):
                     j_entry["other"] += cnt
             jlpt_levels = ["N5", "N4", "N3", "N2", "N1", "UNKNOWN"]
             jlpt_coverage = [
-                jlpt_map.get(lvl, {"level": lvl, "total": 0, "mature": 0, "young": 0, "other": 0})
+                jlpt_map.get(lvl, {
+                    "level": lvl,
+                    "count": 0,
+                    "total": 0,
+                    "mature": 0,
+                    "young": 0,
+                    "other": 0,
+                })
                 for lvl in jlpt_levels if lvl in jlpt_map
             ]
 
@@ -1438,6 +1587,34 @@ class SqliteQueueStore(BaseQueueStore):
             ).fetchone()
             practiced_7d = seven_row[0] if seven_row else 0
 
+            total_rev_row = conn.execute(
+                "SELECT COUNT(*), COUNT(CASE WHEN rating >= 2 THEN 1 END) FROM cloud_study_reviews;"
+            ).fetchone()
+            total_reviews = total_rev_row[0] if total_rev_row else 0
+            passed_reviews = total_rev_row[1] if total_rev_row else 0
+            accuracy_pct = round((passed_reviews / total_reviews) * 100.0, 1) if total_reviews > 0 else 100.0
+
+            rev_today_row = conn.execute(
+                "SELECT COUNT(*) FROM cloud_study_reviews WHERE reviewed_at >= ?;",
+                (today_start,),
+            ).fetchone()
+            reviews_today = rev_today_row[0] if rev_today_row else 0
+
+            total_cards_row = conn.execute("SELECT COUNT(*) FROM cloud_study_state;").fetchone()
+            cards_in_cloud_study = total_cards_row[0] if total_cards_row else 0
+
+            date_rows = conn.execute(
+                "SELECT DISTINCT substr(reviewed_at, 1, 10) as rev_date FROM cloud_study_reviews ORDER BY rev_date DESC;"
+            ).fetchall()
+            review_dates = {r[0] for r in date_rows if r[0]}
+            streak_days = 0
+            check_date = now_dt.date()
+            if check_date.isoformat() not in review_dates:
+                check_date = check_date - timedelta(days=1)
+            while check_date.isoformat() in review_dates:
+                streak_days += 1
+                check_date = check_date - timedelta(days=1)
+
             box_rows = conn.execute(
                 "SELECT box, COUNT(*) as count FROM cloud_study_state GROUP BY box;"
             ).fetchall()
@@ -1461,10 +1638,15 @@ class SqliteQueueStore(BaseQueueStore):
             hardest_cards = [dict(r) for r in hardest_rows]
 
             return {
+                "total_reviews": total_reviews,
+                "reviews_today": reviews_today,
                 "practiced_today": practiced_today,
                 "reviewed_today": practiced_today,
                 "practiced_7d": practiced_7d,
                 "reviewed_7d": practiced_7d,
+                "accuracy_pct": accuracy_pct,
+                "streak_days": streak_days,
+                "cards_in_cloud_study": cards_in_cloud_study,
                 "box_counts": box_counts,
                 "boxes": box_counts,
                 "box_distribution": {f"box_{k}": v for k, v in box_counts.items()},

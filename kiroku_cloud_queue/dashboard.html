@@ -1316,6 +1316,199 @@
       margin-bottom: 0.15rem;
     }
 
+    /* Scoped Kiroku Note Card Styles */
+    .kn-card {
+      --kn-bg: var(--surface, #181715);
+      --kn-text: var(--text, #ede8e1);
+      --kn-muted: var(--text-secondary, #9e948a);
+      --kn-border: var(--border-default, #312b26);
+      --kn-surface: var(--surface-elevated, #211e1b);
+      --kn-surface-border: var(--border-subtle, #25211e);
+      --kn-badge-bg: rgba(255, 255, 255, 0.06);
+      --kn-badge-text: #d4884f;
+      --kn-pitch-bg: rgba(59, 130, 246, 0.12);
+      --kn-pitch-text: #60a5fa;
+      --kn-pitch-border: rgba(59, 130, 246, 0.3);
+      --kn-ruby: #d4884f;
+      font-family: var(--font-ja);
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--kn-text);
+      text-align: left;
+      width: 100%;
+      max-width: 540px;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+    .kn-card *, .kn-card *::before, .kn-card *::after { box-sizing: border-box; }
+    .kn-card .kn-reading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .kn-card .kn-kana {
+      font-size: 1.25em;
+      font-weight: 600;
+      color: var(--kn-text);
+      letter-spacing: 0.02em;
+    }
+    .kn-card .kn-pitch {
+      font-size: 0.78em;
+      font-weight: 500;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--kn-pitch-bg);
+      color: var(--kn-pitch-text);
+      border: 1px solid var(--kn-pitch-border);
+      white-space: nowrap;
+    }
+    .kn-card .kn-divider {
+      border: 0;
+      height: 1px;
+      background: var(--kn-border);
+      margin: 8px 0 12px 0;
+    }
+    .kn-card .kn-meaning, .kn-card .kn-meanings {
+      margin: 6px 0 10px 0;
+      font-size: 1em;
+      line-height: 1.5;
+    }
+    .kn-card .kn-meanings { padding-left: 20px; }
+    .kn-card .kn-meanings li { margin-bottom: 4px; }
+    .kn-card .kn-pos {
+      display: inline-block;
+      font-size: 0.75em;
+      font-weight: 500;
+      padding: 1px 5px;
+      margin-right: 5px;
+      border-radius: 3px;
+      background: var(--kn-badge-bg);
+      color: var(--kn-badge-text);
+      vertical-align: middle;
+    }
+    .kn-card .kn-tag {
+      display: inline-block;
+      font-size: 0.75em;
+      font-weight: 500;
+      padding: 1px 5px;
+      margin-right: 5px;
+      border-radius: 3px;
+      background: var(--kn-badge-bg);
+      color: var(--kn-muted);
+      vertical-align: middle;
+    }
+    .kn-card .kn-tag.kn-jlpt {
+      font-size: 0.82em;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(59, 130, 246, 0.15);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      letter-spacing: 0.03em;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .kn-card .kn-kanji-card {
+      margin: 10px 0;
+      padding: 10px 12px;
+      background: var(--kn-surface);
+      border: 1px solid var(--kn-surface-border);
+      border-radius: 6px;
+    }
+    .kn-card .kn-kanji-header {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--kn-border);
+      padding-bottom: 6px;
+    }
+    .kn-card .kn-kanji-char {
+      font-size: 1.3em;
+      font-weight: 700;
+      color: var(--kn-text);
+      margin-right: 4px;
+    }
+    .kn-card .kn-kanji-readings {
+      margin: 6px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.92em;
+    }
+    .kn-card .kn-kanji-reading-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .kn-card .kn-reading-lbl {
+      font-size: 0.75em;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--kn-muted);
+      min-width: 58px;
+    }
+    .kn-card .kn-onyomi { color: #fbbf24; font-weight: 500; }
+    .kn-card .kn-kunyomi { color: #93c5fd; font-weight: 500; }
+    .kn-card .kn-nanori { color: var(--kn-muted); }
+    .kn-card .kn-kanji-meanings {
+      margin-top: 6px;
+      font-size: 0.95em;
+      line-height: 1.4;
+      color: var(--kn-text);
+      border-top: 1px solid var(--kn-border);
+      padding-top: 6px;
+    }
+    .kn-card .kn-example-block {
+      margin: 12px 0;
+      padding: 10px 14px;
+      background: var(--kn-surface);
+      border: 1px solid var(--kn-surface-border);
+      border-radius: 6px;
+    }
+    .kn-card .kn-example-ja {
+      margin: 0 0 4px 0;
+      font-size: 1.05em;
+      line-height: 1.6;
+      font-weight: 500;
+      color: var(--kn-text);
+    }
+    .kn-card ruby rt {
+      font-size: 0.58em;
+      color: var(--kn-ruby);
+      font-weight: normal;
+    }
+    .kn-card .kn-example-en {
+      margin: 0;
+      font-size: 0.88em;
+      line-height: 1.4;
+      color: var(--kn-muted);
+    }
+    .kn-card .kn-hint, .kn-card .kn-notes {
+      margin: 6px 0;
+      font-size: 0.85em;
+      color: var(--kn-muted);
+    }
+    .kn-card .kn-media {
+      margin-top: 12px;
+      text-align: center;
+    }
+    .kn-card .kn-image {
+      max-width: 100%;
+      max-height: 240px;
+      height: auto;
+      object-fit: contain;
+      border-radius: 6px;
+      display: block;
+      margin: 6px auto;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+
     footer {
       text-align: center;
       margin-top: 2rem;
@@ -1786,6 +1979,40 @@
               <strong>Last 7 Days</strong>
               <span id="study-week-count">0 reviews</span>
             </div>
+            <div class="modal-meta-item">
+              <strong>Accuracy</strong>
+              <span id="study-accuracy-rate">100%</span>
+            </div>
+            <div class="modal-meta-item">
+              <strong>Daily Streak</strong>
+              <span id="study-streak-count">0 days</span>
+            </div>
+          </div>
+
+          <div style="margin-top:1rem;border-top:1px solid var(--border-default);padding-top:0.75rem;">
+            <div style="font-size:0.75rem;font-weight:600;color:var(--text-secondary);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.04em;">Leitner Boxes</div>
+            <div id="study-boxes-container" style="display:grid;grid-template-columns:repeat(5, 1fr);gap:0.4rem;text-align:center;">
+              <div style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:6px;padding:0.45rem 0.2rem;">
+                <div style="font-size:0.68rem;color:var(--text-muted);font-weight:500;">Box 1 (10m)</div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;">0</div>
+              </div>
+              <div style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:6px;padding:0.45rem 0.2rem;">
+                <div style="font-size:0.68rem;color:var(--text-muted);font-weight:500;">Box 2 (1d)</div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;">0</div>
+              </div>
+              <div style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:6px;padding:0.45rem 0.2rem;">
+                <div style="font-size:0.68rem;color:var(--text-muted);font-weight:500;">Box 3 (3d)</div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;">0</div>
+              </div>
+              <div style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:6px;padding:0.45rem 0.2rem;">
+                <div style="font-size:0.68rem;color:var(--text-muted);font-weight:500;">Box 4 (7d)</div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;">0</div>
+              </div>
+              <div style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:6px;padding:0.45rem 0.2rem;">
+                <div style="font-size:0.68rem;color:var(--text-muted);font-weight:500;">Box 5 (14d)</div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;">0</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1813,9 +2040,13 @@
 
             <!-- Revealed Content -->
             <div id="study-revealed-content" style="display:none;width:100%;display:flex;flex-direction:column;align-items:center;">
-              <div class="study-reading-reveal" id="study-reading-reveal"></div>
-              <div class="study-meaning-reveal" id="study-meaning-reveal"></div>
-              <div class="study-sentence-reveal" id="study-sentence-reveal" style="display:none;"></div>
+              <div id="study-rich-reveal" style="display:none;width:100%;"></div>
+              <div id="study-plain-reveal" style="width:100%;display:flex;flex-direction:column;align-items:center;">
+                <div class="study-reading-reveal" id="study-reading-reveal"></div>
+                <div class="study-meaning-reveal" id="study-meaning-reveal"></div>
+                <div class="study-sentence-reveal" id="study-sentence-reveal" style="display:none;"></div>
+              </div>
+              <div id="study-media-reveal" style="display:none;margin-top:10px;text-align:center;width:100%;"></div>
             </div>
           </div>
 
@@ -1890,6 +2121,10 @@
       <div class="modal-section" id="modal-section-meaning">
         <div class="modal-section-title">Definition</div>
         <div class="modal-meaning-box" id="modal-meaning-content"></div>
+      </div>
+
+      <div class="modal-section" id="modal-section-media" style="display: none;">
+        <div id="modal-media-content" style="text-align: center; margin: 0 auto;"></div>
       </div>
 
       <div class="modal-section" id="modal-section-sentence" style="display: none;">
@@ -2378,15 +2613,32 @@
       if (card.is_leech) badgesHtml += `<span class="due-badge overdue">Leech</span>`;
       document.getElementById('modal-badges').innerHTML = badgesHtml;
 
-      document.getElementById('modal-meaning-content').textContent = card.meaning || 'No definition recorded.';
-
       const sSec = document.getElementById('modal-section-sentence');
-      if (card.sentence) {
-        sSec.style.display = 'block';
-        document.getElementById('modal-sentence-jp').textContent = card.sentence;
-        document.getElementById('modal-sentence-en').textContent = card.sentence_meaning || '';
+      const meaningEl = document.getElementById('modal-meaning-content');
+      if (card.raw_html && card.raw_html.trim()) {
+        meaningEl.innerHTML = card.raw_html;
+        if (sSec) sSec.style.display = 'none';
       } else {
-        sSec.style.display = 'none';
+        meaningEl.textContent = card.meaning || 'No definition recorded.';
+        if (card.sentence) {
+          sSec.style.display = 'block';
+          document.getElementById('modal-sentence-jp').textContent = card.sentence;
+          document.getElementById('modal-sentence-en').textContent = card.sentence_meaning || '';
+        } else {
+          sSec.style.display = 'none';
+        }
+      }
+
+      const mediaSec = document.getElementById('modal-section-media');
+      const mediaEl = document.getElementById('modal-media-content');
+      if (mediaSec && mediaEl) {
+        if (card.has_media) {
+          mediaSec.style.display = 'block';
+          mediaEl.innerHTML = `<img class="kn-image" src="/api/cards/${card.card_id}/media" alt="${escapeHtml(card.expression || '')}" loading="lazy">`;
+        } else {
+          mediaSec.style.display = 'none';
+          mediaEl.innerHTML = '';
+        }
       }
 
       document.getElementById('modal-meta-deck').textContent = card.deck_name || '—';
@@ -2461,7 +2713,7 @@
         return;
       }
 
-      const totalVals = growthData.map(d => d.total_cards || 0);
+      const totalVals = growthData.map(d => (d.total_cards != null ? d.total_cards : (d.total != null ? d.total : 0)));
       const minVal = Math.min(...totalVals);
       const maxVal = Math.max(...totalVals, 1);
       const pointsCount = growthData.length;
@@ -2478,7 +2730,8 @@
 
       const pts = growthData.map((d, i) => {
         const x = padL + (i / (pointsCount - 1 || 1)) * plotW;
-        const y = padT + (1 - (d.total_cards - minVal) / (maxVal - minVal || 1)) * plotH;
+        const val = (d.total_cards != null ? d.total_cards : (d.total != null ? d.total : 0));
+        const y = padT + (1 - (val - minVal) / (maxVal - minVal || 1)) * plotH;
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       }).join(' ');
 
@@ -2513,15 +2766,17 @@
       const plotH = h - padT - padB;
 
       const last = stateData[stateData.length - 1];
-      const maxTotal = Math.max(...stateData.map(d => (d.n_mature || 0) + (d.n_young || 0) + (d.n_learning || 0) + (d.n_new || 0)), 1);
+      const getMat = d => (d.n_mature != null ? d.n_mature : (d.mature || 0));
+      const getYoung = d => (d.n_young != null ? d.n_young : (d.young || 0));
+      const getLearn = d => (d.n_learning != null ? d.n_learning : (d.learning || 0));
+      const getNew = d => (d.n_new != null ? d.n_new : (d.new || 0));
+      const maxTotal = Math.max(...stateData.map(d => getMat(d) + getYoung(d) + getLearn(d) + getNew(d)), 1);
 
       const maturePts = [];
-      const youngPts = [];
 
       stateData.forEach((d, i) => {
         const x = padL + (i / (stateData.length - 1 || 1)) * plotW;
-        const total = (d.n_mature || 0) + (d.n_young || 0) + (d.n_learning || 0) + (d.n_new || 0);
-        const yMature = padT + (1 - (d.n_mature || 0) / maxTotal) * plotH;
+        const yMature = padT + (1 - getMat(d) / maxTotal) * plotH;
         maturePts.push(`${x.toFixed(1)},${yMature.toFixed(1)}`);
       });
 
@@ -2530,15 +2785,16 @@
           <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
           <polyline fill="none" stroke="var(--green)" stroke-width="2" points="${maturePts.join(' ')}"/>
           <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(stateData[0].day)}</text>
-          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">Mature: ${(last.n_mature || 0).toLocaleString()}</text>
+          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">Mature: ${getMat(last).toLocaleString()}</text>
         </svg>
       `;
       wrap.innerHTML = svgHtml;
     }
 
-    function renderRetentionChart(retentionData) {
+    function renderRetentionChart(rawRetention) {
       const wrap = document.getElementById('chart-retention-wrap');
       const sumEl = document.getElementById('retention-summary');
+      const retentionData = Array.isArray(rawRetention) ? rawRetention : (rawRetention && rawRetention.weekly ? rawRetention.weekly : []);
       if (!wrap || !retentionData.length) {
         if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No retention data recorded.</div>';
         return;
@@ -2547,8 +2803,10 @@
       let totalNum = 0;
       let totalDen = 0;
       retentionData.forEach(d => {
-        totalNum += (d.mature_retention_num || 0);
-        totalDen += (d.mature_retention_den || 0);
+        const den = d.mature_retention_den != null ? d.mature_retention_den : (d.mature_n != null ? d.mature_n : (d.n || 0));
+        const num = d.mature_retention_num != null ? d.mature_retention_num : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : 0);
+        totalNum += num;
+        totalDen += den;
       });
 
       const rate = totalDen >= 30 ? Math.round((totalNum / totalDen) * 100) : null;
@@ -2567,26 +2825,30 @@
 
       const pts = retentionData.map((d, i) => {
         const x = padL + (i / (retentionData.length - 1 || 1)) * plotW;
-        const den = d.mature_retention_den || 0;
-        const num = d.mature_retention_num || 0;
+        const den = d.mature_retention_den != null ? d.mature_retention_den : (d.mature_n != null ? d.mature_n : (d.n || 0));
+        const num = d.mature_retention_num != null ? d.mature_retention_num : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : 0);
         const r = den > 0 ? (num / den) : 0.8;
         const y = padT + (1 - r) * plotH;
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       }).join(' ');
+
+      const firstLabel = retentionData[0].day || retentionData[0].week || '';
+      const lastLabel = retentionData[retentionData.length - 1].day || retentionData[retentionData.length - 1].week || '';
 
       wrap.innerHTML = `
         <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="True retention rate curve">
           <line x1="${padL}" y1="${padT + plotH * 0.1}" x2="${w - padR}" y2="${padT + plotH * 0.1}" stroke="rgba(94, 163, 106, 0.2)" stroke-dasharray="3,3"/>
           <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
           <polyline fill="none" stroke="var(--green)" stroke-width="2" points="${pts}"/>
-          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(retentionData[0].day)}</text>
-          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(retentionData[retentionData.length - 1].day)}</text>
+          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(firstLabel)}</text>
+          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(lastLabel)}</text>
         </svg>
       `;
     }
 
-    function renderButtonsChart(buttonsData) {
+    function renderButtonsChart(rawButtons) {
       const wrap = document.getElementById('chart-buttons-wrap');
+      const buttonsData = Array.isArray(rawButtons) ? rawButtons : (rawButtons && rawButtons.weekly ? rawButtons.weekly : []);
       if (!wrap || !buttonsData.length) {
         if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No answer button logs available.</div>';
         return;
@@ -2620,7 +2882,7 @@
 
     function renderDueForecastChart(dueData) {
       const wrap = document.getElementById('chart-due-wrap');
-      if (!wrap || !dueData.length) {
+      if (!dueData || !dueData.length) {
         if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No due forecast data.</div>';
         return;
       }
@@ -2658,7 +2920,7 @@
         return;
       }
 
-      const total = diffData.reduce((acc, d) => acc + (d.count || 0), 0) || 1;
+      const total = diffData.reduce((acc, d) => acc + (d.count != null ? d.count : (d.total || 0)), 0) || 1;
       const w = 600;
       const h = 50;
 
@@ -2673,8 +2935,10 @@
       };
 
       const rects = diffData.map(d => {
-        const width = (d.count / total) * w;
-        const r = `<rect x="${curX}" y="10" width="${width}" height="20" fill="${colors[d.difficulty_label] || 'var(--text-muted)'}"/>`;
+        const cnt = (d.count != null ? d.count : (d.total || 0));
+        const lbl = d.difficulty_label || d.label || '';
+        const width = (cnt / total) * w;
+        const r = `<rect x="${curX}" y="10" width="${width}" height="20" fill="${colors[lbl] || 'var(--text-muted)'}"/>`;
         curX += width;
         return r;
       }).join('');
@@ -2729,12 +2993,15 @@
         return;
       }
 
-      const rows = jlptData.map(d => `
+      const rows = jlptData.map(d => {
+        const count = d.count != null ? d.count : (d.total || 0);
+        return `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:0.35rem 0;font-size:0.82rem;">
           <span style="font-weight:600;color:var(--accent);">${escapeHtml(d.level)}</span>
-          <span style="color:var(--text);">${(d.count || 0).toLocaleString()} cards</span>
+          <span style="color:var(--text);">${count.toLocaleString()} cards</span>
         </div>
-      `).join('');
+      `;
+      }).join('');
       wrap.innerHTML = rows;
     }
 
@@ -2757,8 +3024,31 @@
         });
         if (!resp.ok) return;
         const data = await resp.json();
-        document.getElementById('study-today-count').textContent = `${data.reviewed_today || 0} cards`;
-        document.getElementById('study-week-count').textContent = `${data.reviewed_7d || 0} reviews`;
+        const todayEl = document.getElementById('study-today-count');
+        if (todayEl) todayEl.textContent = `${data.reviewed_today || 0} cards`;
+        const weekEl = document.getElementById('study-week-count');
+        if (weekEl) weekEl.textContent = `${data.reviewed_7d || 0} reviews`;
+        const accEl = document.getElementById('study-accuracy-rate');
+        if (accEl) accEl.textContent = `${data.accuracy_pct != null ? data.accuracy_pct : 100}%`;
+        const streakEl = document.getElementById('study-streak-count');
+        if (streakEl) streakEl.textContent = `${data.streak_days || 0} days`;
+
+        const boxesWrap = document.getElementById('study-boxes-container');
+        if (boxesWrap && data.box_counts) {
+          const boxes = data.box_counts;
+          const boxLabels = ['Box 1 (10m)', 'Box 2 (1d)', 'Box 3 (3d)', 'Box 4 (7d)', 'Box 5 (14d)'];
+          let boxHtml = '';
+          for (let b = 1; b <= 5; b++) {
+            const count = boxes[b] != null ? boxes[b] : (boxes[String(b)] || 0);
+            boxHtml += `
+              <div style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:6px;padding:0.45rem 0.2rem;">
+                <div style="font-size:0.68rem;color:var(--text-muted);font-weight:500;">${boxLabels[b - 1]}</div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;">${count}</div>
+              </div>
+            `;
+          }
+          boxesWrap.innerHTML = boxHtml;
+        }
       } catch (err) {
         console.debug('Study summary error:', err);
       }
@@ -2787,6 +3077,7 @@
           headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
         });
         if (!resp.ok) throw new Error('Failed to start session');
+        const data = await resp.json();
         const cards = data.cards || data.items || [];
 
         if (cards.length === 0) {
@@ -2850,6 +3141,13 @@
         sentenceReveal.style.display = 'none';
       }
 
+      const richReveal = document.getElementById('study-rich-reveal');
+      const plainReveal = document.getElementById('study-plain-reveal');
+      const mediaReveal = document.getElementById('study-media-reveal');
+      if (richReveal) { richReveal.style.display = 'none'; richReveal.innerHTML = ''; }
+      if (plainReveal) { plainReveal.style.display = 'flex'; }
+      if (mediaReveal) { mediaReveal.style.display = 'none'; mediaReveal.innerHTML = ''; }
+
       document.getElementById('study-revealed-content').style.display = 'none';
       document.getElementById('study-reveal-btn').style.display = 'block';
       document.getElementById('study-rating-row').style.display = 'none';
@@ -2862,8 +3160,25 @@
       document.getElementById('study-rating-row').style.display = 'grid';
 
       const card = studyState.sessionCards[studyState.currentIndex];
-      if (card && card.sentence) {
-        document.getElementById('study-sentence-reveal').style.display = 'block';
+      const richReveal = document.getElementById('study-rich-reveal');
+      const plainReveal = document.getElementById('study-plain-reveal');
+      const mediaReveal = document.getElementById('study-media-reveal');
+
+      if (card && card.raw_html && card.raw_html.trim() && richReveal && plainReveal) {
+        richReveal.innerHTML = card.raw_html;
+        richReveal.style.display = 'block';
+        plainReveal.style.display = 'none';
+      } else {
+        if (richReveal) richReveal.style.display = 'none';
+        if (plainReveal) plainReveal.style.display = 'flex';
+        if (card && card.sentence) {
+          document.getElementById('study-sentence-reveal').style.display = 'block';
+        }
+      }
+
+      if (card && card.has_media && mediaReveal) {
+        mediaReveal.innerHTML = `<img class="kn-image" src="/api/cards/${card.card_id}/media" alt="${escapeHtml(card.expression || '')}" loading="lazy">`;
+        mediaReveal.style.display = 'block';
       }
 
       // Check TTS support

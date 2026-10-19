@@ -638,8 +638,19 @@ def main() -> None:
     parser.add_argument("--sync-cards", action="store_true", help="Run incremental Anki cards mirror sync to cloud and exit")
     parser.add_argument("--full-resync", action="store_true", help="Force a full reconcile of all Anki cards to cloud and exit")
     parser.add_argument("--allow-shrink", action="store_true", help="Allow reconcile to delete cards even if collection shrinks by >50%")
+    parser.add_argument("--flush-mature-media", action="store_true", help="Evict media images for mature cards (interval >= 21) from cloud storage and exit")
     parser.add_argument("--deck", type=str, default=None, help="Filter deck for --sync-cloud-all")
     args = parser.parse_args()
+
+    if args.flush_mature_media:
+        adapter = get_queue_adapter(backend=args.backend)
+        if hasattr(adapter, "_store") and adapter._store:
+            flushed = adapter._store.flush_mature_card_media(min_interval_days=21)
+            print(f"Flushed {flushed} mature card images locally.")
+        else:
+            res = asyncio.run(adapter._post_json_with_retry("/api/anki/media/flush?min_interval_days=21", {}))
+            print(f"Cloud mature media flush result: {res}")
+        return
 
     if args.sync_cards or args.full_resync:
         adapter = get_queue_adapter(backend=args.backend)

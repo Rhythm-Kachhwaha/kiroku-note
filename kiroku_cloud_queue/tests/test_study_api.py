@@ -292,4 +292,11 @@ def test_study_summary(client: TestClient):
     data = resp.json()
     assert data["reviewed_today"] >= 2
     assert data["reviewed_7d"] >= 2
+    assert data["total_reviews"] >= 2
+    assert data["reviews_today"] >= 2
+    assert data["accuracy_pct"] == 100.0
+    assert data["streak_days"] >= 1
+    assert data["cards_in_cloud_study"] >= 2
     assert "boxes" in data
+    assert "box_counts" in data
+

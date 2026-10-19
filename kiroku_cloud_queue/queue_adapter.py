@@ -219,6 +219,10 @@ class QueueAdapter(abc.ABC):
         """Push collection metadata key-values to cloud queue service."""
         return False
 
+    async def push_anki_media(self, media_items: list[dict[str, Any]]) -> bool:
+        """Push a batch of card media (compressed WebP images) to cloud queue service."""
+        return False
+
 
 # ---------------------------------------------------------------------------
 # Local Development Adapter (Offline Testing Only)
@@ -357,6 +361,22 @@ class LocalDevQueueAdapter(QueueAdapter):
             return True
         except Exception as exc:
             log.warning("LocalDevQueueAdapter: failed to push anki meta: %s", exc)
+            return False
+
+    async def push_anki_media(self, media_items: list[dict[str, Any]]) -> bool:
+        try:
+            import base64
+            for item in media_items:
+                cid = int(item["card_id"])
+                name = str(item.get("media_name", "image.webp"))
+                mime = str(item.get("mime_type", "image/webp"))
+                img_b64 = item.get("image_webp_b64") or item.get("image_b64", "")
+                if img_b64:
+                    raw_bytes = base64.b64decode(img_b64)
+                    self._store.save_card_media(cid, name, raw_bytes, mime_type=mime)
+            return True
+        except Exception as exc:
+            log.warning("LocalDevQueueAdapter: failed to save anki media: %s", exc)
             return False
 
 
@@ -589,6 +609,9 @@ class CloudQueueAdapter(QueueAdapter):
 
     async def push_anki_meta(self, meta: dict[str, str]) -> bool:
         return await self._post_with_retry("/api/anki/meta", {"meta": meta})
+
+    async def push_anki_media(self, media_items: list[dict[str, Any]]) -> bool:
+        return await self._post_with_retry("/api/anki/media", {"media": media_items})
 
 
 

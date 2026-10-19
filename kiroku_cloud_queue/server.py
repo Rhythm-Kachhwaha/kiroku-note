@@ -38,7 +38,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from queue_adapter import (
@@ -726,6 +726,77 @@ async def save_anki_meta_endpoint(request: Request) -> JSONResponse:
             store.set_anki_meta(str(k), str(v))
 
     return JSONResponse({"status": "ok"})
+
+
+@app.post("/api/anki/media")
+async def save_anki_media_endpoint(request: Request) -> JSONResponse:
+    """Worker endpoint to push card media (compressed WebP images) in batches."""
+    _authenticate_worker(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Malformed JSON body: {exc}")
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Payload must be a JSON object.")
+
+    media_items = payload.get("media", [])
+    if not isinstance(media_items, list):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="'media' must be a list.")
+
+    saved_count = 0
+    import base64
+    for item in media_items:
+        try:
+            cid = int(item["card_id"])
+            name = str(item.get("media_name", "image.webp"))
+            mime = str(item.get("mime_type", "image/webp"))
+            img_b64 = item.get("image_webp_b64") or item.get("image_b64", "")
+            if img_b64:
+                raw_bytes = base64.b64decode(img_b64)
+                store.save_card_media(cid, name, raw_bytes, mime_type=mime)
+                saved_count += 1
+        except Exception as item_err:
+            log.warning("Failed saving media item: %s", item_err)
+
+    return JSONResponse({"status": "ok", "saved": saved_count, "count": len(media_items)})
+
+
+@app.get("/api/cards/{card_id}/media")
+async def get_card_media_endpoint(card_id: int) -> Response:
+    """Retrieve card media (lightweight WebP image) with caching headers."""
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+
+    media = store.get_card_media(card_id)
+    if not media or not media.get("image_webp"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card media not found.")
+
+    return Response(
+        content=media["image_webp"],
+        media_type=media.get("mime_type", "image/webp"),
+        headers={
+            "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+            "Content-Disposition": f'inline; filename="{media.get("media_name", "image.webp")}"',
+        },
+    )
+
+
+@app.post("/api/anki/media/flush")
+async def flush_mature_media_endpoint(request: Request, min_interval_days: int = 21) -> JSONResponse:
+    """Evict media for mature cards to conserve cloud database storage."""
+    _authenticate_recent(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+
+    flushed = store.flush_mature_card_media(min_interval_days=min_interval_days)
+    return JSONResponse({
+        "status": "ok",
+        "flushed": flushed,
+        "min_interval_days": min_interval_days,
+    })
 
 
 @app.get("/api/cards")

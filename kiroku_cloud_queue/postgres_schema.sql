@@ -81,6 +81,8 @@ CREATE TABLE IF NOT EXISTS anki_cards (
     fsrs_stability      REAL DEFAULT NULL,
     fsrs_retrievability REAL DEFAULT NULL,
     due_in_days         INTEGER DEFAULT NULL,
+    raw_html            TEXT NOT NULL DEFAULT '',
+    has_media           BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ NOT NULL,
     first_review_at     TIMESTAMPTZ DEFAULT NULL,
     last_review_at      TIMESTAMPTZ DEFAULT NULL,
@@ -96,6 +98,15 @@ CREATE INDEX IF NOT EXISTS idx_ac_diff_score ON anki_cards (difficulty_score);
 CREATE INDEX IF NOT EXISTS idx_ac_lapses ON anki_cards (lapses);
 CREATE INDEX IF NOT EXISTS idx_ac_due ON anki_cards (due_in_days);
 CREATE INDEX IF NOT EXISTS idx_ac_created ON anki_cards (created_at);
+
+CREATE TABLE IF NOT EXISTS anki_card_media (
+    card_id     BIGINT PRIMARY KEY REFERENCES anki_cards(card_id) ON DELETE CASCADE,
+    media_name  TEXT NOT NULL,
+    mime_type   VARCHAR(32) NOT NULL DEFAULT 'image/webp',
+    image_webp  BYTEA NOT NULL,
+    size_bytes  INTEGER NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE IF NOT EXISTS anki_daily (
     day                  VARCHAR(10) PRIMARY KEY, -- YYYY-MM-DD

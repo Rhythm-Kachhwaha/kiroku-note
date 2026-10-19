@@ -14,6 +14,7 @@ Architecture role:
 from __future__ import annotations
 
 import asyncio
+import base64
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import html
@@ -45,7 +46,7 @@ DIFFICULTY_CONSTANTS = {
     "MAX_ANSWER_TIME_MS": 60000.0,
     "TIME_MEDIAN_FACTOR": 2.0,
     "LEECH_LAPSE_THRESHOLD": 8,
-    "HARD_THRESHOLD": 50.0,
+    "HARD_THRESHOLD": 60.0,
     "NORMAL_THRESHOLD": 30.0,
     "EASY_THRESHOLD": 10.0,
     "MATURE_INTERVAL_DAYS": 21,
@@ -105,6 +106,9 @@ def clean_field(val: Any, max_len: Optional[int] = None, strip_ruby_brackets: bo
     text = re.sub(r"(?is)<style.*?</style>", "", text)
     text = re.sub(r"(?is)<script.*?</script>", "", text)
 
+    # 2b. Strip <rt>...</rt> and <rp>...</rp> furigana annotations when converting to plain text
+    text = re.sub(r"(?is)<(rt|rp).*?</\1>", "", text)
+
     # 3. Convert line break and block tags to newlines
     text = re.sub(r"(?i)<(br\s*/?|/?div|/?p)>", "\n", text)
 
@@ -134,6 +138,129 @@ def clean_field(val: Any, max_len: Optional[int] = None, strip_ruby_brackets: bo
     return cleaned
 
 
+def extract_rich_card_html(raw_fields: dict[str, Any]) -> str:
+    """
+    Extract sanitized rich HTML from Anki note fields:
+      - Searches for candidate fields: Back, back, Meaning, meaning, content, or any field with kn-card
+      - Strips dangerous script/iframe/object/embed/form elements
+      - Strips style tags (relying on scoped dashboard CSS)
+      - Strips [sound:...] audio tags
+      - Strips dangerous attributes (on*, javascript: hrefs)
+      - Preserves ruby, rt, rp, kanji-card, pitch, badges, and example sentences
+    """
+    if not isinstance(raw_fields, dict):
+        return ""
+
+    raw_html_candidate: str = ""
+
+    # 1. First priority: look for a field that contains '<div class="kn-card'
+    for _, field_data in raw_fields.items():
+        val = field_data.get("value", "") if isinstance(field_data, dict) else str(field_data or "")
+        if "kn-card" in val:
+            raw_html_candidate = val
+            break
+
+    # 2. Second priority: look in standard Back/Meaning fields for HTML markup
+    if not raw_html_candidate:
+        for cand in ["back", "meaning", "definition", "glossary", "card", "content", "front"]:
+            for original_name, field_data in raw_fields.items():
+                clean_name = re.sub(r"[_\-\s]+", "", original_name).lower()
+                if clean_name == cand:
+                    val = field_data.get("value", "") if isinstance(field_data, dict) else str(field_data or "")
+                    if "<" in val and ">" in val:
+                        raw_html_candidate = val
+                        break
+            if raw_html_candidate:
+                break
+
+    if not raw_html_candidate or not ("<" in raw_html_candidate and ">" in raw_html_candidate):
+        return ""
+
+    text = raw_html_candidate
+
+    # 3. Strip [sound:filename.mp3]
+    text = re.sub(r"\[sound:[^\]]*\]", "", text, flags=re.IGNORECASE)
+
+    # 4. Strip <style>...</style> and <script>...</script>
+    text = re.sub(r"(?is)<style.*?</style>", "", text)
+    text = re.sub(r"(?is)<script.*?</script>", "", text)
+
+    # 5. Strip dangerous tags
+    text = re.sub(r"(?is)<(iframe|object|embed|form|input|button|link|meta)[^>]*>.*?</\1>", "", text)
+    text = re.sub(r"(?is)<(iframe|object|embed|form|input|button|link|meta)[^>]*>", "", text)
+
+    # 6. Strip inline event handlers
+    text = re.sub(r"""(?i)\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)""", "", text)
+
+    # 7. Strip javascript: URLs
+    text = re.sub(r"""(?i)(href|src)\s*=\s*['"]\s*javascript:[^'"]*['"]""", "", text)
+
+    # 8. Clean comments
+    text = re.sub(r"(?s)<!--.*?-->", "", text)
+
+    cleaned = text.strip()
+    return cleaned
+
+
+def extract_image_filenames(raw_fields: dict[str, Any]) -> list[str]:
+    """
+    Extract local image filenames referenced in <img src="..."> across card fields.
+    Excludes http://, https://, and data: URIs.
+    """
+    if not isinstance(raw_fields, dict):
+        return []
+
+    filenames: list[str] = []
+    seen: set[str] = set()
+
+    for _, field_data in raw_fields.items():
+        val = field_data.get("value", "") if isinstance(field_data, dict) else str(field_data or "")
+        if not val or "<img" not in val.lower():
+            continue
+
+        matches = re.findall(r"""<img[^>]+src=['"]([^'"]+)['"]""", val, flags=re.IGNORECASE)
+        for src in matches:
+            clean_src = src.strip()
+            if not clean_src:
+                continue
+            lower_src = clean_src.lower()
+            if lower_src.startswith(("http://", "https://", "data:")):
+                continue
+            if clean_src not in seen:
+                seen.add(clean_src)
+                filenames.append(clean_src)
+
+    return filenames
+
+
+def compress_image_webp(image_bytes: bytes, max_dim: int = 800, quality: int = 75) -> bytes:
+    """
+    Compress image bytes to lightweight WebP format (max max_dim width/height, default 800px, quality 75).
+    """
+    if not image_bytes:
+        return b""
+
+    try:
+        from PIL import Image
+        import io
+
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+                img = img.convert("RGBA")
+            else:
+                img = img.convert("RGB")
+
+            if img.width > max_dim or img.height > max_dim:
+                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+
+            out_buf = io.BytesIO()
+            img.save(out_buf, format="WEBP", quality=quality, method=4)
+            return out_buf.getvalue()
+    except Exception as exc:
+        log.warning("Image compression to WebP failed: %s; returning original", exc)
+        return image_bytes
+
+
 def map_fields(raw_fields: dict[str, Any]) -> dict[str, str]:
     """
     Generic case-insensitive, separator-insensitive field mapping from Anki note fields
@@ -151,6 +278,7 @@ def map_fields(raw_fields: dict[str, Any]) -> dict[str, str]:
     # Normalize available field names: remove underscores, hyphens, spaces, and lowercase
     norm_available: dict[str, str] = {}
     first_field_val: Optional[str] = None
+    kn_card_val: Optional[str] = None
 
     for original_name, field_data in raw_fields.items():
         val = field_data.get("value", "") if isinstance(field_data, dict) else str(field_data or "")
@@ -158,9 +286,45 @@ def map_fields(raw_fields: dict[str, Any]) -> dict[str, str]:
         norm_available[clean_name] = val
         if first_field_val is None:
             first_field_val = val
+        if "kn-card" in val:
+            kn_card_val = val
 
-    result: dict[str, str] = {}
+    result: dict[str, str] = {
+        "expression": "",
+        "reading": "",
+        "meaning": "",
+        "sentence": "",
+        "sentence_meaning": "",
+    }
+
+    # If this note contains a kn-card structure, extract structured subfields
+    if kn_card_val:
+        # Reading: look for kn-kana
+        kana_m = re.search(r'<span class="kn-kana"[^>]*>(.*?)</span>', kn_card_val, flags=re.DOTALL | re.IGNORECASE)
+        if kana_m:
+            result["reading"] = clean_field(kana_m.group(1), max_len=200)
+
+        # Meaning: look for kn-meaning or kn-meanings
+        meaning_m = re.search(r'<div class="kn-meaning"[^>]*>(.*?)</div>', kn_card_val, flags=re.DOTALL | re.IGNORECASE)
+        if not meaning_m:
+            meaning_m = re.search(r'<ul class="kn-meanings"[^>]*>(.*?)</ul>', kn_card_val, flags=re.DOTALL | re.IGNORECASE)
+        if meaning_m:
+            result["meaning"] = clean_field(meaning_m.group(1), max_len=500)
+
+        # Sentence: look for kn-example-ja
+        sent_ja_m = re.search(r'<p class="kn-example-ja"[^>]*>(.*?)</p>', kn_card_val, flags=re.DOTALL | re.IGNORECASE)
+        if sent_ja_m:
+            result["sentence"] = clean_field(sent_ja_m.group(1), max_len=400, strip_ruby_brackets=True)
+
+        # Sentence meaning: look for kn-example-en
+        sent_en_m = re.search(r'<p class="kn-example-en"[^>]*>(.*?)</p>', kn_card_val, flags=re.DOTALL | re.IGNORECASE)
+        if sent_en_m:
+            result["sentence_meaning"] = clean_field(sent_en_m.group(1), max_len=400)
+
+    # For any fields not yet extracted, check candidates
     for target, candidates in FIELD_CANDIDATES.items():
+        if result[target]:
+            continue
         matched_val: Optional[str] = None
         for cand in candidates:
             norm_cand = re.sub(r"[_\-\s]+", "", cand).lower()
@@ -301,6 +465,34 @@ def compute_difficulty(
         label = "easy"
 
     return score, label
+
+
+def extract_jlpt_level(tags: Optional[list[str]] = None, deck_name: Optional[str] = None) -> Optional[str]:
+    """
+    Extract JLPT level (N1..N5) from note tags or deck name.
+    Matches formats like N1..N5, JLPT_N1..JLPT_N5, JLPT-N1..JLPT-N5, JLPT1..JLPT5.
+    Tags are checked first, then deck_name. Returns standard uppercase string 'N1'..'N5', or None.
+    """
+    if tags:
+        for tag in tags:
+            if not tag:
+                continue
+            m = re.search(r"(?i)(?:^|[\s_:\-/])(?:jlpt[_\s:\-/]*)?(n[1-5])(?:$|[\s_:\-/])", tag)
+            if m:
+                return m.group(1).upper()
+            m2 = re.search(r"(?i)\bjlpt[_\s:\-/]*([1-5])\b", tag)
+            if m2:
+                return f"N{m2.group(1)}"
+
+    if deck_name:
+        m = re.search(r"(?i)(?:^|[\s_:\-/])(?:jlpt[_\s:\-/]*)?(n[1-5])(?:$|[\s_:\-/])", deck_name)
+        if m:
+            return m.group(1).upper()
+        m2 = re.search(r"(?i)\bjlpt[_\s:\-/]*([1-5])\b", deck_name)
+        if m2:
+            return f"N{m2.group(1)}"
+
+    return None
 
 
 def compute_due_days(card_id: int, due_horizon_map: dict[int, int]) -> Optional[int]:
@@ -508,6 +700,7 @@ ANKI_READ_ACTIONS_WHITELIST: frozenset[str] = frozenset({
     "deckNames",
     "findCards",
     "cardsInfo",
+    "notesInfo",
     "cardsModTime",
     "getReviewsOfCards",
     "cardReviews",
@@ -517,6 +710,7 @@ ANKI_READ_ACTIONS_WHITELIST: frozenset[str] = frozenset({
     "getDeckStats",
     "getActiveProfile",
     "getProfileNames",
+    "retrieveMediaFile",
 })
 
 
@@ -565,6 +759,14 @@ class AnkiClient:
         for i in range(0, len(card_ids), chunk_size):
             chunk = card_ids[i : i + chunk_size]
             info = self.invoke("cardsInfo", cards=chunk) or []
+            results.extend(info)
+        return results
+
+    def get_notes_info_batched(self, note_ids: list[int], chunk_size: int = 500) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
+        for i in range(0, len(note_ids), chunk_size):
+            chunk = note_ids[i : i + chunk_size]
+            info = self.invoke("notesInfo", notes=chunk) or []
             results.extend(info)
         return results
 
@@ -747,6 +949,19 @@ async def sync_anki_mirror(
         if target_ids:
             reviews_map = await asyncio.to_thread(client.get_reviews_of_cards_batched, target_ids)
 
+        # Fetch notesInfo for target cards (for tags, JLPT extraction, and media)
+        notes_map: dict[int, dict[str, Any]] = {}
+        if target_ids and cards_info:
+            target_note_ids = list({int(c["note"]) for c in cards_info if c.get("note")})
+            if target_note_ids:
+                try:
+                    notes_info = await asyncio.to_thread(client.get_notes_info_batched, target_note_ids)
+                    for n in notes_info:
+                        if n.get("noteId"):
+                            notes_map[int(n["noteId"])] = n
+                except Exception as exc:
+                    log.warning("notesInfo batch failed soft: %s", exc)
+
         # Pre-fetch JLPT levels for target cards via local backend if reachable
         jlpt_lookup: dict[str, Any] = {}
         target_expressions = []
@@ -765,9 +980,15 @@ async def sync_anki_mirror(
         # Process each card row
         now_iso = start_time.isoformat()
         card_rows: list[dict[str, Any]] = []
+        media_rows: list[dict[str, Any]] = []
 
         for cinfo in cards_info:
             cid = int(cinfo["cardId"])
+            nid = int(cinfo.get("note", 0))
+            note_entry = notes_map.get(nid, {})
+            note_tags = note_entry.get("tags", [])
+            deck_name = str(cinfo.get("deckName", ""))
+
             fields_mapped = map_fields(cinfo.get("fields", {}))
             state_label = classify_state(cinfo)
             c_reviews = reviews_map.get(cid, [])
@@ -782,6 +1003,7 @@ async def sync_anki_mirror(
 
             score, diff_label = compute_difficulty(c_info_augmented, c_reviews[-10:] if c_reviews else [])
             due_in_days = compute_due_days(cid, due_map)
+            jlpt_level = extract_jlpt_level(note_tags, deck_name) or jlpt_lookup.get(fields_mapped["expression"])
 
             # Answer times
             valid_revs = [r for r in c_reviews[-10:] if int(r.get("type", 0)) in (0, 1, 2)]
@@ -797,6 +1019,25 @@ async def sync_anki_mirror(
                 last_rev_at = datetime.fromtimestamp(int(c_reviews[-1]["id"]) / 1000.0, tz=timezone.utc).isoformat()
 
             created_at = datetime.fromtimestamp(cid / 1000.0, tz=timezone.utc).isoformat()
+            raw_html = extract_rich_card_html(cinfo.get("fields", {}))
+            img_fnames = extract_image_filenames(cinfo.get("fields", {}))
+            has_media = bool(img_fnames)
+
+            if img_fnames:
+                target_fname = img_fnames[0]
+                try:
+                    b64_data = await asyncio.to_thread(client.invoke, "retrieveMediaFile", filename=target_fname)
+                    if b64_data and isinstance(b64_data, str):
+                        raw_bytes = base64.b64decode(b64_data)
+                        compressed_webp = compress_image_webp(raw_bytes, max_dim=800, quality=75)
+                        media_rows.append({
+                            "card_id": cid,
+                            "media_name": target_fname,
+                            "mime_type": "image/webp",
+                            "image_webp_b64": base64.b64encode(compressed_webp).decode("ascii"),
+                        })
+                except Exception as m_exc:
+                    log.warning("Media retrieval failed for card %d (%s): %s", cid, target_fname, m_exc)
 
             card_rows.append({
                 "card_id": cid,
@@ -808,7 +1049,7 @@ async def sync_anki_mirror(
                 "meaning": fields_mapped["meaning"],
                 "sentence": fields_mapped["sentence"],
                 "sentence_meaning": fields_mapped["sentence_meaning"],
-                "jlpt_level": jlpt_lookup.get(fields_mapped["expression"]),
+                "jlpt_level": jlpt_level,
                 "state": state_label,
                 "queue_code": int(cinfo.get("queue", 0)),
                 "interval_days": int(cinfo.get("interval", 0)),
@@ -825,6 +1066,8 @@ async def sync_anki_mirror(
                 "fsrs_stability": float(fsrs_s) if fsrs_s is not None else None,
                 "fsrs_retrievability": float(fsrs_r) if fsrs_r is not None else None,
                 "due_in_days": due_in_days,
+                "raw_html": raw_html,
+                "has_media": has_media,
                 "created_at": created_at,
                 "first_review_at": first_rev_at,
                 "last_review_at": last_rev_at,
@@ -839,6 +1082,15 @@ async def sync_anki_mirror(
                 ok = await adapter.push_anki_cards(batch)
                 if ok:
                     cards_pushed += len(batch)
+
+        # Push card media in batches of 50
+        if media_rows:
+            for i in range(0, len(media_rows), 50):
+                m_batch = media_rows[i : i + 50]
+                try:
+                    await adapter.push_anki_media(m_batch)
+                except Exception as m_err:
+                    log.warning("push_anki_media batch failed soft: %s", m_err)
 
         # Step 5: Build and push daily series if in full mode or reviews happened
         daily_rows_pushed = 0

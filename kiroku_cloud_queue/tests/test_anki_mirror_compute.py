@@ -19,6 +19,7 @@ from anki_mirror import (
     clean_field,
     compute_difficulty,
     compute_due_days,
+    extract_jlpt_level,
     map_fields,
 )
 
@@ -309,3 +310,27 @@ def test_build_daily_series_hand_computed():
     assert d7["true_retention_num"] == 1
     # lastIvl was 5 (< 21), so mature_retention_den is 0
     assert d7["mature_retention_den"] == 0
+
+
+def test_hard_threshold_is_60():
+    assert DIFFICULTY_CONSTANTS["HARD_THRESHOLD"] == 60.0
+
+
+def test_extract_jlpt_level_from_tags_and_deck():
+    # Tag direct N-levels
+    assert extract_jlpt_level(["N1"], "Default") == "N1"
+    assert extract_jlpt_level(["n2"], "Default") == "N2"
+    assert extract_jlpt_level(["JLPT_N3"], "Default") == "N3"
+    assert extract_jlpt_level(["jlpt-n4"], "Default") == "N4"
+    assert extract_jlpt_level(["JLPT5"], "Default") == "N5"
+    assert extract_jlpt_level(["JLPT N1"], "Default") == "N1"
+
+    # Deck name fallback
+    assert extract_jlpt_level([], "N3 vocabs") == "N3"
+    assert extract_jlpt_level(None, "Japanese::JLPT N2") == "N2"
+    assert extract_jlpt_level(["other-tag"], "N1 Core 2k") == "N1"
+
+    # No JLPT tag or deck
+    assert extract_jlpt_level(["verb", "mining"], "Default") is None
+    assert extract_jlpt_level([], "General Vocabulary") is None
+

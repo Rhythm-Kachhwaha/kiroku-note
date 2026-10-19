@@ -1,5 +1,40 @@
 # Kiroku Note — Progress
 
+### Cloud Study Mode Fixes, Rich Card Formatting & Compressed Image Sync (2026-10-19)
+
+**Objective**: Fix Study Mode launch crash, fix blank Stats tab SVG charts, restore rich Kiroku Note card formatting (ruby, pitch, kanjidic) while extracting clean primary text, extract JLPT levels from Anki note tags/deck names, raise hard difficulty threshold to 60.0, implement client-side compressed WebP image sync pipeline with mature-card image flushing, and maintain separate Cloud Study Mode analytics.
+
+**1. Frontend & Chart Bugfixes**:
+- **Study Mode Launch Crash**: Fixed `ReferenceError: data is not defined` in `dashboard.html` by declaring `const data = await resp.json()`.
+- **Stats Charts Dual-Contract Alignment**: Aligned chart data structures across SQLite and PostgreSQL stores (`postgres_store.py`, `queue_store.py`) and renderers in `dashboard.html` (`renderStateChart`, `renderRetentionChart`, `renderButtonsChart`, `renderForecastChart`, `renderJlptCoverage`). Added dual-property fallback support (`total_cards`/`count`, `mature`/`mature_cards`, `weekly`/`items`, etc.) resolving blank SVG charts.
+- **Zero OS Emojis**: Strictly maintained pure vector SVGs across all UI components and dashboard tabs.
+
+**2. JLPT & Difficulty Threshold Alignment**:
+- **Hard Difficulty Threshold**: Raised `HARD_THRESHOLD` to 60.0 in `anki_mirror.py` so cards requiring true attention are highlighted.
+- **JLPT Tag & Deck Name Extraction**: Added `extract_jlpt_level` in `anki_mirror.py` supporting case-insensitive tag extraction (`N1`..`N5`, `JLPT_N1`..`JLPT_N5`) and deck names, batched via AnkiConnect `notesInfo`.
+
+**3. Rich Card Parsing & Sanitized HTML**:
+- **Subfield Extraction**: Added `extract_rich_card_html` and enhanced `map_fields` to parse clean definitions, readings from `kn-kana`, and sentences from `kn-example-ja`/`en` while storing sanitized `raw_html` in `anki_cards`.
+- **Furigana Clean-Up**: Stripped `<rt>`/`<rp>` blocks in plain text sentence extraction to eliminate reading concatenation artifacts (`駐ちゅう` -> `駐`).
+- **Scoped Styles**: Integrated `.kn-card` scoped CSS inside `dashboard.html`, stripping redundant embedded note `<style>` blocks to save ~35MB across collections.
+
+**4. Compressed WebP Image Sync & Storage Protection**:
+- **Pillow Compression Pipeline**: Local image references (`<img src="...">`) are retrieved via AnkiConnect `retrieveMediaFile`, downscaled to <=800px on the longest dimension, and encoded to WebP quality 75 (~15-30KB) via `compress_image_webp`.
+- **Isolated Storage**: Saved in `anki_card_media` table with foreign key to `anki_cards.card_id` across SQLite and PostgreSQL with self-healing migrations.
+- **Endpoints**: Added `POST /api/anki/media` and `GET /api/cards/{card_id}/media` streaming WebP images with cache headers.
+- **Matured Card Eviction**: Added `flush_mature_card_media(min_interval_days=21)` and `POST /api/anki/media/flush` plus `--flush-mature-media` CLI flag in `worker.py` to keep Neon Postgres lean.
+
+**5. Dedicated Cloud Study Mode Statistics**:
+- **Analytics Exposing**: Extended `get_study_summary()` in `queue_store.py` and `postgres_store.py` to calculate `total_reviews`, `reviews_today`, `accuracy_pct` (pass rate >= 2), `streak_days` (consecutive UTC review days), `cards_in_cloud_study`, and Leitner box distributions.
+- **Dashboard Study UI**: Rendered study summary card with quick metrics and dynamic 5-box breakdown in `dashboard.html`.
+
+**6. Verification & Live Sync**:
+- **Test Suite**: 198 passed, 24 skipped (postgres tests skipped without neon env), 0 failures.
+- **Live Anki Resync**: Executed against local Anki collection (690 cards):
+  - 690 cards parsed with `raw_html` (max 12,675 bytes).
+  - 77 cards with media converted to WebP (average 17.8 KB, max 35.5 KB).
+  - JLPT levels successfully tagged: N1 (600), N2 (600), N3 (750), N4 (150), N5 (900).
+
 ### Cloud Dashboard Card Mirror: Follow-Up Verification, Hardening & Merge (2026-10-18)
 
 **Objective**: Verify, fix deviations, harden safety guards, benchmark performance on Neon Postgres, and prepare `feature/dashboard-card-mirror` for merging into `main`.

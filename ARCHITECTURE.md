@@ -180,7 +180,7 @@ The cloud queue repository (`kiroku_cloud_queue/`) provides mobile-to-desktop ca
 
 The card mirror is strictly one-way and read-only: Anki Desktop to the cloud database. The cloud service never modifies, reschedules, or writes cards back to Anki Desktop.
 
-1. **Storage Parity**: Mirrors card fields into `anki_cards` and daily historical metrics into `anki_daily` across both SQLite and PostgreSQL schemas identically. Raw Anki review logs remain on the user's PC to preserve Neon free-tier storage; only aggregated daily counts and lean plain-text card rows are transmitted.
+1. **Storage Parity**: Mirrors card fields into `anki_cards` and daily historical metrics into `anki_daily` across both SQLite and PostgreSQL schemas identically. Raw Anki review logs remain on the user's PC to preserve Neon free-tier storage; only aggregated daily counts and card rows are transmitted. Each card stores clean primary text (definition, reading, example sentence) alongside sanitized `raw_html` (preserving ruby furigana, pitch accent patterns, and structured sections) and `has_media` indicator.
 2. **Revlog Semantics**:
    - `ivl < 0`: Represents learning steps in seconds (not mature); treated as non-mature learning cards.
    - `type`: Retention mathematics strictly enforce `type == 1` (standard reviews). Types 3 (filtered/cram) and 4 (manual reschedule) are excluded from retention calculations.
@@ -194,14 +194,19 @@ The card mirror is strictly one-way and read-only: Anki Desktop to the cloud dat
      - Answer time pressure: `min(1.0, avg_time_ms / 15000.0) * 0.10`
      - Low interval pressure: `(1.0 - min(1.0, interval_days / 90.0)) * 0.15`
      - Real FSRS blend: if `cardsInfo` returns native FSRS difficulty (0..1), blends 50% FSRS score with 50% heuristic score.
-   - Difficulty labels: `leech` (`is_leech=True` only, via `tag:leech` or `lapses >= 8`), `hard` (score >= 50 without the leech flag), `normal` (30..49), `easy` (10..29), `solid` (<10 and interval >= 21), and `new` (`reps == 0`).
+   - Difficulty labels: `leech` (`is_leech=True` only, via `tag:leech` or `lapses >= 8`), `hard` (score >= 60.0 without the leech flag), `normal` (30.0..59.9), `easy` (10.0..29.9), `solid` (<10.0 and interval >= 21), and `new` (`reps == 0`).
 4. **Read-Only Whitelist Guarantee**:
-   - `AnkiClient` enforces an immutable whitelist of approved read actions (`version`, `deckNames`, `findCards`, `cardsInfo`, `cardsModTime`, `getReviewsOfCards`, `cardReviews`, `getLatestReviewID`, `getNumCardsReviewedByDay`, `getNumCardsReviewedToday`, `getDeckStats`, `getActiveProfile`).
+   - `AnkiClient` enforces an immutable whitelist of approved read actions (`version`, `deckNames`, `findCards`, `cardsInfo`, `cardsModTime`, `getReviewsOfCards`, `cardReviews`, `getLatestReviewID`, `getNumCardsReviewedByDay`, `getNumCardsReviewedToday`, `getDeckStats`, `getActiveProfile`, `retrieveMediaFile`).
    - Any other action name raises `PermissionError` immediately before network dispatch, guaranteeing the mirror cannot modify the user's Anki collection.
 5. **Reconcile Safety & Profile Guards**:
    - Reconcile never proceeds if Anki returns 0 cards (preventing accidental total wiping of the cloud database).
    - If the returned card count is less than 50% of the previous mirrored count (recorded in `anki_meta`), the deletion step is skipped, a warning is logged, and `reconcile_skipped_reason` is set in status, unless deliberately overridden via `--allow-shrink`.
    - If `getActiveProfile` indicates an Anki profile change compared to saved metadata, synchronization is safely skipped to prevent cross-profile contamination.
+6. **Compressed WebP Media Pipeline & Storage Protection**:
+   - Note fields referencing local images (`<img src="...">`) trigger retrieval via `retrieveMediaFile`.
+   - Client-side compression via `Pillow`: RGBA/RGB normalization, downscale to max 800px on the longest dimension, and encoding to WebP at quality 75 (~15-30KB per image).
+   - Compressed blobs are stored in an isolated `anki_card_media` table, keeping the primary `anki_cards` table fast and index-friendly.
+   - Storage protection: `POST /api/anki/media/flush?min_interval_days=21` and CLI flag `--flush-mature-media` prune images for mature cards (`interval_days >= 21`) while preserving vocabulary card text.
 
 ### ADR-010: Leitner 5-box Cloud Extra Practice Mode
 
@@ -213,14 +218,17 @@ Cloud study mode provides a separate "extra practice" study environment over mir
    - Box 2: 1 day
    - Box 3: 3 days
    - Box 4: 7 days
-   - Box 5: 21 days
+   - Box 5: 14 days
 3. **Rating Transitions**:
    - 1 (Again): Drop to Box 1, streak resets to 0.
    - 2 (Hard): Retains current box, re-shown in same session.
    - 3 (Good): Advances +1 box (max 5), streak += 1.
    - 4 (Easy): Advances +2 boxes (max 5), streak += 1.
-4. **Offline Resilience & Idempotency**: Mobile client generates `review_uuid` per rating tap, allowing duplicate POST retries without inflating review counts or corrupting intervals.
-5. **Speech Synthesis**: Japanese audio pronunciation relies exclusively on native browser `speechSynthesis` (`ja-JP` voice) without hosting or transmitting audio media.
+4. **Dedicated Cloud Analytics**:
+   - Real-time performance tracking via `GET /api/study/summary` exposing total reviews, reviews today, accuracy percentage, consecutive daily practice streak, and live Leitner box counts.
+5. **Offline Resilience & Idempotency**: Mobile client generates `review_uuid` per rating tap, allowing duplicate POST retries without inflating review counts or corrupting intervals.
+6. **Speech Synthesis**: Japanese audio pronunciation relies exclusively on native browser `speechSynthesis` (`ja-JP` voice) without hosting or transmitting audio media.
+
 
 
 

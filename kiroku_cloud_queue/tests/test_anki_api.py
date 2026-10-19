@@ -180,6 +180,60 @@ def test_stats_overview_empty_and_populated(client: TestClient):
     assert "weak_words" in data
     assert "jlpt_coverage" in data
 
+    # Seed card and daily row to verify populated contracts
+    client.post("/api/anki/cards", json={"cards": [
+        {"card_id": 101, "expression": "単語", "difficulty_label": "hard", "state": "mature", "jlpt_level": "N3", "due_in_days": 2}
+    ]}, headers=_auth_worker())
+    client.post("/api/anki/daily", json={"days": [
+        {
+            "day": "2026-10-18", "reviews": 10, "again": 1, "hard": 2, "good": 6, "easy": 1,
+            "time_ms": 30000, "true_retention_num": 9, "true_retention_den": 10,
+            "mature_retention_num": 4, "mature_retention_den": 5, "new_cards_added": 5,
+            "total_cards": 101, "n_new": 10, "n_learning": 5, "n_young": 20, "n_mature": 60, "n_suspended": 6
+        }
+    ]}, headers=_auth_worker())
+
+    resp2 = client.get("/api/stats/overview?range=30d", headers=_auth_recent())
+    assert resp2.status_code == 200
+    d2 = resp2.json()
+
+    # 1. Growth curve contract: total_cards and total
+    assert len(d2["growth_curve"]) >= 1
+    g = d2["growth_curve"][0]
+    assert "total_cards" in g and "total" in g
+    assert g["total_cards"] == 101
+
+    # 2. State breakdown contract: mature and n_mature
+    assert len(d2["state_breakdown"]) >= 1
+    st = d2["state_breakdown"][0]
+    assert "n_mature" in st and "mature" in st
+    assert st["n_mature"] == 60
+
+    # 3. Retention weekly contract
+    ret = d2["true_retention"]
+    assert "weekly" in ret
+    assert len(ret["weekly"]) >= 1
+    rw = ret["weekly"][0]
+    assert "mature_retention_num" in rw and "mature_retention_den" in rw
+    assert rw["mature_retention_num"] == 4 and rw["mature_retention_den"] == 5
+
+    # 4. Difficulty distribution contract: label, difficulty_label, count, total
+    assert len(d2["difficulty_distribution"]) >= 1
+    for dd in d2["difficulty_distribution"]:
+        assert "label" in dd and "difficulty_label" in dd
+        assert "count" in dd and "total" in dd
+        if dd["difficulty_label"] == "hard":
+            assert dd["count"] == 1
+
+    # 5. JLPT coverage contract: level, count, total
+    assert len(d2["jlpt_coverage"]) >= 1
+    for jc in d2["jlpt_coverage"]:
+        assert "level" in jc
+        assert "count" in jc and "total" in jc
+        if jc["level"] == "N3":
+            assert jc["count"] == 1
+
+
 
 def test_study_api_flow(client: TestClient):
     card = {"card_id": 10, "expression": "記憶", "reading": "きおく", "meaning": "memory", "difficulty_score": 90.0, "difficulty_label": "leech"}

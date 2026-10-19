@@ -219,15 +219,20 @@ def test_fetch_anki_connect_stats_returns_none_when_unreachable():
 def test_fetch_anki_connect_stats_computes_metrics_correctly():
     import json
     import io
+    from datetime import datetime, timedelta
     from unittest.mock import MagicMock
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    yesterday_str = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    two_days_ago = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d")
 
     mock_responses = {
         "version": {"result": 6, "error": None},
         "getNumCardsReviewedByDay": {
             "result": [
-                ["2026-10-16", 10],
-                ["2026-10-17", 15],
-                ["2026-10-18", 20],
+                [two_days_ago, 10],
+                [yesterday_str, 15],
+                [today_str, 20],
             ],
             "error": None,
         },

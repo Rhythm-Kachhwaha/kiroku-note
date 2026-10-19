@@ -36,6 +36,7 @@ class FakeAnkiTransport:
         self.active_profile = "User 1"
         self.is_offline = False
         self.fail_actions: set[str] = set()
+        self.note_tags: dict[int, list[str]] = {}
 
     def add_card(
         self,
@@ -50,11 +51,15 @@ class FakeAnkiTransport:
         reps: int = 5,
         state_type: int = 2,
         queue: int = 2,
+        tags: Optional[list[str]] = None,
+        deck_name: str = "Japanese::Mining",
     ):
+        note_id = card_id + 100000
+        self.note_tags[note_id] = tags or []
         self.cards[card_id] = {
             "cardId": card_id,
-            "note": card_id + 100000,
-            "deckName": "Japanese::Mining",
+            "note": note_id,
+            "deckName": deck_name,
             "modelName": "Kiroku Note",
             "fields": {
                 "Expression": {"value": expression, "order": 0},
@@ -130,6 +135,17 @@ class FakeAnkiTransport:
         if action == "getReviewsOfCards":
             card_ids = params.get("cards", [])
             return {str(cid): self.reviews.get(cid, []) for cid in card_ids}
+
+        if action == "notesInfo":
+            note_ids = params.get("notes", [])
+            return [
+                {
+                    "noteId": nid,
+                    "tags": self.note_tags.get(nid, []),
+                    "fields": {},
+                }
+                for nid in note_ids
+            ]
 
         raise NotImplementedError(f"Action '{action}' not implemented in FakeAnkiTransport")
 
@@ -480,4 +496,40 @@ async def test_profile_mismatch_guard(fake_anki: FakeAnkiTransport, local_adapte
     assert result.mode == "profile_mismatch"
     assert "Profile mismatch" in result.message
     assert result.cards_pushed == 0
+
+
+@pytest.mark.asyncio
+async def test_mirror_sync_extracts_jlpt_from_tags_and_deck(fake_anki: FakeAnkiTransport, local_adapter: LocalDevQueueAdapter, tmp_path: Path):
+    store = local_adapter._store
+    client = AnkiClient(transport=fake_anki.invoke)
+    state_file = tmp_path / "jlpt_state.json"
+
+    # Add cards with tags or deck names
+    c1 = 10001
+    c2 = 10002
+    c3 = 10003
+    fake_anki.add_card(c1, "約束", "やくそく", "promise", tags=["JLPT_N3", "vocab"], deck_name="Mining")
+    fake_anki.add_card(c2, "絶望", "ぜつぼう", "despair", tags=[], deck_name="N2 Vocabularies")
+    fake_anki.add_card(c3, "無", "む", "nothingness", tags=["n1"], deck_name="Mining")
+
+    result = await sync_anki_mirror(local_adapter, full=True, anki_client=client, state_file=state_file)
+    assert result.status == "ok"
+
+    card1 = store.get_anki_card(c1)
+    card2 = store.get_anki_card(c2)
+    card3 = store.get_anki_card(c3)
+
+    assert card1 is not None and card1["jlpt_level"] == "N3"
+    assert card2 is not None and card2["jlpt_level"] == "N2"
+    assert card3 is not None and card3["jlpt_level"] == "N1"
+
+    # Case-insensitive query test
+    items_n3, cnt_n3 = store.query_anki_cards(filters={"jlpt": "n3"})
+    assert cnt_n3 == 1
+    assert items_n3[0]["card_id"] == c1
+
+    items_n2, cnt_n2 = store.query_anki_cards(filters={"jlpt": "N2"})
+    assert cnt_n2 == 1
+    assert items_n2[0]["card_id"] == c2
+
 
