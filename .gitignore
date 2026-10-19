@@ -63,6 +63,9 @@ local/
 *.db
 *.db-shm
 *.db-wal
+*.dict.sqlite*
+kiroku_dict.sqlite*
+data/*.zip
 backend/data/media/
 backend/data/*.db
 backend/data/*.sqlite-shm

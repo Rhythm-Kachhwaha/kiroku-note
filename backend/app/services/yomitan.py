@@ -135,13 +135,81 @@ class YomitanService:
         endpoint: str | None = None,
         timeout_seconds: float = 3.0,
         jlpt_reference_service: JlptReferenceService | None = None,
+        backend: str | None = None,
+        local_db_path: str | None = None,
+        provider: Any = None,
     ):
         self._endpoint = (endpoint or os.getenv("YOMITAN_ENDPOINT") or DEFAULT_YOMITAN_ENDPOINT).rstrip("/")
         self._timeout_seconds = timeout_seconds
         self._jlpt_reference = jlpt_reference_service or JlptReferenceService()
+        self._backend = (backend or os.getenv("DICTIONARY_BACKEND") or "yomitan").lower().strip()
+        self._local_db_path = local_db_path
+
+        from app.services.dictionary_provider import (
+            DictionaryProvider,
+            LocalDictionaryProvider,
+            YomitanHttpProvider,
+        )
+
+        if provider is not None:
+            self._provider: DictionaryProvider = provider
+            self._yomitan_provider = None
+            self._local_provider = None
+        elif self._backend == "local":
+            self._provider = LocalDictionaryProvider(db_path=self._local_db_path)
+            self._yomitan_provider = None
+            self._local_provider = self._provider
+        elif self._backend == "auto":
+            self._yomitan_provider = YomitanHttpProvider(
+                endpoint=self._endpoint,
+                timeout_seconds=self._timeout_seconds,
+                post_json_fn=lambda p, b: self._post_json(p, b),
+            )
+            self._local_provider = LocalDictionaryProvider(db_path=self._local_db_path)
+            self._provider = None
+        elif self._backend == "yomitan":
+            self._provider = YomitanHttpProvider(
+                endpoint=self._endpoint,
+                timeout_seconds=self._timeout_seconds,
+                post_json_fn=lambda p, b: self._post_json(p, b),
+            )
+            self._yomitan_provider = self._provider
+            self._local_provider = None
+        else:
+            raise ValueError(
+                f"Unknown DICTIONARY_BACKEND: '{self._backend}'. Supported options are 'yomitan', 'local', 'auto'."
+            )
+
+    @property
+    def backend_name(self) -> str:
+        return self._backend
+
+    def _fetch_term_payload(self, term: str) -> dict[str, Any]:
+        if self._backend == "auto" and self._provider is None:
+            try:
+                return self._yomitan_provider.fetch_term_payload(term)
+            except (YomitanError, Exception) as err:
+                logger.debug("Yomitan term lookup failed in auto mode (%s); falling back to local dictionary.", err)
+                return self._local_provider.fetch_term_payload(term)
+        return self._provider.fetch_term_payload(term)
+
+    def _fetch_kanji_payload(self, text: str) -> list[dict[str, Any]]:
+        if self._backend == "auto" and self._provider is None:
+            try:
+                return self._yomitan_provider.fetch_kanji_payload(text)
+            except (YomitanError, Exception) as err:
+                logger.debug("Yomitan kanji lookup failed in auto mode (%s); falling back to local dictionary.", err)
+                return self._local_provider.fetch_kanji_payload(text)
+        return self._provider.fetch_kanji_payload(text)
 
     def identify(self, text: str) -> IdentifiedTerm:
-        return self.normalize_tokenize_response(self._post_json("/tokenize", {"text": text, "scanLength": 16, "parser": "scanning-parser"}), text)
+        if self._backend == "auto" and self._provider is None:
+            try:
+                return self._yomitan_provider.identify(text)
+            except (YomitanError, Exception) as err:
+                logger.debug("Yomitan identify failed in auto mode (%s); falling back to local dictionary.", err)
+                return self._local_provider.identify(text)
+        return self._provider.identify(text)
 
     @staticmethod
     def _is_kana_text(text: str) -> bool:
@@ -163,13 +231,13 @@ class YomitanService:
         lookup_term = term.source_text.strip() if is_kana and term.source_text else term.expression
 
         try:
-            entries = self.normalize_term_entries_response(self._post_json("/termEntries", {"term": lookup_term}))
+            entries = self.normalize_term_entries_response(self._fetch_term_payload(lookup_term))
         except YomitanError as error:
             term_error = str(error)
 
         if not entries and term.expression and term.expression != lookup_term:
             try:
-                entries = self.normalize_term_entries_response(self._post_json("/termEntries", {"term": term.expression}))
+                entries = self.normalize_term_entries_response(self._fetch_term_payload(term.expression))
                 term_error = None
             except YomitanError:
                 pass
@@ -245,9 +313,10 @@ class YomitanService:
 
         kanji_entries: list[KanjiEntry] = []
         try:
-            raw_kanji = self._post_json("/kanjiEntries", {"character": clean_text})
+            raw_kanji = self._fetch_kanji_payload(clean_text)
             kanji_entries = self.normalize_kanji_entries_response(raw_kanji)
         except Exception as err:
+            logger.debug("Dictionary /kanjiEntries lookup failed for '%s': %s", clean_text, err)
             logger.debug("Yomitan /kanjiEntries lookup failed for '%s': %s", clean_text, err)
 
         if kanji_entries:
@@ -317,53 +386,19 @@ class YomitanService:
         return []
 
     def discover_available_dictionaries(self) -> list[str]:
-        """Discover available dictionaries returned by Yomitan across common seed terms.
-
-        Because Yomitan's local API does not expose an endpoint to list installed dictionaries,
-        this probes Yomitan with high-coverage seed terms across term and kanji dictionaries,
-        extracting unique dictionary titles from the returned entries.
-        """
-        seed_terms = ["の", "する", "食べる", "こと"]
-        found_dicts: list[str] = []
-        seen: set[str] = set()
-
-        for term in seed_terms:
-            try:
-                raw = self._post_json("/termEntries", {"term": term})
-                if isinstance(raw, dict) and isinstance(raw.get("dictionaryEntries"), list):
-                    for de in raw["dictionaryEntries"]:
-                        if not isinstance(de, dict):
-                            continue
-                        for defn in de.get("definitions", []) if isinstance(de.get("definitions"), list) else []:
-                            if isinstance(defn, dict):
-                                d_name = str(defn.get("dictionary") or "").strip()
-                                if d_name and d_name not in seen:
-                                    seen.add(d_name)
-                                    found_dicts.append(d_name)
-            except Exception:
-                pass
-
-        try:
-            raw_kanji = self._post_json("/kanjiEntries", {"character": "一"})
-            if isinstance(raw_kanji, list):
-                for k in raw_kanji:
-                    if isinstance(k, dict):
-                        k_dict = str(k.get("dictionary") or "").strip()
-                        if k_dict and k_dict not in seen:
-                            seen.add(k_dict)
-                            found_dicts.append(k_dict)
-        except Exception:
-            pass
-
-        return found_dicts
+        """Discover available dictionaries returned by the active backend."""
+        if self._backend == "auto" and self._provider is None:
+            yomitan_dicts = self._yomitan_provider.discover_available_dictionaries()
+            if yomitan_dicts:
+                return yomitan_dicts
+            return self._local_provider.discover_available_dictionaries()
+        return self._provider.discover_available_dictionaries()
 
     def check_availability(self) -> bool:
-        """Check if Yomitan local HTTP server is reachable."""
-        try:
-            self._post_json("/tokenize", {"text": "日", "scanLength": 1, "parser": "scanning-parser"})
-            return True
-        except Exception:
-            return False
+        """Check if active dictionary backend is reachable and ready."""
+        if self._backend == "auto" and self._provider is None:
+            return self._yomitan_provider.check_availability() or self._local_provider.check_availability()
+        return self._provider.check_availability()
 
     def _post_json(self, path: str, payload: dict[str, Any]) -> Any:
         request = Request(f"{self._endpoint}{path}", data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
