@@ -223,6 +223,10 @@ class QueueAdapter(abc.ABC):
         """Push a batch of card media (compressed WebP images) to cloud queue service."""
         return False
 
+    async def clear_anki_cards(self, include_stats: bool = False) -> bool:
+        """Wipe all mirrored cards, media, and cloud study history to allow a fresh start."""
+        return False
+
 
 # ---------------------------------------------------------------------------
 # Local Development Adapter (Offline Testing Only)
@@ -377,6 +381,14 @@ class LocalDevQueueAdapter(QueueAdapter):
             return True
         except Exception as exc:
             log.warning("LocalDevQueueAdapter: failed to save anki media: %s", exc)
+            return False
+
+    async def clear_anki_cards(self, include_stats: bool = False) -> bool:
+        try:
+            self._store.clear_all_cards(include_stats=include_stats)
+            return True
+        except Exception as exc:
+            log.warning("LocalDevQueueAdapter: failed to clear anki cards: %s", exc)
             return False
 
 
@@ -612,6 +624,9 @@ class CloudQueueAdapter(QueueAdapter):
 
     async def push_anki_media(self, media_items: list[dict[str, Any]]) -> bool:
         return await self._post_with_retry("/api/anki/media", {"media": media_items})
+
+    async def clear_anki_cards(self, include_stats: bool = False) -> bool:
+        return await self._post_with_retry("/api/anki/cards/clear", {"include_stats": include_stats})
 
 
 

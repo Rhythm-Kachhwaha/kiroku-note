@@ -180,3 +180,115 @@ def test_env_utils_loads_without_overwriting(tmp_path: Path):
     finally:
         os.environ.pop("TEST_KEY_NEW", None)
         os.environ.pop("TEST_KEY_EXISTING", None)
+
+
+def test_clear_all_cards_and_reconcile_cleans_media(tmp_path: Path):
+    """Ensure clear_all_cards and reconcile_anki_cards clean media and associated rows."""
+    store = SqliteQueueStore(db_path=tmp_path / "test_clear.db")
+    store.init_db()
+
+    # Insert test card
+    store.upsert_anki_cards([{
+        "card_id": 99991,
+        "note_id": 88881,
+        "deck_name": "Default",
+        "expression": "走る",
+        "reading": "はしる",
+        "meaning": "to run",
+        "state": "review",
+        "difficulty_score": 45.0,
+        "difficulty_label": "normal",
+        "due_in_days": 1,
+        "synced_at": "2026-10-19T00:00:00+00:00",
+    }])
+    store.save_card_media(99991, "test.webp", b"WEBPTESTBYTES", mime_type="image/webp")
+    store.record_study_review(99991, rating=3, time_ms=1200)
+
+    assert store.get_card_media(99991) is not None
+
+    # Reconcile when card is omitted should delete media
+    store.reconcile_anki_cards([12345])
+    assert store.get_card_media(99991) is None
+    assert store.get_anki_card(99991) is None
+
+    # Insert another card and test clear_all_cards
+    store.upsert_anki_cards([{
+        "card_id": 99992,
+        "note_id": 88882,
+        "deck_name": "Default",
+        "expression": "飛ぶ",
+        "reading": "とぶ",
+        "meaning": "to fly",
+        "state": "review",
+        "difficulty_score": 30.0,
+        "difficulty_label": "easy",
+        "due_in_days": 2,
+        "synced_at": "2026-10-19T00:00:00+00:00",
+    }])
+    store.save_card_media(99992, "fly.webp", b"FLYBYTES", mime_type="image/webp")
+    res = store.clear_all_cards(include_stats=True)
+    assert res["deleted_cards"] == 1
+    assert res["deleted_media"] == 1
+    assert store.get_card_media(99992) is None
+
+
+def test_study_mode_aliases_unseen_and_due(tmp_path: Path):
+    """Ensure get_study_session accepts 'unseen' and 'due' mode aliases."""
+    store = SqliteQueueStore(db_path=tmp_path / "test_aliases.db")
+    store.init_db()
+
+    store.upsert_anki_cards([{
+        "card_id": 1001,
+        "note_id": 2001,
+        "deck_name": "Japanese",
+        "expression": "青",
+        "reading": "あお",
+        "meaning": "blue",
+        "state": "review",
+        "difficulty_score": 10.0,
+        "difficulty_label": "easy",
+        "due_in_days": 0,
+        "synced_at": "2026-10-19T00:00:00+00:00",
+    }])
+
+    # Mode 'unseen' should find cards not in cloud_study_state
+    cards_unseen = store.get_study_session(mode="unseen", limit=10)
+    assert len(cards_unseen) == 1
+    assert cards_unseen[0]["card_id"] == 1001
+
+    # Record review with rating 1 -> sets box 1, due in 10 minutes (so it's due in the future)
+    store.record_study_review(1001, rating=1)
+
+    # Set due_at in the past
+    with store._conn() as conn:
+        conn.execute("UPDATE cloud_study_state SET due_at = '2020-01-01T00:00:00+00:00' WHERE card_id = 1001;")
+        conn.commit()
+
+    # Mode 'due' should find this card
+    cards_due = store.get_study_session(mode="due", limit=10)
+    assert len(cards_due) == 1
+    assert cards_due[0]["card_id"] == 1001
+
+
+def test_clear_cards_endpoint_requires_auth_and_clears(tmp_path: Path):
+    """Ensure POST /api/anki/cards/clear requires WORKER_TOKEN and properly clears data."""
+    store = SqliteQueueStore(db_path=tmp_path / "test_api_clear.db")
+    store.init_db()
+
+    os.environ["WORKER_TOKEN"] = "valid-worker-token"
+    with patch.object(server, "store", store):
+        with TestClient(server.app) as client:
+            # 401 without auth
+            resp = client.post("/api/anki/cards/clear")
+            assert resp.status_code == 401
+
+            # 200 with auth
+            resp = client.post(
+                "/api/anki/cards/clear",
+                headers={"Authorization": "Bearer valid-worker-token"},
+                json={"include_stats": True},
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["status"] == "ok"
+            assert "deleted" in data

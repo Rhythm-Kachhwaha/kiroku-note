@@ -2752,8 +2752,8 @@
           <text x="${padL - 6}" y="${padT + 10}" fill="var(--text-muted)" font-size="10" text-anchor="end">${maxVal}</text>
           <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="10" text-anchor="end">${minVal}</text>
           <polyline fill="none" stroke="var(--accent)" stroke-width="2.5" points="${pts}"/>
-          <text x="${padL}" y="${h - 8}" fill="var(--text-muted)" font-size="10">${escapeHtml(growthData[0].day)}</text>
-          <text x="${w - padR}" y="${h - 8}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(growthData[growthData.length - 1].day)}</text>
+          <text x="${padL}" y="${h - 8}" fill="var(--text-muted)" font-size="10">${escapeHtml(growthData[0].day || growthData[0].date || '')}</text>
+          <text x="${w - padR}" y="${h - 8}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(growthData[growthData.length - 1].day || growthData[growthData.length - 1].date || '')}</text>
         </svg>
       `;
       wrap.innerHTML = svgHtml;
@@ -2794,7 +2794,7 @@
         <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Card state distribution stacked curve">
           <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
           <polyline fill="none" stroke="var(--green)" stroke-width="2" points="${maturePts.join(' ')}"/>
-          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(stateData[0].day)}</text>
+          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(stateData[0].day || stateData[0].date || '')}</text>
           <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">Mature: ${getMat(last).toLocaleString()}</text>
         </svg>
       `;

@@ -773,6 +773,7 @@ class PostgresQueueStore(BaseQueueStore):
                 if not all_card_ids:
                     cur.execute("SELECT COUNT(*) FROM anki_cards;")
                     total = cur.fetchone()[0]
+                    cur.execute("DELETE FROM anki_card_media;")
                     cur.execute("DELETE FROM cloud_study_reviews;")
                     cur.execute("DELETE FROM cloud_study_state;")
                     cur.execute("DELETE FROM anki_cards;")
@@ -786,11 +787,37 @@ class PostgresQueueStore(BaseQueueStore):
                 cur.execute("SELECT COUNT(*) FROM anki_cards WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
                 del_count = cur.fetchone()[0]
 
+                cur.execute("DELETE FROM anki_card_media WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
                 cur.execute("DELETE FROM cloud_study_reviews WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
                 cur.execute("DELETE FROM cloud_study_state WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
                 cur.execute("DELETE FROM anki_cards WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
             conn.commit()
             return del_count
+
+    def clear_all_cards(self, include_stats: bool = False) -> dict[str, int]:
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM anki_card_media;")
+                c_media = cur.rowcount
+                cur.execute("DELETE FROM cloud_study_reviews;")
+                c_reviews = cur.rowcount
+                cur.execute("DELETE FROM cloud_study_state;")
+                c_state = cur.rowcount
+                cur.execute("DELETE FROM anki_cards;")
+                c_cards = cur.rowcount
+                c_daily = 0
+                if include_stats:
+                    cur.execute("DELETE FROM anki_daily;")
+                    c_daily = cur.rowcount
+                    cur.execute("DELETE FROM anki_meta WHERE key NOT IN ('schema_version');")
+            conn.commit()
+            return {
+                "deleted_cards": c_cards,
+                "deleted_media": c_media,
+                "deleted_study_reviews": c_reviews,
+                "deleted_study_state": c_state,
+                "deleted_daily": c_daily,
+            }
 
     def upsert_anki_daily(self, rows: list[dict[str, Any]]) -> int:
         if not rows:
@@ -1390,7 +1417,7 @@ class PostgresQueueStore(BaseQueueStore):
                             """,
                             (fourteen_days_ago, limit),
                         )
-                    elif clean_mode == "never_practiced":
+                    elif clean_mode in ("never_practiced", "unseen"):
                         cur.execute(
                             """
                             SELECT * FROM anki_cards
@@ -1401,7 +1428,7 @@ class PostgresQueueStore(BaseQueueStore):
                             """,
                             (limit,),
                         )
-                    elif clean_mode == "cloud_due":
+                    elif clean_mode in ("cloud_due", "due"):
                         cur.execute(
                             """
                             SELECT ac.* FROM anki_cards ac

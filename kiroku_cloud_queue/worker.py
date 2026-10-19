@@ -639,8 +639,24 @@ def main() -> None:
     parser.add_argument("--full-resync", action="store_true", help="Force a full reconcile of all Anki cards to cloud and exit")
     parser.add_argument("--allow-shrink", action="store_true", help="Allow reconcile to delete cards even if collection shrinks by >50%")
     parser.add_argument("--flush-mature-media", action="store_true", help="Evict media images for mature cards (interval >= 21) from cloud storage and exit")
+    parser.add_argument("--clear-cards", action="store_true", help="Wipe all mirrored cards, media, and cloud study history to allow a fresh start")
+    parser.add_argument("--clear-stats", action="store_true", help="Include daily history and meta stats when clearing cards")
     parser.add_argument("--deck", type=str, default=None, help="Filter deck for --sync-cloud-all")
     args = parser.parse_args()
+
+    if args.clear_cards:
+        adapter = get_queue_adapter(backend=args.backend)
+        ok = asyncio.run(adapter.clear_anki_cards(include_stats=args.clear_stats))
+        print(f"Clear cards from store ({adapter.__class__.__name__}): {'success' if ok else 'failed'}")
+        from anki_mirror import STATE_FILE_PATH
+        if STATE_FILE_PATH.exists():
+            try:
+                STATE_FILE_PATH.unlink()
+                print("Removed local .mirror_state.json cache.")
+            except Exception as e:
+                print(f"Warning: could not delete .mirror_state.json: {e}")
+        if not (args.sync_cards or args.full_resync):
+            return
 
     if args.flush_mature_media:
         adapter = get_queue_adapter(backend=args.backend)

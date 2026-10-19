@@ -256,6 +256,9 @@ class BaseQueueStore(abc.ABC):
     def reconcile_anki_cards(self, all_card_ids: list[int]) -> int:
         return 0
 
+    def clear_all_cards(self, include_stats: bool = False) -> dict[str, int]:
+        return {}
+
     def upsert_anki_daily(self, rows: list[dict[str, Any]]) -> int:
         return 0
 
@@ -797,6 +800,7 @@ class SqliteQueueStore(BaseQueueStore):
             if not all_card_ids:
                 total_row = conn.execute("SELECT COUNT(*) FROM anki_cards;").fetchone()
                 total = total_row[0] if total_row else 0
+                conn.execute("DELETE FROM anki_card_media;")
                 conn.execute("DELETE FROM cloud_study_reviews;")
                 conn.execute("DELETE FROM cloud_study_state;")
                 conn.execute("DELETE FROM anki_cards;")
@@ -812,12 +816,32 @@ class SqliteQueueStore(BaseQueueStore):
             ).fetchone()
             del_count = del_count_row[0] if del_count_row else 0
 
+            conn.execute("DELETE FROM anki_card_media WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
             conn.execute("DELETE FROM cloud_study_reviews WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
             conn.execute("DELETE FROM cloud_study_state WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
             conn.execute("DELETE FROM anki_cards WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
             conn.execute("DROP TABLE IF EXISTS temp_reconcile_ids;")
             conn.commit()
             return del_count
+
+    def clear_all_cards(self, include_stats: bool = False) -> dict[str, int]:
+        with self._conn() as conn:
+            c_media = conn.execute("DELETE FROM anki_card_media;").rowcount
+            c_reviews = conn.execute("DELETE FROM cloud_study_reviews;").rowcount
+            c_state = conn.execute("DELETE FROM cloud_study_state;").rowcount
+            c_cards = conn.execute("DELETE FROM anki_cards;").rowcount
+            c_daily = 0
+            if include_stats:
+                c_daily = conn.execute("DELETE FROM anki_daily;").rowcount
+                conn.execute("DELETE FROM anki_meta WHERE key NOT IN ('schema_version');")
+            conn.commit()
+            return {
+                "deleted_cards": c_cards,
+                "deleted_media": c_media,
+                "deleted_study_reviews": c_reviews,
+                "deleted_study_state": c_state,
+                "deleted_daily": c_daily,
+            }
 
     def upsert_anki_daily(self, rows: list[dict[str, Any]]) -> int:
         if not rows:
@@ -1424,7 +1448,7 @@ class SqliteQueueStore(BaseQueueStore):
                     """,
                     (limit,),
                 ).fetchall()
-            elif clean_mode == "cloud_due":
+            elif clean_mode in ("cloud_due", "due"):
                 rows = conn.execute(
                     """
                     SELECT ac.* FROM anki_cards ac

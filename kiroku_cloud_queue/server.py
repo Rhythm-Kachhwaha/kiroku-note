@@ -702,6 +702,26 @@ async def reconcile_anki_cards_endpoint(request: Request) -> JSONResponse:
     })
 
 
+@app.post("/api/anki/cards/clear")
+async def clear_anki_cards_endpoint(request: Request) -> JSONResponse:
+    """Worker endpoint to wipe all mirrored cards, media, and cloud study history for clean resync."""
+    _authenticate_worker(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+
+    include_stats = False
+    try:
+        payload = await request.json()
+        if isinstance(payload, dict):
+            include_stats = bool(payload.get("include_stats", False))
+    except Exception:
+        pass
+
+    result = store.clear_all_cards(include_stats=include_stats)
+    log.info("Mirrored cards wiped via clear endpoint: %s", result)
+    return JSONResponse({"status": "ok", "deleted": result})
+
+
 @app.post("/api/anki/meta")
 async def save_anki_meta_endpoint(request: Request) -> JSONResponse:
     """Worker endpoint to record sync metadata (key/value pairs or 'meta' mapping)."""
