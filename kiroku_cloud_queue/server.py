@@ -291,39 +291,112 @@ app.add_middleware(
 # Dictionary Engine Lookup (In-process Standalone Dictionary)
 # ---------------------------------------------------------------------------
 
+import threading
+
 _DICT_ENGINE: Any = None
+_DICT_BUILD_LOCK = threading.Lock()
 
 def _get_dictionary_engine() -> Any:
     global _DICT_ENGINE
     if _DICT_ENGINE is not None:
         return _DICT_ENGINE
 
-    custom_path = os.getenv("KIROKU_DICT_SQLITE")
-    candidate_paths = [
-        custom_path,
-        str(Path(__file__).resolve().parent / "kiroku_dict.sqlite"),
-        str(Path(__file__).resolve().parent.parent / "kiroku_dict.sqlite"),
-    ]
-    db_path = next((p for p in candidate_paths if p and os.path.exists(p)), None)
-    if not db_path:
-        log.warning("kiroku_dict.sqlite database file not found for cloud dictionary engine.")
-        return None
+    with _DICT_BUILD_LOCK:
+        if _DICT_ENGINE is not None:
+            return _DICT_ENGINE
 
-    try:
+        custom_path = os.getenv("KIROKU_DICT_SQLITE")
+        base_dir = Path(__file__).resolve().parent
+        candidate_paths = [
+            custom_path,
+            str(base_dir / "kiroku_dict.sqlite"),
+            str(base_dir.parent / "kiroku_dict.sqlite"),
+            "/tmp/kiroku_dict.sqlite",
+        ]
+        db_path = next((p for p in candidate_paths if p and os.path.exists(p)), None)
+
+        # 1. If SQLite file missing, check if source zips exist to auto-build on startup
+        if not db_path:
+            zip_candidates = [
+                (base_dir / "data" / "jitendex-yomitan.zip", base_dir / "data" / "KANJIDIC_english.zip"),
+                (base_dir.parent / "data" / "jitendex-yomitan.zip", base_dir.parent / "data" / "KANJIDIC_english.zip"),
+            ]
+            for j_zip, k_zip in zip_candidates:
+                if j_zip.exists() and k_zip.exists():
+                    target_out = base_dir / "kiroku_dict.sqlite"
+                    log.info("Auto-building kiroku_dict.sqlite from %s and %s...", j_zip, k_zip)
+                    try:
+                        try:
+                            from kiroku_dictionary.importer import build_database
+                        except ImportError:
+                            if str(base_dir) not in sys.path:
+                                sys.path.insert(0, str(base_dir))
+                            if str(base_dir.parent) not in sys.path:
+                                sys.path.insert(0, str(base_dir.parent))
+                            from kiroku_dictionary.importer import build_database
+
+                        build_database(str(j_zip), str(k_zip), str(target_out))
+                        if target_out.exists():
+                            db_path = str(target_out)
+                            log.info("Auto-build complete: %s (%d bytes)", db_path, target_out.stat().st_size)
+                            break
+                    except Exception as b_err:
+                        log.warning("Auto-build of dictionary failed: %s", b_err)
+
+        # 2. If still missing, check if an auto-download URL is configured via environment variable
+        if not db_path:
+            dl_url = os.getenv("KIROKU_DICT_URL") or os.getenv("DICT_DOWNLOAD_URL")
+            if dl_url and dl_url.strip():
+                try:
+                    import urllib.request
+                    import gzip
+                    import shutil
+
+                    target_out = base_dir / "kiroku_dict.sqlite"
+                    if not os.access(base_dir, os.W_OK):
+                        target_out = Path("/tmp/kiroku_dict.sqlite")
+                    temp_dl = target_out.with_suffix(".tmp")
+                    log.info("Downloading dictionary database from %s to %s...", dl_url, target_out)
+                    req = urllib.request.Request(dl_url.strip(), headers={"User-Agent": "KirokuCloudQueue/1.0"})
+                    with urllib.request.urlopen(req, timeout=180.0) as resp, open(temp_dl, "wb") as out_f:
+                        shutil.copyfileobj(resp, out_f)
+
+                    if dl_url.strip().endswith(".gz"):
+                        with gzip.open(temp_dl, "rb") as gz_in, open(target_out, "wb") as out_f:
+                            shutil.copyfileobj(gz_in, out_f)
+                        if temp_dl.exists():
+                            temp_dl.unlink()
+                    else:
+                        if target_out.exists():
+                            target_out.unlink()
+                        temp_dl.rename(target_out)
+
+                    if target_out.exists():
+                        db_path = str(target_out)
+                        log.info("Successfully downloaded dictionary database (%d bytes).", target_out.stat().st_size)
+                except Exception as dl_err:
+                    log.warning("Failed to download dictionary database from %s: %s", dl_url, dl_err)
+
+        if not db_path:
+            log.warning("kiroku_dict.sqlite database file not found for cloud dictionary engine.")
+            return None
+
         try:
-            from kiroku_dictionary import DictionaryEngine
-        except ImportError:
-            repo_root = str(Path(__file__).resolve().parent.parent)
-            if repo_root not in sys.path:
-                sys.path.insert(0, repo_root)
-            from kiroku_dictionary import DictionaryEngine
+            try:
+                from kiroku_dictionary import DictionaryEngine
+            except ImportError:
+                if str(base_dir) not in sys.path:
+                    sys.path.insert(0, str(base_dir))
+                if str(base_dir.parent) not in sys.path:
+                    sys.path.insert(0, str(base_dir.parent))
+                from kiroku_dictionary import DictionaryEngine
 
-        _DICT_ENGINE = DictionaryEngine(db_path)
-        log.info("Initialized Cloud DictionaryEngine with db: %s", db_path)
-        return _DICT_ENGINE
-    except Exception as exc:
-        log.error("Failed to initialize DictionaryEngine: %s", exc)
-        return None
+            _DICT_ENGINE = DictionaryEngine(db_path)
+            log.info("Initialized Cloud DictionaryEngine with db: %s", db_path)
+            return _DICT_ENGINE
+        except Exception as exc:
+            log.error("Failed to initialize DictionaryEngine: %s", exc)
+            return None
 
 
 def _extract_text_from_node(node: Any, include_rt: bool = False, depth: int = 0) -> str:

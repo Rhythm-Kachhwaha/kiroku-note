@@ -103,7 +103,10 @@ hidden_imports.extend([
     "kiroku_client",
     "queue_db",
     "queue_store",
+    "anki_mirror",
+    "anki_stats",
 ])
+hidden_imports.extend(collect_submodules("kiroku_dictionary"))
 
 a = Analysis(
     [str(PROJECT_ROOT / "run_tray.py")],

@@ -23,6 +23,7 @@ import logging
 import os
 from pathlib import Path
 import re
+import sys
 import tempfile
 from typing import Any, Callable, Optional
 import urllib.error
@@ -34,7 +35,19 @@ log = logging.getLogger("kiroku_anki_mirror")
 # Constants & Configuration
 # ---------------------------------------------------------------------------
 ANKI_DAY_ROLLOVER_HOUR = int(os.getenv("ANKI_DAY_ROLLOVER_HOUR", "4"))
-STATE_FILE_PATH = Path(__file__).parent / ".mirror_state.json"
+
+def _resolve_default_state_file_path() -> Path:
+    custom = os.getenv("MIRROR_STATE_PATH")
+    if custom and custom.strip():
+        return Path(custom.strip())
+    if getattr(sys, "frozen", False):
+        local_appdata = os.getenv("LOCALAPPDATA")
+        base = Path(local_appdata) / "KirokuNote" if local_appdata else Path.home() / "AppData" / "Local" / "KirokuNote"
+        base.mkdir(parents=True, exist_ok=True)
+        return base / ".mirror_state.json"
+    return Path(__file__).parent / ".mirror_state.json"
+
+STATE_FILE_PATH = _resolve_default_state_file_path()
 
 DIFFICULTY_CONSTANTS = {
     "W_LAPSE": 40.0,

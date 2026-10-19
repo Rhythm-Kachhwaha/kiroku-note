@@ -4,7 +4,7 @@ services:
     runtime: python
     rootDir: kiroku_cloud_queue
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && python -c "import os, subprocess; subprocess.run(['python', '-m', 'kiroku_dictionary.build', '--jitendex', 'data/jitendex-yomitan.zip', '--kanjidic', 'data/KANJIDIC_english.zip', '--out', 'kiroku_dict.sqlite'], check=True) if os.path.exists('data/jitendex-yomitan.zip') and not os.path.exists('kiroku_dict.sqlite') else None"
     startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     autoDeploy: false
