@@ -953,11 +953,20 @@
       color: var(--text);
       border-color: var(--border-default);
     }
+    .study-actions-container {
+      position: sticky;
+      bottom: 0;
+      background: var(--surface);
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-subtle);
+      margin-top: 1rem;
+      z-index: 10;
+    }
     .study-actions-row {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 0.5rem;
-      margin-top: 1.25rem;
+      margin-top: 0;
     }
     .rating-btn {
       background: var(--surface-elevated);
@@ -1498,7 +1507,8 @@
       margin-top: 12px;
       text-align: center;
     }
-    .kn-card .kn-image {
+    .kn-card .kn-image,
+    .kn-image {
       max-width: 100%;
       max-height: 240px;
       height: auto;
@@ -2040,17 +2050,17 @@
 
             <!-- Revealed Content -->
             <div id="study-revealed-content" style="display:none;width:100%;display:flex;flex-direction:column;align-items:center;">
+              <div id="study-media-reveal" style="display:none;margin-bottom:12px;text-align:center;width:100%;"></div>
               <div id="study-rich-reveal" style="display:none;width:100%;"></div>
               <div id="study-plain-reveal" style="width:100%;display:flex;flex-direction:column;align-items:center;">
                 <div class="study-reading-reveal" id="study-reading-reveal"></div>
                 <div class="study-meaning-reveal" id="study-meaning-reveal"></div>
                 <div class="study-sentence-reveal" id="study-sentence-reveal" style="display:none;"></div>
               </div>
-              <div id="study-media-reveal" style="display:none;margin-top:10px;text-align:center;width:100%;"></div>
             </div>
           </div>
 
-          <div>
+          <div class="study-actions-container">
             <button class="study-reveal-btn" id="study-reveal-btn" onclick="revealStudyAnswer()">Reveal Answer (Space)</button>
             <div class="study-actions-row" id="study-rating-row" style="display:none;">
               <button class="rating-btn again" onclick="submitStudyRating(1)">
