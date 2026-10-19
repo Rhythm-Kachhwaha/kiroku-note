@@ -130,6 +130,14 @@ class DictionaryLookupLiveTests(unittest.TestCase):
             30.0,
             f"p95 latency ({p95:.2f} ms) exceeded performance budget of 30 ms!",
         )
+    def test_lookup_terms_safe_on_none_and_invalid_types(self):
+        """None, empty strings, and non-strings should safely return empty list without raising."""
+        self.assertEqual(self.engine.lookup_terms(None), [])
+        self.assertEqual(self.engine.lookup_terms(""), [])
+        self.assertEqual(self.engine.lookup_terms(12345), [])
+        self.assertEqual(self.engine.lookup_kanji(None), [])
+        self.assertEqual(self.engine.lookup_kanji(""), [])
+        self.assertEqual(self.engine.lookup_kanji(12345), [])
 
 
 if __name__ == "__main__":

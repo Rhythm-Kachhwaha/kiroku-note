@@ -7913,6 +7913,8 @@ function renderQuickAddSuggestions(entries, savedCardExpressions = new Set()) {
       }
     } else if (entry.meaning) {
       gloss = String(entry.meaning).trim();
+    } else if (Array.isArray(entry.meanings) && entry.meanings.length > 0) {
+      gloss = String(entry.meanings[0]).trim();
     }
 
     if (seenCandidateKeys.has(key)) {
@@ -7927,11 +7929,12 @@ function renderQuickAddSuggestions(entries, savedCardExpressions = new Set()) {
 
     seenCandidateKeys.add(key);
     const isSaved = Boolean(entry.is_saved || entry.is_duplicate || (savedCardExpressions && savedCardExpressions.has(expression.toLowerCase())));
+    const resolvedJlpt = entry.jlpt_level || (Array.isArray(entry.tags) && entry.tags[0] && /^N[1-5]$/i.test(String(entry.tags[0]).trim()) ? String(entry.tags[0]).trim().toUpperCase() : null);
     rawCandidates.push({
       expression,
       reading,
       gloss,
-      jlpt_level: entry.jlpt_level || null,
+      jlpt_level: resolvedJlpt,
       isSaved,
       originalEntry: entry,
       index: rawCandidates.length,

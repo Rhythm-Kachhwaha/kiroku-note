@@ -43,3 +43,12 @@ def test_api_search_english_empty_query():
     data = response.json()
     assert data["entries"] == []
     assert data["count"] == 0
+
+def test_search_english_returns_jlpt_level_and_meaning():
+    service = JlptReferenceService()
+    results = service.search_english("eat", limit=1)
+    assert len(results) > 0
+    top = results[0]
+    assert top.get("jlpt_level") == "N5"
+    assert "meaning" in top
+    assert "meanings" in top

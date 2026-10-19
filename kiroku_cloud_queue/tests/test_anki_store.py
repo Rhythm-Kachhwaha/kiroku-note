@@ -318,3 +318,22 @@ def test_postgres_store_parity():
     finally:
         pg_store.drop_schema()
         pg_store.close()
+
+
+def test_sqlite_foreign_keys_and_media_cascade(tmp_path):
+    db_file = str(tmp_path / "test_fk.db")
+    store = SqliteQueueStore(db_path=db_file)
+    with store._conn() as conn:
+        fk_check = conn.execute("PRAGMA foreign_keys;").fetchone()[0]
+        assert fk_check == 1, "foreign_keys PRAGMA must be ON"
+
+    card = _sample_card(888, expression="カスケード")
+    store.upsert_anki_cards([card])
+    store.save_card_media(888, "test.webp", b"WEBP_BYTES")
+    assert store.get_card_media(888) is not None
+
+    with store._conn() as conn:
+        conn.execute("DELETE FROM anki_cards WHERE card_id = 888;")
+        conn.commit()
+
+    assert store.get_card_media(888) is None, "anki_card_media must be cascade-deleted"

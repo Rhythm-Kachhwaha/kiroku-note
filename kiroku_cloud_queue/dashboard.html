@@ -3252,6 +3252,17 @@
       hideQuickAddSuggestions();
       const input = document.getElementById('quickadd-input');
       if (input) input.value = cand.expression;
+      if (currentQaMode === 'english') {
+        setQuickAddMode('kana', false);
+      }
+      if (cand && cand.expression) {
+        populateQuickAddDraft({
+          expression: cand.expression,
+          reading: cand.reading || cand.expression,
+          meanings: cand.meanings || [],
+          jlpt_level: cand.jlpt_level || ''
+        });
+      }
       executeQuickAddLookup(true);
     }
 

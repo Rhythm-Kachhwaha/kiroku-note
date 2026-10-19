@@ -13,6 +13,7 @@ import logging
 import os
 from pathlib import Path
 import sqlite3
+import sys
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -28,6 +29,54 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_YOMITAN_ENDPOINT = "http://127.0.0.1:19633"
 DEFAULT_DB_PATH = str(Path(__file__).resolve().parent.parent.parent.parent / "kiroku_dict.sqlite")
+
+
+def resolve_dictionary_db_path(custom_path: str | Path | None = None) -> Path:
+    """Resolve the location of the kiroku_dict.sqlite database.
+
+    Checks in priority order:
+    1. Explicit custom_path argument
+    2. KIROKU_DICT_SQLITE environment variable
+    3. Existing file at sys._MEIPASS or sys.executable directory (if frozen)
+    4. Existing file at REPO_ROOT / "kiroku_dict.sqlite"
+    5. Existing file at REPO_ROOT / "kiroku_cloud_queue" / "kiroku_dict.sqlite"
+    6. Existing file at %LOCALAPPDATA%/KirokuNote/kiroku_dict.sqlite
+    7. Default fallback path (REPO_ROOT / "kiroku_dict.sqlite")
+    """
+    if custom_path:
+        return Path(custom_path)
+
+    env_path = os.getenv("KIROKU_DICT_SQLITE")
+    if env_path:
+        return Path(env_path)
+
+    repo_root = Path(__file__).resolve().parent.parent.parent.parent
+    candidates: list[Path] = []
+
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).parent
+        candidates.append(exe_dir / "kiroku_dict.sqlite")
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            candidates.append(Path(meipass) / "kiroku_dict.sqlite")
+
+    candidates.append(repo_root / "kiroku_dict.sqlite")
+    candidates.append(repo_root / "kiroku_cloud_queue" / "kiroku_dict.sqlite")
+
+    local_app_data = os.getenv("LOCALAPPDATA")
+    if local_app_data:
+        candidates.append(Path(local_app_data) / "KirokuNote" / "kiroku_dict.sqlite")
+    try:
+        home = Path.home()
+        candidates.append(home / ".local" / "share" / "KirokuNote" / "kiroku_dict.sqlite")
+    except Exception:
+        pass
+
+    for cand in candidates:
+        if cand.is_file():
+            return cand
+
+    return repo_root / "kiroku_dict.sqlite"
 
 
 class DictionaryProvider(ABC):
@@ -151,8 +200,8 @@ class YomitanHttpProvider(DictionaryProvider):
 class LocalDictionaryProvider(DictionaryProvider):
     """Standalone local dictionary engine provider wrapping kiroku_dictionary."""
 
-    def __init__(self, db_path: str | None = None):
-        self._db_path = db_path or os.getenv("KIROKU_DICT_SQLITE") or DEFAULT_DB_PATH
+    def __init__(self, db_path: str | Path | None = None):
+        self._db_path = str(resolve_dictionary_db_path(db_path))
         self._engine: Any = None
 
     def _get_engine(self) -> Any:

@@ -248,6 +248,9 @@ class JlptReferenceService:
                     "reading": reading or word,
                     "senses": [{"glosses": [primary_gloss] if primary_gloss else [""]}],
                     "tags": [norm_lvl] if norm_lvl else [],
+                    "jlpt_level": norm_lvl,
+                    "meaning": primary_gloss,
+                    "meanings": meanings_list,
                 })
 
             scored_entries.sort(key=lambda x: x["score"], reverse=True)
@@ -257,6 +260,9 @@ class JlptReferenceService:
                     "reading": item["reading"],
                     "senses": item["senses"],
                     "tags": item["tags"],
+                    "jlpt_level": item["jlpt_level"],
+                    "meaning": item["meaning"],
+                    "meanings": item["meanings"],
                 }
                 for item in scored_entries[:limit]
             ]

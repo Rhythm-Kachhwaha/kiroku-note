@@ -105,6 +105,8 @@ class DictionaryEngine:
         Lookup vocabulary entries for input text.
         Returns grouped headwords ranked by exactness, deinflection chain, and popularity score.
         """
+        if not text or not isinstance(text, str):
+            return []
         clean_text = text.strip(_PUNCT_TRIM_CHARS) or text.strip()
         if not clean_text:
             return []
@@ -229,7 +231,7 @@ class DictionaryEngine:
 
     def lookup_kanji(self, text: str) -> list[KanjiResult]:
         """Lookup kanji dictionary entries for all kanji characters found in text."""
-        if not text:
+        if not text or not isinstance(text, str):
             return []
 
         kanji_chars = [ch for ch in text if is_kanji_char(ch)]

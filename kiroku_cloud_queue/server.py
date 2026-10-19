@@ -388,42 +388,38 @@ def romaji_to_hiragana(text: str) -> str:
 # ---------------------------------------------------------------------------
 # JLPT Reference Database & English Search
 # ---------------------------------------------------------------------------
-_JLPT_CONN: Optional[sqlite3.Connection] = None
-_JLPT_CONN_LOCK = threading.Lock()
+_JLPT_LOCAL = threading.local()
 
 
 def _get_jlpt_connection() -> Optional[sqlite3.Connection]:
-    global _JLPT_CONN
-    if _JLPT_CONN is not None:
-        return _JLPT_CONN
-    with _JLPT_CONN_LOCK:
-        if _JLPT_CONN is not None:
-            return _JLPT_CONN
-        base_dir = Path(__file__).resolve().parent
-        candidates = [
-            os.getenv("KIROKU_JLPT_DB_PATH"),
-            str(base_dir / "data" / "jlpt_reference.sqlite"),
-            str(base_dir.parent / "backend" / "app" / "data" / "jlpt_reference.sqlite"),
-            str(base_dir.parent / "data" / "jlpt_reference.sqlite"),
-        ]
-        db_path = next((p for p in candidates if p and os.path.exists(p)), None)
-        if not db_path:
-            return None
+    if hasattr(_JLPT_LOCAL, "conn") and _JLPT_LOCAL.conn is not None:
+        return _JLPT_LOCAL.conn
+
+    base_dir = Path(__file__).resolve().parent
+    candidates = [
+        os.getenv("KIROKU_JLPT_DB_PATH"),
+        str(base_dir / "data" / "jlpt_reference.sqlite"),
+        str(base_dir.parent / "backend" / "app" / "data" / "jlpt_reference.sqlite"),
+        str(base_dir.parent / "data" / "jlpt_reference.sqlite"),
+    ]
+    db_path = next((p for p in candidates if p and os.path.exists(p)), None)
+    if not db_path:
+        return None
+    try:
+        abs_p = Path(db_path).resolve().as_posix()
+        conn = sqlite3.connect(f"file:{abs_p}?mode=ro", uri=True, check_same_thread=False)
+        _JLPT_LOCAL.conn = conn
+        log.info("Connected to JLPT reference dataset: %s", db_path)
+        return conn
+    except Exception:
         try:
-            abs_p = Path(db_path).resolve().as_posix()
-            conn = sqlite3.connect(f"file:{abs_p}?mode=ro", uri=True, check_same_thread=False)
-            _JLPT_CONN = conn
-            log.info("Connected to JLPT reference dataset: %s", db_path)
+            conn = sqlite3.connect(db_path, check_same_thread=False)
+            _JLPT_LOCAL.conn = conn
+            log.info("Connected to JLPT reference dataset (standard mode): %s", db_path)
             return conn
-        except Exception:
-            try:
-                conn = sqlite3.connect(db_path, check_same_thread=False)
-                _JLPT_CONN = conn
-                log.info("Connected to JLPT reference dataset (standard mode): %s", db_path)
-                return conn
-            except Exception as e:
-                log.warning("Could not connect to jlpt_reference.sqlite at %s: %s", db_path, e)
-                return None
+        except Exception as e:
+            log.warning("Could not connect to jlpt_reference.sqlite at %s: %s", db_path, e)
+            return None
 
 
 def search_english_vocab(query: str, limit: int = 20) -> list[dict[str, Any]]:
@@ -657,6 +653,7 @@ async def dictionary_status_endpoint(request: Request) -> JSONResponse:
         "status": "ok",
         "available": engine is not None,
         "building": _DICT_BUILDING,
+        "build_error": _DICT_BUILD_ERROR,
         "english_search_available": jlpt_conn is not None,
     })
 
@@ -700,7 +697,7 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
     max_results = min(int(body.get("max_results") or 10), 20)
 
     has_japanese = any(0x3040 <= ord(c) <= 0x9FFF for c in raw_text) or any(ord(c) in (0x30FC, 0x30FB) for c in raw_text)
-    is_english_mode = (mode == "english")
+    is_english_mode = (mode == "english" and not has_japanese)
     is_english_text = not has_japanese and bool(re.match(r"^[a-zA-Z\s'-]+$", raw_text)) and mode != "kana"
 
     engine = _get_dictionary_engine()
@@ -766,6 +763,11 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Dictionary engine is compiling in the background. Please retry in a few moments.",
+            )
+        if _DICT_BUILD_ERROR:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Dictionary engine compilation failed: {_DICT_BUILD_ERROR}",
             )
         # Fallback to English search if dictionary engine is absent
         fallback_results = search_english_vocab(raw_text, limit=max_results)
@@ -923,15 +925,30 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
         "kanji_entries": kanji_entries,
     }
 
-    candidates = [
-        {
+    candidates = []
+    for g in term_groups:
+        cand_jlpt = None
+        for tag in g.tags:
+            if m := re.match(r"^jlpt-n([1-5])$", str(tag).strip(), re.IGNORECASE):
+                cand_jlpt = f"N{m.group(1)}"
+                break
+            if m := re.match(r"^n([1-5])$", str(tag).strip(), re.IGNORECASE):
+                cand_jlpt = f"N{m.group(1)}"
+                break
+        if not cand_jlpt and g.term == primary.term:
+            cand_jlpt = jlpt_level
+        if not cand_jlpt:
+            cand_en = search_english_vocab(g.term, limit=1)
+            if cand_en and cand_en[0].get("term") == g.term:
+                cand_jlpt = cand_en[0].get("jlpt_level")
+
+        candidates.append({
             "expression": g.term,
             "reading": g.reading,
             "meanings": _extract_plain_text_glossary(g.definitions[0].glossary[:2]) if g.definitions and g.definitions[0].glossary else [],
+            "jlpt_level": cand_jlpt,
             "source": g.source,
-        }
-        for g in term_groups
-    ]
+        })
 
     return JSONResponse({
         "status": "ok",

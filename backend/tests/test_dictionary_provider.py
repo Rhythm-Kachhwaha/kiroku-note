@@ -8,6 +8,7 @@ from app.services.dictionary_provider import (
     DictionaryProvider,
     LocalDictionaryProvider,
     YomitanHttpProvider,
+    resolve_dictionary_db_path,
 )
 from app.services.yomitan import (
     EnrichedTerm,
@@ -138,3 +139,18 @@ class DictionaryProviderTests(unittest.TestCase):
         with self.assertRaises(YomitanResponseError) as ctx:
             service.identify("私は日本語を勉強しています。")
         self.assertIn("Full-sentence tokenization requires Yomitan", str(ctx.exception))
+
+    def test_resolve_dictionary_db_path_explicit(self):
+        custom = Path("C:/custom/path/dict.sqlite")
+        resolved = resolve_dictionary_db_path(custom)
+        self.assertEqual(resolved, custom)
+
+    def test_resolve_dictionary_db_path_env_var(self):
+        with patch.dict(os.environ, {"KIROKU_DICT_SQLITE": "C:/env/dict.sqlite"}):
+            resolved = resolve_dictionary_db_path()
+            self.assertEqual(resolved, Path("C:/env/dict.sqlite"))
+
+    def test_resolve_dictionary_db_path_finds_default(self):
+        resolved = resolve_dictionary_db_path()
+        self.assertIsInstance(resolved, Path)
+        self.assertTrue(str(resolved).endswith("kiroku_dict.sqlite"))

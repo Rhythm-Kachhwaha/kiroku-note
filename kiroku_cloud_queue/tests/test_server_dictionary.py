@@ -127,3 +127,28 @@ class ServerDictionaryLookupTests(unittest.TestCase):
         data = resp.json()
         self.assertEqual(data["status"], "ok")
         self.assertEqual(data["match"]["expression"], "食べる")
+
+    def test_dictionary_status_exposes_build_error(self):
+        old_err = server._DICT_BUILD_ERROR
+        try:
+            server._DICT_BUILD_ERROR = "Disk quota exceeded test"
+            resp = self.client.get("/api/dictionary/status")
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data.get("build_error"), "Disk quota exceeded test")
+        finally:
+            server._DICT_BUILD_ERROR = old_err
+
+    def test_japanese_text_in_english_mode_finds_headword_and_candidate_jlpt(self):
+        if not os.path.exists(os.environ["KIROKU_DICT_SQLITE"]):
+            self.skipTest("kiroku_dict.sqlite not found")
+        resp = self.client.post("/api/dictionary/lookup", json={"text": "食べる", "mode": "english"})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertIsNotNone(data.get("match"))
+        self.assertEqual(data["match"]["expression"], "食べる")
+        self.assertGreater(len(data.get("candidates", [])), 0)
+        top_cand = data["candidates"][0]
+        self.assertIn("jlpt_level", top_cand)
+        self.assertIn(top_cand["jlpt_level"], ("N5", "N4", "N3", "N2", "N1"))
