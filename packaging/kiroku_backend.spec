@@ -76,24 +76,21 @@ datas = []
 if ICON_PNG.exists():
     datas.append((str(ICON_PNG), "assets"))
 
-JLPT_DB = BACKEND_DIR / "app" / "data" / "jlpt_reference.sqlite"
-JLPT_NOTICE = BACKEND_DIR / "app" / "data" / "JLPT_REFERENCE_NOTICE.md"
-if JLPT_DB.exists():
-    datas.append((str(JLPT_DB), os.path.join("app", "data")))
-if JLPT_NOTICE.exists():
-    datas.append((str(JLPT_NOTICE), os.path.join("app", "data")))
-
-KANJIVG_DB = BACKEND_DIR / "app" / "data" / "kanji_strokes.sqlite"
-KANJIVG_NOTICE = BACKEND_DIR / "app" / "data" / "KANJIVG_NOTICE.md"
-if KANJIVG_DB.exists():
-    datas.append((str(KANJIVG_DB), os.path.join("app", "data")))
-if KANJIVG_NOTICE.exists():
-    datas.append((str(KANJIVG_NOTICE), os.path.join("app", "data")))
+DATA_DIR = BACKEND_DIR / "app" / "data"
+if DATA_DIR.exists():
+    for data_file in DATA_DIR.glob("*.*"):
+        if not data_file.name.endswith((".py", ".pyc", ".tmp", ".log", ".bak")):
+            datas.append((str(data_file), os.path.join("app", "data")))
 
 CLOUD_QUEUE_DIR = PROJECT_ROOT / "kiroku_cloud_queue"
 if CLOUD_QUEUE_DIR.exists():
     for py_file in CLOUD_QUEUE_DIR.glob("*.py"):
         datas.append((str(py_file), "kiroku_cloud_queue"))
+    cq_data = CLOUD_QUEUE_DIR / "data"
+    if cq_data.exists():
+        for data_file in cq_data.glob("*.*"):
+            if not data_file.name.endswith((".py", ".pyc", ".tmp")):
+                datas.append((str(data_file), os.path.join("kiroku_cloud_queue", "data")))
 
 hidden_imports.extend([
     "worker",

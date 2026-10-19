@@ -1,5 +1,49 @@
 # Kiroku Note — Progress
 
+### One-Click Windows Setup Installer Builder (`buildsetup.py`) (2026-10-19)
+
+**Objective**: Deliver a robust, future-proof one-click Windows setup builder `buildsetup.py` placed alongside `run_backend.py` with `tqdm` progress feedback, automated Inno Setup compiler discovery, and dynamic asset collection so future feature additions do not break the installer pipeline.
+
+**1. Delivered Behaviors & Features**:
+- **One-Click Automated Setup Builder (`buildsetup.py`)**:
+  - Implemented 5-stage automated build pipeline:
+    1. *Stage 1/5*: Environment & pre-flight auditing (validates Python, PyInstaller, Inno Setup ISCC, manifest assets, and cleans process locks if `KirokuNote.exe` is running).
+    2. *Stage 2/5*: Staging directory cleanup (`dist/backend`, `build`, `dist/extension/unpacked`).
+    3. *Stage 3/5*: PyInstaller compilation with real-time log tracking and status updates into `dist/backend/KirokuNote/`.
+    4. *Stage 4/5*: Dynamic extension packaging into `dist/extension/unpacked/` and `dist/extension/KirokuNote-extension-v<version>.zip` with progress bar.
+    5. *Stage 5/5*: Inno Setup compiler invocation producing 64-bit installer `dist/installer/Kiroku-Note-Setup-v<version>.exe`.
+  - Supports CLI flags: `--skip-pyinstaller`, `--skip-installer`, `--no-clean`.
+- **`tqdm` Integration with Graceful Fallback**:
+  - Stage-level and file-level progress bars for visual clarity and build monitoring.
+  - Built-in `SimpleProgressBar` fallback if `tqdm` is ever uninstalled.
+  - Windows console encoding safety with `sys.stdout.reconfigure(encoding="utf-8")` and ASCII status badges (`[OK]`, `[*]`, `[!]`).
+- **Robustness Against Future Code Changes**:
+  - Replaced brittle hardcoded file lists with dynamic scanning: all newly added files in `backend/app/data/`, `extension/content/`, `extension/lib/`, and `kiroku_cloud_queue/data/` are automatically packaged without script modifications.
+  - Dynamic `manifest.json` pre-flight auditing: verifies all declared service workers, scripts, icons, and web-accessible resources exist before launching PyInstaller.
+  - Automatic Inno Setup compiler discovery across `%LOCALAPPDATA%\Programs\Inno Setup 6\`, `C:\Program Files\`, `C:\Program Files (x86)\`, and `PATH`.
+  - Dynamically passes `/DMyAppVersion=<version>` extracted from `backend/app/config.py` to Inno Setup, keeping versioning synchronized.
+- **Spec Improvements (`packaging/kiroku_backend.spec`)**:
+  - Made data bundling dynamic for `backend/app/data/` and `kiroku_cloud_queue/data/`.
+
+**2. Files Created/Modified**:
+- `buildsetup.py`: The one-click installer builder with `tqdm` and robust stage handlers.
+- `packaging/kiroku_backend.spec`: Dynamic data bundling for future features.
+- `backend/tests/test_buildsetup.py`: Unit tests for version extraction, ISCC discovery, manifest audit, and extension file collection.
+- `PROGRESS.md`: Documented installer builder and build verification.
+
+**3. Verification Run & Results**:
+- `python buildsetup.py`: **Succeeded in 82.0s**.
+  - Backend binary: `dist/backend/KirokuNote/KirokuNote.exe` (19.53 MB).
+  - Extension zip: `dist/extension/KirokuNote-extension-v2.0.0.zip` (207.0 KB, 24 runtime files).
+  - Windows installer: `dist/installer/Kiroku-Note-Setup-v2.0.0.exe` (89.03 MB).
+  - SHA-256 Checksum: `585ec5ad9e87fda874607685c417dfe2a100d1ae2eecd970d49b52ffcf5583af`.
+- Unit tests (`pytest backend/tests/test_buildsetup.py backend/tests/test_installer_config.py`): **11/11 passed in 0.18s**.
+
+**4. Remaining Risk**:
+- None. The installer builder is fully self-contained, tested, and can be invoked directly with a single click or command.
+
+---
+
 ### Complete Codebase Audit & Error Resolution (Dictionary, Cloud Queue, Sync Contracts) (2026-10-19)
 
 **Objective**: Perform exhaustive audit across all workspaces (`backend`, `kiroku_cloud_queue`, `kiroku_dictionary`, `extension`) for runtime errors, concurrency hazards, contract mismatches, and edge-case exceptions—especially in the standalone local/cloud dictionary, English search, Quick Add UI, and database layers—and systematically resolve all identified defects.
