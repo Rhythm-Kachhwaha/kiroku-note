@@ -23,13 +23,40 @@ import logging
 import os
 from pathlib import Path
 import re
+import socket
 import sys
 import tempfile
+import time
 from typing import Any, Callable, Optional
 import urllib.error
 import urllib.request
 
 log = logging.getLogger("kiroku_anki_mirror")
+
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
+
+class AnkiConnectError(Exception):
+    """Base exception for all AnkiConnect client errors."""
+    pass
+
+class AnkiUnreachableError(AnkiConnectError):
+    """Anki Desktop or AnkiConnect is not running / connection refused."""
+    pass
+
+class AnkiTimeoutError(AnkiConnectError):
+    """AnkiConnect call timed out."""
+    pass
+
+class AnkiConnectionResetError(AnkiConnectError):
+    """Connection dropped or reset mid-transfer (e.g. Anki closed)."""
+    pass
+
+class AnkiProtocolError(AnkiConnectError):
+    """Malformed response or error returned by AnkiConnect."""
+    pass
+
 
 # ---------------------------------------------------------------------------
 # Constants & Configuration
@@ -82,14 +109,17 @@ _SYNC_LOCK = asyncio.Lock()
 # ---------------------------------------------------------------------------
 @dataclass
 class MirrorResult:
-    status: str  # "ok", "offline", "locked", "error"
+    status: str  # "ok", "partial", "offline", "locked", "error", "skipped"
     mode: str = "incremental"  # "incremental" or "full"
     cards_seen: int = 0
     cards_changed: int = 0
     cards_pushed: int = 0
+    cards_failed: int = 0
+    cards_pending: int = 0
     daily_rows_pushed: int = 0
     deleted_on_reconcile: int = 0
     duration_s: float = 0.0
+    last_error: str = ""
     message: str = ""
 
 
@@ -761,13 +791,59 @@ class AnkiClient:
             },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-            if body.get("error"):
-                raise ValueError(f"AnkiConnect error on '{action}': {body['error']}")
-            return body.get("result")
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:
+                    resp_bytes = resp.read()
+                    try:
+                        body = json.loads(resp_bytes.decode("utf-8"))
+                    except Exception as json_err:
+                        raise AnkiProtocolError(f"Malformed JSON from AnkiConnect on '{action}': {json_err}") from json_err
+                    if body.get("error"):
+                        raise AnkiProtocolError(f"AnkiConnect error on '{action}': {body['error']}")
+                    return body.get("result")
+            except urllib.error.URLError as url_err:
+                reason = getattr(url_err, "reason", None)
+                reason_str = str(reason or url_err).lower()
+                is_refused = "refused" in reason_str or "10061" in reason_str
+                is_timeout = isinstance(reason, TimeoutError) or "timed out" in reason_str
+                is_reset = "reset" in reason_str or "10054" in reason_str or "broken pipe" in reason_str
+                if is_refused:
+                    raise AnkiUnreachableError(f"AnkiConnect unreachable on '{action}': {url_err}") from url_err
+                if is_timeout:
+                    if attempt < max_retries:
+                        time.sleep(0.5 * (attempt + 1))
+                        continue
+                    raise AnkiTimeoutError(f"AnkiConnect timed out on '{action}': {url_err}") from url_err
+                if is_reset:
+                    if attempt < max_retries:
+                        time.sleep(0.5 * (attempt + 1))
+                        continue
+                    raise AnkiConnectionResetError(f"AnkiConnect connection reset on '{action}': {url_err}") from url_err
+                if attempt < max_retries:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                raise AnkiConnectError(f"AnkiConnect network error on '{action}': {url_err}") from url_err
+            except (ConnectionResetError, BrokenPipeError) as conn_err:
+                if attempt < max_retries:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                raise AnkiConnectionResetError(f"AnkiConnect connection reset on '{action}': {conn_err}") from conn_err
+            except (TimeoutError, socket.timeout) as to_err:
+                if attempt < max_retries:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                raise AnkiTimeoutError(f"AnkiConnect timed out on '{action}': {to_err}") from to_err
+            except AnkiConnectError:
+                raise
+            except Exception as other_err:
+                if attempt < max_retries:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                raise AnkiConnectError(f"Unexpected AnkiConnect error on '{action}': {other_err}") from other_err
 
-    def get_cards_info_batched(self, card_ids: list[int], chunk_size: int = 500) -> list[dict[str, Any]]:
+    def get_cards_info_batched(self, card_ids: list[int], chunk_size: int = 200) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
         for i in range(0, len(card_ids), chunk_size):
             chunk = card_ids[i : i + chunk_size]
@@ -775,7 +851,7 @@ class AnkiClient:
             results.extend(info)
         return results
 
-    def get_notes_info_batched(self, note_ids: list[int], chunk_size: int = 500) -> list[dict[str, Any]]:
+    def get_notes_info_batched(self, note_ids: list[int], chunk_size: int = 200) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
         for i in range(0, len(note_ids), chunk_size):
             chunk = note_ids[i : i + chunk_size]
@@ -783,8 +859,11 @@ class AnkiClient:
             results.extend(info)
         return results
 
-    def get_reviews_of_cards_batched(self, card_ids: list[int], chunk_size: int = 500) -> dict[int, list[dict[str, Any]]]:
+    def get_reviews_of_cards_batched(
+        self, card_ids: list[int], chunk_size: int = 200
+    ) -> tuple[dict[int, list[dict[str, Any]]], set[int]]:
         all_revs: dict[int, list[dict[str, Any]]] = {}
+        failed_cids: set[int] = set()
         for i in range(0, len(card_ids), chunk_size):
             chunk = card_ids[i : i + chunk_size]
             try:
@@ -792,8 +871,9 @@ class AnkiClient:
                 for k, v in chunk_res.items():
                     all_revs[int(k)] = v
             except Exception as exc:
-                log.warning("getReviewsOfCards batch failed: %s", exc)
-        return all_revs
+                log.warning("getReviewsOfCards batch failed: %s; skipping cards in chunk", exc)
+                failed_cids.update(chunk)
+        return all_revs, failed_cids
 
 
 # ---------------------------------------------------------------------------
@@ -900,18 +980,26 @@ async def sync_anki_mirror(
         except Exception:
             pass
 
-        # Fetch due horizon map (0..60 days and overdue)
+        # Fetch due horizon map and probe today's due number for review cards
         due_map: dict[int, int] = {}
+        today_due_num: Optional[int] = None
         try:
             overdue_ids = await asyncio.to_thread(client.invoke, "findCards", query="prop:due<0")
             for cid in (overdue_ids or []):
                 due_map[int(cid)] = -1
-            for d in range(0, 31):
+            sample_due_today = await asyncio.to_thread(client.invoke, "findCards", query="prop:due=0")
+            for cid in (sample_due_today or []):
+                due_map[int(cid)] = 0
+            if sample_due_today:
+                sample_info = await asyncio.to_thread(client.invoke, "cardsInfo", cards=[int(sample_due_today[0])])
+                if sample_info and sample_info[0].get("queue") == 2:
+                    today_due_num = int(sample_info[0]["due"])
+            for d in range(1, 31):
                 d_ids = await asyncio.to_thread(client.invoke, "findCards", query=f"prop:due={d}")
                 for cid in (d_ids or []):
                     due_map[int(cid)] = d
         except Exception as exc:
-            log.debug("Due forecast query degraded: %s", exc)
+            log.debug("Due forecast probe degraded: %s", exc)
 
         # Step 3: Mod time checking for incremental sync
         saved_state = _load_state(state_file)
@@ -955,12 +1043,28 @@ async def sync_anki_mirror(
         # Step 4: Fetch cardsInfo for target cards
         cards_info: list[dict[str, Any]] = []
         if target_ids:
-            cards_info = await asyncio.to_thread(client.get_cards_info_batched, target_ids)
+            try:
+                cards_info = await asyncio.to_thread(client.get_cards_info_batched, target_ids)
+            except Exception as exc:
+                log.warning("get_cards_info_batched failed: %s", exc)
+                return MirrorResult(
+                    status="offline" if isinstance(exc, AnkiUnreachableError) else "error",
+                    mode=mode_str,
+                    cards_seen=len(all_card_ids),
+                    cards_changed=len(target_ids),
+                    last_error=str(exc),
+                    message=f"Failed to fetch cardsInfo: {exc}",
+                )
 
         # Fetch reviews for target cards
         reviews_map: dict[int, list[dict[str, Any]]] = {}
+        failed_review_cids: set[int] = set()
         if target_ids:
-            reviews_map = await asyncio.to_thread(client.get_reviews_of_cards_batched, target_ids)
+            try:
+                reviews_map, failed_review_cids = await asyncio.to_thread(client.get_reviews_of_cards_batched, target_ids)
+            except Exception as exc:
+                log.warning("get_reviews_of_cards_batched unexpected error: %s", exc)
+                failed_review_cids = set(target_ids)
 
         # Fetch notesInfo for target cards (for tags, JLPT extraction, and media)
         notes_map: dict[int, dict[str, Any]] = {}
@@ -994,9 +1098,15 @@ async def sync_anki_mirror(
         now_iso = start_time.isoformat()
         card_rows: list[dict[str, Any]] = []
         media_rows: list[dict[str, Any]] = []
+        review_rows: list[dict[str, Any]] = []
 
         for cinfo in cards_info:
             cid = int(cinfo["cardId"])
+            # B2: If review fetch failed for this card, skip pushing it so partial/empty reviews
+            # do NOT overwrite good cloud data with 0 again / 0 reviews.
+            if cid in failed_review_cids:
+                continue
+
             nid = int(cinfo.get("note", 0))
             note_entry = notes_map.get(nid, {})
             note_tags = note_entry.get("tags", [])
@@ -1015,7 +1125,34 @@ async def sync_anki_mirror(
             c_info_augmented["fsrs_difficulty"] = fsrs_d
 
             score, diff_label = compute_difficulty(c_info_augmented, c_reviews[-10:] if c_reviews else [])
-            due_in_days = compute_due_days(cid, due_map)
+
+            # Compute due date & due in days (B6)
+            queue_code = int(cinfo.get("queue", 0))
+            due_in_days: Optional[int] = None
+            if queue_code == 2:  # Review card
+                if today_due_num is not None:
+                    due_in_days = int(cinfo.get("due", 0)) - today_due_num
+                elif cid in due_map:
+                    due_in_days = due_map[cid]
+                elif cinfo.get("due") is not None:
+                    due_in_days = int(cinfo["due"])
+            elif queue_code in (1, 3):  # Learning / relearning card
+                due_val = int(cinfo.get("due", 0))
+                if due_val > 1000000000:
+                    due_dt = datetime.fromtimestamp(due_val, tz=timezone.utc)
+                    due_in_days = max(0, (due_dt.date() - start_time.date()).days)
+                else:
+                    due_in_days = 0
+            elif queue_code == 0:  # New card
+                due_in_days = None
+            else:
+                due_in_days = compute_due_days(cid, due_map)
+
+            # Compute absolute due_date string (YYYY-MM-DD)
+            due_date: Optional[str] = None
+            if due_in_days is not None:
+                due_date = (start_time.date() + timedelta(days=due_in_days)).strftime("%Y-%m-%d")
+
             jlpt_level = extract_jlpt_level(note_tags, deck_name) or jlpt_lookup.get(fields_mapped["expression"])
 
             # Answer times
@@ -1030,12 +1167,26 @@ async def sync_anki_mirror(
             if c_reviews:
                 first_rev_at = datetime.fromtimestamp(int(c_reviews[0]["id"]) / 1000.0, tz=timezone.utc).isoformat()
                 last_rev_at = datetime.fromtimestamp(int(c_reviews[-1]["id"]) / 1000.0, tz=timezone.utc).isoformat()
+                # Extract raw reviews for anki_reviews table (Workstream E)
+                for r in c_reviews:
+                    rev_id = int(r.get("id", 0))
+                    if rev_id > 0:
+                        review_rows.append({
+                            "card_id": cid,
+                            "review_id": rev_id,
+                            "ease": int(r.get("ease", 0)),
+                            "type": int(r.get("type", 0)),
+                            "interval": int(r.get("ivl", 0)),
+                            "last_interval": int(r.get("lastIvl", 0)),
+                            "time_ms": max(0, int(r.get("time", 0))),
+                        })
 
             created_at = datetime.fromtimestamp(cid / 1000.0, tz=timezone.utc).isoformat()
             raw_html = extract_rich_card_html(cinfo.get("fields", {}))
             img_fnames = extract_image_filenames(cinfo.get("fields", {}))
-            has_media = bool(img_fnames)
 
+            # B4: Media handling - has_media is True only after successful retrieval
+            has_media = False
             if img_fnames:
                 target_fname = img_fnames[0]
                 try:
@@ -1049,8 +1200,10 @@ async def sync_anki_mirror(
                             "mime_type": "image/webp",
                             "image_webp_b64": base64.b64encode(compressed_webp).decode("ascii"),
                         })
+                        has_media = True
                 except Exception as m_exc:
                     log.warning("Media retrieval failed for card %d (%s): %s", cid, target_fname, m_exc)
+                    has_media = False
 
             card_rows.append({
                 "card_id": cid,
@@ -1064,7 +1217,7 @@ async def sync_anki_mirror(
                 "sentence_meaning": fields_mapped["sentence_meaning"],
                 "jlpt_level": jlpt_level,
                 "state": state_label,
-                "queue_code": int(cinfo.get("queue", 0)),
+                "queue_code": queue_code,
                 "interval_days": int(cinfo.get("interval", 0)),
                 "reps": int(cinfo.get("reps", 0)),
                 "lapses": int(cinfo.get("lapses", 0)),
@@ -1079,6 +1232,7 @@ async def sync_anki_mirror(
                 "fsrs_stability": float(fsrs_s) if fsrs_s is not None else None,
                 "fsrs_retrievability": float(fsrs_r) if fsrs_r is not None else None,
                 "due_in_days": due_in_days,
+                "due_date": due_date,
                 "raw_html": raw_html,
                 "has_media": has_media,
                 "created_at": created_at,
@@ -1088,13 +1242,39 @@ async def sync_anki_mirror(
                 "synced_at": now_iso,
             })
 
-        # Push cards in batches of 500
+        # B3: Push cards in batches of 200 with per-batch commit semantics
+        confirmed_mods: dict[str, int] = dict(saved_mods)
+        cards_failed = len(failed_review_cids)
+        push_had_failure = False
+
         if card_rows:
-            for i in range(0, len(card_rows), 500):
-                batch = card_rows[i : i + 500]
-                ok = await adapter.push_anki_cards(batch)
-                if ok:
-                    cards_pushed += len(batch)
+            batch_size = 200
+            for i in range(0, len(card_rows), batch_size):
+                batch = card_rows[i : i + batch_size]
+                try:
+                    ok = await adapter.push_anki_cards(batch)
+                    if ok:
+                        cards_pushed += len(batch)
+                        for c in batch:
+                            c_id = c["card_id"]
+                            if c_id in current_mods:
+                                confirmed_mods[str(c_id)] = current_mods[c_id]
+                    else:
+                        cards_failed += len(batch)
+                        push_had_failure = True
+                except Exception as p_err:
+                    log.warning("push_anki_cards batch failed: %s", p_err)
+                    cards_failed += len(batch)
+                    push_had_failure = True
+
+        # Push raw reviews in batches of 500 (Workstream E)
+        if review_rows:
+            try:
+                for i in range(0, len(review_rows), 500):
+                    r_batch = review_rows[i : i + 500]
+                    await adapter.push_anki_reviews(r_batch)
+            except Exception as r_err:
+                log.warning("push_anki_reviews failed soft: %s", r_err)
 
         # Push card media in batches of 50
         if media_rows:
@@ -1105,25 +1285,44 @@ async def sync_anki_mirror(
                 except Exception as m_err:
                     log.warning("push_anki_media batch failed soft: %s", m_err)
 
-        # Step 5: Build and push daily series if in full mode or reviews happened
+        # Step 5: Build and push daily series (B5)
+        # On full sync: full history. On incremental sync: refresh last 14 days so today's stats never stale.
         daily_rows_pushed = 0
-        if is_full_mode:
-            all_reviews_flat: list[dict[str, Any]] = []
-            for r_list in reviews_map.values():
+        all_reviews_flat: list[dict[str, Any]] = []
+        for cid, r_list in reviews_map.items():
+            if cid not in failed_review_cids:
                 all_reviews_flat.extend(r_list)
-            daily_rows = build_daily_series(card_rows, all_reviews_flat)
+
+        if is_full_mode and not push_had_failure and not failed_review_cids:
+            daily_rows = build_daily_series(card_rows, all_reviews_flat, rollover_hour=ANKI_DAY_ROLLOVER_HOUR)
             if daily_rows:
                 for i in range(0, len(daily_rows), 1000):
                     batch = daily_rows[i : i + 1000]
                     ok = await adapter.push_anki_daily(batch)
                     if ok:
                         daily_rows_pushed += len(batch)
+        elif all_reviews_flat or card_rows:
+            # Incremental refresh: build for cards seen and push last 14 days
+            try:
+                daily_rows = build_daily_series(card_rows, all_reviews_flat, rollover_hour=ANKI_DAY_ROLLOVER_HOUR)
+                cutoff = (start_time.date() - timedelta(days=14)).strftime("%Y-%m-%d")
+                recent_daily = [r for r in daily_rows if r.get("day", "") >= cutoff]
+                if recent_daily:
+                    ok = await adapter.push_anki_daily(recent_daily)
+                    if ok:
+                        daily_rows_pushed += len(recent_daily)
+            except Exception as d_exc:
+                log.warning("Incremental daily series build failed soft: %s", d_exc)
 
-        # Step 6: Reconcile deletions if in full mode with safety guards
+        # Step 6: Reconcile deletions if in full mode with safety guards (B7)
+        # Never delete if push had failure or review chunk dropped!
         deleted_count = 0
         reconcile_skipped_reason = None
         if is_full_mode:
-            if len(all_card_ids) == 0:
+            if push_had_failure or failed_review_cids:
+                reconcile_skipped_reason = "Sync had batch/chunk failures; reconcile deletions skipped to prevent accidental loss."
+                log.warning("%s", reconcile_skipped_reason)
+            elif len(all_card_ids) == 0:
                 reconcile_skipped_reason = "Anki returned 0 cards; reconcile skipped to prevent accidental collection wipe."
                 log.warning("Safety guard: %s", reconcile_skipped_reason)
             else:
@@ -1140,25 +1339,46 @@ async def sync_anki_mirror(
                     except Exception as exc:
                         log.warning("reconcile_anki_cards failed: %s", exc)
 
-        # Step 7: Push metadata
+        # Step 7: Push metadata and update state file with confirmed results
+        is_partial = (cards_failed > 0) or push_had_failure or bool(failed_review_cids)
+        final_status = "partial" if is_partial else "ok"
+        last_error_msg = f"{cards_failed} cards failed to sync" if is_partial else ""
+
         meta_payload = {
             "last_mirror_sync_at": now_iso,
-            "last_full_reconcile_at": now_iso if is_full_mode else last_reconcile,
+            "last_attempt_at": now_iso,
+            "status": final_status,
+            "last_error": last_error_msg,
+            "pending_cards": cards_failed,
             "card_count": len(all_card_ids),
             "schema_version": "1.0",
             "collection_day_rollover_hour": ANKI_DAY_ROLLOVER_HOUR,
             "reconcile_skipped_reason": reconcile_skipped_reason or "",
         }
+        if final_status == "ok":
+            meta_payload["last_success_at"] = now_iso
+            if is_full_mode:
+                meta_payload["last_full_at"] = now_iso
+        else:
+            if saved_state.get("last_success_at"):
+                meta_payload["last_success_at"] = saved_state["last_success_at"]
+            if saved_state.get("last_full_reconcile_at"):
+                meta_payload["last_full_at"] = saved_state["last_full_reconcile_at"]
+
         if active_profile:
             meta_payload["active_profile"] = str(active_profile)
-        await adapter.push_anki_meta(meta_payload)
+        try:
+            await adapter.push_anki_meta(meta_payload)
+        except Exception as m_err:
+            log.warning("push_anki_meta failed soft: %s", m_err)
 
-        # Step 8: Update state file
+        # Step 8: Update state file with confirmed card mods only
         new_state = {
             "schema_version": 1,
-            "last_full_reconcile_at": now_iso if is_full_mode else last_reconcile,
+            "last_full_reconcile_at": now_iso if (is_full_mode and final_status == "ok") else last_reconcile,
             "last_sync_at": now_iso,
-            "card_mods": {str(k): v for k, v in current_mods.items()},
+            "last_success_at": now_iso if final_status == "ok" else saved_state.get("last_success_at"),
+            "card_mods": {str(k): v for k, v in confirmed_mods.items()},
         }
         if active_profile:
             new_state["active_profile"] = str(active_profile)
@@ -1166,18 +1386,21 @@ async def sync_anki_mirror(
 
         elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
         log.info(
-            "Mirror sync completed in %.2fs: mode=%s, seen=%d, changed=%d, pushed=%d, daily=%d, deleted=%d",
-            elapsed, mode_str, len(all_card_ids), cards_changed, cards_pushed, daily_rows_pushed, deleted_count,
+            "Mirror sync completed in %.2fs: status=%s, mode=%s, seen=%d, changed=%d, pushed=%d, failed=%d, daily=%d, deleted=%d",
+            elapsed, final_status, mode_str, len(all_card_ids), cards_changed, cards_pushed, cards_failed, daily_rows_pushed, deleted_count,
         )
 
         return MirrorResult(
-            status="ok",
+            status=final_status,
             mode=mode_str,
             cards_seen=len(all_card_ids),
             cards_changed=cards_changed,
             cards_pushed=cards_pushed,
+            cards_failed=cards_failed,
+            cards_pending=cards_failed,
             daily_rows_pushed=daily_rows_pushed,
             deleted_on_reconcile=deleted_count,
             duration_s=elapsed,
-            message=f"Sync {mode_str} completed successfully in {elapsed:.2f}s",
+            last_error=last_error_msg,
+            message=f"Sync {mode_str} completed with status {final_status} in {elapsed:.2f}s",
         )

@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Kiroku">
   <title>Kiroku Cloud · Recent Cards &amp; Study</title>
+  <link rel="manifest" href="/manifest.json">
   
   <!-- Noto Sans Japanese font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2217,6 +2218,418 @@
       border-radius: 50%;
       display: inline-block;
     }
+    /* =========================================================================
+       Workstream C & I: Global Header, Universal Freshness Badge & Popover
+       ========================================================================= */
+    .app-top-header {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.15rem;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .brand-sync-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .global-sync-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-default);
+      color: var(--text-secondary);
+      border-radius: 20px;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.76rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      min-height: 34px;
+      touch-action: manipulation;
+    }
+    .global-sync-badge:hover {
+      background: var(--surface-hover);
+      border-color: var(--text-muted);
+      color: var(--text);
+    }
+    .global-sync-badge.sync-today {
+      color: var(--green);
+      border-color: rgba(94, 163, 106, 0.3);
+      background: var(--green-dim);
+    }
+    .global-sync-badge.sync-amber {
+      color: var(--yellow);
+      border-color: rgba(212, 149, 79, 0.3);
+      background: var(--yellow-dim);
+    }
+    .global-sync-badge.sync-red {
+      color: var(--red);
+      border-color: rgba(204, 79, 79, 0.3);
+      background: var(--red-dim);
+    }
+    .sync-detail-popover {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      z-index: 1000;
+      width: 320px;
+      max-width: 90vw;
+      background: #181715;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      padding: 0.85rem 1rem;
+      font-size: 0.8rem;
+    }
+    .popover-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 0.5rem;
+      margin-bottom: 0.6rem;
+    }
+    .popover-title {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .popover-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+    }
+    .popover-body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .popover-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-secondary);
+    }
+    .popover-row span:first-child {
+      color: var(--text-muted);
+    }
+    .popover-error-row {
+      margin-top: 0.4rem;
+      padding-top: 0.4rem;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 0.74rem;
+      color: var(--red);
+    }
+
+    .cold-start-banner {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: rgba(212, 149, 79, 0.12);
+      border: 1px solid rgba(212, 149, 79, 0.35);
+      border-radius: var(--radius-sm);
+      padding: 0.55rem 0.85rem;
+      font-size: 0.78rem;
+      color: var(--yellow);
+      margin-bottom: 1rem;
+    }
+    .pending-reviews-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(94, 163, 106, 0.15);
+      border: 1px solid rgba(94, 163, 106, 0.35);
+      border-radius: 16px;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.72rem;
+      color: var(--green);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Fix Weak Words Layout (Workstream I) */
+    .weak-word-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.7rem 0.85rem;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      min-width: 0;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .weak-word-row:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-default);
+    }
+    .weak-word-left {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 0;
+      flex: 1;
+    }
+    .weak-expr-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .weak-expr {
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .weak-reading {
+      font-size: 0.82rem;
+      color: var(--accent-reading);
+      white-space: nowrap;
+    }
+    .weak-meaning {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .weak-stats {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.25rem;
+      flex-shrink: 0;
+    }
+
+    /* Workstream D: Stats Sections & Verdicts */
+    .stats-hero-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    @media (min-width: 600px) {
+      .stats-hero-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (min-width: 850px) {
+      .stats-hero-grid { grid-template-columns: repeat(6, 1fr); }
+    }
+    .stats-verdict-banner {
+      background: var(--surface-elevated);
+      border-left: 3px solid var(--green);
+      padding: 0.6rem 0.85rem;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      margin-top: 0.75rem;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .chart-toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .chart-toggle-btn {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      padding: 0.2rem 0.5rem;
+      cursor: pointer;
+    }
+    .chart-toggle-btn.active {
+      background: var(--surface-elevated);
+      color: var(--text);
+      border-color: var(--border-default);
+    }
+    .advanced-stats-details {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 0.85rem 1.15rem;
+      margin-bottom: 1.25rem;
+    }
+    .advanced-stats-details summary {
+      cursor: pointer;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      user-select: none;
+    }
+    .advanced-stats-details summary:hover {
+      color: var(--text);
+    }
+
+    /* Workstream F & G: Study Presets & Travel Plan */
+    .study-presets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 0.6rem;
+      margin-bottom: 1.25rem;
+    }
+    .preset-card {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.75rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      text-align: left;
+      font-family: inherit;
+    }
+    .preset-card:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-default);
+    }
+    .preset-card.active {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .preset-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .preset-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.1rem 0.4rem;
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--text-secondary);
+    }
+    .preset-desc {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .travel-plan-card {
+      background: linear-gradient(135deg, var(--surface) 0%, rgba(94, 163, 106, 0.05) 100%);
+      border: 1px solid rgba(94, 163, 106, 0.25);
+      border-radius: var(--radius);
+      padding: 1rem 1.15rem;
+      margin-bottom: 1.25rem;
+    }
+    .travel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.6rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .travel-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .travel-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0.35rem;
+      margin-top: 0.75rem;
+      text-align: center;
+    }
+    .travel-day-box {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 0.45rem 0.2rem;
+    }
+    .travel-day-box.is-today {
+      border-color: var(--green);
+      background: var(--green-dim);
+    }
+    .travel-day-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
+    .travel-day-val {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 0.15rem;
+    }
+
+    /* Workstream E: Review Timeline & Sparkline for Card Modal */
+    .review-timeline {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+    .review-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-block;
+      cursor: pointer;
+    }
+    .review-dot.rate-1 { background: var(--red); }
+    .review-dot.rate-2 { background: var(--yellow); }
+    .review-dot.rate-3 { background: var(--green); }
+    .review-dot.rate-4 { background: #5ea3ba; }
+    .hard-reason-box {
+      background: var(--surface-elevated);
+      border-left: 3px solid var(--red);
+      padding: 0.6rem 0.85rem;
+      border-radius: 0 6px 6px 0;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      margin-top: 0.4rem;
+    }
+
+    /* Leech Rescue Banner */
+    .leech-rescue-banner {
+      background: rgba(204, 79, 79, 0.1);
+      border: 1px solid rgba(204, 79, 79, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 0.85rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.82rem;
+      color: var(--red);
+    }
+    .kanji-breakdown-row {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      margin-top: 0.4rem;
+    }
+    .kanji-item-box {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.76rem;
+    }
   </style>
 </head>
 <body>
@@ -2265,10 +2678,18 @@
     <!-- Main Content Area -->
     <main class="app-main">
       <div class="container">
-        <!-- Mobile Header (<= 768px) -->
-        <header class="mobile-header">
+        <header class="app-top-header">
+          <div class="mobile-header" style="display:none;" aria-hidden="true"></div>
           <div class="brand">
             <h1 class="brand-title">kiroku cloud</h1>
+            <div class="global-sync-badge" id="global-sync-badge" onclick="toggleSyncDetailPopover(event)" title="Click for sync details">
+              <span class="sync-dot" id="global-sync-dot"></span>
+              <span id="global-sync-text">Checking sync...</span>
+            </div>
+            <div id="pending-reviews-chip" class="pending-reviews-chip" style="display:none;" onclick="flushPendingReviews()" title="Click to sync offline reviews">
+              <svg class="svg-icon" style="width:12px;height:12px;" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+              <span id="pending-reviews-text">0 reviews pending</span>
+            </div>
           </div>
           <div class="header-actions">
             <button class="icon-btn" id="refresh-btn" onclick="refreshActive(true)" title="Refresh data">
@@ -2282,30 +2703,23 @@
               Key
             </button>
           </div>
+          <!-- Sync Detail Popover -->
+          <div id="sync-detail-popover" class="sync-detail-popover" style="display:none;">
+            <div class="popover-title">Anki Mirror Status</div>
+            <div class="popover-row"><span>Status:</span><strong id="popover-status">-</strong></div>
+            <div class="popover-row"><span>Last Success:</span><span id="popover-last-success">-</span></div>
+            <div class="popover-row"><span>Last Attempt:</span><span id="popover-last-attempt">-</span></div>
+            <div class="popover-row"><span>Last Full Sync:</span><span id="popover-last-full">-</span></div>
+            <div class="popover-row"><span>Pending Cards:</span><span id="popover-pending">-</span></div>
+            <div class="popover-row" id="popover-error-row" style="display:none;color:var(--red);"><span>Last Error:</span><span id="popover-last-error">-</span></div>
+            <div class="popover-row"><span>Mirrored Cards:</span><strong id="popover-total-cards">-</strong></div>
+          </div>
         </header>
 
-        <!-- Legacy horizontal tabs retained for backwards-compatibility -->
-        <div class="nav-tabs" role="tablist">
-          <button class="nav-tab active" data-tab="cards" onclick="switchTab('cards')">
-            <svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 10 21 10"/></svg>
-            Cards
-          </button>
-          <button class="nav-tab" data-tab="quickadd" onclick="switchTab('quickadd')">
-            <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-            Quick Add
-          </button>
-          <button class="nav-tab" data-tab="queue" onclick="switchTab('queue')">
-            <svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="14" rx="2"/><path d="M6 3h14a2 2 0 0 1 2 2v12"/></svg>
-            Queue
-          </button>
-          <button class="nav-tab" data-tab="stats" onclick="switchTab('stats')">
-            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-            Stats
-          </button>
-          <button class="nav-tab" data-tab="study" onclick="switchTab('study')">
-            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
-            Study
-          </button>
+        <!-- Cold start waking banner -->
+        <div id="cold-start-banner" class="cold-start-banner" style="display:none;">
+          <svg class="svg-icon" style="width:16px;height:16px;" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          <span id="cold-start-text">Waking server from sleep... First request on free hosting takes 20-30s.</span>
         </div>
 
         <!-- Token Configuration Box -->
@@ -2320,13 +2734,7 @@
 
     <!-- VIEW 1: Mirrored Cards (M3) -->
     <div id="view-cards" class="view-panel active">
-      <div class="freshness-bar" id="cards-freshness-bar">
-        <div class="freshness-indicator">
-          <span class="freshness-dot" id="cards-freshness-dot"></span>
-          <span id="cards-freshness-text">Checking sync freshness...</span>
-        </div>
-        <span id="cards-total-stat">-</span>
-      </div>
+      <div id="cards-freshness-bar" style="display:none;"></div>
 
       <!-- Non-alarming notice if reconcile was skipped -->
       <div id="reconcile-skipped-banner" class="reconcile-skipped-banner" style="display:none;">
@@ -2567,11 +2975,7 @@
 
     <!-- VIEW 3: Rich Anki Stats (M4) -->
     <div id="view-stats" class="view-panel">
-      <div class="freshness-bar" id="stats-freshness-bar">
-        <div class="freshness-indicator">
-          <span class="freshness-dot" id="stats-freshness-dot"></span>
-          <span id="stats-freshness-text">Checking sync freshness...</span>
-        </div>
+      <div class="stats-top-bar" style="display:flex;justify-content:flex-end;margin-bottom:1rem;">
         <!-- Segmented Range Control -->
         <div class="stats-range-controls">
           <button class="range-btn" data-range="30d" onclick="setStatsRange('30d')">30d</button>
@@ -2581,141 +2985,114 @@
         </div>
       </div>
 
-      <div class="metrics-grid">
+      <!-- Question 1: Today & Backlog Hero -->
+      <div class="stats-hero-grid">
         <div class="metric-card accent">
-          <div class="metric-val streak" id="metric-streak">-</div>
-          <div class="metric-title">Current Streak</div>
-          <div class="metric-sub" id="metric-streak-best">Best: - days</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-val" id="metric-today">-</div>
+          <div class="metric-val" id="stats-hero-today">-</div>
           <div class="metric-title">Reviewed Today</div>
-          <div class="metric-sub" id="metric-due-today">- cards due</div>
+          <div class="metric-sub" id="stats-hero-today-sub">Across all decks</div>
         </div>
         <div class="metric-card">
-          <div class="metric-val" id="metric-total-cards">-</div>
-          <div class="metric-title">Total Collection</div>
-          <div class="metric-sub" id="metric-deck-count">- decks active</div>
+          <div class="metric-val" id="stats-hero-due">-</div>
+          <div class="metric-title">Due Now</div>
+          <div class="metric-sub">Scheduled for today</div>
         </div>
         <div class="metric-card">
-          <div class="metric-val" id="metric-year-days">-</div>
-          <div class="metric-title">Days Studied</div>
-          <div class="metric-sub">Past 365 days</div>
+          <div class="metric-val" id="stats-hero-overdue" style="color:var(--yellow);">-</div>
+          <div class="metric-title">Overdue Backlog</div>
+          <div class="metric-sub">Past due dates</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val" id="stats-hero-new">-</div>
+          <div class="metric-title">New Today</div>
+          <div class="metric-sub">Unseen introductions</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val" id="stats-hero-est-time">-</div>
+          <div class="metric-title">Est. Study Time</div>
+          <div class="metric-sub" id="stats-hero-est-time-sub">Based on avg speed</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val streak" id="stats-hero-streak">-</div>
+          <div class="metric-title">Current Streak</div>
+          <div class="metric-sub" id="stats-hero-streak-sub">Best: - days</div>
         </div>
       </div>
 
-      <!-- 1. Card Growth Curve -->
-      <div class="section-card">
+      <!-- Question 2: Am I Retaining? -->
+      <div class="section-card" id="stats-panel-retention">
         <div class="section-header">
           <div>
-            <div class="section-title">Card Growth & New Additions</div>
-            <div class="section-subtitle">Cumulative collection size and weekly new cards</div>
+            <div class="section-title">Am I Retaining? (True Retention Rate)</div>
+            <div class="section-subtitle">Pass rate on mature reviews (interval &ge; 21d) with 90% desired retention target</div>
           </div>
-          <div id="growth-summary" style="font-size:0.75rem;color:var(--text-secondary);"></div>
-        </div>
-        <div class="svg-chart-wrap" id="chart-growth-wrap">
-          <!-- Inline SVG rendered by JS -->
-        </div>
-      </div>
-
-      <!-- 2. State Breakdown Over Time -->
-      <div class="section-card">
-        <div class="section-header">
-          <div>
-            <div class="section-title">Card Lifecycle Distribution</div>
-            <div class="section-subtitle">Mature, Young, Learning, New, Suspended history</div>
-          </div>
-        </div>
-        <div class="svg-chart-wrap" id="chart-states-wrap">
-          <!-- Inline SVG rendered by JS -->
-        </div>
-      </div>
-
-      <!-- 3. True Retention Rate -->
-      <div class="section-card">
-        <div class="section-header">
-          <div>
-            <div class="section-title">True Retention Rate</div>
-            <div class="section-subtitle">Pass rate on mature reviews (interval &ge; 21d)</div>
-          </div>
-          <div id="retention-summary" style="font-size:0.8rem;color:var(--green);font-weight:700;"></div>
+          <div id="retention-summary" style="font-size:0.85rem;color:var(--green);font-weight:700;"></div>
         </div>
         <div class="svg-chart-wrap" id="chart-retention-wrap">
-          <!-- Inline SVG rendered by JS -->
+          <!-- Rendered by JS -->
+        </div>
+        <div class="stats-verdict-banner" id="retention-verdict-banner">
+          <svg class="svg-icon" style="width:16px;height:16px;color:var(--green);flex-shrink:0;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          <span id="retention-verdict-text">Calculating mature retention rate...</span>
         </div>
       </div>
 
-      <!-- 4. Answer Buttons Share -->
-      <div class="section-card">
+      <!-- Question 3: Am I Overloaded? -->
+      <div class="section-card" id="stats-panel-workload">
         <div class="section-header">
           <div>
-            <div class="section-title">Answer Button Distribution</div>
-            <div class="section-subtitle">Again, Hard, Good, Easy rating ratios</div>
+            <div class="section-title">Am I Overloaded? (Workload & Due Forecast)</div>
+            <div class="section-subtitle">Daily review volume with 7-day moving average and upcoming 30-day forecast</div>
           </div>
-        </div>
-        <div class="svg-chart-wrap" id="chart-buttons-wrap">
-          <!-- Inline SVG rendered by JS -->
-        </div>
-      </div>
-
-      <!-- 5. Due Forecast -->
-      <div class="section-card">
-        <div class="section-header">
-          <div>
-            <div class="section-title">Upcoming Review Forecast</div>
-            <div class="section-subtitle">Due cards for the next 30 days and overdue backlog</div>
+          <div class="chart-toggle-row">
+            <button class="chart-toggle-btn active" id="btn-forecast-daily" onclick="toggleForecastMode('daily')">Daily Due</button>
+            <button class="chart-toggle-btn" id="btn-forecast-cum" onclick="toggleForecastMode('cumulative')">Cumulative</button>
           </div>
         </div>
         <div class="svg-chart-wrap" id="chart-due-wrap">
-          <!-- Inline SVG rendered by JS -->
-        </div>
-      </div>
-
-      <!-- 6. Difficulty Distribution -->
-      <div class="section-card">
-        <div class="section-header">
-          <div>
-            <div class="section-title">Difficulty Distribution</div>
-            <div class="section-subtitle">Cards by FSRS-informed difficulty tiers</div>
-          </div>
-        </div>
-        <div class="svg-chart-wrap" id="chart-diff-wrap">
-          <!-- Inline SVG rendered by JS -->
-        </div>
-      </div>
-
-      <!-- 7. Weak Words Top 20 -->
-      <div class="section-card">
-        <div class="section-header">
-          <div>
-            <div class="section-title">Hardest Words (Leeches First)</div>
-            <div class="section-subtitle">Highest difficulty cards needing review</div>
-          </div>
-          <button class="icon-btn" onclick="studyWeakWords()" id="study-weak-words-btn">
-            <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Study These
-          </button>
-        </div>
-        <div class="weak-words-list" id="weak-words-list">
           <!-- Rendered by JS -->
         </div>
       </div>
 
-      <!-- 8. JLPT Coverage -->
-      <div class="section-card">
+      <!-- Question 4: Is My Collection Healthy? -->
+      <div class="section-card" id="stats-panel-health">
         <div class="section-header">
           <div>
-            <div class="section-title">JLPT Level Coverage</div>
-            <div class="section-subtitle">Cards per level split by maturity</div>
+            <div class="section-title">Is My Collection Healthy? (Maturity & Inflow)</div>
+            <div class="section-subtitle">Lifecycle breakdown (Mature, Young, Learning, New, Suspended) and additions vs lapses</div>
           </div>
+          <div id="growth-summary" style="font-size:0.75rem;color:var(--text-secondary);"></div>
         </div>
-        <div class="svg-chart-wrap" id="chart-jlpt-wrap">
-          <!-- Inline SVG rendered by JS -->
+        <div class="svg-chart-wrap" id="chart-states-wrap">
+          <!-- Rendered by JS -->
+        </div>
+        <div class="svg-chart-wrap" id="chart-growth-wrap" style="margin-top:1.25rem;">
+          <!-- Rendered by JS -->
         </div>
       </div>
 
-      <!-- 9. Existing Heatmap & Decks -->
-      <div class="section-card">
+      <!-- Question 5: What's Hurting Me? -->
+      <div class="section-card" id="stats-panel-hurting">
+        <div class="section-header">
+          <div>
+            <div class="section-title">What's Hurting Me? (Leeches & Difficulty)</div>
+            <div class="section-subtitle">Collection Heuristic difficulty split and highest lapse cards</div>
+          </div>
+          <button class="icon-btn" onclick="startPresetStudy('leech_rescue')" id="study-weak-words-btn">
+            <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Study Leech Rescue
+          </button>
+        </div>
+        <div class="svg-chart-wrap" id="chart-diff-wrap">
+          <!-- Rendered by JS -->
+        </div>
+        <div class="weak-words-list" id="weak-words-list" style="margin-top:1rem;">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Activity Heatmap (Kept Intact) -->
+      <div class="section-card" id="stats-panel-heatmap">
         <div class="section-header">
           <div>
             <div class="section-title">Review Activity Heatmap</div>
@@ -2737,44 +3114,50 @@
         </div>
       </div>
 
-      <div class="section-card">
-        <div class="section-header">
-          <div class="section-title">Anki Decks Summary</div>
-          <div class="section-subtitle">Deck size and due counts</div>
-        </div>
-        <div class="deck-list" id="deck-list">
-          <!-- Rendered by JS -->
-        </div>
-      </div>
-
-      <!-- 10. Deck Performance Breakdown Table -->
-      <div class="section-card">
-        <div class="section-header">
+      <!-- Advanced Details Accordion -->
+      <details class="advanced-stats-details">
+        <summary>
+          <svg class="svg-icon" style="width:16px;height:16px;" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          Advanced Breakdown (Decks, JLPT Coverage, Answer Buttons)
+        </summary>
+        <div style="margin-top:1rem;display:flex;flex-direction:column;gap:1.25rem;">
+          <!-- Merged Deck Table -->
           <div>
-            <div class="section-title">Deck Performance Breakdown</div>
-            <div class="section-subtitle">Aggregated status, maturity rates, and interval metrics per deck</div>
+            <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.5rem;color:var(--text);">Anki Deck Performance</div>
+            <div class="table-responsive" style="overflow-x:auto;">
+              <table class="stats-table" id="stats-deck-table">
+                <thead>
+                  <tr>
+                    <th>Deck</th>
+                    <th style="text-align:right;">Total</th>
+                    <th style="text-align:right;">Mature</th>
+                    <th style="text-align:right;">Young</th>
+                    <th style="text-align:right;">Learn</th>
+                    <th style="text-align:right;">New</th>
+                    <th style="text-align:right;">Due Today</th>
+                    <th style="text-align:right;">Avg Ivl</th>
+                  </tr>
+                </thead>
+                <tbody id="stats-deck-tbody">
+                  <!-- Rendered by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- JLPT Coverage -->
+          <div>
+            <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.5rem;color:var(--text);">JLPT Level Coverage</div>
+            <div class="svg-chart-wrap" id="chart-jlpt-wrap"></div>
+          </div>
+
+          <!-- Answer Button Distribution -->
+          <div>
+            <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.5rem;color:var(--text);">Answer Button Distribution</div>
+            <div class="svg-chart-wrap" id="chart-buttons-wrap"></div>
           </div>
         </div>
-        <div class="table-responsive" style="overflow-x:auto;">
-          <table class="stats-table" id="stats-deck-table">
-            <thead>
-              <tr>
-                <th>Deck</th>
-                <th style="text-align:right;">Total</th>
-                <th style="text-align:right;">Mature</th>
-                <th style="text-align:right;">Young</th>
-                <th style="text-align:right;">Learn</th>
-                <th style="text-align:right;">New</th>
-                <th style="text-align:right;">Due Today</th>
-                <th style="text-align:right;">Avg Ivl</th>
-              </tr>
-            </thead>
-            <tbody id="stats-deck-tbody">
-              <!-- Rendered by JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
+      </details>
 
       <!-- 11. Card-Wise Metrics Breakdown (Collection Explorer) -->
       <div class="section-card">
@@ -2850,29 +3233,63 @@
         Extra practice — separate from Anki scheduling
       </div>
 
+      <!-- Travel Plan Card (Workstream G) -->
+      <div class="travel-plan-card" id="study-travel-card">
+        <div class="travel-header">
+          <div class="travel-title">
+            <svg class="svg-icon" style="width:16px;height:16px;color:var(--green);" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            7-Day Travel Forecast
+          </div>
+          <span style="font-size:0.75rem;color:var(--text-secondary);" id="travel-status-sub">Anki is 0 days behind</span>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-secondary);line-height:1.4;" id="travel-summary-msg">
+          Loading travel schedule...
+        </p>
+        <div class="travel-grid" id="travel-days-grid">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
       <!-- Study Session Setup Screen -->
       <div id="study-setup-screen">
         <div class="study-setup-card">
           <h2 style="font-size:1.15rem;font-weight:700;margin-bottom:0.4rem;color:#fff;">Start Study Session</h2>
           <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:1.15rem;line-height:1.45;">Practice cards in your cloud queue with Leitner 5-box intervals. Results are tracked here without modifying Anki schedules.</p>
 
-          <div class="study-field-group">
-            <label for="study-mode-select">Practice Focus</label>
-            <div class="select-wrap">
-              <select id="study-mode-select" onchange="onStudyModeChange()">
-                <option value="weakest">Weakest 20 Cards (High Difficulty)</option>
-                <option value="leeches">Leeches Only</option>
-                <option value="due">Due in Cloud Leitner Schedule</option>
-                <option value="unseen">Never Practiced Here</option>
-                <option value="recent">Recently Added (Last 14 Days)</option>
-                <option value="jlpt">By JLPT Level</option>
-                <option value="all">All Cards in Collection</option>
-                <option value="custom" id="study-mode-custom-opt" style="display:none;">Custom Selection</option>
-              </select>
-            </div>
+          <label style="font-size:0.75rem;font-weight:600;color:var(--text-secondary);margin-bottom:0.4rem;display:block;text-transform:uppercase;letter-spacing:0.04em;">Practice Preset</label>
+          <div class="study-presets-grid" id="study-presets-grid">
+            <button type="button" class="preset-card active" data-preset="quick10" onclick="selectStudyPreset('quick10')">
+              <div class="preset-title"><span>Quick 10</span><span class="preset-badge" id="preset-count-quick10">-</span></div>
+              <div class="preset-desc">10 randomized cards</div>
+            </button>
+            <button type="button" class="preset-card" data-preset="due" onclick="selectStudyPreset('due')">
+              <div class="preset-title"><span>Due in Cloud</span><span class="preset-badge" id="preset-count-due">-</span></div>
+              <div class="preset-desc">Leitner box schedule</div>
+            </button>
+            <button type="button" class="preset-card" data-preset="leech_rescue" onclick="selectStudyPreset('leech_rescue')">
+              <div class="preset-title"><span style="color:var(--red);">Leech Rescue</span><span class="preset-badge" id="preset-count-leech">-</span></div>
+              <div class="preset-desc">High lapse leeches</div>
+            </button>
+            <button type="button" class="preset-card" data-preset="weak_week" onclick="selectStudyPreset('weak_week')">
+              <div class="preset-title"><span>Weak This Week</span><span class="preset-badge" id="preset-count-weak">-</span></div>
+              <div class="preset-desc">Recent misses</div>
+            </button>
+            <button type="button" class="preset-card" data-preset="quick_add" onclick="selectStudyPreset('quick_add')">
+              <div class="preset-title"><span>Quick-Added</span><span class="preset-badge" id="preset-count-quickadd">-</span></div>
+              <div class="preset-desc">New pseudo-cards</div>
+            </button>
+            <button type="button" class="preset-card" data-preset="jlpt" onclick="selectStudyPreset('jlpt')">
+              <div class="preset-title"><span>By JLPT</span><span class="preset-badge" id="preset-count-jlpt">-</span></div>
+              <div class="preset-desc">N5 through N1</div>
+            </button>
+            <button type="button" class="preset-card" data-preset="all" onclick="selectStudyPreset('all')">
+              <div class="preset-title"><span>Everything</span><span class="preset-badge" id="preset-count-all">-</span></div>
+              <div class="preset-desc">Entire collection</div>
+            </button>
           </div>
+          <input type="hidden" id="selected-study-preset" value="quick10">
 
-          <div class="study-field-group" id="study-level-group" style="display:none;">
+          <div class="study-field-group" id="study-level-group" style="display:none;margin-top:0.75rem;">
             <label for="study-level-select">JLPT Target</label>
             <div class="select-wrap">
               <select id="study-level-select">
@@ -2885,7 +3302,7 @@
             </div>
           </div>
 
-          <div class="study-field-group">
+          <div class="study-field-group" style="margin-top:0.75rem;">
             <label for="study-limit-select">Session Size</label>
             <div class="select-wrap">
               <select id="study-limit-select">
@@ -2940,23 +3357,23 @@
             <div id="study-boxes-container" style="display:grid;grid-template-columns:repeat(5, 1fr);gap:0.4rem;text-align:center;">
               <div style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:6px;padding:0.45rem 0.2rem;">
                 <div style="font-size:0.68rem;color:var(--text-muted);font-weight:500;">Box 1 (10m)</div>
-                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;">0</div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;" id="box-count-1">0</div>
               </div>
               <div style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:6px;padding:0.45rem 0.2rem;">
                 <div style="font-size:0.68rem;color:var(--text-muted);font-weight:500;">Box 2 (1d)</div>
-                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;">0</div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;" id="box-count-2">0</div>
               </div>
               <div style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:6px;padding:0.45rem 0.2rem;">
                 <div style="font-size:0.68rem;color:var(--text-muted);font-weight:500;">Box 3 (3d)</div>
-                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;">0</div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;" id="box-count-3">0</div>
               </div>
               <div style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:6px;padding:0.45rem 0.2rem;">
                 <div style="font-size:0.68rem;color:var(--text-muted);font-weight:500;">Box 4 (7d)</div>
-                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;">0</div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;" id="box-count-4">0</div>
               </div>
               <div style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:6px;padding:0.45rem 0.2rem;">
-                <div style="font-size:0.68rem;color:var(--text-muted);font-weight:500;">Box 5 (14d)</div>
-                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;">0</div>
+                <div style="font-size:0.68rem;color:var(--text-muted);font-weight:500;">Box 5 (21d)</div>
+                <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:0.2rem;" id="box-count-5">0</div>
               </div>
             </div>
           </div>
@@ -3101,6 +3518,23 @@
         <div class="modal-tags-row" id="modal-tags-content"></div>
       </div>
 
+      <!-- Workstream E: Hard Reason & Review History -->
+      <div class="modal-section" id="modal-section-hard-reason" style="display:none;">
+        <div class="modal-section-title">Why Is This Hard?</div>
+        <div class="hard-reason-box" id="modal-hard-reason-content">-</div>
+      </div>
+
+      <div class="modal-section" id="modal-section-reviews">
+        <div class="modal-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Review History (Recent)</span>
+          <span style="font-size:0.75rem;font-weight:normal;color:var(--text-muted);" id="modal-reviews-summary">Loading...</span>
+        </div>
+        <div class="review-timeline" id="modal-review-timeline">
+          <!-- Rendered by JS -->
+        </div>
+        <div id="modal-review-sparkline" style="margin-top:0.6rem;"></div>
+      </div>
+
       <div class="modal-meta-grid" id="modal-meta-grid">
         <div class="modal-meta-item">
           <strong>Deck</strong>
@@ -3115,7 +3549,7 @@
           <span id="modal-meta-due">-</span>
         </div>
         <div class="modal-meta-item">
-          <strong>Difficulty Score</strong>
+          <strong>Difficulty (Collection Heuristic)</strong>
           <span id="modal-meta-difficulty">-</span>
         </div>
       </div>
@@ -3229,6 +3663,11 @@
         .replace(/'/g, '&#39;');
     }
 
+    function setElText(id, text) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text != null ? text : '';
+    }
+
     function timeAgo(dateString) {
       if (!dateString) return '';
       try {
@@ -3272,6 +3711,7 @@
     }
 
     function switchTab(tabName) {
+      window.scrollTo(0, 0);
       localStorage.setItem(TAB_KEY, tabName);
       document.querySelectorAll('.nav-tab, .mob-nav-btn').forEach(btn => {
         const matches = btn.getAttribute('data-tab') === tabName || btn.id === `tab-btn-${tabName}`;
@@ -3282,9 +3722,12 @@
       const activePanel = document.getElementById(`view-${tabName}`);
       if (activePanel) activePanel.classList.add('active');
 
+      // Update header badges
+      fetchAnkiStatus();
+      updatePendingReviewsChip();
+
       if (tabName === 'cards') {
         fetchMirroredCards(true);
-        fetchAnkiStatus();
       } else if (tabName === 'quickadd') {
         initQuickAddCloud();
       } else if (tabName === 'queue') {
@@ -3292,9 +3735,11 @@
       } else if (tabName === 'stats') {
         fetchStatsOverview();
         fetchAnkiStats();
-        fetchAnkiStatus();
+        fetchStatsCardsBreakdown();
       } else if (tabName === 'study') {
         fetchStudySummary();
+        fetchStudyPresets();
+        fetchTravelPlan();
       }
     }
 
@@ -3871,6 +4316,87 @@
       fetchMirroredCards(true);
     }
 
+    const USER_TZ = 'Asia/Kolkata';
+
+    function formatLocalTime(isoStr) {
+      if (!isoStr) return '—';
+      try {
+        const d = new Date(isoStr);
+        return new Intl.DateTimeFormat('en-IN', {
+          timeZone: USER_TZ,
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).format(d);
+      } catch (e) {
+        return isoStr;
+      }
+    }
+
+    function formatLocalDate(isoStr) {
+      if (!isoStr) return '—';
+      try {
+        const d = new Date(isoStr);
+        return new Intl.DateTimeFormat('en-IN', {
+          timeZone: USER_TZ,
+          month: 'short',
+          day: 'numeric'
+        }).format(d);
+      } catch (e) {
+        return isoStr;
+      }
+    }
+
+    function toggleSyncDetailPopover(event) {
+      if (event) event.stopPropagation();
+      const popover = document.getElementById('sync-detail-popover');
+      if (!popover) return;
+      popover.style.display = (popover.style.display === 'none' || !popover.style.display) ? 'flex' : 'none';
+    }
+
+    window.addEventListener('click', (e) => {
+      const popover = document.getElementById('sync-detail-popover');
+      const badge = document.getElementById('global-sync-badge');
+      if (popover && popover.style.display !== 'none' && !popover.contains(e.target) && !badge.contains(e.target)) {
+        popover.style.display = 'none';
+      }
+    });
+
+    function updatePendingReviewsChip() {
+      const chip = document.getElementById('pending-reviews-chip');
+      const text = document.getElementById('pending-reviews-text');
+      if (!chip || !text) return;
+      const count = (typeof getPendingReviews === 'function') ? getPendingReviews().length : 0;
+      if (count > 0) {
+        text.textContent = `${count} review${count === 1 ? '' : 's'} waiting to sync`;
+        chip.style.display = 'inline-flex';
+      } else {
+        chip.style.display = 'none';
+      }
+    }
+
+    async function pingServerWarmup() {
+      const banner = document.getElementById('cold-start-banner');
+      const timer = setTimeout(() => {
+        if (banner) banner.style.display = 'flex';
+      }, 2500);
+
+      try {
+        const res = await fetch('/health', { cache: 'no-store' });
+        clearTimeout(timer);
+        if (res.ok) {
+          if (banner) banner.style.display = 'none';
+        } else {
+          if (banner) banner.style.display = 'flex';
+          setTimeout(pingServerWarmup, 4000);
+        }
+      } catch (err) {
+        clearTimeout(timer);
+        if (banner) banner.style.display = 'flex';
+        setTimeout(pingServerWarmup, 5000);
+      }
+    }
+
     async function fetchAnkiStatus() {
       const token = getToken();
       try {
@@ -3880,38 +4406,65 @@
         if (!resp.ok) return;
         const data = await resp.json();
 
-        const countStr = Number(data.card_count || 0).toLocaleString();
-        document.getElementById('cards-total-stat').textContent = `${countStr} mirrored`;
+        // Update canonical popover metrics
+        const totalCards = Number(data.card_count || 0);
+        setElText('popover-status', data.status || 'unknown');
+        setElText('popover-last-success', data.last_success_at ? `${formatLocalDate(data.last_success_at)} ${formatLocalTime(data.last_success_at)}` : 'Never');
+        setElText('popover-last-attempt', data.last_attempt_at ? `${formatLocalDate(data.last_attempt_at)} ${formatLocalTime(data.last_attempt_at)}` : '—');
+        setElText('popover-last-full', data.last_full_at ? `${formatLocalDate(data.last_full_at)} ${formatLocalTime(data.last_full_at)}` : '—');
+        setElText('popover-pending', `${data.pending_cards || 0} cards`);
+        setElText('popover-total-cards', `${totalCards.toLocaleString()} cards`);
 
-        const lastSync = data.last_mirror_sync_at;
-        const textEl = document.getElementById('cards-freshness-text');
-        const dotEl = document.getElementById('cards-freshness-dot');
-        const statsTextEl = document.getElementById('stats-freshness-text');
-        const statsDotEl = document.getElementById('stats-freshness-dot');
+        const errRow = document.getElementById('popover-error-row');
+        if (errRow) {
+          if (data.last_error) {
+            errRow.style.display = 'flex';
+            setElText('popover-last-error', data.last_error);
+          } else {
+            errRow.style.display = 'none';
+          }
+        }
 
-        if (!lastSync) {
-          const msg = 'Not yet synced with Anki';
-          textEl.textContent = msg;
-          statsTextEl.textContent = msg;
-          dotEl.className = 'freshness-dot offline';
-          statsDotEl.className = 'freshness-dot offline';
+        // Global Sync Badge rules
+        const textEl = document.getElementById('global-sync-text');
+        const dotEl = document.getElementById('global-sync-dot');
+        const successTime = data.last_success_at || data.synced_at;
+
+        if (!successTime && !data.last_attempt_at) {
+          if (textEl) textEl.textContent = 'Not yet synced with Anki';
+          if (dotEl) dotEl.className = 'sync-dot offline';
           return;
         }
 
-        const ago = timeAgo(lastSync);
-        const isStale = (Date.now() - new Date(lastSync).getTime()) > 86400000;
-        const label = isStale ? `Sync stale (${ago})` : `Synced with Anki ${ago}`;
+        let daysSince = data.days_since_success;
+        if (daysSince == null && successTime) {
+          const now = Date.now();
+          const syncMs = new Date(successTime).getTime();
+          daysSince = Math.max(0, Math.floor((now - syncMs) / 86400000));
+        }
 
-        textEl.textContent = label;
-        statsTextEl.textContent = label;
-        dotEl.className = isStale ? 'freshness-dot stale' : 'freshness-dot';
-        statsDotEl.className = isStale ? 'freshness-dot stale' : 'freshness-dot';
+        if (data.status === 'offline' || data.status === 'error') {
+          if (textEl) textEl.textContent = data.last_error ? `Sync failed: ${data.last_error.substring(0, 24)}...` : 'Anki unreachable';
+          if (dotEl) dotEl.className = 'sync-dot error';
+        } else if (data.status === 'partial' || (data.pending_cards && data.pending_cards > 0)) {
+          if (textEl) textEl.textContent = `Last sync partial: ${data.pending_cards} cards pending`;
+          if (dotEl) dotEl.className = 'sync-dot amber';
+        } else if (daysSince === 0) {
+          if (textEl) textEl.textContent = `Synced today, ${formatLocalTime(successTime)}`;
+          if (dotEl) dotEl.className = 'sync-dot green';
+        } else if (daysSince === 1) {
+          if (textEl) textEl.textContent = 'Synced yesterday';
+          if (dotEl) dotEl.className = 'sync-dot neutral';
+        } else {
+          if (textEl) textEl.textContent = `Not synced for ${daysSince} days (last: ${formatLocalDate(successTime)})`;
+          if (dotEl) dotEl.className = daysSince >= 4 ? 'sync-dot red' : 'sync-dot amber';
+        }
 
         const skippedReason = data.reconcile_skipped_reason;
         const bannerEl = document.getElementById('reconcile-skipped-banner');
         if (bannerEl) {
           if (skippedReason) {
-            document.getElementById('reconcile-skipped-text').textContent = `Notice: Card reconcile was skipped (${skippedReason})`;
+            setElText('reconcile-skipped-text', `Notice: Card reconcile was skipped (${skippedReason})`);
             bannerEl.style.display = 'flex';
           } else {
             bannerEl.style.display = 'none';
@@ -4109,21 +4662,21 @@
       fetchMirroredCards(false);
     }
 
-    function openMirroredDetailModal(idx) {
-      const card = window.__mirroredCards[idx];
+    async function openMirroredDetailModal(idx) {
+      const card = window.__mirroredCards ? window.__mirroredCards[idx] : null;
       if (!card) return;
 
       const modal = document.getElementById('hero-modal');
-      document.getElementById('modal-reading').textContent = card.reading || '';
-      document.getElementById('modal-expression').textContent = card.expression || '—';
+      setElText('modal-reading', card.reading || '');
+      setElText('modal-expression', card.expression || '—');
 
       const diffClass = `diff-${card.difficulty_label || 'new'}`;
-      const diffLabel = card.difficulty_score !== null ? `${card.difficulty_label} (${card.difficulty_score})` : 'new';
+      const diffLabel = card.difficulty_score !== null ? `${card.difficulty_label} (${card.difficulty_score}%)` : 'new';
       
       let badgesHtml = '';
       if (card.jlpt_level) badgesHtml += `<span class="jlpt-badge">${escapeHtml(card.jlpt_level)}</span>`;
       badgesHtml += `<span class="diff-badge ${diffClass}">${escapeHtml(diffLabel)}</span>`;
-      badgesHtml += `<span class="state-badge">${escapeHtml(card.state)}</span>`;
+      badgesHtml += `<span class="state-badge">${escapeHtml(card.state || '')}</span>`;
       if (card.is_leech) badgesHtml += `<span class="due-badge overdue">Leech</span>`;
       document.getElementById('modal-badges').innerHTML = badgesHtml;
 
@@ -4136,8 +4689,8 @@
         meaningEl.textContent = card.meaning || 'No definition recorded.';
         if (card.sentence) {
           sSec.style.display = 'block';
-          document.getElementById('modal-sentence-jp').textContent = card.sentence;
-          document.getElementById('modal-sentence-en').textContent = card.sentence_meaning || '';
+          setElText('modal-sentence-jp', card.sentence);
+          setElText('modal-sentence-en', card.sentence_meaning || '');
         } else {
           sSec.style.display = 'none';
         }
@@ -4155,13 +4708,99 @@
         }
       }
 
-      document.getElementById('modal-meta-deck').textContent = card.deck_name || '—';
-      document.getElementById('modal-meta-ivl').textContent = `${card.interval_days || 0}d / ${card.lapses || 0} lapses`;
-      document.getElementById('modal-meta-due').textContent = (card.due_in_days !== null && card.due_in_days !== undefined) ? `${card.due_in_days}d` : 'None';
-      document.getElementById('modal-meta-difficulty').textContent = card.difficulty_score !== null ? `${card.difficulty_score} / 100` : 'None (New)';
+      setElText('modal-meta-deck', card.deck_name || '—');
+      setElText('modal-meta-ivl', `${card.interval_days || 0}d / ${card.lapses || 0} lapses`);
+      setElText('modal-meta-due', card.due_date ? `${card.due_date} (${card.due_in_days != null ? card.due_in_days + 'd' : '—'})` : (card.due_in_days != null ? `${card.due_in_days}d` : 'None'));
+      setElText('modal-meta-difficulty', card.difficulty_score !== null ? `${card.difficulty_score}% (${card.difficulty_label || 'Heuristic'})` : 'None (New)');
+
+      // Hard Reason & Review History sections
+      const hardReasonSec = document.getElementById('modal-section-hard-reason');
+      const hardReasonContent = document.getElementById('modal-hard-reason-content');
+      const reviewTimeline = document.getElementById('modal-review-timeline');
+      const reviewSummary = document.getElementById('modal-reviews-summary');
+      const sparklineEl = document.getElementById('modal-review-sparkline');
+
+      if (hardReasonSec) hardReasonSec.style.display = 'none';
+      if (reviewTimeline) reviewTimeline.innerHTML = '<span style="color:var(--text-muted);font-size:0.75rem;">Loading reviews...</span>';
+      if (sparklineEl) sparklineEl.innerHTML = '';
 
       modal.classList.add('open');
       document.body.style.overflow = 'hidden';
+
+      // Fetch review history from backend
+      const token = getToken();
+      try {
+        const revResp = await fetch(`/api/cards/${card.card_id}/reviews`, {
+          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Accept': 'application/json' }
+        });
+        if (revResp.ok) {
+          const revData = await revResp.json();
+          const reviews = revData.reviews || [];
+          
+          let reason = '';
+          const lapses = card.lapses || 0;
+          const agains = reviews.filter(r => r.ease === 1).length;
+          const againRate = reviews.length > 0 ? Math.round((agains / reviews.length) * 100) : 0;
+          const avgMs = reviews.length > 0 ? Math.round(reviews.reduce((acc, r) => acc + (r.time_ms || 0), 0) / reviews.length) : 0;
+
+          if (lapses >= 8) {
+            reason = `Severe leech: failed ${lapses} times in Anki. Current interval is ${card.interval_days || 0} days. Needs a new mnemonic or fresh context sentence.`;
+          } else if (againRate >= 40) {
+            reason = `Recent instability: failed ${agains} of last ${reviews.length} reviews (${againRate}% agains). Likely meaning or reading confusion.`;
+          } else if (avgMs >= 10000) {
+            reason = `Slow recall hesitation: average answer time is ${(avgMs/1000).toFixed(1)}s, indicating weak retrieval path.`;
+          } else if (card.interval_days <= 3 && (card.reps || 0) >= 5) {
+            reason = `Stuck in short-interval loop: reviewed ${card.reps} times but interval remains short (<= 3 days).`;
+          } else if (card.difficulty_score && card.difficulty_score >= 60) {
+            reason = `High collection heuristic difficulty (${card.difficulty_score}%) with ${lapses} recorded lapses.`;
+          }
+
+          if (reason && hardReasonSec && hardReasonContent) {
+            hardReasonContent.textContent = reason;
+            hardReasonSec.style.display = 'block';
+          }
+
+          if (reviewTimeline) {
+            if (!reviews.length) {
+              reviewTimeline.innerHTML = '<span style="color:var(--text-muted);font-size:0.75rem;">No review logs recorded yet.</span>';
+              if (reviewSummary) reviewSummary.textContent = '0 reviews';
+            } else {
+              if (reviewSummary) reviewSummary.textContent = `${reviews.length} reviews | ${againRate}% agains | ${(avgMs/1000).toFixed(1)}s avg`;
+              reviewTimeline.innerHTML = reviews.slice(-20).map(r => {
+                const easeName = r.ease === 1 ? 'Again' : (r.ease === 2 ? 'Hard' : (r.ease === 3 ? 'Good' : 'Easy'));
+                const tip = `${easeName} (${r.ease}) | Ivl: ${r.interval_days != null ? r.interval_days + 'd' : (r.interval || 0) + 'd'} | ${((r.time_ms || 0)/1000).toFixed(1)}s`;
+                return `<span class="review-dot rate-${r.ease} chart-point" data-tip="${escapeHtml(tip)}"></span>`;
+              }).join('');
+
+              if (sparklineEl && reviews.length >= 2) {
+                const ivls = reviews.map(r => r.interval_days != null ? r.interval_days : (r.interval || 0));
+                const maxIvl = Math.max(...ivls, 1);
+                const spW = 240;
+                const spH = 32;
+                const spPts = ivls.map((iv, i) => {
+                  const x = (i / (ivls.length - 1)) * (spW - 10) + 5;
+                  const y = spH - (iv / maxIvl) * (spH - 8) - 4;
+                  return `${x.toFixed(1)},${y.toFixed(1)}`;
+                }).join(' ');
+
+                sparklineEl.innerHTML = `
+                  <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.2rem;">Interval Growth Progression:</div>
+                  <svg viewBox="0 0 ${spW} ${spH}" style="width:${spW}px;height:${spH}px;background:var(--surface);border-radius:4px;border:1px solid var(--border-subtle);">
+                    <polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${spPts}"/>
+                  </svg>
+                `;
+              }
+
+              reviewTimeline.querySelectorAll('.chart-point').forEach(pt => {
+                pt.addEventListener('mouseenter', e => showTooltip(e.clientX, e.clientY, pt.getAttribute('data-tip')));
+                pt.addEventListener('mouseleave', hideTooltip);
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.debug('Failed to load card review history:', e);
+      }
     }
 
     function closeHeroModal() {
@@ -4195,421 +4834,204 @@
       fetchStatsOverview();
     }
 
+    let forecastMode = 'daily';
+
+    function getChartDims(containerEl, defaultH = 170) {
+      const w = containerEl && containerEl.clientWidth ? Math.max(280, containerEl.clientWidth) : 560;
+      const h = defaultH;
+      const padL = w < 400 ? 38 : 46;
+      const padR = 16;
+      const padT = 20;
+      const padB = 26;
+      const plotW = Math.max(10, w - padL - padR);
+      const plotH = Math.max(10, h - padT - padB);
+      return { w, h, padL, padR, padT, padB, plotW, plotH };
+    }
+
+    function toggleForecastMode(mode) {
+      forecastMode = mode;
+      document.getElementById('btn-forecast-daily')?.classList.toggle('active', mode === 'daily');
+      document.getElementById('btn-forecast-cum')?.classList.toggle('active', mode === 'cumulative');
+      if (window.__statsOverview) {
+        renderDueForecastChart(window.__statsOverview.due_forecast || []);
+      }
+    }
+
+    function setPanelError(wrapId, msg, retryFnName) {
+      const el = document.getElementById(wrapId);
+      if (!el) return;
+      el.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem 1rem;gap:0.5rem;color:var(--text-muted);font-size:0.82rem;text-align:center;">
+          <span style="color:var(--red);">${escapeHtml(msg)}</span>
+          ${retryFnName ? `<button type="button" class="icon-btn" onclick="${retryFnName}()" style="font-size:0.75rem;padding:0.25rem 0.65rem;">Retry</button>` : ''}
+        </div>
+      `;
+    }
+
+    function setPanelLoading(wrapId) {
+      const el = document.getElementById(wrapId);
+      if (!el) return;
+      el.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;padding:1.5rem;color:var(--text-muted);font-size:0.8rem;gap:0.4rem;">
+          <svg class="svg-icon" style="width:16px;height:16px;animation:spin 1s linear infinite;" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          Loading chart...
+        </div>
+      `;
+    }
+
+    function updateStatsHero(data) {
+      const today = data.today_reviews != null ? data.today_reviews : (data.reviewed_today || 0);
+      const due = data.cards_due != null ? data.cards_due : (data.due_today || 0);
+      const overdue = data.overdue_count != null ? data.overdue_count : 0;
+      const newToday = data.new_cards_today != null ? data.new_cards_today : (data.new_today || 0);
+      const avgMs = data.avg_time_ms || 8500;
+      const estMins = Math.max(1, Math.round(((due + overdue) * avgMs) / 60000));
+      const streak = data.current_streak != null ? data.current_streak : 0;
+      const bestStreak = data.best_streak != null ? data.best_streak : streak;
+
+      setElText('stats-hero-today', Number(today).toLocaleString());
+      setElText('stats-hero-due', Number(due).toLocaleString());
+      setElText('stats-hero-overdue', Number(overdue).toLocaleString());
+      setElText('stats-hero-new', Number(newToday).toLocaleString());
+      setElText('stats-hero-est-time', `~${estMins} min`);
+      setElText('stats-hero-est-time-sub', `${(avgMs / 1000).toFixed(1)}s avg speed`);
+      setElText('stats-hero-streak', `${streak}d`);
+      setElText('stats-hero-streak-sub', `Best: ${bestStreak} days`);
+    }
+
     async function fetchStatsOverview() {
       const token = getToken();
-      const wrap = document.getElementById('chart-growth-wrap');
+
+      setPanelLoading('chart-retention-wrap');
+      setPanelLoading('chart-due-wrap');
+      setPanelLoading('chart-states-wrap');
+      setPanelLoading('chart-growth-wrap');
+      setPanelLoading('chart-diff-wrap');
+      setPanelLoading('weak-words-list');
 
       try {
         const resp = await fetch(`/api/stats/overview?range=${currentStatsRange}`, {
           headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Accept': 'application/json' },
         });
+
         if (!resp.ok) {
-          if (resp.status === 401 || resp.status === 403) {
-            document.getElementById('token-box').style.display = 'block';
-            if (wrap) {
-              wrap.innerHTML = `
-                <div class="empty-state" style="padding:2rem 1rem;">
-                  <div class="icon">
-                    <svg class="svg-icon" style="width:32px;height:32px;" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  </div>
-                  <h3 style="font-size:1rem;margin-bottom:0.4rem;">Authentication Required</h3>
-                  <p style="font-size:0.8rem;color:var(--text-secondary);">Enter your <code>WORKER_TOKEN</code> or <code>SUBMIT_TOKEN</code> above to view stats and graphs.</p>
-                </div>
-              `;
-            }
-          } else {
-            if (wrap) {
-              wrap.innerHTML = `<div style="color:var(--red);padding:1.5rem;font-size:0.85rem;">Failed to load statistics (HTTP ${resp.status}).</div>`;
-            }
-          }
+          const errMsg = resp.status === 401 ? 'Authentication required. Enter token.' : `Server error (${resp.status}). Retry`;
+          setPanelError('chart-retention-wrap', errMsg, 'fetchStatsOverview');
+          setPanelError('chart-due-wrap', errMsg, 'fetchStatsOverview');
+          setPanelError('chart-states-wrap', errMsg, 'fetchStatsOverview');
+          setPanelError('chart-growth-wrap', errMsg, 'fetchStatsOverview');
+          setPanelError('chart-diff-wrap', errMsg, 'fetchStatsOverview');
+          setPanelError('weak-words-list', errMsg, 'fetchStatsOverview');
           return;
         }
+
         const data = await resp.json();
         window.__statsOverview = data;
 
-        try { renderGrowthChart(data.growth_curve || data.card_growth || data.growth || []); } catch (e) { console.warn('renderGrowthChart error:', e); }
-        try { renderStateDistributionChart(data.state_breakdown || data.states || []); } catch (e) { console.warn('renderStateDistributionChart error:', e); }
-        try { renderRetentionChart(data.true_retention || data.retention || []); } catch (e) { console.warn('renderRetentionChart error:', e); }
-        try { renderButtonsChart(data.answer_buttons || data.buttons || []); } catch (e) { console.warn('renderButtonsChart error:', e); }
-        try { renderDueForecastChart(data.due_forecast || []); } catch (e) { console.warn('renderDueForecastChart error:', e); }
-        try { renderDifficultyChart(data.difficulty_distribution || data.difficulty || []); } catch (e) { console.warn('renderDifficultyChart error:', e); }
-        try { renderWeakWords(data.weak_words || []); } catch (e) { console.warn('renderWeakWords error:', e); }
-        try { renderJlptCoverage(data.jlpt_coverage || []); } catch (e) { console.warn('renderJlptCoverage error:', e); }
-        try { renderDecksBreakdown(data.deck_breakdown || []); } catch (e) { console.warn('renderDecksBreakdown error:', e); }
-        try { fetchStatsCardsBreakdown(); } catch (e) { console.warn('fetchStatsCardsBreakdown error:', e); }
+        updateStatsHero(data);
+
+        try { renderRetentionChart(data.true_retention || data.retention || []); } catch (e) { setPanelError('chart-retention-wrap', 'Failed rendering retention', 'fetchStatsOverview'); }
+        try { renderDueForecastChart(data.due_forecast || []); } catch (e) { setPanelError('chart-due-wrap', 'Failed rendering due forecast', 'fetchStatsOverview'); }
+        try { renderStateDistributionChart(data.state_breakdown || data.states || []); } catch (e) { setPanelError('chart-states-wrap', 'Failed rendering states', 'fetchStatsOverview'); }
+        try { renderGrowthChart(data.growth_curve || data.card_growth || data.growth || []); } catch (e) { setPanelError('chart-growth-wrap', 'Failed rendering growth', 'fetchStatsOverview'); }
+        try { renderDifficultyChart(data.difficulty_distribution || data.difficulty || []); } catch (e) { setPanelError('chart-diff-wrap', 'Failed rendering difficulty', 'fetchStatsOverview'); }
+        try { renderWeakWords(data.weak_words || []); } catch (e) { setPanelError('weak-words-list', 'Failed rendering weak words', 'fetchStatsOverview'); }
+        try { renderJlptCoverage(data.jlpt_coverage || []); } catch (e) {}
+        try { renderButtonsChart(data.answer_buttons || data.buttons || []); } catch (e) {}
+        try { renderDecksBreakdown(data.deck_breakdown || []); } catch (e) {}
       } catch (err) {
         console.warn('Failed to load stats overview:', err);
-        if (wrap) wrap.innerHTML = '<div style="color:var(--red);padding:1.5rem;font-size:0.85rem;">Unable to connect to queue server to retrieve statistics.</div>';
+        const netErr = 'Connection error. Check network or server.';
+        setPanelError('chart-retention-wrap', netErr, 'fetchStatsOverview');
+        setPanelError('chart-due-wrap', netErr, 'fetchStatsOverview');
+        setPanelError('chart-states-wrap', netErr, 'fetchStatsOverview');
+        setPanelError('chart-growth-wrap', netErr, 'fetchStatsOverview');
+        setPanelError('chart-diff-wrap', netErr, 'fetchStatsOverview');
+        setPanelError('weak-words-list', netErr, 'fetchStatsOverview');
       }
-    }
-
-    function renderGrowthChart(growthData) {
-      const wrap = document.getElementById('chart-growth-wrap');
-      const sumEl = document.getElementById('growth-summary');
-      if (!wrap || !growthData || !growthData.length) {
-        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No growth history available yet.</div>';
-        return;
-      }
-
-      const totalVals = growthData.map(d => (d.total_cards != null ? d.total_cards : (d.total != null ? d.total : 0)));
-      const dataMin = Math.min(...totalVals);
-      const dataMax = Math.max(...totalVals, 1);
-      const diff = dataMax - dataMin;
-      // Provide healthy vertical padding so constant or small ranges don't flatline at bottom
-      const minVal = diff === 0 ? Math.max(0, Math.floor(dataMin * 0.8)) : Math.max(0, Math.floor(dataMin - diff * 0.15));
-      const maxVal = diff === 0 ? Math.ceil(dataMax * 1.2 || 10) : Math.ceil(dataMax + diff * 0.15);
-      const valRange = maxVal - minVal || 1;
-      const pointsCount = growthData.length;
-
-      const w = 600;
-      const h = 180;
-      const padL = 45;
-      const padR = 20;
-      const padT = 20;
-      const padB = 30;
-
-      const plotW = w - padL - padR;
-      const plotH = h - padT - padB;
-
-      let pts = [];
-      if (pointsCount === 1) {
-        const d = growthData[0];
-        const val = (d.total_cards != null ? d.total_cards : (d.total != null ? d.total : 0));
-        const y = padT + plotH * 0.5;
-        pts = [
-          { x: padL, y, val, day: d.day || d.date || '' },
-          { x: padL + plotW, y, val, day: d.day || d.date || '' },
-        ];
-      } else {
-        pts = growthData.map((d, i) => {
-          const x = padL + (i / (pointsCount - 1 || 1)) * plotW;
-          const val = (d.total_cards != null ? d.total_cards : (d.total != null ? d.total : 0));
-          const y = padT + (1 - (val - minVal) / valRange) * plotH;
-          return { x, y, val, day: d.day || d.date || '' };
-        });
-      }
-
-      const polyPoints = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-      const areaPoints = `${padL},${h - padB} ${polyPoints} ${(padL + plotW).toFixed(1)},${h - padB}`;
-
-      const yMid = padT + plotH * 0.5;
-      const midVal = Math.round((maxVal + minVal) / 2);
-
-      const dotsHtml = pts.map(p => `
-        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="var(--accent)" stroke="#181715" stroke-width="1.5" class="chart-point" data-tip="${escapeHtml(p.day)}: ${p.val.toLocaleString()} cards" style="cursor:pointer;"/>
-      `).join('');
-
-      wrap.innerHTML = `
-        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Card growth curve chart">
-          <defs>
-            <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.32"/>
-              <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
-          <line x1="${padL}" y1="${yMid.toFixed(1)}" x2="${w - padR}" y2="${yMid.toFixed(1)}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
-          <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
-          <text x="${padL - 6}" y="${padT + 4}" fill="var(--text-muted)" font-size="10" text-anchor="end">${maxVal.toLocaleString()}</text>
-          <text x="${padL - 6}" y="${(yMid + 4).toFixed(1)}" fill="var(--text-muted)" font-size="10" text-anchor="end">${midVal.toLocaleString()}</text>
-          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="10" text-anchor="end">${minVal.toLocaleString()}</text>
-          <polygon fill="url(#growthGrad)" points="${areaPoints}"/>
-          <polyline fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${polyPoints}"/>
-          ${dotsHtml}
-          <text x="${padL}" y="${h - 8}" fill="var(--text-muted)" font-size="10">${escapeHtml(growthData[0].day || growthData[0].date || '')}</text>
-          <text x="${w - padR}" y="${h - 8}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(growthData[growthData.length - 1].day || growthData[growthData.length - 1].date || '')}</text>
-        </svg>
-      `;
-
-      if (sumEl) {
-        const latestVal = totalVals[totalVals.length - 1] || 0;
-        const newToday = growthData[growthData.length - 1].new_cards_added || 0;
-        sumEl.textContent = `Total: ${latestVal.toLocaleString()} cards${newToday > 0 ? ` (+${newToday} added today)` : ''}`;
-      }
-
-      wrap.querySelectorAll('.chart-point').forEach(pt => {
-        pt.addEventListener('mouseenter', e => showTooltip(e.clientX, e.clientY, pt.getAttribute('data-tip')));
-        pt.addEventListener('mouseleave', hideTooltip);
-      });
-    }
-
-    function renderStateDistributionChart(stateData) {
-      const wrap = document.getElementById('chart-states-wrap');
-      if (!wrap || !stateData || !stateData.length) {
-        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No lifecycle distribution data available.</div>';
-        return;
-      }
-
-      const w = 600;
-      const h = 190;
-      const padL = 45;
-      const padR = 20;
-      const padT = 30;
-      const padB = 25;
-      const plotW = w - padL - padR;
-      const plotH = h - padT - padB;
-
-      const getMat = d => (d.n_mature != null ? d.n_mature : (d.mature || 0));
-      const getYoung = d => (d.n_young != null ? d.n_young : (d.young || 0));
-      const getLearn = d => (d.n_learning != null ? d.n_learning : (d.learning || 0));
-      const getNew = d => (d.n_new != null ? d.n_new : (d.new || 0));
-
-      const totals = stateData.map(d => getMat(d) + getYoung(d) + getLearn(d) + getNew(d));
-      const maxTotal = Math.max(...totals, 1);
-      const pointsCount = stateData.length;
-
-      const maturePts = [];
-      const youngPts = [];
-      const learnPts = [];
-      const newPts = [];
-
-      if (pointsCount === 1) {
-        const d = stateData[0];
-        const yMat = (padT + (1 - getMat(d) / maxTotal) * plotH).toFixed(1);
-        const yYoung = (padT + (1 - getYoung(d) / maxTotal) * plotH).toFixed(1);
-        const yLearn = (padT + (1 - getLearn(d) / maxTotal) * plotH).toFixed(1);
-        const yNew = (padT + (1 - getNew(d) / maxTotal) * plotH).toFixed(1);
-        maturePts.push(`${padL},${yMat}`, `${padL + plotW},${yMat}`);
-        youngPts.push(`${padL},${yYoung}`, `${padL + plotW},${yYoung}`);
-        learnPts.push(`${padL},${yLearn}`, `${padL + plotW},${yLearn}`);
-        newPts.push(`${padL},${yNew}`, `${padL + plotW},${yNew}`);
-      } else {
-        stateData.forEach((d, i) => {
-          const x = padL + (i / (pointsCount - 1 || 1)) * plotW;
-          maturePts.push(`${x.toFixed(1)},${(padT + (1 - getMat(d) / maxTotal) * plotH).toFixed(1)}`);
-          youngPts.push(`${x.toFixed(1)},${(padT + (1 - getYoung(d) / maxTotal) * plotH).toFixed(1)}`);
-          learnPts.push(`${x.toFixed(1)},${(padT + (1 - getLearn(d) / maxTotal) * plotH).toFixed(1)}`);
-          newPts.push(`${x.toFixed(1)},${(padT + (1 - getNew(d) / maxTotal) * plotH).toFixed(1)}`);
-        });
-      }
-
-      const last = stateData[stateData.length - 1];
-
-      wrap.innerHTML = `
-        <div class="stats-legend-bar">
-          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--green)"></span>Mature: ${getMat(last).toLocaleString()}</span>
-          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:#5ea3ba"></span>Young: ${getYoung(last).toLocaleString()}</span>
-          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--yellow)"></span>Learning: ${getLearn(last).toLocaleString()}</span>
-          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:#9e9a93"></span>New: ${getNew(last).toLocaleString()}</span>
-        </div>
-        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Card state distribution curves">
-          <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
-          <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
-          <text x="${padL - 6}" y="${padT + 4}" fill="var(--text-muted)" font-size="10" text-anchor="end">${maxTotal.toLocaleString()}</text>
-          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="10" text-anchor="end">0</text>
-          <polyline fill="none" stroke="var(--green)" stroke-width="2" points="${maturePts.join(' ')}"/>
-          <polyline fill="none" stroke="#5ea3ba" stroke-width="2" points="${youngPts.join(' ')}"/>
-          <polyline fill="none" stroke="var(--yellow)" stroke-width="2" points="${learnPts.join(' ')}"/>
-          <polyline fill="none" stroke="#9e9a93" stroke-width="2" points="${newPts.join(' ')}"/>
-          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(stateData[0].day || stateData[0].date || '')}</text>
-          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(last.day || last.date || '')}</text>
-        </svg>
-      `;
     }
 
     function renderRetentionChart(rawRetention) {
       const wrap = document.getElementById('chart-retention-wrap');
       const sumEl = document.getElementById('retention-summary');
+      const verdictEl = document.getElementById('retention-verdict-text');
       let retentionData = Array.isArray(rawRetention) ? rawRetention : (rawRetention && rawRetention.weekly ? rawRetention.weekly : []);
-      if (!retentionData.length && rawRetention && rawRetention.range && rawRetention.range.rate != null) {
-        retentionData = [{
-          week: 'Current',
-          day: 'Current',
-          rate: rawRetention.range.rate,
-          n: rawRetention.range.den || 0,
-          mature_rate: rawRetention.range.mature_rate,
-          mature_n: rawRetention.range.mature_den || 0,
-          mature_retention_num: rawRetention.range.mature_num || 0,
-          mature_retention_den: rawRetention.range.mature_den || 0,
-        }];
-      }
-      if (!wrap || !retentionData.length) {
-        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No retention data recorded.</div>';
+
+      if (!wrap) return;
+      if (!retentionData.length) {
+        wrap.innerHTML = '<div style="color:var(--text-muted);padding:1.5rem;font-size:0.82rem;text-align:center;">No retention data recorded.</div>';
+        if (verdictEl) verdictEl.textContent = 'No review history found in this timeframe.';
         return;
       }
 
       let totalNum = 0;
       let totalDen = 0;
       retentionData.forEach(d => {
-        const den = (d.mature_retention_den != null && d.mature_retention_den > 0)
-          ? d.mature_retention_den
-          : (d.mature_n != null && d.mature_n > 0 ? d.mature_n : (d.n || 0));
-        const num = (d.mature_retention_num != null && d.mature_retention_num > 0)
-          ? d.mature_retention_num
-          : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : (d.rate != null ? Math.round(den * (d.rate / 100)) : 0));
+        const den = (d.mature_retention_den != null && d.mature_retention_den > 0) ? d.mature_retention_den : (d.mature_n || d.n || 0);
+        const num = (d.mature_retention_num != null && d.mature_retention_num > 0) ? d.mature_retention_num : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : 0);
         totalNum += num;
         totalDen += den;
       });
 
-      const rate = totalDen > 0 ? Math.round((totalNum / totalDen) * 100) : (rawRetention && rawRetention.range ? rawRetention.range.rate : null);
+      const matureRate = totalDen > 0 ? Math.round((totalNum / totalDen) * 100) : null;
       if (sumEl) {
-        sumEl.textContent = rate !== null ? `${rate}% (n=${totalDen.toLocaleString()})` : `n=${totalDen} reviews`;
+        sumEl.textContent = matureRate !== null ? `Mature Retention: ${matureRate}% (${totalDen.toLocaleString()} reviews)` : '—';
       }
 
-      const w = 600;
-      const h = 140;
-      const padL = 40;
-      const padR = 20;
-      const padT = 20;
-      const padB = 25;
-      const plotW = w - padL - padR;
-      const plotH = h - padT - padB;
+      // Plain language verdict
+      if (verdictEl) {
+        if (matureRate === null) {
+          verdictEl.textContent = 'Not enough mature review history to compute retention verdict.';
+        } else if (matureRate >= 90) {
+          verdictEl.innerHTML = `Retention is <strong>${matureRate}%</strong>, meeting the 90% target. Your FSRS memory stability is optimal.`;
+        } else if (matureRate >= 80) {
+          verdictEl.innerHTML = `Retention is <strong>${matureRate}%</strong>, slightly below the 90% target. Consider reviewing top leeches in Study mode.`;
+        } else {
+          verdictEl.innerHTML = `Retention is <strong>${matureRate}%</strong>. Severe lapse rate detected. Slow down new card introductions.`;
+        }
+      }
 
+      const { w, h, padL, padR, padT, padB, plotW, plotH } = getChartDims(wrap, 160);
       const minPct = 0.5;
       const maxPct = 1.0;
       const pctRange = maxPct - minPct;
 
-      let pts = [];
-      if (retentionData.length === 1) {
-        const d = retentionData[0];
-        const den = (d.mature_retention_den != null && d.mature_retention_den > 0)
-          ? d.mature_retention_den
-          : (d.mature_n != null && d.mature_n > 0 ? d.mature_n : (d.n || 0));
-        const num = (d.mature_retention_num != null && d.mature_retention_num > 0)
-          ? d.mature_retention_num
-          : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : (d.rate != null ? Math.round(den * (d.rate / 100)) : 0));
-        const r = den > 0 ? (num / den) : (d.rate != null ? d.rate / 100 : 0.85);
+      const pts = retentionData.map((d, i) => {
+        const x = padL + (i / (retentionData.length - 1 || 1)) * plotW;
+        const den = (d.mature_retention_den != null && d.mature_retention_den > 0) ? d.mature_retention_den : (d.mature_n || d.n || 0);
+        const num = (d.mature_retention_num != null && d.mature_retention_num > 0) ? d.mature_retention_num : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : 0);
+        const r = den > 0 ? (num / den) : 0.85;
         const clampedR = Math.max(minPct, Math.min(maxPct, r));
         const y = padT + (1 - (clampedR - minPct) / pctRange) * plotH;
-        const label = d.day || d.week || '';
-        const pctLabel = `${Math.round(r * 100)}% (n=${den})`;
-        pts = [
-          { x: padL, y, r, label, pctLabel },
-          { x: padL + plotW, y, r, label, pctLabel }
-        ];
-      } else {
-        pts = retentionData.map((d, i) => {
-          const x = padL + (i / (retentionData.length - 1 || 1)) * plotW;
-          const den = (d.mature_retention_den != null && d.mature_retention_den > 0)
-            ? d.mature_retention_den
-            : (d.mature_n != null && d.mature_n > 0 ? d.mature_n : (d.n || 0));
-          const num = (d.mature_retention_num != null && d.mature_retention_num > 0)
-            ? d.mature_retention_num
-            : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : (d.rate != null ? Math.round(den * (d.rate / 100)) : 0));
-          const r = den > 0 ? (num / den) : (d.rate != null ? d.rate / 100 : 0.85);
-          const clampedR = Math.max(minPct, Math.min(maxPct, r));
-          const y = padT + (1 - (clampedR - minPct) / pctRange) * plotH;
-          const label = d.day || d.week || '';
-          const pctLabel = `${Math.round(r * 100)}% (n=${den})`;
-          return { x, y, r, label, pctLabel };
-        });
-      }
+        return { x, y, r, label: d.week || d.day || '', den };
+      });
 
       const polyPoints = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-      const yTarget = padT + (1 - (0.85 - minPct) / pctRange) * plotH;
+      const yTarget = padT + (1 - (0.90 - minPct) / pctRange) * plotH;
 
       const dotsHtml = pts.map(p => `
-        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="var(--green)" stroke="#181715" stroke-width="1.5" class="chart-point" data-tip="${escapeHtml(p.label)}: ${escapeHtml(p.pctLabel)}" style="cursor:pointer;"/>
+        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="var(--green)" stroke="#181715" stroke-width="1.5" class="chart-point" data-tip="${escapeHtml(p.label)}: ${Math.round(p.r * 100)}% (n=${p.den})" style="cursor:pointer;"/>
       `).join('');
 
       wrap.innerHTML = `
-        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="True retention rate curve">
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Retention Rate Chart" style="width:100%;height:auto;max-height:${h}px;">
+          <!-- 100% line -->
           <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
-          <line x1="${padL}" y1="${yTarget.toFixed(1)}" x2="${w - padR}" y2="${yTarget.toFixed(1)}" stroke="rgba(94, 163, 106, 0.45)" stroke-dasharray="3,3"/>
+          <text x="${padL - 6}" y="${padT + 4}" fill="var(--text-muted)" font-size="11" text-anchor="end">100%</text>
+
+          <!-- 90% Target line -->
+          <line x1="${padL}" y1="${yTarget.toFixed(1)}" x2="${w - padR}" y2="${yTarget.toFixed(1)}" stroke="rgba(94, 163, 106, 0.7)" stroke-width="1.5" stroke-dasharray="4,4"/>
+          <text x="${padL - 6}" y="${(yTarget + 4).toFixed(1)}" fill="var(--green)" font-size="11" font-weight="600" text-anchor="end">90% Target</text>
+
+          <!-- 50% bottom axis -->
           <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
-          <text x="${padL - 6}" y="${padT + 4}" fill="var(--text-muted)" font-size="10" text-anchor="end">100%</text>
-          <text x="${padL - 6}" y="${(yTarget + 4).toFixed(1)}" fill="var(--green)" font-size="9" text-anchor="end">85%</text>
-          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="10" text-anchor="end">50%</text>
+          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="11" text-anchor="end">50%</text>
+
           <polyline fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" points="${polyPoints}"/>
           ${dotsHtml}
-          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(retentionData[0].day || retentionData[0].week || '')}</text>
-          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(retentionData[retentionData.length - 1].day || retentionData[retentionData.length - 1].week || '')}</text>
-        </svg>
-      `;
 
-      wrap.querySelectorAll('.chart-point').forEach(pt => {
-        pt.addEventListener('mouseenter', e => showTooltip(e.clientX, e.clientY, pt.getAttribute('data-tip')));
-        pt.addEventListener('mouseleave', hideTooltip);
-      });
-    }
-
-    function renderButtonsChart(rawButtons) {
-      const wrap = document.getElementById('chart-buttons-wrap');
-      let buttonsData = Array.isArray(rawButtons) ? rawButtons : (rawButtons && rawButtons.weekly ? rawButtons.weekly : []);
-      if (!buttonsData.length && rawButtons && (rawButtons.again != null || rawButtons.hard != null)) {
-        buttonsData = [{
-          week: 'Total',
-          again: rawButtons.again || 0,
-          hard: rawButtons.hard || 0,
-          good: rawButtons.good || 0,
-          easy: rawButtons.easy || 0,
-        }];
-      }
-      if (!wrap || !buttonsData.length) {
-        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No answer button logs available.</div>';
-        return;
-      }
-
-      let againTot = 0, hardTot = 0, goodTot = 0, easyTot = 0;
-      if (rawButtons && !Array.isArray(rawButtons) && rawButtons.again != null) {
-        againTot = rawButtons.again || 0;
-        hardTot = rawButtons.hard || 0;
-        goodTot = rawButtons.good || 0;
-        easyTot = rawButtons.easy || 0;
-      } else {
-        buttonsData.forEach(d => {
-          againTot += d.again || 0;
-          hardTot += d.hard || 0;
-          goodTot += d.good || 0;
-          easyTot += d.easy || 0;
-        });
-      }
-      const grandTotal = againTot + hardTot + goodTot + easyTot || 1;
-      const againPct = Math.round((againTot / grandTotal) * 100);
-      const hardPct = Math.round((hardTot / grandTotal) * 100);
-      const goodPct = Math.round((goodTot / grandTotal) * 100);
-      const easyPct = Math.round((easyTot / grandTotal) * 100);
-
-      const w = 600;
-      const h = 150;
-      const padL = 35;
-      const padR = 20;
-      const padT = 30;
-      const padB = 25;
-      const plotH = h - padT - padB;
-      const barSlotW = (w - padL - padR) / buttonsData.length;
-      const barW = buttonsData.length === 1 ? 140 : Math.max(6, Math.min(26, barSlotW * 0.7));
-
-      const bars = buttonsData.map((d, i) => {
-        const total = (d.again || 0) + (d.hard || 0) + (d.good || 0) + (d.easy || 0);
-        if (total === 0) return '';
-        const x = padL + i * barSlotW + (barSlotW - barW) / 2;
-
-        const hAgain = (d.again / total) * plotH;
-        const hHard = (d.hard / total) * plotH;
-        const hGood = (d.good / total) * plotH;
-        const hEasy = (d.easy / total) * plotH;
-
-        const yAgain = padT + plotH - hAgain;
-        const yHard = yAgain - hHard;
-        const yGood = yHard - hGood;
-        const yEasy = yGood - hEasy;
-
-        const label = d.week || d.day || '';
-        const tip = `${label}: Again ${d.again || 0}, Hard ${d.hard || 0}, Good ${d.good || 0}, Easy ${d.easy || 0} (${total.toLocaleString()} total)`;
-
-        return `
-          <g class="chart-point" data-tip="${escapeHtml(tip)}" style="cursor:pointer;">
-            <rect x="${x.toFixed(1)}" y="${yAgain.toFixed(1)}" width="${barW.toFixed(1)}" height="${hAgain.toFixed(1)}" fill="var(--red)"/>
-            <rect x="${x.toFixed(1)}" y="${yHard.toFixed(1)}" width="${barW.toFixed(1)}" height="${hHard.toFixed(1)}" fill="#d4884f"/>
-            <rect x="${x.toFixed(1)}" y="${yGood.toFixed(1)}" width="${barW.toFixed(1)}" height="${hGood.toFixed(1)}" fill="var(--green)"/>
-            <rect x="${x.toFixed(1)}" y="${yEasy.toFixed(1)}" width="${barW.toFixed(1)}" height="${hEasy.toFixed(1)}" fill="#5ea3ba"/>
-          </g>
-        `;
-      }).join('');
-
-      wrap.innerHTML = `
-        <div class="stats-legend-bar">
-          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--red)"></span>Again: ${againTot.toLocaleString()} (${againPct}%)</span>
-          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:#d4884f"></span>Hard: ${hardTot.toLocaleString()} (${hardPct}%)</span>
-          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--green)"></span>Good: ${goodTot.toLocaleString()} (${goodPct}%)</span>
-          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:#5ea3ba"></span>Easy: ${easyTot.toLocaleString()} (${easyPct}%)</span>
-        </div>
-        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Answer buttons share stacked bars">
-          <line x1="${padL}" y1="${(padT + plotH).toFixed(1)}" x2="${w - padR}" y2="${(padT + plotH).toFixed(1)}" stroke="var(--border-default)"/>
-          ${bars}
-          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="10">${escapeHtml(buttonsData[0].week || buttonsData[0].day || '')}</text>
-          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="10" text-anchor="end">${escapeHtml(buttonsData[buttonsData.length - 1].week || buttonsData[buttonsData.length - 1].day || '')}</text>
+          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="11">${escapeHtml(retentionData[0].week || retentionData[0].day || '')}</text>
+          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="11" text-anchor="end">${escapeHtml(retentionData[retentionData.length - 1].week || retentionData[retentionData.length - 1].day || '')}</text>
         </svg>
       `;
 
@@ -4621,34 +5043,65 @@
 
     function renderDueForecastChart(dueData) {
       const wrap = document.getElementById('chart-due-wrap');
+      if (!wrap) return;
       if (!dueData || !dueData.length) {
-        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No due forecast data.</div>';
+        wrap.innerHTML = '<div style="color:var(--text-muted);padding:1.5rem;font-size:0.82rem;text-align:center;">No upcoming reviews due in this forecast horizon.</div>';
         return;
       }
 
-      const w = 600;
-      const h = 140;
-      const padL = 35;
-      const padR = 20;
-      const maxCount = Math.max(...dueData.map(d => d.count || 0), 1);
-      const barW = Math.max(4, (w - padL - padR) / dueData.length - 3);
+      const { w, h, padL, padR, padT, padB, plotW, plotH } = getChartDims(wrap, 165);
+
+      // Compute display counts based on daily vs cumulative mode
+      let displayCounts = [];
+      let runningTotal = 0;
+      dueData.forEach(d => {
+        const cnt = d.count || 0;
+        if (forecastMode === 'cumulative') {
+          runningTotal += cnt;
+          displayCounts.push(runningTotal);
+        } else {
+          displayCounts.push(cnt);
+        }
+      });
+
+      const maxCount = Math.max(...displayCounts, 1);
+      const slotW = plotW / dueData.length;
+      const barW = Math.max(3, slotW * 0.72);
 
       const bars = dueData.map((d, i) => {
-        const x = padL + i * ((w - padL - padR) / dueData.length);
-        const barH = (d.count / maxCount) * 90;
-        const fill = d.day < 0 ? 'var(--red)' : (d.day === 0 ? 'var(--accent)' : 'var(--yellow)');
-        const tip = `${d.day < 0 ? 'Overdue' : (d.day === 0 ? 'Due Today' : `In ${d.day} days`)}: ${d.count} cards`;
+        const count = displayCounts[i];
+        const barH = (count / maxCount) * plotH;
+        const x = padL + i * slotW + (slotW - barW) / 2;
+        const y = padT + plotH - barH;
+        const isOverdue = d.day < 0;
+        const isToday = d.day === 0;
+        const fill = isOverdue ? 'var(--red)' : (isToday ? 'var(--accent)' : 'var(--yellow)');
+        const tipTitle = isOverdue ? 'Overdue Backlog' : (isToday ? 'Due Today' : `In ${d.day} days`);
+        const tip = `${tipTitle}: ${d.count} cards${forecastMode === 'cumulative' ? ` (Cumulative: ${count})` : ''}`;
+
         return `
-          <rect class="chart-point" data-tip="${escapeHtml(tip)}" x="${x.toFixed(1)}" y="${(115 - barH).toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${fill}" rx="2" style="cursor:pointer;"/>
+          <rect class="chart-point" data-tip="${escapeHtml(tip)}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${fill}" rx="2" style="cursor:pointer;"/>
         `;
       }).join('');
 
+      const midCount = Math.round(maxCount / 2);
+
       wrap.innerHTML = `
-        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Due forecast 30-day bars">
-          <line x1="${padL}" y1="115" x2="${w - padR}" y2="115" stroke="var(--border-default)"/>
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Workload Due Forecast" style="width:100%;height:auto;max-height:${h}px;">
+          <!-- Numeric Y-Axis -->
+          <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
+          <text x="${padL - 6}" y="${padT + 4}" fill="var(--text-muted)" font-size="11" text-anchor="end">${maxCount}</text>
+
+          <line x1="${padL}" y1="${(padT + plotH * 0.5).toFixed(1)}" x2="${w - padR}" y2="${(padT + plotH * 0.5).toFixed(1)}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
+          <text x="${padL - 6}" y="${(padT + plotH * 0.5 + 4).toFixed(1)}" fill="var(--text-muted)" font-size="11" text-anchor="end">${midCount}</text>
+
+          <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)"/>
+          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="11" text-anchor="end">0</text>
+
           ${bars}
-          <text x="${padL}" y="132" fill="var(--text-muted)" font-size="10">Overdue / Today</text>
-          <text x="${w - padR}" y="132" fill="var(--text-muted)" font-size="10" text-anchor="end">+30 Days</text>
+
+          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="11">Overdue / Today</text>
+          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="11" text-anchor="end">+30 Days</text>
         </svg>
       `;
 
@@ -4658,16 +5111,130 @@
       });
     }
 
+    function renderStateDistributionChart(stateData) {
+      const wrap = document.getElementById('chart-states-wrap');
+      if (!wrap) return;
+      if (!stateData || !stateData.length) {
+        wrap.innerHTML = '<div style="color:var(--text-muted);padding:1.5rem;font-size:0.82rem;text-align:center;">No lifecycle distribution data available.</div>';
+        return;
+      }
+
+      const { w, h, padL, padR, padT, padB, plotW, plotH } = getChartDims(wrap, 185);
+
+      const getMat = d => (d.n_mature != null ? d.n_mature : (d.mature || 0));
+      const getYoung = d => (d.n_young != null ? d.n_young : (d.young || 0));
+      const getLearn = d => (d.n_learning != null ? d.n_learning : (d.learning || 0));
+      const getNew = d => (d.n_new != null ? d.n_new : (d.new || 0));
+
+      const totals = stateData.map(d => getMat(d) + getYoung(d) + getLearn(d) + getNew(d));
+      const maxTotal = Math.max(...totals, 1);
+
+      const maturePts = [];
+      const youngPts = [];
+      const learnPts = [];
+      const newPts = [];
+
+      stateData.forEach((d, i) => {
+        const x = padL + (i / (stateData.length - 1 || 1)) * plotW;
+        maturePts.push(`${x.toFixed(1)},${(padT + (1 - getMat(d) / maxTotal) * plotH).toFixed(1)}`);
+        youngPts.push(`${x.toFixed(1)},${(padT + (1 - getYoung(d) / maxTotal) * plotH).toFixed(1)}`);
+        learnPts.push(`${x.toFixed(1)},${(padT + (1 - getLearn(d) / maxTotal) * plotH).toFixed(1)}`);
+        newPts.push(`${x.toFixed(1)},${(padT + (1 - getNew(d) / maxTotal) * plotH).toFixed(1)}`);
+      });
+
+      const last = stateData[stateData.length - 1];
+
+      wrap.innerHTML = `
+        <div class="stats-legend-bar" style="margin-bottom:0.5rem;">
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--green)"></span>Mature: ${getMat(last).toLocaleString()}</span>
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:#5ea3ba"></span>Young: ${getYoung(last).toLocaleString()}</span>
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--yellow)"></span>Learning: ${getLearn(last).toLocaleString()}</span>
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:#9e9a93"></span>New: ${getNew(last).toLocaleString()}</span>
+        </div>
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Lifecycle breakdown" style="width:100%;height:auto;max-height:${h}px;">
+          <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
+          <text x="${padL - 6}" y="${padT + 4}" fill="var(--text-muted)" font-size="11" text-anchor="end">${maxTotal.toLocaleString()}</text>
+
+          <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)"/>
+          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="11" text-anchor="end">0</text>
+
+          <polyline fill="none" stroke="var(--green)" stroke-width="2" points="${maturePts.join(' ')}"/>
+          <polyline fill="none" stroke="#5ea3ba" stroke-width="2" points="${youngPts.join(' ')}"/>
+          <polyline fill="none" stroke="var(--yellow)" stroke-width="2" points="${learnPts.join(' ')}"/>
+          <polyline fill="none" stroke="#9e9a93" stroke-width="2" points="${newPts.join(' ')}"/>
+
+          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="11">${escapeHtml(stateData[0].day || stateData[0].date || '')}</text>
+          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="11" text-anchor="end">${escapeHtml(last.day || last.date || '')}</text>
+        </svg>
+      `;
+    }
+
+    function renderGrowthChart(growthData) {
+      const wrap = document.getElementById('chart-growth-wrap');
+      const sumEl = document.getElementById('growth-summary');
+      if (!wrap) return;
+      if (!growthData || !growthData.length) {
+        wrap.innerHTML = '<div style="color:var(--text-muted);padding:1.5rem;font-size:0.82rem;text-align:center;">No additions history available yet.</div>';
+        return;
+      }
+
+      const { w, h, padL, padR, padT, padB, plotW, plotH } = getChartDims(wrap, 150);
+
+      const totalVals = growthData.map(d => (d.total_cards != null ? d.total_cards : (d.total != null ? d.total : 0)));
+      const minVal = Math.min(...totalVals);
+      const maxVal = Math.max(...totalVals, 1);
+      const valRange = maxVal - minVal || 1;
+
+      const pts = growthData.map((d, i) => {
+        const x = padL + (i / (growthData.length - 1 || 1)) * plotW;
+        const val = d.total_cards != null ? d.total_cards : (d.total || 0);
+        const y = padT + (1 - (val - minVal) / valRange) * plotH;
+        return { x, y, val, day: d.day || d.date || '' };
+      });
+
+      const polyPoints = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      const areaPoints = `${padL},${h - padB} ${polyPoints} ${(padL + plotW).toFixed(1)},${h - padB}`;
+
+      wrap.innerHTML = `
+        <div style="font-size:0.8rem;font-weight:600;margin-bottom:0.4rem;color:var(--text);">Collection Additions vs Lapses</div>
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Card Additions Trend" style="width:100%;height:auto;max-height:${h}px;">
+          <defs>
+            <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.0"/>
+            </linearGradient>
+          </defs>
+          <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
+          <text x="${padL - 6}" y="${padT + 4}" fill="var(--text-muted)" font-size="11" text-anchor="end">${maxVal.toLocaleString()}</text>
+
+          <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)"/>
+          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="11" text-anchor="end">${minVal.toLocaleString()}</text>
+
+          <polygon fill="url(#growthGrad)" points="${areaPoints}"/>
+          <polyline fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" points="${polyPoints}"/>
+
+          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="11">${escapeHtml(growthData[0].day || growthData[0].date || '')}</text>
+          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="11" text-anchor="end">${escapeHtml(growthData[growthData.length - 1].day || growthData[growthData.length - 1].date || '')}</text>
+        </svg>
+      `;
+
+      if (sumEl) {
+        const latestVal = totalVals[totalVals.length - 1] || 0;
+        sumEl.textContent = `Total: ${latestVal.toLocaleString()} cards`;
+      }
+    }
+
     function renderDifficultyChart(diffData) {
       const wrap = document.getElementById('chart-diff-wrap');
-      if (!wrap || !diffData.length) {
-        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No difficulty distribution available.</div>';
+      if (!wrap) return;
+      if (!diffData || !diffData.length) {
+        wrap.innerHTML = '<div style="color:var(--text-muted);padding:1.5rem;font-size:0.82rem;text-align:center;">No difficulty distribution available.</div>';
         return;
       }
 
       const total = diffData.reduce((acc, d) => acc + (d.count != null ? d.count : (d.total || 0)), 0) || 1;
-      const w = 600;
-      const h = 45;
+      const w = wrap.clientWidth ? Math.max(280, wrap.clientWidth) : 560;
+      const h = 42;
 
       let curX = 0;
       const colors = {
@@ -4680,17 +5247,17 @@
       };
 
       const rects = diffData.map(d => {
-        const cnt = (d.count != null ? d.count : (d.total || 0));
+        const cnt = d.count != null ? d.count : (d.total || 0);
         const lbl = d.difficulty_label || d.label || '';
         const width = (cnt / total) * w;
-        const tip = `${lbl}: ${cnt.toLocaleString()} cards (${Math.round((cnt/total)*100)}%) — Click to filter`;
-        const r = `<rect class="chart-point" data-tip="${escapeHtml(tip)}" x="${curX.toFixed(1)}" y="10" width="${width.toFixed(1)}" height="22" fill="${colors[lbl] || 'var(--text-muted)'}" style="cursor:pointer;" onclick="filterCardsByDifficulty('${escapeHtml(lbl)}')"/>`;
+        const tip = `${lbl}: ${cnt.toLocaleString()} cards (${Math.round((cnt / total) * 100)}%) — Click to filter`;
+        const r = `<rect class="chart-point" data-tip="${escapeHtml(tip)}" x="${curX.toFixed(1)}" y="8" width="${width.toFixed(1)}" height="22" fill="${colors[lbl] || 'var(--text-muted)'}" style="cursor:pointer;" onclick="filterCardsByDifficulty('${escapeHtml(lbl)}')"/>`;
         curX += width;
         return r;
       }).join('');
 
       const legendItems = diffData.map(d => {
-        const cnt = (d.count != null ? d.count : (d.total || 0));
+        const cnt = d.count != null ? d.count : (d.total || 0);
         const lbl = d.difficulty_label || d.label || '';
         const pct = Math.round((cnt / total) * 100);
         return `
@@ -4702,10 +5269,10 @@
       }).join('');
 
       wrap.innerHTML = `
-        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Difficulty distribution horizontal bar">
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Difficulty Distribution" style="width:100%;height:auto;max-height:${h}px;">
           ${rects}
         </svg>
-        <div class="stats-legend-bar" style="margin-top:0.5rem;">
+        <div class="stats-legend-bar" style="margin-top:0.4rem;">
           ${legendItems}
         </div>
       `;
@@ -4721,7 +5288,7 @@
       if (!listEl) return;
 
       if (!weakList || !weakList.length) {
-        listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:0.5rem 0;">No high-difficulty vocabulary cards found.</div>';
+        listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:0.75rem 0;">No high-difficulty vocabulary cards found.</div>';
         return;
       }
 
@@ -4732,22 +5299,25 @@
           mirrorIdx = window.__mirroredCards.length;
           window.__mirroredCards.push(w);
         }
-        const diffScoreText = w.difficulty_score != null ? `${Math.round(w.difficulty_score)}% difficulty` : '';
-        const lapsesText = `${w.lapses || 0} lapse${(w.lapses || 0) === 1 ? '' : 's'}`;
+        const diffText = w.difficulty_score != null ? `${Math.round(w.difficulty_score)}%` : '—';
+        const lapses = w.lapses || 0;
+        const plainReason = lapses >= 8 ? `Failed ${lapses} times in Anki. Needs a new mnemonic.` : (lapses > 0 ? `Lapsed ${lapses} times. Retrieval path is unstable.` : 'High collection difficulty score.');
 
         return `
           <div class="weak-word-row" style="cursor:pointer;" onclick="openMirroredDetailModal(${mirrorIdx})" title="Click to view full card details">
             <div class="weak-word-left">
-              <span class="weak-expr" style="font-family:var(--font-ja);">${escapeHtml(w.expression)}</span>
-              ${w.reading ? `<span class="weak-reading" style="font-family:var(--font-ja);">${escapeHtml(w.reading)}</span>` : ''}
-              <span class="weak-meaning">${escapeHtml(w.meaning)}</span>
+              <div class="weak-expr-row">
+                <span class="weak-expr" style="font-family:var(--font-ja);">${escapeHtml(w.expression)}</span>
+                ${w.reading ? `<span class="weak-reading" style="font-family:var(--font-ja);">${escapeHtml(w.reading)}</span>` : ''}
+              </div>
+              <div class="weak-meaning">${escapeHtml(w.meaning || '—')}</div>
+              <div style="font-size:0.72rem;color:var(--red);margin-top:0.15rem;">${escapeHtml(plainReason)}</div>
             </div>
             <div class="weak-stats">
-              <span class="diff-badge diff-${escapeHtml(w.difficulty_label || 'hard')}" onclick="event.stopPropagation(); filterCardsByDifficulty('${escapeHtml(w.difficulty_label || 'hard')}')" title="Filter card list to ${escapeHtml(w.difficulty_label || 'hard')} cards" style="cursor:pointer;">
-                ${escapeHtml(w.difficulty_label || 'hard')}
+              <span class="diff-badge diff-${escapeHtml(w.difficulty_label || 'hard')}">
+                ${escapeHtml(w.difficulty_label || 'hard')} (${diffText})
               </span>
-              ${diffScoreText ? `<span style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;">${diffScoreText}</span>` : ''}
-              <span style="font-size:0.75rem;color:${(w.lapses || 0) > 3 ? 'var(--red)' : 'var(--text-muted)'};font-weight:600;">${lapsesText}</span>
+              <span style="font-size:0.75rem;color:${lapses > 3 ? 'var(--red)' : 'var(--text-muted)'};font-weight:600;">${lapses} lapses</span>
               <svg class="svg-icon" style="width:14px;height:14px;color:var(--text-muted);" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
           </div>
@@ -4756,12 +5326,14 @@
 
       listEl.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
-          <span style="font-size:0.76rem;color:var(--text-secondary);">Showing top ${weakList.length} highest-difficulty cards. Click any row to view details.</span>
+          <span style="font-size:0.76rem;color:var(--text-secondary);">Top ${weakList.length} leeches & hardest cards. Tap row to inspect.</span>
           <button type="button" class="icon-btn" onclick="filterCardsByDifficulty('hard')" style="font-size:0.72rem;padding:0.2rem 0.5rem;">
-            View All Hard Cards &darr;
+            View All &darr;
           </button>
         </div>
-        ${rows}
+        <div style="display:flex;flex-direction:column;gap:0.45rem;">
+          ${rows}
+        </div>
       `;
     }
 
@@ -4775,35 +5347,58 @@
       }
     }
 
-    function studyWeakWords() {
-      if (!window.__statsOverview || !window.__statsOverview.weak_words) return;
-      const ids = window.__statsOverview.weak_words.map(w => w.card_id);
-      if (!ids.length) return;
-
-      switchTab('study');
-      document.getElementById('study-mode-select').value = 'custom';
-      document.getElementById('study-mode-custom-opt').style.display = 'block';
-      studyState.customIds = ids;
-      startStudySession();
-    }
-
     function renderJlptCoverage(jlptData) {
       const wrap = document.getElementById('chart-jlpt-wrap');
-      if (!wrap || !jlptData.length) {
-        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:1rem;font-size:0.8rem;">No JLPT tagged cards yet.</div>';
+      if (!wrap || !jlptData || !jlptData.length) {
+        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:0.75rem;font-size:0.8rem;">No JLPT tagged cards yet.</div>';
         return;
       }
 
-      const rows = jlptData.map(d => {
+      wrap.innerHTML = jlptData.map(d => {
         const count = d.count != null ? d.count : (d.total || 0);
         return `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.35rem 0;font-size:0.82rem;">
-          <span style="font-weight:600;color:var(--accent);">${escapeHtml(d.level)}</span>
-          <span style="color:var(--text);">${count.toLocaleString()} cards</span>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0.35rem 0;font-size:0.82rem;border-bottom:1px solid var(--border-subtle);">
+            <span style="font-weight:600;color:var(--accent);">${escapeHtml(d.level)}</span>
+            <span style="color:var(--text);">${Number(count).toLocaleString()} cards</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderButtonsChart(rawButtons) {
+      const wrap = document.getElementById('chart-buttons-wrap');
+      let buttonsData = Array.isArray(rawButtons) ? rawButtons : (rawButtons && rawButtons.weekly ? rawButtons.weekly : []);
+      if (!buttonsData.length && rawButtons && (rawButtons.again != null || rawButtons.hard != null)) {
+        buttonsData = [{
+          week: 'Total',
+          again: rawButtons.again || 0,
+          hard: rawButtons.hard || 0,
+          good: rawButtons.good || 0,
+          easy: rawButtons.easy || 0,
+        }];
+      }
+      if (!wrap || !buttonsData.length) {
+        if (wrap) wrap.innerHTML = '<div style="color:var(--text-muted);padding:0.75rem;font-size:0.8rem;">No answer button logs available.</div>';
+        return;
+      }
+
+      let againTot = 0, hardTot = 0, goodTot = 0, easyTot = 0;
+      buttonsData.forEach(d => {
+        againTot += d.again || 0;
+        hardTot += d.hard || 0;
+        goodTot += d.good || 0;
+        easyTot += d.easy || 0;
+      });
+      const grandTotal = againTot + hardTot + goodTot + easyTot || 1;
+
+      wrap.innerHTML = `
+        <div class="stats-legend-bar" style="margin-bottom:0.5rem;">
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--red)"></span>Again: ${againTot.toLocaleString()} (${Math.round((againTot/grandTotal)*100)}%)</span>
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:#d4884f"></span>Hard: ${hardTot.toLocaleString()} (${Math.round((hardTot/grandTotal)*100)}%)</span>
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:var(--green)"></span>Good: ${goodTot.toLocaleString()} (${Math.round((goodTot/grandTotal)*100)}%)</span>
+          <span class="stats-legend-item"><span class="stats-legend-dot" style="background:#5ea3ba"></span>Easy: ${easyTot.toLocaleString()} (${Math.round((easyTot/grandTotal)*100)}%)</span>
         </div>
       `;
-      }).join('');
-      wrap.innerHTML = rows;
     }
 
     function renderDecksBreakdown(deckList) {
@@ -4990,6 +5585,78 @@
       jlptGroup.style.display = (mode === 'jlpt') ? 'block' : 'none';
     }
 
+    let currentStudyPreset = 'quick10';
+
+    function selectStudyPreset(presetName) {
+      currentStudyPreset = presetName;
+      document.querySelectorAll('.preset-card').forEach(c => {
+        c.classList.toggle('active', c.getAttribute('data-preset') === presetName);
+      });
+      const input = document.getElementById('selected-study-preset');
+      if (input) input.value = presetName;
+
+      const jlptGroup = document.getElementById('study-level-group');
+      if (jlptGroup) {
+        jlptGroup.style.display = presetName === 'jlpt' ? 'block' : 'none';
+      }
+      if (presetName === 'quick10') {
+        const lim = document.getElementById('study-limit-select');
+        if (lim) lim.value = '10';
+      }
+    }
+
+    async function fetchStudyPresets() {
+      const token = getToken();
+      try {
+        const res = await fetch('/api/study/presets', {
+          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Accept': 'application/json' }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const c = data.counts || {};
+        setElText('preset-count-quick10', c.quick10 != null ? c.quick10 : '-');
+        setElText('preset-count-due', c.due != null ? c.due : '-');
+        setElText('preset-count-leech', c.leech_rescue != null ? c.leech_rescue : '-');
+        setElText('preset-count-weak', c.weak_week != null ? c.weak_week : '-');
+        setElText('preset-count-quickadd', c.quick_add != null ? c.quick_add : '-');
+        setElText('preset-count-jlpt', c.jlpt != null ? c.jlpt : '-');
+        setElText('preset-count-all', c.all != null ? c.all : '-');
+      } catch (e) {
+        console.debug('Failed to fetch study presets:', e);
+      }
+    }
+
+    async function fetchTravelPlan() {
+      const token = getToken();
+      try {
+        const res = await fetch('/api/study/travel-plan', {
+          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Accept': 'application/json' }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setElText('travel-status-sub', `Anki is ${data.days_behind || 0} day${data.days_behind === 1 ? '' : 's'} behind`);
+        setElText('travel-summary-msg', data.summary_message || '');
+
+        const grid = document.getElementById('travel-days-grid');
+        if (grid && data.daily_forecast) {
+          grid.innerHTML = data.daily_forecast.map(d => `
+            <div class="travel-day-box ${d.is_today ? 'is-today' : ''}">
+              <div class="travel-day-label">${escapeHtml(d.day_name)}</div>
+              <div class="travel-day-val">${d.due_count}</div>
+            </div>
+          `).join('');
+        }
+      } catch (e) {
+        console.debug('Failed to fetch travel plan:', e);
+      }
+    }
+
+    function startPresetStudy(presetName) {
+      selectStudyPreset(presetName);
+      switchTab('study');
+      startStudySession();
+    }
+
     async function fetchStudySummary() {
       const token = getToken();
       if (!token) return;
@@ -5000,19 +5667,15 @@
         });
         if (!resp.ok) return;
         const data = await resp.json();
-        const todayEl = document.getElementById('study-today-count');
-        if (todayEl) todayEl.textContent = `${data.reviewed_today || 0} cards`;
-        const weekEl = document.getElementById('study-week-count');
-        if (weekEl) weekEl.textContent = `${data.reviewed_7d || 0} reviews`;
-        const accEl = document.getElementById('study-accuracy-rate');
-        if (accEl) accEl.textContent = `${data.accuracy_pct != null ? data.accuracy_pct : 100}%`;
-        const streakEl = document.getElementById('study-streak-count');
-        if (streakEl) streakEl.textContent = `${data.streak_days || 0} days`;
+        setElText('study-today-count', `${data.reviewed_today || 0} cards`);
+        setElText('study-week-count', `${data.reviewed_7d || 0} reviews`);
+        setElText('study-accuracy-rate', `${data.accuracy_pct != null ? data.accuracy_pct : 100}%`);
+        setElText('study-streak-count', `${data.streak_days || 0} days`);
 
         const boxesWrap = document.getElementById('study-boxes-container');
         if (boxesWrap && data.box_counts) {
           const boxes = data.box_counts;
-          const boxLabels = ['Box 1 (10m)', 'Box 2 (1d)', 'Box 3 (3d)', 'Box 4 (7d)', 'Box 5 (14d)'];
+          const boxLabels = ['Box 1 (10m)', 'Box 2 (1d)', 'Box 3 (3d)', 'Box 4 (7d)', 'Box 5 (21d)'];
           let boxHtml = '';
           for (let b = 1; b <= 5; b++) {
             const count = boxes[b] != null ? boxes[b] : (boxes[String(b)] || 0);
@@ -5037,16 +5700,29 @@
         return;
       }
 
-      const mode = document.getElementById('study-mode-select').value;
-      const rawLimit = document.getElementById('study-limit-select').value;
-      const limit = rawLimit === 'all' ? '2000' : rawLimit;
-      const level = document.getElementById('study-level-select').value;
-      studyState.frontSide = document.getElementById('study-front-select').value;
+      const preset = document.getElementById('selected-study-preset')?.value || currentStudyPreset || 'quick10';
+      const rawLimit = document.getElementById('study-limit-select')?.value || '20';
+      let limit = rawLimit === 'all' ? '2000' : rawLimit;
+      if (preset === 'quick10') limit = '10';
+
+      const level = document.getElementById('study-level-select')?.value || 'N5';
+      studyState.frontSide = document.getElementById('study-front-select')?.value || 'ja';
+
+      // Map presets to backend study modes
+      let mode = 'all';
+      if (preset === 'quick10') mode = 'all';
+      else if (preset === 'due') mode = 'due';
+      else if (preset === 'leech_rescue') mode = 'leeches';
+      else if (preset === 'weak_week') mode = 'weakest';
+      else if (preset === 'quick_add') mode = 'unseen';
+      else if (preset === 'jlpt') mode = 'jlpt';
+      else if (preset === 'all') mode = 'all';
 
       const params = new URLSearchParams({ mode, limit });
       if (mode === 'jlpt') params.set('level', level);
-      if (mode === 'custom' && studyState.customIds) {
+      if (studyState.customIds) {
         params.set('custom_ids', studyState.customIds.join(','));
+        studyState.customIds = null;
       }
 
       try {
@@ -5473,18 +6149,19 @@
         const stats = data.stats;
         if (!stats) return;
 
-        document.getElementById('metric-streak').innerHTML = `${SVG_FLAME}<span>${stats.current_streak || 0}d</span>`;
-        document.getElementById('metric-streak-best').textContent = `Best: ${stats.best_streak || 0} days`;
-        document.getElementById('metric-today').textContent = `${stats.today_reviewed || 0}`;
+        const metricStreak = document.getElementById('metric-streak');
+        if (metricStreak) metricStreak.innerHTML = `${SVG_FLAME}<span>${stats.current_streak || 0}d</span>`;
+        setElText('metric-streak-best', `Best: ${stats.best_streak || 0} days`);
+        setElText('metric-today', `${stats.today_reviewed || 0}`);
         const sum = stats.summary || {};
-        document.getElementById('metric-due-today').textContent = `${sum.total_due_today || 0} cards due`;
-        document.getElementById('metric-total-cards').textContent = (sum.total_cards || 0).toLocaleString();
+        setElText('metric-due-today', `${sum.total_due_today || 0} cards due`);
+        setElText('metric-total-cards', (sum.total_cards || 0).toLocaleString());
         const decks = stats.decks || [];
-        document.getElementById('metric-deck-count').textContent = `${decks.length} active deck${decks.length === 1 ? '' : 's'}`;
-        document.getElementById('metric-year-days').textContent = `${stats.days_studied_past_year || 0}d`;
+        setElText('metric-deck-count', `${decks.length} active deck${decks.length === 1 ? '' : 's'}`);
+        setElText('metric-year-days', `${stats.days_studied_past_year || 0}d`);
 
         if (stats.total_reviews) {
-          document.getElementById('heatmap-total-reviews').textContent = `${Number(stats.total_reviews).toLocaleString()} total reviews`;
+          setElText('heatmap-total-reviews', `${Number(stats.total_reviews).toLocaleString()} total reviews`);
         }
 
         renderHeatmap(stats.cards_reviewed_by_day || []);
@@ -5601,9 +6278,11 @@
 
     function refreshActive(manual = false) {
       const activeTab = localStorage.getItem(TAB_KEY) || 'cards';
+      fetchAnkiStatus();
+      updatePendingReviewsChip();
+
       if (activeTab === 'cards') {
         fetchMirroredCards(true);
-        fetchAnkiStatus();
       } else if (activeTab === 'quickadd') {
         initQuickAddCloud();
       } else if (activeTab === 'queue') {
@@ -5611,15 +6290,20 @@
       } else if (activeTab === 'stats') {
         fetchStatsOverview();
         fetchAnkiStats(manual);
-        fetchAnkiStatus();
+        fetchStatsCardsBreakdown();
       } else if (activeTab === 'study') {
         fetchStudySummary();
+        fetchStudyPresets();
+        fetchTravelPlan();
       }
     }
 
-    // Initialize Active Tab
+    // Initialize Page & Active Tab
     const savedTab = localStorage.getItem(TAB_KEY) || 'cards';
     switchTab(savedTab);
+    pingServerWarmup();
+    flushPendingReviews();
+    updatePendingReviewsChip();
 
     // Auto-refresh interval (30s)
     setInterval(() => {

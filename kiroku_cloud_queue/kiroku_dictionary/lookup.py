@@ -100,10 +100,13 @@ class DictionaryEngine:
             self._local.conn = conn
         return self._local.conn
 
-    def lookup_terms(self, text: str, max_results: int = 10) -> list[TermHeadwordGroup]:
+    def lookup_terms(self, text: str, max_results: int = 10, mode: str = "word") -> list[TermHeadwordGroup]:
         """
         Lookup vocabulary entries for input text.
         Returns grouped headwords ranked by exactness, deinflection chain, and popularity score.
+
+        mode: "word" (default) evaluates full text + deinflections only (avoids prefix junk for Quick Add).
+              "scan" performs longest-prefix scanning down to length 1 (for sentences/text passages).
         """
         if not text or not isinstance(text, str):
             return []
@@ -120,9 +123,12 @@ class DictionaryEngine:
         # Map: (term, reading) -> TermHeadwordGroup
         grouped: dict[tuple[str, str], TermHeadwordGroup] = {}
 
-        # Scan lengths: from full text length down to 1 (longest-prefix match)
+        # Scan lengths: "word" mode only checks full string + deinflections; "scan" checks prefixes down to 1
         text_len = len(clean_text)
-        prefixes = [clean_text[:l] for l in range(text_len, 0, -1)]
+        if mode == "scan":
+            prefixes = [clean_text[:l] for l in range(text_len, 0, -1)]
+        else:
+            prefixes = [clean_text]
 
         for prefix in prefixes:
             candidates = deinflect(prefix)

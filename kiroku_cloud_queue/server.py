@@ -29,6 +29,8 @@ import re
 import secrets
 import sqlite3
 import sys
+import traceback
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -42,6 +44,7 @@ if sys.platform == "win32":
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import HTMLResponse, JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 from queue_adapter import (
     CloudQueueNotConfiguredError,
@@ -307,6 +310,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    if isinstance(exc, HTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail, "error": exc.detail},
+            headers=getattr(exc, "headers", None) or {},
+        )
+    request_id = str(uuid.uuid4())
+    tb = traceback.format_exc()
+    log.error("Unhandled server exception [request_id=%s] %s %s: %s\n%s", request_id, request.method, request.url.path, exc, tb)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "request_id": request_id,
+            "message": str(exc),
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -577,107 +601,89 @@ def _get_dictionary_engine() -> Any:
 
 
 
-def _extract_text_from_node(node: Any, include_rt: bool = False, depth: int = 0, join_char: str = " ") -> str:
-    if depth > 40:
-        return ""
-    if isinstance(node, (str, int, float)):
-        return str(node).strip()
-    if isinstance(node, list):
-        parts = [_extract_text_from_node(x, include_rt, depth + 1, join_char) for x in node]
-        return join_char.join(p for p in parts if p).strip()
-    if isinstance(node, dict):
-        tag = node.get("tag")
-        if not include_rt and tag in ("rt", "rp"):
-            return ""
-        if include_rt and tag == "rt":
-            return f"[{_extract_text_from_node(node.get('content'), include_rt, depth + 1, join_char)}]"
-        return _extract_text_from_node(node.get("content"), include_rt, depth + 1, join_char)
-    return ""
+from kiroku_dictionary.normalizer import (
+    CrossReference,
+    DictionarySense,
+    ExampleSentence,
+    extract_cross_reference,
+    extract_senses_from_glossary,
+    extract_text_from_node,
+    find_marked_nodes,
+    format_normalized_entry,
+    marked_texts,
+    synthesize_default_meaning,
+)
 
-
-def _find_marked_nodes(node: Any, marker: str, depth: int = 0) -> list[Any]:
-    if depth > 40:
-        return []
-    results: list[Any] = []
-    if isinstance(node, list):
-        for x in node:
-            results.extend(_find_marked_nodes(x, marker, depth + 1))
-    elif isinstance(node, dict):
-        data = node.get("data")
-        m = str(data.get("content", "")).lower() if isinstance(data, dict) else ""
-        if m == marker:
-            results.append(node)
-        results.extend(_find_marked_nodes(node.get("content"), marker, depth + 1))
-    return results
+# Backwards-compatible local aliases
+_extract_text_from_node = extract_text_from_node
+_find_marked_nodes = find_marked_nodes
 
 
 def _extract_example_sentences(glossary_items: Any) -> list[dict[str, str]]:
-    """Extracts clean example sentences (Japanese and English translation) from dictionary AST."""
-    if not isinstance(glossary_items, list):
-        glossary_items = [glossary_items]
-
-    ex_nodes = _find_marked_nodes(glossary_items, "example-sentence")
+    senses, _ = extract_senses_from_glossary(glossary_items)
     examples: list[dict[str, str]] = []
-
-    for ex in ex_nodes:
-        content = ex.get("content")
-        raw_a = _find_marked_nodes(content, "example-sentence-a")
-        raw_b = _find_marked_nodes(content, "example-sentence-b")
-
-        ja = ""
-        en = ""
-        if raw_a:
-            node_a = raw_a[0].get("content") if isinstance(raw_a[0], dict) else raw_a[0]
-            ja = _extract_text_from_node(node_a, include_rt=False, join_char="")
-        if raw_b:
-            node_b = raw_b[0].get("content") if isinstance(raw_b[0], dict) else raw_b[0]
-            en = _extract_text_from_node(node_b, include_rt=False, join_char=" ")
-            en = re.sub(r"\[\d+\]", "", en).strip()
-
-        if ja:
-            examples.append({"japanese": ja, "translation": en})
-
+    for s in senses:
+        for ex in s.examples:
+            ex_d = {"japanese": ex.japanese, "translation": ex.translation or ""}
+            if ex_d not in examples:
+                examples.append(ex_d)
     return examples
 
 
 def _extract_plain_text_glossary(glossary_items: Any) -> list[str]:
-    """Recursively extracts clean plain text glosses from dictionary glossary entries (handling strings, AST, Jitendex)."""
-    if not isinstance(glossary_items, list):
-        glossary_items = [glossary_items]
+    senses, _ = extract_senses_from_glossary(glossary_items)
+    glosses: list[str] = []
+    for s in senses:
+        for g in s.glosses:
+            if g not in glosses:
+                glosses.append(g)
+    return glosses
 
-    # 1. First check for marked 'glossary' nodes (Jitendex style)
-    gloss_nodes = _find_marked_nodes(glossary_items, "glossary")
-    all_glosses: list[str] = []
-    if gloss_nodes:
-        for gn in gloss_nodes:
-            content = gn.get("content")
-            if isinstance(content, list):
-                for li in content:
-                    txt = _extract_text_from_node(li)
-                    if txt and txt not in all_glosses:
-                        all_glosses.append(txt)
-            else:
-                txt = _extract_text_from_node(content)
-                if txt and txt not in all_glosses:
-                    all_glosses.append(txt)
 
-    # 2. If no marked nodes, extract text directly from leaves
-    if not all_glosses:
-        for item in glossary_items:
-            txt = _extract_text_from_node(item)
-            if txt and txt not in all_glosses:
-                all_glosses.append(txt)
-
-    return all_glosses
+def batch_get_jlpt_levels(terms: list[str]) -> dict[str, str]:
+    """Batch lookup JLPT levels for multiple Japanese terms in one query."""
+    if not terms:
+        return {}
+    conn = _get_jlpt_connection()
+    if not conn:
+        return {}
+    try:
+        clean_terms = list(dict.fromkeys(t for t in terms if t and isinstance(t, str)))
+        if not clean_terms:
+            return {}
+        placeholders = ",".join("?" for _ in clean_terms)
+        rows = conn.cursor().execute(f"SELECT word, level FROM vocab WHERE word IN ({placeholders})", clean_terms).fetchall()
+        result: dict[str, str] = {}
+        for w, lvl in rows:
+            if lvl and w not in result:
+                norm_lvl = str(lvl).strip().upper()
+                if norm_lvl and not norm_lvl.startswith("N") and norm_lvl.isdigit():
+                    norm_lvl = f"N{norm_lvl}"
+                result[w] = norm_lvl
+        return result
+    except Exception as e:
+        log.warning("batch_get_jlpt_levels error: %s", e)
+        return {}
 
 
 @app.get("/api/dictionary/status")
-async def dictionary_status_endpoint(request: Request) -> JSONResponse:
+def dictionary_status_endpoint(request: Request) -> JSONResponse:
     _optional_authenticate_recent(request)
     engine = _get_dictionary_engine()
     jlpt_conn = _get_jlpt_connection()
+
+    if _DICT_BUILDING:
+        dict_state = "building"
+    elif _DICT_BUILD_ERROR:
+        dict_state = "error"
+    elif engine is not None:
+        dict_state = "ready"
+    else:
+        dict_state = "missing"
+
     return JSONResponse({
         "status": "ok",
+        "state": dict_state,
         "available": engine is not None,
         "building": _DICT_BUILDING,
         "build_error": _DICT_BUILD_ERROR,
@@ -686,7 +692,7 @@ async def dictionary_status_endpoint(request: Request) -> JSONResponse:
 
 
 @app.get("/api/dictionary/search-english")
-async def search_dictionary_english_endpoint(
+def search_dictionary_english_endpoint(
     request: Request,
     query: str = Query(default="", max_length=100),
     limit: int = Query(default=10, ge=1, le=50),
@@ -721,7 +727,14 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
         raise HTTPException(status_code=400, detail="Search text must not be empty.")
 
     mode = str(body.get("mode") or "").strip().lower()
-    max_results = min(int(body.get("max_results") or 10), 20)
+    raw_max = body.get("max_results")
+    if raw_max is not None:
+        try:
+            max_results = min(max(1, int(raw_max)), 20)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="max_results must be a valid integer between 1 and 20.")
+    else:
+        max_results = 10
 
     has_japanese = any(0x3040 <= ord(c) <= 0x9FFF for c in raw_text) or any(ord(c) in (0x30FC, 0x30FB) for c in raw_text)
     is_english_mode = (mode == "english" and not has_japanese)
@@ -847,14 +860,16 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
             detail="Dictionary engine database not found in cloud environment.",
         )
 
+    lookup_mode = "scan" if mode == "scan" else "word"
+
     # First attempt: lookup raw text directly
-    term_groups = engine.lookup_terms(raw_text, max_results=max_results)
+    term_groups = engine.lookup_terms(raw_text, max_results=max_results, mode=lookup_mode)
 
     # Second attempt: if no match and text is Romaji, convert to Hiragana and lookup
     if not term_groups and not has_japanese:
         kana_converted = romaji_to_hiragana(raw_text)
         if kana_converted != raw_text:
-            term_groups = engine.lookup_terms(kana_converted, max_results=max_results)
+            term_groups = engine.lookup_terms(kana_converted, max_results=max_results, mode=lookup_mode)
 
     # Third attempt: if still no match, fallback to English meaning search
     if not term_groups:
@@ -912,6 +927,9 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
         })
 
     primary = term_groups[0]
+    cand_terms = [g.term for g in term_groups]
+    batch_jlpt = batch_get_jlpt_levels(cand_terms)
+
     kanji_res = engine.lookup_kanji(primary.term)
     kanji_entries = [
         {
@@ -926,22 +944,6 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
         }
         for k in kanji_res
     ]
-
-    all_glosses: list[str] = []
-    all_examples: list[dict[str, str]] = []
-    formatted_senses: list[dict[str, Any]] = []
-    for d in primary.definitions:
-        g_list = _extract_plain_text_glossary(d.glossary)
-        all_glosses.extend(g_list)
-        exs = _extract_example_sentences(d.glossary)
-        if exs:
-            all_examples.extend(exs)
-        formatted_senses.append({
-            "glosses": g_list,
-            "pos": d.def_tags,
-            "tags": d.term_tags,
-            "dictionary": d.dictionary,
-        })
 
     jlpt_level = None
     for tag in primary.tags:
@@ -959,25 +961,10 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
                     val = f"N{val}"
                 jlpt_level = val
                 break
+    if not jlpt_level:
+        jlpt_level = batch_jlpt.get(primary.term)
 
-    primary_pos = primary.definitions[0].def_tags if primary.definitions else []
-    primary_rules = primary.definitions[0].rules if primary.definitions else ""
-
-    match_payload = {
-        "expression": primary.term,
-        "reading": primary.reading,
-        "source": primary.source,
-        "deinflected": primary.term,
-        "rules": primary_rules,
-        "jlpt_level": jlpt_level,
-        "meanings": all_glosses,
-        "parts_of_speech": primary_pos,
-        "senses": formatted_senses,
-        "kanji_entries": kanji_entries,
-        "example_sentence": all_examples[0]["japanese"] if all_examples else "",
-        "example_translation": all_examples[0]["translation"] if all_examples else "",
-        "examples": all_examples,
-    }
+    match_payload = format_normalized_entry(primary, jlpt_level=jlpt_level, kanji_entries=kanji_entries)
 
     candidates = []
     for g in term_groups:
@@ -992,26 +979,19 @@ async def dictionary_lookup_endpoint(request: Request) -> JSONResponse:
         if not cand_jlpt and g.term == primary.term:
             cand_jlpt = jlpt_level
         if not cand_jlpt:
-            cand_en = search_english_vocab(g.term, limit=1)
-            if cand_en and cand_en[0].get("term") == g.term:
-                cand_jlpt = cand_en[0].get("jlpt_level")
+            cand_jlpt = batch_jlpt.get(g.term)
 
-        cand_ex_ja = ""
-        cand_ex_en = ""
-        if g.definitions and g.definitions[0].glossary:
-            cand_exs = _extract_example_sentences(g.definitions[0].glossary)
-            if cand_exs:
-                cand_ex_ja = cand_exs[0].get("japanese", "")
-                cand_ex_en = cand_exs[0].get("translation", "")
-
+        g_norm = format_normalized_entry(g, jlpt_level=cand_jlpt)
         candidates.append({
             "expression": g.term,
             "reading": g.reading,
-            "meanings": _extract_plain_text_glossary(g.definitions[0].glossary[:2]) if g.definitions and g.definitions[0].glossary else [],
+            "meanings": g_norm["meanings"][:2],
+            "default_meaning": g_norm["default_meaning"],
+            "parts_of_speech": g_norm["parts_of_speech"],
             "jlpt_level": cand_jlpt,
             "source": g.source,
-            "example_sentence": cand_ex_ja,
-            "example_translation": cand_ex_en,
+            "example_sentence": g_norm["example_sentence"],
+            "example_translation": g_norm["example_translation"],
         })
 
     return JSONResponse({
@@ -1371,11 +1351,43 @@ async def save_anki_cards_endpoint(request: Request) -> JSONResponse:
             detail=f"Batch size limit exceeded: maximum 500 cards per request (received {len(cards)}).",
         )
 
-    inserted = store.upsert_anki_cards(cards)
+    inserted = await run_in_threadpool(store.upsert_anki_cards, cards)
     return JSONResponse({
         "status": "ok",
         "inserted": inserted,
         "count": len(cards),
+    })
+
+
+@app.post("/api/anki/reviews")
+async def save_anki_reviews_endpoint(request: Request) -> JSONResponse:
+    """Worker endpoint to push raw review rows in batches (max 2000)."""
+    _authenticate_worker(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Malformed JSON body: {exc}")
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Payload must be a JSON object.")
+
+    reviews = payload.get("reviews", [])
+    if not isinstance(reviews, list):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="'reviews' must be a list.")
+
+    if len(reviews) > 2000:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Batch size limit exceeded: maximum 2000 reviews per request (received {len(reviews)}).",
+        )
+
+    inserted = await run_in_threadpool(store.upsert_anki_reviews, reviews)
+    return JSONResponse({
+        "status": "ok",
+        "inserted": inserted,
+        "count": len(reviews),
     })
 
 
@@ -1520,7 +1532,7 @@ async def save_anki_media_endpoint(request: Request) -> JSONResponse:
 
 
 @app.get("/api/cards/{card_id}/media")
-async def get_card_media_endpoint(card_id: int) -> Response:
+def get_card_media_endpoint(card_id: int) -> Response:
     """Retrieve card media (lightweight WebP image) with caching headers."""
     if store is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
@@ -1540,7 +1552,7 @@ async def get_card_media_endpoint(card_id: int) -> Response:
 
 
 @app.post("/api/anki/media/flush")
-async def flush_mature_media_endpoint(request: Request, min_interval_days: int = 21) -> JSONResponse:
+def flush_mature_media_endpoint(request: Request, min_interval_days: int = 21) -> JSONResponse:
     """Evict media for mature cards to conserve cloud database storage."""
     _authenticate_recent(request)
     if store is None:
@@ -1555,7 +1567,7 @@ async def flush_mature_media_endpoint(request: Request, min_interval_days: int =
 
 
 @app.get("/api/cards")
-async def query_cards_endpoint(
+def query_cards_endpoint(
     request: Request,
     q: Optional[str] = None,
     state: Optional[str] = None,
@@ -1612,7 +1624,7 @@ async def query_cards_endpoint(
 
 
 @app.get("/api/cards/{card_id}")
-async def get_card_endpoint(card_id: int, request: Request) -> JSONResponse:
+def get_card_endpoint(card_id: int, request: Request) -> JSONResponse:
     """Dashboard endpoint to fetch a single mirrored card detail."""
     _authenticate_recent(request)
     if store is None:
@@ -1628,8 +1640,24 @@ async def get_card_endpoint(card_id: int, request: Request) -> JSONResponse:
     })
 
 
+@app.get("/api/cards/{card_id}/reviews")
+def get_card_reviews_endpoint(card_id: int, request: Request) -> JSONResponse:
+    """Dashboard endpoint to fetch review history for a specific mirrored card."""
+    _authenticate_recent(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+
+    reviews = store.get_card_reviews(card_id)
+    return JSONResponse({
+        "status": "ok",
+        "card_id": card_id,
+        "count": len(reviews),
+        "reviews": reviews,
+    })
+
+
 @app.get("/api/stats/overview")
-async def get_stats_overview_endpoint(request: Request, range: str = "90d") -> JSONResponse:
+def get_stats_overview_endpoint(request: Request, range: str = "90d") -> JSONResponse:
     """Dashboard endpoint returning all comprehensive Anki stats series for the Stats tab."""
     _authenticate_recent(request)
     if store is None:
@@ -1640,7 +1668,7 @@ async def get_stats_overview_endpoint(request: Request, range: str = "90d") -> J
 
 
 @app.get("/api/anki/status")
-async def get_anki_status_endpoint(request: Request) -> JSONResponse:
+def get_anki_status_endpoint(request: Request) -> JSONResponse:
     """Dashboard endpoint returning mirror sync freshness, card count, and last reconcile."""
     _authenticate_recent(request)
     if store is None:
@@ -1655,7 +1683,7 @@ async def get_anki_status_endpoint(request: Request) -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 @app.get("/api/study/session")
-async def get_study_session_endpoint(
+def get_study_session_endpoint(
     request: Request,
     mode: str = "weakest",
     level: Optional[str] = None,
@@ -1713,7 +1741,8 @@ async def record_study_review_endpoint(request: Request) -> JSONResponse:
     review_uuid = payload.get("review_uuid")
 
     try:
-        result = store.record_study_review(
+        result = await run_in_threadpool(
+            store.record_study_review,
             card_id=card_id,
             rating=rating,
             time_ms=int(time_ms) if isinstance(time_ms, (int, float)) else 0,
@@ -1730,7 +1759,7 @@ async def record_study_review_endpoint(request: Request) -> JSONResponse:
 
 
 @app.get("/api/study/summary")
-async def get_study_summary_endpoint(request: Request) -> JSONResponse:
+def get_study_summary_endpoint(request: Request) -> JSONResponse:
     """Dashboard endpoint returning cloud practice stats (practiced today, 7d, box distribution)."""
     _authenticate_recent(request)
     if store is None:
@@ -1738,6 +1767,46 @@ async def get_study_summary_endpoint(request: Request) -> JSONResponse:
 
     summary = store.get_study_summary()
     return JSONResponse({"status": "ok", **summary})
+
+
+@app.get("/api/study/presets")
+def get_study_presets_endpoint(request: Request) -> JSONResponse:
+    """Dashboard endpoint returning live card counts for all study presets."""
+    _authenticate_recent(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+    counts = store.get_study_preset_counts()
+    return JSONResponse({"status": "ok", "presets": counts})
+
+
+@app.get("/api/study/travel-plan")
+def get_travel_plan_endpoint(request: Request) -> JSONResponse:
+    """Dashboard endpoint returning 7-day schedule forecast from absolute due dates for travel mode."""
+    _authenticate_recent(request)
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Queue store not initialized.")
+    plan = store.get_travel_plan()
+    return JSONResponse({"status": "ok", **plan})
+
+
+@app.get("/manifest.json")
+def get_manifest_endpoint() -> JSONResponse:
+    """Web app manifest for Add to Home Screen (travel mode PWA)."""
+    return JSONResponse({
+        "name": "Kiroku Cloud",
+        "short_name": "Kiroku",
+        "start_url": "/dashboard",
+        "display": "standalone",
+        "background_color": "#0d1117",
+        "theme_color": "#161b22",
+        "icons": [
+            {
+                "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'%3E%3Cpath d='M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z'/%3E%3C/svg%3E",
+                "sizes": "192x192 512x512",
+                "type": "image/svg+xml"
+            }
+        ]
+    })
 # ---------------------------------------------------------------------------
 # Mobile & Desktop Web Dashboard (Read-Only)
 # ---------------------------------------------------------------------------
@@ -1749,8 +1818,11 @@ from dashboard_template import DASHBOARD_HTML as _DASHBOARD_HTML
 async def dashboard_endpoint() -> HTMLResponse:
     """
     Public read-only dashboard page. Token is entered once client-side
-    and stored in localStorage. Calls GET /recent via fetch().
+    and stored in localStorage.
     """
+    p = Path(__file__).parent / "dashboard.html"
+    if p.is_file():
+        return HTMLResponse(content=p.read_text(encoding="utf-8"))
     return HTMLResponse(content=_DASHBOARD_HTML)
 
 

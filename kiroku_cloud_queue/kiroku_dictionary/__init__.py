@@ -10,6 +10,14 @@ import os
 
 from .lookup import DictionaryEngine, KanjiResult, TermDefinition, TermHeadwordGroup
 from .deinflect import DeinflectionCandidate, deinflect
+from .normalizer import (
+    CrossReference,
+    DictionarySense,
+    ExampleSentence,
+    extract_senses_from_glossary,
+    format_normalized_entry,
+    synthesize_default_meaning,
+)
 
 __version__ = "1.0.0"
 
@@ -28,9 +36,14 @@ def get_default_engine(db_path: str | None = None) -> DictionaryEngine:
     return _global_engine
 
 
-def lookup_terms(text: str, max_results: int = 10, db_path: str | None = None) -> list[TermHeadwordGroup]:
+def lookup_terms(
+    text: str,
+    max_results: int = 10,
+    mode: str = "word",
+    db_path: str | None = None,
+) -> list[TermHeadwordGroup]:
     engine = get_default_engine(db_path)
-    return engine.lookup_terms(text, max_results=max_results)
+    return engine.lookup_terms(text, max_results=max_results, mode=mode)
 
 
 def lookup_kanji(text: str, db_path: str | None = None) -> list[KanjiResult]:
@@ -45,6 +58,12 @@ __all__ = [
     "KanjiResult",
     "DeinflectionCandidate",
     "deinflect",
+    "CrossReference",
+    "DictionarySense",
+    "ExampleSentence",
+    "extract_senses_from_glossary",
+    "format_normalized_entry",
+    "synthesize_default_meaning",
     "get_default_engine",
     "lookup_terms",
     "lookup_kanji",

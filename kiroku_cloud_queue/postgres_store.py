@@ -7,13 +7,19 @@ lease claims across multiple concurrent workers.
 """
 from __future__ import annotations
 
+import decimal
+import hashlib
 import json
 import logging
+import os
+import random
+import sys
 import time
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
+from zoneinfo import ZoneInfo
 
 from queue_adapter import QueueItem, VocabCard
 from queue_store import (
@@ -21,9 +27,43 @@ from queue_store import (
     MAX_ATTEMPTS,
     BaseQueueStore,
     compute_idempotency_key,
+    get_anki_collection_day,
+    get_anki_today_start,
 )
 
 log = logging.getLogger("kiroku_postgres_store")
+
+
+def _normalize_json_types(obj: Any) -> Any:
+    if isinstance(obj, dict):
+        return {k: _normalize_json_types(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_normalize_json_types(v) for v in obj]
+    elif isinstance(obj, tuple):
+        return tuple(_normalize_json_types(v) for v in obj)
+    elif isinstance(obj, decimal.Decimal):
+        return float(obj)
+    elif isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    elif isinstance(obj, memoryview):
+        return bytes(obj)
+    return obj
+
+
+def get_anki_collection_day(dt: datetime, tz: ZoneInfo, rollover_hour: int = 4) -> date:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    local_dt = dt.astimezone(tz)
+    adjusted_dt = local_dt - timedelta(hours=rollover_hour)
+    return adjusted_dt.date()
+
+
+def get_anki_today_start(tz: ZoneInfo, rollover_hour: int = 4) -> datetime:
+    now_utc = datetime.now(timezone.utc)
+    current_day = get_anki_collection_day(now_utc, tz, rollover_hour)
+    local_start = datetime(current_day.year, current_day.month, current_day.day, rollover_hour, 0, 0, tzinfo=tz)
+    return local_start.astimezone(timezone.utc)
+
 
 
 def _to_pg_timestamp(val: Any) -> Optional[datetime]:
@@ -128,40 +168,56 @@ class PostgresQueueStore(BaseQueueStore):
     @contextmanager
     def _get_connection(self):
         """Context manager providing an active connection, preferring the connection pool."""
+        conn = None
+        pool_ctx = None
+        is_direct = False
+
         if self._pool is not None:
             if self._driver == "psycopg":
                 try:
-                    with self._pool.connection() as conn:
-                        self._prepare_conn(conn)
-                        yield conn
+                    pool_ctx = self._pool.connection()
+                    conn = pool_ctx.__enter__()
                 except Exception as exc:
-                    log.warning("Pooled connection dropped or failed (%s); falling back to direct connection", exc)
-                    import psycopg
-                    with psycopg.connect(self.connection_url) as conn:
-                        self._prepare_conn(conn)
-                        yield conn
+                    log.warning("Pooled connection acquisition failed (%s); falling back to direct connection", exc)
+                    conn = None
+                    pool_ctx = None
             else:
-                conn = self._pool.getconn()
                 try:
-                    self._prepare_conn(conn)
-                    yield conn
+                    conn = self._pool.getconn()
+                except Exception as exc:
+                    log.warning("psycopg2 pool getconn failed (%s); falling back to direct", exc)
+                    conn = None
+
+        if conn is None:
+            if self._driver == "psycopg":
+                import psycopg
+                conn = psycopg.connect(self.connection_url)
+            else:
+                import psycopg2
+                conn = psycopg2.connect(self.connection_url)
+            is_direct = True
+
+        try:
+            self._prepare_conn(conn)
+            yield conn
+        finally:
+            if is_direct:
+                try:
+                    conn.close()
                 except Exception:
-                    raise
-                finally:
-                    self._pool.putconn(conn)
-        elif self._driver == "psycopg":
-            import psycopg
-            with psycopg.connect(self.connection_url) as conn:
-                self._prepare_conn(conn)
-                yield conn
-        else:
-            import psycopg2
-            conn = psycopg2.connect(self.connection_url)
-            try:
-                self._prepare_conn(conn)
-                yield conn
-            finally:
-                conn.close()
+                    pass
+            elif self._pool is not None:
+                if self._driver == "psycopg" and pool_ctx is not None:
+                    try:
+                        pool_ctx.__exit__(*sys.exc_info())
+                    except Exception:
+                        pass
+                elif self._driver != "psycopg":
+                    try:
+                        self._pool.putconn(conn)
+                    except Exception:
+                        pass
+
 
     def init_db(self) -> None:
         """
@@ -225,6 +281,7 @@ class PostgresQueueStore(BaseQueueStore):
             fsrs_stability      REAL DEFAULT NULL,
             fsrs_retrievability REAL DEFAULT NULL,
             due_in_days         INTEGER DEFAULT NULL,
+            due_date            VARCHAR(10) DEFAULT NULL,
             raw_html            TEXT NOT NULL DEFAULT '',
             has_media           BOOLEAN NOT NULL DEFAULT FALSE,
             created_at          TIMESTAMPTZ NOT NULL,
@@ -235,6 +292,7 @@ class PostgresQueueStore(BaseQueueStore):
         );
 
         -- Self-healing migrations for existing tables
+        ALTER TABLE anki_cards ADD COLUMN IF NOT EXISTS due_date VARCHAR(10) DEFAULT NULL;
         ALTER TABLE anki_cards ADD COLUMN IF NOT EXISTS raw_html TEXT NOT NULL DEFAULT '';
         ALTER TABLE anki_cards ADD COLUMN IF NOT EXISTS has_media BOOLEAN NOT NULL DEFAULT FALSE;
 
@@ -254,6 +312,7 @@ class PostgresQueueStore(BaseQueueStore):
         CREATE INDEX IF NOT EXISTS idx_ac_diff_score ON anki_cards (difficulty_score);
         CREATE INDEX IF NOT EXISTS idx_ac_lapses ON anki_cards (lapses);
         CREATE INDEX IF NOT EXISTS idx_ac_due ON anki_cards (due_in_days);
+        CREATE INDEX IF NOT EXISTS idx_ac_due_date ON anki_cards (due_date);
         CREATE INDEX IF NOT EXISTS idx_ac_created ON anki_cards (created_at);
 
         CREATE TABLE IF NOT EXISTS anki_daily (
@@ -276,6 +335,18 @@ class PostgresQueueStore(BaseQueueStore):
             n_mature             INTEGER NOT NULL DEFAULT 0,
             n_suspended          INTEGER NOT NULL DEFAULT 0
         );
+
+        CREATE TABLE IF NOT EXISTS anki_reviews (
+            card_id        BIGINT NOT NULL REFERENCES anki_cards(card_id) ON DELETE CASCADE,
+            review_id      BIGINT NOT NULL,
+            ease           INTEGER NOT NULL DEFAULT 0,
+            type           INTEGER NOT NULL DEFAULT 0,
+            interval       INTEGER NOT NULL DEFAULT 0,
+            last_interval  INTEGER NOT NULL DEFAULT 0,
+            time_ms        INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (card_id, review_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_ar_card_id ON anki_reviews (card_id);
 
         CREATE TABLE IF NOT EXISTS anki_meta (
             key        VARCHAR(64) PRIMARY KEY,
@@ -636,6 +707,7 @@ class PostgresQueueStore(BaseQueueStore):
                 float(r["fsrs_stability"]) if r.get("fsrs_stability") is not None else None,
                 float(r["fsrs_retrievability"]) if r.get("fsrs_retrievability") is not None else None,
                 int(r["due_in_days"]) if r.get("due_in_days") is not None else None,
+                str(r["due_date"]) if r.get("due_date") else None,
                 str(r.get("raw_html", "") or ""),
                 bool(r.get("has_media")),
                 _to_pg_timestamp(r.get("created_at")) or datetime.now(timezone.utc),
@@ -651,7 +723,7 @@ class PostgresQueueStore(BaseQueueStore):
             meaning, sentence, sentence_meaning, jlpt_level, state, queue_code,
             interval_days, reps, lapses, again_count_10, reviews_10, again_rate_10,
             avg_time_ms, difficulty_score, difficulty_label, is_leech,
-            fsrs_difficulty, fsrs_stability, fsrs_retrievability, due_in_days,
+            fsrs_difficulty, fsrs_stability, fsrs_retrievability, due_in_days, due_date,
             raw_html, has_media,
             created_at, first_review_at, last_review_at, mod_at, synced_at
         ) VALUES (
@@ -659,7 +731,7 @@ class PostgresQueueStore(BaseQueueStore):
             %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s,
-            %s, %s, %s, %s,
+            %s, %s, %s, %s, %s,
             %s, %s,
             %s, %s, %s, %s, %s
         )
@@ -689,6 +761,7 @@ class PostgresQueueStore(BaseQueueStore):
             fsrs_stability = EXCLUDED.fsrs_stability,
             fsrs_retrievability = EXCLUDED.fsrs_retrievability,
             due_in_days = EXCLUDED.due_in_days,
+            due_date = EXCLUDED.due_date,
             raw_html = EXCLUDED.raw_html,
             has_media = EXCLUDED.has_media,
             created_at = EXCLUDED.created_at,
@@ -702,6 +775,57 @@ class PostgresQueueStore(BaseQueueStore):
                 cur.executemany(sql, norm_rows)
             conn.commit()
         return len(norm_rows)
+
+    def upsert_anki_reviews(self, reviews: list[dict[str, Any]]) -> int:
+        if not reviews:
+            return 0
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                values = [
+                    (
+                        int(r["card_id"]),
+                        int(r["review_id"]),
+                        int(r.get("ease", 0)),
+                        int(r.get("type", 0)),
+                        int(r.get("interval", 0)),
+                        int(r.get("last_interval", 0)),
+                        int(r.get("time_ms", 0)),
+                    )
+                    for r in reviews
+                ]
+                cur.executemany(
+                    """
+                    INSERT INTO anki_reviews (
+                        card_id, review_id, ease, type, interval, last_interval, time_ms
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s
+                    ) ON CONFLICT(card_id, review_id) DO UPDATE SET
+                        ease = EXCLUDED.ease,
+                        type = EXCLUDED.type,
+                        interval = EXCLUDED.interval,
+                        last_interval = EXCLUDED.last_interval,
+                        time_ms = EXCLUDED.time_ms;
+                    """,
+                    values,
+                )
+            conn.commit()
+            return len(reviews)
+
+    def get_card_reviews(self, card_id: int) -> list[dict[str, Any]]:
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT card_id, review_id, ease, type, interval, last_interval, time_ms
+                    FROM anki_reviews
+                    WHERE card_id = %s
+                    ORDER BY review_id ASC;
+                    """,
+                    (int(card_id),),
+                )
+                cols = [desc[0] for desc in cur.description]
+                rows = cur.fetchall()
+                return _normalize_json_types([dict(zip(cols, r)) for r in rows])
 
     def save_card_media(self, card_id: int, media_name: str, image_bytes: bytes, mime_type: str = "image/webp") -> None:
         now_dt = datetime.now(timezone.utc)
@@ -774,6 +898,7 @@ class PostgresQueueStore(BaseQueueStore):
                     cur.execute("SELECT COUNT(*) FROM anki_cards;")
                     total = cur.fetchone()[0]
                     cur.execute("DELETE FROM anki_card_media;")
+                    cur.execute("DELETE FROM anki_reviews;")
                     cur.execute("DELETE FROM cloud_study_reviews;")
                     cur.execute("DELETE FROM cloud_study_state;")
                     cur.execute("DELETE FROM anki_cards;")
@@ -788,6 +913,7 @@ class PostgresQueueStore(BaseQueueStore):
                 del_count = cur.fetchone()[0]
 
                 cur.execute("DELETE FROM anki_card_media WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
+                cur.execute("DELETE FROM anki_reviews WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
                 cur.execute("DELETE FROM cloud_study_reviews WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
                 cur.execute("DELETE FROM cloud_study_state WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
                 cur.execute("DELETE FROM anki_cards WHERE card_id NOT IN (SELECT id FROM temp_reconcile_ids);")
@@ -799,6 +925,8 @@ class PostgresQueueStore(BaseQueueStore):
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM anki_card_media;")
                 c_media = cur.rowcount
+                cur.execute("DELETE FROM anki_reviews;")
+                c_anki_reviews = cur.rowcount
                 cur.execute("DELETE FROM cloud_study_reviews;")
                 c_reviews = cur.rowcount
                 cur.execute("DELETE FROM cloud_study_state;")
@@ -817,6 +945,7 @@ class PostgresQueueStore(BaseQueueStore):
                 "deleted_study_reviews": c_reviews,
                 "deleted_study_state": c_state,
                 "deleted_daily": c_daily,
+                "deleted_anki_reviews": c_anki_reviews,
             }
 
     def upsert_anki_daily(self, rows: list[dict[str, Any]]) -> int:
@@ -1039,7 +1168,7 @@ class PostgresQueueStore(BaseQueueStore):
         with self._get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) FROM anki_cards;")
-                card_count = cur.fetchone()[0]
+                card_count = int(cur.fetchone()[0])
                 cur.execute("SELECT key, value FROM anki_meta;")
                 meta_rows = cur.fetchall()
                 meta = {r[0]: r[1] for r in meta_rows}
@@ -1047,16 +1176,46 @@ class PostgresQueueStore(BaseQueueStore):
                 last_synced_row = cur.fetchone()
                 last_synced = str(last_synced_row[0]) if last_synced_row and last_synced_row[0] else None
                 last_reconcile = meta.get("last_full_reconcile_at")
+                last_success = meta.get("last_mirror_sync_at") or meta.get("last_success_at") or last_synced
+                last_attempt = meta.get("last_attempt_at") or last_success
+                last_error = meta.get("last_sync_error") or meta.get("last_error") or None
+                sync_status = meta.get("sync_status") or ("ok" if last_success else "never_synced")
+                pending_cards = int(meta.get("pending_cards", 0))
+
+                days_since_success = None
+                if last_success:
+                    try:
+                        clean_str = str(last_success).replace("Z", "+00:00")
+                        ls_dt = datetime.fromisoformat(clean_str)
+                        if ls_dt.tzinfo is None:
+                            ls_dt = ls_dt.replace(tzinfo=timezone.utc)
+                        days_since_success = max(0, (datetime.now(timezone.utc) - ls_dt).days)
+                    except Exception:
+                        days_since_success = None
+
+                tz_name = os.getenv("USER_TIMEZONE", "Asia/Kolkata")
+                rollover_hour = int(meta.get("collection_day_rollover_hour", os.getenv("ANKI_DAY_ROLLOVER_HOUR", "4")))
+
                 return {
-                    "synced_at": meta.get("last_mirror_sync_at") or last_synced,
+                    "last_success_at": last_success,
+                    "last_attempt_at": last_attempt,
+                    "last_full_at": last_reconcile,
+                    "status": sync_status,
+                    "last_error": last_error,
+                    "pending_cards": pending_cards,
+                    "days_since_success": days_since_success,
+                    "synced_at": last_success,
+                    "last_mirror_sync_at": last_success,
                     "card_count": card_count,
                     "last_full_reconcile": last_reconcile,
                     "last_reconcile_at": last_reconcile,
                     "schema_version": str(meta.get("schema_version", "1")),
-                    "collection_day_rollover_hour": int(meta.get("collection_day_rollover_hour", 4)),
+                    "collection_day_rollover_hour": rollover_hour,
+                    "timezone": tz_name,
                     "active_profile": meta.get("active_profile", ""),
                     "reconcile_skipped_reason": meta.get("reconcile_skipped_reason", ""),
                 }
+
 
     def get_stats_overview(self, range_filter: Optional[str] = None, range_key: Optional[str] = None) -> dict[str, Any]:
         t0 = time.perf_counter()
@@ -1344,14 +1503,14 @@ class PostgresQueueStore(BaseQueueStore):
                 cur.execute(
                     """
                     SELECT deck_name,
-                           COUNT(*) as total,
-                           SUM(CASE WHEN state = 'mature' THEN 1 ELSE 0 END) as mature,
-                           SUM(CASE WHEN state = 'young' THEN 1 ELSE 0 END) as young,
-                           SUM(CASE WHEN state = 'learning' THEN 1 ELSE 0 END) as learning,
-                           SUM(CASE WHEN state = 'new' THEN 1 ELSE 0 END) as new,
-                           SUM(CASE WHEN state = 'suspended' THEN 1 ELSE 0 END) as suspended,
-                           SUM(CASE WHEN due_in_days <= 0 THEN 1 ELSE 0 END) as due_today,
-                           ROUND(AVG(interval_days), 1) as avg_interval
+                           COUNT(*)::int as total,
+                           COALESCE(SUM(CASE WHEN state = 'mature' THEN 1 ELSE 0 END), 0)::int as mature,
+                           COALESCE(SUM(CASE WHEN state = 'young' THEN 1 ELSE 0 END), 0)::int as young,
+                           COALESCE(SUM(CASE WHEN state = 'learning' THEN 1 ELSE 0 END), 0)::int as learning,
+                           COALESCE(SUM(CASE WHEN state = 'new' THEN 1 ELSE 0 END), 0)::int as new,
+                           COALESCE(SUM(CASE WHEN state = 'suspended' THEN 1 ELSE 0 END), 0)::int as suspended,
+                           COALESCE(SUM(CASE WHEN due_in_days <= 0 THEN 1 ELSE 0 END), 0)::int as due_today,
+                           COALESCE(ROUND(AVG(interval_days), 1)::float, 0.0) as avg_interval
                     FROM anki_cards
                     GROUP BY deck_name
                     ORDER BY total DESC;
@@ -1384,7 +1543,175 @@ class PostgresQueueStore(BaseQueueStore):
                 }
                 elapsed_ms = (time.perf_counter() - t0) * 1000.0
                 log.debug("get_stats_overview completed in %.2fms (range=%s)", elapsed_ms, rf)
-                return res_overview
+                return _normalize_json_types(res_overview)
+
+    def sync_pseudo_cards_from_queue(self) -> int:
+        """Sync pending quick-added cards into anki_cards with negative card_ids so they are immediately studyable during travel."""
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                now_dt = datetime.now(timezone.utc)
+                now_date = now_dt.strftime("%Y-%m-%d")
+                cur.execute(
+                    "SELECT id, expression, reading, meaning, sentence, sentence_meaning, deck_name FROM queued_cards WHERE status = 'pending';"
+                )
+                pending_rows = cur.fetchall()
+                synced = 0
+                for r in pending_rows:
+                    raw_id = str(r[0])
+                    try:
+                        pseudo_id = -abs(int(raw_id))
+                    except ValueError:
+                        pseudo_id = -abs(int(hashlib.sha256(raw_id.encode("utf-8")).hexdigest()[:14], 16))
+
+                    cur.execute(
+                        """
+                        INSERT INTO anki_cards (
+                            card_id, note_id, deck_name, model_name, expression, reading, meaning,
+                            sentence, sentence_meaning, state, difficulty_score,
+                            difficulty_label, is_leech, lapses, reps, interval_days,
+                            due_in_days, due_date, created_at, mod_at, synced_at
+                        ) VALUES (
+                            %s, 0, %s, 'Kiroku Note', %s, %s, %s,
+                            %s, %s, 'queued', 50.0,
+                            'new', FALSE, 0, 0, 0,
+                            0, %s, %s, %s, %s
+                        )
+                        ON CONFLICT(card_id) DO UPDATE SET
+                            expression = EXCLUDED.expression,
+                            reading = EXCLUDED.reading,
+                            meaning = EXCLUDED.meaning,
+                            sentence = EXCLUDED.sentence,
+                            sentence_meaning = EXCLUDED.sentence_meaning;
+                        """,
+                        (
+                            pseudo_id,
+                            r[6] or "N3 vocabs",
+                            r[1],
+                            r[2] or r[1],
+                            r[3],
+                            r[4] or "",
+                            r[5] or "",
+                            now_date,
+                            now_dt,
+                            now_dt,
+                            now_dt,
+                        ),
+                    )
+                    synced += 1
+                conn.commit()
+                return synced
+
+    def get_study_preset_counts(self) -> dict[str, int]:
+        """Return real-time card counts for each study preset."""
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                now_dt = datetime.now(timezone.utc)
+                cur.execute(
+                    """
+                    SELECT COUNT(*) FROM cloud_study_state cs
+                    JOIN anki_cards ac ON cs.card_id = ac.card_id
+                    WHERE ac.state != 'suspended' AND cs.due_at <= %s;
+                    """,
+                    (now_dt,),
+                )
+                due_row = cur.fetchone()
+                due_count = int(due_row[0]) if due_row else 0
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM anki_cards WHERE state != 'suspended' AND (is_leech = TRUE OR lapses >= 4 OR difficulty_score >= 80);",
+                )
+                leech_row = cur.fetchone()
+                leech_count = int(leech_row[0]) if leech_row else 0
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM anki_cards WHERE state != 'suspended' AND (difficulty_score >= 60 OR is_leech = TRUE);",
+                )
+                weak_row = cur.fetchone()
+                weak_count = int(weak_row[0]) if weak_row else 0
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM queued_cards WHERE status = 'pending';",
+                )
+                qa_row = cur.fetchone()
+                qa_count = int(qa_row[0]) if qa_row else 0
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM anki_cards WHERE state != 'suspended';",
+                )
+                all_row = cur.fetchone()
+                all_count = int(all_row[0]) if all_row else 0
+
+                return {
+                    "quick10": min(10, all_count + qa_count),
+                    "due": due_count,
+                    "leech_rescue": leech_count,
+                    "weak_week": weak_count,
+                    "quick_add": qa_count,
+                    "all": all_count,
+                }
+
+    def get_travel_plan(self) -> dict[str, Any]:
+        """Compute 7-day travel schedule from absolute due dates for studying when Anki is offline."""
+        tz_name = os.getenv("USER_TIMEZONE", "Asia/Kolkata")
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            tz = ZoneInfo("Asia/Kolkata")
+
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT value FROM anki_meta WHERE key = 'collection_day_rollover_hour';")
+                meta_row = cur.fetchone()
+                rollover_hour = int(meta_row[0]) if meta_row and meta_row[0] else int(os.getenv("ANKI_DAY_ROLLOVER_HOUR", "4"))
+
+                status_data = self.get_anki_status()
+                days_behind = status_data.get("days_since_success") or 0
+
+                now_utc = datetime.now(timezone.utc)
+                today_day = get_anki_collection_day(now_utc, tz, rollover_hour)
+                today_str = today_day.isoformat()
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM anki_cards WHERE state != 'suspended' AND due_date IS NOT NULL AND due_date < %s;",
+                    (today_str,),
+                )
+                overdue_row = cur.fetchone()
+                overdue_count = int(overdue_row[0]) if overdue_row else 0
+
+                schedule = []
+                total_7d_due = 0
+                for i in range(7):
+                    day_dt = today_day + timedelta(days=i)
+                    day_str = day_dt.isoformat()
+                    cur.execute(
+                        "SELECT COUNT(*) FROM anki_cards WHERE state != 'suspended' AND due_date = %s;",
+                        (day_str,),
+                    )
+                    due_row = cur.fetchone()
+                    cnt = int(due_row[0]) if due_row else 0
+                    total_7d_due += cnt
+                    schedule.append({
+                        "day_index": i,
+                        "date": day_str,
+                        "day_label": "Today" if i == 0 else ("Tomorrow" if i == 1 else day_dt.strftime("%a, %b %d")),
+                        "due_count": cnt,
+                        "cumulative": overdue_count + total_7d_due,
+                    })
+
+                total_due_on_return = overdue_count + total_7d_due
+                import math
+                daily_goal = max(5, math.ceil(total_due_on_return / 7.0)) if total_due_on_return > 0 else 0
+
+                return _normalize_json_types({
+                    "days_behind": days_behind,
+                    "overdue_cards": overdue_count,
+                    "today_due": schedule[0]["due_count"] if schedule else 0,
+                    "schedule_7d": schedule,
+                    "cards_due_on_return": total_due_on_return,
+                    "daily_goal": daily_goal,
+                    "timezone": tz_name,
+                    "as_of_date": today_str,
+                })
 
     def get_study_session(
         self,
@@ -1394,9 +1721,16 @@ class PostgresQueueStore(BaseQueueStore):
         custom_ids: Optional[list[int]] = None,
         custom_card_ids: Optional[list[int]] = None,
     ) -> list[dict[str, Any]]:
-        limit = max(1, min(2000, int(limit)))
+        clean_mode = (mode or "weakest").lower().strip()
         now_dt = datetime.now(timezone.utc)
+        four_hours_ago = now_dt - timedelta(hours=4)
         effective_ids = custom_ids or custom_card_ids
+
+        # Sync any pending quick-added cards into pseudo-cards so travel mode works immediately
+        self.sync_pseudo_cards_from_queue()
+
+        effective_limit = 10 if clean_mode == "quick10" else limit
+        pool_limit = max(effective_limit * 3, 60)
 
         with self._get_connection() as conn:
             with conn.cursor() as cur:
@@ -1404,96 +1738,127 @@ class PostgresQueueStore(BaseQueueStore):
                     placeholders = ",".join("%s" for _ in effective_ids)
                     cur.execute(
                         f"SELECT * FROM anki_cards WHERE card_id IN ({placeholders}) LIMIT %s;",
-                        tuple(effective_ids + [limit]),
+                        tuple(effective_ids + [effective_limit]),
                     )
-                else:
-                    clean_mode = str(mode).lower().strip()
-                    if clean_mode == "leeches":
-                        cur.execute(
-                            """
-                            SELECT * FROM anki_cards
-                            WHERE is_leech = TRUE OR difficulty_label = 'leech'
-                            ORDER BY lapses DESC, card_id DESC
-                            LIMIT %s;
-                            """,
-                            (limit,),
-                        )
-                    elif clean_mode in ("level", "jlpt") and level:
-                        cur.execute(
-                            """
-                            SELECT * FROM anki_cards
-                            WHERE state != 'suspended' AND UPPER(jlpt_level) = UPPER(%s)
-                            ORDER BY difficulty_score DESC NULLS LAST, lapses DESC
-                            LIMIT %s;
-                            """,
-                            (str(level).strip().upper(), limit),
-                        )
-                    elif clean_mode == "recent":
-                        fourteen_days_ago = now_dt - timedelta(days=14)
-                        cur.execute(
-                            """
-                            SELECT * FROM anki_cards
-                            WHERE state != 'suspended' AND created_at >= %s
-                            ORDER BY created_at DESC
-                            LIMIT %s;
-                            """,
-                            (fourteen_days_ago, limit),
-                        )
-                    elif clean_mode in ("never_practiced", "unseen"):
-                        cur.execute(
-                            """
-                            SELECT * FROM anki_cards
-                            WHERE state != 'suspended'
-                              AND card_id NOT IN (SELECT card_id FROM cloud_study_state)
-                            ORDER BY difficulty_score DESC NULLS LAST, card_id DESC
-                            LIMIT %s;
-                            """,
-                            (limit,),
-                        )
-                    elif clean_mode in ("cloud_due", "due"):
-                        cur.execute(
-                            """
-                            SELECT ac.* FROM anki_cards ac
-                            JOIN cloud_study_state cs ON ac.card_id = cs.card_id
-                            WHERE ac.state != 'suspended' AND cs.due_at <= %s
-                            ORDER BY cs.due_at ASC
-                            LIMIT %s;
-                            """,
-                            (now_dt, limit),
-                        )
-                    elif clean_mode == "all":
-                        cur.execute(
-                            """
-                            SELECT * FROM anki_cards
-                            WHERE state != 'suspended'
-                            ORDER BY card_id ASC
-                            LIMIT %s;
-                            """,
-                            (limit,),
-                        )
-                    else:  # default: weakest
-                        cur.execute(
-                            """
-                            SELECT * FROM anki_cards
-                            WHERE state != 'suspended'
-                            ORDER BY is_leech DESC,
-                                     difficulty_score DESC NULLS LAST,
-                                     lapses DESC
-                            LIMIT %s;
-                            """,
-                            (limit,),
-                        )
+                elif clean_mode in ("quick_add", "new_from_quickadd"):
+                    cur.execute(
+                        "SELECT * FROM anki_cards WHERE card_id < 0 ORDER BY card_id DESC LIMIT %s;",
+                        (effective_limit,),
+                    )
+                elif clean_mode in ("leech_rescue", "leech", "leeches"):
+                    cur.execute(
+                        """
+                        SELECT * FROM anki_cards
+                        WHERE state != 'suspended'
+                          AND (is_leech = TRUE OR lapses >= 4 OR difficulty_score >= 80)
+                        ORDER BY lapses DESC, difficulty_score DESC NULLS LAST
+                        LIMIT %s;
+                        """,
+                        (pool_limit,),
+                    )
+                elif clean_mode in ("weak_week", "weak_this_week"):
+                    cur.execute(
+                        """
+                        SELECT * FROM anki_cards
+                        WHERE state != 'suspended'
+                          AND (difficulty_score >= 60 OR is_leech = TRUE OR card_id IN (
+                              SELECT DISTINCT card_id FROM cloud_study_reviews WHERE reviewed_at >= %s AND rating = 1
+                          ))
+                        ORDER BY difficulty_score DESC NULLS LAST
+                        LIMIT %s;
+                        """,
+                        (four_hours_ago, pool_limit),
+                    )
+                elif clean_mode in ("cloud_due", "due", "due_in_cloud"):
+                    cur.execute(
+                        """
+                        SELECT ac.* FROM anki_cards ac
+                        JOIN cloud_study_state cs ON ac.card_id = cs.card_id
+                        WHERE ac.state != 'suspended' AND cs.due_at <= %s
+                        ORDER BY cs.due_at ASC
+                        LIMIT %s;
+                        """,
+                        (now_dt, effective_limit),
+                    )
+                elif clean_mode in ("level", "by_jlpt_level", "jlpt") and level:
+                    cur.execute(
+                        """
+                        SELECT * FROM anki_cards
+                        WHERE state != 'suspended' AND UPPER(jlpt_level) = %s
+                        ORDER BY difficulty_score DESC NULLS LAST
+                        LIMIT %s;
+                        """,
+                        (str(level).strip().upper(), pool_limit),
+                    )
+                elif clean_mode in ("all", "everything"):
+                    cur.execute(
+                        """
+                        SELECT * FROM anki_cards
+                        WHERE state != 'suspended'
+                        ORDER BY card_id DESC
+                        LIMIT %s;
+                        """,
+                        (pool_limit,),
+                    )
+                else:  # default: weakest / quick10
+                    cur.execute(
+                        """
+                        SELECT * FROM anki_cards
+                        WHERE state != 'suspended'
+                        ORDER BY is_leech DESC,
+                                 difficulty_score DESC NULLS LAST,
+                                 lapses DESC
+                        LIMIT %s;
+                        """,
+                        (pool_limit,),
+                    )
 
                 cols = [desc[0] for desc in cur.description]
                 rows = cur.fetchall()
-                items = []
+                candidates = []
                 for r in rows:
                     d = dict(zip(cols, r))
                     for date_col in ("created_at", "first_review_at", "last_review_at", "mod_at", "synced_at"):
                         if d.get(date_col) is not None:
                             d[date_col] = str(d[date_col])
-                    items.append(d)
-                return items
+                    candidates.append(d)
+
+                # If candidates pool exceeds limit, filter out cards practiced in last 4 hours (unless due mode)
+                if len(candidates) > effective_limit and clean_mode not in ("due", "cloud_due"):
+                    cur.execute(
+                        "SELECT DISTINCT card_id FROM cloud_study_reviews WHERE reviewed_at >= %s;",
+                        (four_hours_ago,),
+                    )
+                    recent_cids = {r[0] for r in cur.fetchall()}
+                    not_recent = [c for c in candidates if c["card_id"] not in recent_cids]
+                    if len(not_recent) >= effective_limit:
+                        candidates = not_recent
+
+                # Weighted shuffle: prioritize leeches & higher difficulty while introducing non-deterministic variety
+                if len(candidates) > effective_limit:
+                    weights = []
+                    for c in candidates:
+                        diff = float(c.get("difficulty_score") or 50) / 10.0
+                        leech_w = 6.0 if c.get("is_leech") else 0.0
+                        lapse_w = min(float(c.get("lapses") or 0), 10.0)
+                        weights.append(max(1.0, diff + leech_w + lapse_w))
+
+                    chosen_indices = []
+                    remaining_indices = list(range(len(candidates)))
+                    remaining_weights = list(weights)
+
+                    while len(chosen_indices) < effective_limit and remaining_indices:
+                        picked = random.choices(remaining_indices, weights=remaining_weights, k=1)[0]
+                        idx = remaining_indices.index(picked)
+                        chosen_indices.append(picked)
+                        remaining_indices.pop(idx)
+                        remaining_weights.pop(idx)
+
+                    items = [candidates[i] for i in chosen_indices]
+                else:
+                    items = candidates[:effective_limit]
+
+                return _normalize_json_types(items)
 
     def record_study_review(
         self,
@@ -1600,51 +1965,67 @@ class PostgresQueueStore(BaseQueueStore):
                 }
 
     def get_study_summary(self) -> dict[str, Any]:
-        now_dt = datetime.now(timezone.utc)
-        today_start = datetime(now_dt.year, now_dt.month, now_dt.day, tzinfo=timezone.utc)
-        seven_days_ago = now_dt - timedelta(days=7)
+        tz_name = os.getenv("USER_TIMEZONE", "Asia/Kolkata")
+        try:
+            tz = ZoneInfo(tz_name)
+        except Exception:
+            tz = ZoneInfo("Asia/Kolkata")
 
         with self._get_connection() as conn:
             with conn.cursor() as cur:
+                cur.execute("SELECT value FROM anki_meta WHERE key = 'collection_day_rollover_hour';")
+                meta_row = cur.fetchone()
+                rollover_hour = int(meta_row[0]) if meta_row and meta_row[0] else int(os.getenv("ANKI_DAY_ROLLOVER_HOUR", "4"))
+
+                today_start = get_anki_today_start(tz, rollover_hour)
+                seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+
                 cur.execute(
                     "SELECT COUNT(DISTINCT card_id) FROM cloud_study_reviews WHERE reviewed_at >= %s;",
                     (today_start,),
                 )
-                practiced_today = cur.fetchone()[0]
+                practiced_today = int(cur.fetchone()[0])
 
                 cur.execute(
                     "SELECT COUNT(DISTINCT card_id) FROM cloud_study_reviews WHERE reviewed_at >= %s;",
                     (seven_days_ago,),
                 )
-                practiced_7d = cur.fetchone()[0]
+                practiced_7d = int(cur.fetchone()[0])
 
                 cur.execute(
                     "SELECT COUNT(*), COUNT(CASE WHEN rating >= 2 THEN 1 END) FROM cloud_study_reviews;"
                 )
                 total_rev_row = cur.fetchone()
-                total_reviews = total_rev_row[0] if total_rev_row else 0
-                passed_reviews = total_rev_row[1] if total_rev_row else 0
+                total_reviews = int(total_rev_row[0]) if total_rev_row else 0
+                passed_reviews = int(total_rev_row[1]) if total_rev_row else 0
                 accuracy_pct = round((passed_reviews / total_reviews) * 100.0, 1) if total_reviews > 0 else 100.0
 
                 cur.execute(
                     "SELECT COUNT(*) FROM cloud_study_reviews WHERE reviewed_at >= %s;",
                     (today_start,),
                 )
-                reviews_today = cur.fetchone()[0]
+                reviews_today = int(cur.fetchone()[0])
 
                 cur.execute("SELECT COUNT(*) FROM cloud_study_state;")
-                cards_in_cloud_study = cur.fetchone()[0]
+                cards_in_cloud_study = int(cur.fetchone()[0])
 
                 cur.execute(
-                    "SELECT DISTINCT TO_CHAR(reviewed_at, 'YYYY-MM-DD') FROM cloud_study_reviews ORDER BY 1 DESC;"
+                    "SELECT reviewed_at FROM cloud_study_reviews ORDER BY reviewed_at DESC;"
                 )
                 date_rows = cur.fetchall()
-                review_dates = {r[0] for r in date_rows if r[0]}
+                review_days = set()
+                for r in date_rows:
+                    if r[0]:
+                        rev_dt = r[0] if isinstance(r[0], datetime) else datetime.fromisoformat(str(r[0]))
+                        review_days.add(get_anki_collection_day(rev_dt, tz, rollover_hour).isoformat())
+
+                now_utc = datetime.now(timezone.utc)
+                today_day = get_anki_collection_day(now_utc, tz, rollover_hour)
                 streak_days = 0
-                check_date = now_dt.date()
-                if check_date.isoformat() not in review_dates:
+                check_date = today_day
+                if check_date.isoformat() not in review_days:
                     check_date = check_date - timedelta(days=1)
-                while check_date.isoformat() in review_dates:
+                while check_date.isoformat() in review_days:
                     streak_days += 1
                     check_date = check_date - timedelta(days=1)
 
@@ -1670,7 +2051,7 @@ class PostgresQueueStore(BaseQueueStore):
                 hardest_cols = [desc[0] for desc in cur.description]
                 hardest_cards = [dict(zip(hardest_cols, r)) for r in cur.fetchall()]
 
-                return {
+                return _normalize_json_types({
                     "total_reviews": total_reviews,
                     "reviews_today": reviews_today,
                     "practiced_today": practiced_today,
@@ -1685,5 +2066,5 @@ class PostgresQueueStore(BaseQueueStore):
                     "box_distribution": {f"box_{k}": v for k, v in box_counts.items()},
                     "hardest_cards": hardest_cards,
                     "hardest_cloud_cards": hardest_cards,
-                }
+                })
 

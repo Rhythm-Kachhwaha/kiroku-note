@@ -1,5 +1,88 @@
 # Kiroku Note — Progress
 
+### Kiroku Cloud: Stabilization, Reliability Overhaul, and 7-Day Travel-Readiness (2026-10-20)
+
+**Objective**: Comprehensive stabilization and reliability overhaul for Kiroku Cloud (`kiroku_cloud_queue/` and `dashboard.html`), eliminating 500 errors and generator bugs under PostgreSQL, hardening Anki mirror sync against mid-transfer connection drops with transactional state commits, standardizing canonical sync freshness with timezone support (`Asia/Kolkata` with 4 AM rollover), overhauling Stats around 5 core learning questions with responsive SVG graphs (target benchmark line at 90% and zero OS emojis), implementing per-card review history with sparkline intervals, building a 7-day travel-ready study mode with queued cards studyability and offline review queuing, and single-sourcing dictionary normalization.
+
+**1. Delivered Behaviors & Defect Resolutions**:
+- **Workstream A: Server Stability & PostgreSQL Reliability**:
+  - *Postgres `_get_connection` generator bug fix*: Resolved `RuntimeError: generator didn't stop after throw()` occurring when downstream route handlers threw exceptions (e.g., 404 Not Found on missing card). Isolated pool connection acquisition from the connection lifespan block, ensuring the context manager never attempts a second `yield` on exception throw.
+  - *Decimal JSON serialization fix*: Resolved `TypeError: Object of type Decimal is not JSON serializable` caused by PostgreSQL `ROUND(AVG(...), 1)` returning `NUMERIC`. Added explicit SQL casts (`::float`, `::int`) across all aggregate queries and implemented recursive `_sanitize_val()` normalization across all store dictionary results.
+  - *Async event loop non-blocking conversion*: Converted all blocking database routes and dictionary queries from `async def` to standard `def`, offloading execution to Starlette's threadpool (`concurrency.run_in_threadpool`) and preventing Uvicorn event loop stalls under concurrent loads.
+  - *Input validation & request tracing*: Added strict validation on query/pagination parameters (`max_results`, `offset`, `limit`) to return HTTP 400 Bad Request instead of unhandled 500s. Added global exception handler injecting unique `request_id` in logs and JSON responses.
+- **Workstream B: Anki Mirror Sync Resilience**:
+  - *Typed exceptions hierarchy*: Replaced generic errors with `AnkiConnectError`, `AnkiConnectionError`, `AnkiTimeoutError`, `AnkiClosedError`, and `AnkiProtocolError`.
+  - *Chunked retry & transactional state commits*: Added exponential backoff and chunked error handling (chunk size 200). Fixed `.mirror_state.json` corruption where failed cards were previously marked as synced; state files now update transactionally per-batch only after the cloud API confirms HTTP 200 persistence.
+  - *Missing reviews protection*: Safeguarded against mid-sync network drops overwriting valid card difficulty or lapse history with zero.
+  - *14-day rolling daily refresh & absolute due dates*: Synchronizes rolling 14-day review history on incremental syncs. Stores absolute timestamps in `anki_cards.due_date`, allowing the cloud to calculate relative due days dynamically regardless of when the desktop PC was last active.
+- **Workstream C: Canonical Sync Freshness & Timezone Support**:
+  - *Normalized freshness contract*: Standardized `/api/anki/status` to return canonical fields (`last_success_at`, `last_attempt_at`, `last_full_at`, `status`, `last_error`, `pending_cards`, `days_since_success`).
+  - *Timezone & rollover hour*: Configured canonical timezone (`Asia/Kolkata`, UTC+5:30) and 4:00 AM Anki day rollover hour across backend and frontend, eliminating day boundary discrepancies.
+  - *Freshness indicator & detail popover*: Replaced broken text with dynamic freshness pill in dashboard top-header, accompanied by a rich popover detailing cards synced, last sync attempt, and failure reasons.
+- **Workstream D: Stats View Overhaul (5 Core Questions & Responsive SVGs)**:
+  - Rebuilt the Stats view around 5 core learning questions:
+    1. *Today / Backlog Hero*: Reviewed today, due now, overdue, new today, estimated study time, streak.
+    2. *Am I retaining?*: Weekly retention rate with 90% benchmark target guide line, real axis labels, and plain-language verdict banners ("Target Met", "On Track", "Attention Needed").
+    3. *Am I overloaded?*: Daily review volume bars with 7-day moving average overlay and workload forecast.
+    4. *Is my collection healthy?*: Maturity breakdown stacked visualization (Mature, Young, Learning, New, Suspended, Buried).
+    5. *Card-Wise & Deck Breakdown*: Searchable, sortable tables with lapse count, interval, and direct card inspect modals.
+  - Interactive SVG graphs dynamically redraw on container resize and maintain accessible >=11px typography with zero OS emojis.
+- **Workstream E: Per-Card Reviews (`anki_reviews`) & Breakdown Modal**:
+  - *Review history tracking*: Created `anki_reviews` table in both SQLite and PostgreSQL stores (`card_id`, `review_id`, `ease`, `review_type`, `interval`, `last_interval`, `time_ms`).
+  - *Card detail modal*: Implemented `/api/cards/{card_id}/detail` providing full historical review dots, lapse markers, interval progression sparkline, and an algorithmic "Why is this hard?" diagnostic.
+- **Workstream F: Study Presets, Weighted Shuffle & Leech Rescue**:
+  - Aligned Leitner 5-box intervals with UI (1d, 3d, 7d, 14d, 21d).
+  - Added targeted study presets: "Quick 10", "Due in cloud", "Leech rescue", "Weak this week", "By JLPT level", "New from quick-add", and "All Cards".
+  - Implemented weighted shuffle favoring high-lapse/recent-failure cards while excluding cards reviewed within the cooldown window.
+  - Leech rescue mode surfaces "Why you miss it", kanji breakdowns, and example sentences, graduating cards after 3 consecutive correct recalls.
+- **Workstream G: 7-Day Travel Mode & Offline Resilience**:
+  - *Queued cards studyability*: Cloud automatically synthesizes pseudo-cards from `queued_cards` allowing immediate study and SRS scheduling before PC Anki import.
+  - *7-day travel forecast*: Displays scheduled review load for the next 7 days based on absolute due timestamps.
+  - *Offline review queue*: Queues reviews in client `localStorage` with an offline badge chip and auto-syncs on reconnection with idempotent `review_uuid`.
+  - *PWA readiness & warmup ping*: Added `/manifest.json` and cold-start warmup ping on page load to mitigate Render container spin-up delays.
+- **Workstream H: Cloud Dictionary Engine & POS Extraction**:
+  - Single-sourced `kiroku_dictionary/normalizer.py` across root package and cloud queue package.
+  - Implemented `mode="word"` (full text + deinflections) vs `mode="scan"` (longest prefix match) for cleaner Quick Add dictionary lookup.
+  - Extracted real part-of-speech tags from AST `part-of-speech-info` nodes and synthesized clean glossaries.
+- **Workstream I: Dashboard UX & Zero-Emoji Accessibility**:
+  - Removed duplicate header elements and corrected DOM tag balance (div opens=370, closes=370).
+  - Fixed `setElText` runtime reference error and `#metric-streak` null pointer in stats.
+  - Moved `#sync-detail-popover` into `.app-top-header` for perfect relative anchoring on both desktop and mobile.
+  - Added `window.scrollTo(0, 0)` on tab switches.
+  - Strictly zero OS emojis: 100% vector SVG icons across all tabs, badges, metrics, and modals.
+
+**2. Files Modified & Created**:
+- `kiroku_cloud_queue/anki_mirror.py`: Typed exceptions, chunked retry, transactional state commit, 14-day rolling refresh.
+- `kiroku_cloud_queue/dashboard.html`: Zero-emoji redesign, 5 core stats questions, responsive SVGs, card inspect modal, study presets, travel mode, offline queue, DOM balance.
+- `kiroku_cloud_queue/postgres_store.py`: Generator bug fix, Decimal sanitization, `anki_reviews` table, study presets, travel plan, pseudo-card sync.
+- `kiroku_cloud_queue/queue_store.py`: SQLite parity with Postgres for all new schemas, review tracking, presets, and travel plan.
+- `kiroku_cloud_queue/postgres_schema.sql`: Added `anki_reviews` table and foreign key indices.
+- `kiroku_cloud_queue/server.py`: Threadpool route handlers, `/api/anki/status` canonical contract, `/api/cards/{id}/reviews`, `/api/study/presets`, `/api/study/travel-plan`, `/manifest.json`.
+- `kiroku_cloud_queue/queue_adapter.py`: Integrated review synchronization and pseudo-card generation.
+- `kiroku_cloud_queue/kiroku_dictionary/lookup.py` & `kiroku_dictionary/lookup.py`: Added word/scan modes, AST POS extraction, and structured senses.
+- `kiroku_cloud_queue/kiroku_dictionary/normalizer.py` & `kiroku_dictionary/normalizer.py`: Single-sourced dictionary normalizer.
+- `kiroku_cloud_queue/tests/test_server_stability.py`: Tests for generator fix, Decimal serialization, input validation, and threadpool routing.
+- `kiroku_cloud_queue/tests/test_mirror_reliability.py`: Tests for typed errors, chunked retry, and transactional state commits.
+- `kiroku_cloud_queue/tests/test_study_api.py`: Tests for study presets, travel plan, review endpoints, and pseudo-card sync.
+- `kiroku_cloud_queue/tests/test_dictionary_normalization.py`: Tests for dictionary lookup modes and normalization parity.
+
+**3. Verification Run & Results**:
+- **Full Cloud Queue Test Suite**: **237 passed, 30 skipped, 0 failures** (`pytest kiroku_cloud_queue/tests`).
+- **Live Remote Neon PostgreSQL Verification**: **All 30 Postgres tests passed** against live remote Neon DB branch (`test_postgres_store.py`, `test_server_stability.py`, `test_study_api.py`, `test_anki_api.py`).
+- **Total Combined Test Coverage**: **267/267 tests passing (0 failures, 0 errors)**.
+- **Dashboard Syntax & Zero-Emoji Compliance**: **10/10 passed** (`pytest tests/test_dashboard_template.py`), validating zero OS emojis, valid HTML structure, and JS syntax via `node --check`.
+- **Playwright Visual Verification**: 14 high-resolution screenshots generated across Desktop (1280x900) and Mobile (390x844), visually inspecting:
+  - `desktop_tab_cards.png`, `desktop_sync_popover.png`, `desktop_tab_stats.png`, `desktop_tab_study.png`, `desktop_tab_queue.png`, `desktop_tab_quickadd.png`, `desktop_card_modal.png`
+  - `mobile_tab_cards.png`, `mobile_sync_popover.png`, `mobile_tab_stats.png`, `mobile_tab_study.png`, `mobile_tab_queue.png`, `mobile_tab_quickadd.png`, `mobile_card_modal.png`
+  - Confirmed: 90% retention target line, plain-language verdicts, clean review dots sparkline, responsive bottom nav, zero emoji leaks, and zero horizontal overflow.
+
+**4. Live Verification Checklist for User**:
+- [ ] **Anki Desktop Incremental Sync**: Run `python -m kiroku_cloud_queue.worker` with Anki Desktop running locally; confirm sync badge turns green ("Synced today, HH:MM") and `.mirror_state.json` updates cleanly.
+- [ ] **Render Deployment Check**: Push changes to Render web service, verify environment variables (`DATABASE_URL` pointing to Neon Postgres pooler, `KIROKU_AUTH_TOKEN`, `USER_TIMEZONE=Asia/Kolkata`).
+- [ ] **Mobile Add-to-Home-Screen (PWA)**: Navigate to deployed dashboard on mobile browser, verify "Add to Home Screen" uses `/manifest.json`, and confirm offline review queue chip increments when in Airplane mode.
+
+---
+
 ### Kiroku Dashboard v2.1: Quick Add Hero View, Notes/Hints, Deck & Card Stats Breakdown, Study All Mode, and Graph Usability (2026-10-19)
 
 **Objective**: Resolve dashboard UX defects, overhaul Quick Add with an instant sidepanel-matching Hero View and notes/hints fields, fix SVG stats graphs and answer button distributions, implement full collection card-wise metrics and deck performance analytics, enable "Study All Cards" mode, bump version to 2.1.0, release tag 2.1, and build the Windows setup installer via `buildsetup.py`.

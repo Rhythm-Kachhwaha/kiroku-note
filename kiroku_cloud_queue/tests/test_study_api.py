@@ -300,3 +300,74 @@ def test_study_summary(client: TestClient):
     assert "boxes" in data
     assert "box_counts" in data
 
+
+def test_study_presets(client: TestClient):
+    _seed_cards(client)
+
+    resp = client.get("/api/study/presets", headers=_auth())
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+    presets = data["presets"]
+    assert "quick10" in presets
+    assert "due" in presets
+    assert "leech_rescue" in presets
+    assert "weak_week" in presets
+    assert "quick_add" in presets
+    assert "all" in presets
+    assert presets["all"] >= 2
+    assert presets["leech_rescue"] >= 1  # 1001 is a leech
+
+
+def test_travel_plan(client: TestClient):
+    _seed_cards(client)
+
+    resp = client.get("/api/study/travel-plan", headers=_auth())
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+    assert "days_behind" in data
+    assert "overdue_cards" in data
+    assert "today_due" in data
+    assert "schedule_7d" in data
+    assert len(data["schedule_7d"]) == 7
+    assert "cards_due_on_return" in data
+    assert "daily_goal" in data
+
+
+def test_pseudo_cards_quickadd_study(client: TestClient):
+    from queue_adapter import VocabCard
+
+    # Submit a quick-add card via enqueue
+    submit_resp = client.post("/submit", json={
+        "expression": "旅立ち",
+        "reading": "たびだち",
+        "meaning": "setting off on a journey",
+        "sentence": "新たな旅立ちの日を迎える。",
+        "sentence_meaning": "Greeting the day of a new journey.",
+        "deck_name": "Travel Vocab",
+    }, headers=_auth())
+    assert submit_resp.status_code == 200
+
+    # Request a study session for quick_add preset
+    session_resp = client.get("/api/study/session?mode=quick_add", headers=_auth())
+    assert session_resp.status_code == 200
+    sess_data = session_resp.json()
+    cards = sess_data["cards"]
+    assert len(cards) >= 1
+    pseudo_card = next((c for c in cards if c["expression"] == "旅立ち"), None)
+    assert pseudo_card is not None
+    assert pseudo_card["card_id"] < 0  # Pseudo-cards have negative IDs
+
+    # Record a review for the pseudo-card
+    rev_resp = client.post("/api/study/review", json={
+        "card_id": pseudo_card["card_id"],
+        "rating": 3,
+        "time_ms": 1500,
+        "session_id": "travel-sess",
+    }, headers=_auth())
+    assert rev_resp.status_code == 200
+    rev_data = rev_resp.json()
+    assert rev_data["card_id"] == pseudo_card["card_id"]
+    assert rev_data["box"] == 2
+

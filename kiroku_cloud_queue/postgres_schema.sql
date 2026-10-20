@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS anki_cards (
     fsrs_stability      REAL DEFAULT NULL,
     fsrs_retrievability REAL DEFAULT NULL,
     due_in_days         INTEGER DEFAULT NULL,
+    due_date            VARCHAR(10) DEFAULT NULL,
     raw_html            TEXT NOT NULL DEFAULT '',
     has_media           BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ NOT NULL,
@@ -97,6 +98,7 @@ CREATE INDEX IF NOT EXISTS idx_ac_jlpt ON anki_cards (jlpt_level);
 CREATE INDEX IF NOT EXISTS idx_ac_diff_score ON anki_cards (difficulty_score);
 CREATE INDEX IF NOT EXISTS idx_ac_lapses ON anki_cards (lapses);
 CREATE INDEX IF NOT EXISTS idx_ac_due ON anki_cards (due_in_days);
+CREATE INDEX IF NOT EXISTS idx_ac_due_date ON anki_cards (due_date);
 CREATE INDEX IF NOT EXISTS idx_ac_created ON anki_cards (created_at);
 
 CREATE TABLE IF NOT EXISTS anki_card_media (
@@ -128,6 +130,18 @@ CREATE TABLE IF NOT EXISTS anki_daily (
     n_mature             INTEGER NOT NULL DEFAULT 0,
     n_suspended          INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS anki_reviews (
+    card_id        BIGINT NOT NULL REFERENCES anki_cards(card_id) ON DELETE CASCADE,
+    review_id      BIGINT NOT NULL,
+    ease           INTEGER NOT NULL DEFAULT 0,
+    type           INTEGER NOT NULL DEFAULT 0,
+    interval       INTEGER NOT NULL DEFAULT 0,
+    last_interval  INTEGER NOT NULL DEFAULT 0,
+    time_ms        INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (card_id, review_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ar_card_id ON anki_reviews (card_id);
 
 CREATE TABLE IF NOT EXISTS anki_meta (
     key        VARCHAR(64) PRIMARY KEY,

@@ -223,6 +223,10 @@ class QueueAdapter(abc.ABC):
         """Push a batch of card media (compressed WebP images) to cloud queue service."""
         return False
 
+    async def push_anki_reviews(self, reviews: list[dict[str, Any]], schema_version: int = 1) -> bool:
+        """Push a batch of raw card review records to cloud queue service."""
+        return False
+
     async def clear_anki_cards(self, include_stats: bool = False) -> bool:
         """Wipe all mirrored cards, media, and cloud study history to allow a fresh start."""
         return False
@@ -381,6 +385,14 @@ class LocalDevQueueAdapter(QueueAdapter):
             return True
         except Exception as exc:
             log.warning("LocalDevQueueAdapter: failed to save anki media: %s", exc)
+            return False
+
+    async def push_anki_reviews(self, reviews: list[dict[str, Any]], schema_version: int = 1) -> bool:
+        try:
+            self._store.upsert_anki_reviews(reviews)
+            return True
+        except Exception as exc:
+            log.warning("LocalDevQueueAdapter: failed to upsert anki reviews: %s", exc)
             return False
 
     async def clear_anki_cards(self, include_stats: bool = False) -> bool:
@@ -609,6 +621,9 @@ class CloudQueueAdapter(QueueAdapter):
 
     async def push_anki_cards(self, cards: list[dict[str, Any]], schema_version: int = 1) -> bool:
         return await self._post_with_retry("/api/anki/cards", {"schema_version": schema_version, "cards": cards})
+
+    async def push_anki_reviews(self, reviews: list[dict[str, Any]], schema_version: int = 1) -> bool:
+        return await self._post_with_retry("/api/anki/reviews", {"schema_version": schema_version, "reviews": reviews})
 
     async def push_anki_daily(self, days: list[dict[str, Any]], schema_version: int = 1) -> bool:
         return await self._post_with_retry("/api/anki/daily", {"schema_version": schema_version, "days": days})
