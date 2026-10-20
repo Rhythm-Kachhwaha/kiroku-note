@@ -78,6 +78,7 @@
       display: flex;
       align-items: center;
       gap: 0.6rem;
+      position: relative;
     }
     .brand-title {
       font-size: 1.35rem;
@@ -824,55 +825,7 @@
       white-space: nowrap;
     }
 
-    /* Weak Words List */
-    .weak-words-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    .weak-word-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      padding: 0.6rem 0.75rem;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-sm);
-      min-width: 0;
-    }
-    .weak-word-left {
-      display: flex;
-      align-items: baseline;
-      gap: 0.5rem;
-      min-width: 0;
-      flex: 1;
-    }
-    .weak-expr {
-      font-weight: 700;
-      font-size: 1rem;
-      color: var(--text);
-    }
-    .weak-reading {
-      font-size: 0.8rem;
-      color: var(--accent-reading);
-    }
-    .weak-meaning {
-      font-size: 0.78rem;
-      color: var(--text-secondary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      flex: 1;
-    }
-    .weak-stats {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-shrink: 0;
-    }
+
 
     /* STUDY TAB STYLES */
     .study-disclaimer {
@@ -1886,6 +1839,7 @@
       align-items: baseline;
       justify-content: space-between;
       gap: 0.75rem;
+      min-width: 0;
       transition: background 0.12s;
     }
     .qa-candidate-item:last-child {
@@ -1898,11 +1852,13 @@
       font-weight: 700;
       color: var(--text);
       font-size: 0.95rem;
+      flex-shrink: 0;
     }
     .qa-cand-reading {
       color: var(--accent-reading);
       font-size: 0.8rem;
       margin-left: 0.45rem;
+      flex-shrink: 0;
     }
     .qa-cand-meaning {
       font-size: 0.78rem;
@@ -1911,7 +1867,8 @@
       text-overflow: ellipsis;
       white-space: nowrap;
       text-align: right;
-      flex: 1;
+      flex: 1 1 0%;
+      min-width: 0;
     }
     .qa-draft-card {
       background: var(--surface-elevated);
@@ -2144,6 +2101,9 @@
       .qa-btn-kbd {
         display: none !important;
       }
+      .qa-shortcuts-hint {
+        display: none !important;
+      }
       .qa-action-bar-top {
         justify-content: stretch;
       }
@@ -2279,13 +2239,17 @@
       left: 0;
       z-index: 1000;
       width: 320px;
-      max-width: 90vw;
+      max-width: calc(100vw - 32px);
       background: #181715;
       border: 1px solid var(--border-default);
       border-radius: var(--radius);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
       padding: 0.85rem 1rem;
       font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      box-sizing: border-box;
     }
     .popover-header {
       display: flex;
@@ -2293,41 +2257,93 @@
       justify-content: space-between;
       border-bottom: 1px solid var(--border-subtle);
       padding-bottom: 0.5rem;
-      margin-bottom: 0.6rem;
+      margin-bottom: 0.35rem;
     }
     .popover-title {
       font-weight: 600;
       color: var(--text);
+      font-size: 0.84rem;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
     }
     .popover-close {
       background: transparent;
       border: none;
       color: var(--text-muted);
-      font-size: 1.2rem;
       cursor: pointer;
       line-height: 1;
-      padding: 0 4px;
+      padding: 0;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .popover-close:hover {
+      color: var(--text);
+      background: var(--surface-hover);
     }
     .popover-body {
       display: flex;
       flex-direction: column;
-      gap: 0.35rem;
+      gap: 0.45rem;
     }
     .popover-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
       color: var(--text-secondary);
+      font-size: 0.78rem;
+      line-height: 1.4;
     }
     .popover-row span:first-child {
       color: var(--text-muted);
     }
+    .popover-row strong, .popover-row span:last-child {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .popover-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.12rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+    .popover-status-badge.ok, .popover-status-badge.synced {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(94, 163, 106, 0.3);
+    }
+    .popover-status-badge.partial {
+      background: var(--yellow-dim);
+      color: var(--yellow);
+      border: 1px solid rgba(212, 149, 79, 0.3);
+    }
+    .popover-status-badge.offline, .popover-status-badge.error {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid rgba(204, 79, 79, 0.3);
+    }
     .popover-error-row {
       margin-top: 0.4rem;
-      padding-top: 0.4rem;
-      border-top: 1px solid var(--border-subtle);
+      padding: 0.5rem 0.65rem;
+      border: 1px solid rgba(204, 79, 79, 0.35);
+      border-radius: var(--radius-sm);
+      background: var(--red-dim);
       font-size: 0.74rem;
       color: var(--red);
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      word-break: break-word;
+      line-height: 1.35;
     }
 
     .cold-start-banner {
@@ -2356,35 +2372,49 @@
       cursor: pointer;
     }
 
-    /* Fix Weak Words Layout (Workstream I) */
+    /* Fix Weak Words Layout (Workstream I & UI Fix) */
+    .weak-words-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      min-width: 0;
+      width: 100%;
+    }
     .weak-word-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 0.75rem;
-      padding: 0.7rem 0.85rem;
+      gap: 0.85rem;
+      padding: 0.75rem 0.95rem;
       background: var(--surface-elevated);
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-sm);
       min-width: 0;
-      transition: background 0.15s, border-color 0.15s;
+      width: 100%;
+      box-sizing: border-box;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
     }
     .weak-word-row:hover {
       background: var(--surface-hover);
       border-color: var(--border-default);
+    }
+    .weak-word-row:active {
+      transform: scale(0.995);
     }
     .weak-word-left {
       display: flex;
       flex-direction: column;
       gap: 0.2rem;
       min-width: 0;
-      flex: 1;
+      flex: 1 1 0%;
+      overflow: hidden;
     }
     .weak-expr-row {
       display: flex;
       align-items: baseline;
       gap: 0.5rem;
       flex-wrap: wrap;
+      min-width: 0;
     }
     .weak-expr {
       font-weight: 700;
@@ -2403,6 +2433,22 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+    .weak-reason {
+      font-size: 0.72rem;
+      color: var(--red);
+      margin-top: 0.15rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
     }
     .weak-stats {
       display: flex;
@@ -2410,6 +2456,7 @@
       align-items: flex-end;
       gap: 0.25rem;
       flex-shrink: 0;
+      min-width: 84px;
     }
 
     /* Workstream D: Stats Sections & Verdicts */
@@ -2690,6 +2737,30 @@
               <svg class="svg-icon" style="width:12px;height:12px;" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
               <span id="pending-reviews-text">0 reviews pending</span>
             </div>
+            <!-- Sync Detail Popover anchored inside .brand -->
+            <div id="sync-detail-popover" class="sync-detail-popover" style="display:none;" onclick="event.stopPropagation()">
+              <div class="popover-header">
+                <div class="popover-title">
+                  <svg class="svg-icon" style="width:14px;height:14px;" viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                  Anki Mirror Status
+                </div>
+                <button type="button" class="popover-close" onclick="closeSyncDetailPopover(event)" title="Close" aria-label="Close">
+                  <svg class="svg-icon" style="width:14px;height:14px;" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div class="popover-body">
+                <div class="popover-row"><span>Status:</span><span id="popover-status" class="popover-status-badge ok">-</span></div>
+                <div class="popover-row"><span>Last Success:</span><span id="popover-last-success">-</span></div>
+                <div class="popover-row"><span>Last Attempt:</span><span id="popover-last-attempt">-</span></div>
+                <div class="popover-row"><span>Last Full Sync:</span><span id="popover-last-full">-</span></div>
+                <div class="popover-row"><span>Pending Cards:</span><span id="popover-pending">-</span></div>
+                <div class="popover-row"><span>Mirrored Cards:</span><strong id="popover-total-cards">-</strong></div>
+                <div class="popover-error-row" id="popover-error-row" style="display:none;">
+                  <strong>Last Error:</strong>
+                  <span id="popover-last-error">-</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="header-actions">
             <button class="icon-btn" id="refresh-btn" onclick="refreshActive(true)" title="Refresh data">
@@ -2702,17 +2773,6 @@
               <svg class="svg-icon" viewBox="0 0 24 24"><path d="m15.5 8.5 5 5-2 2-2-2-2 2-1.5-1.5M7 14a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
               Key
             </button>
-          </div>
-          <!-- Sync Detail Popover -->
-          <div id="sync-detail-popover" class="sync-detail-popover" style="display:none;">
-            <div class="popover-title">Anki Mirror Status</div>
-            <div class="popover-row"><span>Status:</span><strong id="popover-status">-</strong></div>
-            <div class="popover-row"><span>Last Success:</span><span id="popover-last-success">-</span></div>
-            <div class="popover-row"><span>Last Attempt:</span><span id="popover-last-attempt">-</span></div>
-            <div class="popover-row"><span>Last Full Sync:</span><span id="popover-last-full">-</span></div>
-            <div class="popover-row"><span>Pending Cards:</span><span id="popover-pending">-</span></div>
-            <div class="popover-row" id="popover-error-row" style="display:none;color:var(--red);"><span>Last Error:</span><span id="popover-last-error">-</span></div>
-            <div class="popover-row"><span>Mirrored Cards:</span><strong id="popover-total-cards">-</strong></div>
           </div>
         </header>
 
@@ -4354,6 +4414,12 @@
       popover.style.display = (popover.style.display === 'none' || !popover.style.display) ? 'flex' : 'none';
     }
 
+    function closeSyncDetailPopover(event) {
+      if (event) event.stopPropagation();
+      const popover = document.getElementById('sync-detail-popover');
+      if (popover) popover.style.display = 'none';
+    }
+
     window.addEventListener('click', (e) => {
       const popover = document.getElementById('sync-detail-popover');
       const badge = document.getElementById('global-sync-badge');
@@ -4408,7 +4474,15 @@
 
         // Update canonical popover metrics
         const totalCards = Number(data.card_count || 0);
-        setElText('popover-status', data.status || 'unknown');
+        const statusEl = document.getElementById('popover-status');
+        if (statusEl) {
+          const rawStatus = (data.status || 'unknown').toLowerCase();
+          const badgeClass = (rawStatus === 'ok' || rawStatus === 'synced') ? 'ok' : (rawStatus === 'partial' ? 'partial' : 'offline');
+          statusEl.className = 'popover-status-badge ' + badgeClass;
+          statusEl.textContent = data.status || 'unknown';
+        } else {
+          setElText('popover-status', data.status || 'unknown');
+        }
         setElText('popover-last-success', data.last_success_at ? `${formatLocalDate(data.last_success_at)} ${formatLocalTime(data.last_success_at)}` : 'Never');
         setElText('popover-last-attempt', data.last_attempt_at ? `${formatLocalDate(data.last_attempt_at)} ${formatLocalTime(data.last_attempt_at)}` : '—');
         setElText('popover-last-full', data.last_full_at ? `${formatLocalDate(data.last_full_at)} ${formatLocalTime(data.last_full_at)}` : '—');
@@ -5311,7 +5385,7 @@
                 ${w.reading ? `<span class="weak-reading" style="font-family:var(--font-ja);">${escapeHtml(w.reading)}</span>` : ''}
               </div>
               <div class="weak-meaning">${escapeHtml(w.meaning || '—')}</div>
-              <div style="font-size:0.72rem;color:var(--red);margin-top:0.15rem;">${escapeHtml(plainReason)}</div>
+              <div class="weak-reason">${escapeHtml(plainReason)}</div>
             </div>
             <div class="weak-stats">
               <span class="diff-badge diff-${escapeHtml(w.difficulty_label || 'hard')}">
@@ -5331,7 +5405,7 @@
             View All &darr;
           </button>
         </div>
-        <div style="display:flex;flex-direction:column;gap:0.45rem;">
+        <div style="display:flex;flex-direction:column;gap:0.45rem;width:100%;min-width:0;">
           ${rows}
         </div>
       `;

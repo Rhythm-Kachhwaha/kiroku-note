@@ -1,5 +1,38 @@
 # Kiroku Note — Progress
 
+### Kiroku Cloud: Dashboard UI Defect Fixes & Mobile Refinement (2026-10-20)
+
+**Objective**: Resolve visual defects on the Kiroku Cloud Dashboard (`kiroku_cloud_queue/dashboard.html`): fix card text overlapping lapse counts and difficulty badges in the "What's Hurting Me" list, resolve horizontal squashing and layout breakdown of the Anki Mirror Status popover, harden candidate list truncation, refine mobile responsive behavior, and maintain strict zero-OS-emoji compliance.
+
+**1. Delivered Fixes & UI Enhancements**:
+- **Weak Words List Card Text Overlap Fix**:
+  - Identified root cause: `.weak-meaning` lacked width/box-sizing constraints within its flex parent, and conflicting obsolete CSS rules (former lines 827-876) overrode flex layout properties, allowing long definitions to expand to intrinsic width (~1054px) across `.weak-stats`, badges, and chevron icons.
+  - Implemented strict boundaries: `.weak-words-list` and `.weak-word-row` styled with `width: 100%; min-width: 0; box-sizing: border-box;`.
+  - Added `flex: 1 1 0%; min-width: 0; overflow: hidden;` to `.weak-word-left`.
+  - Added `width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;` to `.weak-meaning` and `.weak-reason`.
+  - Locked `.weak-stats` with `flex-shrink: 0; min-width: 84px; align-items: flex-end;` preventing any badge or lapse text compression.
+- **Anki Mirror Status Popover Overhaul**:
+  - Identified root cause: `toggleSyncDetailPopover()` toggled display to `flex`, but the popover lacked `flex-direction: column;` (defaulting to row flexbox) and was missing header/body wrapper elements, cramming all metric rows into a single 320px horizontal row.
+  - Rebuilt popover CSS: `display: flex; flex-direction: column; gap: 0.45rem; max-width: calc(100vw - 32px); box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.7);`.
+  - Restructured HTML with `.popover-header`, `.popover-title`, `.popover-close` (SVG icon button), `.popover-body`, and `.popover-row` elements.
+  - Anchored `#sync-detail-popover` inside `.brand` (with `position: relative;`), keeping the popover precisely under the sync badge on both desktop and mobile even when `.header-actions` wraps.
+  - Added dynamic status badges (`.popover-status-badge.ok`, `.partial`, `.offline`) and close button click/escape handling.
+- **Mobile Touch Refinements & Candidate Truncation**:
+  - Enforced `min-width: 0; flex: 1 1 0%;` on `.qa-cand-meaning` to cleanly truncate candidate definitions in Quick Add.
+  - Added `@media (max-width: 768px) { .qa-shortcuts-hint { display: none !important; } }` to eliminate irrelevant desktop keyboard hints on mobile devices.
+  - Maintained strictly zero OS emojis across all interfaces (SVG icons only).
+
+**2. Files Modified**:
+- `kiroku_cloud_queue/dashboard.html`: Applied CSS layout fixes, removed redundant rules, restructured popover DOM, updated `fetchAnkiStatus` and `renderWeakWords` templates.
+- `PROGRESS.md`: Recorded UI fixes, visual verification, and test results.
+
+**3. Verification**:
+- Automated browser visual testing (Playwright): Audited all 5 tabs and popovers at 1280x900 (desktop) and 390x844 (mobile), confirming zero text overlap, zero horizontal scrolling, and pixel-perfect popover rendering.
+- Template regression suite: `pytest kiroku_cloud_queue/tests/test_dashboard_template.py` passed 100% (10 passed in 0.21s; `node --check` passed, zero emojis confirmed).
+- Full regression suite: `pytest kiroku_cloud_queue/tests/` passed 100% (237 passed, 30 skipped, 0 failed in 68.33s).
+
+---
+
 ### Kiroku Cloud: Stabilization, Reliability Overhaul, and 7-Day Travel-Readiness (2026-10-20)
 
 **Objective**: Comprehensive stabilization and reliability overhaul for Kiroku Cloud (`kiroku_cloud_queue/` and `dashboard.html`), eliminating 500 errors and generator bugs under PostgreSQL, hardening Anki mirror sync against mid-transfer connection drops with transactional state commits, standardizing canonical sync freshness with timezone support (`Asia/Kolkata` with 4 AM rollover), overhauling Stats around 5 core learning questions with responsive SVG graphs (target benchmark line at 90% and zero OS emojis), implementing per-card review history with sparkline intervals, building a 7-day travel-ready study mode with queued cards studyability and offline review queuing, and single-sourcing dictionary normalization.
