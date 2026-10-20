@@ -2572,58 +2572,6 @@
       font-size: 0.72rem;
       color: var(--text-muted);
     }
-
-    .travel-plan-card {
-      background: linear-gradient(135deg, var(--surface) 0%, rgba(94, 163, 106, 0.05) 100%);
-      border: 1px solid rgba(94, 163, 106, 0.25);
-      border-radius: var(--radius);
-      padding: 1rem 1.15rem;
-      margin-bottom: 1.25rem;
-    }
-    .travel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.6rem;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-    .travel-title {
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 0.45rem;
-    }
-    .travel-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 0.35rem;
-      margin-top: 0.75rem;
-      text-align: center;
-    }
-    .travel-day-box {
-      background: var(--surface-elevated);
-      border: 1px solid var(--border-subtle);
-      border-radius: 6px;
-      padding: 0.45rem 0.2rem;
-    }
-    .travel-day-box.is-today {
-      border-color: var(--green);
-      background: var(--green-dim);
-    }
-    .travel-day-label {
-      font-size: 0.65rem;
-      color: var(--text-muted);
-    }
-    .travel-day-val {
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: var(--text);
-      margin-top: 0.15rem;
-    }
-
     /* Workstream E: Review Timeline & Sparkline for Card Modal */
     .review-timeline {
       display: flex;
@@ -3293,23 +3241,6 @@
         Extra practice — separate from Anki scheduling
       </div>
 
-      <!-- Travel Plan Card (Workstream G) -->
-      <div class="travel-plan-card" id="study-travel-card">
-        <div class="travel-header">
-          <div class="travel-title">
-            <svg class="svg-icon" style="width:16px;height:16px;color:var(--green);" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            7-Day Travel Forecast
-          </div>
-          <span style="font-size:0.75rem;color:var(--text-secondary);" id="travel-status-sub">Anki is 0 days behind</span>
-        </div>
-        <p style="font-size:0.78rem;color:var(--text-secondary);line-height:1.4;" id="travel-summary-msg">
-          Loading travel schedule...
-        </p>
-        <div class="travel-grid" id="travel-days-grid">
-          <!-- Rendered by JS -->
-        </div>
-      </div>
-
       <!-- Study Session Setup Screen -->
       <div id="study-setup-screen">
         <div class="study-setup-card">
@@ -3799,7 +3730,6 @@
       } else if (tabName === 'study') {
         fetchStudySummary();
         fetchStudyPresets();
-        fetchTravelPlan();
       }
     }
 
@@ -5700,31 +5630,6 @@
       }
     }
 
-    async function fetchTravelPlan() {
-      const token = getToken();
-      try {
-        const res = await fetch('/api/study/travel-plan', {
-          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), 'Accept': 'application/json' }
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        setElText('travel-status-sub', `Anki is ${data.days_behind || 0} day${data.days_behind === 1 ? '' : 's'} behind`);
-        setElText('travel-summary-msg', data.summary_message || '');
-
-        const grid = document.getElementById('travel-days-grid');
-        if (grid && data.daily_forecast) {
-          grid.innerHTML = data.daily_forecast.map(d => `
-            <div class="travel-day-box ${d.is_today ? 'is-today' : ''}">
-              <div class="travel-day-label">${escapeHtml(d.day_name)}</div>
-              <div class="travel-day-val">${d.due_count}</div>
-            </div>
-          `).join('');
-        }
-      } catch (e) {
-        console.debug('Failed to fetch travel plan:', e);
-      }
-    }
-
     function startPresetStudy(presetName) {
       selectStudyPreset(presetName);
       switchTab('study');
@@ -6368,7 +6273,6 @@
       } else if (activeTab === 'study') {
         fetchStudySummary();
         fetchStudyPresets();
-        fetchTravelPlan();
       }
     }
 

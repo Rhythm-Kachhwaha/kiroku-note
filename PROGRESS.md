@@ -21,6 +21,8 @@
   - Enforced `min-width: 0; flex: 1 1 0%;` on `.qa-cand-meaning` to cleanly truncate candidate definitions in Quick Add.
   - Added `@media (max-width: 768px) { .qa-shortcuts-hint { display: none !important; } }` to eliminate irrelevant desktop keyboard hints on mobile devices.
   - Maintained strictly zero OS emojis across all interfaces (SVG icons only).
+- **Study Mode Streamlining**:
+  - Removed the 7-Day Travel Forecast card (`#study-travel-card`) and associated CSS/fetch hooks from the Cloud Study view UI, immediately presenting practice presets ("Quick 10", "Due in Cloud", "Leech Rescue", etc.) and the session start screen without clutter.
 
 **2. Files Modified**:
 - `kiroku_cloud_queue/dashboard.html`: Applied CSS layout fixes, removed redundant rules, restructured popover DOM, updated `fetchAnkiStatus` and `renderWeakWords` templates.
