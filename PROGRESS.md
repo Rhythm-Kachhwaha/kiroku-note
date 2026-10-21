@@ -1,5 +1,51 @@
 # Kiroku Note — Progress
 
+### Windows Installer & Tray Host Startup Defect Resolution (2026-10-21)
+
+**Objective**: Resolve the issue where building and launching the Kiroku Note installer (`Kiroku-Note-Setup-v2.1.0.exe`) and installed application (`KirokuNote.exe`) fails to run.
+
+**1. Root Cause Analysis**:
+- **Installer Stale File Accumulation**: Inno Setup (`installer/kiroku_setup.iss`) lacked `[InstallDelete]`, causing upgrades over existing installations to retain obsolete orphaned `.pyd`, `.dll`, and package directories in `{app}\_internal`. Specifically, an orphaned `_internal\websockets\speedups.cp311-win_amd64.pyd` (without `__init__.py`) acted as a broken namespace package that crashed Uvicorn during HTTP server initialization.
+- **Silent Exception Swallowing & Exit**: In `run_tray.py`, exceptions in `start_backend()` and `_run_backend()` were caught into an unlogged variable. When the backend thread crashed or failed to bind within the 10-second timeout, `main()` silently exited with `SystemExit(1)` without logging to disk or alerting the user via GUI dialogs.
+- **Missing Single-Instance Detection**: When Kiroku Note was already active in the system tray, launching `KirokuNote.exe` again caused a port conflict error (`[WinError 10048]`), silently killing the newly launched process. Users had no visual feedback indicating the application was already running in the Windows system tray.
+
+**2. Delivered Behaviors & Defect Resolutions**:
+- **Inno Setup Clean Upgrades (`[InstallDelete]`)**:
+  - Added `[InstallDelete]` and `[UninstallDelete]` directives targeting `{app}\_internal`, `{app}\extension`, `{app}\*.pyd`, and `{app}\*.pyc` in `installer/kiroku_setup.iss`.
+  - Automatically purges all stale PyInstaller runtime files before copying new files on upgrade, while preserving user databases in `%LOCALAPPDATA%\KirokuNote` and optional add-ons (`{app}\ocr`).
+- **Tray Host Diagnostics & Error Visibility (`run_tray.py`)**:
+  - Implemented persistent file logging to `%LOCALAPPDATA%\KirokuNote\logs\tray_host.log`.
+  - Added native Windows `MessageBoxW` error dialogs on fatal startup failures so users and developers see the exact failure and log file path instead of silent process termination.
+  - Added parent console attachment (`AttachConsole(-1)`) and support for CLI flags `--version` (`Kiroku Note v2.1.0`) and `--check` (pre-flight health diagnostic).
+- **Single-Instance Enforcement & System Tray Feedback**:
+  - Added a Windows named mutex (`Local\KirokuNote_SingleInstance_Mutex`). If a second instance is launched while Kiroku Note is already running, it checks backend health and displays a friendly notification that Kiroku Note is active in the system tray (`あ` icon near clock), then exits cleanly with code 0.
+  - Added visual toast notification via `pystray.Icon.notify` on manual launch.
+- **PyInstaller Spec Hardening (`kiroku_backend.spec`)**:
+  - Added `websockets`, `aiohttp`, `asyncpg`, and `psycopg2` to `excludes` to prevent partial bundling of unused libraries.
+- **Builder Verification in `buildsetup.py`**:
+  - Added automated post-build binary verification (`KirokuNote.exe --version`) in Stage 3 of `buildsetup.py`.
+
+**3. Files Modified & Created**:
+- `installer/kiroku_setup.iss`: Added `[InstallDelete]` and `[UninstallDelete]`.
+- `packaging/kiroku_backend.spec`: Added `websockets`, `aiohttp`, `asyncpg`, `psycopg2` to `excludes`.
+- `run_tray.py`: Single-instance mutex, file logging, error dialog, CLI flags, tray notification.
+- `buildsetup.py`: Post-build binary smoke check.
+- `backend/tests/test_installer_config.py`: Added `test_installer_purges_stale_runtime_on_upgrade`.
+- `backend/tests/test_run_tray.py`: Unit tests for single-instance, logging, and CLI flags.
+- `PROGRESS.md`: Documented root causes, fixes, and test results.
+
+**4. Verification Run & Results**:
+- `pytest tests/test_installer_config.py tests/test_buildsetup.py tests/test_run_tray.py`: **18/18 passed in 4.18s**.
+- Full installer build (`python buildsetup.py`): Succeeded in 142.2s; produced `dist/installer/Kiroku-Note-Setup-v2.1.0.exe` (85.80 MB, SHA-256: `105b6c5dde7960ae0cf8b0f18ddc6df3414801479b09182943be37906d96ce85`).
+- Silent installer upgrade test: Cleanly purged `_internal`, removed orphaned files, exit code 0.
+- End-to-end binary execution test:
+  - `KirokuNote.exe --version` returned exit code 0 with `Kiroku Note v2.1.0`.
+  - `KirokuNote.exe --check` returned exit code 0 with pre-flight OK.
+  - Background execution: Started PID, stayed alive, bound port 21828, responded `200 OK` on `/api/health`.
+  - Single-instance test: Duplicate instance returned exit code 0 without crash or port collision.
+
+---
+
 ### Kiroku Cloud: Dashboard UI Defect Fixes & Mobile Refinement (2026-10-20)
 
 **Objective**: Resolve visual defects on the Kiroku Cloud Dashboard (`kiroku_cloud_queue/dashboard.html`): fix card text overlapping lapse counts and difficulty badges in the "What's Hurting Me" list, resolve horizontal squashing and layout breakdown of the Anki Mirror Status popover, harden candidate list truncation, refine mobile responsive behavior, and maintain strict zero-OS-emoji compliance.
