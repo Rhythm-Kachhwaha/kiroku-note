@@ -3031,16 +3031,16 @@
       <div class="section-card" id="stats-panel-retention">
         <div class="section-header">
           <div>
-            <div class="section-title">Am I Retaining? (True Retention Rate)</div>
-            <div class="section-subtitle">Pass rate on mature reviews (interval &ge; 21d) with 90% desired retention target</div>
+            <div class="section-title">Long-term recall</div>
+            <div class="section-subtitle">Correct answers on cards due after 21+ days. Each dot is a week; the dashed line is the 90% goal.</div>
           </div>
-          <div id="retention-summary" style="font-size:0.85rem;color:var(--green);font-weight:700;"></div>
+          <div id="retention-summary" style="font-size:0.85rem;color:var(--text-secondary);font-weight:700;"></div>
         </div>
         <div class="svg-chart-wrap" id="chart-retention-wrap">
           <!-- Rendered by JS -->
         </div>
         <div class="stats-verdict-banner" id="retention-verdict-banner">
-          <svg class="svg-icon" style="width:16px;height:16px;color:var(--green);flex-shrink:0;" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg class="svg-icon" style="width:16px;height:16px;color:var(--text-secondary);flex-shrink:0;" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7h.01"/></svg>
           <span id="retention-verdict-text">Calculating mature retention rate...</span>
         </div>
       </div>
@@ -3049,8 +3049,8 @@
       <div class="section-card" id="stats-panel-workload">
         <div class="section-header">
           <div>
-            <div class="section-title">Am I Overloaded? (Workload & Due Forecast)</div>
-            <div class="section-subtitle">Daily review volume with 7-day moving average and upcoming 30-day forecast</div>
+            <div class="section-title">What is due next?</div>
+            <div class="section-subtitle">Cards scheduled for each day over the next 30 days. Hover or focus a bar for its count.</div>
           </div>
           <div class="chart-toggle-row">
             <button class="chart-toggle-btn active" id="btn-forecast-daily" onclick="toggleForecastMode('daily')">Daily Due</button>
@@ -3066,8 +3066,8 @@
       <div class="section-card" id="stats-panel-health">
         <div class="section-header">
           <div>
-            <div class="section-title">Is My Collection Healthy? (Maturity & Inflow)</div>
-            <div class="section-subtitle">Lifecycle breakdown (Mature, Young, Learning, New, Suspended) and additions vs lapses</div>
+            <div class="section-title">How is my collection changing?</div>
+            <div class="section-subtitle">Card stages and collection size over time; queued and suspended cards are shown separately.</div>
           </div>
           <div id="growth-summary" style="font-size:0.75rem;color:var(--text-secondary);"></div>
         </div>
@@ -3083,8 +3083,8 @@
       <div class="section-card" id="stats-panel-hurting">
         <div class="section-header">
           <div>
-            <div class="section-title">What's Hurting Me? (Leeches & Difficulty)</div>
-            <div class="section-subtitle">Collection Heuristic difficulty split and highest lapse cards</div>
+            <div class="section-title">Which cards need attention?</div>
+            <div class="section-subtitle">Cards with the most lapses and the collection's estimated difficulty.</div>
           </div>
           <button class="icon-btn" onclick="startPresetStudy('leech_rescue')" id="study-weak-words-btn">
             <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -3099,15 +3099,17 @@
         </div>
       </div>
 
-      <!-- Activity Heatmap (Kept Intact) -->
+      <!-- Actual Anki review activity -->
       <div class="section-card" id="stats-panel-heatmap">
         <div class="section-header">
           <div>
-            <div class="section-title">Review Activity Heatmap</div>
-            <div class="section-subtitle">Real daily reviews completed in Anki</div>
+            <div class="section-title">When do I study?</div>
+            <div class="section-subtitle">Weekly review totals from Anki. The calendar below shows which individual days you studied.</div>
           </div>
           <div id="heatmap-total-reviews" style="font-size:0.8rem;color:var(--text-secondary);font-weight:600;"></div>
         </div>
+        <div id="review-pace-summary" style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:0.35rem;"></div>
+        <div class="svg-chart-wrap" id="chart-review-pace-wrap" aria-live="polite"></div>
         <div class="heatmap-wrap">
           <div class="heatmap-grid" id="heatmap-grid"></div>
         </div>
@@ -4884,14 +4886,20 @@
     }
 
     function updateStatsHero(data) {
-      const today = data.today_reviews != null ? data.today_reviews : (data.reviewed_today || 0);
-      const due = data.cards_due != null ? data.cards_due : (data.due_today || 0);
+      const ankiStats = window.__ankiStatsSnapshot || {};
+      const ankiSummary = ankiStats.summary || {};
+      const today = ankiStats.today_reviewed != null
+        ? ankiStats.today_reviewed
+        : (data.today_reviews != null ? data.today_reviews : (data.reviewed_today || 0));
+      const due = ankiSummary.total_due_today != null
+        ? ankiSummary.total_due_today
+        : (data.cards_due != null ? data.cards_due : (data.due_today || 0));
       const overdue = data.overdue_count != null ? data.overdue_count : 0;
       const newToday = data.new_cards_today != null ? data.new_cards_today : (data.new_today || 0);
       const avgMs = data.avg_time_ms || 8500;
       const estMins = Math.max(1, Math.round(((due + overdue) * avgMs) / 60000));
-      const streak = data.current_streak != null ? data.current_streak : 0;
-      const bestStreak = data.best_streak != null ? data.best_streak : streak;
+      const streak = ankiStats.current_streak != null ? ankiStats.current_streak : data.current_streak;
+      const bestStreak = ankiStats.best_streak != null ? ankiStats.best_streak : data.best_streak;
 
       setElText('stats-hero-today', Number(today).toLocaleString());
       setElText('stats-hero-due', Number(due).toLocaleString());
@@ -4899,8 +4907,8 @@
       setElText('stats-hero-new', Number(newToday).toLocaleString());
       setElText('stats-hero-est-time', `~${estMins} min`);
       setElText('stats-hero-est-time-sub', `${(avgMs / 1000).toFixed(1)}s avg speed`);
-      setElText('stats-hero-streak', `${streak}d`);
-      setElText('stats-hero-streak-sub', `Best: ${bestStreak} days`);
+      setElText('stats-hero-streak', streak != null ? `${streak}d` : '—');
+      setElText('stats-hero-streak-sub', bestStreak != null ? `Best: ${bestStreak} days` : 'Best streak unavailable');
     }
 
     async function fetchStatsOverview() {
@@ -4968,57 +4976,78 @@
         return;
       }
 
-      let totalNum = 0;
-      let totalDen = 0;
-      retentionData.forEach(d => {
-        const den = (d.mature_retention_den != null && d.mature_retention_den > 0) ? d.mature_retention_den : (d.mature_n || d.n || 0);
-        const num = (d.mature_retention_num != null && d.mature_retention_num > 0) ? d.mature_retention_num : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : 0);
-        totalNum += num;
-        totalDen += den;
-      });
+      const maturePoints = retentionData.map((d, index) => {
+        const den = Number(d.mature_retention_den ?? d.mature_n ?? 0);
+        const num = d.mature_retention_num != null
+          ? Number(d.mature_retention_num)
+          : (d.mature_rate != null && den > 0 ? Math.round(den * (Number(d.mature_rate) / 100)) : null);
+        return { data: d, index, den, num };
+      }).filter(point => Number.isFinite(point.den) && point.den > 0
+        && Number.isFinite(point.num) && point.num >= 0);
+
+      const totalNum = maturePoints.reduce((sum, point) => sum + point.num, 0);
+      const totalDen = maturePoints.reduce((sum, point) => sum + point.den, 0);
 
       const matureRate = totalDen > 0 ? Math.round((totalNum / totalDen) * 100) : null;
       if (sumEl) {
-        sumEl.textContent = matureRate !== null ? `Mature Retention: ${matureRate}% (${totalDen.toLocaleString()} reviews)` : '—';
+        sumEl.textContent = matureRate !== null ? `${matureRate}% (${totalDen.toLocaleString()} eligible reviews)` : 'No eligible reviews';
       }
 
       // Plain language verdict
       if (verdictEl) {
         if (matureRate === null) {
-          verdictEl.textContent = 'Not enough mature review history to compute retention verdict.';
+          verdictEl.textContent = 'No reviews on cards due after 21+ days in this range, so there is no retention score yet. This is not a 0% result.';
         } else if (matureRate >= 90) {
-          verdictEl.innerHTML = `Retention is <strong>${matureRate}%</strong>, meeting the 90% target. Your FSRS memory stability is optimal.`;
+          verdictEl.innerHTML = `You recalled <strong>${matureRate}%</strong> of eligible reviews, meeting the 90% goal.`;
         } else if (matureRate >= 80) {
-          verdictEl.innerHTML = `Retention is <strong>${matureRate}%</strong>, slightly below the 90% target. Consider reviewing top leeches in Study mode.`;
+          verdictEl.innerHTML = `You recalled <strong>${matureRate}%</strong> of eligible reviews, a little below the 90% goal.`;
         } else {
-          verdictEl.innerHTML = `Retention is <strong>${matureRate}%</strong>. Severe lapse rate detected. Slow down new card introductions.`;
+          verdictEl.innerHTML = `You recalled <strong>${matureRate}%</strong> of eligible reviews, below the 90% goal.`;
         }
       }
 
+      if (!maturePoints.length) {
+        wrap.innerHTML = '<div style="color:var(--text-muted);padding:1.5rem;font-size:0.82rem;text-align:center;">No eligible mature reviews in this range. Retention is measured only when a card was due after 21 or more days.</div>';
+        return;
+      }
+
       const { w, h, padL, padR, padT, padB, plotW, plotH } = getChartDims(wrap, 160);
-      const minPct = 0.5;
+      const minPct = 0;
       const maxPct = 1.0;
       const pctRange = maxPct - minPct;
 
-      const pts = retentionData.map((d, i) => {
-        const x = padL + (i / (retentionData.length - 1 || 1)) * plotW;
-        const den = (d.mature_retention_den != null && d.mature_retention_den > 0) ? d.mature_retention_den : (d.mature_n || d.n || 0);
-        const num = (d.mature_retention_num != null && d.mature_retention_num > 0) ? d.mature_retention_num : (d.mature_rate != null ? Math.round(den * (d.mature_rate / 100)) : 0);
-        const r = den > 0 ? (num / den) : 0.85;
+      const pts = maturePoints.map(point => {
+        const x = padL + (point.index / (retentionData.length - 1 || 1)) * plotW;
+        const r = point.num / point.den;
         const clampedR = Math.max(minPct, Math.min(maxPct, r));
         const y = padT + (1 - (clampedR - minPct) / pctRange) * plotH;
-        return { x, y, r, label: d.week || d.day || '', den };
+        return { x, y, r, label: point.data.week || point.data.day || '', den: point.den, index: point.index };
       });
 
-      const polyPoints = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      const lineSegments = [];
+      let currentSegment = [];
+      pts.forEach(point => {
+        if (currentSegment.length && point.index !== currentSegment[currentSegment.length - 1].index + 1) {
+          lineSegments.push(currentSegment);
+          currentSegment = [];
+        }
+        currentSegment.push(point);
+      });
+      if (currentSegment.length) lineSegments.push(currentSegment);
       const yTarget = padT + (1 - (0.90 - minPct) / pctRange) * plotH;
 
       const dotsHtml = pts.map(p => `
-        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="var(--green)" stroke="#181715" stroke-width="1.5" class="chart-point" data-tip="${escapeHtml(p.label)}: ${Math.round(p.r * 100)}% (n=${p.den})" style="cursor:pointer;"/>
+        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="var(--green)" stroke="#181715" stroke-width="1.5" class="chart-point" data-tip="${escapeHtml(p.label)}: ${Math.round(p.r * 100)}% (${p.den.toLocaleString()} reviews)" tabindex="0" aria-label="${escapeHtml(p.label)}: ${Math.round(p.r * 100)}% from ${p.den.toLocaleString()} eligible reviews" style="cursor:pointer;"/>
       `).join('');
+      const linesHtml = lineSegments.filter(segment => segment.length > 1).map(segment => {
+        const points = segment.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+        return `<polyline fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" points="${points}"/>`;
+      }).join('');
+      const firstLabel = escapeHtml(pts[0].label);
+      const lastLabel = escapeHtml(pts[pts.length - 1].label);
 
       wrap.innerHTML = `
-        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Retention Rate Chart" style="width:100%;height:auto;max-height:${h}px;">
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Weekly long-term recall rate; hover or focus a point for the percentage and review count." style="width:100%;height:auto;max-height:${h}px;">
           <!-- 100% line -->
           <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
           <text x="${padL - 6}" y="${padT + 4}" fill="var(--text-muted)" font-size="11" text-anchor="end">100%</text>
@@ -5027,21 +5056,27 @@
           <line x1="${padL}" y1="${yTarget.toFixed(1)}" x2="${w - padR}" y2="${yTarget.toFixed(1)}" stroke="rgba(94, 163, 106, 0.7)" stroke-width="1.5" stroke-dasharray="4,4"/>
           <text x="${padL - 6}" y="${(yTarget + 4).toFixed(1)}" fill="var(--green)" font-size="11" font-weight="600" text-anchor="end">90% Target</text>
 
-          <!-- 50% bottom axis -->
+          <!-- 0% bottom axis -->
           <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)" stroke-width="1"/>
-          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="11" text-anchor="end">50%</text>
+          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="11" text-anchor="end">0%</text>
 
-          <polyline fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" points="${polyPoints}"/>
+          ${linesHtml}
           ${dotsHtml}
 
-          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="11">${escapeHtml(retentionData[0].week || retentionData[0].day || '')}</text>
-          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="11" text-anchor="end">${escapeHtml(retentionData[retentionData.length - 1].week || retentionData[retentionData.length - 1].day || '')}</text>
+          <text x="${padL}" y="${h - 6}" fill="var(--text-muted)" font-size="11">${firstLabel}</text>
+          <text x="${w - padR}" y="${h - 6}" fill="var(--text-muted)" font-size="11" text-anchor="end">${lastLabel}</text>
         </svg>
       `;
 
       wrap.querySelectorAll('.chart-point').forEach(pt => {
-        pt.addEventListener('mouseenter', e => showTooltip(e.clientX, e.clientY, pt.getAttribute('data-tip')));
+        const showPointTooltip = e => {
+          const rect = pt.getBoundingClientRect();
+          showTooltip(e.clientX || rect.left + rect.width / 2, e.clientY || rect.top, pt.getAttribute('data-tip'));
+        };
+        pt.addEventListener('mouseenter', showPointTooltip);
+        pt.addEventListener('focus', showPointTooltip);
         pt.addEventListener('mouseleave', hideTooltip);
+        pt.addEventListener('blur', hideTooltip);
       });
     }
 
@@ -6127,17 +6162,25 @@
         const data = await resp.json();
         const stats = data.stats;
         if (!stats) return;
+        const dailyReviews = stats.cards_reviewed_by_day || [];
+        const reviewStreak = computeCurrentReviewStreak(dailyReviews);
+        window.__ankiStatsSnapshot = reviewStreak == null
+          ? stats
+          : { ...stats, current_streak: reviewStreak };
+        renderReviewPaceChart(dailyReviews);
+        if (window.__statsOverview) updateStatsHero(window.__statsOverview);
 
+        const syncedStats = window.__ankiStatsSnapshot;
         const metricStreak = document.getElementById('metric-streak');
-        if (metricStreak) metricStreak.innerHTML = `${SVG_FLAME}<span>${stats.current_streak || 0}d</span>`;
-        setElText('metric-streak-best', `Best: ${stats.best_streak || 0} days`);
-        setElText('metric-today', `${stats.today_reviewed || 0}`);
+        if (metricStreak) metricStreak.innerHTML = `${SVG_FLAME}<span>${syncedStats.current_streak ?? 0}d</span>`;
+        setElText('metric-streak-best', `Best: ${syncedStats.best_streak ?? 0} days`);
+        setElText('metric-today', `${stats.today_reviewed ?? 0}`);
         const sum = stats.summary || {};
-        setElText('metric-due-today', `${sum.total_due_today || 0} cards due`);
-        setElText('metric-total-cards', (sum.total_cards || 0).toLocaleString());
+        setElText('metric-due-today', `${sum.total_due_today ?? 0} cards due`);
+        setElText('metric-total-cards', Number(sum.total_cards || 0).toLocaleString());
         const decks = stats.decks || [];
         setElText('metric-deck-count', `${decks.length} active deck${decks.length === 1 ? '' : 's'}`);
-        setElText('metric-year-days', `${stats.days_studied_past_year || 0}d`);
+        setElText('metric-year-days', `${stats.days_studied_past_year ?? 0}d`);
 
         if (stats.total_reviews) {
           setElText('heatmap-total-reviews', `${Number(stats.total_reviews).toLocaleString()} total reviews`);
@@ -6150,17 +6193,135 @@
       }
     }
 
+    function normalizeReviewCounts(dailyList) {
+      const entries = Array.isArray(dailyList)
+        ? dailyList.filter(entry => Array.isArray(entry) && entry.length >= 2)
+        : Object.entries(dailyList || {});
+      const reviewMap = {};
+      entries.forEach(entry => {
+        const dateKey = String(entry[0] || '').trim();
+        const count = Number(entry[1]);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey) && Number.isFinite(count) && count >= 0) {
+          reviewMap[dateKey] = count;
+        }
+      });
+      return reviewMap;
+    }
+
+    function computeCurrentReviewStreak(dailyList) {
+      const reviewMap = normalizeReviewCounts(dailyList);
+      if (!Object.keys(reviewMap).length) return null;
+
+      const dateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const checkDate = new Date();
+      checkDate.setHours(12, 0, 0, 0);
+      if (!(reviewMap[dateKey(checkDate)] > 0)) checkDate.setDate(checkDate.getDate() - 1);
+
+      let streak = 0;
+      while (reviewMap[dateKey(checkDate)] > 0) {
+        streak += 1;
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+      return streak;
+    }
+
+    function renderReviewPaceChart(dailyList) {
+      const wrap = document.getElementById('chart-review-pace-wrap');
+      const summary = document.getElementById('review-pace-summary');
+      if (!wrap) return;
+
+      const reviewMap = normalizeReviewCounts(dailyList);
+      const today = new Date();
+      const currentWeekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
+      currentWeekStart.setDate(currentWeekStart.getDate() - ((currentWeekStart.getDay() + 6) % 7));
+      const weeks = [];
+      const weeklyCounts = new Map();
+      for (let i = 11; i >= 0; i--) {
+        const start = new Date(currentWeekStart);
+        start.setDate(start.getDate() - (i * 7));
+        const dateKey = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+        weeks.push({ start, dateKey, count: 0 });
+        weeklyCounts.set(dateKey, weeks[weeks.length - 1]);
+      }
+
+      Object.entries(reviewMap).forEach(([dateKey, count]) => {
+        const reviewedAt = new Date(`${dateKey}T12:00:00`);
+        if (Number.isNaN(reviewedAt.getTime())) return;
+        const weekStart = new Date(reviewedAt.getFullYear(), reviewedAt.getMonth(), reviewedAt.getDate(), 12);
+        weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+        const key = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
+        const week = weeklyCounts.get(key);
+        if (week) week.count += count;
+      });
+
+      const total = weeks.reduce((sum, week) => sum + week.count, 0);
+      const hasHistory = Object.keys(reviewMap).length > 0;
+      if (summary) {
+        const busiest = weeks.reduce((best, week) => week.count > best.count ? week : best, weeks[0]);
+        const average = Math.round(total / weeks.length);
+        summary.textContent = total > 0
+          ? `${total.toLocaleString()} reviews in the last 12 weeks · ${average.toLocaleString()} per week on average · busiest: week of ${busiest.start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} (${busiest.count.toLocaleString()})`
+          : 'No Anki reviews in the last 12 weeks.';
+      }
+
+      if (total === 0) {
+        const message = hasHistory
+          ? 'No Anki reviews in the last 12 weeks.'
+          : 'Weekly activity will appear after Anki review history is synced.';
+        wrap.innerHTML = `<div style="color:var(--text-muted);padding:0.75rem 0;font-size:0.82rem;">${message}</div>`;
+        return;
+      }
+
+      const { w, h, padL, padR, padT, padB, plotW, plotH } = getChartDims(wrap, 150);
+      const maxCount = Math.max(...weeks.map(week => week.count), 1);
+      const slotW = plotW / weeks.length;
+      const barW = Math.max(4, slotW * 0.64);
+      const bars = weeks.map((week, index) => {
+        const barH = week.count > 0 ? Math.max(2, (week.count / maxCount) * plotH) : 1;
+        const x = padL + index * slotW + (slotW - barW) / 2;
+        const y = padT + plotH - barH;
+        const label = `Week of ${week.start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}: ${week.count.toLocaleString()} reviews`;
+        return `<rect class="chart-point" data-tip="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" tabindex="0" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${week.count ? 'var(--accent)' : 'var(--surface-elevated)'}" rx="2"/>`;
+      }).join('');
+      const midCount = Math.round(maxCount / 2);
+      const labels = weeks.map((week, index) => {
+        if (index % 2 !== 0 && index !== weeks.length - 1) return '';
+        const x = padL + index * slotW + slotW / 2;
+        const label = week.start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        return `<text x="${x.toFixed(1)}" y="${h - 5}" fill="var(--text-muted)" font-size="10" text-anchor="middle">${escapeHtml(label)}</text>`;
+      }).join('');
+
+      wrap.innerHTML = `
+        <svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Anki reviews per week for the last 12 weeks. Bars show review counts; focus a bar for its exact total." style="width:100%;height:auto;max-height:${h}px;">
+          <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
+          <text x="${padL - 6}" y="${padT + 4}" fill="var(--text-muted)" font-size="11" text-anchor="end">${maxCount.toLocaleString()}</text>
+          <line x1="${padL}" y1="${(padT + plotH * 0.5).toFixed(1)}" x2="${w - padR}" y2="${(padT + plotH * 0.5).toFixed(1)}" stroke="var(--border-subtle)" stroke-dasharray="3,3"/>
+          <text x="${padL - 6}" y="${(padT + plotH * 0.5 + 4).toFixed(1)}" fill="var(--text-muted)" font-size="11" text-anchor="end">${midCount.toLocaleString()}</text>
+          <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="var(--border-default)"/>
+          <text x="${padL - 6}" y="${h - padB}" fill="var(--text-muted)" font-size="11" text-anchor="end">0</text>
+          ${bars}
+          ${labels}
+        </svg>
+      `;
+
+      wrap.querySelectorAll('.chart-point').forEach(bar => {
+        const showBarTooltip = e => {
+          const rect = bar.getBoundingClientRect();
+          showTooltip(e.clientX || rect.left + rect.width / 2, e.clientY || rect.top, bar.getAttribute('data-tip'));
+        };
+        bar.addEventListener('mouseenter', showBarTooltip);
+        bar.addEventListener('focus', showBarTooltip);
+        bar.addEventListener('mouseleave', hideTooltip);
+        bar.addEventListener('blur', hideTooltip);
+      });
+    }
+
     function renderHeatmap(dailyList) {
       const grid = document.getElementById('heatmap-grid');
       const tooltip = document.getElementById('dashboard-tooltip');
       if (!grid) return;
 
-      const reviewMap = {};
-      dailyList.forEach(entry => {
-        if (Array.isArray(entry) && entry.length >= 2) {
-          reviewMap[entry[0]] = Number(entry[1]) || 0;
-        }
-      });
+      const reviewMap = normalizeReviewCounts(dailyList);
 
       const cells = [];
       const today = new Date();

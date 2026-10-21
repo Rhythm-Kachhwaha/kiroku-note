@@ -1,5 +1,25 @@
 # Kiroku Note — Progress
 
+### Cloud Dashboard Study Insights & Streak Fix (2026-10-21)
+
+**Objective**: Make the cloud Stats view easier to interpret, show useful study-pattern data from AnkiConnect, and fix the zero-day streak display without rebuilding the local backend.
+
+**Delivered**:
+- Made the Stats hero use AnkiConnect history for its current streak (the same daily data as the heatmap), plus synced Anki today/due totals; it no longer defaults missing overview fields to zero.
+- Fixed long-term recall math to use only mature-review counts. When no reviews are eligible (21+ day interval), the chart now says there is no score rather than reporting 0% against all reviews; genuine 0% results remain visible on a 0–100% scale.
+- Added a 12-week review-volume graph from AnkiConnect's daily review history, with weekly totals, average, busiest week, exact-value tooltips, and keyboard focus support. The daily heatmap remains available below it.
+- Reworded Stats section headings and chart descriptions in plain language.
+- Added dashboard behavior regressions for snapshot-backed streaks, mature-review eligibility, real zero-percent retention, and weekly review totals.
+
+**Verification**:
+- Focused Node behavior checks passed for streak precedence, no-data retention, true 0% retention, and weekly review counts.
+- `node --check` passed for both dashboard script blocks.
+- `git diff --check` passed.
+- No backend executable/package build was run, as requested.
+- The generic test runner did not discover the Python test file, and the Python environment configurator reported no environment for this workspace; the added Python regression test was therefore not run through pytest.
+
+**Remaining Risk**: The dashboard was not connected to the live cloud API or AnkiConnect during verification. The new weekly chart and streak source were exercised with controlled sample responses; deployed freshness still depends on the existing local worker sync.
+
 ### Cloud Sync Cadence & Unified Manual Sync (2026-10-21)
 
 **Objective**: Poll the cloud queue, Anki study stats, and Anki card mirror every 2–3 minutes, and make the existing Side Panel queue button run that same sync cycle without changing its layout.
