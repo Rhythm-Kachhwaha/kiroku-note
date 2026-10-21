@@ -46,6 +46,13 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
+[InstallDelete]
+; Purge stale PyInstaller runtime internals and extension directory to prevent stale/orphaned file conflicts on upgrade
+Type: filesandordirs; Name: "{app}\_internal"
+Type: filesandordirs; Name: "{app}\extension"
+Type: files; Name: "{app}\*.pyd"
+Type: files; Name: "{app}\*.pyc"
+
 [Files]
 ; Backend Standalone Executable
 Source: "..\dist\backend\KirokuNote\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -68,6 +75,12 @@ Source: "..\backend\app\data\KANJIVG_NOTICE.md"; DestDir: "{app}"; Flags: ignore
 Name: "{localappdata}\KirokuNote\data"
 Name: "{localappdata}\KirokuNote\media"
 Name: "{localappdata}\KirokuNote\logs"
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}\_internal"
+Type: filesandordirs; Name: "{app}\extension"
+Type: files; Name: "{app}\*.pyd"
+Type: files; Name: "{app}\*.pyc"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

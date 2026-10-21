@@ -113,3 +113,18 @@ def test_installer_upgrade_and_ocr_preservation():
     # Core installer must not bundle or overwrite {app}\ocr
     assert r'DestDir: "{app}\ocr"' not in content, "Core installer must not overwrite {app}\\ocr add-on payload"
 
+
+def test_installer_purges_stale_runtime_on_upgrade():
+    """
+    Ensure the installer cleans {app}\\_internal and {app}\\extension before
+    installing new files, preventing orphaned/conflicting C extensions from
+    breaking the Python runtime on upgrade.
+    """
+    content = ISS_PATH.read_text(encoding="utf-8")
+
+    assert "[InstallDelete]" in content, "Installer must define [InstallDelete] to clean stale runtime on upgrade"
+    install_delete_section = content.split("[InstallDelete]")[1].split("[")[0]
+    assert r'Type: filesandordirs; Name: "{app}\_internal"' in install_delete_section
+    assert r'Type: filesandordirs; Name: "{app}\extension"' in install_delete_section
+
+

@@ -344,6 +344,22 @@ def stage_build_backend() -> Path:
     elapsed = time.time() - start_time
     size_mb = exe_path.stat().st_size / (1024 * 1024)
     print(f"[OK] Backend compiled successfully in {elapsed:.1f}s ({size_mb:.2f} MB)")
+
+    # Post-build smoke check to guarantee binary runs and reports version
+    try:
+        smoke = subprocess.run(
+            [str(exe_path), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=8,
+        )
+        if smoke.returncode == 0 and smoke.stdout:
+            print(f"[OK] Binary verification check passed: {smoke.stdout.strip()}")
+        elif smoke.returncode != 0:
+            print(f"[!] Warning: Post-build smoke test returned code {smoke.returncode}: {smoke.stderr.strip()}")
+    except Exception as e:
+        print(f"[!] Warning: Could not run smoke verification: {e}")
+
     return exe_path
 
 

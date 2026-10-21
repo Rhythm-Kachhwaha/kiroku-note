@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 import subprocess
@@ -31,6 +32,92 @@ from app.config import (  # noqa: E402
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 STARTUP_VALUE = "KirokuNote"
+_MUTEX_HANDLE = None
+
+
+def _setup_logging() -> Path:
+    """Initialize file logging in %LOCALAPPDATA%/KirokuNote/logs/tray_host.log."""
+    log_dir = get_app_data_dir() / "logs"
+    log_file = log_dir / "tray_host.log"
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        if not logging.getLogger().handlers:
+            logging.basicConfig(
+                filename=str(log_file),
+                level=logging.INFO,
+                format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+                encoding="utf-8",
+            )
+    except Exception:
+        pass
+    return log_file
+
+
+def _acquire_single_instance_mutex() -> bool:
+    """Acquire a Windows named mutex to prevent duplicate running instances."""
+    global _MUTEX_HANDLE
+    if os.name != "nt":
+        return True
+    try:
+        import ctypes
+        ERROR_ALREADY_EXISTS = 183
+        mutex_name = "Local\\KirokuNote_SingleInstance_Mutex"
+        handle = ctypes.windll.kernel32.CreateMutexW(None, False, mutex_name)
+        if ctypes.windll.kernel32.GetLastError() == ERROR_ALREADY_EXISTS:
+            if handle:
+                ctypes.windll.kernel32.CloseHandle(handle)
+            return False
+        _MUTEX_HANDLE = handle
+        return True
+    except Exception:
+        return True
+
+
+def _handle_already_running() -> int:
+    """Provide feedback when another instance is already running."""
+    port = resolve_port()
+    url = f"http://{DEFAULT_KIROKU_HOST}:{port}/api/health"
+    alive = False
+    try:
+        with urllib.request.urlopen(url, timeout=1.0) as resp:
+            alive = (resp.status == 200)
+    except Exception:
+        pass
+
+    if "--startup" in sys.argv:
+        return 0
+
+    if alive:
+        if os.name == "nt" and not os.environ.get("PYTEST_CURRENT_TEST"):
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(
+                    None,
+                    "Kiroku Note is already running in the background.\n\n"
+                    "Look for the 'あ' icon in your system tray (notification area near your clock, or click the ^ arrow).\n\n"
+                    "Right-click the icon to view status, extension setup guide, or open user data.",
+                    "Kiroku Note Already Running",
+                    0x40 | 0x10000,  # MB_ICONINFORMATION | MB_SETFOREGROUND
+                )
+            except Exception:
+                pass
+        return 0
+    return 0
+
+
+def _show_error_dialog(message: str, title: str = "Kiroku Note Startup Error") -> None:
+    """Show a Windows native error message box if not running headlessly."""
+    if os.name == "nt" and not os.environ.get("PYTEST_CURRENT_TEST") and "--startup" not in sys.argv:
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                None,
+                message,
+                title,
+                0x10 | 0x10000,  # MB_ICONERROR | MB_SETFOREGROUND
+            )
+        except Exception:
+            pass
 
 
 def _make_icon() -> Image.Image:
@@ -154,26 +241,37 @@ class TrayHost:
                 return
             self.state = "Starting"
             self.error = ""
-            from app.main import app
+            try:
+                from app.main import app
 
-            config = uvicorn.Config(
-                app,
-                host=self.host,
-                port=self.port,
-                log_level="warning",
-                access_log=False,
-                log_config=None,
-                reload=False,
-            )
-            self.server = uvicorn.Server(config)
-            self.server_thread = threading.Thread(target=self._run_backend, name="kiroku-backend", daemon=True)
-            self.server_thread.start()
+                config = uvicorn.Config(
+                    app,
+                    host=self.host,
+                    port=self.port,
+                    log_level="warning",
+                    access_log=False,
+                    log_config=None,
+                    reload=False,
+                )
+                self.server = uvicorn.Server(config)
+                self.server_thread = threading.Thread(target=self._run_backend, name="kiroku-backend", daemon=True)
+                self.server_thread.start()
+                logging.info(f"Started backend server thread on {self.host}:{self.port}")
+            except Exception as exc:
+                import traceback
+                err = traceback.format_exc()
+                logging.error(f"Failed to initialize backend application:\n{err}")
+                self.state = "Error"
+                self.error = str(exc)
 
     def _run_backend(self) -> None:
         assert self.server is not None
         try:
             self.server.run()
         except Exception as exc:
+            import traceback
+            err = traceback.format_exc()
+            logging.error(f"Backend server failed or crashed:\n{err}")
             with self._lock:
                 self.state = "Error"
                 self.error = str(exc)
@@ -345,13 +443,14 @@ class TrayHost:
     def run(self) -> bool:
         self.start_backend()
         deadline = time.time() + 10.0
-        while self.server_thread and self.server_thread.is_alive() and not self.server.started:
+        while self.server_thread and self.server_thread.is_alive() and not (self.server and self.server.started):
             if time.time() >= deadline:
                 break
             time.sleep(0.05)
 
         if self.server is None or not self.server.started:
             self.stop_backend()
+            logging.error(f"Backend failed to reach started state within 10s. Last error: {self.error}")
             return False
 
         # Pre-populate status
@@ -368,15 +467,73 @@ class TrayHost:
             APP_NAME,
             self._build_menu(),
         )
+
+        # Notify user on manual launch that app is active in system tray
+        if "--startup" not in sys.argv:
+            try:
+                self.icon.notify(
+                    "Kiroku Note is active in your background and ready.",
+                    "Kiroku Note"
+                )
+            except Exception:
+                pass
+
         threading.Thread(target=poll, name="kiroku-tray-status", daemon=True).start()
         self.icon.run()
         return True
 
 
 def main() -> None:
+    # For frozen windowed (.exe) binaries, attach to parent console if invoked from terminal
+    if getattr(sys, "frozen", False) and sys.platform == "win32":
+        if sys.stdout is None and any(arg in sys.argv for arg in ("--version", "-v", "--check", "--help", "-h")):
+            try:
+                import ctypes
+                if ctypes.windll.kernel32.AttachConsole(-1):
+                    sys.stdout = open("CONOUT$", "w", encoding="utf-8", errors="replace")
+                    sys.stderr = open("CONOUT$", "w", encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+    if "--version" in sys.argv or "-v" in sys.argv:
+        from app.config import APP_VERSION
+        print(f"Kiroku Note v{APP_VERSION}")
+        sys.exit(0)
+
+    if "--check" in sys.argv:
+        from app.config import APP_VERSION
+        print(f"Kiroku Note v{APP_VERSION} Pre-flight Check:")
+        print(f"  App Data Dir: {get_app_data_dir()}")
+        print(f"  Port:         {resolve_port()}")
+        try:
+            from app.main import app
+            print("  Backend App:  OK (app.main loaded successfully)")
+        except Exception as e:
+            print(f"  Backend App:  FAILED ({e})")
+            sys.exit(1)
+        sys.exit(0)
+
     if "--startup" in sys.argv:
         os.environ.setdefault("KIROKU_STARTUP", "1")
-    if not TrayHost().run():
+
+    log_path = _setup_logging()
+    logging.info(f"Kiroku Note starting (PID {os.getpid()}, argv={sys.argv})")
+
+    # Enforce single-instance operation
+    if not _acquire_single_instance_mutex():
+        logging.info("Another instance is already running; notifying and exiting.")
+        sys.exit(_handle_already_running())
+
+    host = TrayHost()
+    if not host.run():
+        err_msg = host.error or "Backend server failed to start within 10 seconds."
+        logging.error(f"Fatal startup failure: {err_msg}")
+        _show_error_dialog(
+            f"Kiroku Note failed to start.\n\n"
+            f"Error: {err_msg}\n\n"
+            f"Log file:\n{log_path}",
+            "Kiroku Note Startup Error",
+        )
         raise SystemExit(1)
 
 

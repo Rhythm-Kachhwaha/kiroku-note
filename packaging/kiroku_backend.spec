@@ -67,6 +67,10 @@ excludes = [
     "cv2",
     "docutils",
     "sphinx",
+    "websockets",
+    "aiohttp",
+    "asyncpg",
+    "psycopg2",
 ]
 
 ICON_PATH = PROJECT_ROOT / "assets" / "icon.ico"
