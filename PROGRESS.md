@@ -1,5 +1,26 @@
 # Kiroku Note — Progress
 
+### Cloud Sync Cadence & Unified Manual Sync (2026-10-21)
+
+**Objective**: Poll the cloud queue, Anki study stats, and Anki card mirror every 2–3 minutes, and make the existing Side Panel queue button run that same sync cycle without changing its layout.
+
+**Delivered**:
+- Changed the local backend's background sync interval to 150 seconds (2.5 minutes).
+- Routed `POST /api/cloud/pull` through the same best-effort cycle as background polling: import queued cards to local SQLite, upload Anki stats when AnkiConnect is available, and mirror new/changed Anki cards and reviews. Anki being offline does not block cloud queue import.
+- Avoided doing the Anki mirror twice when stats sync succeeds; the stats helper retains its existing default behavior for other callers.
+- Renamed the existing button label to **Sync**, including its transient busy label, without changing its styling or placement.
+- Added regressions for the 150-second cadence, manual cycle reuse, and single mirror execution.
+
+**Verification**:
+- Backend cloud-poll regressions: 2 passed.
+- Cloud worker suite: 13 passed; added mirror-suppression regression: 1 passed.
+- Extension cloud-history DOM tests: 4 passed.
+- `git diff --check`: passed (only existing Windows line-ending normalization warnings).
+- `python buildsetup.py`: backend EXE built and `KirokuNote.exe --version` smoke check passed; extension ZIP and `Kiroku-Note-Setup-v2.1.0.exe` produced. Output sizes: backend EXE 19,444,811 bytes; installer 89,972,064 bytes; extension ZIP 212,004 bytes.
+- Full `backend/tests/test_cards_api.py` run did not produce a completion summary in this environment; only the deterministic cloud-poll regression tests are counted as verified.
+
+**Remaining Risk**: A live manual sync against deployed cloud/Anki services was not run. Offline Anki behavior is covered by the best-effort code path and worker tests.
+
 ### Windows Installer & Tray Host Startup Defect Resolution (2026-10-21)
 
 **Objective**: Resolve the issue where building and launching the Kiroku Note installer (`Kiroku-Note-Setup-v2.1.0.exe`) and installed application (`KirokuNote.exe`) fails to run.

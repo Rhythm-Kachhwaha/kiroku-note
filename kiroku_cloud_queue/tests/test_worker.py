@@ -291,6 +291,26 @@ async def test_sync_anki_stats_to_cloud_success(adapter: LocalDevQueueAdapter):
         assert result is True
 
 
+@pytest.mark.asyncio
+async def test_sync_anki_stats_to_cloud_can_skip_card_mirror(adapter: LocalDevQueueAdapter):
+    fake_stats = {
+        "synced_at": "2026-10-18T12:00:00Z",
+        "today_reviewed": 30,
+        "current_streak": 5,
+        "best_streak": 10,
+        "total_reviews": 500,
+        "summary": {"total_cards": 1200, "total_due_today": 35},
+    }
+    with (
+        patch("worker.fetch_anki_connect_stats", return_value=fake_stats),
+        patch("worker.sync_anki_mirror", new_callable=AsyncMock) as mirror_sync,
+    ):
+        result = await worker.sync_anki_stats_to_cloud(adapter=adapter, sync_mirror=False)
+
+    assert result is True
+    mirror_sync.assert_not_awaited()
+
+
 def test_fetch_anki_connect_stats_resilient_to_partial_deck_failure():
     today_str = datetime.now().strftime("%Y-%m-%d")
     mock_responses = {

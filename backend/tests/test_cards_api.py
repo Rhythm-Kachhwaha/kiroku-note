@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -242,6 +243,30 @@ class CardsApiTests(unittest.TestCase):
         self.assertIn("fetched", data)
         self.assertIn("processed", data)
         self.assertIn("message", data)
+
+    def test_cloud_pull_runs_the_complete_sync_cycle(self):
+        cycle_result = {
+            "status": "ok",
+            "fetched": 3,
+            "processed": 2,
+            "duplicates": 1,
+            "failed": 0,
+            "skipped_offline": False,
+            "anki_stats_synced": False,
+            "anki_mirror_status": "offline",
+            "message": "Imported 2 new card(s) from cloud queue.",
+        }
+        with patch("app.main._execute_cloud_poll_cycle", new_callable=AsyncMock, return_value=cycle_result) as poll_cycle:
+            resp = self.client.post("/api/cloud/pull")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), cycle_result)
+        poll_cycle.assert_awaited_once()
+
+    def test_cloud_auto_poll_interval_is_two_to_three_minutes(self):
+        from app import main
+
+        self.assertEqual(main.CLOUD_AUTO_POLL_INTERVAL_SECONDS, 150)
 
     def test_cloud_auto_poll_cycle_executes_cleanly(self):
         import asyncio

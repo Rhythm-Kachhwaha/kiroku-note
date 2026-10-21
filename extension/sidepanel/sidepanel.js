@@ -6891,8 +6891,8 @@ async function triggerRefreshCloudQueue() {
 
   btnRefreshCloudQueue.disabled = true;
   if (icon) icon.classList.add("spinning");
-  if (label) label.textContent = "Checking…";
-  setStatus("Checking cloud queue for new cards…");
+  if (label) label.textContent = "Syncing…";
+  setStatus("Syncing cloud queue, Anki stats, and Anki cards…");
 
   try {
     const res = await fetch(API_CLOUD_PULL_URL, {
@@ -6916,7 +6916,7 @@ async function triggerRefreshCloudQueue() {
   } finally {
     btnRefreshCloudQueue.disabled = false;
     if (icon) icon.classList.remove("spinning");
-    if (label) label.textContent = "Check Queue";
+    if (label) label.textContent = "Sync";
     await loadHistory();
   }
 }

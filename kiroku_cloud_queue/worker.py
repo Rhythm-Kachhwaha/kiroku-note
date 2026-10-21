@@ -447,6 +447,7 @@ def fetch_anki_connect_stats(
 async def sync_anki_stats_to_cloud(
     adapter: Optional[QueueAdapter] = None,
     anki_url: Optional[str] = None,
+    sync_mirror: bool = True,
 ) -> bool:
     """
     Collect real study metrics from local AnkiConnect and push to the cloud queue service.
@@ -467,11 +468,12 @@ async def sync_anki_stats_to_cloud(
     else:
         log.warning("Failed to push Anki stats to queue adapter.")
 
-    # Trigger mirror sync without failing stats sync on mirror errors
-    try:
-        await sync_anki_mirror(queue)
-    except Exception as exc:
-        log.warning("Anki mirror sync failed (continuing normally): %s", exc)
+    if sync_mirror:
+        # Trigger mirror sync without failing stats sync on mirror errors
+        try:
+            await sync_anki_mirror(queue)
+        except Exception as exc:
+            log.warning("Anki mirror sync failed (continuing normally): %s", exc)
 
     return success
 

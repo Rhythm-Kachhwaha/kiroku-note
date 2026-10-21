@@ -100,6 +100,7 @@ from app.services.ocr_process_manager import OcrProcessManager
 
 
 log = logging.getLogger("kiroku_backend")
+CLOUD_AUTO_POLL_INTERVAL_SECONDS = 150.0
 
 
 def _setup_cloud_queue_path() -> None:
@@ -123,14 +124,24 @@ def _setup_cloud_queue_path() -> None:
             sys.path.insert(0, str(cloud_queue_dir))
 
 
-async def _execute_cloud_poll_cycle() -> None:
+async def _execute_cloud_poll_cycle() -> dict[str, Any]:
     """
     Execute one cycle of cloud sync:
     1. Drain pending vocabulary cards from cloud queue to local SQLite without pushing to Anki.
-    2. If Anki is open, sync real study statistics to cloud queue (/api/stats/anki).
-    3. If Anki is open, mirror Anki cards, leeches, and reviews to cloud queue (/api/anki/cards).
+    2. If Anki is open, sync real study statistics and mirror cards/reviews to the cloud.
     All steps gracefully skip when Anki is closed or cloud queue is unconfigured.
     """
+    summary: dict[str, Any] = {
+        "status": "ok",
+        "fetched": 0,
+        "processed": 0,
+        "duplicates": 0,
+        "failed": 0,
+        "skipped_offline": False,
+        "anki_stats_synced": False,
+        "anki_mirror_status": "skipped",
+        "message": "Sync cycle completed.",
+    }
     _setup_cloud_queue_path()
     try:
         from worker import process_batch, sync_anki_stats_to_cloud
@@ -138,36 +149,52 @@ async def _execute_cloud_poll_cycle() -> None:
         from queue_adapter import CloudQueueNotConfiguredError, QueueError, get_queue_adapter
     except ImportError as e:
         log.debug("Cloud queue modules not importable: %s", e)
-        return
+        summary.update(status="error", message=f"Cloud queue module unavailable: {e}")
+        return summary
 
     try:
         adapter = get_queue_adapter()
+    except CloudQueueNotConfiguredError as exc:
+        summary.update(status="not_configured", message=str(exc))
+        return summary
     except Exception as exc:
         log.debug("Cloud queue adapter not configured or failed to initialize: %s", exc)
-        return
+        summary.update(status="error", message=str(exc))
+        return summary
 
     # Step 1: Pull and drain pending cards to local SQLite
     try:
         batch_res = await process_batch(adapter=adapter, auto_sync=False)
+        summary.update(
+            fetched=batch_res.total_fetched,
+            processed=batch_res.processed,
+            duplicates=batch_res.duplicates,
+            failed=batch_res.failed,
+            skipped_offline=batch_res.skipped_offline,
+        )
         if batch_res.processed > 0:
             log.info("Cloud auto-poll imported %d card(s) to local database.", batch_res.processed)
     except CloudQueueNotConfiguredError:
         log.debug("Cloud queue not configured; skipping auto-poll.")
-        return
+        summary.update(status="not_configured", message="Cloud queue is not configured.")
+        return summary
     except QueueError as q_err:
         log.warning("Cloud queue auto-poll error: %s", q_err)
+        summary.update(status="error", message=f"Cloud queue error: {q_err}")
     except Exception as exc:
         log.debug("Cloud auto-poll exception: %s", exc)
+        summary.update(status="error", message=f"Cloud queue sync failed: {exc}")
 
     # Step 2: Sync Anki stats to cloud (gracefully skips if Anki is closed)
     try:
-        await sync_anki_stats_to_cloud(adapter=adapter)
+        summary["anki_stats_synced"] = await sync_anki_stats_to_cloud(adapter=adapter, sync_mirror=False)
     except Exception as exc:
         log.debug("Background Anki stats sync skipped or failed: %s", exc)
 
     # Step 3: Mirror Anki cards and status (leeches, lapses, state, new cards) to cloud
     try:
         mirror_res = await sync_anki_mirror(adapter, full=False)
+        summary["anki_mirror_status"] = mirror_res.status
         if mirror_res.status == "ok":
             log.info(
                 "Anki mirror sync: seen=%d, changed=%d, pushed=%d, daily=%d",
@@ -181,14 +208,24 @@ async def _execute_cloud_poll_cycle() -> None:
         else:
             log.debug("Anki mirror sync status: %s (%s)", mirror_res.status, mirror_res.message)
     except Exception as exc:
+        summary["anki_mirror_status"] = "error"
         log.debug("Background Anki card mirror sync skipped or failed: %s", exc)
 
+    if summary["status"] == "ok":
+        if summary["processed"]:
+            summary["message"] = f"Imported {summary['processed']} new card(s) from cloud queue."
+        elif summary["anki_mirror_status"] == "offline":
+            summary["message"] = "No new cloud cards; Anki is offline."
+        else:
+            summary["message"] = "Sync complete; cloud queue is up to date."
+    return summary
 
-async def _cloud_auto_poll_task(interval_seconds: float = 900.0) -> None:
+
+async def _cloud_auto_poll_task(interval_seconds: float = CLOUD_AUTO_POLL_INTERVAL_SECONDS) -> None:
     """
     Background worker loop:
     Waits 5 seconds after startup for backend socket binding, then performs an initial poll.
-    Thereafter, polls every interval_seconds (default 15 minutes / 900s) until cancelled.
+    Thereafter, polls every interval_seconds (default 2.5 minutes / 150s) until cancelled.
     """
     try:
         await asyncio.sleep(5.0)
@@ -208,8 +245,10 @@ async def lifespan(app: FastAPI):
     if pm.is_installed():
         pm.start(wait_for_health=False)
 
-    # Start 15-minute background cloud auto-poll task (900 seconds)
-    poll_task = asyncio.create_task(_cloud_auto_poll_task(interval_seconds=900.0))
+    # Start background cloud queue, stats, and card mirror sync every 2.5 minutes.
+    poll_task = asyncio.create_task(
+        _cloud_auto_poll_task(interval_seconds=CLOUD_AUTO_POLL_INTERVAL_SECONDS)
+    )
 
     yield
 
@@ -992,73 +1031,10 @@ def ask_llm(request: LLMRequest) -> LLMResponse:
 @app.post("/api/cloud/pull")
 async def pull_cloud_queue() -> JSONResponse:
     """
-    Check and drain pending cards from the cloud queue into local SQLite.
-    Does NOT automatically sync to Anki (leaves sync_status='pending' for manual review).
-    Also synchronizes current Anki study statistics to cloud queue if Anki is open.
+    Run the same best-effort queue, Anki stats, and card mirror sync as the background poller.
+    Newly pulled cloud cards remain local and pending; they are not automatically sent to Anki.
     """
-    _setup_cloud_queue_path()
-
-    try:
-        from worker import process_batch, sync_anki_stats_to_cloud
-        from queue_adapter import CloudQueueNotConfiguredError, QueueError
-    except ImportError as e:
-        return JSONResponse({
-            "status": "error",
-            "fetched": 0,
-            "processed": 0,
-            "duplicates": 0,
-            "failed": 0,
-            "message": f"Cloud queue module unavailable: {e}",
-        })
-
-    # Opportunistically sync latest Anki stats
-    try:
-        await sync_anki_stats_to_cloud()
-    except Exception as exc:
-        log.debug("Manual check Anki stats sync skipped or failed: %s", exc)
-
-    try:
-        result = await process_batch(auto_sync=False)
-        return JSONResponse({
-            "status": "ok",
-            "fetched": result.total_fetched,
-            "processed": result.processed,
-            "duplicates": result.duplicates,
-            "failed": result.failed,
-            "skipped_offline": result.skipped_offline,
-            "message": (
-                f"Imported {result.processed} new card(s) from cloud queue."
-                if result.processed > 0
-                else ("No new cards in cloud queue." if not result.skipped_offline else "Kiroku backend offline check.")
-            ),
-        })
-    except CloudQueueNotConfiguredError:
-        return JSONResponse({
-            "status": "not_configured",
-            "fetched": 0,
-            "processed": 0,
-            "duplicates": 0,
-            "failed": 0,
-            "message": "Cloud queue is not configured (check kiroku_cloud_queue/.env).",
-        })
-    except QueueError as e:
-        return JSONResponse({
-            "status": "error",
-            "fetched": 0,
-            "processed": 0,
-            "duplicates": 0,
-            "failed": 0,
-            "message": f"Cloud queue error: {e}",
-        })
-    except Exception as e:
-        return JSONResponse({
-            "status": "error",
-            "fetched": 0,
-            "processed": 0,
-            "duplicates": 0,
-            "failed": 0,
-            "message": f"Failed to pull cloud queue: {e}",
-        })
+    return JSONResponse(await _execute_cloud_poll_cycle())
 
 
 @app.get("/dashboard")
