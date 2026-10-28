@@ -1283,4 +1283,21 @@ class TestStage5MediaAndPreviewPresentationCompatibility:
             req = mock_open.call_args[0][0]
             assert req.headers.get("Origin") == "http://localhost"
 
+    def test_stale_preview_override_discarded_when_entries_present(self):
+        service = AnkiConnectService()
+        card = {
+            "expression": "急行",
+            "reading": "きゅうこう",
+            "meaning": "1. express (train)\n2. rushing",
+            "entries": [{"dictionary": "Jitendex", "senses": [{"glosses": ["express (train)"]}]}],
+            "card_settings": {
+                "preview_presentation": {
+                    "back": {"text": {"meaning": "I can tell you\nheh"}}
+                }
+            },
+        }
+        fields = service.map_card_to_fields(card, ["Front", "Back"])
+        assert "I can tell you" not in fields["Back"]
+        assert "express (train)" in fields["Back"]
+
 

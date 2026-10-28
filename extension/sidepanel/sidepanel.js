@@ -1998,7 +1998,7 @@ function getPreviewContextKey() {
 
 function ensurePreviewContext() {
   const contextKey = getPreviewContextKey();
-  if (previewContextKey && contextKey !== previewContextKey && !isPreviewEditing) {
+  if (previewContextKey && contextKey !== previewContextKey) {
     currentPreviewPresentation = emptyPreviewPresentation();
     isPreviewEditing = false;
     updatePreviewEditButton();
@@ -4512,6 +4512,7 @@ async function identify(text) {
       cardEditor.hidden = false;
       if (fieldCardId) fieldCardId.value = body.id || "";
       const isDraftOrNew = !body.id || body.status === "draft";
+      restorePreviewPresentation(body.card_settings?.preview_presentation || null);
       if (fieldDeckSelect && body.deck_name && !isDraftOrNew) {
         fieldDeckSelect.value = body.deck_name;
       }
@@ -5046,6 +5047,10 @@ async function saveCard() {
 
     if (typeof fieldCardId !== "undefined" && fieldCardId) fieldCardId.value = body.id || "";
     previewContextKey = getPreviewContextKey();
+    if (isPreviewEditing) {
+      isPreviewEditing = false;
+      updatePreviewEditButton();
+    }
     if (body.model_name && typeof fieldModelSelect !== "undefined" && fieldModelSelect) {
       fieldModelSelect.value = body.model_name;
       if (typeof fieldModelName !== "undefined" && fieldModelName) fieldModelName.value = body.model_name;
@@ -7878,6 +7883,7 @@ function selectQuickAddCandidate(candidate, candidateElement, preferredFront = n
     updateQuickAddClearBtn();
   }
   clearQuickAddSuggestions();
+  restorePreviewPresentation(null);
   if (typeof lastCaptureSource !== "undefined") {
     lastCaptureSource = {
       tabId: null,

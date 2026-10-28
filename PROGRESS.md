@@ -1,5 +1,35 @@
 # Kiroku Note — Progress
 
+### Quick Add Preview State Leak & Anki Meaning Corruption Resolution (2026-10-28)
+
+**Objective**: Resolve the critical bug where multiple cards saved via Quick Add and synced to Anki received the identical definition `"I can tell you\nheh"`, fix the root causes in the extension and backend, and safely restore the affected cards in the user's Anki deck and local SQLite database without altering card review scheduling or intervals.
+
+**Root Cause**:
+- **Extension Preview State Bleed (`sidepanel.js`)**: When particle `ぜ` (whose Jitendex meaning is *"I can tell you / heh / used by males"*) was loaded/edited in the sidepanel, `currentPreviewPresentation.back.text.meaning` was populated with `"I can tell you\nheh"`. In `ensurePreviewContext()`, the guard `if (previewContextKey && contextKey !== previewContextKey && !isPreviewEditing)` bypassed clearing `currentPreviewPresentation` whenever `isPreviewEditing` was true. Furthermore, neither `selectQuickAddCandidate()` nor `identify()` reset `currentPreviewPresentation`. The override became permanently sticky in memory across subsequent cards during the session.
+- **Backend Anki Field Mapping Override (`anki_connect.py`)**: During `sync-all`, `map_card_to_fields` unconditionally prioritized `back_text.get("meaning")` over the card's true dictionary meaning and forced `entries = []` whenever `"meaning"` existed in `back_text`, discarding rich dictionary senses and writing `"I can tell you\nheh"` into the Anki `Back` HTML.
+
+**Delivered**:
+- **Extension Fix (`extension/sidepanel/sidepanel.js`)**:
+  - Removed `!isPreviewEditing` check from `ensurePreviewContext()`, guaranteeing that switching card contexts (expression or ID) always resets `currentPreviewPresentation` and exits preview edit mode.
+  - Added explicit `restorePreviewPresentation(null)` in `selectQuickAddCandidate()` so Quick Add candidate selections always start with fresh preview state.
+  - Added `restorePreviewPresentation(body.card_settings?.preview_presentation || null)` in `identify()`.
+  - Added preview edit mode deactivation upon successful `saveCard()`.
+- **Backend Defense-in-Depth (`backend/app/services/anki_connect.py`)**:
+  - Added validation in `map_card_to_fields` to detect and discard stale cross-card text overrides if structured `entries` are present and the override contradicts the card's canonical meaning.
+  - Added regression test `test_stale_preview_override_discarded_when_entries_present` in `backend/tests/test_anki_connect.py`.
+- **Data & Anki Repair**:
+  - Cleaned 131 affected cards in `%LOCALAPPDATA%\KirokuNote\data\kiroku.db` by removing stale `preview_presentation.back.text.meaning` overrides (preserving legitimate particle `ぜ`).
+  - Repaired 127 notes in the user's live Anki deck via AnkiConnect `updateNoteFields`, regenerating full dictionary definitions, readings, example sentences with ruby furigana, and kanji stroke order cards.
+  - Verified 100% card scheduling preservation: all 25 young/review cards retained their exact intervals, reps, and review state; all 103 new cards remained in the new queue. Zero scheduling discrepancies.
+
+**Verification**:
+- `python -m pytest tests/test_anki_connect.py tests/test_anki_formatter.py`: 97 passed in 1.15s.
+- `node -c extension/sidepanel/sidepanel.js`: passed with zero syntax errors.
+- Live Anki inspection: Note 1792608874837 (`急行`) and others verified directly via AnkiConnect `notesInfo`, confirming correct definitions and kanji stroke cards.
+- Live Anki query `findNotes(query='"I can tell you"')`: exactly 1 note remains (`ぜ`), down from 128 notes.
+
+---
+
 ### Cloud Dashboard Study Insights & Streak Fix (2026-10-21)
 
 **Objective**: Make the cloud Stats view easier to interpret, show useful study-pattern data from AnkiConnect, and fix the zero-day streak display without rebuilding the local backend.

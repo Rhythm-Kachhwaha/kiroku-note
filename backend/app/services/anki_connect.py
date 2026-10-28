@@ -536,6 +536,20 @@ class AnkiConnectService:
         back_text = back_presentation.get("text", {})
         front_text = front_text if isinstance(front_text, dict) else {}
         back_text = back_text if isinstance(back_text, dict) else {}
+
+        # Defense-in-depth: Discard stale cross-card text overrides if entries exist and override contradicts canonical card data
+        if back_text and "meaning" in back_text:
+            override_m = str(back_text["meaning"]).strip()
+            canonical_m = str(meaning or "").strip()
+            if canonical_m and override_m and override_m != canonical_m and entries:
+                back_text = {k: v for k, v in back_text.items() if k != "meaning"}
+
+        if back_text and "reading" in back_text:
+            override_r = str(back_text["reading"]).strip()
+            canonical_r = str(reading or "").strip()
+            if canonical_r and override_r and override_r != canonical_r and entries:
+                back_text = {k: v for k, v in back_text.items() if k != "reading"}
+
         expression_override = front_text.get("expression")
         front_reading = str(front_text.get("reading", reading))
         back_reading = str(back_text.get("reading", reading))
