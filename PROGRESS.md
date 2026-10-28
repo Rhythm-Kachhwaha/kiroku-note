@@ -1,5 +1,23 @@
 # Kiroku Note — Progress
 
+### Full Release Build (Executable, Extension, Installer) (2026-10-28)
+
+**Objective**: Build and package the production standalone executable, browser extension bundle, and Inno Setup Windows installer.
+
+**Delivered**:
+- Executed [buildsetup.py](file:///d:/Python/AnkiMiner/buildsetup.py) successfully across all 5 build stages:
+  1. Pre-flight sanity checks & audit passed (clean build tree, zero credential leaks, all extension assets verified).
+  2. Staged runtime assets.
+  3. Standalone backend compilation via PyInstaller completed in 110.3s; verified `KirokuNote.exe --version` (`Kiroku Note v2.1.0`).
+  4. Browser extension packaged to ZIP (`KirokuNote-extension-v2.1.0.zip`, 207.1 KB).
+  5. Windows Inno Setup installer compiled to [Kiroku-Note-Setup-v2.1.0.exe](file:///d:/Python/AnkiMiner/dist/installer/Kiroku-Note-Setup-v2.1.0.exe) (85.81 MB).
+
+**Verification**:
+- `KirokuNote.exe --version` smoke test: passed.
+- Output binary and installer existence, sizes, and SHA256 checksums verified.
+
+---
+
 ### Quick Add Preview State Leak & Anki Meaning Corruption Resolution (2026-10-28)
 
 **Objective**: Resolve the critical bug where multiple cards saved via Quick Add and synced to Anki received the identical definition `"I can tell you\nheh"`, fix the root causes in the extension and backend, and safely restore the affected cards in the user's Anki deck and local SQLite database without altering card review scheduling or intervals.
