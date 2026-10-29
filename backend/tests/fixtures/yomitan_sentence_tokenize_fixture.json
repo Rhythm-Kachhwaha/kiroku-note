@@ -2629,5 +2629,402 @@
     "tokenize_ms": 6.6410999970685225,
     "termEntries_ms": 7.121099999494618
   },
-  "notes": "Captured from live Yomitan."
+  "notes": "Captured from live Yomitan.",
+  "rawTokenizeResponse": [
+    {
+      "content": [
+        [
+          {
+            "text": "昨日",
+            "reading": "きのう",
+            "headwords": [
+              [
+                {
+                  "term": "昨日",
+                  "reading": "きのう",
+                  "sources": [
+                    {
+                      "originalText": "昨日",
+                      "deinflectedText": "昨日",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "昨日",
+                  "reading": "さくじつ",
+                  "sources": [
+                    {
+                      "originalText": "昨日",
+                      "deinflectedText": "昨日",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                }
+              ]
+            ]
+          },
+          {
+            "text": "彼",
+            "reading": "かれ",
+            "headwords": [
+              [
+                {
+                  "term": "彼",
+                  "reading": "かれ",
+                  "sources": [
+                    {
+                      "originalText": "彼",
+                      "deinflectedText": "彼",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "彼",
+                  "reading": "かの",
+                  "sources": [
+                    {
+                      "originalText": "彼",
+                      "deinflectedText": "彼",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "彼",
+                  "reading": "あれ",
+                  "sources": [
+                    {
+                      "originalText": "彼",
+                      "deinflectedText": "彼",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                }
+              ]
+            ]
+          },
+          {
+            "text": "に",
+            "reading": "",
+            "headwords": [
+              [
+                {
+                  "term": "に",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "二",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "荷",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "２",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "弐",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "弍",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "貮",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "丹",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "似",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "土",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "尼",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "煮",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "貳",
+                  "reading": "に",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "に",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "似る",
+                  "reading": "にる",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "にる",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "煮る",
+                  "reading": "にる",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "にる",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "烹る",
+                  "reading": "にる",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "にる",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                },
+                {
+                  "term": "ニ",
+                  "reading": "ニ",
+                  "sources": [
+                    {
+                      "originalText": "に",
+                      "deinflectedText": "ニ",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                }
+              ]
+            ]
+          },
+          {
+            "text": "無理",
+            "reading": "むり",
+            "headwords": [
+              [
+                {
+                  "term": "無理やり",
+                  "reading": "むりやり",
+                  "sources": [
+                    {
+                      "originalText": "無理やり",
+                      "deinflectedText": "無理やり",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                }
+              ]
+            ]
+          },
+          {
+            "text": "やり",
+            "reading": "",
+            "headwords": [
+              []
+            ]
+          },
+          {
+            "text": "納豆",
+            "reading": "なっとう",
+            "headwords": [
+              [
+                {
+                  "term": "納豆",
+                  "reading": "なっとう",
+                  "sources": [
+                    {
+                      "originalText": "納豆",
+                      "deinflectedText": "納豆",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                }
+              ]
+            ]
+          },
+          {
+            "text": "を",
+            "reading": "",
+            "headwords": [
+              [
+                {
+                  "term": "を",
+                  "reading": "を",
+                  "sources": [
+                    {
+                      "originalText": "を",
+                      "deinflectedText": "を",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                }
+              ]
+            ]
+          },
+          {
+            "text": "食",
+            "reading": "た",
+            "headwords": [
+              [
+                {
+                  "term": "食べる",
+                  "reading": "たべる",
+                  "sources": [
+                    {
+                      "originalText": "食べさせられなかった",
+                      "deinflectedText": "食べる",
+                      "inflectionRuleChainCandidates": []
+                    }
+                  ],
+                  "inflectionRuleChainCandidates": []
+                }
+              ]
+            ]
+          },
+          {
+            "text": "べさせられなかった",
+            "reading": "",
+            "headwords": [
+              []
+            ]
+          },
+          {
+            "text": "。",
+            "reading": "",
+            "headwords": [
+              []
+            ]
+          }
+        ]
+      ]
+    }
+  ]
 }

@@ -15,6 +15,11 @@
 
 ### Task 2 — Yomitan Contract Spike & Empirical Fixtures (2026-10-29)
 
+**Review follow-up**:
+- Preserved a canonical raw `/tokenize` response subset in the fixture and
+  changed the contract test to pass that nested `content`/`headwords`/
+  `sources` shape directly through the normalizer.
+
 **Delivered**:
 - Added `tools\spike_yomitan_contract.py`, which probes `POST /tokenize` with
   `scanLength: 128` and `parser: scanning-parser`, then probes

@@ -30,12 +30,24 @@ class YomitanSentenceContractTests(unittest.TestCase):
 
     def test_normalizer_preserves_all_tokens_and_source_fields(self):
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
-        raw_tokens = []
-        for token in fixture["tokens"]:
-            raw_token = dict(token)
-            raw_token["headwords"] = [token["headwords"]]
-            raw_tokens.append(raw_token)
-        raw = [{"content": [raw_tokens]}]
+        raw = fixture["rawTokenizeResponse"]
+        self.assertIsInstance(raw[0]["content"], list)
+        raw_token = next(
+            token for token in raw[0]["content"][0]
+            if any(
+                source["originalText"] == "食べさせられなかった"
+                for group in token["headwords"]
+                for headword in group
+                for source in headword["sources"]
+            )
+        )
+        self.assertIsInstance(raw_token["headwords"], list)
+        self.assertIsInstance(raw_token["headwords"][0], list)
+        self.assertEqual("食べる", raw_token["headwords"][0][0]["term"])
+        self.assertEqual(
+            "食べさせられなかった",
+            raw_token["headwords"][0][0]["sources"][0]["originalText"],
+        )
         normalized = YomitanService.normalize_tokenize_tokens(raw)
         self.assertEqual([token["text"] for token in normalized], [token["text"] for token in fixture["tokens"]])
         token = next(token for token in normalized if token["text"] == "食")
