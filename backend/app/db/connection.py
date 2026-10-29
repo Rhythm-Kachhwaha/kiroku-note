@@ -50,6 +50,14 @@ CREATE TABLE IF NOT EXISTS known_words (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_known_words_created ON known_words (created_at);
+CREATE TABLE IF NOT EXISTS grammar_cache (
+    sentence_hash TEXT NOT NULL,
+    index_version TEXT NOT NULL,
+    grammar_dict_hash TEXT NOT NULL,
+    response_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (sentence_hash, index_version, grammar_dict_hash)
+);
 """
 
 

@@ -1,5 +1,21 @@
 # Kiroku Note — Progress
 
+### Task 5 — DictionaryProvider Seam & Grammar Service (2026-10-29)
+
+**Delivered**:
+- Added sentence tokenization/term-entry seams to both dictionary providers,
+  including Yomitan's 128-character inflection-preserving tokenization and
+  grammar probe terms.
+- Added `GrammarService` orchestration with one-token suppression, offline
+  literal fallback, learner JLPT filtering, setup diagnostics, and SQLite
+  response caching.
+- Added grammar schemas and registered `POST /api/grammar/analyze` and
+  `POST /api/grammar/setup-check`.
+
+**Verification**:
+- `PYTHONPATH=.;backend pytest -q backend/tests/test_grammar_service.py backend/tests/test_grammar_routes.py`
+  (4 passed).
+
 ### Task 4 — Grammar Matcher (2026-10-29)
 
 **Delivered**:
