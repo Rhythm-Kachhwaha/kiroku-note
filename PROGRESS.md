@@ -62,6 +62,16 @@
 - Focused acceptance/UI set (`video-card-collapse`, `grammar-settings`,
   `sidepanel-subtitles-ui`, `video-tab-declutter-dom`) — 21 passed.
 
+### Task 14 — Video Grammar Settings Invalidation Coverage (2026-10-29)
+
+**Delivered**:
+- Added executable focused coverage for both grammar settings that disable the
+  video strip, proving a pending analysis response cannot render after either
+  setting is turned off.
+
+**Verification**:
+- `node --test extension\\tests\\video-card-collapse.test.js`
+
 ### Tasks 6/9/10 Combined Batch — Review Fixes (2026-10-29)
 
 **Delivered**:

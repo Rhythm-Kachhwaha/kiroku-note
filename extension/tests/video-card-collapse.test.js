@@ -289,6 +289,12 @@ async function createSidepanelSandbox(customFetch = null, initialStorage = {}) {
 
   const previewEl = new MockElement("div", "video-current-cue-preview", "video-cue-preview video-sub-text waiting active-sub-size-large", doc);
   const settingVideoCollapseMode = new MockElement("select", "setting-video-collapse-mode", "settings-select", doc);
+  const settingGrammarEnabled = new MockElement("input", "setting-grammar-enabled", "settings-checkbox", doc);
+  settingGrammarEnabled.type = "checkbox";
+  settingGrammarEnabled.checked = true;
+  const settingGrammarVideoStrip = new MockElement("input", "setting-grammar-video-strip", "settings-checkbox", doc);
+  settingGrammarVideoStrip.type = "checkbox";
+  settingGrammarVideoStrip.checked = true;
   const grammarSlot = new MockElement("div", "active-sub-grammar-slot", "", doc);
   const grammarSessionList = new MockElement("div", "video-grammar-session-list", "", doc);
   const grammarSessionCount = new MockElement("span", "video-grammar-session-count", "", doc);
@@ -323,6 +329,8 @@ async function createSidepanelSandbox(customFetch = null, initialStorage = {}) {
     "history-section": historySection,
     "video-current-cue-preview": previewEl,
     "setting-video-collapse-mode": settingVideoCollapseMode,
+    "setting-grammar-enabled": settingGrammarEnabled,
+    "setting-grammar-video-strip": settingGrammarVideoStrip,
     "active-sub-grammar-slot": grammarSlot,
     "video-grammar-session-list": grammarSessionList,
     "video-grammar-session-count": grammarSessionCount,
@@ -625,6 +633,35 @@ test("Extension regression: clearing the active cue invalidates pending video gr
   await new Promise(resolve => setTimeout(resolve, 10));
   assert.equal(domElements["active-sub-grammar-slot"].textContent, "");
 });
+
+for (const settingId of ["setting-grammar-enabled", "setting-grammar-video-strip"]) {
+  test(`Extension regression: disabling ${settingId} invalidates pending video grammar`, async () => {
+    let resolvePending;
+    const { domElements, messageListeners } = await createSidepanelSandbox(async (url) => {
+      if (!url.includes("/api/grammar/analyze")) return { ok: false, json: async () => ({}) };
+      return new Promise(resolve => {
+        resolvePending = () => resolve({ ok: true, json: async () => ({ matches: [{ pattern_display: "STALE" }] }) });
+      });
+    });
+
+    messageListeners[0]({
+      type: "SUBTITLE_CUE_CHANGED",
+      cue: { text: "設定で無効になる", startMs: 1000 }
+    }, {}, () => {});
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.match(domElements["active-sub-grammar-slot"].textContent, /Checking grammar/);
+
+    const setting = domElements[settingId];
+    setting.checked = false;
+    setting.dispatchEvent({ type: "change", target: setting });
+    assert.equal(domElements["active-sub-grammar-slot"].textContent, "");
+
+    resolvePending();
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(domElements["active-sub-grammar-slot"].textContent, "");
+    assert.doesNotMatch(domElements["active-sub-grammar-slot"].textContent, /STALE/);
+  });
+}
 
 test("Video Card Collapse: Auto-collapse triggers after 5 seconds of inactivity on Video tab", async () => {
   const { sidepanel, cardEditorSection, videoCollapsedCardChip } = await createSidepanelSandbox();
