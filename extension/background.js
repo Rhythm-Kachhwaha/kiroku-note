@@ -244,6 +244,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "ANALYZE_GRAMMAR_SELECTION") {
+    if (!message.__forwarded) {
+      chrome.runtime.sendMessage({ ...message, __forwarded: true }).catch(() => {});
+    }
+    sendResponse({ ok: true });
+    return true;
+  }
+
   if (message?.type === "LOAD_SUBTITLE_CUES" || message?.type === "CLEAR_SUBTITLES" || message?.type === "SET_SUBTITLE_OFFSET" || message?.type === "SELECT_YOUTUBE_TRACK" || message?.type === "UPDATE_ANNOTATED_CUES") {
     if (message?.type === "LOAD_SUBTITLE_CUES" && Array.isArray(message.cues)) {
       try {
@@ -365,4 +373,3 @@ if (typeof module !== "undefined" && module.exports) {
     handleUserInitiatedCapture,
   };
 }
-

@@ -4634,3 +4634,12 @@ New major features should generally be deferred unless they are necessary for th
   - Backend test verification passed (`python -m pytest backend/tests/test_anki_formatter.py`).
   - Inno Setup compiler exited cleanly with 0 errors.
 - **Scope Control:** Zero application source code modifications made.
+
+### Grammar Capture and Breakdown Extension Batch
+
+- **Date:** 2026-10-29
+- **Status:** Complete
+- **Delivered:** Alt+G sentence capture, whole-sentence OCR routing (single-word OCR remains on the existing identify path), Text grammar breakdown, Video active-subtitle grammar chips with ahead cache and session drawer, persisted grammar settings/setup diagnostics, and grammar dictionary documentation.
+- **Files:** `extension/content/content.js`, `extension/background.js`, `extension/sidepanel/sidepanel.{html,js,css}`, focused extension tests, and `docs/grammar-dictionaries.md`.
+- **Verification:** `node --test extension/tests/capture-word-regression.test.js extension/tests/text-grammar-breakdown.test.js extension/tests/video-grammar-strip.test.js extension/tests/grammar-settings.test.js` (5 passed); Node syntax checks passed for modified JavaScript.
+- **Remaining Risk:** Browser-side manual smoke testing and backend live setup diagnostics were not run; grammar UI intentionally uses existing backend endpoints and does not implement grammar cards or tracking.

@@ -22,6 +22,23 @@
     return typeof KirokuCapture !== "undefined" ? KirokuCapture : AnkiMinerCapture;
   }
 
+  function selectedSentence(text) {
+    const value = String(text || "").trim();
+    if (!value) return "";
+    return value.split(/[。！？!?]/u)[0].trim() || value;
+  }
+
+  function dispatchGrammarSelection() {
+    const captureUtils = getCaptureUtils();
+    const text = captureUtils.selectedText(window.getSelection());
+    if (!text || !captureUtils.containsJapanese(text)) return;
+    chrome.runtime.sendMessage({
+      type: "ANALYZE_GRAMMAR_SELECTION",
+      sentence: selectedSentence(text),
+      selection: text
+    }).catch(() => {});
+  }
+
   async function captureSelection() {
     const captureUtils = getCaptureUtils();
     const text = captureUtils.selectedText(window.getSelection());
@@ -75,6 +92,14 @@
         if (!isEditable) {
           event.preventDefault();
           chrome.runtime.sendMessage({ type: "START_OCR_CAPTURE" }).catch(() => {});
+        }
+        if (event.altKey && (event.key.toLowerCase() === "g" || event.code === "KeyG")) {
+          const activeEl = document.activeElement;
+          const isEditable = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable);
+          if (!isEditable) {
+            event.preventDefault();
+            dispatchGrammarSelection();
+          }
         }
       }
     }, true);
