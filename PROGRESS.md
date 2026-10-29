@@ -1,5 +1,22 @@
 # Kiroku Note — Progress
 
+### Task 4 — Grammar Matcher (2026-10-29)
+
+**Delivered**:
+- Added the dependency-free `GrammarMatcher` and `MatchedGrammarSpan` result
+  contract, backed by `GrammarReferenceService`.
+- Covered canonical and contracted formations (`てしまう`, `なければならない`,
+  `ておく`), discontinuous clause-local patterns, `そうだ` ambiguity
+  confidence, derived formation explanations, longest-span precedence, compound
+  particles, and optional bare-particle matching.
+- Added 48 focused sentence/fixture tests in
+  `backend/tests/test_grammar_matcher.py`. No `GrammarService`, API, or UI
+  changes were made.
+
+**Verification**:
+- `Set-Location backend; python -m pytest tests\test_grammar_matcher.py -q`
+  (48 passed).
+
 ### Task 3 — Bundled Grammar Reference Index (2026-10-29)
 
 **Task 3 review fix**:
