@@ -6,6 +6,7 @@
 - Routed note Markdown through `convert_markdown_to_anki_html()` for generated Basic-card backs and dedicated Anki note fields, preserving existing plain-note output while escaping untrusted markup once.
 - Added a safe Markdown subset renderer to the live card preview so note emphasis/code and line breaks remain visible without allowing HTML injection.
 - Reworked Ask-tab tests to execute `condenseNotes()` and both composer insertion actions with a minimal VM DOM/event harness.
+- Updated `extension/tests/card-preview.test.js` with a rich mock DOM that executes the production `innerHTML`/`insertAdjacentHTML` notes path and verifies Markdown formatting plus hostile markup escaping.
 
 **Verification**:
 - `python -m pytest tests\test_anki_notes_markdown_converter.py tests\test_anki_formatter.py tests\test_anki_connect.py -q` from `backend`: 99 passed; 1 environment failure in an unrelated app-import test because `kiroku_dictionary` is unavailable on the direct test path.

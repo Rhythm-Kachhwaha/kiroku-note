@@ -65,6 +65,8 @@ function createMockElement(tag = "div") {
     style: {},
     children: [],
     _listeners: {},
+    innerHTML: "",
+    _insertAdjacentHTMLCalls: [],
     classList: {
       _classes: new Set(),
       add(c) { this._classes.add(c); },
@@ -111,6 +113,46 @@ function createMockElement(tag = "div") {
     },
     getAttribute(name) {
       return this[name] || null;
+    },
+    insertAdjacentHTML(position, markup) {
+      this._insertAdjacentHTMLCalls.push({ position, markup });
+      this.innerHTML += markup;
+
+      // Minimal HTML parser for the rich notes branch. Escaped hostile markup
+      // remains a text node, while the supported formatting tags become nodes.
+      const stack = [this];
+      const decodeEntities = value => value
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, "&");
+      const appendText = value => {
+        if (value) stack[stack.length - 1].append(createTextNode(decodeEntities(value)));
+      };
+      const tokens = String(markup).split(/(<[^>]+>)/g);
+      for (const token of tokens) {
+        if (!token) continue;
+        const close = token.match(/^<\/(strong|em|code)>$/i);
+        if (close) {
+          if (stack.length > 1) stack.pop();
+          continue;
+        }
+        const open = token.match(/^<(strong|em|code)(?:\s[^>]*)?>$/i);
+        if (open) {
+          const child = createMockElement(open[1].toLowerCase());
+          const classMatch = token.match(/\bclass="([^"]+)"/i);
+          if (classMatch) child.className = classMatch[1];
+          stack[stack.length - 1].append(child);
+          stack.push(child);
+          continue;
+        }
+        if (/^<br\s*\/?>$/i.test(token)) {
+          stack[stack.length - 1].append(createMockElement("br"));
+          continue;
+        }
+        appendText(token);
+      }
     },
   };
 
@@ -399,6 +441,7 @@ const backHint = mockCardPreviewCard.children.find(c => c.className === "kn-hint
 assert.equal(backHint.textContent, "Hint: polysemous");
 const backNotes = mockCardPreviewCard.children.find(c => c.className === "kn-notes");
 assert.equal(backNotes.textContent, "Notes: polite: かけます");
+assert.equal(backNotes._insertAdjacentHTMLCalls.length, 1, "Notes must use the rich Markdown HTML insertion branch");
 
 // Verify media
 const mediaDiv = mockCardPreviewCard.children.find(c => c.className === "kn-media");
@@ -411,6 +454,25 @@ assert.ok(audEl, ".kn-audio-preview element must exist");
 assert.equal(audEl.src, "http://127.0.0.1:21828/api/media/kakeru.mp3");
 
 console.log("PASS 6: Back preview renders complete semantic hierarchy with ruby, badges, and media.");
+
+// Test 4b: Notes Markdown formatting is rendered, while hostile markup is escaped.
+const markdownNotesData = {
+  expression: "書く",
+  meaning: "to write",
+  notes: "**bold** *italic* `code` <img src=x onerror=alert(1)> <script>alert('x')</script>\nnext",
+};
+renderCardPreviewDOM(mockCardPreviewCard, markdownNotesData, "back");
+const markdownNotes = mockCardPreviewCard.children.find(c => c.className === "kn-notes");
+assert.equal(markdownNotes._insertAdjacentHTMLCalls.length, 1, "Markdown notes must be inserted as HTML");
+assert.ok(findAll(markdownNotes, c => c.tagName === "STRONG").length === 1, "Bold Markdown must render as <strong>");
+assert.ok(findAll(markdownNotes, c => c.tagName === "EM").length === 1, "Italic Markdown must render as <em>");
+assert.ok(findAll(markdownNotes, c => c.tagName === "CODE").length === 1, "Code Markdown must render as <code>");
+assert.equal(findAll(markdownNotes, c => c.tagName === "BR").length, 1, "Newlines must render as <br>");
+assert.equal(findAll(markdownNotes, c => c.tagName === "SCRIPT").length, 0, "Hostile script markup must not create a script element");
+assert.equal(findAll(markdownNotes, c => c.tagName === "IMG").length, 0, "Hostile image markup must not create an image element");
+assert.ok(markdownNotes.textContent.includes("<script>alert('x')</script>"), "Escaped hostile markup must remain visible as text");
+assert.ok(markdownNotes.textContent.includes("<img src=x onerror=alert(1)>"), "Escaped hostile attributes must remain visible as text");
+console.log("PASS 6B: Notes Markdown formatting renders and hostile markup remains escaped.");
 
 // Test 5: Tab switching (Front / Back toggle)
 setPreviewSide("front");
