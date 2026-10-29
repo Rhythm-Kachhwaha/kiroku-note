@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import re
 import sqlite3
 from typing import Any
 
@@ -74,16 +75,79 @@ class GrammarService:
         except sqlite3.DatabaseError:
             pass
 
-    def analyze(self, sentence: str, learner_level: str | None = None) -> dict[str, Any]:
+    def _dictionary_notes(
+        self, points: list[dict[str, Any]], dictionary_name: str | None
+    ) -> None:
+        if not dictionary_name:
+            return
+        try:
+            if not self.provider.check_availability():
+                return
+        except Exception:
+            return
+        seen: set[str] = set()
+        for point in points[:5]:
+            key = point.get("pattern_key")
+            if not isinstance(key, str) or key in seen:
+                continue
+            seen.add(key)
+            try:
+                entries = self.provider.scan_term_entries(point.get("text", ""))
+            except Exception:
+                continue
+            notes: list[dict[str, str]] = []
+            for entry in entries if isinstance(entries, list) else []:
+                if not isinstance(entry, dict):
+                    continue
+                entry_dictionary = str(entry.get("dictionary", "")).strip()
+                definitions = entry.get("definitions", [])
+                if entry_dictionary and entry_dictionary != dictionary_name:
+                    continue
+                candidates = definitions if isinstance(definitions, list) else [entry]
+                for definition in candidates:
+                    if not isinstance(definition, dict):
+                        continue
+                    text = definition.get("glosses") or definition.get("definition") or definition.get("content")
+                    if isinstance(text, list):
+                        text = "; ".join(str(item) for item in text if isinstance(item, str))
+                    if not isinstance(text, str):
+                        continue
+                    text = re.sub(r"<[^>]+>", "", text).strip()
+                    if text:
+                        notes.append({"dictionary": dictionary_name, "text": text[:500]})
+                    if len(notes) >= 3:
+                        break
+                if len(notes) >= 3:
+                    break
+            if notes:
+                point["dictionary_notes"] = notes
+
+    def analyze(
+        self,
+        sentence: str,
+        learner_level: str | None = None,
+        *,
+        show_basic_particles: bool = False,
+        source: str = "text",
+        hide_known: bool = False,
+        designated_dictionary: str | None = None,
+        show_below_level: bool = True,
+    ) -> dict[str, Any]:
         sentence = sentence.strip()
         level = normalize_jlpt_level(learner_level) or get_learner_jlpt_level()
+        filter_level = level if show_below_level else "N1"
         # Dictionary discovery is deliberately kept out of the sentence path:
         # analysis is budgeted around one tokenizer request.
         # Learner filtering changes the response, so keep cache entries isolated
         # by the normalized level rather than allowing a filtered response to
         # satisfy a request for a broader level.
         dictionary_hash = hashlib.sha256(
-            f"{type(self.provider).__name__}:{level}".encode()
+            json.dumps({
+                "provider": type(self.provider).__name__, "level": level,
+                "filter_level": filter_level, "show_basic_particles": show_basic_particles,
+                "source": source, "hide_known": hide_known,
+                "designated_dictionary": designated_dictionary or "",
+            }, sort_keys=True).encode()
         ).hexdigest()
         key = self._cache_key(sentence, dictionary_hash)
         cached = self._cache_get(key)
@@ -93,8 +157,11 @@ class GrammarService:
             # out-of-scope grammar.
             points = [
                 point for point in cached.get("points", [])
-                if is_within_learner_level(point.get("level"), level)
+                if is_within_learner_level(point.get("level"), filter_level)
             ]
+            if hide_known:
+                cached_points = self._hide_known(cached)
+                points = cached_points
             return {**cached, "learner_level": level, "points": points, "cached": True}
 
         tokens: list[dict[str, Any]] = []
@@ -113,11 +180,16 @@ class GrammarService:
             or any(ch in sentence for ch in "。！？、,， \n")
             or (limited_offline and len(sentence) > 2)
         )
-        matches = self.matcher.match_sentence(tokens, sentence) if has_sentence_context else []
+        matches = self.matcher.match_sentence(
+            tokens, sentence, show_basic_particles=show_basic_particles
+        ) if has_sentence_context else []
         points = [
             item.as_dict() for item in matches
-            if is_within_learner_level(item.level, level)
+            if is_within_learner_level(item.level, filter_level)
         ]
+        if hide_known:
+            points = self._hide_known({"points": points})
+        self._dictionary_notes(points, designated_dictionary)
         response = {
             "sentence": sentence,
             "learner_level": level,
@@ -127,6 +199,23 @@ class GrammarService:
         }
         self._cache_put(key, response)
         return response
+
+    def _hide_known(self, response: dict[str, Any]) -> list[dict[str, Any]]:
+        points = response.get("points", [])
+        if not points:
+            return []
+        keys = [point.get("pattern_key") for point in points if point.get("pattern_key")]
+        try:
+            with db_session(self.db_path) as conn:
+                known = {
+                    row["pattern_key"] for row in conn.execute(
+                        f"SELECT pattern_key FROM grammar_points WHERE status IN ('known', 'ignored') "
+                        f"AND pattern_key IN ({','.join('?' for _ in keys)})", keys
+                    )
+                }
+        except sqlite3.DatabaseError:
+            known = set()
+        return [point for point in points if point.get("pattern_key") not in known]
 
     def setup_check(self) -> dict[str, Any]:
         try:

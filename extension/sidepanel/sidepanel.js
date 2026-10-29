@@ -40,7 +40,7 @@ const GRAMMAR_SETTINGS_KEY = "kiroku.grammar_settings";
 const DEFAULT_GRAMMAR_SETTINGS = {
   enabled: true, text_mode: "on-demand", video_strip: true, ahead_count: 5,
   show_below_level: true, show_basic_particles: false, card_front_style: "sentence",
-  designated_dictionary: ""
+  designated_dictionary: "", hide_known: false
 };
 let grammarSettings = { ...DEFAULT_GRAMMAR_SETTINGS };
 
@@ -59,7 +59,10 @@ async function analyzeGrammar(sentence, options = {}) {
       sentence: text,
       show_basic_particles: grammarSettings.show_basic_particles,
       designated_dictionary: grammarSettings.designated_dictionary || null,
-      source: options.source || "text"
+      source: options.source || "text",
+      learner_level: typeof currentJlptLevel !== "undefined" ? currentJlptLevel : null,
+      hide_known: Boolean(grammarSettings.hide_known),
+      show_below_level: grammarSettings.show_below_level
     })
   });
   if (!response.ok) throw new Error(`Grammar analysis failed (${response.status})`);

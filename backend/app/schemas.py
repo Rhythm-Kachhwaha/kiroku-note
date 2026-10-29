@@ -6,6 +6,11 @@ from pydantic import BaseModel, Field, field_validator
 class GrammarAnalyzeRequest(BaseModel):
     sentence: str = Field(min_length=1, max_length=2000)
     learner_level: Optional[str] = Field(default=None, max_length=10)
+    show_basic_particles: bool = False
+    source: str = Field(default="text", max_length=30)
+    hide_known: bool = False
+    designated_dictionary: Optional[str] = Field(default=None, max_length=200)
+    show_below_level: bool = True
 
     @field_validator("sentence")
     @classmethod
@@ -28,6 +33,7 @@ class GrammarPointResponse(BaseModel):
     confidence: str = "high"
     matched_formation: Optional[str] = None
     also_possible: bool = False
+    dictionary_notes: list[dict[str, str]] = Field(default_factory=list)
 
 
 class GrammarAnalyzeResponse(BaseModel):

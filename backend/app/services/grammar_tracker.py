@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from app.db.connection import db_session, init_db
+from .grammar_reference import GrammarReferenceService
 
 
 class GrammarTrackerService:
@@ -50,17 +51,65 @@ class GrammarTrackerService:
             result = conn.execute("SELECT * FROM grammar_points WHERE pattern_key=?", (pattern_key,)).fetchone()
             return dict(result)
 
-    def get_points(self, status: str | None = None, level: str | None = None) -> list[dict[str, Any]]:
+    def get_points(
+        self, status: str | None = None, level: str | None = None,
+        search: str | None = None, limit: int = 50, offset: int = 0,
+    ) -> list[dict[str, Any]]:
         clauses, params = [], []
         if status:
             clauses.append("status = ?"); params.append(status)
         if level:
             clauses.append("level = ?"); params.append(level)
+        if search:
+            clauses.append("(pattern_key LIKE ? OR display LIKE ?)")
+            needle = f"%{search.strip()}%"
+            params.extend([needle, needle])
         where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        limit = max(1, min(int(limit), 100))
+        offset = max(0, int(offset))
         with db_session(self.db_path) as conn:
             return [dict(row) for row in conn.execute(
-                f"SELECT * FROM grammar_points{where} ORDER BY seen_count DESC, last_seen_at DESC", params
+                f"SELECT * FROM grammar_points{where} ORDER BY seen_count DESC, last_seen_at DESC "
+                f"LIMIT ? OFFSET ?", (*params, limit, offset)
             ).fetchall()]
+
+    def get_stats(self, recent_limit: int = 20) -> dict[str, Any]:
+        reference = GrammarReferenceService()
+        totals = {level: 0 for level in ("N5", "N4", "N3", "N2", "N1")}
+        for point in reference.get_points():
+            level = point.get("level")
+            if level in totals:
+                totals[level] += 1
+        with db_session(self.db_path) as conn:
+            rows = [dict(row) for row in conn.execute("SELECT * FROM grammar_points")]
+            encounters = [
+                dict(row) for row in conn.execute(
+                    "SELECT * FROM grammar_encounters ORDER BY created_at DESC LIMIT ?",
+                    (max(1, min(int(recent_limit), 100)),),
+                )
+            ]
+        counts: dict[str, dict[str, int]] = {
+            level: {"new": 0, "learning": 0, "known": 0, "ignored": 0}
+            for level in totals
+        }
+        for row in rows:
+            if row["level"] in counts and row["status"] in counts[row["level"]]:
+                counts[row["level"]][row["status"]] += 1
+        coverage = {
+            level: {"known": counts[level]["known"], "total": total}
+            for level, total in totals.items()
+        }
+        most_seen = sorted(
+            (row for row in rows if row["status"] != "learning"),
+            key=lambda row: (-row["seen_count"], row["pattern_key"]),
+        )[:10]
+        return {
+            "counts_by_level": counts,
+            "seen_count_total": sum(row["seen_count"] for row in rows),
+            "coverage": coverage,
+            "most_seen_not_learning": most_seen,
+            "recent_encounters": encounters,
+        }
 
     def update_point_status(self, pattern_key: str, status: str) -> dict[str, Any] | None:
         if status not in {"new", "known", "learning", "ignored"}:

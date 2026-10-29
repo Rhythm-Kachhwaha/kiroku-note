@@ -207,7 +207,8 @@ class GrammarMatcher:
             candidates.extend(self._match_point(point, raw_text))
 
         if show_basic_particles:
-            for token, start, end, _ in self._tokens(tokens, raw_text):
+            particle_tokens = tokens or [{"text": char} for char in raw_text]
+            for token, start, end, _ in self._tokens(particle_tokens, raw_text):
                 if token in _BARE_PARTICLES and token in by_key:
                     candidates.append(self._candidate(by_key[token], raw_text, start, end))
 
