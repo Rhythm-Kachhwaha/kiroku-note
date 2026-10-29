@@ -30,6 +30,15 @@
 - `PYTHONPATH=.;backend python -m pytest -q backend/tests/test_grammar_service.py backend/tests/test_grammar_routes.py backend/tests/test_dictionary_provider.py`
   (17 passed).
 
+**Remaining cache fix**:
+- Isolated grammar response cache entries by normalized learner JLPT level so
+  narrow-to-broad requests cannot reuse a filtered narrow response.
+- Added a regression covering a narrow request followed by a broad request.
+
+**Remaining cache verification**:
+- `PYTHONPATH=.;backend python -m pytest -q backend/tests/test_grammar_service.py`
+  (5 passed).
+
 ### Task 4 — Grammar Matcher (2026-10-29)
 
 **Delivered**:

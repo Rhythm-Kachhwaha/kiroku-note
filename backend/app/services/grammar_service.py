@@ -79,7 +79,12 @@ class GrammarService:
         level = normalize_jlpt_level(learner_level) or get_learner_jlpt_level()
         # Dictionary discovery is deliberately kept out of the sentence path:
         # analysis is budgeted around one tokenizer request.
-        dictionary_hash = hashlib.sha256(type(self.provider).__name__.encode()).hexdigest()
+        # Learner filtering changes the response, so keep cache entries isolated
+        # by the normalized level rather than allowing a filtered response to
+        # satisfy a request for a broader level.
+        dictionary_hash = hashlib.sha256(
+            f"{type(self.provider).__name__}:{level}".encode()
+        ).hexdigest()
         key = self._cache_key(sentence, dictionary_hash)
         cached = self._cache_get(key)
         if cached is not None:
