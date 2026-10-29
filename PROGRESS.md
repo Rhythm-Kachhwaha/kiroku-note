@@ -1,5 +1,22 @@
 # Kiroku Note — Progress
 
+### 5-Level JLPT Grammar Index Reconciliation & Verification (2026-10-29)
+
+**Delivered**:
+- Reconciled all 848 reference audit entries across N5–N1 (`grammar-audits/kiroku_n[1-5]_grammar_audit.md`) with 526 OpenJLPT seeds and 100 curated seeds into 900 canonical concepts with 100% provenance tracking (`backend/app/data/master_grammar_provenance.json`).
+- Enforced the strict easiest-supported-level rule (N5 > N4 > N3 > N2 > N1) across all overlapping patterns without key-collision data loss (e.g. `らしい`, `そうだ`, `のに`).
+- Upgraded `tools/reconcile_grammar_dataset.py` and `tools/build_grammar_index.py` to compile `grammar_reference.sqlite` with `concept_id` and `sources` JSON metadata.
+- Upgraded `GrammarReferenceService` and `GrammarMatcher` to support concept ID lookups, preserve homographic collisions, and avoid span truncation.
+- Extended the acceptance test corpus across N5–N1 in `backend/tests/test_grammar_acceptance_gate.py` and raised coverage gates in `tools/grammar_coverage.py`.
+- Authored `grammar-audits/kiroku_n5_n1_reconciliation_report.md` with full accounting, level resolutions, and OpenJLPT / Hanabira / Tatoeba attribution notices.
+
+**Verification**:
+- PRAGMA integrity check: OK.
+- Index reproducibility check: 900 rows match temporary rebuild exactly.
+- `tools/grammar_coverage.py`: 0 negative false positives across all 5 levels (N5: 47/92, N4: 40/96, N3: 63/94, N2: 88/108, N1: 104/122).
+- `$env:PYTHONPATH='.;backend'; python -m pytest backend\tests -q`: 740 passed, 1 warning, 256 subtests.
+- `node --test extension\tests\*.test.js`: 255 passed, 0 failed.
+
 ### Repository Audit and Navigation Map — 2026-10-29
 
 **Delivered**:
