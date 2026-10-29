@@ -2,6 +2,18 @@
 
 ### Task 3 — Bundled Grammar Reference Index (2026-10-29)
 
+**Task 3 review fix**:
+- Retained every grammar source row when display normalization produces the
+  same `pattern_key` (including both N4 and N3 `らしい` rows).
+- Removed the lossy uniqueness assumption from the generated SQLite schema and
+  exposed colliding source rows through the existing lookup result's additive
+  `sources` field, preserving the historical top-level response shape.
+- Regenerated `backend\app\data\grammar_reference.sqlite`.
+
+**Review-fix verification**:
+- `Set-Location backend; python -m pytest tests\test_grammar_reference.py tests\test_packaging_config.py -q`
+  (23 passed).
+
 **Delivered**:
 - Added the reproducible `tools\build_grammar_index.py` build script and generated
   `backend\app\data\grammar_reference.sqlite` from the checked-in JLPT grammar

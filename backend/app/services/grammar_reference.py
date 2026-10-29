@@ -61,7 +61,15 @@ class GrammarReferenceService:
             for field in ("variants", "matcher", "guards", "examples"):
                 if item[field] is not None:
                     item[field] = json.loads(item[field])
-            index[item["pattern_key"]] = item
+            key = item["pattern_key"]
+            existing = index.get(key)
+            if existing is None:
+                # Keep the historical top-level shape while exposing every
+                # source row when display normalization causes a collision.
+                item["sources"] = [dict(item)]
+                index[key] = item
+            else:
+                existing["sources"].append(item)
         self._index_cache[path] = index
         self._index = index
         return index
@@ -73,4 +81,3 @@ class GrammarReferenceService:
         if self._connection is not None:
             self._connection.close()
             self._connection = None
-

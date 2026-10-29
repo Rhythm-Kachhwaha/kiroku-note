@@ -52,9 +52,9 @@ def build(output: Path = DEFAULT_OUTPUT, source: Path = SOURCE_DB) -> Path:
     conn.executescript(
         """
         CREATE TABLE grammar_index (
-            id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             pattern_display TEXT NOT NULL,
-            pattern_key TEXT NOT NULL UNIQUE,
+            pattern_key TEXT NOT NULL,
             level TEXT NOT NULL,
             meaning_short TEXT NOT NULL,
             english_breakdown TEXT NOT NULL,
@@ -67,15 +67,12 @@ def build(output: Path = DEFAULT_OUTPUT, source: Path = SOURCE_DB) -> Path:
             source TEXT NOT NULL
         );
         CREATE INDEX idx_grammar_index_level ON grammar_index(level);
+        CREATE INDEX idx_grammar_index_pattern_key ON grammar_index(pattern_key);
         CREATE INDEX idx_grammar_index_group_id ON grammar_index(group_id);
         """
     )
-    seen: set[str] = set()
     for pattern, level, meaning, formation, examples in rows:
         key = normalize_pattern_key(pattern)
-        if key in seen:
-            continue
-        seen.add(key)
         examples_json = examples if examples else "[]"
         conn.execute(
             """
