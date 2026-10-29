@@ -267,9 +267,12 @@ completed work and verification. `docs/archive/` contains historical plans
 and design material, including the archived `DESIGN.md`; there is currently
 no root-level active `DESIGN.md`.
 
-A future native desktop window is planned but not implemented. The audit
-recommendation is to evaluate Tauri against Electron before introducing either
-framework. Any desktop shell must reuse the existing localhost FastAPI API,
-preserve the browser extension, keep SQLite authoritative, and manage backend
-and OCR lifecycles without duplicate instances or arbitrary filesystem/process
-access.
+A native Windows desktop application launched through `kiroku.exe` is planned
+and audited (see `PROGRESS.md` for the 2026-10-29 desktop architecture roadmap).
+The target architecture uses an Electron desktop shell hosting the validated
+vanilla web UI via a lightweight Chrome API preload shim, supervising the local
+FastAPI backend (`run_backend.py` in dev, bundled PyInstaller executable in prod)
+with single-instance locking, health-check polling, system tray integration, and
+clean subprocess tree termination. The desktop shell reuses the localhost FastAPI
+API (`http://127.0.0.1:21828`), keeps SQLite authoritative, preserves simultaneous
+browser extension access, and isolates optional OCR without duplicate instances.

@@ -1,5 +1,21 @@
 # Kiroku Note — Progress
 
+### Windows Desktop Application Architecture & Implementation Audit (2026-10-29)
+
+**Delivered**:
+- Completed repository audit and inventory across backend, database, extensions, OCR, and packaging layers.
+- Formulated evidence-based inventory of verified features (grammar, local dictionary, AnkiConnect, OCR, and subtitle annotation) and remaining gaps (headless backend, lack of desktop shell window, process lifecycle manager).
+- Evaluated desktop architectures: selected Electron over Tauri 2 and Python-based UIs due to verified environment compatibility (Node.js 24 installed, Rust/Cargo absent), 100% web UI reuse (`sidepanel.html`/CSS/JS), mature Windows child process management (`tree-kill`), system tray, and native single-instance locking.
+- Defined a non-breaking integration contract: Electron shell hosts the validated vanilla web UI via a lightweight `window.chrome` preload shim, talks to FastAPI on `127.0.0.1:21828`, preserves simultaneous browser extension mining, and keeps SQLite authoritative.
+- Authored comprehensive 8-phase implementation plan (`kiroku_desktop_audit_and_plan.md`) with explicit file paths, dependencies, acceptance criteria, and verification commands.
+- Updated `AGENTS.md` project map with confirmed desktop shell architecture.
+
+**Verification**:
+- Baseline backend regression: 740 passed, 1 warning, 256 subtests in 83s (`pytest backend\tests`).
+- Baseline extension regression: 255 passed, 0 failed in 6.9s (`node --test extension\tests\*.test.js`).
+- Grammar coverage gate: 0 negative false positives across all 5 JLPT levels (N5 47/92, N4 40/96, N3 63/94, N2 88/108, N1 104/122).
+- Git working tree: clean on `main`.
+
 ### 5-Level JLPT Grammar Index Reconciliation & Verification (2026-10-29)
 
 **Delivered**:
