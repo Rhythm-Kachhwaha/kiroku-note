@@ -50,3 +50,4 @@ def test_easiest_supported_level_rule_applied():
                 f"Concept {item['concept_id']} level {item['canonical_level']} does not match easiest "
                 f"supported rank {expected_rank} among {[s['source_level'] for s in sources]}"
             )
+

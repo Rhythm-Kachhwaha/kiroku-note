@@ -87,3 +87,4 @@ The grammar data incorporated in Kiroku Note respects all upstream licensing and
    - Attribution: Example sentences sourced from Tatoeba.org and volunteer contributors.
 4. **JLPT Sensei Audit Reference Data**:
    - Source: Factual audit listings compiled for coverage reference and provenance tracking.
+
