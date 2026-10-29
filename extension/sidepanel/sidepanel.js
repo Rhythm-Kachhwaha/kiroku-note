@@ -88,7 +88,12 @@ function renderGrammarBreakdown(container, result, sentence) {
     const meaning = point.meaning_short || point.meaning || point.english_breakdown || "Explanation unavailable.";
     detail.textContent = `${meaning}${point.formation ? `\nFormation: ${point.formation}` : ""}`;
     title.addEventListener("click", () => { detail.hidden = !detail.hidden; });
-    card.append(title, detail); container.append(card);
+    const createButton = document.createElement("button");
+    createButton.type = "button";
+    createButton.className = "grammar-create-card";
+    createButton.textContent = "Create card";
+    createButton.addEventListener("click", () => createGrammarCard(point, sentence, "text"));
+    card.append(title, detail, createButton); container.append(card);
   });
 }
 
@@ -123,7 +128,12 @@ async function renderVideoGrammar(cue) {
     chip.textContent = `${point.pattern_display || point.pattern || point.display || "Grammar"}${point.level ? ` · ${point.level}` : ""}`;
     chip.addEventListener("click", () => {
       const detail = document.createElement("div"); detail.className = "grammar-chip-detail"; detail.textContent = point.english_breakdown || point.meaning_short || point.meaning || "";
-      slot.replaceChildren(detail);
+      const createButton = document.createElement("button");
+      createButton.type = "button";
+      createButton.className = "grammar-create-card";
+      createButton.textContent = "Create card";
+      createButton.addEventListener("click", () => createGrammarCard(point, cue.text, "video"));
+      slot.replaceChildren(detail, createButton);
     }); slot.append(chip);
     const keyName = point.pattern_key || point.pattern || point.display;
     if (keyName) grammarSessionPoints.set(keyName, { ...point, cue });
@@ -540,6 +550,7 @@ const DEFAULT_CARD_TEMPLATE_SETTINGS = {
 };
 let currentCardTemplateSettings = JSON.parse(JSON.stringify(DEFAULT_CARD_TEMPLATE_SETTINGS));
 let currentGrammarCard = null;
+let currentCardKind = "vocab";
 let storedDeckTemplateProfiles = {};
 
 function getCurrentDeckName() {
@@ -5207,6 +5218,7 @@ async function refreshDuplicateState() {
 // Card save form submission
 function createGrammarCard(point, sentence, source = "text") {
   const grammar = point || {};
+  currentCardKind = "grammar";
   currentGrammarCard = {
     pattern_key: grammar.pattern_key || grammar.pattern_display || "",
     pattern_display: grammar.pattern_display || grammar.pattern_key || "",
@@ -5269,7 +5281,7 @@ async function saveCard() {
       : (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
     source_type: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.type) || "text",
     source_url: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.url) || "",
-    card_kind: currentGrammarCard ? "grammar" : "vocab",
+    card_kind: currentGrammarCard ? "grammar" : currentCardKind,
   };
   if (currentGrammarCard) {
     payload.card_settings = {...(payload.card_settings || {}), ...currentGrammarCard};
@@ -5390,6 +5402,7 @@ async function saveCard() {
     }
 
     currentGrammarCard = null;
+    currentCardKind = body.card_kind || currentCardKind;
     return body;
   } catch (error) {
     if (typeof setStatus === "function") {
@@ -5461,6 +5474,7 @@ async function triggerAnkiSync() {
           : (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
         source_type: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.type) || "text",
         source_url: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.url) || "",
+        card_kind: currentGrammarCard ? "grammar" : currentCardKind,
       };
       const saveResponse = await fetch(API_SAVE_URL, {
         method: "POST",
@@ -6752,6 +6766,10 @@ async function openSavedCard(cardId) {
     const res = await fetch(API_CARD_DETAIL_URL(cardId));
     if (!res.ok) throw new Error("Could not retrieve card details.");
     const body = await res.json();
+    currentCardKind = body.card_kind || "vocab";
+    currentGrammarCard = currentCardKind === "grammar" && body.card_settings
+      ? {...body.card_settings}
+      : null;
 
     if (cardEditor) {
       cardEditor.hidden = false;

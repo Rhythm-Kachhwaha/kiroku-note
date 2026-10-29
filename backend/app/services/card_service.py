@@ -528,6 +528,7 @@ class CardService:
             "kanji_entries": kanji_entries,
             "card_settings": card.card_settings,
             "jlpt_level": card_jlpt,
+            "card_kind": card.card_kind,
         }
 
     def sync_card(self, card_id: int, force: bool = False) -> SyncCardResponse:
@@ -565,6 +566,7 @@ class CardService:
                         model_name=card.model_name or None,
                         synced_at=card.synced_at,
                         expression=card.expression,
+                        card_kind=card.card_kind,
                         error=f"Cannot connect to AnkiConnect: {err}",
                     )
                 self.repository.mark_failed(card_id, f"Cannot connect to AnkiConnect: {err}")
@@ -577,6 +579,7 @@ class CardService:
                     error=f"Cannot connect to AnkiConnect: {err}",
                     synced_at=card.synced_at,
                     expression=card.expression,
+                    card_kind=card.card_kind,
                 )
             except Exception as err:
                 logger.warning("Could not validate note %s for card %s: %s", card.anki_note_id, card.id, err)
@@ -600,6 +603,7 @@ class CardService:
                         model_name=card.model_name or None,
                         synced_at=card.synced_at,
                         expression=card.expression,
+                        card_kind=card.card_kind,
                     )
 
                 # Force re-sync or re-synchronizing validated existing note:
@@ -622,6 +626,7 @@ class CardService:
                         model_name=model_name,
                         synced_at=updated.synced_at if updated else None,
                         expression=card.expression,
+                        card_kind=card.card_kind,
                     )
                 except Exception as err:
                     logger.warning("Failed updating note fields for %s: %s", card.id, err)
@@ -676,6 +681,7 @@ class CardService:
                     model_name=card.model_name or None,
                     synced_at=updated.synced_at if updated else None,
                     expression=card.expression,
+                    card_kind=card.card_kind,
                 )
 
             # 2. Upload media files to Anki collection if present
@@ -702,6 +708,7 @@ class CardService:
                 model_name=explicit_model,
                 synced_at=updated.synced_at if updated else None,
                 expression=card.expression,
+                card_kind=card.card_kind,
             )
 
         except Exception as error:
@@ -716,6 +723,7 @@ class CardService:
                 error=error_message,
                 synced_at=card.synced_at,
                 expression=card.expression,
+                card_kind=card.card_kind,
             )
 
     def sync_all(self, deck_name: str | None = None) -> SyncAllResponse:
@@ -796,6 +804,7 @@ class CardService:
                         error=str(err),
                         synced_at=card.synced_at,
                         expression=card.expression,
+                        card_kind=card.card_kind,
                     )
                 )
                 failed_count += 1
@@ -910,6 +919,7 @@ class CardService:
                 source_type=r.source_type,
                 source_url=r.source_url,
                 jlpt_level=r.jlpt_level,
+                card_kind=r.card_kind,
             )
             for r in records
         ]
@@ -955,6 +965,8 @@ class CardService:
             kanji_entries=record.kanji_entries,
             jlpt_level=record.jlpt_level,
             verb_metadata=VerbMetadataSchema(**record.verb_metadata.to_dict()) if record.verb_metadata else None,
+            card_settings=record.card_settings,
+            card_kind=record.card_kind,
         )
 
     def delete_card(self, card_id: int) -> bool:
@@ -1032,6 +1044,7 @@ class CardService:
                         error=str(err),
                         synced_at=card.synced_at,
                         expression=card.expression,
+                        card_kind=card.card_kind,
                     )
                 )
                 failed_count += 1

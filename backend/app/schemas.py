@@ -319,6 +319,7 @@ class SyncCardResponse(BaseModel):
     error: Optional[str] = None
     synced_at: Optional[str] = None
     expression: Optional[str] = None
+    card_kind: str = "vocab"
 
 
 class SyncAllResponse(BaseModel):

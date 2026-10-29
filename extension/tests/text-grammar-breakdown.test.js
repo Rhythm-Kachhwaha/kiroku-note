@@ -18,4 +18,6 @@ test("text grammar breakdown has collapsed accessible UI", () => {
   assert.match(html, /id="text-grammar-section"/);
   assert.match(html, /id="text-grammar-toggle"/);
   assert.match(js, /grammar-point-card/);
+  assert.match(js, /createGrammarCard\(point, sentence, "text"\)/);
+  assert.match(js, /card_kind: currentGrammarCard \? "grammar" : currentCardKind/);
 });

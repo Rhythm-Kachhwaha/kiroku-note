@@ -4672,4 +4672,14 @@ New major features should generally be deferred unless they are necessary for th
 - `node --check extension\\sidepanel\\sidepanel.js`
 - `PYTHONPATH=.;backend python -m pytest -q backend\\tests\\test_anki_formatter.py backend\\tests\\test_anki_connect.py backend\\tests\\test_grammar_service.py backend\\tests\\test_grammar_routes.py` (104 passed)
 
-**Remaining risk**: Grammar card creation UI is exposed as the existing sidepanel editor helper; visual chip-to-editor wiring remains owned by the grammar breakdown UI task.
+**Follow-up fixes (2026-10-29)**:
+- Preserved `card_kind` in sync card data, sync/recovery responses, card summaries/details, and Anki mapping; existing grammar cards now retain their discriminator when the sidepanel saves before sync.
+- Wired text grammar points and video cue chips to `createGrammarCard` with their source sentence/cue text.
+- Added focused backend and extension regression coverage.
+
+**Verification**:
+- `Set-Location backend; python -m pytest tests\test_card_service_resync.py tests\test_anki_connect.py -q -k "not api_get_model_capabilities_endpoint"` (74 passed, 1 deselected)
+- `node --test extension\tests\text-grammar-breakdown.test.js extension\tests\grammar-settings.test.js` (3 passed)
+- `python -m py_compile backend\app\services\card_service.py backend\app\schemas.py`
+
+**Remaining risk**: The excluded Anki endpoint test requires the optional `kiroku_dictionary` package in this checkout; browser-side manual smoke testing was not run.
