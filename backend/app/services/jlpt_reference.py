@@ -148,6 +148,57 @@ class JlptReferenceService:
             logger.debug("JLPT vocab lookup failed for '%s': %s", clean_expr, err)
             return None
 
+    def lookup_word_exact(self, lemma: str, reading: str | None = None) -> str | None:
+        """Lookup modern JLPT level ('N5'..'N1') using exact lemma matching without wildcards.
+
+        Args:
+            lemma: The exact dictionary form/lemma to look up.
+            reading: Optional kana reading to disambiguate when multiple entries exist.
+
+        Returns:
+            The normalized JLPT level ('N5'..'N1') or None if not found.
+        """
+        if not lemma or not lemma.strip():
+            return None
+
+        conn = self._get_connection()
+        if conn is None:
+            return None
+
+        clean_lemma = lemma.strip()
+        try:
+            cursor = conn.cursor()
+            rows = cursor.execute(
+                "SELECT level, reading FROM vocab WHERE word = ?",
+                (clean_lemma,),
+            ).fetchall()
+
+            if not rows:
+                return None
+
+            # If reading is provided and multiple rows exist, prioritize rows matching the reading
+            if len(rows) > 1 and reading and reading.strip():
+                clean_reading = reading.strip()
+                matching_rows = [
+                    r for r in rows
+                    if r[1] and (
+                        r[1].strip() == clean_reading
+                        or clean_reading in [p.strip() for p in re.split(r"[\s/]+", r[1].strip()) if p.strip()]
+                    )
+                ]
+                if matching_rows:
+                    rows = matching_rows
+
+            levels = [_normalize_level(r[0]) for r in rows if r and r[0]]
+            valid_levels = [lvl for lvl in levels if lvl in _LEVEL_PRIORITY]
+            if valid_levels:
+                return max(valid_levels, key=lambda lvl: _LEVEL_PRIORITY[lvl])
+
+            return None
+        except Exception as err:
+            logger.debug("JLPT exact vocab lookup failed for '%s': %s", clean_lemma, err)
+            return None
+
     def lookup_word_with_kanji_fallback(self, expression: str) -> str | None:
         """Lookup modern JLPT level ('N5'..'N1') with kanji fallback for unlisted compounds."""
         direct = self.lookup_word(expression)

@@ -1,5 +1,28 @@
 # Kiroku Note — Progress
 
+### OpenJLPT Exact Matching & False-Positive Prevention in JlptReferenceService (2026-10-29)
+
+**Objective**: Prevent false-positive JLPT level assignments caused by `LIKE` wildcards and derivational suffix fallback during tokenization and lookups by implementing `lookup_word_exact` in `JlptReferenceService`.
+
+**Delivered**:
+- **Backend Service (`backend/app/services/jlpt_reference.py`)**:
+  - Implemented `lookup_word_exact(lemma: str, reading: str | None = None) -> str | None`.
+  - Performs direct exact lookup against SQLite `vocab` table (`SELECT level, reading FROM vocab WHERE word = ?`) without substring wildcards or suffix stripping heuristics.
+  - Added reading-based disambiguation when multiple entries exist, matching single readings or whitespace/slash separated reading lists.
+  - Retains normalized canonical level priority (`_LEVEL_PRIORITY`: N5 > N4 > N3 > N2 > N1) when multiple matches or ambiguous entries remain.
+  - Fail-soft handling for whitespace/empty lemmas, missing tables, or uninitialized connections.
+- **Unit Tests (`backend/tests/test_jlpt_reference.py`)**:
+  - Added tests for exact matches (`食べる` -> N5, `勉強` -> N5).
+  - Added tests for reading disambiguation (`勉強` with reading `べんきょう` -> N3 vs `べんきょうする` -> N5; `悪い` with reading `にくい` -> N1 vs `わるい` -> N5).
+  - Added tests for false-positive prevention verifying that derivational suffixes (`必要性`, `影響力`) and multi-word `LIKE` substrings (`観る`) return `None` in `lookup_word_exact`.
+  - Added edge case handling tests (empty strings, whitespace, nonexistent database).
+
+**Verification**:
+- `python -m pytest backend/tests/test_jlpt_reference.py`: 12 passed in 0.10s.
+- Full backend suite: 573 passed, 16 skipped in 78.46s.
+
+---
+
 ### Full Release Build (Executable, Extension, Installer) (2026-10-28)
 
 **Objective**: Build and package the production standalone executable, browser extension bundle, and Inno Setup Windows installer.
