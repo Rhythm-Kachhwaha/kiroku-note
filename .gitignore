@@ -126,6 +126,4 @@ kiroku_cloud_queue/.mirror_state.json
 backend/app/data/*.sqlite-shm
 backend/app/data/*.sqlite-wal
 
-# Grammar audit reports
-kiroku_n*_grammar_audit.md
-!docs/archive/grammar-audits/*.md
+
