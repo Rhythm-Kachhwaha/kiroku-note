@@ -1011,6 +1011,82 @@ def get_anki_card_css() -> str:
     return ANKI_CARD_CSS
 
 
+def format_grammar_front(
+    sentence: str = "",
+    span: dict[str, Any] | None = None,
+    *,
+    pattern: str = "",
+    card: Any = None,
+) -> str:
+    """Render a grammar card front with an escaped, optionally highlighted sentence."""
+    sentence = sentence or str(_get_field(card, "example_sentence") or "")
+    span = span or (_get_field(card, "card_settings") or {}).get("span", {})
+    start = int(span.get("start", -1)) if isinstance(span, dict) else -1
+    end = int(span.get("end", -1)) if isinstance(span, dict) else -1
+    safe_sentence = escape_html(sentence)
+    if 0 <= start < end <= len(sentence):
+        safe_sentence = (
+            escape_html(sentence[:start])
+            + '<span class="kn-grammar-target">'
+            + escape_html(sentence[start:end])
+            + "</span>"
+            + escape_html(sentence[end:])
+        )
+    return f'<div class="kn-grammar-front">{safe_sentence}</div>'
+
+
+def format_grammar_back(
+    card: Any = None,
+    *,
+    pattern: str = "",
+    pattern_display: str = "",
+    jlpt_level: str = "",
+    meaning: str = "",
+    explanation: str = "",
+    english_breakdown: str = "",
+    matched_formation: str = "",
+    translation: str = "",
+    examples: list[Any] | None = None,
+    sentence: str = "",
+) -> str:
+    """Render safe grammar-card back HTML; all learner text is escaped/Markdown-rendered."""
+    settings = _get_field(card, "card_settings") or {}
+    pattern_display = pattern_display or pattern or str(settings.get("pattern_display", ""))
+    jlpt_level = jlpt_level or str(_get_field(card, "jlpt_level") or settings.get("level", ""))
+    meaning = meaning or str(_get_field(card, "meaning") or "")
+    sentence = sentence or str(_get_field(card, "example_sentence") or "")
+    explanation = explanation or english_breakdown or str(_get_field(card, "notes") or "")
+    matched_formation = matched_formation or str(settings.get("matched_formation", ""))
+    translation = translation or str(_get_field(card, "example_translation") or "")
+    examples = examples if examples is not None else settings.get("examples", [])
+    parts = ['<div class="kn-grammar-back">']
+    if pattern_display:
+        parts.append(f'<div class="kn-grammar-pattern">{escape_html(pattern_display)}</div>')
+    if jlpt_level:
+        parts.append(f'<span class="kn-grammar-pill">{escape_html(jlpt_level)}</span>')
+    if meaning:
+        parts.append(f'<div class="kn-grammar-meaning">{escape_html(meaning)}</div>')
+    if matched_formation:
+        parts.append(f'<div class="kn-grammar-formation"><strong>Formation:</strong> {escape_html(matched_formation)}</div>')
+    if explanation:
+        parts.append(f'<div class="kn-grammar-breakdown">{convert_markdown_to_anki_html(explanation)}</div>')
+    if sentence:
+        parts.append(f'<div class="kn-grammar-sentence">{escape_html(sentence)}</div>')
+    if translation:
+        parts.append(f'<div class="kn-grammar-translation">{escape_html(translation)}</div>')
+    for example in examples[:3] if isinstance(examples, list) else []:
+        if isinstance(example, dict):
+            text = str(example.get("japanese") or example.get("sentence") or "")
+            gloss = str(example.get("translation") or "")
+        else:
+            text, gloss = str(example), ""
+        if text:
+            parts.append(f'<div class="kn-grammar-example">{escape_html(text)}'
+                         f'{(" — " + escape_html(gloss)) if gloss else ""}</div>')
+    parts.append("</div>")
+    return "".join(parts)
+
+
 def format_basic_back(
     card: Any = None,
     *,

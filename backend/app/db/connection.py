@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS cards (
     synced_at TEXT DEFAULT NULL,
     source_type TEXT NOT NULL DEFAULT '',
     source_url TEXT NOT NULL DEFAULT '',
+    card_kind TEXT NOT NULL DEFAULT 'vocab',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     UNIQUE(normalized_expression, normalized_reading, normalized_deck_name)
@@ -58,6 +59,30 @@ CREATE TABLE IF NOT EXISTS grammar_cache (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (sentence_hash, index_version, grammar_dict_hash)
 );
+CREATE TABLE IF NOT EXISTS grammar_points (
+    pattern_key TEXT PRIMARY KEY,
+    display TEXT NOT NULL,
+    level TEXT,
+    status TEXT NOT NULL DEFAULT 'new',
+    seen_count INTEGER NOT NULL DEFAULT 1,
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    card_id INTEGER DEFAULT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_grammar_points_status_level
+    ON grammar_points(status, level, seen_count DESC);
+CREATE TABLE IF NOT EXISTS grammar_encounters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern_key TEXT NOT NULL,
+    sentence TEXT NOT NULL,
+    source TEXT NOT NULL,
+    source_title TEXT,
+    video_timestamp_ms INTEGER,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(pattern_key) REFERENCES grammar_points(pattern_key) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_grammar_encounters_pattern
+    ON grammar_encounters(pattern_key, created_at DESC);
 """
 
 
@@ -118,10 +143,15 @@ def init_db(db_path: Path | str | None = None) -> None:
             ("synced_at", "TEXT DEFAULT NULL"),
             ("source_type", "TEXT NOT NULL DEFAULT ''"),
             ("source_url", "TEXT NOT NULL DEFAULT ''"),
+            ("card_kind", "TEXT NOT NULL DEFAULT 'vocab'"),
         ]
         for col_name, col_def in new_cols:
             if col_name not in columns:
                 conn.execute(f"ALTER TABLE cards ADD COLUMN {col_name} {col_def}")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cards_grammar_identity "
+            "ON cards (expression, deck_name) WHERE card_kind = 'grammar'"
+        )
 
         # Recover cards left stuck in 'syncing' state from a previously interrupted process
         conn.execute("UPDATE cards SET sync_status = 'pending' WHERE sync_status = 'syncing'")

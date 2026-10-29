@@ -276,3 +276,7 @@ Cloud study mode provides a separate "extra practice" study environment over mir
 
 
 
+
+### Grammar cards and learning tracking
+
+Grammar cards use the `cards.card_kind` discriminator (default `vocab`) and preserve the existing local-first save/sync boundary. Grammar-specific Anki formatting is isolated in `anki_formatter.py`; the AnkiConnect mapper selects it only for `card_kind=grammar`. Grammar learning state is local SQLite state in `grammar_points` and explicit user-engagement examples in `grammar_encounters`, exposed through `/api/grammar/points`, `/api/grammar/points/{pattern_key}`, and encounter endpoints.

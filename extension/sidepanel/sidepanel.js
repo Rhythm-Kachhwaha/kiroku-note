@@ -539,6 +539,7 @@ const DEFAULT_CARD_TEMPLATE_SETTINGS = {
   show_history: true,
 };
 let currentCardTemplateSettings = JSON.parse(JSON.stringify(DEFAULT_CARD_TEMPLATE_SETTINGS));
+let currentGrammarCard = null;
 let storedDeckTemplateProfiles = {};
 
 function getCurrentDeckName() {
@@ -5204,6 +5205,28 @@ async function refreshDuplicateState() {
 }
 
 // Card save form submission
+function createGrammarCard(point, sentence, source = "text") {
+  const grammar = point || {};
+  currentGrammarCard = {
+    pattern_key: grammar.pattern_key || grammar.pattern_display || "",
+    pattern_display: grammar.pattern_display || grammar.pattern_key || "",
+    span: {start: Number(grammar.start ?? 0), end: Number(grammar.end ?? 0)},
+    level: grammar.level || grammar.jlpt_level || "",
+    english_breakdown: grammar.english_breakdown || grammar.meaning || "",
+    matched_formation: grammar.matched_formation || "",
+    examples: Array.isArray(grammar.examples) ? grammar.examples.slice(0, 3) : [],
+  };
+  if (typeof fieldExpression !== "undefined" && fieldExpression) fieldExpression.value = currentGrammarCard.pattern_display;
+  if (typeof fieldMeaning !== "undefined" && fieldMeaning) fieldMeaning.value = grammar.meaning_short || grammar.meaning || "";
+  if (typeof fieldExampleSentence !== "undefined" && fieldExampleSentence) fieldExampleSentence.value = sentence || "";
+  if (typeof fieldNotes !== "undefined" && fieldNotes) fieldNotes.value = currentGrammarCard.english_breakdown;
+  if (typeof fieldTags !== "undefined" && fieldTags) fieldTags.value =
+    `kiroku-grammar${currentGrammarCard.level ? `, jlpt-${String(currentGrammarCard.level).toLowerCase()}` : ""}`;
+  if (typeof lastCaptureSource !== "undefined") lastCaptureSource = {type: source};
+  if (typeof scheduleCardPreviewUpdate === "function") scheduleCardPreviewUpdate();
+  return currentGrammarCard;
+}
+
 async function saveCard() {
   const expr = (typeof fieldExpression !== "undefined" && fieldExpression) ? fieldExpression.value.trim() : "";
   if (!expr) {
@@ -5246,7 +5269,11 @@ async function saveCard() {
       : (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
     source_type: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.type) || "text",
     source_url: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.url) || "",
+    card_kind: currentGrammarCard ? "grammar" : "vocab",
   };
+  if (currentGrammarCard) {
+    payload.card_settings = {...(payload.card_settings || {}), ...currentGrammarCard};
+  }
 
   try {
     const response = await fetch(API_SAVE_URL, {
@@ -5362,6 +5389,7 @@ async function saveCard() {
       }
     }
 
+    currentGrammarCard = null;
     return body;
   } catch (error) {
     if (typeof setStatus === "function") {
@@ -11934,6 +11962,7 @@ if (typeof module !== "undefined" && module.exports) {
     isCardEditorFocused,
     onSubtitleCueChanged: handleVideoCueChanged,
     saveCard,
+    createGrammarCard,
     videoMissedWordsDrawer,
     videoMissedWordsHeader,
     videoMissedWordsBadge,

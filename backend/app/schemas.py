@@ -228,6 +228,7 @@ class SaveCardRequest(BaseModel):
     card_settings: Optional[dict[str, Any]] = None
     jlpt_level: Optional[str] = None
     verb_metadata: Optional[VerbMetadataSchema] = None
+    card_kind: str = Field(default="vocab", max_length=30)
 
     @field_validator("expression")
     @classmethod
@@ -268,6 +269,7 @@ class SaveCardResponse(BaseModel):
     updated_at: str
     entries: list[dict[str, Any]] = Field(default_factory=list)
     kanji_entries: list[dict[str, Any]] = Field(default_factory=list)
+    card_kind: str = "vocab"
     card_settings: Optional[dict[str, Any]] = None
     verb_metadata: Optional[VerbMetadataSchema] = None
 
@@ -344,6 +346,7 @@ class CardSummary(BaseModel):
     source_url: str = ""
     jlpt_level: Optional[str] = None
     verb_metadata: Optional[VerbMetadataSchema] = None
+    card_kind: str = "vocab"
 
 
 class CardListResponse(BaseModel):
@@ -384,6 +387,8 @@ class CardDetailResponse(BaseModel):
     kanji_entries: list[dict] = []
     jlpt_level: Optional[str] = None
     verb_metadata: Optional[VerbMetadataSchema] = None
+    card_settings: Optional[dict[str, Any]] = None
+    card_kind: str = "vocab"
 
 
 class DeleteCardResponse(BaseModel):

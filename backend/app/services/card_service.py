@@ -286,12 +286,27 @@ class CardService:
             card_settings=request.card_settings,
             jlpt_level=request.jlpt_level,
             verb_metadata=request.verb_metadata,
+            card_kind=request.card_kind if request.card_kind in ("vocab", "grammar") else "vocab",
             status="saved",
             id=request.id,
         )
 
         record, is_new, is_duplicate, is_updated = self.repository.save_or_update(draft)
         status = "already_saved" if is_duplicate else "saved"
+        if is_new and draft.card_kind == "grammar" and isinstance(draft.card_settings, dict):
+            pattern_key = str(draft.card_settings.get("pattern_key") or draft.expression)
+            try:
+                from app.services.grammar_tracker import GrammarTrackerService
+                GrammarTrackerService(self.repository._db_path).record_encounter(
+                    pattern_key=pattern_key,
+                    display=str(draft.card_settings.get("pattern_display") or draft.expression),
+                    sentence=draft.example_sentence or draft.source_text,
+                    source=draft.source_type or "card",
+                    level=draft.jlpt_level,
+                    card_id=record.id,
+                )
+            except Exception:
+                logger.exception("Failed to record grammar card encounter")
 
         return SaveCardResponse(
             id=record.id,
@@ -325,6 +340,7 @@ class CardService:
             kanji_entries=record.kanji_entries,
             card_settings=record.card_settings,
             verb_metadata=VerbMetadataSchema(**record.verb_metadata.to_dict()) if record.verb_metadata else None,
+            card_kind=record.card_kind,
         )
 
     def capture_and_save(self, text: str, deck_name: str = "Default") -> CaptureResponse:
@@ -1041,5 +1057,3 @@ class CardService:
         """Retrieve aggregated mining and library statistics."""
         data = self.repository.get_stats()
         return CardStatsResponse(**data)
-
-

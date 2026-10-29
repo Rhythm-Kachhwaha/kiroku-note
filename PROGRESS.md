@@ -4658,3 +4658,18 @@ New major features should generally be deferred unless they are necessary for th
 - **Files:** `extension/content/content.js`, `extension/background.js`, `extension/sidepanel/sidepanel.{html,js,css}`, focused extension tests, and `docs/grammar-dictionaries.md`.
 - **Verification:** `node --test extension/tests/capture-word-regression.test.js extension/tests/text-grammar-breakdown.test.js extension/tests/video-grammar-strip.test.js extension/tests/grammar-settings.test.js` (5 passed); Node syntax checks passed for modified JavaScript.
 - **Remaining Risk:** Browser-side manual smoke testing and backend live setup diagnostics were not run; grammar UI intentionally uses existing backend endpoints and does not implement grammar cards or tracking.
+
+### Tasks 7/8 — Grammar cards and encounter tracking (2026-10-29)
+
+**Delivered**:
+- Migrated cards with `card_kind` (vocab default) and grammar identity indexing; grammar cards deduplicate by pattern/deck.
+- Added safe grammar Anki front/back formatters and Basic-model mapping with escaped text and constrained Markdown.
+- Added local-first grammar card creation payloads in the sidepanel; SQLite save remains authoritative before optional Anki sync.
+- Added `grammar_points` and `grammar_encounters` persistence, explicit encounter recording, point filters/status transitions, and encounter APIs.
+- Card creation records a grammar encounter and transitions a new point to learning; background analysis does not record encounters.
+
+**Verification**:
+- `node --check extension\\sidepanel\\sidepanel.js`
+- `PYTHONPATH=.;backend python -m pytest -q backend\\tests\\test_anki_formatter.py backend\\tests\\test_anki_connect.py backend\\tests\\test_grammar_service.py backend\\tests\\test_grammar_routes.py` (104 passed)
+
+**Remaining risk**: Grammar card creation UI is exposed as the existing sidepanel editor helper; visual chip-to-editor wiring remains owned by the grammar breakdown UI task.

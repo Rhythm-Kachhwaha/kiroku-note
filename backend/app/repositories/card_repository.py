@@ -43,6 +43,7 @@ class CardDraft:
     jlpt_level: str | None = None
     verb_metadata: Any = None
     id: int | None = None
+    card_kind: str = "vocab"
 
 
 @dataclass
@@ -82,6 +83,7 @@ class CardRecord:
     card_settings: dict[str, Any] | None = None
     jlpt_level: str | None = None
     verb_metadata: VerbMetadata | None = None
+    card_kind: str = "vocab"
 
 
 def _serialize_items(items: list[Any]) -> list[Any]:
@@ -274,6 +276,7 @@ def _row_to_record(row: sqlite3.Row) -> CardRecord:
         card_settings=card_settings,
         jlpt_level=jlpt_level,
         verb_metadata=verb_metadata,
+        card_kind=_get("card_kind", "vocab"),
     )
 
 
@@ -325,7 +328,8 @@ class CardRepository:
             conn.commit()
         return self.get_by_id(card_id)
 
-    def find_by_identity(self, expression: str, reading: str, deck_name: str | None = None) -> CardRecord | None:
+    def find_by_identity(self, expression: str, reading: str, deck_name: str | None = None,
+                         card_kind: str = "vocab") -> CardRecord | None:
         """Find a card by its normalized duplicate identity."""
         norm_expr, norm_read, norm_deck = get_duplicate_identity(expression, reading, deck_name)
         with db_session(self._db_path) as conn:
@@ -335,11 +339,12 @@ class CardRepository:
                        image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
                        normalized_expression, normalized_reading, normalized_deck_name,
                        meanings_json, examples_json, status, created_at, updated_at,
-                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url
+                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url, card_kind
                 FROM cards
-                WHERE normalized_expression = ? AND normalized_reading = ? AND normalized_deck_name = ?
+                WHERE normalized_expression = ? AND normalized_deck_name = ?
+                  AND (? = 'grammar' AND card_kind = 'grammar' OR ? != 'grammar' AND normalized_reading = ?)
                 """,
-                (norm_expr, norm_read, norm_deck),
+                (norm_expr, norm_deck, card_kind, card_kind, norm_read),
             ).fetchone()
             if row:
                 return _row_to_record(row)
@@ -354,7 +359,7 @@ class CardRepository:
                        image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
                        normalized_expression, normalized_reading, normalized_deck_name,
                        meanings_json, examples_json, status, created_at, updated_at,
-                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url
+                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url, card_kind
                 FROM cards
                 WHERE id = ?
                 """,
@@ -390,9 +395,11 @@ class CardRepository:
                     collision = conn.execute(
                         """
                         SELECT id FROM cards
-                        WHERE normalized_expression = ? AND normalized_reading = ? AND normalized_deck_name = ? AND id != ?
+                        WHERE normalized_expression = ? AND normalized_deck_name = ?
+                          AND (? = 'grammar' AND card_kind = 'grammar' OR ? != 'grammar' AND normalized_reading = ?)
+                          AND id != ?
                         """,
-                        (norm_expr, norm_read, norm_deck, draft.id),
+                        (norm_expr, norm_deck, draft.card_kind, draft.card_kind, norm_read, draft.id),
                     ).fetchone()
                     if collision:
                         collision_card = self.get_by_id(collision["id"])
@@ -425,6 +432,7 @@ class CardRepository:
                             normalized_deck_name = ?,
                             meanings_json = ?,
                             examples_json = ?,
+                            card_kind = ?,
                             updated_at = ?
                         WHERE id = ?
                         """,
@@ -450,6 +458,7 @@ class CardRepository:
                             norm_deck,
                             meanings_json_to_save,
                             examples_json_to_save,
+                            draft.card_kind or "vocab",
                             now_utc,
                             draft.id,
                         ),
@@ -460,7 +469,9 @@ class CardRepository:
                         return updated, False, False, True
 
             # Saving new card draft: first check duplicate
-            existing_record = self.find_by_identity(draft.expression, draft.reading, draft.deck_name)
+            existing_record = self.find_by_identity(
+                draft.expression, draft.reading, draft.deck_name, draft.card_kind
+            )
             if existing_record:
                 return existing_record, False, True, False
 
@@ -472,8 +483,8 @@ class CardRepository:
                         image, audio, tags, notes, source_text, deinflected_text, source_type, source_url,
                         deck_name, model_name, normalized_expression, normalized_reading, normalized_deck_name,
                         meanings_json, examples_json, status, sync_status, anki_note_id,
-                        sync_error, synced_at, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        sync_error, synced_at, created_at, updated_at, card_kind
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         draft.expression,
@@ -504,13 +515,16 @@ class CardRepository:
                         draft.synced_at,
                         now_utc,
                         now_utc,
+                        draft.card_kind or "vocab",
                     ),
                 )
                 conn.commit()
                 inserted_id = cursor.lastrowid
             except sqlite3.IntegrityError:
                 # Concurrent insertion race condition - return existing
-                existing_record = self.find_by_identity(draft.expression, draft.reading, draft.deck_name)
+                existing_record = self.find_by_identity(
+                    draft.expression, draft.reading, draft.deck_name, draft.card_kind
+                )
                 if existing_record:
                     return existing_record, False, True, False
                 raise
@@ -951,5 +965,3 @@ class CardRepository:
             new_json = json.dumps(parsed, ensure_ascii=False)
             conn.execute("UPDATE cards SET meanings_json = ? WHERE id = ?", (new_json, card_id))
             conn.commit()
-
-
