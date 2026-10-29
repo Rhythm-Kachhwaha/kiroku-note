@@ -119,7 +119,16 @@
           </div>
 
           <div class="video-cue-preview-container video-sub-strip unified-current-cue-strip">
-            <div id="video-current-cue-preview" class="video-cue-preview video-sub-text waiting">Waiting for playback…</div>
+            <div class="active-sub-toolbar">
+              <div id="active-sub-size-controls" class="active-sub-size-controls" role="group" aria-label="Subtitle Font Size">
+                <button type="button" class="sub-size-btn" data-size="small" id="btn-sub-size-small" title="Small (14px)" aria-label="Small font size">S</button>
+                <button type="button" class="sub-size-btn" data-size="medium" id="btn-sub-size-medium" title="Medium (18px)" aria-label="Medium font size">M</button>
+                <button type="button" class="sub-size-btn active" data-size="large" id="btn-sub-size-large" title="Large (22px) - Default" aria-label="Large font size" aria-pressed="true">L</button>
+                <button type="button" class="sub-size-btn" data-size="xlarge" id="btn-sub-size-xlarge" title="Extra Large (26px)" aria-label="Extra large font size">XL</button>
+              </div>
+            </div>
+            <div id="video-current-cue-preview" class="video-cue-preview video-sub-text waiting active-sub-size-large">Waiting for playback…</div>
+            <div id="active-sub-grammar-slot" class="active-sub-grammar-slot" aria-live="polite"></div>
             <button type="button" id="btn-mine-full-sentence" class="btn-mine-sentence" title="Mine active subtitle sentence">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
                 <path d="M2 4h12M2 8h12M2 12h8"/>
@@ -131,6 +140,24 @@
           <!-- Dimmed recent cues stay in the same playback view as the active cue. -->
           <div id="recent-cues-section" class="recent-cues-section unified-recent-cues-wrap" hidden>
             <ul id="recent-cues-list" class="recent-cues-list unified-recent-cues-list"></ul>
+          </div>
+
+          <!-- Missed Should-Know Words Drawer (Collapsible) -->
+          <div id="video-missed-words-drawer" class="video-missed-words-drawer">
+            <div id="video-missed-words-header" class="missed-words-header" role="button" tabindex="0" aria-expanded="false" aria-controls="video-missed-words-body">
+              <div class="missed-words-title-wrap">
+                <span class="missed-words-title">Did I miss a word?</span>
+                <span id="video-missed-words-badge" class="missed-words-count-badge">0</span>
+              </div>
+              <span class="missed-words-chevron" aria-hidden="true">
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="4 6 8 10 12 6"></polyline>
+                </svg>
+              </span>
+            </div>
+            <div id="video-missed-words-body" class="missed-words-body" hidden>
+              <div id="video-missed-words-list" class="missed-words-list"></div>
+            </div>
           </div>
         </div>
 
@@ -265,6 +292,21 @@
          ========================================================= -->
 
     <section id="card-editor-section" class="card-editor-section" aria-label="Card Editor">
+      <!-- 1-line collapsed chip for Video tab auto-collapse -->
+      <div id="video-collapsed-card-chip" class="video-collapsed-card-chip" style="display:none;" role="button" tabindex="0" aria-label="Expand Card Editor">
+        <div class="chip-main">
+          <span class="chip-word" id="collapsed-chip-word"></span>
+          <span class="chip-reading" id="collapsed-chip-reading"></span>
+          <span class="chip-divider" aria-hidden="true">•</span>
+          <span class="chip-status" id="collapsed-chip-status">Saved (pending)</span>
+        </div>
+        <button type="button" class="btn-chip-expand" id="btn-expand-collapsed-chip" aria-label="Expand Card Workspace">
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 6 8 10 12 6"></polyline>
+          </svg>
+        </button>
+      </div>
+
       <div class="section-header card-workspace-header" style="display:none;">
         <h2 class="section-title">EDIT</h2>
       </div>

@@ -1,6 +1,37 @@
 # Kiroku Note — Progress
 
-### Subtitle Annotation & Known Words Backend Routes (2026-10-29)
+### Side Panel Video Tab Declutter DOM & CSS (2026-10-29)
+
+**Objective**: Implement DOM markup and CSS styling for the Video tab declutter, font sizing controls (14px, 18px, 22px default, 26px), reserved grammar slot for Part 2, collapsed card chip, missed should-know words drawer, and word status tokens (mined orange #d4884f, should-know green #5db872, unstyled) with zero emojis.
+
+**Delivered**:
+- **DOM Test Suite (`extension/tests/video-tab-declutter-dom.test.js`)**:
+  - TDD tests verifying presence and initial empty state of `#active-sub-grammar-slot` within `.video-cue-preview-container`.
+  - Tests verifying active subtitle font sizing buttons (`data-size="small"`, `medium`, `large` active default, `xlarge`).
+  - Tests verifying `#video-collapsed-card-chip` 1-line chip element with singular un-duplicated shared Card Workspace DOM (`#card-layout-container`, `#card-editor-section`).
+  - Tests verifying `#video-missed-words-drawer` with header, count badge, and body container.
+  - Tests verifying strict zero OS emojis across all markup and CSS.
+  - Tests verifying CSS rules for font sizes, word tokens (`.sub-token.mined`, `.sub-token.should-know`, `.sub-token.unstyled`), and drawer/chip styles.
+- **Side Panel HTML (`extension/sidepanel/sidepanel.html`)**:
+  - Added `.active-sub-toolbar` with `#active-sub-size-controls` (S, M, L active, XL) and updated `#video-current-cue-preview` default class to `active-sub-size-large`.
+  - Added empty `#active-sub-grammar-slot` with `class="active-sub-grammar-slot" aria-live="polite"`.
+  - Added `#video-missed-words-drawer` with `#video-missed-words-header`, count badge `#video-missed-words-badge`, and `#video-missed-words-body`.
+  - Added 1-line `#video-collapsed-card-chip` inside `#card-editor-section` with word/reading/status spans and SVG chevron.
+- **Side Panel CSS (`extension/sidepanel/sidepanel.css`)**:
+  - Sizing classes `.active-sub-size-small` (14px), `.active-sub-size-medium` (18px), `.active-sub-size-large` (22px), `.active-sub-size-xlarge` (26px).
+  - Word tokens `.sub-token.mined` (orange #d4884f + subtle underline), `.sub-token.should-know` (green #5db872 + subtle underline), `.sub-token.unstyled`.
+  - Chip styles `.video-collapsed-card-chip` and container collapse modifier `.card-editor-section.video-collapsed`.
+  - Drawer styles `.video-missed-words-drawer`, `.missed-words-header`, `.missed-words-count-badge`, and `.missed-words-body`.
+
+**Verification**:
+- `node --test extension/tests/video-tab-declutter-dom.test.js`: 8 passed in 145ms.
+- `node --test extension/tests/video-mode-declutter-and-fullscreen.test.js extension/tests/sidepanel.test.js extension/tests/sidepanel-subtitles-ui.test.js extension/tests/card-preview.test.js extension/tests/customizable-layout.test.js`: 13 passed in 251ms.
+- `$env:PYTHONPATH="backend"; python -m pytest backend/tests/test_subtitle_annotator.py backend/tests/test_subtitle_routes.py`: 27 passed in 4.42s.
+
+**Remaining Risk**:
+- None. DOM elements are structured according to Spec Section 1 & 5.2 and ready for client logic in Tasks 7, 8, and 10.
+
+---
 
 **Objective**: Expose FastAPI backend routes for batch subtitle cue annotation, known words retrieval with HTTP 304 ETag caching, and marking/unmarking known words with immediate annotator cache invalidation.
 
