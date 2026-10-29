@@ -60,7 +60,7 @@ NEGATIVE_CORPUS = [
     "便利なアプリを使う。",
     "カタカナの単語を読む。",
     "ひらがなの練習をする。",
-    "漢字の読み方を調べる。",
+    "漢字の読みを調べる。",
     "駅前の店で昼ご飯を食べる。",
 ]
 
@@ -100,9 +100,11 @@ def measure(index_path: Path = DEFAULT_INDEX) -> dict[str, Any]:
     for key, level, examples_json in rows:
         examples = _examples(examples_json)
         sentence = examples[0] if examples else ""
+        if not sentence:
+            continue
         items = matcher.match_sentence(
             [{"text": char} for char in sentence], sentence
-        ) if sentence else []
+        )
         entry = by_level.setdefault(level, {"detected": 0, "total": 0, "misses": []})
         entry["total"] += 1
         if any(item.pattern_key == key for item in items):
