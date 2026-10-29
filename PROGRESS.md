@@ -1,5 +1,20 @@
 # Kiroku Note — Progress
 
+### Tasks 6/9/10 Combined Batch — Review Fixes (2026-10-29)
+
+**Delivered**:
+- Made Alt+G grammar capture a reachable sibling of the Alt+O OCR branch.
+- Initialized grammar settings and UI listeners during normal sidepanel startup,
+  while retaining storage-change reloads for cross-context updates.
+- Sent the video grammar session drawer seek payload as `ms`, matching the
+  existing video message handler.
+
+**Verification**:
+- `node --check extension\content\content.js`
+- `node --check extension\sidepanel\sidepanel.js`
+- `node --test extension\tests\capture-word-regression.test.js extension\tests\grammar-settings.test.js extension\tests\video-grammar-strip.test.js`
+  (4 passed).
+
 ### Task 5 — DictionaryProvider Seam & Grammar Service (2026-10-29)
 
 **Delivered**:

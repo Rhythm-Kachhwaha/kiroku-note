@@ -93,13 +93,13 @@
           event.preventDefault();
           chrome.runtime.sendMessage({ type: "START_OCR_CAPTURE" }).catch(() => {});
         }
-        if (event.altKey && (event.key.toLowerCase() === "g" || event.code === "KeyG")) {
-          const activeEl = document.activeElement;
-          const isEditable = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable);
-          if (!isEditable) {
-            event.preventDefault();
-            dispatchGrammarSelection();
-          }
+      }
+      if (event.altKey && (event.key.toLowerCase() === "g" || event.code === "KeyG")) {
+        const activeEl = document.activeElement;
+        const isEditable = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable);
+        if (!isEditable) {
+          event.preventDefault();
+          dispatchGrammarSelection();
         }
       }
     }, true);

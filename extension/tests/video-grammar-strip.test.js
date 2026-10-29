@@ -9,4 +9,6 @@ test("video grammar mounts in reserved slot and has session drawer", () => {
   assert.match(html, /id="video-grammar-session-drawer"/);
   assert.match(js, /renderVideoGrammar/);
   assert.match(js, /grammarCueCache/);
+  assert.match(js, /type: "SEEK_TO", ms:/);
+  assert.doesNotMatch(js, /type: "SEEK_TO", timeMs:/);
 });

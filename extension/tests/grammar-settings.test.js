@@ -11,4 +11,6 @@ test("grammar settings expose persisted particle and card style controls", () =>
   assert.match(html, /id="btn-test-grammar-setup"/);
   assert.match(js, /GRAMMAR_SETTINGS_KEY/);
   assert.match(js, /API_GRAMMAR_SETUP_URL/);
+  assert.match(js, /function initGrammarUI\(\)/);
+  assert.match(js, /initGrammarUI\(\);\s*loadAutoCapturePreferences/);
 });

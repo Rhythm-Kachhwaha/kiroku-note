@@ -130,7 +130,7 @@ async function renderVideoGrammar(cue) {
   });
   const sessionList = document.querySelector("#video-grammar-session-list");
   const sessionCount = document.querySelector("#video-grammar-session-count");
-  if (sessionList) { sessionList.replaceChildren(); grammarSessionPoints.forEach(point => { const row = document.createElement("button"); row.type = "button"; row.className = "grammar-session-item"; row.textContent = `${point.pattern_display || point.pattern} · ${Math.round((point.cue.startTime || point.cue.startMs / 1000 || 0))}s`; row.addEventListener("click", () => chrome.runtime.sendMessage({ type: "SEEK_TO", timeMs: point.cue.startMs ?? Math.round((point.cue.startTime || 0) * 1000) }).catch(() => {})); sessionList.append(row); }); }
+  if (sessionList) { sessionList.replaceChildren(); grammarSessionPoints.forEach(point => { const row = document.createElement("button"); row.type = "button"; row.className = "grammar-session-item"; row.textContent = `${point.pattern_display || point.pattern} · ${Math.round((point.cue.startTime || point.cue.startMs / 1000 || 0))}s`; row.addEventListener("click", () => chrome.runtime.sendMessage({ type: "SEEK_TO", ms: point.cue.startMs ?? Math.round((point.cue.startTime || 0) * 1000) }).catch(() => {})); sessionList.append(row); }); }
   if (sessionCount) sessionCount.textContent = String(grammarSessionPoints.size);
   for (const nextCue of (Array.isArray(recentSubtitleCues) ? recentSubtitleCues : []).slice(0, grammarSettings.ahead_count)) {
     const nextKey = grammarCueKey(nextCue?.text); if (nextCue?.text && !grammarCueCache.has(nextKey)) analyzeGrammar(nextCue.text, { source: "video" }).then(value => grammarCueCache.set(nextKey, value)).catch(() => {});
@@ -144,6 +144,36 @@ async function loadGrammarSettings() {
     if (el.type === "checkbox") el.checked = Boolean(grammarSettings[key]); else el.value = String(grammarSettings[key]);
     el.addEventListener("change", async () => { grammarSettings[key] = el.type === "checkbox" ? el.checked : (el.type === "number" ? Math.max(1, Math.min(10, Number(el.value) || 5)) : el.value); await chrome.storage.local.set({ [GRAMMAR_SETTINGS_KEY]: grammarSettings }); });
   }
+}
+
+function initGrammarUI() {
+  const textGrammarToggle = document.querySelector("#text-grammar-toggle");
+  if (textGrammarToggle) textGrammarToggle.addEventListener("click", () => {
+    const content = document.querySelector("#text-grammar-content");
+    if (!content) return;
+    content.hidden = !content.hidden;
+    textGrammarToggle.setAttribute("aria-expanded", String(!content.hidden));
+  });
+  const testGrammarSetup = document.querySelector("#btn-test-grammar-setup");
+  if (testGrammarSetup) testGrammarSetup.addEventListener("click", async () => {
+    const output = document.querySelector("#grammar-setup-status");
+    if (output) output.textContent = "Checking…";
+    try {
+      const response = await fetch(API_GRAMMAR_SETUP_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ designated_dictionary: grammarSettings.designated_dictionary || null }) });
+      const data = await response.json();
+      if (output) { output.textContent = data?.message || (data?.ok === false ? "Setup needs attention." : "Grammar setup ready."); output.dataset.status = data?.ok === false ? "error" : "ok"; }
+      const list = document.querySelector("#grammar-dictionary-options");
+      if (list && Array.isArray(data?.dictionaries)) list.replaceChildren(...data.dictionaries.map(name => { const option = document.createElement("option"); option.value = name; return option; }));
+    } catch (_) { if (output) { output.textContent = "Backend unavailable."; output.dataset.status = "error"; } }
+  });
+  const grammarSessionHeader = document.querySelector("#video-grammar-session-header");
+  if (grammarSessionHeader) grammarSessionHeader.addEventListener("click", () => {
+    const body = document.querySelector("#video-grammar-session-body");
+    if (!body) return;
+    body.hidden = !body.hidden;
+    grammarSessionHeader.setAttribute("aria-expanded", String(!body.hidden));
+  });
+  loadGrammarSettings().catch(() => {});
 }
 
 async function getKanjiStrokeSvg(character) {
@@ -10366,37 +10396,9 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
       updateOffsetDisplay(changes.subtitle_timing_offset.newValue);
     }
 
-    const textGrammarToggle = document.querySelector("#text-grammar-toggle");
-    if (textGrammarToggle) {
-      textGrammarToggle.addEventListener("click", () => {
-        const content = document.querySelector("#text-grammar-content");
-        if (!content) return;
-        content.hidden = !content.hidden;
-        textGrammarToggle.setAttribute("aria-expanded", String(!content.hidden));
-      });
+    if (areaName === "local" && changes?.[GRAMMAR_SETTINGS_KEY]) {
+      loadGrammarSettings().catch(() => {});
     }
-    const testGrammarSetup = document.querySelector("#btn-test-grammar-setup");
-    if (testGrammarSetup) {
-      testGrammarSetup.addEventListener("click", async () => {
-        const output = document.querySelector("#grammar-setup-status");
-        if (output) output.textContent = "Checking…";
-        try {
-          const response = await fetch(API_GRAMMAR_SETUP_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ designated_dictionary: grammarSettings.designated_dictionary || null }) });
-          const data = await response.json();
-          if (output) { output.textContent = data?.message || (data?.ok === false ? "Setup needs attention." : "Grammar setup ready."); output.dataset.status = data?.ok === false ? "error" : "ok"; }
-          const list = document.querySelector("#grammar-dictionary-options");
-          if (list && Array.isArray(data?.dictionaries)) { list.replaceChildren(...data.dictionaries.map(name => { const option = document.createElement("option"); option.value = name; return option; })); }
-        } catch (_) { if (output) { output.textContent = "Backend unavailable."; output.dataset.status = "error"; } }
-      });
-    }
-    const grammarSessionHeader = document.querySelector("#video-grammar-session-header");
-    if (grammarSessionHeader) grammarSessionHeader.addEventListener("click", () => {
-      const body = document.querySelector("#video-grammar-session-body");
-      if (!body) return;
-      body.hidden = !body.hidden;
-      grammarSessionHeader.setAttribute("aria-expanded", String(!body.hidden));
-    });
-    loadGrammarSettings().catch(() => {});
     if (areaName === "local" && changes?.active_subtitle_cues) {
       loadedSubtitleCues = Array.isArray(changes.active_subtitle_cues.newValue)
         ? changes.active_subtitle_cues.newValue
@@ -11802,6 +11804,7 @@ if (btnAskSubmit) {
 
 initAskResponseMode();
 
+initGrammarUI();
 loadAutoCapturePreferences();
 loadRecentSubsPreferences();
 loadVideoWorkspaceCollapsePreferences().catch(() => {});
