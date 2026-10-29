@@ -12,6 +12,125 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE_DB = ROOT / "backend" / "app" / "data" / "jlpt_reference.sqlite"
 DEFAULT_OUTPUT = ROOT / "backend" / "app" / "data" / "grammar_reference.sqlite"
 
+FALLBACK_ROWS = [
+    ("使役受身", "N4", "be made to; be forced to",
+     "V-させられる", "V-させられる"),
+    ("ことになる", "N4", "it is decided that; it turns out that",
+     "V-る + ことになる", "ことにな(?:る|った)"),
+    ("かもしれない", "N4", "might; may",
+     "Plain form + かもしれない", "かもしれない"),
+    ("ざるを得ない", "N2", "cannot avoid; have no choice but to",
+     "V-ます stem + ざるを得ない", "ざるを得ない"),
+    ("はずがない", "N3", "cannot be; there is no way",
+     "Plain form + はずがない", "はずがない"),
+    ("なければならない", "N4", "must; have to",
+     "V-なければならない", "(?:なければなら|なきゃ)(?:ない|だめ|ならない)?"),
+    ("ば〜ほど", "N3", "the more …, the more …",
+     "V-ば + V-る + ほど", ""),
+    ("とか〜とか", "N4", "things like … and …",
+     "N/V + とか … N/V + とか", ""),
+    ("お〜になる", "N4", "honorific form",
+     "お + V-stem + になる", "お[ぁ-ゖァ-ヺ一-龯]{1,6}になる"),
+    ("にもかかわらず", "N2", "despite; in spite of",
+     "N + にもかかわらず", "にもかかわらず"),
+    ("にしては", "N3", "considering; for",
+     "N + にしては", "にしては"),
+    ("そうだ(hearsay)", "N4", "I hear that; it is said that",
+     "Plain form + そうだ", "[ぁ-ゖァ-ヺ一-龯]+そうだ"),
+    ("は", "N5", "topic marker", "N + は", ""),
+    ("が", "N5", "subject marker", "N + が", ""),
+    ("を", "N5", "object marker", "N + を", ""),
+    ("に", "N5", "time or destination marker", "N + に", ""),
+    ("へ", "N5", "direction marker", "N + へ", ""),
+    ("で", "N5", "place or means marker", "N + で", ""),
+    ("と", "N5", "and or with marker", "N + と", ""),
+    ("の", "N5", "possessive marker", "N + の", ""),
+    ("も", "N5", "also marker", "N + も", ""),
+]
+
+
+def matcher_spec(key: str, pattern: str) -> dict[str, object]:
+    """Create the data-only matching contract for one reference row."""
+    if key == "てしまう":
+        return {
+            "type": "regex",
+            "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:てしま(?:う|っ(?:た|て|たら)?)|ちゃ(?:う|っ(?:た|て|たら)?))",
+            "matched_formation": "V-て + {suffix}",
+        }
+    if key == "ことになる":
+        return {"type": "regex", "regex": "ことにな(?:る|った)"}
+    if key == "かもしれない":
+        return {"type": "regex", "regex": "かもしれない"}
+    if key == "ざるを得ない":
+        return {"type": "regex", "regex": "ざるを得ない"}
+    if key == "はずがない":
+        return {"type": "regex", "regex": "はずがない"}
+    if key == "たことがあります":
+        return {"type": "regex", "regex": "たことが(?:ある|あります)"}
+    if key == "ておく":
+        return {
+            "type": "regex",
+            "regex": "(?:[てで]おく|[ぁ-ゖァ-ヺ一-龯]+とく)",
+        }
+    if key == "なければならない":
+        return {
+            "type": "regex",
+            "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:なければなら(?:ない|なかった)|なきゃ(?:だめ|ならない)?|なくてはいけ(?:ない|ません))",
+        }
+    if key == "使役受身":
+        return {
+            "type": "regex",
+            "regex": "[ぁ-ゖァ-ヺ一-龯]+させられ(?:たくなかった|ない|る|れた)",
+        }
+    if key in {"ば〜ほど", "とか〜とか"}:
+        marker = "ば" if key == "ば〜ほど" else "とか"
+        end = "ほど" if key == "ば〜ほど" else "(?:とか|ている|る)"
+        return {
+            "type": "discontinuous",
+            "first": f"[ぁ-ゖァ-ヺ一-龯]+{marker}",
+            "second": f"[ぁ-ゖァ-ヺ一-龯]+{end}",
+            "max_gap": 20,
+            "clause_break": "[、。！？]",
+        }
+    if key == "お〜になる":
+        return {"type": "regex", "regex": "お[ぁ-ゖァ-ヺ一-龯]{1,6}になる"}
+    if key == "そうだ(appearance)":
+        return {
+            "type": "regex",
+            "regex": "[ぁ-ゖァ-ヺ一-龯]+そうだ",
+            "ambiguity_group": "そうだ",
+            "confidence": "medium",
+            "guards": {"forbidden_preceding": ["る", "た", "ない", "だ"]},
+        }
+    if key == "そうだ(hearsay)":
+        return {
+            "type": "regex",
+            "regex": "[ぁ-ゖァ-ヺ一-龯]+そうだ",
+            "ambiguity_group": "そうだ",
+            "confidence": "high",
+            "guards": {"required_preceding": ["る", "た", "ない", "だ"]},
+        }
+    if key in {"が(but)", "から(reason)", "で(place/means)", "と(and/with)",
+               "に(time/destination)", "を(object particle)"}:
+        return {"type": "pattern", "match_mode": "reference_only"}
+    alternatives = [
+        part.strip().replace("〜", "").replace("～", "").replace("~", "")
+        for part in pattern.split("/")
+    ]
+    return {"type": "pattern", "variants": alternatives, "match_mode": "auto"}
+
+
+def row_for(pattern: str, level: str, meaning: str, formation: str | None,
+            examples: str, source: str) -> tuple[object, ...]:
+    key = pattern if source == "Kiroku matcher seed" else normalize_pattern_key(pattern)
+    spec = matcher_spec(key, pattern)
+    return (
+        pattern, key, level, meaning, breakdown(pattern, meaning, formation),
+        formation, json.dumps(spec.get("variants", []), ensure_ascii=False),
+        json.dumps(spec, ensure_ascii=False), json.dumps(spec.get("guards"))
+        if spec.get("guards") else None, examples or "[]", None, source,
+    )
+
 
 def normalize_pattern_key(pattern: str) -> str:
     """Return a stable lookup key for display patterns and kana variants."""
@@ -71,9 +190,16 @@ def build(output: Path = DEFAULT_OUTPUT, source: Path = SOURCE_DB) -> Path:
         CREATE INDEX idx_grammar_index_group_id ON grammar_index(group_id);
         """
     )
-    for pattern, level, meaning, formation, examples in rows:
-        key = normalize_pattern_key(pattern)
-        examples_json = examples if examples else "[]"
+    generated_rows = [
+        row_for(pattern, level, meaning, formation, examples,
+                "OpenJLPT / Tanos JLPT grammar list")
+        for pattern, level, meaning, formation, examples in rows
+    ]
+    generated_rows.extend(
+        row_for(pattern, level, meaning, formation, "[]", "Kiroku matcher seed")
+        for pattern, level, meaning, formation, _ in FALLBACK_ROWS
+    )
+    for row in generated_rows:
         conn.execute(
             """
             INSERT INTO grammar_index
@@ -82,20 +208,7 @@ def build(output: Path = DEFAULT_OUTPUT, source: Path = SOURCE_DB) -> Path:
                examples, group_id, source)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (
-                pattern,
-                key,
-                level,
-                meaning,
-                breakdown(pattern, meaning, formation),
-                formation,
-                "[]",
-                json.dumps({"type": "pattern", "pattern_key": key}, ensure_ascii=False),
-                None,
-                examples_json,
-                None,
-                "OpenJLPT / Tanos JLPT grammar list",
-            ),
+            row,
         )
     conn.commit()
     conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")

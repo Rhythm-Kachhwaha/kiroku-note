@@ -21,3 +21,23 @@ supporting context rather than authoritative matches.
 The basic-particle filter hides standalone particles by default while retaining
 compound points. Enable **Show Basic Particles** only when a sentence-level
 particle review is desired.
+
+## Matcher data contract
+
+Each row in `grammar_index.matcher` is JSON and is interpreted offline by the
+backend. The supported forms are:
+
+- `{"type":"pattern","variants":[...],"match_mode":"auto"}` for literal
+  surface variants. `match_mode:"reference_only"` intentionally suppresses
+  automatic matching for ambiguous or bare-particle references.
+- `{"type":"regex","regex":"..."}` for a controlled regular expression.
+  `inflection` may specify one required form: `て`, `た`, `ない`,
+  `ます-stem`, `dictionary`, or `plain`; the matcher uses token data when
+  available and the regex as the offline fallback.
+- `{"type":"discontinuous","first":"...","second":"...","max_gap":20}`
+  for two forms in one clause. `guards` can require or forbid preceding or
+  following forms and can set `minimum_sentence_context`.
+
+Optional `variants`, `guards`, `ambiguity_group`, `confidence`, and
+`matched_formation` fields are data-only metadata; they never replace the
+bundled Tier 0 point.

@@ -1,5 +1,21 @@
 # Kiroku Note — Progress
 
+### Task 2 — Data-Driven Grammar Matcher (2026-10-29)
+
+**Delivered**:
+- Moved matcher and fallback definitions into generated `matcher` JSON rows,
+  including regex, surface variants, discontinuous clauses, guards,
+  contraction forms, and `そうだ` ambiguity confidence.
+- Replaced the hardcoded matcher rule list and removed the fallback default
+  level behavior; unknown keys now produce no span.
+- Added katakana, `々`, and `ー` to matcher character classes and a
+  temporary-index-row test proving new rows are matchable without code edits.
+- Documented the matcher JSON contract in `docs/grammar-dictionaries.md`.
+
+**Verification**:
+- `PYTHONPATH=.;backend python -m pytest backend\tests\test_grammar_matcher.py backend\tests\test_grammar_acceptance_gate.py backend\tests\test_grammar_coverage.py -q` — 57 passed.
+
+
 ### Task 1 — Grammar Coverage Harness Baseline (2026-10-29)
 
 **Delivered**:

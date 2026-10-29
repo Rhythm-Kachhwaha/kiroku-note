@@ -1,9 +1,11 @@
 import json
+import sqlite3
 from pathlib import Path
 
 import pytest
 
 from app.services.grammar_matcher import GrammarMatcher
+from app.services.grammar_reference import GrammarReferenceService
 
 
 def tokens(sentence: str) -> list[dict[str, str]]:
@@ -121,3 +123,35 @@ def test_takotogaaru_canonical_match_is_not_duplicated():
              if item.pattern_key == "たことがあります"]
     assert len(items) == 1
     assert items[0].text == "たことがある"
+
+
+def test_new_index_row_is_matchable_without_matcher_code_change(tmp_path):
+    database = tmp_path / "grammar.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE grammar_index (
+                id INTEGER PRIMARY KEY, pattern_display TEXT, pattern_key TEXT,
+                level TEXT, meaning_short TEXT, english_breakdown TEXT,
+                formation TEXT, variants JSON, matcher JSON, guards JSON,
+                examples JSON, group_id TEXT, source TEXT
+            )
+            """
+        )
+        connection.execute(
+            """INSERT INTO grammar_index
+            (pattern_display, pattern_key, level, meaning_short,
+             english_breakdown, formation, variants, matcher, examples, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "〜テスト", "テスト", "N5", "test", "test", None, "[]",
+                json.dumps({"type": "pattern", "variants": ["テスト"]}),
+                "[]", "test",
+            ),
+        )
+        connection.commit()
+    matcher = GrammarMatcher(GrammarReferenceService(database))
+    items = matcher.match_sentence(
+        [{"text": char} for char in "これはテストです。"], "これはテストです。"
+    )
+    assert any(item.pattern_key == "テスト" for item in items)

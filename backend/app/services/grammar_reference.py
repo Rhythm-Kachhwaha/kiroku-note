@@ -77,6 +77,9 @@ class GrammarReferenceService:
     def get_point_by_key(self, pattern_key: str) -> dict[str, Any] | None:
         return self._load().get(_normalize_key(pattern_key))
 
+    def get_points(self) -> list[dict[str, Any]]:
+        return list(self._load().values())
+
     def close(self) -> None:
         if self._connection is not None:
             self._connection.close()
