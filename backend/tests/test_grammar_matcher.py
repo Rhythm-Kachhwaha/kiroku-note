@@ -91,3 +91,33 @@ def test_basic_particles_can_be_explicitly_enabled():
     sentence = "学校に行く。"
     items = GrammarMatcher().match_sentence(tokens(sentence), sentence, show_basic_particles=True)
     assert any(item.pattern_key == "に" for item in items)
+
+
+def test_inflected_span_excludes_preceding_subject_context():
+    sentence = "私は食べちゃった。"
+    item = next(item for item in GrammarMatcher().match_sentence(tokens(sentence), sentence)
+                if item.pattern_key == "てしまう")
+    assert item.text == "食べちゃった"
+
+
+def test_matched_formation_comes_from_the_explicit_suffix_group():
+    sentence = "食べてしまって困った。"
+    item = next(item for item in GrammarMatcher().match_sentence(tokens(sentence), sentence)
+                if item.pattern_key == "てしまう")
+    assert item.matched_formation == "V-て + てしまって"
+
+
+def test_copular_dそうだ_is_hearsay():
+    sentence = "これは学生だそうだ。"
+    item = next(item for item in GrammarMatcher().match_sentence(tokens(sentence), sentence)
+                if item.pattern_key.startswith("そうだ"))
+    assert item.pattern_key == "そうだ(hearsay)"
+    assert item.text == "学生だそうだ"
+
+
+def test_takotogaaru_canonical_match_is_not_duplicated():
+    sentence = "見たことがある。"
+    items = [item for item in GrammarMatcher().match_sentence(tokens(sentence), sentence)
+             if item.pattern_key == "たことがあります"]
+    assert len(items) == 1
+    assert items[0].text == "たことがある"

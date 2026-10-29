@@ -15,7 +15,14 @@
 
 **Verification**:
 - `Set-Location backend; python -m pytest tests\test_grammar_matcher.py -q`
-  (48 passed).
+  (52 passed).
+
+**Task 4 review fixes**:
+- Constrained inflected-form spans to the grammar-bearing verb/form instead of
+  including preceding subject context.
+- Derived contraction explanations from an explicit suffix capture group.
+- Classified copular `だそうだ` as hearsay and kept its span clause-local.
+- Removed duplicate canonical `たことがあります`/`たことがある` hits.
 
 ### Task 3 — Bundled Grammar Reference Index (2026-10-29)
 

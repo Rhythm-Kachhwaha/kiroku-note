@@ -134,6 +134,19 @@ class GrammarMatcher:
             confidence=confidence, matched_formation=matched,
         )
 
+    @staticmethod
+    def _grammar_start(raw_text: str, suffix_start: int) -> int:
+        """Find the start of the form immediately governing a grammar suffix."""
+        # Single-character particles are safe boundaries here; multi-character
+        # particles are handled by the fixed grammar rules below.
+        particles = set("はがをにへでとのも")
+        start = suffix_start
+        while start > 0 and re.match(r"[\u3041-\u30ff一-龯]", raw_text[start - 1]):
+            if raw_text[start - 1] in particles:
+                break
+            start -= 1
+        return start
+
     def match_sentence(
         self, tokens: list[dict], raw_text: str, show_basic_particles: bool = False
     ) -> list[MatchedGrammarSpan]:
@@ -145,21 +158,35 @@ class GrammarMatcher:
 
         # Contractions are kept as their visible sentence span, but point at
         # the canonical formation so callers can explain what was normalized.
-        for match in re.finditer(r"[\u3041-\u309f\u30a1-\u30fa一-龯]+(?:てしま(?:う|っ(?:た|て|たら)?)|ちゃ(?:う|っ(?:た|て|たら)?))", raw_text):
-            text = match.group()
-            suffix = text[-4:]
+        for match in re.finditer(
+            r"(?P<form>[\u3041-\u309f\u30a1-\u30fa一-龯]+?)"
+            r"(?P<suffix>てしま(?:う|っ(?:た|て|たら)?)|ちゃ(?:う|っ(?:た|て|たら)?))",
+            raw_text,
+        ):
+            start = self._grammar_start(raw_text, match.start("suffix"))
+            suffix = match.group("suffix")
             candidates.append(self._candidate(
-                "てしまう", raw_text, match.start(), match.end(),
+                "てしまう", raw_text, start, match.end(),
                 matched=f"V-て + {suffix}",
             ))
         for match in re.finditer(r"[\u3041-\u309f一-龯]+(?:なければなら(?:ない|なかった)|なきゃ(?:だめ|ならない)?)", raw_text):
+            suffix_start = match.start() + min(
+                (match.group().find(marker) for marker in ("なければ", "なきゃ") if marker in match.group()),
+                default=0,
+            )
+            start = self._grammar_start(raw_text, suffix_start)
             candidates.append(self._candidate(
-                "なければならない", raw_text, match.start(), match.end(),
+                "なければならない", raw_text, start, match.end(),
                 matched="V-なければならない",
             ))
         for match in re.finditer(r"[\u3041-\u309f一-龯]+(?:なくては|なければ)いけ(?:ない|ません)", raw_text):
+            suffix_start = match.start() + min(
+                (match.group().find(marker) for marker in ("なくては", "なければ") if marker in match.group()),
+                default=0,
+            )
+            start = self._grammar_start(raw_text, suffix_start)
             candidates.append(self._candidate(
-                "なければならない", raw_text, match.start(), match.end(),
+                "なければならない", raw_text, start, match.end(),
                 matched="V-なくてはいけない",
             ))
         for match in re.finditer(r"たことが(?:ある|あります)", raw_text):
@@ -173,8 +200,9 @@ class GrammarMatcher:
                 matched=f"V-{match.group()[0]} + おく",
             ))
         for match in re.finditer(r"[\u3041-\u309f一-龯]+とく", raw_text):
+            start = self._grammar_start(raw_text, match.start())
             candidates.append(self._candidate(
-                "ておく", raw_text, match.start(), match.end(),
+                "ておく", raw_text, start, match.end(),
                 matched="V-て + とく",
             ))
 
@@ -196,24 +224,24 @@ class GrammarMatcher:
         # hearsay; a stem ending before そう is appearance.  If token data
         # cannot establish the distinction, retain an explicitly ambiguous
         # appearance result rather than silently claiming certainty.
-        for match in re.finditer(r"([\u3041-\u309f一-龯]+)そうだ", raw_text):
-            prefix = match.group(1)
-            if prefix.endswith(("る", "た", "ない")):
+        for match in re.finditer(r"(?P<prefix>[\u3041-\u309f一-龯]+)そうだ", raw_text):
+            prefix = match.group("prefix")
+            if prefix.endswith(("る", "た", "ない", "だ")):
                 key, confidence = "そうだ(hearsay)", "high"
             else:
                 key, confidence = "そうだ(appearance)", "medium"
-            candidates.append(self._candidate(key, raw_text, match.start(), match.end(), confidence=confidence))
+            start = self._grammar_start(raw_text, match.end("prefix"))
+            candidates.append(self._candidate(key, raw_text, start, match.end(), confidence=confidence))
 
         # Reference patterns cover the remaining fixed suffixes.  This makes
         # newly added reference rows usable without changing matcher code.
         for key in ("たことがあります", "てしまう", "ておく"):
             pass
         for key in (
-            "たことがあります", "たところで", "わけではない", "わけがない",
+            "たところで", "わけではない", "わけがない",
             "ことだ", "ものだ", "らしい", "みたい", "ずに", "かねない",
         ):
-            display_key = key.replace("たことがあります", "たことがある")
-            add_literal(display_key, key)
+            add_literal(key, key)
 
         if show_basic_particles:
             for token, start, end in self._tokens(tokens, raw_text):
@@ -224,6 +252,12 @@ class GrammarMatcher:
                 item for item in candidates
                 if not (item.text in _BARE_PARTICLES and item.end - item.start == 1)
             ]
+
+        # Remove duplicate canonical hits produced by multiple surface rules.
+        unique: dict[tuple[str, int, int], MatchedGrammarSpan] = {}
+        for item in candidates:
+            unique.setdefault((item.pattern_key, item.start, item.end), item)
+        candidates = list(unique.values())
 
         # Longest first gives a stable primary cover.  Overlapping shorter
         # candidates are retained as alternatives for UI explanations.
