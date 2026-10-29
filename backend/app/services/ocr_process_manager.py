@@ -64,7 +64,7 @@ class OcrProcessManager:
                 cls._instance = None
 
     def is_installed(self, env: dict[str, str] | None = None) -> bool:
-        """Check if KirokuOCR.exe or dev run_ocr.py exists in candidate locations."""
+        """Check if KirokuOCR.exe or the development OCR module exists."""
         return resolve_ocr_exe_path(env) is not None or resolve_ocr_dev_command(env) is not None
 
     def get_executable_path(self, env: dict[str, str] | None = None) -> Path | None:

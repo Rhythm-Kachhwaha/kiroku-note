@@ -28,7 +28,6 @@ hidden_imports = (
     + collect_submodules("starlette")
     + collect_submodules("anyio")
     + collect_submodules("app")
-    + collect_submodules("pystray")
     + [
         "sqlite3",
         "pydantic",
@@ -39,9 +38,6 @@ hidden_imports = (
         "ctypes",
         "ctypes.wintypes",
         "winreg",
-        "PIL.Image",
-        "PIL.ImageDraw",
-        "PIL.ImageFont",
     ]
 )
 
@@ -115,7 +111,7 @@ hidden_imports.extend([
 hidden_imports.extend(collect_submodules("kiroku_dictionary"))
 
 a = Analysis(
-    [str(PROJECT_ROOT / "run_tray.py")],
+    [str(PROJECT_ROOT / "run_backend.py")],
     pathex=[str(PROJECT_ROOT), str(BACKEND_DIR), str(CLOUD_QUEUE_DIR)],
     binaries=[],
     datas=datas,

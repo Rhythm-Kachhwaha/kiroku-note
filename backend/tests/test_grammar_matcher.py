@@ -20,11 +20,11 @@ MATCH_CASES = [
     ("勉強しなくてはいけない。", "なければならない"), ("帰らなきゃならない。", "なければならない"),
     ("見たことがある。", "たことがあります"), ("行ったことがあります。", "たことがあります"),
     ("読んでおく。", "ておく"), ("予約しとく。", "ておく"),
-    ("行けば行くほど上手になる。", "ば〜ほど"), ("考えれば考えるほど難しい。", "ば〜ほど"),
-    ("本とか映画とかが好きだ。", "とか〜とか"), ("野菜とか果物とかを買う。", "とか〜とか"),
+    ("行けば行くほど上手になる。", "ばほど"), ("考えれば考えるほど難しい。", "ばほど"),
+    ("本とか映画とかが好きだ。", "とかとか"), ("野菜とか果物とかを買う。", "とかとか"),
     ("雨にもかかわらず出かけた。", "にもかかわらず"), ("忙しいにもかかわらず来た。", "にもかかわらず"),
     ("学生にしては詳しい。", "にしては"), ("子供にしては落ち着いている。", "にしては"),
-    ("先生がお話しになる。", "お〜になる"), ("社長がお読みになる。", "お〜になる"),
+    ("先生がお話しになる。", "おになる"), ("社長がお読みになる。", "おになる"),
     ("雨が降りそうだ。", "そうだ(appearance)"), ("彼は元気そうだ。", "そうだ(appearance)"),
     ("雨が降るそうだ。", "そうだ(hearsay)"), ("先生が来たそうだ。", "そうだ(hearsay)"),
     ("これは本当らしい。", "らしい"), ("彼は学生らしい。", "らしい"),
@@ -155,3 +155,37 @@ def test_new_index_row_is_matchable_without_matcher_code_change(tmp_path):
         [{"text": char} for char in "これはテストです。"], "これはテストです。"
     )
     assert any(item.pattern_key == "テスト" for item in items)
+
+
+def test_causative_passive_conjugations_match_sentence():
+    matcher = GrammarMatcher()
+
+    # 1. Past tense form (Fix 1 verification)
+    past = matcher.match_sentence(tokens("掃除させられた。"), "掃除させられた。")
+    assert any(item.pattern_key == "使役受身" for item in past)
+    match_past = next(item for item in past if item.pattern_key == "使役受身")
+    assert match_past.text == "掃除させられた"
+    assert match_past.level == "N4"
+
+    # 2. Non-past form
+    non_past = matcher.match_sentence(tokens("掃除させられる。"), "掃除させられる。")
+    assert any(item.pattern_key == "使役受身" for item in non_past)
+    match_np = next(item for item in non_past if item.pattern_key == "使役受身")
+    assert match_np.text == "掃除させられる"
+
+    # 3. Negative form
+    negative = matcher.match_sentence(tokens("掃除させられない。"), "掃除させられない。")
+    assert any(item.pattern_key == "使役受身" for item in negative)
+    match_neg = next(item for item in negative if item.pattern_key == "使役受身")
+    assert match_neg.text == "掃除させられない"
+
+    # 4. Desire negative past form
+    desire_neg_past = matcher.match_sentence(tokens("掃除させられたくなかった。"), "掃除させられたくなかった。")
+    assert any(item.pattern_key == "使役受身" for item in desire_neg_past)
+    match_dnp = next(item for item in desire_neg_past if item.pattern_key == "使役受身")
+    assert match_dnp.text == "掃除させられたくなかった"
+
+    # 5. Unrelated sentence does not produce false positive
+    unrelated = matcher.match_sentence(tokens("部屋を綺麗に掃除した。"), "部屋を綺麗に掃除した。")
+    assert not any(item.pattern_key == "使役受身" for item in unrelated)
+

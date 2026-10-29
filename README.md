@@ -36,7 +36,7 @@ Even if you have never used Python, a terminal, or built an extension before, yo
 
 ```
 ┌─────────────────┐       ┌──────────────────────┐       ┌─────────────────┐
-│   Web Browser   │ ────> │  Kiroku Note Tray    │ ────> │      Anki       │
+│   Web Browser   │ ────> │ Kiroku Note Backend  │ ────> │      Anki       │
 │ (MV3 SidePanel) │ :21828│ (Local SQLite + API) │ :8765 │  (AnkiConnect)  │
 └─────────────────┘       └──────────────────────┘       └─────────────────┘
          │                           │
@@ -64,12 +64,8 @@ Even if you have never used Python, a terminal, or built an extension before, yo
 
 1. Open your Windows **Start Menu** and search for **Kiroku Note**.
 2. Click to run it.
-3. You will see a warm orange Japanese **あ** icon appear in your **Windows System Tray** (bottom-right corner near the clock).
-4. **Right-click the tray icon** to see real-time service status:
-   - `● Running` (Kiroku local engine is active on port `21828`)
-   - `• Yomitan: Ready / Offline`
-   - `• AnkiConnect: Ready / Offline`
-   - `• OCR Engine: Ready / Disabled`
+3. The Kiroku Note backend starts on port `21828`.
+4. Use the browser extension Side Panel for mining and service status.
 
 ---
 
@@ -184,8 +180,8 @@ Kiroku Note runs as a lightweight desktop service system on your local machine (
 
 1. **Main Kiroku Local Engine (Port `21828`)**:
    - **Purpose**: Local source of truth and REST API backend. Handles card drafting, SQLite persistence (`kiroku.db`), audio/image media storage, Yomitan dictionary orchestration, offline JLPT level lookups (`jlpt_reference.sqlite`), secure DPAPI secret management, and AnkiConnect sync.
-2. **Kiroku System Tray Host**:
-   - **Purpose**: Low-footprint Windows system tray application (`run_tray.py`). Manages server lifecycle, displays real-time health status for Yomitan/AnkiConnect/OCR, and provides toggle controls.
+2. **Kiroku Local Backend**:
+   - **Purpose**: Local FastAPI service (`run_backend.py`) serving the browser Side Panel and managing the local API lifecycle.
 3. **Optional Standalone OCR Engine (Port `21829`)**:
    - **Purpose**: Isolated CPU-optimized OCR service powered by `manga-ocr`. Runs independently so users without OCR needs keep memory footprint minimal, while allowing instant optical character recognition for manga and screen selections when enabled.
 
@@ -203,7 +199,7 @@ Kiroku Note runs as a lightweight desktop service system on your local machine (
 ## <a id="troubleshooting--faq"></a>🔧 Troubleshooting & FAQ
 
 <details>
-<summary><b>The tray icon says Yomitan / AnkiConnect is Offline</b></summary>
+<summary><b>Yomitan / AnkiConnect is Offline</b></summary>
 
 - **AnkiConnect:** Ensure Anki Desktop is running. Verify that the AnkiConnect add-on (`2055492159`) is installed under `Tools -> Add-ons`.
 - **Yomitan:** Check that Yomitan extension is active in your browser.
@@ -251,13 +247,11 @@ python -m venv .venv
 pip install -r backend/requirements.txt
 ```
 
-### 3. Run Backend & System Tray
+### 3. Run Backend
 ```bash
 # Start backend server
 python run_backend.py
 
-# Or launch system tray with background server
-python run_tray.py
 ```
 
 ### 4. Run Automated Tests
@@ -309,5 +303,4 @@ For complete upstream attribution and legal notices, see [`backend/app/data/JLPT
 
 - **Software & Source Code:** Licensed under the [MIT License](LICENSE).
 - **Bundled Reference Data:** Sourced from OpenJLPT (CC BY-SA 4.0) and KanjiVG ([CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)).
-
 

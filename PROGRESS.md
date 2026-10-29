@@ -1,5 +1,46 @@
 # Kiroku Note — Progress
 
+### Repository Audit and Navigation Map — 2026-10-29
+
+**Delivered**:
+- Audited the current checkout before the cleanup changes.
+- Replaced the stale high-level `AGENTS.md` with a verified feature ownership,
+  entry-point, data/resource, testing, and packaging map.
+- Added `docs/REPOSITORY_AUDIT_2026-10-29.md` with inventory, structural
+  findings, staged refactoring recommendations, and a Tauri-versus-Electron
+  comparison. Desktop UI implementation remains intentionally deferred.
+- Archived root grammar reports under `docs/archive/grammar-audits/` and moved
+  manual browser checks under `tools/manual_tests/`.
+- Removed the unused tray/OCR convenience launchers and root Playwright
+  verification script; packaged backend startup now uses `run_backend.py`, and
+  development OCR uses `python -m ocr_server.server`.
+
+**Verification**:
+- `$env:PYTHONPATH='.;backend'; python -m pytest backend\tests -q` —
+  741 passed, 1 warning, 256 subtests.
+- `node --test extension\tests\*.test.js` — 255 passed, 0 failed.
+
+**Safety**:
+- Preserved all pre-existing grammar worktree changes.
+- Moved the empty root database and benchmark database to the ignored
+  `backend/data/archive/` directory; retained the required root dictionary
+  database.
+
+### Grammar Index Fixes 1 & 2 — Causative-Passive Regex & Seed Normalization (2026-10-29)
+
+**Delivered**:
+- Corrected past-tense branch in causative-passive regex in `tools/build_grammar_index.py` (`使役受身`) from `...させられ(?:たくなかった|ない|る|れた)` to `...させられ(?:たくなかった|ない|る|た)`.
+- Removed source-specific key normalization bypass in `tools/build_grammar_index.py` (`row_for`), canonicalizing seed keys `ば〜ほど` (ID 578 -> `ばほど`), `とか〜とか` (ID 579 -> `とかとか`), and `お〜になる` (ID 580 -> `おになる`).
+- Enabled active discontinuous and regex matchers for `ばほど`, `とかとか`, and `おになる` in `matcher_spec` so OpenJLPT counterpart rows (IDs 350, 488, 480) and seed rows (IDs 578, 579, 580) share the matching contracts without `reference_only` shadowing.
+- Added comprehensive regression tests in `backend/tests/test_grammar_matcher.py` and `backend/tests/test_grammar_reference.py`.
+- Rebuilt `backend/app/data/grammar_reference.sqlite` with exactly 7 rows updated and zero unintended churn.
+
+**Verification**:
+- `PYTHONPATH=.;backend python -m pytest backend\tests\test_grammar_matcher.py backend\tests\test_grammar_acceptance_gate.py backend\tests\test_grammar_coverage.py backend\tests\test_grammar_reference.py backend\tests\test_grammar_service.py backend\tests\test_grammar_tracker.py backend\tests\test_grammar_routes.py -q` — 77 passed.
+- `PYTHONPATH=.;backend python tools\grammar_coverage.py` — 0 negative false positives; N5 31/93 (auto 31/31), N4 39/105 (auto 39/43), N3 76/111 (auto 76/76), N2 104/129 (auto 104/105), N1 105/133 (auto 105/105).
+- `PYTHONPATH=.;backend python -m pytest backend\tests -q` — 741 passed, 1 warning, 256 subtests.
+
+
 ### Task 7 — Grammar Hygiene and Packaging Readiness (2026-10-29)
 
 **Delivered**:
@@ -55,18 +96,18 @@
 - `PYTHONPATH=.;backend python tools\grammar_coverage.py`
 
 
-### Settings Keyboard Shortcuts Reference Dropdown (2026-10-29)
-
-**Delivered**:
-- Added `#shortcuts-settings-group` collapsible `<details>` dropdown to the Settings view in `extension/sidepanel/sidepanel.html`.
-- Grouped all existing Kiroku shortcuts into four logical categories: Global & Page Capture, Card Editor & Mining, Video & Subtitles, and Quick Add & Ask Tab.
-- Styled shortcut rows with `<kbd>` keycaps conforming to the dark utility palette (`var(--bg-surface-2)`, `var(--border-default)`, `var(--font-mono)`), with strictly zero OS emojis.
-- Added automated DOM and styling regression tests in `extension/tests/settings-shortcuts-dropdown.test.js`.
-
-**Verification**:
-- `node --test extension/tests/settings-shortcuts-dropdown.test.js` — 1 passed.
-- `node --test extension/tests/*.test.js` — 255 passed, 0 failed.
-
+### Settings Keyboard Shortcuts Reference Dropdown (2026-10-29)
+
+**Delivered**:
+- Added `#shortcuts-settings-group` collapsible `<details>` dropdown to the Settings view in `extension/sidepanel/sidepanel.html`.
+- Grouped all existing Kiroku shortcuts into four logical categories: Global & Page Capture, Card Editor & Mining, Video & Subtitles, and Quick Add & Ask Tab.
+- Styled shortcut rows with `<kbd>` keycaps conforming to the dark utility palette (`var(--bg-surface-2)`, `var(--border-default)`, `var(--font-mono)`), with strictly zero OS emojis.
+- Added automated DOM and styling regression tests in `extension/tests/settings-shortcuts-dropdown.test.js`.
+
+**Verification**:
+- `node --test extension/tests/settings-shortcuts-dropdown.test.js` — 1 passed.
+- `node --test extension/tests/*.test.js` — 255 passed, 0 failed.
+
 ### Task 2 — Data-Driven Grammar Matcher (2026-10-29)
 
 **Delivered**:

@@ -488,7 +488,7 @@ def resolve_ocr_exe_path(env: dict[str, str] | None = None) -> Path | None:
 
 def resolve_ocr_dev_command(env: dict[str, str] | None = None) -> list[str] | None:
     """
-    Resolve development OCR command using run_ocr.py and .venv-ocr if present.
+    Resolve the development OCR module command when the OCR environment exists.
     Used exclusively in development mode when a packaged binary is not present.
     """
     if getattr(sys, "frozen", False):
@@ -499,8 +499,8 @@ def resolve_ocr_dev_command(env: dict[str, str] | None = None) -> list[str] | No
         return None
 
     repo_root = Path(__file__).resolve().parent.parent.parent
-    run_ocr_py = repo_root / "run_ocr.py"
-    if not run_ocr_py.is_file():
+    ocr_server_module = repo_root / "ocr_server" / "server.py"
+    if not ocr_server_module.is_file():
         return None
 
     if sys.platform == "win32" or os.name == "nt":
@@ -509,7 +509,7 @@ def resolve_ocr_dev_command(env: dict[str, str] | None = None) -> list[str] | No
         venv_py = repo_root / ".venv-ocr" / "bin" / "python"
 
     py_bin = str(venv_py) if venv_py.is_file() else sys.executable
-    return [py_bin, str(run_ocr_py)]
+    return [py_bin, "-m", "ocr_server.server"]
 
 
 def resolve_llm_timeout(env: dict[str, str] | None = None) -> float:
@@ -732,4 +732,3 @@ def is_within_learner_level(target_level: str | None, learner_level: str = "N4")
         norm_learner = DEFAULT_LEARNER_JLPT_LEVEL
 
     return _JLPT_DIFFICULTY[norm_target] <= _JLPT_DIFFICULTY[norm_learner]
-

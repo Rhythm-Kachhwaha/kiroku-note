@@ -102,7 +102,12 @@ AudioReport.md
 AudioFeatureReport.md
 
 UI-exploration/
-docs/
+!docs/
+docs/*
+!docs/REPOSITORY_AUDIT_2026-10-29.md
+!docs/archive/
+!docs/archive/grammar-audits/
+!docs/archive/grammar-audits/*.md
 superpowers/plans/
 
 # Cloud Queue local artifacts & diagnostics
@@ -123,3 +128,4 @@ backend/app/data/*.sqlite-wal
 
 # Grammar audit reports
 kiroku_n*_grammar_audit.md
+!docs/archive/grammar-audits/*.md

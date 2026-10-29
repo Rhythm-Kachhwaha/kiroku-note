@@ -28,9 +28,9 @@ REFERENCE_ONLY_KEYS = {
     "(よ)うと思う", "ようにする", "ようになる", "たがる",
     "はずだ", "か(embedded question)", "と言う", "ところだ",
     "始める / 終わる / 続ける", "出す", "ほどない", "なかなかない", "ことがある",
-    "尊敬語", "謙譲語", "おになる", "おする", "ても構わない", "の / こと(nominalizer)",
-    "たらどう", "とかとか", "くする / にする(make)", "そうにする", "よう",
-    "ように言う / ように頼む", "ようとする", "もばも", "まるでようだ", "ばほど",
+    "尊敬語", "謙譲語", "おする", "ても構わない", "の / こと(nominalizer)",
+    "たらどう", "くする / にする(make)", "そうにする", "よう",
+    "ように言う / ように頼む", "ようとする", "もばも", "まるでようだ",
     "さえば", "たらた", "ということだ", "からにかけて", "ふりをする",
     "切る / 切れない", "かける", "合う", "直す", "ほどはない", "かのようだ",
     "に至って", "を余儀なくされる", "かねる", "ことはが", "抜く",
@@ -116,11 +116,11 @@ def matcher_spec(key: str, pattern: str) -> dict[str, object]:
     if key == "使役受身":
         return {
             "type": "regex",
-            "regex": "[ぁ-ゖァ-ヺ一-龯]+させられ(?:たくなかった|ない|る|れた)",
+            "regex": "[ぁ-ゖァ-ヺ一-龯]+させられ(?:たくなかった|ない|る|た)",
         }
-    if key in {"ば〜ほど", "とか〜とか"}:
-        marker = "ば" if key == "ば〜ほど" else "とか"
-        end = "ほど" if key == "ば〜ほど" else "(?:とか|ている|る)"
+    if key in {"ばほど", "ば〜ほど", "とかとか", "とか〜とか"}:
+        marker = "ば" if key in {"ばほど", "ば〜ほど"} else "とか"
+        end = "ほど" if key in {"ばほど", "ば〜ほど"} else "(?:とか|ている|る)"
         return {
             "type": "discontinuous",
             "first": f"[ぁ-ゖァ-ヺ一-龯]+{marker}",
@@ -128,7 +128,7 @@ def matcher_spec(key: str, pattern: str) -> dict[str, object]:
             "max_gap": 20,
             "clause_break": "[、。！？]",
         }
-    if key == "お〜になる":
+    if key in {"おになる", "お〜になる"}:
         return {"type": "regex", "regex": "お[ぁ-ゖァ-ヺ一-龯]{1,6}になる"}
     if key == "そうだ(appearance)":
         return {
@@ -165,7 +165,7 @@ def matcher_spec(key: str, pattern: str) -> dict[str, object]:
 
 def row_for(pattern: str, level: str, meaning: str, formation: str | None,
             examples: str, source: str) -> tuple[object, ...]:
-    key = pattern if source == "Kiroku matcher seed" else normalize_pattern_key(pattern)
+    key = normalize_pattern_key(pattern)
     spec = matcher_spec(key, pattern)
     return (
         pattern, key, level, meaning, breakdown(pattern, meaning, formation),
