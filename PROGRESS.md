@@ -1,5 +1,22 @@
 # Kiroku Note — Progress
 
+### Task 3 — Bundled Grammar Reference Index (2026-10-29)
+
+**Delivered**:
+- Added the reproducible `tools\build_grammar_index.py` build script and generated
+  `backend\app\data\grammar_reference.sqlite` from the checked-in JLPT grammar
+  seed, with normalized keys, JSON matcher metadata, indexes, and source fields.
+- Added `GRAMMAR_REFERENCE_NOTICE.md` with Tanos, OpenJLPT, and Tatoeba attribution.
+- Added read-only, cached `GrammarReferenceService` lookup and frozen/development/
+  environment path resolution.
+- Explicitly retained the grammar database in the PyInstaller data assets and
+  added focused service and packaging tests.
+
+**Verification**:
+- `python tools\build_grammar_index.py` (generated 100 grammar records).
+- `Set-Location backend; python -m pytest tests\test_grammar_reference.py tests\test_packaging_config.py -v`
+  (22 passed).
+
 ### Task 1 Review Fixes (2026-10-29)
 
 **Delivered**:

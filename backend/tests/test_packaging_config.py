@@ -26,6 +26,13 @@ def test_app_metadata():
     assert APP_VERSION in ("1.0.0", "1.0.1", "2.0.0", "2.1.0")
 
 
+def test_packaging_includes_grammar_reference_database():
+    spec = Path(__file__).resolve().parents[2] / "packaging" / "kiroku_backend.spec"
+    text = spec.read_text(encoding="utf-8")
+    assert "grammar_reference.sqlite" in text
+    assert 'os.path.join("app", "data")' in text
+
+
 def test_dev_mode_data_dir_resolution():
     with patch.object(sys, "frozen", False, create=True):
         app_data = get_app_data_dir({})
@@ -274,6 +281,5 @@ def test_dev_mode_resolution_handles_missing_home_dir():
             path = get_db_path({})
             assert path.name == "kiroku.db"
             assert config_get_db_path({}).name == "kiroku.db"
-
 
 
