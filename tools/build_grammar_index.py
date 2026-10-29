@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
+import re
 import sqlite3
 import unicodedata
 from pathlib import Path
@@ -11,6 +13,34 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_DB = ROOT / "backend" / "app" / "data" / "jlpt_reference.sqlite"
 DEFAULT_OUTPUT = ROOT / "backend" / "app" / "data" / "grammar_reference.sqlite"
+OPENJLPT_DIR = ROOT / "backend" / "app" / "data" / "openjlpt_grammar"
+REFERENCE_ONLY_KEYS = {
+    "ている", "か(or)", "か(question)", "ね", "よ", "の方がより",
+    "ととどちらが", "の中でが一番", "てはいけない",
+    "なければならない / なくてはいけない", "たりたりする", "たことがある",
+    "に行く", "がある / がいる", "くなる / になる", "にする(decide)",
+    "まだていない", "もうた", "あまりない", "全然ない", "何もない / 誰もない",
+    "ことにする", "てあげる", "ていく", "てくる", "てくれる", "過ぎる",
+    "あげる / くれる / もらう", "てくださる / ていただく", "てしまう / ちゃう",
+    "てある", "らしい(hearsay/conjecture)", "ようだ", "すぎる",
+    "ことができる", "える / られる(potential)",
+    "れる / られる(passive)", "せられる / させられる", "おう / よう",
+    "(よ)うと思う", "ようにする", "ようになる", "たがる",
+    "はずだ", "か(embedded question)", "と言う", "ところだ",
+    "始める / 終わる / 続ける", "出す", "ほどない", "なかなかない", "ことがある",
+    "尊敬語", "謙譲語", "おになる", "おする", "ても構わない", "の / こと(nominalizer)",
+    "たらどう", "とかとか", "くする / にする(make)", "そうにする", "よう",
+    "ように言う / ように頼む", "ようとする", "もばも", "まるでようだ", "ばほど",
+    "さえば", "たらた", "ということだ", "からにかけて", "ふりをする",
+    "切る / 切れない", "かける", "合う", "直す", "ほどはない", "かのようだ",
+    "に至って", "を余儀なくされる", "かねる", "ことはが", "抜く",
+    "てならない", "をとして", "かないかのうちに", "おそれがある", "たとえても",
+    "やらやら", "ずに済む / ないで済む", "た末", "に至る / に至って / に至っては",
+    "を余儀なくされる", "(よ)うがまいが / (よ)うとまいと", "(よ)うにもない",
+    "つつ", "てもさしつかえない", "といいといい", "といったらない", "なりなり",
+    "に堪える / に堪えない", "めく", "をもって", "ただのみ", "だのだの", "かれかれ",
+    "くない / かった / くなかった",
+}
 
 FALLBACK_ROWS = [
     ("使役受身", "N4", "be made to; be forced to",
@@ -51,6 +81,12 @@ FALLBACK_ROWS = [
 
 def matcher_spec(key: str, pattern: str) -> dict[str, object]:
     """Create the data-only matching contract for one reference row."""
+    if key in REFERENCE_ONLY_KEYS:
+        return {
+            "type": "pattern",
+            "match_mode": "reference_only",
+            "reference_reason": "Surface is ambiguous or requires morphological context.",
+        }
     if key == "てしまう":
         return {
             "type": "regex",
@@ -114,9 +150,16 @@ def matcher_spec(key: str, pattern: str) -> dict[str, object]:
                "に(time/destination)", "を(object particle)"}:
         return {"type": "pattern", "match_mode": "reference_only"}
     alternatives = [
-        part.strip().replace("〜", "").replace("～", "").replace("~", "")
+        re.sub(r"[（(][^）)]*[）)]", "", part.strip())
+        .replace("〜", "").replace("～", "").replace("~", "")
         for part in pattern.split("/")
     ]
+    if alternatives and all(
+        (len(value) <= 2 and value != "ずに")
+        or value in {"は", "が", "を", "に", "へ", "で", "と", "の", "も"}
+        for value in alternatives
+    ):
+        return {"type": "pattern", "variants": alternatives, "match_mode": "reference_only"}
     return {"type": "pattern", "variants": alternatives, "match_mode": "auto"}
 
 
@@ -192,9 +235,30 @@ def build(output: Path = DEFAULT_OUTPUT, source: Path = SOURCE_DB) -> Path:
     )
     generated_rows = [
         row_for(pattern, level, meaning, formation, examples,
-                "OpenJLPT / Tanos JLPT grammar list")
+                "OpenJLPT grammar list")
         for pattern, level, meaning, formation, examples in rows
     ]
+    existing = {(row[1], row[2]) for row in generated_rows}
+    for csv_path in sorted(OPENJLPT_DIR.glob("grammar-n*.csv")):
+        with csv_path.open(encoding="utf-8-sig", newline="") as csv_file:
+            for item in csv.DictReader(csv_file):
+                pattern = (item.get("pattern") or "").strip()
+                level = (item.get("level") or "").strip().upper()
+                if not pattern or level not in {"N1", "N2", "N3", "N4", "N5"}:
+                    continue
+                key = normalize_pattern_key(pattern)
+                if (key, level) in existing:
+                    continue
+                existing.add((key, level))
+                examples = json.dumps([{
+                    "ja": item.get("example_ja", ""),
+                    "en": item.get("example_en", ""),
+                }], ensure_ascii=False)
+                generated_rows.append(row_for(
+                    pattern, level, item.get("meaning", ""),
+                    item.get("formation") or None, examples,
+                    "OpenJLPT grammar list",
+                ))
     generated_rows.extend(
         row_for(pattern, level, meaning, formation, "[]", "Kiroku matcher seed")
         for pattern, level, meaning, formation, _ in FALLBACK_ROWS

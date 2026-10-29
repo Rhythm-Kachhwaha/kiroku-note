@@ -1,5 +1,55 @@
 # Kiroku Note — Progress
 
+### Tasks 4–6 — Grammar Options, Dictionary Notes, Tracker API (2026-10-29)
+
+**Delivered**:
+- Extended grammar analysis requests with learner level, source,
+  show-basic-particles, show-below-level, hide-known, and designated
+  dictionary options; all cache-isolating options are included in the key.
+- Kept below-level filtering and known/ignored filtering in the backend, and
+  sent the existing extension settings and current learner level without UI
+  layout or styling changes.
+- Added bounded, fail-soft designated-dictionary notes through the existing
+  provider seam; Tier 0 points remain authoritative and dictionary failures
+  leave analysis intact.
+- Added `/api/grammar/stats`, capped search/pagination for grammar points, and
+  tracker coverage/status/encounter summaries.
+
+**Verification**:
+- `PYTHONPATH=.;backend python -m pytest backend\tests\test_grammar_service.py backend\tests\test_grammar_tracker.py backend\tests\test_grammar_routes.py -q` — 12 passed.
+
+
+### Task 3 — OpenJLPT Grammar Index Expansion (2026-10-29)
+
+**Delivered**:
+- Verified the permitted OpenJLPT CSV source contains 123 N5, 123 N4,
+  101 N3, 98 N2, and 81 N1 grammar rows under CC BY-SA 4.0.
+- Did not import Tanos/Kotobase rows because the referenced host and
+  redistribution terms could not be independently verified here.
+- Added the checked-in OpenJLPT CSV seed, generated 592 bundled index rows,
+  and retained matcher specs or an explicit `reference_only` reason for
+  every row. The PyInstaller spec continues to bundle
+  `grammar_reference.sqlite`.
+- Auto-mode own-example coverage is N5 31/31, N4 38/41, N3 75/75,
+  N2 104/105, and N1 105/105.
+
+**Verification**:
+- `PYTHONPATH=.;backend python tools\build_grammar_index.py`
+- `PYTHONPATH=.;backend python tools\grammar_coverage.py`
+
+
+### Settings Keyboard Shortcuts Reference Dropdown (2026-10-29)
+
+**Delivered**:
+- Added `#shortcuts-settings-group` collapsible `<details>` dropdown to the Settings view in `extension/sidepanel/sidepanel.html`.
+- Grouped all existing Kiroku shortcuts into four logical categories: Global & Page Capture, Card Editor & Mining, Video & Subtitles, and Quick Add & Ask Tab.
+- Styled shortcut rows with `<kbd>` keycaps conforming to the dark utility palette (`var(--bg-surface-2)`, `var(--border-default)`, `var(--font-mono)`), with strictly zero OS emojis.
+- Added automated DOM and styling regression tests in `extension/tests/settings-shortcuts-dropdown.test.js`.
+
+**Verification**:
+- `node --test extension/tests/settings-shortcuts-dropdown.test.js` — 1 passed.
+- `node --test extension/tests/*.test.js` — 255 passed, 0 failed.
+
 ### Task 2 — Data-Driven Grammar Matcher (2026-10-29)
 
 **Delivered**:

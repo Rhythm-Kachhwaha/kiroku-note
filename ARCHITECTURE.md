@@ -283,13 +283,20 @@ Grammar cards use the `cards.card_kind` discriminator (default `vocab`) and pres
 
 The tiered grammar subsystem is composed of `GrammarService` (request orchestration
 and response caching), `GrammarReferenceService` (the bundled reproducible SQLite
-index), and `GrammarMatcher` (offline span matching, formation normalization,
-ambiguity confidence, and discontinuous constructions). `POST /api/grammar/analyze`
-uses one sentence-tokenization request when Yomitan is available and falls back to
-the local matcher; `grammar_cache` keys include the sentence, index version, and
-dictionary/learner context. Grammar analysis is intentionally separate from
-single-word capture, while the Text and Video clients provide the whole-sentence
-OCR/active-cue entry points.
+index), and `GrammarMatcher` (offline interpretation of row-level JSON matcher
+specifications for surface variants, regex/inflection forms, guards, ambiguity
+confidence, contractions, and discontinuous constructions). `POST
+/api/grammar/analyze` uses one sentence-tokenization request when Yomitan is
+available and falls back to the local matcher; `grammar_cache` keys include the
+sentence, index version, learner/filter settings, source, and designated
+dictionary. The backend owns learner-level and below-level filtering, optional
+basic-particle display, and hide-known filtering; the extension only sends the
+settings. Designated dictionary notes are bounded Tier 1 enrichment and never
+replace Tier 0 index points. `/api/grammar/points` supports capped search and
+pagination, `/api/grammar/stats` reports status/coverage/encounter summaries,
+and encounter recording remains explicit. Grammar analysis is intentionally
+separate from single-word capture, while the Text and Video clients provide the
+whole-sentence OCR/active-cue entry points.
 
 Task 11 acceptance evidence (2026-10-29): the 46-sentence corpus achieved
 46/46 true positives and zero bare-particle false positives (default

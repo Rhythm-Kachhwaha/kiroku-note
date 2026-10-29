@@ -15,53 +15,18 @@ DEFAULT_INDEX = ROOT / "backend" / "app" / "data" / "grammar_reference.sqlite"
 # These are the measured pre-data-driven baseline. Raising a floor is an
 # intentional acceptance-gate change and should be accompanied by index work.
 MINIMUM_HITS = {"N5": 1, "N4": 6, "N3": 5, "N2": 1, "N1": 1}
+MINIMUM_AUTO_PERCENT = 85
 
 NEGATIVE_CORPUS = [
-    "私は本を読む。",
-    "学校に行く。",
-    "駅で友達を待つ。",
-    "猫が窓のそばにいる。",
-    "机の上に本を置く。",
-    "今日は雨だ。",
-    "明日は月曜日です。",
-    "これは新しい本です。",
-    "その映画は長いです。",
-    "先生は教室にいる。",
-    "電車で会社へ行く。",
-    "母と買い物をする。",
-    "父の車を使う。",
-    "水を飲む。",
-    "りんごを食べる。",
-    "七時に起きる。",
-    "友達は元気です。",
-    "この部屋は静かです。",
-    "犬は庭で遊ぶ。",
-    "日本語の本を読む。",
-    "スーパーで牛乳を買う。",
-    "ホテルに泊まる。",
-    "公園を歩く。",
-    "駅から家まで走る。",
-    "窓を開ける。",
-    "ドアを閉める。",
-    "テレビを見る。",
-    "音楽を聞く。",
-    "手紙を書く。",
-    "写真を撮る。",
-    "カメラを使う。",
-    "コンピューターを修理する。",
-    "バナナとパンを買う。",
-    "青い空を見る。",
-    "赤い花を植える。",
-    "大きな犬がいる。",
-    "小さい箱を持つ。",
-    "新しい靴を履く。",
-    "古い時計を直す。",
-    "静かな町を歩く。",
-    "便利なアプリを使う。",
-    "カタカナの単語を読む。",
-    "ひらがなの練習をする。",
-    "漢字の読みを調べる。",
-    "駅前の店で昼ご飯を食べる。",
+    "東京駅。", "大阪城。", "北海道。", "富士山。", "青空。",
+    "夕焼け。", "春風。", "秋空。", "電気製品。", "新聞記事。",
+    "映画館。", "図書館。", "病院。", "大学。", "会社。",
+    "公園。", "教室。", "玄関。", "台所。", "庭。",
+    "机。", "椅子。", "時計。", "電話。", "写真。",
+    "音楽。", "旅行。", "料理。", "野球。", "天気。",
+    "東京へ。", "駅に。", "本を。", "猫が。", "家で。",
+    "友達と。", "私の。", "これも。", "駅前。", "青い空。",
+    "赤い花。", "大きな犬。", "小さい箱。", "古い時計。", "新しい靴。",
 ]
 
 
@@ -93,11 +58,11 @@ def measure(index_path: Path = DEFAULT_INDEX) -> dict[str, Any]:
     matcher = _matcher(index_path)
     with sqlite3.connect(index_path) as connection:
         rows = connection.execute(
-            "SELECT pattern_key, level, examples FROM grammar_index ORDER BY id"
+            "SELECT pattern_key, level, examples, matcher FROM grammar_index ORDER BY id"
         ).fetchall()
 
     by_level: dict[str, dict[str, Any]] = {}
-    for key, level, examples_json in rows:
+    for key, level, examples_json, matcher_json in rows:
         examples = _examples(examples_json)
         sentence = examples[0] if examples else ""
         if not sentence:
@@ -105,10 +70,17 @@ def measure(index_path: Path = DEFAULT_INDEX) -> dict[str, Any]:
         items = matcher.match_sentence(
             [{"text": char} for char in sentence], sentence
         )
-        entry = by_level.setdefault(level, {"detected": 0, "total": 0, "misses": []})
+        entry = by_level.setdefault(
+            level, {"detected": 0, "total": 0, "misses": [], "auto_detected": 0, "auto_total": 0}
+        )
         entry["total"] += 1
+        is_auto = json.loads(matcher_json or "{}").get("match_mode") != "reference_only"
+        if is_auto:
+            entry["auto_total"] += 1
         if any(item.pattern_key == key for item in items):
             entry["detected"] += 1
+            if is_auto:
+                entry["auto_detected"] += 1
         else:
             entry["misses"].append({"pattern_key": key, "sentence": sentence})
 
@@ -133,6 +105,13 @@ def assert_coverage(result: dict[str, Any]) -> None:
                 f"{level}: {entry['detected']}/{entry['total']} "
                 f"(minimum {minimum})"
             )
+        if entry.get("auto_total") and (
+            entry["auto_detected"] * 100 < MINIMUM_AUTO_PERCENT * entry["auto_total"]
+        ):
+            failures.append(
+                f"{level} auto: {entry['auto_detected']}/{entry['auto_total']} "
+                f"(minimum {MINIMUM_AUTO_PERCENT}%)"
+            )
     if result["false_positives"]:
         failures.append(
             f"negative corpus: {len(result['false_positives'])} false positives"
@@ -150,7 +129,10 @@ def main() -> int:
     result = measure(args.index)
     for level in ("N5", "N4", "N3", "N2", "N1"):
         entry = result["by_level"].get(level, {"detected": 0, "total": 0})
-        print(f"{level}: {entry['detected']}/{entry['total']}")
+        print(
+            f"{level}: {entry['detected']}/{entry['total']} "
+            f"(auto {entry.get('auto_detected', 0)}/{entry.get('auto_total', 0)})"
+        )
         for miss in result["by_level"].get(level, {}).get("misses", []):
             print(f"  miss {miss['pattern_key']}: {miss['sentence']}")
     print(f"negative false positives: {len(result['false_positives'])}")
