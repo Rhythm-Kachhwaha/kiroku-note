@@ -48,6 +48,12 @@ CREATE TABLE IF NOT EXISTS cards (
 
 CREATE INDEX IF NOT EXISTS idx_cards_duplicate_identity 
 ON cards (normalized_expression, normalized_reading, normalized_deck_name);
+
+CREATE TABLE IF NOT EXISTS known_words (
+    word TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_known_words_created ON known_words (created_at);
 """
 
 

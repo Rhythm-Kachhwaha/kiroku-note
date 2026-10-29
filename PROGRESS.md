@@ -1,5 +1,34 @@
 # Kiroku Note — Progress
 
+### SubtitleAnnotatorService with Lemma-Based Mined & Should-Know Matching (2026-10-29)
+
+**Objective**: Implement high-throughput subtitle cue tokenization and annotation with green precedence on overlap (should_know > mined > unstyled), lemma resolution via `kiroku_dictionary.deinflect`, OpenJLPT integration with in-memory caching, function word suppression, and strict < 2.5ms/cue latency.
+
+**Delivered**:
+- **Database Schema (`backend/app/db/connection.py`)**:
+  - Added `known_words` table (`word TEXT PRIMARY KEY, created_at TEXT NOT NULL`) and index `idx_known_words_created` to `SCHEMA_SQL`.
+  - Executed on database creation and migrations via `init_db()`.
+- **Subtitle Annotator Service (`backend/app/services/subtitle_annotator.py`)**:
+  - Implemented `SubtitleAnnotatorService` supporting `annotate_cues`, `annotate_cue`, and `annotate_text`.
+  - Implemented greedy forward longest-match scanning with LRU-cached deinflection (`_cached_deinflect`) and direct vocabulary lookup short-circuiting.
+  - Pre-loaded and cached OpenJLPT vocabulary and kanji (`_openjlpt_cache`) into memory on service startup for sub-millisecond lookups.
+  - Pre-loaded mined words from authoritative SQLite database (`cards` table `normalized_expression` and `known_words` table `word`).
+  - Implemented overlap precedence: `should_know` takes priority when JLPT level is within learner level (`is_within_learner_level`), even if the word is also mined.
+  - Implemented function word suppression: `ignore_function_words=True` by default classifies Japanese particles and copulas as `unstyled`.
+  - Defined `AnnotatedToken` and `AnnotatedCue` dict-like dataclass hybrids supporting both dict indexing (`token["surface"]`) and property access (`token.surface`), plus native JSON serialization.
+- **Unit and Latency Tests (`backend/tests/test_subtitle_annotator.py`)**:
+  - Added 13 comprehensive unit tests verifying tokenization fields, inflected mined forms, unlisted words in `known_words`, overlap precedence, function words, greedy longest match, batch cue latency (< 2.5ms/cue), empty cue handling, complex deinflection chains, dynamic addition, and JSON serialization.
+
+**Verification**:
+- `python -m pytest backend/tests/test_subtitle_annotator.py -v -s`: 13 passed in 0.94s.
+  - Latency test achieved ~0.23ms per cue (10x faster than the 2.5ms requirement).
+- `python -m pytest backend/tests/test_subtitle_annotator.py backend/tests/test_jlpt_reference.py backend/tests/test_learner_jlpt_level.py backend/tests/test_deinflector.py backend/tests/test_card_repository.py`: 66 passed in 1.66s.
+
+**Remaining Risk**:
+- None. Service operates entirely in-memory during annotation scans with zero disk I/O per cue.
+
+---
+
 ### Unified Learner JLPT Level Setting & Promotion Helper (2026-10-29)
 
 **Objective**: Provide centralized learner JLPT level resolution, normalization, and promotion/containment checking across the backend configuration (`backend/app/config.py`).
