@@ -1,5 +1,46 @@
 # Kiroku Note — Progress
 
+### Live Video Overlay Token Highlighting Preserving Yomitan / Hover Scanning (2026-10-29)
+
+**Objective**: Implement live video overlay token highlighting with 3-state word status (`mined` in #d4884f with subtle underline, `should-know` in #5db872 with subtle underline, and `unstyled`), seamless inline `<span>` elements with transparent background and zero margins/padding preserving 100% of Yomitan hover scanning and subtitle auto-pause, plain text fallback for unannotated cues, and runtime message synchronization via `UPDATE_ANNOTATED_CUES`.
+
+**Delivered**:
+- **Test Suite (`extension/tests/video-overlay-token-highlighting.test.js`)**:
+  - TDD tests verifying `SubtitleOverlayRenderer.renderCue(cue)` renders inline token `<span>` elements when `cue.tokens` is provided:
+    - `<span class="video-sub-token mined" ...>`
+    - `<span class="video-sub-token should-know" ...>`
+    - `<span class="video-sub-token unstyled" ...>`
+  - Tests verifying normalization of backend status `should_know` to `should-know`.
+  - Tests verifying fallback: when `cue.tokens` is undefined or empty, renders raw `this.subtitleEl.textContent = cue.text` without child spans.
+  - Tests verifying hover scanning preservation: token spans are `display: inline`, have transparent background, zero margins, and zero padding.
+  - Tests verifying overlay CSS stylesheet rules are injected for `.video-sub-token`, `.video-sub-token.mined` (#d4884f + underline), `.video-sub-token.should-know` (#5db872 + underline), and `.video-sub-token.unstyled`.
+  - Tests verifying Yomitan/hover auto-pause: `subtitleEl` `mouseenter`, `mouseleave`, and `mousemove` listeners lock and unlock hover pause state, keeping cue elements stable under cursor.
+  - Tests verifying text selection (`window.getSelection()`) and click handlers on `subtitleEl` and token spans capture Japanese text (`JAPANESE_TEXT_CAPTURED`).
+  - Tests verifying `VideoMiningPOC.handleMessage` receives `UPDATE_ANNOTATED_CUES` to enrich in-memory cues and update active video overlay.
+- **Video Overlay Implementation (`extension/content/video-mining-poc.js`)**:
+  - Implemented `ensureStylesMounted()` in `SubtitleOverlayRenderer` injecting `#ankiminer-video-overlay-styles` with inline styles, color codes, and subtle underlines.
+  - Implemented `_renderTokens(tokens)` in `SubtitleOverlayRenderer` rendering seamless inline `<span>` elements with `.video-sub-token`, normalized status class (`mined`, `should-know`, `unstyled`), data attributes (`data-surface`, `data-lemma`, `data-status`, `data-reading`, `data-jlpt-level`), transparent background, and zero margins/padding.
+  - Updated `renderCue(cue)` in `SubtitleOverlayRenderer`: dynamically switches between tokenized inline spans and plain `textContent` fallback based on `cue.tokens`.
+  - Updated `_boundSubtitleClick` in `SubtitleOverlayRenderer`: prioritizes clicked token span `data-surface` before falling back to `extractJapaneseWordAtPosition`.
+  - Updated `handleMessage` in `VideoMiningPOC`: handles `UPDATE_ANNOTATED_CUES` message by updating tokens across in-memory `syncEngine.cues`, refreshing active cue if displayed, and persisting to storage.
+- **Background & Side Panel Integration (`extension/background.js` & `extension/sidepanel/sidepanel.js`)**:
+  - Updated `background.js` to route `UPDATE_ANNOTATED_CUES` to `activeTab` and sync to local storage.
+  - Updated `annotateLoadedSubtitles` in `sidepanel.js` to broadcast `UPDATE_ANNOTATED_CUES` to the video tab once backend annotations arrive.
+
+**Verification**:
+- `node --test extension/tests/video-overlay-token-highlighting.test.js`: 10 passed in 189ms.
+- `node --test extension/tests/video-mining-poc.test.js`: 1 passed in 206ms.
+- `node --test extension/tests/movable-subtitle-overlay.test.js`: 12 passed in 1.4s.
+- `node --test extension/tests/subtitle-auto-pause.test.js`: 11 passed in 1.8s.
+- `node --test extension/tests/subtitle-selection-and-ask-mode.test.js`: 14 passed in 1.8s.
+- `node --test extension/tests/sidepanel-annotation-client.test.js`: 15 passed in 250ms.
+- Full suite (40 tests across 8 test suites): all 40 passed with 0 failures.
+
+**Remaining Risk**:
+- None. Vanilla JS only, zero emojis, seamless inline spans with transparent backgrounds ensuring 100% preservation of Yomitan hover scan ranges and auto-pause.
+
+---
+
 ### Video Tab Card Workspace Auto-Collapse State Machine (2026-10-29)
 
 **Objective**: Implement the Card Workspace auto-collapse state machine on the Video tab with `video_workspace_collapse_mode` setting (default `auto_collapse`, plus `keep_open` and `dont_show`), focus guard protection for active editing, 5-second inactivity and subtitle cue change collapse triggers, 1-line `#video-collapsed-card-chip` with expression/reading/status updates and click-to-expand, and complete tab isolation (Text and Quick Add never collapse).

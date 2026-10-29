@@ -244,12 +244,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message?.type === "LOAD_SUBTITLE_CUES" || message?.type === "CLEAR_SUBTITLES" || message?.type === "SET_SUBTITLE_OFFSET" || message?.type === "SELECT_YOUTUBE_TRACK") {
+  if (message?.type === "LOAD_SUBTITLE_CUES" || message?.type === "CLEAR_SUBTITLES" || message?.type === "SET_SUBTITLE_OFFSET" || message?.type === "SELECT_YOUTUBE_TRACK" || message?.type === "UPDATE_ANNOTATED_CUES") {
     if (message?.type === "LOAD_SUBTITLE_CUES" && Array.isArray(message.cues)) {
       try {
         chrome.storage.local.set({
           active_subtitle_cues: message.cues,
           active_subtitle_filename: message.filename || ""
+        });
+      } catch (_) {}
+    } else if (message?.type === "UPDATE_ANNOTATED_CUES" && Array.isArray(message.cues)) {
+      try {
+        chrome.storage.local.set({
+          active_subtitle_cues: message.cues
         });
       } catch (_) {}
     } else if (message?.type === "CLEAR_SUBTITLES") {

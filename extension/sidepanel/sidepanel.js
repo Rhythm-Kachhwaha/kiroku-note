@@ -8523,6 +8523,15 @@ async function annotateLoadedSubtitles(cues) {
       }
       updateVideoCuePreviewText();
     }
+
+    try {
+      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({
+          type: "UPDATE_ANNOTATED_CUES",
+          cues: cueList
+        }).catch(() => {});
+      }
+    } catch (_) {}
   } catch (err) {
     // Offline backend or network error: graceful degradation
   }

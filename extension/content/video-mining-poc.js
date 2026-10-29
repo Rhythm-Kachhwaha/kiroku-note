@@ -607,7 +607,14 @@
           : (typeof extractJapaneseWordAtPosition === "function" ? extractJapaneseWordAtPosition : null);
         const clientX = typeof e?.clientX === "number" ? e.clientX : 0;
         const clientY = typeof e?.clientY === "number" ? e.clientY : 0;
-        const word = extractWordFn ? extractWordFn(this.subtitleEl, clientX, clientY) : null;
+        let word = null;
+        if (e?.target && typeof e.target.getAttribute === "function" && e.target.getAttribute("data-surface")) {
+          word = e.target.getAttribute("data-surface");
+        } else if (extractWordFn) {
+          word = extractWordFn(this.subtitleEl, clientX, clientY);
+        } else if (e?.target && e.target !== this.subtitleEl && e.target !== this.boxEl && e.target.textContent) {
+          word = e.target.textContent.trim();
+        }
         if (word) {
           this.activeHighlightTerm = word;
           try {
@@ -809,7 +816,52 @@
       return playerWrapper || (typeof document !== "undefined" ? document.body : null);
     }
 
+    ensureStylesMounted() {
+      if (typeof document === "undefined") return;
+      let styleEl = document.getElementById("ankiminer-video-overlay-styles");
+      if (!styleEl) {
+        styleEl = document.createElement("style");
+        styleEl.id = "ankiminer-video-overlay-styles";
+        styleEl.textContent = [
+          ".video-sub-token {",
+          "  display: inline !important;",
+          "  background: transparent !important;",
+          "  margin: 0 !important;",
+          "  padding: 0 !important;",
+          "  cursor: text !important;",
+          "  user-select: text !important;",
+          "  -webkit-user-select: text !important;",
+          "  transition: color 0.15s ease, text-decoration-color 0.15s ease !important;",
+          "}",
+          ".video-sub-token.mined {",
+          "  color: #d4884f !important;",
+          "  text-decoration: underline !important;",
+          "  text-decoration-color: rgba(212, 136, 79, 0.45) !important;",
+          "  text-underline-offset: 3px !important;",
+          "  text-decoration-thickness: 1.5px !important;",
+          "}",
+          ".video-sub-token.should-know {",
+          "  color: #5db872 !important;",
+          "  text-decoration: underline !important;",
+          "  text-decoration-color: rgba(93, 184, 114, 0.45) !important;",
+          "  text-underline-offset: 3px !important;",
+          "  text-decoration-thickness: 1.5px !important;",
+          "}",
+          ".video-sub-token.unstyled {",
+          "  color: inherit !important;",
+          "  text-decoration: none !important;",
+          "}"
+        ].join("\n");
+
+        const target = document.head || document.documentElement || document.body;
+        if (target) {
+          target.appendChild(styleEl);
+        }
+      }
+    }
+
     ensureMounted() {
+      this.ensureStylesMounted();
       if (!this.container || !this.video) return;
       const target = this.getTargetContainer();
       if (!target) return;
@@ -822,6 +874,7 @@
       this.unmount();
       if (!video) return;
       this.video = video;
+      this.ensureStylesMounted();
 
       // Ensure container element exists
       let container = document.getElementById("ankiminer-video-overlay-container");
@@ -1210,6 +1263,61 @@
       }
     }
 
+    _renderTokens(tokens) {
+      if (!this.subtitleEl) return;
+      if (typeof this.subtitleEl.replaceChildren === "function") {
+        this.subtitleEl.replaceChildren();
+      } else {
+        while (this.subtitleEl.firstChild) {
+          this.subtitleEl.removeChild(this.subtitleEl.firstChild);
+        }
+        this.subtitleEl.textContent = "";
+      }
+
+      for (const token of tokens) {
+        if (!token) continue;
+        const span = document.createElement("span");
+        const rawStatus = token.status || "unstyled";
+        const normalizedStatus = rawStatus === "should_know" ? "should-know" : rawStatus;
+        const statusClass = rawStatus === normalizedStatus ? rawStatus : `${normalizedStatus} ${rawStatus}`;
+        span.className = `video-sub-token ${statusClass}`;
+        span.setAttribute("data-surface", token.surface || token.text || "");
+        span.setAttribute("data-lemma", token.lemma || "");
+        span.setAttribute("data-status", rawStatus);
+        if (token.reading) span.setAttribute("data-reading", token.reading);
+        if (token.jlpt_level) span.setAttribute("data-jlpt-level", token.jlpt_level);
+
+        span.textContent = token.surface || token.text || "";
+
+        setStyleProperty(span, "display", "inline", "important");
+        setStyleProperty(span, "background", "transparent", "important");
+        setStyleProperty(span, "margin", "0", "important");
+        setStyleProperty(span, "padding", "0", "important");
+        setStyleProperty(span, "cursor", "text", "important");
+        setStyleProperty(span, "user-select", "text", "important");
+        setStyleProperty(span, "-webkit-user-select", "text", "important");
+
+        if (normalizedStatus === "mined") {
+          setStyleProperty(span, "color", "#d4884f", "important");
+          setStyleProperty(span, "text-decoration", "underline", "important");
+          setStyleProperty(span, "text-decoration-color", "rgba(212, 136, 79, 0.45)", "important");
+          setStyleProperty(span, "text-underline-offset", "3px", "important");
+          setStyleProperty(span, "text-decoration-thickness", "1.5px", "important");
+        } else if (normalizedStatus === "should-know") {
+          setStyleProperty(span, "color", "#5db872", "important");
+          setStyleProperty(span, "text-decoration", "underline", "important");
+          setStyleProperty(span, "text-decoration-color", "rgba(93, 184, 114, 0.45)", "important");
+          setStyleProperty(span, "text-underline-offset", "3px", "important");
+          setStyleProperty(span, "text-decoration-thickness", "1.5px", "important");
+        } else {
+          setStyleProperty(span, "color", "inherit", "important");
+          setStyleProperty(span, "text-decoration", "none", "important");
+        }
+
+        this.subtitleEl.appendChild(span);
+      }
+    }
+
     renderCue(cue) {
       this.currentCue = cue;
       if (!this.subtitleEl || !this.container) return;
@@ -1225,7 +1333,14 @@
       this.pendingCue = undefined;
 
       if (cue && cue.text && this.displayEnabled !== false) {
-        this.subtitleEl.textContent = cue.text;
+        if (Array.isArray(cue.tokens) && cue.tokens.length > 0) {
+          this._renderTokens(cue.tokens);
+        } else {
+          if (typeof this.subtitleEl.replaceChildren === "function") {
+            this.subtitleEl.replaceChildren();
+          }
+          this.subtitleEl.textContent = cue.text;
+        }
         setStyleProperty(this.subtitleEl, "display", "inline-block", "important");
         setStyleProperty(this.container, "display", "flex", "important");
         setStyleProperty(this.container, "opacity", "1", "important");
@@ -1236,8 +1351,18 @@
         this.syncNativeTextTrack(cue);
       } else {
         if (!this.displayEnabled && cue && cue.text) {
-          this.subtitleEl.textContent = cue.text;
+          if (Array.isArray(cue.tokens) && cue.tokens.length > 0) {
+            this._renderTokens(cue.tokens);
+          } else {
+            if (typeof this.subtitleEl.replaceChildren === "function") {
+              this.subtitleEl.replaceChildren();
+            }
+            this.subtitleEl.textContent = cue.text;
+          }
         } else {
+          if (typeof this.subtitleEl.replaceChildren === "function") {
+            this.subtitleEl.replaceChildren();
+          }
           this.subtitleEl.textContent = "";
         }
         setStyleProperty(this.subtitleEl, "display", "none", "important");
@@ -1334,6 +1459,12 @@
 
       if (this.container && this.container.parentElement) {
         this.container.parentElement.removeChild(this.container);
+      }
+      if (typeof document !== "undefined") {
+        const styleEl = document.getElementById("ankiminer-video-overlay-styles");
+        if (styleEl && styleEl.parentElement) {
+          styleEl.parentElement.removeChild(styleEl);
+        }
       }
       this.container = null;
       this.boxEl = null;
@@ -2357,6 +2488,54 @@
         } catch (_) {}
         this.broadcastActiveCue(this.syncEngine.currentCue);
         sendResponse?.({ ok: true, cueCount: message.cues.length });
+        return true;
+      }
+      if (message?.type === "UPDATE_ANNOTATED_CUES") {
+        const incomingCues = Array.isArray(message.cues) ? message.cues : (Array.isArray(message.annotatedCues) ? message.annotatedCues : []);
+        if (Array.isArray(this.syncEngine.cues) && this.syncEngine.cues.length > 0) {
+          for (let i = 0; i < incomingCues.length; i++) {
+            const incCue = incomingCues[i];
+            if (!incCue) continue;
+            let existing = null;
+            if (incCue.id !== undefined && incCue.id !== null) {
+              existing = this.syncEngine.cues.find((c, idx) => String(c.id ?? idx) === String(incCue.id));
+            }
+            if (!existing && i < this.syncEngine.cues.length && this.syncEngine.cues[i].text === incCue.text) {
+              existing = this.syncEngine.cues[i];
+            }
+            if (!existing) {
+              existing = this.syncEngine.cues.find(c => c.text === incCue.text);
+            }
+            if (existing && Array.isArray(incCue.tokens)) {
+              existing.tokens = incCue.tokens;
+            }
+          }
+        } else if (incomingCues.length > 0) {
+          this.syncEngine.setCues(incomingCues);
+        }
+
+        if (this.syncEngine.currentCue) {
+          const cur = this.syncEngine.currentCue;
+          const matching = incomingCues.find(c =>
+            (c.id !== undefined && cur.id !== undefined && String(c.id) === String(cur.id)) ||
+            (c.text === cur.text)
+          );
+          if (matching && Array.isArray(matching.tokens)) {
+            cur.tokens = matching.tokens;
+          }
+          this.renderer.renderCue(this.syncEngine.currentCue);
+          this.broadcastActiveCue(this.syncEngine.currentCue);
+        }
+
+        try {
+          if (typeof chrome !== "undefined" && chrome.storage?.local) {
+            chrome.storage.local.set({
+              active_subtitle_cues: this.syncEngine.cues
+            });
+          }
+        } catch (_) {}
+
+        sendResponse?.({ ok: true, count: incomingCues.length });
         return true;
       }
       if (message?.type === "CLEAR_SUBTITLES") {
