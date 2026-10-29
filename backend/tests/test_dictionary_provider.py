@@ -140,6 +140,10 @@ class DictionaryProviderTests(unittest.TestCase):
             service.identify("私は日本語を勉強しています。")
         self.assertIn("Full-sentence tokenization requires Yomitan", str(ctx.exception))
 
+    def test_local_provider_marks_sentence_tokenization_unavailable(self):
+        provider = LocalDictionaryProvider(db_path=LOCAL_DB_PATH)
+        self.assertFalse(provider.supports_sentence_tokenization)
+
     def test_resolve_dictionary_db_path_explicit(self):
         custom = Path("C:/custom/path/dict.sqlite")
         resolved = resolve_dictionary_db_path(custom)

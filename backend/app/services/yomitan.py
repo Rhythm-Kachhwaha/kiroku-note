@@ -429,6 +429,64 @@ class YomitanService:
         raise YomitanResponseError("Yomitan could not identify a Japanese term in this selection.")
 
     @staticmethod
+    def normalize_tokenize_tokens(payload: Any) -> list[dict[str, Any]]:
+        """Return lossless, application-level token facts from /tokenize.
+
+        Yomitan's token response is nested under ``content`` and may expose
+        inflection candidates on either a headword or its source record. Keep
+        those facts intact so callers can inspect grammar without depending on
+        Yomitan's response nesting.
+        """
+        if not isinstance(payload, list):
+            raise YomitanResponseError("Yomitan returned an invalid response.")
+        tokens: list[dict[str, Any]] = []
+        for result in payload:
+            if not isinstance(result, dict):
+                continue
+            for segment in result.get("content", []):
+                if not isinstance(segment, list):
+                    continue
+                for token in segment:
+                    if not isinstance(token, dict) or not isinstance(token.get("text"), str):
+                        continue
+                    normalized: dict[str, Any] = {
+                        "text": token["text"],
+                        "reading": str(token.get("reading") or ""),
+                        "headwords": [],
+                    }
+                    for group in token.get("headwords", []):
+                        if not isinstance(group, list):
+                            continue
+                        for headword in group:
+                            if not isinstance(headword, dict) or not isinstance(headword.get("term"), str):
+                                continue
+                            sources = [
+                                source for source in headword.get("sources", [])
+                                if isinstance(source, dict)
+                            ]
+                            normalized["headwords"].append({
+                                "term": headword["term"],
+                                "reading": str(headword.get("reading") or ""),
+                                "sources": [
+                                    {
+                                        "originalText": str(source.get("originalText") or ""),
+                                        "deinflectedText": str(source.get("deinflectedText") or ""),
+                                        "inflectionRuleChainCandidates": source.get(
+                                            "inflectionRuleChainCandidates", []
+                                        ),
+                                    }
+                                    for source in sources
+                                ],
+                                "inflectionRuleChainCandidates": headword.get(
+                                    "inflectionRuleChainCandidates", []
+                                ),
+                            })
+                    tokens.append(normalized)
+        if not tokens:
+            raise YomitanResponseError("Yomitan returned no token content.")
+        return tokens
+
+    @staticmethod
     def _first_headword(token: dict[str, Any]) -> tuple[str, str, str, str] | None:
         for group in token.get("headwords", []) if isinstance(token.get("headwords"), list) else []:
             for headword in group if isinstance(group, list) else []:
@@ -999,4 +1057,3 @@ class YomitanService:
             except Exception:
                 continue
         return normalized
-

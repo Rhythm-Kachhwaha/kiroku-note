@@ -56,6 +56,29 @@ class TestCardServiceResync:
         updated_card = repo.get_by_id(saved.id)
         assert updated_card.deck_name == "N3 vocabs"
 
+    def test_sync_card_preserves_grammar_kind_for_anki_mapping(self, temp_db):
+        repo = CardRepository(temp_db)
+        mock_anki = MagicMock(spec=AnkiConnectService)
+        mock_anki.is_connected.return_value = (True, None)
+        mock_anki.note_matches_card.return_value = True
+        mock_anki.get_note_deck.return_value = "Default"
+        mock_anki.resolve_note_model.return_value = ("Basic", ["Front", "Back"])
+        mock_anki._invoke.return_value = [{"modelName": "Basic"}]
+
+        service = CardService(card_repository=repo, anki_service=mock_anki)
+        saved = service.save_card(SaveCardRequest(
+            expression="わけではない",
+            meaning="it is not that",
+            example_sentence="嫌いなわけではない。",
+            card_kind="grammar",
+            card_settings={"pattern_display": "わけではない", "english_breakdown": "not that"},
+        ))
+        repo.mark_synced(saved.id, 99002)
+
+        service.sync_card(saved.id, force=True)
+        mapped_data = mock_anki.map_card_to_fields.call_args.args[0]
+        assert mapped_data["card_kind"] == "grammar"
+
     def test_sync_card_unforced_already_synced_returns_cached_without_updates(self, temp_db):
         repo = CardRepository(temp_db)
         mock_anki = MagicMock(spec=AnkiConnectService)

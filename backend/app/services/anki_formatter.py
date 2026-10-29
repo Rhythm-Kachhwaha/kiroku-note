@@ -36,6 +36,91 @@ def escape_html(text: Any) -> str:
     return html.escape(str(text), quote=True)
 
 
+def _format_notes_inline(text: str) -> str:
+    """Render the small, deliberately safe Markdown subset used in AI notes."""
+    rendered = escape_html(text)
+    rendered = re.sub(r"`([^`\n]+)`", r'<code class="kn-inline-code">\1</code>', rendered)
+    rendered = re.sub(r"\*\*([^*\n]+?)\*\*", r"<strong>\1</strong>", rendered)
+    rendered = re.sub(r"(?<!\*)\*([^*\n]+?)\*(?!\*)", r"<em>\1</em>", rendered)
+    return rendered
+
+
+def convert_markdown_to_anki_html(text: str) -> str:
+    """Convert conservative Markdown into safe, readable HTML for an Anki field.
+
+    This intentionally does not accept source HTML.  Escaping happens before
+    the small Markdown whitelist is applied, so AI output cannot inject markup.
+    """
+    if not text:
+        return ""
+    lines = str(text).replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    output: list[str] = []
+    index = 0
+
+    def parse_row(line: str) -> list[str]:
+        value = line.strip()
+        if value.startswith("|"):
+            value = value[1:]
+        if value.endswith("|"):
+            value = value[:-1]
+        return [cell.strip() for cell in value.split("|")]
+
+    separator = re.compile(r"^\s*:?-{3,}:?\s*$")
+    while index < len(lines):
+        line = lines[index].strip()
+        if not line:
+            if output and not output[-1].endswith("<br>"):
+                output.append("<br>")
+            index += 1
+            continue
+
+        # A Markdown table is kept compact and readable in narrow Anki cards.
+        if "|" in line and index + 1 < len(lines):
+            header = parse_row(line)
+            divider = parse_row(lines[index + 1])
+            if len(header) >= 2 and len(divider) == len(header) and all(separator.match(c) for c in divider):
+                rows: list[list[str]] = []
+                index += 2
+                while index < len(lines) and "|" in lines[index] and lines[index].strip():
+                    rows.append(parse_row(lines[index]))
+                    index += 1
+                if len(header) == 2:
+                    for row in rows:
+                        if len(row) >= 2:
+                            output.append(
+                                f'<div class="kn-notes-row" aria-label="{escape_html(row[0])}: {escape_html(row[1])}">'
+                                f'<span class="kn-notes-key">{_format_notes_inline(row[0])}:</span> '
+                                f'<span class="kn-notes-val">{_format_notes_inline(row[1])}</span></div>'
+                            )
+                else:
+                    cells = "".join(f"<th>{_format_notes_inline(cell)}</th>" for cell in header)
+                    body = "".join(
+                        "<tr>" + "".join(f"<td>{_format_notes_inline(cell)}</td>" for cell in row) + "</tr>"
+                        for row in rows
+                    )
+                    output.append(f'<table class="kn-notes-table"><thead><tr>{cells}</tr></thead><tbody>{body}</tbody></table>')
+                continue
+
+        heading = re.match(r"^(#{1,3})\s+(.+)$", line)
+        if heading:
+            output.append(f'<div class="kn-notes-heading"><strong>{_format_notes_inline(heading.group(2))}</strong></div>')
+        elif re.match(r"^[-*]\s+", line):
+            items = []
+            while index < len(lines) and re.match(r"^[-*]\s+", lines[index].strip()):
+                item_text = re.sub(r"^[-*]\s+", "", lines[index].strip())
+                items.append(f"<li>{_format_notes_inline(item_text)}</li>")
+                index += 1
+            output.append('<ul class="kn-notes-list">' + "".join(items) + "</ul>")
+            continue
+        else:
+            output.append(_format_notes_inline(line) + "<br>")
+        index += 1
+
+    if output:
+        output[-1] = output[-1].removesuffix("<br>")
+    return "".join(output)
+
+
 def _format_bracket_ruby(segment: str, furigana_mode: str = "all", jlpt_service: Any = None) -> str:
     """Helper to convert bracket notation [rt] into <ruby> markup within a text segment."""
     if not segment:
@@ -926,6 +1011,82 @@ def get_anki_card_css() -> str:
     return ANKI_CARD_CSS
 
 
+def format_grammar_front(
+    sentence: str = "",
+    span: dict[str, Any] | None = None,
+    *,
+    pattern: str = "",
+    card: Any = None,
+) -> str:
+    """Render a grammar card front with an escaped, optionally highlighted sentence."""
+    sentence = sentence or str(_get_field(card, "example_sentence") or "")
+    span = span or (_get_field(card, "card_settings") or {}).get("span", {})
+    start = int(span.get("start", -1)) if isinstance(span, dict) else -1
+    end = int(span.get("end", -1)) if isinstance(span, dict) else -1
+    safe_sentence = escape_html(sentence)
+    if 0 <= start < end <= len(sentence):
+        safe_sentence = (
+            escape_html(sentence[:start])
+            + '<span class="kn-grammar-target">'
+            + escape_html(sentence[start:end])
+            + "</span>"
+            + escape_html(sentence[end:])
+        )
+    return f'<div class="kn-grammar-front">{safe_sentence}</div>'
+
+
+def format_grammar_back(
+    card: Any = None,
+    *,
+    pattern: str = "",
+    pattern_display: str = "",
+    jlpt_level: str = "",
+    meaning: str = "",
+    explanation: str = "",
+    english_breakdown: str = "",
+    matched_formation: str = "",
+    translation: str = "",
+    examples: list[Any] | None = None,
+    sentence: str = "",
+) -> str:
+    """Render safe grammar-card back HTML; all learner text is escaped/Markdown-rendered."""
+    settings = _get_field(card, "card_settings") or {}
+    pattern_display = pattern_display or pattern or str(settings.get("pattern_display", ""))
+    jlpt_level = jlpt_level or str(_get_field(card, "jlpt_level") or settings.get("level", ""))
+    meaning = meaning or str(_get_field(card, "meaning") or "")
+    sentence = sentence or str(_get_field(card, "example_sentence") or "")
+    explanation = explanation or english_breakdown or str(_get_field(card, "notes") or "")
+    matched_formation = matched_formation or str(settings.get("matched_formation", ""))
+    translation = translation or str(_get_field(card, "example_translation") or "")
+    examples = examples if examples is not None else settings.get("examples", [])
+    parts = ['<div class="kn-grammar-back">']
+    if pattern_display:
+        parts.append(f'<div class="kn-grammar-pattern">{escape_html(pattern_display)}</div>')
+    if jlpt_level:
+        parts.append(f'<span class="kn-grammar-pill">{escape_html(jlpt_level)}</span>')
+    if meaning:
+        parts.append(f'<div class="kn-grammar-meaning">{escape_html(meaning)}</div>')
+    if matched_formation:
+        parts.append(f'<div class="kn-grammar-formation"><strong>Formation:</strong> {escape_html(matched_formation)}</div>')
+    if explanation:
+        parts.append(f'<div class="kn-grammar-breakdown">{convert_markdown_to_anki_html(explanation)}</div>')
+    if sentence:
+        parts.append(f'<div class="kn-grammar-sentence">{escape_html(sentence)}</div>')
+    if translation:
+        parts.append(f'<div class="kn-grammar-translation">{escape_html(translation)}</div>')
+    for example in examples[:3] if isinstance(examples, list) else []:
+        if isinstance(example, dict):
+            text = str(example.get("japanese") or example.get("sentence") or "")
+            gloss = str(example.get("translation") or "")
+        else:
+            text, gloss = str(example), ""
+        if text:
+            parts.append(f'<div class="kn-grammar-example">{escape_html(text)}'
+                         f'{(" — " + escape_html(gloss)) if gloss else ""}</div>')
+    parts.append("</div>")
+    return "".join(parts)
+
+
 def format_basic_back(
     card: Any = None,
     *,
@@ -1130,7 +1291,7 @@ def format_basic_back(
     if show_hint and c_hint:
         append_section("hint", f'<div class="kn-hint">Hint: {escape_html(c_hint)}</div>')
     if c_notes:
-        append_section("notes", f'<div class="kn-notes">Notes: {escape_html(c_notes)}</div>')
+        append_section("notes", f'<div class="kn-notes">Notes: {convert_markdown_to_anki_html(c_notes)}</div>')
 
     # Media
     if aud_tag:
@@ -1176,4 +1337,3 @@ def format_basic_back(
 
     body_html = "\n\n".join(sections)
     return f'<div class="kn-card">\n<style>\n{ANKI_CARD_CSS}\n</style>\n\n{body_html}\n</div>'
-

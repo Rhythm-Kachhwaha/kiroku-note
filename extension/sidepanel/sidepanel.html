@@ -98,6 +98,12 @@
         <span id="save-badge" class="badge" hidden></span>
       </div>
       <p id="capture-status" class="status" hidden></p>
+      <section id="text-grammar-section" class="grammar-breakdown-section" hidden aria-label="Grammar in this sentence">
+        <button type="button" id="text-grammar-toggle" class="grammar-section-toggle" aria-expanded="false">
+          <span>Grammar in this sentence</span><span id="text-grammar-count" class="grammar-count"></span>
+        </button>
+        <div id="text-grammar-content" class="grammar-breakdown-content" hidden></div>
+      </section>
     </div>
 
         <!-- =========================================================
@@ -158,6 +164,12 @@
             <div id="video-missed-words-body" class="missed-words-body" hidden>
               <div id="video-missed-words-list" class="missed-words-list"></div>
             </div>
+          </div>
+          <div id="video-grammar-session-drawer" class="video-missed-words-drawer grammar-session-drawer">
+            <div id="video-grammar-session-header" class="missed-words-header" role="button" tabindex="0" aria-expanded="false" aria-controls="video-grammar-session-body">
+              <div class="missed-words-title-wrap"><span class="missed-words-title">Grammar this session</span><span id="video-grammar-session-count" class="missed-words-count-badge">0</span></div>
+            </div>
+            <div id="video-grammar-session-body" class="missed-words-body" hidden><div id="video-grammar-session-list" class="missed-words-list"></div></div>
           </div>
         </div>
 
@@ -250,6 +262,20 @@
         <div class="ask-empty-state" id="ask-empty-state">
           <div class="ask-empty-title">Ask about Japanese</div>
           <div class="ask-empty-subtitle">Select text on page, use video subtitles, or paste an MCQ to get step-by-step explanations.</div>
+        </div>
+      </div>
+      <div id="ask-notes-composer" class="ask-notes-composer" hidden role="dialog" aria-labelledby="ask-notes-title">
+        <div class="ask-notes-composer-panel">
+          <div class="ask-notes-composer-header">
+            <strong id="ask-notes-title">Add explanation to card</strong>
+            <span id="ask-notes-counter" aria-live="polite">0/600</span>
+          </div>
+          <textarea id="ask-notes-preview" rows="8" aria-label="Editable note preview"></textarea>
+          <div class="ask-notes-composer-actions">
+            <button type="button" class="btn-chat-action" id="ask-notes-insert">Add as Notes</button>
+            <button type="button" class="btn-chat-action" id="ask-hint-insert">Add as Hint</button>
+            <button type="button" class="btn-chat-action" id="ask-notes-cancel">Cancel</button>
+          </div>
         </div>
       </div>
 
@@ -740,6 +766,19 @@
               <option value="system-ui">System Default</option>
             </select>
           </div>
+
+          <details id="grammar-settings-group" class="card-settings-group settings-group">
+            <summary class="settings-group-title">Grammar Settings</summary>
+            <div class="settings-row"><label for="setting-grammar-enabled" class="settings-label">Grammar Enabled</label><input id="setting-grammar-enabled" type="checkbox" checked></div>
+            <div class="settings-row"><label for="setting-grammar-text-mode" class="settings-label">Text Tab Mode</label><select id="setting-grammar-text-mode" class="settings-select"><option value="auto">Auto-expand</option><option value="on-demand" selected>On-demand</option><option value="off">Off</option></select></div>
+            <div class="settings-row"><label for="setting-grammar-video-strip" class="settings-label">Video Subtitle Strip</label><input id="setting-grammar-video-strip" type="checkbox" checked></div>
+            <div class="settings-row"><label for="setting-grammar-ahead" class="settings-label">Analyze-ahead Cue Count</label><input id="setting-grammar-ahead" class="settings-number" type="number" min="1" max="10" value="5"></div>
+            <div class="settings-row"><label for="setting-grammar-below-level" class="settings-label">Show Below-Level Points</label><input id="setting-grammar-below-level" type="checkbox" checked></div>
+            <div class="settings-row"><label for="setting-grammar-particles" class="settings-label" title="Bare particles are hidden by default; compound particles remain visible.">Show Basic Particles</label><input id="setting-grammar-particles" type="checkbox"></div>
+            <div class="settings-row"><label for="setting-grammar-front-style" class="settings-label">Card Front Style</label><select id="setting-grammar-front-style" class="settings-select"><option value="sentence" selected>Sentence in Context</option><option value="pattern">Pattern First</option></select></div>
+            <div class="settings-row"><label for="setting-grammar-dictionary" class="settings-label">Designated Grammar Dictionary</label><input id="setting-grammar-dictionary" class="settings-input" type="text" list="grammar-dictionary-options" autocomplete="off"><datalist id="grammar-dictionary-options"></datalist></div>
+            <div class="settings-row"><button type="button" id="btn-test-grammar-setup" class="btn-secondary-action">Test Grammar Setup</button><span id="grammar-setup-status" class="grammar-setup-status" role="status"></span></div>
+          </details>
           <div class="settings-row">
             <span class="settings-label">Show JLPT Badge</span>
             <label class="switch-control setting-checkbox-label">

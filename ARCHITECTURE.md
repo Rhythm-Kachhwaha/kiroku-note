@@ -276,3 +276,26 @@ Cloud study mode provides a separate "extra practice" study environment over mir
 
 
 
+
+### Grammar cards and learning tracking
+
+Grammar cards use the `cards.card_kind` discriminator (default `vocab`) and preserve the existing local-first save/sync boundary. Grammar-specific Anki formatting is isolated in `anki_formatter.py`; the AnkiConnect mapper selects it only for `card_kind=grammar`. Grammar learning state is local SQLite state in `grammar_points` and explicit user-engagement examples in `grammar_encounters`, exposed through `/api/grammar/points`, `/api/grammar/points/{pattern_key}`, and encounter endpoints.
+
+The tiered grammar subsystem is composed of `GrammarService` (request orchestration
+and response caching), `GrammarReferenceService` (the bundled reproducible SQLite
+index), and `GrammarMatcher` (offline span matching, formation normalization,
+ambiguity confidence, and discontinuous constructions). `POST /api/grammar/analyze`
+uses one sentence-tokenization request when Yomitan is available and falls back to
+the local matcher; `grammar_cache` keys include the sentence, index version, and
+dictionary/learner context. Grammar analysis is intentionally separate from
+single-word capture, while the Text and Video clients provide the whole-sentence
+OCR/active-cue entry points.
+
+Task 11 acceptance evidence (2026-10-29): the 46-sentence corpus achieved
+46/46 true positives and zero bare-particle false positives (default
+`show_basic_particles=False`), including appearance/hearsay `そうだ`, the
+`ば〜ほど` and `とか〜とか` discontinuous forms, and the negative particle
+sentence. On the local Windows test environment, offline cold analysis measured
+0.0279 seconds and cached warm analysis 0.0022 seconds (both below the
+acceptance budgets). Failed Anki
+sync retained the grammar card locally with `sync_status=failed`.

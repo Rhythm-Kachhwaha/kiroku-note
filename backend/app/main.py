@@ -299,8 +299,10 @@ app.add_middleware(
 )
 
 from app.api.subtitle import subtitle_router
+from app.api.grammar import grammar_router
 
 app.include_router(subtitle_router)
+app.include_router(grammar_router)
 
 
 _health_cache: dict[str, Any] = {
@@ -1051,4 +1053,3 @@ def get_dashboard_redirect() -> Response:
     if token:
         target += f"?token={token}"
     return RedirectResponse(url=target)
-

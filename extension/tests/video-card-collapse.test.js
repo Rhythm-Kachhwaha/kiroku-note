@@ -289,6 +289,18 @@ async function createSidepanelSandbox(customFetch = null, initialStorage = {}) {
 
   const previewEl = new MockElement("div", "video-current-cue-preview", "video-cue-preview video-sub-text waiting active-sub-size-large", doc);
   const settingVideoCollapseMode = new MockElement("select", "setting-video-collapse-mode", "settings-select", doc);
+  const settingGrammarEnabled = new MockElement("input", "setting-grammar-enabled", "settings-checkbox", doc);
+  settingGrammarEnabled.type = "checkbox";
+  settingGrammarEnabled.checked = true;
+  const settingGrammarVideoStrip = new MockElement("input", "setting-grammar-video-strip", "settings-checkbox", doc);
+  settingGrammarVideoStrip.type = "checkbox";
+  settingGrammarVideoStrip.checked = true;
+  const grammarSlot = new MockElement("div", "active-sub-grammar-slot", "", doc);
+  const grammarSessionList = new MockElement("div", "video-grammar-session-list", "", doc);
+  const grammarSessionCount = new MockElement("span", "video-grammar-session-count", "", doc);
+  const textGrammarSection = new MockElement("section", "text-grammar-section", "", doc);
+  const textGrammarContent = new MockElement("div", "text-grammar-content", "", doc);
+  const textGrammarCount = new MockElement("span", "text-grammar-count", "", doc);
 
   const domElements = {
     "card-editor-section": cardEditorSection,
@@ -317,6 +329,14 @@ async function createSidepanelSandbox(customFetch = null, initialStorage = {}) {
     "history-section": historySection,
     "video-current-cue-preview": previewEl,
     "setting-video-collapse-mode": settingVideoCollapseMode,
+    "setting-grammar-enabled": settingGrammarEnabled,
+    "setting-grammar-video-strip": settingGrammarVideoStrip,
+    "active-sub-grammar-slot": grammarSlot,
+    "video-grammar-session-list": grammarSessionList,
+    "video-grammar-session-count": grammarSessionCount,
+    "text-grammar-section": textGrammarSection,
+    "text-grammar-content": textGrammarContent,
+    "text-grammar-count": textGrammarCount,
     "expression": new MockElement("span", "expression", "", doc),
     "reading": new MockElement("span", "reading", "", doc)
   };
@@ -333,7 +353,14 @@ async function createSidepanelSandbox(customFetch = null, initialStorage = {}) {
   doc.querySelectorAll = (sel) => {
     return [];
   };
-  doc.createElement = (tag) => new MockElement(tag, "", "", doc);
+  doc.createElement = (tag) => {
+    const element = new MockElement(tag, "", "", doc);
+    if (String(tag).toLowerCase() === "canvas") {
+      element.getContext = () => ({ drawImage: () => {} });
+      element.toDataURL = () => "data:image/png;base64,CROPPED";
+    }
+    return element;
+  };
   doc.createTextNode = (txt) => new MockTextNode(txt);
   doc.getElementById = (id) => domElements[id] || new MockElement("div", id, "", doc);
 
@@ -434,6 +461,10 @@ async function createSidepanelSandbox(customFetch = null, initialStorage = {}) {
       }
     },
     fetch: customFetch || defaultFetch,
+    Image: class MockImage {
+      constructor() { this.naturalWidth = 1920; this.naturalHeight = 1080; this.width = 1920; this.height = 1080; }
+      set src(_) { queueMicrotask(() => this.onload?.()); }
+    },
     console,
     setTimeout,
     clearTimeout,
@@ -518,6 +549,119 @@ test("Video Card Collapse: Setting video_workspace_collapse_mode defaults to aut
     "State machine must reflect dont_show mode"
   );
 });
+
+test("Extension acceptance: whole-sentence OCR uses the production message path", async () => {
+  const requests = [];
+  const { domElements, messageListeners } = await createSidepanelSandbox(async (url, options) => {
+    requests.push({ url, options });
+    if (url.includes("/api/ocr/recognize")) {
+      return { ok: true, json: async () => ({ text: "雨が降ったので、家に帰りました。" }) };
+    }
+    if (url.includes("/api/grammar/analyze")) {
+      return { ok: true, json: async () => ({ matches: [{ pattern_display: "ので", level: "N4", meaning_short: "because" }] }) };
+    }
+    return { ok: false, json: async () => ({}) };
+  });
+
+  const response = {};
+  messageListeners[0]({
+    type: "PROCESS_OCR_CROP",
+    dataUrl: "data:image/png;base64,SCREENSHOT",
+    cropRect: { left: 10, top: 10, width: 200, height: 80 },
+    viewport: { width: 1920, height: 1080 }
+  }, {}, (value) => Object.assign(response, value));
+  await new Promise(resolve => setTimeout(resolve, 25));
+
+  assert.equal(response.ok, true);
+  assert.ok(requests.some(request => request.url.includes("/api/ocr/recognize")));
+  assert.ok(requests.some(request => request.url.includes("/api/grammar/analyze")));
+  assert.equal(domElements["text-grammar-section"].hidden, false);
+  assert.match(domElements["text-grammar-content"].textContent, /ので/);
+});
+
+test("Extension acceptance: video grammar stays below the active subtitle and ignores stale results", async () => {
+  let resolveFirst;
+  const { domElements, messageListeners } = await createSidepanelSandbox(async (url, options) => {
+    if (!url.includes("/api/grammar/analyze")) return { ok: false, json: async () => ({}) };
+    const body = JSON.parse(options.body);
+    if (body.sentence === "古い字幕") {
+      return new Promise(resolve => {
+        resolveFirst = () => resolve({ ok: true, json: async () => ({ matches: [{ pattern_display: "OLD" }] }) });
+      });
+    }
+    return { ok: true, json: async () => ({ matches: [{ pattern_display: "NEW", level: "N3" }] }) };
+  });
+
+  const send = (text) => new Promise(resolve => {
+    messageListeners[0]({ type: "SUBTITLE_CUE_CHANGED", cue: { text, startMs: 1000 } }, {}, resolve);
+  });
+  send("古い字幕");
+  await send("新しい字幕");
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.match(domElements["active-sub-grammar-slot"].textContent, /NEW/);
+  resolveFirst();
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.match(domElements["active-sub-grammar-slot"].textContent, /NEW/);
+  assert.doesNotMatch(domElements["active-sub-grammar-slot"].textContent, /OLD/);
+  const sidepanelHtml = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.html"), "utf8");
+  assert.ok(
+    sidepanelHtml.indexOf('id="active-subtitle-section"') < sidepanelHtml.indexOf('id="active-sub-grammar-slot"'),
+    "Grammar slot must be declared immediately below the active subtitle section"
+  );
+});
+
+test("Extension regression: clearing the active cue invalidates pending video grammar", async () => {
+  let resolvePending;
+  const { domElements, messageListeners } = await createSidepanelSandbox(async (url) => {
+    if (!url.includes("/api/grammar/analyze")) return { ok: false, json: async () => ({}) };
+    return new Promise(resolve => {
+      resolvePending = () => resolve({ ok: true, json: async () => ({ matches: [{ pattern_display: "STALE" }] }) });
+    });
+  });
+
+  messageListeners[0]({
+    type: "SUBTITLE_CUE_CHANGED",
+    cue: { text: "字幕が消える", startMs: 1000 }
+  }, {}, () => {});
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.match(domElements["active-sub-grammar-slot"].textContent, /Checking grammar/);
+
+  messageListeners[0]({ type: "SUBTITLE_CUE_CHANGED", cue: null }, {}, () => {});
+  assert.equal(domElements["active-sub-grammar-slot"].textContent, "");
+
+  resolvePending();
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(domElements["active-sub-grammar-slot"].textContent, "");
+});
+
+for (const settingId of ["setting-grammar-enabled", "setting-grammar-video-strip"]) {
+  test(`Extension regression: disabling ${settingId} invalidates pending video grammar`, async () => {
+    let resolvePending;
+    const { domElements, messageListeners } = await createSidepanelSandbox(async (url) => {
+      if (!url.includes("/api/grammar/analyze")) return { ok: false, json: async () => ({}) };
+      return new Promise(resolve => {
+        resolvePending = () => resolve({ ok: true, json: async () => ({ matches: [{ pattern_display: "STALE" }] }) });
+      });
+    });
+
+    messageListeners[0]({
+      type: "SUBTITLE_CUE_CHANGED",
+      cue: { text: "設定で無効になる", startMs: 1000 }
+    }, {}, () => {});
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.match(domElements["active-sub-grammar-slot"].textContent, /Checking grammar/);
+
+    const setting = domElements[settingId];
+    setting.checked = false;
+    setting.dispatchEvent({ type: "change", target: setting });
+    assert.equal(domElements["active-sub-grammar-slot"].textContent, "");
+
+    resolvePending();
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(domElements["active-sub-grammar-slot"].textContent, "");
+    assert.doesNotMatch(domElements["active-sub-grammar-slot"].textContent, /STALE/);
+  });
+}
 
 test("Video Card Collapse: Auto-collapse triggers after 5 seconds of inactivity on Video tab", async () => {
   const { sidepanel, cardEditorSection, videoCollapsedCardChip } = await createSidepanelSandbox();

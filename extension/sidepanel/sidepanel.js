@@ -25,12 +25,189 @@ const API_LLM_SECRET_URL = `${BACKEND_BASE_URL}/api/llm/secret`;
 const API_SUBTITLE_ANNOTATE_URL = `${BACKEND_BASE_URL}/api/subtitle/annotate`;
 const API_KNOWN_WORDS_URL = `${BACKEND_BASE_URL}/api/known-words`;
 const API_KNOWN_WORDS_MARK_URL = `${BACKEND_BASE_URL}/api/known-words/mark`;
+const API_GRAMMAR_ANALYZE_URL = `${BACKEND_BASE_URL}/api/grammar/analyze`;
+const API_GRAMMAR_SETUP_URL = `${BACKEND_BASE_URL}/api/grammar/setup-check`;
 
 const kanjiStrokesCache = new Map();
 const annotatedCuesCache = new Map();
 const minedWordsSet = new Set();
 const markedKnownSet = new Set();
 const missedWordsMap = new Map();
+const grammarCueCache = new Map();
+const grammarSessionPoints = new Map();
+let videoGrammarRenderGeneration = 0;
+const GRAMMAR_SETTINGS_KEY = "kiroku.grammar_settings";
+const DEFAULT_GRAMMAR_SETTINGS = {
+  enabled: true, text_mode: "on-demand", video_strip: true, ahead_count: 5,
+  show_below_level: true, show_basic_particles: false, card_front_style: "sentence",
+  designated_dictionary: ""
+};
+let grammarSettings = { ...DEFAULT_GRAMMAR_SETTINGS };
+
+function grammarCueKey(text) {
+  let hash = 2166136261;
+  for (const char of String(text || "")) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  return (hash >>> 0).toString(16);
+}
+
+async function analyzeGrammar(sentence, options = {}) {
+  const text = String(sentence || "").trim();
+  if (!text || !grammarSettings.enabled) return { points: [], matches: [], disabled: true };
+  const response = await fetch(API_GRAMMAR_ANALYZE_URL, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sentence: text,
+      show_basic_particles: grammarSettings.show_basic_particles,
+      designated_dictionary: grammarSettings.designated_dictionary || null,
+      source: options.source || "text"
+    })
+  });
+  if (!response.ok) throw new Error(`Grammar analysis failed (${response.status})`);
+  return response.json();
+}
+
+function renderGrammarBreakdown(container, result, sentence) {
+  if (!container) return;
+  container.replaceChildren();
+  const points = Array.isArray(result?.matches) ? result.matches : (result?.points || []);
+  if (!points.length) {
+    const empty = document.createElement("p"); empty.className = "grammar-empty";
+    empty.textContent = result?.is_limited_offline ? "Grammar index unavailable while offline." : "No grammar points detected.";
+    container.append(empty); return;
+  }
+  const chain = result?.conjugation_chain || result?.conjugationChain;
+  if (chain) { const row = document.createElement("div"); row.className = "grammar-conjugation-chain"; row.textContent = Array.isArray(chain) ? chain.join(" → ") : String(chain); container.append(row); }
+  const sentenceRow = document.createElement("div"); sentenceRow.className = "grammar-sentence";
+  sentenceRow.textContent = sentence || "";
+  container.append(sentenceRow);
+  points.forEach((point, index) => {
+    const card = document.createElement("article"); card.className = "grammar-point-card";
+    card.dataset.patternKey = point.pattern_key || point.patternKey || "";
+    const title = document.createElement("button"); title.type = "button"; title.className = "grammar-point-title";
+    title.textContent = `${index + 1}. ${point.pattern_display || point.pattern || point.display || "Grammar point"}${point.level ? ` · ${point.level}` : ""}`;
+    const detail = document.createElement("div"); detail.className = "grammar-point-detail"; detail.hidden = true;
+    const meaning = point.meaning_short || point.meaning || point.english_breakdown || "Explanation unavailable.";
+    detail.textContent = `${meaning}${point.formation ? `\nFormation: ${point.formation}` : ""}`;
+    title.addEventListener("click", () => { detail.hidden = !detail.hidden; });
+    const createButton = document.createElement("button");
+    createButton.type = "button";
+    createButton.className = "grammar-create-card";
+    createButton.textContent = "Create card";
+    createButton.addEventListener("click", () => createGrammarCard(point, sentence, "text"));
+    card.append(title, detail, createButton); container.append(card);
+  });
+}
+
+async function renderTextGrammar(sentence) {
+  const section = document.querySelector("#text-grammar-section");
+  const content = document.querySelector("#text-grammar-content");
+  const count = document.querySelector("#text-grammar-count");
+  if (!section || !content || !sentence) return;
+  try {
+    const result = await analyzeGrammar(sentence);
+    const points = result?.matches || result?.points || [];
+    count.textContent = points.length ? `(${points.length})` : "";
+    renderGrammarBreakdown(content, result, sentence);
+    section.hidden = false;
+    if (grammarSettings.text_mode === "auto") { content.hidden = false; document.querySelector("#text-grammar-toggle")?.setAttribute("aria-expanded", "true"); }
+  } catch (_) { section.hidden = false; content.replaceChildren(); }
+}
+
+async function renderVideoGrammar(cue) {
+  const slot = document.querySelector("#active-sub-grammar-slot");
+  const renderGeneration = ++videoGrammarRenderGeneration;
+  if (!slot) return;
+  if (!cue?.text || !grammarSettings.enabled || !grammarSettings.video_strip) {
+    slot.replaceChildren();
+    return;
+  }
+  const key = grammarCueKey(cue.text);
+  let result = grammarCueCache.get(key);
+  if (!result) {
+    slot.textContent = "Checking grammar…";
+    try {
+      result = await analyzeGrammar(cue.text, { source: "video" });
+      grammarCueCache.set(key, result);
+    } catch (_) {
+      if (renderGeneration !== videoGrammarRenderGeneration) return;
+      slot.textContent = "Grammar unavailable";
+      return;
+    }
+  }
+  if (renderGeneration !== videoGrammarRenderGeneration) return;
+  const points = result?.matches || result?.points || [];
+  slot.replaceChildren();
+  points.forEach(point => {
+    const chip = document.createElement("button"); chip.type = "button"; chip.className = "grammar-chip";
+    chip.textContent = `${point.pattern_display || point.pattern || point.display || "Grammar"}${point.level ? ` · ${point.level}` : ""}`;
+    chip.addEventListener("click", () => {
+      const detail = document.createElement("div"); detail.className = "grammar-chip-detail"; detail.textContent = point.english_breakdown || point.meaning_short || point.meaning || "";
+      const createButton = document.createElement("button");
+      createButton.type = "button";
+      createButton.className = "grammar-create-card";
+      createButton.textContent = "Create card";
+      createButton.addEventListener("click", () => createGrammarCard(point, cue.text, "video"));
+      slot.replaceChildren(detail, createButton);
+    }); slot.append(chip);
+    const keyName = point.pattern_key || point.pattern || point.display;
+    if (keyName) grammarSessionPoints.set(keyName, { ...point, cue });
+  });
+  const sessionList = document.querySelector("#video-grammar-session-list");
+  const sessionCount = document.querySelector("#video-grammar-session-count");
+  if (sessionList) { sessionList.replaceChildren(); grammarSessionPoints.forEach(point => { const row = document.createElement("button"); row.type = "button"; row.className = "grammar-session-item"; row.textContent = `${point.pattern_display || point.pattern} · ${Math.round((point.cue.startTime || point.cue.startMs / 1000 || 0))}s`; row.addEventListener("click", () => chrome.runtime.sendMessage({ type: "SEEK_TO", ms: point.cue.startMs ?? Math.round((point.cue.startTime || 0) * 1000) }).catch(() => {})); sessionList.append(row); }); }
+  if (sessionCount) sessionCount.textContent = String(grammarSessionPoints.size);
+  for (const nextCue of (Array.isArray(recentSubtitleCues) ? recentSubtitleCues : []).slice(0, grammarSettings.ahead_count)) {
+    const nextKey = grammarCueKey(nextCue?.text); if (nextCue?.text && !grammarCueCache.has(nextKey)) analyzeGrammar(nextCue.text, { source: "video" }).then(value => grammarCueCache.set(nextKey, value)).catch(() => {});
+  }
+}
+
+async function loadGrammarSettings() {
+  try { const data = await chrome.storage.local.get(GRAMMAR_SETTINGS_KEY); grammarSettings = { ...DEFAULT_GRAMMAR_SETTINGS, ...(data?.[GRAMMAR_SETTINGS_KEY] || {}) }; } catch (_) {}
+  if (!grammarSettings.enabled || !grammarSettings.video_strip) {
+    renderVideoGrammar(null).catch(() => {});
+  }
+  for (const [id, key] of Object.entries({ "setting-grammar-enabled": "enabled", "setting-grammar-video-strip": "video_strip", "setting-grammar-below-level": "show_below_level", "setting-grammar-particles": "show_basic_particles", "setting-grammar-ahead": "ahead_count", "setting-grammar-text-mode": "text_mode", "setting-grammar-front-style": "card_front_style", "setting-grammar-dictionary": "designated_dictionary" })) {
+    const el = document.querySelector(`#${id}`); if (!el) continue;
+    if (el.type === "checkbox") el.checked = Boolean(grammarSettings[key]); else el.value = String(grammarSettings[key]);
+    el.addEventListener("change", async () => {
+      grammarSettings[key] = el.type === "checkbox" ? el.checked : (el.type === "number" ? Math.max(1, Math.min(10, Number(el.value) || 5)) : el.value);
+      if ((key === "enabled" || key === "video_strip") && (!grammarSettings.enabled || !grammarSettings.video_strip)) {
+        renderVideoGrammar(null).catch(() => {});
+      }
+      await chrome.storage.local.set({ [GRAMMAR_SETTINGS_KEY]: grammarSettings });
+    });
+  }
+}
+
+function initGrammarUI() {
+  const textGrammarToggle = document.querySelector("#text-grammar-toggle");
+  if (textGrammarToggle) textGrammarToggle.addEventListener("click", () => {
+    const content = document.querySelector("#text-grammar-content");
+    if (!content) return;
+    content.hidden = !content.hidden;
+    textGrammarToggle.setAttribute("aria-expanded", String(!content.hidden));
+  });
+  const testGrammarSetup = document.querySelector("#btn-test-grammar-setup");
+  if (testGrammarSetup) testGrammarSetup.addEventListener("click", async () => {
+    const output = document.querySelector("#grammar-setup-status");
+    if (output) output.textContent = "Checking…";
+    try {
+      const response = await fetch(API_GRAMMAR_SETUP_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ designated_dictionary: grammarSettings.designated_dictionary || null }) });
+      const data = await response.json();
+      if (output) { output.textContent = data?.message || (data?.ok === false ? "Setup needs attention." : "Grammar setup ready."); output.dataset.status = data?.ok === false ? "error" : "ok"; }
+      const list = document.querySelector("#grammar-dictionary-options");
+      if (list && Array.isArray(data?.dictionaries)) list.replaceChildren(...data.dictionaries.map(name => { const option = document.createElement("option"); option.value = name; return option; }));
+    } catch (_) { if (output) { output.textContent = "Backend unavailable."; output.dataset.status = "error"; } }
+  });
+  const grammarSessionHeader = document.querySelector("#video-grammar-session-header");
+  if (grammarSessionHeader) grammarSessionHeader.addEventListener("click", () => {
+    const body = document.querySelector("#video-grammar-session-body");
+    if (!body) return;
+    body.hidden = !body.hidden;
+    grammarSessionHeader.setAttribute("aria-expanded", String(!body.hidden));
+  });
+  loadGrammarSettings().catch(() => {});
+}
 
 async function getKanjiStrokeSvg(character) {
   if (!character) return null;
@@ -395,6 +572,8 @@ const DEFAULT_CARD_TEMPLATE_SETTINGS = {
   show_history: true,
 };
 let currentCardTemplateSettings = JSON.parse(JSON.stringify(DEFAULT_CARD_TEMPLATE_SETTINGS));
+let currentGrammarCard = null;
+let currentCardKind = "vocab";
 let storedDeckTemplateProfiles = {};
 
 function getCurrentDeckName() {
@@ -1600,6 +1779,14 @@ async function handleOcrCropProcess({ dataUrl, cropRect, rect, viewport }) {
       }
     }
 
+    // OCR keeps the established single-word capture path. Whole Japanese lines
+    // are routed to grammar analysis instead of forcing a dictionary lookup.
+    if (/[\s。！？!?]/u.test(recognizedText) || recognizedText.length > 12) {
+      await renderTextGrammar(recognizedText);
+      setStatus("OCR sentence captured for grammar analysis.");
+      return;
+    }
+
     // Track provenance
     if (typeof lastCaptureSource !== "undefined") {
       lastCaptureSource.type = "ocr";
@@ -2468,6 +2655,17 @@ function renderPreviewMeanings(container, data) {
   }
 }
 
+function convertNotesMarkdownToPreviewHtml(text) {
+  const escaped = String(text || "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[char]);
+  return escaped
+    .replace(/`([^`\n]+)`/g, '<code class="kn-inline-code">$1</code>')
+    .replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, "<em>$1</em>")
+    .replace(/\n/g, "<br>");
+}
+
 function renderCardPreviewDOM(container, data, side = "back") {
   if (!container) return;
   const presentation = data.preview_presentation || currentPreviewPresentation;
@@ -2710,7 +2908,13 @@ function renderCardPreviewDOM(container, data, side = "back") {
   if (data.notes) {
     const notesDiv = document.createElement("div");
     notesDiv.className = "kn-notes";
-    notesDiv.textContent = `Notes: ${data.notes}`;
+    notesDiv.append(document.createTextNode("Notes: "));
+    const notesMarkup = convertNotesMarkdownToPreviewHtml(data.notes);
+    if (typeof notesDiv.innerHTML === "string" || "innerHTML" in notesDiv) {
+      notesDiv.insertAdjacentHTML?.("beforeend", notesMarkup);
+    } else {
+      notesDiv.append(document.createTextNode(data.notes));
+    }
     container.append(notesDiv);
   }
 
@@ -5035,6 +5239,29 @@ async function refreshDuplicateState() {
 }
 
 // Card save form submission
+function createGrammarCard(point, sentence, source = "text") {
+  const grammar = point || {};
+  currentCardKind = "grammar";
+  currentGrammarCard = {
+    pattern_key: grammar.pattern_key || grammar.pattern_display || "",
+    pattern_display: grammar.pattern_display || grammar.pattern_key || "",
+    span: {start: Number(grammar.start ?? 0), end: Number(grammar.end ?? 0)},
+    level: grammar.level || grammar.jlpt_level || "",
+    english_breakdown: grammar.english_breakdown || grammar.meaning || "",
+    matched_formation: grammar.matched_formation || "",
+    examples: Array.isArray(grammar.examples) ? grammar.examples.slice(0, 3) : [],
+  };
+  if (typeof fieldExpression !== "undefined" && fieldExpression) fieldExpression.value = currentGrammarCard.pattern_display;
+  if (typeof fieldMeaning !== "undefined" && fieldMeaning) fieldMeaning.value = grammar.meaning_short || grammar.meaning || "";
+  if (typeof fieldExampleSentence !== "undefined" && fieldExampleSentence) fieldExampleSentence.value = sentence || "";
+  if (typeof fieldNotes !== "undefined" && fieldNotes) fieldNotes.value = currentGrammarCard.english_breakdown;
+  if (typeof fieldTags !== "undefined" && fieldTags) fieldTags.value =
+    `kiroku-grammar${currentGrammarCard.level ? `, jlpt-${String(currentGrammarCard.level).toLowerCase()}` : ""}`;
+  if (typeof lastCaptureSource !== "undefined") lastCaptureSource = {type: source};
+  if (typeof scheduleCardPreviewUpdate === "function") scheduleCardPreviewUpdate();
+  return currentGrammarCard;
+}
+
 async function saveCard() {
   const expr = (typeof fieldExpression !== "undefined" && fieldExpression) ? fieldExpression.value.trim() : "";
   if (!expr) {
@@ -5077,7 +5304,13 @@ async function saveCard() {
       : (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
     source_type: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.type) || "text",
     source_url: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.url) || "",
+    card_kind: (typeof currentGrammarCard !== "undefined" && currentGrammarCard)
+      ? "grammar"
+      : (typeof currentCardKind !== "undefined" ? currentCardKind : "vocab"),
   };
+  if (typeof currentGrammarCard !== "undefined" && currentGrammarCard) {
+    payload.card_settings = {...(payload.card_settings || {}), ...currentGrammarCard};
+  }
 
   try {
     const response = await fetch(API_SAVE_URL, {
@@ -5193,6 +5426,8 @@ async function saveCard() {
       }
     }
 
+    currentGrammarCard = null;
+    currentCardKind = body.card_kind || currentCardKind;
     return body;
   } catch (error) {
     if (typeof setStatus === "function") {
@@ -5264,6 +5499,7 @@ async function triggerAnkiSync() {
           : (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
         source_type: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.type) || "text",
         source_url: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.url) || "",
+        card_kind: currentGrammarCard ? "grammar" : currentCardKind,
       };
       const saveResponse = await fetch(API_SAVE_URL, {
         method: "POST",
@@ -6555,6 +6791,10 @@ async function openSavedCard(cardId) {
     const res = await fetch(API_CARD_DETAIL_URL(cardId));
     if (!res.ok) throw new Error("Could not retrieve card details.");
     const body = await res.json();
+    currentCardKind = body.card_kind || "vocab";
+    currentGrammarCard = currentCardKind === "grammar" && body.card_settings
+      ? {...body.card_settings}
+      : null;
 
     if (cardEditor) {
       cardEditor.hidden = false;
@@ -10056,6 +10296,12 @@ if (ocrCaptureBtn) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "ANALYZE_GRAMMAR_SELECTION") {
+    const sentence = String(message.sentence || message.selection || "").trim();
+    renderTextGrammar(sentence);
+    sendResponse?.({ ok: true });
+    return true;
+  }
   if (message?.type === "SCREENSHOT_CAPTURED") {
     if (message.captureId && currentCaptureId && message.captureId !== currentCaptureId) {
       sendResponse?.({ok: false, error: "STALE_CAPTURE"});
@@ -10158,6 +10404,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (typeof handleVideoCueChanged === "function") {
       handleVideoCueChanged(message.cue);
     }
+    renderVideoGrammar(message.cue).catch(() => {});
     if (message.cue?.text && typeof setAskContext === "function" && (!activeAskContext || !activeAskContext.text || currentMiningTab === "ask")) {
       setAskContext(message.cue.text, "Video Subtitle");
     }
@@ -10218,6 +10465,10 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === "local" && changes?.subtitle_timing_offset && typeof changes.subtitle_timing_offset.newValue === "number") {
       updateOffsetDisplay(changes.subtitle_timing_offset.newValue);
+    }
+
+    if (areaName === "local" && changes?.[GRAMMAR_SETTINGS_KEY]) {
+      loadGrammarSettings().catch(() => {});
     }
     if (areaName === "local" && changes?.active_subtitle_cues) {
       loadedSubtitleCues = Array.isArray(changes.active_subtitle_cues.newValue)
@@ -11161,6 +11412,68 @@ function formatAIResponse(rawText) {
   return `<div class="ai-explanation-section">${formattedHtml}</div>`;
 }
 
+function condenseNotes(rawText, options = {}) {
+  const maxChars = Number.isFinite(options.maxChars) ? Math.max(1, options.maxChars) : 600;
+  const sectionFilter = Array.isArray(options.sectionFilter) && options.sectionFilter.length
+    ? new Set(options.sectionFilter.map(section => String(section).toLowerCase()))
+    : null;
+  const boilerplate = /^(here is the explanation:|sure!?\s*let['’]s break this down:|let['’]s break this down:)\s*$/i;
+  const sectionPattern = /^(?:#{1,3}\s*)?(?:\*\*)?(meaning|usage|example|formation|nuance|common mistakes?|grammar pattern|breakdown|explanation|notes?)(?:\*\*)?\s*:?\s*$/i;
+  const lines = String(rawText || "").replace(/\r\n?/g, "\n").split("\n");
+  const result = [];
+  let activeSection = null;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || boilerplate.test(line)) continue;
+    const section = line.match(sectionPattern);
+    if (section) {
+      activeSection = section[1].toLowerCase();
+      if (!sectionFilter || sectionFilter.has(activeSection) || sectionFilter.has(activeSection.replace(/s$/, ""))) {
+        result.push(line.replace(/^#+\s*/, "").replace(/\*\*/g, ""));
+      }
+      continue;
+    }
+    if (sectionFilter && activeSection && !sectionFilter.has(activeSection) && !sectionFilter.has(activeSection.replace(/s$/, ""))) continue;
+    result.push(line);
+  }
+  let condensed = result.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  if (condensed.length > maxChars) condensed = `${condensed.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
+  return condensed;
+}
+
+function openNotesComposer(rawText, button) {
+  const dialog = document.querySelector("#ask-notes-composer");
+  const preview = document.querySelector("#ask-notes-preview");
+  const counter = document.querySelector("#ask-notes-counter");
+  if (!dialog || !preview) return;
+  preview.value = condenseNotes(rawText);
+  const updateCount = () => {
+    if (counter) counter.textContent = `${preview.value.length}/600`;
+  };
+  preview.oninput = updateCount;
+  updateCount();
+  dialog.hidden = false;
+  preview.focus();
+  const insert = (field, label) => {
+    if (!field) return;
+    const current = field.value.trim();
+    field.value = current ? `${current}\n\n${preview.value}` : preview.value;
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    dialog.hidden = true;
+    if (button) {
+      button.textContent = `${label} added`;
+      setTimeout(() => { button.textContent = "Add to Notes"; }, 1500);
+    }
+    setStatus(`AI explanation added as ${label.toLowerCase()}.`);
+  };
+  const notesButton = document.querySelector("#ask-notes-insert");
+  const hintButton = document.querySelector("#ask-hint-insert");
+  if (notesButton) notesButton.onclick = () => insert(fieldNotes, "Notes");
+  if (hintButton) hintButton.onclick = () => insert(fieldHint, "Hint");
+  const closeButton = document.querySelector("#ask-notes-cancel");
+  if (closeButton) closeButton.onclick = () => { dialog.hidden = true; };
+}
+
 function setAskResponseMode(mode) {
   if (mode !== "short" && mode !== "detailed") return;
   currentAskResponseMode = mode;
@@ -11322,14 +11635,7 @@ async function sendAskQuery(task = currentAskTask, overrideText = null) {
     const btnAddNotes = aiMsgEl.querySelector(".btn-add-ai-notes");
     if (btnAddNotes) {
       btnAddNotes.addEventListener("click", () => {
-        if (fieldNotes) {
-          const currentNotes = fieldNotes.value ? fieldNotes.value.trim() + "\n\n" : "";
-          fieldNotes.value = currentNotes + aiResult;
-          fieldNotes.dispatchEvent(new Event("input", { bubbles: true }));
-          btnAddNotes.textContent = "Added!";
-          setTimeout(() => { btnAddNotes.textContent = "Add to Notes"; }, 1500);
-          setStatus("AI explanation added to card notes.");
-        }
+        openNotesComposer(aiResult, btnAddNotes);
       });
     }
 
@@ -11569,6 +11875,7 @@ if (btnAskSubmit) {
 
 initAskResponseMode();
 
+initGrammarUI();
 loadAutoCapturePreferences();
 loadRecentSubsPreferences();
 loadVideoWorkspaceCollapsePreferences().catch(() => {});
@@ -11663,6 +11970,8 @@ if (typeof module !== "undefined" && module.exports) {
     removeLlmSecretFromSettings,
     initLlmSettingsUI,
     sendAskQuery,
+    condenseNotes,
+    openNotesComposer,
     setAskContext,
     clearAskContext,
     formatAIResponse,
@@ -11696,6 +12005,7 @@ if (typeof module !== "undefined" && module.exports) {
     isCardEditorFocused,
     onSubtitleCueChanged: handleVideoCueChanged,
     saveCard,
+    createGrammarCard,
     videoMissedWordsDrawer,
     videoMissedWordsHeader,
     videoMissedWordsBadge,
@@ -11716,4 +12026,3 @@ if (typeof module !== "undefined" && module.exports) {
     API_KNOWN_WORDS_MARK_URL,
   };
 }
-

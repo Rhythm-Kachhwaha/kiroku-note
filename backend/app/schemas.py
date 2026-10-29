@@ -3,6 +3,48 @@ from typing import Any, Literal, Optional, Union
 from pydantic import BaseModel, Field, field_validator
 
 
+class GrammarAnalyzeRequest(BaseModel):
+    sentence: str = Field(min_length=1, max_length=2000)
+    learner_level: Optional[str] = Field(default=None, max_length=10)
+
+    @field_validator("sentence")
+    @classmethod
+    def sentence_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Sentence must not be empty.")
+        return value.strip()
+
+
+class GrammarPointResponse(BaseModel):
+    pattern_key: str
+    pattern_display: str
+    text: str
+    start: int
+    end: int
+    level: str
+    meaning_short: str = ""
+    english_breakdown: str = ""
+    formation: Optional[str] = None
+    confidence: str = "high"
+    matched_formation: Optional[str] = None
+    also_possible: bool = False
+
+
+class GrammarAnalyzeResponse(BaseModel):
+    sentence: str
+    learner_level: str
+    points: list[GrammarPointResponse] = Field(default_factory=list)
+    is_limited_offline: bool = False
+    cached: bool = False
+
+
+class GrammarSetupCheckResponse(BaseModel):
+    yomitan_available: bool
+    index_loaded: bool
+    point_counts_by_level: dict[str, int] = Field(default_factory=dict)
+    designated_grammar_dictionary_hits: list[str] = Field(default_factory=list)
+
+
 class CaptureRequest(BaseModel):
     """Untrusted text captured from the active webpage."""
 
@@ -186,6 +228,7 @@ class SaveCardRequest(BaseModel):
     card_settings: Optional[dict[str, Any]] = None
     jlpt_level: Optional[str] = None
     verb_metadata: Optional[VerbMetadataSchema] = None
+    card_kind: str = Field(default="vocab", max_length=30)
 
     @field_validator("expression")
     @classmethod
@@ -226,6 +269,7 @@ class SaveCardResponse(BaseModel):
     updated_at: str
     entries: list[dict[str, Any]] = Field(default_factory=list)
     kanji_entries: list[dict[str, Any]] = Field(default_factory=list)
+    card_kind: str = "vocab"
     card_settings: Optional[dict[str, Any]] = None
     verb_metadata: Optional[VerbMetadataSchema] = None
 
@@ -275,6 +319,7 @@ class SyncCardResponse(BaseModel):
     error: Optional[str] = None
     synced_at: Optional[str] = None
     expression: Optional[str] = None
+    card_kind: str = "vocab"
 
 
 class SyncAllResponse(BaseModel):
@@ -302,6 +347,7 @@ class CardSummary(BaseModel):
     source_url: str = ""
     jlpt_level: Optional[str] = None
     verb_metadata: Optional[VerbMetadataSchema] = None
+    card_kind: str = "vocab"
 
 
 class CardListResponse(BaseModel):
@@ -342,6 +388,8 @@ class CardDetailResponse(BaseModel):
     kanji_entries: list[dict] = []
     jlpt_level: Optional[str] = None
     verb_metadata: Optional[VerbMetadataSchema] = None
+    card_settings: Optional[dict[str, Any]] = None
+    card_kind: str = "vocab"
 
 
 class DeleteCardResponse(BaseModel):

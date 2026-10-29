@@ -82,6 +82,8 @@ def resolve_dictionary_db_path(custom_path: str | Path | None = None) -> Path:
 class DictionaryProvider(ABC):
     """Abstract interface for Japanese term identification, payload retrieval, and status."""
 
+    supports_sentence_tokenization = True
+
     @abstractmethod
     def identify(self, text: str) -> IdentifiedTerm:
         """Identify headword and reading for input text."""
@@ -105,6 +107,16 @@ class DictionaryProvider(ABC):
     @abstractmethod
     def discover_available_dictionaries(self) -> list[str]:
         """Return list of active dictionary names provided by this backend."""
+        ...
+
+    @abstractmethod
+    def tokenize_with_inflection(self, text: str) -> list[dict[str, Any]]:
+        """Tokenize a sentence while retaining headwords and inflection chains."""
+        ...
+
+    @abstractmethod
+    def scan_term_entries(self, term: str) -> list[dict[str, Any]]:
+        """Return raw dictionary entries for a term."""
         ...
 
 
@@ -141,6 +153,17 @@ class YomitanHttpProvider(DictionaryProvider):
         raw = self._post_json("/tokenize", {"text": text, "scanLength": 16, "parser": "scanning-parser"})
         return YomitanService.normalize_tokenize_response(raw, text)
 
+    def tokenize_with_inflection(self, text: str) -> list[dict[str, Any]]:
+        raw = self._post_json("/tokenize", {
+            "text": text, "scanLength": 128, "parser": "scanning-parser",
+        })
+        return YomitanService.normalize_tokenize_tokens(raw)
+
+    def scan_term_entries(self, term: str) -> list[dict[str, Any]]:
+        raw = self.fetch_term_payload(term)
+        entries = raw.get("dictionaryEntries", [])
+        return entries if isinstance(entries, list) else []
+
     def fetch_term_payload(self, term: str) -> dict[str, Any]:
         raw = self._post_json("/termEntries", {"term": term})
         if not isinstance(raw, dict):
@@ -162,7 +185,7 @@ class YomitanHttpProvider(DictionaryProvider):
             return False
 
     def discover_available_dictionaries(self) -> list[str]:
-        seed_terms = ["の", "する", "食べる", "こと"]
+        seed_terms = ["の", "する", "食べる", "こと", "てしまう", "なければならない", "ことがある", "わけ"]
         found_dicts: list[str] = []
         seen: set[str] = set()
 
@@ -198,7 +221,14 @@ class YomitanHttpProvider(DictionaryProvider):
 
 
 class LocalDictionaryProvider(DictionaryProvider):
-    """Standalone local dictionary engine provider wrapping kiroku_dictionary."""
+    """Standalone local dictionary engine provider wrapping kiroku_dictionary.
+
+    The local word index does not provide sentence tokenization. Grammar
+    analysis may use literal fallback matching, and marks responses as
+    limited rather than claiming full tokenizer availability.
+    """
+
+    supports_sentence_tokenization = False
 
     def __init__(self, db_path: str | Path | None = None):
         self._db_path = str(resolve_dictionary_db_path(db_path))
@@ -282,3 +312,13 @@ class LocalDictionaryProvider(DictionaryProvider):
             return names
         except Exception:
             return ["Jitendex (Local)", "KANJIDIC (Local)"]
+
+    def tokenize_with_inflection(self, text: str) -> list[dict[str, Any]]:
+        # The local word index intentionally does not pretend to be a sentence
+        # tokenizer. GrammarService uses its literal fallback instead.
+        return []
+
+    def scan_term_entries(self, term: str) -> list[dict[str, Any]]:
+        payload = self.fetch_term_payload(term)
+        entries = payload.get("dictionaryEntries", [])
+        return entries if isinstance(entries, list) else []

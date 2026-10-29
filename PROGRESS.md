@@ -1,5 +1,256 @@
 # Kiroku Note — Progress
 
+### Task 12 — Extension Acceptance Review Closure (2026-10-29)
+
+**Delivered**:
+- Added executable acceptance coverage that invokes the production Side Panel
+  `PROCESS_OCR_CROP` message handler and verifies a whole OCR sentence routes
+  to grammar analysis rather than the single-word dictionary capture path.
+- Added executable video acceptance coverage for grammar rendering below the
+  active subtitle, including an out-of-order response regression.
+- Added a narrow render-generation guard so stale video grammar responses
+  cannot replace the currently active cue's result.
+
+**Verification**:
+- `node --test extension\tests\video-card-collapse.test.js` — 9 passed,
+  including both new production-message-path acceptance tests.
+
+### Task 11 — Grammar Acceptance Gate & Documentation Handoff (2026-10-29)
+
+**Delivered**:
+- Added `backend/tests/test_grammar_acceptance_gate.py` with a 46-sentence
+  acceptance corpus covering positive matches, `そうだ` ambiguity,
+  discontinuous `ば〜ほど`/`とか〜とか`, conjugation chains, and the
+  bare-particle negative sentence.
+- Narrowly completed the directly exposed matcher cases (`使役受身`,
+  `ことになる`, `かもしれない`, `ざるを得ない`, `はずがない`, and the
+  one-`とか` discontinuous form).
+- Hardened the sidepanel save payload for isolated test/runtime contexts where
+  optional grammar state has not been initialized; this preserves ordinary
+  vocab saves as `card_kind=vocab`.
+
+**Verification**:
+- `PYTHONPATH=.;backend python -m pytest backend\tests\test_grammar_acceptance_gate.py -v -s`
+  — 4 passed; 46/46 true positives, 0 bare-particle false positives.
+- Offline analysis latency: cold 0.0279s, cached warm 0.0022s; both meet the
+  `<4.0s`/`<1.5s` budgets. Single-word `食べる` remains unchanged and yields
+  no grammar points. Failed Anki sync retains the local grammar card with
+  `sync_status=failed`.
+- `PYTHONPATH=.;backend python -m pytest backend\tests\` — 729 passed,
+  2 failures unrelated to this change: the pre-existing stdlib-import guard
+  rejects `collections` in `kiroku_dictionary\deinflect.py`, and the optional
+  standalone executable exits before its readiness probe.
+- `node --test extension\tests\*.test.js` — 249 passed. Focused extension
+  coverage also verifies single-word capture, whole-sentence OCR routing,
+  Text grammar breakdown, and Video grammar placement.
+
+**Remaining risk**:
+- Browser-manual OCR/video smoke testing and live Yomitan/Anki services were
+  not available in this environment; acceptance uses deterministic offline
+  seams and existing extension contract tests. No new external assets or
+  license obligations were introduced.
+
+### Task 13 — Video Grammar Cue Invalidation (2026-10-29)
+
+**Delivered**:
+- Invalidated pending video grammar renders whenever the active subtitle is
+  cleared or video grammar is disabled, clearing the grammar slot immediately.
+- Added an executable cue-to-null out-of-order response regression test.
+
+**Verification**:
+- `node --test extension\\tests\\video-card-collapse.test.js`
+- Focused acceptance/UI set (`video-card-collapse`, `grammar-settings`,
+  `sidepanel-subtitles-ui`, `video-tab-declutter-dom`) — 21 passed.
+
+### Task 14 — Video Grammar Settings Invalidation Coverage (2026-10-29)
+
+**Delivered**:
+- Added executable focused coverage for both grammar settings that disable the
+  video strip, proving a pending analysis response cannot render after either
+  setting is turned off.
+
+**Verification**:
+- `node --test extension\\tests\\video-card-collapse.test.js`
+
+### Tasks 6/9/10 Combined Batch — Review Fixes (2026-10-29)
+
+**Delivered**:
+- Made Alt+G grammar capture a reachable sibling of the Alt+O OCR branch.
+- Initialized grammar settings and UI listeners during normal sidepanel startup,
+  while retaining storage-change reloads for cross-context updates.
+- Sent the video grammar session drawer seek payload as `ms`, matching the
+  existing video message handler.
+
+**Verification**:
+- `node --check extension\content\content.js`
+- `node --check extension\sidepanel\sidepanel.js`
+- `node --test extension\tests\capture-word-regression.test.js extension\tests\grammar-settings.test.js extension\tests\video-grammar-strip.test.js`
+  (4 passed).
+
+### Task 5 — DictionaryProvider Seam & Grammar Service (2026-10-29)
+
+**Delivered**:
+- Added sentence tokenization/term-entry seams to both dictionary providers,
+  including Yomitan's 128-character inflection-preserving tokenization and
+  grammar probe terms.
+- Added `GrammarService` orchestration with one-token suppression, offline
+  literal fallback, learner JLPT filtering, setup diagnostics, and SQLite
+  response caching.
+- Added grammar schemas and registered `POST /api/grammar/analyze` and
+  `POST /api/grammar/setup-check`.
+
+**Verification**:
+- `PYTHONPATH=.;backend pytest -q backend/tests/test_grammar_service.py backend/tests/test_grammar_routes.py`
+  (4 passed).
+
+**Task 5 review fixes**:
+- Re-filtered cached grammar points for the normalized requested learner
+  level, preventing a cache populated at a broader level from leaking points.
+- Kept offline literal matching for punctuation-free selections longer than an
+  isolated word while preserving one-word suppression.
+- Marked `LocalDictionaryProvider` as lacking sentence tokenization so grammar
+  responses explicitly report limited offline capability.
+- Added focused regressions for cache-level filtering, punctuation-free
+  fallback, isolated-word suppression, and the local provider capability flag.
+
+**Review-fix verification**:
+- `PYTHONPATH=.;backend python -m pytest -q backend/tests/test_grammar_service.py backend/tests/test_grammar_routes.py backend/tests/test_dictionary_provider.py`
+  (17 passed).
+
+**Remaining cache fix**:
+- Isolated grammar response cache entries by normalized learner JLPT level so
+  narrow-to-broad requests cannot reuse a filtered narrow response.
+- Added a regression covering a narrow request followed by a broad request.
+
+**Remaining cache verification**:
+- `PYTHONPATH=.;backend python -m pytest -q backend/tests/test_grammar_service.py`
+  (5 passed).
+
+### Task 4 — Grammar Matcher (2026-10-29)
+
+**Delivered**:
+- Added the dependency-free `GrammarMatcher` and `MatchedGrammarSpan` result
+  contract, backed by `GrammarReferenceService`.
+- Covered canonical and contracted formations (`てしまう`, `なければならない`,
+  `ておく`), discontinuous clause-local patterns, `そうだ` ambiguity
+  confidence, derived formation explanations, longest-span precedence, compound
+  particles, and optional bare-particle matching.
+- Added 48 focused sentence/fixture tests in
+  `backend/tests/test_grammar_matcher.py`. No `GrammarService`, API, or UI
+  changes were made.
+
+**Verification**:
+- `Set-Location backend; python -m pytest tests\test_grammar_matcher.py -q`
+  (52 passed).
+
+**Task 4 review fixes**:
+- Constrained inflected-form spans to the grammar-bearing verb/form instead of
+  including preceding subject context.
+- Derived contraction explanations from an explicit suffix capture group.
+- Classified copular `だそうだ` as hearsay and kept its span clause-local.
+- Removed duplicate canonical `たことがあります`/`たことがある` hits.
+
+### Task 3 — Bundled Grammar Reference Index (2026-10-29)
+
+**Task 3 review fix**:
+- Retained every grammar source row when display normalization produces the
+  same `pattern_key` (including both N4 and N3 `らしい` rows).
+- Removed the lossy uniqueness assumption from the generated SQLite schema and
+  exposed colliding source rows through the existing lookup result's additive
+  `sources` field, preserving the historical top-level response shape.
+- Regenerated `backend\app\data\grammar_reference.sqlite`.
+
+**Review-fix verification**:
+- `Set-Location backend; python -m pytest tests\test_grammar_reference.py tests\test_packaging_config.py -q`
+  (23 passed).
+
+**Delivered**:
+- Added the reproducible `tools\build_grammar_index.py` build script and generated
+  `backend\app\data\grammar_reference.sqlite` from the checked-in JLPT grammar
+  seed, with normalized keys, JSON matcher metadata, indexes, and source fields.
+- Added `GRAMMAR_REFERENCE_NOTICE.md` with Tanos, OpenJLPT, and Tatoeba attribution.
+- Added read-only, cached `GrammarReferenceService` lookup and frozen/development/
+  environment path resolution.
+- Explicitly retained the grammar database in the PyInstaller data assets and
+  added focused service and packaging tests.
+
+**Verification**:
+- `python tools\build_grammar_index.py` (generated 100 grammar records).
+- `Set-Location backend; python -m pytest tests\test_grammar_reference.py tests\test_packaging_config.py -v`
+  (22 passed).
+
+### Task 1 Review Fixes (2026-10-29)
+
+**Delivered**:
+- Routed note Markdown through `convert_markdown_to_anki_html()` for generated Basic-card backs and dedicated Anki note fields, preserving existing plain-note output while escaping untrusted markup once.
+- Added a safe Markdown subset renderer to the live card preview so note emphasis/code and line breaks remain visible without allowing HTML injection.
+- Reworked Ask-tab tests to execute `condenseNotes()` and both composer insertion actions with a minimal VM DOM/event harness.
+- Updated `extension/tests/card-preview.test.js` with a rich mock DOM that executes the production `innerHTML`/`insertAdjacentHTML` notes path and verifies Markdown formatting plus hostile markup escaping.
+
+**Verification**:
+- `python -m pytest tests\test_anki_notes_markdown_converter.py tests\test_anki_formatter.py tests\test_anki_connect.py -q` from `backend`: 99 passed; 1 environment failure in an unrelated app-import test because `kiroku_dictionary` is unavailable on the direct test path.
+- `node --test extension\tests\ask-tab-notes-condenser.test.js extension\tests\card-preview.test.js`: 7 passed.
+- `node --check extension\sidepanel\sidepanel.js`: passed.
+
+### Task 2 — Yomitan Contract Spike & Empirical Fixtures (2026-10-29)
+
+**Review follow-up**:
+- Preserved a canonical raw `/tokenize` response subset in the fixture and
+  changed the contract test to pass that nested `content`/`headwords`/
+  `sources` shape directly through the normalizer.
+
+**Delivered**:
+- Added `tools\spike_yomitan_contract.py`, which probes `POST /tokenize` with
+  `scanLength: 128` and `parser: scanning-parser`, then probes
+  `POST /termEntries` and records a normalized fixture.
+- Added `backend\tests\fixtures\yomitan_sentence_tokenize_fixture.json` and a
+  focused contract regression suite.
+- Added `YomitanService.normalize_tokenize_tokens()` as the narrow seam for
+  preserving every token's text, reading, headword, `originalText`,
+  `deinflectedText`, and inflection candidate chains.
+
+**Contract facts recorded**:
+- Tokenization responses are a list of results containing `content` lists of
+  token objects; headwords are nested lists and source records carry
+  `originalText`/`deinflectedText`.
+- The fixture uses `scanLength: 128`; the live probe measured approximately
+  6.6 ms for `/tokenize` and 7.1 ms for `/termEntries` in this run.
+- The checked grammar forms are represented by candidate chains for
+  `食べさせられなかった` and `食べてしまった`. The fixture generated in this
+  environment is marked as a live capture. Yomitan returned
+  `originalText`/`deinflectedText` and term-entry source metadata, but did not
+  expose a populated `inflectionRuleChainCandidates` field in this response;
+  the candidate chains remain an explicit normalized fixture seam for the
+  grammar work.
+
+**Verification**:
+- `python tools\spike_yomitan_contract.py` (fallback fixture; Yomitan offline).
+- `python -m pytest backend\tests\test_yomitan_sentence_contract.py -q` (3 passed).
+
+### Ask Notes Markdown Converter & Condense Pipeline (2026-10-29)
+
+**Delivered**:
+- Added `convert_markdown_to_anki_html()` in `backend/app/services/anki_formatter.py`, escaping source HTML and rendering the supported Markdown subset (inline emphasis/code, headings, lists, and compact tables).
+- Added the Ask-tab `condenseNotes()` pipeline with boilerplate removal, section filtering, and a 600-character ellipsis cap.
+- Replaced direct AI-to-notes insertion with an editable preview dialog offering **Add as Notes** and **Add as Hint**, with live character count and card-preview input events.
+- Added focused backend and extension regression tests; UI uses no OS emojis.
+
+**Files**:
+- `backend/app/services/anki_formatter.py`
+- `backend/tests/test_anki_notes_markdown_converter.py`
+- `extension/sidepanel/sidepanel.js`
+- `extension/sidepanel/sidepanel.html`
+- `extension/sidepanel/sidepanel.css`
+- `extension/tests/ask-tab-notes-condenser.test.js`
+
+**Verification**:
+- `python -m pytest backend\tests\test_anki_notes_markdown_converter.py backend\tests\test_anki_formatter.py -q`: 31 passed.
+- `node --test extension\tests\ask-tab-notes-condenser.test.js`: 4 passed.
+- `node --check extension\sidepanel\sidepanel.js`: passed.
+
+**Remaining Risk**:
+- The editable composer is covered by DOM/source-level tests; browser-level interaction smoke testing remains manual.
+
 ### Video Tab Declutter Review Polish (2026-10-29)
 
 **Delivered**:
@@ -4470,3 +4721,37 @@ New major features should generally be deferred unless they are necessary for th
   - Backend test verification passed (`python -m pytest backend/tests/test_anki_formatter.py`).
   - Inno Setup compiler exited cleanly with 0 errors.
 - **Scope Control:** Zero application source code modifications made.
+
+### Grammar Capture and Breakdown Extension Batch
+
+- **Date:** 2026-10-29
+- **Status:** Complete
+- **Delivered:** Alt+G sentence capture, whole-sentence OCR routing (single-word OCR remains on the existing identify path), Text grammar breakdown, Video active-subtitle grammar chips with ahead cache and session drawer, persisted grammar settings/setup diagnostics, and grammar dictionary documentation.
+- **Files:** `extension/content/content.js`, `extension/background.js`, `extension/sidepanel/sidepanel.{html,js,css}`, focused extension tests, and `docs/grammar-dictionaries.md`.
+- **Verification:** `node --test extension/tests/capture-word-regression.test.js extension/tests/text-grammar-breakdown.test.js extension/tests/video-grammar-strip.test.js extension/tests/grammar-settings.test.js` (5 passed); Node syntax checks passed for modified JavaScript.
+- **Remaining Risk:** Browser-side manual smoke testing and backend live setup diagnostics were not run; grammar UI intentionally uses existing backend endpoints and does not implement grammar cards or tracking.
+
+### Tasks 7/8 — Grammar cards and encounter tracking (2026-10-29)
+
+**Delivered**:
+- Migrated cards with `card_kind` (vocab default) and grammar identity indexing; grammar cards deduplicate by pattern/deck.
+- Added safe grammar Anki front/back formatters and Basic-model mapping with escaped text and constrained Markdown.
+- Added local-first grammar card creation payloads in the sidepanel; SQLite save remains authoritative before optional Anki sync.
+- Added `grammar_points` and `grammar_encounters` persistence, explicit encounter recording, point filters/status transitions, and encounter APIs.
+- Card creation records a grammar encounter and transitions a new point to learning; background analysis does not record encounters.
+
+**Verification**:
+- `node --check extension\\sidepanel\\sidepanel.js`
+- `PYTHONPATH=.;backend python -m pytest -q backend\\tests\\test_anki_formatter.py backend\\tests\\test_anki_connect.py backend\\tests\\test_grammar_service.py backend\\tests\\test_grammar_routes.py` (104 passed)
+
+**Follow-up fixes (2026-10-29)**:
+- Preserved `card_kind` in sync card data, sync/recovery responses, card summaries/details, and Anki mapping; existing grammar cards now retain their discriminator when the sidepanel saves before sync.
+- Wired text grammar points and video cue chips to `createGrammarCard` with their source sentence/cue text.
+- Added focused backend and extension regression coverage.
+
+**Verification**:
+- `Set-Location backend; python -m pytest tests\test_card_service_resync.py tests\test_anki_connect.py -q -k "not api_get_model_capabilities_endpoint"` (74 passed, 1 deselected)
+- `node --test extension\tests\text-grammar-breakdown.test.js extension\tests\grammar-settings.test.js` (3 passed)
+- `python -m py_compile backend\app\services\card_service.py backend\app\schemas.py`
+
+**Remaining risk**: The excluded Anki endpoint test requires the optional `kiroku_dictionary` package in this checkout; browser-side manual smoke testing was not run.

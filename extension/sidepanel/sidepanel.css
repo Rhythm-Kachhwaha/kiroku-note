@@ -124,6 +124,30 @@
   --transition-normal: 150ms ease-out;
 }
 
+.grammar-breakdown-section {
+  margin: 8px 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-1);
+}
+.grammar-section-toggle {
+  width: 100%; padding: 8px 10px; display: flex; justify-content: space-between;
+  border: 0; background: transparent; color: var(--text-secondary); text-align: left;
+}
+.grammar-breakdown-content { padding: 0 10px 10px; }
+.grammar-sentence { padding: 8px 0; color: var(--text-primary); font-family: var(--font-japanese); }
+.grammar-conjugation-chain { color: var(--accent-reading); font-size: 11px; padding-top: 8px; }
+.grammar-point-card { border-top: 1px solid var(--border-subtle); padding: 7px 0; }
+.grammar-point-title, .grammar-session-item, .grammar-chip { border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-surface-2); color: var(--text-primary); padding: 5px 8px; cursor: pointer; }
+.grammar-point-detail { white-space: pre-line; color: var(--text-secondary); font-size: 12px; padding: 7px 4px; }
+.active-sub-grammar-slot { min-height: 24px; display: flex; gap: 5px; align-items: center; overflow-x: auto; }
+.grammar-chip { font-size: 11px; white-space: nowrap; color: var(--text-secondary); }
+.grammar-chip-detail { font-size: 12px; color: var(--text-secondary); padding: 5px; }
+.grammar-session-drawer { margin-top: 4px; }
+.grammar-session-item { display: block; width: 100%; margin: 3px 0; text-align: left; font-size: 12px; }
+.grammar-setup-status[data-status="ok"] { color: var(--accent-success); }
+.grammar-setup-status[data-status="error"] { color: var(--accent-error); }
+
 * {
   box-sizing: border-box;
 }
@@ -9069,6 +9093,38 @@ div[data-content="example"],
 }
 
 /* 5. Composer Area */
+.ask-notes-composer {
+  position: fixed;
+  inset: 12px;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 10, 12, 0.72);
+}
+.ask-notes-composer[hidden] { display: none; }
+.ask-notes-composer-panel {
+  width: min(100%, 520px);
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+}
+.ask-notes-composer-header,
+.ask-notes-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ask-notes-composer-header { justify-content: space-between; margin-bottom: 10px; }
+.ask-notes-composer-panel textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  margin-bottom: 10px;
+}
+.ask-notes-composer-actions { justify-content: flex-end; }
+
 .ask-composer-container {
   position: relative;
   padding: 6px 12px 10px;

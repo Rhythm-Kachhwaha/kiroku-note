@@ -12,7 +12,10 @@ import urllib.request
 
 from app.services.anki_formatter import (
     escape_html,
+    convert_markdown_to_anki_html,
     format_basic_back,
+    format_grammar_back,
+    format_grammar_front,
     format_example_html,
     format_kanji_html,
     format_meaning_html,
@@ -577,13 +580,33 @@ class AnkiConnectService:
         escaped_expr = escape_html(expr)
         escaped_reading = escape_html(reading)
         escaped_hint = escape_html(hint)
-        escaped_notes = escape_html(notes)
+        formatted_notes = convert_markdown_to_anki_html(notes)
         escaped_trans = escape_html(example_trans)
 
         # Check if model is standard Front/Back (Basic)
         if "front" in fields_lower and "back" in fields_lower:
             front_field = fields_lower["front"]
             back_field = fields_lower["back"]
+            if str(card.get("card_kind", "")).lower() == "grammar":
+                grammar_settings = settings if isinstance(settings, dict) else {}
+                field_map[front_field] = format_grammar_front(
+                    sentence=example or str(grammar_settings.get("sentence", "")),
+                    span=grammar_settings.get("span"),
+                    pattern=str(grammar_settings.get("pattern_display", expr)),
+                )
+                field_map[back_field] = format_grammar_back(
+                    card=card,
+                    pattern=expr,
+                    pattern_display=str(grammar_settings.get("pattern_display", expr)),
+                    jlpt_level=str(jlpt_level or grammar_settings.get("level", "")),
+                    meaning=meaning,
+                    explanation=str(grammar_settings.get("english_breakdown", notes)),
+                    matched_formation=str(grammar_settings.get("matched_formation", "")),
+                    translation=example_trans,
+                    examples=grammar_settings.get("examples", []),
+                    sentence=example,
+                )
+                return field_map
 
             # Template settings resolution (single source of truth)
             settings = settings or {}
@@ -782,7 +805,7 @@ class AnkiConnectService:
         assign(("hint",), escaped_hint)
         assign(("examplesentence", "sentenceexpression", "sentence", "sentences", "example", "examples"), formatted_example)
         assign(("exampletranslation", "sentencetranslation", "sentenceenglish", "examplesentencemeaning", "translation"), escaped_trans)
-        assign(("notes", "note", "comment"), escaped_notes)
+        assign(("notes", "note", "comment"), formatted_notes)
 
         # Pitch field if supported by model
         if pitches and isinstance(pitches, list) and pitches[0]:

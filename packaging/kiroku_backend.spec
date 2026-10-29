@@ -86,6 +86,11 @@ if DATA_DIR.exists():
         if not data_file.name.endswith((".py", ".pyc", ".tmp", ".log", ".bak")):
             datas.append((str(data_file), os.path.join("app", "data")))
 
+# Keep the grammar index explicit: it is a required runtime asset.
+GRAMMAR_DB = DATA_DIR / "grammar_reference.sqlite"
+if GRAMMAR_DB.exists() and (str(GRAMMAR_DB), os.path.join("app", "data")) not in datas:
+    datas.append((str(GRAMMAR_DB), os.path.join("app", "data")))
+
 CLOUD_QUEUE_DIR = PROJECT_ROOT / "kiroku_cloud_queue"
 if CLOUD_QUEUE_DIR.exists():
     for py_file in CLOUD_QUEUE_DIR.glob("*.py"):
