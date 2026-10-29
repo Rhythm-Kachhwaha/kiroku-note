@@ -132,6 +132,37 @@ Subtitle acquisition is an input source providing Japanese cue streams into the 
 
 `SubtitleParser` normalizes diverse subtitle formats into standard `Cue` objects (`startMs`, `endMs`, `text`, `rawText`), stripping format-specific tags (`{\pos}`, `{\fad}`, `<v Speaker>`, etc.), speaker prefixes (`山田:`, `CHARACTER：`), and duplicate cues. Subtitle text interactions in the video overlay or Side Panel directly invoke `POST /api/capture` to feed the standard card draft and enrichment flow.
 
+### Subtitle Annotation & Active Subtitle Word Status Highlighting
+
+The Subtitle Annotation subsystem provides real-time vocabulary tokenization and learner status classification across subtitle cues, synchronizing between the FastAPI backend, the Side Panel, and the live video overlay.
+
+1. **`SubtitleAnnotatorService` (`backend/app/services/subtitle_annotator.py`)**:
+   - Backend service encapsulating dictionary-backed tokenization (`kiroku_dictionary.deinflect`), JLPT level classification, and status determination.
+   - Caches known vocabulary in memory (`mined_words` from `cards` and user-marked words from `known_words`).
+   - Token status hierarchy:
+     - `mined`: The word (lemma or surface) matches an existing card in SQLite.
+     - `should-know` (or `should_know`): The word is at or below the user's target JLPT level (default N5) and is neither mined nor marked known.
+     - `unstyled`: The word is above the learner's JLPT level, already marked known, a function word, or unclassified.
+
+2. **Endpoints & Database Schema**:
+   - `POST /api/subtitle/annotate`: Batch tokenizes and annotates subtitle cues, returning token boundaries (`start`, `end`), surface, lemma, reading, normalized status, and JLPT level.
+   - `GET /api/known-words`: Retrieves mined and marked known words with deterministic SHA-256 ETag HTTP 304 caching.
+   - `POST /api/known-words/mark`: Inserts a Japanese word into the SQLite `known_words` table (`word TEXT PRIMARY KEY, created_at TEXT`) and updates in-memory annotator cache.
+   - `DELETE /api/known-words/mark/{word}`: Deletes a word from `known_words` and updates the annotator cache.
+
+3. **3-State Highlighting & Yomitan Preservation**:
+   - Subtitle cues rendered in the Side Panel active preview (`#video-current-cue-preview`) and the live video overlay (`#ankiminer-subtitle-overlay`) use lightweight inline `<span>` elements:
+     - `.sub-token.mined` / `.video-sub-token.mined`: Accent warm amber `#d4884f` with subtle 1px dashed/dotted underline.
+     - `.sub-token.should-know` / `.video-sub-token.should-know`: Soft green `#5db872` with subtle 1px underline.
+     - `.sub-token.unstyled` / `.video-sub-token.unstyled`: Inherits clean subtitle color without decoration.
+   - Spans are strictly `display: inline` with transparent backgrounds, 0 margins, and 0 padding to preserve 100% of Yomitan character range detection and hover auto-pause.
+   - Unannotated cues gracefully fall back to plain text rendering.
+
+4. **Video Tab Declutter, Auto-Collapsing Card Workspace & Grammar Slot**:
+   - **Auto-Collapsing Card Workspace**: Controlled by `video_workspace_collapse_mode` (`auto_collapse` [default], `keep_open`, `dont_show`). On the Video tab, after card creation/saving or 5 seconds of inactivity or active subtitle cue change, `#card-editor-section` collapses to a 1-line chip (`#video-collapsed-card-chip`) showing expression, reading, and save status. A focus guard prevents collapse during active editing. Text and Quick Add tabs are strictly isolated and never collapse.
+   - **Reserved `#active-sub-grammar-slot`**: Positioned directly below the active subtitle preview container, providing an accessible container for upcoming grammar point explanations without disrupting token layout.
+   - **Missed Should-Know Words Drawer (`#video-missed-words-drawer`)**: A collapsible drawer aggregated as cues play. Collects deduplicated `should-know` tokens from recent cues (excluding mined and known words). Provides a count badge (`#video-missed-words-badge`), a `[Mine]` action triggering standard card identification, and a `[Mark Known]` action persisting to `POST /api/known-words/mark` and decrementing the badge.
+
 ## Architectural decisions
 
 ### ADR-001: Chromium extension + Side Panel is the application shell

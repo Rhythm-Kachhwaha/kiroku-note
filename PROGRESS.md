@@ -1,5 +1,40 @@
 # Kiroku Note — Progress
 
+### "Did I Miss a Word?" Missed Words Drawer & Documentation Handoff (2026-10-29)
+
+**Objective**: Implement the "Did I Miss a Word?" collapsible drawer on the Video tab aggregating unhandled `should-know` vocabulary tokens as subtitle cues play, deduplicating by lemma/surface, excluding mined cards and user-marked known words, reflecting live counts in `#video-missed-words-badge`, providing `[Mine]` (triggering `identify`) and `[Mark Known]` (calling `POST /api/known-words/mark`) actions, and updating `ARCHITECTURE.md` with the Subtitle Annotation & Word Status Highlighting subsystem.
+
+**Delivered**:
+- **Test Suite (`extension/tests/missed-words-drawer.test.js`)**:
+  - TDD tests verifying drawer toggle: clicking `#video-missed-words-header` or pressing Enter/Space toggles `#video-missed-words-body` open/closed, updating `aria-expanded` and the `.expanded` chevron rotation class.
+  - Tests verifying aggregation of missed words: as subtitle cues play (via `SUBTITLE_CUE_CHANGED`, `RECENT_CUES_UPDATED`, or `annotateLoadedSubtitles`), tokens with `status === "should-know"` (or `"should_know"`) are harvested and deduplicated by lemma/surface.
+  - Tests verifying exclusion: words already in mined cards (`minedWordsSet`) or user-marked known words (`markedKnownSet`) are excluded from aggregation.
+  - Tests verifying count badge `#video-missed-words-badge` reflects the number of unhandled should-know words.
+  - Tests verifying `[Mine]` button on a missed word triggers `identify(token.surface)`.
+  - Tests verifying `[Mark Known]` button calls `POST /api/known-words/mark` with `{ "word": token.lemma || token.surface }`, updates `markedKnownSet`, removes the item from the drawer, and decrements the badge.
+  - Tests verifying saving a card via `saveCard()` marks the word as mined and removes it from the missed words drawer.
+- **Side Panel Implementation (`extension/sidepanel/sidepanel.js` & `extension/sidepanel/sidepanel.css`)**:
+  - Added endpoints `API_KNOWN_WORDS_URL` and `API_KNOWN_WORDS_MARK_URL`.
+  - Added state collections: `minedWordsSet`, `markedKnownSet`, `missedWordsMap`.
+  - Implemented `toggleMissedWordsDrawer(force)` with accessible `aria-expanded` and keyboard navigation.
+  - Implemented `harvestMissedWords(cueOrCues)` integrated into `handleVideoCueChanged`, `RECENT_CUES_UPDATED`, and `annotateLoadedSubtitles`.
+  - Implemented `renderMissedWordsDrawer()` rendering list items with surface, reading, JLPT level badge, `[Mine]` button, and `[Mark Known]` button with zero OS emojis.
+  - Implemented `mineMissedWord(token)` and `markWordAsKnown(word)`.
+  - Connected `saveCard()` to register saved expressions into `minedWordsSet` and purge from `missedWordsMap`.
+  - Styled drawer list and items in `extension/sidepanel/sidepanel.css` conforming to `DESIGN.md`.
+- **Architecture Documentation (`ARCHITECTURE.md`)**:
+  - Added comprehensive documentation for the Subtitle Annotation & Active Subtitle Word Status Highlighting subsystem (`SubtitleAnnotatorService`, `POST /api/subtitle/annotate`, `GET /api/known-words`, `known_words` SQLite table, 3-state token highlights, auto-collapsing Card Workspace chip, reserved `#active-sub-grammar-slot`, and Missed Should-Know Words Drawer).
+
+**Verification**:
+- `node --test extension/tests/missed-words-drawer.test.js`: 9 passed in 304ms.
+- `node --test extension/tests/*.test.js`: All 237 extension tests passed in 7.5s.
+- `pytest backend/tests/test_subtitle_routes.py`: 14 passed in 2.0s.
+
+**Remaining Risk**:
+- None. Strict vanilla JS, zero emojis, clean service boundary, deterministic test coverage.
+
+---
+
 ### Live Video Overlay Token Highlighting Preserving Yomitan / Hover Scanning (2026-10-29)
 
 **Objective**: Implement live video overlay token highlighting with 3-state word status (`mined` in #d4884f with subtle underline, `should-know` in #5db872 with subtle underline, and `unstyled`), seamless inline `<span>` elements with transparent background and zero margins/padding preserving 100% of Yomitan hover scanning and subtitle auto-pause, plain text fallback for unannotated cues, and runtime message synchronization via `UPDATE_ANNOTATED_CUES`.

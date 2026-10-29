@@ -1560,6 +1560,97 @@ body {
   display: none !important;
 }
 
+.video-missed-words-drawer .missed-words-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.video-missed-words-drawer .missed-words-empty {
+  padding: 8px 4px;
+  font-size: 12px;
+  color: var(--text-muted, #a0a0a0);
+  text-align: center;
+}
+
+.video-missed-words-drawer .missed-word-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: var(--bg-surface-2, #1e1e24);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  border-radius: var(--radius-sm, 6px);
+  gap: 8px;
+}
+
+.video-missed-words-drawer .missed-word-info {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.video-missed-words-drawer .missed-word-surface {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary, #ffffff);
+  white-space: nowrap;
+}
+
+.video-missed-words-drawer .missed-word-reading {
+  font-size: 11px;
+  color: var(--text-muted, #a0a0a0);
+  white-space: nowrap;
+}
+
+.video-missed-words-drawer .missed-word-jlpt {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(93, 184, 114, 0.15);
+  color: #5db872;
+}
+
+.video-missed-words-drawer .missed-word-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.video-missed-words-drawer .missed-word-btn-mine,
+.video-missed-words-drawer .missed-word-btn-mark-known {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  background: var(--bg-surface-3, #282830);
+  color: var(--text-secondary, #cccccc);
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.video-missed-words-drawer .missed-word-btn-mine:hover {
+  background: rgba(212, 136, 79, 0.2);
+  border-color: #d4884f;
+  color: #d4884f;
+}
+
+.video-missed-words-drawer .missed-word-btn-mark-known:hover {
+  background: rgba(93, 184, 114, 0.2);
+  border-color: #5db872;
+  color: #5db872;
+}
+
 .video-help-callout {
   display: none;
 }
