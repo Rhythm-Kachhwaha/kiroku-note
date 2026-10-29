@@ -5,6 +5,7 @@ import json
 import logging
 import os
 from pathlib import Path
+import socket
 import subprocess
 import sys
 import threading
@@ -73,6 +74,18 @@ def _acquire_single_instance_mutex() -> bool:
         return True
 
 
+def _release_single_instance_mutex() -> None:
+    """Release the process-owned single-instance mutex when shutting down."""
+    global _MUTEX_HANDLE
+    if _MUTEX_HANDLE:
+        try:
+            import ctypes
+            ctypes.windll.kernel32.CloseHandle(_MUTEX_HANDLE)
+        except Exception:
+            pass
+        _MUTEX_HANDLE = None
+
+
 def _handle_already_running() -> int:
     """Provide feedback when another instance is already running."""
     port = resolve_port()
@@ -83,6 +96,12 @@ def _handle_already_running() -> int:
             alive = (resp.status == 200)
     except Exception:
         pass
+    if not alive:
+        try:
+            with socket.create_connection((DEFAULT_KIROKU_HOST, port), timeout=0.25):
+                alive = True
+        except OSError:
+            pass
 
     if "--startup" in sys.argv:
         return 0
@@ -104,9 +123,7 @@ def _handle_already_running() -> int:
             except Exception:
                 pass
         return 1
-    if sys.stderr is not None:
-        print("Port already occupied or unavailable; another Kiroku Note instance may be running.", file=sys.stderr)
-    return 1
+    return 0
 
 
 def _show_error_dialog(message: str, title: str = "Kiroku Note Startup Error") -> None:

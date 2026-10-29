@@ -8,9 +8,13 @@
   implementations accepted by the package import guard.
 - Rebuilt the Windows standalone executable and made duplicate-instance
   startup report a non-zero port-collision result with an actionable message.
+- Added explicit mutex release coverage so the standalone readiness test is
+  isolated from the preceding single-instance unit test.
 
 **Verification**:
-- `PYTHONPATH=.;backend python -m pytest backend\tests\test_standalone_executable.py backend\tests\test_kiroku_dictionary.py -q` — 7 passed.
+- `PYTHONPATH=.;backend python -m pytest backend\tests -q` — 738 passed, 1
+  warning, 256 subtests; the standalone readiness test was rerun in isolation
+  and passed after the full-suite ordering exposed the mutex lifecycle issue.
 
 
 ### Tasks 4–6 — Grammar Options, Dictionary Notes, Tracker API (2026-10-29)

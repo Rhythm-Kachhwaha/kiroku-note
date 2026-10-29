@@ -50,18 +50,21 @@ def test_single_instance_mutex():
         pytest.skip("Single-instance mutex is Windows-specific")
 
     # In current process, mutex acquisition should succeed
-    acquired = run_tray._acquire_single_instance_mutex()
-    assert acquired is True
+    try:
+        acquired = run_tray._acquire_single_instance_mutex()
+        assert acquired is True
 
-    # Spawning a child process should report another instance already running
-    # With --startup, it should exit 0 immediately
-    child = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "run_tray.py"), "--startup"],
-        capture_output=True,
-        text=True,
-        timeout=5,
-    )
-    assert child.returncode == 0
+        # Spawning a child process should report another instance already running
+        # With --startup, it should exit 0 immediately
+        child = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "run_tray.py"), "--startup"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        assert child.returncode == 0
+    finally:
+        run_tray._release_single_instance_mutex()
 
 
 def test_show_error_dialog_safe():
