@@ -421,7 +421,19 @@ def reconcile_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
         "source_evidence": [{"source": "Kiroku matcher seed", "source_level": "N4", "source_pattern": "使役受身"}],
     }
 
-    concepts.extend([souda_app, souda_hear, rashii_conj, rashii_typ, noni_cont, noni_purp, shieki_ukemi])
+    nakereba_naranai: dict[str, Any] = {
+        "slug": "nakereba_naranai",
+        "pattern_display": "なければならない",
+        "pattern_key": "なければならない",
+        "meaning_short": "must; have to; need to do",
+        "formation": "V-なければならない",
+        "variants": ["なければならない", "なくてはいけない", "なきゃ", "なくてはならない", "なきゃならない", "なきゃだめ"],
+        "examples": [{"ja": "行かなければならない。", "en": "I must go."}],
+        "group_id": "なければならない",
+        "source_evidence": [{"source": "Kiroku matcher seed", "source_level": "N4", "source_pattern": "なければならない"}],
+    }
+
+    concepts.extend([souda_app, souda_hear, rashii_conj, rashii_typ, noni_cont, noni_purp, shieki_ukemi, nakereba_naranai])
 
     # Ingest OpenJLPT rows
     for oj in openjlpt_list:
@@ -433,6 +445,8 @@ def reconcile_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
             target = rashii_conj if oj["source_level"] in {"N4", "N3"} and "hear" in oj["meaning"].lower() else rashii_typ
         elif k == "のに":
             target = noni_cont if "although" in oj["meaning"].lower() or "even" in oj["meaning"].lower() else noni_purp
+        elif k in {"なければならない", "なければならない / なくてはいけない"}:
+            target = nakereba_naranai
         else:
             for c in concepts:
                 if c["pattern_key"] == k:
@@ -570,6 +584,8 @@ def reconcile_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
                 target = noni_cont
         elif k in {"させられる", "される", "使役受身"}:
             target = shieki_ukemi
+        elif k in {"なければならない", "なくてはいけない", "なくてはならない", "なきゃ", "なくちゃ"}:
+            target = nakereba_naranai
         elif k in {"ばほど", "ば〜ほど"}:
             for c in concepts:
                 if c["pattern_key"] in {"ばほど", "ば〜ほど"}:

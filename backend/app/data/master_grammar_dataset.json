@@ -332,6 +332,72 @@
     "english_breakdown": "Pattern: 使役受身. Meaning: be made to; be forced to (causative-passive). Formation: V-させられる."
   },
   {
+    "pattern_display": "なければならない",
+    "pattern_key": "なければならない",
+    "meaning_short": "must; have to; need to do",
+    "formation": "V-なければならない",
+    "variants": [
+      "なければならない",
+      "なくてはいけない",
+      "なきゃ",
+      "なくてはならない",
+      "なきゃならない",
+      "なきゃだめ",
+      "なくちゃ"
+    ],
+    "examples": [
+      {
+        "ja": "行かなければならない。",
+        "en": "I must go."
+      }
+    ],
+    "group_id": "なければならない",
+    "source_evidence": [
+      {
+        "source": "Kiroku matcher seed",
+        "source_level": "N4",
+        "source_pattern": "なければならない"
+      },
+      {
+        "source": "OpenJLPT",
+        "source_level": "N5",
+        "source_pattern": "〜なければならない / 〜なくてはいけない"
+      },
+      {
+        "source": "JLPT Sensei N5",
+        "source_level": "N5",
+        "source_pattern": "なくちゃ",
+        "ref_num": 42
+      },
+      {
+        "source": "JLPT Sensei N5",
+        "source_level": "N5",
+        "source_pattern": "なくてはいけない",
+        "ref_num": 43
+      },
+      {
+        "source": "JLPT Sensei N5",
+        "source_level": "N5",
+        "source_pattern": "なくてはならない",
+        "ref_num": 44
+      },
+      {
+        "source": "JLPT Sensei N4",
+        "source_level": "N4",
+        "source_pattern": "なければならない",
+        "ref_num": 53
+      }
+    ],
+    "canonical_level": "N5",
+    "concept_id": "c_n5_nakereba_naranai",
+    "matcher": {
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:なければなら(?:ない|なかった)|なきゃ(?:だめ|ならない)?|なくてはいけ(?:ない|ません))"
+    },
+    "guards": null,
+    "english_breakdown": "Pattern: なければならない. Meaning: must; have to; need to do. Formation: V-なければならない."
+  },
+  {
     "pattern_display": "〜がてら",
     "pattern_key": "がてら",
     "meaning_short": "while; on the way; taking the opportunity of",
@@ -16766,12 +16832,6 @@
         "source_level": "N5",
         "source_pattern": "ないといけない",
         "ref_num": 40
-      },
-      {
-        "source": "JLPT Sensei N5",
-        "source_level": "N5",
-        "source_pattern": "なくちゃ",
-        "ref_num": 42
       }
     ],
     "canonical_level": "N5",
@@ -19247,54 +19307,6 @@
     "english_breakdown": "Pattern: 〜てはいけない. Meaning: must not; may not. Formation: Verb-te + はいけない."
   },
   {
-    "pattern_display": "〜なければならない / 〜なくてはいけない",
-    "pattern_key": "なければならない / なくてはいけない",
-    "meaning_short": "must; have to",
-    "formation": "Verb-nai stem + なければならない / Verb-nai stem + なくてはいけない",
-    "variants": [
-      "なければならない",
-      "なくてはいけない"
-    ],
-    "examples": [
-      {
-        "ja": "明日は6時に起きなければなりません。",
-        "en": "I have to get up at six tomorrow."
-      }
-    ],
-    "group_id": null,
-    "source_evidence": [
-      {
-        "source": "OpenJLPT",
-        "source_level": "N5",
-        "source_pattern": "〜なければならない / 〜なくてはいけない"
-      },
-      {
-        "source": "JLPT Sensei N5",
-        "source_level": "N5",
-        "source_pattern": "なくてはいけない",
-        "ref_num": 43
-      },
-      {
-        "source": "JLPT Sensei N4",
-        "source_level": "N4",
-        "source_pattern": "なければならない",
-        "ref_num": 53
-      }
-    ],
-    "canonical_level": "N5",
-    "concept_id": "c_n5_point_56",
-    "matcher": {
-      "type": "pattern",
-      "variants": [
-        "なければならない",
-        "なくてはいけない"
-      ],
-      "match_mode": "reference_only"
-    },
-    "guards": null,
-    "english_breakdown": "Pattern: 〜なければならない / 〜なくてはいけない. Meaning: must; have to. Formation: Verb-nai stem + なければならない / Verb-nai stem + なくてはいけない."
-  },
-  {
     "pattern_display": "〜なくてもいい",
     "pattern_key": "なくてもいい",
     "meaning_short": "don't have to; need not",
@@ -19323,7 +19335,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_57",
+    "concept_id": "c_n5_point_56",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19369,7 +19381,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_58",
+    "concept_id": "c_n5_point_57",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19409,7 +19421,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_59",
+    "concept_id": "c_n5_point_58",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19443,7 +19455,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_60",
+    "concept_id": "c_n5_point_59",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19483,7 +19495,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_61",
+    "concept_id": "c_n5_point_60",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19523,7 +19535,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_62",
+    "concept_id": "c_n5_point_61",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19563,7 +19575,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_63",
+    "concept_id": "c_n5_point_62",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19603,7 +19615,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_64",
+    "concept_id": "c_n5_point_63",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19638,7 +19650,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_65",
+    "concept_id": "c_n5_point_64",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19674,7 +19686,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_66",
+    "concept_id": "c_n5_point_65",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19710,7 +19722,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_67",
+    "concept_id": "c_n5_point_66",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19751,7 +19763,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_68",
+    "concept_id": "c_n5_point_67",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19786,7 +19798,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_69",
+    "concept_id": "c_n5_point_68",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19833,7 +19845,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_70",
+    "concept_id": "c_n5_point_69",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19867,7 +19879,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_71",
+    "concept_id": "c_n5_point_70",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19901,7 +19913,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_72",
+    "concept_id": "c_n5_point_71",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19941,7 +19953,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_73",
+    "concept_id": "c_n5_point_72",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -19981,7 +19993,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_74",
+    "concept_id": "c_n5_point_73",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20021,7 +20033,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_75",
+    "concept_id": "c_n5_point_74",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20055,7 +20067,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_76",
+    "concept_id": "c_n5_point_75",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20090,7 +20102,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_77",
+    "concept_id": "c_n5_point_76",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20127,7 +20139,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_78",
+    "concept_id": "c_n5_point_77",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20166,7 +20178,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_79",
+    "concept_id": "c_n5_point_78",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20206,7 +20218,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_80",
+    "concept_id": "c_n5_point_79",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20246,7 +20258,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_81",
+    "concept_id": "c_n5_point_80",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20285,7 +20297,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_82",
+    "concept_id": "c_n5_point_81",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20322,7 +20334,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_83",
+    "concept_id": "c_n5_point_82",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20369,7 +20381,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_84",
+    "concept_id": "c_n5_point_83",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20422,7 +20434,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_85",
+    "concept_id": "c_n5_point_84",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20464,7 +20476,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_86",
+    "concept_id": "c_n5_point_85",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20504,7 +20516,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_87",
+    "concept_id": "c_n5_point_86",
     "matcher": {
       "type": "regex",
       "regex": "たことが(?:ある|あります)"
@@ -20540,7 +20552,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_88",
+    "concept_id": "c_n5_point_87",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20579,7 +20591,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_89",
+    "concept_id": "c_n5_point_88",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20624,7 +20636,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_90",
+    "concept_id": "c_n5_point_89",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20663,7 +20675,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_91",
+    "concept_id": "c_n5_point_90",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20703,7 +20715,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_92",
+    "concept_id": "c_n5_point_91",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -21712,36 +21724,6 @@
     },
     "guards": null,
     "english_breakdown": "Pattern: なあ. Meaning: sentence ending particle; confirmation; admiration, etc.."
-  },
-  {
-    "pattern_display": "なくてはならない",
-    "pattern_key": "なくてはならない",
-    "meaning_short": "must do; need to do ~",
-    "formation": null,
-    "variants": [
-      "なくてはならない"
-    ],
-    "examples": [],
-    "group_id": null,
-    "source_evidence": [
-      {
-        "source": "JLPT Sensei N5",
-        "source_level": "N5",
-        "source_pattern": "なくてはならない",
-        "ref_num": 44
-      }
-    ],
-    "canonical_level": "N5",
-    "concept_id": "c_n5_nakute_wa_naranai",
-    "matcher": {
-      "type": "pattern",
-      "variants": [
-        "なくてはならない"
-      ],
-      "match_mode": "auto"
-    },
-    "guards": null,
-    "english_breakdown": "Pattern: なくてはならない. Meaning: must do; need to do ~."
   },
   {
     "pattern_display": "なる",

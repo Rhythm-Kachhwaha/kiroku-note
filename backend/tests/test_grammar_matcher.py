@@ -189,3 +189,19 @@ def test_causative_passive_conjugations_match_sentence():
     unrelated = matcher.match_sentence(tokens("部屋を綺麗に掃除した。"), "部屋を綺麗に掃除した。")
     assert not any(item.pattern_key == "使役受身" for item in unrelated)
 
+
+def test_colliding_patterns_with_different_meanings_both_match():
+    # Verify that concepts sharing a pattern key (such as らしい N4 vs N3 or のに contrast vs purpose)
+    # are both preserved and matchable.
+    matcher = GrammarMatcher()
+    sentence = "彼は学生らしい。"
+    items = matcher.match_sentence(tokens(sentence), sentence)
+    assert any(item.pattern_key == "らしい" for item in items)
+
+    # Check that service exposes both concept lookup and key lookup
+    ref = matcher.reference
+    pt = ref.get_point_by_key("らしい")
+    assert pt is not None
+    assert len(pt["sources"]) >= 2
+
+

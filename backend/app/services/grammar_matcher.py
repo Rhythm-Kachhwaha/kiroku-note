@@ -29,6 +29,7 @@ class MatchedGrammarSpan:
     confidence: str = "high"
     matched_formation: str | None = None
     also_possible: bool = False
+    concept_id: str | None = None
 
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
@@ -83,6 +84,7 @@ class GrammarMatcher:
             level=point.get("level", ""), meaning_short=point.get("meaning_short", ""),
             english_breakdown=breakdown, formation=formation,
             confidence=confidence, matched_formation=matched,
+            concept_id=point.get("concept_id"),
         )
 
     @staticmethod
@@ -220,7 +222,8 @@ class GrammarMatcher:
         ]
         unique: dict[tuple[str, int, int], MatchedGrammarSpan] = {}
         for item in candidates:
-            unique.setdefault((item.pattern_key, item.start, item.end), item)
+            dedup_key = (item.concept_id or item.pattern_key, item.start, item.end)
+            unique.setdefault(dedup_key, item)
         candidates = list(unique.values())
         candidates.sort(key=lambda item: (-(item.end - item.start), item.start, item.pattern_key))
         occupied: list[tuple[int, int]] = []
