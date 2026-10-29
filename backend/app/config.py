@@ -129,15 +129,85 @@ def get_db_path(env: dict[str, str] | None = None) -> Path:
     Resolve the SQLite database file path.
 
     Resolution order:
-      1. KIROKU_DB_PATH environment variable (explicit override)
-      2. <app_data_dir>/data/kiroku.db
+      1. KIROKU_DB_PATH (or ANKIMINER_DB_PATH) environment variable (explicit override).
+      2. Explicit KIROKU_DATA_DIR (or ANKIMINER_DATA_DIR) override.
+      3. Installed PC database discovery:
+         - Windows (or if LOCALAPPDATA in env / sys.platform == "win32"):
+           Check %LOCALAPPDATA%/KirokuNote/data/kiroku.db (or Path.home() / AppData / Local / KirokuNote / data / kiroku.db).
+           If kiroku.db exists, return it; if ankiminer.db exists there, return ankiminer.db.
+         - Linux / POSIX:
+           Check ~/.local/share/KirokuNote/data/kiroku.db (or ankiminer.db).
+           If it exists, return it.
+      4. Standard / project-local fallback:
+         get_data_dir(env_dict) / "kiroku.db" (or ankiminer.db if that exists).
     """
     env_dict = os.environ if env is None else env
     custom = env_dict.get("KIROKU_DB_PATH") or env_dict.get("ANKIMINER_DB_PATH")
     if custom and str(custom).strip():
         return Path(str(custom).strip())
 
-    return get_data_dir(env_dict) / "kiroku.db"
+    custom_data_dir = env_dict.get("KIROKU_DATA_DIR") or env_dict.get("ANKIMINER_DATA_DIR")
+    if custom_data_dir and str(custom_data_dir).strip():
+        data_dir = get_data_dir(env_dict)
+        kiroku_path = data_dir / "kiroku.db"
+        if kiroku_path.exists():
+            return kiroku_path
+        legacy_path = data_dir / "ankiminer.db"
+        if legacy_path.exists():
+            return legacy_path
+        return kiroku_path
+
+    # Installed PC database discovery
+    if "LOCALAPPDATA" in env_dict or sys.platform == "win32":
+        candidate_bases: list[Path] = []
+        local_appdata = env_dict.get("LOCALAPPDATA")
+        if local_appdata and str(local_appdata).strip():
+            candidate_bases.append(Path(str(local_appdata).strip()))
+
+        # Only check Path.home() if LOCALAPPDATA was not explicitly overridden in passed env
+        if env is None or "LOCALAPPDATA" not in env:
+            try:
+                home_local = Path.home() / "AppData" / "Local"
+                if home_local not in candidate_bases:
+                    candidate_bases.append(home_local)
+            except Exception:
+                pass
+
+        for base in candidate_bases:
+            kiroku_candidate = base / APP_NAME / "data" / "kiroku.db"
+            if kiroku_candidate.is_file():
+                return kiroku_candidate
+            legacy_candidate = base / APP_NAME / "data" / "ankiminer.db"
+            if legacy_candidate.is_file():
+                return legacy_candidate
+    elif sys.platform.startswith("linux") or sys.platform == "darwin" or os.name == "posix":
+        xdg_data = env_dict.get("XDG_DATA_HOME")
+        posix_base: Path | None = None
+        if xdg_data and str(xdg_data).strip():
+            posix_base = Path(str(xdg_data).strip())
+        else:
+            try:
+                posix_base = Path.home() / ".local" / "share"
+            except Exception:
+                pass
+
+        if posix_base is not None:
+            kiroku_posix = posix_base / APP_NAME / "data" / "kiroku.db"
+            if kiroku_posix.is_file():
+                return kiroku_posix
+            legacy_posix = posix_base / APP_NAME / "data" / "ankiminer.db"
+            if legacy_posix.is_file():
+                return legacy_posix
+
+    # Project-local / standard fallback
+    fallback_dir = get_data_dir(env_dict)
+    kiroku_path = fallback_dir / "kiroku.db"
+    if kiroku_path.exists():
+        return kiroku_path
+    legacy_path = fallback_dir / "ankiminer.db"
+    if legacy_path.exists():
+        return legacy_path
+    return kiroku_path
 
 
 def get_media_dir(env: dict[str, str] | None = None) -> Path:

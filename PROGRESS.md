@@ -1,5 +1,39 @@
 # Kiroku Note — Progress
 
+### Database Path Resolution to Installed PC Database (%LOCALAPPDATA%/KirokuNote/data/kiroku.db) (2026-10-29)
+
+**Objective**: Ensure local backend and CLI tooling seamlessly discover and resolve the user's authoritative installed PC database (`%LOCALAPPDATA%/KirokuNote/data/kiroku.db` on Windows or `~/.local/share/KirokuNote/data/kiroku.db` on Linux/POSIX) by default while respecting explicit environment overrides and fallbacks.
+
+**Delivered**:
+- **Backend Configuration & DB Connection (`backend/app/config.py`, `backend/app/db/connection.py`)**:
+  - Implemented authoritative local cards database resolution order in `get_db_path`:
+    1. Explicit `KIROKU_DB_PATH` (or legacy `ANKIMINER_DB_PATH`) environment variable override.
+    2. Explicit `KIROKU_DATA_DIR` (or legacy `ANKIMINER_DATA_DIR`) override (using `<dir>/data/kiroku.db` or `<dir>/data/ankiminer.db` if present).
+    3. Installed PC database discovery:
+       - Windows (`sys.platform == "win32"` or `LOCALAPPDATA` in env):
+         Checks `%LOCALAPPDATA%/KirokuNote/data/kiroku.db`, then `%LOCALAPPDATA%/KirokuNote/data/ankiminer.db`. Falls back to `Path.home() / "AppData" / "Local"` if `LOCALAPPDATA` was not explicitly overridden.
+       - Linux/POSIX:
+         Checks `~/.local/share/KirokuNote/data/kiroku.db` (or `XDG_DATA_HOME/KirokuNote/data/kiroku.db`), then `ankiminer.db`.
+    4. Project-local / standard fallback:
+       `get_data_dir(env_dict) / "kiroku.db"` (or `ankiminer.db` if present).
+  - Protected `Path.home()` lookups against stripped environment dictionaries (e.g. `clear=True`).
+  - Unified `backend/app/db/connection.py` to directly import and share `get_db_path` from `backend/app/config.py`.
+- **Unit Tests (`backend/tests/test_packaging_config.py`)**:
+  - Added unit tests for installed database resolution in dev mode on Windows and POSIX (`test_dev_mode_installed_database_windows_resolution`, `test_dev_mode_installed_database_legacy_ankiminer_resolution`, `test_dev_mode_installed_database_posix_resolution`, `test_dev_mode_installed_database_posix_legacy_resolution`, `test_dev_mode_installed_database_posix_xdg_resolution`).
+  - Added tests for explicit override precedence (`test_installed_database_overridden_by_explicit_db_path`, `test_installed_database_overridden_by_custom_data_dir`, `test_installed_database_prefers_kiroku_over_legacy`).
+  - Added fallback tests when installed DB is absent and regression tests for cleared environments without a home directory (`test_dev_mode_fallback_when_no_installed_db_exists`, `test_dev_mode_resolution_handles_missing_home_dir`).
+
+**Verification**:
+- `python -m pytest backend/tests/test_packaging_config.py`: 18 passed in 0.13s.
+- `python -m pytest backend/tests/test_port_configuration.py`: 12 passed in 0.12s.
+- Full backend test suite: 583 passed, 16 skipped in 75.48s.
+- Interactive smoke test: `python -c "from app.config import get_db_path; print(get_db_path())"` verified resolution to live installed PC database `C:\Users\Rhythm\AppData\Local\KirokuNote\data\kiroku.db`.
+
+**Remaining Risk**:
+- None. All resolutions follow documented fallback hierarchy and pass unit and regression tests.
+
+---
+
 ### OpenJLPT Exact Matching & False-Positive Prevention in JlptReferenceService (2026-10-29)
 
 **Objective**: Prevent false-positive JLPT level assignments caused by `LIKE` wildcards and derivational suffix fallback during tokenization and lookups by implementing `lookup_word_exact` in `JlptReferenceService`.

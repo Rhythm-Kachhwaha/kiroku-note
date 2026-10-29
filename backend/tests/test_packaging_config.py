@@ -12,11 +12,13 @@ from app.config import (
     APP_VERSION,
     get_app_data_dir,
     get_data_dir,
+    get_db_path as config_get_db_path,
     get_logs_dir,
     get_media_dir,
     resolve_port,
 )
 from app.db.connection import get_db_path
+
 
 
 def test_app_metadata():
@@ -130,3 +132,148 @@ def test_precedence_kiroku_over_ankiminer(tmp_path: Path):
     with patch.object(sys, "frozen", True, create=True):
         assert get_db_path(env) == k_db
         assert get_media_dir(env) == k_media
+
+
+def test_dev_mode_installed_database_windows_resolution(tmp_path: Path):
+    fake_localappdata = tmp_path / "AppData" / "Local"
+    installed_dir = fake_localappdata / "KirokuNote" / "data"
+    installed_dir.mkdir(parents=True)
+    installed_db = installed_dir / "kiroku.db"
+    installed_db.write_text("installed_db_content")
+
+    env = {"LOCALAPPDATA": str(fake_localappdata)}
+
+    with patch.object(sys, "frozen", False, create=True), patch("sys.platform", "win32"):
+        assert get_db_path(env) == installed_db
+        assert config_get_db_path(env) == installed_db
+
+
+def test_dev_mode_installed_database_legacy_ankiminer_resolution(tmp_path: Path):
+    fake_localappdata = tmp_path / "AppData" / "Local"
+    installed_dir = fake_localappdata / "KirokuNote" / "data"
+    installed_dir.mkdir(parents=True)
+    installed_legacy_db = installed_dir / "ankiminer.db"
+    installed_legacy_db.write_text("legacy_db_content")
+
+    env = {"LOCALAPPDATA": str(fake_localappdata)}
+
+    with patch.object(sys, "frozen", False, create=True), patch("sys.platform", "win32"):
+        assert get_db_path(env) == installed_legacy_db
+        assert config_get_db_path(env) == installed_legacy_db
+
+
+def test_dev_mode_installed_database_posix_resolution(tmp_path: Path):
+    fake_home = tmp_path / "home"
+    installed_dir = fake_home / ".local" / "share" / "KirokuNote" / "data"
+    installed_dir.mkdir(parents=True)
+    installed_db = installed_dir / "kiroku.db"
+    installed_db.write_text("installed_posix_db")
+
+    env = {"HOME": str(fake_home)}
+
+    with patch.object(sys, "frozen", False, create=True), patch("sys.platform", "linux"), patch("pathlib.Path.home", return_value=fake_home):
+        assert get_db_path(env) == installed_db
+        assert config_get_db_path(env) == installed_db
+
+
+def test_installed_database_overridden_by_explicit_db_path(tmp_path: Path):
+    fake_localappdata = tmp_path / "AppData" / "Local"
+    installed_dir = fake_localappdata / "KirokuNote" / "data"
+    installed_dir.mkdir(parents=True)
+    installed_db = installed_dir / "kiroku.db"
+    installed_db.write_text("installed_db_content")
+
+    custom_db = tmp_path / "custom" / "my.db"
+    env = {
+        "LOCALAPPDATA": str(fake_localappdata),
+        "KIROKU_DB_PATH": str(custom_db),
+    }
+
+    with patch.object(sys, "frozen", False, create=True), patch("sys.platform", "win32"):
+        assert get_db_path(env) == custom_db
+        assert config_get_db_path(env) == custom_db
+
+
+def test_installed_database_overridden_by_custom_data_dir(tmp_path: Path):
+    fake_localappdata = tmp_path / "AppData" / "Local"
+    installed_dir = fake_localappdata / "KirokuNote" / "data"
+    installed_dir.mkdir(parents=True)
+    installed_db = installed_dir / "kiroku.db"
+    installed_db.write_text("installed_db_content")
+
+    custom_root = tmp_path / "custom_root"
+    custom_root.mkdir()
+    env = {
+        "LOCALAPPDATA": str(fake_localappdata),
+        "KIROKU_DATA_DIR": str(custom_root),
+    }
+
+    with patch.object(sys, "frozen", False, create=True), patch("sys.platform", "win32"):
+        assert get_db_path(env) == custom_root / "data" / "kiroku.db"
+        assert config_get_db_path(env) == custom_root / "data" / "kiroku.db"
+
+
+def test_dev_mode_installed_database_posix_legacy_resolution(tmp_path: Path):
+    fake_home = tmp_path / "home"
+    installed_dir = fake_home / ".local" / "share" / "KirokuNote" / "data"
+    installed_dir.mkdir(parents=True)
+    installed_legacy_db = installed_dir / "ankiminer.db"
+    installed_legacy_db.write_text("installed_posix_legacy_db")
+
+    env = {"HOME": str(fake_home)}
+
+    with patch.object(sys, "frozen", False, create=True), patch("sys.platform", "linux"), patch("pathlib.Path.home", return_value=fake_home):
+        assert get_db_path(env) == installed_legacy_db
+        assert config_get_db_path(env) == installed_legacy_db
+
+
+def test_dev_mode_installed_database_posix_xdg_resolution(tmp_path: Path):
+    fake_xdg = tmp_path / "custom_xdg_data"
+    installed_dir = fake_xdg / "KirokuNote" / "data"
+    installed_dir.mkdir(parents=True)
+    installed_db = installed_dir / "kiroku.db"
+    installed_db.write_text("xdg_db")
+
+    env = {"XDG_DATA_HOME": str(fake_xdg)}
+
+    with patch.object(sys, "frozen", False, create=True), patch("sys.platform", "linux"):
+        assert get_db_path(env) == installed_db
+        assert config_get_db_path(env) == installed_db
+
+
+def test_installed_database_prefers_kiroku_over_legacy(tmp_path: Path):
+    fake_localappdata = tmp_path / "AppData" / "Local"
+    installed_dir = fake_localappdata / "KirokuNote" / "data"
+    installed_dir.mkdir(parents=True)
+    kiroku_db = installed_dir / "kiroku.db"
+    kiroku_db.write_text("new_kiroku")
+    ankiminer_db = installed_dir / "ankiminer.db"
+    ankiminer_db.write_text("old_anki")
+
+    env = {"LOCALAPPDATA": str(fake_localappdata)}
+
+    with patch.object(sys, "frozen", False, create=True), patch("sys.platform", "win32"):
+        assert get_db_path(env) == kiroku_db
+        assert config_get_db_path(env) == kiroku_db
+
+
+def test_dev_mode_fallback_when_no_installed_db_exists(tmp_path: Path):
+    fake_localappdata = tmp_path / "EmptyAppData" / "Local"
+    fake_localappdata.mkdir(parents=True)
+    env = {"LOCALAPPDATA": str(fake_localappdata)}
+
+    with patch.object(sys, "frozen", False, create=True), patch("sys.platform", "win32"):
+        expected_dev_path = get_data_dir(env) / "kiroku.db"
+        assert get_db_path(env) == expected_dev_path
+        assert config_get_db_path(env) == expected_dev_path
+
+
+def test_dev_mode_resolution_handles_missing_home_dir():
+    with patch("pathlib.Path.home", side_effect=RuntimeError("Could not determine home directory.")):
+        with patch.object(sys, "frozen", False, create=True), patch("sys.platform", "win32"):
+            path = get_db_path({})
+            assert path.name == "kiroku.db"
+            assert config_get_db_path({}).name == "kiroku.db"
+
+
+
