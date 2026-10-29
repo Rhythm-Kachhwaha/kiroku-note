@@ -1,5 +1,17 @@
 # Kiroku Note — Progress
 
+### Task 1 Review Fixes (2026-10-29)
+
+**Delivered**:
+- Routed note Markdown through `convert_markdown_to_anki_html()` for generated Basic-card backs and dedicated Anki note fields, preserving existing plain-note output while escaping untrusted markup once.
+- Added a safe Markdown subset renderer to the live card preview so note emphasis/code and line breaks remain visible without allowing HTML injection.
+- Reworked Ask-tab tests to execute `condenseNotes()` and both composer insertion actions with a minimal VM DOM/event harness.
+
+**Verification**:
+- `python -m pytest tests\test_anki_notes_markdown_converter.py tests\test_anki_formatter.py tests\test_anki_connect.py -q` from `backend`: 99 passed; 1 environment failure in an unrelated app-import test because `kiroku_dictionary` is unavailable on the direct test path.
+- `node --test extension\tests\ask-tab-notes-condenser.test.js extension\tests\card-preview.test.js`: 7 passed.
+- `node --check extension\sidepanel\sidepanel.js`: passed.
+
 ### Ask Notes Markdown Converter & Condense Pipeline (2026-10-29)
 
 **Delivered**:

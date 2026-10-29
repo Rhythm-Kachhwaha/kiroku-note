@@ -116,8 +116,8 @@ def convert_markdown_to_anki_html(text: str) -> str:
             output.append(_format_notes_inline(line) + "<br>")
         index += 1
 
-    if output and output[-1] == "<br>":
-        output.pop()
+    if output:
+        output[-1] = output[-1].removesuffix("<br>")
     return "".join(output)
 
 
@@ -1215,7 +1215,7 @@ def format_basic_back(
     if show_hint and c_hint:
         append_section("hint", f'<div class="kn-hint">Hint: {escape_html(c_hint)}</div>')
     if c_notes:
-        append_section("notes", f'<div class="kn-notes">Notes: {escape_html(c_notes)}</div>')
+        append_section("notes", f'<div class="kn-notes">Notes: {convert_markdown_to_anki_html(c_notes)}</div>')
 
     # Media
     if aud_tag:

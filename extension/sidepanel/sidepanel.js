@@ -2468,6 +2468,17 @@ function renderPreviewMeanings(container, data) {
   }
 }
 
+function convertNotesMarkdownToPreviewHtml(text) {
+  const escaped = String(text || "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[char]);
+  return escaped
+    .replace(/`([^`\n]+)`/g, '<code class="kn-inline-code">$1</code>')
+    .replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, "<em>$1</em>")
+    .replace(/\n/g, "<br>");
+}
+
 function renderCardPreviewDOM(container, data, side = "back") {
   if (!container) return;
   const presentation = data.preview_presentation || currentPreviewPresentation;
@@ -2710,7 +2721,13 @@ function renderCardPreviewDOM(container, data, side = "back") {
   if (data.notes) {
     const notesDiv = document.createElement("div");
     notesDiv.className = "kn-notes";
-    notesDiv.textContent = `Notes: ${data.notes}`;
+    notesDiv.append(document.createTextNode("Notes: "));
+    const notesMarkup = convertNotesMarkdownToPreviewHtml(data.notes);
+    if (typeof notesDiv.innerHTML === "string" || "innerHTML" in notesDiv) {
+      notesDiv.insertAdjacentHTML?.("beforeend", notesMarkup);
+    } else {
+      notesDiv.append(document.createTextNode(data.notes));
+    }
     container.append(notesDiv);
   }
 

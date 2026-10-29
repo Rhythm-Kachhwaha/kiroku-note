@@ -12,6 +12,7 @@ import urllib.request
 
 from app.services.anki_formatter import (
     escape_html,
+    convert_markdown_to_anki_html,
     format_basic_back,
     format_example_html,
     format_kanji_html,
@@ -577,7 +578,7 @@ class AnkiConnectService:
         escaped_expr = escape_html(expr)
         escaped_reading = escape_html(reading)
         escaped_hint = escape_html(hint)
-        escaped_notes = escape_html(notes)
+        formatted_notes = convert_markdown_to_anki_html(notes)
         escaped_trans = escape_html(example_trans)
 
         # Check if model is standard Front/Back (Basic)
@@ -782,7 +783,7 @@ class AnkiConnectService:
         assign(("hint",), escaped_hint)
         assign(("examplesentence", "sentenceexpression", "sentence", "sentences", "example", "examples"), formatted_example)
         assign(("exampletranslation", "sentencetranslation", "sentenceenglish", "examplesentencemeaning", "translation"), escaped_trans)
-        assign(("notes", "note", "comment"), escaped_notes)
+        assign(("notes", "note", "comment"), formatted_notes)
 
         # Pitch field if supported by model
         if pitches and isinstance(pitches, list) and pitches[0]:
