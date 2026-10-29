@@ -1,5 +1,34 @@
 # Kiroku Note — Progress
 
+### Unified Learner JLPT Level Setting & Promotion Helper (2026-10-29)
+
+**Objective**: Provide centralized learner JLPT level resolution, normalization, and promotion/containment checking across the backend configuration (`backend/app/config.py`).
+
+**Delivered**:
+- **Backend Configuration (`backend/app/config.py`)**:
+  - Added `DEFAULT_LEARNER_JLPT_LEVEL = "N4"` and `_JLPT_DIFFICULTY` ranking (`N5: 1` through `N1: 5`).
+  - Implemented `normalize_jlpt_level(raw: str | None) -> str | None`:
+    Normalizes `"n4"`, `"N4"`, `"4"` to canonical `"N4"`, supporting integer inputs and stripping whitespace. Returns `None` for invalid or non-JLPT values.
+  - Implemented `get_learner_jlpt_level(env: dict[str, str] | None = None) -> str`:
+    Resolves unified learner JLPT level with hierarchical precedence:
+    1. `KIROKU_LEARNER_JLPT_LEVEL` environment variable.
+    2. Stored `learner_jlpt_level` in `llm_config.json`.
+    3. Stored fallback `jlpt_level` in `llm_config.json`.
+    4. Default fallback: `DEFAULT_LEARNER_JLPT_LEVEL` (`"N4"`).
+  - Implemented `is_within_learner_level(target_level: str | None, learner_level: str = "N4") -> bool`:
+    Compares difficulty ranking to determine whether a target level is encompassed by the learner's level ($N_k$ encompasses all levels from $N_5$ to $N_k$). Target level `None` returns `False`.
+- **Unit Tests (`backend/tests/test_learner_jlpt_level.py`)**:
+  - Added comprehensive test suite with 24 tests verifying normalization edge cases, environment overrides, stored configuration precedence, and difficulty containment logic.
+
+**Verification**:
+- `python -m pytest backend/tests/test_learner_jlpt_level.py`: 24 passed in 0.12s.
+- `python -m pytest backend/tests/test_llm_config_jlpt.py backend/tests/test_jlpt_reference.py backend/tests/test_jlpt_batch.py`: 21 passed in 0.76s.
+
+**Remaining Risk**:
+- None. All additions are pure functions with zero breaking changes to existing config or LLM settings.
+
+---
+
 ### Database Path Resolution to Installed PC Database (%LOCALAPPDATA%/KirokuNote/data/kiroku.db) (2026-10-29)
 
 **Objective**: Ensure local backend and CLI tooling seamlessly discover and resolve the user's authoritative installed PC database (`%LOCALAPPDATA%/KirokuNote/data/kiroku.db` on Windows or `~/.local/share/KirokuNote/data/kiroku.db` on Linux/POSIX) by default while respecting explicit environment overrides and fallbacks.

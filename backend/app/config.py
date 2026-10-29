@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import re
 import sys
 
 APP_NAME = "KirokuNote"
@@ -29,6 +30,8 @@ MIN_LLM_TIMEOUT = 5.0
 MAX_LLM_TIMEOUT = 180.0
 DEFAULT_LLM_JLPT_LEVEL = "N3"
 VALID_JLPT_LEVELS = frozenset({"N1", "N2", "N3", "N4", "N5"})
+DEFAULT_LEARNER_JLPT_LEVEL = "N4"
+_JLPT_DIFFICULTY: dict[str, int] = {"N5": 1, "N4": 2, "N3": 3, "N2": 4, "N1": 5}
 
 
 def get_llm_config_file_path(env: dict[str, str] | None = None) -> Path:
@@ -657,5 +660,77 @@ def get_llm_jlpt_level(env: dict[str, str] | None = None) -> str:
     if stored.get("jlpt_level") and str(stored["jlpt_level"]).strip().upper() in VALID_JLPT_LEVELS:
         return str(stored["jlpt_level"]).strip().upper()
     return DEFAULT_LLM_JLPT_LEVEL
+
+
+def normalize_jlpt_level(raw: str | None) -> str | None:
+    """Normalize raw JLPT level text (e.g. 'n4', 'N4', '4') into standard 'N1'..'N5'. Returns None if invalid."""
+    if raw is None or isinstance(raw, bool):
+        return None
+    if not isinstance(raw, (str, int)):
+        return None
+    s = str(raw).strip().upper()
+    if s in VALID_JLPT_LEVELS:
+        return s
+    m = re.match(r"^(?:JLPT\s*)?N?([1-5])$", s)
+    if m:
+        candidate = f"N{m.group(1)}"
+        if candidate in VALID_JLPT_LEVELS:
+            return candidate
+    return None
+
+
+def get_learner_jlpt_level(env: dict[str, str] | None = None) -> str:
+    """
+    Resolve the unified learner JLPT level (N5..N1).
+
+    Precedence:
+      1. KIROKU_LEARNER_JLPT_LEVEL environment variable (if valid after normalization).
+      2. learner_jlpt_level key in load_stored_llm_config(env) (if valid after normalization).
+      3. Fallback: jlpt_level key in load_stored_llm_config(env) (if valid after normalization).
+      4. Default: DEFAULT_LEARNER_JLPT_LEVEL ("N4").
+    """
+    env_dict = os.environ if env is None else env
+
+    # 1. Environment variable
+    env_val = env_dict.get("KIROKU_LEARNER_JLPT_LEVEL")
+    if env_val is not None:
+        norm = normalize_jlpt_level(env_val)
+        if norm:
+            return norm
+
+    # 2 & 3. Stored configuration
+    stored = load_stored_llm_config(env)
+    if "learner_jlpt_level" in stored:
+        norm = normalize_jlpt_level(stored.get("learner_jlpt_level"))
+        if norm:
+            return norm
+
+    if "jlpt_level" in stored:
+        norm = normalize_jlpt_level(stored.get("jlpt_level"))
+        if norm:
+            return norm
+
+    # 4. Default
+    return DEFAULT_LEARNER_JLPT_LEVEL
+
+
+def is_within_learner_level(target_level: str | None, learner_level: str = "N4") -> bool:
+    """
+    Determine whether target_level difficulty is within (less than or equal to) learner_level.
+
+    JLPT ranking: N5 (easiest) -> N4 -> N3 -> N2 -> N1 (hardest).
+    Target level None or invalid returns False.
+    Learner level defaults to N4 if invalid or unspecified.
+    """
+    norm_target = normalize_jlpt_level(target_level)
+    if norm_target is None:
+        return False
+
+    norm_learner = normalize_jlpt_level(learner_level)
+    if norm_learner is None:
+        norm_learner = DEFAULT_LEARNER_JLPT_LEVEL
+
+    return _JLPT_DIFFICULTY[norm_target] <= _JLPT_DIFFICULTY[norm_learner]
+
 
 
