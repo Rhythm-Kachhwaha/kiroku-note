@@ -1,5 +1,40 @@
 # Kiroku Note — Progress
 
+### Phase 1: Electron Desktop Foundation & Subprocess Lifecycle Supervisor (2026-10-29)
+
+**Delivered**:
+- Established dedicated desktop application project structure under `desktop/` with `package.json`, launcher scripts, and security-hardened configuration.
+- Implemented `desktop/src/main.js`:
+  - Single-instance mutex lock (`app.requestSingleInstanceLock()`) focusing existing window on duplicate launch.
+  - Native compact companion window (default 500x750, resizable, `useContentSize: true`, dark background `#121110`, native menu suppressed).
+  - Windows System Tray integration (`Tray`) with context menu ("Open Kiroku", "Quick Add", "Quit Kiroku"), tray click/double-click visibility toggle.
+  - Window close-to-tray: clicking window X-button minimizes to system tray instead of destroying the process.
+  - Explicit quit: cleanly stops backend process tree, destroys tray, and terminates app.
+- Implemented `desktop/src/process_manager.js`:
+  - Pre-flight backend health checks at `http://127.0.0.1:21828/api/health`.
+  - Automatic detection of pre-existing/external backend instances (adopted without spawning duplicate processes; preserved on application exit).
+  - Subprocess spawner for development (`run_backend.py`) and packaged (`KirokuNote.exe`) environments.
+  - Readiness polling with timeout and error handling.
+  - Windows-compatible process tree termination via `taskkill /pid <PID> /T /F` ensuring zero orphaned `uvicorn` processes.
+- Implemented `desktop/src/store.js` & `preload.js`:
+  - Enforced strict Electron security boundaries (`contextIsolation: true`, `nodeIntegration: false`, `webSecurity: true`).
+  - Implemented persistent JSON store in `%LOCALAPPDATA%\KirokuNote\desktop-storage.json`.
+  - Implemented `window.chrome` compatibility shim for `chrome.storage.local`, `chrome.runtime`, and `chrome.tabs`.
+  - Implemented desktop styling injection focusing desktop UI exclusively on **Quick Add** and **History** modes for Phase 1 (omitting Video, Text, and Ask modes as instructed).
+- Implemented visual splash loading screen (`desktop/src/loading.html`) and backend error recovery screen (`desktop/src/error.html`).
+- Implemented `desktop/bin/launch.js` to strip conflicting environment variables (e.g. `ELECTRON_RUN_AS_NODE`) when launching from developer environments.
+
+**Verification**:
+- Automated desktop test suite: 10 passed, 0 failed in 1.5s (`npm.cmd run test:desktop`).
+  - `desktop/tests/process_manager.test.js`: 5 passed (health checks, offline detection, external adoption, spawner paths, timeout rejection).
+  - `desktop/tests/store.test.js`: 1 passed (load, get, set, remove, clear, disk persistence).
+  - `desktop/tests/security_and_preload.test.js`: 3 passed (context isolation, node integration disabled, no leaked Node APIs, valid repo paths).
+  - `desktop/tests/electron_lifecycle.test.js`: 1 passed (real Electron GUI launch, window sizing 500x750, tray creation, and clean shutdown).
+- Extension regression suite: 255 passed, 0 failed (`npm.cmd run test:extension`).
+- Backend regression suite: 740 passed, 1 warning, 256 subtests in 83s (`pytest backend\tests`).
+- Grammar coverage gate: 0 negative false positives across N5–N1 (`tools/grammar_coverage.py`).
+- Interactive verification: Confirmed functional desktop companion window launch (500x750), system tray residency, close-to-tray, and Quick Add/History mode hosting via `npm.cmd run dev:desktop`.
+
 ### Windows Desktop Application Architecture & Implementation Audit (2026-10-29)
 
 **Delivered**:

@@ -1,0 +1,17 @@
+{
+  "name": "kiroku-desktop",
+  "version": "2.1.0",
+  "description": "Kiroku Note - Windows Desktop Japanese Mining Companion",
+  "main": "src/main.js",
+  "bin": {
+    "kiroku-desktop": "bin/launch.js"
+  },
+  "scripts": {
+    "start": "node bin/launch.js",
+    "dev": "node bin/launch.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "devDependencies": {
+    "electron": "^34.0.0"
+  }
+}

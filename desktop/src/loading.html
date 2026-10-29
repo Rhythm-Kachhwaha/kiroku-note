@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kiroku Note - Starting...</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #121110;
+      color: #ede8e1;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      user-select: none;
+      -webkit-app-region: drag;
+    }
+    .splash-container {
+      text-align: center;
+      padding: 2rem;
+      max-width: 380px;
+    }
+    .brand-wordmark {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #ede8e1;
+      margin-bottom: 1.5rem;
+    }
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(184, 70, 50, 0.2);
+      border-top-color: #b84632;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1.5rem auto;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .status-text {
+      font-size: 0.88rem;
+      color: #9e948a;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-container">
+    <div class="brand-wordmark">KIROKU</div>
+    <div class="spinner"></div>
+    <p class="status-text" id="status-msg">Starting backend service on port 21828...</p>
+  </div>
+</body>
+</html>
+

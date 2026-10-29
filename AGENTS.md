@@ -53,6 +53,11 @@ extension/
   lib/                      shared browser-side adapters and parsers
   sidepanel/                sole extension UI and feature controllers
   tests/                    Node test suite
+desktop/                    Windows Electron desktop application shell
+  package.json              Electron desktop manifest and dependencies
+  bin/launch.js             clean launcher stripping host runner environment variables
+  src/                      main process, process supervisor, store, preload bridge, splash/error UI
+  tests/                    Node test runner suite for supervisor, store, and security contracts
 kiroku_dictionary/          standalone stdlib-only local dictionary engine
 ocr_server/                 optional standalone OCR HTTP daemon
 kiroku_cloud_queue/         separately deployable cloud queue and worker
@@ -223,6 +228,25 @@ run_backend.py, start_backend.bat root backend launchers
    component; do not make it depend on desktop GUI libraries or extension
    files.
 
+## Windows Desktop Application (Electron Shell)
+
+1. **Entry point** — `npm.cmd run dev:desktop` or `npm.cmd --prefix desktop run dev`.
+   `desktop/bin/launch.js` strips parent environment overrides (e.g. `ELECTRON_RUN_AS_NODE`)
+   and executes Electron. `desktop/src/main.js` creates the companion window (default 500x750,
+   resizable) with single-instance locking and Windows system tray integration.
+2. **Core logic** — `desktop/src/process_manager.js` orchestrates the local FastAPI
+   backend subprocess lifecycle: verifies health at `/api/health`, adopts pre-existing instances
+   as external without spawning duplicates, and cleanly terminates owned processes via Windows
+   `taskkill /pid <PID> /T /F` on explicit quit.
+3. **API/integration** — `desktop/src/preload.js` implements a strict context-isolated bridge
+   (`contextIsolation: true`, `nodeIntegration: false`) exposing `window.desktopAPI` and a
+   `window.chrome` compatibility shim for `chrome.storage.local`, `chrome.runtime`, and `chrome.tabs`.
+4. **Data/configuration** — Settings persist to `%LOCALAPPDATA%\KirokuNote\desktop-storage.json` via
+   `desktop/src/store.js`. Desktop logs stream to `%LOCALAPPDATA%\KirokuNote\logs\desktop_backend.log`.
+5. **Tests** — `npm.cmd run test:desktop` (`node --test desktop/tests/*.test.js`).
+6. **Build/runtime dependencies** — Reuses existing `extension/sidepanel/` assets with desktop
+   overrides focusing on Quick Add and History modes; connects to local FastAPI backend on port 21828.
+
 ## Backend packaging and resources
 
 1. **Entry point** — `run_backend.py` owns direct backend startup and port
@@ -247,6 +271,7 @@ run_backend.py, start_backend.bat root backend launchers
 
 - Backend regression: `$env:PYTHONPATH='.;backend'; python -m pytest backend\tests -q`
 - Extension regression: `node --test extension\tests\*.test.js`
+- Desktop regression: `npm.cmd run test:desktop` (`node --test desktop\tests\*.test.js`)
 - Grammar coverage: `$env:PYTHONPATH='.;backend'; python tools\grammar_coverage.py`
 - Build verification: `release/build-backend.ps1`, `build-extension.ps1`,
   `build-ocr.ps1`, and installer scripts on Windows.

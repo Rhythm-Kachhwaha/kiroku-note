@@ -1,0 +1,12 @@
+{
+  "name": "kiroku-note",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Kiroku Note - Local-First Japanese Mining Companion",
+  "scripts": {
+    "dev:desktop": "npm.cmd --prefix desktop run dev",
+    "test:desktop": "node --test desktop/tests/*.test.js",
+    "test:extension": "node --test extension/tests/*.test.js"
+  }
+}
+
