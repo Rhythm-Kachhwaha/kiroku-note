@@ -100,3 +100,15 @@ def test_builder_seed_rows_normalized_consistently(tmp_path):
     finally:
         test_service.close()
         GrammarReferenceService._index_cache.pop(db_path.resolve(), None)
+
+
+def test_grammar_index_has_concept_id_and_sources_json():
+    service = GrammarReferenceService()
+    points = service.get_points()
+    assert len(points) >= 600
+    for pt in points[:20]:
+        assert "concept_id" in pt
+        assert pt["concept_id"].startswith("c_")
+        assert "sources" in pt
+        assert isinstance(pt["sources"], list)
+

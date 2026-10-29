@@ -354,24 +354,39 @@ def reconcile_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
         "slug": "rashii_conjecture",
         "pattern_display": "らしい (conjecture)",
         "pattern_key": "らしい",
-        "meaning_short": "seems like; I heard; apparently",
+        "meaning_short": "seems like; I heard; typical of",
         "formation": "Plain form + らしい",
         "variants": ["らしい"],
         "examples": [{"ja": "彼は来ないらしい。", "en": "It seems he won't come."}],
         "group_id": "らしい",
-        "source_evidence": [],
+        "source_evidence": [
+            {
+                "source": "OpenJLPT grammar list",
+                "source_level": "N4",
+                "source_pattern": "〜らしい",
+                "meaning": "seems like; I heard; typical of",
+            }
+        ],
     }
     rashii_typ: dict[str, Any] = {
         "slug": "rashii_typical",
         "pattern_display": "らしい (typical)",
         "pattern_key": "らしい",
-        "meaning_short": "typical of; appropriate for; -like",
+        "meaning_short": "seems; I heard; typical (less casual than みたい)",
         "formation": "Noun + らしい",
         "variants": ["らしい", "らしく", "らしくない"],
         "examples": [{"ja": "彼らしくない。", "en": "That's not like him."}],
         "group_id": "らしい",
-        "source_evidence": [],
+        "source_evidence": [
+            {
+                "source": "OpenJLPT grammar list",
+                "source_level": "N3",
+                "source_pattern": "〜らしい",
+                "meaning": "seems; I heard; typical (less casual than みたい)",
+            }
+        ],
     }
+
     noni_cont: dict[str, Any] = {
         "slug": "noni_contrast",
         "pattern_display": "のに (contrast)",

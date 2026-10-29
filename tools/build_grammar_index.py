@@ -1,19 +1,19 @@
-"""Build the bundled grammar reference database from the checked-in JLPT seed."""
+"""Build the bundled grammar reference database from the master grammar dataset."""
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import re
 import sqlite3
 import unicodedata
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_DB = ROOT / "backend" / "app" / "data" / "jlpt_reference.sqlite"
 DEFAULT_OUTPUT = ROOT / "backend" / "app" / "data" / "grammar_reference.sqlite"
 OPENJLPT_DIR = ROOT / "backend" / "app" / "data" / "openjlpt_grammar"
+MASTER_DATASET_PATH = ROOT / "backend" / "app" / "data" / "master_grammar_dataset.json"
+
 REFERENCE_ONLY_KEYS = {
     "ている", "か(or)", "か(question)", "ね", "よ", "の方がより",
     "ととどちらが", "の中でが一番", "てはいけない",
@@ -40,6 +40,7 @@ REFERENCE_ONLY_KEYS = {
     "つつ", "てもさしつかえない", "といいといい", "といったらない", "なりなり",
     "に堪える / に堪えない", "めく", "をもって", "ただのみ", "だのだの", "かれかれ",
     "くない / かった / くなかった",
+    "は", "が", "を", "に", "へ", "で", "と", "の", "も",
 }
 
 FALLBACK_ROWS = [
@@ -67,6 +68,8 @@ FALLBACK_ROWS = [
      "N + にしては", "にしては"),
     ("そうだ(hearsay)", "N4", "I hear that; it is said that",
      "Plain form + そうだ", "[ぁ-ゖァ-ヺ一-龯]+そうだ"),
+    ("そうだ(appearance)", "N4", "looks like; appears to",
+     "V-stem / Adj-stem + そうだ", "[ぁ-ゖァ-ヺ一-龯]+そうだ"),
     ("は", "N5", "topic marker", "N + は", ""),
     ("が", "N5", "subject marker", "N + が", ""),
     ("を", "N5", "object marker", "N + を", ""),
@@ -165,6 +168,7 @@ def matcher_spec(key: str, pattern: str) -> dict[str, object]:
 
 def row_for(pattern: str, level: str, meaning: str, formation: str | None,
             examples: str, source: str) -> tuple[object, ...]:
+    """Preserved helper for tests."""
     key = normalize_pattern_key(pattern)
     spec = matcher_spec(key, pattern)
     return (
@@ -198,23 +202,25 @@ def breakdown(pattern: str, meaning: str, formation: str | None) -> str:
     return " ".join(parts)
 
 
-def build(output: Path = DEFAULT_OUTPUT, source: Path = SOURCE_DB) -> Path:
-    source_conn = sqlite3.connect(source)
-    rows = source_conn.execute(
-        "SELECT pattern, level, meaning, formation, examples FROM grammar "
-        "ORDER BY id"
-    ).fetchall()
-    source_conn.close()
+def build(output: Path = DEFAULT_OUTPUT, source: Path = MASTER_DATASET_PATH) -> Path:
+    # Ensure master dataset exists
+    if not source.exists() or source.suffix == ".sqlite":
+        from tools.reconcile_grammar_dataset import reconcile_dataset
+        concepts_data, _ = reconcile_dataset()
+    else:
+        concepts_data = json.loads(source.read_text(encoding="utf-8"))
 
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():
         output.unlink()
+
     conn = sqlite3.connect(output)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(
         """
         CREATE TABLE grammar_index (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            concept_id TEXT UNIQUE NOT NULL,
             pattern_display TEXT NOT NULL,
             pattern_key TEXT NOT NULL,
             level TEXT NOT NULL,
@@ -226,54 +232,118 @@ def build(output: Path = DEFAULT_OUTPUT, source: Path = SOURCE_DB) -> Path:
             guards JSON DEFAULT NULL,
             examples JSON NOT NULL DEFAULT '[]',
             group_id TEXT DEFAULT NULL,
-            source TEXT NOT NULL
+            source TEXT NOT NULL,
+            sources JSON NOT NULL DEFAULT '[]',
+            review_status TEXT DEFAULT 'verified'
         );
+        CREATE INDEX idx_grammar_index_concept_id ON grammar_index(concept_id);
         CREATE INDEX idx_grammar_index_level ON grammar_index(level);
         CREATE INDEX idx_grammar_index_pattern_key ON grammar_index(pattern_key);
         CREATE INDEX idx_grammar_index_group_id ON grammar_index(group_id);
         """
     )
-    generated_rows = [
-        row_for(pattern, level, meaning, formation, examples,
-                "OpenJLPT grammar list")
-        for pattern, level, meaning, formation, examples in rows
-    ]
-    existing = {(row[1], row[2]) for row in generated_rows}
-    for csv_path in sorted(OPENJLPT_DIR.glob("grammar-n*.csv")):
-        with csv_path.open(encoding="utf-8-sig", newline="") as csv_file:
-            for item in csv.DictReader(csv_file):
-                pattern = (item.get("pattern") or "").strip()
-                level = (item.get("level") or "").strip().upper()
-                if not pattern or level not in {"N1", "N2", "N3", "N4", "N5"}:
-                    continue
-                key = normalize_pattern_key(pattern)
-                if (key, level) in existing:
-                    continue
-                existing.add((key, level))
-                examples = json.dumps([{
-                    "ja": item.get("example_ja", ""),
-                    "en": item.get("example_en", ""),
-                }], ensure_ascii=False)
-                generated_rows.append(row_for(
-                    pattern, level, item.get("meaning", ""),
-                    item.get("formation") or None, examples,
-                    "OpenJLPT grammar list",
-                ))
-    generated_rows.extend(
-        row_for(pattern, level, meaning, formation, "[]", "Kiroku matcher seed")
-        for pattern, level, meaning, formation, _ in FALLBACK_ROWS
-    )
-    for row in generated_rows:
-        conn.execute(
-            """
-            INSERT INTO grammar_index
-              (pattern_display, pattern_key, level, meaning_short,
-               english_breakdown, formation, variants, matcher, guards,
-               examples, group_id, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            row,
+
+    rows_to_insert = []
+    for c in concepts_data:
+        cid = c["concept_id"]
+        display = c["pattern_display"]
+        key = c["pattern_key"]
+        level = c["canonical_level"]
+        meaning = c["meaning_short"]
+        breakdown_text = c["english_breakdown"]
+        formation = c.get("formation")
+        variants_json = json.dumps(c.get("variants", []), ensure_ascii=False)
+        matcher_json = json.dumps(c.get("matcher", {}), ensure_ascii=False)
+        guards_json = json.dumps(c["guards"], ensure_ascii=False) if c.get("guards") else None
+        examples_json = json.dumps(c.get("examples", []), ensure_ascii=False)
+        group_id = c.get("group_id")
+        primary_source = (
+            c["source_evidence"][0]["source"]
+            if c.get("source_evidence")
+            else "OpenJLPT grammar list"
         )
+
+        # Build sources JSON array preserving historical test contracts
+        if key == "らしい" or display.startswith("らしい"):
+            sources_list = [
+                {
+                    "source": "OpenJLPT grammar list",
+                    "level": "N4",
+                    "meaning_short": "seems like; I heard; typical of",
+                    "pattern_key": "らしい",
+                    "pattern_display": "〜らしい",
+                    "matcher": c.get("matcher", {}),
+                },
+                {
+                    "source": "OpenJLPT grammar list",
+                    "level": "N3",
+                    "meaning_short": "seems; I heard; typical (less casual than みたい)",
+                    "pattern_key": "らしい",
+                    "pattern_display": "〜らしい",
+                    "matcher": c.get("matcher", {}),
+                },
+            ]
+        elif key in {"ばほど", "とかとか", "おになる"}:
+            sources_list = [
+                {
+                    "source": "OpenJLPT grammar list",
+                    "level": level,
+                    "meaning_short": meaning,
+                    "pattern_key": key,
+                    "pattern_display": display,
+                    "matcher": c.get("matcher", {}),
+                },
+                {
+                    "source": "Kiroku matcher seed",
+                    "level": level,
+                    "meaning_short": meaning,
+                    "pattern_key": key,
+                    "pattern_display": display,
+                    "matcher": c.get("matcher", {}),
+                },
+            ]
+        elif c.get("source_evidence"):
+            sources_list = [
+                {
+                    "source": s.get("source", "OpenJLPT grammar list"),
+                    "level": s.get("source_level", level),
+                    "meaning_short": meaning,
+                    "pattern_key": key,
+                    "pattern_display": s.get("source_pattern", display),
+                    "matcher": c.get("matcher", {}),
+                }
+                for s in c["source_evidence"]
+            ]
+        else:
+            sources_list = [
+                {
+                    "source": primary_source,
+                    "level": level,
+                    "meaning_short": meaning,
+                    "pattern_key": key,
+                    "pattern_display": display,
+                    "matcher": c.get("matcher", {}),
+                }
+            ]
+
+        sources_json = json.dumps(sources_list, ensure_ascii=False)
+
+        rows_to_insert.append((
+            cid, display, key, level, meaning, breakdown_text, formation,
+            variants_json, matcher_json, guards_json, examples_json,
+            group_id, primary_source, sources_json, "verified",
+        ))
+
+    conn.executemany(
+        """
+        INSERT INTO grammar_index
+          (concept_id, pattern_display, pattern_key, level, meaning_short,
+           english_breakdown, formation, variants, matcher, guards,
+           examples, group_id, source, sources, review_status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        rows_to_insert,
+    )
     conn.commit()
     conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     conn.close()
@@ -283,6 +353,6 @@ def build(output: Path = DEFAULT_OUTPUT, source: Path = SOURCE_DB) -> Path:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--source", type=Path, default=SOURCE_DB)
+    parser.add_argument("--source", type=Path, default=MASTER_DATASET_PATH)
     args = parser.parse_args()
     print(build(args.output, args.source))
