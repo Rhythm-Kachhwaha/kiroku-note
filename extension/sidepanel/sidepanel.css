@@ -9482,3 +9482,87 @@ div[data-content="example"],
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ==========================================================================
+   Keyboard Shortcuts Reference (Settings View)
+   ========================================================================== */
+.shortcuts-settings-details {
+  cursor: default;
+}
+
+.shortcuts-settings-summary {
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color var(--transition-fast, 120ms ease);
+}
+
+.shortcuts-settings-summary:hover {
+  color: var(--accent-primary, #b84632) !important;
+}
+
+.shortcuts-content {
+  padding: 8px 0 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shortcuts-category {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shortcuts-category-title {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, #8e8a81);
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border-subtle, #25211e);
+}
+
+.shortcuts-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.shortcuts-desc {
+  color: var(--text-secondary, #9e948a);
+  font-size: 11px;
+  flex: 1;
+  padding-right: 8px;
+}
+
+.shortcuts-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-muted, #8e8a81);
+  font-size: 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.shortcuts-keys kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  font-family: var(--font-mono, monospace);
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--text-primary, #ede8e1);
+  background: var(--bg-surface-2, #211e1b);
+  border: 1px solid var(--border-default, #312b26);
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  line-height: 1.3;
+}
