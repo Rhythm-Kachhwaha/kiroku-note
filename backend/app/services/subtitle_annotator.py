@@ -338,6 +338,23 @@ class SubtitleAnnotatorService:
         max_scan_len = 16
 
         while i < n:
+            if text[i].isspace():
+                tokens.append(
+                    AnnotatedToken(
+                        surface=text[i],
+                        lemma=text[i],
+                        reading="",
+                        status="unstyled",
+                        jlpt_level=None,
+                        start=start,
+                        end=end,
+                        start_char=i,
+                        end_char=i + 1,
+                    )
+                )
+                i += 1
+                continue
+
             matched = False
             limit = min(max_scan_len, n - i)
 
@@ -375,8 +392,8 @@ class SubtitleAnnotatorService:
                 elif l == 1 and sub in self._kanji_cache:
                     jlpt_lvl = self._kanji_cache[sub]
                     best_match = (sub, jlpt_lvl, "")
-                elif 1 < l <= 12:
-                    # Only invoke deinflection BFS for candidate inflected ranges
+                elif 1 < l <= 12 and ("\u3040" <= sub[-1] <= "\u309f"):
+                    # Only invoke deinflection BFS for candidate inflected ranges ending in hiragana
                     try:
                         candidates = _cached_deinflect(sub)
                     except Exception:
