@@ -1,5 +1,38 @@
 # Kiroku Note — Progress
 
+### Side Panel Subtitle Annotation Client & Token Highlighting (2026-10-29)
+
+**Objective**: Implement client-side subtitle token annotation, rendering, 3-state highlighting (`mined`, `should-know`, `unstyled`), font size controls (`small`, `medium`, `large` default, `xlarge`) with storage persistence, delegated token clicking for instant word identification, and graceful offline degradation.
+
+**Delivered**:
+- **Test Suite (`extension/tests/sidepanel-annotation-client.test.js`)**:
+  - TDD tests verifying token rendering: renders `<span class="sub-token <status>" ...>surface</span>` with classes `mined`, `should-know`, and `unstyled`.
+  - Tests verifying normalization of backend status `should_know` to CSS class `should-know`.
+  - Tests verifying token lookup and fallback resolution via `annotatedCuesCache` keyed by cue ID and text.
+  - Tests verifying graceful degradation: offline backend network failures do not throw, and unannotated cues fall back cleanly to plain text.
+  - Tests verifying delegated token click triggers `identify(surface)` with target cue options.
+  - Tests verifying font size controls (S, M, L, XL) toggle `.active-sub-size-*` classes on `#video-current-cue-preview` and persist `active_sub_size` to `chrome.storage.local`.
+  - Tests verifying `annotateLoadedSubtitles` sends batch cues to `POST /api/subtitle/annotate` and refreshes active cue preview.
+- **Side Panel Implementation (`extension/sidepanel/sidepanel.js`)**:
+  - Added `API_SUBTITLE_ANNOTATE_URL` (`http://127.0.0.1:21828/api/subtitle/annotate`) and `annotatedCuesCache` (Map keyed by cue ID and text).
+  - Implemented `setActiveSubSize(size, persist)` and `loadActiveSubSizeFromStorage()` with default `"large"`, `.active-sub-size-*` class swapping, and `chrome.storage.local` persistence.
+  - Wired `#active-sub-size-controls` click event listener and `chrome.storage.onChanged` listener for `active_sub_size`.
+  - Implemented `annotateLoadedSubtitles(cues)`: sends batch cues to backend, populates `annotatedCuesCache`, attaches tokens to cue objects, and re-renders active preview if current active cue was updated.
+  - Updated `updateVideoCuePreviewText(cueText, highlightTerm)`: checks active cue tokens and cache; renders spans with `.sub-token`, `.mined`, `.should-know`, `.unstyled`, `data-surface`, `data-lemma`, and `data-status`. Preserves plain text / draft highlight fallback when annotations are missing.
+  - Added delegated click handler on `#video-current-cue-preview` for `.sub-token` spans to trigger `mineSubtitleCueWord` / `identify`.
+  - Hooked `annotateLoadedSubtitles` into file load, Jimaku track load, storage load, and storage `onChanged`.
+
+**Verification**:
+- `node --test extension/tests/sidepanel-annotation-client.test.js`: 7 passed in 192ms.
+- `node --test extension/tests/video-tab-declutter-dom.test.js`: 8 passed in 133ms.
+- `node --test extension/tests/sidepanel.test.js extension/tests/sidepanel-subtitles-ui.test.js extension/tests/customizable-layout.test.js extension/tests/card-preview.test.js extension/tests/video-mode-declutter-and-fullscreen.test.js`: 13 passed in 223ms.
+- `python -m pytest backend/tests/test_subtitle_annotator.py backend/tests/test_subtitle_routes.py`: 27 passed in 4.21s.
+
+**Remaining Risk**:
+- None. Vanilla JS only, zero emojis, robust offline fallback, and full TDD coverage.
+
+---
+
 ### Side Panel Video Tab Declutter DOM & CSS (2026-10-29)
 
 **Objective**: Implement DOM markup and CSS styling for the Video tab declutter, font sizing controls (14px, 18px, 22px default, 26px), reserved grammar slot for Part 2, collapsed card chip, missed should-know words drawer, and word status tokens (mined orange #d4884f, should-know green #5db872, unstyled) with zero emojis.
