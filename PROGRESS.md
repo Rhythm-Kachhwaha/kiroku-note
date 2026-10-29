@@ -1,5 +1,20 @@
 # Kiroku Note — Progress
 
+### Task 12 — Extension Acceptance Review Closure (2026-10-29)
+
+**Delivered**:
+- Added executable acceptance coverage that invokes the production Side Panel
+  `PROCESS_OCR_CROP` message handler and verifies a whole OCR sentence routes
+  to grammar analysis rather than the single-word dictionary capture path.
+- Added executable video acceptance coverage for grammar rendering below the
+  active subtitle, including an out-of-order response regression.
+- Added a narrow render-generation guard so stale video grammar responses
+  cannot replace the currently active cue's result.
+
+**Verification**:
+- `node --test extension\tests\video-card-collapse.test.js` — 9 passed,
+  including both new production-message-path acceptance tests.
+
 ### Task 11 — Grammar Acceptance Gate & Documentation Handoff (2026-10-29)
 
 **Delivered**:

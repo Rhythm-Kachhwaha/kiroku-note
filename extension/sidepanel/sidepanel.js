@@ -35,6 +35,7 @@ const markedKnownSet = new Set();
 const missedWordsMap = new Map();
 const grammarCueCache = new Map();
 const grammarSessionPoints = new Map();
+let videoGrammarRenderGeneration = 0;
 const GRAMMAR_SETTINGS_KEY = "kiroku.grammar_settings";
 const DEFAULT_GRAMMAR_SETTINGS = {
   enabled: true, text_mode: "on-demand", video_strip: true, ahead_count: 5,
@@ -115,12 +116,21 @@ async function renderTextGrammar(sentence) {
 async function renderVideoGrammar(cue) {
   const slot = document.querySelector("#active-sub-grammar-slot");
   if (!slot || !cue?.text || !grammarSettings.video_strip) return;
+  const renderGeneration = ++videoGrammarRenderGeneration;
   const key = grammarCueKey(cue.text);
   let result = grammarCueCache.get(key);
   if (!result) {
     slot.textContent = "Checking grammar…";
-    try { result = await analyzeGrammar(cue.text, { source: "video" }); grammarCueCache.set(key, result); } catch (_) { slot.textContent = "Grammar unavailable"; return; }
+    try {
+      result = await analyzeGrammar(cue.text, { source: "video" });
+      grammarCueCache.set(key, result);
+    } catch (_) {
+      if (renderGeneration !== videoGrammarRenderGeneration) return;
+      slot.textContent = "Grammar unavailable";
+      return;
+    }
   }
+  if (renderGeneration !== videoGrammarRenderGeneration) return;
   const points = result?.matches || result?.points || [];
   slot.replaceChildren();
   points.forEach(point => {
