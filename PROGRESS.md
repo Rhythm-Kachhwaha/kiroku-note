@@ -1,5 +1,18 @@
 # Kiroku Note — Progress
 
+### Task 7 — Grammar Hygiene and Packaging Readiness (2026-10-29)
+
+**Delivered**:
+- Replaced the flagged `collections` import in
+  `kiroku_dictionary/deinflect.py` with equivalent stdlib-only dictionary/list
+  implementations accepted by the package import guard.
+- Rebuilt the Windows standalone executable and made duplicate-instance
+  startup report a non-zero port-collision result with an actionable message.
+
+**Verification**:
+- `PYTHONPATH=.;backend python -m pytest backend\tests\test_standalone_executable.py backend\tests\test_kiroku_dictionary.py -q` — 7 passed.
+
+
 ### Tasks 4–6 — Grammar Options, Dictionary Notes, Tracker API (2026-10-29)
 
 **Delivered**:

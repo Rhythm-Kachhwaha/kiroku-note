@@ -442,13 +442,11 @@ _RULES: list[tuple[str, str, str, str, str]] = [
     ("なかった", "ある", "any", "v5", "negative-past"),
 ]
 
-from collections import defaultdict, deque
-
-_RULES_BY_LAST_CHAR: dict[str, list[tuple[str, str, str, str, str]]] = defaultdict(list)
+_RULES_BY_LAST_CHAR: dict[str, list[tuple[str, str, str, str, str]]] = {}
 _RULES_EMPTY: list[tuple[str, str, str, str, str]] = []
 for _r in _RULES:
     if _r[0]:
-        _RULES_BY_LAST_CHAR[_r[0][-1]].append(_r)
+        _RULES_BY_LAST_CHAR.setdefault(_r[0][-1], []).append(_r)
     else:
         _RULES_EMPTY.append(_r)
 
@@ -471,10 +469,12 @@ def deinflect(text: str, max_depth: int = 5) -> list[DeinflectionCandidate]:
     seen.add((clean_text, "all"))
 
     # BFS exploration queue: (current_text, current_context, chain)
-    queue: deque[tuple[str, str, tuple[str, ...], int]] = deque([(clean_text, "any", (), 0)])
+    queue: list[tuple[str, str, tuple[str, ...], int]] = [(clean_text, "any", (), 0)]
+    queue_index = 0
 
-    while queue:
-        curr_text, curr_ctx, chain, depth = queue.popleft()
+    while queue_index < len(queue):
+        curr_text, curr_ctx, chain, depth = queue[queue_index]
+        queue_index += 1
         if depth >= max_depth:
             continue
 
@@ -515,4 +515,3 @@ def deinflect(text: str, max_depth: int = 5) -> list[DeinflectionCandidate]:
                 queue.append((new_text, out_ctx, new_chain, depth + 1))
 
     return results
-

@@ -88,6 +88,8 @@ def _handle_already_running() -> int:
         return 0
 
     if alive:
+        if sys.stderr is not None:
+            print("Port already occupied or unavailable; another Kiroku Note instance is running.", file=sys.stderr)
         if os.name == "nt" and not os.environ.get("PYTEST_CURRENT_TEST"):
             try:
                 import ctypes
@@ -101,8 +103,10 @@ def _handle_already_running() -> int:
                 )
             except Exception:
                 pass
-        return 0
-    return 0
+        return 1
+    if sys.stderr is not None:
+        print("Port already occupied or unavailable; another Kiroku Note instance may be running.", file=sys.stderr)
+    return 1
 
 
 def _show_error_dialog(message: str, title: str = "Kiroku Note Startup Error") -> None:
