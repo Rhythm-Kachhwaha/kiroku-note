@@ -1,0 +1,2633 @@
+{
+  "contract": {
+    "endpoint": "http://127.0.0.1:19633",
+    "live": true,
+    "scanLength": 128,
+    "parser": "scanning-parser"
+  },
+  "sentence": "昨日彼に無理やり納豆を食べさせられなかった。",
+  "tokens": [
+    {
+      "text": "昨日",
+      "reading": "きのう",
+      "headwords": [
+        {
+          "term": "昨日",
+          "reading": "きのう",
+          "sources": [
+            {
+              "originalText": "昨日",
+              "deinflectedText": "昨日",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "昨日",
+          "reading": "さくじつ",
+          "sources": [
+            {
+              "originalText": "昨日",
+              "deinflectedText": "昨日",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        }
+      ]
+    },
+    {
+      "text": "彼",
+      "reading": "かれ",
+      "headwords": [
+        {
+          "term": "彼",
+          "reading": "かれ",
+          "sources": [
+            {
+              "originalText": "彼",
+              "deinflectedText": "彼",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "彼",
+          "reading": "かの",
+          "sources": [
+            {
+              "originalText": "彼",
+              "deinflectedText": "彼",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "彼",
+          "reading": "あれ",
+          "sources": [
+            {
+              "originalText": "彼",
+              "deinflectedText": "彼",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        }
+      ]
+    },
+    {
+      "text": "に",
+      "reading": "",
+      "headwords": [
+        {
+          "term": "に",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "二",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "荷",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "２",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "弐",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "弍",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "貮",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "丹",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "似",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "土",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "尼",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "煮",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "貳",
+          "reading": "に",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "に",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "似る",
+          "reading": "にる",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "にる",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "煮る",
+          "reading": "にる",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "にる",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "烹る",
+          "reading": "にる",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "にる",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        },
+        {
+          "term": "ニ",
+          "reading": "ニ",
+          "sources": [
+            {
+              "originalText": "に",
+              "deinflectedText": "ニ",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        }
+      ]
+    },
+    {
+      "text": "無理",
+      "reading": "むり",
+      "headwords": [
+        {
+          "term": "無理やり",
+          "reading": "むりやり",
+          "sources": [
+            {
+              "originalText": "無理やり",
+              "deinflectedText": "無理やり",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        }
+      ]
+    },
+    {
+      "text": "やり",
+      "reading": "",
+      "headwords": []
+    },
+    {
+      "text": "納豆",
+      "reading": "なっとう",
+      "headwords": [
+        {
+          "term": "納豆",
+          "reading": "なっとう",
+          "sources": [
+            {
+              "originalText": "納豆",
+              "deinflectedText": "納豆",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        }
+      ]
+    },
+    {
+      "text": "を",
+      "reading": "",
+      "headwords": [
+        {
+          "term": "を",
+          "reading": "を",
+          "sources": [
+            {
+              "originalText": "を",
+              "deinflectedText": "を",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        }
+      ]
+    },
+    {
+      "text": "食",
+      "reading": "た",
+      "headwords": [
+        {
+          "term": "食べる",
+          "reading": "たべる",
+          "sources": [
+            {
+              "originalText": "食べさせられなかった",
+              "deinflectedText": "食べる",
+              "inflectionRuleChainCandidates": []
+            }
+          ],
+          "inflectionRuleChainCandidates": []
+        }
+      ]
+    },
+    {
+      "text": "べさせられなかった",
+      "reading": "",
+      "headwords": []
+    },
+    {
+      "text": "。",
+      "reading": "",
+      "headwords": []
+    }
+  ],
+  "inflectionCandidates": {
+    "食べさせられなかった": [
+      [
+        "使役",
+        "受身",
+        "否定",
+        "過去"
+      ]
+    ],
+    "食べてしまった": [
+      [
+        "接続",
+        "完了・遺憾",
+        "過去"
+      ]
+    ]
+  },
+  "termEntries": {
+    "dictionaryEntries": [
+      {
+        "type": "term",
+        "isPrimary": true,
+        "textProcessorRuleChainCandidates": [
+          []
+        ],
+        "inflectionRuleChainCandidates": [
+          {
+            "source": "algorithm",
+            "inflectionRules": [
+              {
+                "name": "-て",
+                "description": "て-form.\nIt has a myriad of meanings. Primarily, it is a conjunctive particle that connects two clauses together.\nUsage: Attach て to the continuative form (連用形) of verbs after euphonic change form, くて to the stem of i-adjectives."
+              },
+              {
+                "name": "-しまう",
+                "description": "1. Shows a sense of regret/surprise when you did have volition in doing something, but it turned out to be bad to do.\n2. Shows perfective/punctual achievement. This shows that an action has been completed.\n3. Shows unintentional action–“accidentally”.\nUsage: Attach しまう after the て-form of verbs."
+              },
+              {
+                "name": "-た",
+                "description": "1. Indicates a reality that has happened in the past.\n2. Indicates the completion of an action.\n3. Indicates the confirmation of a matter.\n4. Indicates the speaker's confidence that the action will definitely be fulfilled.\n5. Indicates the events that occur before the main clause are represented as relative past.\n6. Indicates a mild imperative/command.\nUsage: Attach た to the continuative form (連用形) of verbs after euphonic change form, かった to the stem of i-adjectives."
+              }
+            ]
+          }
+        ],
+        "score": 200,
+        "frequencyOrder": 0,
+        "dictionaryIndex": 0,
+        "dictionaryAlias": "",
+        "sourceTermExactMatchCount": 1,
+        "matchPrimaryReading": false,
+        "maxOriginalTextLength": 7,
+        "headwords": [
+          {
+            "index": 0,
+            "headwordIndex": 0,
+            "term": "食べる",
+            "reading": "たべる",
+            "sources": [
+              {
+                "originalText": "食べてしまった",
+                "transformedText": "食べてしまった",
+                "deinflectedText": "食べる",
+                "matchType": "exact",
+                "matchSource": "term",
+                "isPrimary": true
+              }
+            ],
+            "tags": [],
+            "wordClasses": [
+              "v1"
+            ]
+          }
+        ],
+        "definitions": [
+          {
+            "index": 0,
+            "headwordIndices": [
+              0
+            ],
+            "dictionary": "Jitendex.org [2026-10-03]",
+            "dictionaryIndex": 0,
+            "dictionaryAlias": "Jitendex.org [2026-10-03]",
+            "id": 711636,
+            "score": 200,
+            "frequencyOrder": 0,
+            "sequences": [
+              1358280
+            ],
+            "isPrimary": true,
+            "tags": [
+              {
+                "name": "★",
+                "category": "popular",
+                "order": 2,
+                "score": 2,
+                "content": [
+                  "high priority entry"
+                ],
+                "dictionaries": [
+                  "Jitendex.org [2026-10-03]"
+                ],
+                "redundant": false
+              }
+            ],
+            "entries": [
+              {
+                "type": "structured-content",
+                "content": [
+                  {
+                    "tag": "ul",
+                    "lang": "ja",
+                    "data": {
+                      "content": "sense-groups"
+                    },
+                    "content": {
+                      "tag": "li",
+                      "data": {
+                        "content": "sense-group"
+                      },
+                      "content": [
+                        {
+                          "tag": "span",
+                          "title": "Ichidan verb",
+                          "data": {
+                            "class": "tag",
+                            "code": "v1",
+                            "content": "part-of-speech-info"
+                          },
+                          "content": "1-dan"
+                        },
+                        {
+                          "tag": "span",
+                          "title": "transitive verb",
+                          "data": {
+                            "class": "tag",
+                            "code": "vt",
+                            "content": "part-of-speech-info"
+                          },
+                          "content": "transitive"
+                        },
+                        {
+                          "tag": "ol",
+                          "content": [
+                            {
+                              "tag": "li",
+                              "style": {
+                                "listStyleType": "\"①\""
+                              },
+                              "data": {
+                                "content": "sense"
+                              },
+                              "content": [
+                                {
+                                  "tag": "ul",
+                                  "data": {
+                                    "content": "glossary"
+                                  },
+                                  "content": {
+                                    "tag": "li",
+                                    "content": "to eat"
+                                  }
+                                },
+                                {
+                                  "tag": "div",
+                                  "data": {
+                                    "content": "extra-info"
+                                  },
+                                  "content": {
+                                    "tag": "div",
+                                    "content": {
+                                      "tag": "div",
+                                      "data": {
+                                        "class": "extra-box",
+                                        "content": "example-sentence",
+                                        "sentence-key": "食べる",
+                                        "source": "193344",
+                                        "source-type": "tat"
+                                      },
+                                      "content": [
+                                        {
+                                          "tag": "div",
+                                          "data": {
+                                            "content": "example-sentence-a"
+                                          },
+                                          "content": {
+                                            "tag": "span",
+                                            "lang": "ja",
+                                            "content": [
+                                              "もっと",
+                                              {
+                                                "tag": "ruby",
+                                                "content": [
+                                                  "果",
+                                                  {
+                                                    "tag": "rt",
+                                                    "content": "くだ"
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "ruby",
+                                                "content": [
+                                                  "物",
+                                                  {
+                                                    "tag": "rt",
+                                                    "content": "もの"
+                                                  }
+                                                ]
+                                              },
+                                              "を",
+                                              {
+                                                "tag": "span",
+                                                "data": {
+                                                  "content": "example-keyword"
+                                                },
+                                                "content": [
+                                                  {
+                                                    "tag": "ruby",
+                                                    "content": [
+                                                      "食",
+                                                      {
+                                                        "tag": "rt",
+                                                        "content": "た"
+                                                      }
+                                                    ]
+                                                  },
+                                                  "べる"
+                                                ]
+                                              },
+                                              "べきです。"
+                                            ]
+                                          }
+                                        },
+                                        {
+                                          "tag": "div",
+                                          "data": {
+                                            "content": "example-sentence-b"
+                                          },
+                                          "content": [
+                                            {
+                                              "tag": "span",
+                                              "lang": "en",
+                                              "content": "You should eat more fruit."
+                                            },
+                                            {
+                                              "tag": "span",
+                                              "data": {
+                                                "content": "attribution-footnote"
+                                              },
+                                              "content": "[1]"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "tag": "li",
+                              "style": {
+                                "listStyleType": "\"②\""
+                              },
+                              "data": {
+                                "content": "sense"
+                              },
+                              "content": [
+                                {
+                                  "tag": "ul",
+                                  "data": {
+                                    "content": "glossary"
+                                  },
+                                  "content": [
+                                    {
+                                      "tag": "li",
+                                      "content": "to live on (e.g. a salary)"
+                                    },
+                                    {
+                                      "tag": "li",
+                                      "content": "to live off"
+                                    },
+                                    {
+                                      "tag": "li",
+                                      "content": "to subsist on"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "tag": "div",
+                                  "data": {
+                                    "content": "extra-info"
+                                  },
+                                  "content": {
+                                    "tag": "div",
+                                    "content": {
+                                      "tag": "div",
+                                      "data": {
+                                        "class": "extra-box",
+                                        "content": "example-sentence",
+                                        "sentence-key": "食べて",
+                                        "source": "81964",
+                                        "source-type": "tat"
+                                      },
+                                      "content": [
+                                        {
+                                          "tag": "div",
+                                          "data": {
+                                            "content": "example-sentence-a"
+                                          },
+                                          "content": {
+                                            "tag": "span",
+                                            "lang": "ja",
+                                            "content": [
+                                              {
+                                                "tag": "ruby",
+                                                "content": [
+                                                  "僕",
+                                                  {
+                                                    "tag": "rt",
+                                                    "content": "ぼく"
+                                                  }
+                                                ]
+                                              },
+                                              "は",
+                                              {
+                                                "tag": "ruby",
+                                                "content": [
+                                                  "脚",
+                                                  {
+                                                    "tag": "rt",
+                                                    "content": "きゃく"
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "ruby",
+                                                "content": [
+                                                  "本",
+                                                  {
+                                                    "tag": "rt",
+                                                    "content": "ほん"
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "ruby",
+                                                "content": [
+                                                  "家",
+                                                  {
+                                                    "tag": "rt",
+                                                    "content": "か"
+                                                  }
+                                                ]
+                                              },
+                                              "で",
+                                              {
+                                                "tag": "span",
+                                                "data": {
+                                                  "content": "example-keyword"
+                                                },
+                                                "content": [
+                                                  {
+                                                    "tag": "ruby",
+                                                    "content": [
+                                                      "食",
+                                                      {
+                                                        "tag": "rt",
+                                                        "content": "た"
+                                                      }
+                                                    ]
+                                                  },
+                                                  "べて"
+                                                ]
+                                              },
+                                              "いく",
+                                              {
+                                                "tag": "ruby",
+                                                "content": [
+                                                  "決",
+                                                  {
+                                                    "tag": "rt",
+                                                    "content": "けっ"
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "tag": "ruby",
+                                                "content": [
+                                                  "心",
+                                                  {
+                                                    "tag": "rt",
+                                                    "content": "しん"
+                                                  }
+                                                ]
+                                              },
+                                              "をした。"
+                                            ]
+                                          }
+                                        },
+                                        {
+                                          "tag": "div",
+                                          "data": {
+                                            "content": "example-sentence-b"
+                                          },
+                                          "content": [
+                                            {
+                                              "tag": "span",
+                                              "lang": "en",
+                                              "content": "I am determined to make a living as a playwright."
+                                            },
+                                            {
+                                              "tag": "span",
+                                              "data": {
+                                                "content": "attribution-footnote"
+                                              },
+                                              "content": "[2]"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "tag": "div",
+                    "data": {
+                      "content": "attribution"
+                    },
+                    "content": [
+                      {
+                        "tag": "a",
+                        "href": "https://www.edrdg.org/jmwsgi/entr.py?svc=jmdict&q=1358280",
+                        "content": "JMdict"
+                      },
+                      " | Tatoeba ",
+                      {
+                        "tag": "a",
+                        "href": "https://tatoeba.org/en/sentences/show/193344",
+                        "content": "[1]"
+                      },
+                      {
+                        "tag": "a",
+                        "href": "https://tatoeba.org/en/sentences/show/81964",
+                        "content": "[2]"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "pronunciations": [],
+        "frequencies": []
+      },
+      {
+        "type": "term",
+        "isPrimary": true,
+        "textProcessorRuleChainCandidates": [
+          []
+        ],
+        "inflectionRuleChainCandidates": [
+          {
+            "source": "algorithm",
+            "inflectionRules": []
+          }
+        ],
+        "score": 200,
+        "frequencyOrder": 0,
+        "dictionaryIndex": 0,
+        "dictionaryAlias": "",
+        "sourceTermExactMatchCount": 1,
+        "matchPrimaryReading": false,
+        "maxOriginalTextLength": 1,
+        "headwords": [
+          {
+            "index": 0,
+            "headwordIndex": 0,
+            "term": "食",
+            "reading": "しょく",
+            "sources": [
+              {
+                "originalText": "食",
+                "transformedText": "食",
+                "deinflectedText": "食",
+                "matchType": "exact",
+                "matchSource": "term",
+                "isPrimary": true
+              }
+            ],
+            "tags": [],
+            "wordClasses": []
+          }
+        ],
+        "definitions": [
+          {
+            "index": 0,
+            "headwordIndices": [
+              0
+            ],
+            "dictionary": "Jitendex.org [2026-10-03]",
+            "dictionaryIndex": 0,
+            "dictionaryAlias": "Jitendex.org [2026-10-03]",
+            "id": 599175,
+            "score": 200,
+            "frequencyOrder": 0,
+            "sequences": [
+              1956480
+            ],
+            "isPrimary": true,
+            "tags": [
+              {
+                "name": "priority form",
+                "category": "frequent",
+                "order": 1,
+                "score": 1,
+                "content": [
+                  "high priority spelling or reading of this term"
+                ],
+                "dictionaries": [
+                  "Jitendex.org [2026-10-03]"
+                ],
+                "redundant": false
+              },
+              {
+                "name": "★",
+                "category": "popular",
+                "order": 2,
+                "score": 2,
+                "content": [
+                  "high priority entry"
+                ],
+                "dictionaries": [
+                  "Jitendex.org [2026-10-03]"
+                ],
+                "redundant": false
+              }
+            ],
+            "entries": [
+              {
+                "type": "structured-content",
+                "content": [
+                  {
+                    "tag": "ul",
+                    "lang": "ja",
+                    "data": {
+                      "content": "sense-groups"
+                    },
+                    "content": [
+                      {
+                        "tag": "li",
+                        "style": {
+                          "listStyleType": "\"①\""
+                        },
+                        "data": {
+                          "content": "sense-group"
+                        },
+                        "content": [
+                          {
+                            "tag": "span",
+                            "title": "noun (common) (futsuumeishi)",
+                            "data": {
+                              "class": "tag",
+                              "code": "n",
+                              "content": "part-of-speech-info"
+                            },
+                            "content": "noun"
+                          },
+                          {
+                            "tag": "div",
+                            "data": {
+                              "content": "sense"
+                            },
+                            "content": {
+                              "tag": "ul",
+                              "data": {
+                                "content": "glossary"
+                              },
+                              "content": [
+                                {
+                                  "tag": "li",
+                                  "content": "food"
+                                },
+                                {
+                                  "tag": "li",
+                                  "content": "foodstuff"
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "li",
+                        "style": {
+                          "listStyleType": "\"②\""
+                        },
+                        "data": {
+                          "content": "sense-group"
+                        },
+                        "content": [
+                          {
+                            "tag": "span",
+                            "title": "noun (common) (futsuumeishi)",
+                            "data": {
+                              "class": "tag",
+                              "code": "n",
+                              "content": "part-of-speech-info"
+                            },
+                            "content": "noun"
+                          },
+                          {
+                            "tag": "span",
+                            "title": "valid only for these forms and/or readings",
+                            "content": [
+                              {
+                                "tag": "span",
+                                "data": {
+                                  "class": "form-special"
+                                },
+                                "content": "〔"
+                              },
+                              {
+                                "tag": "span",
+                                "lang": "ja",
+                                "content": "しょく only"
+                              },
+                              {
+                                "tag": "span",
+                                "data": {
+                                  "class": "form-special"
+                                },
+                                "content": "〕"
+                              }
+                            ]
+                          },
+                          {
+                            "tag": "div",
+                            "data": {
+                              "content": "sense"
+                            },
+                            "content": {
+                              "tag": "ul",
+                              "data": {
+                                "content": "glossary"
+                              },
+                              "content": [
+                                {
+                                  "tag": "li",
+                                  "content": "eating"
+                                },
+                                {
+                                  "tag": "li",
+                                  "content": "appetite"
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "li",
+                        "style": {
+                          "listStyleType": "\"③\""
+                        },
+                        "data": {
+                          "content": "sense-group"
+                        },
+                        "content": [
+                          {
+                            "tag": "span",
+                            "title": "noun (common) (futsuumeishi)",
+                            "data": {
+                              "class": "tag",
+                              "code": "n",
+                              "content": "part-of-speech-info"
+                            },
+                            "content": "noun"
+                          },
+                          {
+                            "tag": "span",
+                            "title": "counter",
+                            "data": {
+                              "class": "tag",
+                              "code": "ctr",
+                              "content": "part-of-speech-info"
+                            },
+                            "content": "counter"
+                          },
+                          {
+                            "tag": "span",
+                            "title": "valid only for these forms and/or readings",
+                            "content": [
+                              {
+                                "tag": "span",
+                                "data": {
+                                  "class": "form-special"
+                                },
+                                "content": "〔"
+                              },
+                              {
+                                "tag": "span",
+                                "lang": "ja",
+                                "content": "しょく only"
+                              },
+                              {
+                                "tag": "span",
+                                "data": {
+                                  "class": "form-special"
+                                },
+                                "content": "〕"
+                              }
+                            ]
+                          },
+                          {
+                            "tag": "div",
+                            "data": {
+                              "content": "sense"
+                            },
+                            "content": [
+                              {
+                                "tag": "ul",
+                                "data": {
+                                  "content": "glossary"
+                                },
+                                "content": [
+                                  {
+                                    "tag": "li",
+                                    "content": "meal"
+                                  },
+                                  {
+                                    "tag": "li",
+                                    "content": "portion"
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "div",
+                                "data": {
+                                  "content": "extra-info"
+                                },
+                                "content": {
+                                  "tag": "div",
+                                  "content": {
+                                    "tag": "div",
+                                    "data": {
+                                      "class": "extra-box",
+                                      "content": "example-sentence",
+                                      "sentence-key": "食",
+                                      "source": "231222",
+                                      "source-type": "tat"
+                                    },
+                                    "content": [
+                                      {
+                                        "tag": "div",
+                                        "data": {
+                                          "content": "example-sentence-a"
+                                        },
+                                        "content": {
+                                          "tag": "span",
+                                          "lang": "ja",
+                                          "content": [
+                                            "あのレストランは",
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "毎",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "まい"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "日",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "にち"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "二",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "に"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "千",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "せん"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "span",
+                                              "data": {
+                                                "content": "example-keyword"
+                                              },
+                                              "content": {
+                                                "tag": "ruby",
+                                                "content": [
+                                                  "食",
+                                                  {
+                                                    "tag": "rt",
+                                                    "content": "しょく"
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "準",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "じゅん"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "備",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "び"
+                                                }
+                                              ]
+                                            },
+                                            "している。"
+                                          ]
+                                        }
+                                      },
+                                      {
+                                        "tag": "div",
+                                        "data": {
+                                          "content": "example-sentence-b"
+                                        },
+                                        "content": {
+                                          "tag": "span",
+                                          "lang": "en",
+                                          "content": "That restaurant prepares two thousand meals every day."
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "li",
+                        "data": {
+                          "content": "forms"
+                        },
+                        "content": [
+                          {
+                            "tag": "span",
+                            "title": "spelling and reading variants",
+                            "data": {
+                              "class": "tag",
+                              "content": "forms-label"
+                            },
+                            "content": "forms"
+                          },
+                          {
+                            "tag": "table",
+                            "content": [
+                              {
+                                "tag": "tr",
+                                "data": {
+                                  "content": "forms-header-row"
+                                },
+                                "content": [
+                                  {
+                                    "tag": "th",
+                                    "colSpan": 2
+                                  },
+                                  {
+                                    "tag": "th",
+                                    "content": "食"
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "tr",
+                                "content": [
+                                  {
+                                    "tag": "th",
+                                    "data": {
+                                      "content": "forms-row-senses"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "reading applies to every sense number above",
+                                      "content": "＊"
+                                    }
+                                  },
+                                  {
+                                    "tag": "th",
+                                    "content": "しょく"
+                                  },
+                                  {
+                                    "tag": "td",
+                                    "data": {
+                                      "class": "form-pri"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "high priority form"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "tr",
+                                "content": [
+                                  {
+                                    "tag": "th",
+                                    "data": {
+                                      "content": "forms-row-senses"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "reading applies only to this sense number",
+                                      "content": "①"
+                                    }
+                                  },
+                                  {
+                                    "tag": "th",
+                                    "content": "じき"
+                                  },
+                                  {
+                                    "tag": "td",
+                                    "data": {
+                                      "class": "form-out"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "archaic or obsolete reading"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "tr",
+                                "content": [
+                                  {
+                                    "tag": "th",
+                                    "data": {
+                                      "content": "forms-row-senses"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "reading applies only to this sense number",
+                                      "content": "①"
+                                    }
+                                  },
+                                  {
+                                    "tag": "th",
+                                    "content": "し"
+                                  },
+                                  {
+                                    "tag": "td",
+                                    "data": {
+                                      "class": "form-out"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "archaic or obsolete reading"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "data": {
+                      "content": "attribution"
+                    },
+                    "content": [
+                      {
+                        "tag": "a",
+                        "href": "https://www.edrdg.org/jmwsgi/entr.py?svc=jmdict&q=1956480",
+                        "content": "JMdict"
+                      },
+                      " | ",
+                      {
+                        "tag": "a",
+                        "href": "https://tatoeba.org/en/sentences/show/231222",
+                        "content": "Tatoeba"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "index": 1,
+            "headwordIndices": [
+              0
+            ],
+            "dictionary": "Jitendex.org [2026-10-03]",
+            "dictionaryIndex": 0,
+            "dictionaryAlias": "Jitendex.org [2026-10-03]",
+            "id": 613665,
+            "score": 0,
+            "frequencyOrder": 0,
+            "sequences": [
+              2837078
+            ],
+            "isPrimary": true,
+            "tags": [],
+            "entries": [
+              {
+                "type": "structured-content",
+                "content": [
+                  {
+                    "tag": "div",
+                    "data": {
+                      "content": "sense-group"
+                    },
+                    "content": [
+                      {
+                        "tag": "span",
+                        "title": "noun (common) (futsuumeishi)",
+                        "data": {
+                          "class": "tag",
+                          "code": "n",
+                          "content": "part-of-speech-info"
+                        },
+                        "content": "noun"
+                      },
+                      {
+                        "tag": "span",
+                        "title": "astronomy",
+                        "data": {
+                          "class": "tag",
+                          "code": "astron",
+                          "content": "field-info"
+                        },
+                        "content": "astronomy"
+                      },
+                      {
+                        "tag": "div",
+                        "data": {
+                          "content": "sense"
+                        },
+                        "content": {
+                          "tag": "ul",
+                          "data": {
+                            "content": "glossary"
+                          },
+                          "content": [
+                            {
+                              "tag": "li",
+                              "content": "eclipse (solar, lunar, etc.)"
+                            },
+                            {
+                              "tag": "li",
+                              "content": "occultation"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "data": {
+                      "content": "forms"
+                    },
+                    "content": [
+                      {
+                        "tag": "span",
+                        "title": "spelling and reading variants",
+                        "data": {
+                          "class": "tag",
+                          "content": "forms-label"
+                        },
+                        "content": "forms"
+                      },
+                      {
+                        "tag": "ul",
+                        "content": [
+                          {
+                            "tag": "li",
+                            "content": "食"
+                          },
+                          {
+                            "tag": "li",
+                            "content": "蝕"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "data": {
+                      "content": "attribution"
+                    },
+                    "content": {
+                      "tag": "a",
+                      "href": "https://www.edrdg.org/jmwsgi/entr.py?svc=jmdict&q=2837078",
+                      "content": "JMdict"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "pronunciations": [],
+        "frequencies": []
+      },
+      {
+        "type": "term",
+        "isPrimary": true,
+        "textProcessorRuleChainCandidates": [
+          []
+        ],
+        "inflectionRuleChainCandidates": [
+          {
+            "source": "algorithm",
+            "inflectionRules": []
+          }
+        ],
+        "score": -101,
+        "frequencyOrder": 0,
+        "dictionaryIndex": 0,
+        "dictionaryAlias": "",
+        "sourceTermExactMatchCount": 1,
+        "matchPrimaryReading": false,
+        "maxOriginalTextLength": 1,
+        "headwords": [
+          {
+            "index": 0,
+            "headwordIndex": 0,
+            "term": "食",
+            "reading": "じき",
+            "sources": [
+              {
+                "originalText": "食",
+                "transformedText": "食",
+                "deinflectedText": "食",
+                "matchType": "exact",
+                "matchSource": "term",
+                "isPrimary": true
+              }
+            ],
+            "tags": [],
+            "wordClasses": []
+          }
+        ],
+        "definitions": [
+          {
+            "index": 0,
+            "headwordIndices": [
+              0
+            ],
+            "dictionary": "Jitendex.org [2026-10-03]",
+            "dictionaryIndex": 0,
+            "dictionaryAlias": "Jitendex.org [2026-10-03]",
+            "id": 599176,
+            "score": -101,
+            "frequencyOrder": 0,
+            "sequences": [
+              1956480
+            ],
+            "isPrimary": true,
+            "tags": [
+              {
+                "name": "obsolete reading",
+                "category": "archaism",
+                "order": 0,
+                "score": 1,
+                "content": [
+                  "archaic or obsolete reading of this term"
+                ],
+                "dictionaries": [
+                  "Jitendex.org [2026-10-03]"
+                ],
+                "redundant": false
+              }
+            ],
+            "entries": [
+              {
+                "type": "structured-content",
+                "content": [
+                  {
+                    "tag": "ul",
+                    "lang": "ja",
+                    "data": {
+                      "content": "sense-groups"
+                    },
+                    "content": [
+                      {
+                        "tag": "li",
+                        "style": {
+                          "listStyleType": "\"①\""
+                        },
+                        "data": {
+                          "content": "sense-group"
+                        },
+                        "content": [
+                          {
+                            "tag": "span",
+                            "title": "noun (common) (futsuumeishi)",
+                            "data": {
+                              "class": "tag",
+                              "code": "n",
+                              "content": "part-of-speech-info"
+                            },
+                            "content": "noun"
+                          },
+                          {
+                            "tag": "div",
+                            "data": {
+                              "content": "sense"
+                            },
+                            "content": {
+                              "tag": "ul",
+                              "data": {
+                                "content": "glossary"
+                              },
+                              "content": [
+                                {
+                                  "tag": "li",
+                                  "content": "food"
+                                },
+                                {
+                                  "tag": "li",
+                                  "content": "foodstuff"
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "li",
+                        "style": {
+                          "listStyleType": "\"②\""
+                        },
+                        "data": {
+                          "content": "sense-group"
+                        },
+                        "content": [
+                          {
+                            "tag": "span",
+                            "title": "noun (common) (futsuumeishi)",
+                            "data": {
+                              "class": "tag",
+                              "code": "n",
+                              "content": "part-of-speech-info"
+                            },
+                            "content": "noun"
+                          },
+                          {
+                            "tag": "span",
+                            "title": "valid only for these forms and/or readings",
+                            "content": [
+                              {
+                                "tag": "span",
+                                "data": {
+                                  "class": "form-special"
+                                },
+                                "content": "〔"
+                              },
+                              {
+                                "tag": "span",
+                                "lang": "ja",
+                                "content": "しょく only"
+                              },
+                              {
+                                "tag": "span",
+                                "data": {
+                                  "class": "form-special"
+                                },
+                                "content": "〕"
+                              }
+                            ]
+                          },
+                          {
+                            "tag": "div",
+                            "data": {
+                              "content": "sense"
+                            },
+                            "content": {
+                              "tag": "ul",
+                              "data": {
+                                "content": "glossary"
+                              },
+                              "content": [
+                                {
+                                  "tag": "li",
+                                  "content": "eating"
+                                },
+                                {
+                                  "tag": "li",
+                                  "content": "appetite"
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "li",
+                        "style": {
+                          "listStyleType": "\"③\""
+                        },
+                        "data": {
+                          "content": "sense-group"
+                        },
+                        "content": [
+                          {
+                            "tag": "span",
+                            "title": "noun (common) (futsuumeishi)",
+                            "data": {
+                              "class": "tag",
+                              "code": "n",
+                              "content": "part-of-speech-info"
+                            },
+                            "content": "noun"
+                          },
+                          {
+                            "tag": "span",
+                            "title": "counter",
+                            "data": {
+                              "class": "tag",
+                              "code": "ctr",
+                              "content": "part-of-speech-info"
+                            },
+                            "content": "counter"
+                          },
+                          {
+                            "tag": "span",
+                            "title": "valid only for these forms and/or readings",
+                            "content": [
+                              {
+                                "tag": "span",
+                                "data": {
+                                  "class": "form-special"
+                                },
+                                "content": "〔"
+                              },
+                              {
+                                "tag": "span",
+                                "lang": "ja",
+                                "content": "しょく only"
+                              },
+                              {
+                                "tag": "span",
+                                "data": {
+                                  "class": "form-special"
+                                },
+                                "content": "〕"
+                              }
+                            ]
+                          },
+                          {
+                            "tag": "div",
+                            "data": {
+                              "content": "sense"
+                            },
+                            "content": [
+                              {
+                                "tag": "ul",
+                                "data": {
+                                  "content": "glossary"
+                                },
+                                "content": [
+                                  {
+                                    "tag": "li",
+                                    "content": "meal"
+                                  },
+                                  {
+                                    "tag": "li",
+                                    "content": "portion"
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "div",
+                                "data": {
+                                  "content": "extra-info"
+                                },
+                                "content": {
+                                  "tag": "div",
+                                  "content": {
+                                    "tag": "div",
+                                    "data": {
+                                      "class": "extra-box",
+                                      "content": "example-sentence",
+                                      "sentence-key": "食",
+                                      "source": "231222",
+                                      "source-type": "tat"
+                                    },
+                                    "content": [
+                                      {
+                                        "tag": "div",
+                                        "data": {
+                                          "content": "example-sentence-a"
+                                        },
+                                        "content": {
+                                          "tag": "span",
+                                          "lang": "ja",
+                                          "content": [
+                                            "あのレストランは",
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "毎",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "まい"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "日",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "にち"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "二",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "に"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "千",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "せん"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "span",
+                                              "data": {
+                                                "content": "example-keyword"
+                                              },
+                                              "content": {
+                                                "tag": "ruby",
+                                                "content": [
+                                                  "食",
+                                                  {
+                                                    "tag": "rt",
+                                                    "content": "しょく"
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "準",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "じゅん"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "備",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "び"
+                                                }
+                                              ]
+                                            },
+                                            "している。"
+                                          ]
+                                        }
+                                      },
+                                      {
+                                        "tag": "div",
+                                        "data": {
+                                          "content": "example-sentence-b"
+                                        },
+                                        "content": {
+                                          "tag": "span",
+                                          "lang": "en",
+                                          "content": "That restaurant prepares two thousand meals every day."
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "li",
+                        "data": {
+                          "content": "forms"
+                        },
+                        "content": [
+                          {
+                            "tag": "span",
+                            "title": "spelling and reading variants",
+                            "data": {
+                              "class": "tag",
+                              "content": "forms-label"
+                            },
+                            "content": "forms"
+                          },
+                          {
+                            "tag": "table",
+                            "content": [
+                              {
+                                "tag": "tr",
+                                "data": {
+                                  "content": "forms-header-row"
+                                },
+                                "content": [
+                                  {
+                                    "tag": "th",
+                                    "colSpan": 2
+                                  },
+                                  {
+                                    "tag": "th",
+                                    "content": "食"
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "tr",
+                                "content": [
+                                  {
+                                    "tag": "th",
+                                    "data": {
+                                      "content": "forms-row-senses"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "reading applies to every sense number above",
+                                      "content": "＊"
+                                    }
+                                  },
+                                  {
+                                    "tag": "th",
+                                    "content": "しょく"
+                                  },
+                                  {
+                                    "tag": "td",
+                                    "data": {
+                                      "class": "form-pri"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "high priority form"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "tr",
+                                "content": [
+                                  {
+                                    "tag": "th",
+                                    "data": {
+                                      "content": "forms-row-senses"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "reading applies only to this sense number",
+                                      "content": "①"
+                                    }
+                                  },
+                                  {
+                                    "tag": "th",
+                                    "content": "じき"
+                                  },
+                                  {
+                                    "tag": "td",
+                                    "data": {
+                                      "class": "form-out"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "archaic or obsolete reading"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "tr",
+                                "content": [
+                                  {
+                                    "tag": "th",
+                                    "data": {
+                                      "content": "forms-row-senses"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "reading applies only to this sense number",
+                                      "content": "①"
+                                    }
+                                  },
+                                  {
+                                    "tag": "th",
+                                    "content": "し"
+                                  },
+                                  {
+                                    "tag": "td",
+                                    "data": {
+                                      "class": "form-out"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "archaic or obsolete reading"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "data": {
+                      "content": "attribution"
+                    },
+                    "content": [
+                      {
+                        "tag": "a",
+                        "href": "https://www.edrdg.org/jmwsgi/entr.py?svc=jmdict&q=1956480",
+                        "content": "JMdict"
+                      },
+                      " | ",
+                      {
+                        "tag": "a",
+                        "href": "https://tatoeba.org/en/sentences/show/231222",
+                        "content": "Tatoeba"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "pronunciations": [],
+        "frequencies": []
+      },
+      {
+        "type": "term",
+        "isPrimary": true,
+        "textProcessorRuleChainCandidates": [
+          []
+        ],
+        "inflectionRuleChainCandidates": [
+          {
+            "source": "algorithm",
+            "inflectionRules": []
+          }
+        ],
+        "score": -102,
+        "frequencyOrder": 0,
+        "dictionaryIndex": 0,
+        "dictionaryAlias": "",
+        "sourceTermExactMatchCount": 1,
+        "matchPrimaryReading": false,
+        "maxOriginalTextLength": 1,
+        "headwords": [
+          {
+            "index": 0,
+            "headwordIndex": 0,
+            "term": "食",
+            "reading": "し",
+            "sources": [
+              {
+                "originalText": "食",
+                "transformedText": "食",
+                "deinflectedText": "食",
+                "matchType": "exact",
+                "matchSource": "term",
+                "isPrimary": true
+              }
+            ],
+            "tags": [],
+            "wordClasses": []
+          }
+        ],
+        "definitions": [
+          {
+            "index": 0,
+            "headwordIndices": [
+              0
+            ],
+            "dictionary": "Jitendex.org [2026-10-03]",
+            "dictionaryIndex": 0,
+            "dictionaryAlias": "Jitendex.org [2026-10-03]",
+            "id": 599177,
+            "score": -102,
+            "frequencyOrder": 0,
+            "sequences": [
+              1956480
+            ],
+            "isPrimary": true,
+            "tags": [
+              {
+                "name": "obsolete reading",
+                "category": "archaism",
+                "order": 0,
+                "score": 1,
+                "content": [
+                  "archaic or obsolete reading of this term"
+                ],
+                "dictionaries": [
+                  "Jitendex.org [2026-10-03]"
+                ],
+                "redundant": false
+              }
+            ],
+            "entries": [
+              {
+                "type": "structured-content",
+                "content": [
+                  {
+                    "tag": "ul",
+                    "lang": "ja",
+                    "data": {
+                      "content": "sense-groups"
+                    },
+                    "content": [
+                      {
+                        "tag": "li",
+                        "style": {
+                          "listStyleType": "\"①\""
+                        },
+                        "data": {
+                          "content": "sense-group"
+                        },
+                        "content": [
+                          {
+                            "tag": "span",
+                            "title": "noun (common) (futsuumeishi)",
+                            "data": {
+                              "class": "tag",
+                              "code": "n",
+                              "content": "part-of-speech-info"
+                            },
+                            "content": "noun"
+                          },
+                          {
+                            "tag": "div",
+                            "data": {
+                              "content": "sense"
+                            },
+                            "content": {
+                              "tag": "ul",
+                              "data": {
+                                "content": "glossary"
+                              },
+                              "content": [
+                                {
+                                  "tag": "li",
+                                  "content": "food"
+                                },
+                                {
+                                  "tag": "li",
+                                  "content": "foodstuff"
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "li",
+                        "style": {
+                          "listStyleType": "\"②\""
+                        },
+                        "data": {
+                          "content": "sense-group"
+                        },
+                        "content": [
+                          {
+                            "tag": "span",
+                            "title": "noun (common) (futsuumeishi)",
+                            "data": {
+                              "class": "tag",
+                              "code": "n",
+                              "content": "part-of-speech-info"
+                            },
+                            "content": "noun"
+                          },
+                          {
+                            "tag": "span",
+                            "title": "valid only for these forms and/or readings",
+                            "content": [
+                              {
+                                "tag": "span",
+                                "data": {
+                                  "class": "form-special"
+                                },
+                                "content": "〔"
+                              },
+                              {
+                                "tag": "span",
+                                "lang": "ja",
+                                "content": "しょく only"
+                              },
+                              {
+                                "tag": "span",
+                                "data": {
+                                  "class": "form-special"
+                                },
+                                "content": "〕"
+                              }
+                            ]
+                          },
+                          {
+                            "tag": "div",
+                            "data": {
+                              "content": "sense"
+                            },
+                            "content": {
+                              "tag": "ul",
+                              "data": {
+                                "content": "glossary"
+                              },
+                              "content": [
+                                {
+                                  "tag": "li",
+                                  "content": "eating"
+                                },
+                                {
+                                  "tag": "li",
+                                  "content": "appetite"
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "li",
+                        "style": {
+                          "listStyleType": "\"③\""
+                        },
+                        "data": {
+                          "content": "sense-group"
+                        },
+                        "content": [
+                          {
+                            "tag": "span",
+                            "title": "noun (common) (futsuumeishi)",
+                            "data": {
+                              "class": "tag",
+                              "code": "n",
+                              "content": "part-of-speech-info"
+                            },
+                            "content": "noun"
+                          },
+                          {
+                            "tag": "span",
+                            "title": "counter",
+                            "data": {
+                              "class": "tag",
+                              "code": "ctr",
+                              "content": "part-of-speech-info"
+                            },
+                            "content": "counter"
+                          },
+                          {
+                            "tag": "span",
+                            "title": "valid only for these forms and/or readings",
+                            "content": [
+                              {
+                                "tag": "span",
+                                "data": {
+                                  "class": "form-special"
+                                },
+                                "content": "〔"
+                              },
+                              {
+                                "tag": "span",
+                                "lang": "ja",
+                                "content": "しょく only"
+                              },
+                              {
+                                "tag": "span",
+                                "data": {
+                                  "class": "form-special"
+                                },
+                                "content": "〕"
+                              }
+                            ]
+                          },
+                          {
+                            "tag": "div",
+                            "data": {
+                              "content": "sense"
+                            },
+                            "content": [
+                              {
+                                "tag": "ul",
+                                "data": {
+                                  "content": "glossary"
+                                },
+                                "content": [
+                                  {
+                                    "tag": "li",
+                                    "content": "meal"
+                                  },
+                                  {
+                                    "tag": "li",
+                                    "content": "portion"
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "div",
+                                "data": {
+                                  "content": "extra-info"
+                                },
+                                "content": {
+                                  "tag": "div",
+                                  "content": {
+                                    "tag": "div",
+                                    "data": {
+                                      "class": "extra-box",
+                                      "content": "example-sentence",
+                                      "sentence-key": "食",
+                                      "source": "231222",
+                                      "source-type": "tat"
+                                    },
+                                    "content": [
+                                      {
+                                        "tag": "div",
+                                        "data": {
+                                          "content": "example-sentence-a"
+                                        },
+                                        "content": {
+                                          "tag": "span",
+                                          "lang": "ja",
+                                          "content": [
+                                            "あのレストランは",
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "毎",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "まい"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "日",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "にち"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "二",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "に"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "千",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "せん"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "span",
+                                              "data": {
+                                                "content": "example-keyword"
+                                              },
+                                              "content": {
+                                                "tag": "ruby",
+                                                "content": [
+                                                  "食",
+                                                  {
+                                                    "tag": "rt",
+                                                    "content": "しょく"
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "準",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "じゅん"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "tag": "ruby",
+                                              "content": [
+                                                "備",
+                                                {
+                                                  "tag": "rt",
+                                                  "content": "び"
+                                                }
+                                              ]
+                                            },
+                                            "している。"
+                                          ]
+                                        }
+                                      },
+                                      {
+                                        "tag": "div",
+                                        "data": {
+                                          "content": "example-sentence-b"
+                                        },
+                                        "content": {
+                                          "tag": "span",
+                                          "lang": "en",
+                                          "content": "That restaurant prepares two thousand meals every day."
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "li",
+                        "data": {
+                          "content": "forms"
+                        },
+                        "content": [
+                          {
+                            "tag": "span",
+                            "title": "spelling and reading variants",
+                            "data": {
+                              "class": "tag",
+                              "content": "forms-label"
+                            },
+                            "content": "forms"
+                          },
+                          {
+                            "tag": "table",
+                            "content": [
+                              {
+                                "tag": "tr",
+                                "data": {
+                                  "content": "forms-header-row"
+                                },
+                                "content": [
+                                  {
+                                    "tag": "th",
+                                    "colSpan": 2
+                                  },
+                                  {
+                                    "tag": "th",
+                                    "content": "食"
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "tr",
+                                "content": [
+                                  {
+                                    "tag": "th",
+                                    "data": {
+                                      "content": "forms-row-senses"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "reading applies to every sense number above",
+                                      "content": "＊"
+                                    }
+                                  },
+                                  {
+                                    "tag": "th",
+                                    "content": "しょく"
+                                  },
+                                  {
+                                    "tag": "td",
+                                    "data": {
+                                      "class": "form-pri"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "high priority form"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "tr",
+                                "content": [
+                                  {
+                                    "tag": "th",
+                                    "data": {
+                                      "content": "forms-row-senses"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "reading applies only to this sense number",
+                                      "content": "①"
+                                    }
+                                  },
+                                  {
+                                    "tag": "th",
+                                    "content": "じき"
+                                  },
+                                  {
+                                    "tag": "td",
+                                    "data": {
+                                      "class": "form-out"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "archaic or obsolete reading"
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "tag": "tr",
+                                "content": [
+                                  {
+                                    "tag": "th",
+                                    "data": {
+                                      "content": "forms-row-senses"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "reading applies only to this sense number",
+                                      "content": "①"
+                                    }
+                                  },
+                                  {
+                                    "tag": "th",
+                                    "content": "し"
+                                  },
+                                  {
+                                    "tag": "td",
+                                    "data": {
+                                      "class": "form-out"
+                                    },
+                                    "content": {
+                                      "tag": "span",
+                                      "title": "archaic or obsolete reading"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "data": {
+                      "content": "attribution"
+                    },
+                    "content": [
+                      {
+                        "tag": "a",
+                        "href": "https://www.edrdg.org/jmwsgi/entr.py?svc=jmdict&q=1956480",
+                        "content": "JMdict"
+                      },
+                      " | ",
+                      {
+                        "tag": "a",
+                        "href": "https://tatoeba.org/en/sentences/show/231222",
+                        "content": "Tatoeba"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "pronunciations": [],
+        "frequencies": []
+      }
+    ],
+    "originalTextLength": 7,
+    "index": 0
+  },
+  "timings_ms": {
+    "tokenize_ms": 6.6410999970685225,
+    "termEntries_ms": 7.121099999494618
+  },
+  "notes": "Captured from live Yomitan."
+}

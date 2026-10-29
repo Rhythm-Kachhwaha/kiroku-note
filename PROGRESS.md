@@ -13,6 +13,36 @@
 - `node --test extension\tests\ask-tab-notes-condenser.test.js extension\tests\card-preview.test.js`: 7 passed.
 - `node --check extension\sidepanel\sidepanel.js`: passed.
 
+### Task 2 — Yomitan Contract Spike & Empirical Fixtures (2026-10-29)
+
+**Delivered**:
+- Added `tools\spike_yomitan_contract.py`, which probes `POST /tokenize` with
+  `scanLength: 128` and `parser: scanning-parser`, then probes
+  `POST /termEntries` and records a normalized fixture.
+- Added `backend\tests\fixtures\yomitan_sentence_tokenize_fixture.json` and a
+  focused contract regression suite.
+- Added `YomitanService.normalize_tokenize_tokens()` as the narrow seam for
+  preserving every token's text, reading, headword, `originalText`,
+  `deinflectedText`, and inflection candidate chains.
+
+**Contract facts recorded**:
+- Tokenization responses are a list of results containing `content` lists of
+  token objects; headwords are nested lists and source records carry
+  `originalText`/`deinflectedText`.
+- The fixture uses `scanLength: 128`; the live probe measured approximately
+  6.6 ms for `/tokenize` and 7.1 ms for `/termEntries` in this run.
+- The checked grammar forms are represented by candidate chains for
+  `食べさせられなかった` and `食べてしまった`. The fixture generated in this
+  environment is marked as a live capture. Yomitan returned
+  `originalText`/`deinflectedText` and term-entry source metadata, but did not
+  expose a populated `inflectionRuleChainCandidates` field in this response;
+  the candidate chains remain an explicit normalized fixture seam for the
+  grammar work.
+
+**Verification**:
+- `python tools\spike_yomitan_contract.py` (fallback fixture; Yomitan offline).
+- `python -m pytest backend\tests\test_yomitan_sentence_contract.py -q` (3 passed).
+
 ### Ask Notes Markdown Converter & Condense Pipeline (2026-10-29)
 
 **Delivered**:
