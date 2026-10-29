@@ -50,6 +50,18 @@
   seams and existing extension contract tests. No new external assets or
   license obligations were introduced.
 
+### Task 13 — Video Grammar Cue Invalidation (2026-10-29)
+
+**Delivered**:
+- Invalidated pending video grammar renders whenever the active subtitle is
+  cleared or video grammar is disabled, clearing the grammar slot immediately.
+- Added an executable cue-to-null out-of-order response regression test.
+
+**Verification**:
+- `node --test extension\\tests\\video-card-collapse.test.js`
+- Focused acceptance/UI set (`video-card-collapse`, `grammar-settings`,
+  `sidepanel-subtitles-ui`, `video-tab-declutter-dom`) — 21 passed.
+
 ### Tasks 6/9/10 Combined Batch — Review Fixes (2026-10-29)
 
 **Delivered**:

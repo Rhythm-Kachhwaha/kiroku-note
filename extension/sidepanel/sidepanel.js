@@ -115,8 +115,12 @@ async function renderTextGrammar(sentence) {
 
 async function renderVideoGrammar(cue) {
   const slot = document.querySelector("#active-sub-grammar-slot");
-  if (!slot || !cue?.text || !grammarSettings.video_strip) return;
   const renderGeneration = ++videoGrammarRenderGeneration;
+  if (!slot) return;
+  if (!cue?.text || !grammarSettings.enabled || !grammarSettings.video_strip) {
+    slot.replaceChildren();
+    return;
+  }
   const key = grammarCueKey(cue.text);
   let result = grammarCueCache.get(key);
   if (!result) {
@@ -159,10 +163,19 @@ async function renderVideoGrammar(cue) {
 
 async function loadGrammarSettings() {
   try { const data = await chrome.storage.local.get(GRAMMAR_SETTINGS_KEY); grammarSettings = { ...DEFAULT_GRAMMAR_SETTINGS, ...(data?.[GRAMMAR_SETTINGS_KEY] || {}) }; } catch (_) {}
+  if (!grammarSettings.enabled || !grammarSettings.video_strip) {
+    renderVideoGrammar(null).catch(() => {});
+  }
   for (const [id, key] of Object.entries({ "setting-grammar-enabled": "enabled", "setting-grammar-video-strip": "video_strip", "setting-grammar-below-level": "show_below_level", "setting-grammar-particles": "show_basic_particles", "setting-grammar-ahead": "ahead_count", "setting-grammar-text-mode": "text_mode", "setting-grammar-front-style": "card_front_style", "setting-grammar-dictionary": "designated_dictionary" })) {
     const el = document.querySelector(`#${id}`); if (!el) continue;
     if (el.type === "checkbox") el.checked = Boolean(grammarSettings[key]); else el.value = String(grammarSettings[key]);
-    el.addEventListener("change", async () => { grammarSettings[key] = el.type === "checkbox" ? el.checked : (el.type === "number" ? Math.max(1, Math.min(10, Number(el.value) || 5)) : el.value); await chrome.storage.local.set({ [GRAMMAR_SETTINGS_KEY]: grammarSettings }); });
+    el.addEventListener("change", async () => {
+      grammarSettings[key] = el.type === "checkbox" ? el.checked : (el.type === "number" ? Math.max(1, Math.min(10, Number(el.value) || 5)) : el.value);
+      if ((key === "enabled" || key === "video_strip") && (!grammarSettings.enabled || !grammarSettings.video_strip)) {
+        renderVideoGrammar(null).catch(() => {});
+      }
+      await chrome.storage.local.set({ [GRAMMAR_SETTINGS_KEY]: grammarSettings });
+    });
   }
 }
 

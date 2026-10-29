@@ -602,6 +602,30 @@ test("Extension acceptance: video grammar stays below the active subtitle and ig
   );
 });
 
+test("Extension regression: clearing the active cue invalidates pending video grammar", async () => {
+  let resolvePending;
+  const { domElements, messageListeners } = await createSidepanelSandbox(async (url) => {
+    if (!url.includes("/api/grammar/analyze")) return { ok: false, json: async () => ({}) };
+    return new Promise(resolve => {
+      resolvePending = () => resolve({ ok: true, json: async () => ({ matches: [{ pattern_display: "STALE" }] }) });
+    });
+  });
+
+  messageListeners[0]({
+    type: "SUBTITLE_CUE_CHANGED",
+    cue: { text: "字幕が消える", startMs: 1000 }
+  }, {}, () => {});
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.match(domElements["active-sub-grammar-slot"].textContent, /Checking grammar/);
+
+  messageListeners[0]({ type: "SUBTITLE_CUE_CHANGED", cue: null }, {}, () => {});
+  assert.equal(domElements["active-sub-grammar-slot"].textContent, "");
+
+  resolvePending();
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(domElements["active-sub-grammar-slot"].textContent, "");
+});
+
 test("Video Card Collapse: Auto-collapse triggers after 5 seconds of inactivity on Video tab", async () => {
   const { sidepanel, cardEditorSection, videoCollapsedCardChip } = await createSidepanelSandbox();
 
