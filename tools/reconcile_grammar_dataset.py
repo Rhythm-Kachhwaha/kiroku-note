@@ -34,6 +34,25 @@ AUDIT_FILES = [
 ]
 
 SPECIAL_MATCHERS: dict[str, dict[str, Any]] = {
+    "たい": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+たい"},
+    "ている": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+て(?:いる|います|いた|いました)"},
+    "前に": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+前に"},
+    "後で": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+後で"},
+    "くて": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+くて"},
+    "上に": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+上に"},
+    "抜く": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+抜(?:く|いた|いて|かない)"},
+    "べく": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+べく"},
+    "まい": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+まい"},
+    "だに": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+だに"},
+    "といいといい": {
+        "type": "discontinuous",
+        "first": "[ぁ-ゖァ-ヺ一-龯]+といい",
+        "second": "[ぁ-ゖァ-ヺ一-龯]+といい",
+        "max_gap": 20,
+        "clause_break": "[、。！？]",
+    },
+    "めく": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+め(?:く|い(?:て|た))"},
+
     "使役受身": {
         "type": "regex",
         "regex": "[ぁ-ゖァ-ヺ一-龯]+させられ(?:たくなかった|ない|る|た)",
@@ -87,7 +106,7 @@ SPECIAL_MATCHERS: dict[str, dict[str, Any]] = {
 }
 
 REFERENCE_ONLY_KEYS = {
-    "ている", "か(or)", "か(question)", "ね", "よ", "の方がより",
+    "か(or)", "か(question)", "ね", "よ", "の方がより",
     "ととどちらが", "の中でが一番", "てはいけない",
     "なければならない / なくてはいけない", "たりたりする", "たことがある",
     "に行く", "がある / がいる", "くなる / になる", "にする(decide)",
@@ -109,8 +128,8 @@ REFERENCE_ONLY_KEYS = {
     "てならない", "をとして", "かないかのうちに", "おそれがある", "たとえても",
     "やらやら", "ずに済む / ないで済む", "た末", "に至る / に至って / に至っては",
     "を余儀なくされる", "(よ)うがまいが / (よ)うとまいと", "(よ)うにもない",
-    "つつ", "てもさしつかえない", "といいといい", "といったらない", "なりなり",
-    "に堪える / に堪えない", "めく", "をもって", "ただのみ", "だのだの", "かれかれ",
+    "つつ", "てもさしつかえない", "といったらない", "なりなり",
+    "に堪える / に堪えない", "をもって", "ただのみ", "だのだの", "かれかれ",
     "くない / かった / くなかった",
     "は", "が", "を", "に", "へ", "で", "と", "の", "も", "や",
 }
@@ -254,6 +273,8 @@ def parse_audits() -> list[dict[str, Any]]:
                 ref_num = int(ref_num_str)
                 romanized, url1 = extract_label_and_url(cells[1])
                 japanese, url2 = extract_label_and_url(cells[2])
+                if level == "N3":
+                    romanized, japanese = japanese, romanized
                 meaning = cells[3]
                 url = url1 or url2
                 level_entries.append({
@@ -438,6 +459,10 @@ def reconcile_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
     # Ingest OpenJLPT rows
     for oj in openjlpt_list:
         k = oj["norm_key"]
+        if k in {"くて / で", "くて"}:
+            k = "くて"
+        elif k in {"上 / 上に", "上に"}:
+            k = "上に"
         target = None
         if k == "そうだ":
             target = souda_hear if "hear" in oj["meaning"].lower() else souda_app
@@ -567,6 +592,10 @@ def reconcile_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
         status = "EQUIVALENT"
         notes = ""
 
+        if k in {"くて / で", "くて"}:
+            k = "くて"
+        elif k in {"上 / 上に", "上に"}:
+            k = "上に"
         if k == "そうだ":
             if "appear" in mean.lower() or "look" in mean.lower() or "seem" in mean.lower():
                 target = souda_app

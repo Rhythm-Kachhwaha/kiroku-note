@@ -1,12 +1,12 @@
 {
   "summary": {
     "total_reference_entries": 848,
-    "total_canonical_concepts": 1010,
+    "total_canonical_concepts": 900,
     "counts_by_status": {
-      "NEW_CONCEPT": 448,
-      "EQUIVALENT": 311,
-      "VOCAB_REFERENCE": 30,
-      "LEVEL_RECONCILED": 59
+      "NEW_CONCEPT": 333,
+      "EQUIVALENT": 396,
+      "VOCAB_REFERENCE": 35,
+      "LEVEL_RECONCILED": 84
     },
     "counts_by_level": {
       "N5": 84,
@@ -2396,2004 +2396,2004 @@
     {
       "source_level": "N3",
       "ref_num": 1,
-      "romanized": "上げる（あげる）",
-      "japanese": "ageru",
+      "romanized": "ageru",
+      "japanese": "上げる（あげる）",
       "meaning": "to finish doing ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e4%b8%8a%e3%81%92%e3%82%8b-ageru-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_94"
+      "concept_id": "c_n3_ageru"
     },
     {
       "source_level": "N3",
       "ref_num": 2,
-      "romanized": "あまり",
-      "japanese": "amari",
+      "romanized": "amari",
+      "japanese": "あまり",
       "meaning": "so much… that",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%82%e3%81%be%e3%82%8a-amari-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_95"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_7"
     },
     {
       "source_level": "N3",
       "ref_num": 3,
-      "romanized": "あまりにも",
-      "japanese": "amari ni mo",
+      "romanized": "amari ni mo",
+      "japanese": "あまりにも",
       "meaning": "too much; so much… that; excessively ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%82%e3%81%be%e3%82%8a%e3%81%ab%e3%82%82-amari-ni-mo-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_96"
+      "concept_id": "c_n3_amari_ni_mo"
     },
     {
       "source_level": "N3",
       "ref_num": 4,
-      "romanized": "合う（あう）",
-      "japanese": "au",
+      "romanized": "au",
+      "japanese": "合う（あう）",
       "meaning": "do something together",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e5%90%88%e3%81%86-%e3%81%82%e3%81%86-au-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_97"
-    },
-    {
-      "source_level": "N3",
-      "ref_num": 5,
-      "romanized": "ばいい",
-      "japanese": "ba ii",
-      "meaning": "should; can; it’d be good if ~",
-      "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%e3%81%84%e3%81%84-ba-ii-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_98"
-    },
-    {
-      "source_level": "N3",
-      "ref_num": 6,
-      "romanized": "ばよかった",
-      "japanese": "ba yokatta",
-      "meaning": "should have; would have been better if ~",
-      "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%e3%82%88%e3%81%8b%e3%81%a3%e3%81%9f-ba-yokatta-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_99"
-    },
-    {
-      "source_level": "N3",
-      "ref_num": 7,
-      "romanized": "ば～ほど",
-      "japanese": "ba~hodo",
-      "meaning": "the more… the more ~",
-      "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%ef%bd%9e%e3%81%bb%e3%81%a9-ba-hodo-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_100"
-    },
-    {
-      "source_level": "N3",
-      "ref_num": 8,
-      "romanized": "ば～のに",
-      "japanese": "ba~noni",
-      "meaning": "would have; should have; if only ~",
-      "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%ef%bd%9e%e3%81%ae%e3%81%ab-ba-noni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
+      "status": "EQUIVALENT",
+      "notes": "",
       "concept_id": "c_n3_point_101"
     },
     {
       "source_level": "N3",
+      "ref_num": 5,
+      "romanized": "ba ii",
+      "japanese": "ばいい",
+      "meaning": "should; can; it’d be good if ~",
+      "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%e3%81%84%e3%81%84-ba-ii-meaning/",
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_80"
+    },
+    {
+      "source_level": "N3",
+      "ref_num": 6,
+      "romanized": "ba yokatta",
+      "japanese": "ばよかった",
+      "meaning": "should have; would have been better if ~",
+      "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%e3%82%88%e3%81%8b%e3%81%a3%e3%81%9f-ba-yokatta-meaning/",
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_76"
+    },
+    {
+      "source_level": "N3",
+      "ref_num": 7,
+      "romanized": "ba~hodo",
+      "japanese": "ば～ほど",
+      "meaning": "the more… the more ~",
+      "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%ef%bd%9e%e3%81%bb%e3%81%a9-ba-hodo-meaning/",
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_50"
+    },
+    {
+      "source_level": "N3",
+      "ref_num": 8,
+      "romanized": "ba~noni",
+      "japanese": "ば～のに",
+      "meaning": "would have; should have; if only ~",
+      "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%ef%bd%9e%e3%81%ae%e3%81%ab-ba-noni-meaning/",
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_39"
+    },
+    {
+      "source_level": "N3",
       "ref_num": 9,
-      "romanized": "ばかりで",
-      "japanese": "bakari de",
+      "romanized": "bakari de",
+      "japanese": "ばかりで",
       "meaning": "only; just ~ (negative description)",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%e3%81%8b%e3%82%8a%e3%81%a7-bakari-de-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_102"
+      "concept_id": "c_n3_bakari_de"
     },
     {
       "source_level": "N3",
       "ref_num": 10,
-      "romanized": "ばかりでなく",
-      "japanese": "bakari denaku",
+      "romanized": "bakari denaku",
+      "japanese": "ばかりでなく",
       "meaning": "not only... but also; as well as ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%e3%81%8b%e3%82%8a%e3%81%a7%e3%81%aa%e3%81%8f-bakari-denaku-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_103"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_41"
     },
     {
       "source_level": "N3",
       "ref_num": 11,
-      "romanized": "べきだ",
-      "japanese": "beki da",
+      "romanized": "beki da",
+      "japanese": "べきだ",
       "meaning": "should do; must do ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b9%e3%81%8d%e3%81%a0-beki-da-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_104"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_103"
     },
     {
       "source_level": "N3",
       "ref_num": 12,
-      "romanized": "べきではない",
-      "japanese": "beki dewa nai",
+      "romanized": "beki dewa nai",
+      "japanese": "べきではない",
       "meaning": "should not do; must not do ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b9%e3%81%8d%e3%81%a7%e3%81%af%e3%81%aa%e3%81%84-beki-dewa-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_105"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_103"
     },
     {
       "source_level": "N3",
       "ref_num": 13,
-      "romanized": "別に～ない（べつに～ない）",
-      "japanese": "betsu ni~nai",
+      "romanized": "betsu ni~nai",
+      "japanese": "別に～ない（べつに～ない）",
       "meaning": "not really, not particularly",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e5%88%a5%e3%81%ab%ef%bd%9e%e3%81%aa%e3%81%84-betsu-ni-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_106"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N5 by easiest-level rule",
+      "concept_id": "c_n5_point_44"
     },
     {
       "source_level": "N3",
       "ref_num": 14,
-      "romanized": "ぶりに",
-      "japanese": "buri ni",
+      "romanized": "buri ni",
+      "japanese": "ぶりに",
       "meaning": "for the first time in (period of time)",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b6%e3%82%8a%e3%81%ab-buri-ni-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_107"
+      "concept_id": "c_n3_buri_ni"
     },
     {
       "source_level": "N3",
       "ref_num": 15,
-      "romanized": "中（ちゅう）",
-      "japanese": "chuu / juu",
+      "romanized": "chuu / juu",
+      "japanese": "中（ちゅう）",
       "meaning": "currently; during; at some point; throughout; before the end of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e4%b8%ad-chuu-juu-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_108"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_26"
     },
     {
       "source_level": "N3",
       "ref_num": 16,
-      "romanized": "だけ",
-      "japanese": "dake",
+      "romanized": "dake",
+      "japanese": "だけ",
       "meaning": "as much as ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a0%e3%81%91-dake-meaning-as-much-as/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_109"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N5 by easiest-level rule",
+      "concept_id": "c_n5_point_74"
     },
     {
       "source_level": "N3",
       "ref_num": 17,
-      "romanized": "だけでなく",
-      "japanese": "dake de naku",
+      "romanized": "dake de naku",
+      "japanese": "だけでなく",
       "meaning": "not only… but also ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a0%e3%81%91%e3%81%a7%e3%81%aa%e3%81%8f-dake-de-naku-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_110"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_42"
     },
     {
       "source_level": "N3",
       "ref_num": 18,
-      "romanized": "だけど",
-      "japanese": "dakedo",
+      "romanized": "dakedo",
+      "japanese": "だけど",
       "meaning": "but; however; although; regarding ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a0%e3%81%91%e3%81%a9-dakedo-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_111"
+      "status": "VOCAB_REFERENCE",
+      "notes": "Classified as vocabulary / conversational reference point",
+      "concept_id": "c_n3_dakedo"
     },
     {
       "source_level": "N3",
       "ref_num": 19,
-      "romanized": "だらけ",
-      "japanese": "darake",
+      "romanized": "darake",
+      "japanese": "だらけ",
       "meaning": "full of; covered with; a lot of (something undesirable)",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a0%e3%82%89%e3%81%91-darake-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_112"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_98"
     },
     {
       "source_level": "N3",
       "ref_num": 20,
-      "romanized": "どんなに～ても",
-      "japanese": "donna ni~temo",
+      "romanized": "donna ni~temo",
+      "japanese": "どんなに～ても",
       "meaning": "no matter how (much)",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a9%e3%82%93%e3%81%aa%e3%81%ab%ef%bd%9e%e3%81%a6%e3%82%82-donna-ni-temo-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_113"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_42"
     },
     {
       "source_level": "N3",
       "ref_num": 21,
-      "romanized": "どうしても",
-      "japanese": "doushitemo",
+      "romanized": "doushitemo",
+      "japanese": "どうしても",
       "meaning": "no matter what; at any cost; after all ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a9%e3%81%86%e3%81%97%e3%81%a6%e3%82%82-doushitemo-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_114"
+      "status": "VOCAB_REFERENCE",
+      "notes": "Classified as vocabulary / conversational reference point",
+      "concept_id": "c_n3_doushitemo"
     },
     {
       "source_level": "N3",
       "ref_num": 22,
-      "romanized": "ふりをする",
-      "japanese": "furi o suru",
+      "romanized": "furi o suru",
+      "japanese": "ふりをする",
       "meaning": "to pretend; to act as if ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b5%e3%82%8a%e3%82%92%e3%81%99%e3%82%8b-furi-o-suru-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_115"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_94"
     },
     {
       "source_level": "N3",
       "ref_num": 23,
-      "romanized": "ふと",
-      "japanese": "futo",
+      "romanized": "futo",
+      "japanese": "ふと",
       "meaning": "suddenly; accidentally; unexpectedly; unintentionally ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b5%e3%81%a8-futo-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_116"
+      "concept_id": "c_n3_futo"
     },
     {
       "source_level": "N3",
       "ref_num": 24,
-      "romanized": "がち",
-      "japanese": "gachi",
+      "romanized": "gachi",
+      "japanese": "がち",
       "meaning": "tend to; tendency to; frequently; often; to do something easily",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8c%e3%81%a1-gachi-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_117"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_96"
     },
     {
       "source_level": "N3",
       "ref_num": 25,
-      "romanized": "がたい",
-      "japanese": "gatai",
+      "romanized": "gatai",
+      "japanese": "がたい",
       "meaning": "very difficult to; hard to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8c%e3%81%9f%e3%81%84-gatai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_118"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_11"
     },
     {
       "source_level": "N3",
       "ref_num": 26,
-      "romanized": "気味（ぎみ）",
-      "japanese": "gimi",
+      "romanized": "gimi",
+      "japanese": "気味（ぎみ）",
       "meaning": "-like; -looking; -looked; tending to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e6%b0%97%e5%91%b3-%e3%81%8e%e3%81%bf-gimi-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_119"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_97"
     },
     {
       "source_level": "N3",
       "ref_num": 27,
-      "romanized": "ごとに",
-      "japanese": "goto ni",
+      "romanized": "goto ni",
+      "japanese": "ごとに",
       "meaning": "each; every; at intervals of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%94%e3%81%a8%e3%81%ab-goto-ni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_120"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_67"
     },
     {
       "source_level": "N3",
       "ref_num": 28,
-      "romanized": "ほど",
-      "japanese": "hodo",
+      "romanized": "hodo",
+      "japanese": "ほど",
       "meaning": "degree; extent; bounds; upper limit",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e7%a8%8b-%e3%81%bb%e3%81%a9-hodo-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_121"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_51"
     },
     {
       "source_level": "N3",
       "ref_num": 29,
-      "romanized": "ほど～ない",
-      "japanese": "hodo~nai",
+      "romanized": "hodo~nai",
+      "japanese": "ほど～ない",
       "meaning": "is not as… as ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%bb%e3%81%a9%ef%bd%9e%e3%81%aa%e3%81%84-hodo-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_122"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_63"
     },
     {
       "source_level": "N3",
       "ref_num": 30,
-      "romanized": "一度に（いちどに）",
-      "japanese": "ichido ni",
+      "romanized": "ichido ni",
+      "japanese": "一度に（いちどに）",
       "meaning": "all at once",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e4%b8%80%e5%ba%a6%e3%81%ab-ichido-ni-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_123"
+      "concept_id": "c_n3_ichido_ni"
     },
     {
       "source_level": "N3",
       "ref_num": 31,
-      "romanized": "いくら～ても",
-      "japanese": "ikura~temo",
+      "romanized": "ikura~temo",
+      "japanese": "いくら～ても",
       "meaning": "no matter how ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%84%e3%81%8f%e3%82%89%ef%bd%9e%e3%81%a6%e3%82%82-ikura-temo-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_124"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_42"
     },
     {
       "source_level": "N3",
       "ref_num": 32,
-      "romanized": "一方だ（いっぽうだ）",
-      "japanese": "ippou da",
+      "romanized": "ippou da",
+      "japanese": "一方だ（いっぽうだ）",
       "meaning": "more and more; continue to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e4%b8%80%e6%96%b9%e3%81%a0-ippou-da-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_125"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_35"
     },
     {
       "source_level": "N3",
       "ref_num": 33,
-      "romanized": "一体（いったい）",
-      "japanese": "ittai",
+      "romanized": "ittai",
+      "japanese": "一体（いったい）",
       "meaning": "emphasis; what on earth; what in the world",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e4%b8%80%e4%bd%93-%e3%81%84%e3%81%a3%e3%81%9f%e3%81%84-ittai-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_126"
+      "concept_id": "c_n3_ittai"
     },
     {
       "source_level": "N3",
       "ref_num": 34,
-      "romanized": "じゃない",
-      "japanese": "janai",
+      "romanized": "janai",
+      "japanese": "じゃない",
       "meaning": "maybe; most likely; confirmation of information; express surprise towards listener",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%98%e3%82%83%e3%81%aa%e3%81%84-janai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_127"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N5 by easiest-level rule",
+      "concept_id": "c_n5_point_38"
     },
     {
       "source_level": "N3",
       "ref_num": 35,
-      "romanized": "か何か（かなにか）",
-      "japanese": "ka nani ka",
+      "romanized": "ka nani ka",
+      "japanese": "か何か（かなにか）",
       "meaning": "or something ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8b%e4%bd%95%e3%81%8b-ka-nani-ka-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_128"
+      "concept_id": "c_n3_ka_nani_ka"
     },
     {
       "source_level": "N3",
       "ref_num": 36,
-      "romanized": "かける",
-      "japanese": "kakeru",
+      "romanized": "kakeru",
+      "japanese": "かける",
       "meaning": "half-; not yet finished; in the middle of~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8b%e3%81%91%e3%82%8b-kakeru-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_129"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_100"
     },
     {
       "source_level": "N3",
       "ref_num": 37,
-      "romanized": "から〜にかけて",
-      "japanese": "kara~ni kakete",
+      "romanized": "kara~ni kakete",
+      "japanese": "から〜にかけて",
       "meaning": "through; from [A] to [B]",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8b%e3%82%89%e3%80%9c%e3%81%ab%e3%81%8b%e3%81%91%e3%81%a6-kara-ni-kakete-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_130"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_90"
     },
     {
       "source_level": "N3",
       "ref_num": 38,
-      "romanized": "代わりに（かわりに）",
-      "japanese": "kawari ni",
+      "romanized": "kawari ni",
+      "japanese": "代わりに（かわりに）",
       "meaning": "instead of; as a substitute for; in exchange for; in return for",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e4%bb%a3%e3%82%8f%e3%82%8a%e3%81%ab-%e3%81%8b%e3%82%8f%e3%82%8a%e3%81%ab-kawari-ni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_131"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_62"
     },
     {
       "source_level": "N3",
       "ref_num": 39,
-      "romanized": "結果（けっか）",
-      "japanese": "kekka",
+      "romanized": "kekka",
+      "japanese": "結果（けっか）",
       "meaning": "as a result of; after ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9f%e7%b5%90%e6%9e%9c-ta-kekka-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_132"
+      "concept_id": "c_n3_kekka"
     },
     {
       "source_level": "N3",
       "ref_num": 40,
-      "romanized": "結局（けっきょく）",
-      "japanese": "kekkyoku",
+      "romanized": "kekkyoku",
+      "japanese": "結局（けっきょく）",
       "meaning": "after all; eventually; in the end ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e7%b5%90%e5%b1%80%e3%81%af-kekkyoku-wa-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_133"
+      "concept_id": "c_n3_kekkyoku"
     },
     {
       "source_level": "N3",
       "ref_num": 41,
-      "romanized": "決して～ない（けっして～ない）",
-      "japanese": "kesshite~nai",
+      "romanized": "kesshite~nai",
+      "japanese": "決して～ない（けっして～ない）",
       "meaning": "never; by no means ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e6%b1%ba%e3%81%97%e3%81%a6%ef%bd%9e%e3%81%aa%e3%81%84-kesshite-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_134"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N5 by easiest-level rule",
+      "concept_id": "c_n5_point_44"
     },
     {
       "source_level": "N3",
       "ref_num": 42,
-      "romanized": "切れない（きれない）",
-      "japanese": "kirenai",
+      "romanized": "kirenai",
+      "japanese": "切れない（きれない）",
       "meaning": "unable to do; too much to finish/complete",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e5%88%87%e3%82%8c%e3%81%aa%e3%81%84-kirenai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_135"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_99"
     },
     {
       "source_level": "N3",
       "ref_num": 43,
-      "romanized": "きり",
-      "japanese": "kiri",
+      "romanized": "kiri",
+      "japanese": "きり",
       "meaning": "only; just; since; after ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8d%e3%82%8a-kiri-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_136"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_17"
     },
     {
       "source_level": "N3",
       "ref_num": 44,
-      "romanized": "切る（きる）",
-      "japanese": "kiru",
+      "romanized": "kiru",
+      "japanese": "切る（きる）",
       "meaning": "to do something completely to the end",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e5%88%87%e3%82%8b-kiru-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_137"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_99"
     },
     {
       "source_level": "N3",
       "ref_num": 45,
-      "romanized": "っけ",
-      "japanese": "kke",
+      "romanized": "kke",
+      "japanese": "っけ",
       "meaning": "a casual suffix to confirm something you are trying to remember",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a3%e3%81%91-kke-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_138"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_92"
     },
     {
       "source_level": "N3",
       "ref_num": 46,
-      "romanized": "込む（こむ）",
-      "japanese": "komu",
+      "romanized": "komu",
+      "japanese": "込む（こむ）",
       "meaning": "to do something for a long time or to move something inside",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e8%be%bc%e3%82%80-%e3%81%93%e3%82%80-komu-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_139"
+      "concept_id": "c_n3_komu"
     },
     {
       "source_level": "N3",
       "ref_num": 47,
-      "romanized": "こそ",
-      "japanese": "koso",
+      "romanized": "koso",
+      "japanese": "こそ",
       "meaning": "for sure (emphasize preceding word); precisely; definitely ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%93%e3%81%9d-koso-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_140"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_54"
     },
     {
       "source_level": "N3",
       "ref_num": 48,
-      "romanized": "こと",
-      "japanese": "koto",
+      "romanized": "koto",
+      "japanese": "こと",
       "meaning": "(must) do",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%93%e3%81%a8-koto-meaning-must-do/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_141"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_3"
     },
     {
       "source_level": "N3",
       "ref_num": 49,
-      "romanized": "ことから",
-      "japanese": "koto kara",
+      "romanized": "koto kara",
+      "japanese": "ことから",
       "meaning": "from the fact that ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%93%e3%81%a8%e3%81%8b%e3%82%89-koto-kara-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_142"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_5"
     },
     {
       "source_level": "N3",
       "ref_num": 50,
-      "romanized": "ことになっている",
-      "japanese": "koto ni natteiru",
+      "romanized": "koto ni natteiru",
+      "japanese": "ことになっている",
       "meaning": "expresses a standard, rule or expectation",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%93%e3%81%a8%e3%81%ab%e3%81%aa%e3%81%a3%e3%81%a6%e3%81%84%e3%82%8b-koto-ni-natteiru-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_143"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_31"
     },
     {
       "source_level": "N3",
       "ref_num": 51,
-      "romanized": "ことはない",
-      "japanese": "koto wa nai",
+      "romanized": "koto wa nai",
+      "japanese": "ことはない",
       "meaning": "there is no need to; (something) never happens; there is no possibility that ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%93%e3%81%a8%e3%81%af%e3%81%aa%e3%81%84-koto-wa-nai/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_144"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_29"
     },
     {
       "source_level": "N3",
       "ref_num": 52,
-      "romanized": "ことは～が",
-      "japanese": "koto wa~ga",
+      "romanized": "koto wa~ga",
+      "japanese": "ことは～が",
       "meaning": "although; but ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%93%e3%81%a8%e3%81%af%ef%bd%9e%e3%81%8c-koto-waga-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_145"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_6"
     },
     {
       "source_level": "N3",
       "ref_num": 53,
-      "romanized": "くらい / ぐらい",
-      "japanese": "kurai / gurai",
+      "romanized": "kurai / gurai",
+      "japanese": "くらい / ぐらい",
       "meaning": "approximately; about; around; to the extent ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8f%e3%82%89%e3%81%84-kurai-%e3%81%90%e3%82%89%e3%81%84-gurai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_146"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N5 by easiest-level rule",
+      "concept_id": "c_n5_point_2"
     },
     {
       "source_level": "N3",
       "ref_num": 54,
-      "romanized": "くせに",
-      "japanese": "kuse ni",
+      "romanized": "kuse ni",
+      "japanese": "くせに",
       "meaning": "and yet; though; in spite of; despite ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8f%e3%81%9b%e3%81%ab-kuse-ni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_147"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_89"
     },
     {
       "source_level": "N3",
       "ref_num": 55,
-      "romanized": "まるで",
-      "japanese": "maru de",
+      "romanized": "maru de",
+      "japanese": "まるで",
       "meaning": "as if; as though; just like ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%be%e3%82%8b%e3%81%a7-maru-de-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_148"
+      "concept_id": "c_n3_maru_de"
     },
     {
       "source_level": "N3",
       "ref_num": 56,
-      "romanized": "まさか",
-      "japanese": "masaka",
+      "romanized": "masaka",
+      "japanese": "まさか",
       "meaning": "there's no way; that's impossible; you must be joking",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%be%e3%81%95%e3%81%8b-masaka-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_149"
+      "status": "VOCAB_REFERENCE",
+      "notes": "Classified as vocabulary / conversational reference point",
+      "concept_id": "c_n3_masaka"
     },
     {
       "source_level": "N3",
       "ref_num": 57,
-      "romanized": "めったに～ない",
-      "japanese": "metta ni~nai",
+      "romanized": "metta ni~nai",
+      "japanese": "めったに～ない",
       "meaning": "hardly; rarely; seldom",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%81%e3%81%a3%e3%81%9f%e3%81%ab%ef%bd%9e%e3%81%aa%e3%81%84-metta-ni-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_150"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N5 by easiest-level rule",
+      "concept_id": "c_n5_point_44"
     },
     {
       "source_level": "N3",
       "ref_num": 58,
-      "romanized": "も～ば～も",
-      "japanese": "mo~ba~mo",
+      "romanized": "mo~ba~mo",
+      "japanese": "も～ば～も",
       "meaning": "and; also; as well; either/or; neither/nor",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%ef%bd%9e%e3%81%b0%ef%bd%9e%e3%82%82-mobamo-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_151"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_43"
     },
     {
       "source_level": "N3",
       "ref_num": 59,
-      "romanized": "もしかしたら",
-      "japanese": "moshika shitara",
+      "romanized": "moshika shitara",
+      "japanese": "もしかしたら",
       "meaning": "perhaps; maybe; perchance; by any chance ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e3%81%97%e3%81%8b%e3%81%97%e3%81%9f%e3%82%89-moshika-shitara-%e3%82%82%e3%81%97%e3%81%8b%e3%81%99%e3%82%8b%e3%81%a8-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_152"
+      "concept_id": "c_n3_moshika_shitara"
     },
     {
       "source_level": "N3",
       "ref_num": 60,
-      "romanized": "もしも〜たら",
-      "japanese": "moshimo~tara",
+      "romanized": "moshimo~tara",
+      "japanese": "もしも〜たら",
       "meaning": "if; in the case; supposing ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e3%81%97%e3%82%82%e3%80%9c%e3%81%9f%e3%82%89-moshimo-tara-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_153"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_40"
     },
     {
       "source_level": "N3",
       "ref_num": 61,
-      "romanized": "向け（むけ）",
-      "japanese": "muke",
+      "romanized": "muke",
+      "japanese": "向け（むけ）",
       "meaning": "intended for; aimed at ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e5%90%91%e3%81%91-muke-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_154"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_95"
     },
     {
       "source_level": "N3",
       "ref_num": 62,
-      "romanized": "向き（むき）",
-      "japanese": "muki",
+      "romanized": "muki",
+      "japanese": "向き（むき）",
       "meaning": "suitable for ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e5%90%91%e3%81%8d-muki-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_155"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_95"
     },
     {
       "source_level": "N3",
       "ref_num": 63,
-      "romanized": "むしろ",
-      "japanese": "mushiro",
+      "romanized": "mushiro",
+      "japanese": "むしろ",
       "meaning": "rather; instead; better ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%80%e3%81%97%e3%82%8d-mushiro-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_156"
+      "concept_id": "c_n3_mushiro"
     },
     {
       "source_level": "N3",
       "ref_num": 64,
-      "romanized": "ながらも",
-      "japanese": "nagara mo",
+      "romanized": "nagara mo",
+      "japanese": "ながらも",
       "meaning": "but; although; despite ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%aa%e3%81%8c%e3%82%89%e3%82%82-nagara-mo-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_157"
+      "concept_id": "c_n3_nagara_mo"
     },
     {
       "source_level": "N3",
       "ref_num": 65,
-      "romanized": "ないことはない",
-      "japanese": "nai koto wa nai",
+      "romanized": "nai koto wa nai",
+      "japanese": "ないことはない",
       "meaning": "can do; is not impossible to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%aa%e3%81%84%e3%81%93%e3%81%a8%e3%81%af%e3%81%aa%e3%81%84-nai-koto-wa-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_158"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_75"
     },
     {
       "source_level": "N3",
       "ref_num": 66,
-      "romanized": "ないと",
-      "japanese": "naito",
+      "romanized": "naito",
+      "japanese": "ないと",
       "meaning": "must do; unless/if you don't ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%aa%e3%81%84%e3%81%a8-naito-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_159"
+      "concept_id": "c_n3_naito"
     },
     {
       "source_level": "N3",
       "ref_num": 67,
-      "romanized": "なかなか",
-      "japanese": "nakanaka",
+      "romanized": "nakanaka",
+      "japanese": "なかなか",
       "meaning": "very; quite; pretty; rather; just not ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%aa%e3%81%8b%e3%81%aa%e3%81%8b-nakanaka-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_160"
+      "concept_id": "c_n3_nakanaka"
     },
     {
       "source_level": "N3",
       "ref_num": 68,
-      "romanized": "なんか / なんて / など",
-      "japanese": "nanka / nante / nado",
+      "romanized": "nanka / nante / nado",
+      "japanese": "なんか / なんて / など",
       "meaning": "give examples; show modesty; make light of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%aa%e3%82%93%e3%81%8b-nanka-%e3%81%aa%e3%82%93%e3%81%a8-nante-%e3%81%aa%e3%81%a9-nado-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_161"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_108"
     },
     {
       "source_level": "N3",
       "ref_num": 69,
-      "romanized": "直す（なおす）",
-      "japanese": "naosu",
+      "romanized": "naosu",
+      "japanese": "直す（なおす）",
       "meaning": "to do something again; to do over",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e7%9b%b4%e3%81%99-%e3%81%aa%e3%81%8a%e3%81%99-naosu-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_162"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_102"
     },
     {
       "source_level": "N3",
       "ref_num": 70,
-      "romanized": "なるべく",
-      "japanese": "naru beku",
+      "romanized": "naru beku",
+      "japanese": "なるべく",
       "meaning": "as much as possible",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%aa%e3%82%8b%e3%81%b9%e3%81%8f-naru-beku-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_163"
+      "concept_id": "c_n3_naru_beku"
     },
     {
       "source_level": "N3",
       "ref_num": 71,
-      "romanized": "なぜなら",
-      "japanese": "nazenara",
+      "romanized": "nazenara",
+      "japanese": "なぜなら",
       "meaning": "because; the reason is; if you want to know why",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%aa%e3%81%9c%e3%81%aa%e3%82%89-nazenara-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_164"
+      "concept_id": "c_n3_nazenara"
     },
     {
       "source_level": "N3",
       "ref_num": 72,
-      "romanized": "んだって",
-      "japanese": "ndatte",
+      "romanized": "ndatte",
+      "japanese": "んだって",
       "meaning": "I hear that; heard that ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%93%e3%81%a0%e3%81%a3%e3%81%a6-n-datte-tte-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_165"
+      "concept_id": "c_n3_ndatte"
     },
     {
       "source_level": "N3",
       "ref_num": 73,
-      "romanized": "に違いない（にちがいない）",
-      "japanese": "ni chigai nai",
+      "romanized": "ni chigai nai",
+      "japanese": "に違いない（にちがいない）",
       "meaning": "I’m sure/ certain; no doubt that ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e9%81%95%e3%81%84%e3%81%aa%e3%81%84-ni-chigai-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_166"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_5"
     },
     {
       "source_level": "N3",
       "ref_num": 74,
-      "romanized": "に反して（にはんして）",
-      "japanese": "ni hanshite",
+      "romanized": "ni hanshite",
+      "japanese": "に反して（にはんして）",
       "meaning": "against; contrary to; in contrast to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e5%8f%8d%e3%81%97%e3%81%a6-ni-hanshite-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_167"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_2"
     },
     {
       "source_level": "N3",
       "ref_num": 75,
-      "romanized": "にかけて",
-      "japanese": "ni kakete",
+      "romanized": "ni kakete",
+      "japanese": "にかけて",
       "meaning": "over (a period); through; concerning; regarding ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%8b%e3%81%91%e3%81%a6-ni-kakete-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_168"
+      "concept_id": "c_n3_ni_kakete"
     },
     {
       "source_level": "N3",
       "ref_num": 76,
-      "romanized": "に関する / に関して（にかんする / にかんして）",
-      "japanese": "ni kan suru / ni kan shite",
+      "romanized": "ni kan suru / ni kan shite",
+      "japanese": "に関する / に関して（にかんする / にかんして）",
       "meaning": "about; regarding; related to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e9%96%a2%e3%81%99%e3%82%8b-%e3%81%ab%e9%96%a2%e3%81%97%e3%81%a6-ni-kan-suru-ni-kan-shite-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_169"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_59"
     },
     {
       "source_level": "N3",
       "ref_num": 77,
-      "romanized": "にかわって / にかわり",
-      "japanese": "ni kawatte / ni kawari",
+      "romanized": "ni kawatte / ni kawari",
+      "japanese": "にかわって / にかわり",
       "meaning": "instead of; replacing; on behalf of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%8b%e3%82%8f%e3%81%a3%e3%81%a6-ni-kawatte-%e3%81%ab%e3%81%8b%e3%82%8f%e3%82%8a-ni-kawari-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_170"
+      "concept_id": "c_n3_ni_kawatte"
     },
     {
       "source_level": "N3",
       "ref_num": 78,
-      "romanized": "に比べて（にくらべて）",
-      "japanese": "ni kurabete",
+      "romanized": "ni kurabete",
+      "japanese": "に比べて（にくらべて）",
       "meaning": "compared to; in comparison to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e6%af%94%e3%81%b9%e3%81%a6-ni-kurabete-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_171"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_60"
     },
     {
       "source_level": "N3",
       "ref_num": 79,
-      "romanized": "に慣れる（になれる）",
-      "japanese": "ni nareru",
+      "romanized": "ni nareru",
+      "japanese": "に慣れる（になれる）",
       "meaning": "to be used to something",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e6%85%a3%e3%82%8c%e3%82%8b-%e3%81%ab%e3%81%aa%e3%82%8c%e3%82%8b-ni-nareru-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_172"
+      "concept_id": "c_n3_ni_nareru"
     },
     {
       "source_level": "N3",
       "ref_num": 80,
-      "romanized": "において / における",
-      "japanese": "ni oite / ni okeru",
+      "romanized": "ni oite / ni okeru",
+      "japanese": "において / における",
       "meaning": "in; at (place); regarding; as for; in relation to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%8a%e3%81%84%e3%81%a6-ni-oite-%e3%81%ab%e3%81%8a%e3%81%91%e3%82%8b-ni-okeru-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_173"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_14"
     },
     {
       "source_level": "N3",
       "ref_num": 81,
-      "romanized": "にしたがって",
-      "japanese": "ni shitagatte",
+      "romanized": "ni shitagatte",
+      "japanese": "にしたがって",
       "meaning": "as; therefore; in accordance with; according to; consequently ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%97%e3%81%9f%e3%81%8c%e3%81%a3%e3%81%a6-ni-shitagatte-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_174"
+      "concept_id": "c_n3_ni_shitagatte"
     },
     {
       "source_level": "N3",
       "ref_num": 82,
-      "romanized": "にしても",
-      "japanese": "ni shite mo",
+      "romanized": "ni shite mo",
+      "japanese": "にしても",
       "meaning": "even if; even though; regardless of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%97%e3%81%a6%e3%82%82-ni-shite-mo-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_175"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_58"
     },
     {
       "source_level": "N3",
       "ref_num": 83,
-      "romanized": "にしては",
-      "japanese": "ni shite wa",
+      "romanized": "ni shite wa",
+      "japanese": "にしては",
       "meaning": "for; considering it’s (something or someone)",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%97%e3%81%a6%e3%81%af-ni-shite-wa-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_176"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_57"
     },
     {
       "source_level": "N3",
       "ref_num": 84,
-      "romanized": "に対して（にたいして）",
-      "japanese": "ni taishite",
+      "romanized": "ni taishite",
+      "japanese": "に対して（にたいして）",
       "meaning": "towards; against; regarding; in contrast with ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e5%af%be%e3%81%97%e3%81%a6-%e3%81%ab%e3%81%9f%e3%81%84%e3%81%97%e3%81%a6-ni-taishite-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_177"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_37"
     },
     {
       "source_level": "N3",
       "ref_num": 85,
-      "romanized": "にとって",
-      "japanese": "ni totte",
+      "romanized": "ni totte",
+      "japanese": "にとって",
       "meaning": "to; for; concerning; as far as ... is concerned; regarding ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%a8%e3%81%a3%e3%81%a6-ni-totte-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_178"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_56"
     },
     {
       "source_level": "N3",
       "ref_num": 86,
-      "romanized": "について",
-      "japanese": "ni tsuite",
+      "romanized": "ni tsuite",
+      "japanese": "について",
       "meaning": "concerning; regarding; about; on ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%a4%e3%81%84%e3%81%a6-ni-tsuite-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_179"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_38"
     },
     {
       "source_level": "N3",
       "ref_num": 87,
-      "romanized": "につれて",
-      "japanese": "ni tsurete",
+      "romanized": "ni tsurete",
+      "japanese": "につれて",
       "meaning": "as; in proportion to; with; as… then ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%a4%e3%82%8c%e3%81%a6-ni-tsurete-%e3%81%ab%e3%81%a4%e3%82%8c-ni-tsure-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_180"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_64"
     },
     {
       "source_level": "N3",
       "ref_num": 88,
-      "romanized": "には",
-      "japanese": "ni wa",
+      "romanized": "ni wa",
+      "japanese": "には",
       "meaning": "for the purpose of; in order to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%af-ni-wa-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_181"
+      "concept_id": "c_n3_ni_wa"
     },
     {
       "source_level": "N3",
       "ref_num": 89,
-      "romanized": "によると /によれば",
-      "japanese": "ni yoru to/ni yoreba",
+      "romanized": "ni yoru to/ni yoreba",
+      "japanese": "によると /によれば",
       "meaning": "according to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%82%88%e3%82%8b%e3%81%a8-%e3%81%ab%e3%82%88%e3%82%8c%e3%81%b0-ni-yoru-to-ni-yoreba-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_182"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_40"
     },
     {
       "source_level": "N3",
       "ref_num": 90,
-      "romanized": "によって / による",
-      "japanese": "ni yotte / ni yoru",
+      "romanized": "ni yotte / ni yoru",
+      "japanese": "によって / による",
       "meaning": "by means of; due to; owing to; because of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%82%88%e3%81%a3%e3%81%a6-%e3%81%ab%e3%82%88%e3%82%8b-ni-yotte-ni-yoru-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_183"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_39"
     },
     {
       "source_level": "N3",
       "ref_num": 91,
-      "romanized": "のでしょうか",
-      "japanese": "no deshou ka",
+      "romanized": "no deshou ka",
+      "japanese": "のでしょうか",
       "meaning": "ask a question in a polite way",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ae%e3%81%a7%e3%81%97%e3%82%87%e3%81%86%e3%81%8b-no-deshou-ka-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_184"
+      "concept_id": "c_n3_no_deshou_ka"
     },
     {
       "source_level": "N3",
       "ref_num": 92,
-      "romanized": "を中心に（をちゅうしんに）",
-      "japanese": "o chuushin ni",
+      "romanized": "o chuushin ni",
+      "japanese": "を中心に（をちゅうしんに）",
       "meaning": "focused on; centered on",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%92%e4%b8%ad%e5%bf%83%e3%81%ab-o-chuushin-ni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_185"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_15"
     },
     {
       "source_level": "N3",
       "ref_num": 93,
-      "romanized": "をはじめ",
-      "japanese": "o hajime",
+      "romanized": "o hajime",
+      "japanese": "をはじめ",
       "meaning": "for example; starting with ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%92%e3%81%af%e3%81%98%e3%82%81%e3%81%a8%e3%81%99%e3%82%8b-o-hajime-to-suru-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_186"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_16"
     },
     {
       "source_level": "N3",
       "ref_num": 94,
-      "romanized": "を込めて（をこめて）",
-      "japanese": "o komete",
+      "romanized": "o komete",
+      "japanese": "を込めて（をこめて）",
       "meaning": "filled with; full of",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%92%e8%be%bc%e3%82%81%e3%81%a6-%e3%82%92%e3%81%93%e3%82%81%e3%81%a6-o-komete-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_187"
+      "concept_id": "c_n3_o_komete"
     },
     {
       "source_level": "N3",
       "ref_num": 95,
-      "romanized": "を通じて / を通して（をつうじて / をとおして）",
-      "japanese": "o tsuujite / o tooshite",
+      "romanized": "o tsuujite / o tooshite",
+      "japanese": "を通じて / を通して（をつうじて / をとおして）",
       "meaning": "through; via; throughout; by ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%92%e9%80%9a%e3%81%98%e3%81%a6-%e3%82%92%e9%80%9a%e3%81%97%e3%81%a6-o-tsuujite-o-tooshite-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_188"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_3"
     },
     {
       "source_level": "N3",
       "ref_num": 96,
-      "romanized": "おかげで",
-      "japanese": "okage de",
+      "romanized": "okage de",
+      "japanese": "おかげで",
       "meaning": "thanks to; owing to; because of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8a%e3%81%8b%e3%81%92%e3%81%a7-okage-de-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_189"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_70"
     },
     {
       "source_level": "N3",
       "ref_num": 97,
-      "romanized": "っぱなし",
-      "japanese": "ppanashi",
+      "romanized": "ppanashi",
+      "japanese": "っぱなし",
       "meaning": "leaving (something) on; leaving (something) still in use",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a3%e3%81%b1%e3%81%aa%e3%81%97-ppanashi-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_190"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_10"
     },
     {
       "source_level": "N3",
       "ref_num": 98,
-      "romanized": "っぽい",
-      "japanese": "ppoi",
+      "romanized": "ppoi",
+      "japanese": "っぽい",
       "meaning": "seems like; somewhat; -ish; easily does; often does ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a3%e3%81%bd%e3%81%84-ppoi-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_191"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_44"
     },
     {
       "source_level": "N3",
       "ref_num": 99,
-      "romanized": "さえ",
-      "japanese": "sae",
+      "romanized": "sae",
+      "japanese": "さえ",
       "meaning": "even; so much as; not even",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%95%e3%81%88-sae-%e3%81%a7%e3%81%95%e3%81%88%e3%82%82-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_192"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_52"
     },
     {
       "source_level": "N3",
       "ref_num": 100,
-      "romanized": "さえ～ば",
-      "japanese": "sae~ba",
+      "romanized": "sae~ba",
+      "japanese": "さえ～ば",
       "meaning": "if only; as long as ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%95%e3%81%88%ef%bd%9e%e3%81%b0-sae-ba-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_193"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_53"
     },
     {
       "source_level": "N3",
       "ref_num": 101,
-      "romanized": "際に（さいに）",
-      "japanese": "sai ni",
+      "romanized": "sai ni",
+      "japanese": "際に（さいに）",
       "meaning": "when; at the time of; in the case of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e9%9a%9b%e3%81%ab-sai-ni-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_194"
+      "concept_id": "c_n3_sai_ni"
     },
     {
       "source_level": "N3",
       "ref_num": 102,
-      "romanized": "最中に（さいちゅうに）",
-      "japanese": "saichuu ni",
+      "romanized": "saichuu ni",
+      "japanese": "最中に（さいちゅうに）",
       "meaning": "while; during; in the middle of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e7%9c%9f%e3%81%a3%e6%9c%80%e4%b8%ad%e3%81%ab-%e3%81%be%e3%81%a3%e3%81%95%e3%81%84%e3%81%a1%e3%82%85%e3%81%86%e3%81%ab-saichuu-ni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_195"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_68"
     },
     {
       "source_level": "N3",
       "ref_num": 103,
-      "romanized": "さらに",
-      "japanese": "sara ni",
+      "romanized": "sara ni",
+      "japanese": "さらに",
       "meaning": "furthermore; again; more and more ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%95%e3%82%89%e3%81%ab-sara-ni-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_196"
+      "concept_id": "c_n3_sara_ni"
     },
     {
       "source_level": "N3",
       "ref_num": 104,
-      "romanized": "さて",
-      "japanese": "sate",
+      "romanized": "sate",
+      "japanese": "さて",
       "meaning": "conjunction: well; now; then ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%95%e3%81%a6-sate-meaning/",
       "status": "VOCAB_REFERENCE",
       "notes": "Classified as vocabulary / conversational reference point",
-      "concept_id": "c_n3_point_197"
+      "concept_id": "c_n3_sate"
     },
     {
       "source_level": "N3",
       "ref_num": 105,
-      "romanized": "せいで",
-      "japanese": "sei de",
+      "romanized": "sei de",
+      "japanese": "せいで",
       "meaning": "because of; due to; as a result of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9b%e3%81%84%e3%81%a7-sei-de-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_198"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_71"
     },
     {
       "source_level": "N3",
       "ref_num": 106,
-      "romanized": "せいぜい",
-      "japanese": "seizei",
+      "romanized": "seizei",
+      "japanese": "せいぜい",
       "meaning": "at the most; at best; to the utmost",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9b%e3%81%84%e3%81%9c%e3%81%84-seizei-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_199"
+      "concept_id": "c_n3_seizei"
     },
     {
       "source_level": "N3",
       "ref_num": 107,
-      "romanized": "しばらく",
-      "japanese": "shibaraku",
+      "romanized": "shibaraku",
+      "japanese": "しばらく",
       "meaning": "for a moment; for a while; for the time being",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%97%e3%81%b0%e3%82%89%e3%81%8f-shibaraku-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_200"
+      "concept_id": "c_n3_shibaraku"
     },
     {
       "source_level": "N3",
       "ref_num": 108,
-      "romanized": "しかない",
-      "japanese": "shikanai",
+      "romanized": "shikanai",
+      "japanese": "しかない",
       "meaning": "have no choice but ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%97%e3%81%8b%e3%81%aa%e3%81%84-shika-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_201"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_11"
     },
     {
       "source_level": "N3",
       "ref_num": 109,
-      "romanized": "そのために",
-      "japanese": "sono tame ni",
+      "romanized": "sono tame ni",
+      "japanese": "そのために",
       "meaning": "hence; for that reason; because of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9d%e3%81%ae%e7%82%ba-%e3%81%9d%e3%81%ae%e3%81%9f%e3%82%81-sono-tame-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_202"
+      "concept_id": "c_n3_sono_tame_ni"
     },
     {
       "source_level": "N3",
       "ref_num": 110,
-      "romanized": "それとも",
-      "japanese": "soretomo",
+      "romanized": "soretomo",
+      "japanese": "それとも",
       "meaning": "or; or else ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9d%e3%82%8c%e3%81%a8%e3%82%82-soretomo-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_203"
+      "concept_id": "c_n3_soretomo"
     },
     {
       "source_level": "N3",
       "ref_num": 111,
-      "romanized": "そうもない /そうにない",
-      "japanese": "sou mo nai /sou ni nai",
+      "romanized": "sou mo nai /sou ni nai",
+      "japanese": "そうもない /そうにない",
       "meaning": "very unlikely to; showing no signs of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9d%e3%81%86%e3%82%82%e3%81%aa%e3%81%84-sou-mo-nai-%e3%81%9d%e3%81%86%e3%81%ab%e3%81%aa%e3%81%84-sou-ni-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_204"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_34"
     },
     {
       "source_level": "N3",
       "ref_num": 112,
-      "romanized": "すでに",
-      "japanese": "sude ni",
+      "romanized": "sude ni",
+      "japanese": "すでに",
       "meaning": "something has already been done/taken place; is already the case",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%99%e3%81%a7%e3%81%ab-sude-ni-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_205"
+      "concept_id": "c_n3_sude_ni"
     },
     {
       "source_level": "N3",
       "ref_num": 113,
-      "romanized": "すなわち",
-      "japanese": "sunawachi",
+      "romanized": "sunawachi",
+      "japanese": "すなわち",
       "meaning": "in other words; namely ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e5%8d%b3%e3%81%a1-%e3%81%99%e3%81%aa%e3%82%8f%e3%81%a1-sunawachi-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_206"
+      "concept_id": "c_n3_sunawachi"
     },
     {
       "source_level": "N3",
       "ref_num": 114,
-      "romanized": "数量 + は（すうりょう + は）",
-      "japanese": "suuryou + wa",
+      "romanized": "suuryou + wa",
+      "japanese": "数量 + は（すうりょう + は）",
       "meaning": "at least ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e6%95%b0%e9%87%8f-%e3%81%af-suuryou-wa-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_207"
+      "concept_id": "c_n3_suuryou_wa"
     },
     {
       "source_level": "N3",
       "ref_num": 115,
-      "romanized": "たものだ",
-      "japanese": "ta mono da",
+      "romanized": "ta mono da",
+      "japanese": "たものだ",
       "meaning": "used to do; would often do",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9f%e3%82%82%e3%81%ae%e3%81%a0-ta-mono-da-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_208"
+      "concept_id": "c_n3_ta_mono_da"
     },
     {
       "source_level": "N3",
       "ref_num": 116,
-      "romanized": "たとたん",
-      "japanese": "ta totan",
+      "romanized": "ta totan",
+      "japanese": "たとたん",
       "meaning": "as soon as; just as ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9f%e3%81%a8%e3%81%9f%e3%82%93-ta-totan-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_209"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_72"
     },
     {
       "source_level": "N3",
       "ref_num": 117,
-      "romanized": "たびに",
-      "japanese": "tabi ni",
+      "romanized": "tabi ni",
+      "japanese": "たびに",
       "meaning": "whenever; every time ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9f%e3%81%b3%e3%81%ab-tabi-ni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_210"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_66"
     },
     {
       "source_level": "N3",
       "ref_num": 118,
-      "romanized": "ために",
-      "japanese": "tame ni",
+      "romanized": "tame ni",
+      "japanese": "ために",
       "meaning": "for; in order to; for the benefit of; because of; as a result of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9f%e3%82%81%e3%81%ab-tame-ni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_211"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_44"
     },
     {
       "source_level": "N3",
       "ref_num": 119,
-      "romanized": "確かに（たしかに）",
-      "japanese": "tashika ni",
+      "romanized": "tashika ni",
+      "japanese": "確かに（たしかに）",
       "meaning": "surely, certainly ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e7%a2%ba%e3%81%8b%e3%81%ab-tashika-ni-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_212"
+      "concept_id": "c_n3_tashika_ni"
     },
     {
       "source_level": "N3",
       "ref_num": 120,
-      "romanized": "たて",
-      "japanese": "tate",
+      "romanized": "tate",
+      "japanese": "たて",
       "meaning": "just done; freshly done; newly done",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9f%e3%81%a6-tate-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_213"
+      "concept_id": "c_n3_tate"
     },
     {
       "source_level": "N3",
       "ref_num": 121,
-      "romanized": "たとえ～ても",
-      "japanese": "tatoe~temo",
+      "romanized": "tatoe~temo",
+      "japanese": "たとえ～ても",
       "meaning": "even if… is the case",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9f%e3%81%a8%e3%81%88%ef%bd%9e%e3%81%a6%e3%82%82-tatoe-temo-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_214"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_20"
     },
     {
       "source_level": "N3",
       "ref_num": 122,
-      "romanized": "例えば（たとえば）",
-      "japanese": "tatoeba",
+      "romanized": "tatoeba",
+      "japanese": "例えば（たとえば）",
       "meaning": "for example; for instance ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e4%be%8b%e3%81%88%e3%81%b0-%e3%81%9f%e3%81%a8%e3%81%88%e3%81%b0-tatoeba-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_215"
+      "concept_id": "c_n3_tatoeba"
     },
     {
       "source_level": "N3",
       "ref_num": 123,
-      "romanized": "たって",
-      "japanese": "tatte",
+      "romanized": "tatte",
+      "japanese": "たって",
       "meaning": "even if; even though; no matter how ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9f%e3%81%a3%e3%81%a6-tatte-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_216"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_74"
     },
     {
       "source_level": "N3",
       "ref_num": 124,
-      "romanized": "てばかりいる",
-      "japanese": "te bakari iru",
+      "romanized": "te bakari iru",
+      "japanese": "てばかりいる",
       "meaning": "only; nothing but ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%81%b0%e3%81%8b%e3%82%8a%e3%81%84%e3%82%8b-te-bakari-iru-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_217"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_79"
     },
     {
       "source_level": "N3",
       "ref_num": 125,
-      "romanized": "てごらん",
-      "japanese": "te goran",
+      "romanized": "te goran",
+      "japanese": "てごらん",
       "meaning": "(please) try to; (please) look",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%81%94%e3%82%89%e3%82%93-te-goran-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_218"
+      "concept_id": "c_n3_te_goran"
     },
     {
       "source_level": "N3",
       "ref_num": 126,
-      "romanized": "てはじめて",
-      "japanese": "te hajimete",
+      "romanized": "te hajimete",
+      "japanese": "てはじめて",
       "meaning": "not until; only after [x] did I",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%81%af%e3%81%98%e3%82%81%e3%81%a6-te-hajimete-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_219"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_78"
     },
     {
       "source_level": "N3",
       "ref_num": 127,
-      "romanized": "てからでないと",
-      "japanese": "te kara de nai to",
+      "romanized": "te kara de nai to",
+      "japanese": "てからでないと",
       "meaning": "must first do; cannot do without first doing ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%81%8b%e3%82%89%e3%81%a7%e3%81%aa%e3%81%84%e3%81%a8-te-kara-de-nai-to-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_220"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_13"
     },
     {
       "source_level": "N3",
       "ref_num": 128,
-      "romanized": "てしょうがない・てしかたがない",
-      "japanese": "te shou ga nai/te shikata ga nai",
+      "romanized": "te shou ga nai/te shikata ga nai",
+      "japanese": "てしょうがない・てしかたがない",
       "meaning": "can't help but; very; extremely ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%81%97%e3%82%87%e3%81%86%e3%81%8c%e3%81%aa%e3%81%84-te-shou-ga-nai-%e3%81%a6%e4%bb%95%e6%96%b9%e3%81%8c%e3%81%aa%e3%81%84-shikata-ga-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_221"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_76"
     },
     {
       "source_level": "N3",
       "ref_num": 129,
-      "romanized": "て済む（てすむ）",
-      "japanese": "te sumu",
+      "romanized": "te sumu",
+      "japanese": "て済む（てすむ）",
       "meaning": "sufficient by; no problem to; resolve by ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e6%b8%88%e3%82%80-te-sumu-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_222"
+      "concept_id": "c_n3_te_sumu"
     },
     {
       "source_level": "N3",
       "ref_num": 130,
-      "romanized": "てはいけないから",
-      "japanese": "te wa ikenai kara",
+      "romanized": "te wa ikenai kara",
+      "japanese": "てはいけないから",
       "meaning": "in order to not~; to prevent a negative situation",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%81%af%e3%81%84%e3%81%91%e3%81%aa%e3%81%84%e3%81%8b%e3%82%89-te-wa-ikenai-kara-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_223"
+      "concept_id": "c_n3_te_wa_ikenai_kara"
     },
     {
       "source_level": "N3",
       "ref_num": 131,
-      "romanized": "ている場合じゃない（ているばあいじゃない）",
-      "japanese": "teiru baai janai",
+      "romanized": "teiru baai janai",
+      "japanese": "ている場合じゃない（ているばあいじゃない）",
       "meaning": "this is no time to be doing ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%81%84%e3%82%8b%e5%a0%b4%e5%90%88%e3%81%98%e3%82%83%e3%81%aa%e3%81%84-teiru-baai-janai-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_224"
+      "concept_id": "c_n3_teiru_baai_janai"
     },
     {
       "source_level": "N3",
       "ref_num": 132,
-      "romanized": "的（てき）",
-      "japanese": "teki",
+      "romanized": "teki",
+      "japanese": "的（てき）",
       "meaning": "change noun into na-adjective or adverb",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e7%9a%84-%e3%81%a6%e3%81%8d-teki-meaning/",
-      "status": "VOCAB_REFERENCE",
-      "notes": "Classified as vocabulary / conversational reference point",
-      "concept_id": "c_n3_point_225"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_45"
     },
     {
       "source_level": "N3",
       "ref_num": 133,
-      "romanized": "ても始まらない（てもはじまらない）",
-      "japanese": "temo hajimaranai",
+      "romanized": "temo hajimaranai",
+      "japanese": "ても始まらない（てもはじまらない）",
       "meaning": "even if you... it’s no use; there is no point to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%82%82%e5%a7%8b%e3%81%be%e3%82%89%e3%81%aa%e3%81%84-temo-hajimaranai-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_226"
+      "concept_id": "c_n3_temo_hajimaranai"
     },
     {
       "source_level": "N3",
       "ref_num": 134,
-      "romanized": "ても構わない（てもかまわない）",
-      "japanese": "temo kamawanai",
+      "romanized": "temo kamawanai",
+      "japanese": "ても構わない（てもかまわない）",
       "meaning": "it doesn't matter if ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%82%82%e3%81%8b%e3%81%be%e3%82%8f%e3%81%aa%e3%81%84-temo-kamawanai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_227"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_74"
     },
     {
       "source_level": "N3",
       "ref_num": 135,
-      "romanized": "てもしょうがない / てもしかたがない",
-      "japanese": "temo shou ga nai / temo shikata ga nai",
+      "romanized": "temo shou ga nai / temo shikata ga nai",
+      "japanese": "てもしょうがない / てもしかたがない",
       "meaning": "there's no point to~; it's no use to~; it cannot be helped",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%82%82%e3%81%97%e3%82%87%e3%81%86%e3%81%8c%e3%81%aa%e3%81%84%e3%83%bb%e3%81%a6%e3%82%82%e4%bb%95%e6%96%b9%e3%81%8c%e3%81%aa%e3%81%84-temo-shou-ga-nai-temo-shikata-ga-nai-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_228"
+      "concept_id": "c_n3_temo_shou_ga_nai"
     },
     {
       "source_level": "N3",
       "ref_num": 136,
-      "romanized": "と言えば（といえば）",
-      "japanese": "to ieba",
+      "romanized": "to ieba",
+      "japanese": "と言えば（といえば）",
       "meaning": "speaking of; when you talk of; when you say; if it were the case that ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e8%a8%80%e3%81%88%e3%81%b0-%e3%81%a8%e3%81%84%e3%81%88%e3%81%b0-to-ieba-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_229"
+      "concept_id": "c_n3_to_ieba"
     },
     {
       "source_level": "N3",
       "ref_num": 137,
-      "romanized": "といい / たらいい",
-      "japanese": "to ii / tara ii",
+      "romanized": "to ii / tara ii",
+      "japanese": "といい / たらいい",
       "meaning": "it would be nice if; should; I hope ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%84%e3%81%84-to-ii-%e3%81%9f%e3%82%89%e3%81%84%e3%81%84-tara-ii-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_230"
+      "concept_id": "c_n3_to_ii"
     },
     {
       "source_level": "N3",
       "ref_num": 138,
-      "romanized": "といっても",
-      "japanese": "to ittemo",
+      "romanized": "to ittemo",
+      "japanese": "といっても",
       "meaning": "although I say; although one might say ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%84%e3%81%a3%e3%81%a6%e3%82%82-to-ittemo-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_231"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_19"
     },
     {
       "source_level": "N3",
       "ref_num": 139,
-      "romanized": "ということだ",
-      "japanese": "to iu koto da",
+      "romanized": "to iu koto da",
+      "japanese": "ということだ",
       "meaning": "I heard; it means that; in other words ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%84%e3%81%86%e3%81%93%e3%81%a8%e3%81%a0-to-iu-koto-da-%e3%81%a8%e3%81%ae%e3%81%93%e3%81%a8%e3%81%a0-to-no-koto-da-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_232"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_85"
     },
     {
       "source_level": "N3",
       "ref_num": 140,
-      "romanized": "というのは",
-      "japanese": "to iu nowa",
+      "romanized": "to iu nowa",
+      "japanese": "というのは",
       "meaning": "this means; the meaning of … is; because; that is to say ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%84%e3%81%86%e3%81%ae%e3%81%af-to-iu-nowa-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_233"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_86"
     },
     {
       "source_level": "N3",
       "ref_num": 141,
-      "romanized": "と言うと（というと）",
-      "japanese": "to iu to",
+      "romanized": "to iu to",
+      "japanese": "と言うと（というと）",
       "meaning": "speaking of; when you talk of; when you say ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e8%a8%80%e3%81%86%e3%81%a8-%e3%81%a8%e3%81%84%e3%81%86%e3%81%a8-to-iuto-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_234"
+      "concept_id": "c_n3_to_iu_to"
     },
     {
       "source_level": "N3",
       "ref_num": 142,
-      "romanized": "というより",
-      "japanese": "to iu yori",
+      "romanized": "to iu yori",
+      "japanese": "というより",
       "meaning": "rather than ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%84%e3%81%86%e3%82%88%e3%82%8a-to-iu-yori-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_235"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_87"
     },
     {
       "source_level": "N3",
       "ref_num": 143,
-      "romanized": "とみえる / とみえて",
-      "japanese": "to mieru / to miete",
+      "romanized": "to mieru / to miete",
+      "japanese": "とみえる / とみえて",
       "meaning": "it seems that ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%bf%e3%81%88%e3%81%a6-miete-%e3%81%a8%e3%81%bf%e3%81%88%e3%82%8b-to-mieru-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_236"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point"
     },
     {
       "source_level": "N3",
       "ref_num": 144,
-      "romanized": "とすれば・としたら・とすると",
-      "japanese": "to sureba / to shitara / to suru to",
+      "romanized": "to sureba / to shitara / to suru to",
+      "japanese": "とすれば・としたら・とすると",
       "meaning": "in the case of~; assuming~; if A then B",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%99%e3%82%8c%e3%81%b0-%e3%81%a8%e3%81%97%e3%81%9f%e3%82%89-%e3%81%a8%e3%81%99%e3%82%8b%e3%81%a8-sureba-shitara-suru-to-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_237"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_82"
     },
     {
       "source_level": "N3",
       "ref_num": 145,
-      "romanized": "と共に（とともに）",
-      "japanese": "to tomo ni",
+      "romanized": "to tomo ni",
+      "japanese": "と共に（とともに）",
       "meaning": "together with; at the same time as; as well as ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e5%85%b1%e3%81%ab-to-tomo-ni-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_238"
+      "concept_id": "c_n3_to_tomo_ni"
     },
     {
       "source_level": "N3",
       "ref_num": 146,
-      "romanized": "途中で/途中に（とちゅうで/とちゅうに）",
-      "japanese": "tochuu de / tochuu ni",
+      "romanized": "tochuu de / tochuu ni",
+      "japanese": "途中で/途中に（とちゅうで/とちゅうに）",
       "meaning": "on the way; in the middle of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e9%80%94%e4%b8%ad%e3%81%a7-%e9%80%94%e4%b8%ad%e3%81%ab-tochuu-de-tochuu-ni-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_239"
+      "concept_id": "c_n3_tochuu_de"
     },
     {
       "source_level": "N3",
       "ref_num": 147,
-      "romanized": "ところで",
-      "japanese": "tokoro de",
+      "romanized": "tokoro de",
+      "japanese": "ところで",
       "meaning": "by the way ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%93%e3%82%8d%e3%81%a7-tokoro-de-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_240"
+      "status": "VOCAB_REFERENCE",
+      "notes": "Classified as vocabulary / conversational reference point",
+      "concept_id": "c_n3_tokoro_de"
     },
     {
       "source_level": "N3",
       "ref_num": 148,
-      "romanized": "ところが",
-      "japanese": "tokoro ga",
+      "romanized": "tokoro ga",
+      "japanese": "ところが",
       "meaning": "even so; however; even though ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%93%e3%82%8d%e3%81%8c-tokoro-ga-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_241"
+      "status": "VOCAB_REFERENCE",
+      "notes": "Classified as vocabulary / conversational reference point",
+      "concept_id": "c_n3_tokoro_ga"
     },
     {
       "source_level": "N3",
       "ref_num": 149,
-      "romanized": "とおりに",
-      "japanese": "toori ni",
+      "romanized": "toori ni",
+      "japanese": "とおりに",
       "meaning": "in the same way as; in the way; as ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%8a%e3%82%8a%e3%81%ab-toori-ni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_242"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_107"
     },
     {
       "source_level": "N3",
       "ref_num": 150,
-      "romanized": "通す（とおす）",
-      "japanese": "toosu",
+      "romanized": "toosu",
+      "japanese": "通す（とおす）",
       "meaning": "to do until the end; to continually do; through ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e9%80%9a%e3%81%99-%e3%81%a8%e3%81%8a%e3%81%99-toosu-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_243"
+      "concept_id": "c_n3_toosu"
     },
     {
       "source_level": "N3",
       "ref_num": 151,
-      "romanized": "として",
-      "japanese": "toshite",
+      "romanized": "toshite",
+      "japanese": "として",
       "meaning": "as; in the role of ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%97%e3%81%a6-toshite-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_244"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_55"
     },
     {
       "source_level": "N3",
       "ref_num": 152,
-      "romanized": "とても～ない",
-      "japanese": "totemo~nai",
+      "romanized": "totemo~nai",
+      "japanese": "とても～ない",
       "meaning": "cannot possibly be; hardly ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%a6%e3%82%82%ef%bd%9e%e3%81%aa%e3%81%84-totemo-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_245"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N5 by easiest-level rule",
+      "concept_id": "c_n5_totemo"
     },
     {
       "source_level": "N3",
       "ref_num": 153,
-      "romanized": "とは限らない（とはかぎらない）",
-      "japanese": "towa kagiranai",
+      "romanized": "towa kagiranai",
+      "japanese": "とは限らない（とはかぎらない）",
       "meaning": "not necessarily so; is not always true",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%af%e9%99%90%e3%82%89%e3%81%aa%e3%81%84-towa-kagiranai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_246"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_18"
     },
     {
       "source_level": "N3",
       "ref_num": 154,
-      "romanized": "つい",
-      "japanese": "tsui",
+      "romanized": "tsui",
+      "japanese": "つい",
       "meaning": "accidentally; unintentionally; by mistake",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a4%e3%81%84-tsui-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_247"
+      "concept_id": "c_n3_tsui"
     },
     {
       "source_level": "N3",
       "ref_num": 155,
-      "romanized": "ついに",
-      "japanese": "tsui ni",
+      "romanized": "tsui ni",
+      "japanese": "ついに",
       "meaning": "finally; at last; in the end ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a4%e3%81%84%e3%81%ab-tsui-ni-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_248"
+      "concept_id": "c_n3_tsui_ni"
     },
     {
       "source_level": "N3",
       "ref_num": 156,
-      "romanized": "ついでに",
-      "japanese": "tsuide ni",
+      "romanized": "tsuide ni",
+      "japanese": "ついでに",
       "meaning": "while, incidentally, at the same time, on the way ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a4%e3%81%84%e3%81%a7%e3%81%ab-tsuide-ni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_249"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_69"
     },
     {
       "source_level": "N3",
       "ref_num": 157,
-      "romanized": "つまり",
-      "japanese": "tsumari",
+      "romanized": "tsumari",
+      "japanese": "つまり",
       "meaning": "in other words; in summary; in short ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a4%e3%81%be%e3%82%8a-tsumari-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_250"
+      "concept_id": "c_n3_tsumari"
     },
     {
       "source_level": "N3",
       "ref_num": 158,
-      "romanized": "つもりだった",
-      "japanese": "tsumori datta",
+      "romanized": "tsumori datta",
+      "japanese": "つもりだった",
       "meaning": "I thought I~; I believe I~; was planning to~; was intending to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a4%e3%82%82%e3%82%8a%e3%81%a0%e3%81%a3%e3%81%9f-tsumori-datta-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_251"
+      "concept_id": "c_n3_tsumori_datta"
     },
     {
       "source_level": "N3",
       "ref_num": 159,
-      "romanized": "つもりで",
-      "japanese": "tsumori de",
+      "romanized": "tsumori de",
+      "japanese": "つもりで",
       "meaning": "with the intention of doing ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a4%e3%82%82%e3%82%8a%e3%81%a7-tsumori-de-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_252"
+      "concept_id": "c_n3_tsumori_de"
     },
     {
       "source_level": "N3",
       "ref_num": 160,
-      "romanized": "うちに",
-      "japanese": "uchi ni",
+      "romanized": "uchi ni",
+      "japanese": "うちに",
       "meaning": "while; before ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%86%e3%81%a1%e3%81%ab-uchi-ni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_253"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_48"
     },
     {
       "source_level": "N3",
       "ref_num": 161,
-      "romanized": "上で（うえで）",
-      "japanese": "ue de",
+      "romanized": "ue de",
+      "japanese": "上で（うえで）",
       "meaning": "upon; after; when; for; in order to",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e4%b8%8a%e3%81%a7-%e3%81%86%e3%81%88%e3%81%a7-ue-de-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_254"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_8"
     },
     {
       "source_level": "N3",
       "ref_num": 162,
-      "romanized": "上に（うえに）",
-      "japanese": "ue ni",
+      "romanized": "ue ni",
+      "japanese": "上に（うえに）",
       "meaning": "as well; besides; in addition to; not only… but also ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e4%b8%8a%e3%81%ab-ue-ni-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_255"
+      "concept_id": "c_n3_ue_ni"
     },
     {
       "source_level": "N3",
       "ref_num": 163,
-      "romanized": "は別として（はべつとして）",
-      "japanese": "wa betsu toshite",
+      "romanized": "wa betsu toshite",
+      "japanese": "は別として（はべつとして）",
       "meaning": "aside from; apart from; except for; whether or not ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%af%e5%88%a5%e3%81%a8%e3%81%97%e3%81%a6-wa-betsu-toshite-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_256"
+      "concept_id": "c_n3_wa_betsu_toshite"
     },
     {
       "source_level": "N3",
       "ref_num": 164,
-      "romanized": "はもちろん",
-      "japanese": "wa mochiron",
+      "romanized": "wa mochiron",
+      "japanese": "はもちろん",
       "meaning": "not to mention; not only ... but also ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%af%e3%82%82%e3%81%a1%e3%82%8d%e3%82%93-wa-mochiron-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_257"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_9"
     },
     {
       "source_level": "N3",
       "ref_num": 165,
-      "romanized": "は～で有名（は～でゆうめい）",
-      "japanese": "wa~de yuumei",
+      "romanized": "wa~de yuumei",
+      "japanese": "は～で有名（は～でゆうめい）",
       "meaning": "famous for ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%af%ef%bd%9e%e3%81%a7%e6%9c%89%e5%90%8d-wa-de-yuumei-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_258"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N5 by easiest-level rule",
+      "concept_id": "c_n5_point_21"
     },
     {
       "source_level": "N3",
       "ref_num": 166,
-      "romanized": "わけだ",
-      "japanese": "wake da",
+      "romanized": "wake da",
+      "japanese": "わけだ",
       "meaning": "for that reason; no wonder; as you’d expect; the fact is; so you mean ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%8f%e3%81%91%e3%81%a0-wake-da-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_259"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_21"
     },
     {
       "source_level": "N3",
       "ref_num": 167,
-      "romanized": "わけではない",
-      "japanese": "wake dewa nai",
+      "romanized": "wake dewa nai",
+      "japanese": "わけではない",
       "meaning": "it doesn’t mean that; it is not the case that; I don’t mean that; it is not true that ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%8f%e3%81%91%e3%81%a7%e3%81%af%e3%81%aa%e3%81%84-wake-dewa-nai-%e3%82%8f%e3%81%91%e3%81%98%e3%82%83%e3%81%aa%e3%81%84-wake-janai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_260"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_22"
     },
     {
       "source_level": "N3",
       "ref_num": 168,
-      "romanized": "わけがない",
-      "japanese": "wake ga nai",
+      "romanized": "wake ga nai",
+      "japanese": "わけがない",
       "meaning": "there is no way that; it is impossible to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%8f%e3%81%91%e3%81%8c%e3%81%aa%e3%81%84-wake-ga-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_261"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_23"
     },
     {
       "source_level": "N3",
       "ref_num": 169,
-      "romanized": "わけにはいかない",
-      "japanese": "wake niwa ikanai",
+      "romanized": "wake niwa ikanai",
+      "japanese": "わけにはいかない",
       "meaning": "must not; cannot afford to; must, have no choice but to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%8f%e3%81%91%e3%81%ab%e3%81%af%e3%81%84%e3%81%8b%e3%81%aa%e3%81%84-wake-niwa-ikanai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_262"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_2"
     },
     {
       "source_level": "N3",
       "ref_num": 170,
-      "romanized": "割に（わりに）",
-      "japanese": "wari ni",
+      "romanized": "wari ni",
+      "japanese": "割に（わりに）",
       "meaning": "considering ~; for ~; despite ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e5%89%b2%e3%81%ab-%e3%82%8f%e3%82%8a%e3%81%ab-wari-ni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_263"
+      "status": "VOCAB_REFERENCE",
+      "notes": "Classified as vocabulary / conversational reference point",
+      "concept_id": "c_n3_wari_ni"
     },
     {
       "source_level": "N3",
       "ref_num": 171,
-      "romanized": "わざと",
-      "japanese": "wazato",
+      "romanized": "wazato",
+      "japanese": "わざと",
       "meaning": "on purpose; intentionally ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%8f%e3%81%96%e3%81%a8-wazato-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_264"
+      "concept_id": "c_n3_wazato"
     },
     {
       "source_level": "N3",
       "ref_num": 172,
-      "romanized": "わざわざ",
-      "japanese": "wazawaza",
+      "romanized": "wazawaza",
+      "japanese": "わざわざ",
       "meaning": "to go to the trouble of; to go out of one's way to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%8f%e3%81%96%e3%82%8f%e3%81%96-wazawaza-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_265"
+      "concept_id": "c_n3_wazawaza"
     },
     {
       "source_level": "N3",
       "ref_num": 173,
-      "romanized": "よりも",
-      "japanese": "yorimo",
+      "romanized": "yorimo",
+      "japanese": "よりも",
       "meaning": "in comparison to; rather than; more than ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%88%e3%82%8a%e3%82%82-yorimo-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_266"
+      "concept_id": "c_n3_yorimo"
     },
     {
       "source_level": "N3",
       "ref_num": 174,
-      "romanized": "ようがない",
-      "japanese": "you ga nai",
+      "romanized": "you ga nai",
+      "japanese": "ようがない",
       "meaning": "there is no way to; it’s impossible to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%88%e3%81%86%e3%81%8c%e3%81%aa%e3%81%84-you-ga-nai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_267"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_12"
     },
     {
       "source_level": "N3",
       "ref_num": 175,
-      "romanized": "ような気がする（ようなきがする）",
-      "japanese": "you na ki ga suru",
+      "romanized": "you na ki ga suru",
+      "japanese": "ような気がする（ようなきがする）",
       "meaning": "have a feeling that; feels like; seems like; think that ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%88%e3%81%86%e3%81%aa%e6%b0%97%e3%81%8c%e3%81%99%e3%82%8b-you-na-ki-ga-suru-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_268"
+      "concept_id": "c_n3_you_na_ki_ga_suru"
     },
     {
       "source_level": "N3",
       "ref_num": 176,
-      "romanized": "ように",
-      "japanese": "you ni",
+      "romanized": "you ni",
+      "japanese": "ように",
       "meaning": "in order to, so that ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%88%e3%81%86%e3%81%ab-you-ni-meaning-in-order-to/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_269"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_45"
     },
     {
       "source_level": "N3",
       "ref_num": 177,
-      "romanized": "ように見える（ようにみえる）",
-      "japanese": "you ni mieru",
+      "romanized": "you ni mieru",
+      "japanese": "ように見える（ようにみえる）",
       "meaning": "to look; to seem; to appear ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%88%e3%81%86%e3%81%ab%e8%a6%8b%e3%81%88%e3%82%8b-you-ni-mieru-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_270"
+      "concept_id": "c_n3_you_ni_mieru"
     },
     {
       "source_level": "N3",
       "ref_num": 178,
-      "romanized": "ようとしない",
-      "japanese": "you to shinai",
+      "romanized": "you to shinai",
+      "japanese": "ようとしない",
       "meaning": "not try to; not make an effort to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%88%e3%81%86%e3%81%a8%e3%81%97%e3%81%aa%e3%81%84-you-to-shinai-meaning/",
       "status": "NEW_CONCEPT",
       "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_271"
+      "concept_id": "c_n3_you_to_shinai"
     },
     {
       "source_level": "N3",
       "ref_num": 179,
-      "romanized": "ようとする",
-      "japanese": "you to suru",
+      "romanized": "you to suru",
+      "japanese": "ようとする",
       "meaning": "try to; attempt to; be about to ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%88%e3%81%86%e3%81%a8%e3%81%99%e3%82%8b-you-to-suru-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_272"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_33"
     },
     {
       "source_level": "N3",
       "ref_num": 180,
-      "romanized": "ずに",
-      "japanese": "zuni",
+      "romanized": "zuni",
+      "japanese": "ずに",
       "meaning": "without doing ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9a%e3%81%ab-zuni-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_273"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_7"
     },
     {
       "source_level": "N3",
       "ref_num": 181,
-      "romanized": "ずにはいられない",
-      "japanese": "zuni wa irarenai",
+      "romanized": "zuni wa irarenai",
+      "japanese": "ずにはいられない",
       "meaning": "can’t help but feel; can’t help but do; must do ~",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9a%e3%81%ab%e3%81%af%e3%81%84%e3%82%89%e3%82%8c%e3%81%aa%e3%81%84-zu-ni-wa-irarenai-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_274"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n3_point_4"
     },
     {
       "source_level": "N3",
       "ref_num": 182,
-      "romanized": "ずつ",
-      "japanese": "zutsu",
+      "romanized": "zutsu",
+      "japanese": "ずつ",
       "meaning": "apiece; each; at a time",
       "url": "https://jlptsensei.com/learn-japanese-grammar/jlpt-n3-grammar-%e3%81%9a%e3%81%a4-zutsu-meaning/",
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n3_point_275"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N3 to N4 by easiest-level rule",
+      "concept_id": "c_n4_point_65"
     },
     {
       "source_level": "N2",
@@ -4404,7 +4404,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%82%e3%81%92%e3%81%8f-ageku-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_34"
+      "concept_id": "c_n2_point_29"
     },
     {
       "source_level": "N2",
@@ -4437,7 +4437,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%e3%81%8b%e3%82%8a%e3%81%a0-bakari-da-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_52"
+      "concept_id": "c_n2_point_45"
     },
     {
       "source_level": "N2",
@@ -4448,7 +4448,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%e3%81%8b%e3%82%8a%e3%81%8b-bakari-ka-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_50"
+      "concept_id": "c_n2_point_43"
     },
     {
       "source_level": "N2",
@@ -4459,7 +4459,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%e3%81%8b%e3%82%8a%e3%81%ab-bakari-ni-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_51"
+      "concept_id": "c_n2_point_44"
     },
     {
       "source_level": "N2",
@@ -4492,7 +4492,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a0%e3%81%91%e3%81%82%e3%81%a3%e3%81%a6-dake-atte-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_118"
+      "concept_id": "c_n2_point_100"
     },
     {
       "source_level": "N2",
@@ -4514,7 +4514,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a0%e3%81%91%e3%81%ab-dake-ni-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_118"
+      "concept_id": "c_n2_point_100"
     },
     {
       "source_level": "N2",
@@ -4525,7 +4525,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a0%e3%81%91%e3%81%ae%e3%81%93%e3%81%a8%e3%81%af%e3%81%82%e3%82%8b-dake-no-koto-wa-aru-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_119"
+      "concept_id": "c_n2_point_101"
     },
     {
       "source_level": "N2",
@@ -4547,7 +4547,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a0%e3%81%a3%e3%81%a6-datte-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_54"
+      "concept_id": "c_n3_point_74"
     },
     {
       "source_level": "N2",
@@ -4569,7 +4569,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a9%e3%81%93%e3%82%8d%e3%81%a7%e3%81%af%e3%81%aa%e3%81%84-dokoro-dewa-nai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_106"
+      "concept_id": "c_n2_point_90"
     },
     {
       "source_level": "N2",
@@ -4580,7 +4580,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a9%e3%81%93%e3%82%8d%e3%81%8b-dokoro-ka-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_105"
+      "concept_id": "c_n2_point_89"
     },
     {
       "source_level": "N2",
@@ -4613,7 +4613,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e5%be%97%e3%81%aa%e3%81%84-%e3%81%88%e3%81%aa%e3%81%84-enai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_61"
+      "concept_id": "c_n2_point_52"
     },
     {
       "source_level": "N2",
@@ -4624,7 +4624,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e5%be%97%e3%82%8b-%e3%81%88%e3%82%8b-%e3%81%86%e3%82%8b-eru-uru-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_61"
+      "concept_id": "c_n2_point_52"
     },
     {
       "source_level": "N2",
@@ -4657,7 +4657,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8c%e3%81%8d%e3%81%a3%e3%81%8b%e3%81%91%e3%81%a7-ga-kikkake-de-%e3%82%92%e3%81%8d%e3%81%a3%e3%81%8b%e3%81%91%e3%81%ab-o-kikkake-ni-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_14"
+      "concept_id": "c_n2_point_12"
     },
     {
       "source_level": "N2",
@@ -4668,7 +4668,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%92-ge-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_103"
+      "concept_id": "c_n2_point_87"
     },
     {
       "source_level": "N2",
@@ -4690,7 +4690,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e5%8f%8d%e9%9d%a2-%e3%81%af%e3%82%93%e3%82%81%e3%82%93-hanmen-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_56"
+      "concept_id": "c_n2_point_48"
     },
     {
       "source_level": "N2",
@@ -4778,7 +4778,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e4%b8%80%e6%96%b9%e3%81%a7-ippou-de-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_16"
+      "concept_id": "c_n3_point_36"
     },
     {
       "source_level": "N2",
@@ -4811,7 +4811,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e4%b8%8a-jou-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_36"
+      "concept_id": "c_n2_point_30"
     },
     {
       "source_level": "N2",
@@ -4833,7 +4833,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8b%e3%81%a8%e6%80%9d%e3%81%a3%e3%81%9f%e3%82%89-ka-to-omottara-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_100"
+      "concept_id": "c_n2_point_85"
     },
     {
       "source_level": "N2",
@@ -4844,7 +4844,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8b%ef%bd%9e%e3%81%aa%e3%81%84%e3%81%8b%e3%81%ae%e3%81%86%e3%81%a1%e3%81%ab-ka-nai-ka-no-uchi-ni-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_101"
+      "concept_id": "c_n2_point_86"
     },
     {
       "source_level": "N2",
@@ -4888,7 +4888,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8b%e3%81%ad%e3%81%aa%e3%81%84-kanenai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_17"
+      "concept_id": "c_n2_point_15"
     },
     {
       "source_level": "N2",
@@ -4899,7 +4899,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8b%e3%81%ad%e3%82%8b-%e3%81%8b%e3%81%ad%e3%81%be%e3%81%99-kaneru-kanemasu-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_18"
+      "concept_id": "c_n2_point_16"
     },
     {
       "source_level": "N2",
@@ -4921,7 +4921,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8b%e3%82%89%e3%81%93%e3%81%9d-kara-koso-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_40"
+      "concept_id": "c_n2_point_33"
     },
     {
       "source_level": "N2",
@@ -4932,7 +4932,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8b%e3%82%89%e8%a6%8b%e3%82%8b%e3%81%a8-kara-miru-to-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_43"
+      "concept_id": "c_n2_point_36"
     },
     {
       "source_level": "N2",
@@ -4943,7 +4943,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8b%e3%82%89%e3%81%ab%e3%81%af-kara-niwa-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_39"
+      "concept_id": "c_n2_point_32"
     },
     {
       "source_level": "N2",
@@ -4954,7 +4954,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8b%e3%82%89%e3%81%97%e3%81%a6-kara-shite-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_41"
+      "concept_id": "c_n2_point_34"
     },
     {
       "source_level": "N2",
@@ -4965,7 +4965,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8b%e3%82%89%e3%81%99%e3%82%8b%e3%81%a8-%e3%81%8b%e3%82%89%e3%81%99%e3%82%8c%e3%81%b0-kara-suru-to-kara-sureba-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_42"
+      "concept_id": "c_n2_point_35"
     },
     {
       "source_level": "N2",
@@ -4987,7 +4987,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a3%e3%81%93%e3%81%aa%e3%81%84-kkonai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_104"
+      "concept_id": "c_n2_point_88"
     },
     {
       "source_level": "N2",
@@ -4998,7 +4998,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%93%e3%81%a8%e3%81%a0-koto-da-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_8"
+      "concept_id": "c_n3_point_28"
     },
     {
       "source_level": "N2",
@@ -5009,7 +5009,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%93%e3%81%a8%e3%81%a0%e3%81%8b%e3%82%89-koto-dakara-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_29"
+      "concept_id": "c_n2_point_26"
     },
     {
       "source_level": "N2",
@@ -5020,7 +5020,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%93%e3%81%a8%e3%81%8b-koto-ka-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_27"
+      "concept_id": "c_n2_point_24"
     },
     {
       "source_level": "N2",
@@ -5031,7 +5031,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%93%e3%81%a8%e3%81%aa%e3%81%8f-koto-naku-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_30"
+      "concept_id": "c_n2_point_27"
     },
     {
       "source_level": "N2",
@@ -5042,7 +5042,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%93%e3%81%a8%e3%81%ab-koto-ni-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_28"
+      "concept_id": "c_n2_point_25"
     },
     {
       "source_level": "N2",
@@ -5086,7 +5086,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%be%e3%81%84-mai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_113"
+      "concept_id": "c_n2_point_95"
     },
     {
       "source_level": "N2",
@@ -5119,7 +5119,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e6%a7%8b%e3%82%8f%e3%81%9a-%e3%82%82%e3%81%8b%e3%81%be%e3%82%8f%e3%81%9a-mo-kamawazu-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_115"
+      "concept_id": "c_n2_point_97"
     },
     {
       "source_level": "N2",
@@ -5141,7 +5141,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e3%81%ae-mono-%e3%82%82%e3%82%93-mon-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_6"
+      "concept_id": "c_n3_point_26"
     },
     {
       "source_level": "N2",
@@ -5152,7 +5152,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e3%81%ae%e3%81%a0-%e3%82%82%e3%81%ae%e3%81%98%e3%82%83%e3%81%aa%e3%81%84-mono-da-mono-janai-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_4"
+      "concept_id": "c_n3_point_24"
     },
     {
       "source_level": "N2",
@@ -5163,7 +5163,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e3%81%ae%e3%81%a0%e3%81%8b%e3%82%89-mono-dakara-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_7"
+      "concept_id": "c_n3_point_27"
     },
     {
       "source_level": "N2",
@@ -5174,7 +5174,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e3%81%ae%e3%81%a7%e3%81%af%e3%81%aa%e3%81%84-mono-dewa-nai-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_5"
+      "concept_id": "c_n3_point_25"
     },
     {
       "source_level": "N2",
@@ -5185,7 +5185,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e3%81%ae%e3%81%8c%e3%81%82%e3%82%8b-mono-ga-aru-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_26"
+      "concept_id": "c_n2_point_23"
     },
     {
       "source_level": "N2",
@@ -5196,7 +5196,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e3%81%ae%e3%81%8b-%e3%82%82%e3%82%93%e3%81%8b-mono-ka-mon-ka-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_22"
+      "concept_id": "c_n2_point_19"
     },
     {
       "source_level": "N2",
@@ -5207,7 +5207,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e3%81%ae%e3%81%aa%e3%82%89-mono-nara-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_24"
+      "concept_id": "c_n2_point_21"
     },
     {
       "source_level": "N2",
@@ -5218,7 +5218,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e3%81%ae%e3%81%ae-monono-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_23"
+      "concept_id": "c_n2_point_20"
     },
     {
       "source_level": "N2",
@@ -5262,7 +5262,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%aa%e3%81%84%e3%81%93%e3%81%a8%e3%81%ab%e3%81%af%ef%bd%9e%e3%81%aa%e3%81%84-nai-koto-niwanai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_32"
+      "concept_id": "c_n2_point_28"
     },
     {
       "source_level": "N2",
@@ -5339,7 +5339,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%82%e3%81%9f%e3%81%a3%e3%81%a6-ni-atatte-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_85"
+      "concept_id": "c_n2_point_73"
     },
     {
       "source_level": "N2",
@@ -5350,7 +5350,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%bb%e3%81%8b%e3%81%aa%e3%82%89%e3%81%aa%e3%81%84-ni-hoka-naranai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_83"
+      "concept_id": "c_n2_point_71"
     },
     {
       "source_level": "N2",
@@ -5361,7 +5361,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e9%99%90%e3%82%89%e3%81%9a-ni-kagirazu-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_71"
+      "concept_id": "c_n2_point_59"
     },
     {
       "source_level": "N2",
@@ -5372,7 +5372,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e9%99%90%e3%82%8b-ni-kagiru-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_70"
+      "concept_id": "c_n2_point_58"
     },
     {
       "source_level": "N2",
@@ -5383,7 +5383,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e9%99%90%e3%81%a3%e3%81%a6-ni-kagitte-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_72"
+      "concept_id": "c_n2_point_60"
     },
     {
       "source_level": "N2",
@@ -5427,7 +5427,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e8%b6%8a%e3%81%97%e3%81%9f%e3%81%93%e3%81%a8%e3%81%af%e3%81%aa%e3%81%84-ni-koshita-koto-wa-nai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_82"
+      "concept_id": "c_n2_point_70"
     },
     {
       "source_level": "N2",
@@ -5449,7 +5449,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e5%8a%a0%e3%81%88%e3%81%a6-ni-kuwaete-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_11"
+      "concept_id": "c_n2_point_10"
     },
     {
       "source_level": "N2",
@@ -5460,7 +5460,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e5%9f%ba%e3%81%a5%e3%81%84%e3%81%a6-ni-motozuite-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_8"
+      "concept_id": "c_n2_point_7"
     },
     {
       "source_level": "N2",
@@ -5515,7 +5515,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%9b%e3%82%88-%e3%81%ab%e3%81%97%e3%82%8d-ni-seyo-ni-shiro-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_79"
+      "concept_id": "c_n2_point_67"
     },
     {
       "source_level": "N2",
@@ -5526,7 +5526,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%97%e3%82%8d%ef%bd%9e%e3%81%ab%e3%81%97%e3%82%8d-%e3%81%ab%e3%81%9b%e3%82%88-ni-shiro-ni-shiro-ni-seyo-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_79"
+      "concept_id": "c_n2_point_67"
     },
     {
       "source_level": "N2",
@@ -5537,7 +5537,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%97%e3%81%9f%e3%82%89-%e3%81%ab%e3%81%99%e3%82%8c%e3%81%b0-ni-shitara-ni-sureba-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_80"
+      "concept_id": "c_n2_point_68"
     },
     {
       "source_level": "N2",
@@ -5548,7 +5548,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%97%e3%81%a6%e3%82%82%ef%bd%9e%e3%81%ab%e3%81%97%e3%81%a6%e3%82%82-ni-shitemoni-shitemo-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_38"
+      "concept_id": "c_n3_point_58"
     },
     {
       "source_level": "N2",
@@ -5559,7 +5559,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e6%b2%bf%e3%81%a3%e3%81%a6-%e3%81%ab%e3%81%9d%e3%81%a3%e3%81%a6-ni-sotte-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_10"
+      "concept_id": "c_n2_point_9"
     },
     {
       "source_level": "N2",
@@ -5570,7 +5570,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e7%9b%b8%e9%81%95%e3%81%aa%e3%81%84-ni-soui-nai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_81"
+      "concept_id": "c_n2_point_69"
     },
     {
       "source_level": "N2",
@@ -5581,7 +5581,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e9%81%8e%e3%81%8e%e3%81%aa%e3%81%84-ni-suginai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_69"
+      "concept_id": "c_n2_point_57"
     },
     {
       "source_level": "N2",
@@ -5614,7 +5614,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%81%a4%e3%81%8d-ni-tsuki-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_89"
+      "concept_id": "c_n2_point_76"
     },
     {
       "source_level": "N2",
@@ -5625,7 +5625,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%ab%e3%82%8f%e3%81%9f%e3%81%a3%e3%81%a6-ni-watatte-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_9"
+      "concept_id": "c_n2_point_8"
     },
     {
       "source_level": "N2",
@@ -5724,7 +5724,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e6%8a%9c%e3%81%8d%e3%81%ab%e3%81%97%e3%81%a6-%e6%8a%9c%e3%81%8d%e3%81%a7-nuki-ni-shite-nuki-de-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_92"
+      "concept_id": "c_n2_point_79"
     },
     {
       "source_level": "N2",
@@ -5735,7 +5735,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e6%8a%9c%e3%81%8f-nuku-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_60"
+      "concept_id": "c_n2_point_51"
     },
     {
       "source_level": "N2",
@@ -5757,7 +5757,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%92%e3%82%81%e3%81%90%e3%81%a3%e3%81%a6-o-megutte-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_12"
+      "concept_id": "c_n2_point_11"
     },
     {
       "source_level": "N2",
@@ -5768,7 +5768,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%92%e3%82%82%e3%81%a8%e3%81%ab-o-moto-ni-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_95"
+      "concept_id": "c_n2_point_81"
     },
     {
       "source_level": "N2",
@@ -5779,7 +5779,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%92%e9%99%a4%e3%81%84%e3%81%a6-o-nozoite-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_15"
+      "concept_id": "c_n2_point_13"
     },
     {
       "source_level": "N2",
@@ -5790,7 +5790,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%92%e5%95%8f%e3%82%8f%e3%81%9a-o-towazu-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_96"
+      "concept_id": "c_n2_point_82"
     },
     {
       "source_level": "N2",
@@ -5878,7 +5878,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9b%e3%81%84%e3%81%8b-sei-ka-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_117"
+      "concept_id": "c_n2_point_99"
     },
     {
       "source_level": "N2",
@@ -5911,7 +5911,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e6%ac%a1%e7%ac%ac-shidai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_46"
+      "concept_id": "c_n2_point_39"
     },
     {
       "source_level": "N2",
@@ -5922,7 +5922,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e6%ac%a1%e7%ac%ac%e3%81%a7-shidai-de-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_47"
+      "concept_id": "c_n2_point_40"
     },
     {
       "source_level": "N2",
@@ -6098,7 +6098,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e4%bb%a5%e6%9d%a5-te-irai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_68"
+      "concept_id": "c_n2_point_56"
     },
     {
       "source_level": "N2",
@@ -6120,7 +6120,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%81%93%e3%81%9d-te-koso-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_66"
+      "concept_id": "c_n2_point_55"
     },
     {
       "source_level": "N2",
@@ -6142,7 +6142,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%81%aa%e3%82%89%e3%81%aa%e3%81%84-te-naranai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_65"
+      "concept_id": "c_n2_point_54"
     },
     {
       "source_level": "N2",
@@ -6153,7 +6153,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%81%9f%e3%81%be%e3%82%89%e3%81%aa%e3%81%84-te-tamaranai-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_57"
+      "concept_id": "c_n3_point_77"
     },
     {
       "source_level": "N2",
@@ -6186,7 +6186,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%81%af%e3%81%84%e3%82%89%e3%82%8c%e3%81%aa%e3%81%84-tewa-irarenai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_21"
+      "concept_id": "c_n2_point_18"
     },
     {
       "source_level": "N2",
@@ -6263,7 +6263,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%84%e3%81%86%e3%82%82%e3%81%ae%e3%81%a0-to-iu-mono-da-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_108"
+      "concept_id": "c_n2_point_91"
     },
     {
       "source_level": "N2",
@@ -6274,7 +6274,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%84%e3%81%86%e3%82%82%e3%81%ae%e3%81%a7%e3%81%af%e3%81%aa%e3%81%84-to-iu-mono-dewa-nai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_109"
+      "concept_id": "c_n2_point_92"
     },
     {
       "source_level": "N2",
@@ -6296,7 +6296,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%8b%e3%81%a7-toka-de-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_64"
+      "concept_id": "c_n3_point_84"
     },
     {
       "source_level": "N2",
@@ -6318,7 +6318,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%93%e3%82%8d%e3%81%a0%e3%81%a3%e3%81%9f-tokoro-datta-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_85"
+      "concept_id": "c_n3_point_105"
     },
     {
       "source_level": "N2",
@@ -6329,7 +6329,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%93%e3%82%8d%e3%81%ab-tokoro-ni-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_29"
+      "concept_id": "c_n3_point_49"
     },
     {
       "source_level": "N2",
@@ -6362,7 +6362,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%97%e3%81%a6%ef%bd%9e%e3%81%aa%e3%81%84-toshite-nai-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_35"
+      "concept_id": "c_n3_point_55"
     },
     {
       "source_level": "N2",
@@ -6373,7 +6373,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%97%e3%81%a6%e3%82%82-toshitemo-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_63"
+      "concept_id": "c_n3_point_83"
     },
     {
       "source_level": "N2",
@@ -6395,7 +6395,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a4%e3%81%a4%e3%81%82%e3%82%8b-tsutsu-aru-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_58"
+      "concept_id": "c_n2_point_50"
     },
     {
       "source_level": "N2",
@@ -6415,9 +6415,9 @@
       "japanese": "はもとより",
       "meaning": "also; let alone; from the beginning",
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%af%e3%82%82%e3%81%a8%e3%82%88%e3%82%8a-wa-moto-yori-meaning/",
-      "status": "EQUIVALENT",
-      "notes": "",
-      "concept_id": "c_n2_point_53"
+      "status": "LEVEL_RECONCILED",
+      "notes": "Reconciled from N2 to N3 by easiest-level rule",
+      "concept_id": "c_n3_point_9"
     },
     {
       "source_level": "N2",
@@ -6428,7 +6428,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%af%e3%81%a8%e3%82%82%e3%81%8b%e3%81%8f-wa-tomokaku-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_54"
+      "concept_id": "c_n2_point_46"
     },
     {
       "source_level": "N2",
@@ -6461,7 +6461,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%84%e3%82%89%ef%bd%9e%e3%82%84%e3%82%89-yara-yara-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_121"
+      "concept_id": "c_n2_point_102"
     },
     {
       "source_level": "N2",
@@ -6505,7 +6505,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%88%e3%81%86%e3%81%a7%e3%81%af-you-dewa-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_64"
+      "concept_id": "c_n2_point_53"
     },
     {
       "source_level": "N2",
@@ -6549,7 +6549,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%96%e3%82%8b%e3%82%92%e5%be%97%e3%81%aa%e3%81%84-zaru-o-enai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_20"
+      "concept_id": "c_n2_point_17"
     },
     {
       "source_level": "N2",
@@ -6560,7 +6560,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9a%e3%81%ab%e6%b8%88%e3%82%80-zu-ni-sumu-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n2_point_122"
+      "concept_id": "c_n2_point_103"
     },
     {
       "source_level": "N1",
@@ -6703,7 +6703,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b6%e3%82%8a-%e3%81%a3%e3%81%b7%e3%82%8a-buri-ppuri-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N1 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_71"
+      "concept_id": "c_n3_point_91"
     },
     {
       "source_level": "N1",
@@ -7297,7 +7297,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%8f%e3%82%89%e3%81%84%e3%81%aa%e3%82%89-kurai-nara-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N1 to N2 by easiest-level rule",
-      "concept_id": "c_n2_point_25"
+      "concept_id": "c_n2_point_22"
     },
     {
       "source_level": "N1",
@@ -7440,7 +7440,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e3%81%ae%e3%81%a7-mono-de-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N1 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_7"
+      "concept_id": "c_n3_point_27"
     },
     {
       "source_level": "N1",
@@ -7572,7 +7572,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%aa%e3%81%84%e3%81%a8%e3%82%82%e9%99%90%e3%82%89%e3%81%aa%e3%81%84-nai-tomo-kagiranai-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n1_point_120"
+      "concept_id": "c_n1_point_119"
     },
     {
       "source_level": "N1",
@@ -7605,7 +7605,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%aa%e3%82%93%e3%81%a8%e3%81%84%e3%81%86-%e3%81%aa%e3%82%93%e3%81%a8-%e3%81%aa%e3%82%93%e3%81%a6-nan-to-iu-nanto-nante-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N1 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_88"
+      "concept_id": "c_n3_point_108"
     },
     {
       "source_level": "N1",
@@ -8133,7 +8133,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%92%e8%b8%8f%e3%81%be%e3%81%88%e3%81%a6-%e3%82%92%e3%81%b5%e3%81%be%e3%81%88%e3%81%a6-o-fumaete-meaning/",
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n1_point_119"
+      "concept_id": "c_n1_point_118"
     },
     {
       "source_level": "N1",
@@ -8496,7 +8496,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9f%e3%81%a8%e3%81%93%e3%82%8d%e3%81%a7-ta-tokoro-de-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N1 to N2 by easiest-level rule",
-      "concept_id": "c_n2_point_49"
+      "concept_id": "c_n2_point_42"
     },
     {
       "source_level": "N1",
@@ -8936,7 +8936,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a8%e3%81%93%e3%82%8d%e3%82%92-tokoro-o-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N1 to N3 by easiest-level rule",
-      "concept_id": "c_n3_point_29"
+      "concept_id": "c_n3_point_49"
     },
     {
       "source_level": "N1",
@@ -9156,7 +9156,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%af%e3%81%95%e3%81%a6%e3%81%8a%e3%81%8d-wa-sateoki-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N1 to N2 by easiest-level rule",
-      "concept_id": "c_n2_point_55"
+      "concept_id": "c_n2_point_47"
     },
     {
       "source_level": "N1",
@@ -9244,7 +9244,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%88%e3%81%86%e3%81%ab%e3%82%88%e3%81%a3%e3%81%a6%e3%81%af-%e3%82%88%e3%81%86%e3%81%a7%e3%81%af-you-ni-yotte-wa-you-dewa-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N1 to N2 by easiest-level rule",
-      "concept_id": "c_n2_point_123"
+      "concept_id": "c_n2_point_104"
     },
     {
       "source_level": "N1",

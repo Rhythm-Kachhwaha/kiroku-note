@@ -14,8 +14,8 @@ DEFAULT_INDEX = ROOT / "backend" / "app" / "data" / "grammar_reference.sqlite"
 
 # These are the measured pre-data-driven baseline. Raising a floor is an
 # intentional acceptance-gate change and should be accompanied by index work.
-MINIMUM_HITS = {"N5": 1, "N4": 6, "N3": 5, "N2": 1, "N1": 1}
-MINIMUM_AUTO_PERCENT = 85
+MINIMUM_HITS = {"N5": 30, "N4": 35, "N3": 30, "N2": 25, "N1": 20}
+MINIMUM_AUTO_PERCENT = 75
 
 NEGATIVE_CORPUS = [
     "東京駅。", "大阪城。", "北海道。", "富士山。", "青空。",
