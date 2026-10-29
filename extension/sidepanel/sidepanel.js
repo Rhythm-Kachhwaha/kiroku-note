@@ -11161,6 +11161,68 @@ function formatAIResponse(rawText) {
   return `<div class="ai-explanation-section">${formattedHtml}</div>`;
 }
 
+function condenseNotes(rawText, options = {}) {
+  const maxChars = Number.isFinite(options.maxChars) ? Math.max(1, options.maxChars) : 600;
+  const sectionFilter = Array.isArray(options.sectionFilter) && options.sectionFilter.length
+    ? new Set(options.sectionFilter.map(section => String(section).toLowerCase()))
+    : null;
+  const boilerplate = /^(here is the explanation:|sure!?\s*let['’]s break this down:|let['’]s break this down:)\s*$/i;
+  const sectionPattern = /^(?:#{1,3}\s*)?(?:\*\*)?(meaning|usage|example|formation|nuance|common mistakes?|grammar pattern|breakdown|explanation|notes?)(?:\*\*)?\s*:?\s*$/i;
+  const lines = String(rawText || "").replace(/\r\n?/g, "\n").split("\n");
+  const result = [];
+  let activeSection = null;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || boilerplate.test(line)) continue;
+    const section = line.match(sectionPattern);
+    if (section) {
+      activeSection = section[1].toLowerCase();
+      if (!sectionFilter || sectionFilter.has(activeSection) || sectionFilter.has(activeSection.replace(/s$/, ""))) {
+        result.push(line.replace(/^#+\s*/, "").replace(/\*\*/g, ""));
+      }
+      continue;
+    }
+    if (sectionFilter && activeSection && !sectionFilter.has(activeSection) && !sectionFilter.has(activeSection.replace(/s$/, ""))) continue;
+    result.push(line);
+  }
+  let condensed = result.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  if (condensed.length > maxChars) condensed = `${condensed.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
+  return condensed;
+}
+
+function openNotesComposer(rawText, button) {
+  const dialog = document.querySelector("#ask-notes-composer");
+  const preview = document.querySelector("#ask-notes-preview");
+  const counter = document.querySelector("#ask-notes-counter");
+  if (!dialog || !preview) return;
+  preview.value = condenseNotes(rawText);
+  const updateCount = () => {
+    if (counter) counter.textContent = `${preview.value.length}/600`;
+  };
+  preview.oninput = updateCount;
+  updateCount();
+  dialog.hidden = false;
+  preview.focus();
+  const insert = (field, label) => {
+    if (!field) return;
+    const current = field.value.trim();
+    field.value = current ? `${current}\n\n${preview.value}` : preview.value;
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    dialog.hidden = true;
+    if (button) {
+      button.textContent = `${label} added`;
+      setTimeout(() => { button.textContent = "Add to Notes"; }, 1500);
+    }
+    setStatus(`AI explanation added as ${label.toLowerCase()}.`);
+  };
+  const notesButton = document.querySelector("#ask-notes-insert");
+  const hintButton = document.querySelector("#ask-hint-insert");
+  if (notesButton) notesButton.onclick = () => insert(fieldNotes, "Notes");
+  if (hintButton) hintButton.onclick = () => insert(fieldHint, "Hint");
+  const closeButton = document.querySelector("#ask-notes-cancel");
+  if (closeButton) closeButton.onclick = () => { dialog.hidden = true; };
+}
+
 function setAskResponseMode(mode) {
   if (mode !== "short" && mode !== "detailed") return;
   currentAskResponseMode = mode;
@@ -11322,14 +11384,7 @@ async function sendAskQuery(task = currentAskTask, overrideText = null) {
     const btnAddNotes = aiMsgEl.querySelector(".btn-add-ai-notes");
     if (btnAddNotes) {
       btnAddNotes.addEventListener("click", () => {
-        if (fieldNotes) {
-          const currentNotes = fieldNotes.value ? fieldNotes.value.trim() + "\n\n" : "";
-          fieldNotes.value = currentNotes + aiResult;
-          fieldNotes.dispatchEvent(new Event("input", { bubbles: true }));
-          btnAddNotes.textContent = "Added!";
-          setTimeout(() => { btnAddNotes.textContent = "Add to Notes"; }, 1500);
-          setStatus("AI explanation added to card notes.");
-        }
+        openNotesComposer(aiResult, btnAddNotes);
       });
     }
 
@@ -11663,6 +11718,8 @@ if (typeof module !== "undefined" && module.exports) {
     removeLlmSecretFromSettings,
     initLlmSettingsUI,
     sendAskQuery,
+    condenseNotes,
+    openNotesComposer,
     setAskContext,
     clearAskContext,
     formatAIResponse,
@@ -11716,4 +11773,3 @@ if (typeof module !== "undefined" && module.exports) {
     API_KNOWN_WORDS_MARK_URL,
   };
 }
-

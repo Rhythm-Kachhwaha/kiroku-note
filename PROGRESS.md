@@ -1,5 +1,29 @@
 # Kiroku Note — Progress
 
+### Ask Notes Markdown Converter & Condense Pipeline (2026-10-29)
+
+**Delivered**:
+- Added `convert_markdown_to_anki_html()` in `backend/app/services/anki_formatter.py`, escaping source HTML and rendering the supported Markdown subset (inline emphasis/code, headings, lists, and compact tables).
+- Added the Ask-tab `condenseNotes()` pipeline with boilerplate removal, section filtering, and a 600-character ellipsis cap.
+- Replaced direct AI-to-notes insertion with an editable preview dialog offering **Add as Notes** and **Add as Hint**, with live character count and card-preview input events.
+- Added focused backend and extension regression tests; UI uses no OS emojis.
+
+**Files**:
+- `backend/app/services/anki_formatter.py`
+- `backend/tests/test_anki_notes_markdown_converter.py`
+- `extension/sidepanel/sidepanel.js`
+- `extension/sidepanel/sidepanel.html`
+- `extension/sidepanel/sidepanel.css`
+- `extension/tests/ask-tab-notes-condenser.test.js`
+
+**Verification**:
+- `python -m pytest backend\tests\test_anki_notes_markdown_converter.py backend\tests\test_anki_formatter.py -q`: 31 passed.
+- `node --test extension\tests\ask-tab-notes-condenser.test.js`: 4 passed.
+- `node --check extension\sidepanel\sidepanel.js`: passed.
+
+**Remaining Risk**:
+- The editable composer is covered by DOM/source-level tests; browser-level interaction smoke testing remains manual.
+
 ### Video Tab Declutter Review Polish (2026-10-29)
 
 **Delivered**:

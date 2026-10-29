@@ -36,6 +36,91 @@ def escape_html(text: Any) -> str:
     return html.escape(str(text), quote=True)
 
 
+def _format_notes_inline(text: str) -> str:
+    """Render the small, deliberately safe Markdown subset used in AI notes."""
+    rendered = escape_html(text)
+    rendered = re.sub(r"`([^`\n]+)`", r'<code class="kn-inline-code">\1</code>', rendered)
+    rendered = re.sub(r"\*\*([^*\n]+?)\*\*", r"<strong>\1</strong>", rendered)
+    rendered = re.sub(r"(?<!\*)\*([^*\n]+?)\*(?!\*)", r"<em>\1</em>", rendered)
+    return rendered
+
+
+def convert_markdown_to_anki_html(text: str) -> str:
+    """Convert conservative Markdown into safe, readable HTML for an Anki field.
+
+    This intentionally does not accept source HTML.  Escaping happens before
+    the small Markdown whitelist is applied, so AI output cannot inject markup.
+    """
+    if not text:
+        return ""
+    lines = str(text).replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    output: list[str] = []
+    index = 0
+
+    def parse_row(line: str) -> list[str]:
+        value = line.strip()
+        if value.startswith("|"):
+            value = value[1:]
+        if value.endswith("|"):
+            value = value[:-1]
+        return [cell.strip() for cell in value.split("|")]
+
+    separator = re.compile(r"^\s*:?-{3,}:?\s*$")
+    while index < len(lines):
+        line = lines[index].strip()
+        if not line:
+            if output and not output[-1].endswith("<br>"):
+                output.append("<br>")
+            index += 1
+            continue
+
+        # A Markdown table is kept compact and readable in narrow Anki cards.
+        if "|" in line and index + 1 < len(lines):
+            header = parse_row(line)
+            divider = parse_row(lines[index + 1])
+            if len(header) >= 2 and len(divider) == len(header) and all(separator.match(c) for c in divider):
+                rows: list[list[str]] = []
+                index += 2
+                while index < len(lines) and "|" in lines[index] and lines[index].strip():
+                    rows.append(parse_row(lines[index]))
+                    index += 1
+                if len(header) == 2:
+                    for row in rows:
+                        if len(row) >= 2:
+                            output.append(
+                                f'<div class="kn-notes-row" aria-label="{escape_html(row[0])}: {escape_html(row[1])}">'
+                                f'<span class="kn-notes-key">{_format_notes_inline(row[0])}:</span> '
+                                f'<span class="kn-notes-val">{_format_notes_inline(row[1])}</span></div>'
+                            )
+                else:
+                    cells = "".join(f"<th>{_format_notes_inline(cell)}</th>" for cell in header)
+                    body = "".join(
+                        "<tr>" + "".join(f"<td>{_format_notes_inline(cell)}</td>" for cell in row) + "</tr>"
+                        for row in rows
+                    )
+                    output.append(f'<table class="kn-notes-table"><thead><tr>{cells}</tr></thead><tbody>{body}</tbody></table>')
+                continue
+
+        heading = re.match(r"^(#{1,3})\s+(.+)$", line)
+        if heading:
+            output.append(f'<div class="kn-notes-heading"><strong>{_format_notes_inline(heading.group(2))}</strong></div>')
+        elif re.match(r"^[-*]\s+", line):
+            items = []
+            while index < len(lines) and re.match(r"^[-*]\s+", lines[index].strip()):
+                item_text = re.sub(r"^[-*]\s+", "", lines[index].strip())
+                items.append(f"<li>{_format_notes_inline(item_text)}</li>")
+                index += 1
+            output.append('<ul class="kn-notes-list">' + "".join(items) + "</ul>")
+            continue
+        else:
+            output.append(_format_notes_inline(line) + "<br>")
+        index += 1
+
+    if output and output[-1] == "<br>":
+        output.pop()
+    return "".join(output)
+
+
 def _format_bracket_ruby(segment: str, furigana_mode: str = "all", jlpt_service: Any = None) -> str:
     """Helper to convert bracket notation [rt] into <ruby> markup within a text segment."""
     if not segment:
@@ -1176,4 +1261,3 @@ def format_basic_back(
 
     body_html = "\n\n".join(sections)
     return f'<div class="kn-card">\n<style>\n{ANKI_CARD_CSS}\n</style>\n\n{body_html}\n</div>'
-

@@ -252,6 +252,20 @@
           <div class="ask-empty-subtitle">Select text on page, use video subtitles, or paste an MCQ to get step-by-step explanations.</div>
         </div>
       </div>
+      <div id="ask-notes-composer" class="ask-notes-composer" hidden role="dialog" aria-labelledby="ask-notes-title">
+        <div class="ask-notes-composer-panel">
+          <div class="ask-notes-composer-header">
+            <strong id="ask-notes-title">Add explanation to card</strong>
+            <span id="ask-notes-counter" aria-live="polite">0/600</span>
+          </div>
+          <textarea id="ask-notes-preview" rows="8" aria-label="Editable note preview"></textarea>
+          <div class="ask-notes-composer-actions">
+            <button type="button" class="btn-chat-action" id="ask-notes-insert">Add as Notes</button>
+            <button type="button" class="btn-chat-action" id="ask-hint-insert">Add as Hint</button>
+            <button type="button" class="btn-chat-action" id="ask-notes-cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Quick Task Prompt Chips (Preserved for compatibility) -->
       <div class="ask-prompt-chips-wrap" id="ask-prompt-chips-wrap" style="display:none;" aria-hidden="true">
