@@ -42,6 +42,31 @@ class MatchedGrammarSpan:
 
 
 _FALLBACKS: dict[str, dict[str, str]] = {
+    "使役受身": {
+        "display": "〜させられる", "meaning": "be made to; be forced to",
+        "breakdown": "させる (make) + られる (passive) shows an unwanted enforced action",
+        "formation": "V-させられる",
+    },
+    "ことになる": {
+        "display": "〜ことになる", "meaning": "it is decided that; it turns out that",
+        "breakdown": "こと nominalizes the clause and になる marks an established decision or result",
+        "formation": "V-る + ことになる",
+    },
+    "かもしれない": {
+        "display": "〜かもしれない", "meaning": "might; may",
+        "breakdown": "かもしれない expresses possibility without certainty",
+        "formation": "Plain form + かもしれない",
+    },
+    "ざるを得ない": {
+        "display": "〜ざるを得ない", "meaning": "cannot avoid; have no choice but to",
+        "breakdown": "ざる is a formal negative and を得ない means cannot escape the result",
+        "formation": "V-ます stem + ざるを得ない",
+    },
+    "はずがない": {
+        "display": "〜はずがない", "meaning": "cannot be; there is no way",
+        "breakdown": "はず marks an expected conclusion and がない denies that possibility",
+        "formation": "Plain form + はずがない",
+    },
     "なければならない": {
         "display": "〜なければならない", "meaning": "must; have to",
         "breakdown": "ない (not) + ければ (if) + ならない (must not be absent)",
@@ -189,6 +214,8 @@ class GrammarMatcher:
                 "なければならない", raw_text, start, match.end(),
                 matched="V-なくてはいけない",
             ))
+        for match in re.finditer(r"[\u3041-\u309f一-龯]+させられ(?:たくなかった|ない|る|れた)", raw_text):
+            candidates.append(self._candidate("使役受身", raw_text, match.start(), match.end()))
         for match in re.finditer(r"たことが(?:ある|あります)", raw_text):
             candidates.append(self._candidate(
                 "たことがあります", raw_text, match.start(), match.end(),
@@ -209,6 +236,8 @@ class GrammarMatcher:
         # Compound particles must be considered before their component に.
         for key, pattern in (
             ("にもかかわらず", "にもかかわらず"), ("にしては", "にしては"),
+            ("ことになる", "ことになった"), ("かもしれない", "かもしれない"),
+            ("ざるを得ない", "ざるを得ない"), ("はずがない", "はずがない"),
         ):
             add_literal(key, pattern)
 
@@ -216,6 +245,8 @@ class GrammarMatcher:
         for match in re.finditer(r"(?P<a>[\u3041-\u309f一-龯]+ば)(?P<m>[^、。！？]{0,20}?)(?P<b>[\u3041-\u309f一-龯]+ほど)", raw_text):
             candidates.append(self._candidate("ば〜ほど", raw_text, match.start(), match.end(), matched="V-ば + V-る + ほど"))
         for match in re.finditer(r"(?P<a>[\u3041-\u309f一-龯]+とか)(?P<m>[^、。！？]{0,20}?)(?P<b>[\u3041-\u309f一-龯]+とか)", raw_text):
+            candidates.append(self._candidate("とか〜とか", raw_text, match.start(), match.end()))
+        for match in re.finditer(r"(?P<a>[\u3041-\u309f一-龯]+とか)(?P<m>[^、。！？]{1,20}?)(?P<b>[\u3041-\u309f一-龯]+(?:ている|る))", raw_text):
             candidates.append(self._candidate("とか〜とか", raw_text, match.start(), match.end()))
         for match in re.finditer(r"お([\u3041-\u309f一-龯]{1,6})になる", raw_text):
             candidates.append(self._candidate("お〜になる", raw_text, match.start(), match.end()))

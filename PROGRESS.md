@@ -1,5 +1,40 @@
 # Kiroku Note — Progress
 
+### Task 11 — Grammar Acceptance Gate & Documentation Handoff (2026-10-29)
+
+**Delivered**:
+- Added `backend/tests/test_grammar_acceptance_gate.py` with a 46-sentence
+  acceptance corpus covering positive matches, `そうだ` ambiguity,
+  discontinuous `ば〜ほど`/`とか〜とか`, conjugation chains, and the
+  bare-particle negative sentence.
+- Narrowly completed the directly exposed matcher cases (`使役受身`,
+  `ことになる`, `かもしれない`, `ざるを得ない`, `はずがない`, and the
+  one-`とか` discontinuous form).
+- Hardened the sidepanel save payload for isolated test/runtime contexts where
+  optional grammar state has not been initialized; this preserves ordinary
+  vocab saves as `card_kind=vocab`.
+
+**Verification**:
+- `PYTHONPATH=.;backend python -m pytest backend\tests\test_grammar_acceptance_gate.py -v -s`
+  — 4 passed; 46/46 true positives, 0 bare-particle false positives.
+- Offline analysis latency: cold 0.0279s, cached warm 0.0022s; both meet the
+  `<4.0s`/`<1.5s` budgets. Single-word `食べる` remains unchanged and yields
+  no grammar points. Failed Anki sync retains the local grammar card with
+  `sync_status=failed`.
+- `PYTHONPATH=.;backend python -m pytest backend\tests\` — 729 passed,
+  2 failures unrelated to this change: the pre-existing stdlib-import guard
+  rejects `collections` in `kiroku_dictionary\deinflect.py`, and the optional
+  standalone executable exits before its readiness probe.
+- `node --test extension\tests\*.test.js` — 249 passed. Focused extension
+  coverage also verifies single-word capture, whole-sentence OCR routing,
+  Text grammar breakdown, and Video grammar placement.
+
+**Remaining risk**:
+- Browser-manual OCR/video smoke testing and live Yomitan/Anki services were
+  not available in this environment; acceptance uses deterministic offline
+  seams and existing extension contract tests. No new external assets or
+  license obligations were introduced.
+
 ### Tasks 6/9/10 Combined Batch — Review Fixes (2026-10-29)
 
 **Delivered**:

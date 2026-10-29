@@ -5281,9 +5281,11 @@ async function saveCard() {
       : (typeof currentCardTemplateSettings !== "undefined" ? currentCardTemplateSettings : null),
     source_type: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.type) || "text",
     source_url: (typeof lastCaptureSource !== "undefined" && lastCaptureSource?.url) || "",
-    card_kind: currentGrammarCard ? "grammar" : currentCardKind,
+    card_kind: (typeof currentGrammarCard !== "undefined" && currentGrammarCard)
+      ? "grammar"
+      : (typeof currentCardKind !== "undefined" ? currentCardKind : "vocab"),
   };
-  if (currentGrammarCard) {
+  if (typeof currentGrammarCard !== "undefined" && currentGrammarCard) {
     payload.card_settings = {...(payload.card_settings || {}), ...currentGrammarCard};
   }
 
