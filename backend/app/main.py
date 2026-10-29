@@ -298,6 +298,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.api.subtitle import subtitle_router
+
+app.include_router(subtitle_router)
+
 
 _health_cache: dict[str, Any] = {
     "timestamp": 0.0,

@@ -452,3 +452,38 @@ class SubtitleAnnotatorService:
                 i += 1
 
         return tokens
+
+
+_subtitle_annotator_service: SubtitleAnnotatorService | None = None
+_current_service_db_path: Path | None = None
+
+
+def get_subtitle_annotator_service(
+    db_path: Path | str | None = None,
+    jlpt_service: JlptReferenceService | None = None,
+    force_new: bool = False,
+) -> SubtitleAnnotatorService:
+    """Return singleton instance of SubtitleAnnotatorService, creating or re-binding if needed."""
+    global _subtitle_annotator_service, _current_service_db_path
+    resolved_path = Path(db_path) if db_path is not None else get_db_path()
+    if (
+        _subtitle_annotator_service is None
+        or force_new
+        or _current_service_db_path != resolved_path
+    ):
+        _subtitle_annotator_service = SubtitleAnnotatorService(
+            db_path=resolved_path,
+            jlpt_service=jlpt_service,
+        )
+        _current_service_db_path = resolved_path
+    return _subtitle_annotator_service
+
+
+def set_subtitle_annotator_service(service: SubtitleAnnotatorService | None) -> None:
+    """Set or reset the global SubtitleAnnotatorService singleton instance."""
+    global _subtitle_annotator_service, _current_service_db_path
+    _subtitle_annotator_service = service
+    if service is not None:
+        _current_service_db_path = service._db_path
+    else:
+        _current_service_db_path = None

@@ -563,3 +563,67 @@ class LLMTestResponse(BaseModel):
     model: Optional[str] = None
     duration_ms: float = 0.0
     error: Optional[str] = None
+
+
+# ============================================================================
+# Subtitle Annotation & Known Words Schemas
+# ============================================================================
+
+
+class SubtitleCueInput(BaseModel):
+    id: Optional[Union[str, int]] = None
+    text: str = ""
+    start: Optional[float] = None
+    end: Optional[float] = None
+    model_config = {"extra": "allow"}
+
+
+class SubtitleAnnotateRequest(BaseModel):
+    cues: list[SubtitleCueInput] = Field(default_factory=list)
+    learner_level: Optional[str] = None
+    ignore_function_words: Optional[bool] = None
+
+
+class AnnotatedTokenResponse(BaseModel):
+    start: int = 0
+    end: int = 0
+    surface: str
+    lemma: str
+    reading: str = ""
+    status: str = "unstyled"
+    jlpt_level: Optional[str] = None
+    model_config = {"extra": "allow"}
+
+
+class AnnotatedCueResponse(BaseModel):
+    id: Optional[Union[str, int]] = None
+    tokens: list[AnnotatedTokenResponse] = Field(default_factory=list)
+    model_config = {"extra": "allow"}
+
+
+class SubtitleAnnotateResponse(BaseModel):
+    version: int = 1
+    cues: list[AnnotatedCueResponse] = Field(default_factory=list)
+
+
+class KnownWordsResponse(BaseModel):
+    etag: str
+    mined_words: list[str] = Field(default_factory=list)
+    marked_known: list[str] = Field(default_factory=list)
+
+
+class MarkKnownWordRequest(BaseModel):
+    word: str = Field(..., min_length=1, max_length=200)
+
+    @field_validator("word")
+    @classmethod
+    def word_must_not_be_blank(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Word must not be empty.")
+        return normalized
+
+
+class MarkKnownWordResponse(BaseModel):
+    ok: bool = True
+    word: str

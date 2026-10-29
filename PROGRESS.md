@@ -1,5 +1,33 @@
 # Kiroku Note — Progress
 
+### Subtitle Annotation & Known Words Backend Routes (2026-10-29)
+
+**Objective**: Expose FastAPI backend routes for batch subtitle cue annotation, known words retrieval with HTTP 304 ETag caching, and marking/unmarking known words with immediate annotator cache invalidation.
+
+**Delivered**:
+- **API Router & Endpoints (`backend/app/api/subtitle.py`)**:
+  - `POST /api/subtitle/annotate`: Batch annotates subtitle cues using `SubtitleAnnotatorService`, defaults `learner_level` to `get_learner_jlpt_level()` when omitted, respects `ignore_function_words`, and returns `{ "version": 1, "cues": [...] }` with token surface, lemma, reading, JLPT level, status, and character start/end offsets.
+  - `GET /api/known-words`: Aggregates mined expressions from `cards` and user-marked words from `known_words`, generates deterministic SHA-256 ETag, and supports HTTP 304 Not Modified when matching `If-None-Match` header is received.
+  - `POST /api/known-words/mark`: Inserts words into SQLite `known_words` table with UTC timestamp and updates in-memory `SubtitleAnnotatorService` cache immediately. Returns `{ "ok": true, "word": "..." }`.
+  - `DELETE /api/known-words/mark/{word}`: Deletes words from SQLite `known_words` table, supports URL-encoded paths, and refreshes `SubtitleAnnotatorService` in-memory cache immediately. Returns `{ "ok": true, "word": "..." }`.
+- **Application Registration (`backend/app/main.py`)**:
+  - Included `subtitle_router` in the FastAPI app instance.
+- **Pydantic Schemas (`backend/app/schemas.py`)**:
+  - Added `SubtitleCueInput`, `SubtitleAnnotateRequest`, `AnnotatedTokenResponse`, `AnnotatedCueResponse`, `SubtitleAnnotateResponse`, `KnownWordsResponse`, `MarkKnownWordRequest`, and `MarkKnownWordResponse`.
+- **Service Singleton Helper (`backend/app/services/subtitle_annotator.py`)**:
+  - Added `get_subtitle_annotator_service()` and `set_subtitle_annotator_service()` with automatic database path re-binding.
+- **Test Suite (`backend/tests/test_subtitle_routes.py`)**:
+  - Added 14 unit and integration tests verifying basic cue annotation, default learner JLPT levels, empty cue lists, ETag 304 matching, populated known words lists, mark/unmark caching dynamics, idempotency, and URL encoding.
+
+**Verification**:
+- `python -m pytest backend/tests/test_subtitle_routes.py -v`: 14 passed in 1.13s.
+- `python -m pytest backend/tests/test_subtitle_annotator.py backend/tests/test_subtitle_routes.py backend/tests/test_jlpt_batch.py backend/tests/test_learner_jlpt_level.py`: 55 passed in 2.10s.
+
+**Remaining Risk**:
+- None. Routes strictly adhere to Spec Section 4.2 and reuse tested backend services.
+
+---
+
 ### SubtitleAnnotatorService with Lemma-Based Mined & Should-Know Matching (2026-10-29)
 
 **Objective**: Implement high-throughput subtitle cue tokenization and annotation with green precedence on overlap (should_know > mined > unstyled), lemma resolution via `kiroku_dictionary.deinflect`, OpenJLPT integration with in-memory caching, function word suppression, and strict < 2.5ms/cue latency.
