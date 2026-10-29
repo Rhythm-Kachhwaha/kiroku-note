@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import sys
+from typing import Any
 
 APP_NAME = "KirokuNote"
 APP_VERSION = "2.1.0"
@@ -469,7 +470,7 @@ def resolve_ocr_exe_path(env: dict[str, str] | None = None) -> Path | None:
             base_local = Path(str(local_appdata).strip())
         else:
             base_local = Path.home() / "AppData" / "Local"
-        
+
         candidates.append(base_local / APP_NAME / "ocr" / "KirokuOCR.exe")
         candidates.append(base_local / APP_NAME / "KirokuOCR.exe")
         candidates.append(base_local / APP_NAME / "KirokuOCR" / "KirokuOCR.exe")
@@ -731,6 +732,4 @@ def is_within_learner_level(target_level: str | None, learner_level: str = "N4")
         norm_learner = DEFAULT_LEARNER_JLPT_LEVEL
 
     return _JLPT_DIFFICULTY[norm_target] <= _JLPT_DIFFICULTY[norm_learner]
-
-
 

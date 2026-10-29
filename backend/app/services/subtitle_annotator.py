@@ -266,13 +266,19 @@ class SubtitleAnnotatorService:
 
     def _extract_cue_fields(self, cue: Any) -> tuple[float, float, str]:
         """Extract start, end, and text from dictionary or object cue representations."""
+        def _safe_float(value: Any) -> float:
+            try:
+                return float(value or 0.0)
+            except (ValueError, TypeError):
+                return 0.0
+
         if isinstance(cue, dict):
-            start = float(cue.get("start", cue.get("startTime", 0.0)) or 0.0)
-            end = float(cue.get("end", cue.get("endTime", 0.0)) or 0.0)
+            start = _safe_float(cue.get("start", cue.get("startTime", 0.0)))
+            end = _safe_float(cue.get("end", cue.get("endTime", 0.0)))
             text = str(cue.get("text", cue.get("surface", "")) or "")
         else:
-            start = float(getattr(cue, "start", getattr(cue, "startTime", 0.0)) or 0.0)
-            end = float(getattr(cue, "end", getattr(cue, "endTime", 0.0)) or 0.0)
+            start = _safe_float(getattr(cue, "start", getattr(cue, "startTime", 0.0)))
+            end = _safe_float(getattr(cue, "end", getattr(cue, "endTime", 0.0)))
             text = str(getattr(cue, "text", getattr(cue, "surface", "")) or "")
         return start, end, text
 

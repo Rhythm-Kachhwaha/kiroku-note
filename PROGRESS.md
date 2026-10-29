@@ -1,5 +1,17 @@
 # Kiroku Note — Progress
 
+### Video Tab Declutter Review Polish (2026-10-29)
+
+**Delivered**:
+- Removed unused database connection imports and obsolete relative-path constants.
+- Made subtitle cue timestamp parsing safely default malformed values to `0.0`.
+- Added regression coverage for malformed timestamps; particle and copula handling remains covered for `は`, `が`, `を`, `に`, `へ`, `で`, `と`, `の`, `も`, `から`, `まで`, `より`, `か`, `よ`, `ね`, and `わ`.
+- Cleaned configuration and schema SQL trailing whitespace.
+
+**Verification**:
+- `python -m pytest backend/tests/test_subtitle_annotator.py backend/tests/test_subtitle_routes.py backend/tests/test_real_subtitles_benchmark.py`: 32 passed, including both real subtitle tracks under `C:\Users\Rhythm\Downloads\subs`.
+- `node --test extension/tests/video-tab-declutter-dom.test.js extension/tests/sidepanel-annotation-client.test.js extension/tests/video-card-collapse.test.js extension/tests/video-overlay-token-highlighting.test.js extension/tests/missed-words-drawer.test.js`: 41 passed.
+
 ### Real Anime Subtitle Benchmark & Accuracy Report (2026-10-29)
 
 **Objective**: Benchmark `SubtitleAnnotatorService` against real-world anime subtitle tracks (`けいおん! 01 [retimed].ass` and `K-ON! S1E14 [retimed].srt`) against the user's installed SQLite database (`%LOCALAPPDATA%/KirokuNote/data/kiroku.db`, 955+ mined expressions indexed) + OpenJLPT reference dataset (8,334 vocab + 2,211 kanji). Verify sub-millisecond per-cue latency (target strictly < 2.5ms) and episode batch processing under 1.0s, token distribution breakdown, and inflection lemma resolution across real dialogue lines.

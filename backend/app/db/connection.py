@@ -2,15 +2,11 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-import os
 from pathlib import Path
 import sqlite3
 from typing import Iterator
 
-from app.config import get_data_dir, get_db_path
-
-DEFAULT_DB_REL_PATH = Path("data") / "kiroku.db"
-LEGACY_DB_REL_PATH = Path("data") / "ankiminer.db"
+from app.config import get_db_path
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS cards (
@@ -46,7 +42,7 @@ CREATE TABLE IF NOT EXISTS cards (
     UNIQUE(normalized_expression, normalized_reading, normalized_deck_name)
 );
 
-CREATE INDEX IF NOT EXISTS idx_cards_duplicate_identity 
+CREATE INDEX IF NOT EXISTS idx_cards_duplicate_identity
 ON cards (normalized_expression, normalized_reading, normalized_deck_name);
 
 CREATE TABLE IF NOT EXISTS known_words (

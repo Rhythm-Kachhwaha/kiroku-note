@@ -288,6 +288,22 @@ def test_edge_cases_empty_and_whitespace(test_db: Path):
     assert all(t["status"] == "unstyled" for t in cue_spaces["tokens"])
 
 
+def test_non_numeric_cue_timestamps_default_to_zero(test_db: Path):
+    """Malformed timestamp values do not abort annotation."""
+    service = SubtitleAnnotatorService(db_path=test_db)
+
+    cue = service.annotate_cue({
+        "start": "not-a-number",
+        "end": None,
+        "text": "本",
+    })
+
+    assert cue["start"] == 0.0
+    assert cue["end"] == 0.0
+    assert cue["text"] == "本"
+    assert cue["tokens"]
+
+
 def test_complex_deinflection_chain(test_db: Path):
     """Complex causative-passive negative past forms (食べさせられなかった) resolve to dictionary lemma."""
     service = SubtitleAnnotatorService(db_path=test_db, learner_level="N4")
@@ -335,4 +351,3 @@ def test_json_serialization_and_dict_methods(test_db: Path):
     assert "start" in serialized
     assert "tokens" in serialized
     assert "should_know" in serialized
-
