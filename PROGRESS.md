@@ -1,5 +1,42 @@
 # Kiroku Note — Progress
 
+### Video Tab Card Workspace Auto-Collapse State Machine (2026-10-29)
+
+**Objective**: Implement the Card Workspace auto-collapse state machine on the Video tab with `video_workspace_collapse_mode` setting (default `auto_collapse`, plus `keep_open` and `dont_show`), focus guard protection for active editing, 5-second inactivity and subtitle cue change collapse triggers, 1-line `#video-collapsed-card-chip` with expression/reading/status updates and click-to-expand, and complete tab isolation (Text and Quick Add never collapse).
+
+**Delivered**:
+- **Test Suite (`extension/tests/video-card-collapse.test.js`)**:
+  - TDD tests verifying `video_workspace_collapse_mode` setting storage persistence and default `auto_collapse`, with support for `keep_open` and `dont_show`.
+  - Tests verifying auto-collapse triggers after 5 seconds of inactivity on Video tab.
+  - Tests verifying auto-collapse triggers when active subtitle cue changes (`SUBTITLE_CUE_CHANGED`) on Video tab.
+  - Tests verifying focus guard: actively focusing an input or textarea in `#card-editor-section` cancels/defers collapse timer and suppresses cue-change collapse until user blurs.
+  - Tests verifying click on `#video-collapsed-card-chip` (or child expand button) removes `.video-collapsed` and reveals the full Card Workspace.
+  - Tests verifying strict tab isolation: Card Workspace collapse NEVER happens on Text tab or Quick Add tab, and switching away from Video tab instantly removes `.video-collapsed`.
+  - Tests verifying chip updates with expression, reading, and status of last captured and saved card.
+- **Side Panel Implementation (`extension/sidepanel/sidepanel.js`)**:
+  - Added `STORAGE_KEY_VIDEO_WORKSPACE_COLLAPSE_MODE = "video_workspace_collapse_mode"` and state machine variables (`videoWorkspaceCollapseMode`, `videoCollapseTimer`, `lastVideoCapturedCard`).
+  - Implemented `isCardEditorFocused()`, `updateCollapsedCardChip(expressionText, readingText, statusText)`, `clearVideoCollapseTimer()`, `collapseVideoWorkspace()`, `expandVideoWorkspace()`, `scheduleVideoWorkspaceCollapse(delayMs)`, `handleVideoCueChanged(cue)`.
+  - Implemented `loadVideoWorkspaceCollapsePreferences()` and `setVideoWorkspaceCollapseMode(mode)` with `chrome.storage.local` persistence and `onChanged` synchronization.
+  - Hooked into `identify(...)` (capture): updates collapsed chip and schedules 5s auto-collapse (or immediate collapse if `dont_show`).
+  - Hooked into `saveCard()` (save): updates collapsed chip with saved expression/reading and sync status ("Saved (synced)" / "Saved (pending)" / "Already saved"), and schedules auto-collapse.
+  - Hooked into `SUBTITLE_CUE_CHANGED`: triggers cue-based auto-collapse when card is captured/saved unless focus guard is active.
+  - Wired `focusin` and `focusout` event listeners on `#card-editor-section` for focus guard cancellation and blur deferral.
+  - Wired click and keyboard Enter/Space listeners on `#video-collapsed-card-chip` and `#btn-expand-collapsed-chip` to re-expand workspace.
+  - Updated `switchMiningTab(tab)`: ensures `.video-collapsed` is immediately cleared and timers cancelled when switching to non-video tabs (Text, Quick Add, Ask, History, Settings).
+  - Exported collapse state machine API in `module.exports`.
+- **Side Panel Markup (`extension/sidepanel/sidepanel.html`)**:
+  - Added `#setting-video-collapse-mode` dropdown under Video & Subtitles settings with zero emojis.
+
+**Verification**:
+- `node --test extension/tests/video-card-collapse.test.js`: 7 passed in 5.8s.
+- `node --test extension/tests/video-tab-declutter-dom.test.js`: 8 passed in 116ms.
+- `node --test extension/tests/video-mode-declutter-and-fullscreen.test.js extension/tests/sidepanel-annotation-client.test.js extension/tests/sidepanel-subtitles-ui.test.js extension/tests/sidepanel.test.js`: 18 passed in 237ms.
+
+**Remaining Risk**:
+- None. Strict vanilla JS, zero emojis, full focus guard protection, resilient storage synchronization, and full TDD coverage.
+
+---
+
 ### Side Panel Subtitle Annotation Client & Token Highlighting (2026-10-29)
 
 **Objective**: Implement client-side subtitle token annotation, rendering, 3-state highlighting (`mined`, `should-know`, `unstyled`), font size controls (`small`, `medium`, `large` default, `xlarge`) with storage persistence, delegated token clicking for instant word identification, and graceful offline degradation.

@@ -1064,6 +1064,19 @@ const recentCuesSection = document.querySelector("#recent-cues-section");
 const recentCuesList = document.querySelector("#recent-cues-list");
 const toggleShowRecentSubs = document.querySelector("#toggle-show-recent-subs");
 
+// Video Tab Card Workspace Auto-Collapse (1-line chip)
+const videoCollapsedCardChip = document.querySelector("#video-collapsed-card-chip");
+const collapsedChipWord = document.querySelector("#collapsed-chip-word");
+const collapsedChipReading = document.querySelector("#collapsed-chip-reading");
+const collapsedChipStatus = document.querySelector("#collapsed-chip-status");
+const btnExpandCollapsedChip = document.querySelector("#btn-expand-collapsed-chip");
+const settingVideoCollapseMode = document.querySelector("#setting-video-collapse-mode");
+
+const STORAGE_KEY_VIDEO_WORKSPACE_COLLAPSE_MODE = "video_workspace_collapse_mode";
+let videoWorkspaceCollapseMode = "auto_collapse";
+let videoCollapseTimer = null;
+let lastVideoCapturedCard = null;
+
 let loadedSubtitleCues = [];
 let recentSubtitleCues = [];
 let isRecentSubsEnabled = true;
@@ -4601,6 +4614,23 @@ async function identify(text) {
     if (typeof scheduleCardPreviewUpdate === "function") {
       scheduleCardPreviewUpdate();
     }
+
+    // Update collapsed chip and handle Video tab workspace auto-collapse
+    const chipWordVal = (typeof fieldExpression !== "undefined" && fieldExpression && fieldExpression.value) || body.expression || capturedText;
+    const chipReadingVal = (typeof fieldReading !== "undefined" && fieldReading && fieldReading.value) || body.reading || (typeof activeReading !== "undefined" ? activeReading : "") || "";
+    const chipStatusVal = body.is_duplicate ? "Already saved" : "Draft ready";
+    if (typeof updateCollapsedCardChip === "function") {
+      updateCollapsedCardChip(chipWordVal, chipReadingVal, chipStatusVal);
+    }
+
+    if (currentMiningTab === "video") {
+      if (videoWorkspaceCollapseMode === "dont_show") {
+        if (typeof collapseVideoWorkspace === "function") collapseVideoWorkspace();
+      } else if (videoWorkspaceCollapseMode === "auto_collapse") {
+        if (typeof expandVideoWorkspace === "function") expandVideoWorkspace();
+        if (typeof scheduleVideoWorkspaceCollapse === "function") scheduleVideoWorkspaceCollapse(5000);
+      }
+    }
   } catch (error) {
     if (requestId !== currentCaptureId) return;
     if (dictLoadingIndicator) dictLoadingIndicator.hidden = true;
@@ -5123,6 +5153,25 @@ async function saveCard() {
       loadHistoryStats(true).catch(() => {});
     }
     if (typeof loadHistory === "function") loadHistory().catch(() => {});
+
+    // Update collapsed chip and handle Video tab workspace auto-collapse on card save
+    const savedWord = (typeof fieldExpression !== "undefined" && fieldExpression && fieldExpression.value) || body.expression || expr;
+    const savedReading = (typeof fieldReading !== "undefined" && fieldReading && fieldReading.value) || body.reading || "";
+    const savedStatus = body.is_duplicate
+      ? "Already saved"
+      : (body.sync_status === "synced" ? "Saved (synced)" : "Saved (pending)");
+    if (typeof updateCollapsedCardChip === "function") {
+      updateCollapsedCardChip(savedWord, savedReading, savedStatus);
+    }
+
+    if (currentMiningTab === "video") {
+      if (videoWorkspaceCollapseMode === "dont_show") {
+        if (typeof collapseVideoWorkspace === "function") collapseVideoWorkspace();
+      } else if (videoWorkspaceCollapseMode === "auto_collapse") {
+        if (typeof scheduleVideoWorkspaceCollapse === "function") scheduleVideoWorkspaceCollapse(5000);
+      }
+    }
+
     return body;
   } catch (error) {
     if (typeof setStatus === "function") {
@@ -8983,6 +9032,181 @@ if (typeof window !== "undefined") {
   window.loadRecentSubsPreferences = loadRecentSubsPreferences;
 }
 
+/* ==========================================================================
+   VIDEO TAB HERO / CARD WORKSPACE AUTO-COLLAPSE STATE MACHINE
+   ========================================================================== */
+
+function isCardEditorFocused() {
+  const active = document.activeElement;
+  if (!active || !cardEditorSection) return false;
+  const inEditor = typeof cardEditorSection.contains === "function"
+    ? cardEditorSection.contains(active)
+    : (active.closest ? active.closest("#card-editor-section") : false);
+  if (!inEditor) return false;
+  const tag = (active.tagName || "").toUpperCase();
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
+function updateCollapsedCardChip(expressionText, readingText, statusText) {
+  lastVideoCapturedCard = {
+    expression: expressionText || "",
+    reading: readingText || "",
+    status: statusText || ""
+  };
+  if (collapsedChipWord) collapsedChipWord.textContent = lastVideoCapturedCard.expression;
+  if (collapsedChipReading) collapsedChipReading.textContent = lastVideoCapturedCard.reading;
+  if (collapsedChipStatus) collapsedChipStatus.textContent = lastVideoCapturedCard.status;
+}
+
+function clearVideoCollapseTimer() {
+  if (videoCollapseTimer) {
+    clearTimeout(videoCollapseTimer);
+    videoCollapseTimer = null;
+  }
+}
+
+function collapseVideoWorkspace() {
+  if (currentMiningTab !== "video") return;
+  if (videoWorkspaceCollapseMode === "keep_open") return;
+  if (isCardEditorFocused()) return;
+  clearVideoCollapseTimer();
+  if (cardEditorSection) {
+    cardEditorSection.classList.add("video-collapsed");
+  }
+  if (videoCollapsedCardChip) {
+    videoCollapsedCardChip.style.display = "flex";
+  }
+}
+
+function expandVideoWorkspace() {
+  clearVideoCollapseTimer();
+  if (cardEditorSection) {
+    cardEditorSection.classList.remove("video-collapsed");
+  }
+  if (videoCollapsedCardChip) {
+    videoCollapsedCardChip.style.display = "none";
+  }
+}
+
+function scheduleVideoWorkspaceCollapse(delayMs = 5000) {
+  clearVideoCollapseTimer();
+  if (currentMiningTab !== "video") return;
+  if (videoWorkspaceCollapseMode === "keep_open") return;
+  if (videoWorkspaceCollapseMode === "dont_show") {
+    if (!isCardEditorFocused()) {
+      collapseVideoWorkspace();
+    }
+    return;
+  }
+  videoCollapseTimer = setTimeout(() => {
+    videoCollapseTimer = null;
+    if (currentMiningTab !== "video" || videoWorkspaceCollapseMode === "keep_open") return;
+    if (isCardEditorFocused()) {
+      return;
+    }
+    collapseVideoWorkspace();
+  }, delayMs);
+}
+
+function handleVideoCueChanged(cue) {
+  if (currentMiningTab === "video" && videoWorkspaceCollapseMode === "auto_collapse" && lastVideoCapturedCard) {
+    if (isCardEditorFocused()) {
+      return;
+    }
+    collapseVideoWorkspace();
+  }
+}
+
+async function loadVideoWorkspaceCollapsePreferences() {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const data = await chrome.storage.local.get([STORAGE_KEY_VIDEO_WORKSPACE_COLLAPSE_MODE]);
+      const stored = data?.[STORAGE_KEY_VIDEO_WORKSPACE_COLLAPSE_MODE];
+      if (stored === "keep_open" || stored === "dont_show" || stored === "auto_collapse") {
+        videoWorkspaceCollapseMode = stored;
+      }
+    }
+  } catch (_) {}
+  if (settingVideoCollapseMode) {
+    settingVideoCollapseMode.value = videoWorkspaceCollapseMode;
+  }
+}
+
+async function setVideoWorkspaceCollapseMode(mode) {
+  const validModes = ["auto_collapse", "keep_open", "dont_show"];
+  const targetMode = validModes.includes(mode) ? mode : "auto_collapse";
+  videoWorkspaceCollapseMode = targetMode;
+  if (settingVideoCollapseMode) {
+    settingVideoCollapseMode.value = targetMode;
+  }
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      await chrome.storage.local.set({ [STORAGE_KEY_VIDEO_WORKSPACE_COLLAPSE_MODE]: targetMode });
+    }
+  } catch (_) {}
+  if (targetMode === "keep_open") {
+    clearVideoCollapseTimer();
+  } else if (targetMode === "dont_show" && currentMiningTab === "video" && lastVideoCapturedCard) {
+    collapseVideoWorkspace();
+  }
+}
+
+function initVideoCardCollapse() {
+  if (videoCollapsedCardChip) {
+    videoCollapsedCardChip.addEventListener("click", () => {
+      expandVideoWorkspace();
+    });
+    videoCollapsedCardChip.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        expandVideoWorkspace();
+      }
+    });
+  }
+  if (btnExpandCollapsedChip) {
+    btnExpandCollapsedChip.addEventListener("click", (e) => {
+      if (e && typeof e.stopPropagation === "function") e.stopPropagation();
+      expandVideoWorkspace();
+    });
+  }
+  if (cardEditorSection) {
+    cardEditorSection.addEventListener("focusin", (e) => {
+      const tag = (e.target?.tagName || "").toUpperCase();
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+        clearVideoCollapseTimer();
+      }
+    });
+    cardEditorSection.addEventListener("focusout", (e) => {
+      setTimeout(() => {
+        if (!isCardEditorFocused() && currentMiningTab === "video" && videoWorkspaceCollapseMode === "auto_collapse" && lastVideoCapturedCard) {
+          scheduleVideoWorkspaceCollapse(5000);
+        }
+      }, 50);
+    });
+  }
+  if (settingVideoCollapseMode) {
+    settingVideoCollapseMode.addEventListener("change", (e) => {
+      setVideoWorkspaceCollapseMode(e.target.value);
+    });
+  }
+  if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && changes[STORAGE_KEY_VIDEO_WORKSPACE_COLLAPSE_MODE]) {
+        const newVal = changes[STORAGE_KEY_VIDEO_WORKSPACE_COLLAPSE_MODE].newValue;
+        if (newVal === "keep_open" || newVal === "dont_show" || newVal === "auto_collapse") {
+          videoWorkspaceCollapseMode = newVal;
+          if (settingVideoCollapseMode) settingVideoCollapseMode.value = newVal;
+          if (newVal === "keep_open") {
+            clearVideoCollapseTimer();
+          } else if (newVal === "dont_show" && currentMiningTab === "video" && lastVideoCapturedCard) {
+            collapseVideoWorkspace();
+          }
+        }
+      }
+    });
+  }
+}
+
 function switchMiningTab(targetTab) {
   const validTabs = ["text", "video", "quickadd", "ask", "history", "settings"];
   const tab = validTabs.includes(targetTab) ? targetTab : "text";
@@ -8992,6 +9216,15 @@ function switchMiningTab(targetTab) {
     previousTab === "video" || (previousTab === "settings" && settingsPanel?.classList.contains("video-settings-priority"))
   );
   currentMiningTab = tab;
+
+  if (tab !== "video") {
+    expandVideoWorkspace();
+    clearVideoCollapseTimer();
+  } else if (tab === "video") {
+    if (videoWorkspaceCollapseMode === "dont_show" && lastVideoCapturedCard) {
+      collapseVideoWorkspace();
+    }
+  }
 
   if (cardEditorSection) {
     const hideEditor = tab === "history" || tab === "ask" || tab === "settings";
@@ -9615,6 +9848,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const highlight = typeof message.highlightTerm === "string" ? message.highlightTerm : undefined;
     updateVideoCuePreviewText(message.cue?.text, highlight);
     renderRecentCuesList();
+    if (typeof handleVideoCueChanged === "function") {
+      handleVideoCueChanged(message.cue);
+    }
     if (message.cue?.text && typeof setAskContext === "function" && (!activeAskContext || !activeAskContext.text || currentMiningTab === "ask")) {
       setAskContext(message.cue.text, "Video Subtitle");
     }
@@ -11028,6 +11264,8 @@ initAskResponseMode();
 
 loadAutoCapturePreferences();
 loadRecentSubsPreferences();
+loadVideoWorkspaceCollapsePreferences().catch(() => {});
+initVideoCardCollapse();
 checkLLMStatus().catch(() => {});
 initLlmSettingsUI();
 loadLlmConfigToSettings().catch(() => {});
@@ -11140,6 +11378,17 @@ if (typeof module !== "undefined" && module.exports) {
     setCurrentActiveCue: (c) => { currentActiveCue = c; },
     identify,
     mineSubtitleCueWord,
+    getVideoWorkspaceCollapseMode: () => videoWorkspaceCollapseMode,
+    setVideoWorkspaceCollapseMode,
+    loadVideoWorkspaceCollapsePreferences,
+    collapseVideoWorkspace,
+    expandVideoWorkspace,
+    scheduleVideoWorkspaceCollapse,
+    updateCollapsedCardChip,
+    getLastVideoCapturedCard: () => lastVideoCapturedCard,
+    isCardEditorFocused,
+    onSubtitleCueChanged: handleVideoCueChanged,
+    saveCard,
   };
 }
 
