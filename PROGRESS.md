@@ -1,5 +1,21 @@
 # Kiroku Note — Progress
 
+### Task 1 — Grammar Coverage Harness Baseline (2026-10-29)
+
+**Delivered**:
+- Added `tools/grammar_coverage.py`, which evaluates every bundled index
+  point against its first supplied Japanese example and reports misses by
+  JLPT level.
+- Added a 45-sentence negative corpus covering ordinary particle use and
+  unrelated vocabulary, with a zero-false-positive acceptance assertion.
+- Added `backend/tests/test_grammar_coverage.py` as the executable coverage
+  gate. Baseline floors are N5 1/20, N4 6/20, N3 5/20, N2 1/20, and N1
+  1/20 (14/100 total).
+
+**Verification**:
+- `PYTHONPATH=.;backend python -m pytest backend\tests\test_grammar_coverage.py`
+
+
 ### Task 12 — Extension Acceptance Review Closure (2026-10-29)
 
 **Delivered**:
