@@ -7,7 +7,12 @@ from pathlib import Path
 import sqlite3
 from typing import Any
 
-from app.config import get_db_path, get_learner_jlpt_level, is_within_learner_level
+from app.config import (
+    get_db_path,
+    get_learner_jlpt_level,
+    is_within_learner_level,
+    normalize_jlpt_level,
+)
 from app.db.connection import db_session
 from .dictionary_provider import DictionaryProvider, YomitanHttpProvider
 from .grammar_matcher import GrammarMatcher
@@ -71,17 +76,24 @@ class GrammarService:
 
     def analyze(self, sentence: str, learner_level: str | None = None) -> dict[str, Any]:
         sentence = sentence.strip()
-        level = learner_level or get_learner_jlpt_level()
+        level = normalize_jlpt_level(learner_level) or get_learner_jlpt_level()
         # Dictionary discovery is deliberately kept out of the sentence path:
         # analysis is budgeted around one tokenizer request.
         dictionary_hash = hashlib.sha256(type(self.provider).__name__.encode()).hexdigest()
         key = self._cache_key(sentence, dictionary_hash)
         cached = self._cache_get(key)
         if cached is not None:
-            return {**cached, "cached": True}
+            # The cache predates learner-level-aware keys. Re-filter cached
+            # points so a response generated for another level cannot leak
+            # out-of-scope grammar.
+            points = [
+                point for point in cached.get("points", [])
+                if is_within_learner_level(point.get("level"), level)
+            ]
+            return {**cached, "learner_level": level, "points": points, "cached": True}
 
         tokens: list[dict[str, Any]] = []
-        limited_offline = False
+        limited_offline = not getattr(self.provider, "supports_sentence_tokenization", True)
         try:
             tokens = self.provider.tokenize_with_inflection(sentence)
         except Exception:
@@ -89,7 +101,13 @@ class GrammarService:
 
         # A selection containing one lexical item is a dictionary lookup, not
         # sentence grammar. This also prevents matching a bare word such as わけ.
-        has_sentence_context = len(tokens) > 1 or any(ch in sentence for ch in "。！？、,， \n")
+        # Without a tokenizer, retain literal matching for sentence-like
+        # selections while continuing to suppress isolated short words.
+        has_sentence_context = (
+            len(tokens) > 1
+            or any(ch in sentence for ch in "。！？、,， \n")
+            or (limited_offline and len(sentence) > 2)
+        )
         matches = self.matcher.match_sentence(tokens, sentence) if has_sentence_context else []
         points = [
             item.as_dict() for item in matches

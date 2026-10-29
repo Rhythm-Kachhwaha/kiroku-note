@@ -82,6 +82,8 @@ def resolve_dictionary_db_path(custom_path: str | Path | None = None) -> Path:
 class DictionaryProvider(ABC):
     """Abstract interface for Japanese term identification, payload retrieval, and status."""
 
+    supports_sentence_tokenization = True
+
     @abstractmethod
     def identify(self, text: str) -> IdentifiedTerm:
         """Identify headword and reading for input text."""
@@ -219,7 +221,14 @@ class YomitanHttpProvider(DictionaryProvider):
 
 
 class LocalDictionaryProvider(DictionaryProvider):
-    """Standalone local dictionary engine provider wrapping kiroku_dictionary."""
+    """Standalone local dictionary engine provider wrapping kiroku_dictionary.
+
+    The local word index does not provide sentence tokenization. Grammar
+    analysis may use literal fallback matching, and marks responses as
+    limited rather than claiming full tokenizer availability.
+    """
+
+    supports_sentence_tokenization = False
 
     def __init__(self, db_path: str | Path | None = None):
         self._db_path = str(resolve_dictionary_db_path(db_path))

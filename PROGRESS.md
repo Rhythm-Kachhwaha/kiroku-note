@@ -16,6 +16,20 @@
 - `PYTHONPATH=.;backend pytest -q backend/tests/test_grammar_service.py backend/tests/test_grammar_routes.py`
   (4 passed).
 
+**Task 5 review fixes**:
+- Re-filtered cached grammar points for the normalized requested learner
+  level, preventing a cache populated at a broader level from leaking points.
+- Kept offline literal matching for punctuation-free selections longer than an
+  isolated word while preserving one-word suppression.
+- Marked `LocalDictionaryProvider` as lacking sentence tokenization so grammar
+  responses explicitly report limited offline capability.
+- Added focused regressions for cache-level filtering, punctuation-free
+  fallback, isolated-word suppression, and the local provider capability flag.
+
+**Review-fix verification**:
+- `PYTHONPATH=.;backend python -m pytest -q backend/tests/test_grammar_service.py backend/tests/test_grammar_routes.py backend/tests/test_dictionary_provider.py`
+  (17 passed).
+
 ### Task 4 — Grammar Matcher (2026-10-29)
 
 **Delivered**:
