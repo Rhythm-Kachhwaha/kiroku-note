@@ -16,6 +16,28 @@ APP_VERSION = "2.1.0"
 
 DEFAULT_KIROKU_HOST = "127.0.0.1"
 DEFAULT_KIROKU_PORT = 21828
+DEFAULT_ALLOWED_ORIGIN_REGEX = r"^(chrome-extension://.*|http://(localhost|127\.0\.0\.1)(:\d+)?)$"
+
+
+def get_allowed_origin_regex(env: dict[str, str] | None = None) -> str:
+    """
+    Resolve regex pattern for trusted CORS origins.
+    Defaults to loopback localhost/127.0.0.1 and Chrome extension origins.
+    Can be extended with comma-separated origins in KIROKU_ALLOWED_ORIGINS.
+    Never permits wildcard '*' with credentials.
+    """
+    env_dict = os.environ if env is None else env
+    custom = env_dict.get("KIROKU_ALLOWED_ORIGINS")
+    if not custom or not str(custom).strip():
+        return DEFAULT_ALLOWED_ORIGIN_REGEX
+
+    origins = [o.strip() for o in str(custom).split(",") if o.strip() and o.strip() != "*"]
+    if not origins:
+        return DEFAULT_ALLOWED_ORIGIN_REGEX
+
+    escaped = [re.escape(o) for o in origins]
+    custom_subpattern = "|".join(escaped)
+    return f"^({DEFAULT_ALLOWED_ORIGIN_REGEX[2:-2]}|{custom_subpattern})$"
 
 
 def load_dotenv(env_path: Path | None = None, override: bool = False) -> None:

@@ -319,8 +319,11 @@ run_backend.py, start_backend.bat root backend launchers
       `0006_jlpt_examination_engine.sql`.
 3. **API/integration** — `backend/app/api/study/` mounts the versioned Study HTTP API at
    `/api/study/v1`, exposing bank summary/readiness, practice drills, exam simulation, learning
-   analytics, diagnostics, and content-addressed media streaming. Operates local-first with zero
-   cloud dependencies.
+   analytics, diagnostics, and content-addressed media streaming. Protected by per-launch ephemeral Bearer
+   authentication (`app.api.study.auth`), local CORS origin restriction (`app.config.get_allowed_origin_regex()`),
+   safe mutation retries via `client_request_id` idempotency (`app.api.study.idempotency`) backed by forward
+   migration `0008_api_idempotency.sql`, and hardened RFC 7233 byte-range media delivery with mandatory
+   question/group eligibility validation (`app.api.study.media`). Operates local-first with zero cloud dependencies.
 4. **Data/configuration** — Resolved via `app.config.get_study_dir()`: `%LOCALAPPDATA%\KirokuNote\study` in packaged mode,
    `backend/study/` in dev mode, or `KIROKU_STUDY_DIR` environment override for tests.
    Contains `study.db`, `media/`, and `backups/`.
@@ -338,6 +341,7 @@ run_backend.py, start_backend.bat root backend launchers
    `test_study_verification_service.py`, `test_study_verification_persistence_and_review.py`,
    `test_study_acquisition_foundation.py`, `test_study_acquisition_parser.py`, `test_study_acquisition_m3_integration.py`,
    `test_study_acquisition_m4_1_robustness.py`, `test_study_practice_engine.py`,
+   `test_study_exam_engine.py`, `test_study_http_api.py`, and `test_study_api_security_and_media.py`.
    and `test_study_exam_engine.py`.
 
 ## Backend packaging and resources

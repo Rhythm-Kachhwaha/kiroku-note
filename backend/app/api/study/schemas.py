@@ -85,6 +85,7 @@ class CreatePracticeSessionRequest(StudyAPIBaseModel):
     question_count: int = Field(default=10, ge=1, le=100)
     session_type: str = Field(default="practice", pattern=r"^(standard|practice|casual|drill|trouble|review)$")
     seed: Optional[int] = None
+    client_request_id: Optional[str] = Field(default=None, description="Optional idempotency UUID")
 
 
 class PracticeSessionResponse(StudyAPIBaseModel):
@@ -109,6 +110,7 @@ class SubmitAnswerRequest(StudyAPIBaseModel):
     selected_choice_id: int
     time_spent_ms: int = Field(ge=0)
     difficulty_rating: Optional[str] = Field(default=None, pattern=r"^(easy|normal|hard)$")
+    client_request_id: Optional[str] = Field(default=None, description="Optional idempotency UUID")
 
 
 class SubmitAnswerResponse(StudyAPIBaseModel):
@@ -124,6 +126,7 @@ class SubmitAnswerResponse(StudyAPIBaseModel):
 class SubmitFeedbackRequest(StudyAPIBaseModel):
     attempt_item_id: int
     difficulty_rating: str = Field(pattern=r"^(easy|normal|hard)$")
+    client_request_id: Optional[str] = Field(default=None, description="Optional idempotency UUID")
 
 
 class GenericStatusResponse(StudyAPIBaseModel):
@@ -141,6 +144,7 @@ class CreateExamSessionRequest(StudyAPIBaseModel):
     strict_timing: bool = True
     enforce_readiness: bool = True
     seed: Optional[int] = None
+    client_request_id: Optional[str] = Field(default=None, description="Optional idempotency UUID")
 
 
 class ExamSectionStateDTO(StudyAPIBaseModel):
@@ -178,16 +182,19 @@ class ExamSessionResponse(StudyAPIBaseModel):
 
 class SelectDraftChoiceRequest(StudyAPIBaseModel):
     selected_choice_id: Optional[int] = None
+    client_request_id: Optional[str] = Field(default=None, description="Optional idempotency UUID")
 
 
 class ToggleReviewFlagRequest(StudyAPIBaseModel):
     is_flagged: bool
+    client_request_id: Optional[str] = Field(default=None, description="Optional idempotency UUID")
 
 
 class CreateDiagnosticRequest(StudyAPIBaseModel):
     level: str = Field(pattern=r"^N[1-5]$")
     seed: Optional[int] = None
     question_limit_per_format: int = Field(default=1, ge=1, le=5)
+    client_request_id: Optional[str] = Field(default=None, description="Optional idempotency UUID")
 
 
 # =============================================================================

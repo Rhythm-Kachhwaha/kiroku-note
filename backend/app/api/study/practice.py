@@ -18,7 +18,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Header, Query, status
+from fastapi.responses import JSONResponse
 
 from app.api.study.converters import practice_item_to_dto
 from app.api.study.deps import (
@@ -29,6 +30,13 @@ from app.api.study.deps import (
 from app.api.study.errors import (
     StudyNotFoundError,
     map_domain_exception,
+)
+from app.api.study.idempotency import (
+    check_or_start_idempotency,
+    clear_failed_idempotency,
+    resolve_client_request_id,
+    save_idempotency_result,
+    validate_client_request_id,
 )
 from app.api.study.schemas import (
     CreatePracticeSessionRequest,
@@ -61,12 +69,23 @@ def _resolve_session_id(conn: sqlite3.Connection, session_id_or_ext: str) -> int
 @practice_router.post("/practice/sessions", response_model=PracticeSessionResponse, status_code=status.HTTP_201_CREATED)
 def create_practice_session(
     request: CreatePracticeSessionRequest,
+    x_client_request_id: Optional[str] = Header(None, alias="X-Client-Request-Id"),
     conn: sqlite3.Connection = Depends(get_study_db),
     practice_service: PracticeSessionService = Depends(get_practice_service),
-) -> PracticeSessionResponse:
+):
     """
     Create a new practice session with deterministically selected questions.
     """
+    client_request_id = resolve_client_request_id(header_id=x_client_request_id, body_payload=request)
+    idemp = check_or_start_idempotency(
+        conn=conn,
+        client_request_id=client_request_id,
+        operation="POST:/practice/sessions",
+        payload=request,
+    )
+    if idemp.is_cached:
+        return JSONResponse(status_code=idemp.status_code, content=idemp.cached_response)
+
     try:
         sess_type = SessionType.CASUAL if request.session_type == "casual" else SessionType.PRACTICE
         config = PracticeSessionConfig(
@@ -84,7 +103,7 @@ def create_practice_session(
             for it in state.items
         ]
 
-        return PracticeSessionResponse(
+        resp = PracticeSessionResponse(
             session_id=state.session_id,
             external_id=state.external_id,
             session_type=state.session_type.value,
@@ -100,7 +119,15 @@ def create_practice_session(
             current_position=state.current_position,
             items=items_dto,
         )
+        save_idempotency_result(
+            conn=conn,
+            client_request_id=client_request_id,
+            status_code=status.HTTP_201_CREATED,
+            response_data=resp,
+        )
+        return resp
     except Exception as exc:
+        clear_failed_idempotency(conn, client_request_id)
         raise map_domain_exception(exc)
 
 
@@ -226,15 +253,27 @@ def get_next_practice_item(
 def submit_practice_answer(
     id: str,
     request: SubmitAnswerRequest,
+    x_client_request_id: Optional[str] = Header(None, alias="X-Client-Request-Id"),
     conn: sqlite3.Connection = Depends(get_study_db),
     practice_service: PracticeSessionService = Depends(get_practice_service),
-) -> SubmitAnswerResponse:
+):
     """
     Submit and deterministically grade an answer to a practice question.
     Returns correctness and structured explanation markup.
     """
+    sess_id = _resolve_session_id(conn, id)
+    client_request_id = resolve_client_request_id(header_id=x_client_request_id, body_payload=request)
+    idemp = check_or_start_idempotency(
+        conn=conn,
+        client_request_id=client_request_id,
+        operation=f"POST:/practice/sessions/{sess_id}/answers",
+        payload=request,
+        resource_id=str(sess_id),
+    )
+    if idemp.is_cached:
+        return JSONResponse(status_code=idemp.status_code, content=idemp.cached_response)
+
     try:
-        sess_id = _resolve_session_id(conn, id)
         rating = DifficultyRating(request.difficulty_rating) if request.difficulty_rating else None
 
         grading_result = practice_service.submit_answer(
@@ -245,7 +284,7 @@ def submit_practice_answer(
             difficulty_rating=rating,
         )
 
-        return SubmitAnswerResponse(
+        resp = SubmitAnswerResponse(
             attempt_item_id=request.attempt_item_id,
             selected_choice_id=request.selected_choice_id,
             is_correct=grading_result.is_correct,
@@ -254,7 +293,15 @@ def submit_practice_answer(
             explanation_markup=grading_result.rationale_markup,
             time_spent_ms=request.time_spent_ms,
         )
+        save_idempotency_result(
+            conn=conn,
+            client_request_id=client_request_id,
+            status_code=status.HTTP_200_OK,
+            response_data=resp,
+        )
+        return resp
     except Exception as exc:
+        clear_failed_idempotency(conn, client_request_id)
         raise map_domain_exception(exc)
 
 
@@ -262,41 +309,73 @@ def submit_practice_answer(
 def submit_practice_feedback(
     id: str,
     request: SubmitFeedbackRequest,
+    x_client_request_id: Optional[str] = Header(None, alias="X-Client-Request-Id"),
     conn: sqlite3.Connection = Depends(get_study_db),
     practice_service: PracticeSessionService = Depends(get_practice_service),
-) -> GenericStatusResponse:
+):
     """
     Record subjective learner difficulty rating for an answered attempt item.
     """
+    sess_id = _resolve_session_id(conn, id)
+    client_request_id = resolve_client_request_id(header_id=x_client_request_id, body_payload=request)
+    idemp = check_or_start_idempotency(
+        conn=conn,
+        client_request_id=client_request_id,
+        operation=f"POST:/practice/sessions/{sess_id}/feedback",
+        payload=request,
+        resource_id=str(sess_id),
+    )
+    if idemp.is_cached:
+        return JSONResponse(status_code=idemp.status_code, content=idemp.cached_response)
+
     try:
-        sess_id = _resolve_session_id(conn, id)
         practice_service.submit_feedback(
             session_id=sess_id,
             attempt_item_id=request.attempt_item_id,
             difficulty_rating=DifficultyRating(request.difficulty_rating),
         )
-        return GenericStatusResponse(status="ok", message="Difficulty feedback recorded.")
+        resp = GenericStatusResponse(status="ok", message="Difficulty feedback recorded.")
+        save_idempotency_result(
+            conn=conn,
+            client_request_id=client_request_id,
+            status_code=status.HTTP_200_OK,
+            response_data=resp,
+        )
+        return resp
     except Exception as exc:
+        clear_failed_idempotency(conn, client_request_id)
         raise map_domain_exception(exc)
 
 
 @practice_router.post("/practice/sessions/{id}/complete", response_model=PracticeSessionResponse)
 def complete_practice_session(
     id: str,
+    x_client_request_id: Optional[str] = Header(None, alias="X-Client-Request-Id"),
     conn: sqlite3.Connection = Depends(get_study_db),
     practice_service: PracticeSessionService = Depends(get_practice_service),
-) -> PracticeSessionResponse:
+):
     """
     Explicitly complete an active practice session.
     """
+    sess_id = _resolve_session_id(conn, id)
+    client_request_id = validate_client_request_id(x_client_request_id)
+    idemp = check_or_start_idempotency(
+        conn=conn,
+        client_request_id=client_request_id,
+        operation=f"POST:/practice/sessions/{sess_id}/complete",
+        payload={},
+        resource_id=str(sess_id),
+    )
+    if idemp.is_cached:
+        return JSONResponse(status_code=idemp.status_code, content=idemp.cached_response)
+
     try:
-        sess_id = _resolve_session_id(conn, id)
         state = practice_service.complete_session(sess_id)
         items_dto = [
             practice_item_to_dto(conn, it, reveal_answers=True)
             for it in state.items
         ]
-        return PracticeSessionResponse(
+        resp = PracticeSessionResponse(
             session_id=state.session_id,
             external_id=state.external_id,
             session_type=state.session_type.value,
@@ -312,27 +391,47 @@ def complete_practice_session(
             current_position=state.current_position,
             items=items_dto,
         )
+        save_idempotency_result(
+            conn=conn,
+            client_request_id=client_request_id,
+            status_code=status.HTTP_200_OK,
+            response_data=resp,
+        )
+        return resp
     except Exception as exc:
+        clear_failed_idempotency(conn, client_request_id)
         raise map_domain_exception(exc)
 
 
 @practice_router.post("/practice/sessions/{id}/abandon", response_model=PracticeSessionResponse)
 def abandon_practice_session(
     id: str,
+    x_client_request_id: Optional[str] = Header(None, alias="X-Client-Request-Id"),
     conn: sqlite3.Connection = Depends(get_study_db),
     practice_service: PracticeSessionService = Depends(get_practice_service),
-) -> PracticeSessionResponse:
+):
     """
     Explicitly abandon an active practice session.
     """
+    sess_id = _resolve_session_id(conn, id)
+    client_request_id = validate_client_request_id(x_client_request_id)
+    idemp = check_or_start_idempotency(
+        conn=conn,
+        client_request_id=client_request_id,
+        operation=f"POST:/practice/sessions/{sess_id}/abandon",
+        payload={},
+        resource_id=str(sess_id),
+    )
+    if idemp.is_cached:
+        return JSONResponse(status_code=idemp.status_code, content=idemp.cached_response)
+
     try:
-        sess_id = _resolve_session_id(conn, id)
         state = practice_service.abandon_session(sess_id)
         items_dto = [
             practice_item_to_dto(conn, it, reveal_answers=False)
             for it in state.items
         ]
-        return PracticeSessionResponse(
+        resp = PracticeSessionResponse(
             session_id=state.session_id,
             external_id=state.external_id,
             session_type=state.session_type.value,
@@ -348,7 +447,15 @@ def abandon_practice_session(
             current_position=state.current_position,
             items=items_dto,
         )
+        save_idempotency_result(
+            conn=conn,
+            client_request_id=client_request_id,
+            status_code=status.HTTP_200_OK,
+            response_data=resp,
+        )
+        return resp
     except Exception as exc:
+        clear_failed_idempotency(conn, client_request_id)
         raise map_domain_exception(exc)
 
 

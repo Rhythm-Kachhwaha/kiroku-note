@@ -55,6 +55,7 @@ from app.schemas import (
 )
 from app.config import (
     APP_VERSION,
+    get_allowed_origin_regex,
     get_llm_api_key,
     get_llm_jlpt_level,
     get_llm_key_name,
@@ -92,7 +93,7 @@ from app.services.yomitan import YomitanError, YomitanService
 # Off by default so production/distributed builds do not expose developer APIs.
 _debug = os.getenv("KIROKU_DEBUG", "").strip().lower() in ("1", "true", "yes")
 
-ALLOWED_ORIGIN_REGEX = r"^(chrome-extension://.*|http://(localhost|127\.0\.0\.1)(:\d+)?)$"
+ALLOWED_ORIGIN_REGEX = get_allowed_origin_regex()
 ALLOWED_ORIGIN_PATTERN = re.compile(ALLOWED_ORIGIN_REGEX)
 ALLOWED_HOST_PATTERN = re.compile(r"^(localhost|127\.0\.0\.1|testserver)(:\d+)?$", re.IGNORECASE)
 

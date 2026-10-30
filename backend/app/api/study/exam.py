@@ -21,7 +21,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Header, Query, status
+from fastapi.responses import JSONResponse
 
 from app.api.study.converters import exam_item_to_dto, practice_item_to_dto
 from app.api.study.deps import (
@@ -32,6 +33,13 @@ from app.api.study.deps import (
 from app.api.study.errors import (
     StudyNotFoundError,
     map_domain_exception,
+)
+from app.api.study.idempotency import (
+    check_or_start_idempotency,
+    clear_failed_idempotency,
+    resolve_client_request_id,
+    save_idempotency_result,
+    validate_client_request_id,
 )
 from app.api.study.schemas import (
     CreateDiagnosticRequest,
@@ -46,7 +54,7 @@ from app.api.study.schemas import (
     ToggleReviewFlagRequest,
 )
 from app.study.exam.enums import ExamMode
-from app.study.exam.models import ExamSessionState
+from app.study.exam.models import ExamResult, ExamSessionState
 from app.study.exam.service import ExamSessionService
 from app.study.media import MediaStore
 
@@ -162,13 +170,24 @@ def _format_exam_session_response(conn: sqlite3.Connection, state: ExamSessionSt
 @exam_router.post("/exam/sessions", response_model=ExamSessionResponse, status_code=status.HTTP_201_CREATED)
 def create_exam_session(
     request: CreateExamSessionRequest,
+    x_client_request_id: Optional[str] = Header(None, alias="X-Client-Request-Id"),
     conn: sqlite3.Connection = Depends(get_study_db),
     exam_service: ExamSessionService = Depends(get_exam_service),
-) -> ExamSessionResponse:
+):
     """
     Create a new JLPT examination simulation matching an authoritative blueprint.
     Enforces bank readiness when enforce_readiness is True.
     """
+    client_request_id = resolve_client_request_id(header_id=x_client_request_id, body_payload=request)
+    idemp = check_or_start_idempotency(
+        conn=conn,
+        client_request_id=client_request_id,
+        operation="POST:/exam/sessions",
+        payload=request,
+    )
+    if idemp.is_cached:
+        return JSONResponse(status_code=idemp.status_code, content=idemp.cached_response)
+
     try:
         mode = ExamMode.STRICT if request.strict_timing else ExamMode.RELAXED
         state = exam_service.create_examination(
@@ -177,8 +196,16 @@ def create_exam_session(
             version=request.blueprint_version,
             mode=mode,
         )
-        return _format_exam_session_response(conn, state)
+        resp = _format_exam_session_response(conn, state)
+        save_idempotency_result(
+            conn=conn,
+            client_request_id=client_request_id,
+            status_code=status.HTTP_201_CREATED,
+            response_data=resp,
+        )
+        return resp
     except Exception as exc:
+        clear_failed_idempotency(conn, client_request_id)
         raise map_domain_exception(exc)
 
 
@@ -428,37 +455,55 @@ def toggle_exam_review_flag(
         raise map_domain_exception(exc)
 
 
-@exam_router.post("/exam/sessions/{id}/complete")
+@exam_router.post("/exam/sessions/{id}/complete", response_model=ExamResult)
 def complete_exam_session(
     id: str,
+    x_client_request_id: Optional[str] = Header(None, alias="X-Client-Request-Id"),
     conn: sqlite3.Connection = Depends(get_study_db),
     exam_service: ExamSessionService = Depends(get_exam_service),
-) -> Dict[str, Any]:
+):
     """
     Complete the examination: grade all draft answers, evaluate official thresholds,
     and persist an immutable exam result snapshot.
     """
+    sess_id = _resolve_exam_id(conn, id)
+    client_request_id = validate_client_request_id(x_client_request_id)
+    idemp = check_or_start_idempotency(
+        conn=conn,
+        client_request_id=client_request_id,
+        operation=f"POST:/exam/sessions/{sess_id}/complete",
+        payload={},
+        resource_id=str(sess_id),
+    )
+    if idemp.is_cached:
+        return JSONResponse(status_code=idemp.status_code, content=idemp.cached_response)
+
     try:
-        sess_id = _resolve_exam_id(conn, id)
         result = exam_service.complete_exam(sess_id)
-        return result.model_dump()
+        save_idempotency_result(
+            conn=conn,
+            client_request_id=client_request_id,
+            status_code=status.HTTP_200_OK,
+            response_data=result,
+        )
+        return result
     except Exception as exc:
+        clear_failed_idempotency(conn, client_request_id)
         raise map_domain_exception(exc)
 
 
-@exam_router.get("/exam/sessions/{id}/result")
+@exam_router.get("/exam/sessions/{id}/result", response_model=ExamResult)
 def get_exam_result_snapshot(
     id: str,
     conn: sqlite3.Connection = Depends(get_study_db),
     exam_service: ExamSessionService = Depends(get_exam_service),
-) -> Dict[str, Any]:
+) -> ExamResult:
     """
     Retrieve the immutable scoring snapshot and pass/fail assessment for a completed exam.
     """
     try:
         sess_id = _resolve_exam_id(conn, id)
-        result = exam_service.get_exam_result(sess_id)
-        return result.model_dump()
+        return exam_service.get_exam_result(sess_id)
     except Exception as exc:
         raise map_domain_exception(exc)
 
@@ -520,12 +565,23 @@ def list_exam_history(
 @exam_router.post("/exam/diagnostic", response_model=PracticeSessionResponse)
 def create_diagnostic_exam(
     request: CreateDiagnosticRequest,
+    x_client_request_id: Optional[str] = Header(None, alias="X-Client-Request-Id"),
     conn: sqlite3.Connection = Depends(get_study_db),
     exam_service: ExamSessionService = Depends(get_exam_service),
-) -> PracticeSessionResponse:
+):
     """
     Create a diagnostic practice session containing questions across formats for a JLPT level.
     """
+    client_request_id = resolve_client_request_id(header_id=x_client_request_id, body_payload=request)
+    idemp = check_or_start_idempotency(
+        conn=conn,
+        client_request_id=client_request_id,
+        operation="POST:/exam/diagnostic",
+        payload=request,
+    )
+    if idemp.is_cached:
+        return JSONResponse(status_code=idemp.status_code, content=idemp.cached_response)
+
     try:
         state = exam_service.create_diagnostic_practice(
             level=request.level,
@@ -535,7 +591,7 @@ def create_diagnostic_exam(
             practice_item_to_dto(conn, it, reveal_answers=False)
             for it in state.items
         ]
-        return PracticeSessionResponse(
+        resp = PracticeSessionResponse(
             session_id=state.session_id,
             external_id=state.external_id,
             session_type=state.session_type.value,
@@ -551,5 +607,13 @@ def create_diagnostic_exam(
             current_position=state.current_position,
             items=items_dto,
         )
+        save_idempotency_result(
+            conn=conn,
+            client_request_id=client_request_id,
+            status_code=status.HTTP_200_OK,
+            response_data=resp,
+        )
+        return resp
     except Exception as exc:
+        clear_failed_idempotency(conn, client_request_id)
         raise map_domain_exception(exc)

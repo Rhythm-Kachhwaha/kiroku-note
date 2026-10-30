@@ -23,6 +23,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.api.study.auth import clear_study_api_token, set_study_api_token
 from app.study.connection import StudyDatabaseManager, reset_study_db_manager
 from app.study.exam.blueprint import save_blueprint_to_db
 from app.study.exam.enums import BlueprintEvidenceLevel
@@ -49,6 +50,9 @@ def study_test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     media_dir.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setenv("KIROKU_STUDY_DIR", str(study_dir))
+    m11_token = "m11_test_secret_bearer_token"
+    monkeypatch.setenv("KIROKU_STUDY_API_TOKEN", m11_token)
+    set_study_api_token(m11_token)
     reset_study_db_manager()
 
     db_path = study_dir / "study.db"
@@ -205,7 +209,7 @@ def study_test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     )
     save_blueprint_to_db(conn, mini_blueprint)
 
-    client = TestClient(app)
+    client = TestClient(app, headers={"Authorization": f"Bearer {m11_token}"})
 
     yield {
         "client": client,
@@ -219,6 +223,7 @@ def study_test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     manager.close_all()
     reset_study_db_manager()
+    clear_study_api_token()
 
 
 # =============================================================================
