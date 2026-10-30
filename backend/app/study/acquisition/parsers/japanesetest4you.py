@@ -117,6 +117,27 @@ def _is_discard_image(url: str) -> bool:
     )
 
 
+def _is_discard_choice_line(line: str) -> bool:
+    """Return True if line is a transcript link, download link, or ad instead of a question choice."""
+    l_lower = line.lower()
+    if any(
+        k in l_lower
+        for k in (
+            "view transcript",
+            "click here",
+            "patreon",
+            "download this test",
+            "kanji lesson",
+            "new words:",
+            "grammar points",
+        )
+    ):
+        return True
+    if re.match(r"^\[.*?\]\(https?://.*?\.pdf", line, re.IGNORECASE):
+        return True
+    return False
+
+
 def _normalize_passage_markup(text: str) -> str:
     """Normalize passage text blanks and escape stray brackets for Study Bank AST."""
     norm = re.sub(r"\[\s*(\d+)\s*\]|【\s*(\d+)\s*】", r"{blank|\1}", text)
@@ -444,7 +465,7 @@ class JapaneseTest4YouParser(BaseSourceParser):
             if current_question_num is not None:
                 if stripped:
                     clean_line = re.sub(r"</?[a-zA-Z][^>]*>", "", stripped).strip()
-                    if clean_line:
+                    if clean_line and not _is_discard_choice_line(clean_line):
                         current_choices.append(clean_line)
                 idx += 1
                 continue

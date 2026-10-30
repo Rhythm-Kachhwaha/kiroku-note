@@ -345,17 +345,20 @@ class ContractNormalizer:
             c_key = f"c_{draft.draft_id}_{ord_val}"
             cleaned_text = self._clean_and_validate_markup(c.text, review_reasons)
 
-            choices.append(
-                ChoicePayload(
-                    choice_key=c_key,
-                    label=c.label or str(ord_val),
-                    ordinal=ord_val,
-                    text_markup=cleaned_text if c.mode == ChoiceMode.TEXT else None,
-                    mode=c.mode,
-                    asset_id=c.asset_id,
-                    asset_sha256=c.asset_sha256,
+            try:
+                choices.append(
+                    ChoicePayload(
+                        choice_key=c_key,
+                        label=c.label or str(ord_val),
+                        ordinal=ord_val,
+                        text_markup=cleaned_text if c.mode == ChoiceMode.TEXT else None,
+                        mode=c.mode,
+                        asset_id=c.asset_id,
+                        asset_sha256=c.asset_sha256,
+                    )
                 )
-            )
+            except Exception:
+                review_reasons.append(ReviewReasonCode.MALFORMED_MARKUP)
 
         return sorted(choices, key=lambda c: c.ordinal)
 

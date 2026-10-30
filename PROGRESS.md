@@ -2,7 +2,7 @@
 
 ## Study Database & JLPT Question Bank Subsystem — Master Roadmap & Milestone Tracker
 
-**Authoritative Roadmap Status as of 2026-10-30 (Post-M4.1 Audit):**
+**Authoritative Roadmap Status as of 2026-10-30 (Post-M7-C Audit):**
 - **Milestone 0: Audit, Requirements & Architecture Design** — **COMPLETE** (`docs/study-bank/00-repo-audit.md`, `01-schema-and-contracts.md`, `02-decision-log.md`).
 - **Milestone 1: Database Foundation & Schema Immutability** — **COMPLETE** (`study.db` engine, 28 STRICT tables, composite FKs, BEFORE UPDATE/DELETE triggers, `MediaStore`, `run_doctor`, 63 tests).
 - **Milestone 2: Question Family Contracts & Markup Parser** — **COMPLETE** (Families F1–F6 Pydantic contracts, authoritative 20-format registry, AST parser/serializer, 86 tests).
@@ -10,9 +10,43 @@
 - **Milestone 3 Gate 2: Independent Dual-Model AI Question Verification** — **COMPLETE** (Dual-model isolated solve, provider abstraction, Scenarios A–H comparator, explanation synthesis, revision branching on human correction, 42 tests).
 - **Milestone 4: Question Acquisition System Foundation** — **COMPLETE** (Keenable primary provider, Parallel dormant adapter, raw disk cache, polite WordPress crawler, `AssetDownloader`, job service migration `0004`, M3 orchestrator bridge, 18 tests).
 - **Milestone 4.1: Full JLPT Resource Discovery, Format Coverage & Audio Retrieval** — **COMPLETE** (25 categories N1–N5 discovered, URL filtering, F1–F6 format coverage, Star arrangement F2 permutation derivation, Kanji 5-line context, MP3 audio retrieval, ID3v2/MPEG validation, zero-DB `MediaStore` storage, M3 structured payloads, 11 tests; 29 total acquisition tests).
-- **Milestone 5: Question Ingestion, Live Staging & Verification Pilot** — **RECOMMENDED NEXT MILESTONE** (Live crawl pilot of curated N5/N4 categories, first real persistence into `study.db`, Gate 1 persistence + Gate 2 verification pilot, zero UI).
-- **Milestone 6: Practice & Examination Engine (Backend)** — **PENDING** (Drill session generator, official mock exam generator, attempt timer, scaled scoring engine).
-- **Milestone 7: Desktop UI Integration** — **PENDING** (Electron Question Bank review/approval screen, interactive practice drills, full-screen mock exam interface).
+- **Milestone 5: Question Ingestion, Live Staging & Verification Pilot** — **COMPLETE** (Curated N5/N4 categories, initial persistence into `study.db`, dual-model verification pilot, sealed revisions, `docs/study-bank/14-m5b-ai-verification-results.md`).
+- **Milestone 6: Learning & Practice Engine** — **COMPLETE** (`test_attempt`, `attempt_item`, `PracticeSessionService`, deterministic grading, adaptive spaced repetition scheduling, analytics, migration `0005`, 34 tests).
+- **Milestone 7: JLPT Examination & Scoring Engine** — **COMPLETE** (Official N1–N5 blueprints v2026.1, section timers, anti-cheat, `ExamSessionService`, `ProvisionalRawScoringModel`, threshold pass/fail evaluation, migration `0006`, 24 tests).
+- **Milestone 7-B: Complete N4 Question Bank Expansion & Ingestion** — **COMPLETE** (Bulk acquisition of 115 exercises, 909 N4 questions ingested, 118 multimodal questions safely quarantined, `docs/study-bank/17-m7b-n4-question-acquisition.md`).
+- **Milestone 7-C: N4 Verification Backlog & Question Bank Readiness Assessment** — **COMPLETE** (+20 approved questions, 79 active N4 items, 0 doctor errors/warnings, 100% idempotency, authoritative readiness report `docs/study-bank/18-m7c-n4-readiness-assessment.md`).
+- **Milestone 8: Multimodal Solver & Full N4 Coverage Expansion** — **RECOMMENDED NEXT MILESTONE** (Speech-to-text / multimodal diagram solver for 118 quarantined listening questions, acquisition of missing formats: orthography, paraphrases, usage, mid-reading).
+
+---
+
+### Study Bank Milestone 7-C: JLPT N4 Verification Backlog & Question Bank Readiness Assessment (2026-10-30)
+
+**Delivered**:
+- **Targeted Dual-Model Verification Batch (`tools/run_m7c_verification.py`)**:
+  - Processed 28 candidate questions with verified external answer claims across high-priority categories (12 `comprehension_short`, 16 `kanji_reading`).
+  - Achieved 71.4% approval rate (+20 approved questions promoting to `status = 'active'`), expanding approved N4 pool from 59 to 79 items.
+  - Quarantined 8 disputed items across Scenarios C (disagreement), H (format failure), D (source conflict), and G (ambiguity).
+  - Maintained strict token conservation, halting verification of 650 saturated `kanji_reading` candidates (already at 400% of blueprint requirements).
+- **Multimodal Safety & Architecture Specification**:
+  - Maintained strict quarantine over all 118 multimodal questions (5 audio MP3 tracks, 143 diagrams across `task_based_listening`).
+  - Documented architectural gap in pure-text LLM solvers and defined requirements for future M8 speech-to-text and multimodal diagram pipeline.
+- **Formal JLPT N4 Exam Blueprint Readiness Evaluation**:
+  - Validated `study.db` using `ExamReadinessValidator.validate_readiness(conn, get_official_blueprint("N4"))`.
+  - Identified official blueprint status as `INCOMPLETE_BANK` (`is_ready: False`) with a total deficit of 45 items across 10 deficient formats.
+  - Formally certified that while full mock exam simulations are blocked by missing formats and quarantined listening, the bank is **100% READY** for topical diagnostic practice in Vocabulary (`kanji_reading`, `contextual_expressions`), Short Reading (`comprehension_short`), and Sentential Grammar (`sentential_grammar_1`).
+- **Database Doctor & System Health**:
+  - Executed `run_doctor()`: confirmed 0 errors and 0 warnings.
+  - Verified 100% re-verification idempotency (0 new API calls on re-run, 100% cache hits).
+  - Preserved sealed revision immutability and zero duplicate questions.
+- **Comprehensive Technical Assessment Report**:
+  - Produced exhaustive 9-section report at `docs/study-bank/18-m7c-n4-readiness-assessment.md`.
+
+**Verification**:
+- Full backend regression test suite: 1010 passed, 256 subtests passed in 110.38s (`pytest backend/tests -q`).
+- Study bank unit & contract suite: 270 passed in 9.46s (`pytest -k study backend/tests`).
+- M7-B/M7-C acquisition & readiness suite: 5 passed in 0.78s (`pytest backend/tests/test_study_acquisition_m7b.py`).
+- Database Doctor: 0 errors, 0 warnings.
+- Idempotency test: 100% passed (28/28 runs cached, 0 new API calls).
 
 ---
 
