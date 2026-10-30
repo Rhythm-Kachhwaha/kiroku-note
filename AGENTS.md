@@ -290,13 +290,15 @@ run_backend.py, start_backend.bat root backend launchers
       isolated initial solving without source answer anchoring, second-stage external source answer claim evaluation,
       deterministic comparator (Scenarios A through H), structured pedagogical explanation generation, and human review
       decision ledger (accept, correct, ambiguous, defective, reject, reverify) with non-mutating revision branching on correction.
-    - Question Acquisition Subsystem (Milestone 4): `app.study.acquisition` provides external
+    - Question Acquisition Subsystem (Milestone 4 & 4.1): `app.study.acquisition` provides external
       material acquisition, raw caching, deterministic parsing, and bridging to M3. Features provider
       abstraction (Keenable primary, Parallel dormant adapter, Mock), immutable content-addressed raw
       disk caching (`RawAcquisitionCache`), deterministic category pagination crawler (`CategoryCrawler`)
-      with polite delays (1.5s ± 0.5s jitter) and URL noise/ad filtering, source-specific deterministic
-      parser for JapaneseTest4You (`JapaneseTest4YouParser`) preserving Japanese kanji/kana, blanks,
-      multiple reading passages, and diagram images, SSRF-whitelisted asset downloader (`AssetDownloader`),
+      with polite delays (1.5s ± 0.5s jitter) and URL noise/ad/eBook/reference-list filtering (`url_filter.py`),
+      source-specific deterministic hybrid parser for JapaneseTest4You (`JapaneseTest4YouParser`) supporting
+      all F1–F6 formats, Star sentence ordering (F2) permutation derivation, Kanji 5-line target-word blocks,
+      multiple reading passages, diagrams, and MP3 listening audio tracks with ID3v2/MPEG binary validation
+      and zero-DB `MediaStore` storage, SSRF-whitelisted asset downloader (`AssetDownloader`),
       relational job tracking (`acquisition_job`, `acquisition_job_item`) via Migration `0004_acquisition_jobs.sql`,
       and full orchestration bridge (`AcquisitionOrchestrator`) mapping directly into M3 Gate 1 and Gate 2
       with default `ReviewStatus.NEEDS_REVIEW`.
@@ -314,7 +316,7 @@ run_backend.py, start_backend.bat root backend launchers
    `test_study_media.py`, `test_study_eligibility_and_provenance.py`, `test_study_exam_and_formats.py`,
    `test_study_doctor.py`, `test_study_exclusion_and_packaging.py`, `test_study_markup.py`,
    test_study_contracts.py, test_study_integration_contracts.py, test_study_ingestion_adapters.py, test_study_ingestion_segmentation.py, test_study_ingestion_classification.py, test_study_ingestion_pipeline.py, test_study_verification_config.py, test_study_verification_providers.py, test_study_verification_comparator.py, test_study_verification_service.py, test_study_verification_persistence_and_review.py,
-   `test_study_acquisition_foundation.py`, `test_study_acquisition_parser.py`, and `test_study_acquisition_m3_integration.py`.
+   `test_study_acquisition_foundation.py`, `test_study_acquisition_parser.py`, `test_study_acquisition_m3_integration.py`, and `test_study_acquisition_m4_1_robustness.py`.
 
 ## Backend packaging and resources
 

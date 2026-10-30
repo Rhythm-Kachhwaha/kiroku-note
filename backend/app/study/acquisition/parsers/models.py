@@ -3,11 +3,49 @@ Data Models for Source-Specific Parsers in Study Bank Acquisition.
 ------------------------------------------------------------------
 Represents extracted questions, choices, passages, and answer claims
 before transformation into M3 IngestInput payloads.
+
+Supports:
+- Multimodal asset associations (diagram images and playable audio tracks)
+- Scoped audio relationships (question-level, passage-level, shared, exercise-level)
+- Star sentence ordering metadata (F2 family)
+- Deterministic JLPT format classification
 """
 from __future__ import annotations
 
-from typing import Any
+import re
+from typing import Any, Literal
 from pydantic import BaseModel, Field
+
+from app.study.formats import FORMAT_REGISTRY
+
+
+class AudioAssociation(BaseModel):
+    """
+    Structured audio track reference and scope association.
+    Preserves question-level, passage-level, shared, and exercise-level relationships.
+    """
+    track_url: str
+    scope: Literal["question", "passage", "shared", "exercise"] = "question"
+    target_id: str | None = None  # e.g. "Q1", "passage_1", or None if exercise-level
+    asset_id: str | None = None   # SHA-256 content address if retrieved into MediaStore
+    local_path: str | None = None # Storage path relative to media root
+    mime_type: str = "audio/mpeg"
+    status: Literal["remote_only", "retrieved", "failed"] = "remote_only"
+    error_reason: str | None = None
+
+
+class StarArrangementMetadata(BaseModel):
+    """
+    Structured metadata for JLPT F2 sentence composition (star ordering).
+    Preserves ★ position among blanks, choice fragments, and rationale derivation.
+    """
+    star_position: int  # 1-based index of ★ among blanks (e.g. 3 in ＿＿ ＿＿ ★ ＿＿)
+    total_blanks: int = 4
+    pre_stem: str = ""   # Context before the blanks
+    post_stem: str = ""  # Context after the blanks
+    fragments: list[str] = Field(default_factory=list)      # Choices 1..4 fragments
+    derived_order: list[int] = Field(default_factory=list)  # Permutation order e.g. [2, 1, 4, 3]
+    star_fragment: str = ""                                 # The winning choice fragment at ★
 
 
 class ParsedChoice(BaseModel):
@@ -26,7 +64,7 @@ class ParsedAnswerClaim(BaseModel):
 
 
 class ParsedQuestion(BaseModel):
-    """A single multiple-choice or fill-in-the-blank question."""
+    """A single multiple-choice, fill-in-the-blank, or listening question."""
     question_number: int
     external_id: str
     stem: str
@@ -35,6 +73,10 @@ class ParsedQuestion(BaseModel):
     group_reference: str | None = None
     anchor_key: str | None = None
     image_urls: list[str] = Field(default_factory=list)
+    audio: AudioAssociation | None = None
+    audio_urls: list[str] = Field(default_factory=list)
+    star_arrangement: StarArrangementMetadata | None = None
+    format_code: str | None = None
 
 
 class ParsedPassage(BaseModel):
@@ -43,6 +85,63 @@ class ParsedPassage(BaseModel):
     title: str = ""
     text: str = ""
     image_urls: list[str] = Field(default_factory=list)
+    audio: AudioAssociation | None = None
+    audio_urls: list[str] = Field(default_factory=list)
+
+
+def _derive_format_code(level: str, section: str, q: ParsedQuestion) -> str | None:
+    """
+    Deterministically derive official JLPT format code from structural signals.
+    Returns None if structure is ambiguous or unsupported.
+    """
+    if q.format_code and q.format_code in FORMAT_REGISTRY:
+        return q.format_code
+
+    has_audio = (q.audio is not None) or bool(q.audio_urls)
+
+    # Choice count validation: official JLPT formats strictly enforce choice counts
+    if q.choices:
+        if has_audio and len(q.choices) not in (3, 4):
+            return None
+        elif not has_audio and len(q.choices) != 4:
+            return None
+
+    if q.star_arrangement is not None:
+        return "sentence_composition"
+
+    if has_audio:
+        # Check if choices are unprinted/diagrammatic labels (e.g. ['1', '2', '3', '4'])
+        is_diagrammatic = all(c.text.strip().isdigit() for c in q.choices) if q.choices else True
+        if is_diagrammatic:
+            return "task_based_listening"
+        return "key_points_listening"
+
+    if q.group_reference:
+        if q.anchor_key:
+            return "text_grammar"
+        return "comprehension_short"
+
+    sec_lower = section.lower()
+    if sec_lower == "kanji":
+        # Check if choices are pure kana (Kanji reading) or kanji (Orthography)
+        all_kana = all(re.fullmatch(r"[\u3040-\u309F\u30A0-\u30FF\s]+", c.text.strip()) for c in q.choices if c.text.strip()) if q.choices else True
+        if all_kana:
+            return "kanji_reading"
+        return "orthography"
+
+    if sec_lower == "grammar":
+        return "sentential_grammar_1"
+
+    if sec_lower in ("vocabulary", "vocab"):
+        return "contextual_expressions"
+
+    if sec_lower == "reading":
+        return "comprehension_short"
+
+    if sec_lower == "listening":
+        return "task_based_listening"
+
+    return None
 
 
 class ParsedExercise(BaseModel):
@@ -54,17 +153,32 @@ class ParsedExercise(BaseModel):
     passages: list[ParsedPassage] = Field(default_factory=list)
     questions: list[ParsedQuestion] = Field(default_factory=list)
     answer_claims: dict[int, ParsedAnswerClaim] = Field(default_factory=dict)
+    audio_tracks: list[AudioAssociation] = Field(default_factory=list)
+    audio_urls: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
     def to_m3_structured_payload(self) -> dict[str, Any]:
         """
         Convert to M3-compliant dictionary for StructuredJsonInputAdapter.
-        Conforms strictly to existing M3 Gate 1 ingestion contracts.
+        Conforms strictly to existing M3 Gate 1 ingestion contracts while
+        preserving media assets, star arrangement, and deterministic format codes.
+        Stops strictly BEFORE M3 Gate 1 persistence or approval.
         """
         groups_payload: list[dict[str, Any]] = []
         for p in self.passages:
-            assets = [{"kind": "diagram", "url": u} for u in p.image_urls]
-            import re
+            assets: list[dict[str, Any]] = [{"kind": "diagram", "url": u} for u in p.image_urls]
+            if p.audio:
+                assets.append({
+                    "kind": "audio",
+                    "url": p.audio.track_url,
+                    "asset_id": p.audio.asset_id,
+                    "local_path": p.audio.local_path,
+                    "status": p.audio.status,
+                })
+            elif p.audio_urls:
+                for u in p.audio_urls:
+                    assets.append({"kind": "audio", "url": u})
+
             anchor_keys = re.findall(r"\{blank\|([^}]+)\}", p.text)
             anchors_data = [
                 {"anchor_key": k, "ordinal": idx, "kind": "blank"}
@@ -81,7 +195,6 @@ class ParsedExercise(BaseModel):
             })
 
         questions_payload: list[dict[str, Any]] = []
-        format_code = f"{self.jlpt_level}_{self.section.upper()}_CHOICE"
 
         for q in self.questions:
             choices_data = [
@@ -100,6 +213,34 @@ class ParsedExercise(BaseModel):
                     "rationale": q.answer.rationale,
                 }
 
+            derived_code = _derive_format_code(self.jlpt_level, self.section, q)
+            format_code = f"{self.jlpt_level}_{self.section.upper()}_CHOICE"
+
+            q_assets: list[dict[str, Any]] = [{"kind": "diagram", "url": u} for u in q.image_urls]
+            if q.audio:
+                q_assets.append({
+                    "kind": "audio",
+                    "url": q.audio.track_url,
+                    "asset_id": q.audio.asset_id,
+                    "local_path": q.audio.local_path,
+                    "status": q.audio.status,
+                })
+            elif q.audio_urls:
+                for u in q.audio_urls:
+                    q_assets.append({"kind": "audio", "url": u})
+
+            q_meta: dict[str, Any] = {
+                "official_format_code": derived_code,
+            }
+            if q.star_arrangement is not None:
+                q_meta["star_arrangement"] = q.star_arrangement.model_dump()
+            if not derived_code:
+                q_meta["is_ambiguous_format"] = True
+
+            effective_audio_urls = list(q.audio_urls)
+            if q.audio and q.audio.track_url not in effective_audio_urls:
+                effective_audio_urls.append(q.audio.track_url)
+
             questions_payload.append({
                 "external_id": q.external_id,
                 "format_code": format_code,
@@ -110,6 +251,9 @@ class ParsedExercise(BaseModel):
                 "choices": choices_data,
                 "answer": ans_payload,
                 "image_urls": q.image_urls,
+                "audio_urls": effective_audio_urls,
+                "attached_assets": q_assets,
+                "metadata": q_meta,
             })
 
         return {
@@ -127,6 +271,6 @@ class ParsedExercise(BaseModel):
                 "raw_warnings": self.warnings,
                 "total_questions": len(self.questions),
                 "total_passages": len(self.passages),
+                "total_audio_tracks": len(self.audio_tracks),
             },
         }
-

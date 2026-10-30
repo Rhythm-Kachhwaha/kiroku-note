@@ -1,5 +1,182 @@
 # Kiroku Note — Progress
 
+## Study Database & JLPT Question Bank Subsystem — Master Roadmap & Milestone Tracker
+
+**Authoritative Roadmap Status as of 2026-10-30 (Post-M4.1 Audit):**
+- **Milestone 0: Audit, Requirements & Architecture Design** — **COMPLETE** (`docs/study-bank/00-repo-audit.md`, `01-schema-and-contracts.md`, `02-decision-log.md`).
+- **Milestone 1: Database Foundation & Schema Immutability** — **COMPLETE** (`study.db` engine, 28 STRICT tables, composite FKs, BEFORE UPDATE/DELETE triggers, `MediaStore`, `run_doctor`, 63 tests).
+- **Milestone 2: Question Family Contracts & Markup Parser** — **COMPLETE** (Families F1–F6 Pydantic contracts, authoritative 20-format registry, AST parser/serializer, 86 tests).
+- **Milestone 3 Gate 1: Deterministic Question Ingestion Pipeline** — **COMPLETE** (5 modality adapters, segmentation, classification, normalization, validation, atomic persistence, 27 tests).
+- **Milestone 3 Gate 2: Independent Dual-Model AI Question Verification** — **COMPLETE** (Dual-model isolated solve, provider abstraction, Scenarios A–H comparator, explanation synthesis, revision branching on human correction, 42 tests).
+- **Milestone 4: Question Acquisition System Foundation** — **COMPLETE** (Keenable primary provider, Parallel dormant adapter, raw disk cache, polite WordPress crawler, `AssetDownloader`, job service migration `0004`, M3 orchestrator bridge, 18 tests).
+- **Milestone 4.1: Full JLPT Resource Discovery, Format Coverage & Audio Retrieval** — **COMPLETE** (25 categories N1–N5 discovered, URL filtering, F1–F6 format coverage, Star arrangement F2 permutation derivation, Kanji 5-line context, MP3 audio retrieval, ID3v2/MPEG validation, zero-DB `MediaStore` storage, M3 structured payloads, 11 tests; 29 total acquisition tests).
+- **Milestone 5: Question Ingestion, Live Staging & Verification Pilot** — **RECOMMENDED NEXT MILESTONE** (Live crawl pilot of curated N5/N4 categories, first real persistence into `study.db`, Gate 1 persistence + Gate 2 verification pilot, zero UI).
+- **Milestone 6: Practice & Examination Engine (Backend)** — **PENDING** (Drill session generator, official mock exam generator, attempt timer, scaled scoring engine).
+- **Milestone 7: Desktop UI Integration** — **PENDING** (Electron Question Bank review/approval screen, interactive practice drills, full-screen mock exam interface).
+
+---
+
+### Study Bank Milestone 4.1: Full JLPT Resource Discovery, Format Coverage & Audio Retrieval (2026-10-30)
+
+**Delivered**:
+- **Resource Discovery & URL Filtering (`backend/app/study/acquisition/crawler/url_filter.py`)**:
+  - Discovered and categorized 25 question practice sections across JLPT N1–N5 on `https://japanesetest4you.com/` (Grammar, Vocabulary, Kanji, Reading, Listening).
+  - Implemented discard filtering rejecting reference lists (`/jlpt-n[1-5]-(?:vocabulary|grammar)-list/`), eBooks (`/ebook-.*/`), Patreon promotions, and AdSense uploads.
+  - Implemented permalink regex and slug fallback matching practice tests across all 5 categories.
+  - Extended `extract_level_and_section` to reliably identify level and section (`choukai`, `bunpou`, `goi`, etc.).
+- **Data Model Enhancements (`backend/app/study/acquisition/parsers/models.py`)**:
+  - Implemented `AudioAssociation` model tracking `track_url`, `scope` (`question`, `passage`, `shared`, `exercise`), `target_id`, `asset_id`, `local_path`, `mime_type`, and `status`.
+  - Implemented `StarArrangementMetadata` model tracking `star_position`, `total_blanks`, `pre_stem`, `post_stem`, `fragments`, `derived_order`, and `star_fragment`.
+  - Implemented `_derive_format_code` deterministically classifying question signals into the 20 official JLPT formats.
+  - Enhanced `ParsedExercise.to_m3_structured_payload()` to output attached media assets, star arrangement metadata, official format codes, and ambiguity flags.
+- **Media Asset Downloader & Binary Validation (`backend/app/study/acquisition/media/asset_downloader.py`)**:
+  - Extended `AssetDownloader` to support audio extensions (`.mp3`, `.m4a`, `.wav`, `.ogg`).
+  - Implemented `is_valid_audio_bytes()` binary validation verifying ID3v2 headers (`ID3`) and MPEG audio sync frames (`0xFF` with `0xE0` mask).
+  - Implemented zero-DB filesystem storage mode (`conn=None`) writing content-addressed assets to `media/<sha[:2]>/<sha><ext>` without SQLite database transactions.
+- **Robust Hybrid Parser (`backend/app/study/acquisition/parsers/japanesetest4you.py`)**:
+  - Implemented unwrapping for nested HTML and Markdown tags (`<p>`, `<div>`, `<figure>`, `<input type="radio">`).
+  - Implemented `_parse_star_arrangement()` detecting `★`/`☆`, isolating pre/post stems, and deriving the full 4-fragment permutation order from answer key rationales.
+  - Handled Kanji 5-line target-word blocks (`【target】`) and shared contextual sentence stems.
+  - Implemented audio player tag extraction (`AUDIO_SRC_RE`) binding tracks to question, passage, or shared scopes.
+  - Enforced strict choice count bounds (3–4 choices for listening, strictly 4 for non-listening), flagging ambiguous structures without silent corruption.
+- **Scope & Database Boundary Enforcement**:
+  - Zero database writes or migrations performed. Neither `study.db` nor `kiroku.db` was created or modified.
+  - Pipeline halts strictly at candidate payload generation; no question imports or live crawling executed.
+
+**Verification**:
+- Targeted M4.1 test suite: 11 passed in 1.70s (`backend/tests/test_study_acquisition_m4_1_robustness.py`).
+  - Listening with diagram and unprinted choices (`test_parse_listening_with_diagram_and_unprinted_choices`): PASSED.
+  - Listening with textual choices (`test_parse_listening_with_textual_choices`): PASSED.
+  - Shared passage audio tracks (`test_parse_shared_audio_in_passage`): PASSED.
+  - Star sentence composition ordering & permutation derivation (`test_parse_star_sentence_ordering`): PASSED.
+  - Kanji reading context attachment (`test_parse_kanji_reading_context_attachment`): PASSED.
+  - Orthography word-to-kanji parsing (`test_parse_orthography_word_to_kanji`): PASSED.
+  - Audio binary signature validation (`test_audio_binary_signature_validation`): PASSED.
+  - Asset downloader zero-DB audio retrieval (`test_asset_downloader_audio_retrieval`): PASSED.
+  - Parser media retrieval integration (`test_parser_with_media_retrieval`): PASSED.
+  - URL filtering across all 25 categories and rejections (`test_url_filter_all_categories_and_rejections`): PASSED.
+  - Ambiguous structure diagnostics (`test_ambiguous_and_unsupported_structure_diagnostics`): PASSED.
+- Combined acquisition test suite: 29 passed in 1.70s (`test_study_acquisition_*.py`).
+- Total study subsystem test suite: 212 tests existing across 23 test files.
+- Audit report completed: `docs/study-bank/11-post-m4.1-completion-audit.md`.
+
+---
+
+### Study Bank Milestone 4: Question Acquisition System Foundation (2026-10-30)
+
+**Delivered**:
+- **Technology Selection & Provider Layer (`backend/app/study/acquisition/providers/`)**:
+  - Implemented Architecture B: Keenable primary extraction provider (`KeenableProvider`) with clean Japanese text and image tag preservation.
+  - Implemented dormant fallback adapter (`ParallelProvider`), disabled by default.
+  - Implemented `MockAcquisitionProvider` for offline deterministic testing and `registry.py` dynamic resolution factory.
+- **Raw Response Disk Cache (`backend/app/study/acquisition/cache.py`)**:
+  - Implemented `RawAcquisitionCache` storing pristine raw provider markdown and companion `.meta.json` content-addressed via URL SHA-256.
+  - Implemented credential and sensitive header sanitization (`_sanitize_headers`).
+- **Category Crawler (`backend/app/study/acquisition/crawler/`)**:
+  - Implemented `CategoryCrawler` navigating deterministic WordPress category pagination (`/page/2/`, `/page/3/`) with 1.5s ± 0.5s politeness jitter and immediate stop on 403.
+- **Source-Specific Parser Foundation (`backend/app/study/acquisition/parsers/`)**:
+  - Implemented `JapaneseTest4YouParser` baseline extracting stems, choices, reading passages, diagram images, and answer key rationales into `ParsedExercise`.
+- **Media Asset Downloader (`backend/app/study/acquisition/media/asset_downloader.py`)**:
+  - Implemented `AssetDownloader` with strict SSRF protection, hostname whitelisting (`japanesetest4you.com`), and streaming to `MediaStore`.
+- **Relational Job Persistence (`backend/app/study/migrations/0004_acquisition_jobs.sql`, `job_service.py`)**:
+  - Added migration `0004` establishing `acquisition_job` and `acquisition_job_item` STRICT tables with resume and retry support.
+- **M3 Integration Bridge (`backend/app/study/acquisition/orchestrator.py`)**:
+  - Implemented `AcquisitionOrchestrator` connecting acquisition to M3 Gate 1 `IngestionPipeline` and Gate 2 `VerificationService` with default `ReviewStatus.NEEDS_REVIEW`.
+
+**Verification**:
+- M4 foundation suite: 18 passed in 1.20s (`test_study_acquisition_foundation.py`, `test_study_acquisition_parser.py`, `test_study_acquisition_m3_integration.py`).
+- Migration 0004 verified; full study suite 201 passed at M4 baseline.
+- Implementation report: `docs/study-bank/09-m4-implementation-report.md`.
+
+---
+
+### Study Bank Milestone 3: Gate 1 Deterministic Ingestion & Gate 2 AI Verification (2026-10-30)
+
+**Delivered**:
+- **Gate 1 Deterministic Ingestion Pipeline (`backend/app/study/ingestion/`)**:
+  - Implemented 5 input adapters: `PastedTextInputAdapter`, `StructuredJsonInputAdapter`, `PdfTextInputAdapter`, `ScannedImageInputAdapter`, `AudioInputAdapter`.
+  - Implemented `TextSegmenter` and `AnswerKeyParser`.
+  - Implemented `FormatClassifier` mapping to all 20 official formats with level fallback.
+  - Implemented `AssetAndGroupAssociator` associating passage groups, anchored blanks, and diagram assets.
+  - Implemented `ContractNormalizer` normalizing to M2 discriminated unions.
+  - Implemented `DeterministicValidator` enforcing bounds, syntax, and eligibility reason codes.
+  - Implemented `ReviewService` and `PersistenceService` with atomic transactions, sealed revision immutability, duplicate candidate detection, and source answer claim preservation.
+- **Gate 2 Independent AI Verification (`backend/app/study/verification/`)**:
+  - Implemented provider-independent dual-model architecture: `BaseAIProvider`, `XAIProvider` (Grok), `OpenAICompatibleProvider`, `MockAIProvider`.
+  - Implemented isolated Stage 1 solving without external answer key anchoring.
+  - Implemented Stage 2 source claim evaluation.
+  - Implemented `DeterministicComparator` classifying into Scenarios A through H.
+  - Implemented pedagogical explanation synthesis restricted to model agreement.
+  - Implemented `VerificationReviewService` and human review ledger with non-mutating revision branching on correction.
+  - Added migration `0003_ai_verification.sql` with STRICT tables, composite FKs, and immutability triggers.
+
+**Verification**:
+- Targeted AI verification tests: 42 passed (`test_study_verification_*.py`).
+- Gate 1 ingestion tests: 27 passed (`test_study_ingestion_*.py`).
+- Full study suite: 183 passed.
+- Full backend regression suite: 923 passed, 256 subtests in 118s.
+- Milestone 3 audit: `docs/study-bank/07-m3-final-audit.md`.
+
+---
+
+### Study Bank Milestone 2: Question Family Contracts, Format Registry & Markup Parser (2026-10-30)
+
+**Delivered**:
+- **Authoritative Format Registry (`backend/app/study/formats.py`)**:
+  - Centrally mapped all 20 official JLPT format codes to families F1–F6, categories, graders, choice bounds (min/max), and allowed levels.
+- **Question Family Contracts (`backend/app/study/contracts/`)**:
+  - Implemented strictly typed Pydantic discriminated unions: `F1QuestionPayload` (discrete choice), `F2QuestionPayload` (star arrangement), `F3QuestionPayload` (passage-linked), `F4QuestionPayload` (anchored blank), `F5QuestionPayload` (audio listening), `F6QuestionPayload` (integrated listening), and `AnyQuestionPayload`.
+  - Implemented `decompose_question_for_db` and `recompose_question_from_db`.
+  - Implemented SHA-256 `compute_content_fingerprint`.
+- **Japanese Inline Markup Parser (`backend/app/study/markup/`)**:
+  - Implemented AST nodes: `TextNode`, `RubyNode`, `UnderlineNode`, `BlankNode`, `StarNode`, `MarkupAST`.
+  - Implemented position-aware syntax errors (`MarkupSyntaxError`).
+  - Implemented deterministic recursive-descent parser with HTML injection protection.
+  - Implemented serializers: `to_markup`, `to_plain_text`, `to_reading_text`, `to_safe_html`.
+  - Implemented anchor extraction and passage cross-validation.
+
+**Verification**:
+- Targeted M2 test suite: 86 passed (`test_study_markup.py`, `test_study_contracts.py`, `test_study_integration_contracts.py`).
+- Milestone 2 review: `docs/study-bank/04-m2-contracts-review.md`.
+
+---
+
+### Study Bank Milestone 1: Local SQLite Study Database Foundation, STRICT Tables & Immutability Engine (2026-10-30)
+
+**Delivered**:
+- **Database Connection & Transactions (`backend/app/study/connection.py`)**:
+  - Implemented `StudyDatabaseManager` with WAL mode verification, busy timeout 10000ms, foreign keys enabled, and `read()` / `write_tx()` (`BEGIN IMMEDIATE`) wrappers.
+- **Migrations & Backup Safety (`backend/app/study/migrations/`, `backup.py`)**:
+  - Implemented forward-only migration engine using `PRAGMA user_version`, checksum ledger, and statement splitting via `sqlite3.complete_statement`.
+  - Created migrations `0001_initial.sql` (28 STRICT tables, composite FKs, immutability triggers on 11 tables) and `0002_seed_formats_and_exams.sql` (20 official formats seeded).
+  - Implemented online WAL-safe backup using `conn.backup()` with `PRAGMA integrity_check` verification and 5-backup retention.
+- **Media Store (`backend/app/study/media.py`)**:
+  - Implemented content-addressed two-tier prefix tree (`media/<sha[:2]>/<sha><ext>`), streaming temporary ingest, fsync atomic replace, traversal rejection, and disk/DB reconciliation.
+- **Dynamic Eligibility & Doctor (`backend/app/study/eligibility.py`, `doctor.py`)**:
+  - Implemented SQL view `v_question_eligibility` pre-filter and Python evaluator `evaluate_eligibility` returning 9 priority-ordered reason codes.
+  - Implemented read-only diagnostic tool `run_doctor()` testing 10 health facets.
+- **Standard Library ULID (`backend/app/study/ulid.py`)**:
+  - Implemented Crockford Base32 26-character sortable ULID generator with zero external dependencies.
+
+**Verification**:
+- Targeted M1 test suite: 63 passed across 7 test files (`test_study_*.py`).
+- Milestone 1 review: `docs/study-bank/03-m1-schema-review.md`.
+
+---
+
+### Study Bank Milestone 0: Local-First JLPT Question Bank Architecture Audit & Decision Log (2026-10-30)
+
+**Delivered**:
+- Audited repository runtime environment (Windows, Python 3.11, SQLite 3.39.4, Node 24).
+- Verified baseline test suites (740 backend tests, 255 extension tests, 10 desktop tests passed).
+- Established strict architectural boundaries: `study.db` completely isolated from `kiroku.db`, local-first, zero cloud sync, zero Anki coupling.
+- Authored ADR-SB-001 through ADR-SB-020 (later expanded to ADR-SB-030) in `docs/study-bank/02-decision-log.md`.
+- Authored relational entity design and initial schemas in `docs/study-bank/01-schema-and-contracts.md`.
+
+**Verification**:
+- Audit report: `docs/study-bank/00-repo-audit.md`.
+
+
 ### Phase 1: Electron Desktop Foundation & Subprocess Lifecycle Supervisor (2026-10-29)
 
 **Delivered**:
