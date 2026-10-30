@@ -302,6 +302,13 @@ run_backend.py, start_backend.bat root backend launchers
       relational job tracking (`acquisition_job`, `acquisition_job_item`) via Migration `0004_acquisition_jobs.sql`,
       and full orchestration bridge (`AcquisitionOrchestrator`) mapping directly into M3 Gate 1 and Gate 2
       with default `ReviewStatus.NEEDS_REVIEW`.
+    - Learning & Practice Engine (Milestone 6): `app.study.session` provides practice session lifecycle
+      management (`created`, `in_progress`, `completed`, `abandoned`), deterministic candidate selection from approved
+      eligible questions via `evaluate_eligibility()`, zero-AI deterministic objective grading (`DeterministicGrader`),
+      decoupled learner difficulty feedback (`Easy`, `Normal`, `Hard`), explainable adaptive repetition scheduling
+      (`calculate_priority_score` with deprioritization after two consecutive correct Easy ratings and consecutive-session
+      avoidance cooldowns), persistent active duration timing (`total_elapsed_ms`), and lightweight learning analytics
+      (`PracticeAnalyticsService`) via forward migration `0005_learning_practice_engine.sql`.
 3. **API/integration** — No new public HTTP routes or cloud endpoints; the study subsystem remains internal and
    local-first during Milestone 1.
 4. **Data/configuration** — Resolved via `app.config.get_study_dir()`: `%LOCALAPPDATA%\KirokuNote\study` in packaged mode,
@@ -315,8 +322,12 @@ run_backend.py, start_backend.bat root backend launchers
 6. **Tests** — `backend/tests/test_study_db_infrastructure.py`, `test_study_schema_and_immutability.py`,
    `test_study_media.py`, `test_study_eligibility_and_provenance.py`, `test_study_exam_and_formats.py`,
    `test_study_doctor.py`, `test_study_exclusion_and_packaging.py`, `test_study_markup.py`,
-   test_study_contracts.py, test_study_integration_contracts.py, test_study_ingestion_adapters.py, test_study_ingestion_segmentation.py, test_study_ingestion_classification.py, test_study_ingestion_pipeline.py, test_study_verification_config.py, test_study_verification_providers.py, test_study_verification_comparator.py, test_study_verification_service.py, test_study_verification_persistence_and_review.py,
-   `test_study_acquisition_foundation.py`, `test_study_acquisition_parser.py`, `test_study_acquisition_m3_integration.py`, and `test_study_acquisition_m4_1_robustness.py`.
+   `test_study_contracts.py`, `test_study_integration_contracts.py`, `test_study_ingestion_adapters.py`,
+   `test_study_ingestion_segmentation.py`, `test_study_ingestion_classification.py`, `test_study_ingestion_pipeline.py`,
+   `test_study_verification_config.py`, `test_study_verification_providers.py`, `test_study_verification_comparator.py`,
+   `test_study_verification_service.py`, `test_study_verification_persistence_and_review.py`,
+   `test_study_acquisition_foundation.py`, `test_study_acquisition_parser.py`, `test_study_acquisition_m3_integration.py`,
+   `test_study_acquisition_m4_1_robustness.py`, and `test_study_practice_engine.py`.
 
 ## Backend packaging and resources
 
