@@ -18,8 +18,16 @@ from app.study.verification.models import (
 )
 
 
-def build_solve_system_prompt() -> str:
+def build_solve_system_prompt(compact: bool = False) -> str:
     """System instruction for independent question solving."""
+    if compact:
+        return (
+            "You are an expert Japanese linguist and JLPT examination solver.\n"
+            "Analyze the Japanese question stem and choices carefully.\n"
+            "Output ONLY valid JSON matching this schema: {\"selected_answer\": \"<choice_key>\", \"confidence\": \"high\"|\"medium\"|\"low\", \"question_validity\": \"valid\"|\"ambiguous\"|\"defective\"}.\n"
+            "Do not output markdown code blocks or text outside the JSON."
+        )
+
     return (
         "You are an expert Japanese linguist, educator, and official JLPT examination author.\n"
         "Your task is to independently solve a Japanese language proficiency examination question.\n"
@@ -33,7 +41,7 @@ def build_solve_system_prompt() -> str:
     )
 
 
-def build_solve_user_prompt(req: AISolveRequest) -> str:
+def build_solve_user_prompt(req: AISolveRequest, compact: bool = False) -> str:
     """User prompt presenting question context, stem, choices, and JSON schema."""
     lines: list[str] = []
     lines.append(f"JLPT Level: {req.level}")
@@ -66,21 +74,26 @@ def build_solve_user_prompt(req: AISolveRequest) -> str:
 
     allowed_keys_str = ", ".join(repr(c.choice_key) for c in req.choices)
 
-    lines.append(
-        "\nRequired Output JSON Schema:\n"
-        "{\n"
-        f"  \"selected_answer\": <choice key string, must be one of: {allowed_keys_str}>,\n"
-        "  \"confidence\": \"high\" | \"medium\" | \"low\",\n"
-        "  \"reasoning\": \"<detailed explanation of why the selected answer is correct>\",\n"
-        "  \"choice_analysis\": {\n"
-        "    \"<choice_key>\": \"<why this choice is correct or incorrect>\"\n"
-        "  },\n"
-        "  \"question_validity\": \"valid\" | \"ambiguous\" | \"defective\",\n"
-        "  \"ambiguity_detected\": false | true,\n"
-        "  \"notes\": [\"<any linguistic subtleties or notes>\"]\n"
-        "}\n\n"
-        "Return ONLY the JSON object."
-    )
+    if compact:
+        lines.append(
+            f"\nReturn ONLY JSON: {{\"selected_answer\": <must be one of: {allowed_keys_str}>, \"confidence\": \"high\"|\"medium\"|\"low\", \"question_validity\": \"valid\"|\"ambiguous\"|\"defective\"}}"
+        )
+    else:
+        lines.append(
+            "\nRequired Output JSON Schema:\n"
+            "{\n"
+            f"  \"selected_answer\": <choice key string, must be one of: {allowed_keys_str}>,\n"
+            "  \"confidence\": \"high\" | \"medium\" | \"low\",\n"
+            "  \"reasoning\": \"<detailed explanation of why the selected answer is correct>\",\n"
+            "  \"choice_analysis\": {\n"
+            "    \"<choice_key>\": \"<why this choice is correct or incorrect>\"\n"
+            "  },\n"
+            "  \"question_validity\": \"valid\" | \"ambiguous\" | \"defective\",\n"
+            "  \"ambiguity_detected\": false | true,\n"
+            "  \"notes\": [\"<any linguistic subtleties or notes>\"]\n"
+            "}\n\n"
+            "Return ONLY the JSON object."
+        )
 
     return "\n".join(lines)
 

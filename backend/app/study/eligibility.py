@@ -114,8 +114,31 @@ def evaluate_eligibility(
         reasons.append(REASON_VALIDATION_FAILED)
 
     # Reason 4: NEEDS_REVIEW
-    if q["status"] in ("draft", "in_review") or rev_row["validation_status"] == "needs_review":
+    if q["status"] in ("draft", "in_review"):
         reasons.append(REASON_NEEDS_REVIEW)
+    elif rev_row["validation_status"] == "needs_review":
+        # If question is active but revision was recorded with needs_review,
+        # check if it has a successful verification run
+        has_approved_run = False
+        try:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) as c FROM verification_run
+                WHERE question_revision_id = ?
+                  AND status IN ('agreement', 'ai_agreement_unconfirmed')
+                  AND comparison_scenario IN (
+                      'scenario_a_agreement', 'scenario_b_ai_agreement_unconfirmed',
+                      'A_AGREEMENT', 'B_AI_AGREEMENT_UNCONFIRMED'
+                  );
+                """,
+                (current_rev_id,),
+            ).fetchone()
+            has_approved_run = bool(row and row["c"] > 0)
+        except Exception:
+            pass
+
+        if not has_approved_run:
+            reasons.append(REASON_NEEDS_REVIEW)
 
     # Reason 5: NO_ANSWER
     ans_row = conn.execute(

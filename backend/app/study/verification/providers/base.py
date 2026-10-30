@@ -66,12 +66,14 @@ class BaseAIProvider(ABC):
         base_url: str | None = None,
         timeout: float = 60.0,
         max_retries: int = 2,
+        compact: bool = False,
     ) -> None:
         self.model_name = model
         self.api_key = api_key
         self.base_url = base_url
         self.timeout = timeout
         self.max_retries = max_retries
+        self.compact = compact
 
     @abstractmethod
     def solve_question(self, req: AISolveRequest) -> AISolveResponse:

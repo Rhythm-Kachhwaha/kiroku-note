@@ -643,9 +643,23 @@ def get_llm_api_key(env: dict[str, str] | None = None) -> str | None:
 
     # 2. Fall back to environment variable
     env_dict = os.environ if env is None else env
+    provider = get_llm_provider(env)
+    if provider == "gemini":
+        gemini_key = env_dict.get("GEMINI_API_KEY")
+        if gemini_key and str(gemini_key).strip():
+            return str(gemini_key).strip()
+
     val = env_dict.get("KIROKU_LLM_API_KEY")
     if val and str(val).strip():
         return str(val).strip()
+
+    gemini_key = env_dict.get("GEMINI_API_KEY")
+    if gemini_key and str(gemini_key).strip():
+        return str(gemini_key).strip()
+
+    groq_key = env_dict.get("GROQ_API_KEY")
+    if groq_key and str(groq_key).strip():
+        return str(groq_key).strip()
 
     return None
 

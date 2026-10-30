@@ -110,14 +110,29 @@ def load_verification_config_from_env(env: dict[str, str] | None = None) -> AIVe
 
     # Model A configuration
     model_a_provider = _clean_str(env_dict.get("KIROKU_AI_MODEL_A_PROVIDER", "xai")).lower()
-    model_a_model = _clean_str(env_dict.get("KIROKU_AI_MODEL_A_MODEL", "grok-2"))
-    model_a_key = _clean_str(env_dict.get("KIROKU_AI_MODEL_A_API_KEY") or env_dict.get("XAI_API_KEY"))
-    model_a_url = _clean_str(env_dict.get("KIROKU_AI_MODEL_A_BASE_URL")) or None
+    default_a_model = "openai/gpt-oss-120b" if model_a_provider == "groq" else ("grok-2" if model_a_provider == "xai" else "")
+    model_a_model = _clean_str(env_dict.get("KIROKU_AI_MODEL_A_MODEL") or default_a_model)
+    model_a_key = _clean_str(
+        env_dict.get("KIROKU_AI_MODEL_A_API_KEY")
+        or (env_dict.get("GROQ_API_KEY") or env_dict.get("KIROKU_LLM_API_KEY") if model_a_provider == "groq" else "")
+        or env_dict.get("XAI_API_KEY")
+    )
+    default_a_url = "https://api.groq.com/openai/v1" if model_a_provider == "groq" else None
+    model_a_url = _clean_str(env_dict.get("KIROKU_AI_MODEL_A_BASE_URL")) or default_a_url
 
     # Model B configuration
     model_b_provider = _clean_str(env_dict.get("KIROKU_AI_MODEL_B_PROVIDER", "openai_compatible")).lower()
-    model_b_model = _clean_str(env_dict.get("KIROKU_AI_MODEL_B_MODEL", "gpt-4o-mini"))
-    model_b_key = _clean_str(env_dict.get("KIROKU_AI_MODEL_B_API_KEY") or env_dict.get("OPENAI_API_KEY"))
+    default_b_model = "gemini-3.5-flash-lite" if model_b_provider == "gemini" else ("gpt-4o-mini" if model_b_provider == "openai_compatible" else "")
+    raw_b_model = _clean_str(env_dict.get("KIROKU_AI_MODEL_B_MODEL") or default_b_model)
+    # If Gemini configuration specifies gemini-3.5-flash (without -lite), update to gemini-3.6-flash
+    if model_b_provider == "gemini" and raw_b_model == "gemini-3.5-flash":
+        raw_b_model = "gemini-3.6-flash"
+    model_b_model = raw_b_model
+    model_b_key = _clean_str(
+        env_dict.get("KIROKU_AI_MODEL_B_API_KEY")
+        or (env_dict.get("GEMINI_API_KEY") or env_dict.get("KIROKU_LLM_API_KEY") if model_b_provider == "gemini" else "")
+        or env_dict.get("OPENAI_API_KEY")
+    )
     model_b_url = _clean_str(env_dict.get("KIROKU_AI_MODEL_B_BASE_URL")) or None
 
     # Timeouts and retries

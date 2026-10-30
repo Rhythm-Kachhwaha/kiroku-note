@@ -60,6 +60,8 @@ class OpenAICompatibleProvider(BaseAIProvider):
         base_url: str | None = None,
         timeout: float = 60.0,
         max_retries: int = 2,
+        compact: bool = False,
+        min_delay: float = 0.0,
     ) -> None:
         super().__init__(
             model=model,
@@ -67,8 +69,11 @@ class OpenAICompatibleProvider(BaseAIProvider):
             base_url=base_url,
             timeout=timeout,
             max_retries=max_retries,
+            compact=compact,
         )
         self._endpoint = self._resolve_endpoint()
+        self.min_delay = min_delay
+        self._last_request_time = 0.0
 
     def _resolve_endpoint(self) -> str:
         """Resolve full completions URL from base_url or default."""
@@ -95,6 +100,8 @@ class OpenAICompatibleProvider(BaseAIProvider):
             ],
             "temperature": 0.1,
         }
+        if self.compact:
+            payload["max_tokens"] = 800
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "KirokuNote-StudyBank/1.0",
@@ -109,6 +116,12 @@ class OpenAICompatibleProvider(BaseAIProvider):
         backoff_sec = 1.0
 
         while True:
+            if self.min_delay > 0:
+                elapsed = time.time() - self._last_request_time
+                if elapsed < self.min_delay:
+                    time.sleep(self.min_delay - elapsed)
+                self._last_request_time = time.time()
+
             start_time = time.perf_counter()
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
@@ -180,8 +193,8 @@ class OpenAICompatibleProvider(BaseAIProvider):
     # Stage 1: Independent Solve
     # -------------------------------------------------------------------------
     def solve_question(self, req: AISolveRequest) -> AISolveResponse:
-        system_prompt = build_solve_system_prompt()
-        user_prompt = build_solve_user_prompt(req)
+        system_prompt = build_solve_system_prompt(compact=self.compact)
+        user_prompt = build_solve_user_prompt(req, compact=self.compact)
 
         raw_content, token_usage, duration_ms = self._send_chat_completion(system_prompt, user_prompt)
         parsed = self.parse_json_payload(raw_content)

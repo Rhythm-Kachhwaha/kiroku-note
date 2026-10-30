@@ -56,6 +56,9 @@ from app.study.verification.providers.base import (
 )
 
 
+_UNSET = object()
+
+
 def _plain_from_markup(markup: str) -> str:
     """Safely convert Kiroku markup to plain text."""
     if not markup or not markup.strip():
@@ -73,19 +76,23 @@ class VerificationService:
     def __init__(
         self,
         config: AIVerificationConfig | None = None,
-        provider_a: BaseAIProvider | None = None,
-        provider_b: BaseAIProvider | None = None,
+        provider_a: BaseAIProvider | None | object = _UNSET,
+        provider_b: BaseAIProvider | None | object = _UNSET,
         comparator: DeterministicComparator | None = None,
         persistence: VerificationPersistenceService | None = None,
+        skip_source_verify: bool = False,
+        skip_explanations: bool = False,
     ) -> None:
         self.config = config or load_verification_config_from_env()
         self.comparator = comparator or DeterministicComparator()
         self.persistence = persistence or VerificationPersistenceService()
+        self.skip_source_verify = skip_source_verify
+        self.skip_explanations = skip_explanations
 
         # Initialize providers from explicit arguments or configuration
-        if provider_a is not None:
-            self._provider_a = provider_a
-        elif self.config.model_a.is_configured():
+        if provider_a is not _UNSET:
+            self._provider_a = provider_a  # type: ignore[assignment]
+        elif self.config.is_ready() and self.config.model_a.is_configured():
             self._provider_a = ProviderRegistry.create(
                 name=self.config.model_a.provider,
                 model=self.config.model_a.model,
@@ -97,9 +104,9 @@ class VerificationService:
         else:
             self._provider_a = None
 
-        if provider_b is not None:
-            self._provider_b = provider_b
-        elif self.config.model_b.is_configured():
+        if provider_b is not _UNSET:
+            self._provider_b = provider_b  # type: ignore[assignment]
+        elif self.config.is_ready() and self.config.model_b.is_configured():
             self._provider_b = ProviderRegistry.create(
                 name=self.config.model_b.provider,
                 model=self.config.model_b.model,
@@ -293,8 +300,8 @@ class VerificationService:
         # ---------------------------------------------------------------------
         # Stage 2: Second-Stage Source Claim Verification
         # ---------------------------------------------------------------------
-        # Only performed if source claims exist and models succeeded
-        if source_claims:
+        # Only performed if source claims exist, models succeeded, and not skipped
+        if not self.skip_source_verify and source_claims:
             if model_a_resp is not None:
                 try:
                     verify_req_a = AIVerifyClaimsRequest(
@@ -422,7 +429,7 @@ class VerificationService:
         ):
             target_choice = comparison.agreed_choice
 
-        if target_choice and model_a_resp is not None and model_b_resp is not None:
+        if not self.skip_explanations and target_choice and model_a_resp is not None and model_b_resp is not None:
             expl_provider = self._provider_a
             expl_slot = "model_a"
 
@@ -486,10 +493,12 @@ class VerificationService:
         question_id: int,
         question_revision_id: int | None = None,
         persist: bool = True,
+        reuse_cached: bool = False,
     ) -> VerificationRunRecord:
         """
         Verify a question revision already persisted in study.db.
         Loads stem, choices, group passage, and source answer claims directly from database.
+        When reuse_cached is True, reuses existing verification run if present.
         """
         # 1. Fetch question row
         q_row = conn.execute("SELECT * FROM question WHERE id = ?;", (question_id,)).fetchone()
@@ -499,6 +508,50 @@ class VerificationService:
         rev_id = question_revision_id or q_row["current_revision_id"]
         if not rev_id:
             raise ValueError(f"No revision found for question {question_id}.")
+
+        if reuse_cached:
+            cached_bundle = self.persistence.get_latest_run_for_revision(conn, rev_id)
+            if cached_bundle is not None and cached_bundle.get("status") != "verification_failed":
+                comp = ComparisonResult(
+                    scenario=ComparisonScenario(cached_bundle["comparison_scenario"]) if cached_bundle.get("comparison_scenario") else ComparisonScenario.SCENARIO_H_MODEL_FAILURE,
+                    status=VerificationStatus(cached_bundle["status"]),
+                    model_a_choice=cached_bundle.get("model_a_choice_key"),
+                    model_b_choice=cached_bundle.get("model_b_choice_key"),
+                    source_choices=json.loads(cached_bundle["source_answer_keys_json"]) if cached_bundle.get("source_answer_keys_json") else [],
+                    agreed_choice=cached_bundle.get("model_a_choice_key") if cached_bundle.get("status") in ("agreement", "ai_agreement_unconfirmed") else None,
+                    is_ambiguous=bool(cached_bundle.get("is_ambiguous", 0)),
+                    conflict_details="",
+                    reasoning="Loaded from persisted verification run.",
+                )
+                model_responses = [
+                    ModelExecutionRecord(
+                        model_slot=ModelSlot(m["model_slot"]),
+                        stage=VerificationStage(m["stage"]),
+                        provider=m["provider"],
+                        model_name=m["model_name"],
+                        selected_choice_key=m.get("selected_choice_key"),
+                        confidence=ConfidenceLevel(m["confidence"]) if m.get("confidence") else None,
+                        question_validity=QuestionValidity(m["question_validity"]) if m.get("question_validity") else QuestionValidity.VALID,
+                        ambiguity_detected=bool(m.get("ambiguity_detected", 0)),
+                        reasoning_markup=m.get("reasoning_markup"),
+                        choice_analysis=json.loads(m["choice_analysis_json"]) if m.get("choice_analysis_json") else {},
+                        raw_response_text=m.get("raw_response_text"),
+                        execution_time_ms=m.get("execution_time_ms", 0),
+                        token_usage=json.loads(m["token_usage_json"]) if m.get("token_usage_json") else {},
+                        error_message=m.get("error_message"),
+                    )
+                    for m in cached_bundle.get("model_responses", [])
+                ]
+                return VerificationRunRecord(
+                    external_id=cached_bundle.get("external_id"),
+                    question_id=question_id,
+                    question_revision_id=rev_id,
+                    attempt_number=cached_bundle.get("attempt_number", 1),
+                    status=VerificationStatus(cached_bundle["status"]),
+                    comparison=comp,
+                    model_responses=model_responses,
+                    error_message=cached_bundle.get("error_message"),
+                )
 
         rev_row = conn.execute(
             "SELECT * FROM question_revision WHERE id = ? AND question_id = ?;",

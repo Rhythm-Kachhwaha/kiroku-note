@@ -252,7 +252,7 @@ class GroqProvider(BaseLLMProvider):
 
     def __init__(self, api_key: str, model: Optional[str] = None, timeout: float = DEFAULT_LLM_TIMEOUT):
         self.api_key = api_key
-        self.model = model or resolve_default_llm_model("groq") or "llama-3.1-8b-instant"
+        self.model = model or resolve_default_llm_model("groq") or "openai/gpt-oss-120b"
         self.timeout = timeout
 
     def ask(
@@ -296,7 +296,7 @@ class GeminiProvider(BaseLLMProvider):
 
     def __init__(self, api_key: str, model: Optional[str] = None, timeout: float = DEFAULT_LLM_TIMEOUT):
         self.api_key = api_key
-        self.model = model or resolve_default_llm_model("gemini") or "gemini-2.0-flash"
+        self.model = model or resolve_default_llm_model("gemini") or "gemini-3.5-flash-lite"
         self.timeout = timeout
 
     def ask(
@@ -306,7 +306,7 @@ class GeminiProvider(BaseLLMProvider):
         messages: Optional[list[LLMChatMessage]] = None,
     ) -> str:
         if not self.api_key:
-            raise LLMNotConfiguredError("Gemini provider requires KIROKU_LLM_API_KEY.")
+            raise LLMNotConfiguredError("Gemini provider requires GEMINI_API_KEY or KIROKU_LLM_API_KEY.")
 
         payload: dict = {
             "generationConfig": {"temperature": 0.3},

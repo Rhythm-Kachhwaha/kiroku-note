@@ -56,6 +56,9 @@ def test_standalone_executable_runtime_isolated():
         env["KIROKU_MEDIA_DIR"] = str(isolated_media_dir)
         # Ensure debug is off for production verification
         env.pop("KIROKU_DEBUG", None)
+        env.pop("KIROKU_LLM_API_KEY", None)
+        env.pop("GROQ_API_KEY", None)
+        env.pop("GEMINI_API_KEY", None)
 
         proc = subprocess.Popen(
             [str(DIST_EXE)],
