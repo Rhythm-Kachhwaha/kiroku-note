@@ -605,6 +605,20 @@ class VerificationService:
 
         return record
 
+    def verify_candidate(
+        self,
+        candidate: CandidateQuestion,
+        context_text: str | None = None,
+    ) -> VerificationRunRecord:
+        """Verify an individual CandidateQuestion directly."""
+        req, source_claims = self.build_solve_request_from_candidate(candidate, context_text=context_text)
+        return self.verify_solve_request(
+            req=req,
+            source_claims=source_claims,
+            question_id=candidate.persisted_question_id,
+            question_revision_id=candidate.persisted_revision_id,
+        )
+
     # -------------------------------------------------------------------------
     # Batch Verification Workflow
     # -------------------------------------------------------------------------

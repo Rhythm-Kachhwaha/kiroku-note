@@ -53,6 +53,7 @@ from app.study.ingestion.models import (
 )
 from app.study.markup import parse_markup, to_markup
 from app.study.markup.errors import MarkupError
+from app.study.ulid import generate_ulid
 
 
 class ContractNormalizer:
@@ -85,7 +86,7 @@ class ContractNormalizer:
 
         # 4. Construct family-specific contract dict
         contract_dict: dict[str, Any] = {
-            "external_id": draft.draft_id,
+            "external_id": generate_ulid(),
             "format_code": classification.format_code,
             "structural_family": family.value,
             "level": classification.level.value,
@@ -106,7 +107,36 @@ class ContractNormalizer:
         }
 
         # Family-specific fields
-        if family == StructuralFamily.F2:
+        if family == StructuralFamily.F1:
+            if classification.format_code in ("kanji_reading", "orthography", "word_formation", "paraphrases"):
+                if "{u|" not in normalized_stem and "{blank|" not in normalized_stem:
+                    m = re.match(r"【(.*?)】\s*(.+)", normalized_stem)
+                    if m:
+                        ctx, target = m.group(1), m.group(2).strip()
+                        if target in ctx:
+                            normalized_stem = f"【{ctx.replace(target, f'{{u|{target}}}', 1)}】"
+                        else:
+                            normalized_stem = f"【{ctx}】 {{u|{target}}}"
+                    else:
+                        target = ""
+                        if draft.source_answer_rationale:
+                            rat = draft.source_answer_rationale.strip()
+                            if "=>" in rat:
+                                target = rat.split("=>")[0].strip()
+                            elif ":" in rat:
+                                target = rat.split(":")[0].strip()
+                        if target and target in normalized_stem:
+                            idx = normalized_stem.rfind(target)
+                            normalized_stem = (
+                                normalized_stem[:idx]
+                                + f"{{u|{target}}}"
+                                + normalized_stem[idx + len(target):]
+                            )
+                        else:
+                            normalized_stem = f"{{u|{normalized_stem}}}"
+                    contract_dict["prompt_markup"] = normalized_stem
+
+        elif family == StructuralFamily.F2:
             # Sentence composition
             contract_dict["star_position"] = 3
             contract_dict["fragment_order"] = None
@@ -133,16 +163,33 @@ class ContractNormalizer:
 
         elif family == StructuralFamily.F5:
             # Listening question audio
-            audio_att = next((a for a in draft.attached_assets if a.get("role") == "audio"), None)
+            audio_att = next((a for a in draft.attached_assets if a.get("role") == "audio" or a.get("kind") == "audio"), None)
             if audio_att:
+                a_sha = audio_att.get("sha256") or (audio_att.get("asset_id") if isinstance(audio_att.get("asset_id"), str) and len(str(audio_att.get("asset_id"))) == 64 else "e" * 64)
                 contract_dict["audio_asset"] = {
                     "role": AssetRole.AUDIO.value,
-                    "asset_id": audio_att.get("asset_id", 1),
-                    "sha256": audio_att.get("sha256", "e" * 64),
+                    "asset_id": audio_att.get("asset_id") if isinstance(audio_att.get("asset_id"), int) else 1,
+                    "sha256": a_sha,
                     "is_required": True,
                 }
             else:
                 review_reasons.append(ReviewReasonCode.REQUIRED_ASSET_MISSING)
+
+            # Diagram or illustration attachments
+            diagram_atts = [a for a in draft.attached_assets if a.get("role") in ("diagram", "illustration") or a.get("kind") in ("diagram", "illustration")]
+            if diagram_atts:
+                contract_dict.setdefault("assets", [])
+                for idx, da in enumerate(diagram_atts, start=1):
+                    da_sha = da.get("sha256") or (da.get("asset_id") if isinstance(da.get("asset_id"), str) and len(str(da.get("asset_id"))) == 64 else "e" * 64)
+                    role_str = da.get("role") or da.get("kind") or "diagram"
+                    role_enum = AssetRole.DIAGRAM if role_str == "diagram" else AssetRole.ILLUSTRATION
+                    contract_dict["assets"].append({
+                        "role": role_enum.value,
+                        "asset_id": da.get("asset_id") if isinstance(da.get("asset_id"), int) else 1,
+                        "sha256": da_sha,
+                        "ordinal": idx,
+                        "is_required": True,
+                    })
 
         # 5. Parse contract via Pydantic
         payload: AnyQuestionPayload | None = None
@@ -209,11 +256,14 @@ class ContractNormalizer:
         # Group assets
         assets: list[GroupAssetRefPayload] = []
         for idx, att in enumerate(draft.attached_assets, start=1):
+            role_str = att.get("role") or att.get("kind") or "diagram"
+            role_val = AssetRole(role_str) if role_str in [r.value for r in AssetRole] else AssetRole.DIAGRAM
+            g_sha = att.get("sha256") or (att.get("asset_id") if isinstance(att.get("asset_id"), str) and len(str(att.get("asset_id"))) == 64 else "e" * 64)
             assets.append(
                 GroupAssetRefPayload(
-                    role=AssetRole(att.get("role", "audio")),
-                    asset_id=att.get("asset_id", 1),
-                    sha256=att.get("sha256", "e" * 64),
+                    role=role_val,
+                    asset_id=att.get("asset_id") if isinstance(att.get("asset_id"), int) else 1,
+                    sha256=g_sha,
                     ordinal=idx,
                     is_required=att.get("is_required", True),
                 )
@@ -226,7 +276,7 @@ class ContractNormalizer:
             pass
 
         group_payload = ContentGroupPayload(
-            external_id=draft.draft_id,
+            external_id=generate_ulid(),
             kind=group_kind,
             level=level,
             parts=parts,
@@ -250,6 +300,20 @@ class ContractNormalizer:
 
         # Convert raw bracket numbers like [ 25 ] or [25] to {blank|25} before parse_markup
         cleaned = re.sub(r"\[\s*([0-9０-９]+)\s*\]", r"{blank|\1}", text)
+
+        # Convert bare {blank} without pipe to {blank|1}, {blank|2}, etc.
+        if "{blank}" in cleaned:
+            blank_idx = 1
+            while "{blank}" in cleaned:
+                cleaned = cleaned.replace("{blank}", f"{{blank|{blank_idx}}}", 1)
+                blank_idx += 1
+
+        # Convert raw underscore blanks (3 or more) to {blank|...}
+        if re.search(r"_{3,}|＿{3,}", cleaned):
+            und_idx = 1
+            while re.search(r"_{3,}|＿{3,}", cleaned):
+                cleaned = re.sub(r"_{3,}|＿{3,}", f"{{blank|{und_idx}}}", cleaned, count=1)
+                und_idx += 1
 
         try:
             ast = parse_markup(cleaned)
@@ -328,8 +392,23 @@ class ContractNormalizer:
             else AnswerOrigin.SOURCE_EXPLICIT
         )
 
+        raw_rationale = (draft.source_answer_rationale or "").strip()
+        safe_rationale = ""
+        if raw_rationale:
+            try:
+                parse_markup(raw_rationale)
+                safe_rationale = raw_rationale
+            except Exception:
+                clean = re.sub(r"<\s*[/!]?[a-zA-Z][^>]*>", "", raw_rationale)
+                escaped = "".join(f"\\{ch}" if ch in ("[", "]", "{", "}") else ch for ch in clean)
+                try:
+                    parse_markup(escaped)
+                    safe_rationale = escaped
+                except Exception:
+                    safe_rationale = ""
+
         return AnswerPayload(
             choice_key=matched_choice.choice_key,
             answer_origin=origin,
-            rationale_markup=draft.source_answer_rationale or "",
+            rationale_markup=safe_rationale,
         )

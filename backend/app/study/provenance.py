@@ -10,8 +10,75 @@ Guarantees:
 """
 from __future__ import annotations
 
+import re
 import sqlite3
 from typing import Any
+import urllib.parse
+
+
+# Query parameter keys discarded during URL normalization (tracking, analytics, social)
+TRACKING_QUERY_PARAMS = frozenset({
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "fbclid",
+    "gclid",
+    "_ga",
+    "_gl",
+    "mc_cid",
+    "mc_eid",
+    "ref",
+    "ref_src",
+})
+
+
+def normalize_source_url(url: str) -> str:
+    """
+    Deterministically normalize a source URL for duplicate detection:
+    - Lowercase scheme and hostname
+    - Strip URL fragments (#...)
+    - Strip tracking / analytics query parameters (utm_*, fbclid, etc.)
+    - Sort and preserve meaningful query parameters
+    - Normalize path slashes (collapse double slashes, ensure trailing slash for directory paths)
+    """
+    if not url or not url.strip():
+        return ""
+
+    raw = url.strip()
+    parsed = urllib.parse.urlsplit(raw)
+
+    scheme = (parsed.scheme or "https").lower()
+    netloc = (parsed.netloc or "").lower()
+
+    # Remove standard default port numbers
+    if ":" in netloc:
+        host, port = netloc.split(":", 1)
+        if (scheme == "http" and port == "80") or (scheme == "https" and port == "443"):
+            netloc = host
+
+    # Normalize path: collapse duplicate slashes
+    path = re.sub(r"/{2,}", "/", parsed.path or "/")
+
+    # Ensure trailing slash for exercise permalinks (no file extension)
+    if path and not path.endswith("/") and not re.search(r"\.[a-zA-Z0-9]+$", path):
+        path = f"{path}/"
+
+    # Filter query parameters
+    query_parts = ""
+    if parsed.query:
+        query_items = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+        filtered_items = [
+            (k, v) for k, v in query_items
+            if k.lower() not in TRACKING_QUERY_PARAMS
+        ]
+        # Sort query items alphabetically for stability
+        filtered_items.sort(key=lambda item: (item[0], item[1]))
+        if filtered_items:
+            query_parts = urllib.parse.urlencode(filtered_items)
+
+    return urllib.parse.urlunsplit((scheme, netloc, path, query_parts, ""))
 
 
 class ProvenanceService:

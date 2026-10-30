@@ -94,6 +94,7 @@ class TextSegmenter:
                     anchors=anchors,
                     page_number=g_dict.get("page_number", 1),
                     raw_source_text=str(g_dict),
+                    attached_assets=g_dict.get("attached_assets", []),
                 )
             )
 
@@ -137,8 +138,10 @@ class TextSegmenter:
             # Determine answer claim
             ans_val = q_dict.get("answer")
             ans_key: str | int | None = None
+            ans_rationale = ""
             if isinstance(ans_val, dict):
                 ans_key = ans_val.get("choice_key") or ans_val.get("choice_id") or ans_val.get("ordinal")
+                ans_rationale = ans_val.get("rationale", "")
             elif isinstance(ans_val, (str, int)):
                 ans_key = ans_val
 
@@ -147,6 +150,7 @@ class TextSegmenter:
                 for c_item in raw_choices:
                     if isinstance(c_item, dict) and c_item.get("is_correct"):
                         ans_key = c_item.get("ordinal") or c_item.get("label") or c_item.get("choice_key")
+                        ans_rationale = c_item.get("rationale", "")
                         break
 
             q_id = q_dict.get("id") or q_dict.get("external_id") or f"q_{q_idx}"
@@ -158,11 +162,13 @@ class TextSegmenter:
                     raw_stem=stem,
                     raw_choices=choices_draft,
                     source_answer_key=ans_key,
+                    source_answer_rationale=ans_rationale,
                     group_reference=q_dict.get("content_group_id") or q_dict.get("group_reference"),
                     group_ordinal=q_dict.get("group_ordinal"),
                     anchor_key=q_dict.get("anchor_key"),
                     page_number=q_dict.get("page_number", 1),
                     raw_source_text=str(q_dict),
+                    attached_assets=q_dict.get("attached_assets", []),
                 )
             )
 

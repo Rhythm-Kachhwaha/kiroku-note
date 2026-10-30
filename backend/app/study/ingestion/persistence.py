@@ -28,7 +28,7 @@ from app.study.ingestion.models import (
     CandidateQuestion,
     ExtractedDocument,
 )
-from app.study.provenance import ProvenanceService
+from app.study.provenance import ProvenanceService, normalize_source_url
 
 
 class PersistenceService:
@@ -40,6 +40,7 @@ class PersistenceService:
         doc: ExtractedDocument,
         questions: list[CandidateQuestion],
         groups: list[CandidateGroup],
+        persist_quarantined: bool = False,
     ) -> tuple[int, int]:
         """
         Persist an entire ingestion batch into the study database.
@@ -48,10 +49,17 @@ class PersistenceService:
             (source_id, import_batch_id)
         """
         now_iso = datetime.now(timezone.utc).isoformat()
+        norm_url = normalize_source_url(doc.url) if doc.url else None
 
         # 1. Resolve or create source record
-        cursor = conn.execute("SELECT id FROM source WHERE name = ?;", (doc.source_name,))
-        existing_src = cursor.fetchone()
+        existing_src = None
+        if norm_url:
+            cursor = conn.execute("SELECT id FROM source WHERE url = ?;", (norm_url,))
+            existing_src = cursor.fetchone()
+        if not existing_src:
+            cursor = conn.execute("SELECT id FROM source WHERE name = ? AND (url IS NULL OR url = '');", (doc.source_name,))
+            existing_src = cursor.fetchone()
+
         if existing_src:
             source_id = existing_src["id"]
         else:
@@ -61,7 +69,7 @@ class PersistenceService:
                 source_type=doc.source_type,
                 license_or_permission=doc.license_or_permission,
                 citation=doc.citation,
-                url=doc.url,
+                url=norm_url or doc.url,
             )
             source_id = src_row["id"]
 
@@ -79,7 +87,7 @@ class PersistenceService:
         group_id_map: dict[str, int] = {}
         for grp in groups:
             if grp.payload is not None:
-                g_id = self._persist_group(conn, grp, source_id, now_iso)
+                g_id = self._persist_group(conn, grp, source_id, now_iso, norm_url=norm_url)
                 group_id_map[grp.candidate_id] = g_id
                 grp.persisted_group_id = g_id
 
@@ -91,13 +99,17 @@ class PersistenceService:
             if q.draft.group_reference and q.draft.group_reference in group_id_map:
                 group_db_id = group_id_map[q.draft.group_reference]
 
+            error_msg = "; ".join(r.value for r in q.review_reasons) if q.review_reasons else None
+            if q.review_notes:
+                error_msg = f"{error_msg}: {q.review_notes}" if error_msg else q.review_notes
+
             # 4a. Create import_item record
             item_cursor = conn.execute(
                 """
                 INSERT INTO import_item (
                     import_batch_id, raw_payload_json, parsed_question_id, parsed_group_id,
-                    extraction_confidence, review_status, created_at
-                ) VALUES (?, ?, NULL, ?, ?, ?, ?);
+                    extraction_confidence, review_status, error_message, created_at
+                ) VALUES (?, ?, NULL, ?, ?, ?, ?, ?);
                 """,
                 (
                     batch_id,
@@ -105,14 +117,21 @@ class PersistenceService:
                     group_db_id,
                     doc.extraction_confidence,
                     q.review_status.value,
+                    error_msg,
                     now_iso,
                 ),
             )
             import_item_id = item_cursor.lastrowid
 
-            # 4b. If approved, persist to question & revision tables
-            if q.review_status == ReviewStatus.APPROVED and q.payload is not None:
-                q_id, rev_id = self._persist_question(conn, q, group_db_id, source_id, now_iso)
+            # 4b. If approved (or if persist_quarantined is True), persist to question & revision tables
+            should_persist = (
+                (q.review_status == ReviewStatus.APPROVED or persist_quarantined)
+                and q.payload is not None
+            )
+            if should_persist:
+                q_id, rev_id = self._persist_question(
+                    conn, q, group_db_id, source_id, now_iso, norm_url=norm_url
+                )
                 q.persisted_question_id = q_id
                 q.persisted_revision_id = rev_id
 
@@ -137,6 +156,7 @@ class PersistenceService:
         grp: CandidateGroup,
         source_id: int,
         now_iso: str,
+        norm_url: str | None = None,
     ) -> int:
         """Persist a single content group and its revision snapshot."""
         decomposed = decompose_group_for_db(grp.payload, revision_number=1)
@@ -146,10 +166,26 @@ class PersistenceService:
         anchors = decomposed["anchors"]
         assets = decomposed["assets"]
 
-        # Check fingerprint deduplication
+        ext_group_ref = f"{norm_url}#{grp.draft.draft_id}" if norm_url else grp.draft.draft_id
+
+        # 1. Check existing by source and external reference
         cursor = conn.execute(
-            "SELECT group_id FROM group_revision WHERE content_fingerprint = ?;",
-            (rev_row["content_fingerprint"],),
+            "SELECT content_group_id FROM group_source WHERE source_id = ? AND external_group_ref = ?;",
+            (source_id, ext_group_ref),
+        )
+        existing_gs = cursor.fetchone()
+        if existing_gs:
+            return existing_gs["content_group_id"]
+
+        # 2. Check fingerprint deduplication WITHIN SAME SOURCE
+        cursor = conn.execute(
+            """
+            SELECT gr.group_id
+            FROM group_revision gr
+            JOIN group_source gs ON gs.content_group_id = gr.group_id
+            WHERE gr.content_fingerprint = ? AND gs.source_id = ?;
+            """,
+            (rev_row["content_fingerprint"], source_id),
         )
         existing = cursor.fetchone()
         if existing:
@@ -214,7 +250,7 @@ class PersistenceService:
 
         # 7. Set current revision and provenance
         conn.execute("UPDATE content_group SET current_revision_id = ? WHERE id = ?;", (rev_id, g_id))
-        ProvenanceService.link_group_source(conn, g_id, source_id, external_group_ref=grp.candidate_id)
+        ProvenanceService.link_group_source(conn, g_id, source_id, external_group_ref=ext_group_ref)
 
         grp.persisted_revision_id = rev_id
         return g_id
@@ -226,8 +262,9 @@ class PersistenceService:
         group_db_id: int | None,
         source_id: int,
         now_iso: str,
+        norm_url: str | None = None,
     ) -> tuple[int, int]:
-        """Persist a single approved question candidate."""
+        """Persist a single approved or quarantined question candidate."""
         payload = candidate.payload
         assert payload is not None
 
@@ -243,21 +280,47 @@ class PersistenceService:
             q_row["content_group_id"] = group_db_id
             q_row["group_ordinal"] = candidate.draft.group_ordinal or 1
 
-        # Check deduplication
+        # Set status according to payload status or review status
+        if candidate.payload and hasattr(candidate.payload, "status") and candidate.payload.status:
+            q_row["status"] = candidate.payload.status.value if hasattr(candidate.payload.status, "value") else str(candidate.payload.status)
+        else:
+            q_row["status"] = "active" if candidate.review_status == ReviewStatus.APPROVED else "draft"
+
+        rev_row["validation_status"] = "valid"
+
+        external_question_ref = f"{norm_url}#{candidate.draft.draft_id}" if norm_url else candidate.draft.draft_id
+
+        # 1. First check question_source tracking by external_question_ref
         cursor = conn.execute(
-            "SELECT question_id FROM question_revision WHERE content_fingerprint = ?;",
-            (rev_row["content_fingerprint"],),
+            """
+            SELECT qs.question_id, q.current_revision_id, q.status
+            FROM question_source qs
+            JOIN question q ON q.id = qs.question_id
+            WHERE qs.source_id = ? AND qs.external_question_ref = ?;
+            """,
+            (source_id, external_question_ref),
         )
-        existing = cursor.fetchone()
-        if existing:
-            q_id = existing["question_id"]
-            rev_id = conn.execute(
-                "SELECT id FROM question_revision WHERE question_id = ? AND content_fingerprint = ?;",
-                (q_id, rev_row["content_fingerprint"]),
-            ).fetchone()["id"]
+        existing_qs = cursor.fetchone()
+        if existing_qs:
+            q_id = existing_qs["question_id"]
+            rev_id = existing_qs["current_revision_id"]
             return q_id, rev_id
 
-        # 1. Insert question
+        # 2. Check fingerprint deduplication WITHIN SAME SOURCE
+        cursor = conn.execute(
+            """
+            SELECT qr.question_id, qr.id as revision_id
+            FROM question_revision qr
+            JOIN question_source qs ON qs.question_id = qr.question_id
+            WHERE qr.content_fingerprint = ? AND qs.source_id = ?;
+            """,
+            (rev_row["content_fingerprint"], source_id),
+        )
+        existing_fp = cursor.fetchone()
+        if existing_fp:
+            return existing_fp["question_id"], existing_fp["revision_id"]
+
+        # 3. Insert question
         q_id = conn.execute(
             """
             INSERT INTO question (
@@ -354,7 +417,7 @@ class PersistenceService:
 
         # 7. Set current revision and provenance
         conn.execute("UPDATE question SET current_revision_id = ? WHERE id = ?;", (rev_id, q_id))
-        ProvenanceService.link_question_source(conn, q_id, source_id, external_question_ref=candidate.candidate_id)
+        ProvenanceService.link_question_source(conn, q_id, source_id, external_question_ref=external_question_ref)
 
         return q_id, rev_id
 

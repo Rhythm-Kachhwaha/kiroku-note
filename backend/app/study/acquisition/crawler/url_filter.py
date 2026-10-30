@@ -102,3 +102,13 @@ def extract_level_and_section(url: str, title: str = "") -> tuple[str, str]:
         section = "grammar"
 
     return level, section
+
+
+from app.study.provenance import TRACKING_QUERY_PARAMS, normalize_source_url
+
+__all__ = [
+    "is_exercise_url",
+    "extract_level_and_section",
+    "TRACKING_QUERY_PARAMS",
+    "normalize_source_url",
+]

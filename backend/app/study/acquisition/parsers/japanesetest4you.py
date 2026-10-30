@@ -231,6 +231,7 @@ class JapaneseTest4YouParser(BaseSourceParser):
         current_question_stem: str = ""
         current_question_images: list[str] = []
         current_question_audio: AudioAssociation | None = None
+        shared_exercise_audio: AudioAssociation | None = None
         current_choices: list[str] = []
         last_context_sentence: str = ""
         in_preamble = True
@@ -275,7 +276,7 @@ class JapaneseTest4YouParser(BaseSourceParser):
                         choice_lines=current_choices,
                         passage_id=current_passage.passage_id if current_passage else None,
                         image_urls=current_question_images,
-                        audio_assoc=current_question_audio,
+                        audio_assoc=current_question_audio or shared_exercise_audio,
                         answer_claims=answer_claims,
                         context_sentence=last_context_sentence,
                         warnings=warnings,
@@ -315,6 +316,7 @@ class JapaneseTest4YouParser(BaseSourceParser):
                                 assoc.asset_id = d_res["asset_id"]
                                 assoc.local_path = d_res["relative_path"]
                                 assoc.mime_type = d_res["mime_type"]
+                                assoc.duration_ms = d_res.get("duration_ms")
                             except Exception as ex:
                                 assoc.status = "failed"
                                 assoc.error_reason = str(ex)
@@ -329,6 +331,7 @@ class JapaneseTest4YouParser(BaseSourceParser):
                             current_passage.audio_urls.append(audio_url)
                         else:
                             current_question_audio = assoc
+                            shared_exercise_audio = assoc
 
                 idx += 1
                 continue
@@ -343,7 +346,7 @@ class JapaneseTest4YouParser(BaseSourceParser):
                         choice_lines=current_choices,
                         passage_id=current_passage.passage_id if current_passage else None,
                         image_urls=current_question_images,
-                        audio_assoc=current_question_audio,
+                        audio_assoc=current_question_audio or shared_exercise_audio,
                         answer_claims=answer_claims,
                         context_sentence=last_context_sentence,
                         warnings=warnings,
@@ -381,7 +384,7 @@ class JapaneseTest4YouParser(BaseSourceParser):
                         choice_lines=current_choices,
                         passage_id=current_passage.passage_id if current_passage else None,
                         image_urls=current_question_images,
-                        audio_assoc=current_question_audio,
+                        audio_assoc=current_question_audio or shared_exercise_audio,
                         answer_claims=answer_claims,
                         context_sentence=last_context_sentence,
                         warnings=warnings,
@@ -400,6 +403,10 @@ class JapaneseTest4YouParser(BaseSourceParser):
                 if current_question_audio and current_question_audio.scope == "shared":
                     current_question_audio.scope = "question"
                     current_question_audio.target_id = f"Q{current_question_num}"
+
+                if current_question_audio:
+                    last_seen_audio = current_question_audio
+                current_question_audio = None
 
                 idx += 1
                 continue
@@ -463,7 +470,7 @@ class JapaneseTest4YouParser(BaseSourceParser):
                 choice_lines=current_choices,
                 passage_id=current_passage.passage_id if current_passage else None,
                 image_urls=current_question_images,
-                audio_assoc=current_question_audio,
+                audio_assoc=current_question_audio or shared_exercise_audio,
                 answer_claims=answer_claims,
                 context_sentence=last_context_sentence,
                 warnings=warnings,

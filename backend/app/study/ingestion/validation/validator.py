@@ -94,8 +94,13 @@ class DeterministicValidator:
             )
 
         # 2. Markup Syntax Validation
+        prompt_markup = (
+            getattr(payload, "stem_markup", None)
+            or getattr(payload, "prompt_markup", None)
+            or candidate.draft.raw_stem
+        )
         try:
-            parse_markup(candidate.draft.raw_stem)
+            parse_markup(prompt_markup)
         except MarkupError as exc:
             errors.append(
                 ValidationIssue(
@@ -106,10 +111,12 @@ class DeterministicValidator:
                 )
             )
 
-        for c in candidate.draft.raw_choices:
-            if c.text:
+        choices_to_validate = payload.choices if payload is not None else candidate.draft.raw_choices
+        for c in choices_to_validate:
+            c_text = getattr(c, "text_markup", None) or getattr(c, "text", "")
+            if c_text:
                 try:
-                    parse_markup(c.text)
+                    parse_markup(c_text)
                 except MarkupError as exc:
                     errors.append(
                         ValidationIssue(

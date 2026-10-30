@@ -32,6 +32,7 @@ class AudioAssociation(BaseModel):
     mime_type: str = "audio/mpeg"
     status: Literal["remote_only", "retrieved", "failed"] = "remote_only"
     error_reason: str | None = None
+    duration_ms: int | None = None
 
 
 class StarArrangementMetadata(BaseModel):
@@ -174,6 +175,7 @@ class ParsedExercise(BaseModel):
                     "asset_id": p.audio.asset_id,
                     "local_path": p.audio.local_path,
                     "status": p.audio.status,
+                    "duration_ms": p.audio.duration_ms,
                 })
             elif p.audio_urls:
                 for u in p.audio_urls:
@@ -224,10 +226,22 @@ class ParsedExercise(BaseModel):
                     "asset_id": q.audio.asset_id,
                     "local_path": q.audio.local_path,
                     "status": q.audio.status,
+                    "duration_ms": q.audio.duration_ms,
                 })
             elif q.audio_urls:
                 for u in q.audio_urls:
                     q_assets.append({"kind": "audio", "url": u})
+            elif self.audio_tracks:
+                for tr in self.audio_tracks:
+                    if tr.scope in ("shared", "exercise"):
+                        q_assets.append({
+                            "kind": "audio",
+                            "url": tr.track_url,
+                            "asset_id": tr.asset_id,
+                            "local_path": tr.local_path,
+                            "status": tr.status,
+                            "duration_ms": tr.duration_ms,
+                        })
 
             q_meta: dict[str, Any] = {
                 "official_format_code": derived_code,
