@@ -40,7 +40,7 @@ backend/
     main.py                 FastAPI app, lifecycle, middleware, central routes
     config.py               host/port, user-data, resource and provider config
     schemas.py              shared request/response models
-    api/                    grammar and subtitle routers
+    api/                    grammar, subtitle, and versioned study v1 routers
     db/connection.py        SQLite path, connection and schema initialization
     repositories/           card persistence boundary
     services/               domain services and external integration seams
@@ -317,8 +317,10 @@ run_backend.py, start_backend.bat root backend launchers
       official threshold pass/fail evaluation (overall pass + sectional minimums), immutable exam result snapshots
       (`exam_result_snapshot`), and diagnostic examination analytics (`ExamAnalyticsService`) via forward migration
       `0006_jlpt_examination_engine.sql`.
-3. **API/integration** — No new public HTTP routes or cloud endpoints; the study subsystem remains internal and
-   local-first during Milestone 1.
+3. **API/integration** — `backend/app/api/study/` mounts the versioned Study HTTP API at
+   `/api/study/v1`, exposing bank summary/readiness, practice drills, exam simulation, learning
+   analytics, diagnostics, and content-addressed media streaming. Operates local-first with zero
+   cloud dependencies.
 4. **Data/configuration** — Resolved via `app.config.get_study_dir()`: `%LOCALAPPDATA%\KirokuNote\study` in packaged mode,
    `backend/study/` in dev mode, or `KIROKU_STUDY_DIR` environment override for tests.
    Contains `study.db`, `media/`, and `backups/`.

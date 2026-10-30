@@ -300,9 +300,39 @@ app.add_middleware(
 
 from app.api.subtitle import subtitle_router
 from app.api.grammar import grammar_router
+from app.api.study import (
+    study_router,
+    StudyAPIError,
+    study_api_error_handler,
+    study_http_exception_handler,
+    study_validation_error_handler,
+)
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import (
+    request_validation_exception_handler as default_val_handler,
+    http_exception_handler as default_http_handler,
+)
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 app.include_router(subtitle_router)
 app.include_router(grammar_router)
+app.include_router(study_router)
+
+app.add_exception_handler(StudyAPIError, study_api_error_handler)
+
+
+@app.exception_handler(RequestValidationError)
+async def study_scoped_validation_handler(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith('/api/study/v1'):
+        return await study_validation_error_handler(request, exc)
+    return await default_val_handler(request, exc)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def study_scoped_http_handler(request: Request, exc: StarletteHTTPException):
+    if request.url.path.startswith('/api/study/v1'):
+        return await study_http_exception_handler(request, exc)
+    return await default_http_handler(request, exc)
 
 
 _health_cache: dict[str, Any] = {

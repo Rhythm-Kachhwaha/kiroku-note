@@ -9,8 +9,17 @@ from app.study.backup import (
     BackupError,
     RestoreError,
     create_study_backup,
+    create_study_bundle_backup,
     list_backups,
     restore_study_backup,
+    restore_study_bundle_backup,
+    validate_study_bundle_backup,
+)
+from app.study.diagnostics import (
+    DiagnosticSeverity,
+    StudyDiagnosticReport,
+    StudyDiagnosticService,
+    run_study_diagnostics,
 )
 from app.study.connection import (
     StudyDatabaseError,
@@ -188,8 +197,16 @@ __all__ = [
     "BackupError",
     "RestoreError",
     "create_study_backup",
+    "create_study_bundle_backup",
     "list_backups",
     "restore_study_backup",
+    "restore_study_bundle_backup",
+    "validate_study_bundle_backup",
+    # M10: Diagnostics
+    "DiagnosticSeverity",
+    "StudyDiagnosticReport",
+    "StudyDiagnosticService",
+    "run_study_diagnostics",
     "StudyDatabaseError",
     "StudyDatabaseManager",
     "get_study_db_manager",

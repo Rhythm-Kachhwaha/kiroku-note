@@ -9,6 +9,7 @@ and standard library urllib for zero external runtime dependencies.
 from __future__ import annotations
 
 import json
+import re
 import socket
 import time
 import urllib.error
@@ -48,6 +49,23 @@ from app.study.verification.providers.base import (
 )
 
 
+def sanitize_gemini_error_message(message: str, api_key: str = "") -> str:
+    """
+    Ensure API keys and credentials never appear in error messages, URLs, or exception logs.
+    """
+    if not message:
+        return ""
+    text = str(message)
+    if api_key and api_key.strip():
+        k = api_key.strip()
+        text = text.replace(k, "[REDACTED]")
+        text = text.replace(urllib.parse.quote(k, safe=""), "[REDACTED]")
+    # Redact any URL query param key= or header traces
+    text = re.sub(r"([?&]key=)[^&\s]+", r"\1[REDACTED]", text)
+    text = re.sub(r"(x-goog-api-key['\":\s]+)[^\s,'\"}]+", r"\1[REDACTED]", text, flags=re.IGNORECASE)
+    return text
+
+
 class GeminiProvider(BaseAIProvider):
     """Provider specifically configured for Google Gemini APIs."""
 
@@ -81,8 +99,7 @@ class GeminiProvider(BaseAIProvider):
 
     def _resolve_url(self) -> str:
         base = (self.base_url or "https://generativelanguage.googleapis.com").rstrip("/")
-        encoded_key = urllib.parse.quote(self.api_key.strip(), safe="")
-        return f"{base}/v1beta/models/{self.model_name}:generateContent?key={encoded_key}"
+        return f"{base}/v1beta/models/{self.model_name}:generateContent"
 
     def _send_generate_content(
         self,
@@ -117,6 +134,8 @@ class GeminiProvider(BaseAIProvider):
             "Content-Type": "application/json",
             "User-Agent": "KirokuNote-StudyBank/1.0",
         }
+        if self.api_key and self.api_key.strip():
+            headers["x-goog-api-key"] = self.api_key.strip()
 
         body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(url, data=body_bytes, headers=headers, method="POST")
@@ -140,11 +159,13 @@ class GeminiProvider(BaseAIProvider):
 
                     candidates = parsed_body.get("candidates")
                     if not candidates or not isinstance(candidates, list):
-                        raise AIProviderResponseError(f"Missing candidates in Gemini response: {raw_data[:200]}")
+                        safe_preview = sanitize_gemini_error_message(raw_data[:200], self.api_key)
+                        raise AIProviderResponseError(f"Missing candidates in Gemini response: {safe_preview}")
 
                     parts = candidates[0].get("content", {}).get("parts", [])
                     if not parts or not isinstance(parts, list):
-                        raise AIProviderResponseError(f"Missing parts in Gemini candidate content: {raw_data[:200]}")
+                        safe_preview = sanitize_gemini_error_message(raw_data[:200], self.api_key)
+                        raise AIProviderResponseError(f"Missing parts in Gemini candidate content: {safe_preview}")
 
                     content = parts[0].get("text", "")
                     usage = parsed_body.get("usageMetadata", {})
@@ -162,15 +183,18 @@ class GeminiProvider(BaseAIProvider):
                 except Exception:
                     pass
 
+                err_text = sanitize_gemini_error_message(err_text, self.api_key)
+                reason = sanitize_gemini_error_message(str(exc.reason), self.api_key)
+
                 if exc.code in (401, 403):
-                    raise AIProviderAuthError(f"Gemini authentication failure ({exc.code}): {err_text or exc.reason}") from exc
+                    raise AIProviderAuthError(f"Gemini authentication failure ({exc.code}): {err_text or reason}") from exc
                 if exc.code == 429:
                     if retries_left > 0:
                         retries_left -= 1
                         time.sleep(backoff_sec)
                         backoff_sec *= 2
                         continue
-                    raise AIProviderRateLimitError(f"Gemini rate limit exceeded (429): {err_text or exc.reason}") from exc
+                    raise AIProviderRateLimitError(f"Gemini rate limit exceeded (429): {err_text or reason}") from exc
 
                 if 500 <= exc.code <= 599 and retries_left > 0:
                     retries_left -= 1
@@ -178,11 +202,12 @@ class GeminiProvider(BaseAIProvider):
                     backoff_sec *= 2
                     continue
 
-                raise AIProviderError(f"Gemini HTTP error ({exc.code}): {err_text or exc.reason}") from exc
+                raise AIProviderError(f"Gemini HTTP error ({exc.code}): {err_text or reason}") from exc
 
             except (urllib.error.URLError, socket.timeout, TimeoutError) as exc:
-                reason = getattr(exc, "reason", exc)
-                if isinstance(reason, (socket.timeout, TimeoutError)) or "timed out" in str(reason).lower():
+                raw_reason = getattr(exc, "reason", exc)
+                reason = sanitize_gemini_error_message(str(raw_reason), self.api_key)
+                if isinstance(raw_reason, (socket.timeout, TimeoutError)) or "timed out" in reason.lower():
                     if retries_left > 0:
                         retries_left -= 1
                         time.sleep(backoff_sec)
@@ -198,7 +223,8 @@ class GeminiProvider(BaseAIProvider):
                 raise AIProviderError(f"Gemini connection failure: {reason}") from exc
 
             except json.JSONDecodeError as exc:
-                raise AIProviderResponseError(f"Malformed JSON from Gemini API: {exc}") from exc
+                safe_exc = sanitize_gemini_error_message(str(exc), self.api_key)
+                raise AIProviderResponseError(f"Malformed JSON from Gemini API: {safe_exc}") from exc
 
     def solve_question(self, req: AISolveRequest) -> AISolveResponse:
         system_prompt = build_solve_system_prompt(compact=self.compact)
@@ -214,7 +240,8 @@ class GeminiProvider(BaseAIProvider):
 
         raw_selected = parsed.get("selected_answer")
         if raw_selected is None:
-            raise AIProviderResponseError(f"Missing 'selected_answer' in Gemini solve output: {raw_content[:200]}")
+            safe_preview = sanitize_gemini_error_message(raw_content[:200], self.api_key)
+            raise AIProviderResponseError(f"Missing 'selected_answer' in Gemini solve output: {safe_preview}")
 
         validated_choice_key = self.validate_choice_key(str(raw_selected), req.choices)
 

@@ -7,6 +7,7 @@ Uses only standard library urllib for zero extra runtime dependencies.
 from __future__ import annotations
 
 import json
+import re
 import socket
 import urllib.error
 import urllib.parse
@@ -186,6 +187,22 @@ def build_user_prompt(
 # Native HTTP Request Helper
 # ============================================================================
 
+def _sanitize_llm_error_text(text: str, headers: Optional[dict[str, str]] = None) -> str:
+    """Ensure API keys and credentials never appear in error messages, URLs, or exception logs."""
+    if not text:
+        return ""
+    sanitized = str(text)
+    if headers:
+        for val in headers.values():
+            if val and len(val) > 4:
+                sanitized = sanitized.replace(val, "[REDACTED]")
+                sanitized = sanitized.replace(urllib.parse.quote(val, safe=""), "[REDACTED]")
+    sanitized = re.sub(r"([?&]key=)[^&\s]+", r"\1[REDACTED]", sanitized)
+    sanitized = re.sub(r"(x-goog-api-key['\":\s]+)[^\s,'\"}]+", r"\1[REDACTED]", sanitized, flags=re.IGNORECASE)
+    sanitized = re.sub(r"(Bearer\s+)[a-zA-Z0-9_\-\.]+", r"\1[REDACTED]", sanitized, flags=re.IGNORECASE)
+    return sanitized
+
+
 def _send_http_json(url: str, data: dict, headers: dict[str, str], timeout: float = DEFAULT_LLM_TIMEOUT) -> dict:
     """Send JSON payload via standard library urllib and return parsed JSON response."""
     body_bytes = json.dumps(data).encode("utf-8")
@@ -195,23 +212,28 @@ def _send_http_json(url: str, data: dict, headers: dict[str, str], timeout: floa
             raw = response.read().decode("utf-8")
             return json.loads(raw)
     except (socket.timeout, TimeoutError) as exc:
-        raise LLMTimeoutError(f"LLM request timeout after {timeout}s: {exc}") from exc
+        safe_exc = _sanitize_llm_error_text(str(exc), headers)
+        raise LLMTimeoutError(f"LLM request timeout after {timeout}s: {safe_exc}") from exc
     except urllib.error.HTTPError as exc:
         err_body = ""
         try:
             err_body = exc.read().decode("utf-8", errors="replace")
         except Exception:
             pass
-        sanitized_reason = str(exc.reason)
-        raise LLMAPIError(f"LLM API error ({exc.code} {sanitized_reason}): {err_body or sanitized_reason}") from exc
+        sanitized_reason = _sanitize_llm_error_text(str(exc.reason), headers)
+        sanitized_body = _sanitize_llm_error_text(err_body, headers)
+        raise LLMAPIError(f"LLM API error ({exc.code} {sanitized_reason}): {sanitized_body or sanitized_reason}") from exc
     except urllib.error.URLError as exc:
-        if isinstance(exc.reason, (socket.timeout, TimeoutError)):
-            raise LLMTimeoutError(f"LLM request timed out: {exc.reason}") from exc
-        raise LLMConnectionError(f"LLM connection failed: {exc.reason}") from exc
+        reason_str = _sanitize_llm_error_text(str(exc.reason), headers)
+        if isinstance(exc.reason, (socket.timeout, TimeoutError)) or "timed out" in reason_str.lower():
+            raise LLMTimeoutError(f"LLM request timed out: {reason_str}") from exc
+        raise LLMConnectionError(f"LLM connection failed: {reason_str}") from exc
     except json.JSONDecodeError as exc:
-        raise LLMResponseError(f"Malformed JSON response from LLM provider: {exc}") from exc
+        safe_exc = _sanitize_llm_error_text(str(exc), headers)
+        raise LLMResponseError(f"Malformed JSON response from LLM provider: {safe_exc}") from exc
     except Exception as exc:
-        raise LLMError(f"Unexpected error communicating with LLM provider: {exc}") from exc
+        safe_exc = _sanitize_llm_error_text(str(exc), headers)
+        raise LLMError(f"Unexpected error communicating with LLM provider: {safe_exc}") from exc
 
 
 # ============================================================================
