@@ -175,3 +175,40 @@ All Milestone 2 requirements have been fully satisfied:
 6. Documentation and `AGENTS.md` updated.
 7. Implementation stopped strictly at Milestone 2 boundaries.
 
+---
+
+## 8. Milestone 2 → Milestone 3 Compatibility Audit & Reconciliation
+
+A comprehensive audit of the completed Milestone 2 implementation against the actual Milestone 1 SQLite schema (`0001_initial.sql` and `0002_seed_formats_and_exams.sql`) was conducted prior to Milestone 3 handoff:
+
+1. **Unprinted & Image Choices Relational Representation:**
+   - In SQLite `0001_initial.sql`, `revision_choice` enforces `CHECK (text_markup IS NOT NULL OR asset_id IS NOT NULL)`.
+   - In SQLite, `"" IS NOT NULL` evaluates to `TRUE`. Unprinted choices (spoken-only listening choices) decompose to `text_markup = ""` and `asset_id = NULL`. This satisfies the CHECK constraint with zero schema changes while preserving database integrity.
+   - Image choices decompose to `text_markup = None` (NULL in DB) and `asset_id = <int>`.
+   - `decompose_question_for_db` emits clean relational rows without the synthetic non-column `"mode"` attribute.
+   - `recompose_question_from_db` accurately reconstructs `mode`:
+     - `asset_id IS NOT NULL` -> `ChoiceMode.IMAGE`
+     - `text_markup != ""` -> `ChoiceMode.TEXT`
+     - else (`text_markup == ""` and `asset_id IS NULL`) -> `ChoiceMode.UNPRINTED`.
+
+2. **Answer Persistence & Raw DB Row Mapping:**
+   - Incomplete questions without answers are valid in both contracts (`answer = None`) and SQLite (no row in `revision_answer`).
+   - `v_question_eligibility` marks `has_answer = 0` and `evaluate_eligibility()` deterministically returns `ReasonCode.NO_ANSWER`.
+   - Recomposition was enhanced to resolve raw database rows (`{"choice_id": ...}`) by mapping `choice_id` to the stable `choice_key` from `choice_rows`.
+
+3. **External ID NOT NULL Guarantee:**
+   - SQLite enforces `question.external_id TEXT UNIQUE NOT NULL`.
+   - `decompose_question_for_db` automatically populates `external_id` with a 26-character Crockford Base32 ULID (`app.study.ulid.generate_ulid()`) if the contract omitted it.
+
+4. **F3/F4/F6 Relational Group Ordinal Enforcement:**
+   - SQLite enforces `CHECK (content_group_id IS NULL OR group_ordinal IS NOT NULL)`.
+   - Contract models `F3QuestionPayload`, `F4QuestionPayload`, and `F6QuestionPayload` now validate that `group_ordinal` is provided whenever `content_group_id` is set, eliminating runtime SQL check constraint violations.
+
+5. **Content Group Decomposition & Recomposition:**
+   - Added `compute_group_content_fingerprint`, `decompose_group_for_db`, and `recompose_group_from_db` to `app.study.contracts.db_mapping`.
+   - Enables full relational mapping for `content_group`, `group_revision`, `group_revision_part`, `group_revision_anchor`, and `group_revision_asset`.
+
+6. **Format Registry Verification:**
+   - Verified 100% agreement between `app.study.formats.FORMAT_REGISTRY` and migration `0002_seed_formats_and_exams.sql` across all 20 formats, categories, families, grader types, choice bounds, and level sets.
+
+

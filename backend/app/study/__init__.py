@@ -44,10 +44,13 @@ from app.study.contracts import (
     QuestionStatus,
     StructuralFamily,
     ValidationStatus,
+    compute_group_content_fingerprint,
     compute_question_content_fingerprint,
+    decompose_group_for_db,
     decompose_question_for_db,
     extract_family_payload_dict,
     parse_question_payload,
+    recompose_group_from_db,
     recompose_question_from_db,
 )
 from app.study.doctor import DoctorFinding, run_doctor

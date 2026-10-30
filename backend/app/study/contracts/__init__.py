@@ -16,9 +16,12 @@ from app.study.contracts.common import (
     GroupPartPayload,
 )
 from app.study.contracts.db_mapping import (
+    compute_group_content_fingerprint,
     compute_question_content_fingerprint,
+    decompose_group_for_db,
     decompose_question_for_db,
     extract_family_payload_dict,
+    recompose_group_from_db,
     recompose_question_from_db,
 )
 from app.study.contracts.enums import (
@@ -71,10 +74,13 @@ __all__ = [
     "QuestionStatus",
     "StructuralFamily",
     "ValidationStatus",
+    "compute_group_content_fingerprint",
     "compute_question_content_fingerprint",
+    "decompose_group_for_db",
     "decompose_question_for_db",
     "extract_family_payload_dict",
     "parse_question_payload",
+    "recompose_group_from_db",
     "recompose_question_from_db",
 ]
 

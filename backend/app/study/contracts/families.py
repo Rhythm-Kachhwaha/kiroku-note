@@ -287,6 +287,8 @@ class F3QuestionPayload(BaseQuestionPayload):
             "information_retrieval",
         ):
             raise ValueError(f"Invalid format code '{self.format_code}' for reading family F3.")
+        if self.content_group_id is not None and self.group_ordinal is None:
+            raise ValueError("group_ordinal is required when content_group_id is set.")
         return self
 
 
@@ -312,6 +314,8 @@ class F4QuestionPayload(BaseQuestionPayload):
     def validate_f4_anchor(self) -> F4QuestionPayload:
         if not self.anchor_key or not self.anchor_key.strip():
             raise ValueError("F4 Text Grammar questions must provide a non-empty anchor_key.")
+        if self.content_group_id is not None and self.group_ordinal is None:
+            raise ValueError("group_ordinal is required when content_group_id is set.")
         return self
 
 
@@ -382,6 +386,8 @@ class F6QuestionPayload(BaseQuestionPayload):
     def validate_f6_level(self) -> F6QuestionPayload:
         if self.level not in (JlptLevel.N1, JlptLevel.N2):
             raise ValueError(f"Listening integrated (F6) is only available at N1 and N2, got {self.level}.")
+        if self.content_group_id is not None and self.group_ordinal is None:
+            raise ValueError("group_ordinal is required when content_group_id is set.")
         if self.transcript_markup:
             parse_markup(self.transcript_markup)
         return self
