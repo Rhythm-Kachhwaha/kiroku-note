@@ -109,11 +109,14 @@ class ContractNormalizer:
         if family == StructuralFamily.F2:
             # Sentence composition
             contract_dict["star_position"] = 3
-            contract_dict["fragment_order"] = [1, 2, 3, 4]
+            contract_dict["fragment_order"] = None
             contract_dict["strict_whole_order_grading"] = False
             # Check for star in stem
             if "{star}" not in normalized_stem:
-                normalized_stem = f"{normalized_stem} {{star}}"
+                if "★" in normalized_stem or "☆" in normalized_stem:
+                    normalized_stem = normalized_stem.replace("★", "{star}").replace("☆", "{star}")
+                else:
+                    normalized_stem = f"{normalized_stem} {{star}}"
                 contract_dict["prompt_markup"] = normalized_stem
 
         elif family in (StructuralFamily.F3, StructuralFamily.F4, StructuralFamily.F6):
@@ -328,5 +331,5 @@ class ContractNormalizer:
         return AnswerPayload(
             choice_key=matched_choice.choice_key,
             answer_origin=origin,
-            rationale_markup=draft.source_answer_rationale,
+            rationale_markup=draft.source_answer_rationale or "",
         )

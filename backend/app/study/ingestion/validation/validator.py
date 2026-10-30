@@ -158,24 +158,25 @@ class DeterministicValidator:
 
             # Family-specific structural checks
             if isinstance(payload, F2QuestionPayload):
-                if "{star}" not in payload.prompt_markup:
+                if "{star}" not in payload.stem_markup:
                     errors.append(
                         ValidationIssue(
-                            field="prompt_markup",
+                            field="stem_markup",
                             code="F2_MISSING_STAR",
                             message="F2 sentence composition requires exactly one {star} in prompt markup.",
                             severity="error",
                         )
                     )
-                if len(payload.fragment_order) != 4 or set(payload.fragment_order) != {1, 2, 3, 4}:
-                    errors.append(
-                        ValidationIssue(
-                            field="fragment_order",
-                            code="F2_INVALID_PERMUTATION",
-                            message="F2 fragment order must be a valid permutation of [1, 2, 3, 4].",
-                            severity="error",
+                if payload.fragment_order is not None:
+                    if len(payload.fragment_order) != 4 or set(payload.fragment_order) != {1, 2, 3, 4}:
+                        errors.append(
+                            ValidationIssue(
+                                field="fragment_order",
+                                code="F2_INVALID_PERMUTATION",
+                                message="F2 fragment order must be a valid permutation of [1, 2, 3, 4].",
+                                severity="error",
+                            )
                         )
-                    )
 
             elif isinstance(payload, F4QuestionPayload):
                 if not payload.anchor_key:

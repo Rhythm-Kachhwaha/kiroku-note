@@ -54,6 +54,12 @@ REQUIRED_TRIGGERS = frozenset({
     "trg_attempt_item_validate",
     "trg_attempt_item_choice_order_validate",
     "trg_scoring_category_unique_per_profile",
+    "trg_verification_run_no_delete",
+    "trg_verification_model_response_no_update",
+    "trg_verification_model_response_no_delete",
+    "trg_verification_human_decision_no_update",
+    "trg_verification_human_decision_no_delete",
+    "trg_question_explanation_no_delete",
 })
 
 KNOWN_FORMAT_CODES = frozenset({

@@ -17,6 +17,50 @@ APP_VERSION = "2.1.0"
 DEFAULT_KIROKU_HOST = "127.0.0.1"
 DEFAULT_KIROKU_PORT = 21828
 
+
+def load_dotenv(env_path: Path | None = None, override: bool = False) -> None:
+    """
+    Load environment variables from a .env file into os.environ.
+    Uses standard library only (no external dependencies).
+    Does not overwrite existing environment variables unless override=True.
+    """
+    if env_path is None:
+        custom_env = os.environ.get("KIROKU_ENV_FILE")
+        if custom_env and str(custom_env).strip():
+            env_path = Path(str(custom_env).strip())
+        else:
+            repo_root = Path(__file__).resolve().parent.parent.parent
+            env_path = repo_root / ".env"
+
+    if not env_path.is_file():
+        return
+
+    try:
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("export "):
+                    line = line[7:].strip()
+                if "=" not in line:
+                    continue
+                key, val = line.split("=", 1)
+                key = key.strip()
+                val = val.strip()
+                if not key:
+                    continue
+                if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                    val = val[1:-1]
+                if override or key not in os.environ:
+                    os.environ[key] = val
+    except Exception:
+        pass
+
+
+# Automatically load root .env if present on module import
+load_dotenv()
+
 DEFAULT_OCR_HOST = "127.0.0.1"
 DEFAULT_OCR_PORT = 21829
 DEFAULT_OCR_URL = f"http://{DEFAULT_OCR_HOST}:{DEFAULT_OCR_PORT}"

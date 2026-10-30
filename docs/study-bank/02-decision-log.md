@@ -34,6 +34,11 @@
 - [ADR-SB-023: Structural Question Classification and Level Incompatibility Fallback](#adr-sb-023-structural-question-classification-and-level-incompatibility-fallback)
 - [ADR-SB-024: Separation of Question Incompleteness from Structural Invalidity](#adr-sb-024-separation-of-question-incompleteness-from-structural-invalidity)
 - [ADR-SB-025: Strict Deferral of AI/LLM Verification to Gate 2](#adr-sb-025-strict-deferral-of-aillm-verification-to-gate-2)
+- [ADR-SB-026: Dual-Model Independent Solving Architecture (Zero Early Anchoring)](#adr-sb-026-dual-model-independent-solving-architecture-zero-early-anchoring)
+- [ADR-SB-027: Provider-Independent Abstraction with Pluggable Adapters](#adr-sb-027-provider-independent-abstraction-with-pluggable-adapters)
+- [ADR-SB-028: Two-Stage Verification and Preserved Multi-Claim Source Evaluation](#adr-sb-028-two-stage-verification-and-preserved-multi-claim-source-evaluation)
+- [ADR-SB-029: Deterministic Comparison Engine with Eight Mutually Exclusive Scenarios](#adr-sb-029-deterministic-comparison-engine-with-eight-mutually-exclusive-scenarios)
+- [ADR-SB-030: Human Review Authority and Non-Mutating Revision Branching on Correction](#adr-sb-030-human-review-authority-and-non-mutating-revision-branching-on-correction)
 
 ---
 
@@ -412,3 +417,83 @@ Milestone 3 Gate 1 is strictly restricted to deterministic question ingestion. Z
 **Consequences**:  
 - Ingestion operates completely offline, reliably, and deterministically.
 - Clear architectural boundary between deterministic parsing and generative verification.
+
+
+---
+
+### ADR-SB-026: Dual-Model Independent Solving Architecture (Zero Early Anchoring)
+
+**Context**:  
+If external answer keys or cross-model outputs are provided during initial LLM evaluation, models exhibit confirmation bias and anchor to the suggested key. This defeats the purpose of independent question validation.
+
+**Decision**:  
+Stage 1 question solving is strictly isolated. Neither Model A nor Model B receives source answer claims, external rationale, or the other model's response. Both models solve each question independently based purely on the question content and choices.
+
+**Consequences**:  
+- Elimination of early anchoring bias.
+- Genuine multi-perspective linguistic validation.
+
+---
+
+### ADR-SB-027: Provider-Independent Abstraction with Pluggable Adapters
+
+**Context**:  
+LLM providers evolve rapidly, and users may have access to different API endpoints (xAI, OpenAI, local models, or custom proxies). Tying core verification logic to a single provider prevents user flexibility.
+
+**Decision**:  
+Implement an extensible BaseAIProvider abstraction with pluggable adapters (XAIProvider, OpenAICompatibleProvider, MockAIProvider). Use standard-library urllib.request to prevent third-party runtime dependencies.
+
+**Consequences**:  
+- Model A and Model B can use identical or different providers and models independently.
+- Offline and local environments are fully supported.
+
+---
+
+### ADR-SB-028: Two-Stage Verification and Preserved Multi-Claim Source Evaluation
+
+**Context**:  
+Questions may have zero, one, or multiple external answer keys that may conflict. After independent solving, models must evaluate whether external claims are supported without altering their initial independent decisions.
+
+**Decision**:  
+Execute Stage 2 source claim verification only after Stage 1 answers are sealed. Each model evaluates whether each source claim is supported, contradicted, or a plausible alternative. If a model revises its opinion, the revision is recorded separately; the Stage 1 answer remains unchanged.
+
+**Consequences**:  
+- Auditability of model reconsideration.
+- Preservation of all conflicting external source claims in source_answer_claim.
+
+---
+
+### ADR-SB-029: Deterministic Comparison Engine with Eight Mutually Exclusive Scenarios
+
+**Context**:  
+Using a third LLM to decide whether two models agree introduces non-determinism, hallucinations, and extra cost into the verification pipeline.
+
+**Decision**:  
+Implement a 100% deterministic rule-based comparator (DeterministicComparator) mapping answers, source claims, and ambiguity flags into eight mutually exclusive scenarios:
+- Scenario A: Agreement with source
+- Scenario B: AI agreement unconfirmed (no source)
+- Scenario C: One model disagrees with source
+- Scenario D: Both models disagree with source
+- Scenario E: Models disagree with each other (no source)
+- Scenario F: Multiple source answer keys conflict
+- Scenario G: Question flagged ambiguous or defective
+- Scenario H: Model failure or invalid choice key
+
+**Consequences**:  
+- Predictable, reproducible verification outcomes with zero extra LLM cost.
+- Clear reason codes for priority human review queues.
+
+---
+
+### ADR-SB-030: Human Review Authority and Non-Mutating Revision Branching on Correction
+
+**Context**:  
+AI models must never automatically approve questions without human review. When a human reviewer corrects an answer on a sealed revision, SQLite triggers prevent in-place mutation.
+
+**Decision**:  
+Human approval remains a separate mandatory review stage (VerificationReviewService). If a reviewer corrects an answer, the existing sealed revision is preserved intact, and a new revision (revision_number + 1) is created, choices duplicated, new 
+evision_answer inserted with nswer_origin = 'user_entered', sealed, and pointed to by question.current_revision_id.
+
+**Consequences**:  
+- Full audit provenance and historical reproducibility.
+- Zero violation of SQLite immutability triggers.
