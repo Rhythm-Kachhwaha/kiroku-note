@@ -144,6 +144,79 @@ class MediaStore:
                 except Exception:
                     pass
 
+    def register_bytes(
+        self,
+        data: bytes,
+        extension: str,
+        kind: str,
+        mime_type: str,
+        conn: sqlite3.Connection,
+        duration_ms: int | None = None,
+        pixel_width: int | None = None,
+        pixel_height: int | None = None,
+        original_url: str | None = None,
+    ) -> sqlite3.Row:
+        """
+        Ingest in-memory bytes into content-addressed media storage and record in database.
+
+        If asset with identical SHA-256 already exists, reuses it without duplicating storage.
+        """
+        if not data:
+            raise MediaStorageError("Cannot register empty bytes as media asset.")
+
+        ext = extension.lower()
+        if ext and not ext.startswith("."):
+            ext = f".{ext}"
+
+        temp_file = self._tmp_dir / f"ingest_{uuid.uuid4().hex}.tmp"
+        try:
+            with open(temp_file, "wb") as t_out:
+                t_out.write(data)
+                t_out.flush()
+                os.fsync(t_out.fileno())
+
+            sha = hashlib.sha256(data).hexdigest()
+            total_bytes = len(data)
+
+            prefix = sha[:2]
+            dest_dir = self._media_dir / prefix
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"{sha}{ext}"
+            final_dest = dest_dir / filename
+            self._validate_path_contained(final_dest)
+            rel_path = f"{prefix}/{filename}"
+
+            if final_dest.exists():
+                temp_file.unlink(missing_ok=True)
+            else:
+                os.replace(temp_file, final_dest)
+
+            cursor = conn.execute("SELECT * FROM asset WHERE sha256 = ?;", (sha,))
+            existing = cursor.fetchone()
+            if existing:
+                if existing["status"] == "missing":
+                    conn.execute("UPDATE asset SET status = 'present' WHERE id = ?;", (existing["id"],))
+                    cursor = conn.execute("SELECT * FROM asset WHERE id = ?;", (existing["id"],))
+                    return cursor.fetchone()
+                return existing
+
+            conn.execute(
+                """
+                INSERT INTO asset (
+                    sha256, kind, mime_type, byte_size, relative_path,
+                    duration_ms, pixel_width, pixel_height, original_url, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'present');
+                """,
+                (sha, kind, mime_type, total_bytes, rel_path, duration_ms, pixel_width, pixel_height, original_url),
+            )
+            return conn.execute("SELECT * FROM asset WHERE sha256 = ?;", (sha,)).fetchone()
+        finally:
+            if temp_file.exists():
+                try:
+                    temp_file.unlink()
+                except Exception:
+                    pass
+
     def get_asset_file_path(self, relative_path: str) -> Path:
         """Resolve an asset's relative path to an absolute path, verifying confinement."""
         if relative_path.startswith("/") or relative_path.startswith("\\") or ".." in relative_path:

@@ -277,6 +277,14 @@ run_backend.py, start_backend.bat root backend launchers
      and explicit preservation of contradictory external answer keys without auto-merging.
    - Diagnostics: Read-only `app.study.doctor.run_doctor` inspecting SQLite integrity, foreign keys, migration checksums,
      trigger existence, format consistency, media availability/hashes, and relational pin validity without auto-mutations.
+   - Ingestion Pipeline (Milestone 3 Gate 1): pp.study.ingestion provides deterministic ingestion across 5 modalities
+     (PastedTextInputAdapter, StructuredJsonInputAdapter, PdfTextInputAdapter, ScannedImageInputAdapter,
+     AudioInputAdapter), deterministic regex and pattern segmentation (TextSegmenter, AnswerKeyParser), format classification
+     across all 20 formats with level fallback (FormatClassifier), relational group/anchor/asset association
+     (AssetAndGroupAssociator), M2 contract normalization (ContractNormalizer), deterministic validation (DeterministicValidator),
+     candidate review lifecycle (ReviewService), and atomic transaction persistence to study.db (PersistenceService) with
+     provenance tracking, source answer claim preservation, sealed-at immutability, and content fingerprint deduplication.
+     Zero AI/LLM dependencies; Gate 2 AI verification is strictly deferred.
 3. **API/integration** — No new public HTTP routes or cloud endpoints; the study subsystem remains internal and
    local-first during Milestone 1.
 4. **Data/configuration** — Resolved via `app.config.get_study_dir()`: `%LOCALAPPDATA%\KirokuNote\study` in packaged mode,
@@ -290,7 +298,7 @@ run_backend.py, start_backend.bat root backend launchers
 6. **Tests** — `backend/tests/test_study_db_infrastructure.py`, `test_study_schema_and_immutability.py`,
    `test_study_media.py`, `test_study_eligibility_and_provenance.py`, `test_study_exam_and_formats.py`,
    `test_study_doctor.py`, `test_study_exclusion_and_packaging.py`, `test_study_markup.py`,
-   `test_study_contracts.py`, and `test_study_integration_contracts.py`.
+   	est_study_contracts.py, 	est_study_integration_contracts.py, 	est_study_ingestion_adapters.py, 	est_study_ingestion_segmentation.py, 	est_study_ingestion_classification.py, and 	est_study_ingestion_pipeline.py.
 
 ## Backend packaging and resources
 

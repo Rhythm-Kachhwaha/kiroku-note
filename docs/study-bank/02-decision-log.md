@@ -29,6 +29,11 @@
 - [ADR-SB-018: Engine-Level STRICT Tables with Composite FKs and Sealed-At Trigger Immutability](#adr-sb-018-engine-level-strict-tables-with-composite-fks-and-sealed-at-trigger-immutability)
 - [ADR-SB-019: Pre-Migration Verified Backups with Five-Backup Retention Policy](#adr-sb-019-pre-migration-verified-backups-with-five-backup-retention-policy)
 - [ADR-SB-020: Read-Only Database Doctor for Diagnostic Health Audits](#adr-sb-020-read-only-database-doctor-for-diagnostic-health-audits)
+- [ADR-SB-021: Multi-Adapter Ingestion Architecture with Uniform Extracted Document Model](#adr-sb-021-multi-adapter-ingestion-architecture-with-uniform-extracted-document-model)
+- [ADR-SB-022: Deterministic Segmentation and Pattern Recognition for JLPT Question Papers](#adr-sb-022-deterministic-segmentation-and-pattern-recognition-for-jlpt-question-papers)
+- [ADR-SB-023: Structural Question Classification and Level Incompatibility Fallback](#adr-sb-023-structural-question-classification-and-level-incompatibility-fallback)
+- [ADR-SB-024: Separation of Question Incompleteness from Structural Invalidity](#adr-sb-024-separation-of-question-incompleteness-from-structural-invalidity)
+- [ADR-SB-025: Strict Deferral of AI/LLM Verification to Gate 2](#adr-sb-025-strict-deferral-of-aillm-verification-to-gate-2)
 
 ---
 
@@ -336,3 +341,74 @@ Implement a strictly read-only diagnostic service (`app.study.doctor.run_doctor(
 **Consequences**:  
 - Safe, comprehensive diagnostic introspection for users and support without risking data alteration.
 - Early warning system for data anomalies.
+
+
+---
+
+### ADR-SB-021: Multi-Adapter Ingestion Architecture with Uniform Extracted Document Model
+
+**Context**:  
+JLPT examination questions originate from varied modalities: plain pasted text, structured JSON batches, digital text PDFs, scanned image PDFs/diagrams, and audio recordings. Creating fragmented, modality-specific pipelines leads to duplicate business logic, inconsistent validation, and difficult maintenance.
+
+**Decision**:  
+Implement a unified ingestion pipeline preceded by modality-specific adapters conforming to BaseInputAdapter.extract(input_data: IngestInput) -> ExtractedDocument. All adapters normalize heterogeneous sources into an identical ExtractedDocument containing text, page indices, and media assets before feeding into the core segmentation, classification, normalization, and persistence pipeline.
+
+**Consequences**:  
+- Downstream parsing, validation, and database mapping logic is written once and shared across all 5 input modalities.
+- Extensibility: adding future document formats requires only implementing a new adapter without touching core ingestion logic.
+
+---
+
+### ADR-SB-022: Deterministic Segmentation and Pattern Recognition for JLPT Question Papers
+
+**Context**:  
+JLPT question papers exhibit diverse formatting: full-width/half-width numbers, circled digits (①..④), parenthesized numbers ((1)..(4)), inline or multiline choices, star ordering markers, and reading/grammar passages. Ad-hoc string splitting is brittle.
+
+**Decision**:  
+Implement deterministic regular expressions and stateful line-by-line parsing (TextSegmenter and AnswerKeyParser). Segmentation reliably detects section instructions, passage bodies, blank anchors, question numbers, choice markers, inline answers (正解: 2), and trailing answer tables while preserving original raw source text and line/page references for every question candidate.
+
+**Consequences**:  
+- Full traceability back to exact source lines and pages.
+- Resilient extraction across varied Japanese typographic conventions without AI dependencies.
+
+---
+
+### ADR-SB-023: Structural Question Classification and Level Incompatibility Fallback
+
+**Context**:  
+Determining which of the 20 official JLPT formats a question belongs to cannot rely solely on superficial keywords, because instructions may be abbreviated, omitted, or level-restricted (e.g. word_formation is strictly restricted to N2 in the JLPT specification and database schema).
+
+**Decision**:  
+Implement a multi-tier classifier (FormatClassifier) combining instruction matching, structural cues (e.g. {star} marker -> sentence_composition, blank anchors in passages -> 	ext_grammar, audio context -> listening_integrated), and FORMAT_REGISTRY compatibility checks. If an instruction implies a format not supported at the question's JLPT level, the classifier applies a safe fallback (e.g. N5 word formation falls back to contextual expressions) and sets an explanatory reasoning code.
+
+**Consequences**:  
+- Zero database foreign key violations against ormat_level.
+- Traceable classification confidence scores with review flags for uncertain candidates.
+
+---
+
+### ADR-SB-024: Separation of Question Incompleteness from Structural Invalidity
+
+**Context**:  
+Practice questions and user captures often lack an authoritative answer key, or have missing choices. Treating missing answers as fatal structural validation errors prevents importing and reviewing question papers prior to human verification.
+
+**Decision**:  
+Explicitly separate structural validity from question eligibility. Questions lacking answers normalize into valid Pydantic contracts with nswer = None, but receive ValidationIssue(severity='warning'), ReviewReasonCode.MISSING_ANSWER_KEY, ReviewStatus.NEEDS_REVIEW, and eligibility code ReasonCode.NO_ANSWER. Incomplete questions are persisted as drafts and import items for review, but are safely excluded from examination selection until answered.
+
+**Consequences**:  
+- Real-world question papers can be imported and incrementally completed through human review.
+- Question bank examination queries remain strictly guarded by dynamic eligibility evaluation.
+
+---
+
+### ADR-SB-025: Strict Deferral of AI/LLM Verification to Gate 2
+
+**Context**:  
+Automated AI verification and explanation generation are planned capabilities for Kiroku Note's Question Bank. Coupling AI integrations directly into ingestion creates external API dependencies, network failure modes, non-deterministic parsing, and token cost overhead during routine document extraction.
+
+**Decision**:  
+Milestone 3 Gate 1 is strictly restricted to deterministic question ingestion. Zero LLM dependencies, API keys, or placeholder AI services are introduced. Gate 2 will be implemented as a distinct, subsequent stage that consumes normalized question candidates and evaluates them against independent model verifications.
+
+**Consequences**:  
+- Ingestion operates completely offline, reliably, and deterministically.
+- Clear architectural boundary between deterministic parsing and generative verification.
