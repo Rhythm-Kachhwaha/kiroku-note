@@ -112,6 +112,7 @@ M4_ACQUISITION_FEASIBILITY_REPORT.md
 *FEASIBILITY_REPORT.md
 
 UI-exploration/
+kiroku-ui-exploration/
 !docs/
 docs/*
 !docs/REPOSITORY_AUDIT_2026-10-29.md

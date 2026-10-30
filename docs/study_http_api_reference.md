@@ -1,6 +1,6 @@
 # Kiroku Note Study HTTP API Reference (v1)
 
-**Version:** `1.1.0` (M12 API Security & Media Delivery)  
+**Version:** `1.2.0` (M14 Complete Study Features & UI Integration Readiness)  
 **Base Path:** `/api/study/v1`  
 **Protocol:** HTTP/1.1 / HTTP/2 JSON over UTF-8  
 **Subsystem:** Kiroku Study Database & JLPT Examination Engine
@@ -167,6 +167,13 @@ All question endpoints across practice and exam return a consistent question con
     "audio_url": null
   },
   "audio_url": "/api/study/v1/media/5",
+  "illustration_url": null,
+  "diagram_url": null,
+  "star_position": 3,
+  "correct_order": null,
+  "anchor_key": null,
+  "group_ordinal": null,
+  "is_bookmarked": false,
   "presented_at": "2026-10-31T00:00:00Z",
   "is_answered": false,
   "selected_choice_id": null,
@@ -182,7 +189,7 @@ All question endpoints across practice and exam return a consistent question con
 }
 ```
 
-*Note:* `is_correct`, `canonical_choice_id`, `canonical_choice_key`, and `explanation_markup` remain `null` while an exam is in progress or before a practice question is submitted.
+*Note:* Answer fields (`is_correct`, `canonical_choice_id`, `canonical_choice_key`, `correct_order`, and `explanation_markup`) remain `null` while an exam is in progress or before a practice question is submitted. For F2 sentence ordering, `star_position` indicates the target slot (1-4) whose choice determines the correct answer; `correct_order` is only revealed upon submission. For F4 passages, `anchor_key` associates with the corresponding `{blank|key}` in `group_context`.
 
 ---
 
@@ -198,6 +205,96 @@ All question endpoints across practice and exam return a consistent question con
   - `active_questions` (int)
   - `eligible_questions` (int)
   - `levels` (dict): Breakdown per level containing `total_count`, `eligible_count`, and `formats`.
+
+#### `GET /api/study/v1/bank/questions`
+- **Query Parameters:**
+  - `level` (optional, string): `N1`–`N5`
+  - `format_code` (optional, string)
+  - `category` (optional, string: `vocabulary`, `grammar`, `reading`, `listening`)
+  - `source_name` (optional, string)
+  - `is_bookmarked` (optional, boolean)
+  - `has_incorrect_history` (optional, boolean)
+  - `verification_status` (optional, string: `verified`, `unverified`, `needs_review`, `rejected`)
+  - `search` (optional, string): Search query matching question stems or choices
+  - `limit` (default 20, max 100)
+  - `offset` (default 0)
+- **Response:** `200 OK`
+  - Paginated list of `QuestionDTO` items matching eligibility rules, with format-specific fields and bookmark indicators.
+
+#### `GET /api/study/v1/bank/questions/{id}`
+- **Path Parameters:**
+  - `id` (required, int): Internal question ID.
+- **Response:** `200 OK`
+  - Returns `QuestionDetailDTO` with full prompt, choices, group context, media URLs, canonical choice, explanation, and revision metadata.
+
+#### `GET /api/study/v1/bank/questions/{id}/provenance`
+- **Path Parameters:**
+  - `id` (required, int): Question ID.
+- **Response:** `200 OK`
+  - Returns `QuestionProvenanceResponse`:
+    - `source`: Primary source name, paper, year, citation, URL, license.
+    - `verification`: Status (`verified`, `unverified`, `needs_review`), provider, consensus level, reasoning.
+    - `answer_claims`: Array of external source claims and their rationale.
+    - `ingestion`: Ingest timestamp, adapter method, confidence score, raw batch reference.
+
+#### `POST /api/study/v1/bank/questions/{id}/reports`
+- **Path Parameters:**
+  - `id` (required, int): Question ID.
+- **Request Body:**
+  ```json
+  {
+    "issue_type": "incorrect_answer_key",
+    "description": "Choice 2 is the correct reading, not Choice 1.",
+    "suggested_fix": "Change correct answer to choice 2.",
+    "reported_by": "user"
+  }
+  ```
+  *(Supported `issue_type`: `incorrect_answer_key`, `poor_explanation`, `bad_format`, `content_error`, `media_issue`, `other`)*
+- **Response:** `201 Created`
+  - Creates an isolated issue report without mutating immutable question revision records.
+
+#### `GET /api/study/v1/bank/questions/{id}/reports` & `GET /api/study/v1/bank/reports`
+- **Query Parameters:** `status` (`open`, `investigating`, `resolved`, `dismissed`), `limit`, `offset`
+- **Response:** `200 OK`
+  - Returns list of `QuestionReportDTO` entries.
+
+#### `PATCH /api/study/v1/bank/reports/{report_id}`
+- **Path Parameters:**
+  - `report_id` (required, int): Report ID.
+- **Request Body:**
+  ```json
+  {
+    "status": "resolved",
+    "resolution_notes": "Verified against official JLPT test key; corrected in new revision."
+  }
+  ```
+- **Response:** `200 OK`
+  - Updates report status and tracks resolution.
+
+#### `POST /api/study/v1/bank/import/preview`
+- **Request Body:**
+  ```json
+  {
+    "content": "{\"level\": \"N5\", \"questions\": [...]}",
+    "format": "json",
+    "default_level": "N5",
+    "source_name": "External Agent Ingestion"
+  }
+  ```
+  *(Supported `format`: `json` or `text`)*
+- **Response:** `200 OK`
+  - Validates questions against F1–F6 contracts and detects duplicates against existing fingerprints in the bank. Returns `ImportPreviewResponse` with `preview_id`, `status` (`valid`, `warning`, `invalid`), validation errors, warnings, and item breakdown.
+
+#### `POST /api/study/v1/bank/import/commit`
+- **Request Body:**
+  ```json
+  {
+    "preview_id": "c1f7b0a8-...",
+    "approved": true
+  }
+  ```
+- **Response:** `201 Created`
+  - Commits previously previewed questions in a single atomic transaction. Rejects with `400 Bad Request` if `approved` is not `true` or preview has expired. Rollback guarantees zero bank modification on failure.
 
 #### `GET /api/study/v1/exam/readiness`
 - **Query Parameters:**
@@ -241,6 +338,42 @@ All question endpoints across practice and exam return a consistent question con
 - **Response:** `201 Created`
   - Returns `PracticeSessionResponse` with items prepared and canonical answers masked.
 
+#### `POST /api/study/v1/practice/weak-areas/session`
+- **Request Body:**
+  ```json
+  {
+    "level": "N5",
+    "question_count": 10,
+    "target_weak_areas": true
+  }
+  ```
+- **Response:** `201 Created`
+  - Automatically identifies weak formats, categories, and levels from user performance history and targets questions in those deficit areas, while avoiding repetitively serving the same questions. Returns helpful feedback (`message`) if performance history is insufficient.
+
+#### `POST /api/study/v1/practice/bookmarks/session`
+- **Request Body:**
+  ```json
+  {
+    "level": "N5",
+    "question_count": 10,
+    "bookmarked_only": true
+  }
+  ```
+- **Response:** `201 Created`
+  - Generates a practice drill exclusively from the user's bookmarked questions.
+
+#### `POST /api/study/v1/practice/incorrect/session`
+- **Request Body:**
+  ```json
+  {
+    "level": "N5",
+    "question_count": 10,
+    "incorrect_only": true
+  }
+  ```
+- **Response:** `201 Created`
+  - Dedicated incorrect-question review drill serving questions the user previously answered incorrectly, tracking retries without overwriting original historical attempts.
+
 #### `GET /api/study/v1/practice/sessions`
 - **Query Parameters:**
   - `level` (optional, string)
@@ -262,7 +395,7 @@ All question endpoints across practice and exam return a consistent question con
 - **Response:** `200 OK`
   - Returns the next active `QuestionDTO` at `current_position`. Canonical answer key is strictly omitted.
 
-#### `POST /api/study/v1/practice/sessions/{id}/answers`
+#### `POST /api/study/v1/practice/sessions/{id}/answers` & `POST /api/study/v1/practice/sessions/{id}/answer`
 - **Request Body:**
   ```json
   {
@@ -409,19 +542,64 @@ All question endpoints across practice and exam return a consistent question con
   - List of questions repeatedly answered incorrectly.
 
 #### `GET /api/study/v1/history/incorrect`
-- **Query Parameters:** `level`, `limit`, `offset`
+- **Query Parameters:** `level`, `format_code`, `category`, `limit` (default 20), `offset` (default 0)
 - **Response:** `200 OK`
-  - Questions answered incorrectly for review drills.
+  - Questions answered incorrectly, enriched with improvement tracking metrics:
+    - `incorrect_attempts` (int): Total historical incorrect attempts.
+    - `subsequent_correct` (int): Number of correct retries after errors.
+    - `is_improved` (boolean): `true` if the most recent attempt was correct.
+    - `last_attempt_at` (ISO timestamp).
+
+#### `GET /api/study/v1/history/incorrect/{question_id}`
+- **Path Parameters:**
+  - `question_id` (required, int): Question ID.
+- **Response:** `200 OK`
+  - Complete historical attempt timeline for the question, preserving original attempt history and tracking incremental improvement across retries.
 
 #### `GET /api/study/v1/bookmarks`
+- **Query Parameters:**
+  - `level` (optional, string): `N1`–`N5`
+  - `format_code` (optional, string)
+  - `category` (optional, string)
+  - `search` (optional, string): Keyword search in note, stem, or choices
+  - `limit` (default 20, max 100)
+  - `offset` (default 0)
 - **Response:** `200 OK`
   ```json
   {
-    "supported": false,
-    "message": "Bookmarks are not currently supported by the local study domain.",
-    "items": []
+    "supported": true,
+    "message": "Bookmarks loaded successfully.",
+    "total": 1,
+    "limit": 20,
+    "offset": 0,
+    "items": [
+      {
+        "id": 1,
+        "question_id": 42,
+        "note": "Review verb conjugation",
+        "created_at": "2026-10-31T00:00:00Z",
+        "question": { ... }
+      }
+    ]
   }
   ```
+
+#### `POST /api/study/v1/bookmarks`
+- **Request Body:**
+  ```json
+  {
+    "question_id": 42,
+    "note": "Remember the kanji radical"
+  }
+  ```
+- **Response:** `201 Created`
+  - Associates a bookmark with the stable question ID. Duplicate requests safely update the existing bookmark without error or duplication.
+
+#### `DELETE /api/study/v1/bookmarks/{question_id}`
+- **Path Parameters:**
+  - `question_id` (required, int): Question ID.
+- **Response:** `200 OK`
+  - Removes the bookmark if present. Safe against repeated calls.
 
 #### `GET /api/study/v1/settings` & `PATCH /api/study/v1/settings`
 - **Response:** `200 OK`

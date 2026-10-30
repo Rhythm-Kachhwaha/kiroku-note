@@ -634,12 +634,12 @@ def test_supporting_endpoints(study_test_env):
     assert inc_res.status_code == 200
     assert "items" in inc_res.json()
 
-    # Bookmarks (unsupported report)
+    # Bookmarks (M14 supported)
     bm_res = client.get("/api/study/v1/bookmarks")
     assert bm_res.status_code == 200
     bm_data = bm_res.json()
-    assert bm_data["supported"] is False
-    assert "not currently supported" in bm_data["message"]
+    assert bm_data["supported"] is True
+    assert "items" in bm_data
 
     # Study settings GET and PATCH
     set_get = client.get("/api/study/v1/settings")

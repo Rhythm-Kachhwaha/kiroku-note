@@ -364,3 +364,214 @@ def update_question_adaptive_state(
         ),
     )
 
+
+# =============================================================================
+# M14 Selection Policies: Weak Areas, Bookmarks, and Incorrect Questions
+# =============================================================================
+
+def select_weak_area_candidates(
+    conn: sqlite3.Connection,
+    level: Optional[str] = None,
+    limit: int = 10,
+    seed: Optional[int] = None,
+    verify_files: bool = True,
+    media_store: Optional[MediaStore] = None,
+) -> List[Tuple[int, int]]:
+    """
+    Select practice candidates targeting the learner's weakest JLPT formats and categories.
+    Determines weakness based on response accuracy (< 80%) or highest error rate.
+    Returns (question_id, current_revision_id) tuples.
+    Raises ValueError with descriptive message if insufficient history exists.
+    """
+    query = """
+        SELECT
+            q.format_code,
+            q.category,
+            q.level,
+            COUNT(r.id) as attempted,
+            SUM(r.is_correct) as correct,
+            ROUND((SUM(r.is_correct) * 100.0 / COUNT(r.id)), 2) as accuracy
+        FROM response r
+        JOIN attempt_item ai ON r.attempt_item_id = ai.id
+        JOIN question q ON ai.question_id = q.id
+        WHERE (? IS NULL OR q.level = ?)
+        GROUP BY q.format_code, q.category, q.level
+        HAVING attempted >= 1
+        ORDER BY accuracy ASC, attempted DESC;
+    """
+    rows = conn.execute(query, (level, level)).fetchall()
+    if not rows:
+        raise ValueError(
+            "Insufficient performance history to identify weak areas. Complete some practice drills first to identify areas for improvement."
+        )
+
+    weak_rows = [r for r in rows if r["accuracy"] < 80.0]
+    if not weak_rows:
+        weak_rows = rows[:3]
+
+    target_formats = list({r["format_code"] for r in weak_rows})
+    placeholders = ",".join("?" for _ in target_formats)
+    cand_query = f"""
+        SELECT
+            vqe.question_id,
+            vqe.current_revision_id,
+            COALESCE(qas.total_attempts, 0) as total_attempts,
+            COALESCE(qas.total_correct, 0) as total_correct,
+            qas.consecutive_correct_easy,
+            qas.last_attempted_at,
+            qas.last_rating,
+            qas.last_is_correct,
+            qas.priority_score
+        FROM v_question_eligibility vqe
+        LEFT JOIN question_adaptive_state qas ON vqe.question_id = qas.question_id
+        WHERE vqe.question_status = 'active'
+          AND vqe.format_code IN ({placeholders})
+          AND (? IS NULL OR vqe.level = ?)
+        ORDER BY vqe.question_id ASC;
+    """
+    params = list(target_formats) + [level, level]
+    raw_candidates = conn.execute(cand_query, tuple(params)).fetchall()
+
+    eligible = []
+    for cand in raw_candidates:
+        q_id = cand["question_id"]
+        is_elig, _ = evaluate_eligibility(q_id, conn, verify_files=verify_files, media_store=media_store)
+        if is_elig:
+            eligible.append(cand)
+
+    if not eligible:
+        return []
+
+    scored = []
+    effective_seed = seed if seed is not None else 42
+    for cand in eligible:
+        q_id = cand["question_id"]
+        rev_id = cand["current_revision_id"]
+        score = calculate_priority_score(
+            total_attempts=cand["total_attempts"],
+            last_is_correct=cand["last_is_correct"],
+            last_rating=cand["last_rating"],
+            consecutive_correct_easy=cand["consecutive_correct_easy"] or 0,
+            last_attempted_at=cand["last_attempted_at"],
+        )
+        jitter_hash = hashlib.sha256(f"{effective_seed}:{q_id}".encode()).hexdigest()
+        jitter = int(jitter_hash[:8], 16) / 0xFFFFFFFF
+        scored.append((score, jitter, q_id, rev_id))
+
+    scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    return [(item[2], item[3]) for item in scored[:limit]]
+
+
+def select_bookmarked_candidates(
+    conn: sqlite3.Connection,
+    level: Optional[str] = None,
+    category: Optional[str] = None,
+    format_code: Optional[str] = None,
+    limit: int = 10,
+    seed: Optional[int] = None,
+    verify_files: bool = True,
+    media_store: Optional[MediaStore] = None,
+) -> List[Tuple[int, int]]:
+    """
+    Select practice candidates from questions bookmarked by the user.
+    """
+    where_clauses = ["vqe.question_status = 'active'"]
+    params: List[Any] = []
+    if level:
+        where_clauses.append("vqe.level = ?")
+        params.append(level)
+    if category:
+        where_clauses.append("vqe.category = ?")
+        params.append(category)
+    if format_code:
+        where_clauses.append("vqe.format_code = ?")
+        params.append(format_code)
+
+    where_sql = " AND ".join(where_clauses)
+    query = f"""
+        SELECT
+            qb.question_id,
+            vqe.current_revision_id
+        FROM question_bookmark qb
+        JOIN v_question_eligibility vqe ON qb.question_id = vqe.question_id
+        WHERE {where_sql}
+        ORDER BY qb.id DESC;
+    """
+    raw_candidates = conn.execute(query, tuple(params)).fetchall()
+    eligible = []
+    for cand in raw_candidates:
+        q_id = cand["question_id"]
+        is_elig, _ = evaluate_eligibility(q_id, conn, verify_files=verify_files, media_store=media_store)
+        if is_elig:
+            eligible.append((cand["question_id"], cand["current_revision_id"]))
+
+    if not eligible:
+        return []
+
+    rng = random.Random(seed if seed is not None else 42)
+    rng.shuffle(eligible)
+    return eligible[:limit]
+
+
+def select_incorrect_candidates(
+    conn: sqlite3.Connection,
+    level: Optional[str] = None,
+    category: Optional[str] = None,
+    format_code: Optional[str] = None,
+    limit: int = 10,
+    seed: Optional[int] = None,
+    verify_files: bool = True,
+    media_store: Optional[MediaStore] = None,
+) -> List[Tuple[int, int]]:
+    """
+    Select practice candidates from questions previously answered incorrectly.
+    Prioritizes questions with lowest accuracy and most recent failures.
+    """
+    where_clauses = ["r.is_correct = 0", "vqe.question_status = 'active'"]
+    params: List[Any] = []
+    if level:
+        where_clauses.append("vqe.level = ?")
+        params.append(level)
+    if category:
+        where_clauses.append("vqe.category = ?")
+        params.append(category)
+    if format_code:
+        where_clauses.append("vqe.format_code = ?")
+        params.append(format_code)
+
+    where_sql = " AND ".join(where_clauses)
+    query = f"""
+        SELECT
+            vqe.question_id,
+            vqe.current_revision_id,
+            COUNT(r.id) as incorrect_count,
+            MAX(r.answered_at) as last_failed_at
+        FROM response r
+        JOIN attempt_item ai ON r.attempt_item_id = ai.id
+        JOIN v_question_eligibility vqe ON ai.question_id = vqe.question_id
+        WHERE {where_sql}
+        GROUP BY vqe.question_id, vqe.current_revision_id
+        ORDER BY last_failed_at DESC, incorrect_count DESC;
+    """
+    raw_candidates = conn.execute(query, tuple(params)).fetchall()
+    eligible = []
+    for cand in raw_candidates:
+        q_id = cand["question_id"]
+        is_elig, _ = evaluate_eligibility(q_id, conn, verify_files=verify_files, media_store=media_store)
+        if is_elig:
+            eligible.append(cand)
+
+    if not eligible:
+        return []
+
+    effective_seed = seed if seed is not None else 42
+    scored = []
+    for cand in eligible:
+        q_id = cand["question_id"]
+        jitter_hash = hashlib.sha256(f"{effective_seed}:{q_id}".encode()).hexdigest()
+        jitter = int(jitter_hash[:8], 16) / 0xFFFFFFFF
+        scored.append((cand["incorrect_count"], jitter, q_id, cand["current_revision_id"]))
+
+    scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    return [(item[2], item[3]) for item in scored[:limit]]
+

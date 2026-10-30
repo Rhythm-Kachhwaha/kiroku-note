@@ -4,9 +4,10 @@
  * Authenticated Study HTTP API Bridge, and Secure IPC Communication.
  */
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeTheme, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeTheme, nativeImage, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
 const { ProcessManager } = require('./process_manager');
 const { DesktopStore } = require('./store');
 const { StudyApiClient } = require('./study_api_client');
@@ -22,6 +23,15 @@ if (!gotTheLock) {
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
+let statusPollingInterval = null;
+let lastMenuState = null;
+let trayServicesStatus = {
+  backendRunning: false,
+  yomitanConnected: false,
+  ankiConnected: false,
+  ocrInstalled: false,
+  ocrAvailable: false
+};
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const processManager = new ProcessManager({
@@ -47,14 +57,240 @@ function resolveIconPath() {
     path.join(repoRoot, 'assets', 'icon.png'),
     process.resourcesPath ? path.join(process.resourcesPath, 'app', 'assets', 'icon.ico') : null,
     process.resourcesPath ? path.join(process.resourcesPath, 'app', 'assets', 'icon.png') : null,
+    process.resourcesPath ? path.join(process.resourcesPath, 'assets', 'icon.ico') : null,
+    process.resourcesPath ? path.join(process.resourcesPath, 'assets', 'icon.png') : null,
     path.join(__dirname, '..', 'assets', 'icon.ico'),
-    path.join(__dirname, '..', 'assets', 'icon.png')
+    path.join(__dirname, '..', 'assets', 'icon.png'),
+    path.join(__dirname, '..', '..', 'assets', 'icon.ico'),
+    path.join(__dirname, '..', '..', 'assets', 'icon.png')
   ].filter(Boolean);
 
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;
   }
   return null;
+}
+
+function openExtensionInstructions() {
+  const candidates = [
+    path.join(repoRoot, 'installer', 'extension_instructions.txt'),
+    path.join(repoRoot, 'extension_instructions.txt'),
+    process.resourcesPath ? path.join(process.resourcesPath, 'extension_instructions.txt') : null,
+    process.resourcesPath ? path.join(process.resourcesPath, 'app', 'installer', 'extension_instructions.txt') : null,
+    path.join(path.dirname(process.execPath), 'extension_instructions.txt')
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      shell.openPath(candidate);
+      return;
+    }
+  }
+  openUserDataFolder();
+}
+
+function openUserDataFolder() {
+  const appDataDir = process.env.LOCALAPPDATA
+    ? path.join(process.env.LOCALAPPDATA, 'KirokuNote')
+    : path.join(app.getPath('appData'), 'KirokuNote');
+  try {
+    fs.mkdirSync(appDataDir, { recursive: true });
+  } catch (_) {}
+  shell.openPath(appDataDir);
+}
+
+function fetchServiceJson(reqPath) {
+  return new Promise((resolve) => {
+    const req = http.get({
+      hostname: processManager.host,
+      port: processManager.port,
+      path: reqPath,
+      timeout: 1000
+    }, (res) => {
+      if (res.statusCode !== 200) {
+        resolve(null);
+        return;
+      }
+      let raw = '';
+      res.on('data', chunk => { raw += chunk; });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(raw));
+        } catch (_) {
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+  });
+}
+
+async function refreshServicesStatus(forceUpdate = false) {
+  if (!tray) return;
+
+  const backendHealthy = await fetchServiceJson('/api/health');
+  const yomitanData = await fetchServiceJson('/api/yomitan/dictionaries');
+  const ankiData = await fetchServiceJson('/api/anki/status');
+  const ocrData = await fetchServiceJson('/api/ocr/status');
+
+  const newStatus = {
+    backendRunning: Boolean(backendHealthy && processManager.status === 'running'),
+    yomitanConnected: Boolean(yomitanData && (yomitanData.available_dictionaries?.length > 0 || yomitanData.enabled)),
+    ankiConnected: Boolean(ankiData && ankiData.connected),
+    ocrInstalled: Boolean(ocrData && ocrData.installed),
+    ocrAvailable: Boolean(ocrData && ocrData.available)
+  };
+
+  const loginSettings = app.getLoginItemSettings();
+  const currentStateKey = JSON.stringify([
+    newStatus,
+    processManager.status,
+    loginSettings.openAtLogin
+  ]);
+
+  if (currentStateKey !== lastMenuState || forceUpdate) {
+    lastMenuState = currentStateKey;
+    trayServicesStatus = newStatus;
+    updateSystemTrayMenu();
+  }
+}
+
+function updateSystemTrayMenu() {
+  if (!tray) return;
+
+  const port = processManager.port;
+  let headerLabel = `✕ Kiroku Note (Stopped)`;
+  if (processManager.status === 'running') {
+    headerLabel = `● Kiroku Note (Running • :${port})`;
+  } else if (processManager.status === 'starting') {
+    headerLabel = `○ Kiroku Note (Starting...)`;
+  }
+
+  const yomitanDot = trayServicesStatus.yomitanConnected ? '●' : '○';
+  const yomitanText = trayServicesStatus.yomitanConnected ? 'Connected' : 'Not found';
+  const ankiDot = trayServicesStatus.ankiConnected ? '●' : '○';
+  const ankiText = trayServicesStatus.ankiConnected ? 'Connected' : 'Not found';
+
+  let ocrLabel = '  ○ OCR Engine: Not installed';
+  if (trayServicesStatus.ocrInstalled) {
+    ocrLabel = trayServicesStatus.ocrAvailable
+      ? '  ● OCR Engine: Ready (Active)'
+      : '  ○ OCR Engine: Off (Stopped)';
+  }
+
+  const ocrActionLabel = trayServicesStatus.ocrAvailable ? '⏹ Stop OCR Engine' : '▶ Start OCR Engine';
+
+  const menuTemplate = [
+    { label: headerLabel, enabled: false },
+    { type: 'separator' },
+    { label: 'Service Status:', enabled: false },
+    { label: `  ${yomitanDot} Yomitan: ${yomitanText}`, enabled: false },
+    { label: `  ${ankiDot} AnkiConnect: ${ankiText}`, enabled: false },
+    { label: ocrLabel, enabled: false }
+  ];
+
+  if (trayServicesStatus.ocrInstalled) {
+    menuTemplate.push({
+      label: ocrActionLabel,
+      click: async () => {
+        const action = trayServicesStatus.ocrAvailable ? 'stop' : 'start';
+        try {
+          const postData = JSON.stringify({});
+          const req = http.request({
+            hostname: processManager.host,
+            port: processManager.port,
+            path: `/api/ocr/${action}`,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(postData)
+            },
+            timeout: 5000
+          }, () => {
+            refreshServicesStatus(true);
+          });
+          req.on('error', () => {});
+          req.write(postData);
+          req.end();
+        } catch (_) {}
+      }
+    });
+  }
+
+  menuTemplate.push(
+    { type: 'separator' },
+    {
+      label: 'Open Kiroku',
+      click: () => showMainWindow()
+    },
+    {
+      label: 'Quick Add',
+      click: () => {
+        showMainWindow();
+        if (mainWindow && mainWindow.webContents) {
+          mainWindow.webContents.executeJavaScript(`
+            (function() {
+              const qTab = document.querySelector('#tab-btn-quickadd');
+              if (qTab) qTab.click();
+              const input = document.querySelector('#quickadd-input');
+              if (input) input.focus();
+            })();
+          `).catch(() => {});
+        }
+      }
+    },
+    {
+      label: 'Extension Setup Guide',
+      click: () => openExtensionInstructions()
+    },
+    {
+      label: 'Open User Data Folder',
+      click: () => openUserDataFolder()
+    },
+    {
+      label: 'Backend Status (Browser)',
+      click: () => {
+        shell.openExternal(`http://${processManager.host}:${processManager.port}/api/cards?limit=1`);
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Start with Windows',
+      type: 'checkbox',
+      checked: app.getLoginItemSettings().openAtLogin,
+      click: (menuItem) => {
+        app.setLoginItemSettings({
+          openAtLogin: menuItem.checked,
+          path: process.execPath,
+          args: ['--startup']
+        });
+        updateSystemTrayMenu();
+      }
+    },
+    {
+      label: 'Restart Backend',
+      click: async () => {
+        try {
+          await processManager.stopBackend();
+          await startBackendAndLoadUI();
+          await refreshServicesStatus(true);
+        } catch (err) {
+          console.error('[Main] Failed to restart backend:', err.message);
+        }
+      }
+    },
+    {
+      label: 'Quit Kiroku',
+      click: () => quitApplication()
+    }
+  );
+
+  const contextMenu = Menu.buildFromTemplate(menuTemplate);
+  tray.setContextMenu(contextMenu);
 }
 
 function createMainWindow() {
@@ -109,59 +345,54 @@ function createSystemTray() {
   const iconPath = resolveIconPath();
   const trayIcon = iconPath ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
 
-  tray = new Tray(trayIcon);
-  tray.setToolTip('Kiroku Note');
+  try {
+    tray = new Tray(trayIcon);
+    tray.setToolTip('Kiroku Note');
+    updateSystemTrayMenu();
 
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Open Kiroku',
-      click: () => showMainWindow()
-    },
-    {
-      label: 'Quick Add',
-      click: () => {
-        showMainWindow();
-        if (mainWindow && mainWindow.webContents) {
-          mainWindow.webContents.executeJavaScript(`
-            (function() {
-              const qTab = document.querySelector('#tab-btn-quickadd');
-              if (qTab) qTab.click();
-              const input = document.querySelector('#quickadd-input');
-              if (input) input.focus();
-            })();
-          `).catch(() => {});
+    tray.on('click', () => {
+      if (!mainWindow) {
+        createMainWindow();
+        startBackendAndLoadUI();
+        return;
+      }
+      if (mainWindow.isVisible()) {
+        if (mainWindow.isFocused()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.focus();
         }
-      }
-    },
-    { type: 'separator' },
-    {
-      label: 'Quit Kiroku',
-      click: () => quitApplication()
-    }
-  ]);
-
-  tray.setContextMenu(contextMenu);
-
-  tray.on('click', () => {
-    if (!mainWindow) {
-      createMainWindow();
-      startBackendAndLoadUI();
-      return;
-    }
-    if (mainWindow.isVisible()) {
-      if (mainWindow.isFocused()) {
-        mainWindow.hide();
       } else {
-        mainWindow.focus();
+        showMainWindow();
       }
-    } else {
-      showMainWindow();
-    }
-  });
+    });
 
-  tray.on('double-click', () => {
-    showMainWindow();
-  });
+    tray.on('double-click', () => {
+      showMainWindow();
+    });
+
+    const isTestMode = process.env.KIROKU_DESKTOP_TEST_SMOKE === '1' || process.env.KIROKU_DESKTOP_TEST_LIFECYCLE === '1';
+    const isStartup = process.argv.includes('--startup');
+    if (!isTestMode && !isStartup && process.platform === 'win32') {
+      try {
+        if (Notification.isSupported()) {
+          new Notification({
+            title: 'Kiroku Note',
+            body: 'Kiroku Note is active in your background and ready.',
+            icon: iconPath || undefined
+          }).show();
+        }
+      } catch (_) {}
+    }
+
+    if (!statusPollingInterval) {
+      statusPollingInterval = setInterval(() => {
+        refreshServicesStatus();
+      }, 3000);
+    }
+  } catch (err) {
+    console.warn('[Main] System tray initialization warning:', err.message);
+  }
 }
 
 function showMainWindow() {
@@ -188,6 +419,9 @@ async function startBackendAndLoadUI() {
     await processManager.startBackend();
     await processManager.waitForBackend(25000, 400);
 
+    // Refresh system tray status indicators with live backend responses
+    refreshServicesStatus(true).catch(() => {});
+
     // Backend and authenticated Study API are verified ready.
     // Load M13 Minimal Functional Shell (or Sidepanel if explicitly requested).
     const isSidepanelView = process.env.KIROKU_DESKTOP_VIEW === 'sidepanel';
@@ -209,6 +443,10 @@ async function startBackendAndLoadUI() {
 
 async function quitApplication() {
   isQuitting = true;
+  if (statusPollingInterval) {
+    clearInterval(statusPollingInterval);
+    statusPollingInterval = null;
+  }
   try {
     await processManager.stopBackend();
   } catch (err) {
@@ -433,5 +671,43 @@ function setupIpcHandlers() {
   // Extension runtime messaging stub
   ipcMain.handle('chrome:runtime:sendMessage', (event, msg) => {
     return { received: true };
+  });
+
+  // Tray and Desktop Shell feature integrations
+  ipcMain.handle('app:open-folder', () => {
+    openUserDataFolder();
+    return true;
+  });
+
+  ipcMain.handle('app:open-instructions', () => {
+    openExtensionInstructions();
+    return true;
+  });
+
+  ipcMain.handle('backend:services-status', () => {
+    return trayServicesStatus;
+  });
+
+  ipcMain.handle('ocr:toggle', async () => {
+    const action = trayServicesStatus.ocrAvailable ? 'stop' : 'start';
+    await new Promise((resolve) => {
+      const postData = JSON.stringify({});
+      const req = http.request({
+        hostname: processManager.host,
+        port: processManager.port,
+        path: `/api/ocr/${action}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
+        },
+        timeout: 5000
+      }, () => resolve());
+      req.on('error', () => resolve());
+      req.write(postData);
+      req.end();
+    });
+    await refreshServicesStatus(true);
+    return trayServicesStatus;
   });
 }

@@ -487,6 +487,246 @@ class StudyApiClient {
     });
     return res;
   }
+
+  // --- M14 Complete Study Bank Methods ---
+
+  /**
+   * Search and filter questions in the bank.
+   * @param {Object} [query={}]
+   * @param {string} [query.level] - JLPT Level N1-N5
+   * @param {string} [query.format_code] - Question format code
+   * @param {string} [query.category] - vocabulary | grammar | reading | listening
+   * @param {string} [query.source] - Source / paper text
+   * @param {boolean} [query.is_bookmarked] - Filter by bookmark state
+   * @param {string} [query.history_status] - unattempted | correct | incorrect
+   * @param {string} [query.verification_status] - Verification status filter
+   * @param {string} [query.search_query] - Search term in prompt
+   * @param {boolean} [query.eligible_only] - Restrict to fully active eligible questions
+   * @param {number} [query.limit=20] - Query limit
+   * @param {number} [query.offset=0] - Offset
+   */
+  async searchQuestions(query = {}) {
+    const res = await this.request({
+      method: 'GET',
+      path: '/api/study/v1/bank/questions',
+      query
+    });
+    return res.data;
+  }
+
+  /**
+   * Get full details for a single question.
+   * @param {number|string} questionId - Question integer ID or ULID external_id
+   */
+  async getQuestion(questionId) {
+    const res = await this.request({
+      method: 'GET',
+      path: `/api/study/v1/bank/questions/${encodeURIComponent(questionId)}`
+    });
+    return res.data;
+  }
+
+  /**
+   * Get complete provenance for a question (source, paper/year, verification, answer claims, ingestion).
+   * @param {number|string} questionId
+   */
+  async getQuestionProvenance(questionId) {
+    const res = await this.request({
+      method: 'GET',
+      path: `/api/study/v1/bank/questions/${encodeURIComponent(questionId)}/provenance`
+    });
+    return res.data;
+  }
+
+  /**
+   * Report an issue with a question.
+   * @param {number|string} questionId
+   * @param {Object} payload - { issue_type, details, suggested_correction }
+   * @param {string} [clientRequestId]
+   */
+  async reportQuestion(questionId, payload, clientRequestId = null) {
+    const reqId = clientRequestId || this.generateRequestId();
+    const res = await this.request({
+      method: 'POST',
+      path: `/api/study/v1/bank/questions/${encodeURIComponent(questionId)}/reports`,
+      body: payload,
+      clientRequestId: reqId
+    });
+    return res.data;
+  }
+
+  /**
+   * Get all reports for a specific question.
+   * @param {number|string} questionId
+   */
+  async getQuestionReports(questionId) {
+    const res = await this.request({
+      method: 'GET',
+      path: `/api/study/v1/bank/questions/${encodeURIComponent(questionId)}/reports`
+    });
+    return res.data;
+  }
+
+  /**
+   * Browse all question reports.
+   * @param {Object} [query={}] - { status, issue_type, limit, offset }
+   */
+  async getReports(query = {}) {
+    const res = await this.request({
+      method: 'GET',
+      path: '/api/study/v1/bank/reports',
+      query
+    });
+    return res.data;
+  }
+
+  /**
+   * Update report status or resolution notes.
+   * @param {number|string} reportId
+   * @param {Object} updates - { status, resolution_notes }
+   */
+  async updateReport(reportId, updates) {
+    const res = await this.request({
+      method: 'PATCH',
+      path: `/api/study/v1/bank/reports/${encodeURIComponent(reportId)}`,
+      body: updates
+    });
+    return res.data;
+  }
+
+  /**
+   * Browse bookmarked questions.
+   * @param {Object} [query={}] - { level, format_code, category, limit, offset }
+   */
+  async getBookmarks(query = {}) {
+    const res = await this.request({
+      method: 'GET',
+      path: '/api/study/v1/bookmarks',
+      query
+    });
+    return res.data;
+  }
+
+  /**
+   * Bookmark a question. Idempotent.
+   * @param {number|string} questionId
+   * @param {string} [notes='']
+   * @param {string} [clientRequestId]
+   */
+  async addBookmark(questionId, notes = '', clientRequestId = null) {
+    const reqId = clientRequestId || this.generateRequestId();
+    const res = await this.request({
+      method: 'POST',
+      path: '/api/study/v1/bookmarks',
+      body: { question_id: questionId, notes },
+      clientRequestId: reqId
+    });
+    return res.data;
+  }
+
+  /**
+   * Remove bookmark for a question. Idempotent.
+   * @param {number|string} questionId
+   */
+  async removeBookmark(questionId) {
+    const res = await this.request({
+      method: 'DELETE',
+      path: `/api/study/v1/bookmarks/${encodeURIComponent(questionId)}`
+    });
+    return res.data;
+  }
+
+  /**
+   * Preview pasted question content before import.
+   * @param {Object} payload - { content, format, default_level, source_name, citation }
+   * @param {string} [clientRequestId]
+   */
+  async previewImport(payload, clientRequestId = null) {
+    const reqId = clientRequestId || this.generateRequestId();
+    const res = await this.request({
+      method: 'POST',
+      path: '/api/study/v1/bank/import/preview',
+      body: payload,
+      clientRequestId: reqId
+    });
+    return res.data;
+  }
+
+  /**
+   * Commit approved question import to study bank.
+   * @param {Object} payload - { preview_id, approved, content, format }
+   * @param {string} [clientRequestId]
+   */
+  async commitImport(payload, clientRequestId = null) {
+    const reqId = clientRequestId || this.generateRequestId();
+    const res = await this.request({
+      method: 'POST',
+      path: '/api/study/v1/bank/import/commit',
+      body: payload,
+      clientRequestId: reqId
+    });
+    return res.data;
+  }
+
+  /**
+   * Start targeted weak-area practice drill.
+   * @param {Object} [options={}]
+   * @param {string} [clientRequestId]
+   */
+  async createWeakAreaPracticeSession(options = {}, clientRequestId = null) {
+    const reqId = clientRequestId || this.generateRequestId();
+    const res = await this.request({
+      method: 'POST',
+      path: '/api/study/v1/practice/weak-areas/session',
+      body: options,
+      clientRequestId: reqId
+    });
+    return res.data;
+  }
+
+  /**
+   * Start practice using bookmarked questions.
+   * @param {Object} [options={}]
+   * @param {string} [clientRequestId]
+   */
+  async createBookmarkedPracticeSession(options = {}, clientRequestId = null) {
+    const reqId = clientRequestId || this.generateRequestId();
+    const res = await this.request({
+      method: 'POST',
+      path: '/api/study/v1/practice/bookmarks/session',
+      body: options,
+      clientRequestId: reqId
+    });
+    return res.data;
+  }
+
+  /**
+   * Start review practice for incorrectly answered questions.
+   * @param {Object} [options={}]
+   * @param {string} [clientRequestId]
+   */
+  async createIncorrectReviewSession(options = {}, clientRequestId = null) {
+    const reqId = clientRequestId || this.generateRequestId();
+    const res = await this.request({
+      method: 'POST',
+      path: '/api/study/v1/practice/incorrect/session',
+      body: options,
+      clientRequestId: reqId
+    });
+    return res.data;
+  }
+
+  /**
+   * Get attempt history and improvement timeline for an incorrect question.
+   * @param {number|string} questionId
+   */
+  async getIncorrectQuestionDetail(questionId) {
+    const res = await this.request({
+      method: 'GET',
+      path: `/api/study/v1/history/incorrect/${encodeURIComponent(questionId)}`
+    });
+    return res.data;
+  }
 }
 
 module.exports = {

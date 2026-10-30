@@ -130,12 +130,12 @@ def test_fresh_migrations_and_ledger(study_env: Path):
 
     try:
         applied = run_migrations(conn)
-        assert applied == 8
-        assert get_current_user_version(conn) == 8
+        assert applied == 9
+        assert get_current_user_version(conn) == 9
 
         # Verify ledger records
         rows = conn.execute("SELECT version, name, checksum, applied_at FROM schema_migration ORDER BY version ASC;").fetchall()
-        assert len(rows) == 8
+        assert len(rows) == 9
         assert rows[0]["version"] == 1
         assert rows[0]["name"] == "0001_initial.sql"
         assert rows[1]["version"] == 2
@@ -152,6 +152,8 @@ def test_fresh_migrations_and_ledger(study_env: Path):
         assert rows[6]["name"] == "0007_performance_indexes.sql"
         assert rows[7]["version"] == 8
         assert rows[7]["name"] == "0008_api_idempotency.sql"
+        assert rows[8]["version"] == 9
+        assert rows[8]["name"] == "0009_bookmarks_and_reports.sql"
 
         # Re-running migrations is an idempotent no-op
         applied_again = run_migrations(conn)

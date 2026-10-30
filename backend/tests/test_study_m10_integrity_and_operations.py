@@ -157,7 +157,7 @@ def test_backup_and_restore_bundle_roundtrip(isolated_study_env):
     val_report = validate_study_bundle_backup(bundle_path)
     assert val_report["valid"] is True
     assert val_report["asset_count"] == 2
-    assert val_report["metadata"]["database_schema_version"] == 8
+    assert val_report["metadata"]["database_schema_version"] == 9
 
     # 5. Restore into completely isolated target destination
     target_root = isolated_study_env["tmp_path"] / "dest_restore"
@@ -508,10 +508,10 @@ def test_migration_0007_upgrade_on_existing_database(tmp_path: Path):
     conn.execute("INSERT INTO question (external_id, level, category, format_code) VALUES ('UPG-1', 'N1', 'vocabulary', 'kanji_reading');")
     conn.execute("INSERT INTO test_attempt (external_id, session_type, status, seed) VALUES ('ATT-UPG-1', 'casual', 'completed', 123);")
 
-    # Run migrations -> applies 0007 and 0008
+    # Run migrations -> applies 0007, 0008, 0009
     applied = run_migrations(conn)
-    assert applied == 2
-    assert get_current_user_version(conn) == 8
+    assert applied == 3
+    assert get_current_user_version(conn) == 9
 
     # Verify data preserved
     q_row = conn.execute("SELECT external_id FROM question WHERE external_id = 'UPG-1';").fetchone()
@@ -555,7 +555,7 @@ def test_diagnostics_on_healthy_database(isolated_study_env):
     assert report.sqlite_integrity.ok is True
     assert report.foreign_keys.violations_count == 0
     assert report.migrations.checksums_valid is True
-    assert report.migrations.current_version == 8
+    assert report.migrations.current_version == 9
     assert report.media_storage.accessible is True
     assert report.media_integrity.corrupted_count == 0
 

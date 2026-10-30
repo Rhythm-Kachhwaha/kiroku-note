@@ -88,12 +88,22 @@ def create_practice_session(
 
     try:
         sess_type = SessionType.CASUAL if request.session_type == "casual" else SessionType.PRACTICE
+        target_weak = request.target_weak_areas or (request.session_type == "weak_area")
+        target_bm = request.bookmarked_only or (request.session_type == "bookmarked")
+        target_inc = request.incorrect_only or (request.session_type in ("trouble", "review"))
+
+        # For weak areas or bookmarks without explicit level, default to None or N5
+        lvl = request.level
+
         config = PracticeSessionConfig(
-            level=request.level,
+            level=lvl,
             category=request.category,
             format_code=request.format_code,
             question_count=request.question_count,
             session_type=sess_type,
+            target_weak_areas=target_weak,
+            bookmarked_only=target_bm,
+            incorrect_only=target_inc,
             seed=request.seed,
         )
         state = practice_service.create_session(config)
@@ -129,6 +139,42 @@ def create_practice_session(
     except Exception as exc:
         clear_failed_idempotency(conn, client_request_id)
         raise map_domain_exception(exc)
+
+
+@practice_router.post("/practice/weak-areas/session", response_model=PracticeSessionResponse, status_code=status.HTTP_201_CREATED)
+def create_weak_area_session(
+    request: CreatePracticeSessionRequest,
+    x_client_request_id: Optional[str] = Header(None, alias="X-Client-Request-Id"),
+    conn: sqlite3.Connection = Depends(get_study_db),
+    practice_service: PracticeSessionService = Depends(get_practice_service),
+):
+    """Convenience endpoint to launch a targeted weak-area practice drill."""
+    request.target_weak_areas = True
+    return create_practice_session(request, x_client_request_id, conn, practice_service)
+
+
+@practice_router.post("/practice/bookmarks/session", response_model=PracticeSessionResponse, status_code=status.HTTP_201_CREATED)
+def create_bookmarked_session(
+    request: CreatePracticeSessionRequest,
+    x_client_request_id: Optional[str] = Header(None, alias="X-Client-Request-Id"),
+    conn: sqlite3.Connection = Depends(get_study_db),
+    practice_service: PracticeSessionService = Depends(get_practice_service),
+):
+    """Convenience endpoint to launch practice using bookmarked questions."""
+    request.bookmarked_only = True
+    return create_practice_session(request, x_client_request_id, conn, practice_service)
+
+
+@practice_router.post("/practice/incorrect/session", response_model=PracticeSessionResponse, status_code=status.HTTP_201_CREATED)
+def create_incorrect_review_session(
+    request: CreatePracticeSessionRequest,
+    x_client_request_id: Optional[str] = Header(None, alias="X-Client-Request-Id"),
+    conn: sqlite3.Connection = Depends(get_study_db),
+    practice_service: PracticeSessionService = Depends(get_practice_service),
+):
+    """Convenience endpoint to retry questions answered incorrectly."""
+    request.incorrect_only = True
+    return create_practice_session(request, x_client_request_id, conn, practice_service)
 
 
 @practice_router.get("/practice/sessions", response_model=PaginatedResponse)
@@ -250,6 +296,7 @@ def get_next_practice_item(
 
 
 @practice_router.post("/practice/sessions/{id}/answers", response_model=SubmitAnswerResponse)
+@practice_router.post("/practice/sessions/{id}/answer", response_model=SubmitAnswerResponse)
 def submit_practice_answer(
     id: str,
     request: SubmitAnswerRequest,

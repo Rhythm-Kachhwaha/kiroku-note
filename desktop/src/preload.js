@@ -96,6 +96,10 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   quit: () => ipcRenderer.invoke('app:quit'),
   getBackendInfo: () => ipcRenderer.invoke('backend:info'),
   retryBackend: () => ipcRenderer.invoke('backend:retry'),
+  openUserDataFolder: () => ipcRenderer.invoke('app:open-folder'),
+  openInstructions: () => ipcRenderer.invoke('app:open-instructions'),
+  getServicesStatus: () => ipcRenderer.invoke('backend:services-status'),
+  toggleOcr: () => ipcRenderer.invoke('ocr:toggle'),
   chrome: chromeShim,
 
   // Secure Study API bridge (Token is attached exclusively in main process)
@@ -132,6 +136,72 @@ contextBridge.exposeInMainWorld('desktopAPI', {
       method: 'GET',
       path: `/api/study/v1/media/${encodeURIComponent(mediaRef)}`,
       range
+    }),
+    searchQuestions: (query) => ipcRenderer.invoke('study:request', {
+      method: 'GET',
+      path: '/api/study/v1/bank/questions',
+      query
+    }),
+    getQuestion: (questionId) => ipcRenderer.invoke('study:request', {
+      method: 'GET',
+      path: `/api/study/v1/bank/questions/${encodeURIComponent(questionId)}`
+    }),
+    getQuestionProvenance: (questionId) => ipcRenderer.invoke('study:request', {
+      method: 'GET',
+      path: `/api/study/v1/bank/questions/${encodeURIComponent(questionId)}/provenance`
+    }),
+    reportQuestion: (questionId, payload) => ipcRenderer.invoke('study:request', {
+      method: 'POST',
+      path: `/api/study/v1/bank/questions/${encodeURIComponent(questionId)}/reports`,
+      body: payload
+    }),
+    getBookmarks: (query) => ipcRenderer.invoke('study:request', {
+      method: 'GET',
+      path: '/api/study/v1/bookmarks',
+      query
+    }),
+    addBookmark: (questionId, notes) => ipcRenderer.invoke('study:request', {
+      method: 'POST',
+      path: '/api/study/v1/bookmarks',
+      body: { question_id: questionId, notes }
+    }),
+    removeBookmark: (questionId) => ipcRenderer.invoke('study:request', {
+      method: 'DELETE',
+      path: `/api/study/v1/bookmarks/${encodeURIComponent(questionId)}`
+    }),
+    previewImport: (payload) => ipcRenderer.invoke('study:request', {
+      method: 'POST',
+      path: '/api/study/v1/bank/import/preview',
+      body: payload
+    }),
+    commitImport: (payload) => ipcRenderer.invoke('study:request', {
+      method: 'POST',
+      path: '/api/study/v1/bank/import/commit',
+      body: payload
+    }),
+    createPracticeSession: (payload) => ipcRenderer.invoke('study:request', {
+      method: 'POST',
+      path: '/api/study/v1/practice/sessions',
+      body: payload
+    }),
+    createWeakAreaSession: (payload) => ipcRenderer.invoke('study:request', {
+      method: 'POST',
+      path: '/api/study/v1/practice/weak-areas/session',
+      body: payload
+    }),
+    createBookmarkedSession: (payload) => ipcRenderer.invoke('study:request', {
+      method: 'POST',
+      path: '/api/study/v1/practice/bookmarks/session',
+      body: payload
+    }),
+    createIncorrectSession: (payload) => ipcRenderer.invoke('study:request', {
+      method: 'POST',
+      path: '/api/study/v1/practice/incorrect/session',
+      body: payload
+    }),
+    getIncorrectQuestionDetail: (questionId) => ipcRenderer.invoke('study:request', {
+      method: 'GET',
+      path: `/api/study/v1/history/incorrect/${encodeURIComponent(questionId)}`
     })
   }
 });

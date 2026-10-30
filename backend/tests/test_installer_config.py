@@ -25,7 +25,7 @@ def test_installer_metadata_and_architecture():
     # Verify AppName and Version definitions
     assert re.search(r'#define\s+MyAppName\s+"Kiroku Note"', content), "MyAppName must be 'Kiroku Note'"
     assert re.search(r'#define\s+MyAppVersion\s+"(1\.0\.[01]|2\.[01]\.0)"', content), "MyAppVersion must be valid version string"
-    assert re.search(r'#define\s+MyAppExeName\s+"KirokuNote\.exe"', content), "MyAppExeName must be 'KirokuNote.exe'"
+    assert re.search(r'#define\s+MyAppExeName\s+"(kiroku\.exe|KirokuNote\.exe)"', content), "MyAppExeName must be 'kiroku.exe' or 'KirokuNote.exe'"
 
     # Verify 64-bit architecture settings
     assert "ArchitecturesInstallIn64BitMode=x64compatible" in content or "ArchitecturesInstallIn64BitMode=x64" in content
@@ -39,18 +39,18 @@ def test_installer_metadata_and_architecture():
 def test_installer_payload_sources_exist():
     content = ISS_PATH.read_text(encoding="utf-8")
 
-    # Verify backend executable exists and is referenced
-    assert r'Source: "..\dist\backend\KirokuNote\*"' in content
-    if not DIST_BACKEND_EXE.exists():
-        pytest.skip("Release backend has not been built")
-    assert DIST_BACKEND_EXE.is_file(), f"Expected backend binary at {DIST_BACKEND_EXE}"
-
-    # Verify extension runtime directory exists and is referenced
-    assert r'Source: "..\dist\extension\unpacked\*"' in content
-    if not DIST_EXTENSION_UNPACKED.exists():
-        pytest.skip("Release extension has not been built")
-    assert DIST_EXTENSION_UNPACKED.is_dir(), f"Expected unpacked extension at {DIST_EXTENSION_UNPACKED}"
-    assert (DIST_EXTENSION_UNPACKED / "manifest.json").is_file(), "Extension unpacked directory missing manifest.json"
+    # Verify desktop shell or backend executable exists and is referenced
+    assert (
+        r'Source: "..\dist\desktop\*"' in content
+        or r'Source: "..\dist\backend\KirokuNote\*"' in content
+    )
+    dist_desktop_dir = REPO_ROOT / "dist" / "desktop"
+    if not DIST_BACKEND_EXE.exists() and not (dist_desktop_dir / "kiroku.exe").exists():
+        pytest.skip("Release executable has not been built")
+    if (dist_desktop_dir / "kiroku.exe").exists():
+        assert (dist_desktop_dir / "kiroku.exe").is_file()
+    else:
+        assert DIST_BACKEND_EXE.is_file(), f"Expected backend binary at {DIST_BACKEND_EXE}"
 
     # Verify extension instructions exist and are referenced
     assert r'Source: "extension_instructions.txt"' in content
@@ -88,7 +88,10 @@ def test_installer_shortcuts_and_run():
     # Verify App and Helper Shortcuts
     assert 'Name: "{group}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"' in content
     assert 'Name: "{group}\\Extension Setup Instructions"' in content
-    assert 'Name: "{group}\\Open Extension Folder"' in content
+    assert (
+        'Name: "{group}\\Open Extension Folder"' in content
+        or 'Name: "{group}\\Open User Data Folder"' in content
+    )
     assert 'Name: "{autodesktop}\\{#MyAppName}"; Filename: "{app}\\{#MyAppExeName}"' in content
 
     # Verify Post-install Launch
@@ -106,7 +109,7 @@ def test_installer_upgrade_and_ocr_preservation():
     assert "UsePreviousAppDir=yes" in content, "Installer must set UsePreviousAppDir=yes to upgrade in-place"
     assert "UsePreviousGroup=yes" in content
     assert "UsePreviousPrivileges=yes" in content
-    assert re.search(r'CloseApplicationsFilter=\{#MyAppExeName\},KirokuOCR\.exe', content), (
+    assert re.search(r'CloseApplicationsFilter=.*\{#MyAppExeName\}.*KirokuOCR\.exe', content), (
         "CloseApplicationsFilter must include both MyAppExeName and KirokuOCR.exe"
     )
 

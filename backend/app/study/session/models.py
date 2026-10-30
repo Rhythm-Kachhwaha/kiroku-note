@@ -30,6 +30,9 @@ class PracticeSessionConfig(SessionContractBase):
     question_count: int = Field(default=10, gt=0, le=100)
     seed: Optional[int] = None
     session_type: SessionType = Field(default=SessionType.PRACTICE)
+    target_weak_areas: bool = False
+    bookmarked_only: bool = False
+    incorrect_only: bool = False
 
 
 class ChoicePresentation(SessionContractBase):

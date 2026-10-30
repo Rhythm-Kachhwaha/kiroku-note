@@ -34,6 +34,7 @@ class GroupPartDTO(StudyAPIBaseModel):
     role: str
     title: str = ""
     markup: str
+    image_url: Optional[str] = None
 
 
 class GroupContextDTO(StudyAPIBaseModel):
@@ -42,6 +43,7 @@ class GroupContextDTO(StudyAPIBaseModel):
     title: str = ""
     parts: List[GroupPartDTO] = Field(default_factory=list)
     audio_url: Optional[str] = None
+    image_url: Optional[str] = None
 
 
 class QuestionDTO(StudyAPIBaseModel):
@@ -58,6 +60,11 @@ class QuestionDTO(StudyAPIBaseModel):
     choices: List[ChoiceDTO] = Field(default_factory=list)
     group_context: Optional[GroupContextDTO] = None
     audio_url: Optional[str] = None
+    illustration_url: Optional[str] = None
+    diagram_url: Optional[str] = None
+    star_position: Optional[int] = None
+    anchor_key: Optional[str] = None
+    group_ordinal: Optional[int] = None
     presented_at: Optional[str] = None
     is_answered: bool = False
     selected_choice_id: Optional[int] = None
@@ -65,11 +72,13 @@ class QuestionDTO(StudyAPIBaseModel):
     audio_play_count: int = 0
     section_code: Optional[str] = None
     block_order: Optional[int] = None
+    is_bookmarked: bool = False
 
     # Post-submission revelation fields
     is_correct: Optional[bool] = None
     canonical_choice_id: Optional[int] = None
     canonical_choice_key: Optional[str] = None
+    correct_order: Optional[List[int]] = None
     difficulty_rating: Optional[str] = None
     explanation_markup: Optional[str] = None
 
@@ -79,11 +88,17 @@ class QuestionDTO(StudyAPIBaseModel):
 # =============================================================================
 
 class CreatePracticeSessionRequest(StudyAPIBaseModel):
-    level: str = Field(pattern=r"^N[1-5]$", description="JLPT Level N1-N5")
+    level: Optional[str] = Field(default=None, pattern=r"^N[1-5]$", description="JLPT Level N1-N5")
     category: Optional[str] = None
     format_code: Optional[str] = None
     question_count: int = Field(default=10, ge=1, le=100)
-    session_type: str = Field(default="practice", pattern=r"^(standard|practice|casual|drill|trouble|review)$")
+    session_type: str = Field(
+        default="practice",
+        pattern=r"^(standard|practice|casual|drill|trouble|review|weak_area|bookmarked)$",
+    )
+    target_weak_areas: bool = False
+    bookmarked_only: bool = False
+    incorrect_only: bool = False
     seed: Optional[int] = None
     client_request_id: Optional[str] = Field(default=None, description="Optional idempotency UUID")
 
@@ -259,9 +274,224 @@ class TroubleQuestionItem(StudyAPIBaseModel):
 
 
 class BookmarkReportResponse(StudyAPIBaseModel):
-    supported: bool = False
-    message: str = "Bookmarks are not currently supported by the local study domain."
-    items: List[Dict[str, Any]] = Field(default_factory=list)
+    supported: bool = True
+    message: str = "Bookmarks supported."
+    total: int = 0
+    limit: int = 20
+    offset: int = 0
+    items: List[Any] = Field(default_factory=list)
+
+
+# =============================================================================
+# M14: Bookmarks, Provenance, Reporting & Import Schemas
+# =============================================================================
+
+class BookmarkItemDTO(StudyAPIBaseModel):
+    id: int
+    question_id: int
+    external_id: str
+    level: str
+    category: str
+    format_code: str
+    prompt_markup: str
+    notes: str = ""
+    created_at: str
+    is_eligible: bool = True
+
+
+class AddBookmarkRequest(StudyAPIBaseModel):
+    question_id: Any  # integer ID or external_id string
+    notes: Optional[str] = ""
+    client_request_id: Optional[str] = None
+
+
+class BookmarkListResponse(StudyAPIBaseModel):
+    supported: bool = True
+    message: str = "Bookmarks supported."
+    total: int = 0
+    limit: int = 20
+    offset: int = 0
+    items: List[BookmarkItemDTO] = Field(default_factory=list)
+
+
+class CreateQuestionReportRequest(StudyAPIBaseModel):
+    issue_type: str = Field(
+        pattern=r"^(incorrect_answer|bad_explanation|wrong_format|typo_or_content|audio_media_issue|other)$"
+    )
+    details: str = Field(min_length=3, max_length=2000)
+    suggested_correction: Optional[str] = None
+    client_request_id: Optional[str] = None
+
+
+class UpdateQuestionReportRequest(StudyAPIBaseModel):
+    status: str = Field(pattern=r"^(open|investigating|resolved|dismissed)$")
+    resolution_notes: Optional[str] = None
+    client_request_id: Optional[str] = None
+
+
+class QuestionReportDTO(StudyAPIBaseModel):
+    id: int
+    external_id: str
+    question_id: int
+    question_external_id: Optional[str] = None
+    question_revision_id: Optional[int] = None
+    issue_type: str
+    details: str
+    suggested_correction: Optional[str] = None
+    status: str
+    resolution_notes: Optional[str] = None
+    reported_at: str
+    resolved_at: Optional[str] = None
+
+
+class SourceProvenanceDTO(StudyAPIBaseModel):
+    source_id: int
+    name: str
+    source_type: str
+    citation: str = ""
+    url: Optional[str] = None
+    external_question_ref: Optional[str] = None
+    paper_year: Optional[str] = None
+
+
+class VerificationProvenanceDTO(StudyAPIBaseModel):
+    status: str
+    comparison_scenario: Optional[str] = None
+    model_a_choice_key: Optional[str] = None
+    model_b_choice_key: Optional[str] = None
+    source_answer_keys: List[str] = Field(default_factory=list)
+    is_ambiguous: bool = False
+    human_decision: Optional[str] = None
+    human_choice_key: Optional[str] = None
+    verified_at: Optional[str] = None
+
+
+class AnswerClaimDTO(StudyAPIBaseModel):
+    source_name: str
+    choice_key: Optional[str] = None
+    source_label: Optional[str] = None
+    answer_origin: str
+    rationale: str = ""
+    is_conflict: bool = False
+
+
+class IngestionProvenanceDTO(StudyAPIBaseModel):
+    adapter_name: Optional[str] = None
+    extraction_confidence: Optional[float] = None
+    review_status: Optional[str] = None
+    imported_at: Optional[str] = None
+
+
+class QuestionProvenanceResponse(StudyAPIBaseModel):
+    question_id: int
+    external_id: str
+    level: str
+    category: str
+    format_code: str
+    sources: List[SourceProvenanceDTO] = Field(default_factory=list)
+    verification: Optional[VerificationProvenanceDTO] = None
+    answer_claims: List[AnswerClaimDTO] = Field(default_factory=list)
+    ingestion: Optional[IngestionProvenanceDTO] = None
+
+
+class ImportPreviewItemDTO(StudyAPIBaseModel):
+    index: int
+    level: str
+    format_code: str
+    category: str
+    stem_markup: str
+    choices: List[Dict[str, Any]] = Field(default_factory=list)
+    canonical_choice_key: Optional[str] = None
+    explanation_markup: Optional[str] = None
+    is_valid: bool = True
+    is_duplicate: bool = False
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+
+class ImportPreviewGroupDTO(StudyAPIBaseModel):
+    index: int
+    group_type: str
+    level: str
+    parts: List[Dict[str, Any]] = Field(default_factory=list)
+    is_valid: bool = True
+    errors: List[str] = Field(default_factory=list)
+
+
+class ImportPreviewRequest(StudyAPIBaseModel):
+    content: str = Field(min_length=1, description="Raw text or JSON content pasted by user or external agent")
+    format: str = Field(default="auto", pattern=r"^(auto|text|json)$")
+    default_level: Optional[str] = Field(default=None, pattern=r"^(N[1-5])?$")
+    source_name: Optional[str] = "agent_import"
+    source_type: Optional[str] = "user_pasted"
+    citation: Optional[str] = ""
+    url: Optional[str] = None
+    client_request_id: Optional[str] = None
+
+
+class ImportPreviewResponse(StudyAPIBaseModel):
+    preview_id: str
+    status: str  # valid | needs_review | invalid
+    total_questions: int
+    valid_questions: int
+    invalid_questions: int
+    duplicate_questions: int
+    questions: List[ImportPreviewItemDTO] = Field(default_factory=list)
+    groups: List[ImportPreviewGroupDTO] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+
+class ImportCommitRequest(StudyAPIBaseModel):
+    preview_id: Optional[str] = None
+    approved: bool = True
+    content: Optional[str] = None
+    format: str = Field(default="auto", pattern=r"^(auto|text|json)$")
+    default_level: Optional[str] = None
+    source_name: Optional[str] = "agent_import"
+    source_type: Optional[str] = "user_pasted"
+    citation: Optional[str] = ""
+    url: Optional[str] = None
+    client_request_id: Optional[str] = None
+
+
+class ImportCommitResponse(StudyAPIBaseModel):
+    status: str
+    batch_id: Optional[int] = None
+    source_id: Optional[int] = None
+    imported_count: int
+    duplicate_count: int
+    imported_question_ids: List[int] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+
+
+class QuestionDetailDTO(StudyAPIBaseModel):
+    question_id: int
+    external_id: str
+    level: str
+    category: str
+    format_code: str
+    structural_family: Optional[str] = None
+    instruction_text: Optional[str] = None
+    prompt_markup: str
+    choices: List[ChoiceDTO] = Field(default_factory=list)
+    group_context: Optional[GroupContextDTO] = None
+    audio_url: Optional[str] = None
+    illustration_url: Optional[str] = None
+    diagram_url: Optional[str] = None
+    star_position: Optional[int] = None
+    anchor_key: Optional[str] = None
+    group_ordinal: Optional[int] = None
+    canonical_choice_id: Optional[int] = None
+    canonical_choice_key: Optional[str] = None
+    correct_order: Optional[List[int]] = None
+    explanation_markup: Optional[str] = None
+    is_bookmarked: bool = False
+    is_eligible: bool = True
+    attempts_count: int = 0
+    correct_count: int = 0
+    last_accuracy: Optional[float] = None
+    sources: List[SourceProvenanceDTO] = Field(default_factory=list)
 
 
 class StudySettingsDTO(StudyAPIBaseModel):

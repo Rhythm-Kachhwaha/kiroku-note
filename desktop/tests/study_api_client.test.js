@@ -214,3 +214,113 @@ test('StudyApiClient: enforces strict path whitelist and rejects directory trave
   );
 });
 
+test('StudyApiClient M14: covers bookmarks, search, provenance, reporting, and import endpoints', async () => {
+  const testPort = 31008;
+  const recorded = [];
+
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      recorded.push({ method: req.method, url: req.url, body: body ? JSON.parse(body) : null });
+
+      if (req.url.startsWith('/api/study/v1/bank/questions?') || req.url === '/api/study/v1/bank/questions') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ total: 1, limit: 20, offset: 0, items: [{ question_id: 1, level: 'N5' }] }));
+      } else if (req.url === '/api/study/v1/bank/questions/1') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ question_id: 1, external_id: 'Q1', format_code: 'N5_VOCAB_KANJI_READING' }));
+      } else if (req.url === '/api/study/v1/bank/questions/1/provenance') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ question_id: 1, sources: [], verification: null }));
+      } else if (req.url === '/api/study/v1/bank/questions/1/reports' && req.method === 'POST') {
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ id: 10, question_id: 1, status: 'open' }));
+      } else if (req.url === '/api/study/v1/bookmarks' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ supported: true, total: 1, items: [{ id: 1, question_id: 1 }] }));
+      } else if (req.url === '/api/study/v1/bookmarks' && req.method === 'POST') {
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', message: 'Question bookmarked successfully.' }));
+      } else if (req.url === '/api/study/v1/bookmarks/1' && req.method === 'DELETE') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', message: 'Bookmark removed successfully.' }));
+      } else if (req.url === '/api/study/v1/bank/import/preview' && req.method === 'POST') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ preview_id: 'PREV-1', status: 'valid', total_questions: 1, questions: [] }));
+      } else if (req.url === '/api/study/v1/bank/import/commit' && req.method === 'POST') {
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', imported_count: 1, duplicate_count: 0 }));
+      } else if (req.url === '/api/study/v1/practice/weak-areas/session' && req.method === 'POST') {
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ session_id: 100, session_type: 'practice', total_questions: 5, items: [] }));
+      } else if (req.url === '/api/study/v1/practice/bookmarks/session' && req.method === 'POST') {
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ session_id: 101, session_type: 'practice', total_questions: 3, items: [] }));
+      } else if (req.url === '/api/study/v1/practice/incorrect/session' && req.method === 'POST') {
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ session_id: 102, session_type: 'practice', total_questions: 4, items: [] }));
+      } else if (req.url === '/api/study/v1/history/incorrect/1') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ question_id: 1, total_attempts: 2, is_resolved: true, timeline: [] }));
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+  });
+
+  await new Promise((resolve) => server.listen(testPort, '127.0.0.1', resolve));
+
+  try {
+    const client = new StudyApiClient({ port: testPort, getToken: () => 'valid-bearer-token' });
+
+    // 1. Search & Question Detail
+    const searchRes = await client.searchQuestions({ level: 'N5' });
+    assert.equal(searchRes.total, 1);
+
+    const qDetail = await client.getQuestion(1);
+    assert.equal(qDetail.question_id, 1);
+
+    // 2. Provenance & Reporting
+    const prov = await client.getQuestionProvenance(1);
+    assert.equal(prov.question_id, 1);
+
+    const reportRes = await client.reportQuestion(1, { issue_type: 'typo_or_content', details: 'Typo in stem' });
+    assert.equal(reportRes.status, 'open');
+
+    // 3. Bookmarks
+    const bookmarks = await client.getBookmarks();
+    assert.equal(bookmarks.supported, true);
+
+    const addBm = await client.addBookmark(1, 'Need review');
+    assert.equal(addBm.status, 'ok');
+
+    const rmBm = await client.removeBookmark(1);
+    assert.equal(rmBm.status, 'ok');
+
+    // 4. Import Preview & Commit
+    const prev = await client.previewImport({ content: '{"level": "N5"}' });
+    assert.equal(prev.preview_id, 'PREV-1');
+
+    const commit = await client.commitImport({ preview_id: 'PREV-1', approved: true });
+    assert.equal(commit.imported_count, 1);
+
+    // 5. Targeted Practice Sessions
+    const weakSess = await client.createWeakAreaPracticeSession({ level: 'N5' });
+    assert.equal(weakSess.session_id, 100);
+
+    const bmSess = await client.createBookmarkedPracticeSession({ level: 'N5' });
+    assert.equal(bmSess.session_id, 101);
+
+    const incSess = await client.createIncorrectReviewSession({ level: 'N5' });
+    assert.equal(incSess.session_id, 102);
+
+    // 6. Incorrect Detail Timeline
+    const incDetail = await client.getIncorrectQuestionDetail(1);
+    assert.equal(incDetail.is_resolved, true);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+

@@ -14,7 +14,10 @@ from typing import Any, List, Optional
 
 from app.study.media import MediaStore
 from app.study.session.adaptive import (
+    select_bookmarked_candidates,
+    select_incorrect_candidates,
     select_practice_candidates,
+    select_weak_area_candidates,
     update_question_adaptive_state,
 )
 from app.study.session.enums import (
@@ -83,20 +86,60 @@ class PracticeSessionService:
             seed = config.seed if config.seed is not None else random.randint(1, 1_000_000_000)
 
             # 1. Select eligible candidate questions from the approved question bank
-            candidates = select_practice_candidates(
-                conn=self.conn,
-                level=config.level,
-                category=config.category,
-                format_code=config.format_code,
-                limit=config.question_count,
-                seed=seed,
-                verify_files=True,
-                media_store=self.media_store,
-            )
+            if config.target_weak_areas:
+                try:
+                    candidates = select_weak_area_candidates(
+                        conn=self.conn,
+                        level=config.level,
+                        limit=config.question_count,
+                        seed=seed,
+                        verify_files=True,
+                        media_store=self.media_store,
+                    )
+                except ValueError as ve:
+                    raise NoEligibleQuestionsError(str(ve)) from ve
+            elif config.bookmarked_only:
+                candidates = select_bookmarked_candidates(
+                    conn=self.conn,
+                    level=config.level,
+                    category=config.category,
+                    format_code=config.format_code,
+                    limit=config.question_count,
+                    seed=seed,
+                    verify_files=True,
+                    media_store=self.media_store,
+                )
+            elif config.incorrect_only:
+                candidates = select_incorrect_candidates(
+                    conn=self.conn,
+                    level=config.level,
+                    category=config.category,
+                    format_code=config.format_code,
+                    limit=config.question_count,
+                    seed=seed,
+                    verify_files=True,
+                    media_store=self.media_store,
+                )
+            else:
+                candidates = select_practice_candidates(
+                    conn=self.conn,
+                    level=config.level,
+                    category=config.category,
+                    format_code=config.format_code,
+                    limit=config.question_count,
+                    seed=seed,
+                    verify_files=True,
+                    media_store=self.media_store,
+                )
 
             if not candidates:
+                mode_desc = (
+                    "weak-area " if config.target_weak_areas else
+                    "bookmarked " if config.bookmarked_only else
+                    "incorrect " if config.incorrect_only else ""
+                )
                 raise NoEligibleQuestionsError(
-                    f"No eligible questions found matching criteria: level={config.level}, "
+                    f"No eligible {mode_desc}questions found matching criteria: level={config.level}, "
                     f"category={config.category}, format={config.format_code}."
                 )
 
