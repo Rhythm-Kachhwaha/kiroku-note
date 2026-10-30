@@ -1,6 +1,7 @@
 /**
  * Kiroku Note - Electron Main Process Entrypoint
- * Windows Desktop Shell with Subprocess Lifecycle Supervision, System Tray, and Close-to-Tray.
+ * Windows Desktop Shell with Subprocess Lifecycle Supervision, System Tray,
+ * Authenticated Study HTTP API Bridge, and Secure IPC Communication.
  */
 
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeTheme, nativeImage } = require('electron');
@@ -8,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const { ProcessManager } = require('./process_manager');
 const { DesktopStore } = require('./store');
+const { StudyApiClient } = require('./study_api_client');
 
 // Enforce single-instance lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -28,18 +30,29 @@ const processManager = new ProcessManager({
 });
 const desktopStore = new DesktopStore();
 
+// Main-process authenticated Study API client (Holds ephemeral bearer token in memory)
+const studyApiClient = new StudyApiClient({
+  host: processManager.host,
+  port: processManager.port,
+  getToken: () => processManager.getApiToken()
+});
+
 // Set native theme to dark by default
 nativeTheme.themeSource = 'dark';
 Menu.setApplicationMenu(null);
 
 function resolveIconPath() {
-  const icoPath = path.join(repoRoot, 'assets', 'icon.ico');
-  const pngPath = path.join(repoRoot, 'assets', 'icon.png');
-  if (process.platform === 'win32' && fs.existsSync(icoPath)) {
-    return icoPath;
-  }
-  if (fs.existsSync(pngPath)) {
-    return pngPath;
+  const candidates = [
+    path.join(repoRoot, 'assets', 'icon.ico'),
+    path.join(repoRoot, 'assets', 'icon.png'),
+    process.resourcesPath ? path.join(process.resourcesPath, 'app', 'assets', 'icon.ico') : null,
+    process.resourcesPath ? path.join(process.resourcesPath, 'app', 'assets', 'icon.png') : null,
+    path.join(__dirname, '..', 'assets', 'icon.ico'),
+    path.join(__dirname, '..', 'assets', 'icon.png')
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
   }
   return null;
 }
@@ -67,6 +80,14 @@ function createMainWindow() {
     }
   });
 
+  // Security: Deny window.open and restrict navigation to local origins
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    if (!navigationUrl.startsWith('file:') && !navigationUrl.startsWith(`http://${processManager.host}:`)) {
+      event.preventDefault();
+    }
+  });
+
   // Minimize to tray on close
   mainWindow.on('close', (event) => {
     if (!isQuitting) {
@@ -87,7 +108,7 @@ function createMainWindow() {
 function createSystemTray() {
   const iconPath = resolveIconPath();
   const trayIcon = iconPath ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
-  
+
   tray = new Tray(trayIcon);
   tray.setToolTip('Kiroku Note');
 
@@ -167,23 +188,29 @@ async function startBackendAndLoadUI() {
     await processManager.startBackend();
     await processManager.waitForBackend(25000, 400);
 
-    // Backend is verified healthy. Load Side Panel UI.
-    const sidepanelPath = path.join(repoRoot, 'extension', 'sidepanel', 'sidepanel.html');
+    // Backend and authenticated Study API are verified ready.
+    // Load M13 Minimal Functional Shell (or Sidepanel if explicitly requested).
+    const isSidepanelView = process.env.KIROKU_DESKTOP_VIEW === 'sidepanel';
+    const targetFile = isSidepanelView
+      ? path.join(repoRoot, 'extension', 'sidepanel', 'sidepanel.html')
+      : path.join(__dirname, 'shell.html');
+
     if (mainWindow) {
-      mainWindow.loadFile(sidepanelPath);
+      mainWindow.loadFile(targetFile);
     }
   } catch (err) {
-    console.error('[Main] Failed to start backend:', err);
+    console.error('[Main] Failed to start backend:', err.message);
     if (mainWindow) {
       mainWindow.loadFile(path.join(__dirname, 'error.html'));
     }
+    throw err;
   }
 }
 
-function quitApplication() {
+async function quitApplication() {
   isQuitting = true;
   try {
-    processManager.stopBackend();
+    await processManager.stopBackend();
   } catch (err) {
     console.warn('[Main] Error stopping backend:', err.message);
   }
@@ -205,6 +232,36 @@ app.whenReady().then(() => {
   createSystemTray();
   createMainWindow();
 
+  if (process.env.KIROKU_DESKTOP_TEST_SMOKE === '1') {
+    const smokeLog = process.env.KIROKU_SMOKE_LOG || path.join(repoRoot, 'desktop', 'tests', 'smoke_result.json');
+    (async () => {
+      try {
+        await startBackendAndLoadUI();
+        const health = await studyApiClient.checkHealth();
+        const bank = await studyApiClient.getBankSummary();
+        const pid = processManager.childProcess ? processManager.childProcess.pid : null;
+        fs.writeFileSync(smokeLog, JSON.stringify({
+          success: true,
+          pid,
+          backendStatus: processManager.status,
+          backendExternal: processManager.isExternal,
+          hasApiToken: Boolean(processManager.getApiToken()),
+          health,
+          bank,
+          isPackaged: app.isPackaged
+        }, null, 2));
+      } catch (err) {
+        fs.writeFileSync(smokeLog, JSON.stringify({
+          success: false,
+          error: err.message
+        }, null, 2));
+      } finally {
+        setTimeout(() => quitApplication(), 800);
+      }
+    })();
+    return;
+  }
+
   if (process.env.KIROKU_DESKTOP_TEST_LIFECYCLE === '1') {
     const testLog = path.join(repoRoot, 'desktop', 'tests', 'lifecycle_result.json');
     setTimeout(() => {
@@ -219,7 +276,8 @@ app.whenReady().then(() => {
           contentHeight: mainWindow ? mainWindow.getContentSize()[1] : null,
           isResizable: mainWindow ? mainWindow.isResizable() : null,
           backendStatus: processManager.status,
-          backendExternal: processManager.isExternal
+          backendExternal: processManager.isExternal,
+          hasApiToken: Boolean(processManager.getApiToken())
         }, null, 2));
       } catch (_) {}
       quitApplication();
@@ -271,20 +329,85 @@ function setupIpcHandlers() {
     if (mainWindow) mainWindow.hide();
   });
 
-  ipcMain.handle('app:quit', () => {
-    quitApplication();
+  ipcMain.handle('app:quit', async () => {
+    await quitApplication();
   });
 
   // Backend state & retry
   ipcMain.handle('backend:info', () => ({
     status: processManager.status,
     external: processManager.isExternal,
-    port: processManager.port
+    port: processManager.port,
+    hasToken: Boolean(processManager.getApiToken())
   }));
 
   ipcMain.handle('backend:retry', async () => {
     await startBackendAndLoadUI();
     return true;
+  });
+
+  // Secure Study API bridge handler
+  ipcMain.handle('study:request', async (event, req = {}) => {
+    try {
+      if (!req || typeof req !== 'object') {
+        throw new Error('Invalid request payload');
+      }
+
+      const { method = 'GET', path: reqPath, query, body, headers, timeoutMs, clientRequestId, range } = req;
+
+      // Strict IPC validation: Only permit /api/study/v1 or /api/health
+      if (typeof reqPath !== 'string' || (!reqPath.startsWith('/api/study/v1') && reqPath !== '/api/health')) {
+        throw new Error(`Unauthorized or invalid Study API path: ${reqPath}`);
+      }
+
+      // Traversal and arbitrary URL injection prevention
+      if (reqPath.includes('..') || reqPath.includes('://')) {
+        throw new Error('Path traversal or arbitrary URL not allowed');
+      }
+
+      // Method validation
+      const allowedMethods = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
+      const upperMethod = String(method).toUpperCase();
+      if (!allowedMethods.includes(upperMethod)) {
+        throw new Error(`Method ${method} is not permitted`);
+      }
+
+      const result = await studyApiClient.request({
+        method: upperMethod,
+        path: reqPath,
+        query,
+        body,
+        headers,
+        timeoutMs,
+        clientRequestId,
+        range
+      });
+
+      let serializedData = result.data;
+      let isBuffer = false;
+      if (Buffer.isBuffer(result.data)) {
+        serializedData = result.data.toString('base64');
+        isBuffer = true;
+      }
+
+      return {
+        success: true,
+        status: result.status,
+        headers: result.headers,
+        data: serializedData,
+        isBuffer
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: {
+          code: err.code || 'REQUEST_FAILED',
+          message: err.message,
+          statusCode: err.statusCode || 500,
+          details: err.details || {}
+        }
+      };
+    }
   });
 
   // Desktop storage shim for chrome.storage.local

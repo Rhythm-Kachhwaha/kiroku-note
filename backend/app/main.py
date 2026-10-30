@@ -241,6 +241,19 @@ async def _cloud_auto_poll_task(interval_seconds: float = CLOUD_AUTO_POLL_INTERV
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Initialize study database forward-only migrations
+    try:
+        from app.study.connection import get_study_db_manager
+        from app.study.migrations.runner import run_migrations
+        study_mgr = get_study_db_manager()
+        study_conn = study_mgr.get_connection()
+        try:
+            run_migrations(study_conn)
+        finally:
+            study_mgr._close_one(study_conn)
+    except Exception as exc:
+        logging.getLogger("kiroku.study").warning("Study database startup check: %s", exc)
+
     # On Kiroku backend startup: if OCR addon is installed, trigger one non-blocking start attempt
     pm = OcrProcessManager.get_instance()
     if pm.is_installed():

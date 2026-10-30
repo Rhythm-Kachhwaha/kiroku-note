@@ -19,19 +19,8 @@ ipcRenderer.on('extension:message', (event, message) => {
   }
 });
 
-// Expose safe Desktop APIs
-contextBridge.exposeInMainWorld('desktopAPI', {
-  isDesktop: true,
-  minimize: () => ipcRenderer.invoke('window:minimize'),
-  toggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),
-  close: () => ipcRenderer.invoke('window:close'),
-  quit: () => ipcRenderer.invoke('app:quit'),
-  getBackendInfo: () => ipcRenderer.invoke('backend:info'),
-  retryBackend: () => ipcRenderer.invoke('backend:retry')
-});
-
-// Expose Chrome Extension compatibility shim
-contextBridge.exposeInMainWorld('chrome', {
+// Chrome Extension compatibility shim object
+const chromeShim = {
   storage: {
     local: {
       get: (keys, callback) => {
@@ -96,7 +85,63 @@ contextBridge.exposeInMainWorld('chrome', {
       return promise;
     }
   }
+};
+
+// Expose safe Desktop APIs (Bearer token remains strictly in main process)
+contextBridge.exposeInMainWorld('desktopAPI', {
+  isDesktop: true,
+  minimize: () => ipcRenderer.invoke('window:minimize'),
+  toggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),
+  close: () => ipcRenderer.invoke('window:close'),
+  quit: () => ipcRenderer.invoke('app:quit'),
+  getBackendInfo: () => ipcRenderer.invoke('backend:info'),
+  retryBackend: () => ipcRenderer.invoke('backend:retry'),
+  chrome: chromeShim,
+
+  // Secure Study API bridge (Token is attached exclusively in main process)
+  studyApi: {
+    request: (options) => ipcRenderer.invoke('study:request', options),
+    checkHealth: () => ipcRenderer.invoke('study:request', { method: 'GET', path: '/api/health' }),
+    getBankSummary: (level) => ipcRenderer.invoke('study:request', {
+      method: 'GET',
+      path: '/api/study/v1/bank/summary',
+      query: level ? { level } : undefined
+    }),
+    getExamReadiness: () => ipcRenderer.invoke('study:request', {
+      method: 'GET',
+      path: '/api/study/v1/exam/readiness'
+    }),
+    getLearningOverview: () => ipcRenderer.invoke('study:request', {
+      method: 'GET',
+      path: '/api/study/v1/dashboard/overview'
+    }),
+    getDiagnostics: () => ipcRenderer.invoke('study:request', {
+      method: 'GET',
+      path: '/api/study/v1/diagnostics'
+    }),
+    getSettings: () => ipcRenderer.invoke('study:request', {
+      method: 'GET',
+      path: '/api/study/v1/settings'
+    }),
+    updateSettings: (updates) => ipcRenderer.invoke('study:request', {
+      method: 'PATCH',
+      path: '/api/study/v1/settings',
+      body: updates
+    }),
+    getMedia: (mediaRef, range) => ipcRenderer.invoke('study:request', {
+      method: 'GET',
+      path: `/api/study/v1/media/${encodeURIComponent(mediaRef)}`,
+      range
+    })
+  }
 });
+
+// Expose window.chrome compatibility shim if window.chrome is not already bound
+try {
+  contextBridge.exposeInMainWorld('chrome', chromeShim);
+} catch (err) {
+  // If Chromium already reserved window.chrome, window.desktopAPI.chrome is available
+}
 
 // Inject Desktop Shell Overrides for Side Panel UI (Phase 1: Quick Add & History modes)
 window.addEventListener('DOMContentLoaded', () => {

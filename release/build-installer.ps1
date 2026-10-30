@@ -11,6 +11,7 @@ $PROJECT_ROOT = (Resolve-Path (Join-Path $SCRIPT_DIR "..")).Path
 $INSTALLER_DIR = Join-Path $PROJECT_ROOT "installer"
 $ISS_PATH = Join-Path $INSTALLER_DIR "kiroku_setup.iss"
 $DIST_DIR = Join-Path $PROJECT_ROOT "dist\installer"
+$DESKTOP_EXE = Join-Path $PROJECT_ROOT "dist\desktop\kiroku.exe"
 $BACKEND_EXE = Join-Path $PROJECT_ROOT "dist\backend\KirokuNote\KirokuNote.exe"
 $EXTENSION_DIR = Join-Path $PROJECT_ROOT "dist\extension\unpacked"
 
@@ -22,12 +23,17 @@ Write-Host "============================================================" -Foreg
 # 1. Verify Prerequisites
 Write-Host "`n[1/4] Verifying release prerequisites..." -ForegroundColor Yellow
 
-if (-not (Test-Path $BACKEND_EXE)) {
-    Write-Error "[FATAL] Backend standalone executable not found at: $BACKEND_EXE. Please run 'release/build-backend.ps1' first."
-    exit 1
+if (-not (Test-Path $DESKTOP_EXE)) {
+    if (Test-Path $BACKEND_EXE) {
+        Write-Host "  Desktop executable not found at $DESKTOP_EXE. Running build-desktop.ps1..." -ForegroundColor Yellow
+        & powershell -ExecutionPolicy Bypass -File (Join-Path $SCRIPT_DIR "build-desktop.ps1")
+    } else {
+        Write-Error "[FATAL] Desktop application executable not found at: $DESKTOP_EXE. Please run 'release/build-desktop.ps1' first."
+        exit 1
+    }
 }
-$BackendSizeMB = [math]::Round((Get-Item $BACKEND_EXE).Length / 1MB, 2)
-Write-Host "  Found backend binary: $BACKEND_EXE ($BackendSizeMB MB)" -ForegroundColor Green
+$DesktopSizeMB = [math]::Round((Get-Item $DESKTOP_EXE).Length / 1MB, 2)
+Write-Host "  Found desktop binary: $DESKTOP_EXE ($DesktopSizeMB MB)" -ForegroundColor Green
 
 if (-not (Test-Path $EXTENSION_DIR)) {
     Write-Error "[FATAL] Packed extension directory not found at: $EXTENSION_DIR. Please run 'release/build-extension.ps1' first."

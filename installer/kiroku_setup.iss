@@ -2,14 +2,15 @@
 ; Kiroku Note — Windows Inno Setup Script
 ; ==============================================================================
 ; Produces a 64-bit per-user Windows installer: Kiroku-Note-Setup-v2.1.0.exe
-; Installs standalone backend executable and unpacked Chromium MV3 extension.
+; Installs desktop companion executable (kiroku.exe), bundled Python backend,
+; and unpacked Chromium MV3 extension.
 ; User data is isolated in %LOCALAPPDATA%\KirokuNote and never bundled or overwritten.
 ; ==============================================================================
 
 #define MyAppName "Kiroku Note"
 #define MyAppVersion "2.1.0"
 #define MyAppPublisher "Kiroku Note"
-#define MyAppExeName "KirokuNote.exe"
+#define MyAppExeName "kiroku.exe"
 #define MyAppId "{{8B84B425-4521-4E65-A6FB-1EE08C36A780}"
 
 [Setup]
@@ -34,7 +35,7 @@ UsePreviousAppDir=yes
 UsePreviousGroup=yes
 UsePreviousPrivileges=yes
 CloseApplications=force
-CloseApplicationsFilter={#MyAppExeName},KirokuOCR.exe
+CloseApplicationsFilter={#MyAppExeName},KirokuNote.exe,KirokuOCR.exe
 UninstallDisplayIcon={app}\{#MyAppExeName}
 SetupIconFile=..\assets\icon.ico
 ShowLanguageDialog=no
@@ -47,18 +48,21 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [InstallDelete]
-; Purge stale PyInstaller runtime internals and extension directory to prevent stale/orphaned file conflicts on upgrade
+; Purge stale app internals, extension, and native binaries to prevent stale/orphaned file conflicts on upgrade
+Type: filesandordirs; Name: "{app}\resources"
+Type: filesandordirs; Name: "{app}\locales"
 Type: filesandordirs; Name: "{app}\_internal"
 Type: filesandordirs; Name: "{app}\extension"
 Type: files; Name: "{app}\*.pyd"
 Type: files; Name: "{app}\*.pyc"
+Type: files; Name: "{app}\*.dll"
+Type: files; Name: "{app}\*.pak"
+Type: files; Name: "{app}\*.bin"
+Type: files; Name: "{app}\*.dat"
 
 [Files]
-; Backend Standalone Executable
-Source: "..\dist\backend\KirokuNote\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; Chromium MV3 Extension Runtime
-Source: "..\dist\extension\unpacked\*"; DestDir: "{app}\extension"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Desktop Shell & Bundled Backend Runtime
+Source: "..\dist\desktop\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Post-install Browser Extension Setup Documentation
 Source: "extension_instructions.txt"; DestDir: "{app}"; Flags: ignoreversion
@@ -68,7 +72,7 @@ Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\backend\app\data\JLPT_REFERENCE_NOTICE.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\backend\app\data\KANJIVG_NOTICE.md"; DestDir: "{app}"; Flags: ignoreversion
 
-; NOTE: User data (kiroku.db, media files, logs) is explicitly excluded from installation.
+; NOTE: User data (study.db, kiroku.db, media files, backups, logs) is explicitly excluded from installation.
 ; All persistent user data resides in %LOCALAPPDATA%\KirokuNote\ and is preserved during upgrades and uninstalls.
 
 [Dirs]
@@ -80,15 +84,21 @@ Name: "{localappdata}\KirokuNote\study\media"
 Name: "{localappdata}\KirokuNote\study\backups"
 
 [UninstallDelete]
+Type: filesandordirs; Name: "{app}\resources"
+Type: filesandordirs; Name: "{app}\locales"
 Type: filesandordirs; Name: "{app}\_internal"
 Type: filesandordirs; Name: "{app}\extension"
 Type: files; Name: "{app}\*.pyd"
 Type: files; Name: "{app}\*.pyc"
+Type: files; Name: "{app}\*.dll"
+Type: files; Name: "{app}\*.pak"
+Type: files; Name: "{app}\*.bin"
+Type: files; Name: "{app}\*.dat"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\Extension Setup Instructions"; Filename: "{app}\extension_instructions.txt"
-Name: "{group}\Open Extension Folder"; Filename: "{app}\extension"
+Name: "{group}\Open User Data Folder"; Filename: "{localappdata}\KirokuNote"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 

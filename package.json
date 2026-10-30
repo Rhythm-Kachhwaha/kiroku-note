@@ -5,7 +5,7 @@
   "description": "Kiroku Note - Local-First Japanese Mining Companion",
   "scripts": {
     "dev:desktop": "npm.cmd --prefix desktop run dev",
-    "test:desktop": "node --test desktop/tests/*.test.js",
+    "test:desktop": "node --test --test-concurrency=1 desktop/tests/*.test.js desktop/tests/smoke_test.js",
     "test:extension": "node --test extension/tests/*.test.js"
   }
 }

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:*;">
+  <title>Kiroku Note — Windows Desktop Foundation</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #121110;
+      color: #ede8e1;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: text;
+      overflow-x: hidden;
+      padding: 1.25rem;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #25211e;
+      padding-bottom: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .brand-wordmark {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #ede8e1;
+    }
+    .badge {
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-m13 {
+      background: rgba(184, 70, 50, 0.15);
+      color: #e06852;
+      border: 1px solid rgba(184, 70, 50, 0.3);
+    }
+    .badge-status {
+      background: rgba(78, 187, 123, 0.15);
+      color: #4ebb7b;
+      border: 1px solid rgba(78, 187, 123, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4ebb7b;
+      box-shadow: 0 0 6px rgba(78, 187, 123, 0.6);
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+    .card {
+      background: #181715;
+      border: 1px solid #282420;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #9e948a;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.35rem 0;
+      font-size: 0.84rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .meta-row:last-child {
+      border-bottom: none;
+    }
+    .meta-label {
+      color: #9e948a;
+    }
+    .meta-value {
+      color: #ede8e1;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.82rem;
+    }
+    .meta-value.highlight {
+      color: #4ebb7b;
+      font-weight: 600;
+    }
+    .meta-value.protected {
+      color: #e09848;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: auto;
+      padding-top: 1rem;
+    }
+    .btn {
+      padding: 0.55rem 0.95rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .btn-primary {
+      background: #25221e;
+      border-color: #38322c;
+      color: #ede8e1;
+    }
+    .btn-primary:hover {
+      background: #302b26;
+      border-color: #4a423a;
+    }
+    .btn-accent {
+      background: #b84632;
+      color: #ffffff;
+    }
+    .btn-accent:hover {
+      background: #c8503a;
+    }
+    .btn-danger {
+      background: #211e1b;
+      border-color: #382420;
+      color: #e06852;
+      margin-left: auto;
+    }
+    .btn-danger:hover {
+      background: #2d1d19;
+      border-color: #552720;
+    }
+    .diag-box {
+      background: #141312;
+      border: 1px solid #25211e;
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.76rem;
+      color: #8c8276;
+      max-height: 120px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.4;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand-group">
+      <div class="brand-wordmark">KIROKU NOTE</div>
+      <span class="badge badge-m13">M13 Shell</span>
+    </div>
+    <div class="badge badge-status">
+      <span class="dot"></span>
+      <span id="overall-status-text">Ready</span>
+    </div>
+  </header>
+
+  <div class="card-grid">
+    <!-- Backend Subprocess Supervisor Card -->
+    <div class="card">
+      <div class="card-title">
+        <span>Backend Supervisor</span>
+        <span id="backend-status-tag" style="color: #4ebb7b; font-size: 0.76rem;">ONLINE</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Loopback Binding</span>
+        <span class="meta-value" id="val-binding">127.0.0.1:21828</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Process Mode</span>
+        <span class="meta-value" id="val-mode">Managed Subprocess</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Health Endpoint</span>
+        <span class="meta-value highlight" id="val-health">HTTP 200 OK</span>
+      </div>
+    </div>
+
+    <!-- Security & Ephemeral Authentication Card -->
+    <div class="card">
+      <div class="card-title">
+        <span>Security & IPC Bridge</span>
+        <span style="color: #e09848; font-size: 0.76rem;">ISOLATED</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Study API Bearer Token</span>
+        <span class="meta-value protected">In-Memory Active [REDACTED]</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Renderer Exposure</span>
+        <span class="meta-value highlight">None (Context Isolated)</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">IPC Boundary</span>
+        <span class="meta-value">Strict Path/Method Whitelist</span>
+      </div>
+    </div>
+
+    <!-- Authenticated Study Subsystem Card -->
+    <div class="card">
+      <div class="card-title">
+        <span>Study Subsystem (v1)</span>
+        <span id="study-status-tag" style="color: #4ebb7b; font-size: 0.76rem;">AUTHENTICATED</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Question Bank Questions</span>
+        <span class="meta-value" id="val-bank-count">Loading...</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Bank Readiness</span>
+        <span class="meta-value highlight" id="val-readiness">Checking...</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Diagnostics Status</span>
+        <span class="meta-value" id="val-diag">Running...</span>
+      </div>
+      <div class="diag-box" id="diag-output">Initializing Study API handshake...</div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button type="button" class="btn btn-primary" id="btn-refresh" onclick="refreshStatus()">
+      Check Health
+    </button>
+    <button type="button" class="btn btn-primary" id="btn-sidepanel" onclick="openSidepanel()">
+      Open Companion
+    </button>
+    <button type="button" class="btn btn-danger" id="btn-quit" onclick="window.desktopAPI.quit()">
+      Quit Kiroku
+    </button>
+  </div>
+
+  <script>
+    async function refreshStatus() {
+      const diagBox = document.getElementById('diag-output');
+      try {
+        diagBox.textContent = `[${new Date().toLocaleTimeString()}] Fetching health and study bank summary...`;
+
+        // 1. Process info
+        if (window.desktopAPI?.getBackendInfo) {
+          const info = await window.desktopAPI.getBackendInfo();
+          document.getElementById('val-binding').textContent = `127.0.0.1:${info.port || 21828}`;
+          document.getElementById('val-mode').textContent = info.external ? 'Adopted External' : 'Supervised Subprocess';
+        }
+
+        // 2. Health check via secure IPC bridge
+        if (window.desktopAPI?.studyApi) {
+          const healthRes = await window.desktopAPI.studyApi.checkHealth();
+          if (healthRes.success) {
+            document.getElementById('val-health').textContent = 'HTTP 200 OK';
+          } else {
+            document.getElementById('val-health').textContent = 'Error';
+          }
+
+          // 3. Authenticated Bank Summary
+          const bankRes = await window.desktopAPI.studyApi.getBankSummary();
+          if (bankRes.success) {
+            const data = bankRes.data;
+            document.getElementById('val-bank-count').textContent = `${data.total_questions || 0} questions (${data.active_questions || 0} active)`;
+            document.getElementById('study-status-tag').textContent = 'AUTHENTICATED';
+            document.getElementById('study-status-tag').style.color = '#4ebb7b';
+          } else {
+            document.getElementById('val-bank-count').textContent = 'Auth error';
+            document.getElementById('study-status-tag').textContent = 'AUTH FAILED';
+            document.getElementById('study-status-tag').style.color = '#e06852';
+          }
+
+          // 4. Exam Readiness
+          const readyRes = await window.desktopAPI.studyApi.getExamReadiness();
+          if (readyRes.success) {
+            const ready = readyRes.data.is_ready;
+            document.getElementById('val-readiness').textContent = ready ? 'Ready' : 'Incomplete Pool';
+          }
+
+          // 5. Diagnostics
+          const diagRes = await window.desktopAPI.studyApi.getDiagnostics();
+          if (diagRes.success) {
+            document.getElementById('val-diag').textContent = 'Integrity OK';
+            diagBox.textContent = JSON.stringify(diagRes.data, null, 2);
+          } else {
+            document.getElementById('val-diag').textContent = 'Diagnostics error';
+            diagBox.textContent = JSON.stringify(diagRes.error, null, 2);
+          }
+        }
+      } catch (err) {
+        diagBox.textContent = `Error during status check: ${err.message}`;
+      }
+    }
+
+    function openSidepanel() {
+      window.location.href = '../../extension/sidepanel/sidepanel.html';
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      refreshStatus();
+    });
+  </script>
+</body>
+</html>
+

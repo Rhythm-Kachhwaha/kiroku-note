@@ -48,6 +48,7 @@ Desktop.ini
 htmlcov/
 .tox/
 .nox/
+desktop/tests/*_result.json
 
 # Logs & Temporary files
 *.log
