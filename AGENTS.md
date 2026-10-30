@@ -247,9 +247,9 @@ run_backend.py, start_backend.bat root backend launchers
 6. **Build/runtime dependencies** — Reuses existing `extension/sidepanel/` assets with desktop
    overrides focusing on Quick Add and History modes; connects to local FastAPI backend on port 21828.
 
-## Study Database & JLPT Question Bank Foundation
+## Study Database & JLPT Question Bank Subsystem
 
-1. **Entry point** — `backend/app/study/` owns the local Question Bank database foundation.
+1. **Entry point** — `backend/app/study/` owns the local Question Bank foundation, contracts, and markup parsing.
    `app.study.connection.StudyDatabaseManager` manages SQLite connections, WAL mode, and explicit transactions;
    `app.study.migrations.runner.run_migrations` applies forward-only SQL migrations;
    `app.study.backup` provides online WAL-safe backups and safe restoration.
@@ -264,6 +264,15 @@ run_backend.py, start_backend.bat root backend launchers
      `app.study.eligibility.evaluate_eligibility` returning 9 priority-ordered reason codes (`RETIRED`, `NO_CURRENT_REVISION`,
      `VALIDATION_FAILED`, `NEEDS_REVIEW`, `NO_ANSWER`, `GRADER_UNIMPLEMENTED`, `REQUIRED_ASSET_MISSING`,
      `GROUP_INCONSISTENT`, `ANSWER_CONFLICT`). Optional missing assets never cause ineligibility.
+   - Format Registry: `app.study.formats` defines metadata, category, min/max choices, and allowed JLPT levels
+     for all 20 official JLPT formats across F1–F6, matching `0002_seed_formats_and_exams.sql`.
+   - Question Contracts (F1–F6): `app.study.contracts` implements strictly typed Pydantic discriminated unions
+     for all six question families (`F1QuestionPayload` through `F6QuestionPayload`), supporting text, image, and
+     unprinted choice modes, permutation validation and star derivation for F2, anchored blanks for F4, audio references
+     for F5, shared audio contexts for F6, and database decomposition (`decompose_question_for_db`).
+   - Markup DSL & AST: `app.study.markup` implements deterministic parsing, position-aware syntax errors, AST models
+     (`TextNode`, `RubyNode`, `UnderlineNode`, `BlankNode`, `StarNode`), HTML injection prevention, canonical serialization
+     (`to_markup`), plain text (`to_plain_text`), reading text, and passage anchor cross-validation.
    - Provenance & Conflict Preservation: Multiple sources per entity, unmapped/mapped claims (`source_answer_claim`),
      and explicit preservation of contradictory external answer keys without auto-merging.
    - Diagnostics: Read-only `app.study.doctor.run_doctor` inspecting SQLite integrity, foreign keys, migration checksums,
@@ -280,7 +289,8 @@ run_backend.py, start_backend.bat root backend launchers
    - Existing vocabulary, dictionary, AnkiConnect, OCR, extension, and Electron functionality remain untouched.
 6. **Tests** — `backend/tests/test_study_db_infrastructure.py`, `test_study_schema_and_immutability.py`,
    `test_study_media.py`, `test_study_eligibility_and_provenance.py`, `test_study_exam_and_formats.py`,
-   `test_study_doctor.py`, and `test_study_exclusion_and_packaging.py`.
+   `test_study_doctor.py`, `test_study_exclusion_and_packaging.py`, `test_study_markup.py`,
+   `test_study_contracts.py`, and `test_study_integration_contracts.py`.
 
 ## Backend packaging and resources
 
