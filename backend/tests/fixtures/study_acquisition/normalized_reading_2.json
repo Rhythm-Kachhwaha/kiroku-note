@@ -1,0 +1,203 @@
+{
+  "source": {
+    "name": "JapaneseTest4You",
+    "category_url": "https://japanesetest4you.com/category/jlpt-n4/jlpt-n4-reading-test/",
+    "exercise_url": "https://japanesetest4you.com/japanese-language-proficiency-test-jlpt-n4-reading-exercise-2/",
+    "title": "JLPT N4 – Reading Exercise 02",
+    "level": "N4",
+    "section": "Reading"
+  },
+  "passages": [
+    {
+      "id": "passage_1",
+      "title": "Reading passage 1",
+      "image_url": "https://japanesetest4you.com/image/jlpt-n4-reading-2-01.gif",
+      "text": "医者「どうしましたか。川田(かわだ)さん。」\n川田「[ 1 ]。」\n医者「そうですか。いつからですか。」\n川田「きのう、ばんごはんを食べてからです。」\n医者「ばんごはんは何でしたか。」\n川田「魚と野菜です。自分で魚をやいて、サラダを作りました。」\n医者「魚は古くありませんでしたか。」\n川田「[ 2 ]。でも、とてもおいしかったです。」\n医者「そうですか。じゃあ、そこのベッドにねて、おなかをみせてください。」\n川田「はい、ちょっと待ってください。……[ 3 ]。」\n医者「ええ、けっこうです。ここを おしますよ。どうですか。いたいですか。」\n川田「はい。」\n医者「そうですか。川田さん、ばんごはんを食べすぎませんでしたか。」\n川田「ああ……。おいしかったから、ごはんを５はい食べました。」\n医者「ああ、それでいたくなったんですよ。薬を出しますから、飲んでください。」\n川田「わかりました。どうもありがとうございました。",
+      "questions": [
+        {
+          "number": 1,
+          "question_text": "[ 1 ] には何を入れますか。",
+          "choices": [
+            {
+              "label": "1",
+              "text": "おなかがいたいんです"
+            },
+            {
+              "label": "2",
+              "text": "おなかがいたいでしょう"
+            },
+            {
+              "label": "3",
+              "text": "おなかがいたいんですから"
+            },
+            {
+              "label": "4",
+              "text": "おなかがいたくなりますか"
+            }
+          ],
+          "source_answer": 1,
+          "answer_source": "page_answer_key",
+          "source_explanation": "[ 1 ] には何を入れますか。=> おなかがいたいんです"
+        },
+        {
+          "number": 2,
+          "question_text": "[ 2 ] には何を入れますか。",
+          "choices": [
+            {
+              "label": "1",
+              "text": "ええと、ありました"
+            },
+            {
+              "label": "2",
+              "text": "あのう、よく食べました"
+            },
+            {
+              "label": "3",
+              "text": "ええ、そうします"
+            },
+            {
+              "label": "4",
+              "text": "さあ、わかりません"
+            }
+          ],
+          "source_answer": 4,
+          "answer_source": "page_answer_key",
+          "source_explanation": "[ 2 ] には何を入れますか。=> さあ、わかりません"
+        },
+        {
+          "number": 3,
+          "question_text": "[ 3 ] には何を入れますか。",
+          "choices": [
+            {
+              "label": "1",
+              "text": "これがいいですか"
+            },
+            {
+              "label": "2",
+              "text": "これでいいですか"
+            },
+            {
+              "label": "3",
+              "text": "それからいいですか"
+            },
+            {
+              "label": "4",
+              "text": "それならいいですか"
+            }
+          ],
+          "source_answer": 2,
+          "answer_source": "page_answer_key",
+          "source_explanation": "[ 3 ] には何を入れますか。=> これでいいですか"
+        },
+        {
+          "number": 4,
+          "question_text": "医者は、川田さんの病気のげんいんは何だと言っていますか。",
+          "choices": [
+            {
+              "label": "1",
+              "text": "食べすぎたこと"
+            },
+            {
+              "label": "2",
+              "text": "おなかをおされたこと"
+            },
+            {
+              "label": "3",
+              "text": "古い魚を食べたこと"
+            },
+            {
+              "label": "4",
+              "text": "ばんごはんを食べなかったこと"
+            }
+          ],
+          "source_answer": 1,
+          "answer_source": "page_answer_key",
+          "source_explanation": "医者は、川田さんの病気のげんいんは何だと言っていますか。=> 食べすぎたこと"
+        }
+      ]
+    },
+    {
+      "id": "passage_2",
+      "title": "Reading passage 2",
+      "image_url": "https://japanesetest4you.com/image/jlpt-n4-reading-2-02.gif",
+      "text": "かいぎ室を利用する人へ\nこのビルには、三つの大きさのかいぎ室があります。\n大かいぎ室\n５かいに一つあります。100人入れます。\n【よやくのしかた】\n３か月前から１週間前までよやくできます。ここを使いたいときは、よやくの紙に使う日や時間を書いて、じむしょに出してください。よやくの紙はじむしょでもらえます。毎月１日になると、その月のよやくを書いたカレンダーがじむしょの前にはられます。\n中かいぎ室\n６かいに一つあります。50人入れます。\n【よやくのしかた】\n２か月前から前の日までよやくできます。毎月１日に、このかいぎ室の前に２か月後の大きいカレンダーをはります。\nたとえば、３月１日には５月のカレンダーをはります。使いたい日の使いたい時間のところに名前を書いてください。\n小かいぎ室\n２かいから４かいまで一つずつあります。一つのかいぎ室に20人入れます。\n【よやくのしかた】\n１週間からよやくできます。利用する日でもよやくできます。\n使いたいときはじむしょの人に言ってください。",
+      "questions": [
+        {
+          "number": 5,
+          "question_text": "このビルにはかいぎ室がぜんぶでいくつありますか。",
+          "choices": [
+            {
+              "label": "1",
+              "text": "三つ"
+            },
+            {
+              "label": "2",
+              "text": "四つ"
+            },
+            {
+              "label": "3",
+              "text": "五つ"
+            },
+            {
+              "label": "4",
+              "text": "六つ"
+            }
+          ],
+          "source_answer": 3,
+          "answer_source": "page_answer_key",
+          "source_explanation": "このビルにはかいぎ室がぜんぶでいくつありますか。=> 五つ"
+        },
+        {
+          "number": 6,
+          "question_text": "３日前によやくできるかいぎ室はどれですか。",
+          "choices": [
+            {
+              "label": "1",
+              "text": "大かいぎ室と中かいぎ室"
+            },
+            {
+              "label": "2",
+              "text": "中かいぎ室と小かいぎ室"
+            },
+            {
+              "label": "3",
+              "text": "大かいぎ室と小かいぎ室"
+            },
+            {
+              "label": "4",
+              "text": "ぜんぶのかいぎ室"
+            }
+          ],
+          "source_answer": 2,
+          "answer_source": "page_answer_key",
+          "source_explanation": "３日前によやくできるかいぎ室はどれですか。=> 中かいぎ室と小かいぎ室"
+        },
+        {
+          "number": 7,
+          "question_text": "４月５日に80人でかいぎをします。正しくよやくしているのはどれですか。",
+          "choices": [
+            {
+              "label": "1",
+              "text": "２月１日にかいぎ室の前のカレンダーによていを書きます。"
+            },
+            {
+              "label": "2",
+              "text": "４月１日にかいぎ室の前のカレンダーによていを書きます。"
+            },
+            {
+              "label": "3",
+              "text": "２月１日にじむしょへ行って、よやくの紙に書いて出します。"
+            },
+            {
+              "label": "4",
+              "text": "４月１日にじむしょへ行って、よやくの紙に書いて出します。"
+            }
+          ],
+          "source_answer": 3,
+          "answer_source": "page_answer_key",
+          "source_explanation": "４月５日に80人でかいぎをします。正しくよやくしているのはどれですか。=> ２月１日にじむしょへ行って、よやくの紙に書いて出します。"
+        }
+      ]
+    }
+  ]
+}

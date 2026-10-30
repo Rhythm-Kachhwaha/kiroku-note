@@ -84,6 +84,9 @@ backend/study/
 backend/data/study/
 study.db*
 study-v*-to-v*.db*
+raw_acquisition/
+backend/study/raw_acquisition/
+experiments/
 
 # Secrets & Environment variables
 .env
@@ -104,6 +107,8 @@ yarn-error.log*
 # Ignored Markdown reports
 AudioReport.md
 AudioFeatureReport.md
+M4_ACQUISITION_FEASIBILITY_REPORT.md
+*FEASIBILITY_REPORT.md
 
 UI-exploration/
 !docs/

@@ -1,0 +1,272 @@
+{
+  "source": {
+    "name": "JapaneseTest4You",
+    "category_url": "https://japanesetest4you.com/category/jlpt-n4/jlpt-n4-grammar-test/",
+    "exercise_url": "https://japanesetest4you.com/japanese-language-proficiency-test-jlpt-n4-grammar-exercise-1/",
+    "title": "JLPT N4 – Grammar Exercise 01",
+    "level": "N4",
+    "section": "Grammar"
+  },
+  "questions": [
+    {
+      "number": 1,
+      "question_text": "あの人は病気ではない _______ くすりをたくさん飲んでいます。",
+      "choices": [
+        {
+          "label": "1",
+          "text": "ので"
+        },
+        {
+          "label": "2",
+          "text": "ために"
+        },
+        {
+          "label": "3",
+          "text": "のに"
+        },
+        {
+          "label": "4",
+          "text": "から"
+        }
+      ],
+      "source_answer": 3,
+      "answer_source": "page_answer_key",
+      "source_explanation": "あの人は病気ではないのにくすりをたくさん飲んでいます。",
+      "grammar_point": "のに"
+    },
+    {
+      "number": 2,
+      "question_text": "これから日本に行くけど１週間で戻る。戻ったらすぐに会いたいと思う。それまで、なにも _______ 。",
+      "choices": [
+        {
+          "label": "1",
+          "text": "決めないようほしい"
+        },
+        {
+          "label": "2",
+          "text": "決めないほしい"
+        },
+        {
+          "label": "3",
+          "text": "決めなくてほしい"
+        },
+        {
+          "label": "4",
+          "text": "決めないでほしい"
+        }
+      ],
+      "source_answer": 4,
+      "answer_source": "page_answer_key",
+      "source_explanation": "これから日本に行くけど１週間で戻る。戻ったらすぐに会いたいと思う。それまで、なにも決めないでほしい。",
+      "grammar_point": "てほしい"
+    },
+    {
+      "number": 3,
+      "question_text": "社長から電話が _______ とき、私は子供とピクニックに出かける準備をしていた。",
+      "choices": [
+        {
+          "label": "1",
+          "text": "かかってきた"
+        },
+        {
+          "label": "2",
+          "text": "かかっていった"
+        },
+        {
+          "label": "3",
+          "text": "かかっておいた"
+        },
+        {
+          "label": "4",
+          "text": "かかってみた"
+        }
+      ],
+      "source_answer": 1,
+      "answer_source": "page_answer_key",
+      "source_explanation": "社長から電話がかかってきたとき、私は子供とピクニックに出かける準備をしていた。",
+      "grammar_point": "とき"
+    },
+    {
+      "number": 4,
+      "question_text": "でもあなたと話が _______ よ。だって二人で話をしたことなんて一度もなかったものな。",
+      "choices": [
+        {
+          "label": "1",
+          "text": "できてよい"
+        },
+        {
+          "label": "2",
+          "text": "できてよかった"
+        },
+        {
+          "label": "3",
+          "text": "できたらよかった"
+        },
+        {
+          "label": "4",
+          "text": "できればよかった"
+        }
+      ],
+      "source_answer": 2,
+      "answer_source": "page_answer_key",
+      "source_explanation": "でもあなたと話ができてよかったよ。だって二人で話をしたことなんて一度もなかったものな。",
+      "grammar_point": "てよかった"
+    },
+    {
+      "number": 5,
+      "question_text": "彼は私たちが部屋に入った _______ ドアを閉めた。",
+      "choices": [
+        {
+          "label": "1",
+          "text": "ごで"
+        },
+        {
+          "label": "2",
+          "text": "あとで"
+        },
+        {
+          "label": "3",
+          "text": "まえで"
+        },
+        {
+          "label": "4",
+          "text": "まえに"
+        }
+      ],
+      "source_answer": 2,
+      "answer_source": "page_answer_key",
+      "source_explanation": "彼は私たちが部屋に入ったあとでドアを閉めた。",
+      "grammar_point": "あとで"
+    },
+    {
+      "number": 6,
+      "question_text": "このバスは郵便局の前 _______ 通りますか？",
+      "choices": [
+        {
+          "label": "1",
+          "text": "で"
+        },
+        {
+          "label": "2",
+          "text": "に"
+        },
+        {
+          "label": "3",
+          "text": "へ"
+        },
+        {
+          "label": "4",
+          "text": "を"
+        }
+      ],
+      "source_answer": 4,
+      "answer_source": "page_answer_key",
+      "source_explanation": "このバスは郵便局の前を通りますか？",
+      "grammar_point": "を (passage marker)"
+    },
+    {
+      "number": 7,
+      "question_text": "この本のほうがあなたには _______ はずだ。",
+      "choices": [
+        {
+          "label": "1",
+          "text": "わかったやすい"
+        },
+        {
+          "label": "2",
+          "text": "わかるやすい"
+        },
+        {
+          "label": "3",
+          "text": "わかりやすい"
+        },
+        {
+          "label": "4",
+          "text": "わかってやすい"
+        }
+      ],
+      "source_answer": 3,
+      "answer_source": "page_answer_key",
+      "source_explanation": "この本のほうがあなたにはわかりやすいはずだ。",
+      "grammar_point": "やすい / はずだ"
+    },
+    {
+      "number": 8,
+      "question_text": "電車を待っていたとき、わたしは友だち _______ 名前を呼ばれました。",
+      "choices": [
+        {
+          "label": "1",
+          "text": "を"
+        },
+        {
+          "label": "2",
+          "text": "が"
+        },
+        {
+          "label": "3",
+          "text": "に"
+        },
+        {
+          "label": "4",
+          "text": "で"
+        }
+      ],
+      "source_answer": 3,
+      "answer_source": "page_answer_key",
+      "source_explanation": "電車を待っていたとき、わたしは友だちに名前を呼ばれました。",
+      "grammar_point": "られる (passive agent に)"
+    },
+    {
+      "number": 9,
+      "question_text": "昨日は仕事を守れる _______ が不安だった。しかしいまは、命を守れる _______ が不安だ。",
+      "choices": [
+        {
+          "label": "1",
+          "text": "かどうか/かどうか"
+        },
+        {
+          "label": "2",
+          "text": "か/か"
+        },
+        {
+          "label": "3",
+          "text": "じゃないか/じゃないか"
+        },
+        {
+          "label": "4",
+          "text": "の/の"
+        }
+      ],
+      "source_answer": 1,
+      "answer_source": "page_answer_key",
+      "source_explanation": "昨日は仕事を守れるかどうかが不安だった。しかしいまは、命を守れるかどうかが不安だ。",
+      "grammar_point": "かどうか"
+    },
+    {
+      "number": 10,
+      "question_text": "明日の夕方 _______ 東京に戻りたい。アルバイトに行かなければならないから。",
+      "choices": [
+        {
+          "label": "1",
+          "text": "までで"
+        },
+        {
+          "label": "2",
+          "text": "まで"
+        },
+        {
+          "label": "3",
+          "text": "までに"
+        },
+        {
+          "label": "4",
+          "text": "にまで"
+        }
+      ],
+      "source_answer": 3,
+      "answer_source": "page_answer_key",
+      "source_explanation": "明日の夕方までに東京に戻りたい。アルバイトに行かなければならないから。",
+      "grammar_point": "までに"
+    }
+  ]
+}

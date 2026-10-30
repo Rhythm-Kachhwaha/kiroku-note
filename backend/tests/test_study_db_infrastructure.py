@@ -130,18 +130,20 @@ def test_fresh_migrations_and_ledger(study_env: Path):
 
     try:
         applied = run_migrations(conn)
-        assert applied == 3
-        assert get_current_user_version(conn) == 3
+        assert applied == 4
+        assert get_current_user_version(conn) == 4
 
         # Verify ledger records
         rows = conn.execute("SELECT version, name, checksum, applied_at FROM schema_migration ORDER BY version ASC;").fetchall()
-        assert len(rows) == 3
+        assert len(rows) == 4
         assert rows[0]["version"] == 1
         assert rows[0]["name"] == "0001_initial.sql"
         assert rows[1]["version"] == 2
         assert rows[1]["name"] == "0002_seed_formats_and_exams.sql"
         assert rows[2]["version"] == 3
         assert rows[2]["name"] == "0003_ai_verification.sql"
+        assert rows[3]["version"] == 4
+        assert rows[3]["name"] == "0004_acquisition_jobs.sql"
 
         # Re-running migrations is an idempotent no-op
         applied_again = run_migrations(conn)
