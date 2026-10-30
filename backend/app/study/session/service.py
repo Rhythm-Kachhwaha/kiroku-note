@@ -12,6 +12,7 @@ import random
 import sqlite3
 from typing import Any, List, Optional
 
+from app.study.media import MediaStore
 from app.study.session.adaptive import (
     select_practice_candidates,
     update_question_adaptive_state,
@@ -70,8 +71,9 @@ class PracticeSessionService:
     Manages the full lifecycle and persistence of practice sessions.
     """
 
-    def __init__(self, conn: sqlite3.Connection):
+    def __init__(self, conn: sqlite3.Connection, media_store: Optional[MediaStore] = None):
         self.conn = conn
+        self.media_store = media_store or MediaStore()
 
     def create_session(self, config: PracticeSessionConfig) -> PracticeSessionState:
         """
@@ -88,6 +90,8 @@ class PracticeSessionService:
                 format_code=config.format_code,
                 limit=config.question_count,
                 seed=seed,
+                verify_files=True,
+                media_store=self.media_store,
             )
 
             if not candidates:

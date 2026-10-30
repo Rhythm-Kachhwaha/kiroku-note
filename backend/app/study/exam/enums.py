@@ -26,6 +26,13 @@ class BlueprintEvidenceLevel(str, Enum):
     OFFICIALLY_DOCUMENTED = "officially_documented"
     VERIFIED_PAPERS = "verified_papers"
     CONFIGURABLE_ESTIMATE = "configurable_estimate"
+    INFERRED = "inferred"
+
+
+class ExamMode(str, Enum):
+    """Execution mode of an examination attempt."""
+    STRICT = "strict"
+    RELAXED = "relaxed"
 
 
 class ReadinessStatus(str, Enum):

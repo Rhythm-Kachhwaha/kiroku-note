@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.study.exam.enums import (
     BlueprintEvidenceLevel,
+    ExamMode,
     ExamSectionStatus,
     PassFailAssessment,
     ReadinessStatus,
@@ -140,6 +141,7 @@ class ExamItemPresentation(ExamContractBase):
     is_marked_for_review: bool = False
     is_answered: bool = False
     selected_choice_id: Optional[int] = None
+    audio_play_count: int = 0
     # Post-exam revelation fields (revealed only after exam completion)
     is_correct: Optional[bool] = None
     canonical_choice_id: Optional[int] = None
@@ -160,6 +162,8 @@ class ExamSessionState(ExamContractBase):
     active_section_order: int
     sections: List[ExamSectionState]
     current_section_items: List[ExamItemPresentation] = Field(default_factory=list)
+    server_time: Optional[str] = None
+    exam_mode: ExamMode = ExamMode.STRICT
 
 
 # -----------------------------------------------------------------------------
@@ -181,6 +185,8 @@ class ScoringSectionResult(ExamContractBase):
     passed_threshold: bool
     threshold_status: ThresholdStatus
     calculation_explanation: str
+    estimated_score_lower: Optional[int] = None
+    estimated_score_upper: Optional[int] = None
 
 
 class ExamResult(ExamContractBase):
@@ -198,6 +204,8 @@ class ExamResult(ExamContractBase):
     raw_accuracy: float
     scoring_sections: List[ScoringSectionResult]
     estimated_total_score: int
+    estimated_score_lower: Optional[int] = None
+    estimated_score_upper: Optional[int] = None
     overall_max_score: int = 180
     overall_pass_threshold: int
     passed_overall: bool
@@ -206,6 +214,7 @@ class ExamResult(ExamContractBase):
     readiness_assessment: PassFailAssessment
     result_labels: Dict[str, str]
     completed_at: str
+    interpretation: Optional[str] = None
 
 
 # -----------------------------------------------------------------------------

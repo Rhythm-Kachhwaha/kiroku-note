@@ -28,6 +28,15 @@ import uuid
 from app.config import get_study_media_dir
 
 
+# In-memory validation cache: sha256 -> (mtime, byte_size, is_valid)
+_VERIFY_CACHE: dict[str, tuple[float, int, bool]] = {}
+
+
+def clear_media_verify_cache() -> None:
+    """Clear in-memory media verification cache."""
+    _VERIFY_CACHE.clear()
+
+
 class MediaStorageError(Exception):
     """Base error for media storage operations."""
     pass
@@ -225,7 +234,10 @@ class MediaStore:
         return self._validate_path_contained(target)
 
     def verify_asset(self, sha256_hash: str, conn: sqlite3.Connection) -> bool:
-        """Verify that an asset exists on disk and its content matches its SHA-256 hash."""
+        """
+        Verify that an asset exists on disk, is accessible, non-empty, and its content matches its SHA-256 hash.
+        Uses in-memory mtime/size caching to avoid repeatedly reading large media files.
+        """
         row = conn.execute("SELECT relative_path FROM asset WHERE sha256 = ?;", (sha256_hash,)).fetchone()
         if not row:
             return False
@@ -235,15 +247,30 @@ class MediaStore:
         except PathTraversalError:
             return False
 
-        if not full_path.is_file():
+        try:
+            if not full_path.is_file():
+                return False
+
+            stat = full_path.stat()
+            if stat.st_size == 0:
+                return False
+
+            # Check cache
+            cached = _VERIFY_CACHE.get(sha256_hash)
+            if cached is not None and cached[0] == stat.st_mtime and cached[1] == stat.st_size:
+                return cached[2]
+
+            hasher = hashlib.sha256()
+            with open(full_path, "rb") as f:
+                while chunk := f.read(65536):
+                    hasher.update(chunk)
+
+            is_valid = hasher.hexdigest() == sha256_hash
+            _VERIFY_CACHE[sha256_hash] = (stat.st_mtime, stat.st_size, is_valid)
+            return is_valid
+        except OSError:
+            # File unreadable, permission denied, or I/O error
             return False
-
-        hasher = hashlib.sha256()
-        with open(full_path, "rb") as f:
-            while chunk := f.read(65536):
-                hasher.update(chunk)
-
-        return hasher.hexdigest() == sha256_hash
 
     def reconcile_assets(self, conn: sqlite3.Connection) -> dict[str, int]:
         """

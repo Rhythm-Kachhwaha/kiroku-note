@@ -18,6 +18,7 @@ from app.study.exam.blueprint import (
 )
 from app.study.exam.enums import (
     BlueprintEvidenceLevel,
+    ExamMode,
     ExamSectionStatus,
     PassFailAssessment,
     ReadinessStatus,
@@ -41,13 +42,16 @@ from app.study.exam.models import (
     SectionTimingDetail,
 )
 from app.study.exam.scoring import (
+    ProvisionalBandScoringModel,
     ProvisionalRawScoringModel,
     ScoringModel,
+    wilson_score_interval,
 )
 from app.study.exam.service import (
     ExamReadinessError,
     ExamSectionClosedError,
     ExamSectionSequenceError,
+    ExamService,
     ExamServiceError,
     ExamSessionService,
 )
@@ -61,6 +65,7 @@ __all__ = [
     "ExamBlueprint",
     "ExamItemPresentation",
     "ExamItemQuota",
+    "ExamMode",
     "ExamReadinessError",
     "ExamReadinessReport",
     "ExamReadinessValidator",
@@ -70,6 +75,7 @@ __all__ = [
     "ExamSectionSequenceError",
     "ExamSectionState",
     "ExamSectionStatus",
+    "ExamService",
     "ExamServiceError",
     "ExamSessionService",
     "ExamSessionState",
@@ -77,6 +83,7 @@ __all__ = [
     "FormatReadiness",
     "OFFICIAL_BLUEPRINTS",
     "PassFailAssessment",
+    "ProvisionalBandScoringModel",
     "ProvisionalRawScoringModel",
     "ReadinessStatus",
     "ScoringModel",
@@ -89,4 +96,5 @@ __all__ = [
     "get_official_blueprint",
     "list_official_blueprints",
     "save_blueprint_to_db",
+    "wilson_score_interval",
 ]

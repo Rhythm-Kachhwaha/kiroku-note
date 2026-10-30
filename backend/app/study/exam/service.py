@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import math
 import random
 import sqlite3
 from typing import Any, List, Optional, Set, Tuple
@@ -20,6 +21,7 @@ from app.study.exam.blueprint import (
     save_blueprint_to_db,
 )
 from app.study.exam.enums import (
+    ExamMode,
     ExamSectionStatus,
     PassFailAssessment,
     ReadinessStatus,
@@ -99,10 +101,12 @@ class ExamSessionService:
         blueprint_or_level: ExamBlueprint | str,
         seed: Optional[int] = None,
         version: Optional[str] = None,
+        mode: ExamMode | str = ExamMode.RELAXED,
     ) -> ExamSessionState:
         """
         Generate and persist a complete JLPT examination matching the blueprint.
         Strictly blocks generation if the question bank is incomplete.
+        Supports strict and relaxed exam modes.
         """
         with unit_of_work(self.conn):
             # Resolve blueprint
@@ -129,6 +133,12 @@ class ExamSessionService:
             # Save blueprint to ledger if not present
             save_blueprint_to_db(self.conn, blueprint)
 
+            mode_val = mode.value if isinstance(mode, ExamMode) else str(mode)
+            recipe_dict = json.loads(blueprint.model_dump_json())
+            recipe_dict["exam_mode"] = mode_val
+            recipe_dict["audio_play_counts"] = {}
+            recipe_json = json.dumps(recipe_dict)
+
             # 2. Persist test_attempt
             cursor = self.conn.execute(
                 """
@@ -151,7 +161,7 @@ class ExamSessionService:
                     SessionType.EXAM.value,
                     SessionStatus.CREATED.value,
                     blueprint.level,
-                    blueprint.model_dump_json(),
+                    recipe_json,
                     actual_seed,
                     now_iso,
                 ),
@@ -309,7 +319,7 @@ class ExamSessionService:
         Create a separate diagnostic practice session from available questions.
         Explicitly runs in practice mode and never generates official pass/fail verdicts.
         """
-        practice_service = PracticeSessionService(self.conn)
+        practice_service = PracticeSessionService(self.conn, media_store=self.media_store)
         config = PracticeSessionConfig(
             level=level,
             question_count=question_count,
@@ -317,6 +327,16 @@ class ExamSessionService:
             session_type=SessionType.PRACTICE,
         )
         return practice_service.create_session(config)
+
+    def create_exam_session(
+        self,
+        blueprint_or_level: ExamBlueprint | str,
+        seed: Optional[int] = None,
+        version: Optional[str] = None,
+        mode: ExamMode | str = ExamMode.RELAXED,
+    ) -> ExamSessionState:
+        """Convenience alias for create_examination."""
+        return self.create_examination(blueprint_or_level, seed=seed, version=version, mode=mode)
 
     # -------------------------------------------------------------------------
     # 2. Examination Runtime State & Timer Sync
@@ -351,8 +371,11 @@ class ExamSessionService:
         blueprint_json = row["recipe_snapshot_json"] or "{}"
         blueprint_data = json.loads(blueprint_json)
         bp_version = blueprint_data.get("version", DEFAULT_BLUEPRINT_VERSION)
+        exam_mode = ExamMode(blueprint_data.get("exam_mode", ExamMode.STRICT.value))
+        audio_play_counts = blueprint_data.get("audio_play_counts", {})
 
         now = datetime.now(timezone.utc)
+        now_iso = now.isoformat()
 
         # Fetch sections
         sec_rows = self.conn.execute(
@@ -378,11 +401,12 @@ class ExamSessionService:
             elapsed_ms = s_row["total_elapsed_ms"]
 
             # Pure read calculation: compute remaining seconds from stored deadline in memory
+            # Uses ceil to eliminate premature integer truncation
             if sec_status == ExamSectionStatus.IN_PROGRESS and deadline_at:
                 dl_dt = datetime.fromisoformat(deadline_at)
                 if dl_dt.tzinfo is None:
                     dl_dt = dl_dt.replace(tzinfo=timezone.utc)
-                rem_sec = max(0, int((dl_dt - now).total_seconds()))
+                rem_sec = max(0, math.ceil((dl_dt - now).total_seconds()))
 
             sections.append(
                 ExamSectionState(
@@ -547,6 +571,7 @@ class ExamSessionService:
                     is_marked_for_review=bool(it["is_marked_for_review"]),
                     is_answered=is_answered,
                     selected_choice_id=it["selected_choice_id"],
+                    audio_play_count=int(audio_play_counts.get(str(it["attempt_item_id"]), 0)),
                     is_correct=post_is_correct,
                     canonical_choice_id=post_canonical_id,
                     canonical_choice_key=post_canonical_key,
@@ -566,6 +591,8 @@ class ExamSessionService:
             active_section_order=active_block_order,
             sections=sections,
             current_section_items=items,
+            server_time=now_iso,
+            exam_mode=exam_mode,
         )
 
     def settle_timers(self, session_id_or_external_id: int | str) -> list[int]:
@@ -759,10 +786,14 @@ class ExamSessionService:
     def pause_section(self, session_id: int, block_order: int) -> ExamSessionState:
         """
         Pause an in-progress section, freezing remaining time.
+        In strict exam mode, pausing is strictly blocked.
         """
         with unit_of_work(self.conn):
             self.settle_timers(session_id)
             sess = self.peek_state(session_id)
+            if sess.exam_mode == ExamMode.STRICT:
+                raise ExamServiceError("Section pausing is not permitted in strict exam mode.")
+
             target_sec = next((s for s in sess.sections if s.block_order == block_order), None)
             if not target_sec:
                 raise ExamServiceError(f"Section block {block_order} not found in exam {session_id}.")
@@ -773,13 +804,13 @@ class ExamSessionService:
             now = datetime.now(timezone.utc)
             now_iso = now.isoformat()
 
-            # Calculate exact remaining seconds
+            # Calculate exact remaining seconds using ceil to avoid premature truncation
             remaining_seconds = target_sec.remaining_time_seconds
             if target_sec.deadline_at:
                 dl_dt = datetime.fromisoformat(target_sec.deadline_at)
                 if dl_dt.tzinfo is None:
                     dl_dt = dl_dt.replace(tzinfo=timezone.utc)
-                remaining_seconds = max(0, int((dl_dt - now).total_seconds()))
+                remaining_seconds = max(0, math.ceil((dl_dt - now).total_seconds()))
 
             self.conn.execute(
                 """
@@ -790,6 +821,41 @@ class ExamSessionService:
                 (ExamSectionStatus.PAUSED.value, remaining_seconds, now_iso, target_sec.section_id),
             )
             return self.peek_state(session_id)
+
+    def record_audio_playback(self, session_id: int, attempt_item_id: int) -> int:
+        """
+        Record an audio playback event for an attempt item.
+        In strict exam mode, audio cannot be replayed (play count cannot exceed 1).
+        In relaxed exam mode, replaying is permitted.
+        Returns the updated audio play count.
+        """
+        with unit_of_work(self.conn):
+            row = self.conn.execute(
+                "SELECT recipe_snapshot_json FROM test_attempt WHERE id = ?;",
+                (session_id,),
+            ).fetchone()
+            if not row:
+                raise SessionNotFoundError(f"Exam session '{session_id}' not found.")
+
+            recipe_data = json.loads(row["recipe_snapshot_json"] or "{}")
+            exam_mode = ExamMode(recipe_data.get("exam_mode", ExamMode.STRICT.value))
+            audio_play_counts = recipe_data.get("audio_play_counts", {})
+
+            item_key = str(attempt_item_id)
+            current_count = int(audio_play_counts.get(item_key, 0))
+
+            if exam_mode == ExamMode.STRICT and current_count >= 1:
+                raise ExamServiceError("Listening audio cannot be replayed in strict exam mode.")
+
+            updated_count = current_count + 1
+            audio_play_counts[item_key] = updated_count
+            recipe_data["audio_play_counts"] = audio_play_counts
+
+            self.conn.execute(
+                "UPDATE test_attempt SET recipe_snapshot_json = ? WHERE id = ?;",
+                (json.dumps(recipe_data), session_id),
+            )
+            return updated_count
 
     def resume_section(self, session_id: int, block_order: int) -> ExamSessionState:
         """
@@ -960,6 +1026,21 @@ class ExamSessionService:
                 """,
                 (selected_choice_id, max(0, time_spent_ms), now_iso, now_iso, attempt_item_id),
             )
+
+    def select_draft_choice(
+        self,
+        attempt_item_id: int,
+        selected_choice_id: int,
+        session_id: Optional[int] = None,
+        time_spent_ms: int = 0,
+    ) -> None:
+        """Convenience alias for select_choice allowing automatic session_id lookup."""
+        if session_id is None:
+            row = self.conn.execute("SELECT attempt_id FROM attempt_item WHERE id = ?;", (attempt_item_id,)).fetchone()
+            if not row:
+                raise SessionNotFoundError(f"Attempt item {attempt_item_id} not found.")
+            session_id = row["attempt_id"]
+        self.select_choice(session_id, attempt_item_id, selected_choice_id, time_spent_ms=time_spent_ms)
 
     def toggle_review_flag(
         self,
@@ -1175,7 +1256,8 @@ class ExamSessionService:
             return self.get_exam_result(attempt_id)
 
         now_iso = datetime.now(timezone.utc).isoformat()
-        blueprint = ExamBlueprint.model_validate(blueprint_data)
+        bp_clean = {k: v for k, v in blueprint_data.items() if k not in ("exam_mode", "audio_play_counts")}
+        blueprint = ExamBlueprint.model_validate(bp_clean)
 
         # Update test_attempt status to completed
         self.conn.execute(
@@ -1243,3 +1325,7 @@ class ExamSessionService:
         )
 
         return exam_result
+
+
+# Type alias for ergonomic imports
+ExamService = ExamSessionService

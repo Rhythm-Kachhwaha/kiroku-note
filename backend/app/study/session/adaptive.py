@@ -29,8 +29,11 @@ import sqlite3
 from typing import Any, List, Optional, Tuple
 
 from app.study.eligibility import evaluate_eligibility
+from app.study.media import MediaStore
 from app.study.session.enums import DifficultyRating
 
+
+EXPANSION_INTERVALS_DAYS = (3, 7, 14, 30)
 
 PRIORITY_INCORRECT_HARD = 250.0
 PRIORITY_INCORRECT = 200.0
@@ -46,31 +49,89 @@ def calculate_priority_score(
     last_is_correct: Optional[int],
     last_rating: Optional[str],
     consecutive_correct_easy: int,
+    last_attempted_at: Optional[str | datetime] = None,
+    now: Optional[datetime] = None,
+    consecutive_correct: int = 1,
 ) -> float:
     """
     Calculate the deterministic adaptive priority score for a question.
     Higher score indicates higher priority for repetition/selection.
+    Incorporates recency-based expansion intervals (3, 7, 14, and 30 days) to prevent
+    recently answered questions from prematurely reappearing while preserving
+    deprioritization of two-time easy correct items and high priority for incorrect/hard questions.
     """
     if total_attempts == 0 or last_is_correct is None:
         return PRIORITY_UNATTEMPTED
 
     if last_is_correct == 0:
-        if last_rating == DifficultyRating.HARD.value:
-            return PRIORITY_INCORRECT_HARD
-        return PRIORITY_INCORRECT
+        base_score = (
+            PRIORITY_INCORRECT_HARD
+            if last_rating == DifficultyRating.HARD.value
+            else PRIORITY_INCORRECT
+        )
+    elif consecutive_correct_easy >= 2:
+        base_score = PRIORITY_DEPRIORITIZED_EASY_TWICE
+    elif last_rating == DifficultyRating.HARD.value:
+        base_score = PRIORITY_CORRECT_HARD
+    elif last_rating == DifficultyRating.EASY.value or consecutive_correct_easy == 1:
+        base_score = PRIORITY_CORRECT_EASY_ONCE
+    else:
+        base_score = PRIORITY_CORRECT_NORMAL
 
-    # Question was answered correctly on last attempt
+    # If no timestamp provided, return base score directly
+    if not last_attempted_at:
+        return base_score
+
+    # Parse last_attempted_at if string
+    if isinstance(last_attempted_at, str):
+        try:
+            dt = datetime.fromisoformat(last_attempted_at.replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            return base_score
+    else:
+        dt = last_attempted_at
+
+    ref_now = now or datetime.now(timezone.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    if ref_now.tzinfo is None:
+        ref_now = ref_now.replace(tzinfo=timezone.utc)
+
+    elapsed_days = max(0.0, (ref_now - dt).total_seconds() / 86400.0)
+
+    # Determine expansion interval in days (3, 7, 14, 30 days)
+    if last_is_correct == 0:
+        # Incorrect questions have short 1-day cooldown before full priority restoration
+        cooldown_days = 1.0
+        if elapsed_days < cooldown_days:
+            return round(base_score * (0.6 + 0.4 * (elapsed_days / cooldown_days)), 4)
+        return base_score
+
+    # Question was correct
     if consecutive_correct_easy >= 2:
-        return PRIORITY_DEPRIORITIZED_EASY_TWICE
+        target_interval_days = 30.0
+    elif last_rating == DifficultyRating.HARD.value:
+        # Difficult questions use tighter repetition interval (3 days)
+        target_interval_days = 3.0
+    elif last_rating == DifficultyRating.EASY.value and consecutive_correct <= 1:
+        target_interval_days = 7.0
+    elif consecutive_correct <= 1:
+        target_interval_days = 3.0
+    elif consecutive_correct == 2:
+        target_interval_days = 7.0
+    elif consecutive_correct == 3:
+        target_interval_days = 14.0
+    else:
+        target_interval_days = 30.0
 
-    if last_rating == DifficultyRating.HARD.value:
-        return PRIORITY_CORRECT_HARD
+    if elapsed_days < target_interval_days:
+        # Suppress recently answered questions inside the interval
+        progress = elapsed_days / target_interval_days
+        suppression_factor = max(0.01, progress * progress * 0.1)
+        return round(base_score * suppression_factor, 4)
 
-    if last_rating == DifficultyRating.EASY.value or consecutive_correct_easy == 1:
-        return PRIORITY_CORRECT_EASY_ONCE
-
-    # Default moderate schedule for normal or unrated correct
-    return PRIORITY_CORRECT_NORMAL
+    # Interval has passed -> question is due for repetition
+    return base_score
 
 
 def select_practice_candidates(
@@ -81,6 +142,9 @@ def select_practice_candidates(
     limit: int = 10,
     seed: Optional[int] = None,
     previous_session_id: Optional[int] = None,
+    verify_files: bool = True,
+    media_store: Optional[MediaStore] = None,
+    now: Optional[datetime] = None,
 ) -> List[Tuple[int, int]]:
     """
     Select eligible questions from the approved question bank using deterministic adaptive rules.
@@ -129,7 +193,12 @@ def select_practice_candidates(
     eligible_candidates = []
     for cand in raw_candidates:
         q_id = cand["question_id"]
-        is_eligible, _ = evaluate_eligibility(q_id, conn)
+        is_eligible, _ = evaluate_eligibility(
+            q_id,
+            conn,
+            verify_files=verify_files,
+            media_store=media_store,
+        )
         if is_eligible:
             eligible_candidates.append(cand)
 
@@ -162,16 +231,21 @@ def select_practice_candidates(
     # 4. Compute priority score for each candidate
     scored_candidates = []
     effective_seed = seed if seed is not None else 42
+    eval_now = now or datetime.now(timezone.utc)
 
     for cand in eligible_candidates:
         q_id = cand["question_id"]
         curr_rev_id = cand["current_revision_id"]
 
+        consecutive_correct = cand["total_correct"] or 1
         score = calculate_priority_score(
             total_attempts=cand["total_attempts"],
             last_is_correct=cand["last_is_correct"],
             last_rating=cand["last_rating"],
             consecutive_correct_easy=cand["consecutive_correct_easy"],
+            last_attempted_at=cand["last_attempted_at"],
+            now=eval_now,
+            consecutive_correct=consecutive_correct,
         )
 
         # Apply consecutive session avoidance penalty

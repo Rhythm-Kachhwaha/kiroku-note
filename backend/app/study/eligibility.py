@@ -24,6 +24,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+from app.study.formats import FORMAT_REGISTRY
 from app.study.media import MediaStore
 
 IMPLEMENTED_GRADERS = frozenset({"single_choice"})
@@ -163,6 +164,8 @@ def evaluate_eligibility(
         content_group_id=q.get("content_group_id"),
         verify_files=verify_files,
         media_store=media_store,
+        format_code=q.get("format_code"),
+        category=q.get("category"),
     )
     if has_missing_asset:
         reasons.append(REASON_REQUIRED_ASSET_MISSING)
@@ -211,9 +214,45 @@ def _check_required_assets_missing(
     content_group_id: int | None,
     verify_files: bool,
     media_store: MediaStore | None,
+    format_code: str | None = None,
+    category: str | None = None,
 ) -> bool:
-    """Check whether any required asset for the question, its group, or choices is missing."""
+    """Check whether any required asset for the question, its group, or choices is missing, inaccessible, or invalid."""
     store = media_store or MediaStore()
+
+    # Listening question format validation: F5/F6 listening questions require an audio asset
+    fmt_meta = FORMAT_REGISTRY.get(format_code) if format_code else None
+    is_listening = category == "listening" or (fmt_meta and (fmt_meta.category == "listening" or fmt_meta.structural_family in ("F5", "F6")))
+
+    if is_listening and fmt_meta:
+        if fmt_meta.structural_family == "F5":
+            audio_link = conn.execute(
+                """
+                SELECT 1 FROM question_revision_asset qra
+                JOIN asset a ON qra.asset_id = a.id
+                WHERE qra.question_revision_id = ? AND (qra.role = 'audio' OR a.kind = 'audio');
+                """,
+                (question_revision_id,),
+            ).fetchone()
+            if not audio_link:
+                return True
+        elif fmt_meta.structural_family == "F6":
+            has_group_audio = False
+            if content_group_id is not None:
+                grp_row = conn.execute("SELECT current_revision_id FROM content_group WHERE id = ?;", (content_group_id,)).fetchone()
+                if grp_row and grp_row["current_revision_id"]:
+                    audio_link = conn.execute(
+                        """
+                        SELECT 1 FROM group_revision_asset gra
+                        JOIN asset a ON gra.asset_id = a.id
+                        WHERE gra.group_revision_id = ? AND (gra.role = 'audio' OR a.kind = 'audio');
+                        """,
+                        (grp_row["current_revision_id"],),
+                    ).fetchone()
+                    if audio_link:
+                        has_group_audio = True
+            if not has_group_audio:
+                return True
 
     # 1. Question revision assets (required only)
     q_assets = conn.execute(
