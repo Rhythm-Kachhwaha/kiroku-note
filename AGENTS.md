@@ -247,6 +247,41 @@ run_backend.py, start_backend.bat root backend launchers
 6. **Build/runtime dependencies** — Reuses existing `extension/sidepanel/` assets with desktop
    overrides focusing on Quick Add and History modes; connects to local FastAPI backend on port 21828.
 
+## Study Database & JLPT Question Bank Foundation
+
+1. **Entry point** — `backend/app/study/` owns the local Question Bank database foundation.
+   `app.study.connection.StudyDatabaseManager` manages SQLite connections, WAL mode, and explicit transactions;
+   `app.study.migrations.runner.run_migrations` applies forward-only SQL migrations;
+   `app.study.backup` provides online WAL-safe backups and safe restoration.
+2. **Core logic** —
+   - Schema & Immutability: STRICT tables on SQLite 3.39.4+, composite foreign keys with `ON DELETE RESTRICT`,
+     internal integer PKs with external ULIDs (`ulid.py`), and engine-level BEFORE UPDATE/DELETE triggers aborting
+     mutations. Permitted revision updates are strictly limited to the one-way `sealed_at: NULL -> timestamp` transition,
+     after which child insertions are permanently rejected.
+   - Media Storage: `app.study.media.MediaStore` implements a local content-addressed store (`media/<sha[:2]>/<sha><ext>`),
+     atomic writes via temporary staging and `os.replace`, traversal rejection, and disk/DB status reconciliation.
+   - Dynamic Eligibility: Pre-filter SQL view `v_question_eligibility` coupled to deterministic Python evaluator
+     `app.study.eligibility.evaluate_eligibility` returning 9 priority-ordered reason codes (`RETIRED`, `NO_CURRENT_REVISION`,
+     `VALIDATION_FAILED`, `NEEDS_REVIEW`, `NO_ANSWER`, `GRADER_UNIMPLEMENTED`, `REQUIRED_ASSET_MISSING`,
+     `GROUP_INCONSISTENT`, `ANSWER_CONFLICT`). Optional missing assets never cause ineligibility.
+   - Provenance & Conflict Preservation: Multiple sources per entity, unmapped/mapped claims (`source_answer_claim`),
+     and explicit preservation of contradictory external answer keys without auto-merging.
+   - Diagnostics: Read-only `app.study.doctor.run_doctor` inspecting SQLite integrity, foreign keys, migration checksums,
+     trigger existence, format consistency, media availability/hashes, and relational pin validity without auto-mutations.
+3. **API/integration** — No new public HTTP routes or cloud endpoints; the study subsystem remains internal and
+   local-first during Milestone 1.
+4. **Data/configuration** — Resolved via `app.config.get_study_dir()`: `%LOCALAPPDATA%\KirokuNote\study` in packaged mode,
+   `backend/study/` in dev mode, or `KIROKU_STUDY_DIR` environment override for tests.
+   Contains `study.db`, `media/`, and `backups/`.
+5. **Strict boundaries** —
+   - `study.db` is completely separate from `kiroku.db`.
+   - Study data never synchronizes to Render, Neon, PostgreSQL, or the mobile cloud queue.
+   - Study database, media, and backups must never be committed to Git or bundled into installers.
+   - Existing vocabulary, dictionary, AnkiConnect, OCR, extension, and Electron functionality remain untouched.
+6. **Tests** — `backend/tests/test_study_db_infrastructure.py`, `test_study_schema_and_immutability.py`,
+   `test_study_media.py`, `test_study_eligibility_and_provenance.py`, `test_study_exam_and_formats.py`,
+   `test_study_doctor.py`, and `test_study_exclusion_and_packaging.py`.
+
 ## Backend packaging and resources
 
 1. **Entry point** — `run_backend.py` owns direct backend startup and port

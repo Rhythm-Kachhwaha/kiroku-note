@@ -75,6 +75,9 @@ Source: "..\backend\app\data\KANJIVG_NOTICE.md"; DestDir: "{app}"; Flags: ignore
 Name: "{localappdata}\KirokuNote\data"
 Name: "{localappdata}\KirokuNote\media"
 Name: "{localappdata}\KirokuNote\logs"
+Name: "{localappdata}\KirokuNote\study"
+Name: "{localappdata}\KirokuNote\study\media"
+Name: "{localappdata}\KirokuNote\study\backups"
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\_internal"

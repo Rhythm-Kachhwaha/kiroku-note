@@ -232,6 +232,36 @@ def get_media_dir(env: dict[str, str] | None = None) -> Path:
     return get_app_data_dir(env_dict) / "data" / "media"
 
 
+def get_study_dir(env: dict[str, str] | None = None) -> Path:
+    """
+    Resolve the study root directory.
+
+    Resolution order:
+      1. KIROKU_STUDY_DIR environment variable (explicit override, primarily for tests)
+      2. <app_data_dir>/study
+    """
+    env_dict = os.environ if env is None else env
+    custom = env_dict.get("KIROKU_STUDY_DIR")
+    if custom and str(custom).strip():
+        return Path(str(custom).strip())
+    return get_app_data_dir(env_dict) / "study"
+
+
+def get_study_db_path(env: dict[str, str] | None = None) -> Path:
+    """Resolve the study SQLite database file path."""
+    return get_study_dir(env) / "study.db"
+
+
+def get_study_media_dir(env: dict[str, str] | None = None) -> Path:
+    """Resolve the study content-addressed media directory."""
+    return get_study_dir(env) / "media"
+
+
+def get_study_backups_dir(env: dict[str, str] | None = None) -> Path:
+    """Resolve the study database backups directory."""
+    return get_study_dir(env) / "backups"
+
+
 def get_ocr_model_dir(env: dict[str, str] | None = None) -> Path:
     """
     Resolve the directory for the pinned manga-ocr offline model weights.

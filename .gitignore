@@ -80,6 +80,10 @@ backend/data/logs/
 backend/data/temp/
 backend/data/ankiminer.db*
 backend/data/kiroku.db*
+backend/study/
+backend/data/study/
+study.db*
+study-v*-to-v*.db*
 
 # Secrets & Environment variables
 .env
@@ -105,6 +109,8 @@ UI-exploration/
 !docs/
 docs/*
 !docs/REPOSITORY_AUDIT_2026-10-29.md
+!docs/study-bank/
+!docs/study-bank/*
 !docs/archive/
 !docs/archive/grammar-audits/
 !docs/archive/grammar-audits/*.md

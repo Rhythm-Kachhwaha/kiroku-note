@@ -87,6 +87,12 @@ GRAMMAR_DB = DATA_DIR / "grammar_reference.sqlite"
 if GRAMMAR_DB.exists() and (str(GRAMMAR_DB), os.path.join("app", "data")) not in datas:
     datas.append((str(GRAMMAR_DB), os.path.join("app", "data")))
 
+# Study database migrations (forward-only SQL files)
+STUDY_MIGRATIONS_DIR = BACKEND_DIR / "app" / "study" / "migrations"
+if STUDY_MIGRATIONS_DIR.exists():
+    for sql_file in STUDY_MIGRATIONS_DIR.glob("*.sql"):
+        datas.append((str(sql_file), os.path.join("app", "study", "migrations")))
+
 CLOUD_QUEUE_DIR = PROJECT_ROOT / "kiroku_cloud_queue"
 if CLOUD_QUEUE_DIR.exists():
     for py_file in CLOUD_QUEUE_DIR.glob("*.py"):
