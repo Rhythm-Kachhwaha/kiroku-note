@@ -60,6 +60,10 @@ REQUIRED_TRIGGERS = frozenset({
     "trg_verification_human_decision_no_update",
     "trg_verification_human_decision_no_delete",
     "trg_question_explanation_no_delete",
+    "trg_exam_result_snapshot_no_update",
+    "trg_exam_result_snapshot_no_delete",
+    "trg_exam_item_state_no_update_if_section_closed",
+    "trg_exam_item_state_no_delete",
 })
 
 KNOWN_FORMAT_CODES = frozenset({

@@ -309,6 +309,14 @@ run_backend.py, start_backend.bat root backend launchers
       (`calculate_priority_score` with deprioritization after two consecutive correct Easy ratings and consecutive-session
       avoidance cooldowns), persistent active duration timing (`total_elapsed_ms`), and lightweight learning analytics
       (`PracticeAnalyticsService`) via forward migration `0005_learning_practice_engine.sql`.
+    - JLPT Examination & Scoring Engine (Milestone 7): `app.study.exam` provides official N1–N5 examination
+      blueprints with 2026 test-section timings and item taxonomies, bank readiness validation blocking incomplete
+      pools, persistent section countdown timers with pause/resume and restart anti-cheat protection, draft
+      choice selection and mark-for-review navigation within section boundaries, deterministic response grading via
+      `DeterministicGrader`, transparent section-independent JLPT-style score estimation (`ProvisionalRawScoringModel`),
+      official threshold pass/fail evaluation (overall pass + sectional minimums), immutable exam result snapshots
+      (`exam_result_snapshot`), and diagnostic examination analytics (`ExamAnalyticsService`) via forward migration
+      `0006_jlpt_examination_engine.sql`.
 3. **API/integration** — No new public HTTP routes or cloud endpoints; the study subsystem remains internal and
    local-first during Milestone 1.
 4. **Data/configuration** — Resolved via `app.config.get_study_dir()`: `%LOCALAPPDATA%\KirokuNote\study` in packaged mode,
@@ -327,7 +335,8 @@ run_backend.py, start_backend.bat root backend launchers
    `test_study_verification_config.py`, `test_study_verification_providers.py`, `test_study_verification_comparator.py`,
    `test_study_verification_service.py`, `test_study_verification_persistence_and_review.py`,
    `test_study_acquisition_foundation.py`, `test_study_acquisition_parser.py`, `test_study_acquisition_m3_integration.py`,
-   `test_study_acquisition_m4_1_robustness.py`, and `test_study_practice_engine.py`.
+   `test_study_acquisition_m4_1_robustness.py`, `test_study_practice_engine.py`,
+   and `test_study_exam_engine.py`.
 
 ## Backend packaging and resources
 
