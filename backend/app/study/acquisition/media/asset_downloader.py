@@ -23,6 +23,7 @@ import urllib.parse
 
 import httpx
 
+from app.study.acquisition.media.audio_duration import extract_audio_duration_ms
 from app.study.media import MediaStore
 
 logger = logging.getLogger(__name__)
@@ -167,6 +168,14 @@ class AssetDownloader:
             sha = hashlib.sha256(data).hexdigest()
             byte_size = len(data)
 
+            duration_ms: int | None = None
+            if inferred_kind == "audio":
+                try:
+                    duration_ms = extract_audio_duration_ms(data, ext)
+                except Exception as exc:
+                    logger.warning("Could not extract audio duration from %s: %s", asset_url, exc)
+                    duration_ms = None
+
             if conn is not None:
                 row = self._media_store.register_bytes(
                     data=data,
@@ -174,6 +183,7 @@ class AssetDownloader:
                     kind=inferred_kind,
                     mime_type=mime_type,
                     conn=conn,
+                    duration_ms=duration_ms,
                     original_url=asset_url,
                 )
                 return {
@@ -182,6 +192,7 @@ class AssetDownloader:
                     "mime_type": mime_type,
                     "byte_size": byte_size,
                     "kind": inferred_kind,
+                    "duration_ms": duration_ms,
                 }
             else:
                 # Content-addressed disk-only storage without DB writes
@@ -199,6 +210,7 @@ class AssetDownloader:
                     "mime_type": mime_type,
                     "byte_size": byte_size,
                     "kind": inferred_kind,
+                    "duration_ms": duration_ms,
                 }
 
         finally:

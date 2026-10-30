@@ -49,7 +49,7 @@ PASSAGE_HEADER_RE = re.compile(
 
 # Audio link and tag patterns
 AUDIO_SRC_RE = re.compile(
-    r'<audio[^>]*src=[\'"]([^\'"]+)[\'"]|<source[^>]*src=[\'"]([^\'"]+)[\'"]|\[(?:Audio|audio|Audio Track \d+)\]\((https?://[^\s\)]+\.mp3)\)',
+    r'<audio[^>]*src=[\'"]([^\'"]+)[\'"]|<source[^>]*src=[\'"]([^\'"]+)[\'"]|\[(?:Audio(?:\s+Track)?(?:\s+\d+)?|audio)\]\((https?://[^\s\)]+\.mp3)\)',
     re.IGNORECASE,
 )
 
@@ -61,7 +61,7 @@ IMAGE_RE = re.compile(
 
 # Question start patterns (Markdown and HTML)
 QUESTION_START_RE = re.compile(
-    r"^\s*(?:(?:Question|問)\s*(\d+)[\.．:]?|(\d+)[\.．\\]+|Q(\d+)[\.．\s]*)\s*(?:Question\s*\d+[\.．\s]*)?(.*?)$",
+    r"^\s*(?:\*\*)?(?:(?:Question|問)\s*(\d+)[\.．:]?|(\d+)[\.．\\]+|Q(\d+)[\.．\s]*)\s*(?:Question\s*\d+[\.．\s]*)?(.*?)(?:\*\*)?$",
     re.IGNORECASE,
 )
 
