@@ -133,7 +133,37 @@ class FormatClassifier:
                 "task_based_listening", level, 0.8, "Individual audio listening question", matched_rules
             )
 
-        # 8. Vocabulary vs Grammar (F1)
+        # 8. Section cues from header (grammar, vocabulary, kanji)
+        sec_h = combined_header.lower()
+        if "grammar" in sec_h or "bunpou" in sec_h or "文法" in combined_header:
+            matched_rules.append("header_grammar_sentential")
+            return self._build_classification(
+                "sentential_grammar_1", level, 0.75, "Section indicates grammar format", matched_rules
+            )
+        if "vocab" in sec_h or "goi" in sec_h or "語彙" in combined_header:
+            has_kanji = any(bool(re.search(r"[\u4E00-\u9FFF]", c.text)) for c in draft.raw_choices if c.text)
+            if ("{u|" in draft.raw_stem or "___" in draft.raw_stem) and has_kanji:
+                matched_rules.append("header_vocab_orthography")
+                return self._build_classification(
+                    "orthography", level, 0.75, "Vocab section with kanji choices", matched_rules
+                )
+            matched_rules.append("header_vocab_contextual")
+            return self._build_classification(
+                "contextual_expressions", level, 0.75, "Section indicates vocabulary contextual expressions", matched_rules
+            )
+        if "kanji" in sec_h or "漢字" in combined_header:
+            has_kanji = any(bool(re.search(r"[\u4E00-\u9FFF]", c.text)) for c in draft.raw_choices if c.text)
+            if has_kanji:
+                matched_rules.append("header_kanji_orthography")
+                return self._build_classification(
+                    "orthography", level, 0.75, "Kanji section with kanji choices", matched_rules
+                )
+            matched_rules.append("header_kanji_reading")
+            return self._build_classification(
+                "kanji_reading", level, 0.75, "Kanji section with kana reading choices", matched_rules
+            )
+
+        # 9. Vocabulary vs Grammar (F1) fallback
         if "{u|" in draft.raw_stem or "___" in draft.raw_stem:
             # Underline target
             # If choices are all kana -> likely kanji_reading

@@ -18,6 +18,7 @@ from app.study.connection import (
     get_study_db_manager,
     reset_study_db_manager,
 )
+from app.study.tx import unit_of_work
 from app.study.contracts import (
     AnswerOrigin,
     AnswerPayload,
@@ -193,6 +194,7 @@ __all__ = [
     "StudyDatabaseManager",
     "get_study_db_manager",
     "reset_study_db_manager",
+    "unit_of_work",
     # Doctor & Diagnostics
     "DoctorFinding",
     "run_doctor",

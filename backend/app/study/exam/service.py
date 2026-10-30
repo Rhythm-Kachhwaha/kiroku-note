@@ -49,6 +49,7 @@ from app.study.session.service import (
     SessionLifecycleError,
     SessionNotFoundError,
 )
+from app.study.tx import unit_of_work
 from app.study.ulid import generate_ulid
 
 
@@ -103,200 +104,200 @@ class ExamSessionService:
         Generate and persist a complete JLPT examination matching the blueprint.
         Strictly blocks generation if the question bank is incomplete.
         """
-        # Resolve blueprint
-        if isinstance(blueprint_or_level, ExamBlueprint):
-            blueprint = blueprint_or_level
-        else:
-            blueprint = get_blueprint_from_db_or_default(self.conn, blueprint_or_level, version)
+        with unit_of_work(self.conn):
+            # Resolve blueprint
+            if isinstance(blueprint_or_level, ExamBlueprint):
+                blueprint = blueprint_or_level
+            else:
+                blueprint = get_blueprint_from_db_or_default(self.conn, blueprint_or_level, version)
 
-        # 1. Validate bank readiness against blueprint
-        readiness_report = ExamReadinessValidator.validate_readiness(
-            conn=self.conn,
-            blueprint=blueprint,
-            media_store=self.media_store,
-            verify_files=True,
-        )
-        if not readiness_report.is_ready:
-            raise ExamReadinessError(readiness_report)
+            # 1. Validate bank readiness against blueprint
+            readiness_report = ExamReadinessValidator.validate_readiness(
+                conn=self.conn,
+                blueprint=blueprint,
+                media_store=self.media_store,
+                verify_files=True,
+            )
+            if not readiness_report.is_ready:
+                raise ExamReadinessError(readiness_report)
 
-        actual_seed = seed if seed is not None else random.randint(1, 1_000_000_000)
-        rng = random.Random(actual_seed)
-        now_iso = datetime.now(timezone.utc).isoformat()
-        external_id = generate_ulid()
+            actual_seed = seed if seed is not None else random.randint(1, 1_000_000_000)
+            rng = random.Random(actual_seed)
+            now_iso = datetime.now(timezone.utc).isoformat()
+            external_id = generate_ulid()
 
-        # Save blueprint to ledger if not present
-        save_blueprint_to_db(self.conn, blueprint)
+            # Save blueprint to ledger if not present
+            save_blueprint_to_db(self.conn, blueprint)
 
-        # 2. Persist test_attempt
-        cursor = self.conn.execute(
-            """
-            INSERT INTO test_attempt (
-                external_id,
-                session_type,
-                status,
-                level,
-                category,
-                format_code,
-                recipe_snapshot_json,
-                seed,
-                created_at,
-                started_at,
-                total_elapsed_ms
-            ) VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?, NULL, 0);
-            """,
-            (
-                external_id,
-                SessionType.EXAM.value,
-                SessionStatus.CREATED.value,
-                blueprint.level,
-                blueprint.model_dump_json(),
-                actual_seed,
-                now_iso,
-            ),
-        )
-        attempt_id = cursor.lastrowid
-
-        # 3. Create test sections and select questions deterministically
-        used_question_ids: Set[int] = set()
-        overall_position = 1
-
-        for sec_bp in blueprint.test_sections:
-            allocated_sec = sec_bp.time_limit_minutes * 60
-
-            sec_cursor = self.conn.execute(
+            # 2. Persist test_attempt
+            cursor = self.conn.execute(
                 """
-                INSERT INTO exam_section_attempt (
-                    attempt_id,
-                    section_code,
-                    block_order,
-                    label,
+                INSERT INTO test_attempt (
+                    external_id,
+                    session_type,
                     status,
-                    allocated_time_seconds,
-                    remaining_time_seconds,
+                    level,
+                    category,
+                    format_code,
+                    recipe_snapshot_json,
+                    seed,
+                    created_at,
                     started_at,
-                    deadline_at,
-                    paused_at,
-                    completed_at,
-                    total_elapsed_ms,
-                    created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, 0, ?);
+                    total_elapsed_ms
+                ) VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?, NULL, 0);
                 """,
                 (
-                    attempt_id,
-                    sec_bp.section_code,
-                    sec_bp.block_order,
-                    sec_bp.label,
-                    ExamSectionStatus.PENDING.value,
-                    allocated_sec,
-                    allocated_sec,
+                    external_id,
+                    SessionType.EXAM.value,
+                    SessionStatus.CREATED.value,
+                    blueprint.level,
+                    blueprint.model_dump_json(),
+                    actual_seed,
                     now_iso,
                 ),
             )
-            sec_attempt_id = sec_cursor.lastrowid
+            attempt_id = cursor.lastrowid
 
-            # Select questions for each quota in this section
-            for quota in sec_bp.item_quotas:
-                eligible = ExamReadinessValidator.get_eligible_questions_for_format(
-                    conn=self.conn,
-                    level=blueprint.level,
-                    format_code=quota.format_code,
-                    media_store=self.media_store,
-                    verify_files=True,
+            # 3. Create test sections and select questions deterministically
+            used_question_ids: Set[int] = set()
+            overall_position = 1
+
+            for sec_bp in blueprint.test_sections:
+                allocated_sec = sec_bp.time_limit_minutes * 60
+
+                sec_cursor = self.conn.execute(
+                    """
+                    INSERT INTO exam_section_attempt (
+                        attempt_id,
+                        section_code,
+                        block_order,
+                        label,
+                        status,
+                        allocated_time_seconds,
+                        remaining_time_seconds,
+                        started_at,
+                        deadline_at,
+                        paused_at,
+                        completed_at,
+                        total_elapsed_ms,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, 0, ?);
+                    """,
+                    (
+                        attempt_id,
+                        sec_bp.section_code,
+                        sec_bp.block_order,
+                        sec_bp.label,
+                        ExamSectionStatus.PENDING.value,
+                        allocated_sec,
+                        allocated_sec,
+                        now_iso,
+                    ),
                 )
-                # Deduplicate against questions already placed in this exam
-                available_unclaimed = [item for item in eligible if item[0] not in used_question_ids]
-                # Deterministic shuffle using seed
-                rng.shuffle(available_unclaimed)
-                selected = available_unclaimed[:quota.target_count]
+                sec_attempt_id = sec_cursor.lastrowid
 
-                for q_id, rev_id in selected:
-                    used_question_ids.add(q_id)
-
-                    q_row = self.conn.execute(
-                        "SELECT content_group_id, anchor_key FROM question WHERE id = ?;",
-                        (q_id,),
-                    ).fetchone()
-                    group_id = q_row["content_group_id"]
-                    anchor_key = q_row["anchor_key"]
-
-                    group_rev_id = None
-                    if group_id is not None:
-                        grp_row = self.conn.execute(
-                            "SELECT current_revision_id FROM content_group WHERE id = ?;",
-                            (group_id,),
-                        ).fetchone()
-                        if grp_row:
-                            group_rev_id = grp_row["current_revision_id"]
-
-                    # Persist attempt item
-                    item_cursor = self.conn.execute(
-                        """
-                        INSERT INTO attempt_item (
-                            attempt_id,
-                            position,
-                            question_id,
-                            pinned_question_revision_id,
-                            group_id,
-                            pinned_group_revision_id,
-                            anchor_key,
-                            created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-                        """,
-                        (
-                            attempt_id,
-                            overall_position,
-                            q_id,
-                            rev_id,
-                            group_id,
-                            group_rev_id,
-                            anchor_key,
-                            now_iso,
-                        ),
+                # Select questions for each quota in this section
+                for quota in sec_bp.item_quotas:
+                    eligible = ExamReadinessValidator.get_eligible_questions_for_format(
+                        conn=self.conn,
+                        level=blueprint.level,
+                        format_code=quota.format_code,
+                        media_store=self.media_store,
+                        verify_files=True,
                     )
-                    attempt_item_id = item_cursor.lastrowid
+                    # Deduplicate against questions already placed in this exam
+                    available_unclaimed = [item for item in eligible if item[0] not in used_question_ids]
+                    # Deterministic shuffle using seed
+                    rng.shuffle(available_unclaimed)
+                    selected = available_unclaimed[:quota.target_count]
 
-                    # Pin choice display ordering
-                    choices = self.conn.execute(
-                        """
-                        SELECT id, ordinal
-                        FROM revision_choice
-                        WHERE question_revision_id = ?
-                        ORDER BY ordinal ASC;
-                        """,
-                        (rev_id,),
-                    ).fetchall()
-                    for disp_pos, ch in enumerate(choices, start=1):
+                    for q_id, rev_id in selected:
+                        used_question_ids.add(q_id)
+
+                        q_row = self.conn.execute(
+                            "SELECT content_group_id, anchor_key FROM question WHERE id = ?;",
+                            (q_id,),
+                        ).fetchone()
+                        group_id = q_row["content_group_id"]
+                        anchor_key = q_row["anchor_key"]
+
+                        group_rev_id = None
+                        if group_id is not None:
+                            grp_row = self.conn.execute(
+                                "SELECT current_revision_id FROM content_group WHERE id = ?;",
+                                (group_id,),
+                            ).fetchone()
+                            if grp_row:
+                                group_rev_id = grp_row["current_revision_id"]
+
+                        # Persist attempt item
+                        item_cursor = self.conn.execute(
+                            """
+                            INSERT INTO attempt_item (
+                                attempt_id,
+                                position,
+                                question_id,
+                                pinned_question_revision_id,
+                                group_id,
+                                pinned_group_revision_id,
+                                anchor_key,
+                                created_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+                            """,
+                            (
+                                attempt_id,
+                                overall_position,
+                                q_id,
+                                rev_id,
+                                group_id,
+                                group_rev_id,
+                                anchor_key,
+                                now_iso,
+                            ),
+                        )
+                        attempt_item_id = item_cursor.lastrowid
+
+                        # Pin choice display ordering
+                        choices = self.conn.execute(
+                            """
+                            SELECT id, ordinal
+                            FROM revision_choice
+                            WHERE question_revision_id = ?
+                            ORDER BY ordinal ASC;
+                            """,
+                            (rev_id,),
+                        ).fetchall()
+                        for disp_pos, ch in enumerate(choices, start=1):
+                            self.conn.execute(
+                                """
+                                INSERT INTO attempt_item_choice_order (
+                                    attempt_item_id,
+                                    choice_id,
+                                    display_position,
+                                    created_at
+                                ) VALUES (?, ?, ?, ?);
+                                """,
+                                (attempt_item_id, ch["id"], disp_pos, now_iso),
+                            )
+
+                        # Persist initial exam item state linking item to this section
                         self.conn.execute(
                             """
-                            INSERT INTO attempt_item_choice_order (
+                            INSERT INTO exam_item_state (
                                 attempt_item_id,
-                                choice_id,
-                                display_position,
-                                created_at
-                            ) VALUES (?, ?, ?, ?);
+                                section_attempt_id,
+                                selected_choice_id,
+                                is_marked_for_review,
+                                time_spent_ms,
+                                updated_at
+                            ) VALUES (?, ?, NULL, 0, 0, ?);
                             """,
-                            (attempt_item_id, ch["id"], disp_pos, now_iso),
+                            (attempt_item_id, sec_attempt_id, now_iso),
                         )
 
-                    # Persist initial exam item state linking item to this section
-                    self.conn.execute(
-                        """
-                        INSERT INTO exam_item_state (
-                            attempt_item_id,
-                            section_attempt_id,
-                            selected_choice_id,
-                            is_marked_for_review,
-                            time_spent_ms,
-                            updated_at
-                        ) VALUES (?, ?, NULL, 0, 0, ?);
-                        """,
-                        (attempt_item_id, sec_attempt_id, now_iso),
-                    )
+                        overall_position += 1
 
-                    overall_position += 1
-
-        self.conn.commit()
-        return self.get_exam_state(attempt_id)
+            return self.peek_state(attempt_id)
 
     def create_diagnostic_practice(
         self,
@@ -321,9 +322,12 @@ class ExamSessionService:
     # 2. Examination Runtime State & Timer Sync
     # -------------------------------------------------------------------------
 
-    def get_exam_state(self, session_id_or_external_id: int | str) -> ExamSessionState:
+    def peek_state(self, session_id_or_external_id: int | str) -> ExamSessionState:
         """
-        Retrieve persisted exam state, checking and enforcing section timer deadlines.
+        Pure read operation retrieving persisted exam state without writing to SQLite.
+
+        Calculates remaining time from the stored deadline in memory.
+        Safe to call repeatedly while UI polls.
         """
         # Fetch attempt record
         row = self.conn.execute(
@@ -349,7 +353,6 @@ class ExamSessionService:
         bp_version = blueprint_data.get("version", DEFAULT_BLUEPRINT_VERSION)
 
         now = datetime.now(timezone.utc)
-        now_iso = now.isoformat()
 
         # Fetch sections
         sec_rows = self.conn.execute(
@@ -363,7 +366,6 @@ class ExamSessionService:
 
         sections: List[ExamSectionState] = []
         active_block_order = 1
-        all_sections_finished = True
 
         for s_row in sec_rows:
             sec_id = s_row["id"]
@@ -375,39 +377,12 @@ class ExamSessionService:
             completed_at = s_row["completed_at"]
             elapsed_ms = s_row["total_elapsed_ms"]
 
-            # If section is in progress, verify against wall-clock deadline
+            # Pure read calculation: compute remaining seconds from stored deadline in memory
             if sec_status == ExamSectionStatus.IN_PROGRESS and deadline_at:
                 dl_dt = datetime.fromisoformat(deadline_at)
                 if dl_dt.tzinfo is None:
                     dl_dt = dl_dt.replace(tzinfo=timezone.utc)
-
-                if now >= dl_dt:
-                    # Timer has expired! Close section and auto-submit
-                    sec_status = ExamSectionStatus.EXPIRED
-                    rem_sec = 0
-                    completed_at = deadline_at
-                    elapsed_ms = s_row["allocated_time_seconds"] * 1000
-
-                    self.conn.execute(
-                        """
-                        UPDATE exam_section_attempt
-                        SET status = ?, remaining_time_seconds = 0, completed_at = ?, total_elapsed_ms = ?
-                        WHERE id = ?;
-                        """,
-                        (sec_status.value, completed_at, elapsed_ms, sec_id),
-                    )
-                    # Grade answered items for expired section
-                    self._commit_section_responses(sec_id)
-                else:
-                    # Timer is running; update remaining seconds
-                    rem_sec = max(0, int((dl_dt - now).total_seconds()))
-                    self.conn.execute(
-                        "UPDATE exam_section_attempt SET remaining_time_seconds = ? WHERE id = ?;",
-                        (rem_sec, sec_id),
-                    )
-
-            if sec_status in (ExamSectionStatus.PENDING, ExamSectionStatus.IN_PROGRESS, ExamSectionStatus.PAUSED):
-                all_sections_finished = False
+                rem_sec = max(0, int((dl_dt - now).total_seconds()))
 
             sections.append(
                 ExamSectionState(
@@ -432,14 +407,7 @@ class ExamSessionService:
                 active_block_order = s.block_order
                 break
         else:
-            active_block_order = len(sections)
-
-        # Check if all sections finished and attempt not yet marked completed
-        if all_sections_finished and status != SessionStatus.COMPLETED.value:
-            self._finalize_and_score_exam(attempt_id, blueprint_data, is_complete=True)
-            status = SessionStatus.COMPLETED.value
-
-        self.conn.commit()
+            active_block_order = len(sections) if sections else 1
 
         # Fetch items and draft state
         item_rows = self.conn.execute(
@@ -600,6 +568,140 @@ class ExamSessionService:
             current_section_items=items,
         )
 
+    def settle_timers(self, session_id_or_external_id: int | str) -> list[int]:
+        """
+        Check for expired section timers and perform state transitions and response grading.
+
+        This operation is atomic, idempotent, and thread-safe:
+        - Executes inside a unit of work.
+        - Uses conditional SQL updates so concurrent executions cannot settle the same section twice.
+        - Only performs response grading if it successfully claims and transitions an expired section.
+        - Avoids duplicate response commits and integrity errors.
+        - Automatically finalizes and scores the exam once all sections are finished.
+        Returns a list of section IDs settled as expired by this call.
+        """
+        with unit_of_work(self.conn):
+            # Fetch attempt record
+            row = self.conn.execute(
+                """
+                SELECT id, status, recipe_snapshot_json FROM test_attempt
+                WHERE id = ? OR external_id = ?;
+                """,
+                (
+                    session_id_or_external_id if isinstance(session_id_or_external_id, int) else -1,
+                    str(session_id_or_external_id),
+                ),
+            ).fetchone()
+
+            if not row:
+                raise SessionNotFoundError(f"Exam session '{session_id_or_external_id}' not found.")
+
+            attempt_id = row["id"]
+            current_status = row["status"]
+            blueprint_json = row["recipe_snapshot_json"] or "{}"
+
+            # If already completed or abandoned, no timer settlement needed
+            if current_status in (SessionStatus.COMPLETED.value, SessionStatus.ABANDONED.value):
+                return []
+
+            now = datetime.now(timezone.utc)
+            now_iso = now.isoformat()
+
+            # Find candidate in-progress sections with active deadline
+            sec_rows = self.conn.execute(
+                """
+                SELECT id, allocated_time_seconds, deadline_at
+                FROM exam_section_attempt
+                WHERE attempt_id = ? AND status = ? AND deadline_at IS NOT NULL
+                ORDER BY block_order ASC;
+                """,
+                (attempt_id, ExamSectionStatus.IN_PROGRESS.value),
+            ).fetchall()
+
+            settled_sec_ids: list[int] = []
+
+            for s_row in sec_rows:
+                sec_id = s_row["id"]
+                deadline_at = s_row["deadline_at"]
+                dl_dt = datetime.fromisoformat(deadline_at)
+                if dl_dt.tzinfo is None:
+                    dl_dt = dl_dt.replace(tzinfo=timezone.utc)
+
+                if now >= dl_dt:
+                    elapsed_ms = s_row["allocated_time_seconds"] * 1000
+                    # Conditional atomic claim: transition status ONLY IF status is still 'in_progress'
+                    cursor = self.conn.execute(
+                        """
+                        UPDATE exam_section_attempt
+                        SET status = ?, remaining_time_seconds = 0, completed_at = ?, total_elapsed_ms = ?, deadline_at = NULL
+                        WHERE id = ? AND status = ?;
+                        """,
+                        (
+                            ExamSectionStatus.EXPIRED.value,
+                            deadline_at,
+                            elapsed_ms,
+                            sec_id,
+                            ExamSectionStatus.IN_PROGRESS.value,
+                        ),
+                    )
+                    if cursor.rowcount == 1:
+                        settled_sec_ids.append(sec_id)
+                        # Grade answered items for expired section ONLY because we successfully claimed it
+                        self._commit_section_responses(sec_id)
+
+            # Check if all sections finished and attempt not yet marked completed
+            unfinished_row = self.conn.execute(
+                """
+                SELECT COUNT(*) as unfinished_count
+                FROM exam_section_attempt
+                WHERE attempt_id = ? AND status NOT IN (?, ?);
+                """,
+                (
+                    attempt_id,
+                    ExamSectionStatus.COMPLETED.value,
+                    ExamSectionStatus.EXPIRED.value,
+                ),
+            ).fetchone()
+
+            if unfinished_row["unfinished_count"] == 0:
+                # Conditional atomic claim on attempt completion
+                cursor = self.conn.execute(
+                    """
+                    UPDATE test_attempt
+                    SET status = ?, completed_at = ?, last_active_at = ?
+                    WHERE id = ? AND status != ?;
+                    """,
+                    (
+                        SessionStatus.COMPLETED.value,
+                        now_iso,
+                        now_iso,
+                        attempt_id,
+                        SessionStatus.COMPLETED.value,
+                    ),
+                )
+                if cursor.rowcount == 1:
+                    # Finalize exam and persist snapshot (idempotent check)
+                    snap_exists = self.conn.execute(
+                        "SELECT 1 FROM exam_result_snapshot WHERE attempt_id = ?;",
+                        (attempt_id,),
+                    ).fetchone()
+                    if not snap_exists:
+                        blueprint_data = json.loads(blueprint_json)
+                        self._finalize_and_score_exam(attempt_id, blueprint_data, is_complete=True)
+
+            return settled_sec_ids
+
+    def get_exam_state(self, session_id_or_external_id: int | str) -> ExamSessionState:
+        """
+        Retrieve persisted exam state after settling any expired section timers.
+
+        Note: This method settles overdue timers before reading state.
+        For pure read-only access (e.g. UI polling) that never writes to SQLite,
+        use peek_state() instead.
+        """
+        self.settle_timers(session_id_or_external_id)
+        return self.peek_state(session_id_or_external_id)
+
     # -------------------------------------------------------------------------
     # 3. Section Lifecycle Controls (Start, Pause, Resume, Submit)
     # -------------------------------------------------------------------------
@@ -608,142 +710,192 @@ class ExamSessionService:
         """
         Activate and begin countdown timer for a specific section.
         """
-        sess = self.get_exam_state(session_id)
-        if sess.status == SessionStatus.COMPLETED.value:
-            raise SessionLifecycleError("Cannot start section in a completed exam.")
+        with unit_of_work(self.conn):
+            self.settle_timers(session_id)
+            sess = self.peek_state(session_id)
+            if sess.status == SessionStatus.COMPLETED.value:
+                raise SessionLifecycleError("Cannot start section in a completed exam.")
 
-        # Find target section
-        target_sec = next((s for s in sess.sections if s.block_order == block_order), None)
-        if not target_sec:
-            raise ExamServiceError(f"Section block {block_order} not found in exam {session_id}.")
+            # Find target section
+            target_sec = next((s for s in sess.sections if s.block_order == block_order), None)
+            if not target_sec:
+                raise ExamServiceError(f"Section block {block_order} not found in exam {session_id}.")
 
-        if target_sec.status in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED):
-            raise ExamSectionClosedError(f"Section block {block_order} is already {target_sec.status.value}.")
+            if target_sec.status in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED):
+                raise ExamSectionClosedError(f"Section block {block_order} is already {target_sec.status.value}.")
 
-        # Enforce prerequisite sections are completed/expired
-        for s in sess.sections:
-            if s.block_order < block_order and s.status not in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED):
-                raise ExamSectionSequenceError(f"Cannot start section {block_order} before section {s.block_order} completes.")
+            # Enforce prerequisite sections are completed/expired
+            for s in sess.sections:
+                if s.block_order < block_order and s.status not in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED):
+                    raise ExamSectionSequenceError(f"Cannot start section {block_order} before section {s.block_order} completes.")
 
-        now = datetime.now(timezone.utc)
-        now_iso = now.isoformat()
-        deadline_dt = datetime.fromtimestamp(now.timestamp() + target_sec.remaining_time_seconds, tz=timezone.utc)
-        deadline_iso = deadline_dt.isoformat()
+            now = datetime.now(timezone.utc)
+            now_iso = now.isoformat()
+            deadline_dt = datetime.fromtimestamp(now.timestamp() + target_sec.remaining_time_seconds, tz=timezone.utc)
+            deadline_iso = deadline_dt.isoformat()
 
-        # Update test_attempt to in_progress if still created
-        self.conn.execute(
-            """
-            UPDATE test_attempt
-            SET status = ?, started_at = COALESCE(started_at, ?), last_active_at = ?
-            WHERE id = ? AND status = ?;
-            """,
-            (SessionStatus.IN_PROGRESS.value, now_iso, now_iso, session_id, SessionStatus.CREATED.value),
-        )
+            # Update test_attempt to in_progress if still created
+            self.conn.execute(
+                """
+                UPDATE test_attempt
+                SET status = ?, started_at = COALESCE(started_at, ?), last_active_at = ?
+                WHERE id = ? AND status = ?;
+                """,
+                (SessionStatus.IN_PROGRESS.value, now_iso, now_iso, session_id, SessionStatus.CREATED.value),
+            )
 
-        # Start section timer
-        self.conn.execute(
-            """
-            UPDATE exam_section_attempt
-            SET status = ?, started_at = COALESCE(started_at, ?), deadline_at = ?, paused_at = NULL
-            WHERE id = ?;
-            """,
-            (ExamSectionStatus.IN_PROGRESS.value, now_iso, deadline_iso, target_sec.section_id),
-        )
+            # Start section timer
+            self.conn.execute(
+                """
+                UPDATE exam_section_attempt
+                SET status = ?, started_at = COALESCE(started_at, ?), deadline_at = ?, paused_at = NULL
+                WHERE id = ?;
+                """,
+                (ExamSectionStatus.IN_PROGRESS.value, now_iso, deadline_iso, target_sec.section_id),
+            )
 
-        self.conn.commit()
-        return self.get_exam_state(session_id)
+            return self.peek_state(session_id)
 
     def pause_section(self, session_id: int, block_order: int) -> ExamSessionState:
         """
         Pause an in-progress section, freezing remaining time.
         """
-        sess = self.get_exam_state(session_id)
-        target_sec = next((s for s in sess.sections if s.block_order == block_order), None)
-        if not target_sec:
-            raise ExamServiceError(f"Section block {block_order} not found in exam {session_id}.")
+        with unit_of_work(self.conn):
+            self.settle_timers(session_id)
+            sess = self.peek_state(session_id)
+            target_sec = next((s for s in sess.sections if s.block_order == block_order), None)
+            if not target_sec:
+                raise ExamServiceError(f"Section block {block_order} not found in exam {session_id}.")
 
-        if target_sec.status != ExamSectionStatus.IN_PROGRESS:
-            raise ExamServiceError(f"Cannot pause section in status '{target_sec.status.value}'.")
+            if target_sec.status != ExamSectionStatus.IN_PROGRESS:
+                raise ExamServiceError(f"Cannot pause section in status '{target_sec.status.value}'.")
 
-        now = datetime.now(timezone.utc)
-        now_iso = now.isoformat()
+            now = datetime.now(timezone.utc)
+            now_iso = now.isoformat()
 
-        # Calculate exact remaining seconds
-        remaining_seconds = target_sec.remaining_time_seconds
-        if target_sec.deadline_at:
-            dl_dt = datetime.fromisoformat(target_sec.deadline_at)
-            if dl_dt.tzinfo is None:
-                dl_dt = dl_dt.replace(tzinfo=timezone.utc)
-            remaining_seconds = max(0, int((dl_dt - now).total_seconds()))
+            # Calculate exact remaining seconds
+            remaining_seconds = target_sec.remaining_time_seconds
+            if target_sec.deadline_at:
+                dl_dt = datetime.fromisoformat(target_sec.deadline_at)
+                if dl_dt.tzinfo is None:
+                    dl_dt = dl_dt.replace(tzinfo=timezone.utc)
+                remaining_seconds = max(0, int((dl_dt - now).total_seconds()))
 
-        self.conn.execute(
-            """
-            UPDATE exam_section_attempt
-            SET status = ?, remaining_time_seconds = ?, paused_at = ?, deadline_at = NULL
-            WHERE id = ?;
-            """,
-            (ExamSectionStatus.PAUSED.value, remaining_seconds, now_iso, target_sec.section_id),
-        )
-        self.conn.commit()
-        return self.get_exam_state(session_id)
+            self.conn.execute(
+                """
+                UPDATE exam_section_attempt
+                SET status = ?, remaining_time_seconds = ?, paused_at = ?, deadline_at = NULL
+                WHERE id = ?;
+                """,
+                (ExamSectionStatus.PAUSED.value, remaining_seconds, now_iso, target_sec.section_id),
+            )
+            return self.peek_state(session_id)
 
     def resume_section(self, session_id: int, block_order: int) -> ExamSessionState:
         """
         Resume a paused section with a newly computed wall-clock deadline.
         """
-        sess = self.get_exam_state(session_id)
-        target_sec = next((s for s in sess.sections if s.block_order == block_order), None)
-        if not target_sec:
-            raise ExamServiceError(f"Section block {block_order} not found in exam {session_id}.")
+        with unit_of_work(self.conn):
+            self.settle_timers(session_id)
+            sess = self.peek_state(session_id)
+            target_sec = next((s for s in sess.sections if s.block_order == block_order), None)
+            if not target_sec:
+                raise ExamServiceError(f"Section block {block_order} not found in exam {session_id}.")
 
-        if target_sec.status != ExamSectionStatus.PAUSED:
-            raise ExamServiceError(f"Cannot resume section in status '{target_sec.status.value}'.")
+            if target_sec.status != ExamSectionStatus.PAUSED:
+                raise ExamServiceError(f"Cannot resume section in status '{target_sec.status.value}'.")
 
-        now = datetime.now(timezone.utc)
-        now_iso = now.isoformat()
-        deadline_dt = datetime.fromtimestamp(now.timestamp() + target_sec.remaining_time_seconds, tz=timezone.utc)
-        deadline_iso = deadline_dt.isoformat()
+            now = datetime.now(timezone.utc)
+            now_iso = now.isoformat()
+            deadline_dt = datetime.fromtimestamp(now.timestamp() + target_sec.remaining_time_seconds, tz=timezone.utc)
+            deadline_iso = deadline_dt.isoformat()
 
-        self.conn.execute(
-            """
-            UPDATE exam_section_attempt
-            SET status = ?, deadline_at = ?, paused_at = NULL
-            WHERE id = ?;
-            """,
-            (ExamSectionStatus.IN_PROGRESS.value, deadline_iso, target_sec.section_id),
-        )
-        self.conn.commit()
-        return self.get_exam_state(session_id)
+            self.conn.execute(
+                """
+                UPDATE exam_section_attempt
+                SET status = ?, deadline_at = ?, paused_at = NULL
+                WHERE id = ?;
+                """,
+                (ExamSectionStatus.IN_PROGRESS.value, deadline_iso, target_sec.section_id),
+            )
+            return self.peek_state(session_id)
 
     def submit_section(self, session_id: int, block_order: int) -> ExamSessionState:
         """
         Explicitly close and submit a section. Locks choices and records immutable graded responses.
         """
-        sess = self.get_exam_state(session_id)
-        target_sec = next((s for s in sess.sections if s.block_order == block_order), None)
-        if not target_sec:
-            raise ExamServiceError(f"Section block {block_order} not found in exam {session_id}.")
+        with unit_of_work(self.conn):
+            self.settle_timers(session_id)
+            sess = self.peek_state(session_id)
+            target_sec = next((s for s in sess.sections if s.block_order == block_order), None)
+            if not target_sec:
+                raise ExamServiceError(f"Section block {block_order} not found in exam {session_id}.")
 
-        if target_sec.status in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED):
-            return sess
+            if target_sec.status in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED):
+                return sess
 
-        now_iso = datetime.now(timezone.utc).isoformat()
-        elapsed_ms = (target_sec.allocated_time_seconds - target_sec.remaining_time_seconds) * 1000
+            now_iso = datetime.now(timezone.utc).isoformat()
+            elapsed_ms = (target_sec.allocated_time_seconds - target_sec.remaining_time_seconds) * 1000
 
-        self.conn.execute(
-            """
-            UPDATE exam_section_attempt
-            SET status = ?, completed_at = ?, total_elapsed_ms = ?, deadline_at = NULL
-            WHERE id = ?;
-            """,
-            (ExamSectionStatus.COMPLETED.value, now_iso, elapsed_ms, target_sec.section_id),
-        )
+            # Atomic conditional transition to COMPLETED
+            cursor = self.conn.execute(
+                """
+                UPDATE exam_section_attempt
+                SET status = ?, completed_at = ?, total_elapsed_ms = ?, deadline_at = NULL
+                WHERE id = ? AND status IN (?, ?);
+                """,
+                (
+                    ExamSectionStatus.COMPLETED.value,
+                    now_iso,
+                    elapsed_ms,
+                    target_sec.section_id,
+                    ExamSectionStatus.IN_PROGRESS.value,
+                    ExamSectionStatus.PAUSED.value,
+                ),
+            )
 
-        # Commit responses for answered questions in this section
-        self._commit_section_responses(target_sec.section_id)
+            # Commit responses for answered questions in this section only if claimed
+            if cursor.rowcount > 0:
+                self._commit_section_responses(target_sec.section_id)
 
-        self.conn.commit()
-        return self.get_exam_state(session_id)
+            # Auto-finalize exam if all sections are now finished
+            unfinished_row = self.conn.execute(
+                """
+                SELECT COUNT(*) as unfinished_count
+                FROM exam_section_attempt
+                WHERE attempt_id = ? AND status NOT IN (?, ?);
+                """,
+                (
+                    session_id,
+                    ExamSectionStatus.COMPLETED.value,
+                    ExamSectionStatus.EXPIRED.value,
+                ),
+            ).fetchone()
+
+            if unfinished_row["unfinished_count"] == 0:
+                att_row = self.conn.execute(
+                    "SELECT status, recipe_snapshot_json FROM test_attempt WHERE id = ?;",
+                    (session_id,),
+                ).fetchone()
+                if att_row and att_row["status"] != SessionStatus.COMPLETED.value:
+                    cursor = self.conn.execute(
+                        """
+                        UPDATE test_attempt
+                        SET status = ?, completed_at = ?, last_active_at = ?
+                        WHERE id = ? AND status != ?;
+                        """,
+                        (SessionStatus.COMPLETED.value, now_iso, now_iso, session_id, SessionStatus.COMPLETED.value),
+                    )
+                    if cursor.rowcount == 1:
+                        snap_exists = self.conn.execute(
+                            "SELECT 1 FROM exam_result_snapshot WHERE attempt_id = ?;",
+                            (session_id,),
+                        ).fetchone()
+                        if not snap_exists:
+                            blueprint_data = json.loads(att_row["recipe_snapshot_json"] or "{}")
+                            self._finalize_and_score_exam(session_id, blueprint_data, is_complete=True)
+
+            return self.peek_state(session_id)
 
     # -------------------------------------------------------------------------
     # 4. In-Exam Interactions (Select Choice, Mark for Review)
@@ -760,54 +912,54 @@ class ExamSessionService:
         Select or change an answer choice during an active section.
         Raises ExamSectionClosedError if the section is completed or expired.
         """
-        # Ensure session and section timers are refreshed
-        self.get_exam_state(session_id)
+        with unit_of_work(self.conn):
+            # Ensure overdue timers are settled first
+            self.settle_timers(session_id)
 
-        row = self.conn.execute(
-            """
-            SELECT
-                ai.attempt_id,
-                ai.pinned_question_revision_id,
-                esa.status as section_status
-            FROM attempt_item ai
-            JOIN exam_item_state eis ON ai.id = eis.attempt_item_id
-            JOIN exam_section_attempt esa ON eis.section_attempt_id = esa.id
-            WHERE ai.id = ? AND ai.attempt_id = ?;
-            """,
-            (attempt_item_id, session_id),
-        ).fetchone()
+            row = self.conn.execute(
+                """
+                SELECT
+                    ai.attempt_id,
+                    ai.pinned_question_revision_id,
+                    esa.status as section_status
+                FROM attempt_item ai
+                JOIN exam_item_state eis ON ai.id = eis.attempt_item_id
+                JOIN exam_section_attempt esa ON eis.section_attempt_id = esa.id
+                WHERE ai.id = ? AND ai.attempt_id = ?;
+                """,
+                (attempt_item_id, session_id),
+            ).fetchone()
 
-        if not row:
-            raise SessionNotFoundError(f"Attempt item {attempt_item_id} not found in exam {session_id}.")
+            if not row:
+                raise SessionNotFoundError(f"Attempt item {attempt_item_id} not found in exam {session_id}.")
 
-        sec_status = ExamSectionStatus(row["section_status"])
-        if sec_status in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED):
-            raise ExamSectionClosedError(f"Cannot select answer: section is {sec_status.value}.")
+            sec_status = ExamSectionStatus(row["section_status"])
+            if sec_status in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED):
+                raise ExamSectionClosedError(f"Cannot select answer: section is {sec_status.value}.")
 
-        if sec_status != ExamSectionStatus.IN_PROGRESS:
-            raise ExamServiceError(f"Cannot select answer: section is in status '{sec_status.value}'. Must be in progress.")
+            if sec_status != ExamSectionStatus.IN_PROGRESS:
+                raise ExamServiceError(f"Cannot select answer: section is in status '{sec_status.value}'. Must be in progress.")
 
-        # Validate that selected_choice_id belongs to the pinned revision
-        ch_row = self.conn.execute(
-            "SELECT id FROM revision_choice WHERE id = ? AND question_revision_id = ?;",
-            (selected_choice_id, row["pinned_question_revision_id"]),
-        ).fetchone()
-        if not ch_row:
-            raise ValueError(f"Choice {selected_choice_id} does not belong to revision {row['pinned_question_revision_id']}.")
+            # Validate that selected_choice_id belongs to the pinned revision
+            ch_row = self.conn.execute(
+                "SELECT id FROM revision_choice WHERE id = ? AND question_revision_id = ?;",
+                (selected_choice_id, row["pinned_question_revision_id"]),
+            ).fetchone()
+            if not ch_row:
+                raise ValueError(f"Choice {selected_choice_id} does not belong to revision {row['pinned_question_revision_id']}.")
 
-        now_iso = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
-            """
-            UPDATE exam_item_state
-            SET selected_choice_id = ?,
-                time_spent_ms = time_spent_ms + ?,
-                last_action_at = ?,
-                updated_at = ?
-            WHERE attempt_item_id = ?;
-            """,
-            (selected_choice_id, max(0, time_spent_ms), now_iso, now_iso, attempt_item_id),
-        )
-        self.conn.commit()
+            now_iso = datetime.now(timezone.utc).isoformat()
+            self.conn.execute(
+                """
+                UPDATE exam_item_state
+                SET selected_choice_id = ?,
+                    time_spent_ms = time_spent_ms + ?,
+                    last_action_at = ?,
+                    updated_at = ?
+                WHERE attempt_item_id = ?;
+                """,
+                (selected_choice_id, max(0, time_spent_ms), now_iso, now_iso, attempt_item_id),
+            )
 
     def toggle_review_flag(
         self,
@@ -818,36 +970,37 @@ class ExamSessionService:
         """
         Mark or unmark a question for review during an active section.
         """
-        self.get_exam_state(session_id)
+        with unit_of_work(self.conn):
+            # Ensure overdue timers are settled first
+            self.settle_timers(session_id)
 
-        row = self.conn.execute(
-            """
-            SELECT esa.status as section_status
-            FROM attempt_item ai
-            JOIN exam_item_state eis ON ai.id = eis.attempt_item_id
-            JOIN exam_section_attempt esa ON eis.section_attempt_id = esa.id
-            WHERE ai.id = ? AND ai.attempt_id = ?;
-            """,
-            (attempt_item_id, session_id),
-        ).fetchone()
+            row = self.conn.execute(
+                """
+                SELECT esa.status as section_status
+                FROM attempt_item ai
+                JOIN exam_item_state eis ON ai.id = eis.attempt_item_id
+                JOIN exam_section_attempt esa ON eis.section_attempt_id = esa.id
+                WHERE ai.id = ? AND ai.attempt_id = ?;
+                """,
+                (attempt_item_id, session_id),
+            ).fetchone()
 
-        if not row:
-            raise SessionNotFoundError(f"Attempt item {attempt_item_id} not found in exam {session_id}.")
+            if not row:
+                raise SessionNotFoundError(f"Attempt item {attempt_item_id} not found in exam {session_id}.")
 
-        sec_status = ExamSectionStatus(row["section_status"])
-        if sec_status in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED):
-            raise ExamSectionClosedError(f"Cannot toggle review flag: section is {sec_status.value}.")
+            sec_status = ExamSectionStatus(row["section_status"])
+            if sec_status in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED):
+                raise ExamSectionClosedError(f"Cannot toggle review flag: section is {sec_status.value}.")
 
-        now_iso = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
-            """
-            UPDATE exam_item_state
-            SET is_marked_for_review = ?, updated_at = ?
-            WHERE attempt_item_id = ?;
-            """,
-            (1 if is_marked else 0, now_iso, attempt_item_id),
-        )
-        self.conn.commit()
+            now_iso = datetime.now(timezone.utc).isoformat()
+            self.conn.execute(
+                """
+                UPDATE exam_item_state
+                SET is_marked_for_review = ?, updated_at = ?
+                WHERE attempt_item_id = ?;
+                """,
+                (1 if is_marked else 0, now_iso, attempt_item_id),
+            )
 
     # -------------------------------------------------------------------------
     # 5. Exam Finalization, Grading & Immutable Snapshotting
@@ -858,40 +1011,56 @@ class ExamSessionService:
         Explicitly finalize the examination, closing open sections, grading responses,
         and generating the immutable result snapshot.
         """
-        sess = self.get_exam_state(session_id)
-        if sess.status == SessionStatus.COMPLETED.value:
-            return self.get_exam_result(session_id)
+        with unit_of_work(self.conn):
+            self.settle_timers(session_id)
+            sess = self.peek_state(session_id)
+            if sess.status == SessionStatus.COMPLETED.value:
+                return self.get_exam_result(session_id)
 
-        # Close all open sections
-        now_iso = datetime.now(timezone.utc).isoformat()
-        for s in sess.sections:
-            if s.status not in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED):
-                self.conn.execute(
-                    """
-                    UPDATE exam_section_attempt
-                    SET status = ?, completed_at = ?, deadline_at = NULL
-                    WHERE id = ?;
-                    """,
-                    (ExamSectionStatus.COMPLETED.value, now_iso, s.section_id),
-                )
-                self._commit_section_responses(s.section_id)
+            # Close all open sections
+            now_iso = datetime.now(timezone.utc).isoformat()
+            for s in sess.sections:
+                if s.status not in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED):
+                    cursor = self.conn.execute(
+                        """
+                        UPDATE exam_section_attempt
+                        SET status = ?, completed_at = ?, deadline_at = NULL
+                        WHERE id = ? AND status NOT IN (?, ?);
+                        """,
+                        (
+                            ExamSectionStatus.COMPLETED.value,
+                            now_iso,
+                            s.section_id,
+                            ExamSectionStatus.COMPLETED.value,
+                            ExamSectionStatus.EXPIRED.value,
+                        ),
+                    )
+                    if cursor.rowcount > 0:
+                        self._commit_section_responses(s.section_id)
 
-        # Fetch blueprint
-        att_row = self.conn.execute(
-            "SELECT recipe_snapshot_json FROM test_attempt WHERE id = ?;",
-            (session_id,),
-        ).fetchone()
-        blueprint_data = json.loads(att_row["recipe_snapshot_json"] or "{}")
+            # Fetch blueprint
+            att_row = self.conn.execute(
+                "SELECT recipe_snapshot_json FROM test_attempt WHERE id = ?;",
+                (session_id,),
+            ).fetchone()
+            blueprint_data = json.loads(att_row["recipe_snapshot_json"] or "{}")
 
-        # Determine completeness: were all sections taken and finished?
-        is_complete = all(
-            s.status in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED)
-            for s in sess.sections
-        )
+            # Determine completeness: were all sections taken and finished?
+            is_complete = all(
+                s.status in (ExamSectionStatus.COMPLETED, ExamSectionStatus.EXPIRED)
+                for s in sess.sections
+            )
 
-        result = self._finalize_and_score_exam(session_id, blueprint_data, is_complete=is_complete)
-        self.conn.commit()
-        return result
+            # Idempotency check before finalization
+            snap_exists = self.conn.execute(
+                "SELECT 1 FROM exam_result_snapshot WHERE attempt_id = ?;",
+                (session_id,),
+            ).fetchone()
+            if snap_exists:
+                return self.get_exam_result(session_id)
+
+            result = self._finalize_and_score_exam(session_id, blueprint_data, is_complete=is_complete)
+            return result
 
     def get_exam_result(self, session_id: int) -> ExamResult:
         """
@@ -998,6 +1167,13 @@ class ExamSessionService:
         """
         Execute scoring model, persist immutable result snapshot, and update test_attempt.
         """
+        snap_exists = self.conn.execute(
+            "SELECT 1 FROM exam_result_snapshot WHERE attempt_id = ?;",
+            (attempt_id,),
+        ).fetchone()
+        if snap_exists:
+            return self.get_exam_result(attempt_id)
+
         now_iso = datetime.now(timezone.utc).isoformat()
         blueprint = ExamBlueprint.model_validate(blueprint_data)
 

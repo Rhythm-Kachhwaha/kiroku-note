@@ -111,6 +111,8 @@ def _derive_format_code(level: str, section: str, q: ParsedQuestion) -> str | No
         return "sentence_composition"
 
     if has_audio:
+        if len(q.choices) == 3:
+            return "quick_response"
         # Check if choices are unprinted/diagrammatic labels (e.g. ['1', '2', '3', '4'])
         is_diagrammatic = all(c.text.strip().isdigit() for c in q.choices) if q.choices else True
         if is_diagrammatic:
@@ -123,23 +125,30 @@ def _derive_format_code(level: str, section: str, q: ParsedQuestion) -> str | No
         return "comprehension_short"
 
     sec_lower = section.lower()
-    if sec_lower == "kanji":
+    if sec_lower in ("kanji",):
         # Check if choices are pure kana (Kanji reading) or kanji (Orthography)
         all_kana = all(re.fullmatch(r"[\u3040-\u309F\u30A0-\u30FF\s]+", c.text.strip()) for c in q.choices if c.text.strip()) if q.choices else True
         if all_kana:
             return "kanji_reading"
         return "orthography"
 
-    if sec_lower == "grammar":
+    if sec_lower in ("grammar", "bunpou"):
         return "sentential_grammar_1"
 
-    if sec_lower in ("vocabulary", "vocab"):
+    if sec_lower in ("vocabulary", "vocab", "goi"):
+        has_kanji_choice = any(bool(re.search(r"[\u4E00-\u9FFF]", c.text)) for c in q.choices) if q.choices else False
+        if ("{u|" in q.stem or "___" in q.stem) and has_kanji_choice:
+            return "orthography"
+        if "使い方" in q.stem or "用法" in q.stem:
+            return "usage"
+        if "意味" in q.stem or "近い" in q.stem:
+            return "paraphrases"
         return "contextual_expressions"
 
-    if sec_lower == "reading":
+    if sec_lower in ("reading", "dokkai"):
         return "comprehension_short"
 
-    if sec_lower == "listening":
+    if sec_lower in ("listening", "choukai"):
         return "task_based_listening"
 
     return None

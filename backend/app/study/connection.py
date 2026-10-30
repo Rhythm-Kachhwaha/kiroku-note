@@ -26,6 +26,7 @@ from typing import Iterator, Set
 import weakref
 
 from app.config import get_study_db_path
+from app.study.tx import unit_of_work
 
 
 class StudyDatabaseError(Exception):
@@ -117,17 +118,9 @@ class StudyDatabaseManager:
         else:
             c = conn
 
-        # Explicit IMMEDIATE transaction
-        c.execute("BEGIN IMMEDIATE;")
         try:
-            yield c
-            c.execute("COMMIT;")
-        except Exception:
-            try:
-                c.execute("ROLLBACK;")
-            except Exception:
-                pass
-            raise
+            with unit_of_work(c):
+                yield c
         finally:
             if managed:
                 self._close_one(c)

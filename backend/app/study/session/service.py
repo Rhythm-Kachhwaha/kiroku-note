@@ -33,6 +33,7 @@ from app.study.session.models import (
     PracticeSessionConfig,
     PracticeSessionState,
 )
+from app.study.tx import unit_of_work
 from app.study.ulid import generate_ulid
 
 
@@ -76,129 +77,129 @@ class PracticeSessionService:
         """
         Create and persist a new practice session with deterministically ordered items.
         """
-        seed = config.seed if config.seed is not None else random.randint(1, 1_000_000_000)
+        with unit_of_work(self.conn):
+            seed = config.seed if config.seed is not None else random.randint(1, 1_000_000_000)
 
-        # 1. Select eligible candidate questions from the approved question bank
-        candidates = select_practice_candidates(
-            conn=self.conn,
-            level=config.level,
-            category=config.category,
-            format_code=config.format_code,
-            limit=config.question_count,
-            seed=seed,
-        )
-
-        if not candidates:
-            raise NoEligibleQuestionsError(
-                f"No eligible questions found matching criteria: level={config.level}, "
-                f"category={config.category}, format={config.format_code}."
+            # 1. Select eligible candidate questions from the approved question bank
+            candidates = select_practice_candidates(
+                conn=self.conn,
+                level=config.level,
+                category=config.category,
+                format_code=config.format_code,
+                limit=config.question_count,
+                seed=seed,
             )
 
-        external_id = generate_ulid()
-        now_iso = datetime.now(timezone.utc).isoformat()
-        recipe_json = config.model_dump_json()
+            if not candidates:
+                raise NoEligibleQuestionsError(
+                    f"No eligible questions found matching criteria: level={config.level}, "
+                    f"category={config.category}, format={config.format_code}."
+                )
 
-        # 2. Persist test_attempt
-        cursor = self.conn.execute(
-            """
-            INSERT INTO test_attempt (
-                external_id,
-                session_type,
-                status,
-                level,
-                category,
-                format_code,
-                recipe_snapshot_json,
-                seed,
-                created_at,
-                started_at,
-                total_elapsed_ms
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0);
-            """,
-            (
-                external_id,
-                config.session_type.value,
-                SessionStatus.CREATED.value,
-                config.level,
-                config.category,
-                config.format_code,
-                recipe_json,
-                seed,
-                now_iso,
-            ),
-        )
-        attempt_id = cursor.lastrowid
+            external_id = generate_ulid()
+            now_iso = datetime.now(timezone.utc).isoformat()
+            recipe_json = config.model_dump_json()
 
-        # 3. Persist attempt items and their choice ordering
-        for pos, (q_id, rev_id) in enumerate(candidates, start=1):
-            q_row = self.conn.execute(
-                "SELECT content_group_id, anchor_key FROM question WHERE id = ?;",
-                (q_id,),
-            ).fetchone()
-
-            group_id = q_row["content_group_id"]
-            anchor_key = q_row["anchor_key"]
-            group_rev_id = None
-            if group_id is not None:
-                grp_row = self.conn.execute(
-                    "SELECT current_revision_id FROM content_group WHERE id = ?;",
-                    (group_id,),
-                ).fetchone()
-                if grp_row:
-                    group_rev_id = grp_row["current_revision_id"]
-
-            item_cursor = self.conn.execute(
+            # 2. Persist test_attempt
+            cursor = self.conn.execute(
                 """
-                INSERT INTO attempt_item (
-                    attempt_id,
-                    position,
-                    question_id,
-                    pinned_question_revision_id,
-                    group_id,
-                    pinned_group_revision_id,
-                    anchor_key,
-                    created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+                INSERT INTO test_attempt (
+                    external_id,
+                    session_type,
+                    status,
+                    level,
+                    category,
+                    format_code,
+                    recipe_snapshot_json,
+                    seed,
+                    created_at,
+                    started_at,
+                    total_elapsed_ms
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0);
                 """,
                 (
-                    attempt_id,
-                    pos,
-                    q_id,
-                    rev_id,
-                    group_id,
-                    group_rev_id,
-                    anchor_key,
+                    external_id,
+                    config.session_type.value,
+                    SessionStatus.CREATED.value,
+                    config.level,
+                    config.category,
+                    config.format_code,
+                    recipe_json,
+                    seed,
                     now_iso,
                 ),
             )
-            item_id = item_cursor.lastrowid
+            attempt_id = cursor.lastrowid
 
-            # Pin choice presentation ordering
-            choices = self.conn.execute(
-                """
-                SELECT id, ordinal
-                FROM revision_choice
-                WHERE question_revision_id = ?
-                ORDER BY ordinal ASC;
-                """,
-                (rev_id,),
-            ).fetchall()
+            # 3. Persist attempt items and their choice ordering
+            for pos, (q_id, rev_id) in enumerate(candidates, start=1):
+                q_row = self.conn.execute(
+                    "SELECT content_group_id, anchor_key FROM question WHERE id = ?;",
+                    (q_id,),
+                ).fetchone()
 
-            for disp_pos, ch in enumerate(choices, start=1):
-                self.conn.execute(
+                group_id = q_row["content_group_id"]
+                anchor_key = q_row["anchor_key"]
+                group_rev_id = None
+                if group_id is not None:
+                    grp_row = self.conn.execute(
+                        "SELECT current_revision_id FROM content_group WHERE id = ?;",
+                        (group_id,),
+                    ).fetchone()
+                    if grp_row:
+                        group_rev_id = grp_row["current_revision_id"]
+
+                item_cursor = self.conn.execute(
                     """
-                    INSERT INTO attempt_item_choice_order (
-                        attempt_item_id,
-                        choice_id,
-                        display_position,
+                    INSERT INTO attempt_item (
+                        attempt_id,
+                        position,
+                        question_id,
+                        pinned_question_revision_id,
+                        group_id,
+                        pinned_group_revision_id,
+                        anchor_key,
                         created_at
-                    ) VALUES (?, ?, ?, ?);
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
                     """,
-                    (item_id, ch["id"], disp_pos, now_iso),
+                    (
+                        attempt_id,
+                        pos,
+                        q_id,
+                        rev_id,
+                        group_id,
+                        group_rev_id,
+                        anchor_key,
+                        now_iso,
+                    ),
                 )
+                item_id = item_cursor.lastrowid
 
-        self.conn.commit()
-        return self.get_session(attempt_id)
+                # Pin choice presentation ordering
+                choices = self.conn.execute(
+                    """
+                    SELECT id, ordinal
+                    FROM revision_choice
+                    WHERE question_revision_id = ?
+                    ORDER BY ordinal ASC;
+                    """,
+                    (rev_id,),
+                ).fetchall()
+
+                for disp_pos, ch in enumerate(choices, start=1):
+                    self.conn.execute(
+                        """
+                        INSERT INTO attempt_item_choice_order (
+                            attempt_item_id,
+                            choice_id,
+                            display_position,
+                            created_at
+                        ) VALUES (?, ?, ?, ?);
+                        """,
+                        (item_id, ch["id"], disp_pos, now_iso),
+                    )
+
+            return self.get_session(attempt_id)
 
     def get_session(self, session_id_or_external_id: int | str) -> PracticeSessionState:
         """
@@ -374,42 +375,42 @@ class PracticeSessionService:
         """
         Record presentation timestamp and return item presentation without revealing canonical answer.
         """
-        sess = self.get_session(session_id)
-        if sess.status in (SessionStatus.COMPLETED, SessionStatus.ABANDONED):
-            raise SessionLifecycleError(f"Cannot present item in a {sess.status.value} session.")
+        with unit_of_work(self.conn):
+            sess = self.get_session(session_id)
+            if sess.status in (SessionStatus.COMPLETED, SessionStatus.ABANDONED):
+                raise SessionLifecycleError(f"Cannot present item in a {sess.status.value} session.")
 
-        now_iso = datetime.now(timezone.utc).isoformat()
+            now_iso = datetime.now(timezone.utc).isoformat()
 
-        # If session is still in created status, activate it
-        if sess.status == SessionStatus.CREATED:
-            self.conn.execute(
-                """
-                UPDATE test_attempt
-                SET status = ?, started_at = COALESCE(started_at, ?), last_active_at = ?
-                WHERE id = ?;
-                """,
-                (SessionStatus.IN_PROGRESS.value, now_iso, now_iso, session_id),
-            )
+            # If session is still in created status, activate it
+            if sess.status == SessionStatus.CREATED:
+                self.conn.execute(
+                    """
+                    UPDATE test_attempt
+                    SET status = ?, started_at = COALESCE(started_at, ?), last_active_at = ?
+                    WHERE id = ?;
+                    """,
+                    (SessionStatus.IN_PROGRESS.value, now_iso, now_iso, session_id),
+                )
 
-        target_item = None
-        for item in sess.items:
-            if item.position == position:
-                target_item = item
-                break
+            target_item = None
+            for item in sess.items:
+                if item.position == position:
+                    target_item = item
+                    break
 
-        if not target_item:
-            raise SessionServiceError(f"Item position {position} not found in session {session_id}.")
+            if not target_item:
+                raise SessionServiceError(f"Item position {position} not found in session {session_id}.")
 
-        # If presented_at has not been set yet, record it
-        if not target_item.presented_at:
-            self.conn.execute(
-                "UPDATE attempt_item SET presented_at = ? WHERE id = ?;",
-                (now_iso, target_item.attempt_item_id),
-            )
-            target_item.presented_at = now_iso
+            # If presented_at has not been set yet, record it
+            if not target_item.presented_at:
+                self.conn.execute(
+                    "UPDATE attempt_item SET presented_at = ? WHERE id = ?;",
+                    (now_iso, target_item.attempt_item_id),
+                )
+                target_item.presented_at = now_iso
 
-        self.conn.commit()
-        return target_item
+            return target_item
 
     def submit_answer(
         self,
@@ -423,100 +424,188 @@ class PracticeSessionService:
         Deterministically grade an answer submission, persist response, feedback, timing,
         and update adaptive repetition state.
         """
-        # 1. Validate session status
-        sess_row = self.conn.execute(
-            "SELECT id, status, total_elapsed_ms FROM test_attempt WHERE id = ?;",
-            (session_id,),
-        ).fetchone()
+        with unit_of_work(self.conn):
+            # 1. Validate session status
+            sess_row = self.conn.execute(
+                "SELECT id, status, total_elapsed_ms FROM test_attempt WHERE id = ?;",
+                (session_id,),
+            ).fetchone()
 
-        if not sess_row:
-            raise SessionNotFoundError(f"Session {session_id} not found.")
+            if not sess_row:
+                raise SessionNotFoundError(f"Session {session_id} not found.")
 
-        current_status = SessionStatus(sess_row["status"])
-        if current_status in (SessionStatus.COMPLETED, SessionStatus.ABANDONED):
-            raise SessionLifecycleError(f"Cannot submit answer to a {current_status.value} session.")
+            current_status = SessionStatus(sess_row["status"])
+            if current_status in (SessionStatus.COMPLETED, SessionStatus.ABANDONED):
+                raise SessionLifecycleError(f"Cannot submit answer to a {current_status.value} session.")
 
-        # 2. Timing validation
-        if time_spent_ms < 0:
-            raise SessionServiceError(f"Invalid negative time_spent_ms: {time_spent_ms}.")
-        validated_time_ms = min(time_spent_ms, MAX_QUESTION_TIME_MS)
+            # 2. Timing validation
+            if time_spent_ms < 0:
+                raise SessionServiceError(f"Invalid negative time_spent_ms: {time_spent_ms}.")
+            validated_time_ms = min(time_spent_ms, MAX_QUESTION_TIME_MS)
 
-        # 3. Check for existing response
-        existing_resp = self.conn.execute(
-            "SELECT id FROM response WHERE attempt_item_id = ?;",
-            (attempt_item_id,),
-        ).fetchone()
-        if existing_resp:
-            raise AlreadyAnsweredError(f"Attempt item {attempt_item_id} has already been answered.")
+            # 3. Check for existing response
+            existing_resp = self.conn.execute(
+                "SELECT id FROM response WHERE attempt_item_id = ?;",
+                (attempt_item_id,),
+            ).fetchone()
+            if existing_resp:
+                raise AlreadyAnsweredError(f"Attempt item {attempt_item_id} has already been answered.")
 
-        # 4. Activate session if in 'created' state
-        now_iso = datetime.now(timezone.utc).isoformat()
-        if current_status == SessionStatus.CREATED:
+            # 4. Activate session if in 'created' state
+            now_iso = datetime.now(timezone.utc).isoformat()
+            if current_status == SessionStatus.CREATED:
+                self.conn.execute(
+                    """
+                    UPDATE test_attempt
+                    SET status = ?, started_at = COALESCE(started_at, ?), last_active_at = ?
+                    WHERE id = ?;
+                    """,
+                    (SessionStatus.IN_PROGRESS.value, now_iso, now_iso, session_id),
+                )
+
+            # 5. Deterministically grade submission
+            grading_result = DeterministicGrader.grade_attempt(
+                conn=self.conn,
+                attempt_item_id=attempt_item_id,
+                selected_choice_id=selected_choice_id,
+                time_spent_ms=validated_time_ms,
+                difficulty_rating=difficulty_rating,
+            )
+
+            # 6. Fetch pinned revision id and question id
+            item_row = self.conn.execute(
+                "SELECT question_id, pinned_question_revision_id FROM attempt_item WHERE id = ?;",
+                (attempt_item_id,),
+            ).fetchone()
+            question_id = item_row["question_id"]
+            pinned_rev_id = item_row["pinned_question_revision_id"]
+
+            # Fetch submitted answer label/choice_key
+            submitted_label_row = self.conn.execute(
+                "SELECT choice_key FROM revision_choice WHERE id = ?;",
+                (selected_choice_id,),
+            ).fetchone()
+            submitted_answer = submitted_label_row["choice_key"] if submitted_label_row else str(selected_choice_id)
+
+            # 7. Persist into response table
+            self.conn.execute(
+                """
+                INSERT INTO response (
+                    attempt_item_id,
+                    selected_choice_id,
+                    pinned_question_revision_id,
+                    is_correct,
+                    grading_status,
+                    submitted_answer,
+                    canonical_choice_id,
+                    time_spent_ms,
+                    answered_at,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    attempt_item_id,
+                    selected_choice_id,
+                    pinned_rev_id,
+                    1 if grading_result.is_correct else 0,
+                    grading_result.grading_status.value,
+                    submitted_answer,
+                    grading_result.canonical_choice_id,
+                    validated_time_ms,
+                    now_iso,
+                    now_iso,
+                ),
+            )
+
+            # 8. Persist optional difficulty feedback
+            if difficulty_rating is not None:
+                self.conn.execute(
+                    """
+                    INSERT INTO attempt_item_feedback (
+                        attempt_item_id,
+                        difficulty_rating,
+                        created_at
+                    ) VALUES (?, ?, ?)
+                    ON CONFLICT(attempt_item_id) DO UPDATE SET
+                        difficulty_rating = excluded.difficulty_rating;
+                    """,
+                    (attempt_item_id, difficulty_rating.value, now_iso),
+                )
+
+            # 9. Update question adaptive repetition state
+            update_question_adaptive_state(
+                conn=self.conn,
+                question_id=question_id,
+                is_correct=grading_result.is_correct,
+                difficulty_rating=difficulty_rating,
+                session_id=session_id,
+            )
+
+            # 10. Update session timing and check completion
+            new_total_elapsed = sess_row["total_elapsed_ms"] + validated_time_ms
             self.conn.execute(
                 """
                 UPDATE test_attempt
-                SET status = ?, started_at = COALESCE(started_at, ?), last_active_at = ?
+                SET total_elapsed_ms = ?, last_active_at = ?
                 WHERE id = ?;
                 """,
-                (SessionStatus.IN_PROGRESS.value, now_iso, now_iso, session_id),
+                (new_total_elapsed, now_iso, session_id),
             )
 
-        # 5. Deterministically grade submission
-        grading_result = DeterministicGrader.grade_attempt(
-            conn=self.conn,
-            attempt_item_id=attempt_item_id,
-            selected_choice_id=selected_choice_id,
-            time_spent_ms=validated_time_ms,
-            difficulty_rating=difficulty_rating,
-        )
+            # Check if all items in session are answered
+            unanswered_row = self.conn.execute(
+                """
+                SELECT COUNT(*) as c
+                FROM attempt_item ai
+                LEFT JOIN response r ON ai.id = r.attempt_item_id
+                WHERE ai.attempt_id = ? AND r.id IS NULL;
+                """,
+                (session_id,),
+            ).fetchone()
 
-        # 6. Fetch pinned revision id and question id
-        item_row = self.conn.execute(
-            "SELECT question_id, pinned_question_revision_id FROM attempt_item WHERE id = ?;",
-            (attempt_item_id,),
-        ).fetchone()
-        question_id = item_row["question_id"]
-        pinned_rev_id = item_row["pinned_question_revision_id"]
+            if unanswered_row["c"] == 0:
+                self.conn.execute(
+                    """
+                    UPDATE test_attempt
+                    SET status = ?, completed_at = ?
+                    WHERE id = ?;
+                    """,
+                    (SessionStatus.COMPLETED.value, now_iso, session_id),
+                )
 
-        # Fetch submitted answer label/choice_key
-        submitted_label_row = self.conn.execute(
-            "SELECT choice_key FROM revision_choice WHERE id = ?;",
-            (selected_choice_id,),
-        ).fetchone()
-        submitted_answer = submitted_label_row["choice_key"] if submitted_label_row else str(selected_choice_id)
+            return grading_result
 
-        # 7. Persist into response table
-        self.conn.execute(
-            """
-            INSERT INTO response (
-                attempt_item_id,
-                selected_choice_id,
-                pinned_question_revision_id,
-                is_correct,
-                grading_status,
-                submitted_answer,
-                canonical_choice_id,
-                time_spent_ms,
-                answered_at,
-                created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-            """,
-            (
-                attempt_item_id,
-                selected_choice_id,
-                pinned_rev_id,
-                1 if grading_result.is_correct else 0,
-                grading_result.grading_status.value,
-                submitted_answer,
-                grading_result.canonical_choice_id,
-                validated_time_ms,
-                now_iso,
-                now_iso,
-            ),
-        )
+    def submit_feedback(
+        self,
+        session_id: int,
+        attempt_item_id: int,
+        difficulty_rating: DifficultyRating,
+    ) -> None:
+        """
+        Submit or adjust difficulty rating after answering and update adaptive state.
+        """
+        with unit_of_work(self.conn):
+            # Validate attempt item belongs to session and is answered
+            row = self.conn.execute(
+                """
+                SELECT ai.question_id, r.is_correct
+                FROM attempt_item ai
+                JOIN response r ON ai.id = r.attempt_item_id
+                WHERE ai.id = ? AND ai.attempt_id = ?;
+                """,
+                (attempt_item_id, session_id),
+            ).fetchone()
 
-        # 8. Persist optional difficulty feedback
-        if difficulty_rating is not None:
+            if not row:
+                raise SessionServiceError(
+                    f"Attempt item {attempt_item_id} in session {session_id} not found or not yet answered."
+                )
+
+            question_id = row["question_id"]
+            is_correct = bool(row["is_correct"])
+            now_iso = datetime.now(timezone.utc).isoformat()
+
+            # Persist feedback
             self.conn.execute(
                 """
                 INSERT INTO attempt_item_feedback (
@@ -530,140 +619,51 @@ class PracticeSessionService:
                 (attempt_item_id, difficulty_rating.value, now_iso),
             )
 
-        # 9. Update question adaptive repetition state
-        update_question_adaptive_state(
-            conn=self.conn,
-            question_id=question_id,
-            is_correct=grading_result.is_correct,
-            difficulty_rating=difficulty_rating,
-            session_id=session_id,
-        )
-
-        # 10. Update session timing and check completion
-        new_total_elapsed = sess_row["total_elapsed_ms"] + validated_time_ms
-        self.conn.execute(
-            """
-            UPDATE test_attempt
-            SET total_elapsed_ms = ?, last_active_at = ?
-            WHERE id = ?;
-            """,
-            (new_total_elapsed, now_iso, session_id),
-        )
-
-        # Check if all items in session are answered
-        unanswered_row = self.conn.execute(
-            """
-            SELECT COUNT(*) as c
-            FROM attempt_item ai
-            LEFT JOIN response r ON ai.id = r.attempt_item_id
-            WHERE ai.attempt_id = ? AND r.id IS NULL;
-            """,
-            (session_id,),
-        ).fetchone()
-
-        if unanswered_row["c"] == 0:
-            self.conn.execute(
-                """
-                UPDATE test_attempt
-                SET status = ?, completed_at = ?
-                WHERE id = ?;
-                """,
-                (SessionStatus.COMPLETED.value, now_iso, session_id),
+            # Update adaptive repetition state with the new rating
+            update_question_adaptive_state(
+                conn=self.conn,
+                question_id=question_id,
+                is_correct=is_correct,
+                difficulty_rating=difficulty_rating,
+                session_id=session_id,
             )
-
-        self.conn.commit()
-        return grading_result
-
-    def submit_feedback(
-        self,
-        session_id: int,
-        attempt_item_id: int,
-        difficulty_rating: DifficultyRating,
-    ) -> None:
-        """
-        Submit or adjust difficulty rating after answering and update adaptive state.
-        """
-        # Validate attempt item belongs to session and is answered
-        row = self.conn.execute(
-            """
-            SELECT ai.question_id, r.is_correct
-            FROM attempt_item ai
-            JOIN response r ON ai.id = r.attempt_item_id
-            WHERE ai.id = ? AND ai.attempt_id = ?;
-            """,
-            (attempt_item_id, session_id),
-        ).fetchone()
-
-        if not row:
-            raise SessionServiceError(
-                f"Attempt item {attempt_item_id} in session {session_id} not found or not yet answered."
-            )
-
-        question_id = row["question_id"]
-        is_correct = bool(row["is_correct"])
-        now_iso = datetime.now(timezone.utc).isoformat()
-
-        # Persist feedback
-        self.conn.execute(
-            """
-            INSERT INTO attempt_item_feedback (
-                attempt_item_id,
-                difficulty_rating,
-                created_at
-            ) VALUES (?, ?, ?)
-            ON CONFLICT(attempt_item_id) DO UPDATE SET
-                difficulty_rating = excluded.difficulty_rating;
-            """,
-            (attempt_item_id, difficulty_rating.value, now_iso),
-        )
-
-        # Update adaptive repetition state with the new rating
-        update_question_adaptive_state(
-            conn=self.conn,
-            question_id=question_id,
-            is_correct=is_correct,
-            difficulty_rating=difficulty_rating,
-            session_id=session_id,
-        )
-
-        self.conn.commit()
 
     def complete_session(self, session_id: int) -> PracticeSessionState:
         """
         Explicitly transition an active session to completed status.
         """
-        sess = self.get_session(session_id)
-        if sess.status in (SessionStatus.COMPLETED, SessionStatus.ABANDONED):
-            return sess
+        with unit_of_work(self.conn):
+            sess = self.get_session(session_id)
+            if sess.status in (SessionStatus.COMPLETED, SessionStatus.ABANDONED):
+                return sess
 
-        now_iso = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
-            """
-            UPDATE test_attempt
-            SET status = ?, completed_at = ?, last_active_at = ?
-            WHERE id = ?;
-            """,
-            (SessionStatus.COMPLETED.value, now_iso, now_iso, session_id),
-        )
-        self.conn.commit()
-        return self.get_session(session_id)
+            now_iso = datetime.now(timezone.utc).isoformat()
+            self.conn.execute(
+                """
+                UPDATE test_attempt
+                SET status = ?, completed_at = ?, last_active_at = ?
+                WHERE id = ?;
+                """,
+                (SessionStatus.COMPLETED.value, now_iso, now_iso, session_id),
+            )
+            return self.get_session(session_id)
 
     def abandon_session(self, session_id: int) -> PracticeSessionState:
         """
         Explicitly transition an active session to abandoned status.
         """
-        sess = self.get_session(session_id)
-        if sess.status == SessionStatus.COMPLETED:
-            raise SessionLifecycleError("Cannot abandon an already completed session.")
+        with unit_of_work(self.conn):
+            sess = self.get_session(session_id)
+            if sess.status == SessionStatus.COMPLETED:
+                raise SessionLifecycleError("Cannot abandon an already completed session.")
 
-        now_iso = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
-            """
-            UPDATE test_attempt
-            SET status = ?, last_active_at = ?
-            WHERE id = ?;
-            """,
-            (SessionStatus.ABANDONED.value, now_iso, session_id),
-        )
-        self.conn.commit()
-        return self.get_session(session_id)
+            now_iso = datetime.now(timezone.utc).isoformat()
+            self.conn.execute(
+                """
+                UPDATE test_attempt
+                SET status = ?, last_active_at = ?
+                WHERE id = ?;
+                """,
+                (SessionStatus.ABANDONED.value, now_iso, session_id),
+            )
+            return self.get_session(session_id)
