@@ -1,0 +1,202 @@
+/**
+ * Kiroku Note Desktop — Planetoño Tactile Physics & Button Styles
+ * Solid 0-blur offset shadows, mechanical depression, and snappy spring feedback.
+ */
+
+/* Base Tactile Elements */
+.tactile-btn,
+.tactile-card,
+.tactile-pill,
+.tactile-input {
+  box-sizing: border-box;
+  border: 1.5px solid var(--tactile-stroke);
+  transition: transform var(--duration-instant) ease-out,
+              box-shadow var(--duration-instant) ease-out,
+              background-color var(--duration-fast) ease,
+              border-color var(--duration-fast) ease;
+  user-select: none;
+}
+
+/* Primary Vermilion Action Button */
+.tactile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.85rem;
+  line-height: 1.25;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  background-color: var(--surface-container);
+  color: var(--text-primary);
+  text-decoration: none;
+  outline: none;
+}
+
+.tactile-btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-lg);
+  background-color: var(--surface-container-high);
+}
+
+.tactile-btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: var(--shadow-pressed);
+}
+
+.tactile-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: var(--shadow-sm);
+}
+
+.tactile-btn:focus-visible {
+  outline: 2px solid var(--gold-eye);
+  outline-offset: 2px;
+}
+
+/* Vermilion Primary Stamp Button */
+.tactile-btn-primary {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+}
+
+.tactile-btn-primary:hover:not(:disabled) {
+  background-color: var(--vermilion-hover);
+  color: #FFFFFF;
+}
+
+.tactile-btn-primary:active:not(:disabled) {
+  background-color: var(--vermilion-active);
+}
+
+/* Warm Paper Secondary Button */
+.tactile-btn-paper {
+  background-color: var(--warm-paper);
+  color: var(--ink-black);
+}
+
+.tactile-btn-paper:hover:not(:disabled) {
+  background-color: #FFFFFF;
+}
+
+/* Gold Accent Button */
+.tactile-btn-gold {
+  background-color: var(--gold-eye);
+  color: var(--tactile-stroke);
+}
+
+.tactile-btn-gold:hover:not(:disabled) {
+  background-color: var(--gold-hover);
+}
+
+/* Small / Icon Button */
+.tactile-btn-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tactile-btn-sm {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Tactile Card Container */
+.tactile-card {
+  background-color: var(--ink-surface);
+  color: var(--text-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-md);
+}
+
+.tactile-card-interactive {
+  cursor: pointer;
+}
+
+.tactile-card-interactive:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-lg);
+  border-color: rgba(245, 241, 232, 0.25);
+}
+
+/* Pitch Black Surface Utility (Strict #000000 for JMdict, Stroke Canvas & Study Questions) */
+.surface-pitch-black {
+  background-color: var(--surface-pitch-black) !important;
+  color: var(--warm-paper) !important;
+  border: 1.5px solid var(--tactile-stroke) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* Tactile Pill Badges */
+.tactile-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: var(--shadow-sm);
+  background-color: var(--surface-container);
+  color: var(--text-primary);
+}
+
+.tactile-pill-vermilion {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+}
+
+.tactile-pill-gold {
+  background-color: var(--gold-eye);
+  color: var(--tactile-stroke);
+}
+
+.tactile-pill-paper {
+  background-color: var(--warm-paper);
+  color: var(--ink-black);
+}
+
+/* Tactile Form Inputs */
+.tactile-input {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  background-color: var(--surface-container-lowest);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  outline: none;
+}
+
+.tactile-input:focus {
+  border-color: var(--gold-eye);
+  box-shadow: var(--shadow-md);
+}
+
+/* Accessibility: Prefers-Reduced-Motion */
+@media (prefers-reduced-motion: reduce) {
+  .tactile-btn,
+  .tactile-btn:hover,
+  .tactile-btn:active,
+  .tactile-card-interactive:hover {
+    transform: none !important;
+    transition: opacity var(--duration-fast) ease !important;
+  }
+}
+

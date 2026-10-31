@@ -246,6 +246,7 @@ run_backend.py, start_backend.bat root backend launchers
 5. **Tests** — `npm.cmd run test:desktop` (`node --test desktop/tests/*.test.js`).
 6. **Build/runtime dependencies** — Reuses existing `extension/sidepanel/` assets with desktop
    overrides focusing on Quick Add and History modes; connects to local FastAPI backend on port 21828.
+7. **Desktop UI & Stitch Reference Archive** — The native desktop UI is structured into modular tab views (`desktop/src/views/`) housed inside a single shared app shell extracted from the locked Home screen. The directory `docs/design/stitch-export/` contains verbatim, immutable Stitch MCP exports (HTML, CSS, screenshots, and design tokens in `_design-system/`). Files in `docs/design/stitch-export/` serve strictly as immutable visual/motion references and must never be edited. All runtime implementation adapts to ground truth backend and database schemas.
 
 ## Study Database & JLPT Question Bank Subsystem
 

@@ -1,0 +1,886 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<meta content="web_standard" name="shell-type">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@700;800&amp;family=Inter:wght@400;500;600;700&amp;family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #141311;
+        color: #e6e2de;
+      }
+      body {
+        overscroll-behavior: none;
+      }
+      main > :first-child { margin-top: 0 !important; }
+      main > :last-child { margin-bottom: 0 !important; }
+    }
+    ::-webkit-scrollbar { display: none; }
+    .tactile-shadow-sm { box-shadow: 2px 2px 0px #151413; }
+    .tactile-shadow-md { box-shadow: 3px 3px 0px #151413; }
+    .tactile-shadow-lg { box-shadow: 4px 4px 0px #151413; }
+    .tactile-press:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0px #151413; }
+
+    /* Purr pulse and gentle breathing spring animations */
+    @keyframes purr-pulse {
+      0%, 100% { transform: translateY(-4px) scale(1.02); }
+      50% { transform: translateY(-7px) scale(1.035) rotate(-0.5deg); }
+    }
+    .cat-purring {
+      animation: purr-pulse 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    .tab-pane {
+      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .tab-pane.hidden-pane {
+      display: none;
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    .tab-pane.active-pane {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Elastic liquid sliding spring pill */
+    #nav-spring-pill {
+      transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.25s ease;
+    }
+
+    /* Ripple wave effect on tab click */
+    @keyframes wave-pop {
+      0% { transform: scale(0.92); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+    .wave-active {
+      animation: wave-pop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+  </style>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-tertiary-fixed-variant": "#574500",
+            "on-primary-fixed-variant": "#8e1308",
+            "background": "#141311",
+            "surface-tint": "#ffb4a7",
+            "surface-container-lowest": "#0f0e0c",
+            "secondary-fixed": "#e6e2d9",
+            "surface-container-low": "#1c1b19",
+            "on-secondary": "#31302b",
+            "surface": "#141311",
+            "primary-fixed-dim": "#ffb4a7",
+            "on-primary-fixed": "#410100",
+            "on-error-container": "#ffdad6",
+            "surface-container-high": "#2b2a28",
+            "warm-paper": "#F5F1E8",
+            "on-secondary-fixed-variant": "#484740",
+            "on-primary-container": "#5b0200",
+            "ink-surface": "#2A2926",
+            "secondary-fixed-dim": "#cac6be",
+            "surface-variant": "#363532",
+            "primary-fixed": "#ffdad4",
+            "primary-container": "#f55f4a",
+            "surface-container-highest": "#363532",
+            "on-error": "#690005",
+            "secondary-container": "#484740",
+            "tertiary-container": "#c7a849",
+            "tertiary-fixed-dim": "#e4c461",
+            "error": "#ffb4ab",
+            "primary": "#ffb4a7",
+            "tactile-stroke": "#151413",
+            "on-secondary-fixed": "#1c1c16",
+            "on-tertiary": "#3c2f00",
+            "surface-bright": "#3a3937",
+            "on-background": "#e6e2de",
+            "on-surface-variant": "#e1bfb9",
+            "outline": "#a88a84",
+            "inverse-surface": "#e6e2de",
+            "on-tertiary-container": "#4e3d00",
+            "inverse-primary": "#b02e1e",
+            "on-surface": "#e6e2de",
+            "error-container": "#93000a",
+            "secondary": "#cac6be",
+            "ink-black": "#22211F",
+            "tertiary-fixed": "#ffe088",
+            "gold-eye": "#C8A94A",
+            "paper-dim": "#E8E3D8",
+            "outline-variant": "#59413d",
+            "on-secondary-container": "#b8b5ad",
+            "on-tertiary-fixed": "#241a00",
+            "gold-glow": "rgba(200, 169, 74, 0.08)",
+            "paper-subtle": "rgba(245, 241, 232, 0.45)",
+            "inverse-on-surface": "#31302e",
+            "ink-border": "rgba(245, 241, 232, 0.12)",
+            "vermilion": "#D94B38",
+            "surface-container": "#201f1d",
+            "on-primary": "#680200",
+            "surface-dim": "#141311",
+            "vermilion-glow": "rgba(217, 75, 56, 0.20)",
+            "tertiary": "#e4c461"
+          },
+          borderRadius: {
+            DEFAULT: "0.25rem",
+            lg: "0.5rem",
+            xl: "0.75rem",
+            full: "9999px"
+          },
+          spacing: {
+            "space-md": "1rem",
+            "space-xl": "2.5rem",
+            "space-sm": "0.5rem",
+            "space-lg": "1.5rem",
+            "space-xs": "0.25rem",
+            "margin-sm": "1rem",
+            gutter: "1.5rem",
+            margin: "2rem",
+            "gutter-sm": "1rem"
+          },
+          fontFamily: {
+            "display-comic": ["Epilogue"],
+            "headline-editorial-md": ["Noto Serif"],
+            "body-editorial-md": ["Noto Serif"],
+            "title-brand": ["Noto Serif"],
+            "label-ui-bold": ["Inter"],
+            "display-comic-mobile": ["Epilogue"],
+            "body-editorial-lg": ["Noto Serif"],
+            "code-counter": ["Inter"],
+            "headline-editorial-lg": ["Noto Serif"],
+            "label-ui-caption": ["Inter"],
+            "headline-editorial-lg-mobile": ["Noto Serif"]
+          },
+          fontSize: {
+            "display-comic": ["44px", { lineHeight: "52px", letterSpacing: "-0.02em", fontWeight: "800" }],
+            "headline-editorial-md": ["24px", { lineHeight: "32px", letterSpacing: "0em", fontWeight: "600" }],
+            "body-editorial-md": ["15px", { lineHeight: "24px", fontWeight: "400" }],
+            "title-brand": ["20px", { lineHeight: "28px", letterSpacing: "0.12em", fontWeight: "700" }],
+            "label-ui-bold": ["13px", { lineHeight: "18px", letterSpacing: "0.04em", fontWeight: "600" }],
+            "display-comic-mobile": ["32px", { lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "800" }],
+            "body-editorial-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }],
+            "code-counter": ["14px", { lineHeight: "16px", letterSpacing: "-0.02em", fontWeight: "700" }],
+            "headline-editorial-lg": ["36px", { lineHeight: "44px", letterSpacing: "-0.01em", fontWeight: "700" }],
+            "label-ui-caption": ["11px", { lineHeight: "14px", letterSpacing: "0.06em", fontWeight: "500" }],
+            "headline-editorial-lg-mobile": ["26px", { lineHeight: "34px", letterSpacing: "0em", fontWeight: "700" }]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-surface text-on-surface antialiased min-h-screen selection:bg-vermilion selection:text-warm-paper">
+<!-- Fixed Top Chrome Header -->
+<header class="fixed top-0 inset-x-0 z-50 bg-[#141311] select-none border-b border-ink-border/50 backdrop-blur-md">
+<div class="h-12 w-full px-6 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<!-- Window Control Dots -->
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-vermilion tactile-shadow-sm cursor-pointer hover:opacity-80 transition-opacity"></div>
+<div class="w-3 h-3 rounded-full bg-gold-eye tactile-shadow-sm cursor-pointer hover:opacity-80 transition-opacity"></div>
+<div class="w-3 h-3 rounded-full bg-surface-container-highest tactile-shadow-sm cursor-pointer hover:opacity-80 transition-opacity"></div>
+</div>
+<!-- Wordmark & Pill Badge -->
+<div class="flex items-center gap-3 cursor-pointer group" id="brand-wordmark-container">
+<span class="font-headline-editorial-lg text-title-brand font-bold text-warm-paper tracking-wider inline-flex items-center select-none">KIROKU</span>
+<span class="px-2.5 py-0.5 rounded-full bg-gold-eye text-[#151413] font-code-counter text-label-ui-caption font-bold tracking-wider inline-flex items-center tactile-shadow-sm transition-transform hover:-translate-y-0.5">NOTE ノート</span>
+</div>
+</div>
+<!-- Right Action Buttons -->
+<div class="flex items-center gap-2">
+<button aria-label="Study History" class="w-8 h-8 rounded-lg bg-surface-container-low hover:bg-surface-container text-warm-paper border border-ink-border flex items-center justify-center tactile-shadow-sm hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer group" title="Study History">
+<span class="material-symbols-outlined text-[18px] transition-transform group-hover:-rotate-12">history</span>
+</button>
+<button aria-label="Settings" class="w-8 h-8 rounded-lg bg-surface-container-low hover:bg-surface-container text-warm-paper border border-ink-border flex items-center justify-center tactile-shadow-sm hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer group" title="Settings">
+<span class="material-symbols-outlined text-[18px] transition-transform duration-300 group-hover:rotate-45">settings</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Layout -->
+<main class="w-full pt-14 pb-28 bg-surface">
+<div class="flex flex-col w-full">
+<div class="w-full max-w-7xl mx-auto px-gutter py-space-lg flex flex-col lg:flex-row gap-space-xl items-start justify-between min-h-[calc(100vh-8rem)]">
+<!-- LEFT ZONE: Mascot & Comic Narrative (45% desktop) -->
+<div class="w-full lg:w-[45%] flex flex-col items-center lg:items-start select-none relative pt-space-sm">
+<!-- Ambient Glow Behind Mascot -->
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 lg:left-36 w-80 h-80 rounded-full pointer-events-none opacity-80" style="background: radial-gradient(circle, rgba(200, 169, 74, 0.16) 0%, rgba(217, 75, 56, 0.05) 45%, transparent 70%);"></div>
+<!-- Manga Speech Burst / Asymmetric Dialogue -->
+<div class="relative z-10 self-center lg:self-start mb-space-lg max-w-xs transition-transform duration-200 hover:-translate-y-1">
+<div class="bg-warm-paper text-ink-black rounded-[22px] rounded-bl-[4px] p-space-md tactile-shadow-md relative">
+<div class="flex items-baseline gap-2">
+<span class="font-display-comic text-display-comic-mobile font-bold text-ink-black tracking-tight leading-none">おかえり</span>
+<span class="font-label-ui-caption text-label-ui-caption uppercase tracking-widest text-vermilion font-bold">LV.28</span>
+</div>
+<p class="font-label-ui-bold text-label-ui-bold text-ink-surface/75 mt-1 tracking-wide">
+                okaeri <span class="text-ink-surface/40">—</span> welcome back, traveler.
+              </p>
+<div class="mt-2 pt-2 flex items-center justify-between border-t border-ink-surface/10">
+<span class="font-code-counter text-label-ui-caption text-ink-surface/70">SESSION READY</span>
+<span class="w-2 h-2 rounded-full bg-vermilion tactile-shadow-sm"></span>
+</div>
+<!-- Comic Pointer Tail pointing directly to the cat below -->
+<div class="absolute -bottom-2.5 left-6 w-4 h-4 bg-warm-paper rotate-45 pointer-events-none tactile-shadow-sm"></div>
+</div>
+</div>
+<!-- Mascot Stage: Embedded Vector Cat SVG with Layered Interactive Tracking Eyes -->
+<div class="relative z-10 w-full max-w-[340px] flex justify-center items-center py-space-sm cursor-pointer group" id="cat-stage">
+<!-- Stamp Badge floating on mascot shoulder -->
+<div class="absolute top-2 right-4 z-20 bg-vermilion text-warm-paper font-code-counter text-label-ui-caption px-2.5 py-0.5 rounded-full tactile-shadow-sm rotate-6 group-hover:rotate-12 transition-transform duration-300">
+              SUMI · 墨
+            </div>
+<!-- Mascot SVG Container with smooth spring lift & organic breathing purr on hover -->
+<div class="w-full relative transition-transform duration-300 ease-out" id="cat-character-wrap" style="transform: translateY(0px) rotate(0deg);">
+<svg aria-labelledby="cat-title cat-desc" class="w-full h-auto drop-shadow-md select-none overflow-visible max-h-[380px]" height="736" id="cat-svg" role="img" viewBox="0 0 736 736" width="736" xmlns="http://www.w3.org/2000/svg">
+<title id="cat-title">Black cat illustration</title>
+<desc id="cat-desc">A clean vector trace of the original black cat face, preserving both ears, eyes, pupils, and all whisker marks. Transparent background.</desc>
+<!-- Base Cat Silhouette & Whiskers Vector Paths -->
+<g shape-rendering="geometricPrecision">
+<path d="M 516.50,630.00 Q 515.00,631.00 514.00,632.50 Q 513.00,634.00 513.50,636.50 Q 514.00,639.00 517.50,643.00 Q 521.00,647.00 526.00,650.50 Q 531.00,654.00 533.00,656.00 Q 535.00,658.00 537.00,659.00 Q 539.00,660.00 540.50,660.00 Q 542.00,660.00 543.50,658.50 Q 545.00,657.00 545.00,656.00 Q 545.00,655.00 546.00,654.00 Q 547.00,653.00 546.50,650.00 Q 546.00,647.00 545.00,645.50 Q 544.00,644.00 540.00,640.50 Q 536.00,637.00 536.00,636.50 Q 536.00,636.00 533.00,634.00 Q 530.00,632.00 526.50,630.50 Q 523.00,629.00 520.50,629.00 Q 518.00,629.00 516.50,630.00 Z" fill="#000000"></path>
+<path d="M 556.00,594.50 Q 554.00,597.00 554.50,599.00 Q 555.00,601.00 557.50,603.00 Q 560.00,605.00 565.00,606.00 Q 570.00,607.00 570.50,607.50 Q 571.00,608.00 573.00,608.00 Q 575.00,608.00 576.50,609.00 Q 578.00,610.00 580.50,610.50 Q 583.00,611.00 588.50,614.50 Q 594.00,618.00 595.50,618.50 Q 597.00,619.00 598.50,618.50 Q 600.00,618.00 600.50,618.50 Q 601.00,619.00 603.00,617.00 Q 605.00,615.00 605.00,612.00 Q 605.00,609.00 603.50,607.50 Q 602.00,606.00 599.50,605.00 Q 597.00,604.00 594.00,601.50 Q 591.00,599.00 588.50,598.50 Q 586.00,598.00 582.50,596.00 Q 579.00,594.00 574.50,592.50 Q 570.00,591.00 565.00,591.00 Q 560.00,591.00 559.00,591.50 Q 558.00,592.00 556.00,594.50 Z" fill="#000000"></path>
+<path d="M 160.00,540.00 Q 160.00,537.00 158.00,535.50 Q 156.00,534.00 153.00,534.00 Q 150.00,534.00 149.50,533.50 Q 149.00,533.00 136.00,533.50 Q 123.00,534.00 122.50,534.50 Q 122.00,535.00 117.50,535.50 Q 113.00,536.00 110.50,537.50 Q 108.00,539.00 106.00,539.50 Q 104.00,540.00 102.50,542.00 Q 101.00,544.00 101.00,546.00 Q 101.00,548.00 101.50,549.50 Q 102.00,551.00 103.50,552.00 Q 105.00,553.00 109.00,553.00 Q 113.00,553.00 113.50,552.50 Q 114.00,552.00 116.00,552.00 Q 118.00,552.00 120.50,551.00 Q 123.00,550.00 136.00,549.50 Q 149.00,549.00 149.50,548.50 Q 150.00,548.00 153.00,547.50 Q 156.00,547.00 157.50,546.00 Q 159.00,545.00 159.50,544.00 Q 160.00,543.00 160.00,540.00 Z" fill="#000000"></path>
+<path d="M 102.50,484.00 Q 102.00,485.00 103.50,488.00 Q 105.00,491.00 106.00,491.00 Q 107.00,491.00 108.50,492.00 Q 110.00,493.00 111.50,493.00 Q 113.00,493.00 114.50,494.00 Q 116.00,495.00 118.00,495.00 Q 120.00,495.00 123.00,496.00 Q 126.00,497.00 126.50,496.50 Q 127.00,496.00 128.50,496.00 Q 130.00,496.00 133.00,497.00 Q 136.00,498.00 141.50,498.00 Q 147.00,498.00 147.50,497.50 Q 148.00,497.00 149.50,497.00 Q 151.00,497.00 152.50,495.00 Q 154.00,493.00 153.50,490.50 Q 153.00,488.00 151.50,486.50 Q 150.00,485.00 148.00,484.00 Q 146.00,483.00 141.50,483.00 Q 137.00,483.00 134.50,482.00 Q 132.00,481.00 128.50,481.00 Q 125.00,481.00 124.50,480.50 Q 124.00,480.00 117.00,480.00 Q 110.00,480.00 109.50,480.50 Q 109.00,481.00 107.50,481.00 Q 106.00,481.00 104.50,482.00 Q 103.00,483.00 102.50,484.00 Z" fill="#000000"></path>
+<path d="M 327.00,78.00 Q 325.00,78.00 321.50,80.00 Q 318.00,82.00 315.50,85.50 Q 313.00,89.00 311.00,93.00 Q 309.00,97.00 309.00,98.00 Q 309.00,99.00 308.00,100.00 Q 307.00,101.00 306.50,103.50 Q 306.00,106.00 303.00,112.50 Q 300.00,119.00 299.50,122.00 Q 299.00,125.00 296.50,130.00 Q 294.00,135.00 294.00,136.50 Q 294.00,138.00 292.00,142.50 Q 290.00,147.00 289.00,151.00 Q 288.00,155.00 285.00,161.00 Q 282.00,167.00 278.00,179.00 Q 274.00,191.00 272.50,193.50 Q 271.00,196.00 271.00,197.50 Q 271.00,199.00 265.50,211.50 Q 260.00,224.00 260.00,225.50 Q 260.00,227.00 257.50,232.00 Q 255.00,237.00 253.50,242.00 Q 252.00,247.00 250.50,249.50 Q 249.00,252.00 249.00,253.50 Q 249.00,255.00 247.50,257.50 Q 246.00,260.00 245.50,262.50 Q 245.00,265.00 243.50,267.00 Q 242.00,269.00 242.00,270.50 Q 242.00,272.00 241.00,273.50 Q 240.00,275.00 239.50,278.00 Q 239.00,281.00 237.50,283.00 Q 236.00,285.00 236.00,286.50 Q 236.00,288.00 233.50,294.50 Q 231.00,301.00 231.00,303.00 Q 231.00,305.00 230.50,305.50 Q 230.00,306.00 230.00,308.00 Q 230.00,310.00 230.50,310.50 Q 231.00,311.00 230.50,318.50 Q 230.00,326.00 227.00,330.50 Q 224.00,335.00 219.00,339.00 Q 214.00,343.00 208.00,349.00 Q 202.00,355.00 201.00,357.00 Q 200.00,359.00 198.00,361.00 Q 196.00,363.00 195.50,364.50 Q 195.00,366.00 193.50,367.50 Q 192.00,369.00 189.50,374.00 Q 187.00,379.00 186.00,380.00 Q 185.00,381.00 185.00,382.00 Q 185.00,383.00 183.50,385.00 Q 182.00,387.00 179.00,393.50 Q 176.00,400.00 175.00,404.00 Q 174.00,408.00 173.00,409.50 Q 172.00,411.00 172.00,412.50 Q 172.00,414.00 171.00,415.50 Q 170.00,417.00 169.00,423.50 Q 168.00,430.00 167.50,430.50 Q 167.00,431.00 167.00,433.50 Q 167.00,436.00 166.50,436.50 Q 166.00,437.00 166.00,443.00 Q 166.00,449.00 166.50,449.50 Q 167.00,450.00 166.50,454.50 Q 166.00,459.00 166.50,459.50 Q 167.00,460.00 167.00,466.00 Q 167.00,472.00 167.50,472.50 Q 168.00,473.00 168.00,475.50 Q 168.00,478.00 168.50,478.50 Q 169.00,479.00 169.00,482.00 Q 169.00,485.00 170.00,487.00 Q 171.00,489.00 171.00,491.00 Q 171.00,493.00 172.00,494.50 Q 173.00,496.00 174.00,500.00 Q 175.00,504.00 176.00,505.50 Q 177.00,507.00 177.00,508.00 Q 177.00,509.00 178.50,510.50 Q 180.00,512.00 181.00,515.00 Q 182.00,518.00 187.00,525.00 Q 192.00,532.00 193.00,532.50 Q 194.00,533.00 194.00,534.00 Q 194.00,535.00 194.50,535.00 Q 195.00,535.00 199.50,540.00 Q 204.00,545.00 206.00,546.00 Q 208.00,547.00 213.00,551.00 Q 218.00,555.00 219.50,555.50 Q 221.00,556.00 228.50,561.00 Q 236.00,566.00 238.00,566.50 Q 240.00,567.00 241.00,568.00 Q 242.00,569.00 253.50,574.50 Q 265.00,580.00 268.50,581.00 Q 272.00,582.00 274.50,583.50 Q 277.00,585.00 281.00,586.00 Q 285.00,587.00 290.00,589.50 Q 295.00,592.00 297.00,592.00 Q 299.00,592.00 302.50,593.50 Q 306.00,595.00 307.50,595.00 Q 309.00,595.00 319.50,598.50 Q 330.00,602.00 332.50,602.00 Q 335.00,602.00 339.50,603.50 Q 344.00,605.00 351.00,606.00 Q 358.00,607.00 360.00,608.00 Q 362.00,609.00 365.50,609.00 Q 369.00,609.00 369.50,609.50 Q 370.00,610.00 374.00,610.50 Q 378.00,611.00 378.50,611.50 Q 379.00,612.00 392.00,612.50 Q 405.00,613.00 405.50,613.50 Q 406.00,614.00 417.00,613.50 Q 428.00,613.00 428.50,613.50 Q 429.00,614.00 429.50,613.50 Q 430.00,613.00 433.00,613.00 Q 436.00,613.00 436.50,612.50 Q 437.00,612.00 442.50,612.00 Q 448.00,612.00 450.00,611.00 Q 452.00,610.00 455.00,610.00 Q 458.00,610.00 460.00,609.00 Q 462.00,608.00 463.50,608.00 Q 465.00,608.00 466.50,607.00 Q 468.00,606.00 469.50,606.00 Q 471.00,606.00 474.00,605.00 Q 477.00,604.00 478.50,603.00 Q 480.00,602.00 483.50,601.50 Q 487.00,601.00 489.00,599.50 Q 491.00,598.00 496.50,596.50 Q 502.00,595.00 510.00,591.00 Q 518.00,587.00 520.50,584.50 Q 523.00,582.00 526.00,580.50 Q 529.00,579.00 535.00,574.00 Q 541.00,569.00 543.00,566.50 Q 545.00,564.00 545.50,564.00 Q 546.00,564.00 551.50,557.00 Q 557.00,550.00 561.00,543.00 Q 565.00,536.00 565.50,533.50 Q 566.00,531.00 567.50,529.00 Q 569.00,527.00 569.50,524.50 Q 570.00,522.00 571.00,520.50 Q 572.00,519.00 572.00,517.50 Q 572.00,516.00 572.50,515.50 Q 573.00,515.00 572.50,514.50 Q 572.00,514.00 572.50,513.50 Q 573.00,513.00 573.50,508.00 Q 574.00,503.00 574.50,502.50 Q 575.00,502.00 575.00,499.00 Q 575.00,496.00 575.50,495.50 Q 576.00,495.00 576.00,486.50 Q 576.00,478.00 575.50,477.50 Q 575.00,477.00 574.50,468.00 Q 574.00,459.00 573.50,458.50 Q 573.00,458.00 573.00,456.00 Q 573.00,454.00 571.00,448.00 Q 569.00,442.00 568.00,441.00 Q 567.00,440.00 567.00,439.00 Q 567.00,438.00 563.00,430.00 Q 559.00,422.00 559.00,419.50 Q 559.00,417.00 559.50,416.50 Q 560.00,416.00 560.00,413.00 Q 560.00,410.00 560.50,409.50 Q 561.00,409.00 561.00,405.50 Q 561.00,402.00 562.00,401.00 Q 563.00,400.00 563.50,394.00 Q 564.00,388.00 565.50,384.00 Q 567.00,380.00 567.50,375.00 Q 568.00,370.00 568.50,369.50 Q 569.00,369.00 569.00,367.50 Q 569.00,366.00 569.50,365.50 Q 570.00,365.00 570.00,363.50 Q 570.00,362.00 571.50,357.50 Q 573.00,353.00 573.00,350.50 Q 573.00,348.00 574.00,346.00 Q 575.00,344.00 575.00,341.50 Q 575.00,339.00 576.00,336.50 Q 577.00,334.00 577.00,331.00 Q 577.00,328.00 578.00,326.50 Q 579.00,325.00 579.00,322.00 Q 579.00,319.00 580.00,316.50 Q 581.00,314.00 581.50,308.00 Q 582.00,302.00 582.50,301.50 Q 583.00,301.00 584.00,293.00 Q 585.00,285.00 585.50,284.50 Q 586.00,284.00 586.00,282.00 Q 586.00,280.00 587.00,277.00 Q 588.00,274.00 588.00,271.50 Q 588.00,269.00 588.50,268.50 Q 589.00,268.00 589.00,264.50 Q 589.00,261.00 589.50,260.50 Q 590.00,260.00 591.00,253.00 Q 592.00,246.00 593.50,241.50 Q 595.00,237.00 595.00,234.00 Q 595.00,231.00 596.00,228.50 Q 597.00,226.00 598.00,218.50 Q 599.00,211.00 600.00,209.00 Q 601.00,207.00 601.00,204.50 Q 601.00,202.00 601.50,201.50 Q 602.00,201.00 602.00,198.50 Q 602.00,196.00 602.50,195.50 Q 603.00,195.00 603.50,191.00 Q 604.00,187.00 604.50,186.50 Q 605.00,186.00 605.00,183.50 Q 605.00,181.00 606.00,178.50 Q 607.00,176.00 607.00,169.00 Q 607.00,162.00 607.50,161.50 Q 608.00,161.00 607.50,160.50 Q 607.00,160.00 607.00,158.00 Q 607.00,156.00 606.00,154.00 Q 605.00,152.00 602.50,150.50 Q 600.00,149.00 596.00,149.00 Q 592.00,149.00 589.50,151.00 Q 587.00,153.00 581.00,159.50 Q 575.00,166.00 573.50,168.50 Q 572.00,171.00 559.50,186.00 Q 547.00,201.00 543.50,206.50 Q 540.00,212.00 532.50,221.00 Q 525.00,230.00 524.50,231.50 Q 524.00,233.00 520.50,237.00 Q 517.00,241.00 516.50,242.50 Q 516.00,244.00 510.00,252.00 Q 504.00,260.00 503.50,261.50 Q 503.00,263.00 501.50,264.50 Q 500.00,266.00 497.50,270.50 Q 495.00,275.00 493.00,277.00 Q 491.00,279.00 490.50,280.50 Q 490.00,282.00 488.50,283.50 Q 487.00,285.00 487.00,286.00 Q 487.00,287.00 485.50,288.50 Q 484.00,290.00 477.50,300.50 Q 471.00,311.00 468.00,314.50 Q 465.00,318.00 460.00,325.50 Q 455.00,333.00 453.00,335.00 Q 451.00,337.00 450.50,338.50 Q 450.00,340.00 448.50,341.50 Q 447.00,343.00 444.50,347.00 Q 442.00,351.00 441.00,352.00 Q 440.00,353.00 439.00,353.00 Q 438.00,353.00 434.00,350.00 Q 430.00,347.00 426.00,345.00 Q 422.00,343.00 421.00,343.00 Q 420.00,343.00 419.00,342.00 Q 418.00,341.00 416.00,340.50 Q 414.00,340.00 412.50,339.00 Q 411.00,338.00 409.50,338.00 Q 408.00,338.00 402.50,336.00 Q 397.00,334.00 394.50,334.00 Q 392.00,334.00 389.50,333.00 Q 387.00,332.00 385.00,332.00 Q 383.00,332.00 382.50,331.50 Q 382.00,331.00 378.50,331.00 Q 375.00,331.00 374.50,330.50 Q 374.00,330.00 370.50,330.00 Q 367.00,330.00 366.50,329.50 Q 366.00,329.00 364.00,329.00 Q 362.00,329.00 361.50,329.50 Q 361.00,330.00 360.50,329.50 Q 360.00,329.00 357.50,329.00 Q 355.00,329.00 354.00,328.50 Q 353.00,328.00 351.50,326.00 Q 350.00,324.00 350.00,321.00 Q 350.00,318.00 349.50,317.50 Q 349.00,317.00 349.00,309.50 Q 349.00,302.00 348.50,301.50 Q 348.00,301.00 348.00,293.50 Q 348.00,286.00 347.50,285.50 Q 347.00,285.00 346.50,246.00 Q 346.00,207.00 345.50,206.50 Q 345.00,206.00 345.00,200.50 Q 345.00,195.00 344.50,194.50 Q 344.00,194.00 344.50,193.50 Q 345.00,193.00 345.00,190.50 Q 345.00,188.00 344.50,187.50 Q 344.00,187.00 344.00,173.50 Q 344.00,160.00 343.50,159.50 Q 343.00,159.00 343.00,152.50 Q 343.00,146.00 342.50,145.50 Q 342.00,145.00 342.50,144.50 Q 343.00,144.00 342.50,143.50 Q 342.00,143.00 342.50,141.50 Q 343.00,140.00 342.00,137.50 Q 341.00,135.00 341.50,133.50 Q 342.00,132.00 341.50,131.50 Q 341.00,131.00 340.50,122.00 Q 340.00,113.00 339.50,112.50 Q 339.00,112.00 339.00,105.50 Q 339.00,99.00 338.50,98.50 Q 338.00,98.00 338.00,95.50 Q 338.00,93.00 337.50,92.50 Q 337.00,92.00 337.50,91.50 Q 338.00,91.00 336.50,86.50 Q 335.00,82.00 332.00,80.00 Q 329.00,78.00 327.00,78.00 Z" fill="#000000"></path>
+<!-- Original Sclera Paths -->
+<path d="M 469.00,435.00 Q 472.00,436.00 477.00,439.00 Q 482.00,442.00 486.50,446.50 Q 491.00,451.00 493.50,454.50 Q 496.00,458.00 499.00,464.50 Q 502.00,471.00 502.00,473.00 Q 502.00,475.00 503.50,478.50 Q 505.00,482.00 505.50,492.00 Q 506.00,502.00 506.50,502.50 Q 507.00,503.00 506.50,503.50 Q 506.00,504.00 505.00,511.00 Q 504.00,518.00 503.00,519.00 Q 502.00,520.00 500.50,524.00 Q 499.00,528.00 496.00,532.50 Q 493.00,537.00 489.00,540.50 Q 485.00,544.00 479.50,547.00 Q 474.00,550.00 469.50,551.50 Q 465.00,553.00 463.00,553.00 Q 461.00,553.00 460.50,553.50 Q 460.00,554.00 459.00,553.50 Q 458.00,553.00 456.50,553.50 Q 455.00,554.00 443.50,554.00 Q 432.00,554.00 431.50,553.50 Q 431.00,553.00 427.50,553.00 Q 424.00,553.00 416.50,550.00 Q 409.00,547.00 400.50,539.00 Q 392.00,531.00 388.00,524.50 Q 384.00,518.00 384.00,516.50 Q 384.00,515.00 383.50,514.50 Q 383.00,514.00 383.00,509.50 Q 383.00,505.00 385.50,499.00 Q 388.00,493.00 391.00,489.00 Q 394.00,485.00 394.50,483.50 Q 395.00,482.00 396.50,480.50 Q 398.00,479.00 398.50,477.50 Q 399.00,476.00 403.50,470.50 Q 408.00,465.00 409.00,464.50 Q 410.00,464.00 415.00,458.50 Q 420.00,453.00 422.50,451.50 Q 425.00,450.00 429.00,446.50 Q 433.00,443.00 435.50,442.00 Q 438.00,441.00 440.00,439.50 Q 442.00,438.00 447.00,437.00 Q 452.00,436.00 453.50,435.00 Q 455.00,434.00 460.50,434.00 Q 466.00,434.00 469.00,435.00 Z" fill="#ffffff"></path>
+<path d="M 259.50,394.00 Q 261.00,393.00 268.50,393.00 Q 276.00,393.00 278.50,394.50 Q 281.00,396.00 282.00,396.00 Q 283.00,396.00 284.00,397.00 Q 285.00,398.00 286.50,398.50 Q 288.00,399.00 293.00,404.00 Q 298.00,409.00 298.00,410.00 Q 298.00,411.00 299.50,412.50 Q 301.00,414.00 301.50,416.00 Q 302.00,418.00 303.00,419.50 Q 304.00,421.00 304.00,423.00 Q 304.00,425.00 305.00,426.50 Q 306.00,428.00 306.00,429.50 Q 306.00,431.00 307.00,433.00 Q 308.00,435.00 308.00,437.00 Q 308.00,439.00 309.00,441.00 Q 310.00,443.00 310.00,445.00 Q 310.00,447.00 311.00,449.00 Q 312.00,451.00 312.00,453.00 Q 312.00,455.00 312.50,455.50 Q 313.00,456.00 313.50,460.50 Q 314.00,465.00 314.50,465.50 Q 315.00,466.00 315.00,471.00 Q 315.00,476.00 314.50,476.50 Q 314.00,477.00 314.00,479.00 Q 314.00,481.00 312.00,485.50 Q 310.00,490.00 309.00,491.00 Q 308.00,492.00 308.00,493.00 Q 308.00,494.00 306.00,497.00 Q 304.00,500.00 301.00,503.00 Q 298.00,506.00 293.50,509.00 Q 289.00,512.00 283.00,514.00 Q 277.00,516.00 272.00,516.00 Q 267.00,516.00 266.50,515.50 Q 266.00,515.00 264.00,515.00 Q 262.00,515.00 253.50,511.50 Q 245.00,508.00 239.50,504.00 Q 234.00,500.00 228.00,493.50 Q 222.00,487.00 217.00,479.50 Q 212.00,472.00 211.50,469.50 Q 211.00,467.00 209.50,465.00 Q 208.00,463.00 208.00,461.00 Q 208.00,459.00 207.00,457.00 Q 206.00,455.00 206.50,454.50 Q 207.00,454.00 207.00,452.00 Q 207.00,450.00 206.50,449.50 Q 206.00,449.00 207.00,447.00 Q 208.00,445.00 208.00,442.50 Q 208.00,440.00 210.50,435.50 Q 213.00,431.00 217.50,425.50 Q 222.00,420.00 231.50,411.00 Q 241.00,402.00 246.50,399.00 Q 252.00,396.00 255.00,395.50 Q 258.00,395.00 259.50,394.00 Z" fill="#ffffff"></path>
+</g>
+<!-- Layered Interactive Eye System Aligned to Cat's Eyes (viewBox 0 0 736 736) -->
+<!-- Left Eye Sclera & Gold Iris Ring (Center x=280, y=455) -->
+<g id="cat-eye-left-socket">
+<ellipse cx="280" cy="455" fill="#C8A94A" rx="34" ry="46" stroke="#151413" stroke-width="2.5"></ellipse>
+<ellipse cx="280" cy="455" fill="#e4c461" opacity="0.45" rx="28" ry="38"></ellipse>
+</g>
+<!-- Right Eye Sclera & Gold Iris Ring (Center x=448, y=490) -->
+<g id="cat-eye-right-socket">
+<ellipse cx="448" cy="490" fill="#C8A94A" rx="36" ry="46" stroke="#151413" stroke-width="2.5"></ellipse>
+<ellipse cx="448" cy="490" fill="#e4c461" opacity="0.45" rx="30" ry="38"></ellipse>
+</g>
+<!-- Interactive Cursor-Following Left Pupil -->
+<g id="cat-pupil-left" transform="translate(12.40, 7.18)">
+<g transform="translate(280, 455)">
+<ellipse cx="0" cy="0" fill="#141311" rx="13" ry="28"></ellipse>
+<!-- Crisp Catchlight Highlights -->
+<circle cx="-4.5" cy="-8" fill="#F5F1E8" r="4.2"></circle>
+<circle cx="3.8" cy="6.5" fill="#F5F1E8" opacity="0.8" r="2.2"></circle>
+</g>
+</g>
+<!-- Interactive Cursor-Following Right Pupil -->
+<g id="cat-pupil-right" transform="translate(12.40, 7.18)">
+<g transform="translate(448, 490)">
+<ellipse cx="0" cy="0" fill="#141311" rx="13" ry="28"></ellipse>
+<!-- Crisp Catchlight Highlights -->
+<circle cx="-4.5" cy="-8" fill="#F5F1E8" r="4.2"></circle>
+<circle cx="3.8" cy="6.5" fill="#F5F1E8" opacity="0.8" r="2.2"></circle>
+</g>
+</g>
+</svg>
+</div>
+</div>
+<!-- Spring Hover Interactive "Today's Word" (今日の言葉) Pod -->
+<div class="w-full max-w-sm mt-space-md">
+<div class="group cursor-pointer bg-ink-surface text-on-surface rounded-xl p-space-md tactile-shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg" id="word-card">
+<!-- Top Row: Badge & Rubi Header -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-gold-eye font-code-counter text-label-ui-caption uppercase tracking-wider">
+                    TODAY'S WORD · 今日の言葉
+                  </span>
+<span class="w-1.5 h-1.5 rounded-full bg-vermilion animate-pulse"></span>
+</div>
+<span class="font-code-counter text-label-ui-caption text-secondary">N3 CORE</span>
+</div>
+<!-- The Kanji & Reading -->
+<div class="mt-space-sm flex items-baseline gap-3">
+<h2 class="font-headline-editorial-lg text-headline-editorial-lg text-warm-paper tracking-tight">静寂</h2>
+<div class="flex flex-col">
+<span class="font-label-ui-bold text-label-ui-caption text-gold-eye">せいじゃく</span>
+<span class="font-label-ui-bold text-label-ui-caption text-on-surface-variant/80">seijaku</span>
+</div>
+</div>
+<!-- Quick Meaning Preview -->
+<p class="font-body-editorial-md text-body-editorial-md text-paper-dim mt-1">
+                Silence, stillness, serene tranquility.
+              </p>
+<!-- Spring Physics Expandable Content Area -->
+<div class="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-out" id="word-detail">
+<div class="overflow-hidden">
+<div class="mt-space-sm pt-space-sm bg-surface-container-low/70 rounded-lg p-3">
+<div class="flex items-center justify-between text-label-ui-caption font-code-counter text-gold-eye mb-1">
+<span class="">EXEMPLAR CONTEXT</span>
+<span class="">JLPT N3 READING</span>
+</div>
+<p class="font-headline-editorial-md text-body-editorial-md text-warm-paper leading-relaxed">
+                      古い寺の庭には、深い<span class="text-primary font-semibold">静寂</span>が広がっていた。
+                    </p>
+<p class="font-body-editorial-md text-label-ui-caption text-secondary mt-1 italic">
+                      In the old temple garden, a deep stillness stretched out.
+                    </p>
+<div class="mt-3 flex items-center justify-between pt-2 border-t border-ink-border">
+<div class="flex items-center gap-1.5">
+<span class="px-1.5 py-0.5 rounded bg-surface-container text-label-ui-caption text-warm-paper font-code-counter">静 (SEI - quiet)</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container text-label-ui-caption text-warm-paper font-code-counter">寂 (JAKU - lonely)</span>
+</div>
+<button class="flex items-center gap-1 text-label-ui-caption font-label-ui-bold text-primary hover:text-warm-paper transition-colors" title="Listen pronunciation">
+<span class="">Listen</span>
+<span class="material-symbols-outlined text-[15px]">volume_up</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Micro Cue -->
+<div class="mt-space-sm flex items-center justify-between text-secondary">
+<span class="font-label-ui-caption text-label-ui-caption group-hover:hidden text-secondary/60">Hover or tap to reveal JLPT breakdown</span>
+<span class="font-label-ui-caption text-label-ui-caption hidden group-hover:inline text-gold-eye font-semibold">Mastered in 2 sessions</span>
+<span class="material-symbols-outlined text-[16px] text-secondary group-hover:rotate-180 transition-transform">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT ZONE: Editorial Hub (55% desktop) with Crossfading Tab Panels -->
+<div class="w-full lg:w-[55%] flex flex-col gap-space-lg relative" id="tab-panels-container">
+<!-- TAB PANE: HOME (Active) -->
+<div class="tab-pane active-pane flex flex-col gap-space-lg" id="tab-home">
+<!-- Top Overview & Streak Strip -->
+<div class="bg-ink-surface text-on-surface rounded-2xl p-space-lg tactile-shadow-md relative overflow-hidden">
+<!-- Decorative Traditional Crest Stamp Accent -->
+<div class="absolute -right-4 -bottom-4 select-none opacity-5 pointer-events-none">
+<span class="font-display-comic text-[120px] font-bold text-warm-paper leading-none">記</span>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-md">
+<div>
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-vermilion"></span>
+<span class="font-code-counter text-label-ui-caption tracking-widest text-gold-eye uppercase">CYCLE 04 · DAILY RHYTHM</span>
+</div>
+<h1 class="font-headline-editorial-lg text-headline-editorial-lg text-warm-paper tracking-tight mt-1">
+                    Your Daily Study
+                  </h1>
+<p class="font-body-editorial-md text-body-editorial-md text-secondary mt-0.5">
+                    Consistent sumi strokes dry permanent. Day 14 locked.
+                  </p>
+</div>
+<!-- Streak Badge -->
+<div class="flex items-center gap-3 bg-surface-container-low px-4 py-2.5 rounded-xl self-start sm:self-auto border border-ink-border">
+<div class="w-9 h-9 rounded-lg bg-vermilion flex items-center justify-center tactile-shadow-sm text-warm-paper">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: &quot;FILL&quot; 1;">local_fire_department</span>
+</div>
+<div>
+<div class="font-display-comic text-headline-editorial-md font-bold text-warm-paper leading-none">14</div>
+<div class="font-label-ui-caption text-label-ui-caption uppercase tracking-wider text-secondary">DAY STREAK</div>
+</div>
+</div>
+</div>
+<!-- 7-Day Tactile Streak Tracker Row -->
+<div class="mt-space-lg pt-space-md bg-surface-container-lowest/60 rounded-xl p-space-md border border-ink-border/50">
+<div class="flex items-center justify-between mb-space-sm">
+<span class="font-label-ui-bold text-label-ui-bold text-warm-paper">This Week's Record</span>
+<span class="font-code-counter text-label-ui-caption text-gold-eye font-bold">6/7 COMPLETED</span>
+</div>
+<div class="grid grid-cols-7 gap-2 sm:gap-3 text-center">
+<!-- Mon: Done -->
+<div class="flex flex-col items-center gap-1.5">
+<span class="font-code-counter text-label-ui-caption text-secondary">MON</span>
+<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-vermilion text-warm-paper flex items-center justify-center font-code-counter text-label-ui-caption tactile-shadow-sm hover:scale-105 transition-transform cursor-default" title="100% finished">
+<span class="material-symbols-outlined text-[18px]">check</span>
+</div>
+</div>
+<!-- Tue: Done -->
+<div class="flex flex-col items-center gap-1.5">
+<span class="font-code-counter text-label-ui-caption text-secondary">TUE</span>
+<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-vermilion text-warm-paper flex items-center justify-center font-code-counter text-label-ui-caption tactile-shadow-sm hover:scale-105 transition-transform cursor-default">
+<span class="material-symbols-outlined text-[18px]">check</span>
+</div>
+</div>
+<!-- Wed: Done -->
+<div class="flex flex-col items-center gap-1.5">
+<span class="font-code-counter text-label-ui-caption text-secondary">WED</span>
+<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-vermilion text-warm-paper flex items-center justify-center font-code-counter text-label-ui-caption tactile-shadow-sm hover:scale-105 transition-transform cursor-default">
+<span class="material-symbols-outlined text-[18px]">check</span>
+</div>
+</div>
+<!-- Thu: Done -->
+<div class="flex flex-col items-center gap-1.5">
+<span class="font-code-counter text-label-ui-caption text-secondary">THU</span>
+<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-vermilion text-warm-paper flex items-center justify-center font-code-counter text-label-ui-caption tactile-shadow-sm hover:scale-105 transition-transform cursor-default">
+<span class="material-symbols-outlined text-[18px]">check</span>
+</div>
+</div>
+<!-- Fri: Done -->
+<div class="flex flex-col items-center gap-1.5">
+<span class="font-code-counter text-label-ui-caption text-secondary">FRI</span>
+<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-vermilion text-warm-paper flex items-center justify-center font-code-counter text-label-ui-caption tactile-shadow-sm hover:scale-105 transition-transform cursor-default">
+<span class="material-symbols-outlined text-[18px]">check</span>
+</div>
+</div>
+<!-- Sat (Today): Active Target -->
+<div class="flex flex-col items-center gap-1.5">
+<span class="font-code-counter text-label-ui-caption text-gold-eye font-bold">TODAY</span>
+<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-vermilion text-warm-paper flex items-center justify-center font-code-counter text-label-ui-caption tactile-shadow-md scale-110 cursor-pointer animate-bounce" style="animation-duration: 2s;">
+<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+</div>
+</div>
+<!-- Sun: Upcoming -->
+<div class="flex flex-col items-center gap-1.5">
+<span class="font-code-counter text-label-ui-caption text-secondary/50">SUN</span>
+<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-surface-container text-secondary/40 flex items-center justify-center font-code-counter text-label-ui-caption cursor-default">
+<span class="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Hero Call-to-Action Card: Tactile Planetoño Sticker Block -->
+<div class="bg-warm-paper text-ink-black rounded-2xl p-space-lg tactile-shadow-lg relative overflow-hidden group">
+<!-- Top Metadata Label -->
+<div class="flex items-center justify-between mb-space-sm">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-vermilion"></span>
+<span class="font-label-ui-caption font-bold text-vermilion tracking-widest uppercase">UP NEXT · SESSION QUEUE</span>
+</div>
+<span class="px-2 py-0.5 rounded bg-ink-surface text-warm-paper font-code-counter text-label-ui-caption">12 MIN DRILL</span>
+</div>
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md mt-2">
+<div class="max-w-md">
+<h2 class="font-headline-editorial-lg text-headline-editorial-lg text-ink-black tracking-tight leading-tight">
+                    Grammar N3: 〜わけにはいかない
+                  </h2>
+<p class="font-body-editorial-md text-body-editorial-md text-ink-surface/85 mt-2">
+                    Learn how to express moral and social impossibility with 14 natural sentence pairings and audio.
+                  </p>
+</div>
+<!-- Tactile Planetoño Sticker Button -->
+<a class="group/btn inline-flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl bg-vermilion text-warm-paper font-label-ui-bold text-label-ui-bold tracking-wide select-none tactile-shadow-md hover:translate-x-0.5 hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:shadow-sm transition-all whitespace-nowrap" href="#" id="continue-button">
+<span class="">Continue Drill</span>
+<span class="material-symbols-outlined text-[20px] transition-transform duration-200 group-hover/btn:translate-x-1.5">arrow_forward</span>
+</a>
+</div>
+<!-- Mini Progress bar within Hero Card -->
+<div class="mt-space-lg pt-space-sm flex items-center justify-between border-t border-ink-surface/10">
+<div class="flex-1 bg-paper-dim h-2 rounded-full overflow-hidden mr-4">
+<div class="bg-vermilion h-full rounded-full transition-all duration-500" style="width: 68%;"></div>
+</div>
+<span class="font-code-counter text-label-ui-caption text-ink-surface/75 whitespace-nowrap">MODULE 17 / 25</span>
+</div>
+</div>
+<!-- Quick Metrics Bento Grid: Words Mastered & Level Breakdown -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+<!-- Metric Card 1: Words Mastered -->
+<div class="bg-ink-surface text-on-surface rounded-xl p-space-md tactile-shadow-sm flex flex-col justify-between border border-ink-border">
+<div class="flex items-center justify-between">
+<span class="font-label-ui-caption text-label-ui-caption uppercase tracking-wider text-secondary">VOCABULARY DECK</span>
+<span class="material-symbols-outlined text-[18px] text-gold-eye">style</span>
+</div>
+<div class="my-space-sm flex items-baseline gap-2">
+<span class="font-display-comic text-display-comic-mobile font-bold text-warm-paper leading-none">1,420</span>
+<span class="font-label-ui-bold text-label-ui-bold text-gold-eye font-bold">+18 today</span>
+</div>
+<div class="space-y-1.5">
+<div class="flex items-center justify-between font-label-ui-caption text-label-ui-caption text-secondary">
+<span class="">Retention Accuracy</span>
+<span class="text-warm-paper font-semibold">92.4%</span>
+</div>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-gold-eye h-full rounded-full" style="width: 92%;"></div>
+</div>
+</div>
+</div>
+<!-- Metric Card 2: Level Progress -->
+<div class="bg-ink-surface text-on-surface rounded-xl p-space-md tactile-shadow-sm flex flex-col justify-between border border-ink-border">
+<div class="flex items-center justify-between">
+<span class="font-label-ui-caption text-label-ui-caption uppercase tracking-wider text-secondary">JLPT BENCHMARK</span>
+<span class="px-2 py-0.5 rounded bg-surface-container text-label-ui-caption text-primary font-code-counter">INTERMEDIATE</span>
+</div>
+<div class="my-space-sm flex items-baseline gap-2">
+<span class="font-display-comic text-display-comic-mobile font-bold text-warm-paper leading-none">N3 Level</span>
+<span class="font-label-ui-caption text-label-ui-caption text-secondary">64% Mastery</span>
+</div>
+<div class="flex items-center gap-2 font-label-ui-caption text-label-ui-caption">
+<div class="flex-1 flex gap-1">
+<span class="h-2 flex-1 rounded-sm bg-vermilion" title="Kanji: 78%"></span>
+<span class="h-2 flex-1 rounded-sm bg-vermilion" title="Grammar: 65%"></span>
+<span class="h-2 flex-1 rounded-sm bg-gold-eye" title="Reading: 58%"></span>
+<span class="h-2 flex-1 rounded-sm bg-surface-container-high" title="Listening: 42%"></span>
+</div>
+<span class="text-warm-paper font-code-counter text-label-ui-caption">Target: July</span>
+</div>
+</div>
+</div>
+</div>
+<!-- TAB PANE: VOCABULARY -->
+<div class="tab-pane hidden-pane flex-col gap-space-lg" id="tab-vocab">
+<div class="bg-ink-surface text-on-surface rounded-2xl p-space-lg tactile-shadow-md border border-ink-border">
+<div class="flex items-center justify-between">
+<div>
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-gold-eye"></span>
+<span class="font-code-counter text-label-ui-caption tracking-widest text-gold-eye uppercase">VOCABULARY VAULT · 単語</span>
+</div>
+<h1 class="font-headline-editorial-lg text-headline-editorial-lg text-warm-paper tracking-tight mt-1">Smart Word Decks</h1>
+<p class="font-body-editorial-md text-secondary mt-0.5">Spaced repetition queue with 1,420 terms indexed.</p>
+</div>
+<span class="px-3 py-1 rounded-full bg-surface-container-high text-gold-eye font-code-counter text-label-ui-caption">34 TO REVIEW</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md mt-space-lg">
+<div class="p-4 rounded-xl bg-surface-container-low border border-ink-border flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<span class="font-display-comic text-headline-editorial-md text-warm-paper">感情・感覚</span>
+<span class="text-gold-eye font-code-counter text-label-ui-caption">N3 · 128 words</span>
+</div>
+<p class="text-secondary text-label-ui-caption mt-2">Emotions, sensory adjectives &amp; subtle nuances.</p>
+<button class="mt-4 py-2 px-3 rounded-lg bg-surface-container hover:bg-surface-container-high text-warm-paper text-label-ui-caption font-bold tactile-shadow-sm flex items-center justify-center gap-1">
+<span class="">Review Deck</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+<div class="p-4 rounded-xl bg-surface-container-low border border-ink-border flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<span class="font-display-comic text-headline-editorial-md text-warm-paper">日常会話・習慣</span>
+<span class="text-primary font-code-counter text-label-ui-caption">N3 · 210 words</span>
+</div>
+<p class="text-secondary text-label-ui-caption mt-2">Daily life idioms, routine expressions &amp; collocations.</p>
+<button class="mt-4 py-2 px-3 rounded-lg bg-surface-container hover:bg-surface-container-high text-warm-paper text-label-ui-caption font-bold tactile-shadow-sm flex items-center justify-center gap-1">
+<span class="">Review Deck</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- TAB PANE: GRAMMAR -->
+<div class="tab-pane hidden-pane flex-col gap-space-lg" id="tab-grammar">
+<div class="bg-ink-surface text-on-surface rounded-2xl p-space-lg tactile-shadow-md border border-ink-border">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-vermilion"></span>
+<span class="font-code-counter text-label-ui-caption tracking-widest text-primary uppercase">GRAMMAR SYLLABUS · 文法</span>
+</div>
+<h1 class="font-headline-editorial-lg text-headline-editorial-lg text-warm-paper tracking-tight mt-1">N3 Sentence Structures</h1>
+<p class="font-body-editorial-md text-secondary mt-0.5">Master nuanced connectors, conditionals, and polite directives.</p>
+<div class="mt-space-lg space-y-3">
+<div class="p-3.5 rounded-xl bg-surface-container-low border border-ink-border flex items-center justify-between">
+<div>
+<span class="font-headline-editorial-md text-body-editorial-lg text-warm-paper font-semibold">〜わけにはいかない</span>
+<p class="text-label-ui-caption text-secondary">Cannot afford to / impossible due to social constraint</p>
+</div>
+<span class="px-2 py-1 rounded bg-vermilion/20 text-primary font-code-counter text-label-ui-caption font-bold">CURRENT</span>
+</div>
+<div class="p-3.5 rounded-xl bg-surface-container-low border border-ink-border flex items-center justify-between opacity-80">
+<div>
+<span class="font-headline-editorial-md text-body-editorial-lg text-warm-paper font-semibold">〜に違いない</span>
+<p class="text-label-ui-caption text-secondary">Must certainly be / no doubt that</p>
+</div>
+<span class="text-gold-eye font-code-counter text-label-ui-caption">COMPLETED</span>
+</div>
+</div>
+</div>
+</div>
+<!-- TAB PANE: KANJI -->
+<div class="tab-pane hidden-pane flex-col gap-space-lg" id="tab-kanji">
+<div class="bg-ink-surface text-on-surface rounded-2xl p-space-lg tactile-shadow-md border border-ink-border">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-gold-eye"></span>
+<span class="font-code-counter text-label-ui-caption tracking-widest text-gold-eye uppercase">STROKE BY STROKE · 漢字</span>
+</div>
+<h1 class="font-headline-editorial-lg text-headline-editorial-lg text-warm-paper tracking-tight mt-1">Kanji Radical Matrix</h1>
+<p class="font-body-editorial-md text-secondary mt-0.5">380/650 N3 Characters unlocked with mnemonic mnemonics.</p>
+<div class="grid grid-cols-4 sm:grid-cols-6 gap-2.5 mt-space-lg">
+<div class="p-3 rounded-lg bg-surface-container text-center tactile-shadow-sm hover:border-gold-eye border border-transparent cursor-pointer">
+<div class="text-2xl font-bold text-warm-paper">静</div>
+<div class="text-[10px] text-gold-eye font-code-counter">SEI · quiet</div>
+</div>
+<div class="p-3 rounded-lg bg-surface-container text-center tactile-shadow-sm hover:border-gold-eye border border-transparent cursor-pointer">
+<div class="text-2xl font-bold text-warm-paper">寂</div>
+<div class="text-[10px] text-gold-eye font-code-counter">JAKU · lonely</div>
+</div>
+<div class="p-3 rounded-lg bg-surface-container text-center tactile-shadow-sm hover:border-gold-eye border border-transparent cursor-pointer">
+<div class="text-2xl font-bold text-warm-paper">墨</div>
+<div class="text-[10px] text-gold-eye font-code-counter">BOKU · ink</div>
+</div>
+<div class="p-3 rounded-lg bg-surface-container text-center tactile-shadow-sm hover:border-gold-eye border border-transparent cursor-pointer">
+<div class="text-2xl font-bold text-warm-paper">録</div>
+<div class="text-[10px] text-gold-eye font-code-counter">ROKU · record</div>
+</div>
+<div class="p-3 rounded-lg bg-surface-container text-center tactile-shadow-sm hover:border-gold-eye border border-transparent cursor-pointer">
+<div class="text-2xl font-bold text-warm-paper">記</div>
+<div class="text-[10px] text-gold-eye font-code-counter">KI · scribe</div>
+</div>
+<div class="p-3 rounded-lg bg-surface-container text-center tactile-shadow-sm hover:border-gold-eye border border-transparent cursor-pointer">
+<div class="text-2xl font-bold text-warm-paper">念</div>
+<div class="text-[10px] text-gold-eye font-code-counter">NEN · thought</div>
+</div>
+</div>
+</div>
+</div>
+<!-- TAB PANE: TEST -->
+<div class="tab-pane hidden-pane flex-col gap-space-lg" id="tab-test">
+<div class="bg-ink-surface text-on-surface rounded-2xl p-space-lg tactile-shadow-md border border-ink-border">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-vermilion"></span>
+<span class="font-code-counter text-label-ui-caption tracking-widest text-primary uppercase">EXAM SIMULATION · 模擬試験</span>
+</div>
+<h1 class="font-headline-editorial-lg text-headline-editorial-lg text-warm-paper tracking-tight mt-1">JLPT Diagnostic Quizzes</h1>
+<p class="font-body-editorial-md text-secondary mt-0.5">Timed tests conforming strictly to official JEES benchmarks.</p>
+<div class="mt-space-lg p-5 rounded-xl bg-surface-container-low border border-ink-border flex flex-col sm:flex-row items-center justify-between gap-4">
+<div>
+<div class="font-headline-editorial-md text-warm-paper font-bold text-lg">Mock Test #04 (N3 Speed Section)</div>
+<p class="text-label-ui-caption text-secondary mt-1">60 Questions · 45 mins · Reading &amp; Language Knowledge</p>
+</div>
+<button class="px-5 py-2.5 rounded-xl bg-vermilion text-warm-paper font-bold text-label-ui-bold tactile-shadow-md hover:scale-105 active:scale-95 transition-all">Start Quiz</button>
+</div>
+</div>
+</div>
+<!-- TAB PANE: STUDY -->
+<div class="tab-pane hidden-pane flex-col gap-space-lg" id="tab-study">
+<div class="bg-ink-surface text-on-surface rounded-2xl p-space-lg tactile-shadow-md border border-ink-border">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-gold-eye"></span>
+<span class="font-code-counter text-label-ui-caption tracking-widest text-gold-eye uppercase">FOCUSED FLOW · 自習室</span>
+</div>
+<h1 class="font-headline-editorial-lg text-headline-editorial-lg text-warm-paper tracking-tight mt-1">Pomodoro Sumi Focus Room</h1>
+<p class="font-body-editorial-md text-secondary mt-0.5">Binaural lo-fi background with Kuro companion tracking your focus.</p>
+<div class="mt-space-lg p-6 rounded-xl bg-surface-container-lowest text-center border border-ink-border">
+<span class="font-display-comic text-4xl font-bold text-warm-paper">25:00</span>
+<p class="text-gold-eye font-code-counter text-label-ui-caption mt-1">INTERVAL 01 OF 04</p>
+<div class="mt-4 flex justify-center gap-3">
+<button class="px-5 py-2 rounded-lg bg-vermilion text-warm-paper font-bold text-label-ui-bold tactile-shadow-sm">Start Session</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Tactile Bottom Navigation with Gliding Liquid Spring Pill Indicator -->
+<aside class="fixed bottom-5 inset-x-0 z-50 flex justify-center pointer-events-none px-gutter-sm select-none">
+<nav class="pointer-events-auto relative flex items-center p-1.5 bg-warm-paper text-ink-black rounded-full tactile-shadow-lg shadow-2xl border border-[#151413]/10" id="floating-navbar">
+<!-- Ultra-Smooth Flowing Liquid Sliding Pill Indicator -->
+<div class="absolute bg-primary-container text-on-primary-container rounded-full tactile-shadow-sm pointer-events-none shadow-md" id="nav-spring-pill" style="left: 0px; top: 6px; height: calc(100% - 12px); width: 95.375px; transform: translateX(6.80002px);"></div>
+<!-- Navigation Tab Links with Magnetic Micro-Interaction -->
+<a aria-current="page" class="nav-tab relative z-10 flex items-center justify-center px-4 py-2 font-label-ui-bold text-label-ui-bold text-on-primary-container font-bold rounded-full transition-transform duration-200 cursor-pointer select-none" data-tab="home" href="#" style="transform: translate(0px, 0px);">
+<span class="material-symbols-outlined text-[18px] mr-1.5 transition-transform duration-200 pointer-events-none">cottage</span>
+<span class="pointer-events-none">Home</span>
+</a>
+<a class="nav-tab relative z-10 flex items-center justify-center px-4 py-2 rounded-full font-label-ui-bold text-label-ui-bold text-ink-surface hover:text-ink-black transition-transform duration-200 cursor-pointer select-none" data-tab="vocab" href="#">
+<span class="material-symbols-outlined text-[18px] mr-1.5 transition-transform duration-200 pointer-events-none">dictionary</span>
+<span class="pointer-events-none">Vocab</span>
+</a>
+<a class="nav-tab relative z-10 flex items-center justify-center px-4 py-2 rounded-full font-label-ui-bold text-label-ui-bold text-ink-surface hover:text-ink-black transition-transform duration-200 cursor-pointer select-none" data-tab="grammar" href="#">
+<span class="material-symbols-outlined text-[18px] mr-1.5 transition-transform duration-200 pointer-events-none">account_tree</span>
+<span class="pointer-events-none">Grammar</span>
+</a>
+<a class="nav-tab relative z-10 flex items-center justify-center px-4 py-2 rounded-full font-label-ui-bold text-label-ui-bold text-ink-surface hover:text-ink-black transition-transform duration-200 cursor-pointer select-none" data-tab="kanji" href="#">
+<span class="material-symbols-outlined text-[18px] mr-1.5 transition-transform duration-200 pointer-events-none">translate</span>
+<span class="pointer-events-none">Kanji</span>
+</a>
+<a class="nav-tab relative z-10 flex items-center justify-center px-4 py-2 rounded-full font-label-ui-bold text-label-ui-bold text-ink-surface hover:text-ink-black transition-transform duration-200 cursor-pointer select-none" data-tab="test" href="#">
+<span class="material-symbols-outlined text-[18px] mr-1.5 transition-transform duration-200 pointer-events-none">quiz</span>
+<span class="pointer-events-none">Test</span>
+</a>
+<a class="nav-tab relative z-10 flex items-center justify-center px-4 py-2 rounded-full font-label-ui-bold text-label-ui-bold text-ink-surface hover:text-ink-black transition-transform duration-200 cursor-pointer select-none" data-tab="study" href="#">
+<span class="material-symbols-outlined text-[18px] mr-1.5 transition-transform duration-200 pointer-events-none">auto_stories</span>
+<span class="pointer-events-none">Study</span>
+</a>
+</nav>
+</aside>
+<!-- Client Interaction & Gliding Spring Physics Script -->
+<script>
+    (function initKirokuApp() {
+      // 0. Interactive Wordmark Wave
+      const brandContainer = document.getElementById('brand-wordmark-container');
+      const brandLetters = document.querySelectorAll('#kiroku-letters .brand-letter');
+      if (brandContainer && brandLetters.length) {
+        brandContainer.addEventListener('mousemove', (e) => {
+          const mouseX = e.clientX;
+          brandLetters.forEach((letter) => {
+            const letterRect = letter.getBoundingClientRect();
+            const letterCenter = letterRect.left + letterRect.width / 2;
+            const dist = Math.abs(mouseX - letterCenter);
+            const maxLift = -7;
+            const radius = 55;
+            let lift = 0;
+            if (dist < radius) {
+              const factor = Math.cos((dist / radius) * (Math.PI / 2));
+              lift = factor * maxLift;
+            }
+            letter.style.transform = `translateY(${lift.toFixed(1)}px)`;
+          });
+        });
+        brandContainer.addEventListener('mouseleave', () => {
+          brandLetters.forEach((l) => (l.style.transform = 'translateY(0px)'));
+        });
+        brandContainer.addEventListener('click', () => {
+          brandLetters.forEach((letter, i) => {
+            setTimeout(() => {
+              letter.style.transform = 'translateY(-7px)';
+              setTimeout(() => {
+                letter.style.transform = 'translateY(0px)';
+              }, 180);
+            }, i * 45);
+          });
+        });
+      }
+
+      // 1. Precise Eye Tracking Aligned to Cat Sockets (viewBox 0 0 736 736)
+      // Left eye center: (280, 455), Right eye center: (448, 490)
+      const catSvg = document.getElementById('cat-svg');
+      const pupilLeft = document.getElementById('cat-pupil-left');
+      const pupilRight = document.getElementById('cat-pupil-right');
+      const catStage = document.getElementById('cat-stage');
+      const catWrap = document.getElementById('cat-character-wrap');
+
+      let targetX = 0;
+      let targetY = 0;
+      let currentX = 0;
+      let currentY = 0;
+      const MAX_OFFSET = 15.0; // Bounded damping range inside iris
+
+      function handleMouseMove(e) {
+        if (!catSvg) return;
+        const rect = catSvg.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+
+        // Cat eye midpoint in client coordinates:
+        // Left eye x=280/736 (~0.380), Right eye x=448/736 (~0.608) -> midpoint x ~ 0.495
+        // Vertical center ~ 472/736 (~0.641)
+        const eyeCenterX = rect.left + rect.width * 0.495;
+        const eyeCenterY = rect.top + rect.height * 0.641;
+
+        const dx = e.clientX - eyeCenterX;
+        const dy = e.clientY - eyeCenterY;
+        const distance = Math.hypot(dx, dy) || 1;
+
+        const clampedDist = Math.min(distance / 28, MAX_OFFSET);
+        targetX = (dx / distance) * clampedDist;
+        targetY = (dy / distance) * clampedDist * 0.85;
+      }
+
+      function updateEyes() {
+        // Smooth bounded damping spring physics
+        currentX += (targetX - currentX) * 0.12;
+        currentY += (targetY - currentY) * 0.12;
+
+        if (pupilLeft && pupilRight) {
+          pupilLeft.setAttribute('transform', `translate(${currentX.toFixed(2)}, ${currentY.toFixed(2)})`);
+          pupilRight.setAttribute('transform', `translate(${currentX.toFixed(2)}, ${currentY.toFixed(2)})`);
+        }
+        requestAnimationFrame(updateEyes);
+      }
+
+      window.addEventListener('mousemove', handleMouseMove, { passive: true });
+      requestAnimationFrame(updateEyes);
+
+      // Organic gentle breathing / purr spring lift on mascot hover
+      if (catStage && catWrap) {
+        catStage.addEventListener('mouseenter', () => {
+          catWrap.classList.add('cat-purring');
+        });
+        catStage.addEventListener('mouseleave', () => {
+          catWrap.classList.remove('cat-purring');
+        });
+      }
+
+      // 2. Ultra-Smooth Flowing Liquid Sliding Pill Indicator & Magnetic Tab Interactions
+      const navbar = document.getElementById('floating-navbar');
+      const springPill = document.getElementById('nav-spring-pill');
+      const navTabs = document.querySelectorAll('.nav-tab');
+      const tabPanes = document.querySelectorAll('.tab-pane');
+
+      function positionIndicator(targetTab) {
+        if (!springPill || !targetTab || !navbar) return;
+        const navRect = navbar.getBoundingClientRect();
+        const tabRect = targetTab.getBoundingClientRect();
+        const left = tabRect.left - navRect.left;
+        const width = tabRect.width;
+
+        springPill.style.transform = `translateX(${left}px)`;
+        springPill.style.width = `${width}px`;
+      }
+
+      // Initial pill position calibration
+      const activeTabInitial = document.querySelector('.nav-tab[data-tab="home"]');
+      if (activeTabInitial) {
+        setTimeout(() => positionIndicator(activeTabInitial), 60);
+      }
+
+      navTabs.forEach((tab) => {
+        // Magnetic button micro-hover effect
+        tab.addEventListener('mousemove', (e) => {
+          const rect = tab.getBoundingClientRect();
+          const x = (e.clientX - rect.left - rect.width / 2) * 0.15;
+          const y = (e.clientY - rect.top - rect.height / 2) * 0.15;
+          tab.style.transform = `translate(${x}px, ${y}px)`;
+        });
+        tab.addEventListener('mouseleave', () => {
+          tab.style.transform = 'translate(0px, 0px)';
+        });
+
+        // Click handler with liquid glide and wave pop
+        tab.addEventListener('click', (e) => {
+          e.preventDefault();
+          const targetTabKey = tab.getAttribute('data-tab');
+
+          // Trigger flowing wave pulse
+          tab.classList.remove('wave-active');
+          void tab.offsetWidth;
+          tab.classList.add('wave-active');
+
+          // Move gliding elastic spring pill
+          positionIndicator(tab);
+
+          // Update active text styles
+          navTabs.forEach((t) => {
+            if (t === tab) {
+              t.classList.remove('text-ink-surface');
+              t.classList.add('text-on-primary-container', 'font-bold');
+              t.setAttribute('aria-current', 'page');
+            } else {
+              t.classList.remove('text-on-primary-container', 'font-bold');
+              t.classList.add('text-ink-surface');
+              t.removeAttribute('aria-current');
+            }
+          });
+
+          // Smooth sliding crossfade between panels
+          tabPanes.forEach((pane) => {
+            if (pane.id === `tab-${targetTabKey}`) {
+              pane.classList.remove('hidden-pane');
+              void pane.offsetWidth;
+              pane.classList.add('active-pane');
+            } else {
+              pane.classList.remove('active-pane');
+              pane.classList.add('hidden-pane');
+            }
+          });
+        });
+      });
+
+      window.addEventListener('resize', () => {
+        const currentActive = document.querySelector('.nav-tab[aria-current="page"]');
+        if (currentActive) positionIndicator(currentActive);
+      });
+
+      // 3. Audio & Card Hover Mascot Ear-Twitch Micro-Interaction
+      const wordCard = document.getElementById('word-card');
+      if (wordCard && catWrap) {
+        wordCard.addEventListener('mouseenter', () => {
+          catWrap.style.transform = 'translateY(-4px) rotate(1deg)';
+        });
+        wordCard.addEventListener('mouseleave', () => {
+          catWrap.style.transform = 'translateY(0px) rotate(0deg)';
+        });
+      }
+    })();
+  </script>
+
+
+</body></html>

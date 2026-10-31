@@ -1,0 +1,97 @@
+/**
+ * Kiroku Note Desktop — Design Tokens
+ * Source of Truth: Sumi & Washi Neo-Tactile Design System
+ */
+
+:root {
+  /* Colors - Core Palette */
+  --vermilion: #D94B38;
+  --vermilion-glow: rgba(217, 75, 56, 0.20);
+  --vermilion-hover: #C23E2C;
+  --vermilion-active: #A83525;
+
+  --ink-black: #22211F;
+  --ink-surface: #2A2926;
+  --ink-surface-hover: #33312E;
+  --ink-border: rgba(245, 241, 232, 0.12);
+
+  --warm-paper: #F5F1E8;
+  --paper-dim: #E8E3D8;
+  --paper-muted: rgba(245, 241, 232, 0.70);
+  --paper-subtle: rgba(245, 241, 232, 0.45);
+  --paper-faint: rgba(245, 241, 232, 0.12);
+
+  --gold-eye: #C8A94A;
+  --gold-glow: rgba(200, 169, 74, 0.15);
+  --gold-hover: #D8B95A;
+
+  --tactile-stroke: #151413;
+  --surface-pitch-black: #000000; /* Mandatory pitch black for dictionary, stroke player & study prompts */
+
+  /* Viewport Surfaces & Containers */
+  --background: #141311;
+  --surface: #141311;
+  --surface-container-lowest: #0f0e0c;
+  --surface-container-low: #1c1b19;
+  --surface-container: #201f1d;
+  --surface-container-high: #2b2a28;
+  --surface-container-highest: #363532;
+
+  --text-primary: #F5F1E8;
+  --text-secondary: #CAC6BE;
+  --text-muted: #8E8A82;
+
+  /* Service & Diagnostics Status */
+  --status-green: #4EBB7B;
+  --status-amber: #E4C461;
+  --status-red: #D94B38;
+  --status-inactive: #55524E;
+
+  /* Spacing Scale */
+  --space-xs: 0.25rem;   /* 4px */
+  --space-sm: 0.5rem;    /* 8px */
+  --space-md: 1rem;      /* 16px */
+  --space-lg: 1.5rem;    /* 24px */
+  --space-xl: 2.5rem;    /* 40px */
+  --space-2xl: 3.5rem;   /* 56px */
+  --gutter: 1.5rem;
+  --gutter-sm: 1rem;
+  --margin: 2rem;
+  --margin-sm: 1rem;
+
+  /* Safe Areas (top chrome + bottom dock clearance) */
+  --chrome-top-height: 48px;
+  --dock-bottom-height: 64px;
+  --content-padding-top: 56px;
+  --content-padding-bottom: 96px;
+
+  /* Corner Radii */
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Solid Hard Offset Shadows (Planetoño Tactile Physics) */
+  --shadow-sm: 2px 2px 0 var(--tactile-stroke);
+  --shadow-md: 3px 3px 0 var(--tactile-stroke);
+  --shadow-lg: 4px 4px 0 var(--tactile-stroke);
+  --shadow-pressed: 1px 1px 0 var(--tactile-stroke);
+
+  /* Typography Stacks */
+  --font-display: "Mochiy Pop One", "Zen Kaku Gothic New", sans-serif;
+  --font-wordmark: "Zen Old Mincho", Georgia, serif;
+  --font-japanese: "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Inter", "SFMono-Regular", Consolas, monospace;
+
+  /* Spring Physics & Motion Easing */
+  --spring-snappy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-instant: 80ms;
+  --duration-fast: 150ms;
+  --duration-normal: 240ms;
+  --duration-slow: 380ms;
+}
+

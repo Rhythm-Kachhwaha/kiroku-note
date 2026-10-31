@@ -1,0 +1,820 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Card History &amp; Inventory — Kiroku Note</title>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Epilogue:ital,wght@0,600;0,700;0,800;0,900;1,700&amp;family=Inter:wght@400;500;600;700&amp;family=Noto+Serif+JP:wght@400;600;700;900&amp;family=Noto+Serif:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-primary-fixed-variant": "#8e1308",
+            "tertiary-container": "#c7a849",
+            "on-tertiary-fixed-variant": "#574500",
+            "paper-subtle": "rgba(245, 241, 232, 0.45)",
+            "inverse-primary": "#b02e1e",
+            "surface-container-low": "#1c1b19",
+            "surface-container-high": "#2b2a28",
+            "primary-container": "#f55f4a",
+            "on-primary-fixed": "#410100",
+            "on-background": "#e6e2de",
+            "vermilion": "#D94B38",
+            "ink-surface": "#2A2926",
+            "surface-variant": "#363532",
+            "primary": "#ffb4a7",
+            "outline-variant": "#59413d",
+            "on-secondary-container": "#b8b5ad",
+            "warm-paper": "#F5F1E8",
+            "tertiary-fixed": "#ffe088",
+            "secondary-fixed": "#e6e2d9",
+            "error-container": "#93000a",
+            "on-surface-variant": "#e1bfb9",
+            "on-error": "#690005",
+            "gold-eye": "#C8A94A",
+            "secondary-container": "#484740",
+            "surface-container-lowest": "#0f0e0c",
+            "primary-fixed": "#ffdad4",
+            "error": "#ffb4ab",
+            "tactile-stroke": "#151413",
+            "surface-tint": "#ffb4a7",
+            "surface-container": "#201f1d",
+            "on-secondary": "#31302b",
+            "vermilion-glow": "rgba(217, 75, 56, 0.20)",
+            "tertiary": "#e4c461",
+            "ink-black": "#22211F",
+            "on-tertiary-fixed": "#241a00",
+            "inverse-surface": "#e6e2de",
+            "ink-border": "rgba(245, 241, 232, 0.12)",
+            "background": "#141311",
+            "surface-bright": "#3a3937",
+            "on-secondary-fixed-variant": "#484740",
+            "gold-glow": "rgba(200, 169, 74, 0.08)",
+            "secondary-fixed-dim": "#cac6be",
+            "on-secondary-fixed": "#1c1c16",
+            "surface-dim": "#141311",
+            "on-surface": "#e6e2de",
+            "on-primary": "#680200",
+            "on-error-container": "#ffdad6",
+            "inverse-on-surface": "#31302e",
+            "outline": "#a88a84",
+            "on-primary-container": "#5b0200",
+            "on-tertiary-container": "#4e3d00",
+            "surface-container-highest": "#363532",
+            "surface": "#141311",
+            "tertiary-fixed-dim": "#e4c461",
+            "on-tertiary": "#3c2f00",
+            "primary-fixed-dim": "#ffb4a7",
+            "paper-dim": "#E8E3D8",
+            "secondary": "#cac6be"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xs": "0.25rem",
+            "space-xl": "2.5rem",
+            "space-md": "1rem",
+            "space-lg": "1.5rem",
+            "margin-sm": "1rem",
+            "space-sm": "0.5rem",
+            "gutter": "1.5rem",
+            "gutter-sm": "1rem",
+            "margin": "2rem"
+          },
+          "fontFamily": {
+            "headline-editorial-md": ["Noto Serif", "serif"],
+            "headline-editorial-lg": ["Noto Serif", "serif"],
+            "title-brand": ["Noto Serif", "serif"],
+            "label-ui-bold": ["Inter", "sans-serif"],
+            "headline-editorial-lg-mobile": ["Noto Serif", "serif"],
+            "display-comic": ["Epilogue", "sans-serif"],
+            "body-editorial-md": ["Noto Serif", "serif"],
+            "body-editorial-lg": ["Noto Serif", "serif"],
+            "display-comic-mobile": ["Epilogue", "sans-serif"],
+            "label-ui-caption": ["Inter", "sans-serif"],
+            "code-counter": ["Inter", "sans-serif"],
+            "japanese": ["Noto Serif JP", "serif"]
+          },
+          "fontSize": {
+            "headline-editorial-md": ["24px", { "lineHeight": "32px", "letterSpacing": "0em", "fontWeight": "600" }],
+            "headline-editorial-lg": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "title-brand": ["20px", { "lineHeight": "28px", "letterSpacing": "0.12em", "fontWeight": "700" }],
+            "label-ui-bold": ["13px", { "lineHeight": "18px", "letterSpacing": "0.04em", "fontWeight": "600" }],
+            "headline-editorial-lg-mobile": ["26px", { "lineHeight": "34px", "letterSpacing": "0em", "fontWeight": "700" }],
+            "display-comic": ["44px", { "lineHeight": "52px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+            "body-editorial-md": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "body-editorial-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "display-comic-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "800" }],
+            "label-ui-caption": ["11px", { "lineHeight": "14px", "letterSpacing": "0.06em", "fontWeight": "500" }],
+            "code-counter": ["14px", { "lineHeight": "16px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    /* Neo-Tactile Mechanical Interaction Rules */
+    .tactile-btn {
+      border: 1.5px solid #151413;
+      box-shadow: 3px 3px 0 #151413;
+      transition: all 0.08s ease-in-out;
+    }
+    .tactile-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0 #151413;
+    }
+    .tactile-btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0 #151413;
+    }
+
+    .tactile-card {
+      border: 1.5px solid #151413;
+      box-shadow: 3px 3px 0 #151413;
+    }
+
+    .tactile-pill {
+      border: 1.5px solid #151413;
+      box-shadow: 2px 2px 0 #151413;
+      transition: all 0.08s ease-in-out;
+    }
+    .tactile-pill:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 #151413;
+    }
+    .tactile-pill:active {
+      transform: translate(1px, 1px);
+      box-shadow: 1px 1px 0 #151413;
+    }
+
+    /* Custom Checkbox */
+    .tactile-checkbox {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      background-color: #201f1d;
+      border: 1.5px solid #151413;
+      box-shadow: 1.5px 1.5px 0 #151413;
+      cursor: pointer;
+      display: inline-grid;
+      place-content: center;
+      transition: all 0.08s;
+      border-radius: 4px;
+    }
+    .tactile-checkbox:checked {
+      background-color: #D94B38;
+      border-color: #151413;
+    }
+    .tactile-checkbox:checked::after {
+      content: "";
+      width: 6px;
+      height: 10px;
+      border: solid #F5F1E8;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg) translate(-1px, -1px);
+    }
+
+    /* Spring icon spin */
+    .gear-spin {
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .gear-spin:hover {
+      transform: rotate(90deg);
+    }
+
+    /* Letter lift */
+    .letter-hover span {
+      display: inline-block;
+      transition: transform 0.12s ease-out;
+    }
+    .letter-hover:hover span {
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen flex flex-col font-label-ui-bold select-none overflow-x-hidden pb-28">
+<!-- ========================================================================= -->
+<!-- 1. TOP FRAMELESS CHROME (48px height, fixed/docked)                      -->
+<!-- ========================================================================= -->
+<header class="fixed top-0 left-0 right-0 h-12 bg-[#141311] border-b border-[#2A2926] px-5 flex items-center justify-between z-50 select-none">
+  <!-- Left zone: Window dots + Wordmark + Mode Badge -->
+  <div class="flex items-center">
+    <!-- 3 tactile window dots -->
+    <div class="flex items-center gap-2 mr-4">
+      <div class="w-2.5 h-2.5 rounded-full bg-[#D94B38] border border-[#151413] shadow-[1px_1px_0_#151413]" title="Close"></div>
+      <div class="w-2.5 h-2.5 rounded-full bg-[#C8A94A] border border-[#151413] shadow-[1px_1px_0_#151413]" title="Minimize"></div>
+      <div class="w-2.5 h-2.5 rounded-full bg-[#3A3937] border border-[#151413] shadow-[1px_1px_0_#151413]" title="Maximize"></div>
+    </div>
+
+    <!-- Wordmark: KIROKU with letter-lift hover -->
+    <a class="flex items-center group letter-hover" href="#">
+      <span class="font-serif font-bold text-[17px] tracking-[0.14em] text-[#F5F1E8] uppercase inline-flex items-center">
+        <span class="">K</span><span class="">I</span><span class="">R</span><span class="">O</span><span class="">K</span><span class="">U</span>
+      </span>
+    </a>
+
+    <!-- Mode Badge: NOTE ノート -->
+    <div class="ml-3 flex items-center h-5 px-2.5 py-0.5 rounded-[6px] bg-[#C8A94A] text-[#151413] border border-[#151413] shadow-[1px_1px_0px_#151413]">
+      <span class="font-bold text-[11px] tracking-[0.08em] leading-none select-none font-japanese">NOTE ノート</span>
+    </div>
+  </div>
+
+  <!-- Right zone: History button + Settings button -->
+  <div class="flex items-center gap-2.5">
+    <!-- History button (32x32px) -->
+    <button class="w-8 h-8 rounded-[8px] bg-[#1C1B19] border border-[rgba(245,241,232,0.12)] flex items-center justify-center text-[#F5F1E8] hover:bg-[#2A2926] transition-all group shadow-[1px_1px_0_#151413]" title="History">
+      <svg class="w-4 h-4 transition-transform group-hover:-rotate-[15deg] duration-200" fill="none" stroke="#F5F1E8" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" viewBox="0 0 24 24">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+        <path d="M3 3v5h5"></path>
+        <path d="M12 7v5l4 2"></path>
+      </svg>
+    </button>
+
+    <!-- Settings button (32x32px) -->
+    <button class="w-8 h-8 rounded-[8px] bg-[#1C1B19] border border-[rgba(245,241,232,0.12)] flex items-center justify-center text-[#F5F1E8] hover:bg-[#2A2926] transition-all group shadow-[1px_1px_0_#151413]" title="Settings">
+      <svg class="w-4 h-4 transition-transform group-hover:rotate-45 duration-[350ms] ease-[cubic-bezier(0.34,1.56,0.64,1)]" fill="none" stroke="#F5F1E8" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
+  </div>
+</header>
+<!-- ========================================================================= -->
+<!-- MAIN WORKSPACE CONTAINER (Asymmetrical Split View)                         -->
+<!-- ========================================================================= -->
+<main class="pt-16 px-4 md:px-8 max-w-[1720px] mx-auto w-full flex-1 flex flex-col gap-5">
+<!-- Screen Title + Context Banner -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="font-code-counter text-label-ui-caption text-gold-eye uppercase tracking-wider">DATABASE / MINING LOG</span>
+<span class="text-ink-border">•</span>
+<span class="text-label-ui-caption text-paper-subtle font-mono">SQLite v3.44 • Sync Interval 15s</span>
+</div>
+<h1 class="font-headline-editorial-lg text-headline-editorial-lg text-warm-paper tracking-tight">
+          Card History &amp; Inventory
+        </h1>
+</div>
+<!-- Top Right Mascot Preview Pod (100x100 desktop slot) -->
+<div class="hidden xl:flex items-center gap-3 bg-surface-container-low border border-ink-border rounded-xl p-2.5">
+<div class="text-right">
+<p class="text-xs text-warm-paper font-semibold">Tanuki Companion</p>
+<p class="text-[11px] text-paper-subtle">Studying 1,428 saved items</p>
+<span class="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 font-mono">STATE: IDLE_READING</span>
+</div>
+<!-- [MASCOT_SLOT: vocab-idle-reading] 100x100px -->
+<div class="w-[72px] h-[72px] rounded-lg border-2 border-dashed border-gold-eye/70 bg-gradient-to-br from-gold-glow to-transparent flex flex-col items-center justify-center text-center p-1 relative overflow-hidden" title="[MASCOT_SLOT: vocab-idle-reading]">
+<span class="material-symbols-outlined text-gold-eye text-2xl animate-bounce">auto_stories</span>
+<span class="text-[8px] font-mono text-gold-eye font-bold leading-tight mt-0.5">[MASCOT_SLOT:<br>vocab-idle]</span>
+</div>
+</div>
+</div>
+<!-- ======================================================================= -->
+<!-- 2. METRICS & TELEMETRY STRIP (5 tactile pods + Sync Button)             -->
+<!-- ======================================================================= -->
+<section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 select-none">
+<!-- Total Cards -->
+<div class="bg-surface-container-low p-3.5 rounded-xl border border-tactile-stroke shadow-[2px_2px_0_#151413] flex flex-col justify-between">
+<div class="flex items-center justify-between text-paper-subtle text-label-ui-caption font-semibold">
+<span class="">Total Cards</span>
+<span class="material-symbols-outlined text-base">style</span>
+</div>
+<div class="mt-2 flex items-baseline gap-2">
+<span class="font-headline-editorial-md text-headline-editorial-md text-warm-paper">1,428</span>
+<span class="text-[11px] text-paper-subtle font-mono">items</span>
+</div>
+</div>
+<!-- Synced to Anki -->
+<div class="bg-surface-container-low p-3.5 rounded-xl border border-tactile-stroke shadow-[2px_2px_0_#151413] flex flex-col justify-between">
+<div class="flex items-center justify-between text-paper-subtle text-label-ui-caption font-semibold">
+<span class="">Synced to Anki</span>
+<span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]"></span>
+</div>
+<div class="mt-2 flex items-baseline gap-2">
+<span class="font-headline-editorial-md text-headline-editorial-md text-warm-paper">1,392</span>
+<span class="text-[11px] text-emerald-400 font-mono">97.5%</span>
+</div>
+</div>
+<!-- Pending Sync -->
+<div class="bg-surface-container-low p-3.5 rounded-xl border border-tactile-stroke shadow-[2px_2px_0_#151413] flex flex-col justify-between">
+<div class="flex items-center justify-between text-paper-subtle text-label-ui-caption font-semibold">
+<span class="">Pending Sync</span>
+<span class="w-2 h-2 rounded-full bg-gold-eye shadow-[0_0_6px_rgba(200,169,74,0.6)]"></span>
+</div>
+<div class="mt-2 flex items-baseline gap-2">
+<span class="font-headline-editorial-md text-headline-editorial-md text-gold-eye">34</span>
+<span class="text-[11px] text-paper-subtle font-mono">queued</span>
+</div>
+</div>
+<!-- Failed Sync -->
+<div class="bg-surface-container-low p-3.5 rounded-xl border border-tactile-stroke shadow-[2px_2px_0_#151413] flex flex-col justify-between">
+<div class="flex items-center justify-between text-paper-subtle text-label-ui-caption font-semibold">
+<span class="">Failed Sync</span>
+<span class="w-2 h-2 rounded-full bg-vermilion shadow-[0_0_6px_rgba(217,75,56,0.8)] animate-pulse"></span>
+</div>
+<div class="mt-2 flex items-baseline gap-2">
+<span class="font-headline-editorial-md text-headline-editorial-md text-vermilion">2</span>
+<span class="text-[11px] text-vermilion font-mono">error</span>
+</div>
+</div>
+<!-- Today's Mined -->
+<div class="bg-surface-container-low p-3.5 rounded-xl border border-tactile-stroke shadow-[2px_2px_0_#151413] flex flex-col justify-between">
+<div class="flex items-center justify-between text-paper-subtle text-label-ui-caption font-semibold">
+<span class="">Today's Mined</span>
+<span class="material-symbols-outlined text-base text-gold-eye" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+</div>
+<div class="mt-2 flex items-baseline gap-2">
+<span class="font-headline-editorial-md text-headline-editorial-md text-warm-paper">18</span>
+<span class="text-[11px] text-gold-eye font-mono">+6 goal</span>
+</div>
+</div>
+<!-- Primary Action: Sync All Pending -->
+<div class="col-span-2 sm:col-span-1 lg:col-span-1 flex items-stretch">
+<button class="w-full bg-vermilion text-warm-paper font-label-ui-bold text-label-ui-bold rounded-xl tactile-btn flex flex-col items-center justify-center p-3 text-center gap-1 group">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-lg group-hover:rotate-180 transition-transform duration-300">sync</span>
+<span class="">Sync All Pending</span>
+</div>
+<span class="text-[11px] font-code-counter text-warm-paper/90 bg-tactile-stroke/30 px-2 py-0.5 rounded-full">
+            34 cards ready
+          </span>
+</button>
+</div>
+</section>
+<!-- ======================================================================= -->
+<!-- 3. FILTER & SEARCH TOOLBAR                                              -->
+<!-- ======================================================================= -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-surface-container-lowest p-3 rounded-xl border border-tactile-stroke shadow-[2px_2px_0_#151413]">
+<!-- Left: Search Box -->
+<div class="flex-1 max-w-xl relative">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-paper-subtle text-lg">search</span>
+<input class="w-full bg-background border border-ink-border focus:border-gold-eye focus:ring-0 rounded-lg pl-10 pr-4 py-2 text-sm text-warm-paper placeholder:text-paper-subtle focus:outline-none transition-all" placeholder="Search expressions, readings, or English meanings..." type="text" value="">
+<kbd class="hidden sm:inline-block absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono bg-surface-container px-1.5 py-0.5 rounded border border-ink-border text-paper-subtle">⌘F</kbd>
+</div>
+<!-- Right: Status Filter Pills + Deck dropdown + Export -->
+<div class="flex flex-wrap items-center gap-2">
+<!-- Status Filter Pills -->
+<div class="flex items-center bg-surface-container-low p-1 rounded-lg border border-ink-border gap-1">
+<!-- All -->
+<button class="px-2.5 py-1 rounded-md text-xs font-semibold bg-vermilion text-warm-paper border border-tactile-stroke shadow-[1.5px_1.5px_0_#151413] transition-transform">
+            All (1,428)
+          </button>
+<!-- Synced -->
+<button class="px-2.5 py-1 rounded-md text-xs font-semibold text-paper-subtle hover:text-warm-paper hover:bg-surface-variant transition-colors">
+            Synced (1,392)
+          </button>
+<!-- Pending -->
+<button class="px-2.5 py-1 rounded-md text-xs font-semibold text-paper-subtle hover:text-warm-paper hover:bg-surface-variant transition-colors">
+            Pending (34)
+          </button>
+<!-- Failed -->
+<button class="px-2.5 py-1 rounded-md text-xs font-semibold text-vermilion/90 hover:text-vermilion hover:bg-surface-variant transition-colors">
+            Failed (2)
+          </button>
+</div>
+<!-- Deck Selector Dropdown Pill -->
+<button class="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container text-warm-paper rounded-lg border border-tactile-stroke text-xs font-semibold tactile-pill">
+<span class="material-symbols-outlined text-[15px] text-paper-subtle">folder</span>
+<span class="">All Decks (Japanese::Mining)</span>
+<span class="material-symbols-outlined text-[14px] text-paper-subtle">expand_more</span>
+</button>
+<!-- Secondary Button: Export Collection -->
+<button class="flex items-center gap-1.5 px-3 py-1.5 bg-warm-paper text-tactile-stroke rounded-lg border border-tactile-stroke text-xs font-semibold tactile-btn">
+<span class="material-symbols-outlined text-[15px]">file_download</span>
+<span class="">Export Collection</span>
+</button>
+</div>
+</div>
+<!-- ======================================================================= -->
+<!-- 4. STICKY BULK SELECTION ACTION BAR (3 cards checked state)              -->
+<!-- ======================================================================= -->
+<div class="bg-surface-container-high border-[1.5px] border-tactile-stroke rounded-xl px-4 py-2.5 shadow-[3px_3px_0_#151413] flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
+<div class="flex items-center gap-3">
+<span class="w-6 h-6 rounded-full bg-vermilion text-warm-paper flex items-center justify-center text-xs font-code-counter border border-tactile-stroke shadow-[1px_1px_0_#151413]">
+          3
+        </span>
+<span class="text-sm font-semibold text-warm-paper">
+          3 cards selected
+        </span>
+<span class="text-xs text-paper-subtle font-mono hidden sm:inline">
+          (Row 1, Row 2, Row 3 selected)
+        </span>
+</div>
+<div class="flex items-center gap-2">
+<!-- Sync Selected -->
+<button class="flex items-center gap-1.5 px-3 py-1 bg-surface-container-lowest text-warm-paper border border-tactile-stroke rounded-lg text-xs font-semibold tactile-pill">
+<span class="material-symbols-outlined text-[15px] text-emerald-400">sync</span>
+<span class="">Sync Selected</span>
+</button>
+<!-- Change Deck -->
+<button class="flex items-center gap-1.5 px-3 py-1 bg-surface-container-lowest text-warm-paper border border-tactile-stroke rounded-lg text-xs font-semibold tactile-pill">
+<span class="material-symbols-outlined text-[15px] text-paper-subtle">drive_file_move</span>
+<span class="">Change Deck ▼</span>
+</button>
+<!-- Export Selected -->
+<button class="flex items-center gap-1.5 px-3 py-1 bg-surface-container-lowest text-warm-paper border border-tactile-stroke rounded-lg text-xs font-semibold tactile-pill">
+<span class="material-symbols-outlined text-[15px] text-paper-subtle">ios_share</span>
+<span class="">Export Selected</span>
+</button>
+<!-- Delete Selected (Danger) -->
+<button class="flex items-center gap-1.5 px-3 py-1 bg-vermilion text-warm-paper border border-tactile-stroke rounded-lg text-xs font-semibold tactile-btn">
+<span class="material-symbols-outlined text-[15px]">delete</span>
+<span class="">Delete Selected</span>
+</button>
+</div>
+</div>
+<!-- ======================================================================= -->
+<!-- 5. MAIN SPLIT VIEW: Card Inventory Table + Slide-Over Drawer            -->
+<!-- ======================================================================= -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+<!-- LEFT COLUMN: Card Inventory Table (7 or 8 columns on 12-col grid) -->
+<div class="lg:col-span-7 xl:col-span-8 bg-surface-container-low border border-tactile-stroke rounded-xl shadow-[3px_3px_0_#151413] overflow-hidden flex flex-col">
+<!-- Table Header -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container border-b border-tactile-stroke text-paper-subtle text-[11px] font-label-ui-bold uppercase tracking-wider">
+<th class="py-3 px-3.5 w-10 text-center">
+<input checked="" class="tactile-checkbox" title="Select all visible" type="checkbox">
+</th>
+<th class="py-3 px-4 font-bold">Expression &amp; Reading</th>
+<th class="py-3 px-4 font-bold">English Meaning</th>
+<th class="py-3 px-3 hidden md:table-cell font-bold">Deck</th>
+<th class="py-3 px-3 hidden sm:table-cell font-bold">Added Date</th>
+<th class="py-3 px-4 font-bold text-right">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-ink-border text-sm">
+<!-- ROW 1 (Checked): 食べる -->
+<tr class="bg-surface-container-low hover:bg-surface-container transition-colors group cursor-pointer">
+<td class="py-3.5 px-3.5 text-center">
+<input checked="" class="tactile-checkbox" type="checkbox">
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-baseline gap-2">
+<span class="font-japanese font-bold text-lg text-warm-paper">食べる</span>
+<span class="text-xs text-gold-eye font-mono font-medium">たべる</span>
+<span class="text-[10px] px-1 py-0.2 rounded bg-surface-variant text-paper-subtle font-mono">v1</span>
+</div>
+</td>
+<td class="py-3.5 px-4 text-warm-paper/90 font-serif">
+                  to eat; to consume
+                </td>
+<td class="py-3.5 px-3 hidden md:table-cell">
+<span class="text-xs text-paper-subtle font-mono bg-surface-container px-2 py-0.5 rounded border border-ink-border">
+                    Japanese::Mining
+                  </span>
+</td>
+<td class="py-3.5 px-3 hidden sm:table-cell text-xs text-paper-subtle font-mono">
+                  2 hrs ago
+                </td>
+<td class="py-3.5 px-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-[1px_1px_0_#151413]">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+<span class="">Synced</span>
+</span>
+</td>
+</tr>
+<!-- ROW 2 (Checked): 静寂 -->
+<tr class="bg-surface-container-low hover:bg-surface-container transition-colors group cursor-pointer">
+<td class="py-3.5 px-3.5 text-center">
+<input checked="" class="tactile-checkbox" type="checkbox">
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-baseline gap-2">
+<span class="font-japanese font-bold text-lg text-warm-paper">静寂</span>
+<span class="text-xs text-gold-eye font-mono font-medium">せいじゃく</span>
+<span class="text-[10px] px-1 py-0.2 rounded bg-surface-variant text-paper-subtle font-mono">n</span>
+</div>
+</td>
+<td class="py-3.5 px-4 text-warm-paper/90 font-serif truncate max-w-[220px]">
+                  silence, stillness; serene tranquility
+                </td>
+<td class="py-3.5 px-3 hidden md:table-cell">
+<span class="text-xs text-paper-subtle font-mono bg-surface-container px-2 py-0.5 rounded border border-ink-border">
+                    Japanese::Mining
+                  </span>
+</td>
+<td class="py-3.5 px-3 hidden sm:table-cell text-xs text-paper-subtle font-mono">
+                  Yesterday
+                </td>
+<td class="py-3.5 px-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-[1px_1px_0_#151413]">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+<span class="">Synced</span>
+</span>
+</td>
+</tr>
+<!-- ROW 3 (Checked): 雨宿り -->
+<tr class="bg-surface-container-low hover:bg-surface-container transition-colors group cursor-pointer">
+<td class="py-3.5 px-3.5 text-center">
+<input checked="" class="tactile-checkbox" type="checkbox">
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-baseline gap-2">
+<span class="font-japanese font-bold text-lg text-warm-paper">雨宿り</span>
+<span class="text-xs text-gold-eye font-mono font-medium">あまやどり</span>
+<span class="text-[10px] px-1 py-0.2 rounded bg-surface-variant text-paper-subtle font-mono">vs</span>
+</div>
+</td>
+<td class="py-3.5 px-4 text-warm-paper/90 font-serif">
+                  taking shelter from rain
+                </td>
+<td class="py-3.5 px-3 hidden md:table-cell">
+<span class="text-xs text-paper-subtle font-mono bg-surface-container px-2 py-0.5 rounded border border-ink-border">
+                    Japanese::Mining
+                  </span>
+</td>
+<td class="py-3.5 px-3 hidden sm:table-cell text-xs text-paper-subtle font-mono">
+                  Today
+                </td>
+<td class="py-3.5 px-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-950/70 text-amber-300 border border-amber-700/60 shadow-[1px_1px_0_#151413]">
+<span class="w-1.5 h-1.5 rounded-full border border-amber-300"></span>
+<span class="">Pending</span>
+</span>
+</td>
+</tr>
+<!-- ROW 4 (SELECTED / INSPECTED): 木漏れ日 (Active highlight ring) -->
+<tr class="bg-surface-container-high border-y-2 border-vermilion shadow-[inset_3px_0_0_#D94B38] relative cursor-pointer">
+<td class="py-3.5 px-3.5 text-center">
+<input class="tactile-checkbox" type="checkbox">
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-baseline gap-2">
+<span class="font-japanese font-extrabold text-xl text-warm-paper">木漏れ日</span>
+<span class="text-xs text-gold-eye font-mono font-bold">こもれび</span>
+<span class="text-[10px] px-1.5 py-0.2 rounded bg-vermilion/20 text-vermilion border border-vermilion/40 font-mono">Active</span>
+</div>
+</td>
+<td class="py-3.5 px-4 text-warm-paper font-serif font-medium">
+                  sunlight filtering through trees
+                </td>
+<td class="py-3.5 px-3 hidden md:table-cell">
+<span class="text-xs text-warm-paper font-mono bg-surface-container-lowest px-2 py-0.5 rounded border border-tactile-stroke">
+                    Japanese::Mining
+                  </span>
+</td>
+<td class="py-3.5 px-3 hidden sm:table-cell text-xs text-paper-subtle font-mono">
+                  Oct 29
+                </td>
+<td class="py-3.5 px-4 text-right">
+<div class="inline-flex items-center gap-2">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-950/80 text-rose-300 border border-rose-700/80 shadow-[1px_1px_0_#151413]">
+<span class="">✕</span>
+<span class="">Failed</span>
+</span>
+<button class="text-xs font-bold text-vermilion hover:underline ml-1">
+                      Retry
+                    </button>
+</div>
+</td>
+</tr>
+<!-- ROW 5: 黄昏 -->
+<tr class="bg-surface-container-low hover:bg-surface-container transition-colors group cursor-pointer">
+<td class="py-3.5 px-3.5 text-center">
+<input class="tactile-checkbox" type="checkbox">
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-baseline gap-2">
+<span class="font-japanese font-bold text-lg text-warm-paper">黄昏</span>
+<span class="text-xs text-gold-eye font-mono font-medium">たそがれ</span>
+<span class="text-[10px] px-1 py-0.2 rounded bg-surface-variant text-paper-subtle font-mono">n</span>
+</div>
+</td>
+<td class="py-3.5 px-4 text-warm-paper/90 font-serif">
+                  twilight, dusk
+                </td>
+<td class="py-3.5 px-3 hidden md:table-cell">
+<span class="text-xs text-paper-subtle font-mono bg-surface-container px-2 py-0.5 rounded border border-ink-border">
+                    Japanese::Mining
+                  </span>
+</td>
+<td class="py-3.5 px-3 hidden sm:table-cell text-xs text-paper-subtle font-mono">
+                  Oct 28
+                </td>
+<td class="py-3.5 px-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-700/60 shadow-[1px_1px_0_#151413]">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+<span class="">Synced</span>
+</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer / Pagination -->
+<div class="bg-surface-container px-4 py-3 border-t border-tactile-stroke flex items-center justify-between text-xs text-paper-subtle">
+<div class="flex items-center gap-2">
+<span class="">Showing 1 to 5 of 1,428 cards</span>
+<span class="text-ink-border">•</span>
+<span class="font-mono">Page 1 of 286</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="px-2.5 py-1 rounded bg-surface-container-low border border-ink-border hover:text-warm-paper disabled:opacity-40" disabled="">
+              Prev
+            </button>
+<button class="px-2.5 py-1 rounded bg-surface-container-low border border-ink-border text-warm-paper hover:bg-surface-variant">
+              1
+            </button>
+<button class="px-2.5 py-1 rounded bg-surface-variant border border-ink-border text-warm-paper hover:bg-surface-container-highest">
+              2
+            </button>
+<button class="px-2.5 py-1 rounded bg-surface-container-low border border-ink-border text-warm-paper hover:bg-surface-variant">
+              3
+            </button>
+<span class="px-1 text-ink-border">...</span>
+<button class="px-2.5 py-1 rounded bg-surface-container-low border border-ink-border hover:text-warm-paper">
+              Next
+            </button>
+</div>
+</div>
+</div>
+<!-- ===================================================================== -->
+<!-- 6. SLIDE-OVER CARD DETAIL DRAWER [ANIM_SLOT: card-drawer-slide]       -->
+<!-- ===================================================================== -->
+<aside class="lg:col-span-5 xl:col-span-4 bg-surface-container-low border-[1.5px] border-tactile-stroke rounded-xl p-5 shadow-[4px_4px_0_#151413] flex flex-col gap-4 relative animate-fadeIn">
+<!-- Animation Hook Slot Representation -->
+<div class="flex items-center justify-between border-b border-ink-border pb-3">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-vermilion"></span>
+<span class="font-code-counter text-xs text-warm-paper uppercase tracking-wider font-bold">CARD INSPECTOR</span>
+<span class="text-[9px] font-mono text-paper-subtle bg-surface-container px-1 rounded border border-ink-border">[ANIM_SLOT: card-drawer-slide]</span>
+</div>
+<button class="w-7 h-7 rounded flex items-center justify-center text-paper-subtle hover:text-warm-paper hover:bg-surface-variant border border-transparent hover:border-ink-border transition-colors">
+<span class="material-symbols-outlined text-lg">close</span>
+</button>
+</div>
+<!-- Headword Display Block -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-tactile-stroke shadow-[2px_2px_0_#151413]">
+<div class="flex items-center justify-between mb-1">
+<span class="text-xs font-mono text-gold-eye font-semibold">こもれび [komorebi]</span>
+<!-- Pitch Accent Tag -->
+<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-variant border border-ink-border text-paper-subtle">
+              Pitch: [0] 平板 (Heiban)
+            </span>
+</div>
+<h2 class="font-japanese text-4xl font-extrabold text-warm-paper tracking-tight my-1">
+            木漏れ日
+          </h2>
+<div class="flex items-center gap-2 mt-2">
+<!-- Audio Tag -->
+<button class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container text-warm-paper text-xs font-mono border border-ink-border hover:border-gold-eye transition-colors">
+<span class="material-symbols-outlined text-sm text-gold-eye">volume_up</span>
+<span class="">[sound: komorebi.mp3]</span>
+</button>
+<span class="text-[11px] text-paper-subtle font-mono">1.2s • stereo</span>
+</div>
+</div>
+<!-- Meaning Section -->
+<div>
+<label class="text-[11px] font-bold uppercase tracking-wider text-paper-subtle font-label-ui-bold">Primary Meaning</label>
+<div class="mt-1 bg-surface-container p-3 rounded-lg border border-ink-border font-body-editorial-md text-warm-paper">
+            sunlight filtering through trees; sunbeams dappled through foliage
+          </div>
+</div>
+<!-- Example Sentence Pod -->
+<div>
+<label class="text-[11px] font-bold uppercase tracking-wider text-paper-subtle font-label-ui-bold">Context Sentence</label>
+<div class="mt-1 bg-surface-container p-3.5 rounded-lg border border-tactile-stroke shadow-[1.5px_1.5px_0_#151413] flex flex-col gap-1.5">
+<p class="font-japanese text-base font-semibold text-warm-paper leading-relaxed">
+              木漏れ日が地面に揺れていた。
+            </p>
+<p class="text-xs text-paper-subtle font-serif italic border-t border-ink-border/70 pt-1.5">
+              Sunlight filtering through trees was dancing on the ground.
+            </p>
+</div>
+</div>
+<!-- Sync Error Callout Banner (Vermilion/Amber Alert) -->
+<div class="bg-vermilion/10 border-[1.5px] border-vermilion rounded-lg p-3 shadow-[2px_2px_0_#151413]">
+<div class="flex items-start gap-2.5">
+<span class="material-symbols-outlined text-vermilion text-lg shrink-0 mt-0.5">error</span>
+<div class="flex-1">
+<p class="text-xs font-bold text-warm-paper">Sync Failure Reported</p>
+<p class="text-[11px] text-warm-paper/80 font-mono mt-1 leading-normal">
+                AnkiConnect refused connection on <code class="text-gold-eye bg-black/40 px-1 rounded">127.0.0.1:8765</code>. Ensure Anki desktop is open with the AnkiConnect add-on enabled.
+              </p>
+</div>
+</div>
+</div>
+<!-- Drawer Metadata Grid -->
+<div class="grid grid-cols-2 gap-2 text-xs font-mono bg-surface-container p-3 rounded-lg border border-ink-border">
+<div>
+<span class="text-paper-subtle block text-[10px]">CARD ID</span>
+<span class="text-warm-paper">#1082-MINED</span>
+</div>
+<div>
+<span class="text-paper-subtle block text-[10px]">DECK TARGET</span>
+<span class="text-warm-paper">Japanese::Mining</span>
+</div>
+<div>
+<span class="text-paper-subtle block text-[10px]">CREATED DATE</span>
+<span class="text-warm-paper">2023-10-29 14:22</span>
+</div>
+<div>
+<span class="text-paper-subtle block text-[10px]">NOTE TYPE</span>
+<span class="text-warm-paper">Kiroku-Mining-v2</span>
+</div>
+</div>
+<!-- Drawer Base Tactile Action Buttons -->
+<div class="flex flex-col gap-2 pt-2 border-t border-ink-border">
+<!-- Primary: Retry Sync Now -->
+<button class="w-full bg-vermilion text-warm-paper font-label-ui-bold py-2.5 rounded-lg tactile-btn flex items-center justify-center gap-2 text-sm">
+<span class="material-symbols-outlined text-base">sync</span>
+<span class="">Retry Sync Now</span>
+</button>
+<div class="grid grid-cols-2 gap-2">
+<!-- Edit Card -->
+<button class="w-full bg-warm-paper text-tactile-stroke font-label-ui-bold py-2 rounded-lg tactile-btn flex items-center justify-center gap-1.5 text-xs">
+<span class="material-symbols-outlined text-sm">edit</span>
+<span class="">Edit Card</span>
+</button>
+<!-- Delete Card (Danger) -->
+<button class="w-full bg-surface-container-high text-vermilion font-label-ui-bold py-2 rounded-lg border border-tactile-stroke hover:bg-vermilion hover:text-warm-paper transition-all flex items-center justify-center gap-1.5 text-xs shadow-[2px_2px_0_#151413]">
+<span class="material-symbols-outlined text-sm">delete_forever</span>
+<span class="">Delete Card</span>
+</button>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- ========================================================================= -->
+<!-- 7. FLOATING BOTTOM NAVIGATION DOCK (Docked 20px above bottom, centered)    -->
+<!-- ========================================================================= -->
+<nav class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-warm-paper border-[1.5px] border-tactile-stroke rounded-full px-3 py-1.5 shadow-[4px_4px_0_#151413] flex items-center gap-1 sm:gap-2 select-none">
+<!-- Tab 1: Home (Inactive) -->
+<a class="flex flex-col items-center justify-center px-3 py-1 rounded-full text-tactile-stroke hover:bg-paper-dim transition-all group" href="#">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[17px]">space_dashboard</span>
+<span class="text-xs font-bold font-label-ui-bold">Home</span>
+</div>
+<span class="text-[9px] font-japanese font-semibold opacity-70">ホーム</span>
+</a>
+<!-- Tab 2: Vocab (語彙) — ACTIVE TAB (Highlighted in solid Vermilion) -->
+<a class="flex flex-col items-center justify-center px-4 py-1 rounded-full bg-vermilion text-warm-paper border-[1.5px] border-tactile-stroke shadow-[2px_2px_0_#151413] transition-all" href="#">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[17px]" style="font-variation-settings: 'FILL' 1;">menu_book</span>
+<span class="text-xs font-extrabold font-label-ui-bold">Vocab</span>
+</div>
+<span class="text-[9px] font-japanese font-bold text-warm-paper">語彙</span>
+</a>
+<!-- Tab 3: Grammar (Inactive) -->
+<a class="flex flex-col items-center justify-center px-3 py-1 rounded-full text-tactile-stroke hover:bg-paper-dim transition-all group" href="#">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[17px]">auto_stories</span>
+<span class="text-xs font-bold font-label-ui-bold">Grammar</span>
+</div>
+<span class="text-[9px] font-japanese font-semibold opacity-70">文法</span>
+</a>
+<!-- Tab 4: Kanji (Inactive) -->
+<a class="flex flex-col items-center justify-center px-3 py-1 rounded-full text-tactile-stroke hover:bg-paper-dim transition-all group" href="#">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[17px]">translate</span>
+<span class="text-xs font-bold font-label-ui-bold">Kanji</span>
+</div>
+<span class="text-[9px] font-japanese font-semibold opacity-70">漢字</span>
+</a>
+<!-- Tab 5: Test (Inactive) -->
+<a class="flex flex-col items-center justify-center px-3 py-1 rounded-full text-tactile-stroke hover:bg-paper-dim transition-all group" href="#">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[17px]">stylus_note</span>
+<span class="text-xs font-bold font-label-ui-bold">Test</span>
+</div>
+<span class="text-[9px] font-japanese font-semibold opacity-70">テスト</span>
+</a>
+<!-- Tab 6: Study (Inactive) -->
+<a class="flex flex-col items-center justify-center px-3 py-1 rounded-full text-tactile-stroke hover:bg-paper-dim transition-all group" href="#">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[17px]">psychology</span>
+<span class="text-xs font-bold font-label-ui-bold">Study</span>
+</div>
+<span class="text-[9px] font-japanese font-semibold opacity-70">学習</span>
+</a>
+</nav>
+<!-- Lightweight Micro-Interaction Handler -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Toggle table checkboxes visually
+      const checkboxes = document.querySelectorAll('.tactile-checkbox');
+      checkboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+          // Micro-sound / feedback simulation hook
+        });
+      });
+    });
+  </script>
+
+
+
+
+</body></html>

@@ -115,6 +115,8 @@ UI-exploration/
 kiroku-ui-exploration/
 !docs/
 docs/*
+!docs/design/
+!docs/design/**
 !docs/REPOSITORY_AUDIT_2026-10-29.md
 !docs/study_http_api_reference.md
 !docs/study-bank/

@@ -1,0 +1,65 @@
+/**
+ * Kiroku Note Desktop — Offline Bundled Fonts (OFL-1.1)
+ * High-performance local WOFF2 typography for 100% offline desktop operation.
+ */
+
+/* Mochiy Pop One (Fontworks Inc.) — Japanese greetings and headwords */
+@font-face {
+  font-family: "Mochiy Pop One";
+  src: url("../assets/fonts/mochiy-pop-one-japanese-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Zen Kaku Gothic New (Yoshimichi Ohira) — Japanese UI, Sentences, Study & Reading */
+@font-face {
+  font-family: "Zen Kaku Gothic New";
+  src: url("../assets/fonts/zen-kaku-gothic-new-japanese-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Zen Kaku Gothic New";
+  src: url("../assets/fonts/zen-kaku-gothic-new-japanese-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Zen Old Mincho (Yoshimichi Ohira) — Brand Wordmark & Editorial Headers */
+@font-face {
+  font-family: "Zen Old Mincho";
+  src: url("../assets/fonts/zen-old-mincho-japanese-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Inter (Rasmus Andersson) — UI Labels, Counters, Timers, System English */
+@font-face {
+  font-family: "Inter";
+  src: url("../assets/fonts/inter-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("../assets/fonts/inter-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("../assets/fonts/inter-latin-600-normal.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
