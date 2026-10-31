@@ -270,6 +270,28 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   transform: translateY(-4px) scale(1.02);
 }
 
+.home-cat-img {
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.45));
+}
+
+.home-clean-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 180px);
+}
+
+.home-clean-zone {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
 /* Today's Word Module */
 .todays-word-card {
   width: 100%;
