@@ -101,6 +101,29 @@ export class VocabHistoryView {
             </div>
           </div>
 
+                    <!-- Bulk Actions Bar -->
+          <div class="history-bulk-bar tactile-card" id="history-bulk-bar" style="display: none; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.5rem 1rem; margin-bottom: 0.75rem; border: 1px solid var(--accent-gold);">
+            <div class="bulk-info" style="display: flex; align-items: center; gap: 0.5rem;">
+              <span class="bulk-count font-mono font-bold text-gold" id="bulk-selected-count">0</span>
+              <span class="text-sm text-secondary">cards selected</span>
+            </div>
+            <div class="bulk-actions-group" style="display: flex; align-items: center; gap: 0.5rem;">
+              <button class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-bulk-sync">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                </svg>
+                <span>Sync Selected</span>
+              </button>
+              <button class="tactile-btn tactile-btn-sm text-red" id="btn-bulk-delete">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
+                <span>Delete Selected</span>
+              </button>
+              <button class="tactile-btn tactile-btn-sm" id="btn-bulk-clear">Clear</button>
+            </div>
+          </div>
+
           <!-- Cards Inventory Data Grid Table -->
           <div class="history-table-container tactile-card">
             <table class="history-table" id="cards-table">
@@ -243,6 +266,80 @@ export class VocabHistoryView {
           if (checked && id) this.selectedIds.add(id);
           else if (!checked && id) this.selectedIds.delete(id);
         });
+        this.updateBulkBar();
+      });
+    }
+
+    const btnClearBulk = document.getElementById('btn-bulk-clear');
+    if (btnClearBulk) {
+      btnClearBulk.addEventListener('click', () => {
+        this.selectedIds.clear();
+        if (checkAll) checkAll.checked = false;
+        this.container.querySelectorAll('.card-select-box').forEach((b) => { b.checked = false; });
+        this.updateBulkBar();
+      });
+    }
+
+    const btnBulkSync = document.getElementById('btn-bulk-sync');
+    if (btnBulkSync) {
+      btnBulkSync.addEventListener('click', async () => {
+        if (this.selectedIds.size === 0) return;
+        btnBulkSync.disabled = true;
+        try {
+          await apiClient.bulkSyncCards(Array.from(this.selectedIds));
+          this.selectedIds.clear();
+          if (checkAll) checkAll.checked = false;
+          this.updateBulkBar();
+          await this.loadData();
+        } catch (err) {
+          this.showError(`Bulk sync failed: ${err.message}`);
+        } finally {
+          btnBulkSync.disabled = false;
+        }
+      });
+    }
+
+    const btnBulkDelete = document.getElementById('btn-bulk-delete');
+    if (btnBulkDelete) {
+      btnBulkDelete.addEventListener('click', async () => {
+        if (this.selectedIds.size === 0) return;
+        if (btnBulkDelete.dataset.confirming !== 'true') {
+          btnBulkDelete.dataset.confirming = 'true';
+          btnBulkDelete.textContent = `Confirm Delete (${this.selectedIds.size})?`;
+          setTimeout(() => {
+            if (btnBulkDelete && btnBulkDelete.dataset.confirming === 'true') {
+              btnBulkDelete.dataset.confirming = 'false';
+              btnBulkDelete.innerHTML = `
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
+                <span>Delete Selected</span>
+              `;
+            }
+          }, 4000);
+          return;
+        }
+
+        btnBulkDelete.disabled = true;
+        btnBulkDelete.textContent = 'Deleting...';
+        try {
+          await apiClient.bulkDeleteCards(Array.from(this.selectedIds));
+          this.selectedIds.clear();
+          if (checkAll) checkAll.checked = false;
+          this.updateBulkBar();
+          await this.loadData();
+        } catch (err) {
+          this.showError(`Bulk delete failed: ${err.message}`);
+        } finally {
+          btnBulkDelete.disabled = false;
+          btnBulkDelete.dataset.confirming = 'false';
+          btnBulkDelete.innerHTML = `
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+            <span>Delete Selected</span>
+          `;
+        }
       });
     }
 
@@ -279,6 +376,16 @@ export class VocabHistoryView {
     if (banner) {
       banner.style.display = 'none';
     }
+  }
+
+  updateBulkBar() {
+    const bar = document.getElementById('history-bulk-bar');
+    const countEl = document.getElementById('bulk-selected-count');
+    if (!bar || !countEl) return;
+
+    const count = this.selectedIds.size;
+    countEl.textContent = String(count);
+    bar.style.display = count > 0 ? 'flex' : 'none';
   }
 
   async loadData() {
@@ -409,8 +516,10 @@ export class VocabHistoryView {
         const id = e.target.dataset.id;
         if (e.target.checked && id) this.selectedIds.add(id);
         else if (id) this.selectedIds.delete(id);
+        this.updateBulkBar();
       });
     });
+    this.updateBulkBar();
   }
 
   openInspector(card) {
@@ -461,7 +570,7 @@ export class VocabHistoryView {
           this.closeInspector();
           await this.loadData();
         } catch (err) {
-          alert(`Sync failed: ${err.message}`);
+          this.showError(`Sync failed: ${err.message}`);
         } finally {
           btnSync.disabled = false;
         }
@@ -471,14 +580,31 @@ export class VocabHistoryView {
     const btnDelete = document.getElementById('btn-drawer-delete');
     if (btnDelete) {
       btnDelete.addEventListener('click', async () => {
-        if (confirm(`Delete card "${card.expression}"?`)) {
-          try {
-            await apiClient.deleteCard(card.id);
-            this.closeInspector();
-            await this.loadData();
-          } catch (err) {
-            alert(`Delete failed: ${err.message}`);
-          }
+        if (btnDelete.dataset.confirming !== 'true') {
+          btnDelete.dataset.confirming = 'true';
+          btnDelete.textContent = 'Confirm Delete?';
+          btnDelete.classList.add('tactile-btn-primary');
+          setTimeout(() => {
+            if (btnDelete && btnDelete.dataset.confirming === 'true') {
+              btnDelete.dataset.confirming = 'false';
+              btnDelete.textContent = 'Delete Card';
+              btnDelete.classList.remove('tactile-btn-primary');
+            }
+          }, 4000);
+          return;
+        }
+
+        btnDelete.disabled = true;
+        btnDelete.textContent = 'Deleting...';
+        try {
+          await apiClient.deleteCard(card.id);
+          this.closeInspector();
+          await this.loadData();
+        } catch (err) {
+          this.showError(`Delete failed: ${err.message}`);
+          btnDelete.disabled = false;
+          btnDelete.textContent = 'Delete Card';
+          btnDelete.dataset.confirming = 'false';
         }
       });
     }

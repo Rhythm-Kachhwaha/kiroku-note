@@ -254,11 +254,27 @@ export class GrammarView {
 
     // Syllabus level filter pills
     const levelPills = this.container.querySelectorAll('.syllabus-level-pill');
+    if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+      window.chrome.storage.local.get('grammar.currentSyllabusLevel').then((stored) => {
+        const lvl = stored?.['grammar.currentSyllabusLevel'];
+        if (lvl !== undefined && ['', 'N5', 'N4', 'N3', 'N2', 'N1'].includes(lvl)) {
+          this.currentSyllabusLevel = lvl;
+          levelPills.forEach((p) => p.classList.toggle('is-active', p.dataset.level === lvl));
+          this.loadSyllabus({ level: this.currentSyllabusLevel, search: this.currentSyllabusSearch });
+        }
+      }).catch((err) => {
+        console.debug('[Grammar] Failed to restore syllabus level preference:', err);
+      });
+    }
+
     levelPills.forEach((pill) => {
       pill.addEventListener('click', () => {
         levelPills.forEach((p) => p.classList.remove('is-active'));
         pill.classList.add('is-active');
         this.currentSyllabusLevel = pill.dataset.level;
+        if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+          window.chrome.storage.local.set({ 'grammar.currentSyllabusLevel': this.currentSyllabusLevel });
+        }
         this.loadSyllabus({ level: this.currentSyllabusLevel, search: this.currentSyllabusSearch });
       });
     });

@@ -341,7 +341,23 @@ export class SettingsView {
     const btnRestart = document.getElementById('btn-restart-backend');
     if (btnRestart) {
       btnRestart.addEventListener('click', () => {
-        if (confirm('Restart the local Kiroku backend service?')) {
+        if (btnRestart.dataset.confirming !== 'true') {
+          btnRestart.dataset.confirming = 'true';
+          btnRestart.textContent = 'Confirm Restart?';
+          btnRestart.classList.add('tactile-btn-primary');
+          setTimeout(() => {
+            if (btnRestart && btnRestart.dataset.confirming === 'true') {
+              btnRestart.dataset.confirming = 'false';
+              btnRestart.textContent = 'Restart Backend Service';
+              btnRestart.classList.remove('tactile-btn-primary');
+            }
+          }, 4000);
+          return;
+        }
+
+        btnRestart.disabled = true;
+        btnRestart.textContent = 'Restarting...';
+        if (true) {
           if (window.desktopAPI?.retryBackend) {
             window.desktopAPI.retryBackend();
           }

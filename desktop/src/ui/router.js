@@ -93,7 +93,8 @@ export class AppRouter {
           types: [direction]
         });
         await transition.finished;
-      } catch (_) {
+      } catch (err) {
+        console.debug('[Router] View transition bypassed:', err);
         updateDOM();
       }
     } else {

@@ -214,6 +214,16 @@ export class VocabMainView {
         const select = document.getElementById('select-deck');
         if (select) {
           select.innerHTML = this.ankiDecks.map(d => `<option value="${d}">${d}</option>`).join('');
+          if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+            try {
+              const stored = await window.chrome.storage.local.get('vocab.selectedDeck');
+              if (stored?.['vocab.selectedDeck'] && this.ankiDecks.includes(stored['vocab.selectedDeck'])) {
+                select.value = stored['vocab.selectedDeck'];
+              }
+            } catch (err) {
+              console.debug('[VocabMain] Failed to restore deck preference:', err);
+            }
+          }
         }
       }
 
@@ -252,15 +262,39 @@ export class VocabMainView {
   setupEvents() {
     // IME Mode pills
     const pills = this.container.querySelectorAll('.ime-pill');
+    if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+      window.chrome.storage.local.get('vocab.imeMode').then((stored) => {
+        const mode = stored?.['vocab.imeMode'];
+        if (mode && ['hiragana', 'katakana', 'english'].includes(mode)) {
+          this.imeMode = mode;
+          pills.forEach((p) => p.classList.toggle('is-active', p.dataset.mode === mode));
+        }
+      }).catch((err) => {
+        console.debug('[VocabMain] Failed to restore IME mode preference:', err);
+      });
+    }
+
     pills.forEach((pill) => {
       pill.addEventListener('click', () => {
         pills.forEach((p) => p.classList.remove('is-active'));
         pill.classList.add('is-active');
         this.imeMode = pill.dataset.mode;
+        if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+          window.chrome.storage.local.set({ 'vocab.imeMode': this.imeMode });
+        }
         const input = document.getElementById('vocab-search-input');
         if (input) input.focus();
       });
     });
+
+    const selectDeckEl = document.getElementById('select-deck');
+    if (selectDeckEl) {
+      selectDeckEl.addEventListener('change', () => {
+        if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+          window.chrome.storage.local.set({ 'vocab.selectedDeck': selectDeckEl.value });
+        }
+      });
+    }
 
     // History Link
     const btnHistory = document.getElementById('btn-vocab-go-history');
@@ -487,7 +521,7 @@ export class VocabMainView {
     };
 
     if (!cardPayload.expression || !cardPayload.reading) {
-      alert('Expression and reading are required to save a card.');
+      this.showError('Expression and reading are required to save a card.');
       return;
     }
 
@@ -500,7 +534,7 @@ export class VocabMainView {
       const result = await apiClient.saveCard(cardPayload);
       if (statusPill) {
         statusPill.innerHTML = `
-          <span class="anki-status-dot" style="background: var(--green);"></span>
+          <span class="anki-status-dot" style="background: var(--status-green);"></span>
           <span class="anki-status-text text-green">Saved (${result.expression})</span>
         `;
       }
@@ -508,7 +542,7 @@ export class VocabMainView {
       this.showError(`Save Failed: ${err.message}`);
       if (statusPill) {
         statusPill.innerHTML = `
-          <span class="anki-status-dot" style="background: var(--red);"></span>
+          <span class="anki-status-dot" style="background: var(--status-red);"></span>
           <span class="anki-status-text text-red">Save Failed</span>
         `;
       }

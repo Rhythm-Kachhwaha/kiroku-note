@@ -101,6 +101,7 @@ export class TestView {
 
       // Extract sections and questions
       this.sections = session?.sections || [];
+      this.currentSectionIndex = 0;
       const currentSection = this.sections[0] || {};
       this.questions = currentSection.items || session?.items || [];
 
@@ -158,6 +159,7 @@ export class TestView {
     if (!stage) return;
 
     const currentSection = this.sections[this.currentSectionIndex] || {};
+    const isLastSection = this.currentSectionIndex >= this.sections.length - 1;
     const sectionLabel = currentSection.label || `Section ${this.currentSectionIndex + 1}: Language Knowledge & Reading`;
 
     stage.innerHTML = `
@@ -196,7 +198,7 @@ export class TestView {
 
         <div class="palette-actions">
           <button class="tactile-btn tactile-btn-primary" id="btn-finish-exam">
-            <span>Finish Section</span>
+            <span>${isLastSection ? 'Finish Exam' : 'Finish Section & Next'}</span>
           </button>
         </div>
       </div>
@@ -424,10 +426,26 @@ export class TestView {
 
     try {
       const currentSection = this.sections[this.currentSectionIndex] || {};
+    const isLastSection = this.currentSectionIndex >= this.sections.length - 1;
       const blockOrder = currentSection.block_order || 1;
 
       if (this.sessionId) {
         await studyClient.submitExamSection(this.sessionId, blockOrder);
+        if (this.currentSectionIndex < this.sections.length - 1) {
+          this.currentSectionIndex++;
+          const nextSection = this.sections[this.currentSectionIndex] || {};
+          const nextBlockOrder = nextSection.block_order || (this.currentSectionIndex + 1);
+          await studyClient.startExamSection(this.sessionId, nextBlockOrder);
+          this.questions = nextSection.items || [];
+          this.remainingSeconds = nextSection.remaining_time_seconds || (nextSection.duration_minutes ? nextSection.duration_minutes * 60 : 45 * 60);
+          this.currentIndex = 0;
+          this.answers.clear();
+          this.flagged.clear();
+          this.startTimer();
+          this.renderExamStage();
+          return;
+        }
+
         await studyClient.completeExamSession(this.sessionId);
         const result = await studyClient.getExamResult(this.sessionId);
         this.renderResultState(result);

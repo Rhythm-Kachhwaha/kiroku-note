@@ -7,7 +7,7 @@ export const ASSET_MAP = {
   // Mascot Slots
   'home-companion-sphinx': {
     type: 'svg',
-    path: './ui/assets/mascot/kiroku_cat.svg',
+    path: './ui/assets/mascot/svg_cat.svg',
     alt: 'Kiroku Sphinx Cat Companion',
     hasPupilTracking: true
   },

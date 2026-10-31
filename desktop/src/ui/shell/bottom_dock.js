@@ -103,6 +103,7 @@ export class BottomDock {
   handleKeyDown(e) {
     // Number keys 1-6 switch tabs directly when not in an input/textarea
     if (e.defaultPrevented || ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+    if (this.activeTab === 'test' || this.activeTab === 'study') return;
 
     const key = parseInt(e.key, 10);
     if (!isNaN(key) && key >= 1 && key <= this.tabs.length) {

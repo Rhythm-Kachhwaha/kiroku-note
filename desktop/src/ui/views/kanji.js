@@ -180,11 +180,27 @@ export class KanjiView {
 
     // Level Filter Pills
     const levelPills = this.container.querySelectorAll('.kanji-level-filters .level-pill');
+    if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+      window.chrome.storage.local.get('kanji.activeLevel').then((stored) => {
+        const lvl = stored?.['kanji.activeLevel'];
+        if (lvl && ['N5', 'N4', 'N3', 'N2', 'N1'].includes(lvl)) {
+          this.activeLevel = lvl;
+          levelPills.forEach((p) => p.classList.toggle('is-active', p.dataset.level === lvl));
+          this.loadLevelBrowse(this.activeLevel);
+        }
+      }).catch((err) => {
+        console.debug('[Kanji] Failed to restore activeLevel preference:', err);
+      });
+    }
+
     levelPills.forEach((pill) => {
       pill.addEventListener('click', () => {
         levelPills.forEach((p) => p.classList.remove('is-active'));
         pill.classList.add('is-active');
         this.activeLevel = pill.dataset.level;
+        if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+          window.chrome.storage.local.set({ 'kanji.activeLevel': this.activeLevel });
+        }
         this.loadLevelBrowse(this.activeLevel);
       });
     });
@@ -448,7 +464,7 @@ export class KanjiView {
             expression: expr,
             reading: read,
             meaning: gloss,
-            deck: 'Japanese::Vocab',
+            deck_name: 'Japanese::Vocab',
             tags: 'kanji-compound'
           });
           btn.textContent = 'Mined';
