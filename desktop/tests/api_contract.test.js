@@ -164,3 +164,4 @@ print(json.dumps(schema))
     assert.deepEqual(liveMethods, fixtureMethods, `Methods on path ${p} drifted!`);
   }
 });
+

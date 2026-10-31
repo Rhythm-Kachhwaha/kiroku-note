@@ -172,3 +172,4 @@ Generated via `app.openapi()` to `docs/desktop-wireup/openapi.json` and `desktop
 - **`study.db` (Migrated schema)**:
   - 43 STRICT tables initialized via forward migrations 0001–0008
   - Official format taxonomy: 20 formats, 81 level mappings, 5 JLPT exam profiles
+

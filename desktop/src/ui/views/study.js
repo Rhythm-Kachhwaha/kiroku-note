@@ -210,7 +210,7 @@ export class StudyView {
       <!-- Objective Grading Feedback Banner (Hidden until answered) -->
       <div class="grading-feedback-banner tactile-card" id="grading-banner" style="display: none;">
         <div class="grading-feedback-content">
-          <span class="grading-status-icon" id="grading-icon">✓</span>
+          <span class="grading-status-icon" id="grading-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>
           <div class="grading-text-block">
             <span class="grading-verdict" id="grading-verdict">--</span>
             <span class="grading-points text-xs font-mono" id="grading-time-spent">--</span>
@@ -334,7 +334,9 @@ export class StudyView {
       if (banner && icon && verdict) {
         banner.style.display = 'block';
         banner.className = `grading-feedback-banner tactile-card ${isCorrect ? 'banner-correct' : 'banner-incorrect'}`;
-        icon.textContent = isCorrect ? '✓' : '✗';
+        icon.innerHTML = isCorrect
+          ? '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
+          : '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
         verdict.textContent = isCorrect ? '正解 · CORRECT' : '不正解 · INCORRECT';
         if (timeTag) {
           timeTag.textContent = `${(timeSpentMs / 1000).toFixed(1)}s response time`;

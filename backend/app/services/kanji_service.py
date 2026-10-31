@@ -200,3 +200,4 @@ class KanjiService:
             return {"level": target_level, "kanji": items, "total": total}
         except Exception:
             return {"level": target_level, "kanji": [], "total": 0}
+

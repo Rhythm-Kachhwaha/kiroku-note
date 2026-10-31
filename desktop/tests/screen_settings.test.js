@@ -98,3 +98,4 @@ test('Settings View: Wires Doctor diagnostics and desktop supervisor controls', 
     'SettingsView must bridge to retryBackend'
   );
 });
+

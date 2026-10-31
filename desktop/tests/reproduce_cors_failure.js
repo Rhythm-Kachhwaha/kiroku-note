@@ -172,3 +172,4 @@ app.whenReady().then(async () => {
   win.destroy();
   app.quit();
 });
+

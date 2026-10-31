@@ -103,3 +103,4 @@ test('Study View: Error handling is visible with banner (no silent catches)', ()
     'StudyView must not contain empty silent catch blocks'
   );
 });
+

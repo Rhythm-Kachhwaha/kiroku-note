@@ -291,7 +291,7 @@ export class TestView {
         <div class="prompt-header-row">
           <span class="prompt-item-badge font-mono text-gold" id="prompt-item-num">QUESTION ${this.currentIndex + 1} OF ${total}</span>
           <button class="btn-flag-review tactile-btn tactile-btn-sm" id="btn-toggle-flag" title="Mark this question for review">
-            <span id="flag-icon">${isFlagged ? '★' : '☆'}</span>
+            <span id="flag-icon">${isFlagged ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>'}</span>
             <span id="flag-text">${isFlagged ? 'Flagged for Review' : 'Mark for Review'}</span>
           </button>
         </div>
@@ -365,7 +365,9 @@ export class TestView {
 
     const flagIcon = document.getElementById('flag-icon');
     const flagText = document.getElementById('flag-text');
-    if (flagIcon) flagIcon.textContent = isNowFlagged ? '★' : '☆';
+    if (flagIcon) flagIcon.innerHTML = isNowFlagged
+        ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>';
     if (flagText) flagText.textContent = isNowFlagged ? 'Flagged for Review' : 'Mark for Review';
 
     this.updatePaletteButton(index);

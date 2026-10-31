@@ -112,3 +112,4 @@ test('Kanji View: Error handling is visible with banner (no silent catches)', ()
     'KanjiView must not contain empty silent catch blocks'
   );
 });
+

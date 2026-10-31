@@ -224,7 +224,9 @@ export class VocabMainView {
         ];
         this.knownWordsSet = new Set(words);
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn('[VocabMain] Failed to load known words:', err);
+    }
   }
 
   setupWanakana() {
