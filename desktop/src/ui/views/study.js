@@ -6,6 +6,7 @@
  */
 
 import { studyClient } from '../services/study_client.js';
+import { escapeHtml, sanitizePromptMarkup } from '../utils/sanitizer.js';
 import { renderAssetSlot } from '../assets_map.js';
 
 export class StudyView {
@@ -22,6 +23,7 @@ export class StudyView {
     this.questionStartTime = 0;
     this.sessionSummary = { correct: 0, total: 0 };
     this.isLoading = false;
+    this.activeBlobUrls = [];
     this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
@@ -118,6 +120,7 @@ export class StudyView {
       this.showError('Practice session error: ' + (err.message || 'Check backend status'));
     } finally {
       this.isLoading = false;
+    this.activeBlobUrls = [];
     this.handleKeyDown = this.handleKeyDown.bind(this);
     }
   }
@@ -171,8 +174,16 @@ export class StudyView {
     const level = item.level || this.activeLevel;
     const category = item.category || 'Practice';
     const format = item.format_code || item.structural_family || 'Objective';
+    // Revoke previous blob URLs
+    this.activeBlobUrls.forEach(url => studyClient.revokeMediaBlobUrl(url));
+    this.activeBlobUrls = [];
+
     const promptText = item.prompt_markup || item.instruction_text || 'Select the correct answer:';
     const choices = Array.isArray(item.choices) ? item.choices : [];
+
+    // Identify optional listening audio or diagram assets (Choukai F5/F6)
+    const audioAssetId = item.audio_asset_id || item.media_asset_id || item.listening_audio_asset_id || (item.assets?.find(a => a.role === 'audio' || a.asset_type === 'audio')?.asset_id);
+    const diagramAssetId = item.diagram_asset_id || item.image_asset_id || (item.assets?.find(a => a.role === 'diagram' || a.asset_type === 'image')?.asset_id);
 
     area.innerHTML = `
       <!-- Drill Session Header Bar -->
@@ -193,18 +204,24 @@ export class StudyView {
           <span class="text-xs text-muted">Practice Item</span>
         </div>
         <h2 class="study-prompt-text font-japanese" id="study-prompt-ja">
-          ${promptText}
+          ${sanitizePromptMarkup(promptText)}
         </h2>
+
+        <!-- Choukai Media Streaming Containers -->
+        <div id="study-audio-container" class="mt-3" style="display: none;"></div>
+        <div id="study-diagram-container" class="mt-3" style="display: none;"></div>
       </div>
 
       <!-- Interactive Tactile Choice Buttons -->
-      <div class="study-choices-grid" id="study-choices-grid" role="radiogroup">
+      <div class="study-choices-grid" id="study-choices-grid" role="radiogroup" aria-label="Practice Choices">
         ${choices.map((choice, i) => `
           <button
             type="button"
             class="study-choice-btn tactile-btn tactile-card-interactive"
             data-choice-id="${escapeHtml(choice.choice_id || choice.id || String(i + 1))}"
             data-index="${i}"
+            role="radio"
+            aria-checked="false"
             tabindex="0"
           >
             <span class="choice-num font-mono">${i + 1}</span>
@@ -259,6 +276,36 @@ export class StudyView {
     `;
 
     // Attach choice button handlers
+    // Stream Choukai audio if asset exists (Audit 2.D)
+    if (audioAssetId) {
+      studyClient.getMediaBlobUrl(audioAssetId).then((audioUrl) => {
+        if (!audioUrl) return;
+        this.activeBlobUrls.push(audioUrl);
+        const container = document.getElementById('study-audio-container');
+        if (container) {
+          container.style.display = 'block';
+          container.innerHTML = `
+            <div class="choukai-audio-box tactile-card surface-pitch-black p-2">
+              <span class="text-xs font-mono text-gold">Listening Track (Choukai)</span>
+              <audio controls class="w-full mt-1" src="${audioUrl}"></audio>
+            </div>
+          `;
+        }
+      }).catch((e) => console.debug('[Study] Audio stream error:', e.message));
+    }
+
+    if (diagramAssetId) {
+      studyClient.getMediaBlobUrl(diagramAssetId).then((diagramUrl) => {
+        if (!diagramUrl) return;
+        this.activeBlobUrls.push(diagramUrl);
+        const container = document.getElementById('study-diagram-container');
+        if (container) {
+          container.style.display = 'block';
+          container.innerHTML = `<img src="${diagramUrl}" alt="Question diagram" class="max-w-full rounded border border-ink-border" />`;
+        }
+      }).catch((e) => console.debug('[Study] Diagram stream error:', e.message));
+    }
+
     const choiceButtons = area.querySelectorAll('.study-choice-btn');
     choiceButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -486,18 +533,14 @@ export class StudyView {
   unmount() {
     window.removeEventListener('keydown', this.handleKeyDown);
     this.stopActiveTimer();
+    if (this.activeBlobUrls && this.activeBlobUrls.length > 0) {
+      this.activeBlobUrls.forEach(url => studyClient.revokeMediaBlobUrl(url));
+      this.activeBlobUrls = [];
+    }
     if (this.container) {
       this.container.innerHTML = '';
     }
   }
 }
 
-function escapeHtml(str) {
-  if (typeof str !== 'string') return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+

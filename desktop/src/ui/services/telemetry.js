@@ -1,3 +1,4 @@
+import { apiClient } from './api_client.js';
 /**
  * Kiroku Note Desktop — Live Telemetry Service
  * Monitors loopback connection status for Backend (21828), AnkiConnect, Yomitan, and OCR.
@@ -53,9 +54,17 @@ class TelemetryService {
       }
     }
 
-    // 2. Fallback to direct HTTP checks against 127.0.0.1:21828
+    // 2. Fallback to direct HTTP checks against dynamic host:port
+    let baseUrl = 'http://127.0.0.1:21828';
     try {
-      const healthRes = await fetch('http://127.0.0.1:21828/api/health', { method: 'GET' });
+      const backendInfo = await apiClient.getBackendInfo();
+      if (backendInfo?.port) {
+        baseUrl = `http://${backendInfo.host || '127.0.0.1'}:${backendInfo.port}`;
+      }
+    } catch (_) {}
+
+    try {
+      const healthRes = await fetch(`${baseUrl}/api/health`, { method: 'GET' });
       this.status.backend = healthRes.ok;
     } catch (healthErr) {
       console.warn('[Telemetry] Backend health fetch error:', healthErr);
@@ -65,13 +74,24 @@ class TelemetryService {
     if (this.status.backend) {
       try {
         const [ankiRes, yomitanRes, ocrRes] = await Promise.allSettled([
-          fetch('http://127.0.0.1:21828/api/anki/status'),
-          fetch('http://127.0.0.1:21828/api/dictionary/status'),
-          fetch('http://127.0.0.1:21828/api/ocr/status')
+          fetch(`${baseUrl}/api/anki/status`),
+          fetch(`${baseUrl}/api/yomitan/dictionaries`),
+          fetch(`${baseUrl}/api/ocr/status`)
         ]);
 
         this.status.anki = ankiRes.status === 'fulfilled' && ankiRes.value.ok;
-        this.status.yomitan = yomitanRes.status === 'fulfilled' && yomitanRes.value.ok;
+
+        if (yomitanRes.status === 'fulfilled' && yomitanRes.value.ok) {
+          try {
+            const data = await yomitanRes.value.json();
+            this.status.yomitan = Boolean(data && (data.available_dictionaries?.length > 0 || data.enabled));
+          } catch (_) {
+            this.status.yomitan = false;
+          }
+        } else {
+          this.status.yomitan = false;
+        }
+
         this.status.ocr = ocrRes.status === 'fulfilled' && ocrRes.value.ok;
       } catch (subErr) {
         console.warn('[Telemetry] Secondary service checks error:', subErr);

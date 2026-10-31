@@ -86,19 +86,26 @@ export class AppRouter {
       window.scrollTo(0, 0);
     };
 
+    let domUpdated = false;
+    const safeUpdateDOM = () => {
+      if (domUpdated) return;
+      domUpdated = true;
+      updateDOM();
+    };
+
     if (document.startViewTransition) {
       try {
         const transition = document.startViewTransition({
-          update: updateDOM,
+          update: safeUpdateDOM,
           types: [direction]
         });
         await transition.finished;
       } catch (err) {
         console.debug('[Router] View transition bypassed:', err);
-        updateDOM();
+        safeUpdateDOM();
       }
     } else {
-      updateDOM();
+      safeUpdateDOM();
     }
 
     if (updateHistory) {

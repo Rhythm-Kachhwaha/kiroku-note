@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from '../services/api_client.js';
+import { escapeHtml } from '../utils/sanitizer.js';
 
 export class VocabHistoryView {
   constructor(router) {
@@ -487,17 +488,17 @@ export class VocabHistoryView {
       const statusLabel = isSynced ? 'Synced' : isFailed ? 'Failed' : 'Pending';
 
       return `
-        <tr class="history-table-row" data-id="${card.id || ''}">
-          <td class="col-check"><input type="checkbox" class="card-select-box" data-id="${card.id || ''}" ${this.selectedIds.has(String(card.id)) ? 'checked' : ''} /></td>
-          <td class="col-expression font-bold text-warm-paper">${card.expression || ''}</td>
-          <td class="col-reading text-secondary">${card.reading || ''}</td>
-          <td class="col-meaning text-truncate">${card.meaning || ''}</td>
-          <td class="col-deck font-mono text-sm">${card.deck_name || card.deck || 'Default'}</td>
+        <tr class="history-table-row" data-id="${escapeHtml(card.id || '')}">
+          <td class="col-check"><input type="checkbox" class="card-select-box" data-id="${escapeHtml(card.id || '')}" ${this.selectedIds.has(String(card.id)) ? 'checked' : ''} /></td>
+          <td class="col-expression font-bold text-warm-paper">${escapeHtml(card.expression || '')}</td>
+          <td class="col-reading text-secondary">${escapeHtml(card.reading || '')}</td>
+          <td class="col-meaning text-truncate">${escapeHtml(card.meaning || '')}</td>
+          <td class="col-deck font-mono text-sm">${escapeHtml(card.deck_name || card.deck || 'Default')}</td>
           <td class="col-status">
-            <span class="table-status-pill ${statusClass}">● ${statusLabel}</span>
+            <span class="table-status-pill ${escapeHtml(statusClass)}">${escapeHtml(statusLabel)}</span>
           </td>
           <td class="col-actions">
-            <button class="tactile-btn tactile-btn-sm btn-inspect-card" data-id="${card.id || ''}">Inspect</button>
+            <button class="tactile-btn tactile-btn-sm btn-inspect-card" data-id="${escapeHtml(card.id || '')}">Inspect</button>
           </td>
         </tr>
       `;
@@ -530,24 +531,24 @@ export class VocabHistoryView {
 
     body.innerHTML = `
       <div class="inspector-section">
-        <ruby class="inspector-hero-expr">${card.expression || ''}<rt>${card.reading || ''}</rt></ruby>
-        <span class="pitch-accent-badge">${card.pitch || '[0] 平板'}</span>
+        <ruby class="inspector-hero-expr">${escapeHtml(card.expression || '')}<rt>${escapeHtml(card.reading || '')}</rt></ruby>
+        <span class="pitch-accent-badge">${escapeHtml(card.pitch || '[0] 平板')}</span>
       </div>
 
       <div class="inspector-field">
         <label>Meaning & Gloss</label>
-        <p class="inspector-text">${card.meaning || 'No definition'}</p>
+        <p class="inspector-text">${escapeHtml(card.meaning || 'No definition')}</p>
       </div>
 
       <div class="inspector-field">
         <label>Context Sentence</label>
-        <p class="inspector-sentence-ja">${card.example_sentence || card.sentence || 'No context sentence'}</p>
-        <p class="inspector-sentence-en text-muted">${card.example_translation || card.sentence_translation || ''}</p>
+        <p class="inspector-sentence-ja">${escapeHtml(card.example_sentence || card.sentence || 'No context sentence')}</p>
+        <p class="inspector-sentence-en text-muted">${escapeHtml(card.example_translation || card.sentence_translation || '')}</p>
       </div>
 
       <div class="inspector-field">
         <label>Anki Note ID</label>
-        <p class="font-mono text-gold">${card.anki_note_id || 'Not synced yet'}</p>
+        <p class="font-mono text-gold">${escapeHtml(String(card.anki_note_id || 'Not synced yet'))}</p>
       </div>
 
       <div class="inspector-actions">
@@ -556,10 +557,46 @@ export class VocabHistoryView {
       </div>
     `;
 
+    this._previousActiveElement = document.activeElement;
+
     drawer.classList.add('is-open');
     drawer.setAttribute('aria-hidden', 'false');
     const backdrop = document.getElementById('drawer-backdrop');
     if (backdrop) backdrop.style.display = 'block';
+
+    // Focus trap and Escape key listener for accessible drawer
+    if (this._drawerKeyDownHandler) {
+      document.removeEventListener('keydown', this._drawerKeyDownHandler);
+    }
+    this._drawerKeyDownHandler = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.closeInspector();
+        return;
+      }
+      if (e.key === 'Tab') {
+        const focusable = drawer.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', this._drawerKeyDownHandler);
+
+    // Initial focus on primary action
+    setTimeout(() => {
+      const firstAction = drawer.querySelector('#btn-drawer-sync') || drawer.querySelector('#btn-close-drawer');
+      if (firstAction) firstAction.focus();
+    }, 50);
 
     const btnSync = document.getElementById('btn-drawer-sync');
     if (btnSync) {
@@ -612,6 +649,10 @@ export class VocabHistoryView {
 
   closeInspector() {
     this.selectedCard = null;
+    if (this._drawerKeyDownHandler) {
+      document.removeEventListener('keydown', this._drawerKeyDownHandler);
+      this._drawerKeyDownHandler = null;
+    }
     const drawer = document.getElementById('card-inspector');
     if (drawer) {
       drawer.classList.remove('is-open');
@@ -619,6 +660,14 @@ export class VocabHistoryView {
     }
     const backdrop = document.getElementById('drawer-backdrop');
     if (backdrop) backdrop.style.display = 'none';
+
+    // Restore focus to element that triggered the drawer
+    if (this._previousActiveElement && typeof this._previousActiveElement.focus === 'function') {
+      try {
+        this._previousActiveElement.focus();
+      } catch (_) {}
+      this._previousActiveElement = null;
+    }
   }
 
   unmount() {

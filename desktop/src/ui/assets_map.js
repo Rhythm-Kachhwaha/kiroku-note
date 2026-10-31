@@ -72,3 +72,35 @@ export function renderAssetSlot(slotKey, extraClass = '') {
   `;
 }
 
+
+/**
+ * Progressive enhancement helper to initialize vendored Lottie vector animations
+ * into a mascot slot container. Falls back silently to static SVG if Lottie is not active.
+ *
+ * @param {HTMLElement} container DOM element containing the slot
+ * @param {string} slotKey Asset key from ASSET_MAP
+ * @returns {Promise<any>} Lottie animation instance or null
+ */
+export async function initLottieSlot(container, slotKey) {
+  const asset = ASSET_MAP[slotKey];
+  if (!asset || !asset.lottiePath || typeof window === 'undefined' || !window.lottie || !container) {
+    return null;
+  }
+
+  try {
+    const res = await fetch(asset.lottiePath);
+    if (!res.ok) return null;
+    const animationData = await res.json();
+    container.innerHTML = '';
+    return window.lottie.loadAnimation({
+      container,
+      renderer: 'svg',
+      loop: true,
+      autoplay: true,
+      animationData
+    });
+  } catch (err) {
+    console.debug(`[AssetsMap] Lottie animation for ${slotKey} not loaded, static SVG active:`, err.message);
+    return null;
+  }
+}

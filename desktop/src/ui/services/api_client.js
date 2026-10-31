@@ -170,8 +170,13 @@ export class ApiClient {
     return this.request('/api/anki/models');
   }
 
-  async getAnkiStatus() {
-    return this.request('/api/anki/status');
+  async getAnkiStatus(url = null) {
+    const query = url ? { url } : undefined;
+    return this.request('/api/anki/status', { query });
+  }
+
+  async getYomitanStatus() {
+    return this.request('/api/yomitan/dictionaries');
   }
 
   // Dictionary & Capture

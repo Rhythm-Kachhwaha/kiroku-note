@@ -215,6 +215,62 @@ export class StudyClient {
       path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/result`
     });
   }
+
+  /**
+   * Fetches a Bearer-authenticated media asset (MP3 audio track or diagram image)
+   * from /api/study/v1/media/{assetId} and creates a local blob URL for inline media playback.
+   *
+   * @param {string} assetId Content-addressed media hash or asset identifier
+   * @returns {Promise<string|null>} Blob object URL or null
+   */
+  async getMediaBlobUrl(assetId) {
+    if (!assetId) return null;
+    if (!this.isAvailable) {
+      throw new Error('Study API bridge is not available');
+    }
+
+    const result = await window.desktopAPI.studyApi.request({
+      method: 'GET',
+      path: `/api/study/v1/media/${encodeURIComponent(assetId)}`
+    });
+
+    if (!result.success) {
+      throw new Error(result.error?.message || `Failed to fetch media asset: ${assetId}`);
+    }
+
+    const contentType = result.headers?.['content-type'] || 'application/octet-stream';
+
+    // Handle base64 encoded buffer from IPC serialization in main process
+    if (result.isBuffer && typeof result.data === 'string') {
+      const binaryString = atob(result.data);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: contentType });
+      return URL.createObjectURL(blob);
+    }
+
+    if (result.data instanceof Blob) {
+      return URL.createObjectURL(result.data);
+    }
+
+    const blob = new Blob([result.data], { type: contentType });
+    return URL.createObjectURL(blob);
+  }
+
+  /**
+   * Revokes a media blob URL to prevent memory leaks when navigating between questions.
+   * @param {string} url
+   */
+  revokeMediaBlobUrl(url) {
+    if (url && typeof url === 'string' && url.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (_) {}
+    }
+  }
 }
 
 export const studyClient = new StudyClient();

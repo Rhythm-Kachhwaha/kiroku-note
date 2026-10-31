@@ -163,33 +163,31 @@ function updateSystemTrayMenu() {
   if (!tray) return;
 
   const port = processManager.port;
-  let headerLabel = `✕ Kiroku Note (Stopped)`;
+  let headerLabel = 'Kiroku Note: Stopped';
   if (processManager.status === 'running') {
-    headerLabel = `● Kiroku Note (Running • :${port})`;
+    headerLabel = `Kiroku Note: Running (Port ${port})`;
   } else if (processManager.status === 'starting') {
-    headerLabel = `○ Kiroku Note (Starting...)`;
+    headerLabel = 'Kiroku Note: Starting...';
   }
 
-  const yomitanDot = trayServicesStatus.yomitanConnected ? '●' : '○';
   const yomitanText = trayServicesStatus.yomitanConnected ? 'Connected' : 'Not found';
-  const ankiDot = trayServicesStatus.ankiConnected ? '●' : '○';
   const ankiText = trayServicesStatus.ankiConnected ? 'Connected' : 'Not found';
 
-  let ocrLabel = '  ○ OCR Engine: Not installed';
+  let ocrLabel = '  OCR Engine: Not installed';
   if (trayServicesStatus.ocrInstalled) {
     ocrLabel = trayServicesStatus.ocrAvailable
-      ? '  ● OCR Engine: Ready (Active)'
-      : '  ○ OCR Engine: Off (Stopped)';
+      ? '  OCR Engine: Ready (Active)'
+      : '  OCR Engine: Off (Stopped)';
   }
 
-  const ocrActionLabel = trayServicesStatus.ocrAvailable ? '⏹ Stop OCR Engine' : '▶ Start OCR Engine';
+  const ocrActionLabel = trayServicesStatus.ocrAvailable ? 'Stop OCR Engine' : 'Start OCR Engine';
 
   const menuTemplate = [
     { label: headerLabel, enabled: false },
     { type: 'separator' },
     { label: 'Service Status:', enabled: false },
-    { label: `  ${yomitanDot} Yomitan: ${yomitanText}`, enabled: false },
-    { label: `  ${ankiDot} AnkiConnect: ${ankiText}`, enabled: false },
+    { label: `  Yomitan: ${yomitanText}`, enabled: false },
+    { label: `  AnkiConnect: ${ankiText}`, enabled: false },
     { label: ocrLabel, enabled: false }
   ];
 

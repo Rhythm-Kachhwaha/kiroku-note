@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from '../services/api_client.js';
+import { escapeHtml } from '../utils/sanitizer.js';
 import * as wanakana from '../lib/wanakana.js';
 
 export class VocabMainView {
@@ -405,16 +406,22 @@ export class VocabMainView {
       return;
     }
 
-    dropdown.innerHTML = results.slice(0, 6).map((item, index) => `
-      <div class="candidate-row" data-index="${index}" tabindex="0" role="option">
-        <div class="candidate-head">
-          <span class="candidate-expression font-bold">${item.expression || item.word || item.term || ''}</span>
-          <span class="candidate-reading text-muted">${item.reading || ''}</span>
-          ${item.jlpt ? `<span class="tactile-pill tactile-pill-gold">${item.jlpt}</span>` : ''}
+    dropdown.innerHTML = results.slice(0, 6).map((item, index) => {
+      const expr = escapeHtml(item.expression || item.word || item.term || '');
+      const read = escapeHtml(item.reading || '');
+      const jlpt = item.jlpt ? escapeHtml(item.jlpt) : '';
+      const gloss = escapeHtml(item.meaning || item.gloss || (item.definitions && item.definitions.join(', ')) || '');
+      return `
+        <div class="candidate-row" data-index="${index}" tabindex="0" role="option">
+          <div class="candidate-head">
+            <span class="candidate-expression font-bold">${expr}</span>
+            <span class="candidate-reading text-muted">${read}</span>
+            ${jlpt ? `<span class="tactile-pill tactile-pill-gold">${jlpt}</span>` : ''}
+          </div>
+          <div class="candidate-gloss text-sm text-truncate">${gloss}</div>
         </div>
-        <div class="candidate-gloss text-sm text-truncate">${item.meaning || item.gloss || (item.definitions && item.definitions.join(', ')) || ''}</div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     dropdown.style.display = 'block';
 
@@ -451,7 +458,7 @@ export class VocabMainView {
     const reading = term.reading || '';
 
     if (heroExpr) {
-      heroExpr.innerHTML = `${expr}<rt id="hero-reading">${reading}</rt>`;
+      heroExpr.innerHTML = `${escapeHtml(expr)}<rt id="hero-reading">${escapeHtml(reading)}</rt>`;
     }
 
     if (heroPitch) {
@@ -474,8 +481,8 @@ export class VocabMainView {
         sensesHtml = term.senses.map((s, idx) => `
           <div class="sense-item">
             <span class="sense-num">${idx + 1}.</span>
-            <span class="sense-pos text-gold">${s.pos ? `[${s.pos}]` : ''}</span>
-            <span class="sense-gloss">${s.gloss || s.definition || ''}</span>
+            <span class="sense-pos text-gold">${s.pos ? `[${escapeHtml(s.pos)}]` : ''}</span>
+            <span class="sense-gloss">${escapeHtml(s.gloss || s.definition || '')}</span>
           </div>
         `).join('');
       } else if (term.meaning) {
@@ -483,7 +490,7 @@ export class VocabMainView {
         sensesHtml = lines.map((l, idx) => `
           <div class="sense-item">
             <span class="sense-num">${idx + 1}.</span>
-            <span class="sense-gloss">${l}</span>
+            <span class="sense-gloss">${escapeHtml(l)}</span>
           </div>
         `).join('');
       } else {

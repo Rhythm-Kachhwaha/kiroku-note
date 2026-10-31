@@ -45,7 +45,12 @@ export class SettingsView {
             <button type="button" class="btn-dismiss-error" id="btn-dismiss-settings-error" aria-label="Dismiss error"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
           </div>
 
-          <div class="settings-cards-grid">
+          <!-- Section 1: Integrations -->
+          <div class="settings-group-header mt-4">
+            <span class="font-mono text-xs uppercase tracking-widest text-gold">SECTION 1 · INTEGRATIONS</span>
+            <h2 class="text-base font-bold text-warm-paper">External Mining &amp; Dictionary Providers</h2>
+          </div>
+          <div class="settings-cards-grid mt-2">
             <!-- Card 1: AnkiConnect Integration -->
             <div class="settings-card tactile-card">
               <div class="card-header-row">
@@ -64,6 +69,25 @@ export class SettingsView {
               </div>
             </div>
 
+            <!-- Card: Yomitan Status -->
+            <div class="settings-card tactile-card">
+              <div class="card-header-row">
+                <h3 class="card-title">Yomitan Provider</h3>
+                <span class="tactile-pill" id="yomitan-status-tag">Checking...</span>
+              </div>
+              <p class="card-desc">Local Yomitan dictionary server integration for fast bilingual definition lookup.</p>
+              <div class="mt-3">
+                <span class="font-mono text-xs text-muted">Endpoint: loopback /api/yomitan/dictionaries</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Optional Services -->
+          <div class="settings-group-header mt-6">
+            <span class="font-mono text-xs uppercase tracking-widest text-gold">SECTION 2 · OPTIONAL SERVICES</span>
+            <h2 class="text-base font-bold text-warm-paper">Local OCR &amp; AI Explanations</h2>
+          </div>
+          <div class="settings-cards-grid mt-2">
             <!-- Card 2: OCR Daemon Controls (Port 21829) -->
             <div class="settings-card tactile-card">
               <div class="card-header-row">
@@ -115,7 +139,14 @@ export class SettingsView {
                 <span class="font-mono text-xs text-muted" id="llm-test-output"></span>
               </div>
             </div>
+          </div>
 
+          <!-- Section 3 & 4: Diagnostics & Process Control -->
+          <div class="settings-group-header mt-6">
+            <span class="font-mono text-xs uppercase tracking-widest text-gold">SECTION 3 &amp; 4 · DIAGNOSTICS &amp; BACKEND</span>
+            <h2 class="text-base font-bold text-warm-paper">Database Diagnostics &amp; Process Lifecycle</h2>
+          </div>
+          <div class="settings-cards-grid mt-2">
             <!-- Card 4: Doctor Diagnostics & Maintenance -->
             <div class="settings-card tactile-card">
               <div class="card-header-row">
@@ -131,7 +162,19 @@ export class SettingsView {
               <div class="card-actions-row mt-3">
                 <button type="button" class="tactile-btn tactile-btn-primary" id="btn-run-doctor">Run Doctor Check</button>
                 <button type="button" class="tactile-btn" id="btn-open-appdata">Open App Data</button>
-                <button type="button" class="tactile-btn" id="btn-restart-backend">Restart Backend</button>
+              </div>
+            </div>
+
+            <!-- Card 5: Backend Process Supervisor -->
+            <div class="settings-card tactile-card">
+              <div class="card-header-row">
+                <h3 class="card-title">FastAPI Backend Service</h3>
+                <span class="tactile-pill tactile-pill-gold">Supervisor Managed</span>
+              </div>
+              <p class="card-desc">Local desktop process supervisor maintaining kiroku.db, SQLite WAL transactions, and port bindings.</p>
+
+              <div class="card-actions-row mt-3">
+                <button type="button" class="tactile-btn" id="btn-restart-backend">Restart Backend Service</button>
               </div>
             </div>
           </div>
@@ -171,7 +214,11 @@ export class SettingsView {
         this.clearError();
 
         try {
-          const res = await apiClient.getAnkiStatus();
+          const customUrl = document.getElementById('anki-url-input')?.value?.trim();
+          if (customUrl && typeof window !== 'undefined' && window.chrome?.storage?.local) {
+            window.chrome.storage.local.set({ 'anki.url': customUrl });
+          }
+          const res = await apiClient.getAnkiStatus(customUrl);
           const tag = document.getElementById('anki-status-tag');
           if (tag) {
             const connected = Boolean(res?.connected);
@@ -378,9 +425,39 @@ export class SettingsView {
       console.warn('[Settings] Initial OCR status error:', err);
     }
 
-    // 2. Anki status
+    // Yomitan status
     try {
-      const ankiRes = await apiClient.getAnkiStatus();
+      const yomiRes = await apiClient.getYomitanStatus();
+      const yomiTag = document.getElementById('yomitan-status-tag');
+      if (yomiTag) {
+        const isOnline = Boolean(yomiRes && (yomiRes.available_dictionaries?.length > 0 || yomiRes.enabled));
+        yomiTag.textContent = isOnline ? 'Ready' : 'Not Connected';
+        yomiTag.className = `tactile-pill ${isOnline ? 'tactile-pill-gold' : ''}`;
+      }
+    } catch (_) {}
+      if (ocrRes) {
+        this.ocrRunning = Boolean(ocrRes.running);
+        this.updateOcrStatus();
+      }
+    } catch (err) {
+      console.warn('[Settings] Initial OCR status error:', err);
+    }
+
+    // 2. Restore custom Anki URL and check status
+    let savedAnkiUrl = null;
+    if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+      try {
+        const stored = await new Promise((res) => window.chrome.storage.local.get(['anki.url'], res));
+        if (stored?.['anki.url']) {
+          savedAnkiUrl = stored['anki.url'];
+          const urlInput = document.getElementById('anki-url-input');
+          if (urlInput) urlInput.value = savedAnkiUrl;
+        }
+      } catch (_) {}
+    }
+
+    try {
+      const ankiRes = await apiClient.getAnkiStatus(savedAnkiUrl);
       const tag = document.getElementById('anki-status-tag');
       if (tag && ankiRes) {
         const connected = Boolean(ankiRes.connected);

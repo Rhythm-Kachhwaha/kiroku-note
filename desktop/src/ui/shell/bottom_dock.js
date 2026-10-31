@@ -75,7 +75,7 @@ export class BottomDock {
 
     this.container.innerHTML = `
       <div class="bottom-dock-wrapper" role="navigation" aria-label="Main Application Navigation">
-        <nav class="bottom-dock" id="bottom-dock">
+        <nav class="bottom-dock" id="bottom-dock" role="tablist" aria-label="Views">
           <div class="nav-spring-pill" id="nav-spring-pill"></div>
           ${tabsHtml}
         </nav>

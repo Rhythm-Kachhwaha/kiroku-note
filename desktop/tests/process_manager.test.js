@@ -78,9 +78,9 @@ test('ProcessManager: detects online backend and verifies authenticated Study AP
     assert.equal(pm.isExternal, true);
     assert.equal(pm.childProcess, null);
 
-    // Stop should not kill external process
+    // Stop should not kill external process and preserves truthful running status
     await pm.stopBackend();
-    assert.equal(pm.status, 'stopped');
+    assert.equal(pm.status, 'running');
 
     // Server should still be alive
     const stillHealthy = await pm.isBackendHealthy(1000);

@@ -33,10 +33,10 @@ test('System Tray: main.js preserves complete legacy tray structure and menu ite
   assert.match(mainContent, /tray\.setToolTip\(['"]Kiroku Note['"]\)/, 'Tray must have tooltip "Kiroku Note"');
   assert.match(mainContent, /new Tray\(/, 'Tray instance must be created');
 
-  // 2. Dynamic header status label
-  assert.match(mainContent, /● Kiroku Note \(Running • :/, 'Header must indicate running state and port');
-  assert.match(mainContent, /○ Kiroku Note \(Starting\.\.\.\)/, 'Header must indicate starting state');
-  assert.match(mainContent, /✕ Kiroku Note \(Stopped\)/, 'Header must indicate stopped state');
+  // 2. Dynamic header status label (plain text, zero emojis/symbols)
+  assert.match(mainContent, /Kiroku Note: Running \(Port /, 'Header must indicate running state and port');
+  assert.match(mainContent, /Kiroku Note: Starting\.\.\./, 'Header must indicate starting state');
+  assert.match(mainContent, /Kiroku Note: Stopped/, 'Header must indicate stopped state');
 
   // 3. Service status indicators
   assert.match(mainContent, /Service Status:/, 'Must contain "Service Status:" separator/label');
@@ -46,9 +46,9 @@ test('System Tray: main.js preserves complete legacy tray structure and menu ite
 
   // 4. OCR Toggle action
   assert.match(mainContent, /ocrActionLabel/, 'Must compute dynamic OCR start/stop label');
-  assert.match(mainContent, /⏹ Stop OCR Engine/, 'Must include Stop OCR action label');
-  assert.match(mainContent, /▶ Start OCR Engine/, 'Must include Start OCR action label');
-  assert.match(mainContent, /\/api\/ocr\/\$\{action\}/, 'Must invoke backend OCR start/stop endpoint');
+  assert.match(mainContent, /'Stop OCR Engine'/, 'Must include Stop OCR action label');
+  assert.match(mainContent, /'Start OCR Engine'/, 'Must include Start OCR action label');
+  assert.match(mainContent, /\/api\/ocr\/\${action}/, 'Must invoke backend OCR start/stop endpoint');
 
   // 5. Core actions
   assert.match(mainContent, /'Open Kiroku'/, 'Must contain "Open Kiroku" action');

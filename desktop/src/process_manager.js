@@ -287,10 +287,21 @@ class ProcessManager {
       if (isHealthy) {
         // Step 2: Verify authenticated Study API readiness
         const studyAuthOk = await this.isStudyApiAuthenticated(intervalMs);
-        if (studyAuthOk || this.isExternal) {
+        if (studyAuthOk) {
           this.status = 'running';
           this._log(`Backend and Study API became ready after ${Date.now() - startTime}ms.`);
           return true;
+        }
+
+        // If backend was adopted as external and failed study authentication,
+        // it has a token mismatch and will never authenticate with our token.
+        if (this.isExternal) {
+          this.status = 'failed';
+          throw new Error(
+            `External backend on port ${this.port} is running but failed Study API authentication. ` +
+            `The external instance does not accept the desktop authentication token. ` +
+            `Please stop the external backend or restart Kiroku Desktop.`
+          );
         }
       }
 
@@ -310,8 +321,8 @@ class ProcessManager {
    */
   async stopBackend(timeoutMs = 2000) {
     if (this.isExternal) {
-      this._log('Backend is external. Skipping termination.');
-      this.status = 'stopped';
+      this._log('Backend is external. Skipping termination; preserving running status.');
+      this.status = 'running';
       return;
     }
 

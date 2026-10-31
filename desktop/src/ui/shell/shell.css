@@ -18,22 +18,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1rem;
+  padding: 0 0.85rem;
   user-select: none;
-  max-width: calc(100vw - 2rem);
+  width: 100%;
   box-sizing: border-box;
+  -webkit-app-region: drag;
 }
 
-/* Frameless Window Drag Region */
-.top-chrome-drag-strip {
-  position: absolute;
-  top: 0;
-  left: 140px;
-  right: 240px;
-  height: 100%;
-  -webkit-app-region: drag;
-  pointer-events: auto;
-}
+
 
 .top-chrome-left {
   display: flex;
@@ -41,44 +33,6 @@
   gap: 0.85rem;
   z-index: 2;
   -webkit-app-region: no-drag;
-}
-
-/* Window Control Dots */
-.window-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.window-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 1px solid var(--tactile-stroke);
-  cursor: pointer;
-  box-shadow: 1px 1px 0 var(--tactile-stroke);
-  transition: transform var(--duration-instant) ease-out, opacity var(--duration-fast) ease;
-}
-
-.window-dot:hover {
-  transform: scale(1.15);
-  opacity: 0.9;
-}
-
-.window-dot:active {
-  transform: scale(0.9);
-}
-
-.window-dot-close {
-  background-color: var(--vermilion);
-}
-
-.window-dot-min {
-  background-color: var(--gold-eye);
-}
-
-.window-dot-max {
-  background-color: var(--status-green);
 }
 
 /* Brand Wordmark & Letter Lift */
@@ -179,8 +133,10 @@
 
 /* Utility Action Buttons (History & Settings) */
 .chrome-action-btn {
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   border-radius: var(--radius-sm);
   background-color: var(--surface-container-low);
   border: 1px solid var(--tactile-stroke);
@@ -190,9 +146,15 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  -webkit-app-region: no-drag;
   transition: transform var(--duration-instant) ease-out,
               background-color var(--duration-fast) ease,
               box-shadow var(--duration-instant) ease-out;
+}
+
+.chrome-action-btn:focus-visible {
+  outline: 2px solid var(--gold-eye);
+  outline-offset: 2px;
 }
 
 .chrome-action-btn:hover {
@@ -310,10 +272,7 @@
    Responsive Adaptations
    ========================================================================== */
 @media (max-width: 600px) {
-  .top-chrome-drag-strip {
-    left: 100px;
-    right: 180px;
-  }
+  
   .telemetry-label {
     display: none;
   }

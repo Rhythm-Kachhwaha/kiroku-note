@@ -129,6 +129,14 @@ export class GrammarView {
                   <span class="text-sm text-muted">No example sentences available.</span>
                 </div>
               </div>
+
+              <!-- Sentence Encounters (Mining History Context) -->
+              <div class="point-encounters-section mt-4">
+                <h4 class="examples-label">Prior Sentence Encounters (遭遇履歴)</h4>
+                <div class="encounters-list" id="point-encounters">
+                  <span class="text-sm text-muted">Select a grammar point to inspect encounters.</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -428,6 +436,33 @@ export class GrammarView {
       } else {
         examplesList.innerHTML = `<span class="text-sm text-muted">No example sentences available.</span>`;
       }
+    }
+
+    // Prior Sentence Encounters (Audit 4.C)
+    const encountersList = document.getElementById('point-encounters');
+    const patternKey = point.pattern_key || point.key || point.text;
+    if (encountersList && patternKey) {
+      encountersList.innerHTML = `<span class="text-sm text-muted">Checking mining encounters...</span>`;
+      apiClient.getGrammarEncounters(patternKey).then((res) => {
+        const encounters = res?.encounters || (Array.isArray(res) ? res : []);
+        if (encounters.length > 0) {
+          encountersList.innerHTML = encounters.map((enc) => `
+            <div class="example-item encounter-item">
+              <p class="example-ja font-japanese">${escapeHtml(enc.sentence || enc.text || '')}</p>
+              ${enc.translation ? `<p class="example-en text-muted text-xs">${escapeHtml(enc.translation)}</p>` : ''}
+              <div class="encounter-meta text-xs font-mono text-muted mt-1">
+                ${enc.source ? `<span>Source: ${escapeHtml(enc.source)}</span>` : ''}
+                ${enc.encountered_at ? `<span> · ${escapeHtml(new Date(enc.encountered_at).toLocaleDateString())}</span>` : ''}
+              </div>
+            </div>
+          `).join('');
+        } else {
+          encountersList.innerHTML = `<span class="text-sm text-muted">No prior sentence encounters logged for this grammar pattern.</span>`;
+        }
+      }).catch((err) => {
+        console.debug('[Grammar] Encounters fetch notice:', err.message);
+        encountersList.innerHTML = `<span class="text-sm text-muted">No prior sentence encounters logged.</span>`;
+      });
     }
   }
 

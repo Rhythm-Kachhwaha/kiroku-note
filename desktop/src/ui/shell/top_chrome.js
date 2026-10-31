@@ -14,7 +14,6 @@ export class TopChrome {
 
   init() {
     this.render();
-    this.setupWindowControls();
     this.setupWordmarkAnimation();
     this.setupActions();
     this.setupTelemetry();
@@ -25,17 +24,8 @@ export class TopChrome {
 
     this.container.innerHTML = `
       <header class="top-chrome" role="banner">
-        <!-- Draggable region for Electron frameless window -->
-        <div class="top-chrome-drag-strip" aria-hidden="true"></div>
-
-        <!-- Left: Window Controls + Wordmark -->
+        <!-- Left: Wordmark -->
         <div class="top-chrome-left">
-          <div class="window-controls" aria-label="Window controls">
-            <button class="window-dot window-dot-close" id="btn-win-close" title="Close" aria-label="Close window"></button>
-            <button class="window-dot window-dot-min" id="btn-win-min" title="Minimize" aria-label="Minimize window"></button>
-            <button class="window-dot window-dot-max" id="btn-win-max" title="Maximize" aria-label="Maximize window"></button>
-          </div>
-
           <div class="brand-wordmark-container" id="brand-wordmark-container" title="Kiroku Note Home">
             <span class="brand-wordmark" id="kiroku-letters" aria-label="Kiroku">
               <span class="brand-letter">K</span>
@@ -88,21 +78,6 @@ export class TopChrome {
       </header>
     `;
   }
-
-  setupWindowControls() {
-    const btnClose = document.getElementById('btn-win-close');
-    const btnMin = document.getElementById('btn-win-min');
-    const btnMax = document.getElementById('btn-win-max');
-
-    if (btnClose) {
-      btnClose.addEventListener('click', () => {
-        if (window.desktopAPI?.close) {
-          window.desktopAPI.close();
-        } else {
-          window.close();
-        }
-      });
-    }
 
     if (btnMin) {
       btnMin.addEventListener('click', () => {

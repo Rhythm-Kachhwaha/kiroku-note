@@ -6,6 +6,7 @@
  */
 
 import { studyClient } from '../services/study_client.js';
+import { escapeHtml, sanitizePromptMarkup } from '../utils/sanitizer.js';
 import { renderAssetSlot } from '../assets_map.js';
 
 export class TestView {
@@ -22,6 +23,7 @@ export class TestView {
     this.timerInterval = null;
     this.answers = new Map(); // questionIndex -> selectedChoiceId
     this.flagged = new Set();
+    this.activeBlobUrls = [];
     this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
@@ -266,7 +268,44 @@ export class TestView {
       `;
     }
 
+    // Revoke previous blob URLs
+    this.activeBlobUrls.forEach(url => studyClient.revokeMediaBlobUrl(url));
+    this.activeBlobUrls = [];
+
     container.innerHTML = contentHtml;
+
+    // Identify optional listening audio or diagram assets (Choukai F5/F6)
+    const audioAssetId = item.audio_asset_id || item.media_asset_id || item.listening_audio_asset_id || (item.assets?.find(a => a.role === 'audio' || a.asset_type === 'audio')?.asset_id);
+    const diagramAssetId = item.diagram_asset_id || item.image_asset_id || (item.assets?.find(a => a.role === 'diagram' || a.asset_type === 'image')?.asset_id);
+
+    if (audioAssetId) {
+      studyClient.getMediaBlobUrl(audioAssetId).then((audioUrl) => {
+        if (!audioUrl) return;
+        this.activeBlobUrls.push(audioUrl);
+        const audioBox = container.querySelector('#test-audio-container');
+        if (audioBox) {
+          audioBox.style.display = 'block';
+          audioBox.innerHTML = `
+            <div class="choukai-audio-box tactile-card surface-pitch-black p-2">
+              <span class="text-xs font-mono text-gold">Listening Section Audio (Choukai)</span>
+              <audio controls class="w-full mt-1" src="${audioUrl}"></audio>
+            </div>
+          `;
+        }
+      }).catch((e) => console.debug('[Test] Audio stream error:', e.message));
+    }
+
+    if (diagramAssetId) {
+      studyClient.getMediaBlobUrl(diagramAssetId).then((diagramUrl) => {
+        if (!diagramUrl) return;
+        this.activeBlobUrls.push(diagramUrl);
+        const diagramBox = container.querySelector('#test-diagram-container');
+        if (diagramBox) {
+          diagramBox.style.display = 'block';
+          diagramBox.innerHTML = `<img src="${diagramUrl}" alt="Exam diagram" class="max-w-full rounded border border-ink-border" />`;
+        }
+      }).catch((e) => console.debug('[Test] Diagram stream error:', e.message));
+    }
 
     // Attach choice listeners
     container.querySelectorAll('.test-option-card').forEach((opt) => {
@@ -297,9 +336,13 @@ export class TestView {
             <span id="flag-text">${isFlagged ? 'Flagged for Review' : 'Mark for Review'}</span>
           </button>
         </div>
-        <div class="prompt-text-content" id="prompt-text">
-          ${promptText}
+        <div class="prompt-text-content font-japanese" id="prompt-text">
+          ${sanitizePromptMarkup(promptText)}
         </div>
+
+        <!-- Choukai Media Streaming Containers -->
+        <div id="test-audio-container" class="mt-3" style="display: none;"></div>
+        <div id="test-diagram-container" class="mt-3" style="display: none;"></div>
       </div>
 
       <div class="test-options-list" role="radiogroup" aria-label="Answer Choices">
@@ -312,10 +355,12 @@ export class TestView {
               class="test-option-card tactile-card tactile-card-interactive ${isSelected ? 'is-selected' : ''}"
               data-choice-id="${escapeHtml(String(cid))}"
               data-choice="${i + 1}"
+              role="radio"
+              aria-checked="${isSelected ? 'true' : 'false'}"
               tabindex="0"
             >
               <span class="option-shortcut font-mono">${i + 1}</span>
-              <p class="option-text">${escapeHtml(choiceText)}</p>
+              <p class="option-text font-japanese">${escapeHtml(choiceText)}</p>
             </div>
           `;
         }).join('')}
@@ -548,18 +593,14 @@ export class TestView {
   unmount() {
     this.stopTimer();
     window.removeEventListener('keydown', this.handleKeyDown);
+    if (this.activeBlobUrls && this.activeBlobUrls.length > 0) {
+      this.activeBlobUrls.forEach(url => studyClient.revokeMediaBlobUrl(url));
+      this.activeBlobUrls = [];
+    }
     if (this.container) {
       this.container.innerHTML = '';
     }
   }
 }
 
-function escapeHtml(str) {
-  if (typeof str !== 'string') return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+
