@@ -45,7 +45,7 @@ export class TopChrome {
               <span class="brand-letter">k</span>
               <span class="brand-letter">u</span>
             </span>
-            <span class="brand-badge">NOTE ノート</span>
+            <span class="brand-badge">DESKTOP</span>
           </div>
         </div>
 

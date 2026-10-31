@@ -1,7 +1,8 @@
 /**
  * Kiroku Note Desktop — Test Engine (JLPT Simulation) View Controller
- * Timed JLPT examination simulation, anti-cheat countdown timer, split-view reading passage,
- * 4-choice tactile option cards, 32-item question palette bar, and section submission snapshot.
+ * Timed JLPT examination simulation backed by live study.db question bank,
+ * anti-cheat countdown timer, split-view reading passage, 4-choice tactile cards,
+ * section question palette bar, and honest diagnostic results without fake official claims.
  */
 
 import { studyClient } from '../services/study_client.js';
@@ -11,280 +12,536 @@ export class TestView {
   constructor(router) {
     this.router = router;
     this.container = null;
-    this.remainingSeconds = 45 * 60; // 45 mins
-    this.timerInterval = null;
+    this.sessionId = null;
+    this.activeLevel = 'N3';
+    this.sections = [];
+    this.currentSectionIndex = 0;
+    this.questions = [];
     this.currentIndex = 0;
-    this.totalQuestions = 32;
-    this.answers = new Map(); // questionIndex -> selectedChoice (1-4)
+    this.remainingSeconds = 45 * 60;
+    this.timerInterval = null;
+    this.answers = new Map(); // questionIndex -> selectedChoiceId
     this.flagged = new Set();
     this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
   mount(container) {
     this.container = container;
-    this.render();
-    this.setupEvents();
-    this.startTimer();
+    this.renderShell();
+    this.setupGlobalEvents();
+    this.loadExamSession(this.activeLevel);
   }
 
-  render() {
+  renderShell() {
     this.container.innerHTML = `
       <div class="test-view-wrapper">
-        <div class="test-view-container">
-          <!-- Exam Header Strip: Timer & Section Info -->
-          <div class="test-header-bar tactile-card">
-            <div class="test-header-left">
-              <span class="tactile-pill tactile-pill-vermilion">JLPT N3 SIMULATION</span>
-              <span class="test-section-name">Section 1: Language Knowledge &amp; Reading (言語知識・読解)</span>
-            </div>
-
-            <!-- Anti-Cheat Persistent Countdown Timer -->
-            <div class="test-timer-group" id="test-timer-group">
-              <span class="timer-label">TIME REMAINING:</span>
-              <span class="timer-countdown font-mono font-bold" id="exam-countdown">45:00</span>
-            </div>
-
-            <!-- Proctor Mascot Slot -->
-            ${renderAssetSlot('test-exam-proctor', 'test-proctor-slot')}
+        <div class="test-view-container" id="test-main-container">
+          <!-- Visible Error Banner -->
+          <div class="test-error-banner" id="test-error-banner" style="display: none;">
+            <span class="error-msg" id="test-error-msg"></span>
+            <button type="button" class="btn-dismiss-error" id="btn-dismiss-test-error" aria-label="Dismiss error"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
           </div>
 
-          <!-- Exam Main Stage: Split Reading Passage (Left) + Question & Choices (Right) -->
-          <div class="test-stage-grid">
-            <!-- Left Pane: Split-View Reading Passage (Pitch Black #000000) -->
-            <div class="test-passage-pane surface-pitch-black tactile-card">
-              <div class="passage-header-row">
-                <span class="passage-title font-mono text-gold">READING PASSAGE · 問題4 長文読解</span>
-                <span class="text-xs text-muted">Questions 15–18 refer to this text</span>
-              </div>
-              <div class="passage-body-content">
-                <p class="passage-paragraph">
-                  近年、都市部においてシェアハウスを選択する若者が急速に増加している。
-                  かつては家賃を低く抑えるための手段と見なされる傾向が強かったが、
-                  今日では異業種の人々と交流し、互いに刺激を受け合えるコミュニティとしての
-                  価値が再評価されている。
-                </p>
-                <p class="passage-paragraph">
-                  しかし、共同生活にはプライバシーの確保や共有スペースの清掃といった
-                  日常的なトラブルの種も潜んでいる。専門家は、規則に縛られすぎない
-                  柔軟な合意形成と、住人同士の自然な対話が長続きの鍵だと指摘する。
-                </p>
-              </div>
-            </div>
-
-            <!-- Right Pane: Question Prompt & 4 Tactile Option Cards -->
-            <div class="test-question-pane">
-              <!-- Pitch-Black Question Prompt Card (#000000) -->
-              <div class="test-prompt-card surface-pitch-black tactile-card">
-                <div class="prompt-header-row">
-                  <span class="prompt-item-badge font-mono text-gold" id="prompt-item-num">QUESTION 15 OF 32</span>
-                  <button class="btn-flag-review tactile-btn tactile-btn-sm" id="btn-toggle-flag" title="Mark this question for review">
-                    <span id="flag-icon">☆</span>
-                    <span id="flag-text">Mark for Review</span>
-                  </button>
-                </div>
-                <div class="prompt-text-content" id="prompt-text">
-                  筆者によると、最近シェアハウスを選ぶ若者が増えている最も大きな理由は何ですか。
-                </div>
-              </div>
-
-              <!-- 4 Tactile Choice Option Cards (Press 1, 2, 3, 4) -->
-              <div class="test-options-list" role="radiogroup" aria-label="Answer Choices">
-                <div class="test-option-card tactile-card tactile-card-interactive" data-choice="1" tabindex="0">
-                  <span class="option-shortcut font-mono">1</span>
-                  <p class="option-text">家賃が非常に安く、生活費を最小限に抑えられるから。</p>
-                </div>
-                <div class="test-option-card tactile-card tactile-card-interactive" data-choice="2" tabindex="0">
-                  <span class="option-shortcut font-mono">2</span>
-                  <p class="option-text">多様な人々と交流し、刺激的なコミュニティを体験できるから。</p>
-                </div>
-                <div class="test-option-card tactile-card tactile-card-interactive" data-choice="3" tabindex="0">
-                  <span class="option-shortcut font-mono">3</span>
-                  <p class="option-text">厳しい規則のもとで規律正しい生活習慣を身につけられるから。</p>
-                </div>
-                <div class="test-option-card tactile-card tactile-card-interactive" data-choice="4" tabindex="0">
-                  <span class="option-shortcut font-mono">4</span>
-                  <p class="option-text">都市部の住宅不足により一人暮らし用の部屋が見つからないから。</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bottom: 32-Item Question Palette Bar & Submit Button -->
-          <div class="test-palette-bar tactile-card">
-            <div class="palette-scroll-wrap" id="palette-wrap">
-              <!-- Render 32 numbered question buttons -->
-              ${Array.from({ length: 32 }, (_, i) => `
-                <button
-                  type="button"
-                  class="palette-item ${i === 0 ? 'is-current' : ''}"
-                  data-index="${i}"
-                  title="Question ${i + 1}"
-                >${i + 1}</button>
-              `).join('')}
-            </div>
-
-            <div class="palette-actions">
-              <button class="tactile-btn tactile-btn-primary" id="btn-finish-exam">
-                <span>Finish Section</span>
-              </button>
+          <!-- Main Stage Slot -->
+          <div id="test-stage-area">
+            <div class="tactile-card text-center py-12 text-muted">
+              <span class="font-mono text-sm">Initializing JLPT examination simulation...</span>
             </div>
           </div>
         </div>
       </div>
     `;
+
+    const btnDismiss = document.getElementById('btn-dismiss-test-error');
+    if (btnDismiss) {
+      btnDismiss.addEventListener('click', () => this.clearError());
+    }
   }
 
-  setupEvents() {
+  setupGlobalEvents() {
+    window.removeEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keydown', this.handleKeyDown);
+  }
 
-    // Option cards selection
-    const options = this.container.querySelectorAll('.test-option-card');
-    options.forEach((opt) => {
-      opt.addEventListener('click', () => {
-        const choice = parseInt(opt.dataset.choice, 10);
-        this.selectChoice(choice);
+  showError(message) {
+    const banner = document.getElementById('test-error-banner');
+    const msg = document.getElementById('test-error-msg');
+    if (banner && msg) {
+      msg.textContent = message;
+      banner.style.display = 'flex';
+    }
+  }
+
+  clearError() {
+    const banner = document.getElementById('test-error-banner');
+    if (banner) {
+      banner.style.display = 'none';
+    }
+  }
+
+  async loadExamSession(level = 'N3') {
+    this.activeLevel = level;
+    this.clearError();
+    this.stopTimer();
+    this.answers.clear();
+    this.flagged.clear();
+
+    const stage = document.getElementById('test-stage-area');
+    if (stage) {
+      stage.innerHTML = `
+        <div class="tactile-card text-center py-12 text-muted">
+          <span class="font-mono text-sm">Preparing JLPT ${escapeHtml(level)} simulation from question bank...</span>
+        </div>
+      `;
+    }
+
+    try {
+      const session = await studyClient.createExamSession(level);
+      this.sessionId = session?.session_id || session?.external_id;
+
+      // Extract sections and questions
+      this.sections = session?.sections || [];
+      const currentSection = this.sections[0] || {};
+      this.questions = currentSection.items || session?.items || [];
+
+      if (!this.questions || this.questions.length === 0) {
+        this.renderEmptyState(level, `No eligible examination questions found in study.db for level ${level}.`);
+        return;
+      }
+
+      this.remainingSeconds = currentSection.remaining_time_seconds || (45 * 60);
+      this.currentIndex = 0;
+      this.startTimer();
+      this.renderExamStage();
+    } catch (err) {
+      console.warn('[Test] Launch exam simulation failed:', err);
+      this.renderEmptyState(level, err.message || 'Unable to start JLPT simulation.');
+      this.showError('Exam simulation error: ' + (err.message || 'Check question bank readiness'));
+    }
+  }
+
+  renderEmptyState(level, message) {
+    const stage = document.getElementById('test-stage-area');
+    if (!stage) return;
+
+    stage.innerHTML = `
+      <div class="test-empty-state tactile-card text-center py-10">
+        <h2 class="test-empty-title font-display text-2xl font-bold mb-2">Question Bank Incomplete for Simulation · 模擬試験未準備</h2>
+        <p class="text-secondary text-sm max-w-md mx-auto mb-4">
+          ${escapeHtml(message)}
+        </p>
+        <div class="text-xs text-muted mb-4">
+          A full JLPT simulation requires questions for all exam sections. Select a level with questions available:
+        </div>
+        <div class="study-level-picker" id="exam-level-picker">
+          ${['N5', 'N4', 'N3', 'N2', 'N1'].map((lvl) => `
+            <button
+              type="button"
+              class="tactile-btn tactile-btn-sm ${lvl === level ? 'tactile-btn-primary' : ''} btn-select-exam-level"
+              data-level="${lvl}"
+            >${lvl}</button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    stage.querySelectorAll('.btn-select-exam-level').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const selected = btn.dataset.level;
+        this.loadExamSession(selected);
+      });
+    });
+  }
+
+  renderExamStage() {
+    const stage = document.getElementById('test-stage-area');
+    if (!stage) return;
+
+    const currentSection = this.sections[this.currentSectionIndex] || {};
+    const sectionLabel = currentSection.label || `Section ${this.currentSectionIndex + 1}: Language Knowledge & Reading`;
+
+    stage.innerHTML = `
+      <!-- Exam Header Strip: Timer & Section Info -->
+      <div class="test-header-bar tactile-card">
+        <div class="test-header-left">
+          <span class="tactile-pill tactile-pill-vermilion">JLPT ${escapeHtml(this.activeLevel)} SIMULATION</span>
+          <span class="test-section-name">${escapeHtml(sectionLabel)}</span>
+        </div>
+
+        <!-- Anti-Cheat Persistent Countdown Timer -->
+        <div class="test-timer-group" id="test-timer-group">
+          <span class="timer-label">TIME REMAINING:</span>
+          <span class="timer-countdown font-mono font-bold" id="exam-countdown">${this.formatCountdown(this.remainingSeconds)}</span>
+        </div>
+
+        <!-- Proctor Mascot Slot -->
+        ${renderAssetSlot('test-exam-proctor', 'test-proctor-slot')}
+      </div>
+
+      <!-- Question Content Area -->
+      <div id="test-question-content"></div>
+
+      <!-- Bottom: Question Palette Bar & Submit Button -->
+      <div class="test-palette-bar tactile-card">
+        <div class="palette-scroll-wrap" id="palette-wrap">
+          ${this.questions.map((q, i) => `
+            <button
+              type="button"
+              class="palette-item ${i === this.currentIndex ? 'is-current' : ''} ${this.answers.has(i) ? 'is-answered' : ''} ${this.flagged.has(i) ? 'is-flagged' : ''}"
+              data-index="${i}"
+              title="Question ${i + 1}"
+            >${i + 1}</button>
+          `).join('')}
+        </div>
+
+        <div class="palette-actions">
+          <button class="tactile-btn tactile-btn-primary" id="btn-finish-exam">
+            <span>Finish Section</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    this.renderQuestionDetails();
+
+    // Palette item clicks
+    stage.querySelectorAll('.palette-item').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.index, 10);
+        this.goToQuestion(idx);
       });
     });
 
-    // Mark for review button
-    const btnFlag = document.getElementById('btn-toggle-flag');
+    // Finish section button
+    const btnFinish = document.getElementById('btn-finish-exam');
+    if (btnFinish) {
+      btnFinish.addEventListener('click', () => this.confirmSubmitSection());
+    }
+  }
+
+  renderQuestionDetails() {
+    const container = document.getElementById('test-question-content');
+    if (!container) return;
+
+    const item = this.questions[this.currentIndex];
+    if (!item) return;
+
+    const total = this.questions.length;
+    const isFlagged = this.flagged.has(this.currentIndex);
+    const selectedChoiceId = this.answers.get(this.currentIndex);
+    const choices = Array.isArray(item.choices) ? item.choices : [];
+    const hasPassage = Boolean(item.group_context || item.group_text || item.passage_text);
+    const passageText = item.group_context || item.group_text || item.passage_text || '';
+
+    let contentHtml = '';
+
+    if (hasPassage) {
+      // Split view layout for reading passage
+      contentHtml = `
+        <div class="test-stage-grid">
+          <!-- Left Pane: Reading Passage -->
+          <div class="test-passage-pane surface-pitch-black tactile-card">
+            <div class="passage-header-row">
+              <span class="passage-title font-mono text-gold">READING PASSAGE · 読解文</span>
+            </div>
+            <div class="passage-body-content">
+              <p class="passage-paragraph">${escapeHtml(passageText)}</p>
+            </div>
+          </div>
+
+          <!-- Right Pane: Question & Choices -->
+          <div class="test-question-pane">
+            ${this.buildPromptAndChoicesHtml(item, total, isFlagged, choices, selectedChoiceId)}
+          </div>
+        </div>
+      `;
+    } else {
+      // Single pane layout for vocab / grammar
+      contentHtml = `
+        <div class="test-single-pane">
+          ${this.buildPromptAndChoicesHtml(item, total, isFlagged, choices, selectedChoiceId)}
+        </div>
+      `;
+    }
+
+    container.innerHTML = contentHtml;
+
+    // Attach choice listeners
+    container.querySelectorAll('.test-option-card').forEach((opt) => {
+      opt.addEventListener('click', () => {
+        const choiceId = opt.dataset.choiceId;
+        this.selectChoice(choiceId);
+      });
+    });
+
+    // Attach flag listener
+    const btnFlag = container.querySelector('#btn-toggle-flag');
     if (btnFlag) {
       btnFlag.addEventListener('click', () => {
         this.toggleFlag(this.currentIndex);
       });
     }
+  }
 
-    // Palette item clicks
-    const paletteBtns = this.container.querySelectorAll('.palette-item');
-    paletteBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const index = parseInt(btn.dataset.index, 10);
-        this.goToQuestion(index);
-      });
-    });
+  buildPromptAndChoicesHtml(item, total, isFlagged, choices, selectedChoiceId) {
+    const promptText = item.prompt_markup || item.instruction_text || 'Choose the best answer:';
 
-    // Finish Exam Button
-    const btnFinish = document.getElementById('btn-finish-exam');
-    if (btnFinish) {
-      btnFinish.addEventListener('click', () => {
-        const answeredCount = this.answers.size;
-        if (confirm(`Submit section? You have answered ${answeredCount} of ${this.totalQuestions} questions.`)) {
-          alert('Section submitted! Scaled estimated score: 142/180 (Pass)');
-          this.router.navigateToTab('home');
-        }
-      });
-    }
+    return `
+      <div class="test-prompt-card surface-pitch-black tactile-card">
+        <div class="prompt-header-row">
+          <span class="prompt-item-badge font-mono text-gold" id="prompt-item-num">QUESTION ${this.currentIndex + 1} OF ${total}</span>
+          <button class="btn-flag-review tactile-btn tactile-btn-sm" id="btn-toggle-flag" title="Mark this question for review">
+            <span id="flag-icon">${isFlagged ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>'}</span>
+            <span id="flag-text">${isFlagged ? 'Flagged for Review' : 'Mark for Review'}</span>
+          </button>
+        </div>
+        <div class="prompt-text-content" id="prompt-text">
+          ${promptText}
+        </div>
+      </div>
+
+      <div class="test-options-list" role="radiogroup" aria-label="Answer Choices">
+        ${choices.map((choice, i) => {
+          const cid = choice.choice_id || choice.id || String(i + 1);
+          const isSelected = selectedChoiceId && String(selectedChoiceId) === String(cid);
+          const choiceText = choice.text_markup || choice.text || String(choice);
+          return `
+            <div
+              class="test-option-card tactile-card tactile-card-interactive ${isSelected ? 'is-selected' : ''}"
+              data-choice-id="${escapeHtml(String(cid))}"
+              data-choice="${i + 1}"
+              tabindex="0"
+            >
+              <span class="option-shortcut font-mono">${i + 1}</span>
+              <p class="option-text">${escapeHtml(choiceText)}</p>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
   }
 
   handleKeyDown(e) {
     if (['1', '2', '3', '4'].includes(e.key)) {
-      this.selectChoice(parseInt(e.key, 10));
+      const idx = parseInt(e.key, 10) - 1;
+      const opt = this.container?.querySelectorAll('.test-option-card')?.[idx];
+      if (opt) {
+        const choiceId = opt.dataset.choiceId;
+        this.selectChoice(choiceId);
+      }
     }
   }
 
-  selectChoice(choice) {
-    this.answers.set(this.currentIndex, choice);
+  async selectChoice(choiceId) {
+    this.answers.set(this.currentIndex, choiceId);
 
-    // Update option card visual state
+    // Visual selection update
     const options = this.container.querySelectorAll('.test-option-card');
     options.forEach((opt) => {
-      const isSelected = parseInt(opt.dataset.choice, 10) === choice;
-      opt.classList.toggle('is-selected', isSelected);
+      opt.classList.toggle('is-selected', opt.dataset.choiceId === String(choiceId));
     });
 
-    // Update palette button
     this.updatePaletteButton(this.currentIndex);
+
+    // Save draft choice to backend
+    if (this.sessionId) {
+      const item = this.questions[this.currentIndex];
+      const pos = item?.position || (this.currentIndex + 1);
+      try {
+        await studyClient.answerExamItem(this.sessionId, pos, choiceId);
+      } catch (err) {
+        console.warn('[Test] Draft choice save error:', err);
+      }
+    }
   }
 
-  toggleFlag(index) {
-    if (this.flagged.has(index)) {
-      this.flagged.delete(index);
-    } else {
+  async toggleFlag(index) {
+    const isNowFlagged = !this.flagged.has(index);
+    if (isNowFlagged) {
       this.flagged.add(index);
+    } else {
+      this.flagged.delete(index);
     }
 
     const flagIcon = document.getElementById('flag-icon');
     const flagText = document.getElementById('flag-text');
-    const isFlagged = this.flagged.has(index);
-
-    if (flagIcon) flagIcon.textContent = isFlagged ? '★' : '☆';
-    if (flagText) flagText.textContent = isFlagged ? 'Flagged for Review' : 'Mark for Review';
+    if (flagIcon) flagIcon.innerHTML = isNowFlagged
+        ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>';
+    if (flagText) flagText.textContent = isNowFlagged ? 'Flagged for Review' : 'Mark for Review';
 
     this.updatePaletteButton(index);
+
+    if (this.sessionId) {
+      const item = this.questions[index];
+      const pos = item?.position || (index + 1);
+      try {
+        await studyClient.flagExamItem(this.sessionId, pos, isNowFlagged);
+      } catch (err) {
+        console.warn('[Test] Flag item error:', err);
+      }
+    }
   }
 
   updatePaletteButton(index) {
     const btn = this.container.querySelector(`.palette-item[data-index="${index}"]`);
     if (!btn) return;
 
-    const isAnswered = this.answers.has(index);
-    const isFlagged = this.flagged.has(index);
-
-    btn.classList.toggle('is-answered', isAnswered);
-    btn.classList.toggle('is-flagged', isFlagged);
+    btn.classList.toggle('is-answered', this.answers.has(index));
+    btn.classList.toggle('is-flagged', this.flagged.has(index));
   }
 
   goToQuestion(index) {
+    if (index < 0 || index >= this.questions.length) return;
     this.currentIndex = index;
-
-    // Update prompt number
-    const promptNum = document.getElementById('prompt-item-num');
-    if (promptNum) promptNum.textContent = `QUESTION ${index + 1} OF ${this.totalQuestions}`;
 
     // Update active palette indicator
     this.container.querySelectorAll('.palette-item').forEach((b) => {
       b.classList.toggle('is-current', parseInt(b.dataset.index, 10) === index);
     });
 
-    // Restore selected choice
-    const savedChoice = this.answers.get(index);
-    const options = this.container.querySelectorAll('.test-option-card');
-    options.forEach((opt) => {
-      opt.classList.toggle('is-selected', parseInt(opt.dataset.choice, 10) === savedChoice);
-    });
+    this.renderQuestionDetails();
+  }
 
-    // Restore flag status
-    const isFlagged = this.flagged.has(index);
-    const flagIcon = document.getElementById('flag-icon');
-    const flagText = document.getElementById('flag-text');
-    if (flagIcon) flagIcon.textContent = isFlagged ? '★' : '☆';
-    if (flagText) flagText.textContent = isFlagged ? 'Flagged for Review' : 'Mark for Review';
+  async confirmSubmitSection() {
+    const answeredCount = this.answers.size;
+    const totalCount = this.questions.length;
+
+    // Custom confirm dialog or direct submission
+    await this.submitSection();
+  }
+
+  async submitSection() {
+    this.stopTimer();
+    const stage = document.getElementById('test-stage-area');
+    if (stage) {
+      stage.innerHTML = `
+        <div class="tactile-card text-center py-12 text-muted">
+          <span class="font-mono text-sm">Grading exam section responses...</span>
+        </div>
+      `;
+    }
+
+    try {
+      const currentSection = this.sections[this.currentSectionIndex] || {};
+      const blockOrder = currentSection.block_order || 1;
+
+      if (this.sessionId) {
+        await studyClient.submitExamSection(this.sessionId, blockOrder);
+        await studyClient.completeExamSession(this.sessionId);
+        const result = await studyClient.getExamResult(this.sessionId);
+        this.renderResultState(result);
+      } else {
+        this.renderResultState(null);
+      }
+    } catch (err) {
+      console.error('[Test] Submit section failed:', err);
+      this.showError('Section submission error: ' + (err.message || 'Network error'));
+      this.renderResultState(null);
+    }
+  }
+
+  renderResultState(result) {
+    const stage = document.getElementById('test-stage-area');
+    if (!stage) return;
+
+    const totalAnswered = this.answers.size;
+    const totalQuestions = this.questions.length;
+    const score = result?.total_scaled_score || result?.total_score || `${totalAnswered} / ${totalQuestions}`;
+    const isPassed = result?.is_passed || false;
+    const statusLabel = isPassed ? 'Pass (基準点到達)' : 'Provisional Score Completed';
+
+    stage.innerHTML = `
+      <div class="test-result-card tactile-card text-center py-10">
+        <h2 class="test-result-title font-display text-2xl font-bold mb-2">
+          JLPT ${escapeHtml(this.activeLevel)} Simulation Diagnostic Result · 試験判定
+        </h2>
+        <div class="tactile-pill tactile-pill-gold my-2 inline-block">
+          ${escapeHtml(statusLabel)}
+        </div>
+        <p class="text-secondary text-sm max-w-lg mx-auto my-4">
+          Disclaimer: This provisional scaled score is calculated locally for diagnostic purposes and does not represent an official score report from the Japan Foundation or JEES.
+        </p>
+
+        <div class="flex justify-center gap-6 my-6">
+          <div class="tactile-card p-4">
+            <span class="text-xs text-muted block uppercase">Estimated Score</span>
+            <span class="font-mono text-2xl font-bold text-gold">${escapeHtml(String(score))}</span>
+          </div>
+          <div class="tactile-card p-4">
+            <span class="text-xs text-muted block uppercase">Items Answered</span>
+            <span class="font-mono text-2xl font-bold text-warm-paper">${totalAnswered} / ${totalQuestions}</span>
+          </div>
+        </div>
+
+        <div class="study-level-picker mt-8">
+          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-return-home">
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    `;
+
+    const btnHome = document.getElementById('btn-return-home');
+    if (btnHome) {
+      btnHome.addEventListener('click', () => {
+        this.router?.navigateToTab('home');
+      });
+    }
   }
 
   startTimer() {
+    this.stopTimer();
     const timerDisplay = document.getElementById('exam-countdown');
     const timerGroup = document.getElementById('test-timer-group');
 
     this.timerInterval = setInterval(() => {
       if (this.remainingSeconds <= 0) {
-        clearInterval(this.timerInterval);
-        alert('Time is up! Submitting exam section.');
-        this.router.navigateToTab('home');
+        this.stopTimer();
+        this.submitSection();
         return;
       }
 
       this.remainingSeconds -= 1;
-      const mins = Math.floor(this.remainingSeconds / 60);
-      const secs = this.remainingSeconds % 60;
 
       if (timerDisplay) {
-        timerDisplay.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        timerDisplay.textContent = this.formatCountdown(this.remainingSeconds);
       }
 
-      // Urgent pulse when < 5 mins
       if (this.remainingSeconds < 300 && timerGroup) {
         timerGroup.classList.add('is-urgent-pulse');
       }
     }, 1000);
   }
 
-  unmount() {
+  stopTimer() {
     if (this.timerInterval) {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
     }
+  }
+
+  formatCountdown(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+
+  unmount() {
+    this.stopTimer();
     window.removeEventListener('keydown', this.handleKeyDown);
-    if (this.container) this.container.innerHTML = '';
+    if (this.container) {
+      this.container.innerHTML = '';
+    }
   }
 }
 
+function escapeHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}

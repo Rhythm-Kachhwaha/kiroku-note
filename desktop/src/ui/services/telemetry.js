@@ -48,14 +48,17 @@ class TelemetryService {
           this.notify();
           return this.status;
         }
-      } catch (_) {}
+      } catch (bridgeErr) {
+        console.warn('[Telemetry] Bridge services status error:', bridgeErr);
+      }
     }
 
     // 2. Fallback to direct HTTP checks against 127.0.0.1:21828
     try {
       const healthRes = await fetch('http://127.0.0.1:21828/api/health', { method: 'GET' });
       this.status.backend = healthRes.ok;
-    } catch (_) {
+    } catch (healthErr) {
+      console.warn('[Telemetry] Backend health fetch error:', healthErr);
       this.status.backend = false;
     }
 
@@ -70,7 +73,9 @@ class TelemetryService {
         this.status.anki = ankiRes.status === 'fulfilled' && ankiRes.value.ok;
         this.status.yomitan = yomitanRes.status === 'fulfilled' && yomitanRes.value.ok;
         this.status.ocr = ocrRes.status === 'fulfilled' && ocrRes.value.ok;
-      } catch (_) {}
+      } catch (subErr) {
+        console.warn('[Telemetry] Secondary service checks error:', subErr);
+      }
     } else {
       this.status.anki = false;
       this.status.yomitan = false;

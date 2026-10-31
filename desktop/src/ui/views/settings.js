@@ -39,6 +39,12 @@ export class SettingsView {
             ${renderAssetSlot('settings-mechanic-cat', 'settings-mascot-box')}
           </div>
 
+          <!-- Visible Error Banner -->
+          <div class="settings-error-banner" id="settings-error-banner" style="display: none;">
+            <span class="error-msg" id="settings-error-msg"></span>
+            <button type="button" class="btn-dismiss-error" id="btn-dismiss-settings-error" aria-label="Dismiss error"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+          </div>
+
           <div class="settings-cards-grid">
             <!-- Card 1: AnkiConnect Integration -->
             <div class="settings-card tactile-card">
@@ -75,7 +81,7 @@ export class SettingsView {
             <div class="settings-card tactile-card">
               <div class="card-header-row">
                 <h3 class="card-title">AI Explanation Provider</h3>
-                <span class="tactile-pill tactile-pill-gold">Windows DPAPI Encrypted</span>
+                <span class="tactile-pill tactile-pill-gold" id="llm-status-tag">Key Protected</span>
               </div>
               <p class="card-desc">Generates nuanced pedagogical grammar explanations and disambiguation advice.</p>
 
@@ -84,25 +90,29 @@ export class SettingsView {
                   <label for="llm-provider-select">Provider</label>
                   <select id="llm-provider-select" class="tactile-input">
                     <option value="none">None (Offline Pure Rule-Based)</option>
-                    <option value="groq" selected>Groq (Ultra-Fast Llama-3)</option>
+                    <option value="groq">Groq (Ultra-Fast Llama-3)</option>
                     <option value="gemini">Google Gemini</option>
                     <option value="ollama">Ollama (Local Offline)</option>
                   </select>
                 </div>
                 <div class="form-field">
                   <label for="llm-model-input">Model Name</label>
-                  <input type="text" id="llm-model-input" class="tactile-input font-mono text-sm" value="llama-3.3-70b-versatile" />
+                  <input type="text" id="llm-model-input" class="tactile-input font-mono text-sm" placeholder="e.g. llama-3.3-70b-versatile" />
                 </div>
               </div>
 
               <div class="form-field mt-3">
                 <label for="llm-key-input">API Key (Protected by Windows DPAPI)</label>
-                <input type="password" id="llm-key-input" class="tactile-input font-mono text-sm" placeholder="••••••••••••••••••••••••" />
+                <input type="password" id="llm-key-input" class="tactile-input font-mono text-sm" placeholder="Enter API key to update..." />
               </div>
 
               <div class="card-actions-row mt-3">
                 <button type="button" class="tactile-btn tactile-btn-primary" id="btn-save-llm">Save Settings</button>
-                <button type="button" class="tactile-btn" id="btn-test-llm">Test Latency</button>
+                <button type="button" class="tactile-btn" id="btn-test-llm">Test LLM Connection</button>
+              </div>
+
+              <div class="llm-test-result-box mt-3" id="llm-test-result" style="display: none;">
+                <span class="font-mono text-xs text-muted" id="llm-test-output"></span>
               </div>
             </div>
 
@@ -130,24 +140,52 @@ export class SettingsView {
     `;
   }
 
+  showError(message) {
+    const banner = document.getElementById('settings-error-banner');
+    const msg = document.getElementById('settings-error-msg');
+    if (banner && msg) {
+      msg.textContent = message;
+      banner.style.display = 'flex';
+    }
+  }
+
+  clearError() {
+    const banner = document.getElementById('settings-error-banner');
+    if (banner) {
+      banner.style.display = 'none';
+    }
+  }
+
   setupEvents() {
+    const btnDismiss = document.getElementById('btn-dismiss-settings-error');
+    if (btnDismiss) {
+      btnDismiss.addEventListener('click', () => this.clearError());
+    }
+
     // Test Anki button
     const btnAnki = document.getElementById('btn-test-anki');
     if (btnAnki) {
       btnAnki.addEventListener('click', async () => {
         btnAnki.disabled = true;
         btnAnki.textContent = 'Testing...';
+        this.clearError();
+
         try {
-          const url = document.getElementById('anki-url-input')?.value || 'http://127.0.0.1:8765';
-          const res = await apiClient.testAnki(url);
+          const res = await apiClient.getAnkiStatus();
           const tag = document.getElementById('anki-status-tag');
           if (tag) {
-            tag.textContent = res.connected ? 'Connected' : 'Unavailable';
-            tag.className = `tactile-pill ${res.connected ? 'tactile-pill-gold' : ''}`;
+            const connected = Boolean(res?.connected);
+            tag.textContent = connected ? `Connected (v${res.version || '?'})` : 'Unavailable';
+            tag.className = `tactile-pill ${connected ? 'tactile-pill-gold' : ''}`;
           }
-        } catch (_) {
+        } catch (err) {
+          console.warn('[Settings] Anki status test failed:', err);
           const tag = document.getElementById('anki-status-tag');
-          if (tag) tag.textContent = 'Connection Failed';
+          if (tag) {
+            tag.textContent = 'Connection Failed';
+            tag.className = 'tactile-pill';
+          }
+          this.showError('AnkiConnect test failed: ' + (err.message || 'Make sure Anki is running with AnkiConnect'));
         } finally {
           btnAnki.disabled = false;
           btnAnki.textContent = 'Test Connection';
@@ -160,6 +198,8 @@ export class SettingsView {
     if (btnOcr) {
       btnOcr.addEventListener('click', async () => {
         btnOcr.disabled = true;
+        this.clearError();
+
         try {
           if (this.ocrRunning) {
             await apiClient.stopOcr();
@@ -169,9 +209,88 @@ export class SettingsView {
             this.ocrRunning = true;
           }
           this.updateOcrStatus();
-        } catch (_) {}
-        finally {
+        } catch (err) {
+          console.warn('[Settings] OCR toggle failed:', err);
+          this.showError('OCR daemon error: ' + (err.message || 'Could not toggle OCR server'));
+        } finally {
           btnOcr.disabled = false;
+        }
+      });
+    }
+
+    // Save LLM Config
+    const btnSaveLlm = document.getElementById('btn-save-llm');
+    if (btnSaveLlm) {
+      btnSaveLlm.addEventListener('click', async () => {
+        const provider = document.getElementById('llm-provider-select')?.value || 'none';
+        const model = document.getElementById('llm-model-input')?.value.trim() || undefined;
+        const keyInput = document.getElementById('llm-key-input')?.value.trim();
+
+        btnSaveLlm.disabled = true;
+        btnSaveLlm.textContent = 'Saving...';
+        this.clearError();
+
+        try {
+          const payload = { provider };
+          if (model) payload.model = model;
+          if (keyInput) payload.api_key = keyInput;
+
+          await apiClient.updateLlmConfig(payload);
+
+          const tag = document.getElementById('llm-status-tag');
+          if (tag) {
+            tag.textContent = 'Saved';
+            setTimeout(() => {
+              tag.textContent = 'Key Protected';
+            }, 3000);
+          }
+          // Clear secret from DOM input for security
+          const keyEl = document.getElementById('llm-key-input');
+          if (keyEl && keyInput) {
+            keyEl.value = '';
+            keyEl.placeholder = '•••••••• (Encrypted in DPAPI)';
+          }
+        } catch (err) {
+          console.error('[Settings] Save LLM config failed:', err);
+          this.showError('Failed to save LLM settings: ' + (err.message || 'Validation error'));
+        } finally {
+          btnSaveLlm.disabled = false;
+          btnSaveLlm.textContent = 'Save Settings';
+        }
+      });
+    }
+
+    // Test LLM Latency
+    const btnTestLlm = document.getElementById('btn-test-llm');
+    if (btnTestLlm) {
+      btnTestLlm.addEventListener('click', async () => {
+        btnTestLlm.disabled = true;
+        btnTestLlm.textContent = 'Testing...';
+        this.clearError();
+
+        const resultBox = document.getElementById('llm-test-result');
+        const outputEl = document.getElementById('llm-test-output');
+        if (resultBox && outputEl) {
+          resultBox.style.display = 'block';
+          outputEl.textContent = 'Testing model latency...';
+        }
+
+        const startTime = Date.now();
+        try {
+          const res = await apiClient.testLlm('Hello, test connection.');
+          const latencyMs = Date.now() - startTime;
+          if (outputEl) {
+            outputEl.textContent = `Latency: ${latencyMs}ms · Response: ${res?.result || JSON.stringify(res)}`;
+          }
+        } catch (err) {
+          console.warn('[Settings] Test LLM failed:', err);
+          if (outputEl) {
+            outputEl.textContent = `Error (${Date.now() - startTime}ms): ${err.message || 'Request failed'}`;
+          }
+          this.showError('LLM test failed: ' + (err.message || 'Check provider key and network'));
+        } finally {
+          btnTestLlm.disabled = false;
+          btnTestLlm.textContent = 'Test LLM Connection';
         }
       });
     }
@@ -182,6 +301,8 @@ export class SettingsView {
       btnDoctor.addEventListener('click', async () => {
         btnDoctor.disabled = true;
         btnDoctor.textContent = 'Checking...';
+        this.clearError();
+
         try {
           const report = await studyClient.getDiagnostics();
           const box = document.getElementById('doctor-results');
@@ -191,12 +312,14 @@ export class SettingsView {
             out.textContent = JSON.stringify(report, null, 2);
           }
         } catch (err) {
+          console.warn('[Settings] Run doctor failed:', err);
           const box = document.getElementById('doctor-results');
           const out = document.getElementById('doctor-output');
           if (box && out) {
             box.style.display = 'block';
             out.textContent = `Doctor Check Error: ${err.message}`;
           }
+          this.showError('Doctor check error: ' + (err.message || 'Diagnostics failed'));
         } finally {
           btnDoctor.disabled = false;
           btnDoctor.textContent = 'Run Doctor Check';
@@ -218,21 +341,61 @@ export class SettingsView {
     const btnRestart = document.getElementById('btn-restart-backend');
     if (btnRestart) {
       btnRestart.addEventListener('click', () => {
-        if (window.desktopAPI?.retryBackend) {
-          window.desktopAPI.retryBackend();
+        if (confirm('Restart the local Kiroku backend service?')) {
+          if (window.desktopAPI?.retryBackend) {
+            window.desktopAPI.retryBackend();
+          }
         }
       });
     }
   }
 
   async loadInitialSettings() {
+    // 1. OCR status
     try {
       const ocrRes = await apiClient.getOcrStatus();
       if (ocrRes) {
         this.ocrRunning = Boolean(ocrRes.running);
         this.updateOcrStatus();
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn('[Settings] Initial OCR status error:', err);
+    }
+
+    // 2. Anki status
+    try {
+      const ankiRes = await apiClient.getAnkiStatus();
+      const tag = document.getElementById('anki-status-tag');
+      if (tag && ankiRes) {
+        const connected = Boolean(ankiRes.connected);
+        tag.textContent = connected ? `Connected (v${ankiRes.version || '?'})` : 'Unavailable';
+        tag.className = `tactile-pill ${connected ? 'tactile-pill-gold' : ''}`;
+      }
+    } catch (err) {
+      console.warn('[Settings] Initial Anki status error:', err);
+    }
+
+    // 3. LLM config
+    try {
+      const llmConf = await apiClient.getLlmConfig();
+      if (llmConf) {
+        const provSelect = document.getElementById('llm-provider-select');
+        const modelInput = document.getElementById('llm-model-input');
+        const keyInput = document.getElementById('llm-key-input');
+
+        if (provSelect && llmConf.provider) {
+          provSelect.value = llmConf.provider;
+        }
+        if (modelInput && llmConf.model) {
+          modelInput.value = llmConf.model;
+        }
+        if (keyInput && llmConf.has_key) {
+          keyInput.placeholder = '•••••••• (Configured in Windows DPAPI)';
+        }
+      }
+    } catch (err) {
+      console.warn('[Settings] Initial LLM config error:', err);
+    }
   }
 
   updateOcrStatus() {
@@ -248,7 +411,8 @@ export class SettingsView {
   }
 
   unmount() {
-    if (this.container) this.container.innerHTML = '';
+    if (this.container) {
+      this.container.innerHTML = '';
+    }
   }
 }
-

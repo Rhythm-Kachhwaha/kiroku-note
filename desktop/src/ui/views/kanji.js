@@ -1,7 +1,7 @@
 /**
  * Kiroku Note Desktop — Kanji Studio View Controller
- * Kanji search, pitch-black KanjiVG stroke order player, On/Kun readings matrix,
- * radical breakdowns, and common compounds with 1-click card mining.
+ * Kanji search, real KanjiVG stroke order player, On/Kun readings matrix,
+ * radical breakdowns, level browsing and common compounds with 1-click card mining.
  */
 
 import { apiClient } from '../services/api_client.js';
@@ -12,10 +12,12 @@ export class KanjiView {
     this.router = router;
     this.container = null;
     this.currentChar = '静';
-    this.currentStrokes = 14;
+    this.currentStrokes = 0;
     this.isPlaying = false;
     this.playTimer = null;
     this.currentStrokeIndex = 0;
+    this.strokePaths = [];
+    this.activeLevel = 'N3';
   }
 
   mount(container) {
@@ -23,6 +25,7 @@ export class KanjiView {
     this.render();
     this.setupEvents();
     this.loadKanji(this.currentChar);
+    this.loadLevelBrowse(this.activeLevel);
   }
 
   render() {
@@ -57,6 +60,17 @@ export class KanjiView {
               <button class="level-pill" data-level="N1">N1</button>
               <button class="level-pill" data-level="joyo">Joyo (常用)</button>
             </div>
+
+            <!-- Kanji Quick Browse Row -->
+            <div class="kanji-browse-row" id="kanji-browse-chips">
+              <span class="text-xs text-muted">Loading kanji browse list...</span>
+            </div>
+          </div>
+
+          <!-- Visible Error Banner -->
+          <div class="kanji-error-banner" id="kanji-error-banner" style="display: none;">
+            <span class="error-msg" id="kanji-error-msg"></span>
+            <button type="button" class="btn-dismiss-error" id="btn-dismiss-kanji-error" aria-label="Dismiss error"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
           </div>
 
           <!-- Main Layout Grid: Stroke Canvas & Hero (Left) + Readings & Compounds (Right) -->
@@ -67,33 +81,19 @@ export class KanjiView {
               <div class="kanji-stroke-card surface-pitch-black tactile-card">
                 <div class="stroke-header-row">
                   <span class="stroke-title">KanjiVG Stroke Order Engine · 筆順</span>
-                  <span class="stroke-counter-tag font-mono text-gold" id="stroke-counter">Stroke 1 of 14</span>
+                  <span class="stroke-counter-tag font-mono text-gold" id="stroke-counter">Stroke -- of --</span>
                 </div>
 
                 <!-- Vector SVG Canvas Container -->
                 <div class="stroke-canvas-container" id="stroke-canvas">
-                  <svg id="kanjivg-svg" class="kanjivg-svg" viewBox="0 0 109 109" width="220" height="220">
-                    <!-- Standard KanjiVG SVG Paths with Progressive Stroke Order -->
-                    <g id="kvg-strokes" stroke="#F5F1E8" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M15 25 Q35 20 50 25" id="stroke-1" />
-                      <path d="M30 15 L30 45" id="stroke-2" />
-                      <path d="M15 45 Q35 40 50 45" id="stroke-3" />
-                      <path d="M15 65 Q35 60 50 65" id="stroke-4" />
-                      <path d="M30 45 L30 90" id="stroke-5" />
-                      <path d="M60 25 Q80 20 95 25" id="stroke-6" />
-                      <path d="M75 15 L75 55" id="stroke-7" />
-                      <path d="M60 45 Q80 40 95 45" id="stroke-8" />
-                      <path d="M60 65 Q80 60 95 65" id="stroke-9" />
-                      <path d="M75 55 L75 90" id="stroke-10" />
-                    </g>
-                  </svg>
+                  <div class="text-muted text-sm py-8 text-center" id="stroke-loading">Loading stroke vector...</div>
                 </div>
 
                 <!-- Stroke Player Controls Bar -->
                 <div class="stroke-controls-bar">
                   <button class="tactile-btn tactile-btn-sm" id="btn-stroke-replay" title="Replay from start">Replay</button>
                   <button class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-stroke-play" title="Play animation">Play</button>
-                  <input type="range" id="stroke-slider" min="1" max="14" value="1" class="stroke-scrubber" />
+                  <input type="range" id="stroke-slider" min="1" max="1" value="1" class="stroke-scrubber" />
                 </div>
               </div>
 
@@ -106,14 +106,14 @@ export class KanjiView {
               <!-- Hero Character Info Card -->
               <div class="kanji-info-card tactile-card">
                 <div class="kanji-hero-row">
-                  <span class="kanji-hero-glyph" id="kanji-glyph">静</span>
+                  <span class="kanji-hero-glyph" id="kanji-glyph">${this.currentChar}</span>
                   <div class="kanji-hero-meta">
                     <div class="flex items-center gap-2">
-                      <span class="tactile-pill tactile-pill-gold" id="kanji-jlpt">JLPT N3</span>
-                      <span class="tactile-pill" id="kanji-grade">Grade 4 (小学校)</span>
+                      <span class="tactile-pill tactile-pill-gold" id="kanji-jlpt">JLPT --</span>
+                      <span class="tactile-pill" id="kanji-grade">--</span>
                     </div>
-                    <h2 class="kanji-meanings-list" id="kanji-meanings">quiet · calm · stillness</h2>
-                    <span class="kanji-freq-rank text-xs text-muted">Frequency Rank #704 · 14 Strokes</span>
+                    <h2 class="kanji-meanings-list" id="kanji-meanings">Loading meanings...</h2>
+                    <span class="kanji-freq-rank text-xs text-muted" id="kanji-meta-rank">--</span>
                   </div>
                 </div>
 
@@ -123,15 +123,15 @@ export class KanjiView {
                     <tbody>
                       <tr>
                         <th class="reading-type">On'yomi (音読み)</th>
-                        <td class="reading-value font-bold text-gold" id="kanji-onyomi">セイ (sei), ジョウ (jou)</td>
+                        <td class="reading-value font-bold text-gold" id="kanji-onyomi">--</td>
                       </tr>
                       <tr>
                         <th class="reading-type">Kun'yomi (訓読み)</th>
-                        <td class="reading-value text-warm-paper" id="kanji-kunyomi">しず-か (shizu-ka), しず-まる (shizu-maru)</td>
+                        <td class="reading-value text-warm-paper" id="kanji-kunyomi">--</td>
                       </tr>
                       <tr>
                         <th class="reading-type">Radical (部首)</th>
-                        <td class="reading-value text-secondary" id="kanji-radical">青 (blue / green)</td>
+                        <td class="reading-value text-secondary" id="kanji-radical">--</td>
                       </tr>
                     </tbody>
                   </table>
@@ -145,27 +145,7 @@ export class KanjiView {
                   <span class="text-xs text-muted">1-Click Mine to Local &amp; Anki</span>
                 </div>
                 <div class="compounds-list" id="compounds-list">
-                  <div class="compound-row">
-                    <div class="compound-head">
-                      <ruby class="compound-glyph">静寂<rt>せいじゃく</rt></ruby>
-                      <span class="compound-gloss">silence · stillness</span>
-                    </div>
-                    <button class="tactile-btn tactile-btn-sm tactile-btn-primary btn-mine-compound" data-expr="静寂" data-read="せいじゃく" data-gloss="silence · stillness">Mine</button>
-                  </div>
-                  <div class="compound-row">
-                    <div class="compound-head">
-                      <ruby class="compound-glyph">冷静<rt>れいせい</rt></ruby>
-                      <span class="compound-gloss">calm · composed · cool-headed</span>
-                    </div>
-                    <button class="tactile-btn tactile-btn-sm tactile-btn-primary btn-mine-compound" data-expr="冷静" data-read="れいせい" data-gloss="calm · composed · cool-headed">Mine</button>
-                  </div>
-                  <div class="compound-row">
-                    <div class="compound-head">
-                      <ruby class="compound-glyph">安静<rt>あんせい</rt></ruby>
-                      <span class="compound-gloss">quietness · bed rest (medical)</span>
-                    </div>
-                    <button class="tactile-btn tactile-btn-sm tactile-btn-primary btn-mine-compound" data-expr="安静" data-read="あんせい" data-gloss="quietness · bed rest (medical)">Mine</button>
-                  </div>
+                  <div class="text-muted text-sm py-4 text-center">Loading compounds...</div>
                 </div>
               </div>
             </div>
@@ -178,17 +158,41 @@ export class KanjiView {
   setupEvents() {
     const btnLookup = document.getElementById('btn-kanji-lookup');
     const inputKanji = document.getElementById('kanji-search-input');
+    const btnDismiss = document.getElementById('btn-dismiss-kanji-error');
+
+    if (btnDismiss) {
+      btnDismiss.addEventListener('click', () => this.clearError());
+    }
 
     if (btnLookup && inputKanji) {
       btnLookup.addEventListener('click', () => {
         const char = inputKanji.value.trim();
         if (char) this.loadKanji(char);
       });
+
+      inputKanji.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const char = inputKanji.value.trim();
+          if (char) this.loadKanji(char);
+        }
+      });
     }
+
+    // Level Filter Pills
+    const levelPills = this.container.querySelectorAll('.kanji-level-filters .level-pill');
+    levelPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        levelPills.forEach((p) => p.classList.remove('is-active'));
+        pill.classList.add('is-active');
+        this.activeLevel = pill.dataset.level;
+        this.loadLevelBrowse(this.activeLevel);
+      });
+    });
 
     // Stroke Replay & Play buttons
     const btnPlay = document.getElementById('btn-stroke-play');
     const btnReplay = document.getElementById('btn-stroke-replay');
+    const slider = document.getElementById('stroke-slider');
 
     if (btnPlay) {
       btnPlay.addEventListener('click', () => this.toggleStrokePlay());
@@ -196,65 +200,317 @@ export class KanjiView {
     if (btnReplay) {
       btnReplay.addEventListener('click', () => this.replayStrokes());
     }
+    if (slider) {
+      slider.addEventListener('input', () => {
+        this.pauseStrokes();
+        const idx = Math.max(0, parseInt(slider.value, 10) - 1);
+        this.renderStrokeStep(idx);
+      });
+    }
+  }
 
-    // Compound Mine Buttons
-    this.container.querySelectorAll('.btn-mine-compound').forEach((btn) => {
-      btn.addEventListener('click', async (e) => {
-        const expr = e.target.dataset.expr;
-        const read = e.target.dataset.read;
-        const gloss = e.target.dataset.gloss;
-        e.target.disabled = true;
-        e.target.textContent = 'Mined ✓';
+  showError(message) {
+    const banner = document.getElementById('kanji-error-banner');
+    const msg = document.getElementById('kanji-error-msg');
+    if (banner && msg) {
+      msg.textContent = message;
+      banner.style.display = 'flex';
+    }
+  }
+
+  clearError() {
+    const banner = document.getElementById('kanji-error-banner');
+    if (banner) {
+      banner.style.display = 'none';
+    }
+  }
+
+  async loadKanji(char) {
+    if (!char || !char.trim()) return;
+    const cleanChar = char.trim()[0];
+    this.currentChar = cleanChar;
+    this.clearError();
+    this.pauseStrokes();
+
+    const input = document.getElementById('kanji-search-input');
+    if (input) input.value = cleanChar;
+
+    const glyphEl = document.getElementById('kanji-glyph');
+    if (glyphEl) glyphEl.textContent = cleanChar;
+
+    // 1. Fetch character details
+    try {
+      const details = await apiClient.getKanjiDetails(cleanChar);
+      this.renderKanjiDetails(cleanChar, details);
+    } catch (err) {
+      console.warn('[Kanji] Get details failed:', err);
+      this.showError(`Details for "${cleanChar}" not found: ` + (err.message || 'Network error'));
+    }
+
+    // 2. Fetch KanjiVG stroke order SVG
+    try {
+      const svgText = await apiClient.getKanjiStrokes(cleanChar);
+      this.renderStrokeCanvas(svgText);
+    } catch (err) {
+      console.warn('[Kanji] Get strokes failed:', err);
+      const canvas = document.getElementById('stroke-canvas');
+      if (canvas) {
+        canvas.innerHTML = `<div class="text-sm text-muted py-8 text-center">Stroke diagram unavailable for ${cleanChar}</div>`;
+      }
+    }
+
+    // 3. Fetch common compounds
+    try {
+      const res = await apiClient.getKanjiCompounds(cleanChar, { limit: 15 });
+      this.renderCompounds(res?.compounds || []);
+    } catch (err) {
+      console.warn('[Kanji] Get compounds failed:', err);
+      const list = document.getElementById('compounds-list');
+      if (list) {
+        list.innerHTML = `<div class="text-sm text-error py-4 text-center">Failed to load compounds.</div>`;
+      }
+    }
+  }
+
+  renderKanjiDetails(char, details) {
+    if (!details) return;
+
+    const jlptTag = document.getElementById('kanji-jlpt');
+    const gradeTag = document.getElementById('kanji-grade');
+    const meaningsEl = document.getElementById('kanji-meanings');
+    const rankEl = document.getElementById('kanji-meta-rank');
+    const onyomiEl = document.getElementById('kanji-onyomi');
+    const kunyomiEl = document.getElementById('kanji-kunyomi');
+    const radicalEl = document.getElementById('kanji-radical');
+
+    const level = details.level || '--';
+    const grade = details.grade ? `Grade ${details.grade} (小学校)` : 'Non-Joyo';
+    const freq = details.freq ? `Frequency Rank #${details.freq}` : 'Rare';
+    const strokes = details.strokes ? `${details.strokes} Strokes` : '';
+    const meanings = (details.meanings || []).join(' · ') || 'No English meaning';
+
+    if (jlptTag) jlptTag.textContent = `JLPT ${level}`;
+    if (gradeTag) gradeTag.textContent = grade;
+    if (meaningsEl) meaningsEl.textContent = meanings;
+    if (rankEl) rankEl.textContent = `${freq} · ${strokes}`;
+
+    if (onyomiEl) {
+      const on = Array.isArray(details.onyomi) ? details.onyomi.join(', ') : (details.onyomi || '--');
+      onyomiEl.textContent = on || 'None';
+    }
+    if (kunyomiEl) {
+      const kun = Array.isArray(details.kunyomi) ? details.kunyomi.join(', ') : (details.kunyomi || '--');
+      kunyomiEl.textContent = kun || 'None';
+    }
+    if (radicalEl) {
+      radicalEl.textContent = details.radical || 'None';
+    }
+  }
+
+  renderStrokeCanvas(svgText) {
+    const canvas = document.getElementById('stroke-canvas');
+    if (!canvas || !svgText) return;
+
+    canvas.innerHTML = svgText;
+    const svgEl = canvas.querySelector('svg');
+    if (svgEl) {
+      svgEl.setAttribute('id', 'kanjivg-svg');
+      svgEl.setAttribute('class', 'kanjivg-svg');
+      svgEl.setAttribute('width', '220');
+      svgEl.setAttribute('height', '220');
+    }
+
+    // Extract stroke paths
+    this.strokePaths = Array.from(canvas.querySelectorAll('path'));
+    this.currentStrokes = this.strokePaths.length;
+    this.currentStrokeIndex = 0;
+
+    const slider = document.getElementById('stroke-slider');
+    if (slider) {
+      slider.min = '1';
+      slider.max = String(this.currentStrokes || 1);
+      slider.value = '1';
+    }
+
+    this.renderStrokeStep(0);
+  }
+
+  renderStrokeStep(index) {
+    this.currentStrokeIndex = Math.max(0, Math.min(index, this.strokePaths.length - 1));
+
+    this.strokePaths.forEach((path, i) => {
+      if (i < this.currentStrokeIndex) {
+        path.style.stroke = '#F5F1E8';
+        path.style.opacity = '1';
+        path.style.strokeWidth = '3';
+      } else if (i === this.currentStrokeIndex) {
+        path.style.stroke = '#C8A94A'; // Gold accent for active stroke
+        path.style.opacity = '1';
+        path.style.strokeWidth = '4.5';
+      } else {
+        path.style.stroke = '#444444';
+        path.style.opacity = '0.2';
+        path.style.strokeWidth = '2';
+      }
+    });
+
+    const counter = document.getElementById('stroke-counter');
+    if (counter) {
+      counter.textContent = `Stroke ${this.currentStrokeIndex + 1} of ${this.currentStrokes}`;
+    }
+
+    const slider = document.getElementById('stroke-slider');
+    if (slider) {
+      slider.value = String(this.currentStrokeIndex + 1);
+    }
+  }
+
+  toggleStrokePlay() {
+    if (this.isPlaying) {
+      this.pauseStrokes();
+    } else {
+      this.startStrokePlay();
+    }
+  }
+
+  startStrokePlay() {
+    if (this.strokePaths.length === 0) return;
+    this.isPlaying = true;
+    const btn = document.getElementById('btn-stroke-play');
+    if (btn) btn.textContent = 'Pause';
+
+    if (this.currentStrokeIndex >= this.strokePaths.length - 1) {
+      this.currentStrokeIndex = 0;
+    }
+
+    this.playTimer = setInterval(() => {
+      if (this.currentStrokeIndex < this.strokePaths.length - 1) {
+        this.renderStrokeStep(this.currentStrokeIndex + 1);
+      } else {
+        this.pauseStrokes();
+      }
+    }, 450);
+  }
+
+  pauseStrokes() {
+    this.isPlaying = false;
+    if (this.playTimer) {
+      clearInterval(this.playTimer);
+      this.playTimer = null;
+    }
+    const btn = document.getElementById('btn-stroke-play');
+    if (btn) btn.textContent = 'Play';
+  }
+
+  replayStrokes() {
+    this.pauseStrokes();
+    this.renderStrokeStep(0);
+    this.startStrokePlay();
+  }
+
+  renderCompounds(compounds) {
+    const list = document.getElementById('compounds-list');
+    if (!list) return;
+
+    if (!compounds || compounds.length === 0) {
+      list.innerHTML = `<div class="text-sm text-muted py-4 text-center">No common compounds found for ${this.currentChar}.</div>`;
+      return;
+    }
+
+    list.innerHTML = compounds.map((c) => `
+      <div class="compound-row">
+        <div class="compound-head">
+          <ruby class="compound-glyph">${escapeHtml(c.term)}<rt>${escapeHtml(c.reading || '')}</rt></ruby>
+          <span class="compound-gloss">${escapeHtml(c.meaning || '')}</span>
+        </div>
+        <button
+          type="button"
+          class="tactile-btn tactile-btn-sm tactile-btn-primary btn-mine-compound"
+          data-expr="${escapeHtml(c.term)}"
+          data-read="${escapeHtml(c.reading || '')}"
+          data-gloss="${escapeHtml(c.meaning || '')}"
+        >Mine</button>
+      </div>
+    `).join('');
+
+    // Attach 1-Click Mine listeners
+    list.querySelectorAll('.btn-mine-compound').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const expr = btn.dataset.expr;
+        const read = btn.dataset.read;
+        const gloss = btn.dataset.gloss;
+
+        btn.disabled = true;
+        btn.textContent = 'Mining...';
+
         try {
-          await apiClient.createCard({
+          await apiClient.saveCard({
             expression: expr,
             reading: read,
             meaning: gloss,
             deck: 'Japanese::Vocab',
             tags: 'kanji-compound'
           });
-        } catch (_) {}
+          btn.textContent = 'Mined';
+          btn.classList.add('is-mined');
+        } catch (err) {
+          console.error('[Kanji] Save compound failed:', err);
+          btn.disabled = false;
+          btn.textContent = 'Mine';
+          this.showError(`Failed to mine "${expr}": ` + (err.message || 'Save error'));
+        }
       });
     });
   }
 
-  async loadKanji(char) {
-    this.currentChar = char;
-    const glyphEl = document.getElementById('kanji-glyph');
-    if (glyphEl) glyphEl.textContent = char;
+  async loadLevelBrowse(level) {
+    const container = document.getElementById('kanji-browse-chips');
+    if (!container) return;
+
+    container.innerHTML = `<span class="text-xs text-muted">Loading ${level} kanji...</span>`;
 
     try {
-      const details = await apiClient.getKanjiDetails(char);
-      if (details) {
-        if (details.meanings) {
-          const m = document.getElementById('kanji-meanings');
-          if (m) m.textContent = details.meanings.join(' · ');
-        }
-        if (details.on_readings) {
-          const o = document.getElementById('kanji-onyomi');
-          if (o) o.textContent = details.on_readings.join(', ');
-        }
-        if (details.kun_readings) {
-          const k = document.getElementById('kanji-kunyomi');
-          if (k) k.textContent = details.kun_readings.join(', ');
-        }
+      const res = await apiClient.browseKanji({ level, limit: 18 });
+      const kanjiList = res?.kanji || [];
+
+      if (kanjiList.length === 0) {
+        container.innerHTML = `<span class="text-xs text-muted">No kanji listed for ${level}.</span>`;
+        return;
       }
-    } catch (_) {}
-  }
 
-  toggleStrokePlay() {
-    this.isPlaying = !this.isPlaying;
-    const btn = document.getElementById('btn-stroke-play');
-    if (btn) btn.textContent = this.isPlaying ? 'Pause' : 'Play';
-  }
+      container.innerHTML = kanjiList.map((k) => `
+        <button type="button" class="kanji-browse-chip" data-char="${escapeHtml(k.character)}">
+          ${escapeHtml(k.character)}
+        </button>
+      `).join('');
 
-  replayStrokes() {
-    this.currentStrokeIndex = 0;
-    this.toggleStrokePlay();
+      container.querySelectorAll('.kanji-browse-chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          container.querySelectorAll('.kanji-browse-chip').forEach((c) => c.classList.remove('is-active'));
+          chip.classList.add('is-active');
+          this.loadKanji(chip.dataset.char);
+        });
+      });
+    } catch (err) {
+      console.warn('[Kanji] Browse kanji error:', err);
+      container.innerHTML = `<span class="text-xs text-error">Browse error: ${escapeHtml(err.message || 'Offline')}</span>`;
+    }
   }
 
   unmount() {
-    if (this.playTimer) clearInterval(this.playTimer);
-    if (this.container) this.container.innerHTML = '';
+    this.pauseStrokes();
+    if (this.container) {
+      this.container.innerHTML = '';
+    }
   }
+}
+
+function escapeHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

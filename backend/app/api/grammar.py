@@ -82,3 +82,13 @@ def update_grammar_point(pattern_key: str, request: PointStatusRequest):
 @grammar_router.get("/points/{pattern_key}/encounters")
 def get_grammar_encounters(pattern_key: str):
     return {"encounters": _tracker.get_point_encounters(pattern_key)}
+
+@grammar_router.get("/syllabus")
+def get_grammar_syllabus(
+    level: str | None = Query(default=None),
+    search: str | None = Query(default=None, max_length=100),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    return _tracker.get_syllabus(level=level, search=search, limit=limit, offset=offset)
+

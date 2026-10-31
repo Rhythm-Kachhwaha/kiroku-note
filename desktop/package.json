@@ -10,9 +10,12 @@
     "start": "node bin/launch.js",
     "dev": "node bin/launch.js",
     "test": "node --test --test-concurrency=1 tests/*.test.js tests/smoke_test.js",
+    "verify": "node --test --test-concurrency=1 tests/*.test.js tests/smoke_test.js",
     "build": "powershell -ExecutionPolicy Bypass -File ../release/build-desktop.ps1"
   },
   "devDependencies": {
+    "@fontsource/epilogue": "^5.3.0",
+    "@fontsource/noto-serif": "^5.3.0",
     "electron": "^34.0.0"
   }
 }

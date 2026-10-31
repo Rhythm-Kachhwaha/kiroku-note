@@ -21,7 +21,7 @@ Locked boundaries:
 - JLPT data is local and replaceable; do not put JLPT rules in the UI.
 - AnkiConnect is an integration, never the source of truth. Failed syncs must
   leave locally saved cards intact.
-- User interfaces use accessible SVG icons, not OS emojis.
+- GOLDEN RULE: Emojis are NEVER allowed anywhere across UI, copy, buttons, badges, logs, templates, or code; use accessible SVG icons or clean plain text only.
 - The standalone OCR daemon remains optional, CPU-only, lazy-loaded, and
   isolated from the main backend process.
 
