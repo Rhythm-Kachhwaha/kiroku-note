@@ -10,8 +10,6 @@ import io
 from pathlib import Path
 from typing import Any
 
-import PyPDF2
-
 from app.study.ingestion.adapters.base import BaseInputAdapter
 from app.study.ingestion.enums import IngestAdapterKind
 from app.study.ingestion.models import ExtractedDocument, ExtractedPage, IngestInput
@@ -21,6 +19,17 @@ class PdfTextInputAdapter(BaseInputAdapter):
     """Adapter for extracting text from digital PDF documents."""
 
     def extract(self, input_data: IngestInput) -> ExtractedDocument:
+        try:
+            import pypdf as pdf_lib
+        except ImportError:
+            try:
+                import PyPDF2 as pdf_lib
+            except ImportError:
+                raise ImportError(
+                    "pypdf or PyPDF2 is required for PdfTextInputAdapter. "
+                    "Install with: pip install pypdf"
+                )
+
         content = input_data.content
         pdf_file: io.BytesIO
 
@@ -37,7 +46,7 @@ class PdfTextInputAdapter(BaseInputAdapter):
             raise ValueError(f"PdfTextInputAdapter requires bytes or Path, got {type(content).__name__}")
 
         try:
-            reader = PyPDF2.PdfReader(pdf_file)
+            reader = pdf_lib.PdfReader(pdf_file)
         except Exception as exc:
             raise ValueError(f"Failed to open PDF document: {exc}") from exc
 

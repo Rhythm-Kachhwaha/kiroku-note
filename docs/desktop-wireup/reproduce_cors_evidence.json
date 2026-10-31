@@ -1,0 +1,640 @@
+{
+  "rendererResults": {
+    "windowOrigin": "file://",
+    "windowProtocol": "file:",
+    "tests": {
+      "getHealth": {
+        "status": 200,
+        "ok": true,
+        "headers": {
+          "content-length": "89",
+          "content-type": "application/json",
+          "date": "Sat, 31 Oct 2026 15:11:37 GMT",
+          "server": "uvicorn"
+        },
+        "body": {
+          "status": "ok",
+          "version": "2.1.0",
+          "yomitan": true,
+          "ankiconnect": false,
+          "ocr": true,
+          "db": true
+        }
+      },
+      "getStats": {
+        "status": 200,
+        "ok": true,
+        "headers": {
+          "content-length": "223",
+          "content-type": "application/json",
+          "date": "Sat, 31 Oct 2026 15:11:37 GMT",
+          "server": "uvicorn"
+        },
+        "body": {
+          "total": 0,
+          "today": 0,
+          "this_week": 0,
+          "timeframe": {
+            "today": 0,
+            "this_week": 0,
+            "total": 0
+          },
+          "sync_ratio": {
+            "synced": 0,
+            "pending": 0,
+            "failed": 0,
+            "total": 0
+          },
+          "jlpt_breakdown": {
+            "N5": 0,
+            "N4": 0,
+            "N3": 0,
+            "N2": 0,
+            "N1": 0,
+            "Unknown": 0
+          },
+          "top_decks": []
+        }
+      },
+      "postOldCardsRoute": {
+        "status": 405,
+        "ok": false,
+        "headers": {
+          "allow": "GET",
+          "content-length": "31",
+          "content-type": "application/json",
+          "date": "Sat, 31 Oct 2026 15:11:37 GMT",
+          "server": "uvicorn"
+        }
+      },
+      "postRealCardsSaveRoute": {
+        "status": 200,
+        "ok": true,
+        "headers": {
+          "content-length": "616",
+          "content-type": "application/json",
+          "date": "Sat, 31 Oct 2026 15:11:37 GMT",
+          "server": "uvicorn"
+        }
+      }
+    }
+  },
+  "consoleMessages": [],
+  "networkEvents": [
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/index.html",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/html"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/styles/tokens.css",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/css"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/styles/fonts.css",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/css"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/styles/tactile.css",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/css"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/styles/bundle.css",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/css"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/shell/shell.css",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/css"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/shell/bottom_dock.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/shell/top_chrome.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/router.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/services/telemetry.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/views/home.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/views/vocab_main.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/views/vocab_history.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/views/grammar.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/views/kanji.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/views/test.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/views/study.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/views/settings.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/services/api_client.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/assets_map.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/lib/wanakana.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/services/study_client.js",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "text/javascript"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/assets/fonts/inter-latin-600-normal.woff2",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "application/octet-stream"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/assets/fonts/zen-old-mincho-japanese-400-normal.woff2",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "application/octet-stream"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/assets/fonts/inter-latin-400-normal.woff2",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "application/octet-stream"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:21828/api/health",
+      "statusCode": 200,
+      "responseHeaders": {
+        "content-length": [
+          "89"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "date": [
+          "Sat, 31 Oct 2026 15:11:36 GMT"
+        ],
+        "server": [
+          "uvicorn"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:21828/api/dictionary/status",
+      "statusCode": 404,
+      "responseHeaders": {
+        "content-length": [
+          "22"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "date": [
+          "Sat, 31 Oct 2026 15:11:36 GMT"
+        ],
+        "server": [
+          "uvicorn"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:21828/api/ocr/status",
+      "statusCode": 200,
+      "responseHeaders": {
+        "content-length": [
+          "105"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "date": [
+          "Sat, 31 Oct 2026 15:11:36 GMT"
+        ],
+        "server": [
+          "uvicorn"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/assets/fonts/mochiy-pop-one-japanese-400-normal.woff2",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "application/octet-stream"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/assets/fonts/zen-kaku-gothic-new-japanese-500-normal.woff2",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "application/octet-stream"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "file:///D:/Python/AnkiMiner/desktop/src/ui/assets/fonts/zen-kaku-gothic-new-japanese-400-normal.woff2",
+      "statusCode": 200,
+      "responseHeaders": {
+        "Content-Type": [
+          "application/octet-stream"
+        ],
+        "Last-Modified": [
+          "Sat, 31 Oct 2026 14:51:31 GMT"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:21828/api/cards/stats",
+      "statusCode": 200,
+      "responseHeaders": {
+        "content-length": [
+          "223"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "date": [
+          "Sat, 31 Oct 2026 15:11:36 GMT"
+        ],
+        "server": [
+          "uvicorn"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:21828/api/health",
+      "statusCode": 200,
+      "responseHeaders": {
+        "content-length": [
+          "89"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "date": [
+          "Sat, 31 Oct 2026 15:11:37 GMT"
+        ],
+        "server": [
+          "uvicorn"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "GET",
+      "url": "http://127.0.0.1:21828/api/cards/stats",
+      "statusCode": 200,
+      "responseHeaders": {
+        "content-length": [
+          "223"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "date": [
+          "Sat, 31 Oct 2026 15:11:37 GMT"
+        ],
+        "server": [
+          "uvicorn"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "POST",
+      "url": "http://127.0.0.1:21828/api/cards",
+      "statusCode": 405,
+      "responseHeaders": {
+        "allow": [
+          "GET"
+        ],
+        "content-length": [
+          "31"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "date": [
+          "Sat, 31 Oct 2026 15:11:37 GMT"
+        ],
+        "server": [
+          "uvicorn"
+        ]
+      }
+    },
+    {
+      "type": "response",
+      "method": "POST",
+      "url": "http://127.0.0.1:21828/api/cards/save",
+      "statusCode": 200,
+      "responseHeaders": {
+        "content-length": [
+          "616"
+        ],
+        "content-type": [
+          "application/json"
+        ],
+        "date": [
+          "Sat, 31 Oct 2026 15:11:37 GMT"
+        ],
+        "server": [
+          "uvicorn"
+        ]
+      }
+    }
+  ]
+}
