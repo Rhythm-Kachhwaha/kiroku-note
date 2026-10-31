@@ -220,6 +220,10 @@ export class ApiClient {
     return this.request('/api/grammar/points', { query });
   }
 
+  async getGrammarSyllabus(params = {}) {
+    return this.request('/api/grammar/syllabus', { query: params });
+  }
+
   async updateGrammarPoint(patternKey, data) {
     return this.request(`/api/grammar/points/${encodeURIComponent(patternKey)}`, {
       method: 'PATCH',

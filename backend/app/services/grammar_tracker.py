@@ -115,10 +115,79 @@ class GrammarTrackerService:
         if status not in {"new", "known", "learning", "ignored"}:
             raise ValueError("status must be one of new, known, learning, ignored")
         with db_session(self.db_path) as conn:
-            conn.execute("UPDATE grammar_points SET status=? WHERE pattern_key=?", (status, pattern_key))
+            row = conn.execute("SELECT * FROM grammar_points WHERE pattern_key=?", (pattern_key,)).fetchone()
+            if row:
+                conn.execute("UPDATE grammar_points SET status=? WHERE pattern_key=?", (status, pattern_key))
+            else:
+                now = datetime.now(timezone.utc).isoformat()
+                ref = GrammarReferenceService().get_point_by_key(pattern_key)
+                display = (ref.get("pattern_display") or ref.get("display") if ref else pattern_key) or pattern_key
+                level = ref.get("level") if ref else None
+                conn.execute(
+                    """INSERT INTO grammar_points
+                       (pattern_key, display, level, status, seen_count, first_seen_at, last_seen_at)
+                       VALUES (?, ?, ?, ?, 0, ?, ?)""",
+                    (pattern_key, display, level, status, now, now),
+                )
             conn.commit()
             row = conn.execute("SELECT * FROM grammar_points WHERE pattern_key=?", (pattern_key,)).fetchone()
             return dict(row) if row else None
+
+    def get_syllabus(
+        self,
+        level: str | None = None,
+        search: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        reference = GrammarReferenceService()
+        all_points = reference.get_points()
+
+        with db_session(self.db_path) as conn:
+            rows = conn.execute("SELECT pattern_key, status, seen_count FROM grammar_points").fetchall()
+            tracked = {r["pattern_key"]: {"status": r["status"], "seen_count": r["seen_count"]} for r in rows}
+
+        filtered = []
+        target_level = level.upper() if level else None
+        target_search = search.strip().lower() if search else None
+
+        for pt in all_points:
+            pt_level = (pt.get("level") or "").upper()
+            if target_level and pt_level != target_level:
+                continue
+
+            pt_key = pt.get("pattern_key") or ""
+            pt_display = pt.get("pattern_display") or pt.get("display") or ""
+            pt_meaning = pt.get("meaning_short") or pt.get("english_breakdown") or ""
+
+            if target_search:
+                if (
+                    target_search not in pt_key.lower()
+                    and target_search not in pt_display.lower()
+                    and target_search not in pt_meaning.lower()
+                ):
+                    continue
+
+            user_state = tracked.get(pt_key, {})
+            filtered.append({
+                "concept_id": pt.get("concept_id"),
+                "pattern_key": pt_key,
+                "pattern_display": pt_display,
+                "level": pt.get("level"),
+                "meaning_short": pt.get("meaning_short"),
+                "english_breakdown": pt.get("english_breakdown"),
+                "formation": pt.get("formation"),
+                "examples": pt.get("examples") or [],
+                "status": user_state.get("status", "new"),
+                "seen_count": user_state.get("seen_count", 0),
+            })
+
+        total = len(filtered)
+        limit = max(1, min(int(limit), 100))
+        offset = max(0, int(offset))
+        paged = filtered[offset : offset + limit]
+
+        return {"points": paged, "total": total}
 
     def get_point_encounters(self, pattern_key: str) -> list[dict[str, Any]]:
         with db_session(self.db_path) as conn:

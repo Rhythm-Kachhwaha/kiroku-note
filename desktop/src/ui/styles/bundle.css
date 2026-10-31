@@ -1324,6 +1324,103 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 .segment-n2 { background-color: #E28C4B; }
 .segment-n1 { background-color: var(--vermilion); color: var(--warm-paper); }
 
+
+.grammar-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background-color: rgba(217, 75, 56, 0.15);
+  border: 1px solid var(--vermilion);
+  border-radius: var(--radius-sm);
+  color: var(--vermilion);
+  font-size: 0.85rem;
+}
+
+.grammar-syllabus-card {
+  margin-bottom: 1.25rem;
+}
+
+.syllabus-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.syllabus-level-pills {
+  display: flex;
+  gap: 6px;
+}
+
+.syllabus-level-pill {
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--tactile-stroke);
+  background-color: var(--surface-container);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.syllabus-level-pill.is-active {
+  background-color: var(--gold-eye);
+  color: var(--tactile-stroke);
+}
+
+.syllabus-search-input {
+  max-width: 260px;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
+}
+
+.syllabus-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.syllabus-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--ink-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) ease, background-color var(--duration-fast) ease;
+}
+
+.syllabus-item:hover, .syllabus-item.is-selected {
+  border-color: var(--gold-eye);
+  background-color: var(--surface-container);
+}
+
+.syllabus-item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.syllabus-item-title {
+  font-family: var(--font-japanese);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.syllabus-item-meaning {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 /* ==========================================================================
    Kanji Screen Styles
    ========================================================================== */
