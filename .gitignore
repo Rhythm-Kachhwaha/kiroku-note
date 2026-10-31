@@ -139,5 +139,4 @@ kiroku_cloud_queue/.mirror_state.json
 # SQLite WAL/SHM files (backend/app/data)
 backend/app/data/*.sqlite-shm
 backend/app/data/*.sqlite-wal
-
-
+assets/dekstop/
