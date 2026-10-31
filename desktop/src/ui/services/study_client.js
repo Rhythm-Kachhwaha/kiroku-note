@@ -99,8 +99,8 @@ export class StudyClient {
       path: '/api/study/v1/practice/sessions',
       body: {
         level,
-        item_count: count,
-        format_id: formatId
+        question_count: count,
+        format_code: formatId
       }
     });
   }
