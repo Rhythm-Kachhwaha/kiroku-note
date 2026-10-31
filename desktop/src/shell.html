@@ -179,7 +179,7 @@
   <header>
     <div class="brand-group">
       <div class="brand-wordmark">KIROKU NOTE</div>
-      <span class="badge badge-m13">M13 Shell</span>
+      <span class="badge badge-m13">Diagnostics Console</span>
     </div>
     <div class="badge badge-status">
       <span class="dot"></span>
@@ -254,7 +254,7 @@
     <button type="button" class="btn btn-primary" id="btn-refresh" onclick="refreshStatus()">
       Check Health
     </button>
-    <button type="button" class="btn btn-primary" id="btn-sidepanel" onclick="openSidepanel()">
+    <button type="button" class="btn btn-primary" id="btn-sidepanel" onclick="openCompanion()">
       Open Companion
     </button>
     <button type="button" class="btn btn-danger" id="btn-quit" onclick="window.desktopAPI.quit()">
@@ -319,8 +319,8 @@
       }
     }
 
-    function openSidepanel() {
-      window.location.href = '../../extension/sidepanel/sidepanel.html';
+    function openCompanion() {
+      window.location.href = './index.html';
     }
 
     window.addEventListener('DOMContentLoaded', () => {

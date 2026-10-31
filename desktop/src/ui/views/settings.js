@@ -42,7 +42,7 @@ export class SettingsView {
           <!-- Visible Error Banner -->
           <div class="settings-error-banner" id="settings-error-banner" style="display: none;">
             <span class="error-msg" id="settings-error-msg"></span>
-            <button type="button" class="btn-dismiss-error" id="btn-dismiss-settings-error">✕</button>
+            <button type="button" class="btn-dismiss-error" id="btn-dismiss-settings-error" aria-label="Dismiss error"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
           </div>
 
           <div class="settings-cards-grid">
@@ -81,7 +81,7 @@ export class SettingsView {
             <div class="settings-card tactile-card">
               <div class="card-header-row">
                 <h3 class="card-title">AI Explanation Provider</h3>
-                <span class="tactile-pill tactile-pill-gold" id="llm-status-tag">Windows DPAPI Encrypted</span>
+                <span class="tactile-pill tactile-pill-gold" id="llm-status-tag">Key Protected</span>
               </div>
               <p class="card-desc">Generates nuanced pedagogical grammar explanations and disambiguation advice.</p>
 
@@ -239,9 +239,9 @@ export class SettingsView {
 
           const tag = document.getElementById('llm-status-tag');
           if (tag) {
-            tag.textContent = 'Saved ✓';
+            tag.textContent = 'Saved';
             setTimeout(() => {
-              tag.textContent = 'Windows DPAPI Encrypted';
+              tag.textContent = 'Key Protected';
             }, 3000);
           }
           // Clear secret from DOM input for security
@@ -277,7 +277,7 @@ export class SettingsView {
 
         const startTime = Date.now();
         try {
-          const res = await apiClient.testLlm('Explain Japanese particles は and が in one short sentence.');
+          const res = await apiClient.testLlm('Hello, test connection.');
           const latencyMs = Date.now() - startTime;
           if (outputEl) {
             outputEl.textContent = `Latency: ${latencyMs}ms · Response: ${res?.result || JSON.stringify(res)}`;
@@ -341,8 +341,10 @@ export class SettingsView {
     const btnRestart = document.getElementById('btn-restart-backend');
     if (btnRestart) {
       btnRestart.addEventListener('click', () => {
-        if (window.desktopAPI?.retryBackend) {
-          window.desktopAPI.retryBackend();
+        if (confirm('Restart the local Kiroku backend service?')) {
+          if (window.desktopAPI?.retryBackend) {
+            window.desktopAPI.retryBackend();
+          }
         }
       });
     }

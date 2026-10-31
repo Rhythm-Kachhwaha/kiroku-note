@@ -15,7 +15,9 @@ export class ApiClient {
       try {
         this._backendInfo = await window.desktopAPI.getBackendInfo();
         return this._backendInfo;
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[ApiClient] getBackendInfo fallback:', err);
+      }
     }
     return { host: '127.0.0.1', port: 21828 };
   }
@@ -80,7 +82,9 @@ export class ApiClient {
       let errorData = {};
       try {
         errorData = await response.json();
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[ApiClient] getBackendInfo fallback:', err);
+      }
       const message = errorData.detail || errorData.message || `HTTP ${response.status} ${response.statusText}`;
       const err = new Error(message);
       err.status = response.status;

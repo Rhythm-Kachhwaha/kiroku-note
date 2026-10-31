@@ -77,7 +77,7 @@
 }
 
 .window-dot-max {
-  background-color: var(--surface-container-highest);
+  background-color: var(--status-green);
 }
 
 /* Brand Wordmark & Letter Lift */
@@ -323,7 +323,7 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 540px) {
   .nav-tab-label {
     display: none;
   }

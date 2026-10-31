@@ -133,11 +133,12 @@ export class VocabHistoryView {
           </div>
         </div>
 
-        <!-- Slide-Over Card Inspector Drawer -->
-        <aside class="card-inspector-drawer" id="card-inspector" aria-hidden="true">
+        <!-- Slide-Over Card Inspector Drawer & Backdrop -->
+        <div class="drawer-backdrop" id="drawer-backdrop" style="display: none;"></div>
+        <aside class="card-inspector-drawer" id="card-inspector" role="dialog" aria-modal="true" aria-hidden="true">
           <div class="drawer-header">
             <h3 class="drawer-title">Card Inspector</h3>
-            <button class="drawer-close-btn" id="btn-close-drawer" aria-label="Close inspector">✕</button>
+            <button class="drawer-close-btn" id="btn-close-drawer" aria-label="Close inspector"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
           </div>
           <div class="drawer-body" id="drawer-body"></div>
         </aside>
@@ -249,6 +250,17 @@ export class VocabHistoryView {
     if (btnCloseDrawer) {
       btnCloseDrawer.addEventListener('click', () => this.closeInspector());
     }
+
+    const backdrop = document.getElementById('drawer-backdrop');
+    if (backdrop) {
+      backdrop.addEventListener('click', () => this.closeInspector());
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.selectedCard) {
+        this.closeInspector();
+      }
+    });
   }
 
   showError(message) {
@@ -437,6 +449,8 @@ export class VocabHistoryView {
 
     drawer.classList.add('is-open');
     drawer.setAttribute('aria-hidden', 'false');
+    const backdrop = document.getElementById('drawer-backdrop');
+    if (backdrop) backdrop.style.display = 'block';
 
     const btnSync = document.getElementById('btn-drawer-sync');
     if (btnSync) {
@@ -477,6 +491,8 @@ export class VocabHistoryView {
       drawer.classList.remove('is-open');
       drawer.setAttribute('aria-hidden', 'true');
     }
+    const backdrop = document.getElementById('drawer-backdrop');
+    if (backdrop) backdrop.style.display = 'none';
   }
 
   unmount() {

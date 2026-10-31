@@ -70,7 +70,7 @@ export class KanjiView {
           <!-- Visible Error Banner -->
           <div class="kanji-error-banner" id="kanji-error-banner" style="display: none;">
             <span class="error-msg" id="kanji-error-msg"></span>
-            <button type="button" class="btn-dismiss-error" id="btn-dismiss-kanji-error">✕</button>
+            <button type="button" class="btn-dismiss-error" id="btn-dismiss-kanji-error" aria-label="Dismiss error"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
           </div>
 
           <!-- Main Layout Grid: Stroke Canvas & Hero (Left) + Readings & Compounds (Right) -->
@@ -451,7 +451,7 @@ export class KanjiView {
             deck: 'Japanese::Vocab',
             tags: 'kanji-compound'
           });
-          btn.textContent = 'Mined ✓';
+          btn.textContent = 'Mined';
           btn.classList.add('is-mined');
         } catch (err) {
           console.error('[Kanji] Save compound failed:', err);

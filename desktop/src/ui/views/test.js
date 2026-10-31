@@ -39,7 +39,7 @@ export class TestView {
           <!-- Visible Error Banner -->
           <div class="test-error-banner" id="test-error-banner" style="display: none;">
             <span class="error-msg" id="test-error-msg"></span>
-            <button type="button" class="btn-dismiss-error" id="btn-dismiss-test-error">✕</button>
+            <button type="button" class="btn-dismiss-error" id="btn-dismiss-test-error" aria-label="Dismiss error"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
           </div>
 
           <!-- Main Stage Slot -->
@@ -131,7 +131,7 @@ export class TestView {
           ${escapeHtml(message)}
         </p>
         <div class="text-xs text-muted mb-4">
-          A full JLPT simulation requires audited questions for all sections. Select another level or ingest official exam materials:
+          A full JLPT simulation requires questions for all exam sections. Select a level with questions available:
         </div>
         <div class="study-level-picker" id="exam-level-picker">
           ${['N5', 'N4', 'N3', 'N2', 'N1'].map((lvl) => `

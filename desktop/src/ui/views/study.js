@@ -22,11 +22,14 @@ export class StudyView {
     this.questionStartTime = 0;
     this.sessionSummary = { correct: 0, total: 0 };
     this.isLoading = false;
+    this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
   mount(container) {
     this.container = container;
     this.renderShell();
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keydown', this.handleKeyDown);
     this.loadPracticeSession(this.activeLevel);
   }
 
@@ -37,7 +40,9 @@ export class StudyView {
           <!-- Visible Error Banner -->
           <div class="study-error-banner" id="study-error-banner" style="display: none;">
             <span class="error-msg" id="study-error-msg"></span>
-            <button type="button" class="btn-dismiss-error" id="btn-dismiss-study-error">✕</button>
+            <button type="button" class="btn-dismiss-error" id="btn-dismiss-study-error" aria-label="Dismiss error">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
           </div>
 
           <!-- Dynamic Question Drill View Slot -->
@@ -113,6 +118,7 @@ export class StudyView {
       this.showError('Practice session error: ' + (err.message || 'Check backend status'));
     } finally {
       this.isLoading = false;
+    this.handleKeyDown = this.handleKeyDown.bind(this);
     }
   }
 
@@ -127,7 +133,7 @@ export class StudyView {
           ${escapeHtml(message)}
         </p>
         <div class="text-xs text-muted mb-4">
-          Select a JLPT level to start drilling or ingest question sets into local study.db:
+          Select a JLPT level to start drilling:
         </div>
         <div class="study-level-picker" id="study-level-picker">
           ${['N5', 'N4', 'N3', 'N2', 'N1'].map((lvl) => `
@@ -176,7 +182,7 @@ export class StudyView {
           <span class="study-question-count font-mono">Item ${this.currentQuestionIndex + 1} of ${this.practiceItems.length}</span>
         </div>
         <div class="study-timer font-mono text-sm" id="study-active-timer">
-          ⏱ Active: ${this.formatTimer(this.elapsedSeconds)}
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="vertical-align: -2px; margin-right: 4px;"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0 0 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9a8.994 8.994 0 0 0 7.03-14.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>Active: <span id="study-timer-val">${this.formatTimer(this.elapsedSeconds)}</span>
         </div>
       </div>
 
@@ -184,7 +190,7 @@ export class StudyView {
       <div class="study-prompt-card surface-pitch-black tactile-card">
         <div class="study-prompt-header">
           <span class="font-mono text-xs text-gold">${escapeHtml(format)}</span>
-          <span class="text-xs text-muted">Objective Grader</span>
+          <span class="text-xs text-muted">Practice Item</span>
         </div>
         <h2 class="study-prompt-text font-japanese" id="study-prompt-ja">
           ${promptText}
@@ -221,7 +227,7 @@ export class StudyView {
       <!-- Pedagogical Explanation Card (Reveals on answer) -->
       <div class="pedagogical-explanation-card tactile-card" id="explanation-card" style="display: none;">
         <div class="explanation-header">
-          <span class="explanation-title font-bold text-gold">Pedagogical Breakdown · 解説</span>
+          <span class="explanation-title font-bold text-gold">Explanation · 解説</span>
         </div>
         <p class="explanation-text" id="explanation-text">
           --
@@ -229,7 +235,7 @@ export class StudyView {
 
         <!-- Adaptive Repetition Rating Bar (Easy, Normal, Hard) -->
         <div class="adaptive-rating-section">
-          <span class="rating-label text-xs text-muted uppercase">Rate Difficulty for Spaced Repetition:</span>
+          <span class="rating-label text-xs text-muted uppercase">Rate Difficulty:</span>
           <div class="rating-buttons-row" id="rating-buttons-row">
             <button type="button" class="tactile-btn tactile-btn-sm btn-rate-difficulty" data-rating="Easy">
               <span>Easy [1]</span>
@@ -385,7 +391,7 @@ export class StudyView {
       <div class="study-complete-card tactile-card text-center py-10">
         <h2 class="study-complete-title font-display text-2xl font-bold mb-2">Practice Drill Complete! · 練習完了</h2>
         <p class="text-secondary text-sm mb-6">
-          Honest diagnostic practice result. Your responses have been scheduled for adaptive spaced repetition.
+          Honest diagnostic practice result. Your responses have been recorded for spaced repetition review.
         </p>
 
         <div class="flex justify-center gap-6 my-6">
@@ -425,7 +431,12 @@ export class StudyView {
       this.elapsedSeconds += 1;
       const timerEl = document.getElementById('study-active-timer');
       if (timerEl) {
-        timerEl.textContent = `⏱ Active: ${this.formatTimer(this.elapsedSeconds)}`;
+        const valEl = document.getElementById('study-timer-val');
+        if (valEl) {
+          valEl.textContent = this.formatTimer(this.elapsedSeconds);
+        } else {
+          timerEl.textContent = `Active: ${this.formatTimer(this.elapsedSeconds)}`;
+        }
       }
     }, 1000);
   }
@@ -443,7 +454,37 @@ export class StudyView {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   }
 
+  handleKeyDown(e) {
+    if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+    const item = this.practiceItems[this.currentQuestionIndex];
+    if (!item) return;
+
+    if (this.hasAnswered) {
+      if (['1', '2', '3'].includes(e.key)) {
+        e.preventDefault();
+        const ratingMap = { '1': 'Easy', '2': 'Normal', '3': 'Hard' };
+        const btn = this.container?.querySelector(`.btn-rate-difficulty[data-rating="${ratingMap[e.key]}"]`);
+        if (btn) btn.click();
+      } else if (e.key === 'Enter') {
+        const btnNext = document.getElementById('btn-next-question');
+        if (btnNext) {
+          e.preventDefault();
+          this.advanceNextQuestion();
+        }
+      }
+    } else {
+      const choiceNum = parseInt(e.key, 10);
+      const choices = Array.isArray(item.choices) ? item.choices : [];
+      if (!isNaN(choiceNum) && choiceNum >= 1 && choiceNum <= choices.length) {
+        e.preventDefault();
+        const btn = this.container?.querySelector(`.study-choice-btn[data-index="${choiceNum - 1}"]`);
+        if (btn) btn.click();
+      }
+    }
+  }
+
   unmount() {
+    window.removeEventListener('keydown', this.handleKeyDown);
     this.stopActiveTimer();
     if (this.container) {
       this.container.innerHTML = '';

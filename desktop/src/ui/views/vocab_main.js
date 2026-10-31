@@ -103,8 +103,8 @@ export class VocabMainView {
               <!-- Mandatory Pitch-Black JMdict Card (#000000) -->
               <div class="jmdict-card surface-pitch-black tactile-card" id="jmdict-block">
                 <div class="jmdict-header-row">
-                  <span class="jmdict-title">JMdict · 辞書項目</span>
-                  <span class="jmdict-source-tag">LOCAL PROVIDER</span>
+                  <span class="jmdict-title">Dictionary · 辞書</span>
+
                 </div>
                 <div class="jmdict-senses-list" id="jmdict-senses">
                   <p class="text-muted py-4 text-center" id="jmdict-empty-notice">
@@ -318,7 +318,7 @@ export class VocabMainView {
 
     const isKnown = this.knownWordsSet.has(word);
     if (isKnown) {
-      btnKnown.textContent = 'Known Word ✓';
+      btnKnown.textContent = 'Known Word';
       btnKnown.classList.add('tactile-pill-green');
     } else {
       btnKnown.textContent = 'Mark Known';
@@ -340,7 +340,7 @@ export class VocabMainView {
       this.hideError();
 
       try {
-        const isEnglish = /^[a-zA-Z\s]+$/.test(trimmed);
+        const isEnglish = /^[a-zA-Z0-9\s.,'?!-]+$/.test(trimmed);
         if (isEnglish) {
           const res = await apiClient.searchEnglishDictionary(trimmed);
           const entries = res?.entries || (Array.isArray(res) ? res : []);

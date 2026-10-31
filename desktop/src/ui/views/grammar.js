@@ -47,7 +47,7 @@ export class GrammarView {
           <!-- Visible Error Banner -->
           <div class="grammar-error-banner" id="grammar-error-banner" style="display: none;">
             <span class="error-msg" id="grammar-error-msg"></span>
-            <button type="button" class="btn-dismiss-error" id="btn-dismiss-grammar-error">✕</button>
+            <button type="button" class="btn-dismiss-error" id="btn-dismiss-grammar-error" aria-label="Dismiss error"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
           </div>
 
           <!-- Sentence Analyzer Input Card -->
@@ -70,7 +70,7 @@ export class GrammarView {
               </div>
               <button class="tactile-btn tactile-btn-primary" id="btn-analyze-sentence">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                  <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                 </svg>
                 <span>Analyze Sentence</span>
               </button>
