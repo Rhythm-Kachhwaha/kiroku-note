@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:*; font-src 'self';">
+  <title>Kiroku Note</title>
+
+  <!-- Local Offline CSS Bundles (Zero Runtime CDNs) -->
+  <link rel="stylesheet" href="./ui/styles/tokens.css">
+  <link rel="stylesheet" href="./ui/styles/fonts.css">
+  <link rel="stylesheet" href="./ui/styles/tactile.css">
+  <link rel="stylesheet" href="./ui/shell/shell.css">
+  <link rel="stylesheet" href="./ui/styles/bundle.css">
+</head>
+<body>
+  <!-- Fixed Top Chrome Window Header -->
+  <div id="top-chrome-container"></div>
+
+  <!-- Dynamic Tab View Container -->
+  <main id="view-container" role="main"></main>
+
+  <!-- Floating Tactile Bottom Navigation Dock -->
+  <div id="bottom-dock-container"></div>
+
+  <!-- Application Bootstrap Script (Vanilla ES6 Modules) -->
+  <script type="module">
+    import { TopChrome } from './ui/shell/top_chrome.js';
+    import { BottomDock } from './ui/shell/bottom_dock.js';
+    import { AppRouter } from './ui/router.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. Initialize Floating Bottom Dock
+      const bottomDock = new BottomDock({
+        container: document.getElementById('bottom-dock-container'),
+        onTabChange: (tabId) => {
+          router.navigateToTab(tabId, true);
+        }
+      });
+      bottomDock.init();
+
+      // 2. Initialize App Router
+      const router = new AppRouter({
+        viewContainer: document.getElementById('view-container'),
+        bottomDock: bottomDock
+      });
+
+      // 3. Initialize Shared Top Chrome
+      const topChrome = new TopChrome({
+        container: document.getElementById('top-chrome-container'),
+        onNavigate: (destination) => {
+          router.navigateToTab(destination, true);
+        }
+      });
+      topChrome.init();
+
+      // 4. Start Router
+      router.init();
+    });
+  </script>
+</body>
+</html>
+

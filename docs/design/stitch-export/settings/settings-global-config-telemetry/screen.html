@@ -1,0 +1,705 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Kiroku 記録 — Settings</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Epilogue:ital,wght@0,600;0,700;0,800;1,700&amp;family=Inter:wght@400;500;600;700&amp;family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&amp;display=swap" rel="stylesheet">
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-secondary-container": "#b8b5ad",
+            "surface-container-low": "#1c1b19",
+            "surface": "#141311",
+            "surface-container-highest": "#363532",
+            "surface-tint": "#ffb4a7",
+            "tertiary-fixed": "#ffe088",
+            "primary-fixed": "#ffdad4",
+            "on-surface-variant": "#e1bfb9",
+            "on-tertiary-fixed-variant": "#574500",
+            "background": "#141311",
+            "paper-subtle": "rgba(245, 241, 232, 0.45)",
+            "on-tertiary": "#3c2f00",
+            "gold-glow": "rgba(200, 169, 74, 0.08)",
+            "tactile-stroke": "#151413",
+            "on-secondary": "#31302b",
+            "surface-container-high": "#2b2a28",
+            "secondary-container": "#484740",
+            "outline-variant": "#59413d",
+            "on-primary": "#680200",
+            "on-secondary-fixed": "#1c1c16",
+            "tertiary-container": "#c7a849",
+            "surface-container-lowest": "#0f0e0c",
+            "inverse-surface": "#e6e2de",
+            "on-tertiary-fixed": "#241a00",
+            "surface-variant": "#363532",
+            "on-primary-fixed": "#410100",
+            "primary-fixed-dim": "#ffb4a7",
+            "surface-dim": "#141311",
+            "on-background": "#e6e2de",
+            "ink-surface": "#2A2926",
+            "warm-paper": "#F5F1E8",
+            "on-surface": "#e6e2de",
+            "outline": "#a88a84",
+            "on-primary-container": "#5b0200",
+            "inverse-primary": "#b02e1e",
+            "ink-black": "#22211F",
+            "on-primary-fixed-variant": "#8e1308",
+            "secondary": "#cac6be",
+            "surface-bright": "#3a3937",
+            "tertiary": "#e4c461",
+            "gold-eye": "#C8A94A",
+            "paper-dim": "#E8E3D8",
+            "on-error-container": "#ffdad6",
+            "vermilion": "#D94B38",
+            "inverse-on-surface": "#31302e",
+            "error": "#ffb4ab",
+            "primary-container": "#f55f4a",
+            "secondary-fixed-dim": "#cac6be",
+            "error-container": "#93000a",
+            "on-error": "#690005",
+            "vermilion-glow": "rgba(217, 75, 56, 0.20)",
+            "on-tertiary-container": "#4e3d00",
+            "on-secondary-fixed-variant": "#484740",
+            "primary": "#ffb4a7",
+            "tertiary-fixed-dim": "#e4c461",
+            "secondary-fixed": "#e6e2d9",
+            "surface-container": "#201f1d",
+            "ink-border": "rgba(245, 241, 232, 0.12)"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-md": "1rem",
+            "space-sm": "0.5rem",
+            "gutter-sm": "1rem",
+            "margin-sm": "1rem",
+            "space-xl": "2.5rem",
+            "space-lg": "1.5rem",
+            "margin": "2rem",
+            "space-xs": "0.25rem",
+            "gutter": "1.5rem"
+          },
+          "fontFamily": {
+            "headline-editorial-lg": ["Noto Serif"],
+            "display-comic": ["Epilogue"],
+            "body-editorial-lg": ["Noto Serif"],
+            "headline-editorial-md": ["Noto Serif"],
+            "label-ui-caption": ["Inter"],
+            "headline-editorial-lg-mobile": ["Noto Serif"],
+            "body-editorial-md": ["Noto Serif"],
+            "title-brand": ["Noto Serif"],
+            "display-comic-mobile": ["Epilogue"],
+            "label-ui-bold": ["Inter"],
+            "code-counter": ["Inter"]
+          },
+          "fontSize": {
+            "headline-editorial-lg": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "display-comic": ["44px", { "lineHeight": "52px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+            "body-editorial-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "headline-editorial-md": ["24px", { "lineHeight": "32px", "letterSpacing": "0em", "fontWeight": "600" }],
+            "label-ui-caption": ["11px", { "lineHeight": "14px", "letterSpacing": "0.06em", "fontWeight": "500" }],
+            "headline-editorial-lg-mobile": ["26px", { "lineHeight": "34px", "letterSpacing": "0em", "fontWeight": "700" }],
+            "body-editorial-md": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "title-brand": ["20px", { "lineHeight": "28px", "letterSpacing": "0.12em", "fontWeight": "700" }],
+            "display-comic-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "800" }],
+            "label-ui-bold": ["13px", { "lineHeight": "18px", "letterSpacing": "0.04em", "fontWeight": "600" }],
+            "code-counter": ["14px", { "lineHeight": "16px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    /* Tactile interaction primitives */
+    .tactile-btn {
+      transition: transform 75ms cubic-bezier(0.2, 0, 0, 1), box-shadow 75ms cubic-bezier(0.2, 0, 0, 1);
+    }
+    .tactile-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0px #151413;
+    }
+    .tactile-btn:active {
+      transform: translate(2px, 2px) !important;
+      box-shadow: 1px 1px 0px #151413 !important;
+    }
+
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #141311;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #363532;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #D94B38;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col font-label-ui-bold antialiased selection:bg-vermilion selection:text-warm-paper">
+<!-- TOP APP BAR / FRAMELESS CHROME (TopNavBar) -->
+<header class="sticky top-0 z-50 w-full h-12 bg-[#141311] border-b border-[#2A2926] px-5 flex items-center justify-between select-none">
+  <!-- Left Zone: Window dots + KIROKU wordmark + Mode Badge -->
+  <div class="flex items-center">
+    <!-- 3 tactile window dots (10px diameter: #D94B38 vermilion, #C8A94A gold, #3A3937 maximise) -->
+    <div class="flex items-center gap-2 mr-4">
+      <span class="w-2.5 h-2.5 rounded-full bg-[#D94B38] border border-[#151413] inline-block cursor-pointer hover:opacity-80 transition-opacity"></span>
+      <span class="w-2.5 h-2.5 rounded-full bg-[#C8A94A] border border-[#151413] inline-block cursor-pointer hover:opacity-80 transition-opacity"></span>
+      <span class="w-2.5 h-2.5 rounded-full bg-[#3A3937] border border-[#151413] inline-block cursor-pointer hover:opacity-80 transition-opacity"></span>
+    </div>
+    <!-- Wordmark: KIROKU with staggered letter-lift hover effect -->
+    <div class="font-title-brand text-[17px] font-bold text-[#F5F1E8] tracking-[0.14em] flex items-center select-none cursor-pointer group">
+      <span class="inline-block transition-transform duration-150 group-hover:-translate-y-0.5">K</span>
+      <span class="inline-block transition-transform duration-150 delay-75 group-hover:-translate-y-0.5">I</span>
+      <span class="inline-block transition-transform duration-150 delay-100 group-hover:-translate-y-0.5">R</span>
+      <span class="inline-block transition-transform duration-150 delay-150 group-hover:-translate-y-0.5">O</span>
+      <span class="inline-block transition-transform duration-150 delay-200 group-hover:-translate-y-0.5">K</span>
+      <span class="inline-block transition-transform duration-150 delay-300 group-hover:-translate-y-0.5">U</span>
+    </div>
+    <!-- Mode Badge: NOTE ノート -->
+    <span class="ml-3 px-2.5 py-0.5 h-5 rounded-[6px] bg-[#C8A94A] text-[#151413] text-[11px] font-bold tracking-[0.08em] font-label-ui-caption inline-flex items-center justify-center [box-shadow:1px_1px_0px_#151413]">
+      NOTE ノート
+    </span>
+  </div>
+
+  <!-- Right Zone: History & Settings buttons -->
+  <div class="flex items-center gap-2.5">
+    <!-- History button -->
+    <button class="w-8 h-8 rounded-[8px] bg-[#1C1B19] border border-[rgba(245,241,232,0.12)] flex items-center justify-center cursor-pointer hover:bg-[#2A2926] transition-all group" title="History" aria-label="History">
+      <svg class="w-4 h-4 text-[#F5F1E8] transition-transform duration-200 group-hover:-rotate-[15deg]" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" viewBox="0 0 24 24">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+        <path d="M3 3v5h5"></path>
+        <path d="M12 7v5l4 2"></path>
+      </svg>
+    </button>
+    <!-- Settings button -->
+    <button class="w-8 h-8 rounded-[8px] bg-[#1C1B19] border border-[rgba(245,241,232,0.12)] flex items-center justify-center cursor-pointer hover:bg-[#2A2926] transition-all group" title="Settings" aria-label="Settings">
+      <svg class="w-4 h-4 text-[#F5F1E8] transition-transform duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-45" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" viewBox="0 0 24 24">
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+      </svg>
+    </button>
+  </div>
+</header>
+<!-- MAIN CANVAS / SETTINGS MODAL SURFACE -->
+<main class="flex-1 w-full max-w-7xl mx-auto px-4 py-6 mb-24">
+<!-- Tactile Modal Container -->
+<div class="bg-surface-container-low border border-tactile-stroke rounded-2xl p-6 lg:p-8 shadow-[6px_6px_0px_#0f0e0c] relative">
+<!-- Modal Top Narrative Banner & Mascot Slot -->
+<div class="flex flex-col md:flex-row items-start md:items-center justify-between pb-6 mb-6 border-b border-tactile-stroke/80 gap-4">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-label-ui-caption font-label-ui-caption text-vermilion uppercase font-bold tracking-widest">Preferences &amp; Engine Config</span>
+<span class="w-1.5 h-1.5 rounded-full bg-vermilion"></span>
+<span class="text-label-ui-caption font-label-ui-caption text-paper-subtle">Build 24.11-desktop</span>
+</div>
+<h1 class="text-headline-editorial-lg font-headline-editorial-lg text-warm-paper tracking-tight">
+            Global Settings
+          </h1>
+<p class="text-body-editorial-md font-body-editorial-md text-paper-subtle mt-0.5">
+            Fine-tune Japanese text-mining, LLM parsing pipelines, and physical sync parameters.
+          </p>
+</div>
+<!-- Mascot Companion Slot -->
+<div class="flex items-center gap-3 self-end md:self-auto">
+<div class="text-right hidden sm:block">
+<div class="text-label-ui-bold font-label-ui-bold text-warm-paper">Tanuki Mechanic</div>
+<div class="text-label-ui-caption font-label-ui-caption text-paper-subtle">Engine Supervisor</div>
+</div>
+<!-- Mascot Slot: settings-mechanic-cat -->
+<div class="w-[100px] h-[100px] rounded-xl border-dashed border-[1.5px] border-tactile-stroke/60 bg-surface-container/50 text-label-ui-caption font-label-ui-caption text-paper-dim/60 flex flex-col items-center justify-center p-2 text-center select-none shadow-[2px_2px_0px_#151413]">
+<span class="material-symbols-outlined text-gold-eye text-[26px] mb-1">build</span>
+<span class="text-[10px] leading-tight font-code-counter text-paper-dim">[MASCOT_SLOT: settings-mechanic-cat]</span>
+</div>
+</div>
+</div>
+<!-- Settings Sub-Navigation Header -->
+<nav class="flex items-center gap-2 overflow-x-auto pb-4 mb-6 border-b border-tactile-stroke/40 no-scrollbar">
+<!-- Tab 1 (Active) -->
+<button class="tactile-btn flex items-center gap-2 px-4 py-2 rounded-xl bg-vermilion text-warm-paper text-label-ui-bold font-label-ui-bold border border-tactile-stroke shadow-[2px_2px_0px_#151413]">
+<span class="material-symbols-outlined text-[18px]">display_settings</span>
+<span class="">General &amp; Display</span>
+</button>
+<!-- Tab 2 -->
+<button class="tactile-btn flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:text-warm-paper text-label-ui-bold font-label-ui-bold border border-tactile-stroke/60 hover:border-tactile-stroke shadow-[2px_2px_0px_#151413]">
+<span class="material-symbols-outlined text-[18px]">sync_alt</span>
+<span class="">Anki &amp; Yomitan</span>
+</button>
+<!-- Tab 3 -->
+<button class="tactile-btn flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:text-warm-paper text-label-ui-bold font-label-ui-bold border border-tactile-stroke/60 hover:border-tactile-stroke shadow-[2px_2px_0px_#151413]">
+<span class="material-symbols-outlined text-[18px]">smart_toy</span>
+<span class="">LLM / AI Assistant</span>
+</button>
+<!-- Tab 4 -->
+<button class="tactile-btn flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-container text-on-surface hover:text-warm-paper text-label-ui-bold font-label-ui-bold border border-tactile-stroke/60 hover:border-tactile-stroke shadow-[2px_2px_0px_#151413]">
+<span class="material-symbols-outlined text-[18px]">monitor_heart</span>
+<span class="">System Diagnostics</span>
+</button>
+</nav>
+<!-- CONTENT SECTIONS GRID -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- SECTION 1: GENERAL & DISPLAY PREFERENCES -->
+<div class="flex flex-col gap-6 lg:col-span-2">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 bg-vermilion rounded-full"></span>
+<h2 class="text-headline-editorial-md font-headline-editorial-md text-warm-paper">
+              General &amp; Display Preferences
+            </h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Card Group: Default Mining Targets -->
+<div class="bg-ink-surface rounded-2xl p-5 border border-ink-border flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-4 pb-2 border-b border-tactile-stroke/60">
+<span class="text-label-ui-bold font-label-ui-bold text-warm-paper flex items-center gap-2">
+<span class="material-symbols-outlined text-gold-eye text-[18px]">target</span>
+                    Default Mining Targets
+                  </span>
+<span class="text-label-ui-caption font-label-ui-caption text-paper-subtle">Deck Sync Routing</span>
+</div>
+<div class="space-y-4">
+<!-- Default JLPT Level -->
+<div>
+<label class="block text-label-ui-caption font-label-ui-caption text-paper-subtle mb-1.5">
+                      Default JLPT Target Level
+                    </label>
+<div class="relative">
+<select class="w-full bg-surface text-warm-paper text-label-ui-bold font-label-ui-bold px-3 py-2.5 rounded-lg border-[1.5px] border-tactile-stroke shadow-[2px_2px_0px_#151413] focus:border-gold-eye focus:ring-0 focus:outline-none appearance-none cursor-pointer">
+<option>N4 (Beginner-Intermediate)</option>
+<option>N5 (Elementary)</option>
+<option>N3 (Intermediate)</option>
+<option>N2 (Pre-Advanced)</option>
+<option>N1 (Advanced)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-paper-subtle text-[18px]">arrow_drop_down</span>
+</div>
+</div>
+<!-- Default Target Deck -->
+<div>
+<label class="block text-label-ui-caption font-label-ui-caption text-paper-subtle mb-1.5">
+                      Target Anki Deck
+                    </label>
+<div class="relative">
+<select class="w-full bg-surface text-warm-paper text-label-ui-bold font-label-ui-bold px-3 py-2.5 rounded-lg border-[1.5px] border-tactile-stroke shadow-[2px_2px_0px_#151413] focus:border-gold-eye focus:ring-0 focus:outline-none appearance-none cursor-pointer">
+<option>Japanese::Mining</option>
+<option>Japanese::Sentence-Cards</option>
+<option>Japanese::Core6k</option>
+<option>Japanese::Anime-Mined</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-paper-subtle text-[18px]">arrow_drop_down</span>
+</div>
+</div>
+<!-- Default Note Model -->
+<div>
+<label class="block text-label-ui-caption font-label-ui-caption text-paper-subtle mb-1.5">
+                      Anki Note Type Model
+                    </label>
+<div class="relative">
+<select class="w-full bg-surface text-warm-paper text-label-ui-bold font-label-ui-bold px-3 py-2.5 rounded-lg border-[1.5px] border-tactile-stroke shadow-[2px_2px_0px_#151413] focus:border-gold-eye focus:ring-0 focus:outline-none appearance-none cursor-pointer">
+<option>Kiroku Mining Note</option>
+<option>Yomitan Standard</option>
+<option>AnimeCards Audio Model</option>
+<option>Minimalist Cloze v2</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-paper-subtle text-[18px]">arrow_drop_down</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Furigana Display Mode -->
+<div class="mt-6 pt-4 border-t border-tactile-stroke/60">
+<label class="block text-label-ui-caption font-label-ui-caption text-paper-subtle mb-2">
+                  Furigana Display Mode
+                </label>
+<div class="flex items-center gap-1.5 bg-surface p-1 rounded-xl border-[1.5px] border-tactile-stroke shadow-[2px_2px_0px_#151413]">
+<button class="flex-1 py-1.5 rounded-lg bg-vermilion text-warm-paper text-label-ui-bold font-label-ui-bold text-center border border-tactile-stroke shadow-[1px_1px_0px_#151413]">
+                    All
+                  </button>
+<button class="flex-1 py-1.5 rounded-lg text-secondary hover:text-warm-paper text-label-ui-bold font-label-ui-bold text-center transition-colors">
+                    Kanji Only
+                  </button>
+<button class="flex-1 py-1.5 rounded-lg text-secondary hover:text-warm-paper text-label-ui-bold font-label-ui-bold text-center transition-colors">
+                    None
+                  </button>
+</div>
+</div>
+</div>
+<!-- Card Group: Display Box Toggles -->
+<div class="bg-ink-surface rounded-2xl p-5 border border-ink-border flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-4 pb-2 border-b border-tactile-stroke/60">
+<span class="text-label-ui-bold font-label-ui-bold text-warm-paper flex items-center gap-2">
+<span class="material-symbols-outlined text-gold-eye text-[18px]">visibility</span>
+                    Display Box Toggles (Card &amp; Dictionary Surfaces)
+                  </span>
+<span class="text-label-ui-caption font-label-ui-caption text-paper-subtle">Visual Layout</span>
+</div>
+<!-- Toggles list with physical mechanical aesthetic -->
+<div class="space-y-3">
+<!-- Toggle 1: JLPT Badges (ON) -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface/40 hover:bg-surface/70 transition-colors">
+<span class="text-body-editorial-md font-body-editorial-md text-warm-paper text-sm">
+                      Show JLPT Level Badges
+                    </span>
+<label class="relative inline-flex items-center cursor-pointer select-none">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full border-[1.5px] border-tactile-stroke peer peer-checked:after:translate-x-full peer-checked:after:border-tactile-stroke after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-warm-paper after:border-[1.5px] after:border-tactile-stroke after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-vermilion shadow-[2px_2px_0px_#151413]"></div>
+</label>
+</div>
+<!-- Toggle 2: Pitch Accent Patterns (ON) -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface/40 hover:bg-surface/70 transition-colors">
+<span class="text-body-editorial-md font-body-editorial-md text-warm-paper text-sm">
+                      Show Pitch Accent Patterns
+                    </span>
+<label class="relative inline-flex items-center cursor-pointer select-none">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full border-[1.5px] border-tactile-stroke peer peer-checked:after:translate-x-full peer-checked:after:border-tactile-stroke after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-warm-paper after:border-[1.5px] after:border-tactile-stroke after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-vermilion shadow-[2px_2px_0px_#151413]"></div>
+</label>
+</div>
+<!-- Toggle 3: Verb Transitivity (ON) -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface/40 hover:bg-surface/70 transition-colors">
+<span class="text-body-editorial-md font-body-editorial-md text-warm-paper text-sm">
+                      Show Verb Transitivity &amp; Pair Badges
+                    </span>
+<label class="relative inline-flex items-center cursor-pointer select-none">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full border-[1.5px] border-tactile-stroke peer peer-checked:after:translate-x-full peer-checked:after:border-tactile-stroke after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-warm-paper after:border-[1.5px] after:border-tactile-stroke after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-vermilion shadow-[2px_2px_0px_#151413]"></div>
+</label>
+</div>
+<!-- Toggle 4: Frequency Rank (ON) -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface/40 hover:bg-surface/70 transition-colors">
+<span class="text-body-editorial-md font-body-editorial-md text-warm-paper text-sm">
+                      Show Frequency Rank Badges
+                    </span>
+<label class="relative inline-flex items-center cursor-pointer select-none">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full border-[1.5px] border-tactile-stroke peer peer-checked:after:translate-x-full peer-checked:after:border-tactile-stroke after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-warm-paper after:border-[1.5px] after:border-tactile-stroke after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-vermilion shadow-[2px_2px_0px_#151413]"></div>
+</label>
+</div>
+<!-- Toggle 5: Kanji Stroke Diagrams (ON) -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface/40 hover:bg-surface/70 transition-colors">
+<span class="text-body-editorial-md font-body-editorial-md text-warm-paper text-sm">
+                      Show Kanji Stroke Vector Diagrams
+                    </span>
+<label class="relative inline-flex items-center cursor-pointer select-none">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full border-[1.5px] border-tactile-stroke peer peer-checked:after:translate-x-full peer-checked:after:border-tactile-stroke after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-warm-paper after:border-[1.5px] after:border-tactile-stroke after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-vermilion shadow-[2px_2px_0px_#151413]"></div>
+</label>
+</div>
+<!-- Toggle 6: Basic Particles (OFF) -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface/40 hover:bg-surface/70 transition-colors">
+<span class="text-body-editorial-md font-body-editorial-md text-paper-subtle text-sm">
+                      Show Basic Particles in Grammar Analyzer
+                    </span>
+<label class="relative inline-flex items-center cursor-pointer select-none">
+<input class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full border-[1.5px] border-tactile-stroke peer peer-checked:after:translate-x-full peer-checked:after:border-tactile-stroke after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper-dim after:border-[1.5px] after:border-tactile-stroke after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-vermilion shadow-[2px_2px_0px_#151413]"></div>
+</label>
+</div>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-tactile-stroke/40 flex items-center justify-between text-label-ui-caption font-label-ui-caption text-paper-subtle">
+<span class="">UI Density: Cozy (16px insets)</span>
+<span class="text-tertiary">All tags auto-saved</span>
+</div>
+</div>
+</div>
+</div>
+<!-- SECTION 2: ANKICONNECT & YOMITAN INTEGRATION -->
+<div class="bg-ink-surface rounded-2xl p-5 border border-ink-border flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-4 pb-2 border-b border-tactile-stroke/60">
+<span class="text-label-ui-bold font-label-ui-bold text-warm-paper flex items-center gap-2">
+<span class="material-symbols-outlined text-gold-eye text-[18px]">sync</span>
+                AnkiConnect &amp; Yomitan Integration
+              </span>
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 text-label-ui-caption font-label-ui-caption font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Connected (Anki v24.06.3)
+              </span>
+</div>
+<div class="space-y-4">
+<!-- AnkiConnect Endpoint -->
+<div>
+<label class="block text-label-ui-caption font-label-ui-caption text-paper-subtle mb-1.5">
+                  AnkiConnect Endpoint URL
+                </label>
+<div class="flex items-center gap-2">
+<div class="relative flex-1">
+<input class="w-full bg-surface text-warm-paper text-code-counter font-code-counter px-3 py-2 rounded-lg border-[1.5px] border-tactile-stroke shadow-[2px_2px_0px_#151413] focus:border-gold-eye focus:ring-0 focus:outline-none" type="text" value="http://127.0.0.1:8765">
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-paper-subtle text-[16px]">link</span>
+</div>
+</div>
+</div>
+<!-- Yomitan Daemon Endpoint -->
+<div>
+<label class="block text-label-ui-caption font-label-ui-caption text-paper-subtle mb-1.5">
+                  Yomitan Daemon Socket
+                </label>
+<div class="relative">
+<input class="w-full bg-surface text-warm-paper text-code-counter font-code-counter px-3 py-2 rounded-lg border-[1.5px] border-tactile-stroke shadow-[2px_2px_0px_#151413] focus:border-gold-eye focus:ring-0 focus:outline-none" type="text" value="http://127.0.0.1:19633">
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-paper-subtle text-[16px]">dns</span>
+</div>
+<div class="mt-2 flex items-center gap-2">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface border border-tactile-stroke text-paper-subtle text-label-ui-caption font-label-ui-caption">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    3 Dictionaries Active: JMdict, Daijirin, Kanjidic
+                  </span>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="mt-6 pt-4 border-t border-tactile-stroke/60 flex flex-wrap items-center gap-3">
+<button class="tactile-btn flex items-center gap-2 px-3.5 py-2 rounded-lg bg-surface text-warm-paper text-label-ui-bold font-label-ui-bold border-[1.5px] border-tactile-stroke shadow-[3px_3px_0px_#151413]">
+<!-- Slot marker for test connection spinner -->
+<span class="w-3.5 h-3.5 rounded-full border-2 border-paper-subtle border-t-warm-paper inline-block animate-spin" title="[ANIM_SLOT: test-connection-spin]"></span>
+<span class="">Test Anki Connection</span>
+</button>
+<button class="tactile-btn flex items-center gap-2 px-4 py-2 rounded-lg bg-vermilion text-warm-paper text-label-ui-bold font-label-ui-bold border-[1.5px] border-tactile-stroke shadow-[3px_3px_0px_#151413]">
+<span class="material-symbols-outlined text-[18px]">publish</span>
+<span class="">Sync All Pending Cards Now (34)</span>
+</button>
+</div>
+</div>
+<!-- SECTION 3: LLM ASSISTANT & WINDOWS DPAPI SECRET STORE -->
+<div class="bg-ink-surface rounded-2xl p-5 border border-ink-border flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-4 pb-2 border-b border-tactile-stroke/60">
+<span class="text-label-ui-bold font-label-ui-bold text-warm-paper flex items-center gap-2">
+<span class="material-symbols-outlined text-gold-eye text-[18px]">key</span>
+                LLM Assistant &amp; Windows DPAPI Secret Store
+              </span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-950/40 border border-amber-500/40 text-amber-300 text-label-ui-caption font-label-ui-caption">
+<span class="material-symbols-outlined text-[13px]">lock</span>
+                DPAPI Encrypted
+              </span>
+</div>
+<div class="space-y-4">
+<!-- Provider Dropdown & Model Name -->
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block text-label-ui-caption font-label-ui-caption text-paper-subtle mb-1.5">
+                    Provider
+                  </label>
+<div class="relative">
+<select class="w-full bg-surface text-warm-paper text-label-ui-bold font-label-ui-bold px-3 py-2 rounded-lg border-[1.5px] border-tactile-stroke shadow-[2px_2px_0px_#151413] focus:border-gold-eye focus:ring-0 focus:outline-none appearance-none cursor-pointer">
+<option>Gemini</option>
+<option>Groq</option>
+<option>Ollama (Local)</option>
+<option>None</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-paper-subtle text-[18px]">arrow_drop_down</span>
+</div>
+</div>
+<div>
+<label class="block text-label-ui-caption font-label-ui-caption text-paper-subtle mb-1.5">
+                    Model Name
+                  </label>
+<input class="w-full bg-surface text-warm-paper text-code-counter font-code-counter px-3 py-2 rounded-lg border-[1.5px] border-tactile-stroke shadow-[2px_2px_0px_#151413] focus:border-gold-eye focus:ring-0 focus:outline-none" type="text" value="gemini-1.5-flash">
+</div>
+</div>
+<!-- API Key Input -->
+<div>
+<div class="flex items-center justify-between mb-1.5">
+<label class="text-label-ui-caption font-label-ui-caption text-paper-subtle">
+                    Gemini API Key
+                  </label>
+<span class="text-label-ui-caption font-label-ui-caption text-[#C8A94A] flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">security</span>
+                    Protected with Windows DPAPI encryption
+                  </span>
+</div>
+<div class="relative">
+<input class="w-full bg-surface text-warm-paper text-code-counter font-code-counter tracking-widest px-3 py-2 rounded-lg border-[1.5px] border-tactile-stroke shadow-[2px_2px_0px_#151413] focus:border-gold-eye focus:ring-0 focus:outline-none pr-10" type="password" value="AIzaSyB348271894_secret_key_mock_9921">
+<button class="absolute right-2.5 top-1/2 -translate-y-1/2 text-paper-subtle hover:text-warm-paper" title="Show Key" type="button">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- Status Tag -->
+<div class="flex items-center gap-2 p-2 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-emerald-400 text-label-ui-caption font-label-ui-caption">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span class="">Connection OK — 142ms latency (us-central1)</span>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="mt-6 pt-4 border-t border-tactile-stroke/60 flex flex-wrap items-center gap-2">
+<button class="tactile-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-vermilion text-warm-paper text-label-ui-bold font-label-ui-bold border-[1.5px] border-tactile-stroke shadow-[3px_3px_0px_#151413]">
+<span class="material-symbols-outlined text-[16px]">save</span>
+<span class="">Save Key</span>
+</button>
+<button class="tactile-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-surface text-paper-subtle hover:text-error text-label-ui-bold font-label-ui-bold border-[1.5px] border-tactile-stroke shadow-[3px_3px_0px_#151413]">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+<span class="">Delete Key</span>
+</button>
+<button class="tactile-btn flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-surface text-warm-paper text-label-ui-bold font-label-ui-bold border-[1.5px] border-tactile-stroke shadow-[3px_3px_0px_#151413]">
+<span class="w-3.5 h-3.5 rounded-full border-2 border-paper-subtle border-t-warm-paper inline-block animate-spin" title="[ANIM_SLOT: test-connection-spin]"></span>
+<span class="">Test LLM Connection</span>
+</button>
+</div>
+</div>
+<!-- SECTION 4: SYSTEM MAINTENANCE & DIAGNOSTICS -->
+<div class="bg-ink-surface rounded-2xl p-5 border border-ink-border lg:col-span-2">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-tactile-stroke/60 gap-2">
+<div>
+<span class="text-label-ui-bold font-label-ui-bold text-warm-paper flex items-center gap-2">
+<span class="material-symbols-outlined text-gold-eye text-[18px]">terminal</span>
+                System Maintenance &amp; Diagnostics
+              </span>
+<p class="text-label-ui-caption font-label-ui-caption text-paper-subtle mt-0.5">
+                Subprocess Supervisor status: <span class="font-code-counter text-warm-paper">PID 7376 (Managed Subprocess on loopback :21828)</span>
+</p>
+</div>
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface border border-tactile-stroke text-label-ui-caption font-code-counter text-secondary">
+<span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                Uptime: 04:42:19
+              </span>
+</div>
+</div>
+<!-- Diagnostic Metrics Bento -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+<div class="bg-surface p-3.5 rounded-xl border border-tactile-stroke">
+<div class="text-label-ui-caption font-label-ui-caption text-paper-subtle">SQLite Engine</div>
+<div class="text-label-ui-bold font-label-ui-bold text-warm-paper mt-1 flex items-center justify-between">
+<span class="">PRAGMA WAL Mode</span>
+<span class="text-emerald-400 text-xs">Healthy</span>
+</div>
+<div class="text-[11px] font-code-counter text-paper-subtle mt-1">Db size: 24.8 MB (5,120 pages)</div>
+</div>
+<div class="bg-surface p-3.5 rounded-xl border border-tactile-stroke">
+<div class="text-label-ui-caption font-label-ui-caption text-paper-subtle">Local Cache Path</div>
+<div class="text-label-ui-bold font-label-ui-bold text-warm-paper mt-1 truncate">
+                %LOCALAPPDATA%\KirokuNote
+              </div>
+<div class="text-[11px] font-code-counter text-paper-subtle mt-1">Audio &amp; Snapshots: 118 files</div>
+</div>
+<div class="bg-surface p-3.5 rounded-xl border border-tactile-stroke">
+<div class="text-label-ui-caption font-label-ui-caption text-paper-subtle">OCR Worker Thread</div>
+<div class="text-label-ui-bold font-label-ui-bold text-warm-paper mt-1 flex items-center justify-between">
+<span class="">Manga-OCR-v0.1</span>
+<span class="text-amber-400 text-xs">Ready</span>
+</div>
+<div class="text-[11px] font-code-counter text-paper-subtle mt-1">DirectML acceleration enabled</div>
+</div>
+</div>
+<!-- Maintenance Actions -->
+<div class="flex flex-wrap items-center gap-3">
+<button class="tactile-btn flex items-center gap-2 px-3.5 py-2 rounded-lg bg-surface text-warm-paper text-label-ui-bold font-label-ui-bold border-[1.5px] border-tactile-stroke shadow-[3px_3px_0px_#151413]">
+<span class="material-symbols-outlined text-[16px]">stethoscope</span>
+<span class="">Run Doctor Integrity Check</span>
+</button>
+<button class="tactile-btn flex items-center gap-2 px-3.5 py-2 rounded-lg bg-surface text-warm-paper text-label-ui-bold font-label-ui-bold border-[1.5px] border-tactile-stroke shadow-[3px_3px_0px_#151413]">
+<span class="material-symbols-outlined text-[16px]">folder_open</span>
+<span class="">Open User Data Folder (%LOCALAPPDATA%\KirokuNote)</span>
+</button>
+<button class="tactile-btn flex items-center gap-2 px-3.5 py-2 rounded-lg bg-surface text-error hover:bg-error-container/30 text-label-ui-bold font-label-ui-bold border-[1.5px] border-tactile-stroke shadow-[3px_3px_0px_#151413]">
+<span class="material-symbols-outlined text-[16px]">restart_alt</span>
+<span class="">Restart Backend</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="mt-8 pt-4 border-t border-tactile-stroke/80 flex flex-col sm:flex-row items-center justify-between text-label-ui-caption font-label-ui-caption text-paper-subtle gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-tertiary">check_circle</span>
+<span class="">All modifications committed to local storage config.sqlite</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="tactile-btn px-4 py-2 rounded-lg bg-surface text-warm-paper border border-tactile-stroke shadow-[2px_2px_0px_#151413]">
+            Discard Changes
+          </button>
+<button class="tactile-btn px-5 py-2 rounded-lg bg-vermilion text-warm-paper border border-tactile-stroke shadow-[3px_3px_0px_#151413] font-bold">
+            Apply &amp; Restart Services
+          </button>
+</div>
+</div>
+</div>
+</main>
+<!-- FLOATING BOTTOM DOCK (SideNavBar from Shared Components JSON) -->
+<aside class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-warm-paper dark:bg-warm-paper rounded-full border-[1.5px] border-tactile-stroke dark:border-tactile-stroke [box-shadow:4px_4px_0px_#151413] select-none">
+<!-- Tab 1: Dashboard / Home -->
+<a class="flex flex-col items-center justify-center text-ink-black dark:text-ink-black rounded-full w-10 h-10 hover:bg-paper-dim hover:-translate-y-0.5 transition-transform duration-100 active:translate-x-[2px] active:translate-y-[2px]" href="#dashboard" title="Dashboard / ホーム">
+<span class="material-symbols-outlined text-[20px]">space_dashboard</span>
+</a>
+<!-- Tab 2: Vocab -->
+<a class="flex flex-col items-center justify-center text-ink-black dark:text-ink-black rounded-full w-10 h-10 hover:bg-paper-dim hover:-translate-y-0.5 transition-transform duration-100 active:translate-x-[2px] active:translate-y-[2px]" href="#vocab" title="Vocab / 単語">
+<span class="material-symbols-outlined text-[20px]">menu_book</span>
+</a>
+<!-- Tab 3: Kanji -->
+<a class="flex flex-col items-center justify-center text-ink-black dark:text-ink-black rounded-full w-10 h-10 hover:bg-paper-dim hover:-translate-y-0.5 transition-transform duration-100 active:translate-x-[2px] active:translate-y-[2px]" href="#kanji" title="Kanji / 漢字">
+<span class="material-symbols-outlined text-[20px]">translate</span>
+</a>
+<!-- Tab 4: Grammar -->
+<a class="flex flex-col items-center justify-center text-ink-black dark:text-ink-black rounded-full w-10 h-10 hover:bg-paper-dim hover:-translate-y-0.5 transition-transform duration-100 active:translate-x-[2px] active:translate-y-[2px]" href="#grammar" title="Grammar / 文法">
+<span class="material-symbols-outlined text-[20px]">auto_stories</span>
+</a>
+<!-- Tab 5: Review / Test -->
+<a class="flex flex-col items-center justify-center text-ink-black dark:text-ink-black rounded-full w-10 h-10 hover:bg-paper-dim hover:-translate-y-0.5 transition-transform duration-100 active:translate-x-[2px] active:translate-y-[2px]" href="#review" title="Review / 復習">
+<span class="material-symbols-outlined text-[20px]">stylus_note</span>
+</a>
+<!-- Tab 6: Settings (ACTIVE TAB: Exact match for GlobalSettingsScreen) -->
+<a class="flex items-center justify-center bg-vermilion text-warm-paper rounded-full w-10 h-10 border-[1.5px] border-tactile-stroke [box-shadow:2px_2px_0px_#151413] hover:-translate-y-0.5 transition-transform duration-100 active:translate-x-[2px] active:translate-y-[2px]" href="#settings" title="Settings / 設定">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">settings</span>
+</a>
+<div class="h-5 w-[1.5px] bg-tactile-stroke/40 mx-0.5"></div>
+<!-- Companion Quick Action / Sync CTA -->
+<button class="tactile-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-tactile-stroke text-warm-paper text-label-ui-caption font-label-ui-caption font-bold border border-tactile-stroke hover:bg-ink-black">
+<span class="material-symbols-outlined text-[15px] text-tertiary">cloud_sync</span>
+<span class="">Sync Deck</span>
+</button>
+</aside>
+<!-- Interactive physics helper script -->
+<script>
+    // Lightweight tactile auditory / click bounce feedback
+    document.querySelectorAll('.tactile-btn, button, select').forEach(element => {
+      element.addEventListener('click', () => {
+        // Micro scale bump to reinforce sticker/mechanical feeling
+        element.style.transition = 'transform 50ms ease';
+        setTimeout(() => {
+          element.style.transition = '';
+        }, 100);
+      });
+    });
+  </script>
+
+
+
+
+</body></html>

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Kiroku 記録 — Settings</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Epilogue:ital,wght@0,600;0,700;0,800;1,700&amp;family=Inter:wght@400;500;600;700&amp;family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-secondary-container": "#b8b5ad",
+            "surface-container-low": "#1c1b19",
+            "surface": "#141311",
+            "surface-container-highest": "#363532",
+            "surface-tint": "#ffb4a7",
+            "tertiary-fixed": "#ffe088",
+            "primary-fixed": "#ffdad4",
+            "on-surface-variant": "#e1bfb9",
+            "on-tertiary-fixed-variant": "#574500",
+            "background": "#141311",
+            "paper-subtle": "rgba(245, 241, 232, 0.45)",
+            "on-tertiary": "#3c2f00",
+            "gold-glow": "rgba(200, 169, 74, 0.08)",
+            "tactile-stroke": "#151413",
+            "on-secondary": "#31302b",
+            "surface-container-high": "#2b2a28",
+            "secondary-container": "#484740",
+            "outline-variant": "#59413d",
+            "on-primary": "#680200",
+            "on-secondary-fixed": "#1c1c16",
+            "tertiary-container": "#c7a849",
+            "surface-container-lowest": "#0f0e0c",
+            "inverse-surface": "#e6e2de",
+            "on-tertiary-fixed": "#241a00",
+            "surface-variant": "#363532",
+            "on-primary-fixed": "#410100",
+            "primary-fixed-dim": "#ffb4a7",
+            "surface-dim": "#141311",
+            "on-background": "#e6e2de",
+            "ink-surface": "#2A2926",
+            "warm-paper": "#F5F1E8",
+            "on-surface": "#e6e2de",
+            "outline": "#a88a84",
+            "on-primary-container": "#5b0200",
+            "inverse-primary": "#b02e1e",
+            "ink-black": "#22211F",
+            "on-primary-fixed-variant": "#8e1308",
+            "secondary": "#cac6be",
+            "surface-bright": "#3a3937",
+            "tertiary": "#e4c461",
+            "gold-eye": "#C8A94A",
+            "paper-dim": "#E8E3D8",
+            "on-error-container": "#ffdad6",
+            "vermilion": "#D94B38",
+            "inverse-on-surface": "#31302e",
+            "error": "#ffb4ab",
+            "primary-container": "#f55f4a",
+            "secondary-fixed-dim": "#cac6be",
+            "error-container": "#93000a",
+            "on-error": "#690005",
+            "vermilion-glow": "rgba(217, 75, 56, 0.20)",
+            "on-tertiary-container": "#4e3d00",
+            "on-secondary-fixed-variant": "#484740",
+            "primary": "#ffb4a7",
+            "tertiary-fixed-dim": "#e4c461",
+            "secondary-fixed": "#e6e2d9",
+            "surface-container": "#201f1d",
+            "ink-border": "rgba(245, 241, 232, 0.12)"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-md": "1rem",
+            "space-sm": "0.5rem",
+            "gutter-sm": "1rem",
+            "margin-sm": "1rem",
+            "space-xl": "2.5rem",
+            "space-lg": "1.5rem",
+            "margin": "2rem",
+            "space-xs": "0.25rem",
+            "gutter": "1.5rem"
+          },
+          "fontFamily": {
+            "headline-editorial-lg": ["Noto Serif"],
+            "display-comic": ["Epilogue"],
+            "body-editorial-lg": ["Noto Serif"],
+            "headline-editorial-md": ["Noto Serif"],
+            "label-ui-caption": ["Inter"],
+            "headline-editorial-lg-mobile": ["Noto Serif"],
+            "body-editorial-md": ["Noto Serif"],
+            "title-brand": ["Noto Serif"],
+            "display-comic-mobile": ["Epilogue"],
+            "label-ui-bold": ["Inter"],
+            "code-counter": ["Inter"]
+          },
+          "fontSize": {
+            "headline-editorial-lg": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "display-comic": ["44px", { "lineHeight": "52px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+            "body-editorial-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "headline-editorial-md": ["24px", { "lineHeight": "32px", "letterSpacing": "0em", "fontWeight": "600" }],
+            "label-ui-caption": ["11px", { "lineHeight": "14px", "letterSpacing": "0.06em", "fontWeight": "500" }],
+            "headline-editorial-lg-mobile": ["26px", { "lineHeight": "34px", "letterSpacing": "0em", "fontWeight": "700" }],
+            "body-editorial-md": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "title-brand": ["20px", { "lineHeight": "28px", "letterSpacing": "0.12em", "fontWeight": "700" }],
+            "display-comic-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "800" }],
+            "label-ui-bold": ["13px", { "lineHeight": "18px", "letterSpacing": "0.04em", "fontWeight": "600" }],
+            "code-counter": ["14px", { "lineHeight": "16px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    /* Tactile interaction primitives */
+    .tactile-btn {
+      transition: transform 75ms cubic-bezier(0.2, 0, 0, 1), box-shadow 75ms cubic-bezier(0.2, 0, 0, 1);
+    }
+    .tactile-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0px #151413;
+    }
+    .tactile-btn:active {
+      transform: translate(1px, 1px) !important;
+      box-shadow: 1px 1px 0px #151413 !important;
+    }
+
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #141311;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #363532;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #D94B38;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col font-label-ui-bold antialiased selection:bg-vermilion selection:text-warm-paper">
+<!-- TOP APP BAR / FRAMELESS CHROME (TopNavBar - Strictly Preserved Section 4.A) -->
+<header class="sticky top-0 z-50 w-full h-12 bg-[#141311] border-b border-[#2A2926] px-5 flex items-center justify-between select-none">
+<!-- Left Zone: Window dots + KIROKU wordmark + Mode Badge -->
+<div class="flex items-center">
+<!-- 3 tactile window dots (10px diameter: #D94B38 vermilion, #C8A94A gold, #3A3937 maximise) -->
+<div class="flex items-center gap-2 mr-4">
+<span class="w-2.5 h-2.5 rounded-full bg-[#D94B38] border border-[#151413] inline-block cursor-pointer hover:opacity-80 transition-opacity"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-[#C8A94A] border border-[#151413] inline-block cursor-pointer hover:opacity-80 transition-opacity"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-[#3A3937] border border-[#151413] inline-block cursor-pointer hover:opacity-80 transition-opacity"></span>
+</div>
+<!-- Wordmark: KIROKU with staggered letter-lift hover effect -->
+<div class="font-title-brand text-[17px] font-bold text-[#F5F1E8] tracking-[0.14em] flex items-center select-none cursor-pointer group">
+<span class="inline-block transition-transform duration-150 group-hover:-translate-y-0.5">K</span>
+<span class="inline-block transition-transform duration-150 delay-75 group-hover:-translate-y-0.5">I</span>
+<span class="inline-block transition-transform duration-150 delay-100 group-hover:-translate-y-0.5">R</span>
+<span class="inline-block transition-transform duration-150 delay-150 group-hover:-translate-y-0.5">O</span>
+<span class="inline-block transition-transform duration-150 delay-200 group-hover:-translate-y-0.5">K</span>
+<span class="inline-block transition-transform duration-150 delay-300 group-hover:-translate-y-0.5">U</span>
+</div>
+<!-- Mode Badge: NOTE ノート -->
+<span class="ml-3 px-2.5 py-0.5 h-5 rounded-[6px] bg-[#C8A94A] text-[#151413] text-[11px] font-bold tracking-[0.08em] font-label-ui-caption inline-flex items-center justify-center [box-shadow:1px_1px_0px_#151413]">
+      NOTE ノート
+    </span>
+</div>
+<!-- Right Zone: History & Settings buttons -->
+<div class="flex items-center gap-2.5">
+<!-- History button -->
+<button aria-label="History" class="w-8 h-8 rounded-[8px] bg-[#1C1B19] border border-[rgba(245,241,232,0.12)] flex items-center justify-center cursor-pointer hover:bg-[#2A2926] transition-all group" title="History">
+<svg class="w-4 h-4 text-[#F5F1E8] transition-transform duration-200 group-hover:-rotate-[15deg]" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" viewbox="0 0 24 24">
+<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+<path d="M3 3v5h5"></path>
+<path d="M12 7v5l4 2"></path>
+</svg>
+</button>
+<!-- Settings button -->
+<button aria-label="Settings" class="w-8 h-8 rounded-[8px] bg-[#1C1B19] border border-[rgba(245,241,232,0.12)] flex items-center justify-center cursor-pointer hover:bg-[#2A2926] transition-all group" title="Settings">
+<svg class="w-4 h-4 text-[#F5F1E8] transition-transform duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-45" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" viewbox="0 0 24 24">
+<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+<circle cx="12" cy="12" r="3"></circle>
+</svg>
+</button>
+</div>
+</header>
+<!-- MAIN TWO-COLUMN STUDIO SETTINGS CONTAINER (Zen Minimalist Index) -->
+<main class="flex-1 w-full max-w-6xl mx-auto px-6 py-8 mb-28">
+<!-- Header Bar -->
+<div class="flex items-center justify-between pb-6 mb-8 border-b border-tactile-stroke/70">
+<div>
+<div class="flex items-center gap-2 mb-1.5">
+<span class="text-label-ui-caption font-label-ui-caption text-vermilion uppercase font-bold tracking-widest">Preferences</span>
+<span class="w-1.5 h-1.5 rounded-full bg-vermilion"></span>
+<span class="text-label-ui-caption font-label-ui-caption text-paper-subtle">Kiroku v24.11</span>
+</div>
+<h1 class="text-headline-editorial-lg font-headline-editorial-lg text-warm-paper tracking-tight">
+        Settings
+      </h1>
+<p class="text-body-editorial-md font-body-editorial-md text-paper-subtle mt-1">
+        Customize your reading flow, sync decks to Anki, and manage your AI assistant.
+      </p>
+</div>
+<!-- Simple Status Indicator -->
+<div class="hidden sm:flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-surface-container-low border border-ink-border text-paper-subtle text-label-ui-caption">
+<span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+<span>All settings saved locally</span>
+</div>
+</div>
+<!-- Two-Column Studio Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+<!-- LEFT NAVIGATION: Clean Category Index -->
+<nav class="md:col-span-4 lg:col-span-3 space-y-1.5 sticky top-20">
+<button class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-surface-container-low text-warm-paper font-label-ui-bold text-[13px] border border-tactile-stroke shadow-[2px_2px_0px_#151413] text-left transition-all">
+<span class="material-symbols-outlined text-[19px] text-vermilion">tune</span>
+<span>General &amp; Interface</span>
+</button>
+<button class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-secondary hover:text-warm-paper hover:bg-surface-container-low/60 font-label-ui-bold text-[13px] border border-transparent hover:border-tactile-stroke/40 text-left transition-all">
+<span class="material-symbols-outlined text-[19px] text-paper-subtle">sync_alt</span>
+<span>Anki &amp; Mining Sync</span>
+</button>
+<button class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-secondary hover:text-warm-paper hover:bg-surface-container-low/60 font-label-ui-bold text-[13px] border border-transparent hover:border-tactile-stroke/40 text-left transition-all">
+<span class="material-symbols-outlined text-[19px] text-paper-subtle">smart_toy</span>
+<span>AI Assistant (Gemini)</span>
+</button>
+<button class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-secondary hover:text-warm-paper hover:bg-surface-container-low/60 font-label-ui-bold text-[13px] border border-transparent hover:border-tactile-stroke/40 text-left transition-all">
+<span class="material-symbols-outlined text-[19px] text-paper-subtle">database</span>
+<span>Diagnostics &amp; Data</span>
+</button>
+<div class="pt-6 mt-6 border-t border-tactile-stroke/50">
+<div class="px-3 text-label-ui-caption text-paper-subtle/70 leading-relaxed">
+          Sumi Ink &amp; Paper Studio<br/>
+<span class="font-code-counter text-[10px]">Build #7376 · Desktop Native</span>
+</div>
+</div>
+</nav>
+<!-- RIGHT CONTENT AREA: Spacious, Human-Friendly Settings Cards -->
+<div class="md:col-span-8 lg:col-span-9 space-y-6">
+<!-- SECTION 1: Study & Display Preferences -->
+<section class="bg-surface-container-low border border-tactile-stroke rounded-2xl p-6 lg:p-7 shadow-[4px_4px_0px_#0f0e0c]">
+<div class="flex items-center gap-2.5 mb-1 pb-3 border-b border-tactile-stroke/60">
+<span class="w-2 h-2 rounded-full bg-vermilion"></span>
+<h2 class="text-headline-editorial-md font-headline-editorial-md text-warm-paper text-[20px]">
+            Study &amp; Display Preferences
+          </h2>
+</div>
+<p class="text-label-ui-caption text-paper-subtle mb-6">
+          Tailor how readings, kanji breakdowns, and hints surface during your Japanese immersion.
+        </p>
+<div class="space-y-6">
+<!-- Default JLPT Level: Segmented Picker -->
+<div>
+<div class="flex items-center justify-between mb-2">
+<label class="text-label-ui-bold text-warm-paper text-sm">Default JLPT Level</label>
+<span class="text-label-ui-caption text-paper-subtle">Guides vocabulary frequency rating</span>
+</div>
+<div class="grid grid-cols-5 gap-2 p-1.5 bg-surface rounded-xl border border-tactile-stroke">
+<button class="py-2 rounded-lg text-secondary hover:text-warm-paper text-xs font-bold transition-colors">N5</button>
+<button class="py-2 rounded-lg bg-vermilion text-warm-paper text-xs font-bold shadow-[1px_1px_0px_#151413] border border-tactile-stroke">N4</button>
+<button class="py-2 rounded-lg text-secondary hover:text-warm-paper text-xs font-bold transition-colors">N3</button>
+<button class="py-2 rounded-lg text-secondary hover:text-warm-paper text-xs font-bold transition-colors">N2</button>
+<button class="py-2 rounded-lg text-secondary hover:text-warm-paper text-xs font-bold transition-colors">N1</button>
+</div>
+</div>
+<!-- Furigana Display: Segmented Picker -->
+<div>
+<div class="flex items-center justify-between mb-2">
+<label class="text-label-ui-bold text-warm-paper text-sm">Furigana Readings</label>
+<span class="text-label-ui-caption text-paper-subtle">Ruby text over kanji</span>
+</div>
+<div class="grid grid-cols-3 gap-2 p-1.5 bg-surface rounded-xl border border-tactile-stroke">
+<button class="py-2 rounded-lg bg-surface-container text-warm-paper text-xs font-bold border border-tactile-stroke shadow-[1px_1px_0px_#151413]">Always Show</button>
+<button class="py-2 rounded-lg text-secondary hover:text-warm-paper text-xs font-bold transition-colors">On Hover Only</button>
+<button class="py-2 rounded-lg text-secondary hover:text-warm-paper text-xs font-bold transition-colors">Hidden</button>
+</div>
+</div>
+<!-- Clean Toggles with Plain English Labels -->
+<div class="pt-4 border-t border-tactile-stroke/50 space-y-3.5">
+<!-- Pitch Accent -->
+<div class="flex items-center justify-between py-2 px-3 rounded-xl bg-surface/50 hover:bg-surface/80 transition-colors">
+<div>
+<div class="text-label-ui-bold text-warm-paper text-sm">Pitch Accent Patterns</div>
+<div class="text-label-ui-caption text-paper-subtle">Display high/low pitch contour lines on dictionary cards</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer select-none ml-4">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full border border-tactile-stroke peer peer-checked:after:translate-x-full peer-checked:after:border-tactile-stroke after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-warm-paper after:border after:border-tactile-stroke after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-vermilion shadow-[2px_2px_0px_#151413]"></div>
+</label>
+</div>
+<!-- Stroke Order -->
+<div class="flex items-center justify-between py-2 px-3 rounded-xl bg-surface/50 hover:bg-surface/80 transition-colors">
+<div>
+<div class="text-label-ui-bold text-warm-paper text-sm">Kanji Stroke Order Diagrams</div>
+<div class="text-label-ui-caption text-paper-subtle">Show vector stroke path animations when opening character details</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer select-none ml-4">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full border border-tactile-stroke peer peer-checked:after:translate-x-full peer-checked:after:border-tactile-stroke after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-warm-paper after:border after:border-tactile-stroke after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-vermilion shadow-[2px_2px_0px_#151413]"></div>
+</label>
+</div>
+<!-- Word Frequency -->
+<div class="flex items-center justify-between py-2 px-3 rounded-xl bg-surface/50 hover:bg-surface/80 transition-colors">
+<div>
+<div class="text-label-ui-bold text-warm-paper text-sm">Word Frequency Rank</div>
+<div class="text-label-ui-caption text-paper-subtle">Show innocence/novel frequency rank badges beside words</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer select-none ml-4">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full border border-tactile-stroke peer peer-checked:after:translate-x-full peer-checked:after:border-tactile-stroke after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-warm-paper after:border after:border-tactile-stroke after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-vermilion shadow-[2px_2px_0px_#151413]"></div>
+</label>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 2: Anki Sync Connection -->
+<section class="bg-surface-container-low border border-tactile-stroke rounded-2xl p-6 lg:p-7 shadow-[4px_4px_0px_#0f0e0c]">
+<div class="flex items-center justify-between mb-1 pb-3 border-b border-tactile-stroke/60">
+<div class="flex items-center gap-2.5">
+<span class="w-2 h-2 rounded-full bg-gold-eye"></span>
+<h2 class="text-headline-editorial-md font-headline-editorial-md text-warm-paper text-[20px]">
+              Anki Sync Connection
+            </h2>
+</div>
+<!-- Clean Ping Status Badge -->
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/50 border border-emerald-500/40 text-emerald-400 text-label-ui-caption font-bold">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+<span>Connected to Anki · Port 8765</span>
+</div>
+</div>
+<p class="text-label-ui-caption text-paper-subtle mb-6">
+          Direct local bridge to sync freshly mined Japanese vocabulary and audio snippets.
+        </p>
+<div class="space-y-4">
+<!-- Deck and Note Type in clean two columns -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div>
+<label class="block text-label-ui-caption text-paper-subtle mb-1.5">Destination Deck</label>
+<div class="relative">
+<select class="w-full bg-surface text-warm-paper text-sm px-3.5 py-2.5 rounded-xl border border-tactile-stroke shadow-[2px_2px_0px_#151413] focus:border-gold-eye focus:ring-0 focus:outline-none appearance-none cursor-pointer">
+<option>Japanese::Mining (Active)</option>
+<option>Japanese::Sentence-Cards</option>
+<option>Japanese::Anime-Mined</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-paper-subtle text-[18px]">expand_more</span>
+</div>
+</div>
+<div>
+<label class="block text-label-ui-caption text-paper-subtle mb-1.5">Note Model</label>
+<div class="relative">
+<select class="w-full bg-surface text-warm-paper text-sm px-3.5 py-2.5 rounded-xl border border-tactile-stroke shadow-[2px_2px_0px_#151413] focus:border-gold-eye focus:ring-0 focus:outline-none appearance-none cursor-pointer">
+<option>Kiroku Mining Note (Recommended)</option>
+<option>Yomitan Standard</option>
+<option>AnimeCards Audio Model</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-paper-subtle text-[18px]">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Clean Actions -->
+<div class="pt-4 border-t border-tactile-stroke/50 flex flex-wrap items-center justify-between gap-3">
+<button class="tactile-btn flex items-center gap-2 px-4 py-2 rounded-xl bg-surface text-warm-paper text-xs font-label-ui-bold border border-tactile-stroke shadow-[2px_2px_0px_#151413]">
+<span class="material-symbols-outlined text-[16px] text-gold-eye">bolt</span>
+<span>Test Connection</span>
+</button>
+<button class="tactile-btn flex items-center gap-2 px-5 py-2 rounded-xl bg-vermilion text-warm-paper text-xs font-label-ui-bold border border-tactile-stroke shadow-[2px_2px_0px_#151413]">
+<span class="material-symbols-outlined text-[16px]">sync</span>
+<span>Sync 34 Pending Cards</span>
+</button>
+</div>
+</div>
+</section>
+<!-- SECTION 3: AI Assistant -->
+<section class="bg-surface-container-low border border-tactile-stroke rounded-2xl p-6 lg:p-7 shadow-[4px_4px_0px_#0f0e0c]">
+<div class="flex items-center justify-between mb-1 pb-3 border-b border-tactile-stroke/60">
+<div class="flex items-center gap-2.5">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<h2 class="text-headline-editorial-md font-headline-editorial-md text-warm-paper text-[20px]">
+              AI Assistant
+            </h2>
+</div>
+<!-- Latency status pill -->
+<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-label-ui-caption font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+<span>Ready · 142ms latency</span>
+</div>
+</div>
+<p class="text-label-ui-caption text-paper-subtle mb-6">
+          Powers natural phrase breakdowns, nuance explanations, and contextual grammar help.
+        </p>
+<div class="space-y-4">
+<!-- Active Model Pill & Key -->
+<div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="text-label-ui-caption text-paper-subtle">Engine:</span>
+<span class="px-3 py-1.5 rounded-lg bg-surface border border-tactile-stroke text-warm-paper text-xs font-code-counter flex items-center gap-1.5 shadow-[1px_1px_0px_#151413]">
+<span class="material-symbols-outlined text-gold-eye text-[16px]">auto_awesome</span>
+                Gemini 1.5 Flash
+              </span>
+</div>
+<div class="text-label-ui-caption text-gold-eye flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">lock</span>
+              Protected with Windows DPAPI encryption
+            </div>
+</div>
+<!-- Password-masked API key field -->
+<div>
+<label class="block text-label-ui-caption text-paper-subtle mb-1.5">Gemini API Key</label>
+<div class="relative flex items-center">
+<input class="w-full bg-surface text-warm-paper font-code-counter tracking-widest text-xs px-3.5 py-2.5 rounded-xl border border-tactile-stroke shadow-[2px_2px_0px_#151413] focus:border-gold-eye focus:ring-0 focus:outline-none pr-24" type="password" value="••••••••••••••••••••••••••••••••••••••••"/>
+<div class="absolute right-2 flex items-center gap-1">
+<button class="p-1 text-paper-subtle hover:text-warm-paper transition-colors" title="Toggle visibility">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="tactile-btn px-2.5 py-1 rounded-lg bg-surface-container text-warm-paper text-xs font-label-ui-bold border border-tactile-stroke">
+                  Update
+                </button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Floating Action Footer (Changes) -->
+<div class="flex items-center justify-between pt-2 px-1 text-label-ui-caption text-paper-subtle">
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-tertiary text-[16px]">check_circle</span>
+          Configuration active
+        </span>
+<div class="flex items-center gap-3">
+<button class="tactile-btn px-4 py-2 rounded-xl bg-surface text-paper-subtle hover:text-warm-paper border border-tactile-stroke text-xs font-label-ui-bold shadow-[2px_2px_0px_#151413]">
+            Discard
+          </button>
+<button class="tactile-btn px-5 py-2 rounded-xl bg-vermilion text-warm-paper border border-tactile-stroke text-xs font-label-ui-bold shadow-[3px_3px_0px_#151413] font-bold">
+            Save Changes
+          </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- FLOATING BOTTOM DOCK (Preserved Navigation Dock) -->
+<aside class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-warm-paper rounded-full border-[1.5px] border-tactile-stroke [box-shadow:4px_4px_0px_#151413] select-none">
+<!-- Tab 1: Dashboard / Home -->
+<a class="flex flex-col items-center justify-center text-ink-black rounded-full w-10 h-10 hover:bg-paper-dim hover:-translate-y-0.5 transition-transform duration-100 active:translate-x-[2px] active:translate-y-[2px]" href="#dashboard" title="Dashboard / ホーム">
+<span class="material-symbols-outlined text-[20px]">space_dashboard</span>
+</a>
+<!-- Tab 2: Vocab -->
+<a class="flex flex-col items-center justify-center text-ink-black rounded-full w-10 h-10 hover:bg-paper-dim hover:-translate-y-0.5 transition-transform duration-100 active:translate-x-[2px] active:translate-y-[2px]" href="#vocab" title="Vocab / 単語">
+<span class="material-symbols-outlined text-[20px]">menu_book</span>
+</a>
+<!-- Tab 3: Kanji -->
+<a class="flex flex-col items-center justify-center text-ink-black rounded-full w-10 h-10 hover:bg-paper-dim hover:-translate-y-0.5 transition-transform duration-100 active:translate-x-[2px] active:translate-y-[2px]" href="#kanji" title="Kanji / 漢字">
+<span class="material-symbols-outlined text-[20px]">translate</span>
+</a>
+<!-- Tab 4: Grammar -->
+<a class="flex flex-col items-center justify-center text-ink-black rounded-full w-10 h-10 hover:bg-paper-dim hover:-translate-y-0.5 transition-transform duration-100 active:translate-x-[2px] active:translate-y-[2px]" href="#grammar" title="Grammar / 文法">
+<span class="material-symbols-outlined text-[20px]">auto_stories</span>
+</a>
+<!-- Tab 5: Review / Test -->
+<a class="flex flex-col items-center justify-center text-ink-black rounded-full w-10 h-10 hover:bg-paper-dim hover:-translate-y-0.5 transition-transform duration-100 active:translate-x-[2px] active:translate-y-[2px]" href="#review" title="Review / 復習">
+<span class="material-symbols-outlined text-[20px]">stylus_note</span>
+</a>
+<!-- Tab 6: Settings (ACTIVE) -->
+<a class="flex items-center justify-center bg-vermilion text-warm-paper rounded-full w-10 h-10 border-[1.5px] border-tactile-stroke [box-shadow:2px_2px_0px_#151413] hover:-translate-y-0.5 transition-transform duration-100 active:translate-x-[2px] active:translate-y-[2px]" href="#settings" title="Settings / 設定">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">settings</span>
+</a>
+<div class="h-5 w-[1.5px] bg-tactile-stroke/40 mx-0.5"></div>
+<!-- Companion Quick Action / Sync CTA -->
+<button class="tactile-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-tactile-stroke text-warm-paper text-label-ui-caption font-label-ui-caption font-bold border border-tactile-stroke hover:bg-ink-black">
+<span class="material-symbols-outlined text-[15px] text-tertiary">cloud_sync</span>
+<span>Sync Deck</span>
+</button>
+</aside>
+<!-- Interactive physics helper script -->
+<script>
+  document.querySelectorAll('.tactile-btn, button, select').forEach(element => {
+    element.addEventListener('click', () => {
+      element.style.transition = 'transform 50ms ease';
+      setTimeout(() => {
+        element.style.transition = '';
+      }, 100);
+    });
+  });
+</script>
+</body></html>

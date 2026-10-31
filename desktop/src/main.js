@@ -423,11 +423,14 @@ async function startBackendAndLoadUI() {
     refreshServicesStatus(true).catch(() => {});
 
     // Backend and authenticated Study API are verified ready.
-    // Load M13 Minimal Functional Shell (or Sidepanel if explicitly requested).
+    // Load Kiroku Native Desktop Shell (or diagnostic shell/sidepanel if requested).
     const isSidepanelView = process.env.KIROKU_DESKTOP_VIEW === 'sidepanel';
+    const isDiagnosticsShell = process.env.KIROKU_DESKTOP_VIEW === 'shell';
     const targetFile = isSidepanelView
       ? path.join(repoRoot, 'extension', 'sidepanel', 'sidepanel.html')
-      : path.join(__dirname, 'shell.html');
+      : isDiagnosticsShell
+      ? path.join(__dirname, 'shell.html')
+      : path.join(__dirname, 'index.html');
 
     if (mainWindow) {
       mainWindow.loadFile(targetFile);

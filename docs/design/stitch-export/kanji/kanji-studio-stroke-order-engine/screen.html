@@ -1,0 +1,636 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Kiroku 記録 - Kanji Studio</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Epilogue:ital,wght@0,700;0,800;0,900;1,700&amp;family=Inter:wght@400;500;600;700&amp;family=Noto+Serif+JP:wght@400;600;700;900&amp;family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "secondary-fixed": "#e6e2d9",
+            "error-container": "#93000a",
+            "on-tertiary": "#3c2f00",
+            "on-secondary-container": "#b8b5ad",
+            "tertiary-fixed": "#ffe088",
+            "surface-container": "#201f1d",
+            "surface-container-highest": "#363532",
+            "vermilion-glow": "rgba(217, 75, 56, 0.20)",
+            "surface-container-high": "#2b2a28",
+            "primary-fixed": "#ffdad4",
+            "tertiary-container": "#c7a849",
+            "vermilion": "#D94B38",
+            "tactile-stroke": "#151413",
+            "outline": "#a88a84",
+            "warm-paper": "#F5F1E8",
+            "secondary-container": "#484740",
+            "on-background": "#e6e2de",
+            "surface-dim": "#141311",
+            "inverse-primary": "#b02e1e",
+            "on-surface-variant": "#e1bfb9",
+            "surface": "#141311",
+            "error": "#ffb4ab",
+            "surface-variant": "#363532",
+            "surface-container-low": "#1c1b19",
+            "outline-variant": "#59413d",
+            "on-error": "#690005",
+            "gold-eye": "#C8A94A",
+            "primary-container": "#f55f4a",
+            "on-secondary-fixed": "#1c1c16",
+            "on-error-container": "#ffdad6",
+            "paper-subtle": "rgba(245, 241, 232, 0.45)",
+            "inverse-on-surface": "#31302e",
+            "primary-fixed-dim": "#ffb4a7",
+            "ink-black": "#22211F",
+            "on-tertiary-container": "#4e3d00",
+            "secondary-fixed-dim": "#cac6be",
+            "on-primary-container": "#5b0200",
+            "tertiary": "#e4c461",
+            "on-secondary-fixed-variant": "#484740",
+            "primary": "#ffb4a7",
+            "surface-container-lowest": "#0f0e0c",
+            "gold-glow": "rgba(200, 169, 74, 0.08)",
+            "tertiary-fixed-dim": "#e4c461",
+            "surface-bright": "#3a3937",
+            "inverse-surface": "#e6e2de",
+            "on-surface": "#e6e2de",
+            "on-primary-fixed": "#410100",
+            "on-primary": "#680200",
+            "ink-surface": "#2A2926",
+            "on-primary-fixed-variant": "#8e1308",
+            "paper-dim": "#E8E3D8",
+            "secondary": "#cac6be",
+            "on-secondary": "#31302b",
+            "on-tertiary-fixed": "#241a00",
+            "background": "#141311",
+            "on-tertiary-fixed-variant": "#574500",
+            "ink-border": "rgba(245, 241, 232, 0.12)",
+            "surface-tint": "#ffb4a7"
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "space-lg": "1.5rem",
+            "margin-sm": "1rem",
+            "space-sm": "0.5rem",
+            "gutter-sm": "1rem",
+            "margin": "2rem",
+            "space-xs": "0.25rem",
+            "space-xl": "2.5rem",
+            "space-md": "1rem",
+            "gutter": "1.5rem"
+          },
+          fontFamily: {
+            "headline-editorial-md": ["Noto Serif", "serif"],
+            "headline-editorial-lg": ["Noto Serif", "serif"],
+            "code-counter": ["Inter", "sans-serif"],
+            "title-brand": ["Noto Serif", "serif"],
+            "label-ui-caption": ["Inter", "sans-serif"],
+            "display-comic-mobile": ["Epilogue", "sans-serif"],
+            "body-editorial-md": ["Noto Serif", "serif"],
+            "label-ui-bold": ["Inter", "sans-serif"],
+            "display-comic": ["Epilogue", "sans-serif"],
+            "body-editorial-lg": ["Noto Serif", "serif"],
+            "headline-editorial-lg-mobile": ["Noto Serif", "serif"],
+            "kanji-glyph": ["Noto Serif JP", "serif"]
+          },
+          fontSize: {
+            "headline-editorial-md": ["24px", { lineHeight: "32px", letterSpacing: "0em", fontWeight: "600" }],
+            "headline-editorial-lg": ["36px", { lineHeight: "44px", letterSpacing: "-0.01em", fontWeight: "700" }],
+            "code-counter": ["14px", { lineHeight: "16px", letterSpacing: "-0.02em", fontWeight: "700" }],
+            "title-brand": ["20px", { lineHeight: "28px", letterSpacing: "0.12em", fontWeight: "700" }],
+            "label-ui-caption": ["11px", { lineHeight: "14px", letterSpacing: "0.06em", fontWeight: "500" }],
+            "display-comic-mobile": ["32px", { lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "800" }],
+            "body-editorial-md": ["15px", { lineHeight: "24px", fontWeight: "400" }],
+            "label-ui-bold": ["13px", { lineHeight: "18px", letterSpacing: "0.04em", fontWeight: "600" }],
+            "display-comic": ["44px", { lineHeight: "52px", letterSpacing: "-0.02em", fontWeight: "800" }],
+            "body-editorial-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }],
+            "headline-editorial-lg-mobile": ["26px", { lineHeight: "34px", letterSpacing: "0em", fontWeight: "700" }]
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    /* Neo-Tactile Custom Shadow & Depth Utilities */
+    .tactile-btn {
+      box-shadow: 3px 3px 0px #151413;
+      transition: transform 0.08s ease, box-shadow 0.08s ease;
+    }
+    .tactile-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0px #151413;
+    }
+    .tactile-btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0px #151413;
+    }
+
+    .tactile-card {
+      box-shadow: 3px 3px 0px #151413;
+    }
+
+    .dock-shadow {
+      box-shadow: 4px 4px 0px #151413;
+    }
+
+    /* Kanji stroke animation preview */
+    @keyframes drawStroke {
+      0% { stroke-dashoffset: 400; }
+      100% { stroke-dashoffset: 0; }
+    }
+    .stroke-animated {
+      stroke-dasharray: 400;
+      animation: drawStroke 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col font-label-ui-caption selection:bg-vermilion selection:text-warm-paper overflow-x-hidden pb-28">
+<!-- TOP BAR (Frameless top chrome 48px) -->
+<header class="h-12 w-full bg-[#141311] border-b border-[#2A2926] px-5 flex items-center justify-between z-50 sticky top-0 select-none"><div class="flex items-center"><div class="flex items-center gap-2 mr-4"><button class="w-2.5 h-2.5 rounded-full bg-[#D94B38] border border-[#151413] transition-transform hover:scale-110 active:scale-95 cursor-pointer" title="Close"></button><button class="w-2.5 h-2.5 rounded-full bg-[#C8A94A] border border-[#151413] transition-transform hover:scale-110 active:scale-95 cursor-pointer" title="Minimize"></button><button class="w-2.5 h-2.5 rounded-full bg-[rgba(245,241,232,0.25)] border border-[#151413] transition-transform hover:scale-110 active:scale-95 cursor-pointer" title="Maximize"></button></div><a href="#home" class="flex items-center group cursor-pointer text-[#F5F1E8] font-bold tracking-[0.14em] text-[17px] font-title-brand leading-none"><span class="inline-block transition-transform duration-150 group-hover:-translate-y-0.5 delay-[0ms]">K</span><span class="inline-block transition-transform duration-150 group-hover:-translate-y-0.5 delay-[20ms]">I</span><span class="inline-block transition-transform duration-150 group-hover:-translate-y-0.5 delay-[40ms]">R</span><span class="inline-block transition-transform duration-150 group-hover:-translate-y-0.5 delay-[60ms]">O</span><span class="inline-block transition-transform duration-150 group-hover:-translate-y-0.5 delay-[80ms]">K</span><span class="inline-block transition-transform duration-150 group-hover:-translate-y-0.5 delay-[100ms]">U</span></a><div class="ml-3 px-2.5 py-0.5 h-5 rounded-[6px] bg-[#C8A94A] text-[#151413] font-bold text-[11px] tracking-[0.08em] font-label-ui-bold flex items-center justify-center shadow-[1px_1px_0px_#151413]">NOTE ノート</div></div><div class="flex items-center gap-2.5"><button class="w-8 h-8 rounded-[8px] bg-[#1C1B19] border border-[rgba(245,241,232,0.12)] flex items-center justify-center text-[#F5F1E8] hover:bg-[#2A2926] transition-all group tactile-btn cursor-pointer" title="History"><svg class="w-4 h-4 transition-transform duration-200 group-hover:-rotate-[15deg]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path></svg></button><button class="w-8 h-8 rounded-[8px] bg-[#1C1B19] border border-[rgba(245,241,232,0.12)] flex items-center justify-center text-[#F5F1E8] hover:bg-[#2A2926] transition-all group tactile-btn cursor-pointer" title="Settings"><svg class="w-4 h-4 transition-transform duration-[350ms] [transition-timing-function:cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-45" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div></header>
+<!-- MAIN VIEWPORT CONTAINER -->
+<main class="w-full max-w-7xl mx-auto px-4 md:px-6 pt-5 pb-6 flex-1 flex flex-col gap-6">
+<!-- TOP SECTION: Kanji Search Bar & Sub-Filters + Companion Slot -->
+<div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-surface-container-low p-3.5 rounded-xl border border-ink-border">
+<!-- Search Input & Quick JLPT Filters -->
+<div class="flex-1 flex flex-col md:flex-row items-stretch md:items-center gap-3">
+<!-- Search Input Bar -->
+<div class="relative flex-1">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-secondary">
+<span class="material-symbols-outlined text-[18px]">search</span>
+</div>
+<input class="w-full bg-[#000000] border border-ink-border text-warm-paper font-label-ui-bold text-label-ui-bold pl-9 pr-14 py-2 rounded-lg focus:outline-none focus:border-gold-eye focus:ring-0 shadow-inner" placeholder="Search by kanji, compound word, or meaning (e.g. 道, road, michi)..." type="text" value="道">
+<div class="absolute inset-y-0 right-0 pr-2.5 flex items-center">
+<span class="bg-surface-container-highest text-secondary border border-tactile-stroke font-code-counter text-[10px] px-1.5 py-0.5 rounded text-secondary-fixed">
+              ⌘F
+            </span>
+</div>
+</div>
+<!-- JLPT Level Filter Pills -->
+<div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+<button class="tactile-btn px-2.5 py-1 text-xs font-label-ui-bold rounded border border-tactile-stroke bg-surface-container text-secondary hover:text-warm-paper">
+            All
+          </button>
+<button class="tactile-btn px-2.5 py-1 text-xs font-label-ui-bold rounded border border-tactile-stroke bg-surface-container text-secondary hover:text-warm-paper">
+            N5
+          </button>
+<button class="tactile-btn px-2.5 py-1 text-xs font-label-ui-bold rounded border border-tactile-stroke bg-vermilion text-warm-paper font-bold shadow-[2px_2px_0px_#151413]">
+            N4 (Active)
+          </button>
+<button class="tactile-btn px-2.5 py-1 text-xs font-label-ui-bold rounded border border-tactile-stroke bg-surface-container text-secondary hover:text-warm-paper">
+            N3
+          </button>
+<button class="tactile-btn px-2.5 py-1 text-xs font-label-ui-bold rounded border border-tactile-stroke bg-surface-container text-secondary hover:text-warm-paper">
+            N2
+          </button>
+<button class="tactile-btn px-2.5 py-1 text-xs font-label-ui-bold rounded border border-tactile-stroke bg-surface-container text-secondary hover:text-warm-paper">
+            N1
+          </button>
+</div>
+</div>
+<!-- Quick Toggles & Mascot Observation Slot -->
+<div class="flex items-center justify-between lg:justify-end gap-3 border-t lg:border-t-0 pt-2 lg:pt-0 border-ink-border">
+<!-- Radical / Stroke Badge Controls -->
+<div class="flex items-center gap-2">
+<button class="tactile-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-tactile-stroke bg-surface-container text-warm-paper text-xs font-label-ui-bold">
+<span class="material-symbols-outlined text-[15px] text-gold-eye">grid_view</span>
+            Radicals Filter
+          </button>
+<span class="bg-surface-container-highest px-2 py-1 rounded text-secondary font-code-counter text-xs border border-ink-border">
+            12 Strokes
+          </span>
+</div>
+<!-- MASCOT COMPANION SLOT -->
+<div class="w-[100px] h-[100px] border border-dashed border-gold-eye/60 rounded-lg bg-surface-container-lowest/80 flex flex-col items-center justify-center p-1.5 text-center relative group select-none flex-shrink-0">
+<div class="absolute -top-2 left-2 px-1 bg-surface-container text-[9px] font-code-counter text-gold-eye border border-tactile-stroke rounded">
+            MASCOT_SLOT
+          </div>
+<span class="material-symbols-outlined text-gold-eye/70 text-2xl mb-1">visibility</span>
+<span class="font-code-counter text-[9px] text-warm-paper/80 leading-tight">
+            kanji-stroke-observing
+          </span>
+<span class="text-[8px] text-secondary font-code-counter">tanuki preview</span>
+</div>
+</div>
+</div>
+<!-- MAIN EDITORIAL 2-COLUMN BALANCED GRID -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- LEFT COLUMN (5 COLS): Character Hero & Stroke Order Player -->
+<section class="lg:col-span-5 flex flex-col gap-5">
+<!-- Hero Glyph & Header Metadata Card -->
+<div class="bg-ink-surface p-5 rounded-2xl border border-ink-border relative overflow-hidden tactile-card">
+<!-- Ambient Gold Glow Backing -->
+<div class="absolute -right-12 -top-12 w-48 h-48 rounded-full bg-gold-glow pointer-events-none"></div>
+<div class="flex items-start justify-between relative z-10">
+<div>
+<span class="text-xs font-code-counter text-secondary uppercase tracking-wider block mb-1">Current Focus Glyph</span>
+<h1 class="font-kanji-glyph text-7xl font-black text-warm-paper tracking-normal leading-none">
+                道
+              </h1>
+</div>
+<!-- Metadata Stamp Badges Stack -->
+<div class="flex flex-col items-end gap-1.5">
+<span class="px-2.5 py-0.5 rounded bg-vermilion text-warm-paper font-label-ui-bold text-xs border border-tactile-stroke shadow-[2px_2px_0px_#151413]">
+                JLPT N4
+              </span>
+<div class="flex gap-1">
+<span class="px-1.5 py-0.5 rounded bg-surface-container-highest text-secondary text-[10px] font-code-counter border border-ink-border">
+                  Grade 2
+                </span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-highest text-secondary text-[10px] font-code-counter border border-ink-border">
+                  Freq #201
+                </span>
+</div>
+<span class="px-2 py-0.5 rounded bg-gold-eye/15 text-gold-eye text-xs font-label-ui-bold border border-gold-eye/30">
+                Radical: ⻌ (しんにょう)
+              </span>
+</div>
+</div>
+</div>
+<!-- Interactive Vector Stroke Order Canvas (Pitch Black #000000) -->
+<div class="bg-[#000000] p-4 rounded-2xl border border-tactile-stroke shadow-[3px_3px_0px_#151413] flex flex-col items-center relative">
+<!-- Canvas Top Subhead & Micro-Animation Slot Anchor -->
+<div class="w-full flex items-center justify-between pb-3 mb-2 border-b border-white/10 text-xs font-code-counter text-secondary">
+<span class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-vermilion"></span>
+              KanjiVG Animated Matrix
+            </span>
+<div class="flex items-center gap-1">
+<span class="text-[10px] px-1.5 py-0.5 bg-surface-container text-gold-eye border border-tactile-stroke rounded">
+                [ANIM_SLOT: stroke-order-draw]
+              </span>
+<span class="text-white/40">12 / 12</span>
+</div>
+</div>
+<!-- Vector Stroke Canvas Box with Guide Grid -->
+<div class="relative w-full aspect-square max-w-[340px] bg-[#000000] rounded-xl border border-white/10 flex items-center justify-center overflow-hidden">
+<!-- Japanese Traditional Guideline Matrix Lines -->
+<svg class="absolute inset-0 w-full h-full stroke-white/10 pointer-events-none" stroke-dasharray="3 3">
+<line x1="50%" x2="50%" y1="0" y2="100%"></line>
+<line x1="0" x2="100%" y1="50%" y2="50%"></line>
+<line stroke-opacity="0.05" x1="0" x2="100%" y1="0" y2="100%"></line>
+<line stroke-opacity="0.05" x1="100%" x2="0" y1="0" y2="100%"></line>
+</svg>
+<!-- Vector Stroke Kanji: 道 (Radical ⻌ and 首 paths with numbered directional traces) -->
+<svg class="w-4/5 h-4/5 select-none relative z-10" fill="none" viewBox="0 0 109 109">
+<!-- Background ghost completed glyph -->
+<g stroke="rgba(245, 241, 232, 0.15)" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5">
+<!-- 首 (Head) strokes -->
+<path d="M46.75,14.62c2.62,1.38,5.75,4.38,6.88,7.25"></path>
+<path d="M69.88,11.75c0.62,1.25,0.72,2.38,0.25,3.62c-1.38,3.62-4,8.12-7.25,12.25"></path>
+<path d="M40.25,30.38c1.12,0.5,3.38,0.38,4.75,0.25c7.38-0.75,23.38-2.62,31.75-3.38c1.62-0.12,3.12-0.25,4.75,0.12"></path>
+<path d="M44.75,42.25c0.75,0.75,1.25,1.75,1.38,2.75c0.88,5.62,1.88,14.75,2.62,23.25"></path>
+<path d="M47.25,43.62c7.62-0.88,24.12-2.75,29.38-3.38c2.12-0.25,3.62,1.25,3.38,3.25c-0.62,5.25-1.75,14-3.12,21.88"></path>
+<path d="M48.25,53.88c6.12-0.62,21.88-2,29.25-2.5"></path>
+<path d="M49.25,65.38c6.88-0.75,20.38-1.88,27.12-2.25"></path>
+<!-- ⻌ (Road) radical strokes -->
+<path d="M21.25,18.75c3.25,1.5,8.12,5.75,9,8.25"></path>
+<path d="M15.5,41.25c2.12,0.88,4.38,0.38,5.62-0.12c3.62-1.38,7.62-3.12,9.38-3.88c2.38-1,3.75,1.12,2.75,2.75c-5,8-9.75,14.62-15.5,23"></path>
+<path d="M17.75,63.25c2.75-0.62,7.38-0.5,10.62,0.62c3.12,1.12,4.38,2.75,3.12,5.88c-4.12,10.12-7.25,13.88-12.25,20.5"></path>
+<path d="M15.25,79.5c3.75-0.62,10.25-0.38,15,1.38c8.5,3.12,27.5,10.75,41.25,14.12c6.25,1.5,12.75,2.12,19.25,2.5"></path>
+</g>
+<!-- Active Animated Primary Stroke (Highlighted in Gold & Vermilion) -->
+<g class="stroke-animated" stroke="#C8A94A" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5">
+<!-- Trace of the sweeping base stroke 12 -->
+<path d="M15.25,79.5c3.75-0.62,10.25-0.38,15,1.38c8.5,3.12,27.5,10.75,41.25,14.12c6.25,1.5,12.75,2.12,19.25,2.5"></path>
+</g>
+<!-- Numbered Directional Order Indicators (1 to 12) -->
+<!-- 1 -->
+<circle cx="43" cy="15" fill="#D94B38" r="3.2"></circle>
+<text fill="#F5F1E8" font-family="Inter" font-size="4" font-weight="700" text-anchor="middle" x="43" y="16.5">1</text>
+<!-- 2 -->
+<circle cx="73" cy="12" fill="#D94B38" r="3.2"></circle>
+<text fill="#F5F1E8" font-family="Inter" font-size="4" font-weight="700" text-anchor="middle" x="73" y="13.5">2</text>
+<!-- 3 -->
+<circle cx="36" cy="30" fill="#D94B38" r="3.2"></circle>
+<text fill="#F5F1E8" font-family="Inter" font-size="4" font-weight="700" text-anchor="middle" x="36" y="31.5">3</text>
+<!-- 4 -->
+<circle cx="41" cy="45" fill="#D94B38" r="3.2"></circle>
+<text fill="#F5F1E8" font-family="Inter" font-size="4" font-weight="700" text-anchor="middle" x="41" y="46.5">4</text>
+<!-- 5 -->
+<circle cx="51" cy="40" fill="#D94B38" r="3.2"></circle>
+<text fill="#F5F1E8" font-family="Inter" font-size="4" font-weight="700" text-anchor="middle" x="51" y="41.5">5</text>
+<!-- 6 -->
+<circle cx="52" cy="51" fill="#D94B38" r="3.2"></circle>
+<text fill="#F5F1E8" font-family="Inter" font-size="4" font-weight="700" text-anchor="middle" x="52" y="52.5">6</text>
+<!-- 7 -->
+<circle cx="53" cy="62" fill="#D94B38" r="3.2"></circle>
+<text fill="#F5F1E8" font-family="Inter" font-size="4" font-weight="700" text-anchor="middle" x="53" y="63.5">7</text>
+<!-- 8 -->
+<circle cx="17" cy="18" fill="#C8A94A" r="3.2"></circle>
+<text fill="#151413" font-family="Inter" font-size="4" font-weight="700" text-anchor="middle" x="17" y="19.5">8</text>
+<!-- 9 -->
+<circle cx="12" cy="40" fill="#C8A94A" r="3.2"></circle>
+<text fill="#151413" font-family="Inter" font-size="4" font-weight="700" text-anchor="middle" x="12" y="41.5">9</text>
+<!-- 10 -->
+<circle cx="12" cy="63" fill="#C8A94A" r="3.2"></circle>
+<text fill="#151413" font-family="Inter" font-size="4" font-weight="700" text-anchor="middle" x="12" y="64.5">10</text>
+<!-- 11 -->
+<circle cx="9" cy="78" fill="#C8A94A" r="3.2"></circle>
+<text fill="#151413" font-family="Inter" font-size="4" font-weight="700" text-anchor="middle" x="9" y="79.5">11</text>
+<!-- 12 (Active) -->
+<circle cx="20" cy="88" fill="#F5F1E8" r="3.8" stroke="#D94B38" stroke-width="1.2"></circle>
+<text fill="#151413" font-family="Inter" font-size="4.2" font-weight="900" text-anchor="middle" x="20" y="89.8">12</text>
+</svg>
+</div>
+<!-- Playback Control Strip -->
+<div class="w-full mt-4 flex flex-col gap-2.5">
+<div class="flex items-center gap-2">
+<!-- Replay Animation Button -->
+<button class="tactile-btn flex-1 bg-vermilion text-warm-paper py-2 px-3 rounded-lg border-[1.5px] border-tactile-stroke font-label-ui-bold text-xs flex items-center justify-center gap-1.5 shadow-[3px_3px_0px_#151413]">
+<span class="">Replay Animation ▶</span>
+</button>
+<!-- Step Forward Button -->
+<button class="tactile-btn bg-warm-paper text-ink-black py-2 px-3 rounded-lg border-[1.5px] border-tactile-stroke font-label-ui-bold text-xs flex items-center justify-center gap-1 shadow-[3px_3px_0px_#151413]">
+<span class="">Step Forward ⏭</span>
+</button>
+<!-- Toggle Numbers Pill -->
+<button class="tactile-btn bg-surface-container text-warm-paper py-2 px-3 rounded-lg border-[1.5px] border-tactile-stroke font-label-ui-bold text-xs flex items-center justify-center gap-1 shadow-[3px_3px_0px_#151413]">
+<span class="material-symbols-outlined text-[15px]">tag</span>
+<span class="">Numbers</span>
+</button>
+</div>
+<!-- Speed Control Multi-Toggle -->
+<div class="flex items-center justify-between bg-surface-container-low px-3 py-1.5 rounded-lg border border-ink-border text-xs">
+<span class="font-code-counter text-secondary text-[11px]">Stroke Cadence:</span>
+<div class="flex items-center gap-1">
+<button class="px-2 py-0.5 rounded text-secondary hover:text-warm-paper font-code-counter text-xs">
+                  0.5x
+                </button>
+<button class="px-2.5 py-0.5 rounded bg-gold-eye text-ink-black font-code-counter font-bold text-xs border border-tactile-stroke shadow-[1px_1px_0px_#151413]">
+                  1.0x
+                </button>
+<button class="px-2 py-0.5 rounded text-secondary hover:text-warm-paper font-code-counter text-xs">
+                  1.5x
+                </button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- RIGHT COLUMN (7 COLS): Readings, Meaning, & Associated Compounds Table -->
+<section class="lg:col-span-7 flex flex-col gap-5">
+<!-- Readings & Semantic Breakdown Card (Pitch Black #000000 surface) -->
+<div class="bg-[#000000] p-5 rounded-2xl border-[1.5px] border-tactile-stroke shadow-[3px_3px_0px_#151413]">
+<div class="flex items-center justify-between pb-3 mb-4 border-b border-white/10">
+<h2 class="font-title-brand text-headline-editorial-md text-warm-paper flex items-center gap-2">
+<span class="">Readings &amp; Etymology</span>
+<span class="text-xs font-code-counter text-gold-eye font-normal bg-surface-container px-2 py-0.5 rounded border border-tactile-stroke">
+                訓音整理
+              </span>
+</h2>
+<span class="text-secondary font-code-counter text-xs">Jōyō Core Kanji</span>
+</div>
+<!-- Readings Grid -->
+<div class="space-y-3 font-label-ui-bold">
+<!-- Onyomi Row -->
+<div class="flex items-start sm:items-center justify-between p-2.5 rounded-lg bg-surface-container-low border border-ink-border">
+<div class="flex items-center gap-3">
+<span class="w-16 px-2 py-0.5 rounded text-center text-xs bg-vermilion/20 text-vermilion border border-vermilion/40 font-code-counter">
+                  音読み
+                </span>
+<span class="font-kanji-glyph text-lg text-warm-paper font-bold">
+                  ドウ (dō), トウ (tō)
+                </span>
+</div>
+<button class="tactile-btn w-7 h-7 rounded bg-surface-container text-warm-paper flex items-center justify-center border border-tactile-stroke" title="Play Onyomi Audio">
+<span class="material-symbols-outlined text-[16px]">volume_up</span>
+</button>
+</div>
+<!-- Kunyomi Row -->
+<div class="flex items-start sm:items-center justify-between p-2.5 rounded-lg bg-surface-container-low border border-ink-border">
+<div class="flex items-center gap-3">
+<span class="w-16 px-2 py-0.5 rounded text-center text-xs bg-gold-eye/20 text-gold-eye border border-gold-eye/40 font-code-counter">
+                  訓読み
+                </span>
+<span class="font-kanji-glyph text-lg text-warm-paper font-bold">
+                  みち (michi)
+                </span>
+</div>
+<button class="tactile-btn w-7 h-7 rounded bg-surface-container text-warm-paper flex items-center justify-center border border-tactile-stroke" title="Play Kunyomi Audio">
+<span class="material-symbols-outlined text-[16px]">volume_up</span>
+</button>
+</div>
+<!-- Nanori Row -->
+<div class="flex items-start sm:items-center justify-between p-2.5 rounded-lg bg-surface-container-low border border-ink-border">
+<div class="flex items-center gap-3">
+<span class="w-16 px-2 py-0.5 rounded text-center text-xs bg-surface-container-highest text-secondary border border-ink-border font-code-counter">
+                  名乗り
+                </span>
+<span class="font-kanji-glyph text-sm text-secondary-fixed">
+                  じ, なお, のり, みつ, ゆき
+                </span>
+</div>
+<span class="text-[11px] text-secondary font-code-counter px-2">Names/Places</span>
+</div>
+<!-- English Meanings -->
+<div class="p-3 rounded-lg bg-surface-container-high/60 border border-ink-border mt-2">
+<span class="font-code-counter text-[11px] text-secondary block mb-1">Semantic English Meanings</span>
+<p class="font-headline-editorial-md text-base text-warm-paper leading-relaxed">
+                road-way, street, path, journey, course, teachings / tao
+              </p>
+</div>
+<!-- Radical Breakdown Pod -->
+<div class="flex flex-wrap items-center gap-2 pt-1">
+<span class="font-code-counter text-[11px] text-secondary">Morpheme Decomposition:</span>
+<div class="flex items-center gap-1.5 bg-surface-container px-2.5 py-1 rounded border border-tactile-stroke text-xs text-warm-paper font-kanji-glyph">
+<span class="text-gold-eye font-bold">⻌</span>
+<span class="">(road / walk)</span>
+</div>
+<span class="text-secondary font-bold">+</span>
+<div class="flex items-center gap-1.5 bg-surface-container px-2.5 py-1 rounded border border-tactile-stroke text-xs text-warm-paper font-kanji-glyph">
+<span class="text-gold-eye font-bold">首</span>
+<span class="">(head / neck)</span>
+</div>
+<span class="text-[11px] text-secondary ml-auto italic">"A head leading along the road"</span>
+</div>
+</div>
+</div>
+<!-- Common Compounds Table in Kiroku Dictionary (5 compounds) -->
+<div class="bg-ink-surface p-5 rounded-2xl border-[1.5px] border-tactile-stroke shadow-[3px_3px_0px_#151413]">
+<div class="flex items-center justify-between pb-3 mb-3 border-b border-ink-border">
+<div>
+<h3 class="font-title-brand text-title-brand text-warm-paper">
+                Common Compounds in Kiroku Dictionary (5)
+              </h3>
+<p class="text-xs text-secondary font-label-ui-caption">High frequency lexical occurrences with automated spaced repetition deck sync</p>
+</div>
+<span class="bg-surface-container-high text-warm-paper text-[11px] font-code-counter px-2 py-0.5 rounded border border-tactile-stroke">
+              5 Entries
+            </span>
+</div>
+<!-- Compound Table Rows -->
+<div class="divide-y divide-ink-border/60">
+<!-- Row 1: 道路 (どうろ) -->
+<div class="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 group hover:bg-surface-container/50 px-2 rounded-lg transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-20">
+<span class="font-kanji-glyph text-2xl font-bold text-warm-paper tracking-wide">道路</span>
+<span class="block text-[11px] text-gold-eye font-kanji-glyph">どうろ</span>
+</div>
+<div class="h-6 w-[1px] bg-ink-border"></div>
+<div>
+<span class="text-sm text-warm-paper font-body-editorial-md">road, highway</span>
+<span class="block text-[10px] text-secondary font-code-counter">General transport vocabulary</span>
+</div>
+</div>
+<div class="flex items-center gap-2 self-end sm:self-auto">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-secondary text-[10px] font-code-counter border border-ink-border">
+                  JLPT N3
+                </span>
+<button class="tactile-btn bg-warm-paper text-ink-black px-2.5 py-1 rounded text-xs font-label-ui-bold border border-tactile-stroke flex items-center gap-1 shadow-[2px_2px_0px_#151413]">
+<span class="material-symbols-outlined text-[13px]">add</span>
+<span class="">Mine Card</span>
+</button>
+</div>
+</div>
+<!-- Row 2: 歩道 (ほどう) -->
+<div class="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 group hover:bg-surface-container/50 px-2 rounded-lg transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-20">
+<span class="font-kanji-glyph text-2xl font-bold text-warm-paper tracking-wide">歩道</span>
+<span class="block text-[11px] text-gold-eye font-kanji-glyph">ほどう</span>
+</div>
+<div class="h-6 w-[1px] bg-ink-border"></div>
+<div>
+<span class="text-sm text-warm-paper font-body-editorial-md">sidewalk, footpath</span>
+<span class="block text-[10px] text-secondary font-code-counter">Pedestrian public space</span>
+</div>
+</div>
+<div class="flex items-center gap-2 self-end sm:self-auto">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-secondary text-[10px] font-code-counter border border-ink-border">
+                  JLPT N4
+                </span>
+<!-- Status Synced Chip -->
+<span class="bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 px-2.5 py-1 rounded text-xs font-code-counter flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="">In Anki Deck</span>
+</span>
+</div>
+</div>
+<!-- Row 3: 茶道 (さどう) -->
+<div class="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 group hover:bg-surface-container/50 px-2 rounded-lg transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-20">
+<span class="font-kanji-glyph text-2xl font-bold text-warm-paper tracking-wide">茶道</span>
+<span class="block text-[11px] text-gold-eye font-kanji-glyph">さどう</span>
+</div>
+<div class="h-6 w-[1px] bg-ink-border"></div>
+<div>
+<span class="text-sm text-warm-paper font-body-editorial-md">Japanese tea ceremony</span>
+<span class="block text-[10px] text-secondary font-code-counter">Traditional cultural philosophy</span>
+</div>
+</div>
+<div class="flex items-center gap-2 self-end sm:self-auto">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-secondary text-[10px] font-code-counter border border-ink-border">
+                  JLPT N2
+                </span>
+<button class="tactile-btn bg-warm-paper text-ink-black px-2.5 py-1 rounded text-xs font-label-ui-bold border border-tactile-stroke flex items-center gap-1 shadow-[2px_2px_0px_#151413]">
+<span class="material-symbols-outlined text-[13px]">add</span>
+<span class="">Mine Card</span>
+</button>
+</div>
+</div>
+<!-- Row 4: 近道 (ちかみち) -->
+<div class="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 group hover:bg-surface-container/50 px-2 rounded-lg transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-20">
+<span class="font-kanji-glyph text-2xl font-bold text-warm-paper tracking-wide">近道</span>
+<span class="block text-[11px] text-gold-eye font-kanji-glyph">ちかみち</span>
+</div>
+<div class="h-6 w-[1px] bg-ink-border"></div>
+<div>
+<span class="text-sm text-warm-paper font-body-editorial-md">shortcut</span>
+<span class="block text-[10px] text-secondary font-code-counter">Colloquial route navigation</span>
+</div>
+</div>
+<div class="flex items-center gap-2 self-end sm:self-auto">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-secondary text-[10px] font-code-counter border border-ink-border">
+                  JLPT N3
+                </span>
+<button class="tactile-btn bg-warm-paper text-ink-black px-2.5 py-1 rounded text-xs font-label-ui-bold border border-tactile-stroke flex items-center gap-1 shadow-[2px_2px_0px_#151413]">
+<span class="material-symbols-outlined text-[13px]">add</span>
+<span class="">Mine Card</span>
+</button>
+</div>
+</div>
+<!-- Row 5: 武道 (ぶどう) -->
+<div class="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 group hover:bg-surface-container/50 px-2 rounded-lg transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-20">
+<span class="font-kanji-glyph text-2xl font-bold text-warm-paper tracking-wide">武道</span>
+<span class="block text-[11px] text-gold-eye font-kanji-glyph">ぶどう</span>
+</div>
+<div class="h-6 w-[1px] bg-ink-border"></div>
+<div>
+<span class="text-sm text-warm-paper font-body-editorial-md">martial arts</span>
+<span class="block text-[10px] text-secondary font-code-counter">Way of warrior disciplines</span>
+</div>
+</div>
+<div class="flex items-center gap-2 self-end sm:self-auto">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-secondary text-[10px] font-code-counter border border-ink-border">
+                  JLPT N1
+                </span>
+<button class="tactile-btn bg-warm-paper text-ink-black px-2.5 py-1 rounded text-xs font-label-ui-bold border border-tactile-stroke flex items-center gap-1 shadow-[2px_2px_0px_#151413]">
+<span class="material-symbols-outlined text-[13px]">add</span>
+<span class="">Mine Card</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- FLOATING BOTTOM TACTILE DOCK -->
+<!-- Warm paper container with 1.5px tactile border & 4px 4px 0 #151413 hard drop shadow -->
+<!-- 6 Bilingual Tabs: [Home ホーム, Vocab 語彙, Grammar 文法, Kanji 漢字, Test テスト, Study 学習] -->
+<nav class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-warm-paper rounded-full border-[1.5px] border-tactile-stroke dock-shadow select-none">
+<!-- Tab 1: Home ホーム -->
+<a class="flex flex-col items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full text-ink-black hover:bg-paper-dim transition-transform duration-100" href="#home">
+<span class="material-symbols-outlined text-[20px]">space_dashboard</span>
+<span class="text-[9px] font-label-ui-bold leading-none mt-0.5">Home</span>
+</a>
+<!-- Tab 2: Vocab 語彙 -->
+<a class="flex flex-col items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full text-ink-black hover:bg-paper-dim transition-transform duration-100" href="#vocab">
+<span class="material-symbols-outlined text-[20px]">menu_book</span>
+<span class="text-[9px] font-label-ui-bold leading-none mt-0.5">Vocab</span>
+</a>
+<!-- Tab 3: Grammar 文法 -->
+<a class="flex flex-col items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full text-ink-black hover:bg-paper-dim transition-transform duration-100" href="#grammar">
+<span class="material-symbols-outlined text-[20px]">auto_stories</span>
+<span class="text-[9px] font-label-ui-bold leading-none mt-0.5">Grammar</span>
+</a>
+<!-- Tab 4: Kanji 漢字 (ACTIVE DESTINATION TAB) -->
+<a class="flex flex-col items-center justify-center bg-vermilion text-warm-paper rounded-full w-12 h-12 sm:w-14 sm:h-12 border-[1.5px] border-tactile-stroke shadow-[2px_2px_0px_#151413]" href="#kanji">
+<span class="material-symbols-outlined text-[20px]">translate</span>
+<span class="text-[9px] font-label-ui-bold leading-none mt-0.5 font-bold">Kanji 漢字</span>
+</a>
+<!-- Tab 5: Test テスト -->
+<a class="flex flex-col items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full text-ink-black hover:bg-paper-dim transition-transform duration-100" href="#test">
+<span class="material-symbols-outlined text-[20px]">stylus_note</span>
+<span class="text-[9px] font-label-ui-bold leading-none mt-0.5">Test</span>
+</a>
+<!-- Tab 6: Study 学習 -->
+<a class="flex flex-col items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full text-ink-black hover:bg-paper-dim transition-transform duration-100" href="#study">
+<span class="material-symbols-outlined text-[20px]">school</span>
+<span class="text-[9px] font-label-ui-bold leading-none mt-0.5">Study</span>
+</a>
+</nav>
+
+
+
+
+</body></html>

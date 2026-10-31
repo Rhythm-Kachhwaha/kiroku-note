@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Kiroku 記録 - Vocab Studio (Minimalist Precision)</title>
+<!-- Google Fonts: Outfit, Space Grotesk, Noto Sans JP -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&amp;family=Outfit:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-primary-fixed-variant": "#8e1308",
+            "tertiary-fixed-dim": "#e4c461",
+            "surface-container-high": "#2b2a28",
+            "secondary-fixed": "#e6e2d9",
+            "on-error-container": "#ffdad6",
+            "inverse-surface": "#e6e2de",
+            "paper-dim": "#E8E3D8",
+            "inverse-on-surface": "#31302e",
+            "primary-fixed": "#ffdad4",
+            "on-surface-variant": "#e1bfb9",
+            "paper-subtle": "rgba(245, 241, 232, 0.45)",
+            "surface-variant": "#363532",
+            "on-tertiary-fixed": "#241a00",
+            "primary-fixed-dim": "#ffb4a7",
+            "surface-tint": "#ffb4a7",
+            "on-secondary-fixed-variant": "#484740",
+            "error-container": "#93000a",
+            "gold-glow": "rgba(200, 169, 74, 0.08)",
+            "inverse-primary": "#b02e1e",
+            "on-error": "#690005",
+            "on-surface": "#e6e2de",
+            "surface-bright": "#3a3937",
+            "background": "#141311",
+            "on-tertiary-container": "#4e3d00",
+            "ink-black": "#22211F",
+            "surface": "#141311",
+            "outline": "#a88a84",
+            "tertiary-container": "#c7a849",
+            "gold-eye": "#C8A94A",
+            "error": "#ffb4ab",
+            "secondary-container": "#484740",
+            "outline-variant": "#59413d",
+            "ink-surface": "#2A2926",
+            "on-secondary-container": "#b8b5ad",
+            "tertiary": "#e4c461",
+            "surface-container-lowest": "#0f0e0c",
+            "primary-container": "#f55f4a",
+            "vermilion-glow": "rgba(217, 75, 56, 0.20)",
+            "tactile-stroke": "#151413",
+            "surface-container": "#201f1d",
+            "on-primary-fixed": "#410100",
+            "on-secondary-fixed": "#1c1c16",
+            "on-tertiary": "#3c2f00",
+            "warm-paper": "#F5F1E8",
+            "surface-container-low": "#1c1b19",
+            "vermilion": "#D94B38",
+            "secondary-fixed-dim": "#cac6be",
+            "on-primary-container": "#5b0200",
+            "secondary": "#cac6be",
+            "on-background": "#e6e2de",
+            "on-tertiary-fixed-variant": "#574500",
+            "surface-dim": "#141311",
+            "tertiary-fixed": "#ffe088",
+            "on-secondary": "#31302b",
+            "on-primary": "#680200",
+            "ink-border": "rgba(245, 241, 232, 0.12)",
+            "primary": "#ffb4a7",
+            "surface-container-highest": "#363532"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "fontFamily": {
+            "sans": ["'Outfit'", "'Space Grotesk'", "sans-serif"],
+            "mono": ["'Space Grotesk'", "monospace"],
+            "japanese": ["'Noto Sans JP'", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      font-family: 'Outfit', sans-serif;
+    }
+    .tactile-btn {
+      box-shadow: 2px 2px 0px #151413;
+      transition: all 0.08s ease;
+    }
+    .tactile-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0px #151413;
+    }
+    .tactile-btn:active {
+      transform: translate(1px, 1px);
+      box-shadow: 1px 1px 0px #151413;
+    }
+
+    .letter-lift span {
+      display: inline-block;
+      transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .letter-lift:hover span {
+      transform: translateY(-2px);
+    }
+
+    ruby rt {
+      font-size: 0.38em;
+      letter-spacing: 0.04em;
+      color: #C8A94A;
+      font-weight: 700;
+      transform: translateY(-2px);
+    }
+
+    /* Minimalist crisp scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #141311;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2A2926;
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #363532;
+    }
+
+    details > summary {
+      list-style: none;
+    }
+    details > summary::-webkit-details-marker {
+      display: none;
+    }
+  </style>
+</head>
+<body class="bg-surface text-warm-paper selection:bg-vermilion selection:text-warm-paper antialiased min-h-screen flex flex-col overflow-x-hidden pb-24 font-normal text-[13px]">
+<!-- ========================================================================= -->
+<!-- 1. TOP CHROME (Locked 48px Header - Minimal Geometric Precision)          -->
+<!-- ========================================================================= -->
+<header class="h-12 w-full bg-[#141311] border-b border-[#2A2926] px-5 flex items-center justify-between z-50 select-none sticky top-0">
+<div class="flex items-center">
+<div class="flex items-center gap-2 mr-4">
+<button class="w-2.5 h-2.5 rounded-full bg-[#D94B38] border border-[#151413] hover:opacity-80 active:scale-90 transition-transform" title="Close" type="button"></button>
+<button class="w-2.5 h-2.5 rounded-full bg-[#C8A94A] border border-[#151413] hover:opacity-80 active:scale-90 transition-transform" title="Minimise" type="button"></button>
+<button class="w-2.5 h-2.5 rounded-full bg-[#3A3937] border border-warm-paper/40 hover:opacity-80 active:scale-90 transition-transform" title="Maximise" type="button"></button>
+</div>
+<div class="flex items-center cursor-pointer group">
+<div class="letter-lift font-mono text-[14px] font-bold text-[#F5F1E8] tracking-[0.2em] flex uppercase">
+<span>K</span><span>I</span><span>R</span><span>O</span><span>K</span><span>U</span>
+</div>
+</div>
+<div class="ml-3 h-5 px-2 py-0.5 rounded bg-[#C8A94A] text-[#151413] font-mono text-[10px] font-bold tracking-[0.06em] shadow-[1px_1px_0px_#151413] flex items-center justify-center">
+      NOTE
+    </div>
+</div>
+<div class="flex items-center gap-2">
+<button class="tactile-btn w-7 h-7 rounded-md bg-[#1C1B19] border border-ink-border flex items-center justify-center text-[#F5F1E8] hover:bg-[#2A2926] group transition-all" title="History" type="button">
+<svg class="w-3.5 h-3.5 text-[#F5F1E8]" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+</button>
+<button class="tactile-btn w-7 h-7 rounded-md bg-[#1C1B19] border border-ink-border flex items-center justify-center text-[#F5F1E8] hover:bg-[#2A2926] group transition-all" title="Settings" type="button">
+<svg class="w-3.5 h-3.5 text-[#F5F1E8] group-hover:rotate-45 transition-transform duration-200" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+</button>
+</div>
+</header>
+<!-- ========================================================================= -->
+<!-- MAIN WORKSPACE: Asymmetric Dual-Zone Layout (Compact Tokens)              -->
+<!-- ========================================================================= -->
+<main class="w-full max-w-[1440px] mx-auto px-4 md:px-6 py-4 flex-1 flex flex-col gap-4">
+<!-- TOP SECTION: Search Bar + IME Pills + Preserved Mascot Slot -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+<!-- Search Hub (Left/Center col-span-9) -->
+<div class="lg:col-span-9 relative">
+<div class="bg-[#1C1B19] border-[1.5px] border-tactile-stroke rounded-xl p-2 shadow-[2px_2px_0px_#151413] flex flex-col md:flex-row items-stretch md:items-center gap-2">
+<!-- Search input box -->
+<div class="flex-1 flex items-center gap-2 px-2.5 py-1 bg-[#141311] rounded-lg border border-ink-border focus-within:border-gold-eye focus-within:ring-1 focus-within:ring-gold-eye transition-all">
+<svg class="w-3.5 h-3.5 text-secondary flex-shrink-0" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24">
+<circle cx="11" cy="11" r="8"></circle>
+<line x1="21" x2="16.65" y1="21" y2="16.65"></line>
+</svg>
+<input class="w-full bg-transparent border-0 p-0 text-warm-paper placeholder:text-paper-subtle focus:ring-0 text-xs font-mono font-medium selection:bg-vermilion" placeholder="romaji / kana..." type="text" value="taberu"/>
+<button class="text-secondary hover:text-warm-paper p-0.5 transition-colors" title="Clear">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24">
+<line x1="18" x2="6" y1="6" y2="18"></line>
+<line x1="6" x2="18" y1="6" y2="18"></line>
+</svg>
+</button>
+</div>
+<!-- IME Mode Toggle Pills (Compact Tokenized) -->
+<div class="flex items-center gap-1 self-center">
+<span class="text-[10px] text-paper-subtle uppercase tracking-wider font-mono mr-0.5">IME</span>
+<button class="tactile-btn px-2 py-0.5 bg-vermilion text-warm-paper border-[1.5px] border-tactile-stroke rounded-md font-mono text-[11px] font-bold">
+          あ
+        </button>
+<button class="tactile-btn px-2 py-0.5 bg-[#2A2926] text-secondary hover:text-warm-paper border-[1.5px] border-tactile-stroke rounded-md font-mono text-[11px] font-medium">
+          ア
+        </button>
+<button class="tactile-btn px-2 py-0.5 bg-[#2A2926] text-secondary hover:text-warm-paper border-[1.5px] border-tactile-stroke rounded-md font-mono text-[11px] font-medium">
+          EN
+        </button>
+</div>
+<!-- Quick Action Button -->
+<button class="tactile-btn px-2.5 py-1 bg-warm-paper text-ink-black border-[1.5px] border-tactile-stroke rounded-lg font-mono text-[11px] font-bold flex items-center justify-center gap-1.5">
+<span>Lookup</span>
+<kbd class="text-[9px] bg-paper-dim px-1 rounded border border-tactile-stroke font-mono">↵</kbd>
+</button>
+</div>
+<!-- Candidate Suggestions Dropdown (Concise Single-line Tokens) -->
+<div class="mt-1.5 bg-[#1C1B19] border-[1.5px] border-tactile-stroke rounded-xl shadow-[3px_3px_0px_#151413] divide-y divide-[#2A2926] overflow-hidden">
+<!-- Animation Marker Tag -->
+<div class="bg-[#141311] px-2.5 py-0.5 text-[9px] font-mono text-gold-eye border-b border-tactile-stroke flex justify-between items-center">
+<span>[ANIM_SLOT: candidate-dropdown-slide]</span>
+<span class="text-paper-subtle">↑↓ navigate · ↵ select</span>
+</div>
+<!-- Match 1 (Active) -->
+<div class="px-3 py-1.5 bg-[#2A2926] flex items-center justify-between cursor-pointer border-l-2 border-vermilion hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-2 text-xs truncate">
+<span class="font-japanese text-sm text-warm-paper font-bold">食べる</span>
+<span class="font-mono text-gold-eye text-[11px] font-medium">たべる</span>
+<span class="text-paper-subtle text-[11px] truncate">— to eat</span>
+</div>
+<div class="flex items-center gap-1.5 flex-shrink-0">
+<span class="px-1.5 py-0.2 rounded bg-tertiary-container text-ink-black font-mono font-bold text-[10px] border border-tactile-stroke">N5</span>
+<span class="px-1.5 py-0.2 rounded bg-[#C8A94A]/15 text-gold-eye border border-gold-eye/30 font-mono text-[10px] flex items-center gap-0.5 font-medium">
+<svg class="w-2.5 h-2.5" fill="currentColor" viewbox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+            Saved
+          </span>
+</div>
+</div>
+<!-- Match 2 -->
+<div class="px-3 py-1.5 flex items-center justify-between cursor-pointer hover:bg-[#232220] transition-colors">
+<div class="flex items-center gap-2 text-xs truncate">
+<span class="font-japanese text-sm text-secondary font-medium">食べ物</span>
+<span class="font-mono text-secondary/70 text-[11px]">たべもの</span>
+<span class="text-paper-subtle text-[11px] truncate">— food</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-[#2A2926] text-secondary font-mono text-[10px] border border-ink-border">N5</span>
+</div>
+<!-- Match 3 -->
+<div class="px-3 py-1.5 flex items-center justify-between cursor-pointer hover:bg-[#232220] transition-colors">
+<div class="flex items-center gap-2 text-xs truncate">
+<span class="font-japanese text-sm text-secondary font-medium">食べ比べる</span>
+<span class="font-mono text-secondary/70 text-[11px]">たべくらべる</span>
+<span class="text-paper-subtle text-[11px] truncate">— compare tastes</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-[#2A2926] text-secondary font-mono text-[10px] border border-ink-border">N1</span>
+</div>
+</div>
+</div>
+<!-- EXACT SPEC: [MASCOT_SLOT: vocab-idle-reading] 100x100px Slot Container -->
+<div class="lg:col-span-3 flex justify-center lg:justify-end items-center">
+<div class="w-[100px] h-[100px] rounded-xl border-[1.5px] border-dashed border-[#F5F1E8]/30 bg-[#1C1B19]/50 flex flex-col items-center justify-center p-2 text-center group hover:border-gold-eye/60 transition-colors">
+<svg class="w-6 h-6 text-paper-subtle mb-1 group-hover:text-gold-eye transition-colors" fill="none" stroke="currentColor" stroke-width="1.5" viewbox="0 0 24 24">
+<circle cx="12" cy="12" r="10"></circle>
+<circle cx="12" cy="12" r="4"></circle>
+<line x1="4.93" x2="9.17" y1="4.93" y2="9.17"></line>
+<line x1="14.83" x2="19.07" y1="14.83" y2="19.07"></line>
+<line x1="14.83" x2="19.07" y1="9.17" y2="4.93"></line>
+<line x1="4.93" x2="9.17" y1="19.07" y2="14.83"></line>
+</svg>
+<span class="font-mono text-[9px] text-[#F5F1E8]/60 leading-tight select-all">
+        [MASCOT_SLOT: vocab-idle-reading]
+      </span>
+</div>
+</div>
+</section>
+<!-- CONTENT COLUMNS: Word Showcase & Dictionaries vs Persistence Editor -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+<!-- ===================================================================== -->
+<!-- LEFT COLUMN (col-span-7/8): Showcase Hero, JMdict, Daijirin, Kanji    -->
+<!-- ===================================================================== -->
+<div class="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
+<!-- 4. WORD SHOWCASE HERO CARD (Compact Geometric Layout) -->
+<article class="bg-[#1C1B19] border-[1.5px] border-tactile-stroke rounded-xl p-4 md:p-5 shadow-[3px_3px_0px_#151413] relative overflow-hidden">
+<div class="absolute -top-10 -left-10 w-48 h-48 rounded-full bg-gold-glow pointer-events-none"></div>
+<div class="flex flex-wrap items-center justify-between gap-3 relative z-10">
+<!-- Headword Display -->
+<div class="flex items-baseline gap-3">
+<h1 class="text-4xl md:text-5xl font-japanese font-black text-warm-paper tracking-tight drop-shadow-[1px_1px_0px_#000000]">
+<ruby>食<rt class="text-xs text-gold-eye font-bold">た</rt></ruby>べる
+          </h1>
+<span class="font-mono text-sm text-secondary font-semibold">taberu</span>
+<span class="text-xs text-paper-subtle font-mono">v1 · vt</span>
+</div>
+<!-- Action Buttons -->
+<div class="flex items-center gap-2">
+<!-- Flip Mode Button -->
+<button class="tactile-btn px-2.5 py-1 bg-[#2A2926] text-warm-paper border-[1.5px] border-tactile-stroke rounded-md text-[11px] font-mono flex items-center gap-1.5" title="Toggle Front/Back Focus">
+<svg class="w-3 h-3 text-gold-eye" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M7 16V4m0 0L3 8m4-4l4 4m6 4v12m0 0l4-4m-4 4l-4-4"></path>
+</svg>
+<span>Kanji ⇄ Kana</span>
+</button>
+<!-- Audio Playback Button -->
+<button class="tactile-btn px-2.5 py-1 bg-[#2A2926] hover:bg-surface-container-high text-warm-paper border-[1.5px] border-tactile-stroke rounded-md text-[11px] font-mono flex items-center gap-1.5" onclick="this.classList.toggle('text-gold-eye')">
+<svg class="w-3 h-3 text-vermilion" fill="currentColor" viewbox="0 0 24 24">
+<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+<path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+<path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+</svg>
+<span>Audio 1.0x</span>
+</button>
+</div>
+</div>
+<!-- Compact Badge Tokens Row -->
+<div class="mt-3 pt-3 border-t border-[#2A2926] flex flex-wrap items-center gap-1.5 font-mono text-[11px]">
+<!-- JLPT Token -->
+<span class="px-2 py-0.5 rounded bg-[#C8A94A] text-ink-black font-bold border border-tactile-stroke shadow-[1px_1px_0px_#151413]">
+          JLPT N5
+        </span>
+<!-- Verb Class -->
+<span class="px-2 py-0.5 rounded bg-warm-paper/10 text-warm-paper border border-ink-border">
+          一段 (Ichidan)
+        </span>
+<!-- Pitch Accent Compact Token -->
+<span class="px-2 py-0.5 rounded bg-[#141311] text-gold-eye border border-gold-eye/60 flex items-center gap-1">
+<span>[②] 頭高</span>
+<span class="w-1.5 h-1.5 rounded-full bg-gold-eye"></span>
+</span>
+<!-- Transitive Pair Chip -->
+<span class="px-2 py-0.5 rounded bg-[#2A2926] text-secondary hover:text-warm-paper border border-tactile-stroke flex items-center gap-1 cursor-pointer transition-colors">
+<svg class="w-2.5 h-2.5 text-paper-subtle" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+          Pair: 食べさせる
+        </span>
+<!-- Frequency -->
+<span class="ml-auto text-paper-subtle text-[10px]">
+          Rank #48
+        </span>
+</div>
+</article>
+<!-- 5. DICTIONARY DEFINITIONS SECTION (Pitch Black #000000 - Compact Single-line with Carets) -->
+<section class="bg-[#000000] border-[1.5px] border-[#2A2926] rounded-xl p-4 shadow-[2px_2px_0px_#151413] space-y-3">
+<!-- Section Header -->
+<div class="flex items-center justify-between border-b border-[#2A2926] pb-2">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-vermilion"></span>
+<h2 class="font-mono text-xs font-bold uppercase tracking-wider text-warm-paper">
+            Lexical Definitions
+          </h2>
+</div>
+<span class="font-mono text-[10px] text-gold-eye bg-[#1C1B19] px-2 py-0.5 rounded border border-ink-border">
+          JMdict Core
+        </span>
+</div>
+<!-- Sense 1: Clean Single-line with Expandable Details -->
+<details class="group bg-[#141311] rounded-lg border border-[#2A2926] overflow-hidden" open="">
+<summary class="px-3 py-2 flex items-center justify-between cursor-pointer select-none hover:bg-[#1c1b19] transition-colors">
+<div class="flex items-center gap-2 truncate">
+<span class="font-mono text-vermilion font-bold text-xs">1.</span>
+<span class="font-bold text-warm-paper text-xs">to eat</span>
+<span class="text-paper-subtle text-[11px] truncate">— consume solid food, take a meal</span>
+</div>
+<svg class="w-3.5 h-3.5 text-paper-subtle group-open:rotate-180 transition-transform flex-shrink-0 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</summary>
+<div class="px-3 pb-2.5 pt-1 text-[12px] text-paper-subtle border-t border-[#1C1B19] space-y-1.5">
+<p class="leading-relaxed">
+            Common colloquial polite phrasing: <span class="text-warm-paper font-japanese font-semibold">いただきます</span>.
+          </p>
+<div class="flex items-center gap-2 pt-0.5">
+<span class="font-mono text-[10px] uppercase text-paper-subtle">Refs:</span>
+<a class="px-1.5 py-0.5 bg-[#1C1B19] text-secondary hover:text-gold-eye rounded border border-[#2A2926] font-japanese text-[11px] transition-colors" href="#">食す</a>
+<a class="px-1.5 py-0.5 bg-[#1C1B19] text-secondary hover:text-gold-eye rounded border border-[#2A2926] font-japanese text-[11px] transition-colors" href="#">喰らう</a>
+</div>
+</div>
+</details>
+<!-- Sense 2: Figurative -->
+<details class="group bg-[#141311] rounded-lg border border-[#2A2926] overflow-hidden">
+<summary class="px-3 py-2 flex items-center justify-between cursor-pointer select-none hover:bg-[#1c1b19] transition-colors">
+<div class="flex items-center gap-2 truncate">
+<span class="font-mono text-secondary font-bold text-xs">2.</span>
+<span class="font-bold text-warm-paper text-xs">to make a living</span>
+<span class="text-paper-subtle text-[11px] truncate">— to survive, get by (figurative)</span>
+</div>
+<svg class="w-3.5 h-3.5 text-paper-subtle group-open:rotate-180 transition-transform flex-shrink-0 ml-2" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</summary>
+<div class="px-3 pb-2 pt-1 text-[12px] text-paper-subtle border-t border-[#1C1B19]">
+<span class="text-warm-paper font-japanese">これだけでは食べていけない</span> (Cannot survive on just this).
+        </div>
+</details>
+<!-- Secondary Monolingual Dictionary (Daijirin) -->
+<details class="group bg-[#141311] rounded-lg border border-[#2A2926] overflow-hidden">
+<summary class="px-3 py-2 flex items-center justify-between cursor-pointer select-none hover:bg-[#1c1b19] transition-colors">
+<div class="flex items-center gap-2">
+<svg class="w-3.5 h-3.5 text-gold-eye group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<polyline points="9 18 15 12 9 6"></polyline>
+</svg>
+<span class="font-mono text-xs font-bold text-secondary">Daijirin (国語辞典)</span>
+<span class="text-paper-subtle text-[10px] font-mono">2 senses</span>
+</div>
+<span class="font-japanese text-[11px] text-paper-subtle hidden sm:inline truncate max-w-[200px]">食物を口から体内に入れる</span>
+</summary>
+<div class="px-3 py-2 bg-[#0C0B0A] border-t border-[#2A2926] font-japanese text-xs leading-relaxed text-secondary space-y-1">
+<p>① 食物をかんで、口から腹の中へ送り込む。「ご飯を食べる」</p>
+<p>② 暮らしを立てる。生計を維持する。「絵筆一本で食べていく」</p>
+</div>
+</details>
+</section>
+<!-- 6. KANJI BREAKDOWN TILE ('食' - Compact Minimalist Layout) -->
+<section class="bg-[#1C1B19] border-[1.5px] border-tactile-stroke rounded-xl p-4 shadow-[2px_2px_0px_#151413]">
+<div class="flex items-center justify-between border-b border-[#2A2926] pb-2 mb-3">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-gold-eye"></span>
+<h3 class="font-mono text-xs font-bold uppercase tracking-wider text-warm-paper">
+            Kanji Token
+          </h3>
+</div>
+<div class="flex items-center gap-2 font-mono text-[10px] text-paper-subtle">
+<span>G2</span>·<span>N5</span>·<span>Radical 飠</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<!-- Glyph Display -->
+<div class="w-14 h-14 rounded-lg bg-[#141311] border-[1.5px] border-tactile-stroke flex items-center justify-center shadow-[2px_2px_0px_#151413] flex-shrink-0">
+<span class="font-japanese text-3xl font-black text-warm-paper">食</span>
+</div>
+<!-- Readings & Meanings Compact Grid -->
+<div class="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+<div class="px-2.5 py-1.5 bg-[#141311] rounded border border-ink-border">
+<span class="text-[9px] font-mono text-paper-subtle uppercase block">Onyomi</span>
+<span class="font-japanese font-semibold text-warm-paper">ショク, ジキ</span>
+</div>
+<div class="px-2.5 py-1.5 bg-[#141311] rounded border border-ink-border">
+<span class="text-[9px] font-mono text-paper-subtle uppercase block">Kunyomi</span>
+<span class="font-japanese font-semibold text-gold-eye">た.べる, く.う</span>
+</div>
+<div class="sm:col-span-2 px-2.5 py-1.5 bg-[#141311] rounded border border-ink-border flex items-center justify-between">
+<div class="truncate">
+<span class="text-[9px] font-mono text-paper-subtle uppercase block">Meanings</span>
+<span class="font-medium text-warm-paper text-[11px]">eat, food, meal</span>
+</div>
+<!-- Stroke Order Interactive Step Button -->
+<div class="flex items-center gap-1.5 flex-shrink-0 ml-2">
+<button class="tactile-btn px-2 py-0.5 bg-warm-paper text-ink-black border border-tactile-stroke rounded text-[10px] font-mono font-bold flex items-center gap-1" title="Kanji Stroke Order Steps">
+<span>9 strokes ✍</span>
+</button>
+<span class="font-mono text-[8px] text-gold-eye bg-[#1C1B19] px-1.5 py-0.5 rounded border border-[#2A2926]">
+                [ANIM_SLOT: stroke-order-draw]
+              </span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- ===================================================================== -->
+<!-- RIGHT COLUMN (col-span-5/4): Anki Card Editor & Persistence Form     -->
+<!-- ===================================================================== -->
+<aside class="lg:col-span-5 xl:col-span-4 sticky top-16">
+<div class="bg-[#1C1B19] border-[1.5px] border-tactile-stroke rounded-xl p-4 shadow-[3px_3px_0px_#151413] flex flex-col gap-3">
+<!-- Header and Target Selector -->
+<div class="border-b border-[#2A2926] pb-2.5">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2">
+<svg class="w-3.5 h-3.5 text-vermilion" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+</svg>
+<h3 class="font-mono text-xs font-bold uppercase tracking-wider text-warm-paper">
+              Card Editor
+            </h3>
+</div>
+<span class="px-2 py-0.5 rounded text-[10px] font-mono text-[#4ade80] border border-[#4ade80]/40 bg-[#4ade80]/10 flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-[#4ade80]"></span> Connected
+          </span>
+</div>
+<!-- Target Deck & Target Model Selectors -->
+<div class="grid grid-cols-2 gap-2 text-xs font-mono">
+<div>
+<label class="block text-paper-subtle text-[9px] uppercase mb-0.5">Deck</label>
+<div class="relative">
+<select class="w-full bg-[#141311] border border-ink-border rounded-md px-2 py-1 text-[11px] text-warm-paper focus:border-gold-eye focus:ring-0 appearance-none font-mono">
+<option selected="">Japanese::Mining</option>
+<option>Japanese::Core2.3k</option>
+<option>Japanese::Grammar</option>
+</select>
+<div class="absolute right-2 top-1.5 pointer-events-none text-paper-subtle text-[9px]">▼</div>
+</div>
+</div>
+<div>
+<label class="block text-paper-subtle text-[9px] uppercase mb-0.5">Model</label>
+<div class="relative">
+<select class="w-full bg-[#141311] border border-ink-border rounded-md px-2 py-1 text-[11px] text-warm-paper focus:border-gold-eye focus:ring-0 appearance-none font-mono">
+<option selected="">Kiroku Mining Note</option>
+<option>Standard Vocabulary</option>
+<option>Sentence Mining v2</option>
+</select>
+<div class="absolute right-2 top-1.5 pointer-events-none text-paper-subtle text-[9px]">▼</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Structured Compact Form Fields -->
+<form class="space-y-2.5" onsubmit="event.preventDefault();">
+<!-- Expression & Reading Dual Input -->
+<div class="grid grid-cols-2 gap-2">
+<div>
+<label class="block text-paper-subtle font-mono text-[9px] uppercase mb-0.5">Expression</label>
+<input class="w-full bg-[#141311] border border-ink-border rounded-md px-2.5 py-1 text-xs font-japanese font-bold text-warm-paper focus:border-gold-eye focus:ring-0" placeholder="単語" type="text" value="食べる"/>
+</div>
+<div>
+<label class="block text-paper-subtle font-mono text-[9px] uppercase mb-0.5">Reading</label>
+<input class="w-full bg-[#141311] border border-ink-border rounded-md px-2.5 py-1 text-xs font-japanese text-gold-eye focus:border-gold-eye focus:ring-0 font-medium" placeholder="読み" type="text" value="たべる"/>
+</div>
+</div>
+<!-- Meaning -->
+<div>
+<label class="block text-paper-subtle font-mono text-[9px] uppercase mb-0.5">Meaning</label>
+<input class="w-full bg-[#141311] border border-ink-border rounded-md px-2.5 py-1 text-xs text-warm-paper focus:border-gold-eye focus:ring-0 font-medium" placeholder="English definition" type="text" value="to eat"/>
+</div>
+<!-- Example Sentence -->
+<div>
+<div class="flex items-center justify-between mb-0.5">
+<label class="text-paper-subtle font-mono text-[9px] uppercase">Example (例文)</label>
+<span class="text-[9px] font-mono text-gold-eye">[sound:taberu_ex1.mp3]</span>
+</div>
+<input class="w-full bg-[#141311] border border-ink-border rounded-md px-2.5 py-1 text-xs font-japanese text-warm-paper focus:border-gold-eye focus:ring-0" placeholder="例文" type="text" value="毎朝、パンを食べます。"/>
+</div>
+<!-- Example Translation -->
+<div>
+<label class="block text-paper-subtle font-mono text-[9px] uppercase mb-0.5">Translation</label>
+<input class="w-full bg-[#141311] border border-ink-border rounded-md px-2.5 py-1 text-xs text-warm-paper focus:border-gold-eye focus:ring-0" placeholder="English sentence translation" type="text" value="I eat bread every morning."/>
+</div>
+<!-- Collapsible Linguistic Notes -->
+<details class="group bg-[#141311] rounded-md border border-ink-border overflow-hidden">
+<summary class="px-2.5 py-1 flex items-center justify-between cursor-pointer select-none text-paper-subtle hover:text-warm-paper text-[11px] font-mono">
+<span class="uppercase text-[9px]">Linguistic Notes &amp; Tags</span>
+<span class="text-[10px] group-open:rotate-180 transition-transform">▼</span>
+</summary>
+<div class="p-2 border-t border-[#1C1B19] space-y-1.5">
+<textarea class="w-full bg-[#1C1B19] border border-ink-border rounded px-2 py-1 text-[11px] text-secondary focus:border-gold-eye focus:ring-0 resize-none font-mono" placeholder="Optional notes, mnemonics, or collocations..." rows="2">Standard ichidan verb; highly frequent in daily contexts.</textarea>
+<div class="flex items-center gap-1">
+<span class="text-[9px] font-mono text-paper-subtle">Tags:</span>
+<span class="px-1.5 py-0.2 bg-[#2A2926] text-secondary rounded font-mono text-[9px]">JLPT-N5</span>
+<span class="px-1.5 py-0.2 bg-[#2A2926] text-secondary rounded font-mono text-[9px]">Core500</span>
+</div>
+</div>
+</details>
+<!-- Persistence Action Area -->
+<div class="pt-2 border-t border-[#2A2926] space-y-2">
+<!-- Primary Save Button + Animation Slot -->
+<button class="tactile-btn w-full py-2 bg-vermilion hover:bg-vermilion/90 text-warm-paper font-mono font-bold text-xs rounded-lg border-[1.5px] border-tactile-stroke shadow-[2px_2px_0px_#151413] flex items-center justify-center gap-1.5" id="saveCardBtn" type="submit">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewbox="0 0 24 24">
+<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+<polyline points="17 21 17 13 7 13 7 21"></polyline>
+<polyline points="7 3 7 8 15 8"></polyline>
+</svg>
+<span>Save Card</span>
+</button>
+<div class="text-center">
+<span class="font-mono text-[8px] text-paper-subtle bg-[#141311] px-1.5 py-0.5 rounded border border-[#2A2926]">
+              [ANIM_SLOT: card-save-stamp]
+            </span>
+</div>
+<!-- Status Bar -->
+<div class="flex items-center justify-between gap-2 pt-0.5">
+<div class="px-2 py-0.5 rounded border border-[#4ade80]/30 bg-[#4ade80]/5 text-[#4ade80] font-mono text-[10px] flex items-center gap-1 flex-1 truncate">
+<span class="w-1.5 h-1.5 rounded-full bg-[#4ade80]"></span>
+<span class="truncate">Synced: Note #17290123</span>
+</div>
+<button class="tactile-btn px-2.5 py-0.5 bg-[#2A2926] text-secondary hover:text-warm-paper rounded border border-tactile-stroke font-mono text-[10px]" type="button">
+              Reset
+            </button>
+</div>
+</div>
+</form>
+</div>
+</aside>
+</div>
+</main>
+<!-- ========================================================================= -->
+<!-- 8. FLOATING BOTTOM TACTILE DOCK (Warm Paper Pill with 6 Tabs)              -->
+<!-- ========================================================================= -->
+<nav class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 md:gap-1.5 px-3 py-1.5 rounded-full bg-warm-paper border-[1.5px] border-tactile-stroke shadow-[3px_3px_0px_#151413] select-none font-mono">
+<!-- 1. Home -->
+<a class="tactile-btn flex items-center gap-1 px-2.5 py-1 rounded-full text-ink-black hover:bg-paper-dim transition-colors text-[11px] font-bold" href="#">
+<svg class="w-3.5 h-3.5 text-ink-black" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+<polyline points="9 22 9 12 15 12 15 22"></polyline>
+</svg>
+<span class="hidden sm:inline">Home</span>
+</a>
+<!-- 2. Vocab (ACTIVE TAB - VERMILION) -->
+<a class="flex items-center gap-1 px-3 py-1 rounded-full bg-vermilion text-warm-paper border-[1.5px] border-tactile-stroke shadow-[1px_1px_0px_#151413] text-[11px] font-bold" href="#">
+<svg class="w-3.5 h-3.5 text-warm-paper" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24">
+<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+</svg>
+<span>Vocab</span>
+</a>
+<!-- 3. Grammar -->
+<a class="tactile-btn flex items-center gap-1 px-2.5 py-1 rounded-full text-ink-black hover:bg-paper-dim transition-colors text-[11px] font-bold" href="#">
+<svg class="w-3.5 h-3.5 text-ink-black" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<line x1="8" x2="21" y1="6" y2="6"></line>
+<line x1="8" x2="21" y1="12" y2="12"></line>
+<line x1="8" x2="21" y1="18" y2="18"></line>
+<line x1="3" x2="3.01" y1="6" y2="6"></line>
+<line x1="3" x2="3.01" y1="12" y2="12"></line>
+<line x1="3" x2="3.01" y1="18" y2="18"></line>
+</svg>
+<span class="hidden sm:inline">Grammar</span>
+</a>
+<!-- 4. Kanji -->
+<a class="tactile-btn flex items-center gap-1 px-2.5 py-1 rounded-full text-ink-black hover:bg-paper-dim transition-colors text-[11px] font-bold" href="#">
+<svg class="w-3.5 h-3.5 text-ink-black" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<path d="M5 4h14M12 4v16M8 9l8 6M16 9l-8 6"></path>
+</svg>
+<span class="hidden sm:inline">Kanji</span>
+</a>
+<!-- 5. Test -->
+<a class="tactile-btn flex items-center gap-1 px-2.5 py-1 rounded-full text-ink-black hover:bg-paper-dim transition-colors text-[11px] font-bold" href="#">
+<svg class="w-3.5 h-3.5 text-ink-black" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+<polyline points="14 2 14 8 20 8"></polyline>
+<path d="m9 15 2 2 4-4"></path>
+</svg>
+<span class="hidden sm:inline">Test</span>
+</a>
+<!-- 6. Study -->
+<a class="tactile-btn flex items-center gap-1 px-2.5 py-1 rounded-full text-ink-black hover:bg-paper-dim transition-colors text-[11px] font-bold" href="#">
+<svg class="w-3.5 h-3.5 text-ink-black" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+</svg>
+<span class="hidden sm:inline">Study</span>
+</a>
+</nav>
+<!-- Inline Interactive Script -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const saveBtn = document.getElementById('saveCardBtn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        saveBtn.classList.add('translate-x-[1px]', 'translate-y-[1px]', 'shadow-[1px_1px_0px_#151413]');
+        setTimeout(() => {
+          saveBtn.classList.remove('translate-x-[1px]', 'translate-y-[1px]', 'shadow-[1px_1px_0px_#151413]');
+        }, 120);
+      });
+    }
+  });
+</script>
+</body></html>

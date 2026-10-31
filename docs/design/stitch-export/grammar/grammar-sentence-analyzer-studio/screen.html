@@ -1,0 +1,537 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Kiroku Note - Grammar Studio</title>
+<!-- Material Symbols & Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Epilogue:ital,wght@0,600;0,700;0,800;1,700&amp;family=Inter:wght@400;500;600;700&amp;family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-primary-fixed-variant": "#8e1308",
+            "surface-container-highest": "#363532",
+            "on-tertiary-fixed-variant": "#574500",
+            "on-error-container": "#ffdad6",
+            "on-secondary-container": "#b8b5ad",
+            "background": "#141311",
+            "on-surface": "#e6e2de",
+            "inverse-on-surface": "#31302e",
+            "inverse-primary": "#b02e1e",
+            "surface-tint": "#ffb4a7",
+            "on-error": "#690005",
+            "primary": "#ffb4a7",
+            "on-secondary": "#31302b",
+            "surface-container": "#201f1d",
+            "vermilion-glow": "rgba(217, 75, 56, 0.20)",
+            "on-primary-container": "#5b0200",
+            "ink-black": "#22211F",
+            "tertiary": "#e4c461",
+            "primary-container": "#f55f4a",
+            "ink-border": "rgba(245, 241, 232, 0.12)",
+            "surface": "#141311",
+            "on-tertiary-fixed": "#241a00",
+            "secondary": "#cac6be",
+            "surface-dim": "#141311",
+            "paper-dim": "#E8E3D8",
+            "on-surface-variant": "#e1bfb9",
+            "on-secondary-fixed": "#1c1c16",
+            "primary-fixed-dim": "#ffb4a7",
+            "surface-bright": "#3a3937",
+            "paper-subtle": "rgba(245, 241, 232, 0.45)",
+            "surface-container-high": "#2b2a28",
+            "inverse-surface": "#e6e2de",
+            "surface-variant": "#363532",
+            "tertiary-container": "#c7a849",
+            "secondary-fixed": "#e6e2d9",
+            "secondary-fixed-dim": "#cac6be",
+            "ink-surface": "#2A2926",
+            "on-tertiary-container": "#4e3d00",
+            "on-primary": "#680200",
+            "on-background": "#e6e2de",
+            "surface-container-lowest": "#0f0e0c",
+            "on-tertiary": "#3c2f00",
+            "gold-eye": "#C8A94A",
+            "error-container": "#93000a",
+            "on-primary-fixed": "#410100",
+            "primary-fixed": "#ffdad4",
+            "on-secondary-fixed-variant": "#484740",
+            "tertiary-fixed": "#ffe088",
+            "outline-variant": "#59413d",
+            "vermilion": "#D94B38",
+            "secondary-container": "#484740",
+            "warm-paper": "#F5F1E8",
+            "tactile-stroke": "#151413",
+            "error": "#ffb4ab",
+            "surface-container-low": "#1c1b19",
+            "tertiary-fixed-dim": "#e4c461",
+            "gold-glow": "rgba(200, 169, 74, 0.08)",
+            "outline": "#a88a84"
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "space-xs": "0.25rem",
+            "space-lg": "1.5rem",
+            "space-xl": "2.5rem",
+            "space-sm": "0.5rem",
+            "gutter-sm": "1rem",
+            "space-md": "1rem",
+            "gutter": "1.5rem",
+            "margin": "2rem",
+            "margin-sm": "1rem"
+          },
+          fontFamily: {
+            "headline-editorial-lg-mobile": ["Noto Serif"],
+            "display-comic": ["Epilogue"],
+            "body-editorial-md": ["Noto Serif"],
+            "label-ui-caption": ["Inter"],
+            "title-brand": ["Noto Serif"],
+            "body-editorial-lg": ["Noto Serif"],
+            "headline-editorial-lg": ["Noto Serif"],
+            "display-comic-mobile": ["Epilogue"],
+            "code-counter": ["Inter"],
+            "headline-editorial-md": ["Noto Serif"],
+            "label-ui-bold": ["Inter"]
+          },
+          fontSize: {
+            "headline-editorial-lg-mobile": ["26px", { lineHeight: "34px", letterSpacing: "0em", fontWeight: "700" }],
+            "display-comic": ["44px", { lineHeight: "52px", letterSpacing: "-0.02em", fontWeight: "800" }],
+            "body-editorial-md": ["15px", { lineHeight: "24px", fontWeight: "400" }],
+            "label-ui-caption": ["11px", { lineHeight: "14px", letterSpacing: "0.06em", fontWeight: "500" }],
+            "title-brand": ["20px", { lineHeight: "28px", letterSpacing: "0.12em", fontWeight: "700" }],
+            "body-editorial-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }],
+            "headline-editorial-lg": ["36px", { lineHeight: "44px", letterSpacing: "-0.01em", fontWeight: "700" }],
+            "display-comic-mobile": ["32px", { lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "800" }],
+            "code-counter": ["14px", { lineHeight: "16px", letterSpacing: "-0.02em", fontWeight: "700" }],
+            "headline-editorial-md": ["24px", { lineHeight: "32px", letterSpacing: "0em", fontWeight: "600" }],
+            "label-ui-bold": ["13px", { lineHeight: "18px", letterSpacing: "0.04em", fontWeight: "600" }]
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    .tactile-btn {
+      box-shadow: 3px 3px 0px #151413;
+      transition: transform 75ms ease, box-shadow 75ms ease;
+    }
+    .tactile-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0px #151413;
+    }
+    .tactile-btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0px #151413;
+    }
+    .tactile-card {
+      box-shadow: 3px 3px 0px #151413;
+    }
+    .tactile-dock {
+      box-shadow: 4px 4px 0px #151413;
+    }
+    .letter-lift span {
+      display: inline-block;
+      transition: transform 0.15s ease;
+    }
+    .letter-lift:hover span {
+      transform: translateY(-2px);
+    }
+    .spring-rotate:hover {
+      transform: rotate(45deg);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col font-body-editorial-md selection:bg-vermilion selection:text-warm-paper antialiased pb-24 overflow-x-hidden">
+<!-- TOP BAR & WINDOW CHROME (48px) -->
+<header class="w-full h-12 fixed top-0 left-0 right-0 z-50 bg-[#141311] border-b border-[#2A2926] px-5 flex items-center justify-between select-none">
+  <!-- Left zone: 3 tactile window dots + Wordmark + Mode Badge -->
+  <div class="flex items-center">
+    <!-- 3 tactile window dots (10px diameter: #D94B38 vermilion, #C8A94A gold, #3A3937 maximise) with 8px gap and mr-4 -->
+    <div class="flex items-center gap-2 mr-4">
+      <button aria-label="Close" class="w-2.5 h-2.5 rounded-full bg-[#D94B38] border border-[#151413] hover:opacity-80 transition-opacity"></button>
+      <button aria-label="Minimize" class="w-2.5 h-2.5 rounded-full bg-[#C8A94A] border border-[#151413] hover:opacity-80 transition-opacity"></button>
+      <button aria-label="Maximize" class="w-2.5 h-2.5 rounded-full bg-[#3A3937] border border-[#151413] hover:opacity-80 transition-opacity"></button>
+    </div>
+    <!-- Wordmark: KIROKU in uppercase serif, 17px, bold, tracking-[0.14em], warm paper ivory, letter-lift hover -->
+    <a href="#" class="letter-lift font-title-brand font-bold text-[17px] tracking-[0.14em] text-[#F5F1E8] flex items-center">
+      <span class="">K</span><span class="">I</span><span class="">R</span><span class="">O</span><span class="">K</span><span class="">U</span>
+    </a>
+    <!-- Mode Badge: pill badge rounded-[6px], px-2.5 py-0.5, h-5, bg-[#C8A94A], text 'NOTE ノート' 11px bold text-[#151413] shadow -->
+    <div class="ml-3 px-2.5 py-0.5 h-5 rounded-[6px] bg-[#C8A94A] flex items-center justify-center font-label-ui-bold text-[11px] font-bold tracking-[0.08em] text-[#151413] shadow-[1px_1px_0px_#151413]">
+      NOTE ノート
+    </div>
+  </div>
+
+  <!-- Right zone: History button & Settings button -->
+  <div class="flex items-center gap-2.5">
+    <!-- History button: 32x32px, bg-[#1C1B19] border border-[rgba(245,241,232,0.12)], SVG counter-clockwise circular clock/arrow icon -->
+    <button title="History" class="w-8 h-8 rounded-[8px] bg-[#1C1B19] border border-[rgba(245,241,232,0.12)] flex items-center justify-center text-[#F5F1E8] hover:bg-[#2A2926] hover:-rotate-[15deg] transition-all duration-200">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" viewBox="0 0 24 24">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+        <path d="M3 3v5h5"></path>
+        <path d="M12 7v5l4 2"></path>
+      </svg>
+    </button>
+
+    <!-- Settings button: 32x32px, bg-[#1C1B19] border border-[rgba(245,241,232,0.12)], SVG mechanical gear icon with 45deg spring rotation -->
+    <button title="Settings" class="w-8 h-8 rounded-[8px] bg-[#1C1B19] border border-[rgba(245,241,232,0.12)] flex items-center justify-center text-[#F5F1E8] hover:bg-[#2A2926] hover:rotate-45 transition-transform duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" viewBox="0 0 24 24">
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+      </svg>
+    </button>
+  </div>
+</header>
+<!-- MAIN VIEWPORT CONTAINER -->
+<main class="w-full max-w-7xl mx-auto px-4 md:px-6 pt-16 flex flex-col gap-6">
+<!-- TOP TELEMETRY & HERO HEADER ROW -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-2 border-b border-ink-border pb-4">
+<div>
+<div class="flex items-center gap-2 text-label-ui-caption font-label-ui-caption text-secondary uppercase tracking-widest mb-1">
+<span class="text-vermilion">●</span> Syntax &amp; Conjugation Engine
+        </div>
+<h1 class="font-headline-editorial-lg text-headline-editorial-lg text-warm-paper tracking-tight">
+          Grammar Studio <span class="font-title-brand font-normal text-secondary/60 text-2xl ml-1">文法解析</span>
+</h1>
+</div>
+<!-- Quick Metrics Strip -->
+<div class="flex items-center gap-2 bg-surface-container-low px-3 py-2 rounded-lg border border-tactile-stroke tactile-card text-label-ui-caption font-label-ui-caption">
+<div class="flex items-center gap-1.5 px-2 border-r border-ink-border">
+<span class="font-code-counter text-warm-paper font-bold">142</span>
+<span class="text-secondary/80">Tracked</span>
+</div>
+<div class="hidden sm:flex items-center gap-2 px-2 border-r border-ink-border text-[11px]">
+<span class="text-warm-paper">N5: <strong class="font-code-counter text-gold-eye">48</strong></span>
+<span class="text-warm-paper">N4: <strong class="font-code-counter text-gold-eye">36</strong></span>
+<span class="text-warm-paper">N3: <strong class="font-code-counter text-vermilion">32</strong></span>
+<span class="text-warm-paper">N2: <strong class="font-code-counter text-secondary">18</strong></span>
+<span class="text-warm-paper">N1: <strong class="font-code-counter text-secondary">8</strong></span>
+</div>
+<div class="flex items-center gap-2 pl-2">
+<span class="flex items-center gap-1 text-emerald-400">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Known 86
+          </span>
+<span class="flex items-center gap-1 text-vermilion">
+<span class="w-1.5 h-1.5 rounded-full bg-vermilion"></span> Learning 42
+          </span>
+</div>
+</div>
+</div>
+<!-- MAIN TWO-ZONE GRID -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- LEFT COLUMN: Input + Visualizer (7 cols) -->
+<div class="lg:col-span-7 flex flex-col gap-6">
+<!-- 1. SENTENCE ANALYZER INPUT CARD -->
+<section class="bg-surface-container-low border border-tactile-stroke rounded-xl p-5 tactile-card flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-vermilion">stylus_note</span>
+<h2 class="font-label-ui-bold text-label-ui-bold text-warm-paper">Target Sentence Entry</h2>
+</div>
+<div class="flex items-center gap-3 text-label-ui-caption font-label-ui-caption">
+<span class="text-secondary/60 font-code-counter" id="char-counter">28 chars</span>
+<button class="tactile-btn text-secondary hover:text-warm-paper px-2 py-0.5 rounded border border-ink-border bg-surface text-[11px]" onclick="document.getElementById('sentence-input').value=''; document.getElementById('char-counter').innerText='0 chars';" title="Clear text">
+                ✕ Clear
+              </button>
+</div>
+</div>
+<!-- Textarea -->
+<div class="relative">
+<textarea class="w-full bg-ink-black border border-ink-border rounded-lg p-3 text-warm-paper font-body-editorial-lg text-lg focus:outline-none focus:border-gold-eye focus:ring-0 resize-none transition-all" id="sentence-input" placeholder="Enter Japanese sentence..." rows="3">毎日日本語を勉強しているのに、なかなか上手にならない。</textarea>
+</div>
+<!-- Filter & Configuration Bar -->
+<div class="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-ink-border/60">
+<div class="flex flex-wrap items-center gap-3">
+<!-- Level Dropdown Selector -->
+<div class="relative">
+<select class="appearance-none bg-surface-container border border-tactile-stroke rounded-lg px-3 py-1.5 pr-8 text-label-ui-bold text-warm-paper text-xs cursor-pointer tactile-btn focus:outline-none focus:border-gold-eye">
+<option>All Levels (N5–N1) ▼</option>
+<option>JLPT N5</option>
+<option>JLPT N4</option>
+<option>JLPT N3</option>
+<option>JLPT N2</option>
+<option>JLPT N1</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2 pointer-events-none text-xs text-secondary">expand_more</span>
+</div>
+<!-- Tactile Toggles -->
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input class="sr-only peer" type="checkbox">
+<div class="w-7 h-4 bg-surface rounded-full border border-tactile-stroke peer-checked:bg-gold-eye relative transition-colors">
+<div class="w-3 h-3 bg-warm-paper rounded-full absolute top-[1px] left-[1px] peer-checked:left-[13px] transition-all"></div>
+</div>
+<span class="text-label-ui-caption font-label-ui-caption text-secondary/90">Show basic particles</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input class="sr-only peer" type="checkbox">
+<div class="w-7 h-4 bg-surface rounded-full border border-tactile-stroke peer-checked:bg-vermilion relative transition-colors">
+<div class="w-3 h-3 bg-warm-paper rounded-full absolute top-[1px] left-[1px] peer-checked:left-[13px] transition-all"></div>
+</div>
+<span class="text-label-ui-caption font-label-ui-caption text-secondary/90">Hide known grammar</span>
+</label>
+</div>
+<!-- Primary Action: Analyze Sentence Stamp -->
+<button class="tactile-btn bg-vermilion text-warm-paper border border-tactile-stroke font-label-ui-bold text-label-ui-bold px-4 py-2 rounded-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-base">psychology</span>
+              Analyze Sentence
+            </button>
+</div>
+</section>
+<!-- 2. SEGMENTED SENTENCE VISUALIZER -->
+<section class="bg-[#000000] border-2 border-tactile-stroke rounded-xl p-5 tactile-card relative overflow-hidden flex flex-col gap-4">
+<!-- Atmospheric backdrop indicator -->
+<div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-gold-glow pointer-events-none"></div>
+<div class="flex justify-between items-center border-b border-ink-border/40 pb-3">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-vermilion animate-pulse"></span>
+<span class="font-label-ui-bold text-label-ui-bold text-warm-paper tracking-wider uppercase text-xs">Grammar Parsing Breakdown</span>
+<span class="text-[10px] font-code-counter text-secondary/60">[ANIM_SLOT: grammar-chip-hover]</span>
+</div>
+<!-- Quick playback & copy actions -->
+<div class="flex items-center gap-2">
+<button class="tactile-btn flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-high border border-tactile-stroke text-warm-paper text-xs hover:text-gold-eye" title="Listen Audio">
+<span class="material-symbols-outlined text-[15px]">volume_up</span>
+<span class="font-label-ui-bold text-xs">Play Audio 1.0x</span>
+</button>
+<button class="tactile-btn p-1 rounded bg-surface-container-high border border-tactile-stroke text-warm-paper hover:text-gold-eye text-xs" title="Copy Segmented Sentence">
+<span class="material-symbols-outlined text-[15px]">content_copy</span>
+</button>
+</div>
+</div>
+<!-- Sentence Reading Stream -->
+<div class="py-4 px-2 leading-loose flex flex-wrap items-center gap-y-3 gap-x-1.5 text-2xl font-headline-editorial-md text-warm-paper">
+<!-- Non-grammar chunk -->
+<span class="text-warm-paper/90 select-all hover:text-warm-paper">毎日日本語を勉強している</span>
+<!-- Chip 1 Focus (N3: のに) -->
+<div class="inline-flex flex-col items-center group cursor-pointer">
+<span class="text-[10px] font-label-ui-caption font-bold text-gold-eye uppercase tracking-wider -mb-1 opacity-90">N3 Disjunctive</span>
+<span class="px-2.5 py-0.5 rounded-md bg-gold-eye/15 border-1.5 border-gold-eye text-gold-eye font-bold underline decoration-gold-eye/60 underline-offset-4 tactile-btn shadow-sm">
+                〜のに
+              </span>
+</div>
+<!-- Non-grammar chunk -->
+<span class="text-warm-paper/90 select-all">、なかなか</span>
+<!-- Chip 2 Focus (N5: になる) -->
+<div class="inline-flex flex-col items-center group cursor-pointer">
+<span class="text-[10px] font-label-ui-caption font-bold text-[#E8C07A] uppercase tracking-wider -mb-1 opacity-90">N5 Change State</span>
+<span class="px-2.5 py-0.5 rounded-md bg-amber-900/30 border border-[#E8C07A] text-[#E8C07A] font-bold underline decoration-amber-400/40 underline-offset-4 tactile-btn">
+                〜上手にならない
+              </span>
+</div>
+<span class="text-warm-paper/90">。</span>
+</div>
+<!-- Segment Annotation Legend -->
+<div class="flex flex-wrap items-center gap-4 text-xs font-label-ui-caption text-secondary/70 pt-2 border-t border-ink-border/40">
+<span class="flex items-center gap-1.5">
+<span class="w-2.5 h-2.5 rounded bg-gold-eye/20 border border-gold-eye"></span>
+              JLPT N3 Targeted Grammar
+            </span>
+<span class="flex items-center gap-1.5">
+<span class="w-2.5 h-2.5 rounded bg-amber-900/30 border border-[#E8C07A]"></span>
+              JLPT N5 Auxiliary Pattern
+            </span>
+<span class="ml-auto text-secondary/50 font-code-counter">Parsed with MeCab &amp; Kiroku NLP Engine</span>
+</div>
+</section>
+<!-- SEARCH GRAMMAR INDEX & FILTER BAR (Bottom of Left Column) -->
+<div class="bg-surface-container-low border border-tactile-stroke rounded-xl p-4 tactile-card flex flex-col sm:flex-row items-center justify-between gap-3">
+<div class="relative w-full sm:w-64">
+<span class="material-symbols-outlined absolute left-2.5 top-2 text-secondary text-sm">search</span>
+<input class="w-full bg-ink-black border border-ink-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-warm-paper placeholder:text-secondary/50 focus:outline-none focus:border-gold-eye" placeholder="Search Grammar Index..." type="text">
+</div>
+<!-- JLPT Filter Pills -->
+<div class="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+<span class="text-[11px] font-label-ui-caption text-secondary/70 mr-1">Filter:</span>
+<button class="tactile-btn px-2.5 py-1 rounded bg-surface border border-tactile-stroke text-[11px] font-label-ui-bold text-warm-paper hover:bg-gold-eye hover:text-tactile-stroke">N5</button>
+<button class="tactile-btn px-2.5 py-1 rounded bg-surface border border-tactile-stroke text-[11px] font-label-ui-bold text-warm-paper hover:bg-gold-eye hover:text-tactile-stroke">N4</button>
+<button class="tactile-btn px-2.5 py-1 rounded bg-vermilion text-warm-paper border border-tactile-stroke text-[11px] font-label-ui-bold shadow-sm">N3</button>
+<button class="tactile-btn px-2.5 py-1 rounded bg-surface border border-tactile-stroke text-[11px] font-label-ui-bold text-warm-paper hover:bg-gold-eye hover:text-tactile-stroke">N2</button>
+<button class="tactile-btn px-2.5 py-1 rounded bg-surface border border-tactile-stroke text-[11px] font-label-ui-bold text-warm-paper hover:bg-gold-eye hover:text-tactile-stroke">N1</button>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: Detected Grammar Point Cards & Mascot Companion Slot (5 cols) -->
+<div class="lg:col-span-5 flex flex-col gap-6">
+<!-- MASCOT COMPANION SLOT CARD: [MASCOT_SLOT: grammar-attentive-study] -->
+<div class="bg-surface-container-low border border-dashed border-gold-eye/40 rounded-xl p-4 flex items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="w-[72px] h-[72px] rounded-lg border-2 border-dashed border-gold-eye/50 bg-ink-black flex flex-col items-center justify-center text-center p-1">
+<span class="material-symbols-outlined text-gold-eye text-2xl">menu_book</span>
+<span class="text-[8px] font-code-counter text-secondary/80 mt-1 leading-tight">STUDY BOT</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-code-counter text-gold-eye uppercase tracking-wider font-semibold">
+                [MASCOT_SLOT: grammar-attentive-study]
+              </span>
+<h3 class="font-label-ui-bold text-warm-paper text-sm mt-0.5">Tanuki Study Companion</h3>
+<p class="text-xs text-secondary/70">Attentive mode listening for clause contrast markers.</p>
+</div>
+</div>
+<div class="px-2 py-1 bg-gold-eye/10 rounded border border-gold-eye/30 text-[10px] font-label-ui-bold text-gold-eye">
+            ACTIVE
+          </div>
+</div>
+<!-- CARD 1: ACTIVE FOCUS: 〜のに -->
+<article class="bg-[#242220] border-2 border-tactile-stroke rounded-xl p-5 tactile-card relative flex flex-col gap-4">
+<!-- Active highlight stamp indicator -->
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<span class="text-3xl font-headline-editorial-md text-warm-paper font-bold">〜のに</span>
+<span class="px-2.5 py-0.5 rounded-full bg-gold-eye text-tactile-stroke font-label-ui-bold text-xs border border-tactile-stroke shadow-sm">
+                JLPT N3
+              </span>
+</div>
+<!-- Status Selector Button Group -->
+<div class="flex items-center bg-surface-container rounded-lg border border-tactile-stroke p-0.5 text-xs font-label-ui-bold">
+<button class="px-2.5 py-1 rounded text-secondary hover:text-warm-paper">New</button>
+<button class="tactile-btn px-2.5 py-1 rounded bg-vermilion text-warm-paper border border-tactile-stroke font-bold">Learning</button>
+<button class="px-2.5 py-1 rounded text-secondary hover:text-warm-paper">Known</button>
+</div>
+</div>
+<!-- Meaning -->
+<div class="bg-ink-surface/70 border border-ink-border rounded-lg p-3">
+<span class="text-[11px] font-label-ui-caption text-secondary uppercase tracking-wider block mb-1">Core Meaning</span>
+<p class="text-sm text-warm-paper font-medium">
+              even though; despite; although <span class="text-secondary text-xs italic block mt-0.5 font-normal">(expresses speaker dissatisfaction, unexpected outcome, or frustration)</span>
+</p>
+</div>
+<!-- Formation Rules -->
+<div class="flex flex-col gap-1.5">
+<span class="text-[11px] font-label-ui-caption text-secondary uppercase tracking-wider">Formation Rules</span>
+<div class="bg-ink-black/60 rounded-lg p-2.5 border border-tactile-stroke text-xs font-code-counter text-warm-paper flex flex-wrap gap-x-3 gap-y-1">
+<span class="text-amber-300">Verb (plain)</span> + のに · 
+              <span class="text-amber-300">い-adj</span> + のに · 
+              <span class="text-amber-300">な-adj</span> + なのに · 
+              <span class="text-amber-300">Noun</span> + なのに
+            </div>
+</div>
+<!-- Example Sentence Card with Speech Dialogue Feel -->
+<div class="bg-warm-paper text-ink-black rounded-lg p-3.5 border-1.5 border-tactile-stroke shadow-[2px_2px_0px_#151413] flex flex-col gap-1.5">
+<div class="flex justify-between items-center">
+<span class="text-[10px] font-label-ui-bold uppercase tracking-wider text-vermilion">Example Sentence</span>
+<button class="tactile-btn p-1 rounded-full bg-paper-dim border border-tactile-stroke hover:bg-white text-ink-black" title="Listen Example">
+<span class="material-symbols-outlined text-[14px]">volume_up</span>
+</button>
+</div>
+<p class="text-base font-headline-editorial-md font-semibold">
+              約束した<span class="text-vermilion underline">のに</span>、彼は来なかった。
+            </p>
+<p class="text-xs text-ink-black/75 font-body-editorial-md">
+              Even though he promised, he didn't come.
+            </p>
+</div>
+<!-- Drawer Action with Animation Slot Marker -->
+<div class="pt-1 flex items-center justify-between text-xs border-t border-ink-border/50">
+<span class="text-[10px] font-code-counter text-secondary/60">[ANIM_SLOT: encounter-drawer-slide]</span>
+<button class="tactile-btn text-gold-eye hover:text-warm-paper font-label-ui-bold flex items-center gap-1 group py-1">
+<span class="">Past Encounters (4 mined sentences)</span>
+<span class="transition-transform group-hover:translate-x-1">→</span>
+</button>
+</div>
+</article>
+<!-- CARD 2: 〜になる (State Change) -->
+<article class="bg-[#1c1b19] border border-tactile-stroke rounded-xl p-5 tactile-card relative flex flex-col gap-4">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<span class="text-2xl font-headline-editorial-md text-warm-paper font-bold">〜になる</span>
+<span class="px-2.5 py-0.5 rounded-full bg-paper-dim text-ink-black font-label-ui-bold text-xs border border-tactile-stroke">
+                JLPT N5
+              </span>
+</div>
+<!-- Status Selector with Known Active -->
+<div class="flex items-center bg-surface-container rounded-lg border border-tactile-stroke p-0.5 text-xs font-label-ui-bold">
+<button class="px-2 py-1 rounded text-secondary hover:text-warm-paper">New</button>
+<button class="px-2 py-1 rounded text-secondary hover:text-warm-paper">Learning</button>
+<button class="tactile-btn px-2.5 py-1 rounded bg-emerald-500 text-ink-black border border-tactile-stroke font-bold">Known</button>
+</div>
+</div>
+<!-- Meaning -->
+<div class="bg-ink-surface/50 border border-ink-border rounded-lg p-3">
+<span class="text-[11px] font-label-ui-caption text-secondary uppercase tracking-wider block mb-1">Core Meaning</span>
+<p class="text-sm text-warm-paper font-medium">
+              to become; to turn into; to change into
+            </p>
+</div>
+<!-- Formation Rules -->
+<div class="flex flex-col gap-1.5">
+<span class="text-[11px] font-label-ui-caption text-secondary uppercase tracking-wider">Formation Rules</span>
+<div class="bg-ink-black/60 rounded-lg p-2.5 border border-tactile-stroke text-xs font-code-counter text-warm-paper flex flex-wrap gap-x-3 gap-y-1">
+<span class="text-amber-200">Noun</span> + になる · 
+              <span class="text-amber-200">な-adj</span> + になる · 
+              <span class="text-amber-200">い-adj (く)</span> + なる
+            </div>
+</div>
+<!-- Example Sentence -->
+<div class="bg-surface-container-high rounded-lg p-3 border border-ink-border flex flex-col gap-1">
+<p class="text-sm font-headline-editorial-md text-warm-paper">
+              春になると、暖かくなる。
+            </p>
+<p class="text-xs text-secondary/70">
+              When spring comes, it becomes warm.
+            </p>
+</div>
+</article>
+</div>
+</div>
+</main>
+<!-- BOTTOM FLOATING TACTILE DOCK (Warm Paper container, 6 bilingual tabs) -->
+<nav aria-label="Main Navigation" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-warm-paper rounded-full border-[1.5px] border-tactile-stroke tactile-dock select-none">
+<!-- Tab 1: Home -->
+<a class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-ink-black hover:bg-paper-dim transition-colors group" href="#">
+<span class="material-symbols-outlined text-[18px]">space_dashboard</span>
+<span class="hidden sm:inline font-label-ui-bold text-xs tracking-tight">Home <span class="text-[10px] opacity-60 font-normal">ホーム</span></span>
+</a>
+<!-- Tab 2: Vocab -->
+<a class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-ink-black hover:bg-paper-dim transition-colors group" href="#">
+<span class="material-symbols-outlined text-[18px]">menu_book</span>
+<span class="hidden sm:inline font-label-ui-bold text-xs tracking-tight">Vocab <span class="text-[10px] opacity-60 font-normal">語彙</span></span>
+</a>
+<!-- Tab 3: Grammar (ACTIVE) -->
+<a class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-vermilion text-warm-paper border-[1.5px] border-tactile-stroke shadow-[2px_2px_0px_#151413] transition-all" href="#">
+<span class="material-symbols-outlined text-[18px]">translate</span>
+<span class="font-label-ui-bold text-xs tracking-tight">Grammar <span class="text-[10px] opacity-90 font-normal">文法</span></span>
+</a>
+<!-- Tab 4: Kanji -->
+<a class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-ink-black hover:bg-paper-dim transition-colors group" href="#">
+<span class="material-symbols-outlined text-[18px]">auto_stories</span>
+<span class="hidden sm:inline font-label-ui-bold text-xs tracking-tight">Kanji <span class="text-[10px] opacity-60 font-normal">漢字</span></span>
+</a>
+<!-- Tab 5: Test -->
+<a class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-ink-black hover:bg-paper-dim transition-colors group" href="#">
+<span class="material-symbols-outlined text-[18px]">stylus_note</span>
+<span class="hidden sm:inline font-label-ui-bold text-xs tracking-tight">Test <span class="text-[10px] opacity-60 font-normal">テスト</span></span>
+</a>
+<!-- Tab 6: Study -->
+<a class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-ink-black hover:bg-paper-dim transition-colors group" href="#">
+<span class="material-symbols-outlined text-[18px]">school</span>
+<span class="hidden sm:inline font-label-ui-bold text-xs tracking-tight">Study <span class="text-[10px] opacity-60 font-normal">学習</span></span>
+</a>
+</nav>
+<!-- Lightweight Micro-Interactions Script -->
+<script>
+    const textarea = document.getElementById('sentence-input');
+    const counter = document.getElementById('char-counter');
+    if (textarea && counter) {
+      textarea.addEventListener('input', () => {
+        counter.innerText = `${textarea.value.length} chars`;
+      });
+    }
+  </script>
+
+
+
+
+</body></html>
