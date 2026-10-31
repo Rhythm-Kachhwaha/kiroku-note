@@ -156,6 +156,9 @@ class StudyDiagnosticService:
         media_dir: Path | str | None = None,
         conn: sqlite3.Connection | None = None,
     ) -> None:
+        if isinstance(db_path, sqlite3.Connection):
+            conn = db_path
+            db_path = None
         self._db_path = Path(db_path).resolve() if db_path is not None else get_study_db_path().resolve()
         self._media_dir = Path(media_dir).resolve() if media_dir is not None else get_study_media_dir().resolve()
         self._explicit_conn = conn
@@ -683,12 +686,14 @@ class StudyDiagnosticService:
                     )
 
                     missing_fmt: List[str] = []
+                    deficit = 0
                     for sec in report.sections:
                         for fmt in sec.formats:
                             if not fmt.is_satisfied:
                                 missing_fmt.append(f"{fmt.format_code} ({fmt.available_count}/{fmt.required_count})")
+                                deficit += fmt.missing_count
 
-                    total_eligible_overall += report.total_available_questions
+                    total_eligible_overall += report.total_available
                     if not report.is_ready:
                         any_incomplete = True
 
@@ -696,9 +701,9 @@ class StudyDiagnosticService:
                         level=lvl,
                         status=report.status.value,
                         is_ready=report.is_ready,
-                        total_eligible=report.total_available_questions,
-                        total_required=report.total_required_questions,
-                        deficit_count=report.deficit_count,
+                        total_eligible=report.total_available,
+                        total_required=report.total_required,
+                        deficit_count=deficit,
                         missing_formats=missing_fmt,
                     )
                 except Exception:
@@ -739,6 +744,9 @@ def run_study_diagnostics(
     verify_media_hashes: bool = True,
 ) -> StudyDiagnosticReport:
     """Convenience helper to run diagnostics and return structured report."""
+    if isinstance(db_path, sqlite3.Connection):
+        conn = db_path
+        db_path = None
     service = StudyDiagnosticService(db_path=db_path, media_dir=media_dir, conn=conn)
     return service.run_diagnostics(verify_media_hashes=verify_media_hashes)
 

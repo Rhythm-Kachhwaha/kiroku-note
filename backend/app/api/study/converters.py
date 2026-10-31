@@ -165,6 +165,7 @@ def practice_item_to_dto(
             SELECT
                 ra.choice_id,
                 rc.choice_key,
+                qr.id as pinned_rev_id,
                 qr.payload_json,
                 ra.rationale_markup
             FROM attempt_item ai
@@ -189,7 +190,30 @@ def practice_item_to_dto(
                 canonical_choice_id = row["choice_id"]
                 canonical_choice_key = row["choice_key"]
                 explanation_markup = row["rationale_markup"] or ""
-                if not explanation_markup and row["payload_json"]:
+
+                # Prefer rich pedagogical explanation from question_explanation if available
+                exp_row = conn.execute(
+                    """
+                    SELECT summary_text, correct_choice_analysis, grammar_notes, kanji_vocabulary_notes
+                    FROM question_explanation
+                    WHERE question_revision_id = ?
+                    ORDER BY id DESC LIMIT 1;
+                    """,
+                    (row["pinned_rev_id"],),
+                ).fetchone()
+                if exp_row:
+                    parts = []
+                    if exp_row["summary_text"]:
+                        parts.append(exp_row["summary_text"])
+                    if exp_row["correct_choice_analysis"]:
+                        parts.append(exp_row["correct_choice_analysis"])
+                    if exp_row["grammar_notes"]:
+                        parts.append(exp_row["grammar_notes"])
+                    if exp_row["kanji_vocabulary_notes"]:
+                        parts.append(exp_row["kanji_vocabulary_notes"])
+                    if parts:
+                        explanation_markup = "\n\n".join(parts)
+                elif not explanation_markup and row["payload_json"]:
                     explanation_markup = payload.get("explanation_markup", "")
                 if row["payload_json"]:
                     correct_order = payload.get("correct_order")

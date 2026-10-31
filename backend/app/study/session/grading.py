@@ -132,6 +132,29 @@ class DeterministicGrader:
         canonical_choice_key = ans_row["canonical_choice_key"]
         rationale_markup = ans_row["rationale_markup"] or ""
 
+        # Prefer rich pedagogical explanation from question_explanation if available
+        exp_row = conn.execute(
+            """
+            SELECT summary_text, correct_choice_analysis, grammar_notes, kanji_vocabulary_notes
+            FROM question_explanation
+            WHERE question_revision_id = ?
+            ORDER BY id DESC LIMIT 1;
+            """,
+            (pinned_rev_id,),
+        ).fetchone()
+        if exp_row:
+            parts = []
+            if exp_row["summary_text"]:
+                parts.append(exp_row["summary_text"])
+            if exp_row["correct_choice_analysis"]:
+                parts.append(exp_row["correct_choice_analysis"])
+            if exp_row["grammar_notes"]:
+                parts.append(exp_row["grammar_notes"])
+            if exp_row["kanji_vocabulary_notes"]:
+                parts.append(exp_row["kanji_vocabulary_notes"])
+            if parts:
+                rationale_markup = "\n\n".join(parts)
+
         # 4. Deterministic comparison
         is_correct = (selected_choice_id == canonical_choice_id)
 
