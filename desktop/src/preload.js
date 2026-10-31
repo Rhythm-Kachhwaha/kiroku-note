@@ -102,6 +102,11 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   toggleOcr: () => ipcRenderer.invoke('ocr:toggle'),
   chrome: chromeShim,
 
+  // General FastAPI Backend IPC Proxy (safe bridge without direct fetch or CORS issues)
+  api: {
+    request: (options) => ipcRenderer.invoke('kiroku:api:request', options)
+  },
+
   // Secure Study API bridge (Token is attached exclusively in main process)
   studyApi: {
     request: (options) => ipcRenderer.invoke('study:request', options),

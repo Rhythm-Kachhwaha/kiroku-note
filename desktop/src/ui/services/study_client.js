@@ -1,10 +1,10 @@
 /**
  * Kiroku Note Desktop — Study API Client Bridge
  * Bridges renderer requests to the authenticated Study database API (/api/study/v1)
- * via window.desktopAPI.studyApi (Bearer token stays in main process).
+ * via window.desktopAPI.studyApi (Bearer token stays securely in main process).
  */
 
-class StudyClient {
+export class StudyClient {
   get isAvailable() {
     return typeof window !== 'undefined' && Boolean(window.desktopAPI?.studyApi);
   }
@@ -27,10 +27,6 @@ class StudyClient {
 
   // Question Bank & Summary
   async getBankSummary(level = null) {
-    if (window.desktopAPI?.studyApi?.getBankSummary) {
-      const res = await window.desktopAPI.studyApi.getBankSummary(level);
-      return res.data;
-    }
     return this.request({
       method: 'GET',
       path: '/api/study/v1/bank/summary',
@@ -39,10 +35,6 @@ class StudyClient {
   }
 
   async getExamReadiness() {
-    if (window.desktopAPI?.studyApi?.getExamReadiness) {
-      const res = await window.desktopAPI.studyApi.getExamReadiness();
-      return res.data;
-    }
     return this.request({
       method: 'GET',
       path: '/api/study/v1/exam/readiness'
@@ -50,10 +42,6 @@ class StudyClient {
   }
 
   async getLearningOverview() {
-    if (window.desktopAPI?.studyApi?.getLearningOverview) {
-      const res = await window.desktopAPI.studyApi.getLearningOverview();
-      return res.data;
-    }
     return this.request({
       method: 'GET',
       path: '/api/study/v1/dashboard/overview'
@@ -61,13 +49,46 @@ class StudyClient {
   }
 
   async getDiagnostics() {
-    if (window.desktopAPI?.studyApi?.getDiagnostics) {
-      const res = await window.desktopAPI.studyApi.getDiagnostics();
-      return res.data;
-    }
     return this.request({
       method: 'GET',
       path: '/api/study/v1/diagnostics'
+    });
+  }
+
+  async getSettings() {
+    return this.request({
+      method: 'GET',
+      path: '/api/study/v1/settings'
+    });
+  }
+
+  async updateSettings(updates) {
+    return this.request({
+      method: 'PATCH',
+      path: '/api/study/v1/settings',
+      body: updates
+    });
+  }
+
+  async searchQuestions(query = {}) {
+    return this.request({
+      method: 'GET',
+      path: '/api/study/v1/bank/questions',
+      query
+    });
+  }
+
+  async getQuestion(id) {
+    return this.request({
+      method: 'GET',
+      path: `/api/study/v1/bank/questions/${encodeURIComponent(id)}`
+    });
+  }
+
+  async getQuestionProvenance(id) {
+    return this.request({
+      method: 'GET',
+      path: `/api/study/v1/bank/questions/${encodeURIComponent(id)}/provenance`
     });
   }
 
@@ -91,24 +112,33 @@ class StudyClient {
     });
   }
 
-  async gradePracticeItem(sessionId, itemIndex, selectedChoice, elapsedMs = 0) {
+  async submitPracticeAnswer(sessionId, payload) {
     return this.request({
       method: 'POST',
-      path: `/api/study/v1/practice/sessions/${encodeURIComponent(sessionId)}/items/${itemIndex}/grade`,
-      body: {
-        selected_choice: selectedChoice,
-        elapsed_ms: elapsedMs
-      }
+      path: `/api/study/v1/practice/sessions/${encodeURIComponent(sessionId)}/answer`,
+      body: payload
     });
   }
 
-  async recordPracticeFeedback(sessionId, itemIndex, difficulty) {
+  async recordPracticeFeedback(sessionId, payload) {
     return this.request({
       method: 'POST',
-      path: `/api/study/v1/practice/sessions/${encodeURIComponent(sessionId)}/items/${itemIndex}/feedback`,
-      body: {
-        feedback_rating: difficulty // 'Easy' | 'Normal' | 'Hard'
-      }
+      path: `/api/study/v1/practice/sessions/${encodeURIComponent(sessionId)}/feedback`,
+      body: payload
+    });
+  }
+
+  async completePracticeSession(sessionId) {
+    return this.request({
+      method: 'POST',
+      path: `/api/study/v1/practice/sessions/${encodeURIComponent(sessionId)}/complete`
+    });
+  }
+
+  async abandonPracticeSession(sessionId) {
+    return this.request({
+      method: 'POST',
+      path: `/api/study/v1/practice/sessions/${encodeURIComponent(sessionId)}/abandon`
     });
   }
 
@@ -117,9 +147,7 @@ class StudyClient {
     return this.request({
       method: 'POST',
       path: '/api/study/v1/exam/sessions',
-      body: {
-        level
-      }
+      body: { level }
     });
   }
 
@@ -130,33 +158,63 @@ class StudyClient {
     });
   }
 
-  async recordExamSelection(sessionId, itemIndex, selectedChoice) {
+  async answerExamItem(sessionId, itemNumber, selectedChoiceId) {
     return this.request({
-      method: 'POST',
-      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/items/${itemIndex}/select`,
-      body: {
-        selected_choice: selectedChoice
-      }
+      method: 'PUT',
+      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/items/${encodeURIComponent(itemNumber)}/answer`,
+      body: { selected_choice_id: selectedChoiceId }
     });
   }
 
-  async toggleExamFlag(sessionId, itemIndex, flagged) {
+  async flagExamItem(sessionId, itemNumber, flagged) {
     return this.request({
-      method: 'POST',
-      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/items/${itemIndex}/flag`,
-      body: {
-        flagged
-      }
+      method: 'PUT',
+      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/items/${encodeURIComponent(itemNumber)}/flag`,
+      body: { flagged: Boolean(flagged) }
     });
   }
 
-  async finishExamSection(sessionId) {
+  async startExamSection(sessionId, sectionNumber) {
     return this.request({
       method: 'POST',
-      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/finish`
+      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/sections/${encodeURIComponent(sectionNumber)}/start`
+    });
+  }
+
+  async pauseExamSection(sessionId, sectionNumber) {
+    return this.request({
+      method: 'POST',
+      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/sections/${encodeURIComponent(sectionNumber)}/pause`
+    });
+  }
+
+  async resumeExamSection(sessionId, sectionNumber) {
+    return this.request({
+      method: 'POST',
+      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/sections/${encodeURIComponent(sectionNumber)}/resume`
+    });
+  }
+
+  async submitExamSection(sessionId, sectionNumber) {
+    return this.request({
+      method: 'POST',
+      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/sections/${encodeURIComponent(sectionNumber)}/submit`
+    });
+  }
+
+  async completeExamSession(sessionId) {
+    return this.request({
+      method: 'POST',
+      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/complete`
+    });
+  }
+
+  async getExamResult(sessionId) {
+    return this.request({
+      method: 'GET',
+      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/result`
     });
   }
 }
 
 export const studyClient = new StudyClient();
-
