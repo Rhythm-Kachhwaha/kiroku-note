@@ -1,7 +1,7 @@
 /**
  * Kiroku Note Desktop — Vocab History View Controller
  * Card inventory data grid, telemetry metric pods, bulk selection,
- * sync status troubleshooting, and slide-over card inspector drawer.
+ * sync status troubleshooting, server-side search & pagination, and slide-over card inspector drawer.
  */
 
 import { apiClient } from '../services/api_client.js';
@@ -18,6 +18,8 @@ export class VocabHistoryView {
     this.currentPage = 1;
     this.pageSize = 20;
     this.totalCards = 0;
+    this.isLoading = false;
+    this.lastError = null;
   }
 
   async mount(container) {
@@ -76,13 +78,19 @@ export class VocabHistoryView {
             </div>
           </div>
 
+          <!-- Error Alert Banner (visible on failure) -->
+          <div class="history-error-banner" id="history-error-banner" style="display: none;" role="alert">
+            <span class="error-msg" id="history-error-text">Failed to communicate with backend.</span>
+            <button class="tactile-btn tactile-btn-sm" id="btn-history-retry">Retry</button>
+          </div>
+
           <!-- Toolbar: Search Filter & Status Tabs -->
           <div class="history-toolbar tactile-card">
             <div class="toolbar-search-wrap">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 14z"/>
               </svg>
-              <input type="text" id="history-search-input" class="tactile-input" placeholder="Search expression, reading, or meaning (⌘F)..." />
+              <input type="text" id="history-search-input" class="tactile-input" placeholder="Search expression, reading, or meaning..." />
             </div>
 
             <div class="toolbar-status-filter" role="radiogroup">
@@ -140,9 +148,14 @@ export class VocabHistoryView {
   setupEvents() {
     const searchInput = document.getElementById('history-search-input');
     if (searchInput) {
+      let debounceTimer = null;
       searchInput.addEventListener('input', (e) => {
-        this.searchQuery = e.target.value.trim().toLowerCase();
-        this.renderTableRows();
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          this.searchQuery = e.target.value.trim();
+          this.currentPage = 1;
+          this.loadData();
+        }, 250);
       });
     }
 
@@ -152,7 +165,8 @@ export class VocabHistoryView {
         filterPills.forEach((p) => p.classList.remove('is-active'));
         pill.classList.add('is-active');
         this.filterStatus = pill.dataset.filter;
-        this.renderTableRows();
+        this.currentPage = 1;
+        this.loadData();
       });
     });
 
@@ -164,10 +178,70 @@ export class VocabHistoryView {
           await apiClient.syncAllPendingCards();
           await this.loadData();
         } catch (err) {
-          console.warn('[History] Sync failed:', err);
+          this.showError(`Sync all failed: ${err.message}`);
         } finally {
           btnSyncAll.disabled = false;
         }
+      });
+    }
+
+    const btnExport = document.getElementById('btn-export-csv');
+    if (btnExport) {
+      btnExport.addEventListener('click', async () => {
+        try {
+          const exportData = await apiClient.exportCards('csv');
+          if (exportData) {
+            const blob = new Blob([typeof exportData === 'string' ? exportData : JSON.stringify(exportData)], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `kiroku_cards_${Date.now()}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+        } catch (err) {
+          this.showError(`Export failed: ${err.message}`);
+        }
+      });
+    }
+
+    const btnRetry = document.getElementById('btn-history-retry');
+    if (btnRetry) {
+      btnRetry.addEventListener('click', () => this.loadData());
+    }
+
+    const btnPrev = document.getElementById('btn-page-prev');
+    if (btnPrev) {
+      btnPrev.addEventListener('click', () => {
+        if (this.currentPage > 1) {
+          this.currentPage--;
+          this.loadData();
+        }
+      });
+    }
+
+    const btnNext = document.getElementById('btn-page-next');
+    if (btnNext) {
+      btnNext.addEventListener('click', () => {
+        const totalPages = Math.ceil(this.totalCards / this.pageSize) || 1;
+        if (this.currentPage < totalPages) {
+          this.currentPage++;
+          this.loadData();
+        }
+      });
+    }
+
+    const checkAll = document.getElementById('check-select-all');
+    if (checkAll) {
+      checkAll.addEventListener('change', (e) => {
+        const checked = e.target.checked;
+        const boxes = this.container.querySelectorAll('.card-select-box');
+        boxes.forEach((b) => {
+          b.checked = checked;
+          const id = b.dataset.id;
+          if (checked && id) this.selectedIds.add(id);
+          else if (!checked && id) this.selectedIds.delete(id);
+        });
       });
     }
 
@@ -177,23 +251,73 @@ export class VocabHistoryView {
     }
   }
 
+  showError(message) {
+    this.lastError = message;
+    const banner = document.getElementById('history-error-banner');
+    const text = document.getElementById('history-error-text');
+    if (banner && text) {
+      text.textContent = message;
+      banner.style.display = 'flex';
+    }
+  }
+
+  hideError() {
+    this.lastError = null;
+    const banner = document.getElementById('history-error-banner');
+    if (banner) {
+      banner.style.display = 'none';
+    }
+  }
+
   async loadData() {
+    this.isLoading = true;
+    this.hideError();
+
+    const tbody = document.getElementById('cards-tbody');
+    if (tbody && this.cards.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-muted">Loading cards collection...</td></tr>`;
+    }
+
     try {
-      const [stats, cardsData] = await Promise.allSettled([
+      const offset = (this.currentPage - 1) * this.pageSize;
+      const params = {
+        limit: this.pageSize,
+        offset: offset
+      };
+
+      if (this.searchQuery) {
+        params.search = this.searchQuery;
+      }
+
+      if (this.filterStatus !== 'all') {
+        params.sync_status = this.filterStatus;
+      }
+
+      const [statsRes, cardsRes] = await Promise.allSettled([
         apiClient.getCardStats(),
-        apiClient.getCards({ limit: 100 })
+        apiClient.getCards(params)
       ]);
 
-      if (stats.status === 'fulfilled' && stats.value) {
-        this.updateMetrics(stats.value);
+      if (statsRes.status === 'fulfilled' && statsRes.value) {
+        this.updateMetrics(statsRes.value);
       }
 
-      if (cardsData.status === 'fulfilled' && cardsData.value) {
-        this.cards = Array.isArray(cardsData.value) ? cardsData.value : (cardsData.value.items || []);
+      if (cardsRes.status === 'fulfilled' && cardsRes.value) {
+        const val = cardsRes.value;
+        this.cards = Array.isArray(val) ? val : (val.cards || val.items || []);
+        this.totalCards = val.total !== undefined ? val.total : this.cards.length;
         this.renderTableRows();
+        this.updatePagination();
+      } else if (cardsRes.status === 'rejected') {
+        throw cardsRes.reason;
       }
     } catch (err) {
-      console.warn('[History] Error loading data:', err);
+      this.showError(`Error loading cards: ${err.message || 'Unknown network error'}`);
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-red">Failed to load cards collection. Check backend connection.</td></tr>`;
+      }
+    } finally {
+      this.isLoading = false;
     }
   }
 
@@ -204,48 +328,52 @@ export class VocabHistoryView {
     const elFailed = document.getElementById('metric-failed');
     const elToday = document.getElementById('metric-today');
 
-    if (elTotal) elTotal.textContent = stats.total_cards || this.cards.length || 0;
-    if (elSynced) elSynced.textContent = stats.synced_cards || 0;
-    if (elPending) elPending.textContent = stats.pending_cards || 0;
-    if (elFailed) elFailed.textContent = stats.failed_cards || 0;
-    if (elToday) elToday.textContent = stats.today_cards || 0;
+    if (elTotal) elTotal.textContent = stats.total ?? (stats.total_cards || this.totalCards || 0);
+    if (elSynced) elSynced.textContent = stats.sync_ratio?.synced ?? (stats.synced_cards || 0);
+    if (elPending) elPending.textContent = stats.sync_ratio?.pending ?? (stats.pending_cards || 0);
+    if (elFailed) elFailed.textContent = stats.sync_ratio?.failed ?? (stats.failed_cards || 0);
+    if (elToday) elToday.textContent = stats.timeframe?.today ?? (stats.today_cards || 0);
+  }
+
+  updatePagination() {
+    const info = document.getElementById('pagination-info');
+    const btnPrev = document.getElementById('btn-page-prev');
+    const btnNext = document.getElementById('btn-page-next');
+
+    const totalPages = Math.ceil(this.totalCards / this.pageSize) || 1;
+    const start = this.totalCards === 0 ? 0 : (this.currentPage - 1) * this.pageSize + 1;
+    const end = Math.min(this.currentPage * this.pageSize, this.totalCards);
+
+    if (info) {
+      info.textContent = `Showing ${start}–${end} of ${this.totalCards} cards (Page ${this.currentPage} of ${totalPages})`;
+    }
+
+    if (btnPrev) btnPrev.disabled = this.currentPage <= 1;
+    if (btnNext) btnNext.disabled = this.currentPage >= totalPages;
   }
 
   renderTableRows() {
     const tbody = document.getElementById('cards-tbody');
     if (!tbody) return;
 
-    let filtered = this.cards;
-
-    if (this.filterStatus !== 'all') {
-      filtered = filtered.filter((c) => (c.status || 'synced').toLowerCase() === this.filterStatus);
-    }
-
-    if (this.searchQuery) {
-      filtered = filtered.filter((c) =>
-        (c.expression && c.expression.toLowerCase().includes(this.searchQuery)) ||
-        (c.reading && c.reading.toLowerCase().includes(this.searchQuery)) ||
-        (c.meaning && c.meaning.toLowerCase().includes(this.searchQuery))
-      );
-    }
-
-    if (filtered.length === 0) {
+    if (this.cards.length === 0) {
       tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-muted">No cards found matching your criteria.</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = filtered.map((card) => {
-      const isSynced = card.status === 'synced' || card.anki_note_id;
-      const statusClass = isSynced ? 'status-pill-synced' : 'status-pill-pending';
-      const statusLabel = isSynced ? 'Synced' : 'Pending';
+    tbody.innerHTML = this.cards.map((card) => {
+      const isSynced = card.sync_status === 'synced' || card.status === 'synced' || Boolean(card.anki_note_id);
+      const isFailed = card.sync_status === 'failed' || card.status === 'failed';
+      const statusClass = isSynced ? 'status-pill-synced' : isFailed ? 'status-pill-failed' : 'status-pill-pending';
+      const statusLabel = isSynced ? 'Synced' : isFailed ? 'Failed' : 'Pending';
 
       return `
         <tr class="history-table-row" data-id="${card.id || ''}">
-          <td class="col-check"><input type="checkbox" class="card-select-box" data-id="${card.id || ''}" /></td>
+          <td class="col-check"><input type="checkbox" class="card-select-box" data-id="${card.id || ''}" ${this.selectedIds.has(String(card.id)) ? 'checked' : ''} /></td>
           <td class="col-expression font-bold text-warm-paper">${card.expression || ''}</td>
           <td class="col-reading text-secondary">${card.reading || ''}</td>
           <td class="col-meaning text-truncate">${card.meaning || ''}</td>
-          <td class="col-deck font-mono text-sm">${card.deck || 'Japanese::Vocab'}</td>
+          <td class="col-deck font-mono text-sm">${card.deck_name || card.deck || 'Default'}</td>
           <td class="col-status">
             <span class="table-status-pill ${statusClass}">● ${statusLabel}</span>
           </td>
@@ -263,6 +391,14 @@ export class VocabHistoryView {
         if (card) this.openInspector(card);
       });
     });
+
+    tbody.querySelectorAll('.card-select-box').forEach((box) => {
+      box.addEventListener('change', (e) => {
+        const id = e.target.dataset.id;
+        if (e.target.checked && id) this.selectedIds.add(id);
+        else if (id) this.selectedIds.delete(id);
+      });
+    });
   }
 
   openInspector(card) {
@@ -273,7 +409,7 @@ export class VocabHistoryView {
 
     body.innerHTML = `
       <div class="inspector-section">
-        <ruby class="inspector-hero-expr">${card.expression}<rt>${card.reading || ''}</rt></ruby>
+        <ruby class="inspector-hero-expr">${card.expression || ''}<rt>${card.reading || ''}</rt></ruby>
         <span class="pitch-accent-badge">${card.pitch || '[0] 平板'}</span>
       </div>
 
@@ -284,8 +420,8 @@ export class VocabHistoryView {
 
       <div class="inspector-field">
         <label>Context Sentence</label>
-        <p class="inspector-sentence-ja">${card.sentence || 'No context sentence'}</p>
-        <p class="inspector-sentence-en text-muted">${card.sentence_translation || ''}</p>
+        <p class="inspector-sentence-ja">${card.example_sentence || card.sentence || 'No context sentence'}</p>
+        <p class="inspector-sentence-en text-muted">${card.example_translation || card.sentence_translation || ''}</p>
       </div>
 
       <div class="inspector-field">
@@ -302,19 +438,40 @@ export class VocabHistoryView {
     drawer.classList.add('is-open');
     drawer.setAttribute('aria-hidden', 'false');
 
+    const btnSync = document.getElementById('btn-drawer-sync');
+    if (btnSync) {
+      btnSync.addEventListener('click', async () => {
+        btnSync.disabled = true;
+        try {
+          await apiClient.syncCard(card.id);
+          this.closeInspector();
+          await this.loadData();
+        } catch (err) {
+          alert(`Sync failed: ${err.message}`);
+        } finally {
+          btnSync.disabled = false;
+        }
+      });
+    }
+
     const btnDelete = document.getElementById('btn-drawer-delete');
     if (btnDelete) {
       btnDelete.addEventListener('click', async () => {
         if (confirm(`Delete card "${card.expression}"?`)) {
-          await apiClient.deleteCard(card.id);
-          this.closeInspector();
-          await this.loadData();
+          try {
+            await apiClient.deleteCard(card.id);
+            this.closeInspector();
+            await this.loadData();
+          } catch (err) {
+            alert(`Delete failed: ${err.message}`);
+          }
         }
       });
     }
   }
 
   closeInspector() {
+    this.selectedCard = null;
     const drawer = document.getElementById('card-inspector');
     if (drawer) {
       drawer.classList.remove('is-open');
