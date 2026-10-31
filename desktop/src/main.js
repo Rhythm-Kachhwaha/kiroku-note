@@ -232,6 +232,14 @@ function updateSystemTrayMenu() {
         if (mainWindow && mainWindow.webContents) {
           mainWindow.webContents.executeJavaScript(`
             (function() {
+              if (window.router && typeof window.router.navigateToTab === 'function') {
+                window.router.navigateToTab('vocab');
+                setTimeout(() => {
+                  const input = document.querySelector('#vocab-search-input') || document.querySelector('#input-expression');
+                  if (input) input.focus();
+                }, 100);
+                return;
+              }
               const qTab = document.querySelector('#tab-btn-quickadd');
               if (qTab) qTab.click();
               const input = document.querySelector('#quickadd-input');

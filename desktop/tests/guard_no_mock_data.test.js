@@ -44,6 +44,7 @@ test('GUARD TEST: Zero silent catch blocks across all desktop UI code', () => {
     let results = [];
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
+      if (entry.name === 'vendor' || entry.name === 'node_modules') continue;
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         results = results.concat(getJsFilesRecursively(fullPath));

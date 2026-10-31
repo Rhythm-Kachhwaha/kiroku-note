@@ -268,7 +268,9 @@ export class StudyClient {
     if (url && typeof url === 'string' && url.startsWith('blob:')) {
       try {
         URL.revokeObjectURL(url);
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[StudyClient] URL.revokeObjectURL error:', err);
+      }
     }
   }
 }

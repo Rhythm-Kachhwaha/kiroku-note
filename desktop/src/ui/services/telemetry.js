@@ -61,7 +61,9 @@ class TelemetryService {
       if (backendInfo?.port) {
         baseUrl = `http://${backendInfo.host || '127.0.0.1'}:${backendInfo.port}`;
       }
-    } catch (_) {}
+    } catch (err) {
+      console.debug('[Telemetry] Dynamic backend info error:', err);
+    }
 
     try {
       const healthRes = await fetch(`${baseUrl}/api/health`, { method: 'GET' });

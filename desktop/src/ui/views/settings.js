@@ -434,13 +434,8 @@ export class SettingsView {
         yomiTag.textContent = isOnline ? 'Ready' : 'Not Connected';
         yomiTag.className = `tactile-pill ${isOnline ? 'tactile-pill-gold' : ''}`;
       }
-    } catch (_) {}
-      if (ocrRes) {
-        this.ocrRunning = Boolean(ocrRes.running);
-        this.updateOcrStatus();
-      }
     } catch (err) {
-      console.warn('[Settings] Initial OCR status error:', err);
+      console.debug('[Settings] Initial Yomitan status error:', err);
     }
 
     // 2. Restore custom Anki URL and check status
@@ -453,7 +448,9 @@ export class SettingsView {
           const urlInput = document.getElementById('anki-url-input');
           if (urlInput) urlInput.value = savedAnkiUrl;
         }
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[Settings] Restore Anki URL error:', err);
+      }
     }
 
     try {

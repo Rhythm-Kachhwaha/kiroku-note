@@ -1,22 +1,19 @@
 /**
  * Kiroku Note Desktop — Shared Top Chrome Component
- * Wordmark letter lift, frameless window controls, live telemetry indicators, and quick action buttons.
+ * Wordmark letter lift, frameless window branding, and quick navigation actions.
+ * Note: Service statuses reside strictly in the Settings tab.
  */
-
-import { telemetryService } from '../services/telemetry.js';
 
 export class TopChrome {
   constructor(options = {}) {
     this.container = options.container || document.getElementById('top-chrome-container');
     this.onNavigate = options.onNavigate || (() => {});
-    this.unsubscribeTelemetry = null;
   }
 
   init() {
     this.render();
     this.setupWordmarkAnimation();
     this.setupActions();
-    this.setupTelemetry();
   }
 
   render() {
@@ -39,28 +36,8 @@ export class TopChrome {
           </div>
         </div>
 
-        <!-- Right: Telemetry & Actions -->
+        <!-- Right: Quick Navigation Actions -->
         <div class="top-chrome-right">
-          <!-- Real-Time Telemetry Strip -->
-          <div class="telemetry-strip" aria-label="Services status">
-            <div class="telemetry-chip" id="chip-backend" title="FastAPI Backend (Port 21828)">
-              <span class="telemetry-pip" id="pip-backend"></span>
-              <span class="telemetry-label">Backend</span>
-            </div>
-            <div class="telemetry-chip" id="chip-yomitan" title="Yomitan Dictionary Provider">
-              <span class="telemetry-pip" id="pip-yomitan"></span>
-              <span class="telemetry-label">Yomitan</span>
-            </div>
-            <div class="telemetry-chip" id="chip-anki" title="AnkiConnect Sync Integration">
-              <span class="telemetry-pip" id="pip-anki"></span>
-              <span class="telemetry-label">Anki</span>
-            </div>
-            <div class="telemetry-chip" id="chip-ocr" title="Manga-OCR Engine Daemon (Port 21829)">
-              <span class="telemetry-pip" id="pip-ocr"></span>
-              <span class="telemetry-label">OCR</span>
-            </div>
-          </div>
-
           <!-- History Action Button -->
           <button class="chrome-action-btn" id="btn-chrome-history" title="Card Mining History" aria-label="View Mining History">
             <svg viewBox="0 0 24 24">
@@ -77,23 +54,6 @@ export class TopChrome {
         </div>
       </header>
     `;
-  }
-
-    if (btnMin) {
-      btnMin.addEventListener('click', () => {
-        if (window.desktopAPI?.minimize) {
-          window.desktopAPI.minimize();
-        }
-      });
-    }
-
-    if (btnMax) {
-      btnMax.addEventListener('click', () => {
-        if (window.desktopAPI?.toggleMaximize) {
-          window.desktopAPI.toggleMaximize();
-        }
-      });
-    }
   }
 
   setupWordmarkAnimation() {
@@ -151,36 +111,7 @@ export class TopChrome {
     }
   }
 
-  setupTelemetry() {
-    const pipBackend = document.getElementById('pip-backend');
-    const pipYomitan = document.getElementById('pip-yomitan');
-    const pipAnki = document.getElementById('pip-anki');
-    const pipOcr = document.getElementById('pip-ocr');
-
-    this.unsubscribeTelemetry = telemetryService.subscribe((status) => {
-      if (pipBackend) {
-        pipBackend.className = `telemetry-pip ${status.backend ? 'is-online' : 'is-offline'}`;
-      }
-      if (pipYomitan) {
-        pipYomitan.className = `telemetry-pip ${status.yomitan ? 'is-online' : 'is-offline'}`;
-      }
-      if (pipAnki) {
-        pipAnki.className = `telemetry-pip ${status.anki ? 'is-online' : 'is-offline'}`;
-      }
-      if (pipOcr) {
-        pipOcr.className = `telemetry-pip ${status.ocr ? 'is-online' : 'is-offline'}`;
-      }
-    });
-
-    telemetryService.startPolling(5000);
-  }
-
   destroy() {
-    if (this.unsubscribeTelemetry) {
-      this.unsubscribeTelemetry();
-      this.unsubscribeTelemetry = null;
-    }
-    telemetryService.stopPolling();
+    // Top chrome cleanup
   }
 }
-

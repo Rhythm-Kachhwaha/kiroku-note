@@ -93,15 +93,23 @@ export class AppRouter {
       updateDOM();
     };
 
-    if (document.startViewTransition) {
+    if (typeof document.startViewTransition === 'function') {
       try {
-        const transition = document.startViewTransition({
-          update: safeUpdateDOM,
-          types: [direction]
-        });
-        await transition.finished;
+        let transition;
+        try {
+          transition = document.startViewTransition({
+            update: safeUpdateDOM,
+            types: [direction]
+          });
+        } catch (typesErr) {
+          console.debug('[Router] Transition types unsupported, using callback:', typesErr);
+          transition = document.startViewTransition(() => safeUpdateDOM());
+        }
+        if (transition && transition.finished) {
+          await transition.finished;
+        }
       } catch (err) {
-        console.debug('[Router] View transition bypassed:', err);
+        console.debug('[Router] View transition fallback:', err);
         safeUpdateDOM();
       }
     } else {

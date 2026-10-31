@@ -120,10 +120,7 @@ export class VocabMainView {
               <form class="card-mining-form tactile-card" id="card-mining-form">
                 <div class="mining-form-header">
                   <h2 class="mining-form-title">Mine to Anki (新規単語)</h2>
-                  <div class="anki-sync-status-pill" id="anki-sync-status">
-                    <span class="anki-status-dot"></span>
-                    <span class="anki-status-text">Ready to Save</span>
-                  </div>
+                  <div class="anki-sync-status-pill" id="anki-sync-status" style="display: none;"></div>
                 </div>
 
                 <!-- Expression & Reading Fields -->
@@ -540,6 +537,7 @@ export class VocabMainView {
     try {
       const result = await apiClient.saveCard(cardPayload);
       if (statusPill) {
+        statusPill.style.display = 'inline-flex';
         statusPill.innerHTML = `
           <span class="anki-status-dot" style="background: var(--status-green);"></span>
           <span class="anki-status-text text-green">Saved (${result.expression})</span>
@@ -548,6 +546,7 @@ export class VocabMainView {
     } catch (err) {
       this.showError(`Save Failed: ${err.message}`);
       if (statusPill) {
+        statusPill.style.display = 'inline-flex';
         statusPill.innerHTML = `
           <span class="anki-status-dot" style="background: var(--status-red);"></span>
           <span class="anki-status-text text-red">Save Failed</span>

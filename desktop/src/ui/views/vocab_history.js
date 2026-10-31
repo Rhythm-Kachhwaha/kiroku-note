@@ -665,7 +665,9 @@ export class VocabHistoryView {
     if (this._previousActiveElement && typeof this._previousActiveElement.focus === 'function') {
       try {
         this._previousActiveElement.focus();
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[VocabHistory] Failed to restore previous focus:', err);
+      }
       this._previousActiveElement = null;
     }
   }
