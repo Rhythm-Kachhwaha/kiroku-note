@@ -1,11 +1,10 @@
 /**
  * Kiroku Note Desktop — Vocab Main View Controller
  * Headword showcase, WanaKana IME, JMdict pitch-black sense block, radical breakdown,
- * and AnkiConnect-integrated card mining persistence form.
+ * live AnkiConnect deck fetching, known-words management, and card mining persistence.
  */
 
 import { apiClient } from '../services/api_client.js';
-import { renderAssetSlot } from '../assets_map.js';
 import * as wanakana from '../lib/wanakana.js';
 
 export class VocabMainView {
@@ -15,13 +14,18 @@ export class VocabMainView {
     this.currentTerm = null;
     this.searchDebounceTimer = null;
     this.imeMode = 'hiragana'; // 'hiragana' | 'katakana' | 'english'
+    this.knownWordsSet = new Set();
+    this.ankiDecks = ['Default'];
+    this.isLoading = false;
+    this.lastError = null;
   }
 
-  mount(container) {
+  async mount(container) {
     this.container = container;
     this.render();
     this.setupEvents();
     this.setupWanakana();
+    await this.loadInitialMetadata();
   }
 
   render() {
@@ -39,7 +43,7 @@ export class VocabMainView {
                   type="text"
                   id="vocab-search-input"
                   class="tactile-input vocab-search-input"
-                  placeholder="Type romaji or Japanese to search (e.g. taberu / 食べる)..."
+                  placeholder="Type Japanese word or romaji to search (e.g. nihon, 日本)..."
                   autocomplete="off"
                   autofocus
                 />
@@ -58,6 +62,11 @@ export class VocabMainView {
               </button>
             </div>
 
+            <!-- Error Banner (visible on network/API failure) -->
+            <div class="vocab-error-banner" id="vocab-error-banner" style="display: none;" role="alert">
+              <span class="error-msg" id="vocab-error-text">Failed to search dictionary.</span>
+            </div>
+
             <!-- Candidate Autocomplete Dropdown -->
             <div class="candidate-dropdown" id="candidate-dropdown" style="display: none;" role="listbox"></div>
           </div>
@@ -71,11 +80,12 @@ export class VocabMainView {
                 <div class="headword-hero-top">
                   <div class="headword-glyph-group">
                     <ruby class="headword-kanji" id="hero-expression">
-                      食べる<rt id="hero-reading">たべる</rt>
+                      <span class="text-muted text-base">Search a word above...</span>
+                      <rt id="hero-reading"></rt>
                     </ruby>
-                    <span class="pitch-accent-badge" id="hero-pitch">[2] 中高型</span>
+                    <span class="pitch-accent-badge" id="hero-pitch" style="display: none;">[0] 平板</span>
                   </div>
-                  <button class="audio-play-btn tactile-btn-icon" id="btn-play-audio" title="Pronounce Term" aria-label="Play audio">
+                  <button class="audio-play-btn tactile-btn-icon" id="btn-play-audio" title="Pronounce Term" aria-label="Play audio" style="display: none;">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                       <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
                     </svg>
@@ -83,10 +93,10 @@ export class VocabMainView {
                 </div>
 
                 <!-- Radical & JLPT breakdown pill bar -->
-                <div class="headword-meta-row">
-                  <span class="tactile-pill tactile-pill-gold" id="hero-jlpt">JLPT N5</span>
-                  <span class="tactile-pill" id="hero-pos">Ichidan verb (一段)</span>
-                  <span class="tactile-pill" id="hero-common">Common Word</span>
+                <div class="headword-meta-row" id="headword-meta-row" style="display: none;">
+                  <span class="tactile-pill tactile-pill-gold" id="hero-jlpt">JLPT</span>
+                  <span class="tactile-pill" id="hero-pos">Vocabulary</span>
+                  <button type="button" class="tactile-pill" id="btn-toggle-known">Mark Known</button>
                 </div>
               </div>
 
@@ -97,35 +107,20 @@ export class VocabMainView {
                   <span class="jmdict-source-tag">LOCAL PROVIDER</span>
                 </div>
                 <div class="jmdict-senses-list" id="jmdict-senses">
-                  <div class="sense-item">
-                    <span class="sense-number">1.</span>
-                    <div class="sense-body">
-                      <span class="sense-pos text-gold">[v1, vt]</span>
-                      <p class="sense-gloss">to eat</p>
-                      <p class="sense-example text-muted">朝ごはんを食べる (to eat breakfast)</p>
-                    </div>
-                  </div>
-                  <div class="sense-item">
-                    <span class="sense-number">2.</span>
-                    <div class="sense-body">
-                      <span class="sense-pos text-gold">[v1, vt]</span>
-                      <p class="sense-gloss">to live on (e.g. a salary); to make a living by</p>
-                    </div>
-                  </div>
+                  <p class="text-muted py-4 text-center" id="jmdict-empty-notice">
+                    Type a Japanese or English term in the search bar above to look up definitions.
+                  </p>
                 </div>
               </div>
-
-              <!-- Mascot Slot Placeholder -->
-              ${renderAssetSlot('vocab-idle-reading', 'vocab-mascot-container')}
             </div>
 
-            <!-- Right Column: Card Mining Persistence Form -->
+            <!-- Right Column: Anki Card Mining Editor -->
             <div class="vocab-right-column">
               <form class="card-mining-form tactile-card" id="card-mining-form">
-                <div class="form-header-row">
-                  <h3 class="form-title">Mine Anki Card · 単語登録</h3>
-                  <div class="anki-sync-pill" id="anki-sync-status">
-                    <span class="anki-status-dot is-pending"></span>
+                <div class="mining-form-header">
+                  <h2 class="mining-form-title">Mine to Anki (新規単語)</h2>
+                  <div class="anki-sync-status-pill" id="anki-sync-status">
+                    <span class="anki-status-dot"></span>
                     <span class="anki-status-text">Ready to Save</span>
                   </div>
                 </div>
@@ -134,28 +129,28 @@ export class VocabMainView {
                 <div class="form-row-pair">
                   <div class="form-field">
                     <label for="input-expression">Expression (表記)</label>
-                    <input type="text" id="input-expression" class="tactile-input" value="食べる" required />
+                    <input type="text" id="input-expression" class="tactile-input" placeholder="e.g. 日本" required />
                   </div>
                   <div class="form-field">
                     <label for="input-reading">Reading (読み)</label>
-                    <input type="text" id="input-reading" class="tactile-input" value="たべる" required />
+                    <input type="text" id="input-reading" class="tactile-input" placeholder="e.g. にほん" required />
                   </div>
                 </div>
 
-                <!-- Meaning / Definition -->
+                <!-- Meaning Field -->
                 <div class="form-field">
                   <label for="input-meaning">Meaning & Gloss (意味)</label>
-                  <textarea id="input-meaning" class="tactile-input form-textarea-sm" rows="2" required>to eat; to consume</textarea>
+                  <textarea id="input-meaning" class="tactile-input form-textarea" rows="3" placeholder="Definition and nuances..."></textarea>
                 </div>
 
                 <!-- Sentence Context & Translation -->
                 <div class="form-field">
                   <label for="input-sentence">Context Sentence (例文)</label>
-                  <textarea id="input-sentence" class="tactile-input form-textarea-sm" rows="2">毎日りんごを一つ食べます。</textarea>
+                  <textarea id="input-sentence" class="tactile-input form-textarea-sm" rows="2" placeholder="Example Japanese sentence..."></textarea>
                 </div>
                 <div class="form-field">
                   <label for="input-translation">Translation (和訳)</label>
-                  <input type="text" id="input-translation" class="tactile-input" value="I eat one apple every day." />
+                  <input type="text" id="input-translation" class="tactile-input" placeholder="English translation..." />
                 </div>
 
                 <!-- Deck Selector & Tags -->
@@ -163,14 +158,12 @@ export class VocabMainView {
                   <div class="form-field">
                     <label for="select-deck">Target Deck (デッキ)</label>
                     <select id="select-deck" class="tactile-input">
-                      <option value="Japanese::Vocab" selected>Japanese::Vocab</option>
-                      <option value="Japanese::Mining">Japanese::Mining</option>
                       <option value="Default">Default</option>
                     </select>
                   </div>
                   <div class="form-field">
                     <label for="input-tags">Tags (タグ)</label>
-                    <input type="text" id="input-tags" class="tactile-input" value="kiroku, n5" />
+                    <input type="text" id="input-tags" class="tactile-input" value="kiroku" />
                   </div>
                 </div>
 
@@ -189,6 +182,49 @@ export class VocabMainView {
         </div>
       </div>
     `;
+  }
+
+  showError(message) {
+    this.lastError = message;
+    const banner = document.getElementById('vocab-error-banner');
+    const text = document.getElementById('vocab-error-text');
+    if (banner && text) {
+      text.textContent = message;
+      banner.style.display = 'block';
+    }
+  }
+
+  hideError() {
+    this.lastError = null;
+    const banner = document.getElementById('vocab-error-banner');
+    if (banner) {
+      banner.style.display = 'none';
+    }
+  }
+
+  async loadInitialMetadata() {
+    try {
+      const [decksRes, knownRes] = await Promise.allSettled([
+        apiClient.getAnkiDecks(),
+        apiClient.getKnownWords()
+      ]);
+
+      if (decksRes.status === 'fulfilled' && Array.isArray(decksRes.value)) {
+        this.ankiDecks = decksRes.value.length > 0 ? decksRes.value : ['Default'];
+        const select = document.getElementById('select-deck');
+        if (select) {
+          select.innerHTML = this.ankiDecks.map(d => `<option value="${d}">${d}</option>`).join('');
+        }
+      }
+
+      if (knownRes.status === 'fulfilled' && knownRes.value) {
+        const words = [
+          ...(knownRes.value.marked_known || []),
+          ...(knownRes.value.mined_words || [])
+        ];
+        this.knownWordsSet = new Set(words);
+      }
+    } catch (_) {}
   }
 
   setupWanakana() {
@@ -236,8 +272,31 @@ export class VocabMainView {
     const btnAudio = document.getElementById('btn-play-audio');
     if (btnAudio) {
       btnAudio.addEventListener('click', () => {
-        const word = document.getElementById('hero-expression')?.textContent?.trim() || '食べる';
-        this.playWordAudio(word);
+        const word = this.currentTerm?.expression || document.getElementById('hero-expression')?.textContent?.trim();
+        if (word) this.playWordAudio(word);
+      });
+    }
+
+    // Known word toggle button
+    const btnKnown = document.getElementById('btn-toggle-known');
+    if (btnKnown) {
+      btnKnown.addEventListener('click', async () => {
+        const word = this.currentTerm?.expression;
+        if (!word) return;
+
+        const isCurrentlyKnown = this.knownWordsSet.has(word);
+        try {
+          if (isCurrentlyKnown) {
+            await apiClient.unmarkKnownWord(word);
+            this.knownWordsSet.delete(word);
+          } else {
+            await apiClient.markKnownWord(word);
+            this.knownWordsSet.add(word);
+          }
+          this.updateKnownBadge(word);
+        } catch (err) {
+          this.showError(`Failed to update known status: ${err.message}`);
+        }
       });
     }
 
@@ -251,21 +310,54 @@ export class VocabMainView {
     }
   }
 
+  updateKnownBadge(word) {
+    const btnKnown = document.getElementById('btn-toggle-known');
+    if (!btnKnown) return;
+
+    const isKnown = this.knownWordsSet.has(word);
+    if (isKnown) {
+      btnKnown.textContent = 'Known Word ✓';
+      btnKnown.classList.add('tactile-pill-green');
+    } else {
+      btnKnown.textContent = 'Mark Known';
+      btnKnown.classList.remove('tactile-pill-green');
+    }
+  }
+
   handleSearchDebounced(query) {
     if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
-    if (!query || query.trim().length === 0) {
+    const trimmed = query.trim();
+    if (!trimmed) {
       this.hideCandidateDropdown();
+      this.hideError();
       return;
     }
 
     this.searchDebounceTimer = setTimeout(async () => {
+      this.isLoading = true;
+      this.hideError();
+
       try {
-        const results = await apiClient.searchDictionary(query);
-        this.renderCandidates(results);
+        const isEnglish = /^[a-zA-Z\s]+$/.test(trimmed);
+        if (isEnglish) {
+          const res = await apiClient.searchEnglishDictionary(trimmed);
+          const entries = res?.entries || (Array.isArray(res) ? res : []);
+          this.renderCandidates(entries);
+        } else {
+          const captureRes = await apiClient.captureText(trimmed);
+          if (captureRes && (captureRes.expression || captureRes.reading)) {
+            this.displayTerm(captureRes);
+            this.hideCandidateDropdown();
+          } else {
+            this.showError('No definition found for this expression.');
+          }
+        }
       } catch (err) {
-        console.warn('[Vocab] Search failed:', err);
+        this.showError(`Search failed: ${err.message || 'Dictionary lookup error'}`);
+      } finally {
+        this.isLoading = false;
       }
-    }, 200);
+    }, 250);
   }
 
   renderCandidates(results) {
@@ -280,11 +372,11 @@ export class VocabMainView {
     dropdown.innerHTML = results.slice(0, 6).map((item, index) => `
       <div class="candidate-row" data-index="${index}" tabindex="0" role="option">
         <div class="candidate-head">
-          <span class="candidate-expression">${item.expression || item.word || ''}</span>
-          <span class="candidate-reading">${item.reading || ''}</span>
+          <span class="candidate-expression font-bold">${item.expression || item.word || item.term || ''}</span>
+          <span class="candidate-reading text-muted">${item.reading || ''}</span>
           ${item.jlpt ? `<span class="tactile-pill tactile-pill-gold">${item.jlpt}</span>` : ''}
         </div>
-        <div class="candidate-gloss">${item.gloss || item.meaning || ''}</div>
+        <div class="candidate-gloss text-sm text-truncate">${item.meaning || item.gloss || (item.definitions && item.definitions.join(', ')) || ''}</div>
       </div>
     `).join('');
 
@@ -305,43 +397,77 @@ export class VocabMainView {
   selectCandidate(item) {
     this.hideCandidateDropdown();
     if (!item) return;
+    this.displayTerm(item);
+  }
 
-    // Populate Headword Showcase
+  displayTerm(term) {
+    this.currentTerm = term;
+
+    // 1. Populate Headword Hero
     const heroExpr = document.getElementById('hero-expression');
-    const heroReading = document.getElementById('hero-reading');
     const heroPitch = document.getElementById('hero-pitch');
+    const heroMeta = document.getElementById('headword-meta-row');
     const heroJlpt = document.getElementById('hero-jlpt');
     const heroPos = document.getElementById('hero-pos');
+    const btnAudio = document.getElementById('btn-play-audio');
+
+    const expr = term.expression || term.word || term.term || '';
+    const reading = term.reading || '';
 
     if (heroExpr) {
-      heroExpr.innerHTML = `${item.expression || item.word}<rt id="hero-reading">${item.reading || ''}</rt>`;
+      heroExpr.innerHTML = `${expr}<rt id="hero-reading">${reading}</rt>`;
     }
-    if (heroPitch) heroPitch.textContent = item.pitch || '[0] 平板';
-    if (heroJlpt) heroJlpt.textContent = item.jlpt || 'JLPT N/A';
-    if (heroPos) heroPos.textContent = item.pos || 'Expression';
 
-    // Populate Mining Form
+    if (heroPitch) {
+      heroPitch.textContent = term.pitch || '[0] 平板';
+      heroPitch.style.display = 'inline-block';
+    }
+
+    if (heroMeta) heroMeta.style.display = 'flex';
+    if (heroJlpt) heroJlpt.textContent = term.jlpt || 'JLPT N/A';
+    if (heroPos) heroPos.textContent = term.pos || 'Vocabulary';
+    if (btnAudio) btnAudio.style.display = 'inline-flex';
+
+    this.updateKnownBadge(expr);
+
+    // 2. Populate JMdict Senses
+    const sensesContainer = document.getElementById('jmdict-senses');
+    if (sensesContainer) {
+      let sensesHtml = '';
+      if (Array.isArray(term.senses) && term.senses.length > 0) {
+        sensesHtml = term.senses.map((s, idx) => `
+          <div class="sense-item">
+            <span class="sense-num">${idx + 1}.</span>
+            <span class="sense-pos text-gold">${s.pos ? `[${s.pos}]` : ''}</span>
+            <span class="sense-gloss">${s.gloss || s.definition || ''}</span>
+          </div>
+        `).join('');
+      } else if (term.meaning) {
+        const lines = term.meaning.split('\n').filter(l => l.trim());
+        sensesHtml = lines.map((l, idx) => `
+          <div class="sense-item">
+            <span class="sense-num">${idx + 1}.</span>
+            <span class="sense-gloss">${l}</span>
+          </div>
+        `).join('');
+      } else {
+        sensesHtml = `<p class="text-muted py-2">No detailed definitions found.</p>`;
+      }
+      sensesContainer.innerHTML = sensesHtml;
+    }
+
+    // 3. Populate Mining Form Fields
     const inputExpr = document.getElementById('input-expression');
     const inputReading = document.getElementById('input-reading');
     const inputMeaning = document.getElementById('input-meaning');
+    const inputSentence = document.getElementById('input-sentence');
+    const inputTranslation = document.getElementById('input-translation');
 
-    if (inputExpr) inputExpr.value = item.expression || item.word || '';
-    if (inputReading) inputReading.value = item.reading || '';
-    if (inputMeaning) inputMeaning.value = item.gloss || item.meaning || '';
-
-    // Populate JMdict senses
-    const sensesContainer = document.getElementById('jmdict-senses');
-    if (sensesContainer && Array.isArray(item.senses)) {
-      sensesContainer.innerHTML = item.senses.map((s, idx) => `
-        <div class="sense-item">
-          <span class="sense-number">${idx + 1}.</span>
-          <div class="sense-body">
-            <span class="sense-pos text-gold">${s.pos || ''}</span>
-            <p class="sense-gloss">${s.gloss || ''}</p>
-          </div>
-        </div>
-      `).join('');
-    }
+    if (inputExpr) inputExpr.value = expr;
+    if (inputReading) inputReading.value = reading;
+    if (inputMeaning) inputMeaning.value = term.meaning || term.gloss || '';
+    if (inputSentence) inputSentence.value = term.example_sentence || term.sentence || '';
+    if (inputTranslation) inputTranslation.value = term.example_translation || term.sentence_translation || '';
   }
 
   async handleSaveCard() {
@@ -349,14 +475,19 @@ export class VocabMainView {
     const statusPill = document.getElementById('anki-sync-status');
 
     const cardPayload = {
-      expression: document.getElementById('input-expression')?.value || '',
-      reading: document.getElementById('input-reading')?.value || '',
-      meaning: document.getElementById('input-meaning')?.value || '',
-      sentence: document.getElementById('input-sentence')?.value || '',
-      sentence_translation: document.getElementById('input-translation')?.value || '',
-      deck: document.getElementById('select-deck')?.value || 'Japanese::Vocab',
-      tags: document.getElementById('input-tags')?.value || 'kiroku'
+      expression: document.getElementById('input-expression')?.value?.trim() || '',
+      reading: document.getElementById('input-reading')?.value?.trim() || '',
+      meaning: document.getElementById('input-meaning')?.value?.trim() || '',
+      example_sentence: document.getElementById('input-sentence')?.value?.trim() || '',
+      example_translation: document.getElementById('input-translation')?.value?.trim() || '',
+      deck_name: document.getElementById('select-deck')?.value || 'Default',
+      tags: document.getElementById('input-tags')?.value?.trim() || 'kiroku'
     };
+
+    if (!cardPayload.expression || !cardPayload.reading) {
+      alert('Expression and reading are required to save a card.');
+      return;
+    }
 
     if (btn) {
       btn.disabled = true;
@@ -364,18 +495,19 @@ export class VocabMainView {
     }
 
     try {
-      const result = await apiClient.createCard(cardPayload);
+      const result = await apiClient.saveCard(cardPayload);
       if (statusPill) {
         statusPill.innerHTML = `
-          <span class="anki-status-dot is-synced"></span>
-          <span class="anki-status-text">Saved to Local & Anki</span>
+          <span class="anki-status-dot" style="background: var(--green);"></span>
+          <span class="anki-status-text text-green">Saved (${result.expression})</span>
         `;
       }
     } catch (err) {
+      this.showError(`Save Failed: ${err.message}`);
       if (statusPill) {
         statusPill.innerHTML = `
-          <span class="anki-status-dot is-failed"></span>
-          <span class="anki-status-text">Save Failed: ${err.message}</span>
+          <span class="anki-status-dot" style="background: var(--red);"></span>
+          <span class="anki-status-text text-red">Save Failed</span>
         `;
       }
     } finally {
