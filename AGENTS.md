@@ -398,3 +398,45 @@ with single-instance locking, health-check polling, system tray integration, and
 clean subprocess tree termination. The desktop shell reuses the localhost FastAPI
 API (`http://127.0.0.1:21828`), keeps SQLite authoritative, preserves simultaneous
 browser extension access, and isolates optional OCR without duplicate instances.
+
+Frontend UI & Animation Resource Guidelines
+
+Whenever building, redesigning or improving frontend UI, actively explore these resources for ready-made components and animations:
+
+Preferred component libraries
+
+* https://ui.aceternity.com/
+* https://reactbits.dev/
+* https://magicui.design/
+* https://uiverse.io/
+* https://animata.design/
+* https://21st.dev/
+
+Instructions
+
+1. Before implementing a frontend component, check whether a suitable existing component is available in these libraries.
+2. Prefer reusing and adapting existing components instead of writing animations and visual effects from scratch.
+3. Look for visually impressive:
+    * Animated hero sections
+    * Interactive backgrounds
+    * Smooth page transitions
+    * Text reveal animations
+    * Hover effects
+    * 3D cards and interactive elements
+    * Animated buttons
+    * Scroll-triggered animations
+    * Modern navigation bars
+    * Creative loading states
+4. Inspect the actual source code and dependencies before integrating components.
+5. Adapt components to the existing project’s framework, styling system, typography and color palette.
+6. Maintain a consistent, polished design language across the entire application.
+7. Prioritize performance, responsiveness and accessibility.
+8. Avoid generic-looking interfaces and repetitive design patterns.
+9. Never sacrifice functionality for visual effects.
+10. Check licensing before using third-party code.
+
+Design Philosophy
+
+The goal is to create a visually impressive, premium-quality frontend that feels professionally designed.
+
+Do not settle for basic layouts when better existing components are available. Be proactive about discovering and implementing high-quality UI patterns rather than waiting for explicit instructions.
