@@ -2060,6 +2060,38 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 
 /* ==========================================================================
    Settings Screen Styles
+
+.settings-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background-color: rgba(217, 75, 56, 0.15);
+  border: 1px solid var(--vermilion);
+  border-radius: var(--radius-sm);
+  color: var(--vermilion);
+  font-size: 0.85rem;
+}
+
+.form-row-pair {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.form-row-pair .form-field {
+  flex: 1;
+}
+
+.llm-test-result-box {
+  background-color: var(--surface-container-lowest);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--warm-paper);
+}
+
    ========================================================================== */
 .settings-header-row {
   display: flex;
