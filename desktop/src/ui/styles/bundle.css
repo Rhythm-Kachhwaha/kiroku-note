@@ -1474,6 +1474,47 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   color: var(--tactile-stroke);
 }
 
+.kanji-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background-color: rgba(217, 75, 56, 0.15);
+  border: 1px solid var(--vermilion);
+  border-radius: var(--radius-sm);
+  color: var(--vermilion);
+  font-size: 0.85rem;
+}
+
+.kanji-browse-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--ink-border);
+}
+
+.kanji-browse-chip {
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--tactile-stroke);
+  background-color: var(--surface-container);
+  color: var(--warm-paper);
+  font-family: var(--font-japanese);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) ease, transform var(--duration-instant) ease;
+}
+
+.kanji-browse-chip:hover, .kanji-browse-chip.is-active {
+  border-color: var(--gold-eye);
+  background-color: var(--surface-container-high);
+  transform: translateY(-1px);
+}
+
+
 /* Stroke Player */
 .stroke-header-row {
   display: flex;

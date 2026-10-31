@@ -5518,6 +5518,151 @@
         }
       }
     },
+    "/api/kanji/details/{character}": {
+      "get": {
+        "summary": "Get Kanji Details",
+        "description": "Return character details, readings, JLPT level and meanings.",
+        "operationId": "get_kanji_details_api_kanji_details__character__get",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Character"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/kanji/compounds/{character}": {
+      "get": {
+        "summary": "Get Kanji Compounds",
+        "description": "Return common compounds containing character from local dictionary.",
+        "operationId": "get_kanji_compounds_api_kanji_compounds__character__get",
+        "parameters": [
+          {
+            "name": "character",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Character"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 15,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/kanji/browse": {
+      "get": {
+        "summary": "Browse Kanji",
+        "description": "Browse kanji by JLPT level or Joyo status.",
+        "operationId": "browse_kanji_api_kanji_browse_get",
+        "parameters": [
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "N3",
+              "title": "Level"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/jlpt/batch": {
       "post": {
         "summary": "Batch Jlpt Lookup",

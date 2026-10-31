@@ -240,6 +240,18 @@ export class ApiClient {
     return this.request(`/api/kanji/strokes/${encodeURIComponent(character)}`);
   }
 
+  async getKanjiDetails(character) {
+    return this.request(`/api/kanji/details/${encodeURIComponent(character)}`);
+  }
+
+  async getKanjiCompounds(character, params = {}) {
+    return this.request(`/api/kanji/compounds/${encodeURIComponent(character)}`, { query: params });
+  }
+
+  async browseKanji(params = {}) {
+    return this.request('/api/kanji/browse', { query: params });
+  }
+
   // LLM
   async getLlmConfig() {
     return this.request('/api/llm/config');

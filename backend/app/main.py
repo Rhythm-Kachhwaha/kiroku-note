@@ -764,6 +764,35 @@ def get_kanji_strokes(character: str) -> Response:
     return Response(content=svg, media_type="image/svg+xml; charset=utf-8")
 
 
+from app.services.kanji_service import KanjiService
+
+_kanji_service = KanjiService()
+
+
+@app.get("/api/kanji/details/{character}")
+def get_kanji_details(character: str):
+    """Return character details, readings, JLPT level and meanings."""
+    details = _kanji_service.get_details(character)
+    if not details:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Kanji details not found for character: {character}",
+        )
+    return details
+
+
+@app.get("/api/kanji/compounds/{character}")
+def get_kanji_compounds(character: str, limit: int = 15):
+    """Return common compounds containing character from local dictionary."""
+    return {"character": character, "compounds": _kanji_service.get_compounds(character, limit=limit)}
+
+
+@app.get("/api/kanji/browse")
+def browse_kanji(level: str = "N3", limit: int = 50, offset: int = 0):
+    """Browse kanji by JLPT level or Joyo status."""
+    return _kanji_service.browse(level=level, limit=limit, offset=offset)
+
+
 @app.post("/api/jlpt/batch")
 async def batch_jlpt_lookup(request: Request) -> JSONResponse:
     """Batch lookup JLPT levels for a list of vocabulary expressions."""

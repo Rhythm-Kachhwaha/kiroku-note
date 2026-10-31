@@ -18,9 +18,8 @@ export const ASSET_MAP = {
     lottiePath: './ui/assets/mascot/Cat typing.json'
   },
   'kanji-stroke-observing': {
-    type: 'svg',
-    path: './ui/assets/mascot/svg_cat.svg',
-    alt: 'Sitting Cat Observing Kanji Stroke Order'
+    type: 'placeholder',
+    label: 'Kanji Companion Slot'
   },
   'test-result-celebration': {
     type: 'svg',
