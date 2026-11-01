@@ -3,13 +3,24 @@
  * Practice drill lifecycle backed by live study.db question bank,
  * objective deterministic grading, pedagogical explanation, adaptive
  * repetition difficulty rating (Easy/Normal/Hard), universal JLPT level sync,
- * setup chooser without auto-starting sessions, and honest empty states.
+ * setup chooser with live question bank count, and honest diagnostic reports.
  */
 
 import { studyClient } from '../services/study_client.js';
 import { escapeHtml, sanitizePromptMarkup } from '../utils/sanitizer.js';
 import { renderAssetSlot } from '../assets_map.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
+
+function extractPassageContent(item) {
+  if (!item) return null;
+  if (item.group_context && Array.isArray(item.group_context.parts) && item.group_context.parts.length > 0) {
+    return item.group_context.parts
+      .map(p => (p.title ? `${p.title}\n` : '') + (p.markup || ''))
+      .join('\n\n');
+  }
+  if (typeof item.group_context === 'string') return item.group_context;
+  return item.group_text || item.passage_text || null;
+}
 
 export class StudyView {
   constructor(router) {
@@ -28,6 +39,7 @@ export class StudyView {
     this.sessionSummary = { correct: 0, total: 0 };
     this.isLoading = false;
     this.activeBlobUrls = [];
+    this.cachedBankSummary = null;
     this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
@@ -102,7 +114,7 @@ export class StudyView {
       <div class="study-setup-card tactile-card">
         <div class="setup-header-row mb-4">
           <div>
-            <span class="font-mono text-xs text-gold">Casual Practice Hub</span>
+            <span class="font-mono text-xs text-gold uppercase tracking-wider">Practice Hub</span>
             <h2 class="text-xl font-bold text-warm-paper mt-1">Adaptive Drill Setup</h2>
             <p class="text-secondary text-sm">
               Custom targeted drills with objective grading, spaced repetition ratings, and pedagogical explanations.
@@ -110,8 +122,16 @@ export class StudyView {
           </div>
         </div>
 
-        <!-- Level Selector -->
-        <div class="setup-field-group mb-4">
+        <!-- Question Bank Live Status -->
+        <div class="study-bank-info tactile-card surface-pitch-black p-3 mb-5">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-xs text-gold uppercase tracking-wider">Question Bank Status</span>
+            <span class="font-mono text-xs text-muted" id="study-bank-stat">Querying bank readiness...</span>
+          </div>
+        </div>
+
+        <!-- Target JLPT Level -->
+        <div class="setup-field-group mb-5">
           <label class="text-xs font-mono text-muted uppercase block mb-2">Target JLPT Level</label>
           <div class="syllabus-level-pills" id="drill-level-pills" role="radiogroup" aria-label="Drill Level">
             ${['N5', 'N4', 'N3', 'N2', 'N1'].map(lvl => `
@@ -124,8 +144,8 @@ export class StudyView {
           </div>
         </div>
 
-        <!-- Session Mode -->
-        <div class="setup-field-group mb-4">
+        <!-- Drill Mode -->
+        <div class="setup-field-group mb-5">
           <label class="text-xs font-mono text-muted uppercase block mb-2">Drill Mode</label>
           <div class="drill-mode-pills flex gap-2 flex-wrap" id="drill-mode-pills">
             <button type="button" class="tactile-pill drill-mode-pill ${this.selectedSessionType === 'practice' ? 'is-active tactile-pill-gold' : ''}" data-mode="practice">Fresh Questions</button>
@@ -151,12 +171,15 @@ export class StudyView {
 
         <!-- Start Action -->
         <div class="setup-action-row pt-2">
-          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-start-practice">
-            <span>Start Practice Drill</span>
+          <button type="button" class="tactile-btn tactile-btn-primary w-full" id="btn-start-practice">
+            <span>Start Practice Drill (${escapeHtml(this.activeLevel)})</span>
           </button>
         </div>
       </div>
     `;
+
+    // Query live bank count
+    this.updateBankSummaryDisplay();
 
     // Wire level pill selectors
     area.querySelectorAll('.drill-level-pill').forEach((btn) => {
@@ -164,6 +187,11 @@ export class StudyView {
         area.querySelectorAll('.drill-level-pill').forEach(b => b.classList.remove('is-active', 'tactile-pill-gold'));
         btn.classList.add('is-active', 'tactile-pill-gold');
         this.activeLevel = btn.dataset.level;
+        const btnStart = document.getElementById('btn-start-practice');
+        if (btnStart) {
+          btnStart.querySelector('span').textContent = `Start Practice Drill (${this.activeLevel})`;
+        }
+        this.updateBankSummaryDisplay();
       });
     });
 
@@ -194,6 +222,25 @@ export class StudyView {
     }
   }
 
+  async updateBankSummaryDisplay() {
+    const statEl = document.getElementById('study-bank-stat');
+    if (!statEl) return;
+
+    try {
+      if (!this.cachedBankSummary) {
+        this.cachedBankSummary = await studyClient.getBankSummary();
+      }
+      const summary = this.cachedBankSummary;
+      const levelData = summary?.levels?.[this.activeLevel];
+      const eligibleCount = levelData?.eligible_count ?? levelData?.total_count ?? 0;
+      const totalBank = summary?.total_questions ?? 0;
+      statEl.textContent = `${eligibleCount} questions available for ${this.activeLevel} (${totalBank} total in bank)`;
+    } catch (err) {
+      console.debug('[Study] Bank summary lookup failed:', err.message);
+      statEl.textContent = `Question bank active for ${this.activeLevel}`;
+    }
+  }
+
   async loadPracticeSession(level = 'N4', count = 10) {
     this.activeLevel = level;
     this.clearError();
@@ -212,7 +259,7 @@ export class StudyView {
     }
 
     try {
-      const session = await studyClient.createPracticeSession(level, count);
+      const session = await studyClient.createPracticeSession(level, count, null, this.selectedSessionType);
       const items = session?.items || [];
 
       if (!items || items.length === 0) {
@@ -284,6 +331,7 @@ export class StudyView {
     const level = item.level || this.activeLevel;
     const category = item.category || 'Practice';
     const format = item.format_code || item.structural_family || 'Objective';
+    const passageText = extractPassageContent(item);
 
     // Revoke previous blob URLs
     this.activeBlobUrls.forEach(url => studyClient.revokeMediaBlobUrl(url));
@@ -299,7 +347,7 @@ export class StudyView {
       <!-- Drill Session Header Bar -->
       <div class="study-header-bar tactile-card">
         <div class="study-header-left">
-          <span class="tactile-pill tactile-pill-gold">${escapeHtml(level)} ${escapeHtml(category)}</span>
+          <span class="tactile-pill tactile-pill-gold">${escapeHtml(level)} · ${escapeHtml(category)}</span>
           <span class="study-question-count font-mono">Item ${this.currentQuestionIndex + 1} of ${this.practiceItems.length}</span>
         </div>
         <div class="study-timer font-mono text-sm" id="study-active-timer">
@@ -307,37 +355,53 @@ export class StudyView {
         </div>
       </div>
 
-      <!-- Question Prompt Card (Mandatory Pitch-Black #000000) -->
+      <!-- Reading Passage Pane if question belongs to a passage group -->
+      ${passageText ? `
+        <div class="study-passage-pane surface-pitch-black tactile-card mb-4 p-4">
+          <div class="passage-header-row mb-2">
+            <span class="passage-title font-mono text-xs text-gold uppercase tracking-wider">Reading Passage</span>
+          </div>
+          <div class="passage-body-content text-sm leading-relaxed font-japanese text-warm-paper">
+            ${sanitizePromptMarkup(passageText)}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Question Prompt Card (Pitch-Black #000000) -->
       <div class="study-prompt-card surface-pitch-black tactile-card">
         <div class="study-prompt-header">
           <span class="font-mono text-xs text-gold">${escapeHtml(format)}</span>
-          <span class="text-xs text-muted">Practice Item</span>
+          <span class="text-xs text-muted font-mono">Q${this.currentQuestionIndex + 1}</span>
         </div>
         <h2 class="study-prompt-text font-japanese" id="study-prompt-ja">
           ${sanitizePromptMarkup(promptText)}
         </h2>
 
-        <!-- Choukai Media Streaming Containers -->
+        <!-- Media Streaming Containers -->
         <div id="study-audio-container" class="mt-3" style="display: none;"></div>
         <div id="study-diagram-container" class="mt-3" style="display: none;"></div>
       </div>
 
-      <!-- Interactive Tactile Choice Buttons -->
+      <!-- Interactive Tactile Choice Buttons (1-4) -->
       <div class="study-choices-grid" id="study-choices-grid" role="radiogroup" aria-label="Practice Choices">
-        ${choices.map((choice, i) => `
-          <button
-            type="button"
-            class="study-choice-btn tactile-btn tactile-card-interactive"
-            data-choice-id="${escapeHtml(choice.choice_id || choice.id || String(i + 1))}"
-            data-index="${i}"
-            role="radio"
-            aria-checked="false"
-            tabindex="0"
-          >
-            <span class="choice-num font-mono">${i + 1}</span>
-            <span class="choice-text font-japanese">${escapeHtml(choice.text_markup || choice.text || String(choice))}</span>
-          </button>
-        `).join('')}
+        ${choices.map((choice, i) => {
+          const cid = choice.choice_id || choice.id || String(i + 1);
+          const cText = choice.text_markup || choice.text || String(choice);
+          return `
+            <button
+              type="button"
+              class="study-choice-btn tactile-btn tactile-card-interactive"
+              data-choice-id="${escapeHtml(String(cid))}"
+              data-index="${i}"
+              role="radio"
+              aria-checked="false"
+              tabindex="0"
+            >
+              <span class="choice-num font-mono">${i + 1}</span>
+              <span class="choice-text font-japanese">${sanitizePromptMarkup(cText)}</span>
+            </button>
+          `;
+        }).join('')}
       </div>
 
       <!-- Objective Grading Feedback Banner (Hidden until answered) -->
@@ -353,17 +417,17 @@ export class StudyView {
 
       <!-- Pedagogical Explanation Card (Reveals on answer) -->
       <div class="pedagogical-explanation-card tactile-card" id="explanation-card" style="display: none;">
-        <div class="explanation-header">
-          <span class="explanation-title font-bold text-gold">Explanation</span>
+        <div class="explanation-header mb-2">
+          <span class="explanation-title font-bold text-gold">Pedagogical Explanation</span>
         </div>
-        <p class="explanation-text" id="explanation-text">
+        <div class="explanation-text text-sm leading-relaxed text-secondary mb-4" id="explanation-text">
           --
-        </p>
+        </div>
 
         <!-- Adaptive Repetition Rating Bar (Easy, Normal, Hard) -->
-        <div class="adaptive-rating-section">
-          <span class="rating-label text-xs text-muted uppercase">Rate Difficulty:</span>
-          <div class="rating-buttons-row" id="rating-buttons-row">
+        <div class="adaptive-rating-section pt-3 border-t border-subtle">
+          <span class="rating-label text-xs font-mono text-muted uppercase block mb-2">Rate Difficulty:</span>
+          <div class="rating-buttons-row flex gap-2" id="rating-buttons-row">
             <button type="button" class="tactile-btn tactile-btn-sm btn-rate-difficulty" data-rating="Easy">
               <span>Easy [1]</span>
             </button>
@@ -377,15 +441,15 @@ export class StudyView {
         </div>
 
         <!-- Next Question Advance Button -->
-        <div class="next-question-row mt-4">
-          <button class="tactile-btn tactile-btn-primary" id="btn-next-question">
-            <span>Next Question</span>
+        <div class="next-question-row mt-4 pt-2">
+          <button class="tactile-btn tactile-btn-primary w-full" id="btn-next-question">
+            <span>Next Question [Enter]</span>
           </button>
         </div>
       </div>
     `;
 
-    // Stream Choukai audio if asset exists
+    // Stream audio track if present
     if (audioAssetId) {
       studyClient.getMediaBlobUrl(audioAssetId).then((audioUrl) => {
         if (!audioUrl) return;
@@ -415,6 +479,7 @@ export class StudyView {
       }).catch((e) => console.debug('[Study] Diagram stream error:', e.message));
     }
 
+    // Attach choice listeners
     const choiceButtons = area.querySelectorAll('.study-choice-btn');
     choiceButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -424,6 +489,7 @@ export class StudyView {
       });
     });
 
+    // Advance button listener
     const btnNext = document.getElementById('btn-next-question');
     if (btnNext) {
       btnNext.addEventListener('click', () => {
@@ -431,6 +497,7 @@ export class StudyView {
       });
     }
 
+    // Rating buttons listeners
     area.querySelectorAll('.btn-rate-difficulty').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         const rating = e.currentTarget.dataset.rating;
@@ -443,7 +510,7 @@ export class StudyView {
             difficulty_rating: rating
           });
         } catch (err) {
-          console.warn('[Study] Record feedback error:', err);
+          console.warn('[Study] Record feedback error:', err.message);
         }
       });
     });
@@ -466,7 +533,7 @@ export class StudyView {
       });
 
       const isCorrect = Boolean(result?.is_correct);
-      const canonicalId = result?.canonical_choice_id;
+      const canonicalId = result?.canonical_choice_id ? String(result.canonical_choice_id) : null;
       const explanation = result?.explanation_markup || 'Explanation recorded in study database.';
 
       if (isCorrect) {
@@ -475,10 +542,10 @@ export class StudyView {
       this.sessionSummary.total += 1;
 
       choices.forEach((btn) => {
-        const cid = btn.dataset.choiceId;
+        const cid = String(btn.dataset.choiceId);
         if (canonicalId && cid === canonicalId) {
           btn.classList.add('is-choice-correct');
-        } else if (cid === choiceId) {
+        } else if (cid === String(choiceId)) {
           btn.classList.add(isCorrect ? 'is-choice-correct' : 'is-choice-incorrect');
         }
       });
@@ -503,7 +570,7 @@ export class StudyView {
       const expCard = document.getElementById('explanation-card');
       const expText = document.getElementById('explanation-text');
       if (expCard && expText) {
-        expText.innerHTML = escapeHtml(explanation);
+        expText.innerHTML = sanitizePromptMarkup(explanation);
         expCard.style.display = 'block';
       }
     } catch (err) {
@@ -530,7 +597,7 @@ export class StudyView {
       try {
         await studyClient.completePracticeSession(this.sessionId);
       } catch (err) {
-        console.warn('[Study] Complete session error:', err);
+        console.warn('[Study] Complete session error:', err.message);
       }
     }
 
@@ -540,28 +607,28 @@ export class StudyView {
     area.innerHTML = `
       <div class="study-complete-card tactile-card text-center py-10">
         <h2 class="study-complete-title font-display text-2xl font-bold mb-2">Practice Drill Complete!</h2>
-        <p class="text-secondary text-sm mb-6">
+        <p class="text-secondary text-sm mb-6 max-w-lg mx-auto">
           Honest diagnostic practice result. Your responses have been recorded for spaced repetition review.
         </p>
 
-        <div class="flex justify-center gap-6 my-6">
-          <div class="tactile-card p-4">
-            <span class="text-xs text-muted block uppercase">Questions</span>
-            <span class="font-mono text-xl font-bold text-warm-paper">${total}</span>
+        <div class="flex justify-center gap-6 my-6 flex-wrap">
+          <div class="tactile-card p-4 min-w-[120px]">
+            <span class="text-xs text-muted block uppercase font-mono">Questions</span>
+            <span class="font-mono text-2xl font-bold text-warm-paper">${total}</span>
           </div>
-          <div class="tactile-card p-4">
-            <span class="text-xs text-muted block uppercase">Score</span>
-            <span class="font-mono text-xl font-bold text-gold">${correct} / ${total}</span>
+          <div class="tactile-card p-4 min-w-[120px]">
+            <span class="text-xs text-muted block uppercase font-mono">Score</span>
+            <span class="font-mono text-2xl font-bold text-gold">${correct} / ${total}</span>
           </div>
-          <div class="tactile-card p-4">
-            <span class="text-xs text-muted block uppercase">Accuracy</span>
-            <span class="font-mono text-xl font-bold text-warm-paper">${accuracy}%</span>
+          <div class="tactile-card p-4 min-w-[120px]">
+            <span class="text-xs text-muted block uppercase font-mono">Accuracy</span>
+            <span class="font-mono text-2xl font-bold text-warm-paper">${accuracy}%</span>
           </div>
         </div>
 
         <div class="study-level-picker mt-8">
           <button type="button" class="tactile-btn tactile-btn-primary" id="btn-restart-study">
-            Start New Drill (${escapeHtml(this.activeLevel)})
+            <span>Start New Drill (${escapeHtml(this.activeLevel)})</span>
           </button>
         </div>
       </div>

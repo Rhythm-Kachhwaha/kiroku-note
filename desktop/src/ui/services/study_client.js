@@ -93,15 +93,25 @@ export class StudyClient {
   }
 
   // Practice Engine (Milestone 6)
-  async createPracticeSession(level = 'N3', count = 10, formatId = null) {
+  async createPracticeSession(level = 'N3', count = 10, formatId = null, sessionType = 'practice') {
+    let body;
+    if (typeof level === 'object' && level !== null) {
+      body = level;
+    } else {
+      body = {
+        level: typeof level === 'string' ? level : 'N3',
+        question_count: count,
+        format_code: formatId,
+        session_type: sessionType
+      };
+      if (sessionType === 'weak_area') body.target_weak_areas = true;
+      if (sessionType === 'bookmarked') body.bookmarked_only = true;
+      if (sessionType === 'trouble' || sessionType === 'review') body.incorrect_only = true;
+    }
     return this.request({
       method: 'POST',
       path: '/api/study/v1/practice/sessions',
-      body: {
-        level,
-        question_count: count,
-        format_code: formatId
-      }
+      body
     });
   }
 
@@ -159,18 +169,30 @@ export class StudyClient {
   }
 
   async answerExamItem(sessionId, itemNumber, selectedChoiceId) {
+    let itemId = itemNumber;
+    let choiceId = selectedChoiceId;
+    if (typeof itemNumber === 'object' && itemNumber !== null) {
+      itemId = itemNumber.attempt_item_id || itemNumber.position || itemNumber.id;
+      choiceId = itemNumber.selected_choice_id !== undefined ? itemNumber.selected_choice_id : selectedChoiceId;
+    }
     return this.request({
       method: 'PUT',
-      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/items/${encodeURIComponent(itemNumber)}/answer`,
-      body: { selected_choice_id: selectedChoiceId }
+      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/items/${encodeURIComponent(itemId)}/answer`,
+      body: { selected_choice_id: choiceId }
     });
   }
 
   async flagExamItem(sessionId, itemNumber, flagged) {
+    let itemId = itemNumber;
+    let isFlagged = flagged;
+    if (typeof itemNumber === 'object' && itemNumber !== null) {
+      itemId = itemNumber.attempt_item_id || itemNumber.position || itemNumber.id;
+      isFlagged = itemNumber.flagged !== undefined ? itemNumber.flagged : itemNumber.is_flagged;
+    }
     return this.request({
       method: 'PUT',
-      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/items/${encodeURIComponent(itemNumber)}/flag`,
-      body: { flagged: Boolean(flagged) }
+      path: `/api/study/v1/exam/sessions/${encodeURIComponent(sessionId)}/items/${encodeURIComponent(itemId)}/flag`,
+      body: { flagged: Boolean(isFlagged) }
     });
   }
 
