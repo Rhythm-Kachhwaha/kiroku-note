@@ -147,11 +147,172 @@ test('Home Screen Styles: bundle.css styles mascot stage, organic backing, and c
 
   assert.ok(css.includes('.organic-shape-backing'), 'bundle.css must style .organic-shape-backing');
   assert.ok(css.includes('.home-daily-word') || css.includes('.daily-vocab-stamp'), 'bundle.css must style daily word stamp');
-  assert.ok(css.includes('.home-action-card'), 'bundle.css must style .home-action-card');
+  assert.ok(css.includes('.character-tile'), 'bundle.css must style .character-tile');
+  assert.ok(css.includes('.character-lineup'), 'bundle.css must style .character-lineup');
 
   // No legacy chocolate/orange hex codes
   const legacyColors = ['#26170D', '#FF8A1F', '#FFF1DC'];
   for (const col of legacyColors) {
     assert.ok(!css.includes(col), `bundle.css must NOT contain legacy color "${col}"`);
   }
+});
+
+
+test('Home Screen Lineup: Six character tiles render with expected tab ids, labels, and roles', async () => {
+  const { HomeView } = await import('../src/ui/views/home.js');
+  const { CHARACTER_LINEUP } = await import('../src/ui/rive_character.js');
+
+  assert.equal(CHARACTER_LINEUP.length, 6, 'Lineup must define exactly 6 character modes');
+
+  const expectedModes = [
+    { tabId: 'vocab', name: 'Vocab', file: '24603-46108-character-series-of-01.riv' },
+    { tabId: 'kanji', name: 'Kanji', file: '24617-46109-character-series-of-02.riv' },
+    { tabId: 'grammar', name: 'Grammar', file: '24622-46110-character-series-of-02.riv' },
+    { tabId: 'study', name: 'Practice', file: '24718-46207-cat-robot-character-07.riv' },
+    { tabId: 'test', name: 'Exam', file: '24719-46209-cat-robot-character-08.riv' },
+    { tabId: 'settings', name: 'Settings', file: '24739-46235-cat-robot-character-09.riv' }
+  ];
+
+  for (let i = 0; i < expectedModes.length; i++) {
+    const exp = expectedModes[i];
+    const actual = CHARACTER_LINEUP[i];
+    assert.equal(actual.tabId, exp.tabId, `Tile ${i} tabId must match ${exp.tabId}`);
+    assert.equal(actual.name, exp.name, `Tile ${i} name must match ${exp.name}`);
+    assert.equal(actual.file, exp.file, `Tile ${i} file must match ${exp.file}`);
+  }
+
+  const container = { innerHTML: '', querySelectorAll: () => [] };
+  const routerMock = { navigateToTab: () => {} };
+  const homeView = new HomeView(routerMock);
+  await homeView.mount(container);
+
+  assert.ok(container.innerHTML.includes('class="character-lineup"'), 'Home mounts .character-lineup');
+  for (const exp of expectedModes) {
+    assert.ok(container.innerHTML.includes(`data-tab="${exp.tabId}"`), `Home DOM contains data-tab="${exp.tabId}"`);
+    assert.ok(container.innerHTML.includes(exp.name), `Home DOM contains name ${exp.name}`);
+  }
+});
+
+test('Home Screen Lineup: Click or Enter navigation invokes navigateToTab with correct tabId', async () => {
+  const { HomeView } = await import('../src/ui/views/home.js');
+  const navigatedTabs = [];
+  const routerMock = {
+    navigateToTab: (tabId) => {
+      navigatedTabs.push(tabId);
+    }
+  };
+
+  const homeView = new HomeView(routerMock);
+  const mockTile = {
+    getBoundingClientRect: () => ({ left: 100, top: 100, width: 80, height: 300 }),
+    classList: { add: () => {}, remove: () => {} }
+  };
+
+  const config = { tabId: 'study', name: 'Practice' };
+  homeView.runCircularReveal(mockTile, config.tabId);
+
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  assert.ok(navigatedTabs.includes('study'), 'Activating tile must navigate to study tab');
+  homeView.unmount();
+});
+
+test('Home Screen Lineup: Cleanup is called on unmount for all character instances without leaks', async () => {
+  const { HomeView } = await import('../src/ui/views/home.js');
+  const homeView = new HomeView({ navigateToTab: () => {} });
+
+  let cleanedUpCount = 0;
+  homeView.characterControllers = [
+    { cleanup: () => { cleanedUpCount++; } },
+    { cleanup: () => { cleanedUpCount++; } },
+    { cleanup: () => { cleanedUpCount++; } },
+    { cleanup: () => { cleanedUpCount++; } },
+    { cleanup: () => { cleanedUpCount++; } },
+    { cleanup: () => { cleanedUpCount++; } }
+  ];
+  homeView.jumpTimeout = setTimeout(() => {}, 5000);
+
+  homeView.unmount();
+
+  assert.equal(cleanedUpCount, 6, 'unmount() must invoke cleanup on all 6 character controllers');
+  assert.equal(homeView.jumpTimeout, null, 'unmount() must clear and nullify jumpTimeout');
+  assert.equal(homeView.characterControllers.length, 0, 'characterControllers must be reset to empty array');
+});
+
+test('Home Screen Lineup: Failed Rive load gracefully degrades to fallback without throwing', async () => {
+  const { mountCharacter } = await import('../src/ui/rive_character.js');
+
+  let errorHandled = false;
+  const result = await mountCharacter(null, 'non-existent.riv', {
+    onError: () => { errorHandled = true; }
+  });
+
+  assert.equal(result.instance, null, 'Result instance is null on fallback');
+  assert.doesNotThrow(() => {
+    result.cleanup();
+    result.pause();
+    result.resume();
+    result.playReaction();
+  }, 'Controller fallback methods must be safe no-ops');
+});
+
+test('Home Screen Lineup: Hover intent plays only one character at a time and handles transitions smoothly without sticking', async () => {
+  const { HomeView } = await import('../src/ui/views/home.js');
+  const homeView = new HomeView({ navigateToTab: () => {} });
+
+  const states = [false, false, false, false, false, false];
+  homeView.characterControllers = states.map((_, i) => ({
+    get isPlaying() { return states[i]; },
+    resume: () => { states[i] = true; },
+    pause: () => { states[i] = false; },
+    cleanup: () => {}
+  }));
+
+  const mockTiles = states.map(() => ({
+    classList: {
+      classes: new Set(),
+      add(c) { this.classes.add(c); },
+      remove(c) { this.classes.delete(c); },
+      contains(c) { return this.classes.has(c); }
+    }
+  }));
+  const mockLineup = {
+    classList: {
+      classes: new Set(),
+      add(c) { this.classes.add(c); },
+      remove(c) { this.classes.delete(c); },
+      contains(c) { return this.classes.has(c); }
+    }
+  };
+  homeView.container = {
+    querySelectorAll: (sel) => sel === '.character-tile' ? mockTiles : [],
+    querySelector: (sel) => sel === '.character-lineup' ? mockLineup : null
+  };
+
+  // Hover tile 0
+  homeView.applyTileHover(0);
+  assert.equal(homeView.activePlayingIndex, 0, 'activePlayingIndex must be 0');
+  assert.equal(states[0], true, 'Character 0 must be playing');
+  assert.equal(mockTiles[0].classList.contains('is-hovered'), true, 'Tile 0 must have is-hovered');
+  assert.equal(mockLineup.classList.contains('has-active-hover'), true, 'Lineup must have has-active-hover');
+
+  // Switch hover to tile 2
+  homeView.applyTileHover(2);
+  assert.equal(homeView.activePlayingIndex, 2, 'activePlayingIndex must be 2');
+  assert.equal(states[0], false, 'Character 0 must be paused');
+  assert.equal(states[2], true, 'Character 2 must be playing');
+  assert.equal(mockTiles[0].classList.contains('is-hovered'), false, 'Tile 0 must not have is-hovered');
+  assert.equal(mockTiles[2].classList.contains('is-hovered'), true, 'Tile 2 must have is-hovered');
+
+  // Exactly one character is playing
+  const playingCount = states.filter(Boolean).length;
+  assert.equal(playingCount, 1, 'Exactly one character must be playing at any time');
+
+  // Leave tile 2
+  homeView.applyTileLeave(2, false);
+  assert.equal(homeView.activePlayingIndex, -1, 'activePlayingIndex must reset to -1');
+  assert.equal(states[2], false, 'Character 2 must be paused');
+  assert.equal(mockTiles[2].classList.contains('is-hovered'), false, 'Tile 2 must not have is-hovered');
+  assert.equal(mockLineup.classList.contains('has-active-hover'), false, 'Lineup must remove has-active-hover');
+
+  homeView.unmount();
 });

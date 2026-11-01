@@ -1,15 +1,13 @@
 /**
  * Kiroku Note Desktop — Home Screen View Controller
- * Expressive Editorial + Mascot Companion Landing View (Zero Fake Data).
+ * Authentic Cat Companion (Left) & Smooth Animated Character-Select Lineup (Right).
+ * Zero Fake Data: Strictly grounded in authentic datasets and design tokens.
  *
- * Displays:
- * 1. Friendly casual Japanese greetings in an asymmetric comic speech bubble (Mochiy Pop P One font).
- * 2. Authentic Rive animated mascot companion (with fallback to svg_cat.svg).
- * 3. Curated deterministic daily Japanese vocabulary item with JLPT badge linking to Vocab desk.
- * 4. Spacious minimalist quick launcher action stamps to study desks.
+ * Golden Rule: Zero emojis anywhere across code, UI, or logs.
  */
 
 import { mountRiveMascot } from '../rive_mascot.js';
+import { mountCharacter, CHARACTER_LINEUP } from '../rive_character.js';
 
 /**
  * Editorial reference expressions preserved for test contract compatibility:
@@ -114,10 +112,21 @@ export class HomeView {
     this.router = router;
     this.container = null;
     this.greetingIndex = null;
+    this.jumpTimeout = null;
     this.mouseMoveHandler = null;
     this.mouseLeaveHandler = null;
-    this.jumpTimeout = null;
+    this.visibilityHandler = null;
+    this.escapeHandler = null;
+    this.windowResizeHandler = null;
     this.riveMascot = null;
+    this.characterControllers = [];
+    this.activeOverlay = null;
+    this.isNavigating = false;
+    this.activeHoverIndex = 0;
+    this.activePlayingIndex = -1;
+    this.pendingHoverIndex = -1;
+    this.hoverIntentTimer = null;
+    this.leaveTimer = null;
   }
 
   getDefaultGreetingIndex(hour = new Date().getHours()) {
@@ -135,7 +144,7 @@ export class HomeView {
     }
     const d = arg instanceof Date ? arg : new Date();
     const hour = d.getHours();
-    const matches = TIME_BASED_GREETINGS.filter(g => hour >= g.minHour && hour < g.maxHour);
+    const matches = TIME_BASED_GREETINGS.filter((g) => hour >= g.minHour && hour < g.maxHour);
     if (!matches.length) return TIME_BASED_GREETINGS[0];
     const hourSeed = Math.floor(d.getTime() / (1000 * 60 * 60));
     return matches[Math.abs(hourSeed) % matches.length];
@@ -154,8 +163,31 @@ export class HomeView {
     const greeting = this.getGreeting();
     const dailyWord = this.getDailyWord();
 
+    const tilesHtml = CHARACTER_LINEUP.map((char, index) => `
+      <div class="character-tile"
+           data-tab="${char.tabId}"
+           data-index="${index}"
+           role="button"
+           tabindex="0"
+           aria-label="${char.name}: ${char.desc}">
+        <div class="character-canvas-wrap">
+          <canvas class="character-rive-canvas" aria-hidden="true"></canvas>
+          <div class="character-fallback" style="display: none;" aria-hidden="true">
+            <div class="character-fallback-shape"></div>
+            <span class="character-fallback-title">${char.name}</span>
+          </div>
+        </div>
+        <div class="character-tile-gradient" aria-hidden="true"></div>
+        <div class="character-tile-dim-overlay" aria-hidden="true"></div>
+        <div class="character-tile-meta">
+          <div class="character-tile-name font-display">${char.name}</div>
+          <div class="character-tile-desc font-sans">${char.desc}</div>
+        </div>
+      </div>
+    `).join('');
+
     this.container.innerHTML = `
-      <div class="home-view-wrapper">
+      <div class="home-view-wrapper character-select-home">
         <!-- Hero Brand Wordmark Header -->
         <header class="home-hero-header">
           <div class="home-hero-brand" id="home-hero-brand" aria-label="KIROKU ノート">
@@ -178,8 +210,7 @@ export class HomeView {
         <div class="home-view-container">
           <!-- Mascot & Dialogue Zone (Left Zone) -->
           <div class="home-left-zone">
-
-            <!-- Manga Speech Burst Dialogue (Anchored to Companion) -->
+            <!-- Manga Speech Burst Dialogue (Belongs to Companion Cat) -->
             <div class="comic-speech-bubble" id="speech-bubble" aria-label="Mascot greeting">
               <div class="comic-speech-inner">
                 <div class="speech-header-row">
@@ -190,6 +221,7 @@ export class HomeView {
               <div class="comic-pointer-tail" aria-hidden="true"></div>
             </div>
 
+            <!-- Authentic Rive Cat Mascot Companion Stage -->
             <div class="mascot-stage" id="mascot-stage" aria-label="Kiroku study companion" role="button" tabindex="0" title="Click companion to interact">
               <div class="organic-shape-backing" aria-hidden="true" style="display: none;"><!-- fallback: svg_cat.svg --></div>
               <div class="mascot-character-wrap" id="mascot-character-wrap">
@@ -197,8 +229,13 @@ export class HomeView {
               </div>
             </div>
 
-            <!-- Curated Daily Japanese Word Stamp -->
-            <div class="home-daily-word daily-vocab-stamp tactile-card tactile-card-interactive" id="daily-word-stamp" role="button" tabindex="0" title="Click to open Vocabulary Desk">
+            <!-- Curated Daily Japanese Word Stamp (Below Cat) -->
+            <div class="home-daily-word daily-vocab-stamp tactile-card tactile-card-interactive"
+                 id="daily-word-stamp"
+                 role="button"
+                 tabindex="0"
+                 title="Click to open Vocabulary Desk"
+                 aria-label="Daily vocabulary: ${dailyWord.kanji} (${dailyWord.reading}) - ${dailyWord.meaning}. Click to open Vocabulary Desk.">
               <div class="daily-word-top-row">
                 <div class="daily-word-badges">
                   <span class="daily-word-pill-jlpt tactile-pill tactile-pill-vermilion">${dailyWord.jlpt}</span>
@@ -216,90 +253,11 @@ export class HomeView {
             </div>
           </div>
 
-          <!-- Quick Navigation Launcher Zone (Right Zone) -->
-          <div class="home-right-zone" id="home-right-zone">
-            <div class="home-section-heading">
-              <span class="home-section-title font-sans">Study Desks</span>
-              <span class="home-section-subtitle font-mono text-muted">Direct access to learning modules</span>
-            </div>
-
-            <div class="home-action-cards">
-              <div class="home-action-card tactile-card tactile-card-interactive" data-tab="vocab" role="button" tabindex="0" title="Open Vocabulary Desk">
-                <div class="home-action-icon-wrap" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
-                  </svg>
-                </div>
-                <div class="home-action-card-text">
-                  <div class="home-action-card-title font-sans">Vocabulary Desk</div>
-                  <div class="home-action-card-desc font-sans">Quick Add card capture, mining review, and Anki sync.</div>
-                </div>
-                <div class="home-action-card-arrow" aria-hidden="true">&rarr;</div>
-              </div>
-
-              <div class="home-action-card tactile-card tactile-card-interactive" data-tab="kanji" role="button" tabindex="0" title="Open Kanji Desk">
-                <div class="home-action-icon-wrap" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.11 0-2 .9-2 2zm12 4V7h2v2h-2zm0 2h2v2h-2v-2zm-4-4h2v2h-2V7zm0 4h2v2h-2v-2zm-4-4h2v2H7V7zm0 4h2v2H7v-2zm-2 6h14v2H5v-2z"/>
-                  </svg>
-                </div>
-                <div class="home-action-card-text">
-                  <div class="home-action-card-title font-sans">Kanji Master Desk</div>
-                  <div class="home-action-card-desc font-sans">KanjiVG stroke diagrams, decomposition, and components.</div>
-                </div>
-                <div class="home-action-card-arrow" aria-hidden="true">&rarr;</div>
-              </div>
-
-              <div class="home-action-card tactile-card tactile-card-interactive" data-tab="grammar" role="button" tabindex="0" title="Open Grammar Desk">
-                <div class="home-action-icon-wrap" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
-                  </svg>
-                </div>
-                <div class="home-action-card-text">
-                  <div class="home-action-card-title font-sans">Grammar Desk</div>
-                  <div class="home-action-card-desc font-sans">N5–N1 grammar reference points and sentence analysis.</div>
-                </div>
-                <div class="home-action-card-arrow" aria-hidden="true">&rarr;</div>
-              </div>
-
-              <div class="home-action-card tactile-card tactile-card-interactive" data-tab="study" role="button" tabindex="0" title="Open Practice Drills">
-                <div class="home-action-icon-wrap" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/>
-                  </svg>
-                </div>
-                <div class="home-action-card-text">
-                  <div class="home-action-card-title font-sans">Practice Drills</div>
-                  <div class="home-action-card-desc font-sans">Targeted question drills with adaptive repetition.</div>
-                </div>
-                <div class="home-action-card-arrow" aria-hidden="true">&rarr;</div>
-              </div>
-
-              <div class="home-action-card tactile-card tactile-card-interactive" data-tab="test" role="button" tabindex="0" title="Open Examination">
-                <div class="home-action-icon-wrap" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-                  </svg>
-                </div>
-                <div class="home-action-card-text">
-                  <div class="home-action-card-title font-sans">JLPT Examination</div>
-                  <div class="home-action-card-desc font-sans">Simulated official test blocks with section countdown timers.</div>
-                </div>
-                <div class="home-action-card-arrow" aria-hidden="true">&rarr;</div>
-              </div>
-
-              <div class="home-action-card tactile-card tactile-card-interactive" data-tab="settings" role="button" tabindex="0" title="Open Settings & Diagnostics">
-                <div class="home-action-icon-wrap" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-                  </svg>
-                </div>
-                <div class="home-action-card-text">
-                  <div class="home-action-card-title font-sans">Settings & Diagnostics</div>
-                  <div class="home-action-card-desc font-sans">Universal JLPT level, AnkiConnect, OCR daemon, and doctor.</div>
-                </div>
-                <div class="home-action-card-arrow" aria-hidden="true">&rarr;</div>
+          <!-- Character-Select Lineup Zone (Right Zone) -->
+          <div class="home-lineup-zone" id="home-lineup-zone">
+            <div class="character-lineup-container">
+              <div class="character-lineup" id="character-lineup" role="region" aria-label="Mode Selection Lineup">
+                ${tilesHtml}
               </div>
             </div>
           </div>
@@ -308,29 +266,113 @@ export class HomeView {
     `;
 
     this.setupEvents();
-    this.riveMascot = await mountRiveMascot(this.container.querySelector('.rive-mascot-canvas'));
+    this.updateLineupDimensions();
+
+    const catCanvas = typeof this.container?.querySelector === 'function'
+      ? this.container.querySelector('.rive-mascot-canvas')
+      : null;
+    if (catCanvas) {
+      try {
+        this.riveMascot = await mountRiveMascot(catCanvas);
+      } catch (e) {
+        console.warn('[Home] Mascot companion mount error:', e);
+      }
+    }
+
+    await this.mountAllCharacters();
+  }
+
+  updateLineupDimensions() {
+    if (!this.container || typeof this.container.querySelector !== 'function') return;
+    const lineup = this.container.querySelector('.character-lineup');
+    if (!lineup) return;
+    const lineupWidth = lineup.clientWidth || 900;
+    // Calculate expanded width of a tile (flex 2.3 vs 5 tiles at 0.74 = 6.0 units, with 5 gaps of 12px)
+    const availableWidth = Math.max(300, lineupWidth - 60);
+    const expandedTileWidth = Math.max(260, Math.round((2.3 / 6.0) * availableWidth));
+    lineup.style.setProperty('--expanded-tile-width', `${expandedTileWidth}px`);
+  }
+
+  async mountAllCharacters() {
+    if (!this.container || typeof this.container.querySelectorAll !== 'function') return;
+    const tileElements = this.container.querySelectorAll('.character-tile');
+    if (!tileElements.length) return;
+
+    // Parallel lazy loading of all six character tiles
+    const mountPromises = Array.from(tileElements).map(async (tile, index) => {
+      const config = CHARACTER_LINEUP[index];
+      if (!config) return null;
+
+      const canvas = typeof tile.querySelector === 'function' ? tile.querySelector('.character-rive-canvas') : null;
+      const fallback = typeof tile.querySelector === 'function' ? tile.querySelector('.character-fallback') : null;
+
+      try {
+        const controller = await mountCharacter(canvas, config.file, {
+          fit: config.fit,
+          alignment: config.alignment,
+          artboard: config.artboard,
+          stateMachine: config.stateMachine,
+          autoplay: false,
+          onLoad: () => {
+            if (canvas) {
+              canvas.style.opacity = '1';
+            }
+            if (this.activePlayingIndex === index) {
+              controller?.resume();
+            } else if (this.activePlayingIndex !== -1) {
+              controller?.pause(false);
+            }
+          },
+          onError: (err) => {
+            console.warn(`[Home] Rive load error for ${config.file}:`, err);
+            if (canvas) canvas.style.display = 'none';
+            if (fallback) fallback.style.display = 'flex';
+          }
+        });
+
+        return controller;
+      } catch (err) {
+        console.warn(`[Home] Character mount exception for ${config.name}:`, err);
+        if (canvas) canvas.style.display = 'none';
+        if (fallback) fallback.style.display = 'flex';
+        return null;
+      }
+    });
+
+    this.characterControllers = await Promise.all(mountPromises);
   }
 
   setupEvents() {
+    if (typeof document === 'undefined') return;
+
     const mascotStage = document.getElementById('mascot-stage');
     const mascotWrap = document.getElementById('mascot-character-wrap');
     const dailyWordStamp = document.getElementById('daily-word-stamp');
+    const tiles = this.container.querySelectorAll('.character-tile');
 
-    // Mascot companion click reaction
+    // 1. Cat mascot companion click reaction
     if (mascotStage && mascotWrap) {
       const handleMascotClick = () => {
         const r = this.riveMascot?.instance;
         if (r) {
-          const inputs = r.stateMachineInputs('State Machine 1');
-          const foreheadTrigger = inputs?.find(i => i.name === 'Forehead click');
-          if (foreheadTrigger && typeof foreheadTrigger.fire === 'function') {
-            foreheadTrigger.fire();
+          try {
+            const inputs = r.stateMachineInputs('State Machine 1');
+            const foreheadTrigger = inputs?.find((i) => i.name === 'Forehead click' || i.type === 1);
+            if (foreheadTrigger && typeof foreheadTrigger.fire === 'function') {
+              foreheadTrigger.fire();
+            }
+          } catch (e) {
+            console.debug('[Home] Cat forehead trigger error:', e);
           }
         }
         mascotWrap.style.transform = 'translateY(-10px) scale(1.03)';
-        if (this.jumpTimeout) clearTimeout(this.jumpTimeout);
+        if (this.jumpTimeout) {
+          clearTimeout(this.jumpTimeout);
+          this.jumpTimeout = null;
+        }
         this.jumpTimeout = setTimeout(() => {
-          mascotWrap.style.transform = 'translateY(0) scale(1)';
+          if (mascotWrap) mascotWrap.style.transform = 'translateY(0) scale(1)';
+          this.jumpTimeout = null;
         }, 180);
       };
 
@@ -343,7 +385,7 @@ export class HomeView {
       });
     }
 
-    // Subtle head & pupil cursor tracking on mousemove
+    // 2. Subtle head & pupil cursor tracking on mousemove for cat mascot
     if (mascotStage && mascotWrap && typeof window !== 'undefined') {
       this.mouseMoveHandler = (e) => {
         if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -364,14 +406,130 @@ export class HomeView {
       };
 
       this.mouseLeaveHandler = () => {
-        mascotWrap.style.transform = 'perspective(600px) rotateX(0deg) rotateY(0deg) translate(0px, 0px)';
+        if (mascotWrap) {
+          mascotWrap.style.transform = 'perspective(600px) rotateX(0deg) rotateY(0deg) translate(0px, 0px)';
+        }
       };
 
       window.addEventListener('mousemove', this.mouseMoveHandler);
       mascotStage.addEventListener('mouseleave', this.mouseLeaveHandler);
     }
 
-    // Daily word stamp navigation to Vocab desk
+    // 3. Attach pointer events with ~40ms hover intent to each character tile
+    tiles.forEach((tile, index) => {
+      const config = CHARACTER_LINEUP[index];
+      const canvas = typeof tile.querySelector === 'function' ? tile.querySelector('.character-rive-canvas') : null;
+
+      tile.addEventListener('pointerenter', () => {
+        if (this.leaveTimer) {
+          clearTimeout(this.leaveTimer);
+          this.leaveTimer = null;
+        }
+        if (this.hoverIntentTimer) {
+          clearTimeout(this.hoverIntentTimer);
+          this.hoverIntentTimer = null;
+        }
+        this.pendingHoverIndex = index;
+        this.hoverIntentTimer = setTimeout(() => {
+          this.hoverIntentTimer = null;
+          this.applyTileHover(index);
+        }, 40);
+      });
+
+      tile.addEventListener('pointerleave', () => {
+        if (this.pendingHoverIndex === index) {
+          if (this.hoverIntentTimer) {
+            clearTimeout(this.hoverIntentTimer);
+            this.hoverIntentTimer = null;
+          }
+          this.pendingHoverIndex = -1;
+        }
+        if (this.activePlayingIndex === index) {
+          if (this.leaveTimer) clearTimeout(this.leaveTimer);
+          this.leaveTimer = setTimeout(() => {
+            this.leaveTimer = null;
+            if (this.pendingHoverIndex === -1) {
+              this.applyTileLeave(index, true);
+            }
+          }, 30);
+        }
+      });
+
+      tile.addEventListener('focus', () => {
+        if (this.hoverIntentTimer) {
+          clearTimeout(this.hoverIntentTimer);
+          this.hoverIntentTimer = null;
+        }
+        this.applyTileHover(index, true);
+      });
+
+      tile.addEventListener('blur', () => {
+        this.applyTileLeave(index, true);
+      });
+
+      const activate = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        this.handleTileActivate(tile, config, index);
+      };
+
+      tile.addEventListener('click', activate);
+      tile.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          activate(e);
+        }
+      });
+
+      if (canvas) {
+        canvas.addEventListener('click', activate);
+      }
+    });
+
+    const lineup = typeof this.container?.querySelector === 'function'
+      ? this.container.querySelector('.character-lineup')
+      : null;
+    if (lineup) {
+      lineup.addEventListener('pointerleave', () => {
+        this.resetAllHoverStates(true);
+      });
+    }
+
+    // Window resize debounced listener to update lineup dimensions
+    let windowResizeTimer = null;
+    this.windowResizeHandler = () => {
+      if (windowResizeTimer) clearTimeout(windowResizeTimer);
+      windowResizeTimer = setTimeout(() => {
+        windowResizeTimer = null;
+        this.updateLineupDimensions();
+      }, 100);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', this.windowResizeHandler);
+    }
+
+    // 4. Pause all characters when document is hidden
+    this.visibilityHandler = () => {
+      if (document.hidden) {
+        this.resetAllHoverStates(false);
+      } else {
+        if (this.activePlayingIndex !== -1 && this.characterControllers[this.activePlayingIndex]) {
+          this.characterControllers[this.activePlayingIndex]?.resume();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+
+    // 5. Escape key removes any active transition overlay
+    this.escapeHandler = (e) => {
+      if (e.key === 'Escape' && this.activeOverlay) {
+        this.cleanupOverlay();
+      }
+    };
+    window.addEventListener('keydown', this.escapeHandler);
+
+    // 6. Daily word stamp navigation to Vocab desk
     if (dailyWordStamp) {
       const navigateVocab = () => {
         this.router.navigateToTab('vocab');
@@ -384,25 +542,208 @@ export class HomeView {
         }
       });
     }
+  }
 
-    // Action cards navigation
-    const actionCards = this.container.querySelectorAll('.home-action-card');
-    actionCards.forEach(card => {
-      const tab = card.dataset.tab;
-      if (!tab) return;
+  applyTileHover(index, immediate = false) {
+    if (index < 0 || index >= CHARACTER_LINEUP.length) return;
+    if (this.activePlayingIndex === index) return;
 
-      const navigate = () => {
-        this.router.navigateToTab(tab);
-      };
+    const tiles = this.container && typeof this.container.querySelectorAll === 'function'
+      ? this.container.querySelectorAll('.character-tile')
+      : [];
+    const lineup = this.container && typeof this.container.querySelector === 'function'
+      ? this.container.querySelector('.character-lineup')
+      : null;
 
-      card.addEventListener('click', navigate);
-      card.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          navigate();
+    // Ensure strictly only ONE instance plays at any time
+    if (Array.isArray(this.characterControllers)) {
+      this.characterControllers.forEach((ctrl, i) => {
+        if (i !== index && ctrl) {
+          if (ctrl.isPlaying === undefined || ctrl.isPlaying) {
+            ctrl.pause(false);
+          }
         }
       });
+    }
+
+    tiles.forEach((t, i) => {
+      if (i !== index) {
+        t.classList?.remove('is-hovered');
+      }
     });
+
+    this.activePlayingIndex = index;
+    this.activeHoverIndex = index;
+
+    if (tiles[index]) {
+      tiles[index].classList.add('is-hovered');
+    }
+    if (lineup) {
+      lineup.classList.add('has-active-hover');
+    }
+
+    // Play character immediately with no await
+    this.characterControllers[index]?.resume();
+  }
+
+  applyTileLeave(index, graceful = true) {
+    const tiles = this.container && typeof this.container.querySelectorAll === 'function'
+      ? this.container.querySelectorAll('.character-tile')
+      : [];
+    const lineup = this.container && typeof this.container.querySelector === 'function'
+      ? this.container.querySelector('.character-lineup')
+      : null;
+
+    if (this.activePlayingIndex === index) {
+      this.characterControllers[index]?.pause(graceful);
+      this.activePlayingIndex = -1;
+    }
+
+    if (tiles[index]) {
+      tiles[index].classList.remove('is-hovered');
+    }
+
+    const hasAnyActive = Array.from(tiles).some((t) => t.classList?.contains('is-hovered') || (typeof document !== 'undefined' && t === document.activeElement));
+    if (!hasAnyActive && lineup) {
+      lineup.classList.remove('has-active-hover');
+    }
+  }
+
+  resetAllHoverStates(graceful = true) {
+    if (this.hoverIntentTimer) {
+      clearTimeout(this.hoverIntentTimer);
+      this.hoverIntentTimer = null;
+    }
+    if (this.leaveTimer) {
+      clearTimeout(this.leaveTimer);
+      this.leaveTimer = null;
+    }
+    this.pendingHoverIndex = -1;
+
+    const tiles = this.container && typeof this.container.querySelectorAll === 'function'
+      ? this.container.querySelectorAll('.character-tile')
+      : [];
+    const lineup = this.container && typeof this.container.querySelector === 'function'
+      ? this.container.querySelector('.character-lineup')
+      : null;
+
+    if (this.activePlayingIndex !== -1) {
+      this.characterControllers[this.activePlayingIndex]?.pause(graceful);
+      this.activePlayingIndex = -1;
+    }
+
+    tiles.forEach((t) => t.classList?.remove('is-hovered'));
+    if (lineup) {
+      lineup.classList.remove('has-active-hover');
+    }
+  }
+
+  handleTileActivate(tile, config, index) {
+    if (this.isNavigating) return;
+    this.isNavigating = true;
+
+    // 1. Play character reaction if available
+    this.characterControllers[index]?.playReaction();
+
+    // 2. Tactile click feedback using this.jumpTimeout
+    tile.classList.add('is-activating');
+    if (this.jumpTimeout) {
+      clearTimeout(this.jumpTimeout);
+      this.jumpTimeout = null;
+    }
+    this.jumpTimeout = setTimeout(() => {
+      tile.classList.remove('is-activating');
+      this.jumpTimeout = null;
+    }, 180);
+
+    // 3. Circular clip-path reveal into destination mode
+    this.runCircularReveal(tile, config.tabId);
+  }
+
+  runCircularReveal(tile, destinationTabId) {
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+      this.router.navigateToTab(destinationTabId);
+      this.isNavigating = false;
+      return;
+    }
+
+    const reducedMotion = typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    this.cleanupOverlay();
+
+    const rect = tile?.getBoundingClientRect ? tile.getBoundingClientRect() : { left: 0, top: 0, width: 100, height: 100 };
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const innerWidth = window.innerWidth || 800;
+    const innerHeight = window.innerHeight || 600;
+    const maxDistance = Math.hypot(
+      Math.max(centerX, innerWidth - centerX),
+      Math.max(centerY, innerHeight - centerY)
+    );
+
+    const overlay = document.createElement('div');
+    overlay.className = 'character-mode-transition-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    this.activeOverlay = overlay;
+    document.body.appendChild(overlay);
+
+    if (reducedMotion) {
+      overlay.style.opacity = '0';
+      overlay.style.transition = 'opacity 150ms ease';
+      requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+        setTimeout(() => {
+          this.router.navigateToTab(destinationTabId);
+          setTimeout(() => {
+            this.cleanupOverlay();
+            this.isNavigating = false;
+          }, 60);
+        }, 150);
+      });
+      return;
+    }
+
+    // Full circular clip-path expansion
+    overlay.style.clipPath = `circle(0px at ${centerX}px ${centerY}px)`;
+    overlay.style.transition = 'clip-path 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease';
+
+    requestAnimationFrame(() => {
+      overlay.style.clipPath = `circle(${Math.ceil(maxDistance + 60)}px at ${centerX}px ${centerY}px)`;
+
+      // Navigate at midpoint (~260ms) while overlay covers the viewport
+      setTimeout(() => {
+        try {
+          this.router.navigateToTab(destinationTabId);
+        } catch (err) {
+          console.warn('[Home] Navigation error:', err);
+          this.cleanupOverlay();
+          this.isNavigating = false;
+          return;
+        }
+
+        // Fade overlay out after destination mounts
+        setTimeout(() => {
+          overlay.style.opacity = '0';
+          setTimeout(() => {
+            this.cleanupOverlay();
+            this.isNavigating = false;
+          }, 180);
+        }, 220);
+      }, 260);
+    });
+  }
+
+  cleanupOverlay() {
+    if (this.activeOverlay) {
+      try {
+        this.activeOverlay.remove();
+      } catch (e) {
+        console.debug('[Home] Overlay cleanup error:', e);
+      }
+      this.activeOverlay = null;
+    }
   }
 
   unmount() {
@@ -410,14 +751,61 @@ export class HomeView {
       clearTimeout(this.jumpTimeout);
       this.jumpTimeout = null;
     }
+    if (this.hoverIntentTimer) {
+      clearTimeout(this.hoverIntentTimer);
+      this.hoverIntentTimer = null;
+    }
+    if (this.leaveTimer) {
+      clearTimeout(this.leaveTimer);
+      this.leaveTimer = null;
+    }
     if (this.mouseMoveHandler && typeof window !== 'undefined') {
       window.removeEventListener('mousemove', this.mouseMoveHandler);
       this.mouseMoveHandler = null;
     }
-    this.riveMascot?.cleanup();
+    this.mouseLeaveHandler = null;
+
+    if (this.visibilityHandler && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
+    if (this.escapeHandler && typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this.escapeHandler);
+      this.escapeHandler = null;
+    }
+    if (this.windowResizeHandler && typeof window !== 'undefined') {
+      window.removeEventListener('resize', this.windowResizeHandler);
+      this.windowResizeHandler = null;
+    }
+
+    this.cleanupOverlay();
+
+    // Clean up cat mascot companion
+    try {
+      this.riveMascot?.cleanup();
+    } catch (e) {
+      console.debug('[Home] Cat mascot cleanup error:', e);
+    }
     this.riveMascot = null;
+
+    // Clean up every character instance
+    if (Array.isArray(this.characterControllers)) {
+      this.characterControllers.forEach((ctrl) => {
+        try {
+          ctrl?.cleanup();
+        } catch (e) {
+          console.debug('[Home] Character controller cleanup error:', e);
+        }
+      });
+      this.characterControllers = [];
+    }
+
+    this.activePlayingIndex = -1;
+    this.pendingHoverIndex = -1;
+
     if (this.container) {
       this.container.innerHTML = '';
     }
+    this.isNavigating = false;
   }
 }

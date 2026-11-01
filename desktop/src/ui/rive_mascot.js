@@ -1,3 +1,5 @@
+export { mountCharacter, CHARACTER_LINEUP } from './rive_character.js';
+
 const PRIMARY_COMPANION_ASSET = 'muza_-_your_cat_companion._jp.riv';
 
 /**

@@ -230,30 +230,28 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   transform: translateY(-10px);
 }
 
-.home-section-heading {
+/* Character Select Hero Brand Header */
+.compact-hero-header {
+  width: 100%;
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  margin-bottom: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  padding: 0.25rem 0 0.25rem 0;
+  margin-bottom: 0;
 }
 
-.home-section-title {
-  font-family: var(--font-sans);
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--warm-paper);
+.compact-hero-header .home-hero-brand {
+  padding: 0;
+  gap: 0.65rem;
 }
 
-.home-section-subtitle {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--text-muted);
+.compact-hero-header .hero-word-kiroku {
+  font-size: 2.5rem;
 }
 
-.home-action-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+.compact-hero-header .hero-word-note {
+  font-size: 1.4rem;
+  margin-bottom: 0.15rem;
 }
 
 @media (max-width: 860px) {
@@ -290,20 +288,22 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 @media (min-width: 860px) {
   .home-view-container {
     flex-direction: row;
-    align-items: flex-start;
+    align-items: stretch;
     justify-content: space-between;
-    gap: 2.5rem;
+    gap: 2rem;
   }
 
   .home-left-zone {
-    width: 44%;
-    max-width: 420px;
+    width: 340px;
+    max-width: 360px;
     flex-shrink: 0;
   }
 
-  .home-right-zone {
+  .home-lineup-zone {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
   }
 }
 
@@ -680,133 +680,364 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   margin-top: 0.35rem;
 }
 
-/* Quick Navigation Launcher Zone (Right Zone) */
-.home-right-zone {
+/* ==========================================================================
+   Home Screen: Character Lineup & Mode Select Styles
+   ========================================================================== */
+.home-view-wrapper.character-select-home {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem var(--content-padding-bottom, 96px) 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Character Lineup (Horizontal Row of 6 Tall Narrow Tiles) */
+.home-lineup-zone {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+}
+
+.character-lineup-container {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 480px;
   width: 100%;
+  position: relative;
+  z-index: 2;
 }
 
-.home-actions-header {
-  margin-bottom: 0.25rem;
-}
-
-.home-header-badge-row {
-  margin-bottom: 0.6rem;
-}
-
-.home-actions-title {
-  font-family: var(--font-display);
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: var(--warm-paper);
-  line-height: 1.1;
-  margin: 0 0 0.5rem 0;
-}
-
-.home-actions-subtitle {
-  font-family: var(--font-sans);
-  font-size: 0.88rem;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  margin: 0;
-}
-
-.home-action-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.85rem;
-}
-
-@media (min-width: 560px) {
-  .home-action-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.home-action-card {
+.character-lineup {
   display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  padding: 0.95rem 1.15rem;
-  background-color: var(--ink-surface);
-  color: var(--warm-paper);
-  border: 2px solid #151413;
-  border-radius: var(--radius-md);
-  box-shadow: 3px 3px 0 #151413;
+  flex-direction: row;
+  gap: 0.75rem;
+  width: 100%;
+  height: 100%;
+  min-height: 460px;
+  align-items: stretch;
+}
+
+.character-tile {
+  position: relative;
+  flex: 1 1 0px;
+  min-width: 0;
+  background-color: var(--ink-surface, #1C1B19);
+  border: 2px solid var(--tactile-stroke, #151413);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
   cursor: pointer;
-  text-decoration: none;
-  transition: transform var(--duration-instant) ease-out,
-              box-shadow var(--duration-instant) ease-out,
-              border-color var(--duration-fast) ease,
-              background-color var(--duration-fast) ease;
-}
-
-.home-action-card:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 #151413;
-  border-color: rgba(245, 241, 232, 0.3);
-  background-color: var(--elevated-surface);
-}
-
-.home-action-card:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 #151413;
-}
-
-.home-action-icon-wrap {
-  width: 42px;
-  height: 42px;
-  min-width: 42px;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid #151413;
-  box-shadow: 2px 2px 0 #151413;
-  background-color: var(--surface-container-high);
-  color: var(--warm-paper);
+  user-select: none;
+  outline: none;
   display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  will-change: flex, transform;
+  transform: translateZ(0);
+  transition: flex 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Active hovered or keyboard-focused tile smoothly widens and lifts */
+.character-tile.is-hovered,
+.character-tile:focus-visible {
+  flex: 2.3 1 0px;
+  transform: translateY(-6px) translateZ(0);
+  box-shadow: var(--shadow-lg);
+  border-color: rgba(245, 241, 232, 0.35);
+  z-index: 3;
+}
+
+.character-tile.is-activating {
+  transform: translateY(2px) scale(0.98) translateZ(0);
+  box-shadow: var(--shadow-pressed);
+}
+
+.character-tile:focus-visible {
+  outline: 2px solid var(--gold, #C8A94A);
+  outline-offset: 2px;
+}
+
+/* Sibling tiles smoothly compress when one tile is active */
+.character-lineup.has-active-hover .character-tile:not(.is-hovered):not(:focus-visible) {
+  flex: 0.74 1 0px;
+}
+
+/* Canvas wrapper & Rive Canvas */
+.character-canvas-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.character-rive-canvas {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateZ(0);
+  width: var(--expanded-tile-width, 360px);
+  min-width: var(--expanded-tile-width, 360px);
+  max-width: none;
+  height: 100%;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+/* Fallback state if Rive asset fails */
+.character-fallback {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: background-color var(--duration-fast) ease,
-              color var(--duration-fast) ease;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100%;
+  color: var(--text-muted);
 }
 
-.home-action-card:hover .home-action-icon-wrap {
-  background-color: var(--vermilion);
+.character-fallback-shape {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background-color: var(--surface-container-high);
+  border: 1.5px solid var(--tactile-stroke);
+}
+
+.character-fallback-title {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Dark gradient overlay for bottom label readability */
+.character-tile-gradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60%;
+  background: linear-gradient(to top, rgba(20, 19, 17, 0.95) 0%, rgba(20, 19, 17, 0.65) 45%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Dim overlay to replace expensive CSS filter on large canvases */
+.character-tile-dim-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(14, 13, 11, 0.42);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  will-change: opacity;
+  transition: opacity 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.character-lineup.has-active-hover .character-tile:not(.is-hovered):not(:focus-visible) .character-tile-dim-overlay {
+  opacity: 1;
+}
+
+.character-tile-meta {
+  position: relative;
+  z-index: 3;
+  padding: 0.85rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  pointer-events: none;
+}
+
+.character-tile-name {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.character-tile-desc {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--paper-muted);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  transition: color 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.character-tile.is-hovered .character-tile-desc,
+.character-tile:focus-visible .character-tile-desc {
   color: var(--warm-paper);
 }
 
-.home-action-card-text {
-  flex: 1;
+/* Daily Word Slim Strip above Dock */
+.daily-word-slim-strip {
+  width: 100%;
+  padding: 0.5rem 1rem !important;
+  margin-top: 0.25rem;
+  background-color: var(--ink-surface) !important;
+  border: 1.5px solid var(--tactile-stroke) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-sm) !important;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.daily-word-strip-inner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+  flex-wrap: nowrap;
+}
+
+.daily-word-strip-inner .daily-word-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.daily-word-strip-inner .daily-word-glyph-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.daily-word-strip-inner .daily-word-gloss {
+  flex: 1 1 auto;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   min-width: 0;
 }
 
-.home-action-card-title {
-  font-family: var(--font-sans);
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: var(--warm-paper);
-  margin-bottom: 0.15rem;
+.daily-word-strip-inner .daily-word-stamp-action {
+  flex-shrink: 0;
+  font-size: 0.75rem;
 }
 
-.home-action-card-desc {
-  font-family: var(--font-sans);
-  font-size: 0.76rem;
-  color: var(--text-muted);
-  line-height: 1.35;
+/* Circular Clip-Path Reveal Transition Overlay */
+.character-mode-transition-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--ink-black, #141311);
+  z-index: 99999;
+  pointer-events: all;
 }
 
-.home-action-card-arrow {
-  font-family: var(--font-mono);
-  font-size: 1.1rem;
-  color: var(--text-muted);
-  transition: transform var(--duration-fast) var(--spring-snappy),
-              color var(--duration-fast) ease;
+/* Responsive Adaptations */
+@media (max-width: 960px) {
+  .home-view-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+  .home-left-zone {
+    width: 100%;
+    max-width: 420px;
+  }
+  .home-lineup-zone {
+    width: 100%;
+  }
+  .character-lineup-container {
+    min-height: 380px;
+  }
+  .character-lineup {
+    min-height: 360px;
+  }
 }
 
-.home-action-card:hover .home-action-card-arrow {
-  color: var(--gold);
-  transform: translateX(3px);
+@media (max-width: 680px) {
+  .compact-hero-header .hero-word-kiroku {
+    font-size: 2rem;
+  }
+  .compact-hero-header .hero-word-note {
+    font-size: 1.15rem;
+  }
+
+  .character-lineup-container {
+    min-height: auto;
+  }
+
+  .character-lineup {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(3, 115px);
+    gap: 0.5rem;
+    height: auto;
+    min-height: auto;
+  }
+
+  .character-tile {
+    flex: none !important;
+    height: 115px;
+    transform: none !important;
+  }
+
+  .character-tile.is-hovered,
+  .character-tile:focus-visible {
+    flex: none !important;
+    transform: none !important;
+  }
+
+  .character-lineup.has-active-hover .character-tile:not(.is-hovered):not(:focus-visible) {
+    flex: none !important;
+    opacity: 1;
+  }
+
+  .daily-word-strip-inner {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .daily-word-strip-inner .daily-word-gloss {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .character-tile {
+    transition: none !important;
+    transform: none !important;
+  }
+  .character-tile.is-hovered,
+  .character-tile:focus-visible {
+    flex: 1 1 0px !important;
+    transform: none !important;
+  }
+  .character-lineup.has-active-hover .character-tile {
+    flex: 1 1 0px !important;
+  }
+  .character-tile-dim-overlay {
+    transition: none !important;
+  }
+  .character-speech-zone .comic-pointer-tail {
+    transition: none !important;
+  }
 }
 
 /* ==========================================================================
@@ -3259,65 +3490,6 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   transition: opacity var(--duration-fast) ease;
 }
 
-/* Home Action Grid */
-.home-actions-header {
-  margin-bottom: 1.25rem;
-}
-.home-actions-title {
-  font-family: var(--font-japanese);
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--warm-paper);
-  margin-top: 0.25rem;
-  margin-bottom: 0.25rem;
-}
-.home-action-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-}
-@media (min-width: 600px) {
-  .home-action-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-.home-action-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 1rem;
-  text-decoration: none;
-  cursor: pointer;
-  user-select: none;
-}
-.home-action-icon-wrap {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-sm);
-  background-color: var(--surface-container-high);
-  border: 1.5px solid var(--tactile-stroke);
-  color: var(--gold-eye);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: var(--shadow-sm);
-}
-.home-action-card:hover .home-action-icon-wrap {
-  color: var(--vermilion);
-  background-color: var(--warm-paper);
-}
-.home-action-card-title {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--warm-paper);
-  margin-bottom: 0.25rem;
-}
-.home-action-card-desc {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  line-height: 1.35;
-}
 
 /* ==========================================================================
    Vocab Desk v2 & Shelf Styles
