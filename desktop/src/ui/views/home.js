@@ -151,9 +151,8 @@ export class HomeView {
               <div class="comic-pointer-tail" aria-hidden="true"></div>
             </div>
 
-            <div class="mascot-stage" aria-label="Kiroku study companion">
-              <div class="organic-shape-backing" aria-hidden="true"></div>
-              <div class="mascot-character-wrap">
+            <div class="mascot-stage" id="mascot-stage" aria-label="Kiroku study companion" role="button" tabindex="0" title="Click companion to interact">
+              <div class="mascot-character-wrap" id="mascot-character-wrap">
                 <canvas class="rive-mascot-canvas" aria-hidden="true"></canvas>
               </div>
             </div>
@@ -204,8 +203,66 @@ export class HomeView {
   }
 
   setupEvents() {
+    const mascotStage = document.getElementById('mascot-stage');
+    const mascotWrap = document.getElementById('mascot-character-wrap');
     const speechBubble = document.getElementById('speech-bubble');
     const dailyWordStamp = document.getElementById('daily-word-stamp');
+
+    // Mascot companion click reaction and greeting rotation
+    if (mascotStage && mascotWrap) {
+      const handleMascotClick = () => {
+        this.rotateGreeting();
+        const r = this.riveMascot?.instance;
+        if (r) {
+          const inputs = r.stateMachineInputs('State Machine 1');
+          const foreheadTrigger = inputs?.find(i => i.name === 'Forehead click');
+          if (foreheadTrigger && typeof foreheadTrigger.fire === 'function') {
+            foreheadTrigger.fire();
+          }
+        }
+        mascotWrap.style.transform = 'translateY(-10px) scale(1.03)';
+        if (this.jumpTimeout) clearTimeout(this.jumpTimeout);
+        this.jumpTimeout = setTimeout(() => {
+          mascotWrap.style.transform = 'translateY(0) scale(1)';
+        }, 180);
+      };
+
+      mascotStage.addEventListener('click', handleMascotClick);
+      mascotStage.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleMascotClick();
+        }
+      });
+    }
+
+    // Subtle head & pupil cursor tracking on mousemove
+    if (mascotStage && mascotWrap && typeof window !== 'undefined') {
+      this.mouseMoveHandler = (e) => {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          return;
+        }
+        const rect = mascotStage.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const deltaX = (e.clientX - centerX) / (window.innerWidth / 2 || 1);
+        const deltaY = (e.clientY - centerY) / (window.innerHeight / 2 || 1);
+        const clampedX = Math.max(-1, Math.min(1, deltaX));
+        const clampedY = Math.max(-1, Math.min(1, deltaY));
+        const tiltX = -clampedY * 4;
+        const tiltY = clampedX * 5;
+        const moveX = clampedX * 4;
+        const moveY = clampedY * 3;
+        mascotWrap.style.transform = `perspective(600px) rotateX(${tiltX.toFixed(1)}deg) rotateY(${tiltY.toFixed(1)}deg) translate(${moveX.toFixed(1)}px, ${moveY.toFixed(1)}px)`;
+      };
+
+      this.mouseLeaveHandler = () => {
+        mascotWrap.style.transform = 'perspective(600px) rotateX(0deg) rotateY(0deg) translate(0px, 0px)';
+      };
+
+      window.addEventListener('mousemove', this.mouseMoveHandler);
+      mascotStage.addEventListener('mouseleave', this.mouseLeaveHandler);
+    }
 
     // Speech bubble click also rotates greeting
     if (speechBubble) {
@@ -258,6 +315,10 @@ export class HomeView {
     if (this.jumpTimeout) {
       clearTimeout(this.jumpTimeout);
       this.jumpTimeout = null;
+    }
+    if (this.mouseMoveHandler && typeof window !== 'undefined') {
+      window.removeEventListener('mousemove', this.mouseMoveHandler);
+      this.mouseMoveHandler = null;
     }
     this.riveMascot?.cleanup();
     this.riveMascot = null;

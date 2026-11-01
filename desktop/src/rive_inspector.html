@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kiroku Note - Ultra-HD Rive Animation Inspector</title>
+  <link rel="stylesheet" href="./ui/styles/tokens.css">
+  <style>
+    :root {
+      --bg: #121110;
+      --card-bg: #1a1816;
+      --card-border: #2a2724;
+      --text: #ede7de;
+      --text-muted: #8e8880;
+      --accent: #b84632;
+      --accent-gold: #d8a300;
+      --badge-bg: #23201d;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      padding: 1.5rem;
+      min-height: 100vh;
+    }
+
+    header {
+      max-width: 1400px;
+      margin: 0 auto 1.5rem auto;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-family: monospace;
+    }
+
+    .badge-hd {
+      background: #238636;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      background: var(--badge-bg);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .btn:hover {
+      background: #2e2a26;
+      border-color: #3e3a34;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 1.5rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .card:hover {
+      border-color: #3f3b35;
+      transform: translateY(-2px);
+    }
+
+    .canvas-wrap {
+      width: 100%;
+      height: 320px;
+      position: relative;
+      background: radial-gradient(circle at center, #26221e 0%, #131211 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      image-rendering: auto;
+    }
+
+    .status-overlay {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-family: monospace;
+      font-weight: 600;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .status-loading {
+      background: rgba(216, 163, 0, 0.2);
+      color: var(--accent-gold);
+      border: 1px solid var(--accent-gold);
+    }
+
+    .status-ok {
+      background: rgba(46, 160, 67, 0.2);
+      color: #3fb950;
+      border: 1px solid #3fb950;
+    }
+
+    .status-err {
+      background: rgba(248, 81, 73, 0.2);
+      color: #f85149;
+      border: 1px solid #f85149;
+    }
+
+    .card-body {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex: 1;
+    }
+
+    .anim-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      word-break: break-all;
+      color: #fff;
+    }
+
+    .anim-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    .meta-tag {
+      background: var(--badge-bg);
+      border: 1px solid var(--card-border);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .controls-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.4rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    select {
+      background: var(--badge-bg);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      padding: 0.3rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      flex: 1;
+      outline: none;
+    }
+
+    select:focus {
+      border-color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>Rive Animation Gallery <span class="badge badge-hd">ULTRA-HD RETINA</span></h1>
+      <p class="subtitle">16 animations from <code>assets/dekstop/riv/</code> rendered at max physical pixel resolution (High-DPI / DPR 2.5x–3.0x supersampled)</p>
+    </div>
+    <div class="toolbar">
+      <button class="btn" id="btn-restart-all">Restart All</button>
+      <button class="btn" id="btn-pause-all">Pause All</button>
+      <button class="btn" id="btn-play-all">Play All</button>
+    </div>
+  </header>
+
+  <div class="grid" id="animation-grid"></div>
+
+  <!-- Load Local Rive Canvas Runtime -->
+  <script src="./ui/lib/rive.js"></script>
+
+  <script>
+    const RIVE_FILES = [
+      { name: "10001-19068-catnotfound-remix.riv", size: "933 KB" },
+      { name: "11435-28552-vending-machine-ui.riv", size: "28.4 MB" },
+      { name: "19989-37593-muza-your-cat-companion.riv", size: "2.44 MB" },
+      { name: "20710-44349-cat._404.riv", size: "954 KB" },
+      { name: "24245-45302-cursor-meet-gaze.riv", size: "36 KB" },
+      { name: "24603-46108-character-series-of-01.riv", size: "78 KB" },
+      { name: "24617-46109-character-series-of-02.riv", size: "42 KB" },
+      { name: "24622-46110-character-series-of-02.riv", size: "86 KB" },
+      { name: "24718-46207-cat-robot-character-07.riv", size: "19 KB" },
+      { name: "24719-46209-cat-robot-character-08.riv", size: "25 KB" },
+      { name: "24739-46235-cat-robot-character-09.riv", size: "571 KB" },
+      { name: "25251-47150-cat-night_game.riv", size: "1.30 MB" },
+      { name: "26953-50661-cat-follow-your-mouse.riv", size: "312 KB" },
+      { name: "27565-52075-character-selection-menu.riv", size: "5.44 MB" },
+      { name: "27746-52412-cat-companion.riv", size: "9 KB" },
+      { name: "28717-54380-button-cat.riv", size: "865 KB" }
+    ];
+
+    const instances = [];
+    const grid = document.getElementById('animation-grid');
+
+    // Force crisp high-density supersampling (use at least 2.5x DPR or native devicePixelRatio * 1.5)
+    const TARGET_DPR = Math.max(2.5, (window.devicePixelRatio || 1) * 1.5);
+
+    // Create cards for each animation
+    RIVE_FILES.forEach((item, index) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="canvas-wrap" id="canvas-wrap-${index}">
+          <canvas id="rive-canvas-${index}"></canvas>
+          <div class="status-overlay status-loading" id="status-${index}">LOADING</div>
+        </div>
+        <div class="card-body">
+          <div class="anim-title">${item.name}</div>
+          <div class="anim-meta">
+            <span class="meta-tag">File: ${item.size}</span>
+            <span class="meta-tag" id="resolution-${index}">Res: ...</span>
+            <span class="meta-tag" id="artboard-${index}">Artboard: ...</span>
+            <span class="meta-tag" id="mode-${index}">Mode: auto</span>
+          </div>
+          <div class="controls-row">
+            <select id="select-anim-${index}" title="Select Animation / State Machine">
+              <option value="">Default Animation</option>
+            </select>
+            <button class="btn" id="btn-toggle-${index}">Pause</button>
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+
+    // Initialize all Rive instances with maximum resolution
+    function initRiveInstances() {
+      if (typeof rive === 'undefined') {
+        console.error('Rive library not loaded');
+        return;
+      }
+
+      RIVE_FILES.forEach((item, index) => {
+        const wrap = document.getElementById(`canvas-wrap-${index}`);
+        const canvas = document.getElementById(`rive-canvas-${index}`);
+        const statusEl = document.getElementById(`status-${index}`);
+        const resolutionEl = document.getElementById(`resolution-${index}`);
+        const artboardEl = document.getElementById(`artboard-${index}`);
+        const modeEl = document.getElementById(`mode-${index}`);
+        const selectAnim = document.getElementById(`select-anim-${index}`);
+        const btnToggle = document.getElementById(`btn-toggle-${index}`);
+
+        // Set backing buffer size to high-density crisp resolution
+        const rect = wrap.getBoundingClientRect();
+        const displayWidth = Math.round(rect.width || 380);
+        const displayHeight = Math.round(rect.height || 320);
+
+        canvas.width = Math.round(displayWidth * TARGET_DPR);
+        canvas.height = Math.round(displayHeight * TARGET_DPR);
+
+        resolutionEl.textContent = `${canvas.width}x${canvas.height} (${TARGET_DPR.toFixed(1)}x)`;
+
+        const fileSrc = `./ui/assets/riv/${item.name}`;
+
+        try {
+          const r = new rive.Rive({
+            src: fileSrc,
+            canvas: canvas,
+            autoplay: true,
+            automaticallyHandleEvents: true,
+            layout: new rive.Layout({
+              fit: rive.Fit.Contain,
+              alignment: rive.Alignment.Center
+            }),
+            onLoad: () => {
+              statusEl.textContent = 'CRISP HD';
+              statusEl.className = 'status-overlay status-ok';
+
+              // Force Rive drawing surface to max sharpness
+              try {
+                r.resizeDrawingSurfaceToCanvas(TARGET_DPR);
+              } catch (e) {
+                console.warn('resizeDrawingSurfaceToCanvas error:', e);
+              }
+
+              // Inspect artboard
+              const artboard = r.artboard;
+              if (artboard && artboard.name) {
+                artboardEl.textContent = `Artboard: ${artboard.name}`;
+              } else {
+                artboardEl.textContent = 'Artboard: Default';
+              }
+
+              // Inspect state machines & animations
+              const smNames = r.stateMachineNames || [];
+              const animNames = r.animationNames || [];
+
+              selectAnim.innerHTML = '';
+
+              if (smNames.length > 0) {
+                modeEl.textContent = `SM: ${smNames.length}`;
+                smNames.forEach(sm => {
+                  const opt = document.createElement('option');
+                  opt.value = `sm:${sm}`;
+                  opt.textContent = `StateMachine: ${sm}`;
+                  selectAnim.appendChild(opt);
+                });
+              }
+
+              if (animNames.length > 0) {
+                if (smNames.length === 0) {
+                  modeEl.textContent = `Anim: ${animNames.length}`;
+                }
+                animNames.forEach(anim => {
+                  const opt = document.createElement('option');
+                  opt.value = `anim:${anim}`;
+                  opt.textContent = `Anim: ${anim}`;
+                  selectAnim.appendChild(opt);
+                });
+              }
+
+              if (smNames.length === 0 && animNames.length === 0) {
+                modeEl.textContent = 'No named clips';
+                const opt = document.createElement('option');
+                opt.textContent = 'Playing root';
+                selectAnim.appendChild(opt);
+              }
+
+              selectAnim.addEventListener('change', (e) => {
+                const val = e.target.value;
+                if (!val) return;
+                r.stop();
+                if (val.startsWith('sm:')) {
+                  r.load({
+                    stateMachines: [val.replace('sm:', '')],
+                    autoplay: true
+                  });
+                } else if (val.startsWith('anim:')) {
+                  r.load({
+                    animations: [val.replace('anim:', '')],
+                    autoplay: true
+                  });
+                }
+                setTimeout(() => {
+                  try { r.resizeDrawingSurfaceToCanvas(TARGET_DPR); } catch (e) {}
+                }, 50);
+              });
+
+              btnToggle.addEventListener('click', () => {
+                if (r.isPlaying) {
+                  r.pause();
+                  btnToggle.textContent = 'Play';
+                } else {
+                  r.play();
+                  btnToggle.textContent = 'Pause';
+                }
+              });
+            },
+            onError: (err) => {
+              console.warn(`Error loading Rive file: ${item.name}`, err);
+              statusEl.textContent = 'ERROR';
+              statusEl.className = 'status-overlay status-err';
+            }
+          });
+
+          instances.push(r);
+        } catch (e) {
+          console.error(`Instantiation failed for ${item.name}`, e);
+          statusEl.textContent = 'FAILED';
+          statusEl.className = 'status-overlay status-err';
+        }
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', initRiveInstances);
+
+    // Handle window resize cleanly with ultra-HD recalculation
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        instances.forEach((r, idx) => {
+          try {
+            const wrap = document.getElementById(`canvas-wrap-${idx}`);
+            const canvas = document.getElementById(`rive-canvas-${idx}`);
+            const resolutionEl = document.getElementById(`resolution-${idx}`);
+            if (wrap && canvas) {
+              const rect = wrap.getBoundingClientRect();
+              canvas.width = Math.round(rect.width * TARGET_DPR);
+              canvas.height = Math.round(rect.height * TARGET_DPR);
+              if (resolutionEl) {
+                resolutionEl.textContent = `${canvas.width}x${canvas.height} (${TARGET_DPR.toFixed(1)}x)`;
+              }
+              r.resizeDrawingSurfaceToCanvas(TARGET_DPR);
+            }
+          } catch (e) {}
+        });
+      }, 150);
+    });
+
+    document.getElementById('btn-restart-all').addEventListener('click', () => {
+      instances.forEach(r => {
+        try {
+          r.reset();
+          r.play();
+          r.resizeDrawingSurfaceToCanvas(TARGET_DPR);
+        } catch (e) {}
+      });
+    });
+
+    document.getElementById('btn-pause-all').addEventListener('click', () => {
+      instances.forEach(r => {
+        try { r.pause(); } catch (e) {}
+      });
+    });
+
+    document.getElementById('btn-play-all').addEventListener('click', () => {
+      instances.forEach(r => {
+        try {
+          r.play();
+          r.resizeDrawingSurfaceToCanvas(TARGET_DPR);
+        } catch (e) {}
+      });
+    });
+  </script>
+</body>
+</html>
