@@ -87,6 +87,51 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 .text-muted    { color: var(--text-muted); }
 .text-secondary{ color: var(--text-secondary); }
 
+/* Custom Top Chrome Overrides: Clean minimal top bar keeping only JLPT badge, history, and settings */
+.top-chrome-left,
+.telemetry-strip,
+.window-controls {
+  display: none !important;
+}
+
+.top-chrome {
+  justify-content: flex-end !important;
+}
+
+
+/* Playful font styling for JLPT badge and neutral palette for Home */
+.top-chrome-learner-badge {
+  font-family: "Mochiy Pop One", "Epilogue", sans-serif !important;
+  font-size: 0.8rem !important;
+  letter-spacing: 0.04em !important;
+  color: var(--vermilion, #E06852) !important;
+  border-color: rgba(224, 104, 82, 0.45) !important;
+  background: rgba(224, 104, 82, 0.12) !important;
+}
+
+.top-chrome-learner-badge:hover {
+  background: rgba(224, 104, 82, 0.22) !important;
+  border-color: var(--vermilion, #E06852) !important;
+}
+
+/* De-yellow Home View: replace yellowish accents with warm paper / muted slate / vermilion */
+.mascot-ambient-glow {
+  background: radial-gradient(circle, rgba(224, 104, 82, 0.12) 0%, rgba(255, 255, 255, 0.03) 50%, transparent 70%) !important;
+}
+
+.home-view-wrapper .tactile-pill-gold {
+  background: rgba(245, 241, 232, 0.1) !important;
+  color: var(--warm-paper) !important;
+  border-color: rgba(245, 241, 232, 0.2) !important;
+}
+
+.daily-word-reading {
+  color: #e07a5f !important;
+}
+
+.daily-word-stamp-action {
+  color: var(--text-secondary) !important;
+}
 /* ==========================================================================
    Home Screen Styles — Expressive Editorial + Mascot Companion
    Zero fake dashboard metrics; high-contrast Planetoño tactile physics.
