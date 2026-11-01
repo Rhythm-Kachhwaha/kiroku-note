@@ -63,11 +63,12 @@ export class BottomDock {
     const tabsHtml = this.tabs.map((tab) => `
       <a href="#${tab.id}"
          class="nav-tab-item ${tab.id === this.activeTab ? 'is-active' : ''}"
+         id="nav-tab-${tab.id}"
          data-tab="${tab.id}"
          role="tab"
          aria-selected="${tab.id === this.activeTab ? 'true' : 'false'}"
          aria-label="${tab.label} (${tab.sublabel})"
-         tabindex="0">
+         tabindex="${tab.id === this.activeTab ? '0' : '-1'}">
         ${tab.iconSvg}
         <span class="nav-tab-label">${tab.label}</span>
       </a>
@@ -98,18 +99,38 @@ export class BottomDock {
 
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('resize', this.handleResize);
+
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        this.updatePillPosition(false);
+      }).catch((err) => {
+        console.debug('[BottomDock] fonts.ready error:', err);
+      });
+    }
   }
 
   handleKeyDown(e) {
-    // Number keys 1-6 switch tabs directly when not in an input/textarea
-    if (e.defaultPrevented || ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+    // Number keys 1-6 switch tabs directly when not in an input/textarea/select/editable
+    if (
+      e.defaultPrevented ||
+      ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) ||
+      document.activeElement?.isContentEditable
+    ) {
+      return;
+    }
+
+    // Must bypass keys during test and study modes (Preserve Fix 1 contract!)
     if (this.activeTab === 'test' || this.activeTab === 'study') return;
 
     const key = parseInt(e.key, 10);
     if (!isNaN(key) && key >= 1 && key <= this.tabs.length) {
       e.preventDefault();
       const tab = this.tabs[key - 1];
-      if (tab) this.setActiveTab(tab.id, true);
+      if (tab) {
+        this.setActiveTab(tab.id, true);
+        const el = document.querySelector(`.nav-tab-item[data-tab="${tab.id}"]`);
+        el?.focus?.();
+      }
       return;
     }
 
@@ -117,11 +138,46 @@ export class BottomDock {
       const currentIndex = this.tabs.findIndex((t) => t.id === this.activeTab);
       if (currentIndex === -1) return;
 
+      e.preventDefault();
       const nextIndex = e.key === 'ArrowRight'
         ? (currentIndex + 1) % this.tabs.length
         : (currentIndex - 1 + this.tabs.length) % this.tabs.length;
 
-      this.setActiveTab(this.tabs[nextIndex].id, true);
+      const nextTab = this.tabs[nextIndex];
+      if (nextTab) {
+        this.setActiveTab(nextTab.id, true);
+        const el = document.querySelector(`.nav-tab-item[data-tab="${nextTab.id}"]`);
+        el?.focus?.();
+      }
+      return;
+    }
+
+    if (e.key === 'Home') {
+      if (document.activeElement?.classList?.contains('nav-tab-item')) {
+        e.preventDefault();
+        const firstTab = this.tabs[0];
+        this.setActiveTab(firstTab.id, true);
+        document.querySelector(`.nav-tab-item[data-tab="${firstTab.id}"]`)?.focus?.();
+        return;
+      }
+    }
+
+    if (e.key === 'End') {
+      if (document.activeElement?.classList?.contains('nav-tab-item')) {
+        e.preventDefault();
+        const lastTab = this.tabs[this.tabs.length - 1];
+        this.setActiveTab(lastTab.id, true);
+        document.querySelector(`.nav-tab-item[data-tab="${lastTab.id}"]`)?.focus?.();
+        return;
+      }
+    }
+
+    if ((e.key === 'Enter' || e.key === ' ') && document.activeElement?.classList?.contains('nav-tab-item')) {
+      const tabId = document.activeElement.dataset?.tab;
+      if (tabId) {
+        e.preventDefault();
+        this.setActiveTab(tabId, true);
+      }
     }
   }
 
@@ -140,6 +196,7 @@ export class BottomDock {
         const isActive = item.dataset.tab === tabId;
         item.classList.toggle('is-active', isActive);
         item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        item.setAttribute('tabindex', isActive ? '0' : '-1');
       });
     }
 
@@ -160,6 +217,12 @@ export class BottomDock {
 
     const dockRect = dock.getBoundingClientRect();
     const itemRect = activeItem.getBoundingClientRect();
+
+    if (itemRect.width === 0) {
+      // Element not yet laid out, schedule on next frame
+      requestAnimationFrame(() => this.updatePillPosition(false));
+      return;
+    }
 
     const left = itemRect.left - dockRect.left;
     const width = itemRect.width;
@@ -182,4 +245,3 @@ export class BottomDock {
     window.removeEventListener('resize', this.handleResize);
   }
 }
-

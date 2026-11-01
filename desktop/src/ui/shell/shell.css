@@ -11,9 +11,9 @@
   top: 0;
   left: 0;
   right: 0;
-  height: var(--chrome-top-height);
-  background-color: var(--surface);
-  border-bottom: 1px solid var(--ink-border);
+  height: var(--chrome-top-height, 48px);
+  background-color: var(--ink-surface, #1C1B19);
+  border-bottom: 1px solid var(--subtle-border, rgba(245, 241, 232, 0.12));
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -25,8 +25,6 @@
   -webkit-app-region: drag;
   view-transition-name: top-chrome;
 }
-
-
 
 .top-chrome-left {
   display: flex;
@@ -45,11 +43,11 @@
 }
 
 .brand-wordmark {
-  font-family: var(--font-wordmark);
+  font-family: var(--font-wordmark, "Zen Old Mincho", Georgia, serif);
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.1em;
-  color: var(--warm-paper);
+  color: var(--warm-paper, #F5F1E8);
   display: inline-flex;
 }
 
@@ -61,14 +59,14 @@
 .brand-badge {
   padding: 0.15rem 0.5rem;
   border-radius: var(--radius-full);
-  background-color: var(--gold-eye);
-  color: var(--tactile-stroke);
+  background-color: var(--gold, #C8A94A);
+  color: var(--tactile-stroke, #151413);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   box-shadow: var(--shadow-sm);
-  border: 1px solid var(--tactile-stroke);
+  border: 1px solid var(--tactile-stroke, #151413);
   transition: transform var(--duration-fast) var(--spring-snappy);
 }
 
@@ -76,11 +74,32 @@
   transform: translateY(-2px);
 }
 
-/* Right Section: Telemetry & Actions */
+/* Section Indicator */
+.top-chrome-section-container {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: var(--paper-muted, rgba(245, 241, 232, 0.70));
+}
+
+.top-chrome-section-divider {
+  color: var(--paper-subtle, rgba(245, 241, 232, 0.45));
+  font-weight: 300;
+}
+
+.top-chrome-section-indicator {
+  font-weight: 600;
+  color: var(--warm-paper, #F5F1E8);
+  letter-spacing: 0.02em;
+}
+
+/* Right Section: Telemetry, Universal Level, Actions, Window Controls */
 .top-chrome-right {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.55rem;
   z-index: 2;
   -webkit-app-region: no-drag;
 }
@@ -89,8 +108,8 @@
 .telemetry-strip {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-right: 0.35rem;
+  gap: 0.35rem;
+  margin-right: 0.25rem;
 }
 
 .telemetry-chip {
@@ -98,50 +117,81 @@
   align-items: center;
   gap: 0.3rem;
   padding: 0.2rem 0.45rem;
-  background-color: var(--surface-container-low);
-  border: 1px solid var(--ink-border);
-  border-radius: var(--radius-sm);
+  background-color: var(--surface-container-low, #141311);
+  border: 1px solid var(--subtle-border, rgba(245, 241, 232, 0.12));
+  border-radius: var(--radius-sm, 8px);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  transition: background-color var(--duration-fast) ease;
+  font-size: 0.68rem;
+  color: var(--paper-muted, rgba(245, 241, 232, 0.70));
+  transition: background-color var(--duration-fast) ease, border-color var(--duration-fast) ease;
+  user-select: none;
 }
 
 .telemetry-chip:hover {
-  background-color: var(--surface-container);
+  background-color: var(--surface-container-high, #2A2926);
+  border-color: var(--gold, #C8A94A);
 }
 
 .telemetry-pip {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background-color: var(--status-inactive);
+  background-color: var(--status-inactive, #595855);
   transition: background-color var(--duration-normal) ease, box-shadow var(--duration-normal) ease;
+  flex-shrink: 0;
 }
 
 .telemetry-pip.is-online {
-  background-color: var(--status-green);
+  background-color: var(--jade, #4EBB7B);
   box-shadow: 0 0 6px rgba(78, 187, 123, 0.6);
 }
 
+.telemetry-pip.is-checking {
+  background-color: var(--amber, #F59E0B);
+  box-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
+}
+
 .telemetry-pip.is-offline {
-  background-color: var(--status-red);
+  background-color: var(--vermilion, #D94B38);
 }
 
 .telemetry-label {
   display: inline-block;
 }
 
+/* Universal JLPT Level Badge in Top Chrome */
+.top-chrome-learner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  background-color: var(--surface-container-high, #2A2926);
+  border: 1px solid var(--gold, #C8A94A);
+  color: var(--gold, #C8A94A);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform var(--duration-instant) ease, background-color var(--duration-fast) ease;
+}
+
+.top-chrome-learner-badge:hover {
+  transform: translateY(-1px);
+  background-color: var(--surface-container-highest, #363532);
+}
+
 /* Utility Action Buttons (History & Settings) */
 .chrome-action-btn {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   border-radius: var(--radius-sm);
-  background-color: var(--surface-container-low);
-  border: 1px solid var(--tactile-stroke);
-  color: var(--warm-paper);
+  background-color: var(--surface-container-low, #141311);
+  border: 1px solid var(--tactile-stroke, #151413);
+  color: var(--warm-paper, #F5F1E8);
   box-shadow: var(--shadow-sm);
   display: flex;
   align-items: center;
@@ -154,14 +204,14 @@
 }
 
 .chrome-action-btn:focus-visible {
-  outline: 2px solid var(--gold-eye);
+  outline: 2px solid var(--gold, #C8A94A);
   outline-offset: 2px;
 }
 
 .chrome-action-btn:hover {
   transform: translate(-1px, -1px);
   box-shadow: var(--shadow-md);
-  background-color: var(--surface-container-high);
+  background-color: var(--surface-container-high, #2A2926);
 }
 
 .chrome-action-btn:active {
@@ -178,6 +228,62 @@
 
 .chrome-action-btn-settings:hover svg {
   transform: rotate(45deg);
+}
+
+/* Windows Frameless Window Controls */
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 0.25rem;
+  -webkit-app-region: no-drag;
+}
+
+.window-control-btn {
+  width: 32px;
+  height: 28px;
+  min-width: 32px;
+  min-height: 28px;
+  border-radius: var(--radius-xs, 4px);
+  background: transparent;
+  border: none;
+  color: var(--paper-muted, rgba(245, 241, 232, 0.70));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
+  padding: 0;
+}
+
+.window-control-btn svg {
+  width: 10px;
+  height: 10px;
+  display: block;
+}
+
+.window-control-btn:hover {
+  background-color: var(--surface-container-high, #2A2926);
+  color: var(--warm-paper, #F5F1E8);
+}
+
+.window-control-btn:active {
+  background-color: var(--surface-container-highest, #363532);
+}
+
+.window-control-btn:focus-visible {
+  outline: 2px solid var(--gold, #C8A94A);
+  outline-offset: 1px;
+}
+
+.window-control-btn.window-control-close:hover {
+  background-color: var(--vermilion, #D94B38);
+  color: #FFFFFF;
+}
+
+.window-control-btn.window-control-close:active {
+  background-color: var(--vermilion-active, #B33424);
 }
 
 /* ==========================================================================
@@ -202,9 +308,9 @@
   display: flex;
   align-items: center;
   padding: 5px;
-  background-color: var(--warm-paper);
-  color: var(--ink-black);
-  border: 1.5px solid var(--tactile-stroke);
+  background-color: var(--warm-paper, #F5F1E8);
+  color: var(--ink-black, #141311);
+  border: 1.5px solid var(--tactile-stroke, #151413);
   border-radius: var(--radius-full);
   box-shadow: var(--shadow-lg);
   user-select: none;
@@ -218,7 +324,7 @@
   bottom: 5px;
   left: 0;
   border-radius: var(--radius-full);
-  background-color: var(--vermilion);
+  background-color: var(--vermilion, #D94B38);
   box-shadow: var(--shadow-sm);
   pointer-events: none;
   transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -238,7 +344,7 @@
   font-family: var(--font-sans);
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--ink-surface);
+  color: var(--ink-surface, #1C1B19);
   text-decoration: none;
   cursor: pointer;
   outline: none;
@@ -246,7 +352,7 @@
 }
 
 .nav-tab-item:hover {
-  color: var(--ink-black);
+  color: var(--ink-black, #141311);
   transform: translateY(-1px);
 }
 
@@ -255,7 +361,7 @@
 }
 
 .nav-tab-item.is-active {
-  color: var(--warm-paper);
+  color: var(--warm-paper, #F5F1E8);
 }
 
 .nav-tab-item svg {
@@ -266,15 +372,20 @@
 }
 
 .nav-tab-item:focus-visible {
-  outline: 2px solid var(--gold-eye);
+  outline: 2px solid var(--gold, #C8A94A);
   outline-offset: 2px;
 }
 
 /* ==========================================================================
    Responsive Adaptations
    ========================================================================== */
+@media (max-width: 680px) {
+  .top-chrome-section-container {
+    display: none;
+  }
+}
+
 @media (max-width: 600px) {
-  
   .telemetry-label {
     display: none;
   }
@@ -293,6 +404,10 @@
   .nav-tab-item {
     padding: 0.45rem 0.65rem;
   }
+  .top-chrome-learner-badge {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.68rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -302,8 +417,6 @@
     transition: none !important;
   }
 }
-
-
 
 /* Keep top chrome and bottom dock rock-solid during view transitions */
 ::view-transition-group(top-chrome),
@@ -325,7 +438,7 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(242, 194, 48, 0.22) 0%, rgba(255, 241, 220, 0.05) 55%, transparent 75%);
+  background: radial-gradient(circle, rgba(200, 169, 74, 0.22) 0%, rgba(245, 241, 232, 0.05) 55%, transparent 75%);
   pointer-events: none;
   z-index: 0;
 }
@@ -347,27 +460,4 @@
 .settings-mascot-box {
   width: 72px;
   height: 72px;
-}
-
-/* Universal JLPT Level Badge in Top Chrome */
-.top-chrome-learner-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: var(--radius-full);
-  background-color: var(--surface-container-high);
-  border: 1px solid var(--cat-eye);
-  color: var(--cat-eye);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 700;
-  cursor: pointer;
-  text-decoration: none;
-  transition: transform var(--duration-instant) ease, background-color var(--duration-fast) ease;
-}
-
-.top-chrome-learner-badge:hover {
-  transform: translateY(-1px);
-  background-color: var(--surface-container-highest);
 }

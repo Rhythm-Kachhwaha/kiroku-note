@@ -107,5 +107,23 @@ test('System Tray: Secure IPC and preload bridge exposure', () => {
   assert.match(preloadContent, /openInstructions:\s*\(\)\s*=>\s*ipcRenderer\.invoke\(['"]app:open-instructions['"]\)/);
   assert.match(preloadContent, /getServicesStatus:\s*\(\)\s*=>\s*ipcRenderer\.invoke\(['"]backend:services-status['"]\)/);
   assert.match(preloadContent, /toggleOcr:\s*\(\)\s*=>\s*ipcRenderer\.invoke\(['"]ocr:toggle['"]\)/);
+
+  // Top Chrome & Window controls integration
+  const topChromePath = path.join(repoRoot, 'desktop', 'src', 'ui', 'shell', 'top_chrome.js');
+  const topChromeContent = fs.readFileSync(topChromePath, 'utf8');
+
+  assert.match(topChromeContent, /#btn-window-minimize|btn-window-minimize/, 'Top chrome must define minimize window button');
+  assert.match(topChromeContent, /#btn-window-maximize|btn-window-maximize/, 'Top chrome must define maximize window button');
+  assert.match(topChromeContent, /#btn-window-close|btn-window-close/, 'Top chrome must define close window button');
+  assert.match(topChromeContent, /desktopAPI\?\.minimize/, 'Top chrome must consume desktopAPI.minimize');
+  assert.match(topChromeContent, /desktopAPI\?\.toggleMaximize/, 'Top chrome must consume desktopAPI.toggleMaximize');
+  assert.match(topChromeContent, /desktopAPI\?\.close/, 'Top chrome must consume desktopAPI.close');
+  assert.match(topChromeContent, /desktopAPI\?\.getServicesStatus/, 'Top chrome must poll getServicesStatus');
+  assert.match(topChromeContent, /pip-backend/, 'Top chrome must render backend telemetry pip');
+  assert.match(topChromeContent, /pip-yomitan/, 'Top chrome must render yomitan telemetry pip');
+  assert.match(topChromeContent, /pip-anki/, 'Top chrome must render anki telemetry pip');
+  assert.match(topChromeContent, /pip-ocr/, 'Top chrome must render ocr telemetry pip');
+  assert.match(topChromeContent, /top-chrome-section-indicator/, 'Top chrome must render section indicator');
 });
+
 
