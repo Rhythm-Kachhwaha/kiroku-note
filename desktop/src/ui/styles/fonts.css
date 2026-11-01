@@ -1,12 +1,20 @@
 /**
  * Kiroku Note Desktop — Offline Bundled Fonts (OFL-1.1)
  * High-performance local WOFF2 typography for 100% offline desktop operation.
+ * Active typography strictly standardized to 3 core font families:
+ * 1. Zen Old Mincho (Yoshimichi Ohira) — Brand Wordmark & Editorial Headers
+ * 2. Zen Kaku Gothic New (Yoshimichi Ohira) — Japanese UI, Sentences, Study & Reading
+ * 3. Inter (Rasmus Andersson) — UI Labels, Counters, Timers, System English
  */
 
-/* Mochiy Pop One (Fontworks Inc.) — Japanese greetings and headwords */
+/* ==========================================================================
+   Active Font Families (Strict 3 Families with font-display: swap)
+   ========================================================================== */
+
+/* Zen Old Mincho (Yoshimichi Ohira) — Brand Wordmark & Editorial Headers */
 @font-face {
-  font-family: "Mochiy Pop One";
-  src: url("../assets/fonts/mochiy-pop-one-japanese-400-normal.woff2") format("woff2");
+  font-family: "Zen Old Mincho";
+  src: url("../assets/fonts/zen-old-mincho-japanese-400-normal.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -25,15 +33,6 @@
   font-family: "Zen Kaku Gothic New";
   src: url("../assets/fonts/zen-kaku-gothic-new-japanese-500-normal.woff2") format("woff2");
   font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Zen Old Mincho (Yoshimichi Ohira) — Brand Wordmark & Editorial Headers */
-@font-face {
-  font-family: "Zen Old Mincho";
-  src: url("../assets/fonts/zen-old-mincho-japanese-400-normal.woff2") format("woff2");
-  font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
@@ -71,7 +70,21 @@
   font-display: swap;
 }
 
-/* Epilogue (Eleisha Pechey / Omnibus-Type) — Display Comic & Punchy Headings */
+/* ==========================================================================
+   Deprecated Legacy Families (Disabled / Inactive)
+   Mochiy Pop One, Epilogue, and Noto Serif are preserved below for reference
+   only and are excluded from active rendering rules.
+   ========================================================================== */
+
+/*
+@font-face {
+  font-family: "Mochiy Pop One";
+  src: url("../assets/fonts/mochiy-pop-one-japanese-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @font-face {
   font-family: "Epilogue";
   src: url("../assets/fonts/epilogue-latin-600-normal.woff2") format("woff2");
@@ -104,7 +117,6 @@
   font-display: swap;
 }
 
-/* Noto Serif (Google) — Editorial Body & Headings */
 @font-face {
   font-family: "Noto Serif";
   src: url("../assets/fonts/noto-serif-latin-400-normal.woff2") format("woff2");
@@ -128,3 +140,4 @@
   font-style: normal;
   font-display: swap;
 }
+*/

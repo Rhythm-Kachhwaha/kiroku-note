@@ -3,11 +3,34 @@
  * Solid 0-blur offset shadows, mechanical depression, and snappy spring feedback.
  */
 
-/* Base Tactile Elements */
+/* ==========================================================================
+   Zero-Blur Tactile Offset Shadow Utility Classes
+   ========================================================================== */
+.tactile-shadow-sm {
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.tactile-shadow-md {
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.tactile-shadow-lg {
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+}
+
+.tactile-shadow-pressed {
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+/* ==========================================================================
+   Base Tactile Pressable Elements
+   ========================================================================== */
 .tactile-btn,
 .tactile-card,
 .tactile-pill,
-.tactile-input {
+.tactile-input,
+.comic-burst-sticker,
+.tactile-badge-burst {
   box-sizing: border-box;
   border: 1.5px solid var(--tactile-stroke);
   transition: transform var(--duration-instant) ease-out,
@@ -17,7 +40,7 @@
   user-select: none;
 }
 
-/* Primary Vermilion Action Button */
+/* Primary Action & Pressable Buttons */
 .tactile-btn {
   display: inline-flex;
   align-items: center;
@@ -30,7 +53,7 @@
   font-size: 0.85rem;
   line-height: 1.25;
   cursor: pointer;
-  box-shadow: var(--shadow-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
   background-color: var(--surface-container);
   color: var(--text-primary);
   text-decoration: none;
@@ -39,23 +62,25 @@
 
 .tactile-btn:hover:not(:disabled) {
   transform: translate(-1px, -1px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
   background-color: var(--surface-container-high);
 }
 
 .tactile-btn:active:not(:disabled) {
   transform: translate(2px, 2px);
-  box-shadow: var(--shadow-pressed);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
 .tactile-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
 }
 
-.tactile-btn:focus-visible {
-  outline: 2px solid var(--gold-eye);
+/* Accessible High-Contrast Focus Outline */
+.tactile-btn:focus-visible,
+:focus-visible {
+  outline: 2px solid var(--gold);
   outline-offset: 2px;
 }
 
@@ -86,7 +111,7 @@
 
 /* Gold Accent Button */
 .tactile-btn-gold {
-  background-color: var(--gold-eye);
+  background-color: var(--gold);
   color: var(--tactile-stroke);
 }
 
@@ -94,7 +119,21 @@
   background-color: var(--gold-hover);
 }
 
-/* Small / Icon Button */
+/* Ghost Outline Button */
+.tactile-btn-ghost {
+  background-color: transparent;
+  color: var(--warm-paper);
+  border-color: var(--subtle-border);
+  box-shadow: none;
+}
+
+.tactile-btn-ghost:hover:not(:disabled) {
+  border-color: var(--warm-paper);
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+/* Sizing Utilities */
 .tactile-btn-icon {
   width: 40px;
   height: 40px;
@@ -111,15 +150,101 @@
   padding: 0.3rem 0.65rem;
   font-size: 0.75rem;
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
 }
 
-/* Tactile Card Container */
+/* ==========================================================================
+   Comic Burst Sticker Badges
+   ========================================================================== */
+.comic-burst-sticker,
+.tactile-badge-burst {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-sm);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+  transform: rotate(-2deg);
+  transition: transform var(--duration-fast) var(--spring-snappy),
+              box-shadow var(--duration-fast) ease;
+}
+
+.comic-burst-sticker:hover,
+.tactile-badge-burst:hover {
+  transform: rotate(0deg) scale(1.05);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.comic-burst-sticker-gold,
+.tactile-badge-burst-gold {
+  background-color: var(--gold);
+  color: var(--tactile-stroke);
+}
+
+.comic-burst-sticker-paper,
+.tactile-badge-burst-paper {
+  background-color: var(--warm-paper);
+  color: var(--ink-black);
+}
+
+.comic-burst-sticker-vermilion,
+.tactile-badge-burst-vermilion {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+}
+
+/* Asymmetric Comic Dialogue Speech Bubble */
+.comic-speech-bubble {
+  position: relative;
+  background-color: var(--warm-paper);
+  color: var(--ink-black);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: 20px 20px 20px 4px;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: var(--space-md);
+  transition: transform var(--duration-fast) ease,
+              box-shadow var(--duration-fast) ease;
+}
+
+.comic-speech-bubble:hover {
+  transform: translateY(-2px);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+}
+
+/* ==========================================================================
+   Organic Shape Backings (Ambient Silhouettes without Glassmorphism)
+   ========================================================================== */
+.organic-shape-backing,
+.organic-backing {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200, 169, 74, 0.16) 0%, rgba(217, 75, 56, 0.05) 45%, transparent 70%);
+  z-index: 0;
+}
+
+.organic-backing-squircle {
+  border-radius: 38% 62% 63% 37% / 41% 44% 56% 59%;
+  background-color: var(--ink-surface);
+  border: 1.5px solid var(--subtle-border);
+}
+
+/* ==========================================================================
+   Tactile Card Containers
+   ========================================================================== */
 .tactile-card {
   background-color: var(--ink-surface);
   color: var(--text-primary);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
   padding: var(--space-md);
 }
 
@@ -129,31 +254,33 @@
 
 .tactile-card-interactive:hover {
   transform: translate(-1px, -1px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
   border-color: rgba(245, 241, 232, 0.25);
 }
 
 /* Pitch Black Surface Utility (Strict #000000 for JMdict, Stroke Canvas & Study Questions) */
 .surface-pitch-black {
-  background-color: var(--surface-pitch-black) !important;
+  background-color: var(--pure-black) !important;
   color: var(--warm-paper) !important;
   border: 1.5px solid var(--tactile-stroke) !important;
-  box-shadow: var(--shadow-md) !important;
+  box-shadow: 3px 3px 0 var(--tactile-stroke) !important;
 }
 
-/* Tactile Pill Badges */
+/* ==========================================================================
+   Tactile Pill Badges
+   ========================================================================== */
 .tactile-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.2rem 0.6rem;
+  padding: 0.2rem 0.65rem;
   border-radius: var(--radius-full);
   font-family: var(--font-sans);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
   background-color: var(--surface-container);
   color: var(--text-primary);
 }
@@ -164,7 +291,7 @@
 }
 
 .tactile-pill-gold {
-  background-color: var(--gold-eye);
+  background-color: var(--gold);
   color: var(--tactile-stroke);
 }
 
@@ -173,7 +300,19 @@
   color: var(--ink-black);
 }
 
-/* Tactile Form Inputs */
+.tactile-pill-jade {
+  background-color: var(--jade);
+  color: var(--tactile-stroke);
+}
+
+.tactile-pill-amber {
+  background-color: var(--amber);
+  color: var(--tactile-stroke);
+}
+
+/* ==========================================================================
+   Tactile Form Inputs
+   ========================================================================== */
 .tactile-input {
   width: 100%;
   padding: 0.55rem 0.75rem;
@@ -182,13 +321,16 @@
   font-family: var(--font-sans);
   font-size: 0.9rem;
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
   outline: none;
 }
 
-.tactile-input:focus {
-  border-color: var(--gold-eye);
-  box-shadow: var(--shadow-md);
+.tactile-input:focus,
+.tactile-input:focus-visible {
+  border-color: var(--gold);
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
 }
 
 /* Accessibility: Prefers-Reduced-Motion */
@@ -196,9 +338,11 @@
   .tactile-btn,
   .tactile-btn:hover,
   .tactile-btn:active,
-  .tactile-card-interactive:hover {
+  .tactile-card-interactive:hover,
+  .comic-burst-sticker:hover,
+  .tactile-badge-burst:hover,
+  .comic-speech-bubble:hover {
     transform: none !important;
     transition: opacity var(--duration-fast) ease !important;
   }
 }
-

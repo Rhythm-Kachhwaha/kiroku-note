@@ -1,62 +1,89 @@
 /**
  * Kiroku Note Desktop — Design Tokens
- * Source of Truth: Night Study Nook Tactile Design System (v2)
+ * Source of Truth: Sumi & Washi Neo-Tactile Design System
  */
 
 :root {
-  /* Colors - Night Study Nook Core Palette */
-  --soot: #000000;              /* Pitch black reading surfaces (prompts, cards, kanji stage) */
-  --truffle: #26170D;           /* Warm deep chocolate app ground */
-  --milk: #FFF1DC;              /* Cream white text and light tactile surfaces */
-  --marmalade: #FF8A1F;         /* Primary tactile pressables */
-  --cat-eye: #F2C230;           /* Eyes, highlights, should-know vocabulary */
-  --matcha: #9ACD5B;           /* Known, mastered, correct feedback */
-  --cherry: #FF5C7A;           /* Error, wrong answer feedback */
+  /* ==========================================================================
+     Official Palette: Core Foundations
+     ========================================================================== */
+  --ink-black: #141311;         /* Deepest ink black - app ground */
+  --warm-paper: #F5F1E8;        /* Warm paper cream - primary text & light surfaces */
+  --vermilion: #D94B38;         /* Energetic vermilion stamp - primary action */
+  --ink-surface: #1C1B19;       /* Quiet card and container background */
+  --elevated-surface: #2A2926;  /* Elevated pods, hover states, modals */
+  --tactile-stroke: #151413;    /* Crisp tactile borders and 0-blur drop shadows */
+  --pure-black: #000000;        /* Pitch black reading surfaces (JMdict, stroke player, study) */
 
-  /* Aliases & Compatibility */
-  --vermilion: var(--marmalade);
-  --vermilion-glow: rgba(255, 138, 31, 0.25);
-  --vermilion-hover: #E87A15;
-  --vermilion-active: #CC6B10;
+  /* Supporting Accent & Feedback Palette */
+  --gold: #C8A94A;              /* Cat eyes, highlights, focus rings, should-know vocab */
+  --jade: #4EBB7B;              /* Mastered, known, correct feedback */
+  --amber: #F59E0B;             /* Warning, intermediate state, pending */
 
-  --ink-black: #1A1108;
-  --ink-surface: #201309;
-  --ink-surface-hover: #2E1B0E;
-  --ink-border: rgba(255, 241, 220, 0.12);
+  /* Alpha Tints & States */
+  --subtle-border: rgba(245, 241, 232, 0.12);
+  --ink-border: var(--subtle-border);
+  --ink-surface-hover: #262522;
 
-  --warm-paper: var(--milk);
-  --paper-dim: #E8D9C0;
-  --paper-muted: rgba(255, 241, 220, 0.70);
-  --paper-subtle: rgba(255, 241, 220, 0.45);
-  --paper-faint: rgba(255, 241, 220, 0.12);
+  --vermilion-glow: rgba(217, 75, 56, 0.20);
+  --vermilion-hover: #C53E2D;
+  --vermilion-active: #B33424;
 
-  --gold-eye: var(--cat-eye);
-  --gold-glow: rgba(242, 194, 48, 0.20);
-  --gold-hover: #E0B025;
+  --gold-glow: rgba(200, 169, 74, 0.16);
+  --gold-hover: #B89938;
 
-  --tactile-stroke: #120A05;
-  --surface-pitch-black: var(--soot); /* Pitch black for dictionary, stroke player & study prompts */
+  --paper-dim: #E8E3D8;
+  --paper-muted: rgba(245, 241, 232, 0.70);
+  --paper-subtle: rgba(245, 241, 232, 0.45);
+  --paper-faint: rgba(245, 241, 232, 0.12);
 
-  /* Viewport Surfaces & Containers */
-  --background: var(--truffle);
-  --surface: #1E120A;
-  --surface-container-lowest: #140B05;
-  --surface-container-low: #201309;
-  --surface-container: #2A190E;
-  --surface-container-high: #382213;
-  --surface-container-highest: #452B19;
+  /* ==========================================================================
+     Semantic Mapping Aliases
+     ========================================================================== */
+  --color-bg: var(--ink-black);
+  --color-surface: var(--ink-surface);
+  --color-surface-elevated: var(--elevated-surface);
+  --color-primary: var(--vermilion);
+  --color-text: var(--warm-paper);
+  --color-text-secondary: var(--paper-muted);
+  --color-text-muted: var(--paper-subtle);
+  --color-border: var(--subtle-border);
+  --color-stroke: var(--tactile-stroke);
 
-  --text-primary: var(--milk);
-  --text-secondary: #D9C9B6;
-  --text-muted: #A38F7A;
+  /* Surface Container Scale */
+  --background: var(--ink-black);
+  --surface: var(--ink-surface);
+  --surface-container-lowest: #0F0E0C;
+  --surface-container-low: var(--ink-black);
+  --surface-container: var(--ink-surface);
+  --surface-container-high: var(--elevated-surface);
+  --surface-container-highest: #363532;
+  --surface-pitch-black: var(--pure-black);
 
-  /* Service & Diagnostics Status */
-  --status-green: var(--matcha);
-  --status-amber: var(--cat-eye);
-  --status-red: var(--cherry);
-  --status-inactive: #6E5C4E;
+  /* Primary Typography Text Tokens */
+  --text-primary: var(--warm-paper);
+  --text-secondary: var(--paper-muted);
+  --text-muted: var(--paper-subtle);
 
-  /* Spacing Scale */
+  /* Status & Diagnostics */
+  --status-green: var(--jade);
+  --status-amber: var(--amber);
+  --status-red: var(--vermilion);
+  --status-inactive: #595855;
+
+  /* Backward Compatibility Aliases */
+  --soot: var(--pure-black);
+  --truffle: var(--ink-black);
+  --milk: var(--warm-paper);
+  --marmalade: var(--vermilion);
+  --cat-eye: var(--gold);
+  --gold-eye: var(--gold);
+  --matcha: var(--jade);
+  --cherry: var(--vermilion);
+
+  /* ==========================================================================
+     Spacing Scale
+     ========================================================================== */
   --space-xs: 0.25rem;   /* 4px */
   --space-sm: 0.5rem;    /* 8px */
   --space-md: 1rem;      /* 16px */
@@ -82,14 +109,24 @@
   --radius-xl: 24px;
   --radius-full: 9999px;
 
-  /* Chunky Tactile Shadows with 3px mechanical lip */
-  --shadow-sm: 0 2px 0 var(--tactile-stroke);
-  --shadow-md: 0 3px 0 var(--tactile-stroke);
-  --shadow-lg: 0 4px 0 var(--tactile-stroke);
-  --shadow-pressed: 0 1px 0 var(--tactile-stroke);
+  /* ==========================================================================
+     Planetoño-Inspired Zero-Blur Offset Shadows
+     ========================================================================== */
+  --shadow-sm: 2px 2px 0 var(--tactile-stroke);
+  --shadow-md: 3px 3px 0 var(--tactile-stroke);
+  --shadow-lg: 4px 4px 0 var(--tactile-stroke);
+  --shadow-pressed: 1px 1px 0 var(--tactile-stroke);
+  --shadow-tactile: 3px 3px 0 var(--tactile-stroke);
+  --shadow-tactile-hover: 4px 4px 0 var(--tactile-stroke);
+  --shadow-tactile-active: 1px 1px 0 var(--tactile-stroke);
 
-  /* Typography Stacks */
-  --font-display: "Mochiy Pop One", "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* ==========================================================================
+     Typography Stacks (Strict 3 Active Families)
+     - Zen Old Mincho: Editorial headings and wordmark
+     - Zen Kaku Gothic New: Japanese UI, body, and reading text
+     - Inter: English UI, labels, counters, and timers
+     ========================================================================== */
+  --font-display: "Zen Old Mincho", Georgia, "Times New Roman", serif;
   --font-wordmark: "Zen Old Mincho", Georgia, serif;
   --font-japanese: "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
