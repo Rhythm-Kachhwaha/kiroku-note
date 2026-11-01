@@ -564,6 +564,31 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   gap: 0.75rem;
 }
 
+@media (max-width: 640px) {
+  .vocab-search-bar-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .vocab-input-wrap {
+    order: 2;
+    width: 100%;
+    flex: 1 1 100%;
+  }
+  .vocab-mode-tabs {
+    order: 1;
+  }
+  .ime-mode-pills {
+    order: 3;
+  }
+  #vocab-focus-badge {
+    order: 4;
+  }
+  #btn-vocab-go-history {
+    order: 5;
+    margin-left: auto;
+  }
+}
+
 .vocab-input-wrap {
   flex: 1;
   position: relative;
@@ -617,7 +642,7 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   right: 0;
   max-width: 600px;
   background-color: var(--ink-surface);
-  border: 1.5px solid var(--tactile-stroke);
+  border: 2px solid var(--tactile-stroke);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   z-index: 100;
@@ -662,8 +687,20 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   color: var(--text-secondary);
 }
 
-/* Vocab Content Grid */
-.vocab-content-grid,
+/* Vocab Content Grid: Responsive 2-column on desktop, single-column on compact (500x750) */
+.vocab-content-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 860px) {
+  .vocab-content-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+}
+
 .kanji-content-grid,
 .test-stage-grid {
   display: grid;
@@ -672,11 +709,19 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 @media (min-width: 900px) {
-  .vocab-content-grid,
   .kanji-content-grid,
   .test-stage-grid {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* Word Presentation: Headword Showcase Hero */
+.headword-hero-card {
+  background-color: var(--ink-surface);
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
 }
 
 .headword-hero-top {
@@ -692,21 +737,24 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 .headword-kanji {
-  font-family: var(--font-japanese);
-  font-size: 2.5rem;
+  font-family: var(--font-display); /* Large Zen Old Mincho headword */
+  font-size: 2.75rem;
   font-weight: 700;
+  line-height: 1.15;
   color: var(--warm-paper);
 }
 
 .headword-kanji rt {
-  font-size: 0.95rem;
-  color: var(--gold-eye);
+  font-family: var(--font-japanese); /* Zen Kaku Gothic New */
+  font-size: 1rem;
+  color: var(--gold);
+  line-height: 1.3;
 }
 
 .pitch-accent-badge {
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  color: var(--gold-eye);
+  color: var(--gold);
 }
 
 .headword-meta-row {
@@ -715,9 +763,15 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   margin-top: 0.75rem;
 }
 
-/* JMdict Card */
+/* Pure Pitch-Black JMdict Card (#000000, crisp #151413 border, warm paper text) */
 .jmdict-card {
   margin-top: 1rem;
+  background-color: var(--pure-black) !important;
+  color: var(--warm-paper) !important;
+  border: 2px solid var(--tactile-stroke) !important;
+  box-shadow: 3px 3px 0 var(--tactile-stroke) !important;
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
 }
 
 .jmdict-header-row {
@@ -725,13 +779,17 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(245, 241, 232, 0.1);
+  padding-bottom: 0.5rem;
 }
 
 .jmdict-title {
   font-family: var(--font-mono);
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--gold-eye);
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .jmdict-source-tag {
@@ -747,13 +805,25 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 
 .sense-item {
   display: flex;
-  gap: 0.5rem;
+  align-items: baseline;
+  gap: 0.55rem;
+  line-height: 1.5;
 }
 
+.sense-num,
 .sense-number {
   font-family: var(--font-mono);
-  font-size: 0.8rem;
-  color: var(--gold-eye);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--gold);
+  min-width: 1.4rem;
+  flex-shrink: 0;
+}
+
+.sense-pos {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--gold);
 }
 
 .sense-body {
@@ -761,7 +831,9 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 .sense-gloss {
+  font-family: var(--font-japanese);
   color: var(--warm-paper);
+  font-size: 0.92rem;
 }
 
 .sense-example {
@@ -769,7 +841,58 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   margin-top: 0.2rem;
 }
 
-/* Form Styles */
+/* Card Mining Form: Clearly visually delineated from JMdict definition */
+.card-mining-form {
+  background-color: var(--ink-surface);
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+}
+
+.mining-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.mining-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.mining-form-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.mining-unsaved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-full);
+  background-color: var(--gold);
+  color: #151413;
+  border: 1px solid #151413;
+  box-shadow: 1px 1px 0 #151413;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.unsaved-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #151413;
+}
+
 .form-header-row {
   display: flex;
   align-items: center;
@@ -832,8 +955,40 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   margin-top: 1rem;
 }
 
-.card-save-stamp-btn {
+.card-save-stamp-btn,
+#btn-save-card {
   width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 0.92rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: transform var(--duration-instant) ease-out,
+              box-shadow var(--duration-instant) ease-out,
+              background-color var(--duration-fast) ease;
+}
+
+.card-save-stamp-btn:hover:not(:disabled),
+#btn-save-card:hover:not(:disabled) {
+  background-color: var(--vermilion-hover);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+}
+
+.card-save-stamp-btn:active:not(:disabled),
+#btn-save-card:active:not(:disabled) {
+  background-color: var(--vermilion-active);
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
 /* ==========================================================================
@@ -2332,23 +2487,24 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 .vocab-mode-tabs {
   display: inline-flex;
   gap: 4px;
-  background-color: var(--surface-container, #1c1815);
-  border: 1.5px solid var(--tactile-stroke, #3a2e26);
-  border-radius: var(--radius-md, 8px);
+  background-color: var(--surface-container, #1C1B19);
+  border: 1.5px solid var(--tactile-stroke, #151413);
+  border-radius: var(--radius-md, 12px);
   padding: 3px;
+  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413);
 }
 
 .vocab-mode-tab {
-  padding: 4px 12px;
-  border-radius: var(--radius-sm, 6px);
+  padding: 4px 14px;
+  border-radius: var(--radius-sm, 8px);
   border: none;
   background: transparent;
-  color: var(--text-secondary, #c7b9a5);
-  font-family: var(--font-ui, sans-serif);
+  color: var(--text-secondary, rgba(245, 241, 232, 0.70));
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
 }
 
 .vocab-mode-tab.is-active {
@@ -2358,7 +2514,11 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 
 .vocab-gaps-shelf {
   margin-top: 1.5rem;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem;
+  background-color: var(--ink-surface);
+  border: 2px solid var(--tactile-stroke, #151413);
+  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
+  border-radius: var(--radius-lg);
 }
 
 .gaps-shelf-header {
@@ -2375,7 +2535,9 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 .gaps-title {
-  font-size: 0.95rem;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 700;
   color: var(--warm-paper);
 }
 
@@ -2391,16 +2553,25 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   gap: 0.45rem;
   padding: 0.4rem 0.75rem;
   border-radius: var(--radius-sm);
-  border: 1.5px solid var(--tactile-stroke);
+  border: 1.5px solid var(--tactile-stroke, #151413);
+  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413);
   background: var(--surface-container);
   color: var(--warm-paper);
   cursor: pointer;
-  transition: transform 0.1s ease, border-color 0.1s ease;
+  transition: transform var(--duration-instant) ease-out,
+              box-shadow var(--duration-instant) ease-out,
+              border-color var(--duration-fast) ease;
 }
 
 .gap-chip:hover {
-  transform: translateY(-1px);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
   border-color: var(--gold);
+}
+
+.gap-chip:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke, #151413);
 }
 
 .gap-word {
@@ -2410,6 +2581,10 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 
 .text-annotate-card {
   padding: 1.25rem;
+  background-color: var(--ink-surface);
+  border: 2px solid var(--tactile-stroke, #151413);
+  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
+  border-radius: var(--radius-lg);
 }
 
 .text-annotate-actions {

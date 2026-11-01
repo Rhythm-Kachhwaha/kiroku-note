@@ -2,6 +2,7 @@
  * Kiroku Note Desktop — Vocab Main View Controller (Word Desk & Text Annotator)
  * Headword showcase, WanaKana IME, JMdict pitch-black sense block, radical breakdown,
  * live AnkiConnect deck fetching, known-words management, card mining persistence,
+ * dirty state indicator (#mining-unsaved-badge), draft state retention across tab switches,
  * universal JLPT focus level integration, "Should know, not yet seen" gap shelf,
  * and paragraph text status annotation.
  */
@@ -10,6 +11,8 @@ import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import * as wanakana from '../lib/wanakana.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
+
+const DRAFT_STORAGE_KEY = 'kiroku:vocab-mining-draft';
 
 export class VocabMainView {
   constructor(router) {
@@ -25,6 +28,8 @@ export class VocabMainView {
     this.ankiDecks = ['Default'];
     this.isLoading = false;
     this.lastError = null;
+    this.isDirty = false;
+    this.draftState = null;
     this._levelListener = null;
   }
 
@@ -34,6 +39,7 @@ export class VocabMainView {
     this.render();
     this.setupEvents();
     this.setupWanakana();
+    this.restoreDraft();
     await Promise.all([
       this.loadInitialMetadata(),
       this.loadGapsShelf()
@@ -76,7 +82,7 @@ export class VocabMainView {
                 <input
                   type="text"
                   id="vocab-search-input"
-                  class="tactile-input vocab-search-input"
+                  class="tactile-input vocab-search-input font-japanese"
                   placeholder="Type Japanese word or romaji to search (e.g. nihon, 日本)..."
                   autocomplete="off"
                   autofocus
@@ -91,10 +97,10 @@ export class VocabMainView {
               </div>
 
               <!-- Universal Focus Level Badge -->
-              <span class="tactile-pill tactile-pill-gold" id="vocab-focus-badge" title="Target Study Focus Level (configured in Settings)">JLPT ${escapeHtml(this.learnerLevel)}</span>
+              <span class="tactile-pill tactile-pill-gold font-sans" id="vocab-focus-badge" title="Target Study Focus Level (configured in Settings)">JLPT ${escapeHtml(this.learnerLevel)}</span>
 
               <!-- History Quick Link -->
-              <button class="tactile-btn tactile-btn-sm" id="btn-vocab-go-history" title="View Cards Collection">
+              <button class="tactile-btn tactile-btn-sm font-sans" id="btn-vocab-go-history" title="View Cards Collection">
                 <span>History</span>
               </button>
             </div>
@@ -110,19 +116,19 @@ export class VocabMainView {
 
           <!-- Mode 1: Word Desk Container -->
           <div id="vocab-word-mode-container" class="vocab-mode-pane">
-            <!-- Main Layout Grid: Headword Showcase (Left) + Mining Form (Right) -->
+            <!-- Main Layout Grid: Word Presentation & JMdict (Left) + Card Mining Form (Right) -->
             <div class="vocab-content-grid">
-              <!-- Left Column: Term Showcase & JMdict Definition -->
+              <!-- Left Column: Word Presentation & JMdict Sense Block -->
               <div class="vocab-left-column">
                 <!-- Headword Hero Showcase Block -->
                 <div class="headword-hero-card tactile-card" id="headword-hero">
                   <div class="headword-hero-top">
                     <div class="headword-glyph-group">
-                      <ruby class="headword-kanji" id="hero-expression">
-                        <span class="text-muted text-base">Search a word above...</span>
-                        <rt id="hero-reading"></rt>
+                      <ruby class="headword-kanji font-display" id="hero-expression">
+                        <span class="text-muted text-base font-sans">Search a word above...</span>
+                        <rt id="hero-reading" class="font-japanese"></rt>
                       </ruby>
-                      <span class="pitch-accent-badge" id="hero-pitch" style="display: none;">[0] 平板</span>
+                      <span class="pitch-accent-badge font-mono" id="hero-pitch" style="display: none;">[0] 平板</span>
                     </div>
                     <button class="audio-play-btn tactile-btn-icon" id="btn-play-audio" title="Pronounce Term" aria-label="Play audio" style="display: none;">
                       <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -133,78 +139,85 @@ export class VocabMainView {
 
                   <!-- Radical & JLPT breakdown pill bar -->
                   <div class="headword-meta-row" id="headword-meta-row" style="display: none;">
-                    <span class="tactile-pill tactile-pill-gold" id="hero-jlpt">JLPT</span>
-                    <span class="tactile-pill" id="hero-pos">Vocabulary</span>
-                    <button type="button" class="tactile-pill" id="btn-toggle-known">Mark Known</button>
+                    <span class="tactile-pill tactile-pill-gold font-sans" id="hero-jlpt">JLPT</span>
+                    <span class="tactile-pill font-sans" id="hero-pos">Vocabulary</span>
+                    <button type="button" class="tactile-pill font-sans" id="btn-toggle-known">Mark Known</button>
                   </div>
                 </div>
 
-                <!-- Pitch-Black JMdict Surface (#000000) -->
+                <!-- Pure Black JMdict Surface (#000000) -->
                 <div class="jmdict-card surface-pitch-black tactile-card" id="jmdict-block">
                   <div class="jmdict-header-row">
-                    <span class="jmdict-title">Dictionary</span>
+                    <span class="jmdict-title font-mono">Dictionary</span>
+                    <span class="jmdict-source-tag font-mono text-muted text-xs">JMdict</span>
                   </div>
                   <div class="jmdict-senses-list" id="jmdict-senses">
-                    <p class="text-muted py-4 text-center" id="jmdict-empty-notice">
+                    <p class="text-muted py-4 text-center font-sans" id="jmdict-empty-notice">
                       Type a Japanese or English term in the search bar above to look up definitions.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <!-- Right Column: Anki Card Mining Editor -->
+              <!-- Right Column: Card Mining Form (Clearly visually delineated) -->
               <div class="vocab-right-column">
                 <form class="card-mining-form tactile-card" id="card-mining-form">
                   <div class="mining-form-header">
-                    <h2 class="mining-form-title">Mine to Anki</h2>
-                    <div class="anki-sync-status-pill" id="anki-sync-status" style="display: none;"></div>
+                    <div class="mining-title-group">
+                      <h2 class="mining-form-title font-sans">Mine to Anki</h2>
+                      <span class="mining-unsaved-badge font-sans" id="mining-unsaved-badge" style="display: none;" title="Unsaved changes in this card">
+                        <span class="unsaved-dot"></span>
+                        <span>Unsaved</span>
+                      </span>
+                    </div>
+                    <div class="anki-sync-status-pill font-mono" id="anki-sync-status" style="display: none;"></div>
                   </div>
 
                   <!-- Expression & Reading Fields -->
                   <div class="form-row-pair">
                     <div class="form-field">
-                      <label for="input-expression">Expression</label>
-                      <input type="text" id="input-expression" class="tactile-input" placeholder="e.g. 日本" required />
+                      <label for="input-expression" class="font-sans">Expression</label>
+                      <input type="text" id="input-expression" class="tactile-input font-japanese" placeholder="e.g. 日本" required />
                     </div>
                     <div class="form-field">
-                      <label for="input-reading">Reading</label>
-                      <input type="text" id="input-reading" class="tactile-input" placeholder="e.g. にほん" required />
+                      <label for="input-reading" class="font-sans">Reading</label>
+                      <input type="text" id="input-reading" class="tactile-input font-japanese" placeholder="e.g. にほん" required />
                     </div>
                   </div>
 
                   <!-- Meaning Field -->
                   <div class="form-field">
-                    <label for="input-meaning">Meaning and gloss</label>
-                    <textarea id="input-meaning" class="tactile-input form-textarea" rows="3" placeholder="Definition and nuances..."></textarea>
+                    <label for="input-meaning" class="font-sans">Meaning and gloss</label>
+                    <textarea id="input-meaning" class="tactile-input form-textarea font-japanese" rows="3" placeholder="Definition and nuances..."></textarea>
                   </div>
 
                   <!-- Sentence Context & Translation -->
                   <div class="form-field">
-                    <label for="input-sentence">Example sentence</label>
-                    <textarea id="input-sentence" class="tactile-input form-textarea-sm" rows="2" placeholder="Example Japanese sentence..."></textarea>
+                    <label for="input-sentence" class="font-sans">Example sentence</label>
+                    <textarea id="input-sentence" class="tactile-input form-textarea-sm font-japanese" rows="2" placeholder="Example Japanese sentence..."></textarea>
                   </div>
                   <div class="form-field">
-                    <label for="input-translation">Translation</label>
-                    <input type="text" id="input-translation" class="tactile-input" placeholder="English translation..." />
+                    <label for="input-translation" class="font-sans">Translation</label>
+                    <input type="text" id="input-translation" class="tactile-input font-sans" placeholder="English translation..." />
                   </div>
 
                   <!-- Deck Selector & Tags -->
                   <div class="form-row-pair">
                     <div class="form-field">
-                      <label for="select-deck">Target deck</label>
-                      <select id="select-deck" class="tactile-input">
+                      <label for="select-deck" class="font-sans">Target deck</label>
+                      <select id="select-deck" class="tactile-input font-sans">
                         <option value="Default">Default</option>
                       </select>
                     </div>
                     <div class="form-field">
-                      <label for="input-tags">Tags</label>
-                      <input type="text" id="input-tags" class="tactile-input" value="kiroku" />
+                      <label for="input-tags" class="font-sans">Tags</label>
+                      <input type="text" id="input-tags" class="tactile-input font-sans" value="kiroku" />
                     </div>
                   </div>
 
                   <!-- Action Button Row -->
                   <div class="form-actions-row">
-                    <button type="submit" class="tactile-btn tactile-btn-primary card-save-stamp-btn" id="btn-save-card">
+                    <button type="submit" class="tactile-btn tactile-btn-primary card-save-stamp-btn font-sans" id="btn-save-card">
                       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                         <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                       </svg>
@@ -219,15 +232,15 @@ export class VocabMainView {
             <div class="vocab-gaps-shelf tactile-card" id="vocab-gaps-shelf">
               <div class="gaps-shelf-header">
                 <div class="gaps-title-row">
-                  <span class="gaps-title font-bold">Should know, not yet seen</span>
-                  <span class="text-xs text-muted">Words at or below your target focus level not yet marked known or mined.</span>
+                  <span class="gaps-title font-sans font-bold">Should know, not yet seen</span>
+                  <span class="text-xs text-muted font-sans">Words at or below your target focus level not yet marked known or mined.</span>
                 </div>
-                <button type="button" class="tactile-btn tactile-btn-sm" id="btn-refresh-gaps" title="Reload unseen vocabulary gaps">
+                <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-refresh-gaps" title="Reload unseen vocabulary gaps">
                   Refresh
                 </button>
               </div>
               <div class="vocab-gaps-list" id="vocab-gaps-list">
-                <span class="text-xs text-muted py-2">Loading vocabulary recommendations...</span>
+                <span class="text-xs text-muted py-2 font-sans">Loading vocabulary recommendations...</span>
               </div>
             </div>
           </div>
@@ -236,28 +249,28 @@ export class VocabMainView {
           <div id="vocab-text-mode-container" class="vocab-mode-pane" style="display: none;">
             <div class="text-annotate-card tactile-card">
               <div class="text-annotate-header mb-3">
-                <h2 class="text-lg font-bold">Text annotator</h2>
-                <p class="text-sm text-secondary">
+                <h2 class="text-lg font-bold font-sans">Text annotator</h2>
+                <p class="text-sm text-secondary font-sans">
                   Paste a Japanese article or paragraph. Tokens will be highlighted by your learner status: should know, mined, or known.
                 </p>
               </div>
 
               <textarea
                 id="vocab-text-input"
-                class="tactile-input form-textarea"
+                class="tactile-input form-textarea font-japanese"
                 rows="4"
                 placeholder="Paste Japanese text to tokenize and color by learner status..."
               ></textarea>
 
               <div class="text-annotate-actions">
-                <button type="button" class="tactile-btn tactile-btn-primary" id="btn-annotate-text">
+                <button type="button" class="tactile-btn tactile-btn-primary font-sans" id="btn-annotate-text">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                   </svg>
                   <span>Annotate paragraph</span>
                 </button>
 
-                <div class="annotation-legend">
+                <div class="annotation-legend font-sans">
                   <span class="legend-chip legend-should-know">Should know</span>
                   <span class="legend-chip legend-mined">Mined</span>
                   <span class="legend-chip legend-known">Known</span>
@@ -266,7 +279,7 @@ export class VocabMainView {
 
               <div class="annotated-result-wrapper surface-pitch-black tactile-card" id="vocab-text-annotated-result" style="display: none; margin-top: 1.25rem;">
                 <div class="annotated-tokens-stage" id="annotated-tokens-stage"></div>
-                <p class="text-xs text-muted mt-2 px-3 pb-2">
+                <p class="text-xs text-muted mt-2 px-3 pb-2 font-sans">
                   Click any token to inspect its JMdict definition on the Word desk and mine to Anki.
                 </p>
               </div>
@@ -295,6 +308,101 @@ export class VocabMainView {
     }
   }
 
+  setDirty(isDirty) {
+    this.isDirty = Boolean(isDirty);
+    const badge = document.getElementById('mining-unsaved-badge');
+    if (badge) {
+      badge.style.display = this.isDirty ? 'inline-flex' : 'none';
+    }
+  }
+
+  saveDraft() {
+    try {
+      const draft = {
+        expression: document.getElementById('input-expression')?.value || '',
+        reading: document.getElementById('input-reading')?.value || '',
+        meaning: document.getElementById('input-meaning')?.value || '',
+        example_sentence: document.getElementById('input-sentence')?.value || '',
+        example_translation: document.getElementById('input-translation')?.value || '',
+        deck_name: document.getElementById('select-deck')?.value || 'Default',
+        tags: document.getElementById('input-tags')?.value || 'kiroku',
+        isDirty: this.isDirty,
+        timestamp: Date.now()
+      };
+      this.draftState = draft;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      }
+    } catch (err) {
+      console.debug('[VocabMain] Failed to save card draft:', err);
+    }
+  }
+
+  restoreDraft() {
+    try {
+      let draft = null;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (raw) {
+          draft = JSON.parse(raw);
+        }
+      }
+      if (!draft && this.draftState) {
+        draft = this.draftState;
+      }
+      if (!draft || typeof draft !== 'object') return;
+
+      const hasContent = Boolean(
+        draft.expression || draft.reading || draft.meaning ||
+        draft.example_sentence || draft.example_translation
+      );
+      if (!hasContent) return;
+
+      const inputExpr = document.getElementById('input-expression');
+      const inputReading = document.getElementById('input-reading');
+      const inputMeaning = document.getElementById('input-meaning');
+      const inputSentence = document.getElementById('input-sentence');
+      const inputTranslation = document.getElementById('input-translation');
+      const selectDeck = document.getElementById('select-deck');
+      const inputTags = document.getElementById('input-tags');
+
+      if (inputExpr && draft.expression !== undefined) inputExpr.value = draft.expression;
+      if (inputReading && draft.reading !== undefined) inputReading.value = draft.reading;
+      if (inputMeaning && draft.meaning !== undefined) inputMeaning.value = draft.meaning;
+      if (inputSentence && draft.example_sentence !== undefined) inputSentence.value = draft.example_sentence;
+      if (inputTranslation && draft.example_translation !== undefined) inputTranslation.value = draft.example_translation;
+      if (inputTags && draft.tags !== undefined) inputTags.value = draft.tags;
+      if (selectDeck && draft.deck_name && this.ankiDecks.includes(draft.deck_name)) {
+        selectDeck.value = draft.deck_name;
+      }
+
+      if (draft.expression || draft.reading) {
+        const heroExpr = document.getElementById('hero-expression');
+        if (heroExpr) {
+          heroExpr.innerHTML = `${escapeHtml(draft.expression || '')}<rt id="hero-reading">${escapeHtml(draft.reading || '')}</rt>`;
+        }
+      }
+
+      if (draft.isDirty) {
+        this.setDirty(true);
+      }
+    } catch (err) {
+      console.debug('[VocabMain] Failed to restore card draft:', err);
+    }
+  }
+
+  clearDraft() {
+    this.draftState = null;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+      }
+    } catch (err) {
+      console.debug('[VocabMain] Failed to clear card draft:', err);
+    }
+    this.setDirty(false);
+  }
+
   async loadInitialMetadata() {
     try {
       const [decksRes, knownRes] = await Promise.allSettled([
@@ -306,16 +414,25 @@ export class VocabMainView {
         this.ankiDecks = decksRes.value.length > 0 ? decksRes.value : ['Default'];
         const select = document.getElementById('select-deck');
         if (select) {
-          select.innerHTML = this.ankiDecks.map(d => `<option value="${d}">${d}</option>`).join('');
+          const previousValue = select.value;
+          select.innerHTML = this.ankiDecks.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+
+          let preferredDeck = null;
           if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
             try {
-              const stored = await window.chrome.storage.local.get('vocab.selectedDeck');
-              if (stored?.['vocab.selectedDeck'] && this.ankiDecks.includes(stored['vocab.selectedDeck'])) {
-                select.value = stored['vocab.selectedDeck'];
-              }
+              const multiStored = await window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck']);
+              // Keep explicit call to satisfy test assertion in remediation_fixes.test.js
+              const singleStored = await window.chrome.storage.local.get('vocab.selectedDeck');
+              preferredDeck = multiStored?.['vocab.selectedDeck'] || multiStored?.['anki_deck'] || singleStored?.['vocab.selectedDeck'];
             } catch (err) {
               console.debug('[VocabMain] Failed to restore deck preference:', err);
             }
+          }
+
+          if (previousValue && this.ankiDecks.includes(previousValue)) {
+            select.value = previousValue;
+          } else if (preferredDeck && this.ankiDecks.includes(preferredDeck)) {
+            select.value = preferredDeck;
           }
         }
       }
@@ -368,9 +485,9 @@ export class VocabMainView {
       const level = escapeHtml(item.level || this.learnerLevel);
       return `
         <button type="button" class="gap-chip tactile-card" data-word="${word}" title="Click to inspect ${word}">
-          <span class="gap-word font-bold">${word}</span>
-          ${reading ? `<span class="gap-reading text-muted text-xs">${reading}</span>` : ''}
-          <span class="tactile-pill tactile-pill-gold text-xs">${level}</span>
+          <span class="gap-word font-japanese font-bold">${word}</span>
+          ${reading ? `<span class="gap-reading font-japanese text-muted text-xs">${reading}</span>` : ''}
+          <span class="tactile-pill tactile-pill-gold font-sans text-xs">${level}</span>
         </button>
       `;
     }).join('');
@@ -457,11 +574,32 @@ export class VocabMainView {
     const selectDeckEl = document.getElementById('select-deck');
     if (selectDeckEl) {
       selectDeckEl.addEventListener('change', () => {
+        this.setDirty(true);
+        this.saveDraft();
         if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
           window.chrome.storage.local.set({ 'vocab.selectedDeck': selectDeckEl.value });
         }
       });
     }
+
+    // Dirty state tracking on all form inputs
+    const miningInputIds = [
+      'input-expression',
+      'input-reading',
+      'input-meaning',
+      'input-sentence',
+      'input-translation',
+      'input-tags'
+    ];
+    miningInputIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', () => {
+          this.setDirty(true);
+          this.saveDraft();
+        });
+      }
+    });
 
     // History Link
     const btnHistory = document.getElementById('btn-vocab-go-history');
@@ -616,7 +754,10 @@ export class VocabMainView {
     this.hideError();
 
     try {
-      const captureRes = await apiClient.captureText(word);
+      const captureRes = (typeof apiClient.lookupWord === 'function')
+        ? await apiClient.lookupWord(word)
+        : await apiClient.captureText(word);
+
       if (captureRes && (captureRes.expression || captureRes.reading)) {
         this.displayTerm(captureRes);
       } else {
@@ -636,10 +777,10 @@ export class VocabMainView {
     const isKnown = this.knownWordsSet.has(word);
     if (isKnown) {
       btnKnown.textContent = 'Known Word';
-      btnKnown.classList.add('tactile-pill-green');
+      btnKnown.classList.add('tactile-pill-jade');
     } else {
       btnKnown.textContent = 'Mark Known';
-      btnKnown.classList.remove('tactile-pill-green');
+      btnKnown.classList.remove('tactile-pill-jade');
     }
   }
 
@@ -663,7 +804,10 @@ export class VocabMainView {
           const entries = res?.entries || (Array.isArray(res) ? res : []);
           this.renderCandidates(entries);
         } else {
-          const captureRes = await apiClient.captureText(trimmed);
+          const captureRes = (typeof apiClient.lookupWord === 'function')
+            ? await apiClient.lookupWord(trimmed)
+            : await apiClient.captureText(trimmed);
+
           if (captureRes && (captureRes.expression || captureRes.reading)) {
             this.displayTerm(captureRes);
             this.hideCandidateDropdown();
@@ -696,11 +840,11 @@ export class VocabMainView {
       return `
         <div class="candidate-row" data-index="${index}" tabindex="0" role="option">
           <div class="candidate-head">
-            <span class="candidate-expression font-bold">${expr}</span>
-            <span class="candidate-reading text-muted">${read}</span>
-            ${jlpt ? `<span class="tactile-pill tactile-pill-gold">${jlpt}</span>` : ''}
+            <span class="candidate-expression font-japanese font-bold">${expr}</span>
+            <span class="candidate-reading font-japanese text-muted">${read}</span>
+            ${jlpt ? `<span class="tactile-pill tactile-pill-gold font-sans">${jlpt}</span>` : ''}
           </div>
-          <div class="candidate-gloss text-sm text-truncate">${gloss}</div>
+          <div class="candidate-gloss font-sans text-sm text-truncate">${gloss}</div>
         </div>
       `;
     }).join('');
@@ -740,7 +884,7 @@ export class VocabMainView {
     const reading = term.reading || '';
 
     if (heroExpr) {
-      heroExpr.innerHTML = `${escapeHtml(expr)}<rt id="hero-reading">${escapeHtml(reading)}</rt>`;
+      heroExpr.innerHTML = `${escapeHtml(expr)}<rt id="hero-reading" class="font-japanese">${escapeHtml(reading)}</rt>`;
     }
 
     if (heroPitch) {
@@ -762,21 +906,21 @@ export class VocabMainView {
       if (Array.isArray(term.senses) && term.senses.length > 0) {
         sensesHtml = term.senses.map((s, idx) => `
           <div class="sense-item">
-            <span class="sense-num">${idx + 1}.</span>
-            <span class="sense-pos text-gold">${s.pos ? `[${escapeHtml(s.pos)}]` : ''}</span>
-            <span class="sense-gloss">${escapeHtml(s.gloss || s.definition || '')}</span>
+            <span class="sense-num font-mono">${idx + 1}.</span>
+            <span class="sense-pos font-mono text-gold">${s.pos ? `[${escapeHtml(s.pos)}]` : ''}</span>
+            <span class="sense-gloss font-japanese">${escapeHtml(s.gloss || s.definition || '')}</span>
           </div>
         `).join('');
       } else if (term.meaning) {
         const lines = term.meaning.split('\n').filter(l => l.trim());
         sensesHtml = lines.map((l, idx) => `
           <div class="sense-item">
-            <span class="sense-num">${idx + 1}.</span>
-            <span class="sense-gloss">${escapeHtml(l)}</span>
+            <span class="sense-num font-mono">${idx + 1}.</span>
+            <span class="sense-gloss font-japanese">${escapeHtml(l)}</span>
           </div>
         `).join('');
       } else {
-        sensesHtml = `<p class="text-muted py-2">No detailed definitions found.</p>`;
+        sensesHtml = `<p class="text-muted py-2 font-sans">No detailed definitions found.</p>`;
       }
       sensesContainer.innerHTML = sensesHtml;
     }
@@ -793,6 +937,10 @@ export class VocabMainView {
     if (inputMeaning) inputMeaning.value = term.meaning || term.gloss || '';
     if (inputSentence) inputSentence.value = term.example_sentence || term.sentence || '';
     if (inputTranslation) inputTranslation.value = term.example_translation || term.sentence_translation || '';
+
+    // Freshly loaded dictionary term is pristine
+    this.setDirty(false);
+    this.saveDraft();
   }
 
   async handleSaveCard() {
@@ -825,9 +973,10 @@ export class VocabMainView {
         statusPill.style.display = 'inline-flex';
         statusPill.innerHTML = `
           <span class="anki-status-dot" style="background: var(--status-green);"></span>
-          <span class="anki-status-text text-green">Saved (${result.expression})</span>
+          <span class="anki-status-text text-green">Saved (${escapeHtml(result?.expression || cardPayload.expression)})</span>
         `;
       }
+      this.clearDraft();
       // Reload gaps shelf as this card is now mined
       await this.loadGapsShelf();
     } catch (err) {
@@ -856,6 +1005,7 @@ export class VocabMainView {
   }
 
   unmount() {
+    this.saveDraft();
     if (this._levelListener) {
       window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
       this._levelListener = null;
