@@ -24,15 +24,20 @@ export class GrammarView {
   async mount(container) {
     this.container = container;
     try {
+      let storedLevel = null;
       if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
         const stored = await window.chrome.storage.local.get('grammar.currentSyllabusLevel');
-        if (stored && stored['grammar.currentSyllabusLevel'] !== undefined) {
-          this.currentSyllabusLevel = stored['grammar.currentSyllabusLevel'];
+        if (stored && stored['grammar.currentSyllabusLevel']) {
+          storedLevel = stored['grammar.currentSyllabusLevel'];
         }
       }
-      const univLevel = await getUniversalJlptLevel();
-      if (univLevel && !this.currentSyllabusLevel) {
-        this.currentSyllabusLevel = univLevel;
+      if (storedLevel) {
+        this.currentSyllabusLevel = storedLevel;
+      } else {
+        const univLevel = await getUniversalJlptLevel();
+        if (univLevel) {
+          this.currentSyllabusLevel = univLevel;
+        }
       }
     } catch (err) {
       console.debug('[Grammar] Resolve universal level error:', err);
@@ -414,7 +419,7 @@ export class GrammarView {
       if (idx !== -1 && idx < sentenceText.length) {
         const segText = sentenceText.substring(idx, idx + display.length) || display;
         segments.push({ text: segText, isGrammar: true, point: pt });
-        lastIdx = idx + display.length;
+        lastIdx = Math.max(lastIdx, idx + display.length);
       }
     }
 
@@ -708,6 +713,7 @@ function formatExampleJapanese(raw) {
   let html = String(raw);
   // Convert [kanji|reading] or kanji[reading] to <ruby>kanji<rt>reading</rt></ruby>
   if (!html.includes('<ruby')) {
+    html = html.replace(/\[([^\]|]+)\|([^\]]+)\]/g, '<ruby>$1<rt>$2</rt></ruby>');
     html = html.replace(/([\u4e00-\u9faf\u3400-\u4dbf]+)\[([^\s\]]+)\]/g, '<ruby>$1<rt>$2</rt></ruby>');
   }
   return sanitizePromptMarkup(html);

@@ -39,6 +39,7 @@ export class TestView {
     this.answers = new Map(); // questionIndex -> selectedChoiceId
     this.flagged = new Set();
     this.activeBlobUrls = [];
+    this._noticeTimeout = null;
     this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
@@ -102,6 +103,43 @@ export class TestView {
     if (banner) {
       banner.style.display = 'none';
     }
+  }
+
+  showNotice(message) {
+    let notice = document.getElementById('test-notice-toast');
+    if (!notice) {
+      notice = document.createElement('div');
+      notice.id = 'test-notice-toast';
+      notice.className = 'tactile-card test-notice-toast';
+      notice.setAttribute('role', 'status');
+      notice.style.position = 'fixed';
+      notice.style.bottom = '80px';
+      notice.style.right = '24px';
+      notice.style.zIndex = '9999';
+      notice.style.backgroundColor = 'var(--surface-container-high, #2A2926)';
+      notice.style.color = 'var(--warm-paper, #F5F1E8)';
+      notice.style.border = '1.5px solid var(--gold, #C8A94A)';
+      notice.style.padding = '0.75rem 1.25rem';
+      notice.style.borderRadius = 'var(--radius-md, 12px)';
+      notice.style.boxShadow = 'var(--shadow-md)';
+      notice.style.fontSize = '0.85rem';
+      notice.style.maxWidth = '380px';
+      notice.style.transition = 'opacity 0.25s ease';
+      document.body.appendChild(notice);
+    }
+    notice.textContent = message;
+    notice.style.display = 'block';
+    notice.style.opacity = '1';
+    if (this._noticeTimeout) clearTimeout(this._noticeTimeout);
+    this._noticeTimeout = setTimeout(() => {
+      const el = document.getElementById('test-notice-toast');
+      if (el) {
+        el.style.opacity = '0';
+        setTimeout(() => {
+          if (el && el.parentNode) el.parentNode.removeChild(el);
+        }, 250);
+      }
+    }, 4500);
   }
 
   renderExamSetup() {
@@ -287,6 +325,8 @@ export class TestView {
         });
         if (filtered.length > 0) {
           items = filtered;
+        } else {
+          this.showNotice(`No questions match the "${this.selectedFormatFilter}" format filter. Falling back to all ${items.length} section questions.`);
         }
       }
 
@@ -634,12 +674,24 @@ export class TestView {
     const btnFinish = document.getElementById('btn-finish-exam');
     if (btnFinish && btnFinish.dataset.confirming !== 'true') {
       btnFinish.dataset.confirming = 'true';
-      btnFinish.textContent = unAnswered > 0 ? `Submit (${unAnswered} left)? Click to Confirm` : 'Confirm Section Submit';
+      const label = unAnswered > 0 ? `Submit (${unAnswered} left)? Click to Confirm` : 'Confirm Section Submit';
+      const span = btnFinish.querySelector('span');
+      if (span) {
+        span.textContent = label;
+      } else {
+        btnFinish.innerHTML = `<span>${label}</span>`;
+      }
       setTimeout(() => {
         if (btnFinish && btnFinish.dataset.confirming === 'true') {
           btnFinish.dataset.confirming = 'false';
           const isLast = this.currentSectionIndex >= this.sections.length - 1;
-          btnFinish.textContent = isLast ? 'Finish Exam' : 'Finish Section and Next';
+          const resetLabel = isLast ? 'Finish Exam' : 'Finish Section and Next';
+          const innerSpan = btnFinish.querySelector('span');
+          if (innerSpan) {
+            innerSpan.textContent = resetLabel;
+          } else {
+            btnFinish.innerHTML = `<span>${resetLabel}</span>`;
+          }
         }
       }, 5000);
       return;
@@ -842,6 +894,14 @@ export class TestView {
   unmount() {
     this.stopTimer();
     window.removeEventListener('keydown', this.handleKeyDown);
+    if (this._noticeTimeout) {
+      clearTimeout(this._noticeTimeout);
+      this._noticeTimeout = null;
+    }
+    const notice = document.getElementById('test-notice-toast');
+    if (notice && notice.parentNode) {
+      notice.parentNode.removeChild(notice);
+    }
     if (this.activeBlobUrls && this.activeBlobUrls.length > 0) {
       this.activeBlobUrls.forEach(url => studyClient.revokeMediaBlobUrl(url));
       this.activeBlobUrls = [];

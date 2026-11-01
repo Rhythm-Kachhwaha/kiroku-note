@@ -84,6 +84,7 @@ export class HomeView {
     this.greetingIndex = null;
     this.mouseMoveHandler = null;
     this.mouseLeaveHandler = null;
+    this.jumpTimeout = null;
   }
 
   getDefaultGreetingIndex() {
@@ -290,8 +291,12 @@ export class HomeView {
       const handleMascotClick = () => {
         this.rotateGreeting();
         mascotWrap.style.transform = 'translateY(-14px) scale(1.05)';
-        setTimeout(() => {
+        if (this.jumpTimeout) {
+          clearTimeout(this.jumpTimeout);
+        }
+        this.jumpTimeout = setTimeout(() => {
           mascotWrap.style.transform = 'translateY(0) scale(1)';
+          this.jumpTimeout = null;
         }, 180);
       };
 
@@ -380,10 +385,15 @@ export class HomeView {
   }
 
   unmount() {
+    if (this.jumpTimeout) {
+      clearTimeout(this.jumpTimeout);
+      this.jumpTimeout = null;
+    }
     if (this.mouseMoveHandler && typeof window !== 'undefined') {
       window.removeEventListener('mousemove', this.mouseMoveHandler);
       this.mouseMoveHandler = null;
     }
+    this.mouseLeaveHandler = null;
     if (this.container) {
       this.container.innerHTML = '';
     }

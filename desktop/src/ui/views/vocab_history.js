@@ -662,7 +662,7 @@ export class VocabHistoryView {
           card.notes = newNotes;
           btnSave.textContent = 'Saved';
           setTimeout(() => {
-            if (btnSave) {
+            if (btnSave && document.body.contains(btnSave)) {
               btnSave.disabled = false;
               btnSave.textContent = 'Save Changes';
             }

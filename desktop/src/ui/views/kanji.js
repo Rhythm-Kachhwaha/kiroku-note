@@ -393,7 +393,7 @@ export class KanjiView {
 
     this.strokePaths.forEach((path, i) => {
       if (i < this.currentStrokeIndex) {
-        path.style.stroke = '#FFF1DC';
+        path.style.stroke = '#F5F1E8'; // Warm paper
         path.style.opacity = '1';
         path.style.strokeWidth = '3';
       } else if (i === this.currentStrokeIndex) {

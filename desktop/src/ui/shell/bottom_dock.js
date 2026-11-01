@@ -135,6 +135,12 @@ export class BottomDock {
     }
 
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const isDockFocused = Boolean(
+        document.activeElement?.closest('#bottom-dock') ||
+        document.activeElement?.closest('.nav-tab-item')
+      );
+      if (!isDockFocused) return;
+
       const currentIndex = this.tabs.findIndex((t) => t.id === this.activeTab);
       if (currentIndex === -1) return;
 
@@ -207,7 +213,7 @@ export class BottomDock {
     }
   }
 
-  updatePillPosition(animated = true) {
+  updatePillPosition(animated = true, retryCount = 0) {
     const dock = document.getElementById('bottom-dock');
     const pill = document.getElementById('nav-spring-pill');
     if (!dock || !pill) return;
@@ -219,8 +225,10 @@ export class BottomDock {
     const itemRect = activeItem.getBoundingClientRect();
 
     if (itemRect.width === 0) {
-      // Element not yet laid out, schedule on next frame
-      requestAnimationFrame(() => this.updatePillPosition(false));
+      // Element not yet laid out, schedule on next frame (up to 5 retries)
+      if (retryCount < 5) {
+        requestAnimationFrame(() => this.updatePillPosition(false, retryCount + 1));
+      }
       return;
     }
 

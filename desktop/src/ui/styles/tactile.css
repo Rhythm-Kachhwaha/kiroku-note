@@ -7,19 +7,19 @@
    Zero-Blur Tactile Offset Shadow Utility Classes
    ========================================================================== */
 .tactile-shadow-sm {
-  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-sm);
 }
 
 .tactile-shadow-md {
-  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-md);
 }
 
 .tactile-shadow-lg {
-  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-lg);
 }
 
 .tactile-shadow-pressed {
-  box-shadow: 1px 1px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-pressed);
 }
 
 /* ==========================================================================
@@ -53,7 +53,7 @@
   font-size: 0.85rem;
   line-height: 1.25;
   cursor: pointer;
-  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-md);
   background-color: var(--surface-container);
   color: var(--text-primary);
   text-decoration: none;
@@ -62,19 +62,19 @@
 
 .tactile-btn:hover:not(:disabled) {
   transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-lg);
   background-color: var(--surface-container-high);
 }
 
 .tactile-btn:active:not(:disabled) {
   transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-pressed);
 }
 
 .tactile-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Accessible High-Contrast Focus Outline */
@@ -130,7 +130,7 @@
 .tactile-btn-ghost:hover:not(:disabled) {
   border-color: var(--warm-paper);
   transform: translate(-1px, -1px);
-  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Sizing Utilities */
@@ -150,7 +150,7 @@
   padding: 0.3rem 0.65rem;
   font-size: 0.75rem;
   border-radius: var(--radius-sm);
-  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ==========================================================================
@@ -169,7 +169,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-radius: var(--radius-sm);
-  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-sm);
   background-color: var(--vermilion);
   color: var(--warm-paper);
   transform: rotate(-2deg);
@@ -180,7 +180,7 @@
 .comic-burst-sticker:hover,
 .tactile-badge-burst:hover {
   transform: rotate(0deg) scale(1.05);
-  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-md);
 }
 
 .comic-burst-sticker-gold,
@@ -208,7 +208,7 @@
   color: var(--ink-black);
   border: 1.5px solid var(--tactile-stroke);
   border-radius: 20px 20px 20px 4px;
-  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-md);
   padding: var(--space-md);
   transition: transform var(--duration-fast) ease,
               box-shadow var(--duration-fast) ease;
@@ -216,7 +216,7 @@
 
 .comic-speech-bubble:hover {
   transform: translateY(-2px);
-  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-lg);
 }
 
 /* ==========================================================================
@@ -244,7 +244,7 @@
   background-color: var(--ink-surface);
   color: var(--text-primary);
   border-radius: var(--radius-lg);
-  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-md);
   padding: var(--space-md);
 }
 
@@ -254,7 +254,7 @@
 
 .tactile-card-interactive:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-lg);
   border-color: rgba(245, 241, 232, 0.25);
 }
 
@@ -263,7 +263,7 @@
   background-color: var(--pure-black) !important;
   color: var(--warm-paper) !important;
   border: 1.5px solid var(--tactile-stroke) !important;
-  box-shadow: 3px 3px 0 var(--tactile-stroke) !important;
+  box-shadow: var(--shadow-md) !important;
 }
 
 /* ==========================================================================
@@ -280,7 +280,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-sm);
   background-color: var(--surface-container);
   color: var(--text-primary);
 }
@@ -321,8 +321,9 @@
   font-family: var(--font-sans);
   font-size: 0.9rem;
   border-radius: var(--radius-md);
-  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-sm);
   outline: none;
+  user-select: text;
 }
 
 .tactile-input:focus,
@@ -330,7 +331,7 @@
   border-color: var(--gold);
   outline: 2px solid var(--gold);
   outline-offset: 1px;
-  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  box-shadow: var(--shadow-md);
 }
 
 /* Accessibility: Prefers-Reduced-Motion */

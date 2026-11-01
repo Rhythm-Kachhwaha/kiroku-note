@@ -31,6 +31,7 @@ export class VocabMainView {
     this.isDirty = false;
     this.draftState = null;
     this._levelListener = null;
+    this._outsideClickListener = null;
   }
 
   async mount(container) {
@@ -379,7 +380,7 @@ export class VocabMainView {
       if (draft.expression || draft.reading) {
         const heroExpr = document.getElementById('hero-expression');
         if (heroExpr) {
-          heroExpr.innerHTML = `${escapeHtml(draft.expression || '')}<rt id="hero-reading">${escapeHtml(draft.reading || '')}</rt>`;
+          heroExpr.innerHTML = `${escapeHtml(draft.expression || '')}<rt id="hero-reading" class="font-japanese">${escapeHtml(draft.reading || '')}</rt>`;
         }
       }
 
@@ -613,7 +614,9 @@ export class VocabMainView {
     const btnAudio = document.getElementById('btn-play-audio');
     if (btnAudio) {
       btnAudio.addEventListener('click', () => {
-        const word = this.currentTerm?.expression || document.getElementById('hero-expression')?.textContent?.trim();
+        const word = this.currentTerm?.expression ||
+          document.getElementById('hero-expression')?.textContent?.trim() ||
+          document.getElementById('input-expression')?.value?.trim();
         if (word) this.playWordAudio(word);
       });
     }
@@ -622,7 +625,9 @@ export class VocabMainView {
     const btnKnown = document.getElementById('btn-toggle-known');
     if (btnKnown) {
       btnKnown.addEventListener('click', async () => {
-        const word = this.currentTerm?.expression;
+        const word = this.currentTerm?.expression ||
+          document.getElementById('input-expression')?.value?.trim() ||
+          document.getElementById('hero-expression')?.textContent?.trim();
         if (!word) return;
 
         const isCurrentlyKnown = this.knownWordsSet.has(word);
@@ -649,6 +654,18 @@ export class VocabMainView {
         await this.handleSaveCard();
       });
     }
+
+    // Dismiss candidate dropdown on outside click
+    this._outsideClickListener = (e) => {
+      const dropdown = document.getElementById('candidate-dropdown');
+      const searchInput = document.getElementById('vocab-search-input');
+      if (dropdown && dropdown.style.display !== 'none') {
+        if (!dropdown.contains(e.target) && e.target !== searchInput) {
+          this.hideCandidateDropdown();
+        }
+      }
+    };
+    document.addEventListener('click', this._outsideClickListener);
   }
 
   switchToMode(mode) {
@@ -855,6 +872,12 @@ export class VocabMainView {
       row.addEventListener('click', () => {
         this.selectCandidate(results[i]);
       });
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.selectCandidate(results[i]);
+        }
+      });
     });
   }
 
@@ -1009,6 +1032,10 @@ export class VocabMainView {
     if (this._levelListener) {
       window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
       this._levelListener = null;
+    }
+    if (this._outsideClickListener) {
+      document.removeEventListener('click', this._outsideClickListener);
+      this._outsideClickListener = null;
     }
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);

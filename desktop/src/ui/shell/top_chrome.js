@@ -82,11 +82,17 @@ export class TopChrome {
   }
 
   applyTelemetryStatus(status) {
+    const resolveStatus = (val1, val2) => {
+      if (!status) return null;
+      const v = val1 ?? val2;
+      return v === undefined || v === null ? null : Boolean(v);
+    };
+
     const services = [
-      { id: 'backend', label: 'Backend', active: status ? Boolean(status.backend ?? status.backendRunning) : null },
-      { id: 'yomitan', label: 'Yomitan', active: status ? Boolean(status.yomitan ?? status.yomitanConnected) : null },
-      { id: 'anki', label: 'Anki', active: status ? Boolean(status.anki ?? status.ankiConnected) : null },
-      { id: 'ocr', label: 'OCR', active: status ? Boolean(status.ocr ?? status.ocrAvailable) : null }
+      { id: 'backend', label: 'Backend', active: resolveStatus(status?.backend, status?.backendRunning) },
+      { id: 'yomitan', label: 'Yomitan', active: resolveStatus(status?.yomitan, status?.yomitanConnected) },
+      { id: 'anki', label: 'Anki', active: resolveStatus(status?.anki, status?.ankiConnected) },
+      { id: 'ocr', label: 'OCR', active: resolveStatus(status?.ocr, status?.ocrAvailable) }
     ];
 
     for (const service of services) {
