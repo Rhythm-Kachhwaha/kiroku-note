@@ -1,12 +1,13 @@
 /**
  * Kiroku Note Desktop — Global Settings & Telemetry View Controller
- * Service integrations (AnkiConnect, Yomitan, OCR, LLM), encrypted DPAPI keys,
- * doctor diagnostics report, app data affordances, and backend supervisor controls.
+ * Universal JLPT level curriculum, service integrations (AnkiConnect, Yomitan, OCR, LLM),
+ * encrypted DPAPI keys, doctor diagnostics report, app data affordances, and backend supervisor controls.
  */
 
 import { apiClient } from '../services/api_client.js';
 import { studyClient } from '../services/study_client.js';
 import { renderAssetSlot } from '../assets_map.js';
+import { getUniversalJlptLevel, setUniversalJlptLevel } from '../utils/learner.js';
 
 export class SettingsView {
   constructor(router) {
@@ -31,10 +32,10 @@ export class SettingsView {
             <div>
               <div class="flex items-center gap-2">
                 <span class="w-2.5 h-2.5 rounded-full bg-gold-eye"></span>
-                <span class="font-mono text-sm tracking-widest text-gold uppercase">GLOBAL SETTINGS · 環境設定</span>
+                <span class="font-mono text-sm text-gold">Settings</span>
               </div>
-              <h1 class="settings-title">Integrations &amp; System Health</h1>
-              <p class="settings-subtitle">Manage loopback connection endpoints, encrypted credentials, and system diagnostics.</p>
+              <h1 class="settings-title">Preferences &amp; System Health</h1>
+              <p class="settings-subtitle">Manage study curriculum, connection endpoints, encrypted credentials, and system diagnostics.</p>
             </div>
             ${renderAssetSlot('settings-mechanic-cat', 'settings-mascot-box')}
           </div>
@@ -45,9 +46,38 @@ export class SettingsView {
             <button type="button" class="btn-dismiss-error" id="btn-dismiss-settings-error" aria-label="Dismiss error"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
           </div>
 
-          <!-- Section 1: Integrations -->
+          <!-- Section 0: Universal Study Level Curriculum -->
           <div class="settings-group-header mt-4">
-            <span class="font-mono text-xs uppercase tracking-widest text-gold">SECTION 1 · INTEGRATIONS</span>
+            <span class="font-mono text-xs text-gold">Curriculum</span>
+            <h2 class="text-base font-bold text-warm-paper">Universal JLPT Study Level</h2>
+          </div>
+          <div class="settings-cards-grid mt-2">
+            <div class="settings-card tactile-card">
+              <div class="card-header-row">
+                <h3 class="card-title">Target JLPT Level</h3>
+                <span class="tactile-pill tactile-pill-gold" id="current-universal-level-tag">Active</span>
+              </div>
+              <p class="card-desc">
+                Sets your universal study level across all tabs (Vocabulary, Grammar, Kanji, Practice drills, and Exam simulations) so you don't have to select it repeatedly.
+              </p>
+              <div class="syllabus-controls-row mt-3">
+                <div class="syllabus-level-pills" id="settings-level-pills" role="radiogroup" aria-label="Universal JLPT Level">
+                  <button type="button" class="tactile-pill learner-level-pill" data-level="N5">N5</button>
+                  <button type="button" class="tactile-pill learner-level-pill" data-level="N4">N4</button>
+                  <button type="button" class="tactile-pill learner-level-pill" data-level="N3">N3</button>
+                  <button type="button" class="tactile-pill learner-level-pill" data-level="N2">N2</button>
+                  <button type="button" class="tactile-pill learner-level-pill" data-level="N1">N1</button>
+                </div>
+              </div>
+              <p class="text-xs text-muted mt-2">
+                Note: Selecting a level sets your active study focus. It does not automatically mark prior grammar points or kanji as mastered; your progress honestly reflects your real study history.
+              </p>
+            </div>
+          </div>
+
+          <!-- Section 1: Integrations -->
+          <div class="settings-group-header mt-6">
+            <span class="font-mono text-xs text-gold">Integrations</span>
             <h2 class="text-base font-bold text-warm-paper">External Mining &amp; Dictionary Providers</h2>
           </div>
           <div class="settings-cards-grid mt-2">
@@ -84,7 +114,7 @@ export class SettingsView {
 
           <!-- Section 2: Optional Services -->
           <div class="settings-group-header mt-6">
-            <span class="font-mono text-xs uppercase tracking-widest text-gold">SECTION 2 · OPTIONAL SERVICES</span>
+            <span class="font-mono text-xs text-gold">Optional Services</span>
             <h2 class="text-base font-bold text-warm-paper">Local OCR &amp; AI Explanations</h2>
           </div>
           <div class="settings-cards-grid mt-2">
@@ -143,7 +173,7 @@ export class SettingsView {
 
           <!-- Section 3 & 4: Diagnostics & Process Control -->
           <div class="settings-group-header mt-6">
-            <span class="font-mono text-xs uppercase tracking-widest text-gold">SECTION 3 &amp; 4 · DIAGNOSTICS &amp; BACKEND</span>
+            <span class="font-mono text-xs text-gold">Diagnostics &amp; System</span>
             <h2 class="text-base font-bold text-warm-paper">Database Diagnostics &amp; Process Lifecycle</h2>
           </div>
           <div class="settings-cards-grid mt-2">
@@ -205,6 +235,20 @@ export class SettingsView {
       btnDismiss.addEventListener('click', () => this.clearError());
     }
 
+    // Universal JLPT Level pills
+    const levelPills = this.container.querySelectorAll('.learner-level-pill');
+    levelPills.forEach((pill) => {
+      pill.addEventListener('click', async () => {
+        const lvl = pill.dataset.level;
+        if (!lvl) return;
+        levelPills.forEach(p => p.classList.remove('is-active', 'tactile-pill-gold'));
+        pill.classList.add('is-active', 'tactile-pill-gold');
+        const tag = document.getElementById('current-universal-level-tag');
+        if (tag) tag.textContent = `Active (${lvl})`;
+        await setUniversalJlptLevel(lvl);
+      });
+    });
+
     // Test Anki button
     const btnAnki = document.getElementById('btn-test-anki');
     if (btnAnki) {
@@ -258,7 +302,7 @@ export class SettingsView {
           this.updateOcrStatus();
         } catch (err) {
           console.warn('[Settings] OCR toggle failed:', err);
-          this.showError('OCR daemon error: ' + (err.message || 'Could not toggle OCR server'));
+          this.showError('OCR daemon error: ' + (err.message || 'Unable to communicate with OCR process'));
         } finally {
           btnOcr.disabled = false;
         }
@@ -269,33 +313,29 @@ export class SettingsView {
     const btnSaveLlm = document.getElementById('btn-save-llm');
     if (btnSaveLlm) {
       btnSaveLlm.addEventListener('click', async () => {
-        const provider = document.getElementById('llm-provider-select')?.value || 'none';
-        const model = document.getElementById('llm-model-input')?.value.trim() || undefined;
-        const keyInput = document.getElementById('llm-key-input')?.value.trim();
-
         btnSaveLlm.disabled = true;
         btnSaveLlm.textContent = 'Saving...';
         this.clearError();
 
         try {
+          const provider = document.getElementById('llm-provider-select')?.value;
+          const model = document.getElementById('llm-model-input')?.value?.trim();
+          const apiKey = document.getElementById('llm-key-input')?.value?.trim();
+
           const payload = { provider };
           if (model) payload.model = model;
-          if (keyInput) payload.api_key = keyInput;
+          if (apiKey) payload.api_key = apiKey;
 
           await apiClient.updateLlmConfig(payload);
-
+          const keyInput = document.getElementById('llm-key-input');
+          if (keyInput) {
+            keyInput.value = '';
+            keyInput.placeholder = '•••••••• (Saved in Windows DPAPI)';
+          }
           const tag = document.getElementById('llm-status-tag');
           if (tag) {
-            tag.textContent = 'Saved';
-            setTimeout(() => {
-              tag.textContent = 'Key Protected';
-            }, 3000);
-          }
-          // Clear secret from DOM input for security
-          const keyEl = document.getElementById('llm-key-input');
-          if (keyEl && keyInput) {
-            keyEl.value = '';
-            keyEl.placeholder = '•••••••• (Encrypted in DPAPI)';
+            tag.textContent = provider === 'none' ? 'Offline Mode' : 'Configured';
+            tag.className = `tactile-pill ${provider !== 'none' ? 'tactile-pill-gold' : ''}`;
           }
         } catch (err) {
           console.error('[Settings] Save LLM config failed:', err);
@@ -404,16 +444,31 @@ export class SettingsView {
 
         btnRestart.disabled = true;
         btnRestart.textContent = 'Restarting...';
-        if (true) {
-          if (window.desktopAPI?.retryBackend) {
-            window.desktopAPI.retryBackend();
-          }
+        if (window.desktopAPI?.retryBackend) {
+          window.desktopAPI.retryBackend();
         }
       });
     }
   }
 
   async loadInitialSettings() {
+    // 0. Universal JLPT Study Level
+    try {
+      const activeLvl = await getUniversalJlptLevel();
+      const levelPills = this.container.querySelectorAll('.learner-level-pill');
+      levelPills.forEach((p) => {
+        if (p.dataset.level === activeLvl) {
+          p.classList.add('is-active', 'tactile-pill-gold');
+        } else {
+          p.classList.remove('is-active', 'tactile-pill-gold');
+        }
+      });
+      const tag = document.getElementById('current-universal-level-tag');
+      if (tag && activeLvl) tag.textContent = `Active (${activeLvl})`;
+    } catch (err) {
+      console.debug('[Settings] Restore learner level error:', err);
+    }
+
     // 1. OCR status
     try {
       const ocrRes = await apiClient.getOcrStatus();

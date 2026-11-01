@@ -23,6 +23,7 @@
   width: 100%;
   box-sizing: border-box;
   -webkit-app-region: drag;
+  view-transition-name: top-chrome;
 }
 
 
@@ -192,6 +193,7 @@
   pointer-events: none;
   z-index: 1000;
   padding: 0 1rem;
+  view-transition-name: bottom-dock;
 }
 
 .bottom-dock {
@@ -301,3 +303,71 @@
   }
 }
 
+
+
+/* Keep top chrome and bottom dock rock-solid during view transitions */
+::view-transition-group(top-chrome),
+::view-transition-group(bottom-dock) {
+  animation: none;
+  z-index: 9999;
+}
+
+/* Mascot Slots and Lit Moon Stage */
+.mascot-slot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mascot-lit-stage {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(242, 194, 48, 0.22) 0%, rgba(255, 241, 220, 0.05) 55%, transparent 75%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.mascot-svg-img {
+  position: relative;
+  z-index: 1;
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
+}
+
+.grammar-mascot-box {
+  width: 80px;
+  height: 80px;
+}
+
+.settings-mascot-box {
+  width: 72px;
+  height: 72px;
+}
+
+/* Universal JLPT Level Badge in Top Chrome */
+.top-chrome-learner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  background-color: var(--surface-container-high);
+  border: 1px solid var(--cat-eye);
+  color: var(--cat-eye);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform var(--duration-instant) ease, background-color var(--duration-fast) ease;
+}
+
+.top-chrome-learner-badge:hover {
+  transform: translateY(-1px);
+  background-color: var(--surface-container-highest);
+}

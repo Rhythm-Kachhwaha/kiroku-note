@@ -1,11 +1,12 @@
 /**
  * Kiroku Note Desktop — Kanji Studio View Controller
  * Kanji search, real KanjiVG stroke order player, On/Kun readings matrix,
- * radical breakdowns, level browsing and common compounds with 1-click card mining.
+ * radical breakdowns, universal JLPT level sync, level browsing and common compounds with 1-click card mining.
  */
 
 import { apiClient } from '../services/api_client.js';
 import { renderAssetSlot } from '../assets_map.js';
+import { getUniversalJlptLevel } from '../utils/learner.js';
 
 export class KanjiView {
   constructor(router) {
@@ -17,11 +18,20 @@ export class KanjiView {
     this.playTimer = null;
     this.currentStrokeIndex = 0;
     this.strokePaths = [];
-    this.activeLevel = 'N3';
+    this.activeLevel = 'N4';
   }
 
-  mount(container) {
+  async mount(container) {
     this.container = container;
+    try {
+      const univLevel = await getUniversalJlptLevel();
+      if (univLevel) {
+        this.activeLevel = univLevel;
+      }
+    } catch (err) {
+      console.debug('[Kanji] Resolve universal level error:', err);
+    }
+
     this.render();
     this.setupEvents();
     this.loadKanji(this.currentChar);
@@ -53,12 +63,10 @@ export class KanjiView {
 
             <!-- JLPT Filter Pills -->
             <div class="kanji-level-filters" role="radiogroup" aria-label="JLPT Level">
-              <button class="level-pill" data-level="N5">N5</button>
-              <button class="level-pill" data-level="N4">N4</button>
-              <button class="level-pill is-active" data-level="N3">N3</button>
-              <button class="level-pill" data-level="N2">N2</button>
-              <button class="level-pill" data-level="N1">N1</button>
-              <button class="level-pill" data-level="joyo">Joyo (常用)</button>
+              ${['N5', 'N4', 'N3', 'N2', 'N1'].map(lvl => `
+                <button class="level-pill ${lvl === this.activeLevel ? 'is-active' : ''}" data-level="${lvl}">${lvl}</button>
+              `).join('')}
+              <button class="level-pill ${this.activeLevel === 'joyo' ? 'is-active' : ''}" data-level="joyo">Joyo</button>
             </div>
 
             <!-- Kanji Quick Browse Row -->
@@ -80,7 +88,7 @@ export class KanjiView {
               <!-- Mandatory Pitch-Black Stroke Player Surface (#000000) -->
               <div class="kanji-stroke-card surface-pitch-black tactile-card">
                 <div class="stroke-header-row">
-                  <span class="stroke-title">KanjiVG Stroke Order Engine · 筆順</span>
+                  <span class="stroke-title">Stroke Order</span>
                   <span class="stroke-counter-tag font-mono text-gold" id="stroke-counter">Stroke -- of --</span>
                 </div>
 
@@ -122,15 +130,15 @@ export class KanjiView {
                   <table class="readings-table">
                     <tbody>
                       <tr>
-                        <th class="reading-type">On'yomi (音読み)</th>
+                        <th class="reading-type">On'yomi</th>
                         <td class="reading-value font-bold text-gold" id="kanji-onyomi">--</td>
                       </tr>
                       <tr>
-                        <th class="reading-type">Kun'yomi (訓読み)</th>
+                        <th class="reading-type">Kun'yomi</th>
                         <td class="reading-value text-warm-paper" id="kanji-kunyomi">--</td>
                       </tr>
                       <tr>
-                        <th class="reading-type">Radical (部首)</th>
+                        <th class="reading-type">Radical</th>
                         <td class="reading-value text-secondary" id="kanji-radical">--</td>
                       </tr>
                     </tbody>
@@ -141,7 +149,7 @@ export class KanjiView {
               <!-- High-Frequency Compounds Table with 1-Click Mine Stamp -->
               <div class="compounds-card tactile-card">
                 <div class="compounds-header-row">
-                  <span class="compounds-title">Common Compounds · 熟語</span>
+                  <span class="compounds-title">Common Compounds</span>
                   <span class="text-xs text-muted">1-Click Mine to Local &amp; Anki</span>
                 </div>
                 <div class="compounds-list" id="compounds-list">
@@ -183,7 +191,7 @@ export class KanjiView {
     if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
       window.chrome.storage.local.get('kanji.activeLevel').then((stored) => {
         const lvl = stored?.['kanji.activeLevel'];
-        if (lvl && ['N5', 'N4', 'N3', 'N2', 'N1'].includes(lvl)) {
+        if (lvl && ['N5', 'N4', 'N3', 'N2', 'N1', 'joyo'].includes(lvl)) {
           this.activeLevel = lvl;
           levelPills.forEach((p) => p.classList.toggle('is-active', p.dataset.level === lvl));
           this.loadLevelBrowse(this.activeLevel);
@@ -300,7 +308,7 @@ export class KanjiView {
     const radicalEl = document.getElementById('kanji-radical');
 
     const level = details.level || '--';
-    const grade = details.grade ? `Grade ${details.grade} (小学校)` : 'Non-Joyo';
+    const grade = details.grade ? `Grade ${details.grade}` : 'Non-Joyo';
     const freq = details.freq ? `Frequency Rank #${details.freq}` : 'Rare';
     const strokes = details.strokes ? `${details.strokes} Strokes` : '';
     const meanings = (details.meanings || []).join(' · ') || 'No English meaning';
@@ -356,11 +364,11 @@ export class KanjiView {
 
     this.strokePaths.forEach((path, i) => {
       if (i < this.currentStrokeIndex) {
-        path.style.stroke = '#F5F1E8';
+        path.style.stroke = '#FFF1DC';
         path.style.opacity = '1';
         path.style.strokeWidth = '3';
       } else if (i === this.currentStrokeIndex) {
-        path.style.stroke = '#C8A94A'; // Gold accent for active stroke
+        path.style.stroke = '#F2C230'; // Cat-eye accent for active stroke
         path.style.opacity = '1';
         path.style.strokeWidth = '4.5';
       } else {
@@ -486,19 +494,31 @@ export class KanjiView {
     container.innerHTML = `<span class="text-xs text-muted">Loading ${level} kanji...</span>`;
 
     try {
-      const res = await apiClient.browseKanji({ level, limit: 18 });
-      const kanjiList = res?.kanji || [];
+      const [browseRes, seenRes] = await Promise.allSettled([
+        apiClient.browseKanji({ level, limit: 18 }),
+        apiClient.getSeenKanji()
+      ]);
+
+      const kanjiList = (browseRes.status === 'fulfilled' && browseRes.value?.kanji) ? browseRes.value.kanji : [];
+      const seenMap = (seenRes.status === 'fulfilled' && seenRes.value?.seen_kanji) ? seenRes.value.seen_kanji : {};
 
       if (kanjiList.length === 0) {
         container.innerHTML = `<span class="text-xs text-muted">No kanji listed for ${level}.</span>`;
         return;
       }
 
-      container.innerHTML = kanjiList.map((k) => `
-        <button type="button" class="kanji-browse-chip" data-char="${escapeHtml(k.character)}">
-          ${escapeHtml(k.character)}
-        </button>
-      `).join('');
+      container.innerHTML = kanjiList.map((k) => {
+        const isSeen = Boolean(seenMap[k.character]);
+        const seenClass = isSeen ? 'is-seen-kanji' : '';
+        const titleText = isSeen ? `${k.character} (${seenMap[k.character]} seen in cards)` : k.character;
+
+        return `
+          <button type="button" class="kanji-browse-chip ${seenClass}" data-char="${escapeHtml(k.character)}" title="${escapeHtml(titleText)}">
+            ${escapeHtml(k.character)}
+            ${isSeen ? '<span class="seen-indicator-dot"></span>' : ''}
+          </button>
+        `;
+      }).join('');
 
       container.querySelectorAll('.kanji-browse-chip').forEach((chip) => {
         chip.addEventListener('click', () => {

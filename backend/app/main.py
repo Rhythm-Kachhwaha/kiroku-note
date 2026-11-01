@@ -52,6 +52,13 @@ from app.schemas import (
     SyncAllResponse,
     SyncCardResponse,
     YomitanDictionariesResponse,
+    LearnerSettingsResponse,
+    LearnerSettingsUpdateRequest,
+    VocabCoverageResponse,
+    VocabCoverageLevelItem,
+    VocabGapsResponse,
+    VocabGapItem,
+    KanjiSeenResponse,
 )
 from app.config import (
     APP_VERSION,
@@ -68,6 +75,9 @@ from app.config import (
     resolve_llm_timeout,
     save_stored_llm_config,
     VALID_JLPT_LEVELS,
+    get_learner_jlpt_level,
+    is_within_learner_level,
+    normalize_jlpt_level,
 )
 from app.services.card_service import CardService
 from app.services.ocr_service import (
@@ -1126,3 +1136,142 @@ def get_dashboard_redirect() -> Response:
     if token:
         target += f"?token={token}"
     return RedirectResponse(url=target)
+
+
+# ============================================================================
+# Learner Settings & Progress Routes
+# ============================================================================
+
+
+@app.get("/api/learner", response_model=LearnerSettingsResponse)
+def get_learner_settings() -> LearnerSettingsResponse:
+    """Return configured unified learner JLPT level and study preferences."""
+    level = get_learner_jlpt_level()
+    stored = load_stored_llm_config()
+    preferences = stored.get("learner_preferences", {})
+    return LearnerSettingsResponse(learner_level=level, preferences=preferences)
+
+
+@app.put("/api/learner", response_model=LearnerSettingsResponse)
+def update_learner_settings(request: LearnerSettingsUpdateRequest) -> LearnerSettingsResponse:
+    """Update unified learner JLPT level and study preferences."""
+    stored = load_stored_llm_config()
+    if request.learner_level is not None:
+        norm = normalize_jlpt_level(request.learner_level)
+        if norm:
+            stored["learner_jlpt_level"] = norm
+            stored["jlpt_level"] = norm
+    if request.preferences is not None:
+        current_prefs = stored.get("learner_preferences", {})
+        if isinstance(current_prefs, dict):
+            current_prefs.update(request.preferences)
+            stored["learner_preferences"] = current_prefs
+        else:
+            stored["learner_preferences"] = request.preferences
+    save_stored_llm_config(stored)
+    level = get_learner_jlpt_level()
+    return LearnerSettingsResponse(learner_level=level, preferences=stored.get("learner_preferences", {}))
+
+
+@app.get("/api/vocab/coverage", response_model=VocabCoverageResponse)
+def get_vocab_coverage() -> VocabCoverageResponse:
+    """Return vocabulary coverage (known, mined, total) per JLPT level."""
+    from app.services.jlpt_reference import JlptReferenceService
+    jlpt_service = JlptReferenceService()
+    
+    levels = {lvl: VocabCoverageLevelItem(level=lvl, total=0, known=0, mined=0) for lvl in ("N5", "N4", "N3", "N2", "N1")}
+    conn = jlpt_service._get_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            for row in cursor.execute("SELECT level, count(*) FROM vocab WHERE level IN ('N5','N4','N3','N2','N1') GROUP BY level"):
+                lvl = row[0]
+                if lvl in levels:
+                    levels[lvl].total = int(row[1])
+        except Exception:
+            pass
+            
+    mined_words_set = set()
+    total_known = 0
+    with db_session() as db:
+        for r in db.execute("SELECT expression FROM cards").fetchall():
+            expr = str(r[0] or "").strip()
+            if expr:
+                mined_words_set.add(expr)
+                lvl = jlpt_service.lookup_word(expr)
+                if lvl and lvl in levels:
+                    levels[lvl].mined += 1
+                    
+        for r in db.execute("SELECT word FROM known_words").fetchall():
+            w = str(r[0] or "").strip()
+            if w:
+                total_known += 1
+                lvl = jlpt_service.lookup_word(w)
+                if lvl and lvl in levels:
+                    levels[lvl].known += 1
+
+    return VocabCoverageResponse(
+        levels=levels,
+        total_known=total_known,
+        total_mined=len(mined_words_set)
+    )
+
+
+@app.get("/api/vocab/gaps", response_model=VocabGapsResponse)
+def get_vocab_gaps(level: str | None = None, limit: int = 50) -> VocabGapsResponse:
+    """Return words at or below target JLPT level not yet in known or mined vocabulary."""
+    from app.services.jlpt_reference import JlptReferenceService
+    target_level = normalize_jlpt_level(level) or get_learner_jlpt_level()
+    jlpt_service = JlptReferenceService()
+    
+    excluded = set()
+    with db_session() as db:
+        for r in db.execute("SELECT expression FROM cards").fetchall():
+            if r[0]:
+                excluded.add(str(r[0]).strip())
+        for r in db.execute("SELECT word FROM known_words").fetchall():
+            if r[0]:
+                excluded.add(str(r[0]).strip())
+                
+    gaps: list[VocabGapItem] = []
+    conn = jlpt_service._get_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            allowed_levels = [lvl for lvl in ("N5", "N4", "N3", "N2", "N1") if is_within_learner_level(lvl, target_level)]
+            placeholders = ",".join("?" for _ in allowed_levels)
+            query = f"SELECT word, reading, meaning, level FROM vocab WHERE level IN ({placeholders}) ORDER BY level DESC, id ASC"
+            for row in cursor.execute(query, allowed_levels).fetchall():
+                word = str(row[0] or "").strip()
+                if word and word not in excluded:
+                    gaps.append(VocabGapItem(
+                        expression=word,
+                        reading=str(row[1] or ""),
+                        meaning=str(row[2] or ""),
+                        jlpt_level=str(row[3] or target_level)
+                    ))
+                    if len(gaps) >= max(1, min(int(limit), 200)):
+                        break
+        except Exception:
+            pass
+
+    return VocabGapsResponse(level=target_level, gaps=gaps, total_gaps=len(gaps))
+
+
+@app.get("/api/kanji/seen", response_model=KanjiSeenResponse)
+def get_seen_kanji() -> KanjiSeenResponse:
+    """Return map of kanji characters and frequencies found in mined cards and known words."""
+    seen: dict[str, int] = {}
+    with db_session() as db:
+        for r in db.execute("SELECT expression FROM cards").fetchall():
+            expr = str(r[0] or "")
+            for ch in expr:
+                if '一' <= ch <= '鿿':
+                    seen[ch] = seen.get(ch, 0) + 1
+        for r in db.execute("SELECT word FROM known_words").fetchall():
+            w = str(r[0] or "")
+            for ch in w:
+                if '一' <= ch <= '鿿':
+                    seen[ch] = seen.get(ch, 0) + 1
+
+    return KanjiSeenResponse(seen_kanji=seen, total_seen=len(seen))

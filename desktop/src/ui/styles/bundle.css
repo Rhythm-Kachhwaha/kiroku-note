@@ -2300,3 +2300,173 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   color: var(--text-secondary);
   line-height: 1.35;
 }
+
+/* ==========================================================================
+   Vocab Desk v2 & Shelf Styles
+   ========================================================================== */
+.vocab-mode-tabs {
+  display: inline-flex;
+  gap: 4px;
+  background-color: var(--surface-container, #1c1815);
+  border: 1.5px solid var(--tactile-stroke, #3a2e26);
+  border-radius: var(--radius-md, 8px);
+  padding: 3px;
+}
+
+.vocab-mode-tab {
+  padding: 4px 12px;
+  border-radius: var(--radius-sm, 6px);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #c7b9a5);
+  font-family: var(--font-ui, sans-serif);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vocab-mode-tab.is-active {
+  background-color: var(--marmalade, #FF8A1F);
+  color: var(--soot, #000000);
+}
+
+.vocab-gaps-shelf {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+}
+
+.gaps-shelf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.gaps-title-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.gaps-title {
+  font-size: 0.95rem;
+  color: var(--milk, #FFF1DC);
+}
+
+.vocab-gaps-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.gap-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-sm, 6px);
+  border: 1.5px solid var(--tactile-stroke, #3a2e26);
+  background: var(--surface-container, #1c1815);
+  color: var(--milk, #FFF1DC);
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.1s ease;
+}
+
+.gap-chip:hover {
+  transform: translateY(-1px);
+  border-color: var(--cat-eye, #F2C230);
+}
+
+.gap-word {
+  font-family: var(--font-japanese, 'Zen Maru Gothic', sans-serif);
+  font-size: 0.95rem;
+}
+
+.text-annotate-card {
+  padding: 1.25rem;
+}
+
+.text-annotate-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.85rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.annotation-legend {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.legend-chip {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm, 4px);
+  font-weight: 600;
+}
+
+.legend-should-know {
+  background: rgba(242, 194, 48, 0.2);
+  border: 1.5px solid var(--cat-eye, #F2C230);
+  color: var(--cat-eye, #F2C230);
+}
+
+.legend-mined {
+  background: rgba(255, 138, 31, 0.2);
+  border: 1.5px solid var(--marmalade, #FF8A1F);
+  color: var(--marmalade, #FF8A1F);
+}
+
+.legend-known {
+  background: rgba(154, 205, 91, 0.2);
+  border: 1.5px solid var(--matcha, #9ACD5B);
+  color: var(--matcha, #9ACD5B);
+}
+
+.annotated-tokens-stage {
+  line-height: 2.2;
+  font-family: var(--font-japanese, 'Zen Maru Gothic', sans-serif);
+  font-size: 1.15rem;
+  padding: 1rem;
+}
+
+.vocab-annotated-token {
+  display: inline-block;
+  padding: 2px 6px;
+  margin: 2px 1px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.vocab-annotated-token:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.vocab-annotated-token.token-should-know {
+  background: rgba(242, 194, 48, 0.2);
+  border: 1.5px solid var(--cat-eye, #F2C230);
+  color: var(--milk, #FFF1DC);
+}
+
+.vocab-annotated-token.token-mined {
+  background: rgba(255, 138, 31, 0.2);
+  border: 1.5px solid var(--marmalade, #FF8A1F);
+  color: var(--milk, #FFF1DC);
+}
+
+.vocab-annotated-token.token-known {
+  background: rgba(154, 205, 91, 0.2);
+  border: 1.5px solid var(--matcha, #9ACD5B);
+  color: var(--milk, #FFF1DC);
+}
+
+.vocab-annotated-token.token-unstyled {
+  border: 1.5px solid transparent;
+  color: var(--milk, #FFF1DC);
+}

@@ -5977,6 +5977,157 @@
           }
         }
       }
+    },
+    "/api/learner": {
+      "get": {
+        "summary": "Get Learner Settings",
+        "description": "Return configured unified learner JLPT level and study preferences.",
+        "operationId": "get_learner_settings_api_learner_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearnerSettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Learner Settings",
+        "description": "Update unified learner JLPT level and study preferences.",
+        "operationId": "update_learner_settings_api_learner_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LearnerSettingsUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearnerSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocab/coverage": {
+      "get": {
+        "summary": "Get Vocab Coverage",
+        "description": "Return vocabulary coverage (known, mined, total) per JLPT level.",
+        "operationId": "get_vocab_coverage_api_vocab_coverage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VocabCoverageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocab/gaps": {
+      "get": {
+        "summary": "Get Vocab Gaps",
+        "description": "Return words at or below target JLPT level not yet in known or mined vocabulary.",
+        "operationId": "get_vocab_gaps_api_vocab_gaps_get",
+        "parameters": [
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Level"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VocabGapsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/kanji/seen": {
+      "get": {
+        "summary": "Get Seen Kanji",
+        "description": "Return map of kanji characters and frequencies found in mined cards and known words.",
+        "operationId": "get_seen_kanji_api_kanji_seen_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanjiSeenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -9096,6 +9247,24 @@
         ],
         "title": "KanjiEntry"
       },
+      "KanjiSeenResponse": {
+        "properties": {
+          "seen_kanji": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Seen Kanji"
+          },
+          "total_seen": {
+            "type": "integer",
+            "title": "Total Seen",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "KanjiSeenResponse"
+      },
       "KnownWordsResponse": {
         "properties": {
           "etag": {
@@ -9699,6 +9868,54 @@
           "provider"
         ],
         "title": "LLMTestResponse"
+      },
+      "LearnerSettingsResponse": {
+        "properties": {
+          "learner_level": {
+            "type": "string",
+            "title": "Learner Level"
+          },
+          "preferences": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Preferences"
+          }
+        },
+        "type": "object",
+        "required": [
+          "learner_level"
+        ],
+        "title": "LearnerSettingsResponse"
+      },
+      "LearnerSettingsUpdateRequest": {
+        "properties": {
+          "learner_level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learner Level"
+          },
+          "preferences": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferences"
+          }
+        },
+        "type": "object",
+        "title": "LearnerSettingsUpdateRequest"
       },
       "LearningOverviewResponse": {
         "properties": {
@@ -12194,6 +12411,110 @@
           "status"
         ],
         "title": "VerificationProvenanceDTO"
+      },
+      "VocabCoverageLevelItem": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "known": {
+            "type": "integer",
+            "title": "Known",
+            "default": 0
+          },
+          "mined": {
+            "type": "integer",
+            "title": "Mined",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "level"
+        ],
+        "title": "VocabCoverageLevelItem"
+      },
+      "VocabCoverageResponse": {
+        "properties": {
+          "levels": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/VocabCoverageLevelItem"
+            },
+            "type": "object",
+            "title": "Levels"
+          },
+          "total_known": {
+            "type": "integer",
+            "title": "Total Known",
+            "default": 0
+          },
+          "total_mined": {
+            "type": "integer",
+            "title": "Total Mined",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "VocabCoverageResponse"
+      },
+      "VocabGapItem": {
+        "properties": {
+          "expression": {
+            "type": "string",
+            "title": "Expression"
+          },
+          "reading": {
+            "type": "string",
+            "title": "Reading",
+            "default": ""
+          },
+          "meaning": {
+            "type": "string",
+            "title": "Meaning",
+            "default": ""
+          },
+          "jlpt_level": {
+            "type": "string",
+            "title": "Jlpt Level"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expression",
+          "jlpt_level"
+        ],
+        "title": "VocabGapItem"
+      },
+      "VocabGapsResponse": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "gaps": {
+            "items": {
+              "$ref": "#/components/schemas/VocabGapItem"
+            },
+            "type": "array",
+            "title": "Gaps"
+          },
+          "total_gaps": {
+            "type": "integer",
+            "title": "Total Gaps",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "level"
+        ],
+        "title": "VocabGapsResponse"
       },
       "WeakAreaItem": {
         "properties": {

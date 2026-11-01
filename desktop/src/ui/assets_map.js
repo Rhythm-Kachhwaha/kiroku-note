@@ -8,7 +8,7 @@ export const ASSET_MAP = {
   'home-companion-sphinx': {
     type: 'svg',
     path: './ui/assets/mascot/svg_cat.svg',
-    alt: 'Kiroku Sphinx Cat Companion',
+    alt: 'Kiroku Cat Companion',
     hasPupilTracking: true
   },
   'grammar-attentive-study': {
@@ -18,30 +18,35 @@ export const ASSET_MAP = {
     lottiePath: './ui/assets/mascot/Cat typing.json'
   },
   'kanji-stroke-observing': {
-    type: 'placeholder',
-    label: 'Kanji Companion Slot'
+    type: 'svg',
+    path: './ui/assets/mascot/Black Cat Green Eyes Peeping.svg',
+    alt: 'Black Cat Observing Kanji Strokes'
   },
   'test-result-celebration': {
     type: 'svg',
     path: './ui/assets/mascot/rainbowcat_svg.svg',
-    alt: 'Rainbow Celebration Cat',
+    alt: 'Celebration Cat',
     lottiePath: './ui/assets/mascot/rainbow cat.json'
   },
   'vocab-idle-reading': {
-    type: 'placeholder',
-    label: 'Vocab Companion Slot'
+    type: 'svg',
+    path: './ui/assets/mascot/Cat typing.svg',
+    alt: 'Reading Cat'
   },
   'test-exam-proctor': {
-    type: 'placeholder',
-    label: 'Proctor Mascot Slot'
+    type: 'svg',
+    path: './ui/assets/mascot/svg_cat.svg',
+    alt: 'Exam Proctor Cat'
   },
   'study-drill-cheer': {
-    type: 'placeholder',
-    label: 'Drill Companion Slot'
+    type: 'svg',
+    path: './ui/assets/mascot/rainbowcat_svg.svg',
+    alt: 'Practice Cheer Cat'
   },
   'settings-mechanic-cat': {
-    type: 'placeholder',
-    label: 'Settings Companion Slot'
+    type: 'svg',
+    path: './ui/assets/mascot/Cat typing.svg',
+    alt: 'Settings Assistant Cat'
   }
 };
 
@@ -60,18 +65,16 @@ export function renderAssetSlot(slotKey, extraClass = '') {
   if (asset.type === 'svg' && asset.path) {
     return `
       <div class="mascot-slot mascot-slot-svg ${extraClass}" data-slot="${slotKey}">
+        <div class="mascot-lit-stage"></div>
         <img src="${asset.path}" alt="${asset.alt || ''}" class="mascot-svg-img" loading="eager" />
       </div>
     `;
   }
 
   return `
-    <div class="mascot-slot mascot-slot-placeholder ${extraClass}" data-slot="${slotKey}" title="${asset.label || slotKey}">
-      <span class="mascot-slot-label">[MASCOT: ${slotKey}]</span>
-    </div>
+    <div class="mascot-slot mascot-slot-empty ${extraClass}" data-slot="${slotKey}"></div>
   `;
 }
-
 
 /**
  * Progressive enhancement helper to initialize vendored Lottie vector animations

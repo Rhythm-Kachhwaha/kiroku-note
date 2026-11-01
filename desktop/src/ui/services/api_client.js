@@ -194,6 +194,16 @@ export class ApiClient {
     });
   }
 
+  async annotateText(text, learnerLevel = null) {
+    return this.request('/api/subtitle/annotate', {
+      method: 'POST',
+      body: {
+        cues: [{ id: 1, text: text || '' }],
+        learner_level: learnerLevel
+      }
+    });
+  }
+
   // Known Words
   async getKnownWords() {
     return this.request('/api/known-words');
@@ -295,6 +305,33 @@ export class ApiClient {
 
   async stopOcr() {
     return this.request('/api/ocr/stop', { method: 'POST' });
+  }
+
+  // Learner Settings & Study Progress
+  async getLearnerSettings() {
+    return this.request('/api/learner');
+  }
+
+  async updateLearnerSettings(data) {
+    return this.request('/api/learner', {
+      method: 'PUT',
+      body: data
+    });
+  }
+
+  async getVocabCoverage() {
+    return this.request('/api/vocab/coverage');
+  }
+
+  async getVocabGaps(level = null, limit = 50) {
+    const query = {};
+    if (level) query.level = level;
+    if (limit) query.limit = limit;
+    return this.request('/api/vocab/gaps', { query });
+  }
+
+  async getSeenKanji() {
+    return this.request('/api/kanji/seen');
   }
 }
 

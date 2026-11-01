@@ -1,19 +1,48 @@
 /**
  * Kiroku Note Desktop — Shared Top Chrome Component
- * Wordmark letter lift, frameless window branding, and quick navigation actions.
- * Note: Service statuses reside strictly in the Settings tab.
+ * Wordmark letter lift, frameless window branding, universal learner level badge,
+ * and quick navigation actions.
  */
+
+import { getUniversalJlptLevel } from '../utils/learner.js';
 
 export class TopChrome {
   constructor(options = {}) {
     this.container = options.container || document.getElementById('top-chrome-container');
     this.onNavigate = options.onNavigate || (() => {});
+    this.handleLevelChanged = this.handleLevelChanged.bind(this);
   }
 
-  init() {
+  async init() {
     this.render();
     this.setupWordmarkAnimation();
     this.setupActions();
+    await this.updateLearnerBadge();
+
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
+      window.addEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
+    }
+  }
+
+  handleLevelChanged(e) {
+    const level = e?.detail?.level;
+    const badge = document.getElementById('btn-top-chrome-level');
+    if (badge && level) {
+      badge.textContent = `JLPT ${level}`;
+    }
+  }
+
+  async updateLearnerBadge() {
+    try {
+      const level = await getUniversalJlptLevel();
+      const badge = document.getElementById('btn-top-chrome-level');
+      if (badge && level) {
+        badge.textContent = `JLPT ${level}`;
+      }
+    } catch (err) {
+      console.debug('[TopChrome] Update badge error:', err);
+    }
   }
 
   render() {
@@ -36,8 +65,13 @@ export class TopChrome {
           </div>
         </div>
 
-        <!-- Right: Quick Navigation Actions -->
+        <!-- Right: Universal Level & Quick Navigation Actions -->
         <div class="top-chrome-right">
+          <!-- Universal JLPT Study Level Badge -->
+          <button type="button" class="top-chrome-learner-badge" id="btn-top-chrome-level" title="Universal JLPT Level — Click to change in Settings" aria-label="Target JLPT Level">
+            JLPT N4
+          </button>
+
           <!-- History Action Button -->
           <button class="chrome-action-btn" id="btn-chrome-history" title="Card Mining History" aria-label="View Mining History">
             <svg viewBox="0 0 24 24">
@@ -62,7 +96,6 @@ export class TopChrome {
 
     if (!brandContainer || !letters.length) return;
 
-    // Mousemove ripple stagger
     brandContainer.addEventListener('mousemove', (e) => {
       const mouseX = e.clientX;
       letters.forEach((letter) => {
@@ -96,6 +129,13 @@ export class TopChrome {
   }
 
   setupActions() {
+    const btnLevel = document.getElementById('btn-top-chrome-level');
+    if (btnLevel) {
+      btnLevel.addEventListener('click', () => {
+        this.onNavigate('settings');
+      });
+    }
+
     const btnHistory = document.getElementById('btn-chrome-history');
     if (btnHistory) {
       btnHistory.addEventListener('click', () => {
@@ -112,6 +152,8 @@ export class TopChrome {
   }
 
   destroy() {
-    // Top chrome cleanup
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('kiroku:learner-level-changed', this.handleLevelChanged);
+    }
   }
 }

@@ -38,15 +38,15 @@ export class VocabHistoryView {
           <div class="history-header-section">
             <div class="history-title-row">
               <div class="history-title-group">
-                <h1 class="history-page-title">Mined Cards & Inventory · 単語帳</h1>
-                <p class="history-page-sub">Local SQLite storage with automatic AnkiConnect background synchronization.</p>
+                <h1 class="history-page-title">Mined cards and inventory</h1>
+                <p class="history-page-sub">Local cards stored in SQLite with background AnkiConnect synchronization.</p>
               </div>
               <div class="history-header-actions">
                 <button class="tactile-btn tactile-btn-primary" id="btn-sync-all-pending">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                     <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
                   </svg>
-                  <span>Sync Pending to Anki</span>
+                  <span>Sync pending to Anki</span>
                 </button>
                 <button class="tactile-btn" id="btn-export-csv" title="Export cards collection">
                   <span>Export</span>
@@ -57,23 +57,23 @@ export class VocabHistoryView {
             <!-- 5 Telemetry Metric Pods -->
             <div class="metrics-grid">
               <div class="metric-pod tactile-card">
-                <span class="metric-label">TOTAL MINED</span>
+                <span class="metric-label">Total mined</span>
                 <span class="metric-value" id="metric-total">0</span>
               </div>
               <div class="metric-pod tactile-card">
-                <span class="metric-label text-green">SYNCED TO ANKI</span>
+                <span class="metric-label text-green">Synced to Anki</span>
                 <span class="metric-value text-green" id="metric-synced">0</span>
               </div>
               <div class="metric-pod tactile-card">
-                <span class="metric-label text-amber">PENDING SYNC</span>
+                <span class="metric-label text-amber">Pending sync</span>
                 <span class="metric-value text-amber" id="metric-pending">0</span>
               </div>
               <div class="metric-pod tactile-card">
-                <span class="metric-label text-red">FAILED SYNC</span>
+                <span class="metric-label text-red">Failed sync</span>
                 <span class="metric-value text-red" id="metric-failed">0</span>
               </div>
               <div class="metric-pod tactile-card">
-                <span class="metric-label text-gold">TODAY'S MINED</span>
+                <span class="metric-label text-gold">Today's mined</span>
                 <span class="metric-value text-gold" id="metric-today">0</span>
               </div>
             </div>
@@ -536,24 +536,24 @@ export class VocabHistoryView {
       </div>
 
       <div class="inspector-field">
-        <label>Meaning & Gloss</label>
+        <label>Meaning and gloss</label>
         <p class="inspector-text">${escapeHtml(card.meaning || 'No definition')}</p>
       </div>
 
       <div class="inspector-field">
-        <label>Context Sentence</label>
+        <label>Example sentence</label>
         <p class="inspector-sentence-ja">${escapeHtml(card.example_sentence || card.sentence || 'No context sentence')}</p>
         <p class="inspector-sentence-en text-muted">${escapeHtml(card.example_translation || card.sentence_translation || '')}</p>
       </div>
 
       <div class="inspector-field">
-        <label>Anki Note ID</label>
+        <label>Anki note ID</label>
         <p class="font-mono text-gold">${escapeHtml(String(card.anki_note_id || 'Not synced yet'))}</p>
       </div>
 
       <div class="inspector-actions">
         <button class="tactile-btn tactile-btn-primary" id="btn-drawer-sync">Sync to Anki</button>
-        <button class="tactile-btn text-red" id="btn-drawer-delete">Delete Card</button>
+        <button class="tactile-btn text-red" id="btn-drawer-delete">Delete card</button>
       </div>
     `;
 

@@ -2,11 +2,12 @@
  * Kiroku Note Desktop — Grammar Studio View Controller
  * Sentence analyzer, pitch-black segmented visualizer, token hover elevation,
  * grammar point detail card with JLPT level, formations, mastery toggles,
- * and live syllabus browser by level.
+ * universal JLPT level sync, and live syllabus browser by level.
  */
 
 import { apiClient } from '../services/api_client.js';
 import { renderAssetSlot } from '../assets_map.js';
+import { getUniversalJlptLevel } from '../utils/learner.js';
 
 export class GrammarView {
   constructor(router) {
@@ -18,8 +19,17 @@ export class GrammarView {
     this.currentSyllabusSearch = '';
   }
 
-  mount(container) {
+  async mount(container) {
     this.container = container;
+    try {
+      const univLevel = await getUniversalJlptLevel();
+      if (univLevel) {
+        this.currentSyllabusLevel = univLevel;
+      }
+    } catch (err) {
+      console.debug('[Grammar] Resolve universal level error:', err);
+    }
+
     this.render();
     this.setupEvents();
     this.loadInitialGrammarStats();
@@ -35,7 +45,7 @@ export class GrammarView {
             <div>
               <div class="flex items-center gap-2">
                 <span class="grammar-header-dot"></span>
-                <span class="font-mono text-sm tracking-widest text-primary uppercase">GRAMMAR STUDIO · 文法分析</span>
+                <span class="font-mono text-sm text-primary">Grammar Studio</span>
               </div>
               <h1 class="grammar-title">Sentence Structure &amp; Grammar Reference</h1>
               <p class="grammar-subtitle">Morphological tokenization with audited JLPT grammar patterns (N5–N1).</p>
@@ -52,7 +62,7 @@ export class GrammarView {
 
           <!-- Sentence Analyzer Input Card -->
           <div class="grammar-analyzer-card tactile-card">
-            <label for="sentence-input" class="grammar-input-label">Enter Japanese Sentence (文を入力)</label>
+            <label for="sentence-input" class="grammar-input-label">Enter Japanese Sentence</label>
             <div class="analyzer-textarea-wrap">
               <textarea
                 id="sentence-input"
@@ -80,7 +90,7 @@ export class GrammarView {
           <!-- Mandatory Pitch-Black Segmented Visualizer (#000000) -->
           <div class="grammar-visualizer-card surface-pitch-black tactile-card">
             <div class="visualizer-header-row">
-              <span class="visualizer-title">Tokenized Structure · 構文解析</span>
+              <span class="visualizer-title">Tokenized Structure</span>
               <span class="text-xs text-gold">Click any token to inspect grammatical rules</span>
             </div>
             <div class="tokens-flow-container" id="tokens-flow">
@@ -108,15 +118,15 @@ export class GrammarView {
 
                 <!-- Mastery Status Selector -->
                 <div class="mastery-status-group" id="mastery-status-group" role="radiogroup" aria-label="Grammar Point Mastery">
-                  <button type="button" class="mastery-pill" data-status="new">New (新規)</button>
-                  <button type="button" class="mastery-pill" data-status="learning">Learning (学習中)</button>
-                  <button type="button" class="mastery-pill" data-status="known">Known (習得済み)</button>
+                  <button type="button" class="mastery-pill" data-status="new">New</button>
+                  <button type="button" class="mastery-pill" data-status="learning">Learning</button>
+                  <button type="button" class="mastery-pill" data-status="known">Known</button>
                 </div>
               </div>
 
               <!-- Formation Rules -->
               <div class="point-formation-box">
-                <h4 class="formation-label">Structure &amp; Formations (接続)</h4>
+                <h4 class="formation-label">Formations</h4>
                 <div class="formation-list" id="point-formations">
                   <span class="text-sm text-muted">No formation rules listed.</span>
                 </div>
@@ -124,7 +134,7 @@ export class GrammarView {
 
               <!-- Curated Example Sentences -->
               <div class="point-examples-section">
-                <h4 class="examples-label">Curated Sentences (例文)</h4>
+                <h4 class="examples-label">Curated Examples</h4>
                 <div class="examples-list" id="point-examples">
                   <span class="text-sm text-muted">No example sentences available.</span>
                 </div>
@@ -132,7 +142,7 @@ export class GrammarView {
 
               <!-- Sentence Encounters (Mining History Context) -->
               <div class="point-encounters-section mt-4">
-                <h4 class="examples-label">Prior Sentence Encounters (遭遇履歴)</h4>
+                <h4 class="examples-label">Prior Sentence Encounters</h4>
                 <div class="encounters-list" id="point-encounters">
                   <span class="text-sm text-muted">Select a grammar point to inspect encounters.</span>
                 </div>
@@ -143,17 +153,17 @@ export class GrammarView {
           <!-- Syllabus Browser by Level -->
           <div class="grammar-syllabus-card tactile-card">
             <div class="visualizer-header-row">
-              <span class="visualizer-title">JLPT Grammar Syllabus · 文法一覧</span>
+              <span class="visualizer-title">JLPT Grammar Syllabus</span>
               <span class="text-xs text-muted" id="syllabus-count-label">Loading syllabus...</span>
             </div>
             <div class="syllabus-controls-row">
               <div class="syllabus-level-pills" id="syllabus-level-pills">
-                <button type="button" class="syllabus-level-pill" data-level="">All</button>
-                <button type="button" class="syllabus-level-pill" data-level="N5">N5</button>
-                <button type="button" class="syllabus-level-pill is-active" data-level="N4">N4</button>
-                <button type="button" class="syllabus-level-pill" data-level="N3">N3</button>
-                <button type="button" class="syllabus-level-pill" data-level="N2">N2</button>
-                <button type="button" class="syllabus-level-pill" data-level="N1">N1</button>
+                <button type="button" class="syllabus-level-pill ${this.currentSyllabusLevel === '' ? 'is-active' : ''}" data-level="">All</button>
+                <button type="button" class="syllabus-level-pill ${this.currentSyllabusLevel === 'N5' ? 'is-active' : ''}" data-level="N5">N5</button>
+                <button type="button" class="syllabus-level-pill ${this.currentSyllabusLevel === 'N4' ? 'is-active' : ''}" data-level="N4">N4</button>
+                <button type="button" class="syllabus-level-pill ${this.currentSyllabusLevel === 'N3' ? 'is-active' : ''}" data-level="N3">N3</button>
+                <button type="button" class="syllabus-level-pill ${this.currentSyllabusLevel === 'N2' ? 'is-active' : ''}" data-level="N2">N2</button>
+                <button type="button" class="syllabus-level-pill ${this.currentSyllabusLevel === 'N1' ? 'is-active' : ''}" data-level="N1">N1</button>
               </div>
               <input
                 type="text"
@@ -248,54 +258,52 @@ export class GrammarView {
           this.activeGrammarPoint.status = newStatus;
 
           const tag = document.getElementById('point-status-tag');
-          if (tag) tag.textContent = newStatus.toUpperCase();
+          if (tag) {
+            tag.textContent = newStatus.toUpperCase();
+            tag.className = `tactile-pill ${newStatus === 'known' ? 'tactile-pill-gold' : ''}`;
+          }
 
           masteryPills.forEach((p) => p.classList.toggle('is-active', p.dataset.status === newStatus));
-          await this.loadInitialGrammarStats();
           this.updateSyllabusItemStatus(this.activeGrammarPoint.pattern_key, newStatus);
+          this.loadInitialGrammarStats();
         } catch (err) {
-          console.error('[Grammar] Update point status failed:', err);
+          console.error('[Grammar] Update mastery failed:', err);
           this.showError('Failed to update status: ' + (err.message || 'Network error'));
         }
       });
     });
 
     // Syllabus level filter pills
-    const levelPills = this.container.querySelectorAll('.syllabus-level-pill');
-    if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
-      window.chrome.storage.local.get('grammar.currentSyllabusLevel').then((stored) => {
-        const lvl = stored?.['grammar.currentSyllabusLevel'];
-        if (lvl !== undefined && ['', 'N5', 'N4', 'N3', 'N2', 'N1'].includes(lvl)) {
-          this.currentSyllabusLevel = lvl;
-          levelPills.forEach((p) => p.classList.toggle('is-active', p.dataset.level === lvl));
-          this.loadSyllabus({ level: this.currentSyllabusLevel, search: this.currentSyllabusSearch });
-        }
-      }).catch((err) => {
-        console.debug('[Grammar] Failed to restore syllabus level preference:', err);
-      });
-    }
-
+    const levelPills = this.container.querySelectorAll('#syllabus-level-pills .syllabus-level-pill');
     levelPills.forEach((pill) => {
       pill.addEventListener('click', () => {
         levelPills.forEach((p) => p.classList.remove('is-active'));
         pill.classList.add('is-active');
         this.currentSyllabusLevel = pill.dataset.level;
+
         if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
           window.chrome.storage.local.set({ 'grammar.currentSyllabusLevel': this.currentSyllabusLevel });
         }
-        this.loadSyllabus({ level: this.currentSyllabusLevel, search: this.currentSyllabusSearch });
+
+        this.loadSyllabus({
+          level: this.currentSyllabusLevel,
+          search: this.currentSyllabusSearch
+        });
       });
     });
 
     // Syllabus search input
     const searchInput = document.getElementById('syllabus-search');
-    let searchTimer = null;
+    let searchDebounce = null;
     if (searchInput) {
       searchInput.addEventListener('input', () => {
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(() => {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(() => {
           this.currentSyllabusSearch = searchInput.value.trim();
-          this.loadSyllabus({ level: this.currentSyllabusLevel, search: this.currentSyllabusSearch });
+          this.loadSyllabus({
+            level: this.currentSyllabusLevel,
+            search: this.currentSyllabusSearch
+          });
         }, 250);
       });
     }
@@ -317,65 +325,91 @@ export class GrammarView {
     }
   }
 
-  renderAnalyzedSentence(sentence, points) {
+  renderAnalyzedSentence(sentenceText, points) {
     const container = document.getElementById('tokens-flow');
     if (!container) return;
 
     if (!points || points.length === 0) {
-      container.innerHTML = `
-        <span class="token-chip token-grammar">${escapeHtml(sentence)}</span>
-        <span class="text-xs text-muted ml-2">No JLPT grammar patterns matched.</span>
-      `;
+      this.renderTokensFlow([sentenceText]);
       return;
     }
 
-    // Sort points by start index
-    const sorted = [...points].sort((a, b) => a.start - b.end);
-    let html = '';
+    const segments = [];
     let lastIdx = 0;
 
-    sorted.forEach((pt, idx) => {
-      if (pt.start > lastIdx) {
-        const textBefore = sentence.substring(lastIdx, pt.start);
-        html += `<span class="token-chip token-grammar" data-non-pattern="true">${escapeHtml(textBefore)}</span>`;
-      }
-
-      const pointText = sentence.substring(pt.start, pt.end);
-      html += `
-        <span class="token-chip token-grammar token-pattern" data-point-idx="${idx}" data-pattern-key="${escapeHtml(pt.pattern_key)}">
-          ${escapeHtml(pointText)}
-        </span>
-      `;
-      lastIdx = pt.end;
+    const sortedPoints = [...points].sort((a, b) => {
+      const idxA = a.position !== undefined ? a.position : sentenceText.indexOf(a.pattern_display || a.pattern_key);
+      const idxB = b.position !== undefined ? b.position : sentenceText.indexOf(b.pattern_display || b.pattern_key);
+      return idxA - idxB;
     });
 
-    if (lastIdx < sentence.length) {
-      const textAfter = sentence.substring(lastIdx);
-      html += `<span class="token-chip token-grammar" data-non-pattern="true">${escapeHtml(textAfter)}</span>`;
+    for (const pt of sortedPoints) {
+      const display = pt.pattern_display || pt.pattern_key;
+      const idx = pt.position !== undefined ? pt.position : sentenceText.indexOf(display, lastIdx);
+
+      if (idx > lastIdx) {
+        segments.push({ text: sentenceText.substring(lastIdx, idx), isGrammar: false });
+      }
+
+      if (idx !== -1) {
+        segments.push({ text: display, isGrammar: true, point: pt });
+        lastIdx = idx + display.length;
+      }
     }
 
-    container.innerHTML = html;
+    if (lastIdx < sentenceText.length) {
+      segments.push({ text: sentenceText.substring(lastIdx), isGrammar: false });
+    }
 
-    // Attach click listeners to token chips
-    const chips = container.querySelectorAll('.token-chip');
-    chips.forEach((chip) => {
+    container.innerHTML = segments.map((seg, i) => {
+      if (seg.isGrammar) {
+        const lvl = seg.point?.level || 'JLPT';
+        return `
+          <button
+            type="button"
+            class="grammar-token-chip is-active-point tactile-card-interactive"
+            data-index="${i}"
+            data-key="${escapeHtml(seg.point.pattern_key)}"
+          >
+            <span class="token-text font-japanese font-bold text-warm-paper">${escapeHtml(seg.text)}</span>
+            <span class="token-level-tag tactile-pill tactile-pill-gold text-xs">${escapeHtml(lvl)}</span>
+          </button>
+        `;
+      }
+      return `<span class="plain-token font-japanese text-secondary">${escapeHtml(seg.text)}</span>`;
+    }).join('');
+
+    container.querySelectorAll('.grammar-token-chip').forEach((chip) => {
       chip.addEventListener('click', () => {
-        chips.forEach((c) => c.classList.remove('is-active-point'));
-        chip.classList.add('is-active-point');
+        container.querySelectorAll('.grammar-token-chip').forEach((c) => c.classList.remove('is-selected-token'));
+        chip.classList.add('is-selected-token');
 
-        const ptIdx = chip.dataset.pointIdx;
-        if (ptIdx !== undefined && sorted[ptIdx]) {
-          this.displayGrammarDetail(sorted[ptIdx]);
+        const key = chip.dataset.key;
+        const pt = points.find((p) => p.pattern_key === key);
+        if (pt) {
+          this.displayGrammarDetail(pt);
         }
       });
     });
 
-    // Automatically display the first detected grammar point
-    if (sorted.length > 0) {
-      const firstChip = container.querySelector('.token-pattern');
-      if (firstChip) firstChip.classList.add('is-active-point');
-      this.displayGrammarDetail(sorted[0]);
+    if (sortedPoints.length > 0) {
+      this.displayGrammarDetail(sortedPoints[0]);
+      container.querySelector('.grammar-token-chip')?.classList.add('is-selected-token');
     }
+  }
+
+  renderTokensFlow(tokens) {
+    const container = document.getElementById('tokens-flow');
+    if (!container) return;
+
+    if (!tokens || tokens.length === 0) {
+      container.innerHTML = `<div class="empty-tokens text-muted text-sm py-4 text-center">No tokens generated.</div>`;
+      return;
+    }
+
+    container.innerHTML = tokens.map((tok) => `
+      <span class="plain-token font-japanese text-warm-paper">${escapeHtml(tok)}</span>
+    `).join(' ');
   }
 
   displayGrammarDetail(point) {
@@ -390,79 +424,65 @@ export class GrammarView {
     const statusTag = document.getElementById('point-status-tag');
     const title = document.getElementById('point-title');
     const meaning = document.getElementById('point-meaning');
-    const formationsList = document.getElementById('point-formations');
-    const examplesList = document.getElementById('point-examples');
+    const formationsBox = document.getElementById('point-formations');
+    const examplesBox = document.getElementById('point-examples');
+    const encountersBox = document.getElementById('point-encounters');
 
-    const level = point.level || '--';
+    if (jlptTag) jlptTag.textContent = point.level ? `JLPT ${point.level}` : 'JLPT';
     const status = point.status || 'new';
+    if (statusTag) {
+      statusTag.textContent = status.toUpperCase();
+      statusTag.className = `tactile-pill ${status === 'known' ? 'tactile-pill-gold' : ''}`;
+    }
 
-    if (jlptTag) jlptTag.textContent = `JLPT ${level}`;
-    if (statusTag) statusTag.textContent = status.toUpperCase();
-    if (title) title.textContent = point.pattern_display || point.pattern_key || point.text || '--';
-    if (meaning) meaning.textContent = point.meaning_short || point.english_breakdown || 'No description available.';
+    if (title) title.textContent = point.pattern_display || point.pattern_key;
+    if (meaning) meaning.textContent = point.meaning_short || point.english_breakdown || '--';
 
-    // Active mastery pill
     const masteryPills = this.container.querySelectorAll('#mastery-status-group .mastery-pill');
-    masteryPills.forEach((p) => p.classList.toggle('is-active', p.dataset.status === status));
+    masteryPills.forEach((pill) => {
+      pill.classList.toggle('is-active', pill.dataset.status === status);
+    });
 
     // Formations
-    if (formationsList) {
-      let formations = point.formation;
-      if (typeof formations === 'string') {
-        formations = [formations];
-      }
+    if (formationsBox) {
+      const formations = point.formation_rules || point.formations || [];
       if (Array.isArray(formations) && formations.length > 0) {
-        formationsList.innerHTML = formations.map((f) => `<span class="formation-item">${escapeHtml(f)}</span>`).join('');
+        formationsBox.innerHTML = formations.map((f) => `
+          <div class="formation-item font-mono text-sm text-secondary">${escapeHtml(f)}</div>
+        `).join('');
       } else {
-        formationsList.innerHTML = `<span class="text-sm text-muted">No formation rules listed.</span>`;
+        formationsBox.innerHTML = `<span class="text-sm text-muted">No formation rules listed.</span>`;
       }
     }
 
     // Examples
-    if (examplesList) {
-      const examples = Array.isArray(point.examples) ? point.examples : [];
-      if (examples.length > 0) {
-        examplesList.innerHTML = examples.map((ex) => {
-          if (typeof ex === 'string') {
-            return `<div class="example-item"><p class="example-ja">${escapeHtml(ex)}</p></div>`;
-          }
-          return `
-            <div class="example-item">
-              <p class="example-ja">${escapeHtml(ex.sentence || ex.ja || '')}</p>
-              ${ex.translation || ex.en ? `<p class="example-en text-muted">${escapeHtml(ex.translation || ex.en)}</p>` : ''}
-            </div>
-          `;
-        }).join('');
+    if (examplesBox) {
+      const examples = point.curated_examples || point.examples || [];
+      if (Array.isArray(examples) && examples.length > 0) {
+        examplesBox.innerHTML = examples.map((ex) => `
+          <div class="example-item tactile-card surface-pitch-black p-3 mb-2">
+            <p class="example-ja font-japanese text-warm-paper font-semibold">${escapeHtml(ex.japanese || ex.sentence || ex)}</p>
+            ${ex.english ? `<p class="example-en text-secondary text-xs mt-1">${escapeHtml(ex.english)}</p>` : ''}
+          </div>
+        `).join('');
       } else {
-        examplesList.innerHTML = `<span class="text-sm text-muted">No example sentences available.</span>`;
+        examplesBox.innerHTML = `<span class="text-sm text-muted">No example sentences available.</span>`;
       }
     }
 
-    // Prior Sentence Encounters (Audit 4.C)
-    const encountersList = document.getElementById('point-encounters');
-    const patternKey = point.pattern_key || point.key || point.text;
-    if (encountersList && patternKey) {
-      encountersList.innerHTML = `<span class="text-sm text-muted">Checking mining encounters...</span>`;
-      apiClient.getGrammarEncounters(patternKey).then((res) => {
-        const encounters = res?.encounters || (Array.isArray(res) ? res : []);
-        if (encounters.length > 0) {
-          encountersList.innerHTML = encounters.map((enc) => `
-            <div class="example-item encounter-item">
-              <p class="example-ja font-japanese">${escapeHtml(enc.sentence || enc.text || '')}</p>
-              ${enc.translation ? `<p class="example-en text-muted text-xs">${escapeHtml(enc.translation)}</p>` : ''}
-              <div class="encounter-meta text-xs font-mono text-muted mt-1">
-                ${enc.source ? `<span>Source: ${escapeHtml(enc.source)}</span>` : ''}
-                ${enc.encountered_at ? `<span> · ${escapeHtml(new Date(enc.encountered_at).toLocaleDateString())}</span>` : ''}
-              </div>
-            </div>
-          `).join('');
-        } else {
-          encountersList.innerHTML = `<span class="text-sm text-muted">No prior sentence encounters logged for this grammar pattern.</span>`;
-        }
-      }).catch((err) => {
-        console.debug('[Grammar] Encounters fetch notice:', err.message);
-        encountersList.innerHTML = `<span class="text-sm text-muted">No prior sentence encounters logged.</span>`;
-      });
+    // Encounters
+    if (encountersBox) {
+      const encounters = point.encounters || [];
+      if (Array.isArray(encounters) && encounters.length > 0) {
+        encountersBox.innerHTML = encounters.map((enc) => `
+          <div class="encounter-item text-xs text-secondary py-1">
+            <span class="font-japanese text-warm-paper">${escapeHtml(enc.sentence || enc)}</span>
+            ${enc.created_at ? `<span class="text-muted ml-2 font-mono">${escapeHtml(enc.created_at.slice(0, 10))}</span>` : ''}
+          </div>
+        `).join('');
+      } else {
+        encountersBox.innerHTML = `<span class="text-sm text-muted">No recorded sentence encounters yet.</span>`;
+      }
     }
   }
 
@@ -570,7 +590,6 @@ export class GrammarView {
       }
     } catch (err) {
       console.warn('[Grammar] Load stats error:', err);
-      // Non-fatal, keep honest fallback
     }
   }
 
@@ -588,5 +607,5 @@ function escapeHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/'/g, '&#039;');
 }

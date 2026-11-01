@@ -1,51 +1,60 @@
 /**
  * Kiroku Note Desktop — Design Tokens
- * Source of Truth: Sumi & Washi Neo-Tactile Design System
+ * Source of Truth: Night Study Nook Tactile Design System (v2)
  */
 
 :root {
-  /* Colors - Core Palette */
-  --vermilion: #D94B38;
-  --vermilion-glow: rgba(217, 75, 56, 0.20);
-  --vermilion-hover: #C23E2C;
-  --vermilion-active: #A83525;
+  /* Colors - Night Study Nook Core Palette */
+  --soot: #000000;              /* Pitch black reading surfaces (prompts, cards, kanji stage) */
+  --truffle: #26170D;           /* Warm deep chocolate app ground */
+  --milk: #FFF1DC;              /* Cream white text and light tactile surfaces */
+  --marmalade: #FF8A1F;         /* Primary tactile pressables */
+  --cat-eye: #F2C230;           /* Eyes, highlights, should-know vocabulary */
+  --matcha: #9ACD5B;           /* Known, mastered, correct feedback */
+  --cherry: #FF5C7A;           /* Error, wrong answer feedback */
 
-  --ink-black: #22211F;
-  --ink-surface: #2A2926;
-  --ink-surface-hover: #33312E;
-  --ink-border: rgba(245, 241, 232, 0.12);
+  /* Aliases & Compatibility */
+  --vermilion: var(--marmalade);
+  --vermilion-glow: rgba(255, 138, 31, 0.25);
+  --vermilion-hover: #E87A15;
+  --vermilion-active: #CC6B10;
 
-  --warm-paper: #F5F1E8;
-  --paper-dim: #E8E3D8;
-  --paper-muted: rgba(245, 241, 232, 0.70);
-  --paper-subtle: rgba(245, 241, 232, 0.45);
-  --paper-faint: rgba(245, 241, 232, 0.12);
+  --ink-black: #1A1108;
+  --ink-surface: #201309;
+  --ink-surface-hover: #2E1B0E;
+  --ink-border: rgba(255, 241, 220, 0.12);
 
-  --gold-eye: #C8A94A;
-  --gold-glow: rgba(200, 169, 74, 0.15);
-  --gold-hover: #D8B95A;
+  --warm-paper: var(--milk);
+  --paper-dim: #E8D9C0;
+  --paper-muted: rgba(255, 241, 220, 0.70);
+  --paper-subtle: rgba(255, 241, 220, 0.45);
+  --paper-faint: rgba(255, 241, 220, 0.12);
 
-  --tactile-stroke: #151413;
-  --surface-pitch-black: #000000; /* Mandatory pitch black for dictionary, stroke player & study prompts */
+  --gold-eye: var(--cat-eye);
+  --gold-glow: rgba(242, 194, 48, 0.20);
+  --gold-hover: #E0B025;
+
+  --tactile-stroke: #120A05;
+  --surface-pitch-black: var(--soot); /* Pitch black for dictionary, stroke player & study prompts */
 
   /* Viewport Surfaces & Containers */
-  --background: #141311;
-  --surface: #141311;
-  --surface-container-lowest: #0f0e0c;
-  --surface-container-low: #1c1b19;
-  --surface-container: #201f1d;
-  --surface-container-high: #2b2a28;
-  --surface-container-highest: #363532;
+  --background: var(--truffle);
+  --surface: #1E120A;
+  --surface-container-lowest: #140B05;
+  --surface-container-low: #201309;
+  --surface-container: #2A190E;
+  --surface-container-high: #382213;
+  --surface-container-highest: #452B19;
 
-  --text-primary: #F5F1E8;
-  --text-secondary: #CAC6BE;
-  --text-muted: #8E8A82;
+  --text-primary: var(--milk);
+  --text-secondary: #D9C9B6;
+  --text-muted: #A38F7A;
 
   /* Service & Diagnostics Status */
-  --status-green: #4EBB7B;
-  --status-amber: #E4C461;
-  --status-red: #D94B38;
-  --status-inactive: #55524E;
+  --status-green: var(--matcha);
+  --status-amber: var(--cat-eye);
+  --status-red: var(--cherry);
+  --status-inactive: #6E5C4E;
 
   /* Spacing Scale */
   --space-xs: 0.25rem;   /* 4px */
@@ -66,21 +75,21 @@
   --content-padding-bottom: 96px;
 
   /* Corner Radii */
-  --radius-xs: 3px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
   --radius-full: 9999px;
 
-  /* Solid Hard Offset Shadows (Planetoño Tactile Physics) */
-  --shadow-sm: 2px 2px 0 var(--tactile-stroke);
-  --shadow-md: 3px 3px 0 var(--tactile-stroke);
-  --shadow-lg: 4px 4px 0 var(--tactile-stroke);
-  --shadow-pressed: 1px 1px 0 var(--tactile-stroke);
+  /* Chunky Tactile Shadows with 3px mechanical lip */
+  --shadow-sm: 0 2px 0 var(--tactile-stroke);
+  --shadow-md: 0 3px 0 var(--tactile-stroke);
+  --shadow-lg: 0 4px 0 var(--tactile-stroke);
+  --shadow-pressed: 0 1px 0 var(--tactile-stroke);
 
   /* Typography Stacks */
-  --font-display: "Mochiy Pop One", "Zen Kaku Gothic New", sans-serif;
+  --font-display: "Mochiy Pop One", "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-wordmark: "Zen Old Mincho", Georgia, serif;
   --font-japanese: "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -89,59 +98,8 @@
   /* Spring Physics & Motion Easing */
   --spring-snappy: cubic-bezier(0.34, 1.56, 0.64, 1);
   --spring-smooth: cubic-bezier(0.16, 1, 0.3, 1);
-  --duration-instant: 80ms;
-  --duration-fast: 150ms;
-  --duration-normal: 240ms;
-  --duration-slow: 380ms;
-
-  /* Stitch Design System Canonical Tokens (global.css & tokens.json parity) */
-  --on_primary: #680200;
-  --on_error_container: #ffdad6;
-  --inverse_surface: #e6e2de;
-  --on_surface: #e6e2de;
-  --on_tertiary: #3c2f00;
-  --on_secondary_container: #b8b5ad;
-  --primary_fixed: #ffdad4;
-  --tertiary_container: #c7a849;
-  --on_primary_fixed_variant: #8e1308;
-  --on_tertiary_fixed: #241a00;
-  --error: #ffb4ab;
-  --tertiary_fixed: #ffe088;
-  --surface_variant: #363532;
-  --on_secondary: #31302b;
-  --on_tertiary_fixed_variant: #574500;
-  --on_surface_variant: #e1bfb9;
-  --secondary_fixed: #e6e2d9;
-  --secondary_fixed_dim: #cac6be;
-  --on_tertiary_container: #4e3d00;
-  --surface_container_high: #2b2a28;
-  --secondary_container: #484740;
-  --primary: #ffb4a7;
-  --surface_bright: #3a3937;
-  --on_secondary_fixed: #1c1c16;
-  --surface_container_low: #1c1b19;
-  --surface_container: #201f1d;
-  --on_secondary_fixed_variant: #484740;
-  --surface_container_highest: #363532;
-  --on_primary_fixed: #410100;
-  --on_background: #e6e2de;
-  --surface_container_lowest: #0f0e0c;
-  --surface_tint: #ffb4a7;
-  --inverse_primary: #b02e1e;
-  --outline_variant: #59413d;
-  --inverse_on_surface: #31302e;
-  --on_error: #690005;
-  --error_container: #93000a;
-  --on_primary_container: #5b0200;
-  --primary_fixed_dim: #ffb4a7;
-  --primary_container: #f55f4a;
-  --surface_dim: #141311;
-  --tertiary_fixed_dim: #e4c461;
-  --secondary: #cac6be;
-  --tertiary: #e4c461;
-  --outline: #a88a84;
-  --font-headline: 'Epilogue', serif;
-  --font-body: 'Noto Serif', serif;
-  --font-label: 'Inter', sans-serif;
+  --duration-instant: 90ms;
+  --duration-fast: 160ms;
+  --duration-normal: 280ms;
+  --duration-slow: 480ms;
 }
-

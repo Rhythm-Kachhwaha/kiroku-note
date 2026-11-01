@@ -681,3 +681,49 @@ class MarkKnownWordRequest(BaseModel):
 class MarkKnownWordResponse(BaseModel):
     ok: bool = True
     word: str
+
+
+# ============================================================================
+# Learner Settings & Study Progress Schemas
+# ============================================================================
+
+
+class LearnerSettingsResponse(BaseModel):
+    learner_level: str
+    preferences: dict[str, Any] = Field(default_factory=dict)
+
+
+class LearnerSettingsUpdateRequest(BaseModel):
+    learner_level: Optional[str] = Field(default=None, max_length=10)
+    preferences: Optional[dict[str, Any]] = None
+
+
+class VocabCoverageLevelItem(BaseModel):
+    level: str
+    total: int = 0
+    known: int = 0
+    mined: int = 0
+
+
+class VocabCoverageResponse(BaseModel):
+    levels: dict[str, VocabCoverageLevelItem] = Field(default_factory=dict)
+    total_known: int = 0
+    total_mined: int = 0
+
+
+class VocabGapItem(BaseModel):
+    expression: str
+    reading: str = ""
+    meaning: str = ""
+    jlpt_level: str
+
+
+class VocabGapsResponse(BaseModel):
+    level: str
+    gaps: list[VocabGapItem] = Field(default_factory=list)
+    total_gaps: int = 0
+
+
+class KanjiSeenResponse(BaseModel):
+    seen_kanji: dict[str, int] = Field(default_factory=dict)
+    total_seen: int = 0
