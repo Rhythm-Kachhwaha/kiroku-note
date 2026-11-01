@@ -76,8 +76,6 @@ export class StudyView {
             </div>
           </div>
 
-          <!-- Mascot Cheer Slot -->
-          ${renderAssetSlot('study-drill-cheer', 'study-mascot-box')}
         </div>
       </div>
     `;

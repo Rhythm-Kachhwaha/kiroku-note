@@ -9,6 +9,8 @@
  * 4. Spacious minimalist quick launcher action stamps to study desks.
  */
 
+import { mountRiveMascot } from '../rive_mascot.js';
+
 const ROTATING_GREETINGS = [
   { ja: 'おはよう', en: 'ohayou — good morning, traveler.' },
   { ja: 'こんにちは', en: 'konnichiwa — good afternoon, traveler.' },
@@ -84,9 +86,8 @@ export class HomeView {
     this.greetingIndex = null;
     this.mouseMoveHandler = null;
     this.mouseLeaveHandler = null;
-    this.mascotPointerFrame = null;
-    this.mascotPointerPosition = null;
     this.jumpTimeout = null;
+    this.riveMascot = null;
   }
 
   getDefaultGreetingIndex() {
@@ -137,8 +138,6 @@ export class HomeView {
         <div class="home-view-container">
           <!-- Mascot & Dialogue Zone (Left Zone) -->
           <div class="home-left-zone">
-            <!-- Warm Lit Ambient Glow Behind Mascot -->
-            <div class="mascot-ambient-glow" aria-hidden="true"></div>
 
             <!-- Manga Speech Burst Dialogue -->
             <div class="comic-speech-bubble" id="speech-bubble" role="button" tabindex="0" title="Click to rotate greeting">
@@ -152,23 +151,10 @@ export class HomeView {
               <div class="comic-pointer-tail" aria-hidden="true"></div>
             </div>
 
-            <!-- Mascot Stage: opaque portrait field with cursor-tracking pupils -->
-            <div class="mascot-stage" id="mascot-stage" role="button" tabindex="0" title="Click for mascot reaction & greeting rotation">
+            <div class="mascot-stage" aria-label="Kiroku study companion">
               <div class="organic-shape-backing" aria-hidden="true"></div>
-              <div class="mascot-stamp-badge font-mono">Kiroku Note</div>
-              <div class="mascot-character-wrap" id="mascot-character-wrap">
-                <div class="mascot-portrait-field">
-                  <img
-                    id="home-mascot-cat"
-                    src="./ui/assets/mascot/svg_cat.svg"
-                    class="home-cat-img"
-                    alt="Kiroku Note Cat Mascot"
-                  />
-                  <div class="mascot-eyes" aria-hidden="true">
-                    <span class="mascot-eye mascot-eye-left"><span class="mascot-pupil"></span></span>
-                    <span class="mascot-eye mascot-eye-right"><span class="mascot-pupil"></span></span>
-                  </div>
-                </div>
+              <div class="mascot-character-wrap">
+                <canvas class="rive-mascot-canvas" aria-hidden="true"></canvas>
               </div>
             </div>
 
@@ -214,36 +200,12 @@ export class HomeView {
     `;
 
     this.setupEvents();
+    this.riveMascot = await mountRiveMascot(this.container.querySelector('.rive-mascot-canvas'));
   }
 
   setupEvents() {
-    const mascotStage = document.getElementById('mascot-stage');
-    const mascotWrap = document.getElementById('mascot-character-wrap');
     const speechBubble = document.getElementById('speech-bubble');
     const dailyWordStamp = document.getElementById('daily-word-stamp');
-
-    // Mascot reaction: jump animation & greeting rotation
-    if (mascotStage && mascotWrap) {
-      const handleMascotClick = () => {
-        this.rotateGreeting();
-        mascotWrap.classList.add('is-reacting');
-        if (this.jumpTimeout) {
-          clearTimeout(this.jumpTimeout);
-        }
-        this.jumpTimeout = setTimeout(() => {
-          mascotWrap.classList.remove('is-reacting');
-          this.jumpTimeout = null;
-        }, 180);
-      };
-
-      mascotStage.addEventListener('click', handleMascotClick);
-      mascotStage.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleMascotClick();
-        }
-      });
-    }
 
     // Speech bubble click also rotates greeting
     if (speechBubble) {
@@ -272,47 +234,6 @@ export class HomeView {
       });
     }
 
-    // Keep the mascot's gaze with the pointer without moving the layout.
-    if (mascotStage && mascotWrap && typeof window !== 'undefined') {
-      this.mouseMoveHandler = (e) => {
-        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-          return;
-        }
-        const rect = mascotStage.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const deltaX = (e.clientX - centerX) / (window.innerWidth / 2 || 1);
-        const deltaY = (e.clientY - centerY) / (window.innerHeight / 2 || 1);
-        const clampedX = Math.max(-1, Math.min(1, deltaX));
-        const clampedY = Math.max(-1, Math.min(1, deltaY));
-        this.mascotPointerPosition = { x: clampedX, y: clampedY };
-        if (this.mascotPointerFrame !== null) return;
-
-        this.mascotPointerFrame = window.requestAnimationFrame(() => {
-          const position = this.mascotPointerPosition;
-          this.mascotPointerFrame = null;
-          if (!position) return;
-          mascotWrap.classList.add('is-tracking');
-          mascotWrap.style.setProperty('--mascot-tilt-x', `${(-position.y * 3).toFixed(1)}deg`);
-          mascotWrap.style.setProperty('--mascot-tilt-y', `${(position.x * 4).toFixed(1)}deg`);
-          mascotWrap.style.setProperty('--mascot-shift-x', `${(position.x * 3).toFixed(1)}px`);
-          mascotWrap.style.setProperty('--mascot-shift-y', `${(position.y * 2).toFixed(1)}px`);
-          mascotWrap.style.setProperty('--pupil-x', `${(position.x * 4.5).toFixed(1)}px`);
-          mascotWrap.style.setProperty('--pupil-y', `${(position.y * 3.5).toFixed(1)}px`);
-        });
-      };
-
-      this.mouseLeaveHandler = () => {
-        this.mascotPointerPosition = null;
-        mascotWrap.classList.remove('is-tracking');
-        ['--mascot-tilt-x', '--mascot-tilt-y', '--mascot-shift-x', '--mascot-shift-y', '--pupil-x', '--pupil-y']
-          .forEach(property => mascotWrap.style.removeProperty(property));
-      };
-
-      window.addEventListener('pointermove', this.mouseMoveHandler, { passive: true });
-      mascotStage.addEventListener('mouseleave', this.mouseLeaveHandler);
-    }
-
     // Action cards navigation
     const actionCards = this.container.querySelectorAll('.home-action-card');
     actionCards.forEach(card => {
@@ -338,16 +259,8 @@ export class HomeView {
       clearTimeout(this.jumpTimeout);
       this.jumpTimeout = null;
     }
-    if (this.mouseMoveHandler && typeof window !== 'undefined') {
-      window.removeEventListener('pointermove', this.mouseMoveHandler);
-      this.mouseMoveHandler = null;
-    }
-    if (this.mascotPointerFrame !== null && typeof window !== 'undefined') {
-      window.cancelAnimationFrame(this.mascotPointerFrame);
-      this.mascotPointerFrame = null;
-    }
-    this.mascotPointerPosition = null;
-    this.mouseLeaveHandler = null;
+    this.riveMascot?.cleanup();
+    this.riveMascot = null;
     if (this.container) {
       this.container.innerHTML = '';
     }

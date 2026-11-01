@@ -98,6 +98,7 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   retryBackend: () => ipcRenderer.invoke('backend:retry'),
   openUserDataFolder: () => ipcRenderer.invoke('app:open-folder'),
   openInstructions: () => ipcRenderer.invoke('app:open-instructions'),
+  getRiveAssetUrl: (assetName) => ipcRenderer.invoke('runtime:get-rive-asset-url', assetName),
   getServicesStatus: () => ipcRenderer.invoke('backend:services-status'),
   toggleOcr: () => ipcRenderer.invoke('ocr:toggle'),
   chrome: chromeShim,

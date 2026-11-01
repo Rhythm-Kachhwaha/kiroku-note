@@ -125,8 +125,6 @@ export class KanjiView {
                 </div>
               </div>
 
-              <!-- Observing Mascot Slot -->
-              ${renderAssetSlot('kanji-stroke-observing', 'kanji-mascot-box')}
             </div>
 
             <!-- Right Column: Hero Character, Readings Matrix & Compounds -->

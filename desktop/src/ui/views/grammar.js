@@ -63,8 +63,6 @@ export class GrammarView {
               <h1 class="grammar-title">Sentence Structure &amp; Grammar Reference</h1>
               <p class="grammar-subtitle">Morphological tokenization with audited JLPT grammar patterns (N5–N1).</p>
             </div>
-            <!-- Labeled Mascot Slot -->
-            ${renderAssetSlot('grammar-attentive-study', 'grammar-mascot-box')}
           </div>
 
           <!-- Visible Error Banner -->

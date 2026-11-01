@@ -276,6 +276,7 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 .mascot-ambient-glow {
+  display: none !important;
   position: absolute;
   top: 40px;
   left: 50%;
@@ -419,6 +420,21 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   max-width: 290px;
   transform-style: preserve-3d;
   transition: transform var(--duration-fast) var(--spring-snappy);
+}
+
+.rive-mascot-canvas {
+  display: block;
+  width: min(100%, 290px);
+  aspect-ratio: 1 / 1;
+  height: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-stage,
+  .mascot-stage .organic-shape-backing,
+  .mascot-character-wrap {
+    transition: none;
+  }
 }
 
 .mascot-stage:hover .mascot-character-wrap {

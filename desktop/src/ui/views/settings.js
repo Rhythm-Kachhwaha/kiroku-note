@@ -38,7 +38,6 @@ export class SettingsView {
               <h1 class="settings-title">Preferences &amp; System Health</h1>
               <p class="settings-subtitle">Manage study curriculum, connection endpoints, encrypted credentials, and system diagnostics.</p>
             </div>
-            ${renderAssetSlot('settings-mechanic-cat', 'settings-mascot-box')}
           </div>
 
           <!-- Visible Error Banner -->

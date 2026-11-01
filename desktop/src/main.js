@@ -8,6 +8,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, nativeTheme, nativeImage, shell
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const { pathToFileURL } = require('url');
 const { ProcessManager } = require('./process_manager');
 const { DesktopStore } = require('./store');
 const { StudyApiClient } = require('./study_api_client');
@@ -557,6 +558,22 @@ app.on('window-all-closed', () => {
 });
 
 function setupIpcHandlers() {
+  ipcMain.handle('runtime:get-rive-asset-url', (_event, assetName) => {
+    if (typeof assetName !== 'string' || !/^[a-z0-9][a-z0-9._-]*\.riv$/i.test(assetName)) {
+      throw new Error('Invalid Rive asset name');
+    }
+
+    const assetsRoot = app.isPackaged
+      ? path.join(process.resourcesPath, 'app', 'assets', 'dekstop', 'riv')
+      : path.join(repoRoot, 'assets', 'dekstop', 'riv');
+    const assetPath = path.join(assetsRoot, assetName);
+
+    if (!fs.existsSync(assetPath)) {
+      throw new Error('Rive asset is unavailable');
+    }
+    return pathToFileURL(assetPath).href;
+  });
+
   // Window controls
   ipcMain.handle('window:minimize', () => {
     if (mainWindow) mainWindow.minimize();
