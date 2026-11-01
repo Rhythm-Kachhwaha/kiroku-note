@@ -110,3 +110,66 @@ test('Grammar View: Error handling is visible with banner (no silent catches)', 
     'GrammarView must not contain empty silent catch blocks'
   );
 });
+
+test('Grammar View: bundle.css styles grammar studio with Planetoño tactile physics, pitch-black visualizer, and editorial Zen Old Mincho', () => {
+  const bundleCssPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'styles', 'bundle.css');
+  const css = fs.readFileSync(bundleCssPath, 'utf8');
+
+  // Planetoño tactile borders and shadows
+  assert.ok(
+    css.includes('2px solid var(--tactile-stroke)') || css.includes('2px solid #151413'),
+    'bundle.css must apply 2px solid tactile stroke borders to grammar cards'
+  );
+  assert.ok(
+    css.includes('3px 3px 0 var(--tactile-stroke)') || css.includes('3px 3px 0 #151413'),
+    'bundle.css must apply 3px 3px 0 tactile offset shadows to grammar cards'
+  );
+
+  // Pure black visualizer surface
+  assert.ok(
+    css.includes('.grammar-visualizer-card') && (css.includes('var(--pure-black)') || css.includes('#000000')),
+    'bundle.css must style .grammar-visualizer-card with pure black background'
+  );
+
+  // Pattern title typography
+  assert.ok(
+    css.includes('.point-title') && css.includes('var(--font-display)'),
+    'bundle.css must style .point-title with Zen Old Mincho (var(--font-display))'
+  );
+
+  // Responsive layout: 1fr on compact and 2-column or split grid on wide
+  assert.ok(
+    css.includes('.grammar-layout-grid') && css.includes('grid-template-columns: 1fr'),
+    'bundle.css must default .grammar-layout-grid to single column stack'
+  );
+  assert.ok(
+    css.includes('.grammar-layout-grid') && (css.includes('grid-template-columns: 1.15fr 0.85fr') || css.includes('grid-template-columns: 1fr 1fr')),
+    'bundle.css must expand .grammar-layout-grid on wide screens'
+  );
+
+  // No legacy chocolate/orange colors
+  const forbiddenColors = ['#26170d', '#ff8a1f', '#fff1dc', '#e28c4b'];
+  for (const c of forbiddenColors) {
+    assert.equal(
+      css.toLowerCase().includes(c),
+      false,
+      `bundle.css must not contain legacy color "${c}"`
+    );
+  }
+});
+
+test('Grammar View: Zero emojis across code, templates, and styles', () => {
+  const bundleCssPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'styles', 'bundle.css');
+  const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+
+  for (const filePath of [grammarViewPath, bundleCssPath]) {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const match = content.match(emojiRegex);
+    assert.equal(
+      match,
+      null,
+      `Found forbidden emoji in ${path.basename(filePath)}: ${match?.[0]}`
+    );
+  }
+});
+
