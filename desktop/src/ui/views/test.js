@@ -112,6 +112,7 @@ export class TestView {
       notice.id = 'test-notice-toast';
       notice.className = 'tactile-card test-notice-toast';
       notice.setAttribute('role', 'status');
+      notice.setAttribute('aria-live', 'polite');
       notice.style.position = 'fixed';
       notice.style.bottom = '80px';
       notice.style.right = '24px';

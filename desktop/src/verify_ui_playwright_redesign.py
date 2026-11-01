@@ -15,6 +15,7 @@ INDEX_URL = f"file:///{INDEX_PATH.as_posix()}"
 OUTPUT_DIRS = [
     Path(r"C:\Users\Rhythm\.gemini\antigravity\brain\bfdd493f-7c8c-45f5-8e0f-300d2075c08c\screenshots\after"),
     Path(r"C:\Users\Rhythm\.gemini\antigravity\brain\3e6847ae-99ec-4090-83ea-5c39f1ae4364\screenshots\after"),
+    REPO_ROOT / "desktop" / "screenshots" / "after",
 ]
 
 for d in OUTPUT_DIRS:

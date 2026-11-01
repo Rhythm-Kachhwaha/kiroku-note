@@ -629,7 +629,7 @@ export class SettingsView {
       }
 
       if (decks.length === 0) {
-        const fallback = currentDeck || 'Japanese::Vocab';
+        const fallback = currentDeck || 'Default';
         deckSelect.innerHTML = `<option value="${escapeHtml(fallback)}">${escapeHtml(fallback)} (Default)</option>`;
         return;
       }
@@ -647,7 +647,7 @@ export class SettingsView {
       }
     } catch (err) {
       console.warn('[Settings] Load Anki decks error:', err);
-      let fallbackDeck = savedDeck || 'Japanese::Vocab';
+      let fallbackDeck = savedDeck || 'Default';
       if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
         try {
           const stored = await new Promise((resolve) => {

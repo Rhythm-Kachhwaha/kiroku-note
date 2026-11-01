@@ -23,7 +23,7 @@ export class KanjiView {
   }
 
   async getTargetDeck() {
-    let targetDeck = 'Japanese::Vocab';
+    let targetDeck = 'Default';
     if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
       try {
         const stored = await new Promise((res) => {
