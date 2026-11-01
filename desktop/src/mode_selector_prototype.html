@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kiroku Note - Interactive Mode Selector Prototype</title>
+  <link rel="stylesheet" href="./ui/styles/tokens.css">
+  <style>
+    :root {
+      --bg: #100f0e;
+      --card-bg: #181614;
+      --card-border: #282420;
+      --accent: #b84632;
+      --accent-gold: #d8a300;
+      --text: #ede7de;
+      --text-muted: #8e8880;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 20%, #1a1714 0%, #100f0e 80%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1.5rem;
+      user-select: none;
+    }
+
+    .header-bar {
+      width: 100%;
+      max-width: 1100px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 1rem;
+    }
+
+    .title-group h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      font-family: monospace;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 0.25rem;
+    }
+
+    .nav-breadcrumb {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .nav-btn {
+      background: #201d1a;
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .nav-btn:hover {
+      background: #2b2722;
+      border-color: #3d3730;
+    }
+
+    /* Main Stage Container */
+    .stage-container {
+      width: 100%;
+      max-width: 1100px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .canvas-viewport {
+      width: 100%;
+      height: 540px;
+      position: relative;
+      background: #0d0c0b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .stage-overlay-status {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(16, 15, 14, 0.8);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--card-border);
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: var(--accent-gold);
+      z-index: 5;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2ea043;
+      box-shadow: 0 0 8px #2ea043;
+    }
+
+    /* Selection HUD / Feedback Strip below canvas */
+    .selection-hud {
+      border-top: 1px solid var(--card-border);
+      background: #141210;
+      padding: 1.25rem 1.5rem;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr) auto;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .mode-card {
+      background: #1d1a17;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+
+    .mode-card:hover {
+      background: #26221e;
+      border-color: #443e37;
+      transform: translateY(-2px);
+    }
+
+    .mode-card.is-active {
+      border-color: var(--accent-gold);
+      background: #2b251a;
+      box-shadow: 0 0 16px rgba(216, 163, 0, 0.15);
+    }
+
+    .mode-card.is-active::after {
+      content: "SELECTED";
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 0.65rem;
+      font-family: monospace;
+      color: var(--accent-gold);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .mode-letter {
+      font-size: 0.7rem;
+      font-family: monospace;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
+    }
+
+    .mode-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .mode-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+      line-height: 1.3;
+    }
+
+    .action-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding-left: 0.5rem;
+    }
+
+    .btn-launch {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 0.75rem 1.4rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    .btn-launch:hover {
+      background: #c9513c;
+      transform: scale(1.02);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--card-border);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .btn-secondary:hover {
+      color: var(--text);
+      border-color: #3f3b35;
+    }
+
+    /* Diagnostics Log Panel */
+    .diag-drawer {
+      width: 100%;
+      max-width: 1100px;
+      margin-top: 1.5rem;
+      background: #141210;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    .diag-log-line {
+      margin-bottom: 0.25rem;
+      line-height: 1.4;
+    }
+
+    .diag-log-line span.time {
+      color: #555;
+      margin-right: 0.5rem;
+    }
+
+    .diag-log-line span.event {
+      color: #3fb950;
+    }
+
+    .diag-log-line span.trigger {
+      color: #58a6ff;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-bar">
+    <div class="title-group">
+      <h1>Mode Selection Hub <span class="badge">PROTOTYPE</span></h1>
+      <p class="subtitle">Direct Rive State Machine binding: <code>27565-52075-character-selection-menu.riv</code></p>
+    </div>
+    <div class="nav-breadcrumb">
+      <a href="/rive_inspector.html" class="nav-btn">Rive Gallery</a>
+      <a href="/shell.html" class="nav-btn">Desktop App Shell</a>
+    </div>
+  </div>
+
+  <div class="stage-container">
+    <div class="canvas-viewport" id="viewport">
+      <canvas id="rive-stage-canvas"></canvas>
+      <div class="stage-overlay-status">
+        <span class="status-dot"></span>
+        <span id="state-readout">State: Ready &bull; Hover over character</span>
+      </div>
+    </div>
+
+    <!-- HUD synced with the Rive State Machine -->
+    <div class="selection-hud">
+      <div class="mode-card is-active" id="hud-card-A" data-slot="A">
+        <div class="mode-letter">Character A &bull; Mining Desk</div>
+        <div class="mode-name">Vocabulary &amp; Capture</div>
+        <div class="mode-desc">Sentence mining, headword lookup, pitch accent, and live Anki card export.</div>
+      </div>
+
+      <div class="mode-card" id="hud-card-B" data-slot="B">
+        <div class="mode-letter">Character B &bull; Analysis Studio</div>
+        <div class="mode-name">Grammar &amp; Kanji</div>
+        <div class="mode-desc">Morphological token parsing, N5–N1 syllabus rules, and KanjiVG stroke playback.</div>
+      </div>
+
+      <div class="mode-card" id="hud-card-C" data-slot="C">
+        <div class="mode-letter">Character C &bull; Exam Simulation</div>
+        <div class="mode-name">Drills &amp; Examination</div>
+        <div class="mode-desc">Official JLPT question bank, adaptive spaced repetition, and timed simulation blocks.</div>
+      </div>
+
+      <div class="action-panel">
+        <button class="btn-launch" id="btn-launch-mode">
+          <span>Enter Track</span>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M5 13h11.86l-5.43 5.43 1.42 1.42L21.14 12l-8.29-7.85-1.42 1.42L16.86 11H5v2z"/>
+          </svg>
+        </button>
+        <button class="btn-secondary" id="btn-trigger-back">Trigger Back State</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="diag-drawer" id="diag-console">
+    <div class="diag-log-line"><span class="time">[00:00:00]</span> Initializing Rive runtime and inspecting State Machine inputs...</div>
+  </div>
+
+  <script src="./ui/vendor/rive.js"></script>
+  <script>
+    const logConsole = document.getElementById('diag-console');
+    const stateReadout = document.getElementById('state-readout');
+
+    function log(message, type = 'event') {
+      const line = document.createElement('div');
+      line.className = 'diag-log-line';
+      const time = new Date().toTimeString().split(' ')[0];
+      line.innerHTML = `<span class="time">[${time}]</span> <span class="${type}">${message}</span>`;
+      logConsole.appendChild(line);
+      logConsole.scrollTop = logConsole.scrollHeight;
+    }
+
+    const canvas = document.getElementById('rive-stage-canvas');
+    const viewport = document.getElementById('viewport');
+
+    // Force Ultra-HD pixel ratio
+    const DPR = Math.max(2.5, (window.devicePixelRatio || 1) * 1.5);
+    const rect = viewport.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * DPR);
+    canvas.height = Math.round(rect.height * DPR);
+
+    let riveInstance = null;
+    let stateMachineInputs = [];
+    let currentSelectedMode = 'A';
+
+    // Rive State Machine Inputs references
+    let inputClickTriggerA = null;
+    let inputClickTriggerB = null;
+    let inputClickTriggerC = null;
+    let inputClickTriggerBack = null;
+    let inputHoverBooleA = null;
+    let inputHoverBooleB = null;
+    let inputHoverBooleC = null;
+    let inputHoverBooleBack = null;
+
+    try {
+      riveInstance = new rive.Rive({
+        src: './ui/assets/riv/27565-52075-character-selection-menu.riv',
+        canvas: canvas,
+        autoplay: true,
+        automaticallyHandleEvents: true,
+        stateMachines: ['State Machine 1'],
+        layout: new rive.Layout({
+          fit: rive.Fit.Contain,
+          alignment: rive.Alignment.Center
+        }),
+        onLoad: () => {
+          log('Rive file loaded. Super-sampling canvas with DPR: ' + DPR.toFixed(1) + 'x');
+          try {
+            riveInstance.resizeDrawingSurfaceToCanvas(DPR);
+          } catch (e) {}
+
+          // Grab State Machine controller inputs
+          stateMachineInputs = riveInstance.stateMachineInputs('State Machine 1') || [];
+          log(`Loaded State Machine 1 with ${stateMachineInputs.length} exposed inputs.`);
+
+          stateMachineInputs.forEach(inp => {
+            log(`- Input [${inp.name}] (type: ${inp.type}, value: ${inp.value})`, 'trigger');
+            if (inp.name === 'clickTrigger_A') inputClickTriggerA = inp;
+            if (inp.name === 'clickTrigger_B') inputClickTriggerB = inp;
+            if (inp.name === 'clickTrigger_C') inputClickTriggerC = inp;
+            if (inp.name === 'clickTrigger_Back') inputClickTriggerBack = inp;
+            if (inp.name === 'hoverBoole_A') inputHoverBooleA = inp;
+            if (inp.name === 'hoverBoole_B') inputHoverBooleB = inp;
+            if (inp.name === 'hoverBoole_C') inputHoverBooleC = inp;
+            if (inp.name === 'hoverBoole_Back') inputHoverBooleBack = inp;
+          });
+
+          stateReadout.textContent = 'Active: State Machine 1 connected';
+        },
+        onStateChange: (event) => {
+          const names = event.data;
+          if (Array.isArray(names) && names.length > 0) {
+            log(`State Transition: ${names.join(', ')}`);
+            stateReadout.textContent = `State: ${names.join(', ')}`;
+
+            // Check if user clicked A, B, or C directly inside the Rive canvas
+            const joined = names.join(' ').toLowerCase();
+            if (joined.includes('click') || joined.includes('a') || joined.includes('b') || joined.includes('c')) {
+              if (joined.includes('a') || joined.includes('character a')) selectMode('A', false);
+              else if (joined.includes('b') || joined.includes('character b')) selectMode('B', false);
+              else if (joined.includes('c') || joined.includes('character c')) selectMode('C', false);
+            }
+          }
+        },
+        onError: (err) => {
+          log('Rive load error: ' + err, 'trigger');
+        }
+      });
+    } catch (e) {
+      log('Initialization failed: ' + e.message, 'trigger');
+    }
+
+    // Two-Way Sync Function
+    function selectMode(slot, triggerRive = true) {
+      currentSelectedMode = slot;
+
+      // Update UI HUD Cards
+      document.querySelectorAll('.mode-card').forEach(card => {
+        if (card.dataset.slot === slot) {
+          card.classList.add('is-active');
+        } else {
+          card.classList.remove('is-active');
+        }
+      });
+
+      log(`Mode set to Track ${slot}`);
+
+      // If triggered from outside the canvas, fire the Rive State Machine trigger!
+      if (triggerRive) {
+        if (slot === 'A' && inputClickTriggerA) {
+          inputClickTriggerA.fire();
+          log('Fired Rive inputClickTriggerA', 'trigger');
+        } else if (slot === 'B' && inputClickTriggerB) {
+          inputClickTriggerB.fire();
+          log('Fired Rive inputClickTriggerB', 'trigger');
+        } else if (slot === 'C' && inputClickTriggerC) {
+          inputClickTriggerC.fire();
+          log('Fired Rive inputClickTriggerC', 'trigger');
+        }
+      }
+    }
+
+    // Attach HUD Card Click Handlers
+    document.getElementById('hud-card-A').addEventListener('click', () => selectMode('A', true));
+    document.getElementById('hud-card-B').addEventListener('click', () => selectMode('B', true));
+    document.getElementById('hud-card-C').addEventListener('click', () => selectMode('C', true));
+
+    // Hover sync from HTML to Rive character hover state
+    document.getElementById('hud-card-A').addEventListener('mouseenter', () => {
+      if (inputHoverBooleA) inputHoverBooleA.value = true;
+    });
+    document.getElementById('hud-card-A').addEventListener('mouseleave', () => {
+      if (inputHoverBooleA) inputHoverBooleA.value = false;
+    });
+
+    document.getElementById('hud-card-B').addEventListener('mouseenter', () => {
+      if (inputHoverBooleB) inputHoverBooleB.value = true;
+    });
+    document.getElementById('hud-card-B').addEventListener('mouseleave', () => {
+      if (inputHoverBooleB) inputHoverBooleB.value = false;
+    });
+
+    document.getElementById('hud-card-C').addEventListener('mouseenter', () => {
+      if (inputHoverBooleC) inputHoverBooleC.value = true;
+    });
+    document.getElementById('hud-card-C').addEventListener('mouseleave', () => {
+      if (inputHoverBooleC) inputHoverBooleC.value = false;
+    });
+
+    // Back Button Handler
+    document.getElementById('btn-trigger-back').addEventListener('click', () => {
+      if (inputClickTriggerBack) {
+        inputClickTriggerBack.fire();
+        log('Fired Rive inputClickTriggerBack', 'trigger');
+      }
+    });
+
+    // Launch Mode Handler
+    document.getElementById('btn-launch-mode').addEventListener('click', () => {
+      const modeTargets = {
+        'A': { title: 'Vocabulary & Capture', tab: 'vocab' },
+        'B': { title: 'Grammar & Kanji', tab: 'grammar' },
+        'C': { title: 'JLPT Exam & Drills', tab: 'test' }
+      };
+      const target = modeTargets[currentSelectedMode] || modeTargets['A'];
+      log(`[Navigation Action] Launching target tab: ${target.tab} (${target.title})`);
+      alert(`Simulated Navigation to ${target.title} (${target.tab})`);
+    });
+
+    // Handle Window Resize cleanly
+    window.addEventListener('resize', () => {
+      if (riveInstance && canvas && viewport) {
+        const r = viewport.getBoundingClientRect();
+        canvas.width = Math.round(r.width * DPR);
+        canvas.height = Math.round(r.height * DPR);
+        try {
+          riveInstance.resizeDrawingSurfaceToCanvas(DPR);
+        } catch (e) {}
+      }
+    });
+  </script>
+</body>
+</html>
