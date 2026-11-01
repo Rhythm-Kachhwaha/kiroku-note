@@ -1,60 +1,202 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kiroku Note - Starting...</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Hina+Mincho&family=Lilita+One&family=M+PLUS+Rounded+1c:wght@700&family=Quicksand:wght@600&display=swap"
+    rel="stylesheet">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      background-color: #121110;
-      color: #ede8e1;
+      background: radial-gradient(circle at 50% 35%, #f4eee6 0%, #ede3d6 60%, #e2d7c5 100%);
+      color: #121110;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      position: relative;
       user-select: none;
       -webkit-app-region: drag;
     }
+
     .splash-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       text-align: center;
-      padding: 2rem;
-      max-width: 380px;
+      padding: 1.5rem;
+      max-width: 440px;
+      z-index: 2;
+      transform: translateY(-24px);
     }
-    .brand-wordmark {
-      font-size: 1.4rem;
+
+    .brand-title {
+      font-size: 2.45rem;
+      letter-spacing: 0.03em;
+      color: #121110;
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      flex-wrap: nowrap;
+      margin-bottom: 1.4rem;
+      text-shadow: 0 2px 4px rgba(18, 17, 16, 0.08);
+    }
+
+    .brand-title .word-kiroku {
+      font-family: 'Lilita One', cursive, sans-serif;
+      display: inline-flex;
+      color: #121110;
+      letter-spacing: 0.04em;
+    }
+
+    .brand-title .word-space {
+      width: 0.5ch;
+      display: inline-block;
+    }
+
+    .brand-title .word-note {
+      font-family: 'Hina Mincho', serif;
       font-weight: 700;
-      letter-spacing: 0.1em;
-      color: #ede8e1;
-      margin-bottom: 1.5rem;
+      display: inline-flex;
+      color: #b84632;
+      font-size: 2.05rem;
+      letter-spacing: 0.05em;
     }
-    .spinner {
-      width: 28px;
-      height: 28px;
-      border: 3px solid rgba(184, 70, 50, 0.2);
-      border-top-color: #b84632;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 1.5rem auto;
+
+    .letter {
+      display: inline-block;
+      animation: letterUplift 1.6s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+      animation-delay: var(--delay, 0s);
+      will-change: transform, color;
     }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+
+    @keyframes letterUplift {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      22% {
+        transform: translateY(-9px);
+        text-shadow: 0 8px 12px rgba(184, 70, 50, 0.22);
+      }
+
+      44% {
+        transform: translateY(0);
+      }
     }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.4rem 1.05rem;
+      background: rgba(18, 17, 16, 0.05);
+      border: 1px solid rgba(18, 17, 16, 0.08);
+      border-radius: 9999px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
     .status-text {
+      font-family: 'Quicksand', 'M PLUS Rounded 1c', sans-serif;
       font-size: 0.88rem;
-      color: #9e948a;
+      font-weight: 600;
+      color: #6a6157;
+      letter-spacing: 0.02em;
       line-height: 1.4;
+      max-width: 340px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cat-peeping {
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 240px;
+      max-width: 65vw;
+      height: auto;
+      pointer-events: none;
+      z-index: 1;
+      filter: drop-shadow(0 -4px 10px rgba(0, 0, 0, 0.12));
+      animation: catPeek 3.8s ease-in-out infinite alternate;
+    }
+
+    @keyframes catPeek {
+      0% {
+        transform: translateX(-50%) translateY(14px);
+      }
+
+      100% {
+        transform: translateX(-50%) translateY(0);
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="splash-container">
-    <div class="brand-wordmark">KIROKU</div>
-    <div class="spinner"></div>
-    <p class="status-text" id="status-msg">Starting backend service on port 21828...</p>
-  </div>
-</body>
-</html>
+    <div class="brand-title" aria-label="Kiroku ノート">
+      <span class="word-kiroku">
+        <span class="letter" style="--delay: 0.00s;">K</span>
+        <span class="letter" style="--delay: 0.08s;">i</span>
+        <span class="letter" style="--delay: 0.16s;">r</span>
+        <span class="letter" style="--delay: 0.24s;">o</span>
+        <span class="letter" style="--delay: 0.32s;">k</span>
+        <span class="letter" style="--delay: 0.40s;">u</span>
+      </span>
+      <span class="word-space">&nbsp;</span>
+      <span class="word-note">
+        <span class="letter" style="--delay: 0.48s;">ノ</span>
+        <span class="letter" style="--delay: 0.56s;">ー</span>
+        <span class="letter" style="--delay: 0.64s;">ト</span>
+      </span>
+    </div>
 
+    <div class="status-badge">
+      <p class="status-text" id="status-msg">Waking up the study engine...</p>
+    </div>
+  </div>
+
+  <img class="cat-peeping" src="../../assets/dekstop/Black%20Cat%20Green%20Eyes%20Peeping.svg"
+    alt="Black Cat Green Eyes Peeping" />
+
+  <script>
+    (function () {
+      const messages = [
+        "Waking up ...",
+        "Brewing some espresso...",
+        "Sharpening the digital pencils...",
+        "Dusting off your flashcards...",
+        "Stretching and getting ready...",
+        "Tuning the dictionary bells..."
+      ];
+      const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+      const el = document.getElementById("status-msg");
+      if (el) {
+        el.textContent = randomMsg;
+      }
+    })();
+  </script>
+</body>
+
+</html>
