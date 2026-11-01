@@ -84,6 +84,8 @@ export class HomeView {
     this.greetingIndex = null;
     this.mouseMoveHandler = null;
     this.mouseLeaveHandler = null;
+    this.mascotPointerFrame = null;
+    this.mascotPointerPosition = null;
     this.jumpTimeout = null;
   }
 
@@ -150,17 +152,23 @@ export class HomeView {
               <div class="comic-pointer-tail" aria-hidden="true"></div>
             </div>
 
-            <!-- Mascot Stage: Authentic Static svg_cat.svg with Organic Tilted Backing Shape -->
+            <!-- Mascot Stage: opaque portrait field with cursor-tracking pupils -->
             <div class="mascot-stage" id="mascot-stage" role="button" tabindex="0" title="Click for mascot reaction & greeting rotation">
               <div class="organic-shape-backing" aria-hidden="true"></div>
               <div class="mascot-stamp-badge font-mono">Kiroku Note</div>
               <div class="mascot-character-wrap" id="mascot-character-wrap">
-                <img
-                  id="home-mascot-cat"
-                  src="./ui/assets/mascot/svg_cat.svg"
-                  class="home-cat-img"
-                  alt="Kiroku Note Cat Mascot"
-                />
+                <div class="mascot-portrait-field">
+                  <img
+                    id="home-mascot-cat"
+                    src="./ui/assets/mascot/svg_cat.svg"
+                    class="home-cat-img"
+                    alt="Kiroku Note Cat Mascot"
+                  />
+                  <div class="mascot-eyes" aria-hidden="true">
+                    <span class="mascot-eye mascot-eye-left"><span class="mascot-pupil"></span></span>
+                    <span class="mascot-eye mascot-eye-right"><span class="mascot-pupil"></span></span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -183,8 +191,23 @@ export class HomeView {
             </div>
           </div>
 
-          <!-- Right Zone Placeholder -->
+          <!-- Hero Brand Wordmark & Interactive Float Zone -->
           <div class="home-right-zone" id="home-right-zone">
+            <div class="home-hero-brand" id="home-hero-brand" aria-label="KIROKU ノート">
+              <div class="hero-word-kiroku">
+                <span class="hero-letter">K</span>
+                <span class="hero-letter">I</span>
+                <span class="hero-letter">R</span>
+                <span class="hero-letter">O</span>
+                <span class="hero-letter">K</span>
+                <span class="hero-letter">U</span>
+              </div>
+              <div class="hero-word-note">
+                <span class="hero-letter">ノ</span>
+                <span class="hero-letter">ー</span>
+                <span class="hero-letter">ト</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -203,12 +226,12 @@ export class HomeView {
     if (mascotStage && mascotWrap) {
       const handleMascotClick = () => {
         this.rotateGreeting();
-        mascotWrap.style.transform = 'translateY(-14px) scale(1.05)';
+        mascotWrap.classList.add('is-reacting');
         if (this.jumpTimeout) {
           clearTimeout(this.jumpTimeout);
         }
         this.jumpTimeout = setTimeout(() => {
-          mascotWrap.style.transform = 'translateY(0) scale(1)';
+          mascotWrap.classList.remove('is-reacting');
           this.jumpTimeout = null;
         }, 180);
       };
@@ -249,7 +272,7 @@ export class HomeView {
       });
     }
 
-    // Subtle pupil / head tracking on mousemove
+    // Keep the mascot's gaze with the pointer without moving the layout.
     if (mascotStage && mascotWrap && typeof window !== 'undefined') {
       this.mouseMoveHandler = (e) => {
         if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -262,18 +285,31 @@ export class HomeView {
         const deltaY = (e.clientY - centerY) / (window.innerHeight / 2 || 1);
         const clampedX = Math.max(-1, Math.min(1, deltaX));
         const clampedY = Math.max(-1, Math.min(1, deltaY));
-        const tiltX = -clampedY * 4;
-        const tiltY = clampedX * 5;
-        const moveX = clampedX * 4;
-        const moveY = clampedY * 3;
-        mascotWrap.style.transform = `perspective(600px) rotateX(${tiltX.toFixed(1)}deg) rotateY(${tiltY.toFixed(1)}deg) translate(${moveX.toFixed(1)}px, ${moveY.toFixed(1)}px)`;
+        this.mascotPointerPosition = { x: clampedX, y: clampedY };
+        if (this.mascotPointerFrame !== null) return;
+
+        this.mascotPointerFrame = window.requestAnimationFrame(() => {
+          const position = this.mascotPointerPosition;
+          this.mascotPointerFrame = null;
+          if (!position) return;
+          mascotWrap.classList.add('is-tracking');
+          mascotWrap.style.setProperty('--mascot-tilt-x', `${(-position.y * 3).toFixed(1)}deg`);
+          mascotWrap.style.setProperty('--mascot-tilt-y', `${(position.x * 4).toFixed(1)}deg`);
+          mascotWrap.style.setProperty('--mascot-shift-x', `${(position.x * 3).toFixed(1)}px`);
+          mascotWrap.style.setProperty('--mascot-shift-y', `${(position.y * 2).toFixed(1)}px`);
+          mascotWrap.style.setProperty('--pupil-x', `${(position.x * 4.5).toFixed(1)}px`);
+          mascotWrap.style.setProperty('--pupil-y', `${(position.y * 3.5).toFixed(1)}px`);
+        });
       };
 
       this.mouseLeaveHandler = () => {
-        mascotWrap.style.transform = 'perspective(600px) rotateX(0deg) rotateY(0deg) translate(0px, 0px)';
+        this.mascotPointerPosition = null;
+        mascotWrap.classList.remove('is-tracking');
+        ['--mascot-tilt-x', '--mascot-tilt-y', '--mascot-shift-x', '--mascot-shift-y', '--pupil-x', '--pupil-y']
+          .forEach(property => mascotWrap.style.removeProperty(property));
       };
 
-      window.addEventListener('mousemove', this.mouseMoveHandler);
+      window.addEventListener('pointermove', this.mouseMoveHandler, { passive: true });
       mascotStage.addEventListener('mouseleave', this.mouseLeaveHandler);
     }
 
@@ -303,9 +339,14 @@ export class HomeView {
       this.jumpTimeout = null;
     }
     if (this.mouseMoveHandler && typeof window !== 'undefined') {
-      window.removeEventListener('mousemove', this.mouseMoveHandler);
+      window.removeEventListener('pointermove', this.mouseMoveHandler);
       this.mouseMoveHandler = null;
     }
+    if (this.mascotPointerFrame !== null && typeof window !== 'undefined') {
+      window.cancelAnimationFrame(this.mascotPointerFrame);
+      this.mascotPointerFrame = null;
+    }
+    this.mascotPointerPosition = null;
     this.mouseLeaveHandler = null;
     if (this.container) {
       this.container.innerHTML = '';
