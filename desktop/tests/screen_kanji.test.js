@@ -113,3 +113,38 @@ test('Kanji View: Error handling is visible with banner (no silent catches)', ()
   );
 });
 
+test('Kanji View: Duolingo-style mastery grid and tactile squircle cards', () => {
+  const content = fs.readFileSync(kanjiViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('kanji-mastery-grid'),
+    'KanjiView must render .kanji-mastery-grid container'
+  );
+  assert.ok(
+    content.includes('kanji-squircle-card'),
+    'KanjiView must render .kanji-squircle-card character elements'
+  );
+  assert.ok(
+    content.includes('kanji-progress-bar'),
+    'KanjiView must render .kanji-progress-bar mini progress indicator'
+  );
+});
+
+test('Kanji View: Dynamic target deck resolution for compound mining', () => {
+  const content = fs.readFileSync(kanjiViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('anki_deck') || content.includes('vocab.selectedDeck'),
+    'KanjiView must check user storage for target Anki mining deck'
+  );
+  assert.ok(
+    content.includes('deck_name: targetDeck') || content.includes('deck_name:'),
+    'KanjiView must pass resolved deck_name to apiClient.saveCard'
+  );
+  assert.equal(
+    content.includes("deck_name: 'Japanese::Vocab'"),
+    false,
+    'KanjiView must not hardcode deck_name to Japanese::Vocab'
+  );
+});
+

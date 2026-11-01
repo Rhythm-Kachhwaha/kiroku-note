@@ -105,6 +105,10 @@ export class ApiClient {
     return this.request('/api/cards/stats');
   }
 
+  async getCardsMetrics() {
+    return this.getCardStats();
+  }
+
   async getCards(params = {}) {
     return this.request('/api/cards', { query: params });
   }

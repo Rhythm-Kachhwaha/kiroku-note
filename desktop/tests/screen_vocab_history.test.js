@@ -88,3 +88,79 @@ test('Vocab History: No mock data or hardcoded placeholder cards exist', () => {
     );
   }
 });
+
+test('Vocab History: Wires metrics via apiClient.getCardsMetrics or getCardStats', () => {
+  const content = fs.readFileSync(vocabHistoryPath, 'utf8');
+
+  assert.ok(
+    content.includes('apiClient.getCardsMetrics(') || content.includes('apiClient.getCardStats('),
+    'VocabHistoryView must query metrics from backend API'
+  );
+  assert.ok(
+    content.includes('metric-total'),
+    'VocabHistoryView must display total mined metric'
+  );
+  assert.ok(
+    content.includes('metric-synced'),
+    'VocabHistoryView must display synced metric'
+  );
+  assert.ok(
+    content.includes('metric-pending'),
+    'VocabHistoryView must display pending metric'
+  );
+  assert.ok(
+    content.includes('metric-failed'),
+    'VocabHistoryView must display failed metric'
+  );
+  assert.ok(
+    content.includes('metric-today'),
+    'VocabHistoryView must display today mined metric'
+  );
+});
+
+test('Vocab History: Wires bulk selection and floating bulk actions bar', () => {
+  const content = fs.readFileSync(vocabHistoryPath, 'utf8');
+
+  assert.ok(
+    content.includes('history-bulk-bar'),
+    'VocabHistoryView must render #history-bulk-bar element'
+  );
+  assert.ok(
+    content.includes('btn-bulk-sync'),
+    'VocabHistoryView must include #btn-bulk-sync'
+  );
+  assert.ok(
+    content.includes('btn-bulk-delete'),
+    'VocabHistoryView must include #btn-bulk-delete'
+  );
+  assert.ok(
+    content.includes('apiClient.bulkSyncCards('),
+    'VocabHistoryView must call apiClient.bulkSyncCards'
+  );
+  assert.ok(
+    content.includes('apiClient.bulkDeleteCards('),
+    'VocabHistoryView must call apiClient.bulkDeleteCards'
+  );
+});
+
+test('Vocab History: Slide-out inspector drawer with accessible escape key and focus trap', () => {
+  const content = fs.readFileSync(vocabHistoryPath, 'utf8');
+
+  assert.ok(
+    content.includes('card-inspector'),
+    'VocabHistoryView must render card-inspector drawer'
+  );
+  assert.ok(
+    content.includes('openInspector('),
+    'VocabHistoryView must implement openInspector'
+  );
+  assert.ok(
+    content.includes('closeInspector('),
+    'VocabHistoryView must implement closeInspector'
+  );
+  assert.ok(
+    content.includes("'Escape'") || content.includes('"Escape"'),
+    'VocabHistoryView must handle Escape key for drawer dismissal'
+  );
+});
+

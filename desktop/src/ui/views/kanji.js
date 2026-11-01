@@ -18,7 +18,27 @@ export class KanjiView {
     this.playTimer = null;
     this.currentStrokeIndex = 0;
     this.strokePaths = [];
+    this.strokeNumbers = [];
     this.activeLevel = 'N4';
+  }
+
+  async getTargetDeck() {
+    let targetDeck = 'Japanese::Vocab';
+    if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+      try {
+        const stored = await new Promise((res) => {
+          window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck'], res);
+        });
+        if (stored?.['anki_deck']) {
+          targetDeck = stored['anki_deck'];
+        } else if (stored?.['vocab.selectedDeck']) {
+          targetDeck = stored['vocab.selectedDeck'];
+        }
+      } catch (err) {
+        console.debug('[Kanji] Target deck preference restore error:', err);
+      }
+    }
+    return targetDeck;
   }
 
   async mount(container) {
@@ -344,10 +364,19 @@ export class KanjiView {
       svgEl.setAttribute('height', '220');
     }
 
-    // Extract stroke paths
+    // Extract stroke paths and stroke order numbers
     this.strokePaths = Array.from(canvas.querySelectorAll('path'));
+    this.strokeNumbers = Array.from(canvas.querySelectorAll('text'));
     this.currentStrokes = this.strokePaths.length;
     this.currentStrokeIndex = 0;
+
+    // Style stroke number text elements for pitch-black canvas
+    this.strokeNumbers.forEach((t) => {
+      t.style.fontFamily = 'var(--font-mono)';
+      t.style.fontSize = '10px';
+      t.style.fill = '#A8A29E';
+      t.style.userSelect = 'none';
+    });
 
     const slider = document.getElementById('stroke-slider');
     if (slider) {
@@ -368,13 +397,24 @@ export class KanjiView {
         path.style.opacity = '1';
         path.style.strokeWidth = '3';
       } else if (i === this.currentStrokeIndex) {
-        path.style.stroke = '#F2C230'; // Cat-eye accent for active stroke
+        path.style.stroke = '#C8A94A'; // Planetoño gold accent for active stroke
         path.style.opacity = '1';
         path.style.strokeWidth = '4.5';
       } else {
         path.style.stroke = '#444444';
         path.style.opacity = '0.2';
         path.style.strokeWidth = '2';
+      }
+    });
+
+    // Progressive stroke order numbers
+    this.strokeNumbers.forEach((numEl, i) => {
+      if (i <= this.currentStrokeIndex) {
+        numEl.style.display = 'block';
+        numEl.style.fill = (i === this.currentStrokeIndex) ? '#C8A94A' : '#A8A29E';
+        numEl.style.fontWeight = (i === this.currentStrokeIndex) ? '700' : '400';
+      } else {
+        numEl.style.display = 'none';
       }
     });
 
@@ -468,11 +508,12 @@ export class KanjiView {
         btn.textContent = 'Mining...';
 
         try {
+          const targetDeck = await this.getTargetDeck();
           await apiClient.saveCard({
             expression: expr,
             reading: read,
             meaning: gloss,
-            deck_name: 'Japanese::Vocab',
+            deck_name: targetDeck,
             tags: 'kanji-compound'
           });
           btn.textContent = 'Mined';
@@ -494,37 +535,63 @@ export class KanjiView {
     container.innerHTML = `<span class="text-xs text-muted">Loading ${level} kanji...</span>`;
 
     try {
-      const [browseRes, seenRes] = await Promise.allSettled([
-        apiClient.browseKanji({ level, limit: 18 }),
-        apiClient.getSeenKanji()
+      const [browseRes, seenRes, knownRes] = await Promise.allSettled([
+        apiClient.browseKanji({ level, limit: 36 }),
+        apiClient.getSeenKanji(),
+        apiClient.getKnownWords()
       ]);
 
       const kanjiList = (browseRes.status === 'fulfilled' && browseRes.value?.kanji) ? browseRes.value.kanji : [];
       const seenMap = (seenRes.status === 'fulfilled' && seenRes.value?.seen_kanji) ? seenRes.value.seen_kanji : {};
+
+      let knownWords = new Set();
+      if (knownRes.status === 'fulfilled' && knownRes.value) {
+        const words = Array.isArray(knownRes.value.words) ? knownRes.value.words : (Array.isArray(knownRes.value) ? knownRes.value : []);
+        knownWords = new Set(words);
+      }
 
       if (kanjiList.length === 0) {
         container.innerHTML = `<span class="text-xs text-muted">No kanji listed for ${level}.</span>`;
         return;
       }
 
-      container.innerHTML = kanjiList.map((k) => {
-        const isSeen = Boolean(seenMap[k.character]);
-        const seenClass = isSeen ? 'is-seen-kanji' : '';
-        const titleText = isSeen ? `${k.character} (${seenMap[k.character]} seen in cards)` : k.character;
+      container.innerHTML = `
+        <div class="kanji-mastery-grid">
+          ${kanjiList.map((k) => {
+            const seenCount = seenMap[k.character] || 0;
+            const isKnown = knownWords.has(k.character);
+            const isMastered = isKnown || seenCount >= 3;
+            const progressPct = isMastered ? 100 : (seenCount > 0 ? Math.min(80, Math.max(30, seenCount * 25)) : 0);
+            const reading = k.reading || k.onyomi || (Array.isArray(k.meanings) ? k.meanings[0] : (k.meanings || ''));
+            const masteredClass = isMastered ? 'is-mastered' : '';
+            const activeClass = k.character === this.currentChar ? 'is-active' : '';
+            const titleText = isMastered
+              ? `${k.character} (Mastered · ${reading})`
+              : (seenCount > 0 ? `${k.character} (${seenCount} seen · ${reading})` : `${k.character} (${reading})`);
 
-        return `
-          <button type="button" class="kanji-browse-chip ${seenClass}" data-char="${escapeHtml(k.character)}" title="${escapeHtml(titleText)}">
-            ${escapeHtml(k.character)}
-            ${isSeen ? '<span class="seen-indicator-dot"></span>' : ''}
-          </button>
-        `;
-      }).join('');
+            return `
+              <button
+                type="button"
+                class="kanji-squircle-card ${masteredClass} ${activeClass}"
+                data-char="${escapeHtml(k.character)}"
+                title="${escapeHtml(titleText)}"
+              >
+                <span class="kanji-char ${isMastered ? 'text-gold' : ''}">${escapeHtml(k.character)}</span>
+                <span class="kanji-sub-reading">${escapeHtml(reading)}</span>
+                <div class="kanji-progress-bar">
+                  <div class="kanji-progress-fill ${isMastered ? 'is-mastered' : ''}" style="width: ${progressPct}%;"></div>
+                </div>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      `;
 
-      container.querySelectorAll('.kanji-browse-chip').forEach((chip) => {
-        chip.addEventListener('click', () => {
-          container.querySelectorAll('.kanji-browse-chip').forEach((c) => c.classList.remove('is-active'));
-          chip.classList.add('is-active');
-          this.loadKanji(chip.dataset.char);
+      container.querySelectorAll('.kanji-squircle-card').forEach((card) => {
+        card.addEventListener('click', () => {
+          container.querySelectorAll('.kanji-squircle-card').forEach((c) => c.classList.remove('is-active'));
+          card.classList.add('is-active');
+          this.loadKanji(card.dataset.char);
         });
       });
     } catch (err) {

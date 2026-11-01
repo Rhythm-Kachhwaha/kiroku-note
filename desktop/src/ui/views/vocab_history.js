@@ -125,6 +125,18 @@ export class VocabHistoryView {
             </div>
           </div>
 
+          <!-- Bulk Delete Confirmation Modal -->
+          <div class="tactile-modal-backdrop" id="bulk-delete-modal" style="display: none;">
+            <div class="tactile-modal-card tactile-card" role="dialog" aria-modal="true" aria-labelledby="bulk-modal-title">
+              <h3 class="text-base font-bold text-warm-paper" id="bulk-modal-title">Delete Selected Cards?</h3>
+              <p class="text-sm text-secondary mt-2" id="bulk-modal-desc">Are you sure you want to delete the selected cards? This action cannot be undone.</p>
+              <div class="modal-actions-row mt-4">
+                <button type="button" class="tactile-btn tactile-btn-sm" id="btn-cancel-bulk-delete">Cancel</button>
+                <button type="button" class="tactile-btn tactile-btn-sm text-red" id="btn-confirm-bulk-delete">Yes, Delete</button>
+              </div>
+            </div>
+          </div>
+
           <!-- Cards Inventory Data Grid Table -->
           <div class="history-table-container tactile-card">
             <table class="history-table" id="cards-table">
@@ -301,45 +313,47 @@ export class VocabHistoryView {
     }
 
     const btnBulkDelete = document.getElementById('btn-bulk-delete');
+    const modalBulkDelete = document.getElementById('bulk-delete-modal');
+    const btnCancelBulk = document.getElementById('btn-cancel-bulk-delete');
+    const btnConfirmBulk = document.getElementById('btn-confirm-bulk-delete');
+
     if (btnBulkDelete) {
-      btnBulkDelete.addEventListener('click', async () => {
+      btnBulkDelete.addEventListener('click', () => {
         if (this.selectedIds.size === 0) return;
-        if (btnBulkDelete.dataset.confirming !== 'true') {
-          btnBulkDelete.dataset.confirming = 'true';
-          btnBulkDelete.textContent = `Confirm Delete (${this.selectedIds.size})?`;
-          setTimeout(() => {
-            if (btnBulkDelete && btnBulkDelete.dataset.confirming === 'true') {
-              btnBulkDelete.dataset.confirming = 'false';
-              btnBulkDelete.innerHTML = `
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                </svg>
-                <span>Delete Selected</span>
-              `;
-            }
-          }, 4000);
+        const desc = document.getElementById('bulk-modal-desc');
+        if (desc) {
+          desc.textContent = `Are you sure you want to delete ${this.selectedIds.size} selected card(s)? This action cannot be undone.`;
+        }
+        if (modalBulkDelete) modalBulkDelete.style.display = 'flex';
+      });
+    }
+
+    if (btnCancelBulk && modalBulkDelete) {
+      btnCancelBulk.addEventListener('click', () => {
+        modalBulkDelete.style.display = 'none';
+      });
+    }
+
+    if (btnConfirmBulk && modalBulkDelete) {
+      btnConfirmBulk.addEventListener('click', async () => {
+        if (this.selectedIds.size === 0) {
+          modalBulkDelete.style.display = 'none';
           return;
         }
-
-        btnBulkDelete.disabled = true;
-        btnBulkDelete.textContent = 'Deleting...';
+        btnConfirmBulk.disabled = true;
+        btnConfirmBulk.textContent = 'Deleting...';
         try {
           await apiClient.bulkDeleteCards(Array.from(this.selectedIds));
           this.selectedIds.clear();
           if (checkAll) checkAll.checked = false;
+          modalBulkDelete.style.display = 'none';
           this.updateBulkBar();
           await this.loadData();
         } catch (err) {
           this.showError(`Bulk delete failed: ${err.message}`);
         } finally {
-          btnBulkDelete.disabled = false;
-          btnBulkDelete.dataset.confirming = 'false';
-          btnBulkDelete.innerHTML = `
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-            </svg>
-            <span>Delete Selected</span>
-          `;
+          btnConfirmBulk.disabled = false;
+          btnConfirmBulk.textContent = 'Yes, Delete';
         }
       });
     }
@@ -355,8 +369,12 @@ export class VocabHistoryView {
     }
 
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.selectedCard) {
-        this.closeInspector();
+      if (e.key === 'Escape') {
+        if (modalBulkDelete && modalBulkDelete.style.display !== 'none') {
+          modalBulkDelete.style.display = 'none';
+        } else if (this.selectedCard) {
+          this.closeInspector();
+        }
       }
     });
   }
@@ -414,7 +432,7 @@ export class VocabHistoryView {
       }
 
       const [statsRes, cardsRes] = await Promise.allSettled([
-        apiClient.getCardStats(),
+        apiClient.getCardsMetrics(),
         apiClient.getCards(params)
       ]);
 
@@ -547,12 +565,41 @@ export class VocabHistoryView {
       </div>
 
       <div class="inspector-field">
+        <label for="drawer-tags-input">Tags</label>
+        <input type="text" id="drawer-tags-input" class="tactile-input font-mono text-sm" value="${escapeHtml(card.tags || '')}" placeholder="comma-separated tags..." />
+      </div>
+
+      <div class="inspector-field">
+        <label for="drawer-notes-input">Study notes</label>
+        <textarea id="drawer-notes-input" class="tactile-input text-sm" rows="3" placeholder="Add custom notes...">${escapeHtml(card.notes || card.mnemonic || '')}</textarea>
+      </div>
+
+      ${(card.audio_filename || card.audio_url || card.audio) ? `
+        <div class="inspector-field">
+          <label>Audio</label>
+          <div class="inspector-media-row">
+            <audio controls src="${escapeHtml(card.audio_url || `/api/media/audio/${card.audio_filename || ''}`)}" class="inspector-audio-player"></audio>
+          </div>
+        </div>
+      ` : ''}
+
+      ${(card.image_filename || card.image_url || card.image) ? `
+        <div class="inspector-field">
+          <label>Image Context</label>
+          <div class="inspector-media-row">
+            <img src="${escapeHtml(card.image_url || `/api/media/image/${card.image_filename || ''}`)}" alt="Card visual context" class="inspector-image-preview" />
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="inspector-field">
         <label>Anki note ID</label>
         <p class="font-mono text-gold">${escapeHtml(String(card.anki_note_id || 'Not synced yet'))}</p>
       </div>
 
       <div class="inspector-actions">
-        <button class="tactile-btn tactile-btn-primary" id="btn-drawer-sync">Sync to Anki</button>
+        <button class="tactile-btn tactile-btn-primary" id="btn-drawer-save-card">Save Changes</button>
+        <button class="tactile-btn" id="btn-drawer-sync">Sync to Anki</button>
         <button class="tactile-btn text-red" id="btn-drawer-delete">Delete card</button>
       </div>
     `;
@@ -594,9 +641,40 @@ export class VocabHistoryView {
 
     // Initial focus on primary action
     setTimeout(() => {
-      const firstAction = drawer.querySelector('#btn-drawer-sync') || drawer.querySelector('#btn-close-drawer');
+      const firstAction = drawer.querySelector('#btn-drawer-save-card') || drawer.querySelector('#btn-drawer-sync') || drawer.querySelector('#btn-close-drawer');
       if (firstAction) firstAction.focus();
     }, 50);
+
+    const btnSave = document.getElementById('btn-drawer-save-card');
+    if (btnSave) {
+      btnSave.addEventListener('click', async () => {
+        btnSave.disabled = true;
+        btnSave.textContent = 'Saving...';
+        try {
+          const newTags = document.getElementById('drawer-tags-input')?.value?.trim() || '';
+          const newNotes = document.getElementById('drawer-notes-input')?.value?.trim() || '';
+          await apiClient.saveCard({
+            ...card,
+            tags: newTags,
+            notes: newNotes
+          });
+          card.tags = newTags;
+          card.notes = newNotes;
+          btnSave.textContent = 'Saved';
+          setTimeout(() => {
+            if (btnSave) {
+              btnSave.disabled = false;
+              btnSave.textContent = 'Save Changes';
+            }
+          }, 1500);
+          await this.loadData();
+        } catch (err) {
+          this.showError(`Save card edits failed: ${err.message}`);
+          btnSave.disabled = false;
+          btnSave.textContent = 'Save Changes';
+        }
+      });
+    }
 
     const btnSync = document.getElementById('btn-drawer-sync');
     if (btnSync) {

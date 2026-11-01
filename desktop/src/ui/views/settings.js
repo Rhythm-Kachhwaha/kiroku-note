@@ -8,6 +8,7 @@ import { apiClient } from '../services/api_client.js';
 import { studyClient } from '../services/study_client.js';
 import { renderAssetSlot } from '../assets_map.js';
 import { getUniversalJlptLevel, setUniversalJlptLevel } from '../utils/learner.js';
+import { escapeHtml } from '../utils/sanitizer.js';
 
 export class SettingsView {
   constructor(router) {
@@ -94,6 +95,13 @@ export class SettingsView {
                 <input type="text" id="anki-url-input" class="tactile-input font-mono text-sm" value="http://127.0.0.1:8765" />
               </div>
 
+              <div class="form-field mt-3">
+                <label for="select-settings-deck">Target Mining Deck</label>
+                <select id="select-settings-deck" class="tactile-input font-mono text-sm">
+                  <option value="">(Checking available Anki decks...)</option>
+                </select>
+              </div>
+
               <div class="card-actions-row mt-3">
                 <button type="button" class="tactile-btn tactile-btn-primary" id="btn-test-anki">Test Connection</button>
               </div>
@@ -157,7 +165,14 @@ export class SettingsView {
 
               <div class="form-field mt-3">
                 <label for="llm-key-input">API Key (Protected by Windows DPAPI)</label>
-                <input type="password" id="llm-key-input" class="tactile-input font-mono text-sm" placeholder="Enter API key to update..." />
+                <div style="position: relative; display: flex; align-items: center;">
+                  <input type="password" id="llm-key-input" class="tactile-input font-mono text-sm" style="padding-right: 2.2rem; width: 100%;" placeholder="Enter API key to update..." />
+                  <button type="button" id="btn-toggle-key-visibility" title="Toggle visibility" aria-label="Toggle key visibility" style="position: absolute; right: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; display: flex; align-items: center;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <div class="card-actions-row mt-3">
@@ -185,7 +200,14 @@ export class SettingsView {
               </div>
               <p class="card-desc">Non-mutating verification of SQLite database integrity, sealed triggers, and media assets.</p>
 
-              <div class="doctor-results-box mt-3" id="doctor-results" style="display: none;">
+              <div class="doctor-summary-box mt-3" id="doctor-summary" style="display: none;">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="tactile-pill tactile-pill-gold" id="doctor-status-badge">Integrity Verified</span>
+                  <span class="font-mono text-xs text-secondary" id="doctor-db-path">--</span>
+                </div>
+              </div>
+
+              <div class="doctor-results-box mt-2" id="doctor-results" style="display: none;">
                 <pre class="doctor-pre font-mono text-xs" id="doctor-output"></pre>
               </div>
 
@@ -249,6 +271,20 @@ export class SettingsView {
       });
     });
 
+    // Anki Mining Deck Selector
+    const selectDeck = document.getElementById('select-settings-deck');
+    if (selectDeck) {
+      selectDeck.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val && typeof window !== 'undefined' && window.chrome?.storage?.local) {
+          window.chrome.storage.local.set({
+            anki_deck: val,
+            'vocab.selectedDeck': val
+          });
+        }
+      });
+    }
+
     // Test Anki button
     const btnAnki = document.getElementById('btn-test-anki');
     if (btnAnki) {
@@ -268,6 +304,9 @@ export class SettingsView {
             const connected = Boolean(res?.connected);
             tag.textContent = connected ? `Connected (v${res.version || '?'})` : 'Unavailable';
             tag.className = `tactile-pill ${connected ? 'tactile-pill-gold' : ''}`;
+            if (connected) {
+              await this.loadAnkiDecks();
+            }
           }
         } catch (err) {
           console.warn('[Settings] Anki status test failed:', err);
@@ -382,6 +421,16 @@ export class SettingsView {
       });
     }
 
+    // Key Visibility Toggle
+    const btnToggleKey = document.getElementById('btn-toggle-key-visibility');
+    const keyInput = document.getElementById('llm-key-input');
+    if (btnToggleKey && keyInput) {
+      btnToggleKey.addEventListener('click', () => {
+        const isPass = keyInput.type === 'password';
+        keyInput.type = isPass ? 'text' : 'password';
+      });
+    }
+
     // Doctor Diagnostics Check
     const btnDoctor = document.getElementById('btn-run-doctor');
     if (btnDoctor) {
@@ -392,8 +441,18 @@ export class SettingsView {
 
         try {
           const report = await studyClient.getDiagnostics();
+          const summaryBox = document.getElementById('doctor-summary');
+          const statusBadge = document.getElementById('doctor-status-badge');
+          const dbPathEl = document.getElementById('doctor-db-path');
           const box = document.getElementById('doctor-results');
           const out = document.getElementById('doctor-output');
+
+          if (summaryBox && statusBadge && dbPathEl) {
+            summaryBox.style.display = 'block';
+            statusBadge.textContent = report?.status === 'ok' ? 'Integrity Verified' : 'Check Complete';
+            dbPathEl.textContent = report?.database_path || report?.path || 'study.db';
+          }
+
           if (box && out) {
             box.style.display = 'block';
             out.textContent = JSON.stringify(report, null, 2);
@@ -520,6 +579,12 @@ export class SettingsView {
       console.warn('[Settings] Initial Anki status error:', err);
     }
 
+    try {
+      await this.loadAnkiDecks();
+    } catch (err) {
+      console.debug('[Settings] Initial loadAnkiDecks error:', err);
+    }
+
     // 3. LLM config
     try {
       const llmConf = await apiClient.getLlmConfig();
@@ -540,6 +605,61 @@ export class SettingsView {
       }
     } catch (err) {
       console.warn('[Settings] Initial LLM config error:', err);
+    }
+  }
+
+  async loadAnkiDecks(savedDeck = null) {
+    const deckSelect = document.getElementById('select-settings-deck');
+    if (!deckSelect) return;
+
+    try {
+      const res = await apiClient.getAnkiDecks();
+      const decks = Array.isArray(res) ? res : (res?.decks || []);
+
+      let currentDeck = savedDeck;
+      if (!currentDeck && typeof window !== 'undefined' && window.chrome?.storage?.local) {
+        try {
+          const stored = await new Promise((resolve) => {
+            window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck'], resolve);
+          });
+          currentDeck = stored?.['anki_deck'] || stored?.['vocab.selectedDeck'] || '';
+        } catch (err) {
+          console.debug('[Settings] Restore stored deck error:', err);
+        }
+      }
+
+      if (decks.length === 0) {
+        const fallback = currentDeck || 'Japanese::Vocab';
+        deckSelect.innerHTML = `<option value="${escapeHtml(fallback)}">${escapeHtml(fallback)} (Default)</option>`;
+        return;
+      }
+
+      deckSelect.innerHTML = decks.map((d) => `
+        <option value="${escapeHtml(d)}" ${d === currentDeck ? 'selected' : ''}>${escapeHtml(d)}</option>
+      `).join('');
+
+      if (currentDeck && !decks.includes(currentDeck)) {
+        const opt = document.createElement('option');
+        opt.value = currentDeck;
+        opt.textContent = `${currentDeck} (Saved)`;
+        opt.selected = true;
+        deckSelect.appendChild(opt);
+      }
+    } catch (err) {
+      console.warn('[Settings] Load Anki decks error:', err);
+      let fallbackDeck = savedDeck || 'Japanese::Vocab';
+      if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+        try {
+          const stored = await new Promise((resolve) => {
+            window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck'], resolve);
+          });
+          if (stored?.['anki_deck']) fallbackDeck = stored['anki_deck'];
+          else if (stored?.['vocab.selectedDeck']) fallbackDeck = stored['vocab.selectedDeck'];
+        } catch (storageErr) {
+          console.debug('[Settings] Deck restore storage error:', storageErr);
+        }
+      }
+      deckSelect.innerHTML = `<option value="${escapeHtml(fallbackDeck)}" selected>${escapeHtml(fallbackDeck)} (Offline Fallback)</option>`;
     }
   }
 

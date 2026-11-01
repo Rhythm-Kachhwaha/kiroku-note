@@ -40,6 +40,23 @@ test('Settings View: Wires AnkiConnect status test via apiClient.getAnkiStatus',
   );
 });
 
+test('Settings View: Configurable Anki mining deck selector via apiClient.getAnkiDecks', () => {
+  const content = fs.readFileSync(settingsViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('apiClient.getAnkiDecks('),
+    'SettingsView must call apiClient.getAnkiDecks to load live decks'
+  );
+  assert.ok(
+    content.includes('select-settings-deck'),
+    'SettingsView must render select-settings-deck element'
+  );
+  assert.ok(
+    content.includes('anki_deck') || content.includes('vocab.selectedDeck'),
+    'SettingsView must persist selected deck preference'
+  );
+});
+
 test('Settings View: Wires OCR daemon lifecycle via apiClient.startOcr and stopOcr', () => {
   const content = fs.readFileSync(settingsViewPath, 'utf8');
 

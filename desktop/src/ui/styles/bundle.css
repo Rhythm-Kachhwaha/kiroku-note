@@ -1219,6 +1219,63 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   color: var(--gold-eye);
 }
 
+.inspector-media-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--surface-container-lowest);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  overflow: hidden;
+}
+
+.inspector-audio-player {
+  width: 100%;
+  height: 36px;
+}
+
+.inspector-image-preview {
+  max-width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--tactile-stroke);
+}
+
+/* Modal Backdrops & Cards */
+.tactile-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(2px);
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.tactile-modal-card {
+  width: 100%;
+  max-width: 440px;
+  background-color: var(--surface-container-high);
+  border: 2px solid #151413;
+  border-radius: var(--radius-lg);
+  box-shadow: 4px 4px 0 #151413;
+  padding: 1.5rem;
+}
+
+.modal-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
 /* ==========================================================================
    Grammar Screen Styles — Editorial Study Desk & Centerpiece Token Visualizer
    Planetoño-inspired zero-blur offset shadows, pure black parsing canvas,
@@ -2066,11 +2123,112 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 
 .kanji-browse-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 6px;
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--ink-border);
+}
+
+/* Duolingo-Style Kanji Mastery Grid */
+.kanji-mastery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.kanji-squircle-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0.65rem 0.4rem 0.5rem 0.4rem;
+  background-color: var(--surface-container);
+  border: 2px solid #151413;
+  border-radius: 14px;
+  box-shadow: 2px 2px 0 #151413;
+  cursor: pointer;
+  user-select: none;
+  transition: transform var(--duration-instant) ease, box-shadow var(--duration-instant) ease, border-color var(--duration-fast) ease;
+}
+
+.kanji-squircle-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 2px 4px 0 #151413;
+  background-color: var(--surface-container-high);
+}
+
+.kanji-squircle-card:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 #151413;
+}
+
+.kanji-squircle-card.is-active {
+  border-color: var(--accent-gold);
+  background-color: var(--surface-container-highest);
+  box-shadow: 0 0 0 1px var(--accent-gold), 2px 2px 0 #151413;
+}
+
+/* Mastered State (Glowing Gold) */
+.kanji-squircle-card.is-mastered {
+  border-color: #C8A94A;
+  box-shadow: 0 0 10px rgba(200, 169, 74, 0.4), 2px 2px 0 #151413;
+  background-color: rgba(200, 169, 74, 0.08);
+}
+
+.kanji-squircle-card.is-mastered:hover {
+  box-shadow: 0 0 14px rgba(200, 169, 74, 0.6), 2px 4px 0 #151413;
+}
+
+.kanji-squircle-card .kanji-char {
+  font-family: var(--font-japanese);
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  line-height: 1.1;
+  text-align: center;
+}
+
+.kanji-squircle-card.is-mastered .kanji-char {
+  color: #C8A94A;
+}
+
+.kanji-sub-reading {
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 0.2rem;
+  margin-bottom: 0.35rem;
+}
+
+/* Mini Progress Bar Underneath Character */
+.kanji-progress-bar {
+  width: 100%;
+  height: 4px;
+  background-color: var(--surface-container-lowest);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  border: 1px solid rgba(21, 20, 19, 0.6);
+}
+
+.kanji-progress-fill {
+  height: 100%;
+  background-color: var(--status-amber);
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+
+.kanji-progress-fill.is-mastered,
+.kanji-squircle-card.is-mastered .kanji-progress-fill {
+  background-color: #C8A94A;
+  box-shadow: 0 0 4px #C8A94A;
 }
 
 .kanji-browse-chip {
@@ -2137,7 +2295,7 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 .kanji-hero-glyph {
-  font-family: var(--font-japanese);
+  font-family: var(--font-display), var(--font-japanese);
   font-size: 4.5rem;
   font-weight: 700;
   color: var(--warm-paper);
@@ -2747,6 +2905,17 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 
 .doctor-pre {
   color: var(--text-secondary);
+}
+
+.doctor-summary-box {
+  background-color: var(--surface-container-lowest);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+}
+
+.btn-toggle-key-visibility:hover {
+  color: var(--warm-paper);
 }
 
 
