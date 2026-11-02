@@ -119,33 +119,8 @@ export class VocabMainView {
           <div id="vocab-word-mode-container" class="vocab-mode-pane">
             <!-- Main Layout Grid: Word Presentation & JMdict (Left) + Card Mining Form (Right) -->
             <div class="vocab-content-grid">
-              <!-- Left Column: Word Presentation & JMdict Sense Block -->
+              <!-- Left Column: JMdict Sense Block -->
               <div class="vocab-left-column">
-                <!-- Headword Hero Showcase Block -->
-                <div class="headword-hero-card tactile-card" id="headword-hero">
-                  <div class="headword-hero-top">
-                    <div class="headword-glyph-group">
-                      <ruby class="headword-kanji font-display" id="hero-expression">
-                        <span class="text-muted text-base font-sans">Search a word above...</span>
-                        <rt id="hero-reading" class="font-japanese"></rt>
-                      </ruby>
-                      <span class="pitch-accent-badge font-mono" id="hero-pitch" style="display: none;">[0] 平板</span>
-                    </div>
-                    <button class="audio-play-btn tactile-btn-icon" id="btn-play-audio" title="Pronounce Term" aria-label="Play audio" style="display: none;">
-                      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                      </svg>
-                    </button>
-                  </div>
-
-                  <!-- Radical & JLPT breakdown pill bar -->
-                  <div class="headword-meta-row" id="headword-meta-row" style="display: none;">
-                    <span class="tactile-pill tactile-pill-gold font-sans" id="hero-jlpt">JLPT</span>
-                    <span class="tactile-pill font-sans" id="hero-pos">Vocabulary</span>
-                    <button type="button" class="tactile-pill font-sans" id="btn-toggle-known">Mark Known</button>
-                  </div>
-                </div>
-
                 <!-- Pure Black JMdict Surface (#000000) -->
                 <div class="jmdict-card surface-pitch-black tactile-card" id="jmdict-block">
                   <div class="jmdict-header-row">
@@ -160,12 +135,33 @@ export class VocabMainView {
                 </div>
               </div>
 
-              <!-- Right Column: Card Mining Form (Clearly visually delineated) -->
+              <!-- Right Column: Card Mining Form with Extension-style Hero Showcase -->
               <div class="vocab-right-column">
                 <form class="card-mining-form tactile-card" id="card-mining-form">
+                  <!-- Prominent Extension-style Captured Word Hero Showcase -->
+                  <section id="headword-hero" class="word-showcase-card captured-word-hero" aria-label="Captured Japanese Word">
+                    <div id="hero-reading" class="word-reading-lead hero-reading font-japanese"></div>
+                    <div class="hero-expression-row">
+                      <ruby class="headword-kanji font-display" id="hero-expression">
+                        <span class="text-muted text-base font-sans" style="font-size: 1.1rem; letter-spacing: normal;">Search a word above...</span>
+                      </ruby>
+                      <button type="button" class="audio-play-btn tactile-btn-icon" id="btn-play-audio" title="Pronounce Term" aria-label="Play audio" style="display: none;">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                        </svg>
+                      </button>
+                    </div>
+
+                    <!-- Meta & Status Badges Row -->
+                    <div class="word-badges-row headword-meta-row" id="headword-meta-row" style="display: none;">
+                      <span class="pitch-accent-badge kn-badge pitch font-mono" id="hero-pitch" style="display: none;">[0] 平板</span>
+                      <span class="kn-badge jlpt font-mono" id="hero-jlpt">JLPT</span>
+                      <span class="kn-badge pos font-sans" id="hero-pos">Vocabulary</span>
+                      <button type="button" class="tactile-pill font-sans" id="btn-toggle-known">Mark Known</button>
+                    </div>
+                  </section>
                   <div class="mining-form-header">
                     <div class="mining-title-group">
-                      <h2 class="mining-form-title font-sans">Mine to Anki</h2>
                       <span class="mining-unsaved-badge font-sans" id="mining-unsaved-badge" style="display: none;" title="Unsaved changes in this card">
                         <span class="unsaved-dot"></span>
                         <span>Unsaved</span>
@@ -175,17 +171,9 @@ export class VocabMainView {
                   </div>
 
                   <!-- Expression & Reading Fields -->
-                  <div class="form-row-pair">
-                    <div class="form-field">
-                      <label for="input-expression" class="font-sans">Expression</label>
-                      <input type="text" id="input-expression" class="tactile-input font-japanese" placeholder="e.g. 日本" required />
-                    </div>
-                    <div class="form-field">
-                      <label for="input-reading" class="font-sans">Reading</label>
-                      <input type="text" id="input-reading" class="tactile-input font-japanese" placeholder="e.g. にほん" required />
-                    </div>
-                  </div>
-
+                  <!-- Hidden input fields to preserve data contracts without redundant UI inputs -->
+                  <input type="hidden" id="input-expression" value="" />
+                  <input type="hidden" id="input-reading" value="" />
                   <!-- Meaning Field -->
                   <div class="form-field">
                     <label for="input-meaning" class="font-sans">Meaning and gloss</label>
