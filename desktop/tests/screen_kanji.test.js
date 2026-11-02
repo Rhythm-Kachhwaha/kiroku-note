@@ -148,3 +148,27 @@ test('Kanji View: Dynamic target deck resolution for compound mining', () => {
   );
 });
 
+test('Kanji View: Accordion dropdown with view limit selector and view all option', () => {
+  const content = fs.readFileSync(kanjiViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('btn-toggle-kanji-browse'),
+    'KanjiView must include dropdown toggle button #btn-toggle-kanji-browse'
+  );
+  assert.ok(
+    content.includes('kanji-accordion-panel'),
+    'KanjiView must include animated accordion panel #kanji-accordion-panel'
+  );
+  assert.ok(
+    content.includes('kanji-limit-select'),
+    'KanjiView must include kanji limit selector #kanji-limit-select'
+  );
+  assert.ok(
+    content.includes('value="all"'),
+    'KanjiView must include an option to view all kanjis for that level'
+  );
+  assert.ok(
+    content.includes('this.isBrowseOpen = false'),
+    'KanjiView must collapse kanji mastery grid by default'
+  );
+});

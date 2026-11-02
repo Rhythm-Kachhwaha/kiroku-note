@@ -20,6 +20,10 @@ export class KanjiView {
     this.strokePaths = [];
     this.strokeNumbers = [];
     this.activeLevel = 'N4';
+    this.isBrowseOpen = false;
+    this.browseLimit = '36';
+    this.browseLoadedLevel = null;
+    this.browseLoadedLimit = null;
   }
 
   async getTargetDeck() {
@@ -55,7 +59,7 @@ export class KanjiView {
     this.render();
     this.setupEvents();
     this.loadKanji(this.currentChar);
-    this.loadLevelBrowse(this.activeLevel);
+    // By default, do not display kanjis until user clicks the dropdown
   }
 
   render() {
@@ -100,9 +104,45 @@ export class KanjiView {
               <button class="level-pill ${this.activeLevel === 'joyo' ? 'is-active' : ''}" data-level="joyo">Joyo</button>
             </div>
 
-            <!-- Kanji Quick Browse Row -->
-            <div class="kanji-browse-row" id="kanji-browse-chips">
-              <span class="text-xs text-muted">Loading kanji browse list...</span>
+            <!-- Kanji Quick Browse Row with Dropdown & Option to View All -->
+            <div class="kanji-browse-row">
+              <div class="kanji-browse-toggle-bar">
+                <button
+                  type="button"
+                  class="kanji-accordion-trigger"
+                  id="btn-toggle-kanji-browse"
+                  aria-expanded="false"
+                  aria-controls="kanji-accordion-panel"
+                >
+                  <svg class="kanji-chevron-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                  </svg>
+                  <span class="kanji-accordion-title" id="kanji-accordion-title">Show ${this.activeLevel} Kanji Mastery</span>
+                  <span class="tactile-pill tactile-pill-peach text-xs" id="kanji-total-count-badge">Mastery</span>
+                  <span class="text-xs text-muted kanji-trigger-hint" id="kanji-trigger-hint">Click to expand</span>
+                </button>
+
+                <div class="kanji-limit-wrap" id="kanji-limit-wrap">
+                  <label for="kanji-limit-select" class="text-xs text-muted font-mono">View:</label>
+                  <div class="kanji-select-custom-wrapper">
+                    <select id="kanji-limit-select" class="tactile-select kanji-limit-select" aria-label="Kanji view limit">
+                      <option value="36" ${this.browseLimit === '36' ? 'selected' : ''}>First 36</option>
+                      <option value="100" ${this.browseLimit === '100' ? 'selected' : ''}>Top 100</option>
+                      <option value="all" id="kanji-limit-opt-all" ${this.browseLimit === 'all' ? 'selected' : ''}>All ${this.activeLevel} Kanji</option>
+                    </select>
+                    <svg class="kanji-select-chevron" viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                      <path d="M7 10l5 5 5-5z"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Animated Accordion Dropdown Panel -->
+              <div class="kanji-accordion-panel" id="kanji-accordion-panel" aria-hidden="true">
+                <div class="kanji-accordion-panel-inner" id="kanji-browse-chips">
+                  <div class="text-xs text-muted py-2 text-center">Click dropdown to reveal ${this.activeLevel} kanji mastery.</div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -223,7 +263,7 @@ export class KanjiView {
         if (lvl && ['N5', 'N4', 'N3', 'N2', 'N1', 'joyo'].includes(lvl)) {
           this.activeLevel = lvl;
           levelPills.forEach((p) => p.classList.toggle('is-active', p.dataset.level === lvl));
-          this.loadLevelBrowse(this.activeLevel);
+          this.updateBrowseLabels();
         }
       }).catch((err) => {
         console.debug('[Kanji] Failed to restore activeLevel preference:', err);
@@ -238,9 +278,58 @@ export class KanjiView {
         if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
           window.chrome.storage.local.set({ 'kanji.activeLevel': this.activeLevel });
         }
-        this.loadLevelBrowse(this.activeLevel);
+        this.updateBrowseLabels();
+        if (this.isBrowseOpen) {
+          this.loadLevelBrowse(this.activeLevel);
+        } else {
+          this.browseLoadedLevel = null;
+        }
       });
     });
+
+    // Accordion Dropdown Toggle
+    const toggleBtn = document.getElementById('btn-toggle-kanji-browse');
+    const panel = document.getElementById('kanji-accordion-panel');
+    const hint = document.getElementById('kanji-trigger-hint');
+
+    if (toggleBtn && panel) {
+      toggleBtn.addEventListener('click', () => {
+        this.isBrowseOpen = !this.isBrowseOpen;
+        toggleBtn.classList.toggle('is-open', this.isBrowseOpen);
+        panel.classList.toggle('is-open', this.isBrowseOpen);
+        toggleBtn.setAttribute('aria-expanded', String(this.isBrowseOpen));
+        panel.setAttribute('aria-hidden', String(!this.isBrowseOpen));
+
+        if (hint) {
+          hint.textContent = this.isBrowseOpen ? 'Click to collapse' : 'Click to expand';
+        }
+        this.updateBrowseLabels();
+
+        if (this.isBrowseOpen) {
+          if (this.browseLoadedLevel !== this.activeLevel || this.browseLoadedLimit !== this.browseLimit) {
+            this.loadLevelBrowse(this.activeLevel);
+          }
+        }
+      });
+    }
+
+    // Limit Dropdown Selection
+    const limitSelect = document.getElementById('kanji-limit-select');
+    if (limitSelect) {
+      limitSelect.addEventListener('change', (e) => {
+        this.browseLimit = e.target.value;
+        if (!this.isBrowseOpen && toggleBtn && panel) {
+          this.isBrowseOpen = true;
+          toggleBtn.classList.add('is-open');
+          panel.classList.add('is-open');
+          toggleBtn.setAttribute('aria-expanded', 'true');
+          panel.setAttribute('aria-hidden', 'false');
+          if (hint) hint.textContent = 'Click to collapse';
+          this.updateBrowseLabels();
+        }
+        this.loadLevelBrowse(this.activeLevel);
+      });
+    }
 
     // Stroke Replay & Play buttons
     const btnPlay = document.getElementById('btn-stroke-play');
@@ -406,7 +495,7 @@ export class KanjiView {
         path.style.opacity = '1';
         path.style.strokeWidth = '3';
       } else if (i === this.currentStrokeIndex) {
-        path.style.stroke = '#C8A94A'; // Planetoño gold accent for active stroke
+        path.style.stroke = '#F7E0BA'; // Planetoño gold accent for active stroke
         path.style.opacity = '1';
         path.style.strokeWidth = '4.5';
       } else {
@@ -420,7 +509,7 @@ export class KanjiView {
     this.strokeNumbers.forEach((numEl, i) => {
       if (i <= this.currentStrokeIndex) {
         numEl.style.display = 'block';
-        numEl.style.fill = (i === this.currentStrokeIndex) ? '#C8A94A' : '#A8A29E';
+        numEl.style.fill = (i === this.currentStrokeIndex) ? '#F7E0BA' : '#A8A29E';
         numEl.style.fontWeight = (i === this.currentStrokeIndex) ? '700' : '400';
       } else {
         numEl.style.display = 'none';
@@ -537,20 +626,48 @@ export class KanjiView {
     });
   }
 
+  updateBrowseLabels() {
+    const title = document.getElementById('kanji-accordion-title');
+    const optAll = document.getElementById('kanji-limit-opt-all');
+    if (title) {
+      title.textContent = this.isBrowseOpen
+        ? `Hide ${this.activeLevel} Kanji Mastery`
+        : `Show ${this.activeLevel} Kanji Mastery`;
+    }
+    if (optAll) {
+      optAll.textContent = `All ${this.activeLevel} Kanji`;
+    }
+  }
+
   async loadLevelBrowse(level) {
     const container = document.getElementById('kanji-browse-chips');
     if (!container) return;
 
     container.innerHTML = `<span class="text-xs text-muted">Loading ${level} kanji...</span>`;
 
+    const limitVal = this.browseLimit === 'all' ? 2500 : (parseInt(this.browseLimit, 10) || 36);
+
     try {
       const [browseRes, seenRes, knownRes] = await Promise.allSettled([
-        apiClient.browseKanji({ level, limit: 36 }),
+        apiClient.browseKanji({ level, limit: limitVal }),
         apiClient.getSeenKanji(),
         apiClient.getKnownWords()
       ]);
 
       const kanjiList = (browseRes.status === 'fulfilled' && browseRes.value?.kanji) ? browseRes.value.kanji : [];
+      const totalKanji = (browseRes.status === 'fulfilled' && typeof browseRes.value?.total === 'number') ? browseRes.value.total : kanjiList.length;
+
+      this.browseLoadedLevel = level;
+      this.browseLoadedLimit = this.browseLimit;
+
+      const badge = document.getElementById('kanji-total-count-badge');
+      if (badge) {
+        badge.textContent = `${totalKanji} kanji`;
+      }
+      const optAll = document.getElementById('kanji-limit-opt-all');
+      if (optAll) {
+        optAll.textContent = `All (${totalKanji})`;
+      }
       const seenMap = (seenRes.status === 'fulfilled' && seenRes.value?.seen_kanji) ? seenRes.value.seen_kanji : {};
 
       let knownWords = new Set();

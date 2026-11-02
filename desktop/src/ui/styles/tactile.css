@@ -273,7 +273,12 @@
 }
 
 .tactile-pill-gold {
-  background-color: var(--gold);
+  background-color: var(--alpine-berry, #F7E0BA);
+  color: var(--tactile-stroke);
+}
+
+.tactile-pill-peach {
+  background-color: var(--organza-peach, #FBEEDA);
   color: var(--tactile-stroke);
 }
 

@@ -161,7 +161,7 @@ class KanjiService:
             return {"level": level, "kanji": [], "total": 0}
 
         target_level = level.upper() if level else "N3"
-        limit = max(1, min(int(limit), 100))
+        limit = max(1, min(int(limit), 2500))
         offset = max(0, int(offset))
 
         try:

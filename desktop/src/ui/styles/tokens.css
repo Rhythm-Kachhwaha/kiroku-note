@@ -16,6 +16,8 @@
   --pure-black: #000000;        /* Pitch black reading surfaces (JMdict, stroke player, study) */
 
   /* Supporting Accent & Feedback Palette */
+  --alpine-berry: #F7E0BA;      /* Soft warm chamois - tactile badges & pills */
+  --organza-peach: #FBEEDA;     /* Delicate organza peach - subtle paper highlights & tints */
   --gold: #C8A94A;              /* Cat eyes, highlights, focus rings, should-know vocab */
   --jade: #4EBB7B;              /* Mastered, known, correct feedback */
   --amber: #F59E0B;             /* Warning, intermediate state, pending */
