@@ -108,6 +108,19 @@ The following swatches represent incoming industrial-tactile tones. Below is the
 
 ---
 
+### 3.2 Live Implementation: Grammar Studio Tab
+Applied in desktop/src/ui/styles/bundle.css without modifying any UI structure:
+- **Canvas Ground**: Pure Pitch Black (#000000).
+- **Cards & Surfaces**: Dark iron-tinted ground (#161818) with crisp tactile stroke (#151413).
+- **Iron Core (#222A2A)**: Base for token chips, formation rules container, encounters container, and syllabus item hover wells.
+- **Industrial Aqua (#4FBBBC)**: Visualizer radar pulse dot & title, grammar token category tags (.token-pos-tag), active token chip selection glow, formation rule label & bullet, and example sentence ruby furigana (
+t).
+- **Rust Signal (#EC4624)**: Primary sentence analysis action button stamp (#btn-analyze-sentence), visible error banner, brand kanji seal (.grammar-word-kanji), and active learning mastery pill.
+- **Heat Marker (#F39120)**: Character counter, quick examples label, token level badge, active syllabus level filter pills (.syllabus-level-pill.is-active), and mining history encounter count.
+- **Architectural Cream (#E2DAC2)**: Main pattern title (.point-title), token Japanese glyphs, example Japanese prose (.example-ja), syllabus pattern titles, and quick example chip text.
+
+---
+
 ## 4. Change Protocol
 
 Whenever a request touches an interface element:

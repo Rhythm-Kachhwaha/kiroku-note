@@ -165,7 +165,7 @@ export class GrammarView {
               <!-- Grammar Point Detail Card -->
               <div class="grammar-point-card tactile-card" id="grammar-point-card">
                 <div id="detail-placeholder" class="detail-placeholder text-muted text-sm py-8 text-center">
-                  Click words to breakdown grammar
+                  Select any grammar token or browse the syllabus below
                 </div>
                 <div id="detail-content" style="display: none;">
                   <div class="point-top-row">

@@ -22,6 +22,13 @@
   --jade: #4EBB7B;              /* Mastered, known, correct feedback */
   --amber: #F59E0B;             /* Warning, intermediate state, pending */
 
+  /* Industrial Tactile Palette */
+  --iron-core: #222A2A;         /* Dense cool industrial slate */
+  --industrial-aqua: #4FBBBC;   /* Structural syntax, clause & particle cyan */
+  --rust-signal: #EC4624;       /* High-energy industrial action & error stamp */
+  --heat-marker: #F39120;       /* High-visibility active level & difficulty orange */
+  --architectural-cream: #E2DAC2; /* Heavy structural limestone washi cream */
+
   /* Alpha Tints & States */
   --subtle-border: rgba(245, 241, 232, 0.12);
   --ink-border: var(--subtle-border);
