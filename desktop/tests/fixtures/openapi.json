@@ -6128,6 +6128,69 @@
           }
         }
       }
+    },
+    "/api/vocab/daily-word": {
+      "get": {
+        "summary": "Get Daily Word",
+        "description": "Return deterministic Word of the Day for a given calendar date.\n\nPrefers words at or just above the user's current JLPT level setting,\nand prefers words NOT already in saved cards. Falls back gracefully.\nIncludes stroke vector SVGs for kanji when available.",
+        "operationId": "get_daily_word_api_vocab_daily_word_get",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Level"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyWordResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7598,6 +7661,85 @@
           "display_text"
         ],
         "title": "CrossReference"
+      },
+      "DailyWordResponse": {
+        "properties": {
+          "word": {
+            "type": "string",
+            "title": "Word"
+          },
+          "reading": {
+            "type": "string",
+            "title": "Reading",
+            "default": ""
+          },
+          "meaning": {
+            "type": "string",
+            "title": "Meaning",
+            "default": ""
+          },
+          "jlpt_level": {
+            "type": "string",
+            "title": "Jlpt Level",
+            "default": "N3"
+          },
+          "example_sentence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Example Sentence"
+          },
+          "example_translation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Example Translation"
+          },
+          "is_saved": {
+            "type": "boolean",
+            "title": "Is Saved",
+            "default": false
+          },
+          "has_kanji": {
+            "type": "boolean",
+            "title": "Has Kanji",
+            "default": false
+          },
+          "kanji_characters": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Kanji Characters"
+          },
+          "stroke_svgs": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Stroke Svgs"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "word",
+          "date"
+        ],
+        "title": "DailyWordResponse"
       },
       "DeckStat": {
         "properties": {

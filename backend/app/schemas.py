@@ -727,3 +727,18 @@ class VocabGapsResponse(BaseModel):
 class KanjiSeenResponse(BaseModel):
     seen_kanji: dict[str, int] = Field(default_factory=dict)
     total_seen: int = 0
+
+
+class DailyWordResponse(BaseModel):
+    word: str
+    reading: str = ""
+    meaning: str = ""
+    jlpt_level: str = "N3"
+    example_sentence: Optional[str] = None
+    example_translation: Optional[str] = None
+    is_saved: bool = False
+    has_kanji: bool = False
+    kanji_characters: list[str] = Field(default_factory=list)
+    stroke_svgs: dict[str, str] = Field(default_factory=dict)
+    date: str
+

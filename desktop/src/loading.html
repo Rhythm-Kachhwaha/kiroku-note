@@ -144,16 +144,6 @@
   </div>
 
   <script>
-    // Enforce square window in Electron
-    (function enforceSquareWindow() {
-      try {
-        if (window.resizeTo) {
-          const side = 480;
-          window.resizeTo(side, side);
-        }
-      } catch (e) {}
-    })();
-
     // Random message rotation
     (function setupRandomStatus() {
       const messages = [

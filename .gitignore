@@ -160,3 +160,12 @@ desktop/src/ui/assets/riv/26953-50661-cat-follow-your-mouse.riv
 desktop/src/ui/assets/riv/27565-52075-character-selection-menu.riv
 desktop/src/ui/assets/riv/27746-52412-cat-companion.riv
 desktop/src/ui/assets/riv/28717-54380-button-cat.riv
+desktop/tests/screenshots/anim_final.png
+desktop/tests/screenshots/anim_t0.png
+desktop/tests/screenshots/anim_t300.png
+desktop/tests/screenshots/anim_t800.png
+desktop/tests/screenshots/card_added.png
+desktop/tests/screenshots/card_hover_focus.png
+desktop/tests/screenshots/home_500x750.png
+desktop/tests/screenshots/home_900x700.png
+desktop/tests/screenshots/home_1920x1080.png

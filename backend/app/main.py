@@ -59,6 +59,7 @@ from app.schemas import (
     VocabGapsResponse,
     VocabGapItem,
     KanjiSeenResponse,
+    DailyWordResponse,
 )
 from app.config import (
     APP_VERSION,
@@ -1275,3 +1276,130 @@ def get_seen_kanji() -> KanjiSeenResponse:
                     seen[ch] = seen.get(ch, 0) + 1
 
     return KanjiSeenResponse(seen_kanji=seen, total_seen=len(seen))
+
+@app.get("/api/vocab/daily-word", response_model=DailyWordResponse)
+def get_daily_word(
+    date: str | None = None,
+    level: str | None = None,
+) -> DailyWordResponse:
+    """Return deterministic Word of the Day for a given calendar date.
+    
+    Prefers words at or just above the user's current JLPT level setting,
+    and prefers words NOT already in saved cards. Falls back gracefully.
+    Includes stroke vector SVGs for kanji when available.
+    """
+    from datetime import datetime
+    import hashlib
+    import json
+    from app.services.jlpt_reference import JlptReferenceService
+    from app.services.kanji_strokes import get_kanji_strokes_service
+
+    date_str = date.strip() if date and date.strip() else datetime.now().strftime("%Y-%m-%d")
+
+    target_level = normalize_jlpt_level(level) or get_learner_jlpt_level()
+    level_order = ["N5", "N4", "N3", "N2", "N1"]
+    if target_level in level_order:
+        idx = level_order.index(target_level)
+        preferred_levels = [target_level]
+        if idx + 1 < len(level_order):
+            preferred_levels.append(level_order[idx + 1])
+    else:
+        preferred_levels = ["N5", "N4"]
+
+    saved_words = set()
+    with db_session() as db:
+        for r in db.execute("SELECT expression FROM cards").fetchall():
+            if r[0]:
+                saved_words.add(str(r[0]).strip())
+        for r in db.execute("SELECT word FROM known_words").fetchall():
+            if r[0]:
+                saved_words.add(str(r[0]).strip())
+
+    jlpt_service = JlptReferenceService()
+    conn = jlpt_service._get_connection()
+    all_candidates: list[tuple[str, str, str, str, str]] = []
+
+    if conn:
+        try:
+            cursor = conn.cursor()
+            placeholders = ",".join("?" for _ in preferred_levels)
+            query = f"SELECT word, reading, meanings, level, examples FROM vocab WHERE level IN ({placeholders}) ORDER BY id ASC"
+            preferred_rows = cursor.execute(query, preferred_levels).fetchall()
+
+            unsaved_preferred = [row for row in preferred_rows if str(row[0] or "").strip() not in saved_words]
+            if unsaved_preferred:
+                all_candidates = unsaved_preferred
+            elif preferred_rows:
+                all_unsaved = cursor.execute("SELECT word, reading, meanings, level, examples FROM vocab ORDER BY id ASC").fetchall()
+                unsaved_any = [row for row in all_unsaved if str(row[0] or "").strip() not in saved_words]
+                all_candidates = unsaved_any if unsaved_any else preferred_rows
+        except Exception as e:
+            logger.debug("Failed querying jlpt vocab for daily word: %s", e)
+
+    if not all_candidates:
+        all_candidates = [
+            ("木漏れ日", "こもれび", json.dumps(["sunlight filtering through trees"]), "N2", json.dumps([{"ja": "木漏れ日の中で、静かに本を読む時間が好きです。", "en": "I love the peaceful time spent reading a book under sunlight filtering through the trees."}])),
+            ("風情", "ふぜい", json.dumps(["taste, elegance, charm, aesthetic atmosphere"]), "N1", json.dumps([{"ja": "雨上がりの古い町並みには独特の風情がある。", "en": "There is a unique charm to the historic townscape after the rain."}])),
+            ("一期一会", "いちごいちえ", json.dumps(["once-in-a-lifetime encounter; cherish every moment"]), "N1", json.dumps([{"ja": "出会いは一期一会だから、一つ一つの縁を大切にしよう。", "en": "Every encounter is once in a lifetime, so cherish every bond you form."}])),
+            ("雨宿り", "あまやどり", json.dumps(["sheltering from the rain"]), "N3", json.dumps([{"ja": "駅の軒下で雨宿りをしながら友人を待った。", "en": "I waited for my friend while sheltering from the rain under the station eaves."}])),
+            ("陽だまり", "ひだまり", json.dumps(["sunny spot, warm pocket of sunshine"]), "N2", json.dumps([{"ja": "猫が縁側の陽だまりで気持ちよさそうに丸くなっている。", "en": "A cat is curled up comfortably in a warm pocket of sunshine on the veranda."}])),
+            ("浮世", "うきよ", json.dumps(["floating world, fleeting transient life"]), "N1", json.dumps([{"ja": "浮世の慌ただしさを忘れ、静かな茶室で心を落ち着かせる。", "en": "Forgetting the rush of this transient world, calm your mind in a quiet tea room."}])),
+            ("心づくし", "こころづくし", json.dumps(["heartfelt kindness, thorough consideration"]), "N1", json.dumps([{"ja": "旅先で地元の人々から受けた心づくしのもてなしに深く感謝した。", "en": "I was deeply grateful for the heartfelt hospitality received from local people during my travels."}])),
+        ]
+
+    seed_val = int(hashlib.sha256(date_str.encode("utf-8")).hexdigest(), 16)
+    selected = all_candidates[seed_val % len(all_candidates)]
+
+    word = str(selected[0] or "").strip()
+    reading = str(selected[1] or "").strip()
+    meanings_raw = selected[2]
+    level_out = str(selected[3] or target_level).strip()
+    examples_raw = selected[4] if len(selected) > 4 else "[]"
+
+    meaning_text = ""
+    try:
+        m_list = json.loads(meanings_raw) if meanings_raw else []
+        if isinstance(m_list, list) and m_list:
+            meaning_text = "; ".join(str(m) for m in m_list[:2])
+        else:
+            meaning_text = str(meanings_raw or "")
+    except Exception:
+        meaning_text = str(meanings_raw or "")
+
+    example_ja = None
+    example_en = None
+    try:
+        ex_list = json.loads(examples_raw) if examples_raw else []
+        if isinstance(ex_list, list) and ex_list:
+            first_ex = ex_list[0]
+            if isinstance(first_ex, dict):
+                example_ja = first_ex.get("ja") or first_ex.get("sentence")
+                example_en = first_ex.get("en") or first_ex.get("translation")
+    except Exception:
+        pass
+
+    kanji_chars = [ch for ch in word if "\u4e00" <= ch <= "\u9fff"]
+    strokes_service = get_kanji_strokes_service()
+    stroke_svgs: dict[str, str] = {}
+    for ch in kanji_chars:
+        try:
+            svg = strokes_service.get_stroke_svg(ch)
+            if svg:
+                stroke_svgs[ch] = svg
+        except Exception:
+            pass
+
+    return DailyWordResponse(
+        word=word,
+        reading=reading or word,
+        meaning=meaning_text,
+        jlpt_level=level_out,
+        example_sentence=example_ja,
+        example_translation=example_en,
+        is_saved=(word in saved_words),
+        has_kanji=bool(kanji_chars),
+        kanji_characters=kanji_chars,
+        stroke_svgs=stroke_svgs,
+        date=date_str,
+    )
+

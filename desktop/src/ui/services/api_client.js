@@ -334,6 +334,10 @@ export class ApiClient {
     return this.request('/api/vocab/gaps', { query });
   }
 
+  async getDailyWord(params = {}) {
+    return this.request('/api/vocab/daily-word', { query: params });
+  }
+
   async getSeenKanji() {
     return this.request('/api/kanji/seen');
   }

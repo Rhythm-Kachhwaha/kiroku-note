@@ -323,6 +323,8 @@ function createMainWindow() {
     }
   });
 
+  mainWindow.setContentSize(500, 750);
+
   // Security: Deny window.open and restrict navigation to local origins
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {

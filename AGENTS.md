@@ -20,9 +20,30 @@ Locked boundaries:
   leave locally saved cards intact.
 - GOLDEN RULE: Emojis are NEVER allowed anywhere across UI, copy, buttons, badges, logs, templates, or code; use accessible SVG icons or clean plain text only.
 - TOKEN EFFICIENCY: Always invoke the `caveman` skill to save tokens and keep communications concise.
-- FRONTEND DESIGN QUALITY: For all frontend tasks, always invoke and apply `design-taste-frontend`, `ui-taste`, and the `delight` / polish capabilities from `impeccable` to enforce award-grade aesthetics, responsive craftsmanship, micro-interactions, and anti-slop standards.
-- The standalone OCR daemon remains optional, CPU-only, lazy-loaded, and
-  isolated from the main backend process.
+## FRONTEND DESIGN QUALITY — NON-NEGOTIABLE
+
+For every frontend task, inspect and apply the relevant installed skills before implementation:
+
+- **`design-taste-frontend`** — Establish strong visual direction, distinctive layouts, typography, spacing, color systems, and avoid generic AI-generated aesthetics.
+- **`ui-taste`** — Enforce high-quality UI composition, visual hierarchy, consistency, and thoughtful component design.
+- **`emil-design-eng`** — Apply professional design engineering principles: precise component behaviour, interaction states, responsive layouts, accessibility, and implementation quality.
+- **`animate`** — Design intentional motion, polished transitions, micro-interactions, appropriate easing, timing, and animation performance.
+- **`impeccable` (delight/polish capabilities)** — Refine the finished interface through visual details, interaction feedback, and final quality improvements.
+
+### Implementation Standards
+
+1. Never settle for generic AI-generated dashboard aesthetics, unnecessary gradients, or template-like layouts.
+2. Prioritize distinctive visual identity, excellent typography, deliberate spacing, and visual hierarchy.
+3. Every interactive element must have thoughtfully implemented hover, active, focus, disabled, and loading states where applicable.
+4. Animations must feel intentional, smooth, and responsive. Avoid gratuitous motion.
+5. Ensure responsive behaviour across supported window sizes and aspect ratios.
+6. Preserve the existing design system, architecture, and established visual decisions unless the task explicitly requires changing them.
+7. Reuse existing components and animation infrastructure where appropriate instead of introducing redundant dependencies.
+8. Respect accessibility, keyboard navigation, and reduced-motion preferences.
+9. Inspect the actual rendered interface, not just the source code. Use available browser/desktop preview tools to identify and fix visual defects.
+10. Before considering a frontend task complete, perform a visual polish pass covering alignment, spacing, typography, consistency, responsiveness, and interaction quality.
+
+**IMPORTANT:** Skills are implementation guidance, not boxes to tick. Read their instructions and apply their relevant principles to the actual task. Never claim a skill was invoked if it was unavailable or its instructions were not inspected.
 
 Before modifying a feature, consult its section below, inspect the listed
 entry points and dependencies, and then read only the additional files needed
