@@ -112,6 +112,7 @@ export const LAUNCHER_CARDS = [
     title: 'Vocab',
     descriptor: 'Quick Add, mining, Anki',
     glyphSvg: HOME_GLYPHS.vocab,
+    videoSrc: './ui/assets/hiragana_a.webm',
     dur: 5.005,
     restTime: 4.8,
     drawFinishTime: 3.05
@@ -122,6 +123,7 @@ export const LAUNCHER_CARDS = [
     title: 'Kanji',
     descriptor: 'Strokes and components',
     glyphSvg: HOME_GLYPHS.kanji,
+    videoSrc: './ui/assets/kanji_dai.webm',
     dur: 5.0,
     restTime: 4.8,
     drawFinishTime: 2.55
@@ -186,7 +188,14 @@ export class HomeView {
            aria-label="${card.title}: ${card.descriptor}">
         <div class="launcher-glyph-side" aria-hidden="true">
           <div class="launcher-glyph-wrap" id="launcher-glyph-${card.id}">
-            ${card.glyphSvg}
+            <video class="launcher-glyph-video"
+                   src="${card.videoSrc}"
+                   autoplay
+                   loop
+                   muted
+                   playsinline
+                   preload="auto"
+                   aria-hidden="true"></video>
           </div>
         </div>
         <div class="launcher-info-side">
@@ -227,13 +236,17 @@ export class HomeView {
           <div class="home-left-zone">
             <!-- Manga Speech Burst Dialogue (Anchored to Companion Cat) -->
             <div class="comic-speech-bubble" id="speech-bubble" aria-label="Mascot greeting" style="opacity: 0; transform: translateY(-4px); transition: opacity 200ms ease, transform 200ms ease;">
+              <svg class="comic-pointer-tail" viewBox="0 0 52 38" preserveAspectRatio="xMidYMin meet" aria-hidden="true" focusable="false">
+                <path d="M4 3C13 7 20 8 26 8C32 8 39 7 48 3C42 13 35 25 26 36C18 25 10 13 4 3Z" />
+              </svg>
               <div class="comic-speech-inner">
-                <div class="speech-header-row">
-                  <span class="speech-greeting-ja font-comic">${greeting.ja}</span>
+                <div class="speech-content">
+                  <div class="speech-header-row">
+                    <span class="speech-greeting-ja font-comic">${greeting.ja}</span>
+                  </div>
+                  <p class="speech-subtitle-en">${greeting.en}</p>
                 </div>
-                <p class="speech-subtitle-en">${greeting.en}</p>
               </div>
-              <div class="comic-pointer-tail" aria-hidden="true"></div>
             </div>
 
             <!-- Authentic Rive Cat Mascot Companion Stage -->
@@ -350,138 +363,45 @@ export class HomeView {
       const cardEl = typeof this.container?.querySelector === 'function'
         ? this.container.querySelector(`#launcher-card-${config.id}`)
         : null;
-      const svgEl = cardEl && typeof cardEl.querySelector === 'function'
-        ? cardEl.querySelector('svg')
+      const videoEl = cardEl && typeof cardEl.querySelector === 'function'
+        ? cardEl.querySelector('video')
         : null;
 
-      // Ensure resting frame is rendered immediately
-      try {
-        if (svgEl?.pauseAnimations) svgEl.pauseAnimations();
-        if (svgEl?.setCurrentTime) svgEl.setCurrentTime(config.restTime);
-      } catch (e) {
-        console.debug('[Home] SVG animation resting init warning:', e);
+      if (videoEl && typeof videoEl.play === 'function') {
+        try {
+          const p = videoEl.play();
+          if (p && typeof p.catch === 'function') {
+            p.catch((e) => console.debug('[Home] Video play notice:', e));
+          }
+        } catch (e) {
+          console.debug('[Home] Video play notice:', e);
+        }
       }
 
       const ctrl = {
         config,
         cardEl,
-        svg: svgEl,
+        video: videoEl,
         leaveTimer: null,
-        isAnimating: false,
+        isAnimating: true,
         play: () => {
-          if (ctrl.leaveTimer) {
-            clearTimeout(ctrl.leaveTimer);
-            ctrl.leaveTimer = null;
-          }
-          const glyphWrap = ctrl.cardEl?.querySelector?.('.launcher-glyph-wrap');
-          if (glyphWrap) glyphWrap.classList.remove('is-easing-out');
-
-          const reducedMotion = typeof window !== 'undefined' &&
-            window.matchMedia &&
-            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-          if (reducedMotion) {
+          if (ctrl.video && typeof ctrl.video.play === 'function') {
             try {
-              ctrl.svg?.pauseAnimations?.();
-              ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
+              ctrl.video.currentTime = 0;
+              const p = ctrl.video.play();
+              if (p && typeof p.catch === 'function') {
+                p.catch((e) => console.debug('[Home] Video play catch:', e));
+              }
             } catch (e) {
-              console.debug('[Home] SVG pause error:', e);
+              console.debug('[Home] Video play warning:', e);
             }
-            return;
           }
-
-          try {
-            ctrl.svg?.setCurrentTime?.(0);
-            ctrl.svg?.unpauseAnimations?.();
-            ctrl.isAnimating = true;
-          } catch (e) {
-            console.debug('[Home] SVG play warning:', e);
-          }
+          ctrl.isAnimating = true;
         },
         stop: () => {
-          if (ctrl.leaveTimer) {
-            clearTimeout(ctrl.leaveTimer);
-            ctrl.leaveTimer = null;
-          }
-
-          const reducedMotion = typeof window !== 'undefined' &&
-            window.matchMedia &&
-            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-          if (reducedMotion || !ctrl.isAnimating) {
-            try {
-              ctrl.svg?.pauseAnimations?.();
-              ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
-            } catch (e) {
-              console.debug('[Home] SVG pause error:', e);
-            }
-            ctrl.isAnimating = false;
-            return;
-          }
-
-          let currentTime = 0;
-          try {
-            currentTime = (ctrl.svg?.getCurrentTime?.() || 0) % ctrl.config.dur;
-          } catch (e) {
-            console.debug('[Home] SVG getCurrentTime error:', e);
-          }
-
-          const remainingToFinish = ctrl.config.drawFinishTime - currentTime;
-
-          if (currentTime >= ctrl.config.drawFinishTime) {
-            // Strokes already completed; pause on finished frame
-            try {
-              ctrl.svg?.pauseAnimations?.();
-              ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
-            } catch (e) {
-              console.debug('[Home] SVG pause error:', e);
-            }
-            ctrl.isAnimating = false;
-          } else if (remainingToFinish > 0 && remainingToFinish <= 1.0) {
-            // Less than ~1s from done: wait for current pass to finish
-            ctrl.leaveTimer = setTimeout(() => {
-              try {
-                ctrl.svg?.pauseAnimations?.();
-                ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
-              } catch (e) {
-                console.debug('[Home] SVG pause error:', e);
-              }
-              ctrl.isAnimating = false;
-              ctrl.leaveTimer = null;
-            }, Math.round(remainingToFinish * 1000));
-          } else {
-            // More than 1s away: ease out smoothly and settle on finished frame
-            const glyphWrap = ctrl.cardEl?.querySelector?.('.launcher-glyph-wrap');
-            glyphWrap?.classList?.add?.('is-easing-out');
-
-            try {
-              ctrl.svg?.pauseAnimations?.();
-              ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
-            } catch (e) {
-              console.debug('[Home] SVG pause error:', e);
-            }
-            ctrl.isAnimating = false;
-
-            ctrl.leaveTimer = setTimeout(() => {
-              glyphWrap?.classList?.remove?.('is-easing-out');
-              ctrl.leaveTimer = null;
-            }, 180);
-          }
+          ctrl.isAnimating = false;
         },
         resetToRest: () => {
-          if (ctrl.leaveTimer) {
-            clearTimeout(ctrl.leaveTimer);
-            ctrl.leaveTimer = null;
-          }
-          const glyphWrap = ctrl.cardEl?.querySelector?.('.launcher-glyph-wrap');
-          glyphWrap?.classList?.remove?.('is-easing-out');
-
-          try {
-            ctrl.svg?.pauseAnimations?.();
-            ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
-          } catch (e) {
-            console.debug('[Home] SVG reset error:', e);
-          }
           ctrl.isAnimating = false;
         }
       };
@@ -643,21 +563,26 @@ export class HomeView {
     }
     this.cardControllers.clear();
 
-    if (this.mouseMoveHandler && typeof window !== 'undefined') {
-      window.removeEventListener('mousemove', this.mouseMoveHandler);
+    if (this.mouseMoveHandler) {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('mousemove', this.mouseMoveHandler);
+      }
+      this.mouseMoveHandler = null;
     }
-    this.mouseMoveHandler = null;
     this.mouseLeaveHandler = null;
 
-    if (this.visibilityHandler && typeof document !== 'undefined') {
-      document.removeEventListener('visibilitychange', this.visibilityHandler);
+    if (this.visibilityHandler) {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', this.visibilityHandler);
+      }
+      this.visibilityHandler = null;
     }
-    this.visibilityHandler = null;
-
-    if (this.escapeHandler && typeof window !== 'undefined') {
-      window.removeEventListener('keydown', this.escapeHandler);
+    if (this.escapeHandler) {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('keydown', this.escapeHandler);
+      }
+      this.escapeHandler = null;
     }
-    this.escapeHandler = null;
 
     // Clean up cat mascot companion
     try {

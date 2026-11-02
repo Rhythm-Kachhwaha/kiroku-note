@@ -73,7 +73,7 @@ html, body {
 /* Base View Container with Mandatory Safe-Area Padding */
 #view-container {
   min-height: 100vh;
-  padding-top: var(--content-padding-top);
+  padding-top: 0;
   padding-bottom: var(--content-padding-bottom);
   box-sizing: border-box;
 }
@@ -117,7 +117,7 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 .text-muted    { color: var(--text-muted); }
 .text-secondary{ color: var(--text-secondary); }
 
-/* Custom Top Chrome Overrides: Clean minimal top bar keeping only JLPT badge, history, and settings */
+/* Custom Top Chrome Overrides: Clean floating action controls without top bar background/border */
 .top-chrome-left,
 .telemetry-strip,
 .window-controls {
@@ -125,23 +125,44 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 .top-chrome {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
   justify-content: flex-end !important;
+  pointer-events: none;
+  padding: 0.75rem 1.25rem !important;
+  height: auto !important;
+}
+
+.top-chrome-right {
+  pointer-events: auto;
 }
 
 
 /* Playful font styling for JLPT badge and neutral palette for Home */
 .top-chrome-learner-badge {
-  font-family: "Mochiy Pop One", "Epilogue", sans-serif !important;
-  font-size: 0.8rem !important;
-  letter-spacing: 0.04em !important;
-  color: var(--vermilion, #E06852) !important;
-  border-color: rgba(224, 104, 82, 0.45) !important;
-  background: rgba(224, 104, 82, 0.12) !important;
+  font-family: 'Mochiy Pop One', 'Epilogue', sans-serif !important;
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  color: #F59E0B !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0.25rem 0.5rem !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  transition: opacity 120ms ease, transform 120ms ease !important;
 }
 
 .top-chrome-learner-badge:hover {
-  background: rgba(224, 104, 82, 0.22) !important;
-  border-color: var(--vermilion, #E06852) !important;
+  background: transparent !important;
+  border: none !important;
+  opacity: 0.82 !important;
+  transform: translateY(-1px) !important;
 }
 
 /* De-yellow Home View: replace yellowish accents with warm paper / muted slate / vermilion */
@@ -181,7 +202,7 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 0.25rem 0 1rem 0;
+  padding: 1.5rem 0 1rem 0;
   margin-bottom: 0.25rem;
 }
 
@@ -349,30 +370,76 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 .comic-speech-bubble {
   position: relative;
   z-index: 3;
-  width: 100%;
-  max-width: 360px;
+  isolation: isolate;
+  inline-size: fit-content;
+  min-inline-size: min(15rem, 100%);
+  max-inline-size: min(100%, 360px);
+  box-sizing: border-box;
   cursor: default;
-  margin-bottom: -0.5rem;
+  /* Reserve room for the independently positioned tail. */
+  margin-bottom: 1.5rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   user-select: none;
 }
 
 .comic-speech-inner {
-  background-color: var(--warm-paper);
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  inline-size: 100%;
   color: var(--ink-black);
+  background: var(--warm-paper);
   border: 2px solid #151413;
-  border-radius: 20px 20px 20px 4px;
-  padding: 1rem 1.25rem;
+  /* A single continuous, content-sized cloud silhouette.  The differing
+     corner radii give it soft lobes without separate, outlined circles. */
+  border-radius: 34% 42% 39% 45% / 42% 45% 48% 44%;
   box-shadow: 3px 3px 0 #151413;
+}
+
+.comic-pointer-tail {
+  position: absolute;
+  /* The top overlap is covered by the cloud body, leaving one clean join. */
+  z-index: 0;
+  bottom: -1.55rem;
+  left: 50%;
+  display: block;
+  inline-size: 3.5rem;
+  block-size: 2.5rem;
+  transform: translateX(-50%);
+  filter: drop-shadow(3px 3px 0 #151413);
+  pointer-events: none;
+}
+
+.comic-pointer-tail path {
+  fill: var(--warm-paper);
+  stroke: #151413;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.speech-content {
+  min-inline-size: 0;
+  padding: 2.35rem clamp(2.5rem, 13%, 3.25rem) 2.5rem;
 }
 
 .speech-header-row {
   display: flex;
+  min-width: 0;
   align-items: baseline;
   justify-content: flex-start;
   gap: 0.5rem;
 }
 
 .speech-greeting-ja {
+  max-width: 100%;
+  overflow-wrap: normal;
+  word-break: normal;
+  line-break: strict;
   font-family: "Mochiy Pop P One", var(--font-japanese), sans-serif;
   font-size: 1.85rem;
   font-weight: 400;
@@ -386,25 +453,13 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 .speech-subtitle-en {
+  max-width: 100%;
+  overflow-wrap: anywhere;
   font-family: var(--font-sans);
   font-size: 0.82rem;
   color: rgba(20, 19, 17, 0.75);
-  margin-top: 0.35rem;
+  margin: 0.5rem 0 0;
   line-height: 1.35;
-}
-
-.comic-pointer-tail {
-  position: absolute;
-  bottom: -9px;
-  left: 46%;
-  width: 18px;
-  height: 18px;
-  background-color: var(--warm-paper);
-  border-right: 2px solid #151413;
-  border-bottom: 2px solid #151413;
-  transform: translateX(-50%) rotate(45deg);
-  pointer-events: none;
-  z-index: 4;
 }
 
 /* Mascot Stage & Organic Tilted Backing Shape */
@@ -630,7 +685,7 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 .daily-word-stamp-action {
   font-family: var(--font-mono);
   font-size: 0.72rem;
-  color: var(--gold);
+  color: var(--paper-muted);
   transition: color var(--duration-fast) ease;
 }
 
@@ -661,7 +716,7 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 .daily-word-reading {
   font-family: var(--font-japanese);
   font-size: 0.82rem;
-  color: var(--gold);
+  color: var(--vermilion, #E06852);
 }
 
 .daily-word-romaji {
@@ -718,32 +773,34 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   padding: 1.25rem 1.5rem;
   min-height: 130px;
   background-color: var(--ink-surface);
-  border: 1px solid var(--subtle-border);
+  border: 1.5px solid var(--subtle-border);
   border-radius: var(--radius-lg, 16px);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   user-select: none;
   outline: none;
-  transition: transform var(--duration-fast, 180ms) ease,
-              border-color var(--duration-fast, 180ms) ease,
-              box-shadow var(--duration-fast, 180ms) ease;
+  transition: transform var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1),
+              background-color var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1),
+              border-color var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .home-launcher-card:hover,
 .home-launcher-card:focus-visible {
-  transform: translateY(-2px);
-  border-color: var(--gold);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  transform: translateY(-4px) scale(1.015);
+  background-color: #FFFFFF !important;
+  border-color: #FFFFFF !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
 .home-launcher-card:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
+  outline: 2px solid #FFFFFF;
+  outline-offset: 3px;
 }
 
 .home-launcher-card:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-pressed, var(--shadow-inner));
+  transform: translateY(-1px) scale(0.995);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
 }
 
 /* Glyph Container: large glyph (approx 60% of card height), centered */
@@ -762,8 +819,9 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--warm-paper);
+  color: #FFFFFF;
   transition: color var(--duration-fast, 180ms) ease,
+              transform var(--duration-fast, 180ms) cubic-bezier(0.34, 1.56, 0.64, 1),
               opacity var(--duration-fast, 180ms) ease;
 }
 
@@ -773,13 +831,33 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   display: block;
 }
 
+.launcher-glyph-video {
+  width: 100%;
+  height: 100%;
+  max-width: 78px;
+  max-height: 78px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  filter: invert(1) brightness(1.8);
+  transition: filter var(--duration-fast, 180ms) ease,
+              transform var(--duration-fast, 180ms) cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 .launcher-glyph-wrap.is-easing-out {
   opacity: 0.85;
 }
 
 .home-launcher-card:hover .launcher-glyph-wrap,
 .home-launcher-card:focus-visible .launcher-glyph-wrap {
-  color: var(--gold);
+  color: #141311 !important;
+  transform: scale(1.08);
+}
+
+.home-launcher-card:hover .launcher-glyph-video,
+.home-launcher-card:focus-visible .launcher-glyph-video {
+  filter: none !important;
+  transform: scale(1.08);
 }
 
 /* Information Side: Title, Descriptor, and Arrow */
@@ -801,24 +879,37 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 .launcher-title {
-  font-family: var(--font-display);
-  font-size: 1.45rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
-  letter-spacing: 0.02em;
+  font-family: "Lilita One", var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 400;
+  color: var(--warm-paper);
+  line-height: 1.15;
+  letter-spacing: 0.03em;
   margin: 0;
+  transition: color var(--duration-fast, 180ms) ease;
+}
+
+.home-launcher-card:hover .launcher-title,
+.home-launcher-card:focus-visible .launcher-title {
+  color: #141311 !important;
 }
 
 .launcher-desc {
   font-family: var(--font-sans);
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--paper-muted);
   line-height: 1.35;
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color var(--duration-fast, 180ms) ease;
+}
+
+.home-launcher-card:hover .launcher-desc,
+.home-launcher-card:focus-visible .launcher-desc {
+  color: #4A4844 !important;
 }
 
 .launcher-action-row {
@@ -829,17 +920,17 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 .launcher-arrow {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   line-height: 1;
   color: var(--text-muted);
-  transition: transform var(--duration-fast, 180ms) ease,
+  transition: transform var(--duration-fast, 180ms) cubic-bezier(0.34, 1.56, 0.64, 1),
               color var(--duration-fast, 180ms) ease;
 }
 
 .home-launcher-card:hover .launcher-arrow,
 .home-launcher-card:focus-visible .launcher-arrow {
-  color: var(--gold);
-  transform: translateX(3px);
+  color: #141311 !important;
+  transform: translateX(5px);
 }
 
 /* Daily Word Slim Strip above Dock */
@@ -923,8 +1014,11 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   }
 
   .comic-speech-bubble {
-    max-width: 320px;
-    margin-bottom: -0.25rem;
+    max-inline-size: min(100%, 320px);
+  }
+
+  .speech-content {
+    padding: 2.15rem clamp(2rem, 12%, 2.5rem) 2.35rem;
   }
 
   .mascot-stage {

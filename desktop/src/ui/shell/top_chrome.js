@@ -210,7 +210,7 @@ export class TopChrome {
 
           <!-- Universal JLPT Study Level Badge -->
           <button type="button" class="top-chrome-learner-badge" id="btn-top-chrome-level" title="Universal JLPT Level — Click to change in Settings" aria-label="Target JLPT Level">
-            JLPT N4
+            JLPT
           </button>
 
           <!-- History Action Button -->
