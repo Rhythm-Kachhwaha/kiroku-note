@@ -11,6 +11,7 @@ import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import * as wanakana from '../lib/wanakana.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
+import { mountCharacter } from '../rive_character.js';
 
 const DRAFT_STORAGE_KEY = 'kiroku:vocab-mining-draft';
 
@@ -30,6 +31,8 @@ export class VocabMainView {
     this.lastError = null;
     this.isDirty = false;
     this.draftState = null;
+    this.mascotHandle = null;
+    this.quickAddOpen = true;
     this._levelListener = null;
     this._outsideClickListener = null;
   }
@@ -41,6 +44,7 @@ export class VocabMainView {
     this.setupEvents();
     this.setupWanakana();
     this.restoreDraft();
+    this.mountMascot();
     await Promise.all([
       this.loadInitialMetadata(),
       this.loadGapsShelf()
@@ -54,6 +58,20 @@ export class VocabMainView {
       }
     };
     window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+  }
+
+  async mountMascot() {
+    const canvas = document.getElementById('vocab-mascot-canvas');
+    if (!canvas) return;
+    try {
+      this.mascotHandle = await mountCharacter(canvas, '24603-46108-character-series-of-01.riv', {
+        fit: 'cover',
+        alignment: 'center',
+        autoplay: true
+      });
+    } catch (err) {
+      console.debug('[VocabMain] Mascot mount skipped:', err);
+    }
   }
 
   updateFocusLevelDisplay() {
@@ -78,18 +96,12 @@ export class VocabMainView {
             </div>
           </div>
 
-          <!-- Top Bar: Search, Mode Switcher & Navigation -->
+          <!-- Top Bar: Search & IME Mode Pills -->
           <div class="vocab-search-section">
             <div class="vocab-search-bar-row">
-              <!-- Mode Tabs: Word Desk vs Text Annotator -->
-              <div class="vocab-mode-tabs" role="tablist" aria-label="Vocabulary View Mode">
-                <button type="button" class="vocab-mode-tab is-active" id="tab-mode-word" role="tab" aria-selected="true">Word</button>
-                <button type="button" class="vocab-mode-tab" id="tab-mode-text" role="tab" aria-selected="false">Text</button>
-              </div>
-
               <div class="vocab-input-wrap">
                 <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 14z"/>
                 </svg>
                 <input
                   type="text"
@@ -118,136 +130,210 @@ export class VocabMainView {
             <div class="candidate-dropdown" id="candidate-dropdown" style="display: none;" role="listbox"></div>
           </div>
 
-          <!-- Mode 1: Word Desk Container -->
-          <div id="vocab-word-mode-container" class="vocab-mode-pane">
-            <form class="card-mining-form tactile-card" id="card-mining-form">
-              <!-- Prominent Extension-style Captured Word Hero Showcase -->
-              <section id="headword-hero" class="word-showcase-card captured-word-hero" aria-label="Captured Japanese Word">
-                <div id="hero-reading" class="word-reading-lead hero-reading font-japanese"></div>
-                <div class="hero-expression-row">
-                  <ruby class="headword-kanji font-display" id="hero-expression">
-                    <span class="text-muted text-base font-sans" style="font-size: 1.1rem; letter-spacing: normal;">Search a word above...</span>
-                  </ruby>
-                  <button type="button" class="audio-play-btn tactile-btn-icon" id="btn-play-audio" title="Pronounce Term" aria-label="Play audio" style="display: none;">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                      <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                    </svg>
-                  </button>
-                </div>
-
-                <!-- Meta & Status Badges Row -->
-                <div class="word-badges-row headword-meta-row" id="headword-meta-row" style="display: none;">
-                  <span class="pitch-accent-badge kn-badge pitch font-mono" id="hero-pitch" style="display: none;">[0] 平板</span>
-                  <span class="kn-badge jlpt font-mono" id="hero-jlpt">JLPT</span>
-                  <span class="kn-badge pos font-sans" id="hero-pos">Vocabulary</span>
-                  <button type="button" class="tactile-pill font-sans" id="btn-toggle-known">Mark Known</button>
-                </div>
-
-                <!-- Pure Black JMdict Surface inside Hero (#000000) -->
-                <div class="jmdict-card surface-pitch-black tactile-card" id="jmdict-block">
-                  <div class="jmdict-header-row">
-                    <span class="jmdict-title font-mono">Dictionary</span>
-                    <span class="jmdict-source-tag font-mono text-muted text-xs">JMdict</span>
-                  </div>
-                  <div class="jmdict-senses-list" id="jmdict-senses"></div>
-                </div>
-              </section>
-
-              <div class="mining-form-header">
-                <div class="mining-title-group">
-                  <span class="mining-unsaved-badge font-sans" id="mining-unsaved-badge" style="display: none;" title="Unsaved changes in this card">
-                    <span class="unsaved-dot"></span>
-                    <span>Unsaved</span>
-                  </span>
-                </div>
-                <div class="anki-sync-status-pill font-mono" id="anki-sync-status" style="display: none;"></div>
-              </div>
-
-              <!-- Expression & Reading Fields -->
-              <!-- Hidden input fields to preserve data contracts without redundant UI inputs -->
-              <input type="hidden" id="input-expression" value="" />
-              <input type="hidden" id="input-reading" value="" />
-              <!-- Meaning Field -->
-              <div class="form-field">
-                <label for="input-meaning" class="font-sans">Meaning and gloss</label>
-                <textarea id="input-meaning" class="tactile-input form-textarea font-japanese" rows="3" placeholder="Definition and nuances..."></textarea>
-              </div>
-
-              <!-- Sentence Context & Translation -->
-              <div class="form-field">
-                <label for="input-sentence" class="font-sans">Example sentence</label>
-                <textarea id="input-sentence" class="tactile-input form-textarea-sm font-japanese" rows="2" placeholder="Example Japanese sentence..."></textarea>
-              </div>
-              <div class="form-field">
-                <label for="input-translation" class="font-sans">Translation</label>
-                <input type="text" id="input-translation" class="tactile-input font-sans" placeholder="English translation..." />
-              </div>
-
-              <!-- Deck Selector & Tags -->
-              <div class="form-row-pair">
-                <div class="form-field">
-                  <label for="select-deck" class="font-sans">Target deck</label>
-                  <select id="select-deck" class="tactile-input font-sans">
-                    <option value="Default">Default</option>
-                  </select>
-                </div>
-                <div class="form-field">
-                  <label for="input-tags" class="font-sans">Tags</label>
-                  <input type="text" id="input-tags" class="tactile-input font-sans" value="kiroku" />
-                </div>
-              </div>
-
-              <!-- Action Button Row -->
-              <div class="form-actions-row">
-                <button type="submit" class="tactile-btn tactile-btn-primary card-save-stamp-btn font-sans" id="btn-save-card">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                  </svg>
-                  <span>Save Card to Local & Anki</span>
-                </button>
-              </div>
-            </form>
-
-            <!-- Quiet Shelf Under Desk: Should know, not yet seen -->
-            <div class="vocab-gaps-shelf tactile-card" id="vocab-gaps-shelf">
-              <div class="gaps-shelf-header">
-                <div class="gaps-title-row">
-                  <span class="gaps-title font-sans font-bold">Should know, not yet seen</span>
-                  <span class="text-xs text-muted font-sans">Words at or below your target focus level not yet marked known or mined.</span>
-                </div>
-                <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-refresh-gaps" title="Reload unseen vocabulary gaps">
-                  Refresh
-                </button>
-              </div>
-              <div class="vocab-gaps-list" id="vocab-gaps-list">
-                <span class="text-xs text-muted py-2 font-sans">Loading vocabulary recommendations...</span>
-              </div>
+          <!-- Playful Animated Option Selector Row (Cream cards, black font, Emil physics) -->
+          <div class="vocab-playful-selector-row">
+            <div class="vocab-mode-tabs" role="tablist" aria-label="Vocabulary View Mode" style="display: none;">
+              <button type="button" class="vocab-mode-tab is-active" id="tab-mode-word" role="tab" aria-selected="true">Word</button>
+              <button type="button" class="vocab-mode-tab" id="tab-mode-text" role="tab" aria-selected="false">Text</button>
             </div>
+
+            <button type="button" class="vocab-mode-pill-btn is-active" id="btn-select-word-mode" data-mode="word">
+              <span>Word Desk</span>
+              <span class="pill-subtag">単語</span>
+            </button>
+
+            <button type="button" class="vocab-mode-pill-btn" id="btn-select-text-mode" data-mode="text">
+              <span>Text Annotator</span>
+              <span class="pill-subtag">本文</span>
+            </button>
+
+            <button type="button" class="vocab-quick-add-toggle-btn is-open" id="btn-toggle-quick-add" title="Toggle Quick Add side panel">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              <span>Quick Add</span>
+              <span class="dock-badge-subtle">Dock</span>
+            </button>
           </div>
 
-          <!-- Mode 2: Text Annotator Container -->
-          <div id="vocab-text-mode-container" class="vocab-mode-pane" style="display: none;">
-            <div class="text-annotate-card tactile-card">
-              <div class="text-annotate-header mb-3">
-                <h2 class="text-lg font-bold font-sans">Text annotator</h2>
-                <p class="text-sm text-secondary font-sans">
-                  Paste a Japanese article or paragraph. Tokens will be highlighted by your learner status: should know, mined, or known.
-                </p>
+          <!-- Two-Column Workspace Split: Left Content + Right Quick Add Panel -->
+          <div class="vocab-workspace-split">
+            <!-- Left Pane: Word Details or Text Annotator -->
+            <div class="vocab-main-pane">
+              <!-- Mode 1: Word Desk Container -->
+              <div id="vocab-word-mode-container" class="vocab-mode-pane">
+                <!-- Prominent Captured Word Hero Showcase -->
+                <section id="headword-hero" class="word-showcase-card captured-word-hero tactile-card" aria-label="Captured Japanese Word">
+                  <div id="hero-reading" class="word-reading-lead hero-reading font-japanese"></div>
+                  <div class="hero-expression-row">
+                    <ruby class="headword-kanji font-display" id="hero-expression">
+                      <span class="text-muted text-base font-sans" style="font-size: 1.1rem; letter-spacing: normal;">Search a word above...</span>
+                    </ruby>
+                    <button type="button" class="audio-play-btn tactile-btn-icon" id="btn-play-audio" title="Pronounce Term" aria-label="Play audio" style="display: none;">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <!-- Meta & Status Badges Row -->
+                  <div class="word-badges-row headword-meta-row" id="headword-meta-row" style="display: none;">
+                    <span class="pitch-accent-badge kn-badge pitch font-mono" id="hero-pitch" style="display: none;">[0] 平板</span>
+                    <span class="kn-badge jlpt font-mono" id="hero-jlpt">JLPT</span>
+                    <span class="kn-badge pos font-sans" id="hero-pos">Vocabulary</span>
+                    <button type="button" class="tactile-pill font-sans" id="btn-toggle-known">Mark Known</button>
+                  </div>
+
+                  <!-- Pure Black JMdict Surface inside Hero (#000000) -->
+                  <div class="jmdict-card surface-pitch-black tactile-card" id="jmdict-block">
+                    <div class="jmdict-header-row">
+                      <span class="jmdict-title font-mono">Dictionary</span>
+                      <span class="jmdict-source-tag font-mono text-muted text-xs">JMdict</span>
+                    </div>
+                    <div class="jmdict-senses-list" id="jmdict-senses"></div>
+                  </div>
+                </section>
+
+                <!-- Quiet Shelf Under Desk: Should know, not yet seen -->
+                <div class="vocab-gaps-shelf tactile-card" id="vocab-gaps-shelf">
+                  <div class="gaps-shelf-header">
+                    <div class="gaps-title-row">
+                      <span class="gaps-title font-sans font-bold">Should know, not yet seen</span>
+                      <span class="text-xs text-muted font-sans">Words at or below your target focus level not yet marked known or mined.</span>
+                    </div>
+                    <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-refresh-gaps" title="Reload unseen vocabulary gaps">
+                      Refresh
+                    </button>
+                  </div>
+                  <div class="vocab-gaps-list" id="vocab-gaps-list">
+                    <span class="text-xs text-muted py-2 font-sans">Loading vocabulary recommendations...</span>
+                  </div>
+                </div>
               </div>
 
-              <textarea
-                id="vocab-text-input"
-                class="tactile-input form-textarea font-japanese"
-                rows="4"
-                placeholder="Paste Japanese text to tokenize and color by learner status..."
-              ></textarea>
+              <!-- Mode 2: Text Annotator Container -->
+              <div id="vocab-text-mode-container" class="vocab-mode-pane" style="display: none;">
+                <div class="text-annotate-card tactile-card">
+                  <div class="text-annotate-header mb-3">
+                    <h2 class="text-lg font-bold font-sans">Text annotator</h2>
+                    <p class="text-sm text-secondary font-sans">
+                      Paste a Japanese article or paragraph. Tokens will be highlighted by your learner status: should know, mined, or known.
+                    </p>
+                  </div>
 
-              <div class="text-annotate-actions">
-                <button type="button" class="tactile-btn tactile-btn-primary font-sans" id="btn-annotate-text">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  <textarea
+                    id="vocab-text-input"
+                    class="tactile-input form-textarea font-japanese"
+                    rows="4"
+                    placeholder="Paste Japanese text to tokenize and color by learner status..."
+                  ></textarea>
+
+                  <div class="text-annotate-actions">
+                    <button type="button" class="tactile-btn tactile-btn-primary font-sans" id="btn-annotate-text">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                      </svg>
+                      <span>Annotate paragraph</span>
+                    </button>
+
+                    <div class="annotation-legend font-sans">
+                      <span class="legend-chip legend-should-know">Should know</span>
+                      <span class="legend-chip legend-mined">Mined</span>
+                      <span class="legend-chip legend-known">Known</span>
+                    </div>
+                  </div>
+
+                  <div class="annotated-result-wrapper surface-pitch-black tactile-card" id="vocab-text-annotated-result" style="display: none; margin-top: 1.25rem;">
+                    <div class="annotated-tokens-stage" id="annotated-tokens-stage"></div>
+                    <p class="text-xs text-muted mt-2 px-3 pb-2 font-sans">
+                      Click any token to inspect its JMdict definition on the Word desk and mine to Anki.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Pane: Dedicated Quick Add Side Panel (matching extension UI) -->
+            <aside class="vocab-quick-add-dock" id="vocab-quick-add-dock" aria-label="Quick Add Side Panel">
+              <div class="quick-add-dock-header">
+                <div class="dock-header-title-group">
+                  <div class="vocab-mascot-pod" title="Kiroku Companion">
+                    <canvas id="vocab-mascot-canvas" width="88" height="88"></canvas>
+                  </div>
+                  <div>
+                    <h2 class="dock-title">Quick Add</h2>
+                    <span class="dock-badge-subtle">Extension Mode</span>
+                  </div>
+                </div>
+
+                <button type="button" class="dock-close-btn" id="btn-close-quick-add" title="Close Quick Add Panel" aria-label="Close panel">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                   </svg>
-                  <span>Annotate paragraph</span>
+                </button>
+              </div>
+
+              <form class="card-mining-form tactile-card" id="card-mining-form">
+                <div class="mining-form-header">
+                  <div class="mining-title-group">
+                    <span class="mining-unsaved-badge font-sans" id="mining-unsaved-badge" style="display: none;" title="Unsaved changes in this card">
+                      <span class="unsaved-dot"></span>
+                      <span>Unsaved</span>
+                    </span>
+                  </div>
+                  <div class="anki-sync-status-pill font-mono" id="anki-sync-status" style="display: none;"></div>
+                </div>
+
+                <!-- Hidden inputs for data contracts -->
+                <input type="hidden" id="input-expression" value="" />
+                <input type="hidden" id="input-reading" value="" />
+
+                <!-- Meaning Field -->
+                <div class="form-field">
+                  <label for="input-meaning" class="font-sans">Meaning and gloss</label>
+                  <textarea id="input-meaning" class="tactile-input form-textarea font-japanese" rows="3" placeholder="Definition and nuances..."></textarea>
+                </div>
+
+                <!-- Sentence Context & Translation -->
+                <div class="form-field">
+                  <label for="input-sentence" class="font-sans">Example sentence</label>
+                  <textarea id="input-sentence" class="tactile-input form-textarea-sm font-japanese" rows="2" placeholder="Example Japanese sentence..."></textarea>
+                </div>
+                <div class="form-field">
+                  <label for="input-translation" class="font-sans">Translation</label>
+                  <input type="text" id="input-translation" class="tactile-input font-sans" placeholder="English translation..." />
+                </div>
+
+                <!-- Deck Selector & Tags -->
+                <div class="form-row-pair">
+                  <div class="form-field">
+                    <label for="select-deck" class="font-sans">Target deck</label>
+                    <select id="select-deck" class="tactile-input font-sans">
+                      <option value="Default">Default</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label for="input-tags" class="font-sans">Tags</label>
+                    <input type="text" id="input-tags" class="tactile-input font-sans" value="kiroku" />
+                  </div>
+                </div>
+
+                <!-- Action Button Row -->
+                <div class="form-actions-row">
+                  <button type="submit" class="tactile-btn tactile-btn-primary card-save-stamp-btn font-sans" id="btn-save-card">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    <span>Save Card to Local & Anki</span>
+                  </button>
+                </div>
+              </form>
+            </aside>
+          </div>
+        </div>
+      </div>
+    `;
+  }
                 </button>
 
                 <div class="annotation-legend font-sans">
@@ -504,12 +590,43 @@ export class VocabMainView {
     // Mode switcher: Word vs Text
     const tabWord = document.getElementById('tab-mode-word');
     const tabText = document.getElementById('tab-mode-text');
+    const btnSelectWord = document.getElementById('btn-select-word-mode');
+    const btnSelectText = document.getElementById('btn-select-text-mode');
 
     if (tabWord) {
       tabWord.addEventListener('click', () => this.switchToMode('word'));
     }
     if (tabText) {
       tabText.addEventListener('click', () => this.switchToMode('text'));
+    }
+
+    if (btnSelectWord) {
+      btnSelectWord.addEventListener('click', () => this.switchToMode('word'));
+    }
+    if (btnSelectText) {
+      btnSelectText.addEventListener('click', () => this.switchToMode('text'));
+    }
+
+    // Quick Add side panel toggle
+    const btnToggleQuickAdd = document.getElementById('btn-toggle-quick-add');
+    const btnCloseQuickAdd = document.getElementById('btn-close-quick-add');
+    const dockQuickAdd = document.getElementById('vocab-quick-add-dock');
+
+    const toggleQuickAdd = (forceOpen) => {
+      this.quickAddOpen = forceOpen !== undefined ? forceOpen : !this.quickAddOpen;
+      if (dockQuickAdd) {
+        dockQuickAdd.classList.toggle('is-collapsed', !this.quickAddOpen);
+      }
+      if (btnToggleQuickAdd) {
+        btnToggleQuickAdd.classList.toggle('is-open', this.quickAddOpen);
+      }
+    };
+
+    if (btnToggleQuickAdd) {
+      btnToggleQuickAdd.addEventListener('click', () => toggleQuickAdd());
+    }
+    if (btnCloseQuickAdd) {
+      btnCloseQuickAdd.addEventListener('click', () => toggleQuickAdd(false));
     }
 
     // Refresh gaps button
@@ -651,6 +768,8 @@ export class VocabMainView {
     this.currentMode = mode;
     const tabWord = document.getElementById('tab-mode-word');
     const tabText = document.getElementById('tab-mode-text');
+    const btnSelectWord = document.getElementById('btn-select-word-mode');
+    const btnSelectText = document.getElementById('btn-select-text-mode');
     const wordContainer = document.getElementById('vocab-word-mode-container');
     const textContainer = document.getElementById('vocab-text-mode-container');
 
@@ -659,6 +778,11 @@ export class VocabMainView {
       tabWord.setAttribute('aria-selected', mode === 'word' ? 'true' : 'false');
       tabText.classList.toggle('is-active', mode === 'text');
       tabText.setAttribute('aria-selected', mode === 'text' ? 'true' : 'false');
+    }
+
+    if (btnSelectWord && btnSelectText) {
+      btnSelectWord.classList.toggle('is-active', mode === 'word');
+      btnSelectText.classList.toggle('is-active', mode === 'text');
     }
 
     if (wordContainer && textContainer) {
@@ -1008,6 +1132,14 @@ export class VocabMainView {
 
   unmount() {
     this.saveDraft();
+    if (this.mascotHandle && typeof this.mascotHandle.cleanup === 'function') {
+      try {
+        this.mascotHandle.cleanup();
+      } catch (err) {
+        console.debug('[VocabMain] Mascot cleanup error:', err);
+      }
+      this.mascotHandle = null;
+    }
     if (this._levelListener) {
       window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
       this._levelListener = null;
