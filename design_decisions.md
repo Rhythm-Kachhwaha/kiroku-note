@@ -113,12 +113,12 @@ The following swatches represent incoming industrial-tactile tones. Below is the
 Applied in desktop/src/ui/styles/bundle.css without modifying any UI structure:
 - **Canvas Ground**: Pure Pitch Black (#000000).
 - **Cards & Surfaces**: Dark iron-tinted ground (#161818) with crisp tactile stroke (#151413).
-- **Iron Core (#222A2A)**: Base for token chips, formation rules container, encounters container, and syllabus item hover wells.
-- **Industrial Aqua (#4FBBBC)**: Visualizer radar pulse dot & title, grammar token category tags (.token-pos-tag), active token chip selection glow, formation rule label & bullet, and example sentence ruby furigana (
-t).
-- **Rust Signal (#EC4624)**: Primary sentence analysis action button stamp (#btn-analyze-sentence), visible error banner, brand kanji seal (.grammar-word-kanji), and active learning mastery pill.
-- **Heat Marker (#F39120)**: Character counter, quick examples label, token level badge, active syllabus level filter pills (.syllabus-level-pill.is-active), and mining history encounter count.
-- **Architectural Cream (#E2DAC2)**: Main pattern title (.point-title), token Japanese glyphs, example Japanese prose (.example-ja), syllabus pattern titles, and quick example chip text.
+- **Iron Core (#222A2A)**: Formation rules container, encounters container, and syllabus item hover wells.
+- **Industrial Aqua (#4FBBBC)**: Visualizer radar pulse dot & title, formation rule label & bullet, and example sentence ruby furigana.
+- **Rust Signal (#EC4624)**: Primary sentence analysis action button stamp (#btn-analyze-sentence), visible error banner, brand kanji seal (.grammar-word-kanji), active learning mastery pill, and selected token chip border.
+- **Heat Marker (#F39120)**: Character counter, quick examples label, compact token level pill (.token-level-tag), active syllabus level filter pills (.syllabus-level-pill.is-active), and mining history encounter count.
+- **Architectural Cream (#E2DAC2)**: Grammar tokenized structure highlight chip boxes (.grammar-token-chip), desktop loading screen English wordmark (.word-kiroku), main pattern title (.point-title), example Japanese prose (.example-ja), syllabus pattern titles, and quick example chip text.
+- **Pure Black (#000000)**: Highlighted glyph text inside cream token chips (.token-text), desktop loading screen high-contrast canvas ground.
 
 ---
 

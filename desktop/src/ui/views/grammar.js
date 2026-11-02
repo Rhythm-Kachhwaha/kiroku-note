@@ -417,7 +417,6 @@ export class GrammarView {
     container.innerHTML = segments.map((seg, i) => {
       if (seg.isGrammar) {
         const lvl = seg.point?.level || 'JLPT';
-        const posTag = seg.point?.level ? `${seg.point.level} Grammar` : 'Grammar Pattern';
         return `
           <button
             type="button"
@@ -426,9 +425,8 @@ export class GrammarView {
             data-key="${escapeHtml(seg.point.pattern_key)}"
             title="${escapeHtml(seg.point.meaning_short || seg.point.pattern_display || seg.point.pattern_key)}"
           >
-            <span class="token-pos-tag font-mono text-xs">${escapeHtml(posTag)}</span>
-            <span class="token-text font-japanese font-bold text-warm-paper">${escapeHtml(seg.text)}</span>
-            <span class="token-level-tag tactile-pill tactile-pill-vermilion text-xs">${escapeHtml(lvl)}</span>
+            <span class="token-text font-japanese font-bold">${escapeHtml(seg.text)}</span>
+            <span class="token-level-tag tactile-pill text-xs">${escapeHtml(lvl)}</span>
           </button>
         `;
       }
