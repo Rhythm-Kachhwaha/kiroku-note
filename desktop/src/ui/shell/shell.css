@@ -12,7 +12,7 @@
   left: 0;
   right: 0;
   height: var(--chrome-top-height, 48px);
-  background-color: var(--ink-surface, #1C1B19);
+  background-color: var(--pure-black, #000000);
   border-bottom: 1px solid var(--subtle-border, rgba(245, 241, 232, 0.12));
   z-index: 1000;
   display: flex;

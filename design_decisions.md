@@ -42,7 +42,8 @@ The following components are verified, polished, and locked against unconfirmed 
 
 | Token | Hex | Semantic Role |
 | :--- | :--- | :--- |
-| `--ink-black` | `#141311` | Deep sumi ink canvas floor; app background |
+| `--pure-black` | `#000000` | Universal edge-to-edge pitch-black window ground for ALL tabs |
+| `--ink-black` | `#141311` | Secondary sumi ink ground; dark element backplates |
 | `--ink-surface` | `#1C1B19` | Elevated quiet card and container surfaces |
 | `--elevated-surface` | `#2A2926` | Higher elevated pods, modals, dropdown menus |
 | `--warm-paper` | `#F5F1E8` | Hand-pressed washi paper text and light pill surfaces |
