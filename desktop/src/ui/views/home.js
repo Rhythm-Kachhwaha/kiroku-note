@@ -8,6 +8,7 @@
 
 import { mountRiveMascot } from '../rive_mascot.js';
 import { HOME_GLYPHS } from '../assets/home_glyphs.js';
+import { CaseStudyCard } from '../components/case_study_card.js';
 
 /**
  * Editorial reference expressions preserved for test contract compatibility:
@@ -48,60 +49,88 @@ const TIME_BASED_GREETINGS = [
 
 const CURATED_DAILY_WORDS = [
   {
-    kanji: '木漏れ日',
-    reading: 'こもれび',
-    romaji: 'komorebi',
-    meaning: 'Sunlight filtering through trees',
-    jlpt: 'N2',
-    category: 'Nature & Poetics'
+    "kanji": "木漏れ日",
+    "reading": "こもれび",
+    "romaji": "komorebi",
+    "meaning": "Sunlight filtering through trees",
+    "jlpt": "N2",
+    "category": "Nature & Poetics",
+    "partOfSpeech": "Noun",
+    "exampleSentence": "木漏れ日の中で、静かに本を読む時間が好きです。",
+    "exampleFurigana": "<ruby>木漏<rt>こぼ</rt></ruby>れ<ruby>日<rt>び</rt></ruby>の<ruby>中<rt>なか</rt></ruby>で、<ruby>静<rt>しず</rt></ruby>かに<ruby>本<rt>ほん</rt></ruby>を<ruby>読<rt>よ</rt></ruby>む<ruby>時間<rt>じかん</rt></ruby>が<ruby>好<rt>す</rt></ruby>きです。",
+    "exampleTranslation": "I love the peaceful time spent reading a book under sunlight filtering through the trees."
   },
   {
-    kanji: '風情',
-    reading: 'ふぜい',
-    romaji: 'fuzei',
-    meaning: 'Taste, elegance, charm, aesthetic atmosphere',
-    jlpt: 'N1',
-    category: 'Aesthetics'
+    "kanji": "風情",
+    "reading": "ふぜい",
+    "romaji": "fuzei",
+    "meaning": "Taste, elegance, charm, aesthetic atmosphere",
+    "jlpt": "N1",
+    "category": "Aesthetics",
+    "partOfSpeech": "Noun",
+    "exampleSentence": "雨上がりの古い町並みには独特の風情がある。",
+    "exampleFurigana": "<ruby>雨上<rt>あめあ</rt></ruby>がりの<ruby>古<rt>ふる</rt></ruby>い<ruby>町並<rt>まちな</rt></ruby>みには<ruby>独特<rt>どくとく</rt></ruby>の<ruby>風情<rt>ふぜい</rt></ruby>がある。",
+    "exampleTranslation": "There is a unique charm to the historic townscape after the rain."
   },
   {
-    kanji: '一期一会',
-    reading: 'いちごいちえ',
-    romaji: 'ichigo ichie',
-    meaning: 'Once-in-a-lifetime encounter; cherish every moment',
-    jlpt: 'N1',
-    category: 'Proverb & Zen'
+    "kanji": "一期一会",
+    "reading": "いちごいちえ",
+    "romaji": "ichigo ichie",
+    "meaning": "Once-in-a-lifetime encounter; cherish every moment",
+    "jlpt": "N1",
+    "category": "Proverb & Zen",
+    "partOfSpeech": "Yojijukugo (Idiom)",
+    "exampleSentence": "出会いは一期一会だから、一つ一つの縁を大切にしよう。",
+    "exampleFurigana": "<ruby>出合<rt>であ</rt></ruby>いは<ruby>一期一会<rt>いちごいちえ</rt></ruby>だから、<ruby>一<rt>ひと</rt></ruby>つ<ruby>一<rt>ひと</rt></ruby>つの<ruby>縁<rt>えん</rt></ruby>を<ruby>大切<rt>たいせつ</rt></ruby>にしよう。",
+    "exampleTranslation": "Every encounter is once in a lifetime, so cherish every bond you form."
   },
   {
-    kanji: '雨宿り',
-    reading: 'あまやどり',
-    romaji: 'amayadori',
-    meaning: 'Sheltering from the rain',
-    jlpt: 'N3',
-    category: 'Daily Life'
+    "kanji": "雨宿り",
+    "reading": "あまやどり",
+    "romaji": "amayadori",
+    "meaning": "Sheltering from the rain",
+    "jlpt": "N3",
+    "category": "Daily Life",
+    "partOfSpeech": "Noun / Suru verb",
+    "exampleSentence": "駅の軒下で雨宿りをしながら友人を待った。",
+    "exampleFurigana": "<ruby>駅<rt>えき</rt></ruby>の<ruby>軒下<rt>のきした</rt></ruby>で<ruby>雨宿<rt>あまやど</rt></ruby>りをしながら<ruby>友人<rt>ゆうじん</rt></ruby>を<ruby>待<rt>ま</rt></ruby>った。",
+    "exampleTranslation": "I waited for my friend while sheltering from the rain under the station eaves."
   },
   {
-    kanji: '陽だまり',
-    reading: 'ひだまり',
-    romaji: 'hidamari',
-    meaning: 'Sunny spot, warm pocket of sunshine',
-    jlpt: 'N2',
-    category: 'Warmth'
+    "kanji": "陽だまり",
+    "reading": "ひだまり",
+    "romaji": "hidamari",
+    "meaning": "Sunny spot, warm pocket of sunshine",
+    "jlpt": "N2",
+    "category": "Warmth",
+    "partOfSpeech": "Noun",
+    "exampleSentence": "猫が縁側の陽だまりで気持ちよさそうに丸くなっている。",
+    "exampleFurigana": "<ruby>猫<rt>ねこ</rt></ruby>が<ruby>縁側<rt>えんがわ</rt></ruby>の<ruby>陽<rt>ひ</rt></ruby>だまりで<ruby>気持<rt>きも</rt></ruby>ちよさそうに<ruby>丸<rt>まる</rt></ruby>くなっている。",
+    "exampleTranslation": "The cat is curled up comfortably in a warm pocket of sunshine on the veranda."
   },
   {
-    kanji: '浮世',
-    reading: 'うきよ',
-    romaji: 'ukiyo',
-    meaning: 'Floating world, fleeting transient life',
-    jlpt: 'N1',
-    category: 'Culture & Art'
+    "kanji": "浮世",
+    "reading": "うきよ",
+    "romaji": "ukiyo",
+    "meaning": "Floating world, fleeting transient life",
+    "jlpt": "N1",
+    "category": "Culture & Art",
+    "partOfSpeech": "Noun",
+    "exampleSentence": "浮世の慌ただしさを忘れ、静かな茶室で心を落ち着かせる。",
+    "exampleFurigana": "<ruby>浮世<rt>うきよ</rt></ruby>の<ruby>慌<rt>あわ</rt></ruby>ただしさを<ruby>忘<rt>わす</rt></ruby>れ、<ruby>静<rt>しず</rt></ruby>かな<ruby>茶室<rt>ちゃしつ</rt></ruby>で<ruby>心<rt>こころ</rt></ruby>を<ruby>落<rt>お</rt></ruby>ち<ruby>着<rt>つ</rt></ruby>かせる。",
+    "exampleTranslation": "Forgetting the rush of this transient world, calm your mind in a quiet tea room."
   },
   {
-    kanji: '心づくし',
-    reading: 'こころづくし',
-    romaji: 'kokorozukushi',
-    meaning: 'Heartfelt kindness, thorough consideration',
-    jlpt: 'N1',
-    category: 'Virtue'
+    "kanji": "心づくし",
+    "reading": "こころづくし",
+    "romaji": "kokorozukushi",
+    "meaning": "Heartfelt kindness, thorough consideration",
+    "jlpt": "N1",
+    "category": "Virtue",
+    "partOfSpeech": "Noun",
+    "exampleSentence": "旅先で地元の人々から受けた心づくしのもてなしに深く感謝した。",
+    "exampleFurigana": "<ruby>旅先<rt>たびさき</rt></ruby>で<ruby>地元<rt>じもと</rt></ruby>の<ruby>人々<rt>ひとびと</rt></ruby>から<ruby>受<rt>う</rt></ruby>けた<ruby>心<rt>こころ</rt></ruby>づくしのもてなしに<ruby>深<rt>ふか</rt></ruby>く<ruby>感謝<rt>かんしゃ</rt></ruby>した。",
+    "exampleTranslation": "I was deeply grateful for the heartfelt hospitality received from local people during my travels."
   }
 ];
 
@@ -178,6 +207,22 @@ export class HomeView {
     this.container = container;
     const greeting = this.getGreeting();
     const dailyWord = this.getDailyWord();
+
+    const dailyWordCardHtml = CaseStudyCard({
+      title: dailyWord.kanji,
+      category: 'WORD OF THE DAY',
+      reading: dailyWord.reading,
+      romaji: dailyWord.romaji,
+      meaning: dailyWord.meaning,
+      jlpt: dailyWord.jlpt,
+      partOfSpeech: dailyWord.partOfSpeech || 'Noun',
+      exampleSentence: dailyWord.exampleSentence,
+      exampleFurigana: dailyWord.exampleFurigana,
+      exampleTranslation: dailyWord.exampleTranslation,
+      type: 'content',
+      tabLabel: 'READ WORD',
+      link: '#vocab'
+    });
 
     const launcherCardsHtml = LAUNCHER_CARDS.map((card) => `
       <div class="home-launcher-card tactile-card tactile-card-interactive"
@@ -257,28 +302,8 @@ export class HomeView {
               </div>
             </div>
 
-            <!-- Curated Daily Japanese Word Stamp (Below Cat) -->
-            <div class="home-daily-word daily-vocab-stamp tactile-card tactile-card-interactive"
-                 id="daily-word-stamp"
-                 role="button"
-                 tabindex="0"
-                 title="Click to open Vocabulary Desk"
-                 aria-label="Daily vocabulary: ${dailyWord.kanji} (${dailyWord.reading}) - ${dailyWord.meaning}. Click to open Vocabulary Desk.">
-              <div class="daily-word-top-row">
-                <div class="daily-word-badges">
-                  <span class="daily-word-pill-jlpt tactile-pill tactile-pill-vermilion">${dailyWord.jlpt}</span>
-                  <span class="daily-word-cat-label font-mono">${dailyWord.category}</span>
-                </div>
-                <span class="daily-word-stamp-action font-mono text-muted">Open in Vocab &rarr;</span>
-              </div>
-              <div class="daily-word-content">
-                <div class="daily-word-glyph-line">
-                  <ruby class="daily-word-kanji font-display">${dailyWord.kanji}<rt class="daily-word-reading font-japanese">${dailyWord.reading}</rt></ruby>
-                  <span class="daily-word-romaji font-mono text-muted">${dailyWord.romaji}</span>
-                </div>
-                <div class="daily-word-gloss font-japanese">${dailyWord.meaning}</div>
-              </div>
-            </div>
+            <!-- Curated Daily Japanese Word: Animata Case Study Card -->
+            ${dailyWordCardHtml}
           </div>
 
           <!-- Minimal Launcher Cards Zone (Right Zone) -->
@@ -455,7 +480,6 @@ export class HomeView {
 
     const mascotStage = document.getElementById('mascot-stage');
     const mascotWrap = document.getElementById('mascot-character-wrap');
-    const dailyWordStamp = document.getElementById('daily-word-stamp');
 
     // 1. Cat mascot companion click reaction
     if (mascotStage && mascotWrap) {
@@ -532,16 +556,21 @@ export class HomeView {
     };
     document.addEventListener('visibilitychange', this.visibilityHandler);
 
-    // 4. Daily word stamp navigation to Vocab desk
-    if (dailyWordStamp) {
-      const navigateVocab = () => {
+    // 4. Daily word: Open in Vocab action (Animata Case Study Card navigation)
+    const btnOpen = document.getElementById('btn-daily-word-open');
+    if (btnOpen) {
+      const navigateVocab = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
         this.router.navigateToTab('vocab');
       };
-      dailyWordStamp.addEventListener('click', navigateVocab);
-      dailyWordStamp.addEventListener('keydown', (e) => {
+
+      btnOpen.addEventListener('click', navigateVocab);
+      btnOpen.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          navigateVocab();
+          navigateVocab(e);
         }
       });
     }

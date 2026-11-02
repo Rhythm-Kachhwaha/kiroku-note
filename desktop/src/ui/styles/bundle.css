@@ -176,13 +176,6 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   border-color: rgba(245, 241, 232, 0.2) !important;
 }
 
-.daily-word-reading {
-  color: #e07a5f !important;
-}
-
-.daily-word-stamp-action {
-  color: var(--text-secondary) !important;
-}
 
 
 
@@ -624,115 +617,405 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   }
 }
 
-/* Curated Daily Japanese Word Stamp */
+/* ==========================================================================
+   Curated Daily Japanese Word: Animata Case Study Card
+   Reference: https://animata.design/docs/card/case-study-card
+   Original Structure & Components:
+   - CaseStudyCard (outer wrapper + link)
+   - HoverRevealSlip (3D perspective, static back cover, hinged front, sliding tab)
+   - ContentCard (text + category + typography + gloss + optional logo/image)
+   - SimpleImageCard (image-only mode)
+
+   Animation & 3D Geometry Specs:
+   - Perspective Depth: 1000px
+   - Left-Origin Hinge: transform-origin: left center
+   - Hinge Rotation: rotateY(-30deg) on hover / focus
+   - Cover Transition: 500ms ease-out
+   - Sliding Tab: emerges from behind front cover
+   - Tab Resting State: translateX(-34px) behind front card
+   - Tab Hover State: translateX(0) rotate(5deg)
+   - Tab Transition: 300ms ease-in-out
+   - Layer Ordering: Static Back (z:1) < Tab (z:5) < Front Hinge (z:10/50)
+   - Backface Visibility: hidden
+   ========================================================================== */
+
+:root {
+  /* Editable Properties: Dimensions (Compact Sizing) */
+  --case-study-width: 250px;
+  --case-study-height: 162px;
+  --case-study-card-width: 210px;
+
+  /* Editable Properties: Sliding Tab Geometry */
+  --case-study-tab-width: 44px;
+  --case-study-tab-height: 126px;
+  --case-study-tab-offset: -34px;
+  --case-study-tab-rotate: 5deg;
+
+  /* Editable Properties: 3D Perspective & Angles */
+  --case-study-perspective: 1000px;
+  --case-study-hinge-angle: -30deg;
+
+  /* Editable Properties: Animation Duration & Easing */
+  --case-study-duration: 500ms;
+  --case-study-easing: cubic-bezier(0.16, 1, 0.3, 1);
+  --case-study-tab-duration: 300ms;
+  --case-study-tab-easing: ease-in-out;
+
+  /* Editable Properties: Colors (Kiroku Charcoal, Warm Paper, Vermilion) */
+  --case-study-bg-front: var(--ink-surface, #1C1B19);
+  --case-study-bg-back: #141312;
+  --case-study-border-color: var(--tactile-stroke, #151413);
+  --case-study-shadow-color: var(--tactile-stroke, #151413);
+  --case-study-tab-bg: var(--vermilion, #D94B38);
+  --case-study-tab-color: var(--warm-paper, #F5F1E8);
+  --case-study-radius: var(--radius-md, 12px);
+  --case-study-shadow: 2px 2px 0 var(--case-study-shadow-color);
+
+  /* Editable Properties: Typography Colors */
+  --case-study-title-color: var(--warm-paper, #F5F1E8);
+  --case-study-reading-color: var(--vermilion, #D94B38);
+  --case-study-romaji-color: rgba(245, 241, 232, 0.65);
+  --case-study-gloss-color: var(--warm-paper, #F5F1E8);
+  --case-study-category-color: var(--gold, #C8A94A);
+}
+
+/* Outer Host in Home View */
 .home-daily-word,
-.daily-vocab-stamp {
+.daily-vocab-stamp.animata-case-study-wrapper {
   position: relative;
-  z-index: 2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   width: 100%;
   max-width: 360px;
-  background-color: var(--ink-surface);
-  color: var(--warm-paper);
-  border: 2px solid #151413;
-  border-radius: var(--radius-lg);
-  box-shadow: 3px 3px 0 #151413;
-  padding: 1rem 1.25rem;
+  margin: 0 auto;
+  padding: 0;
+  box-sizing: border-box;
+  z-index: 2;
+}
+
+/* Clickable link connecting Open in Vocab action */
+.animata-case-study-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  outline: none;
   cursor: pointer;
-  transition: transform var(--duration-instant) ease-out,
-              box-shadow var(--duration-instant) ease-out,
-              border-color var(--duration-fast) ease;
+  border-radius: var(--case-study-radius);
+  transition: outline-color var(--duration-fast, 160ms) ease;
 }
 
-.home-daily-word:hover,
-.daily-vocab-stamp:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 #151413;
-  border-color: rgba(245, 241, 232, 0.3);
+.animata-case-study-card-link:focus-visible {
+  outline: 2px solid var(--gold, #C8A94A);
+  outline-offset: 4px;
 }
 
-.home-daily-word:active,
-.daily-vocab-stamp:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 #151413;
+/* HoverRevealSlip: 3D perspective container */
+.animata-case-study-slip {
+  position: relative;
+  width: var(--case-study-width);
+  height: var(--case-study-height);
+  perspective: var(--case-study-perspective);
+  -webkit-perspective: var(--case-study-perspective);
 }
 
-.daily-word-top-row {
+/* 1. Static Back Cover */
+.animata-back-cover {
+  position: absolute;
+  inset: 0;
+  width: var(--case-study-card-width);
+  height: 100%;
+  border-radius: var(--case-study-radius);
+  background-color: var(--case-study-bg-back);
+  border: 1.5px solid var(--case-study-border-color);
+  box-shadow: var(--case-study-shadow);
+  overflow: hidden;
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+.animata-back-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0.75rem 0.85rem;
+  box-sizing: border-box;
+}
+
+.animata-back-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.65rem;
 }
 
-.daily-word-badges {
+.animata-back-badges {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.daily-word-pill-jlpt {
-  font-size: 0.68rem;
-  padding: 0.15rem 0.5rem;
-}
-
-.daily-word-cat-label {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.daily-word-stamp-action {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--paper-muted);
-  transition: color var(--duration-fast) ease;
-}
-
-.home-daily-word:hover .daily-word-stamp-action {
-  color: var(--warm-paper);
-}
-
-.daily-word-content {
-  display: flex;
-  flex-direction: column;
   gap: 0.35rem;
 }
 
-.daily-word-glyph-line {
+.animata-pill-jlpt {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-xs, 4px);
+  background: var(--vermilion, #D94B38);
+  color: var(--warm-paper, #F5F1E8);
+  letter-spacing: 0.03em;
+}
+
+.animata-pill-pos {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-xs, 4px);
+  background: rgba(200, 169, 74, 0.12);
+  color: var(--gold, #C8A94A);
+  border: 1px solid rgba(200, 169, 74, 0.3);
+}
+
+.animata-back-indicator {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(245, 241, 232, 0.35);
+}
+
+.animata-back-body {
+  margin-top: 0.35rem;
+}
+
+.animata-example-block {
+  padding: 0.35rem 0.55rem;
+  background: rgba(0, 0, 0, 0.4);
+  border-left: 2.5px solid var(--vermilion, #D94B38);
+  border-radius: 0 var(--radius-xs, 4px) var(--radius-xs, 4px) 0;
+}
+
+.animata-example-ja {
+  font-family: "Noto Sans JP", "Noto Sans CJK JP", "Zen Kaku Gothic New", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--warm-paper, #F5F1E8);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.animata-example-ja rt {
+  font-family: "Noto Sans JP", "Noto Sans CJK JP", "Zen Kaku Gothic New", sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--vermilion, #D94B38);
+}
+
+.animata-example-en {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 11px;
+  color: rgba(245, 241, 232, 0.72);
+  line-height: 1.3;
+  margin: 0.2rem 0 0 0;
+}
+
+.animata-back-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.animata-watermark {
+  font-family: "Noto Sans JP", "Noto Sans CJK JP", sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: rgba(245, 241, 232, 0.06);
+}
+
+/* 2. Card Hinge Container (Left-Origin Book Opening on Hover) */
+.animata-card-hinge {
+  position: relative;
+  z-index: 50;
+  width: var(--case-study-card-width);
+  height: 100%;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  transition: transform var(--case-study-duration) var(--case-study-easing);
+  box-sizing: border-box;
+}
+
+/* Hover and focus book opening effect */
+.animata-case-study-slip:hover .animata-card-hinge,
+.animata-case-study-card-link:focus-visible .animata-card-hinge {
+  transform: rotateY(var(--case-study-hinge-angle));
+}
+
+/* Front Face of the Card */
+.animata-card-front {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--case-study-radius);
+  background-color: var(--case-study-bg-front);
+  border: 1.5px solid var(--case-study-border-color);
+  box-shadow: var(--case-study-shadow);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* 3. ContentCard Layout */
+.animata-content-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  height: 100%;
+  padding: 0.75rem 0.95rem;
+  box-sizing: border-box;
+}
+
+.animata-content-image-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.animata-content-header {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+}
+
+.animata-category {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--case-study-category-color);
+  margin-bottom: 0.2rem;
+}
+
+.animata-title-group {
   display: flex;
   align-items: baseline;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.1rem;
 }
 
-.daily-word-kanji {
-  font-family: var(--font-display);
-  font-size: 1.85rem;
+.animata-title {
+  font-family: "Noto Sans JP", "Noto Sans CJK JP", "Zen Kaku Gothic New", sans-serif;
+  font-size: 26px;
   font-weight: 700;
-  color: var(--warm-paper);
-  line-height: 1.2;
+  color: var(--case-study-title-color);
+  line-height: 1.15;
+  letter-spacing: 0.02em;
 }
 
-.daily-word-reading {
-  font-family: var(--font-japanese);
-  font-size: 0.82rem;
-  color: var(--vermilion, #E06852);
+.animata-reading {
+  font-family: "Noto Sans JP", "Noto Sans CJK JP", "Zen Kaku Gothic New", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--case-study-reading-color);
+  letter-spacing: 0.03em;
 }
 
-.daily-word-romaji {
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  color: var(--text-muted);
+.animata-romaji {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--case-study-romaji-color);
+  letter-spacing: 0.02em;
 }
 
-.daily-word-gloss {
-  font-family: var(--font-japanese);
-  font-size: 0.88rem;
-  color: var(--paper-muted);
-  line-height: 1.4;
-  border-top: 1px solid var(--subtle-border);
-  padding-top: 0.45rem;
-  margin-top: 0.35rem;
+.animata-content-footer {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.animata-gloss {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--case-study-gloss-color);
+  line-height: 1.35;
+  border-top: 1px solid rgba(245, 241, 232, 0.1);
+  padding-top: 0.35rem;
+  width: 100%;
+}
+
+.animata-logo {
+  height: 22px;
+  border-radius: var(--radius-xs, 4px);
+  object-fit: contain;
+}
+
+/* 4. SimpleImageCard Layout */
+.animata-simple-image-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--case-study-radius);
+  box-sizing: border-box;
+}
+
+/* 5. Sliding Tab emerging from behind */
+.animata-sliding-tab {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  width: var(--case-study-tab-width);
+  height: var(--case-study-tab-height);
+  border-radius: 0 var(--case-study-radius) var(--case-study-radius) 0;
+  background-color: var(--case-study-tab-bg);
+  color: var(--case-study-tab-color);
+  padding: 6px 0 0 6px;
+  box-sizing: border-box;
+  transform: translateX(var(--case-study-tab-offset));
+  transition: transform var(--case-study-tab-duration) var(--case-study-tab-easing);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow: 2px 2px 0 var(--case-study-shadow-color);
+}
+
+/* Tab Hover State */
+.animata-case-study-slip:hover .animata-sliding-tab,
+.animata-case-study-card-link:focus-visible .animata-sliding-tab {
+  transform: translateX(0) rotate(var(--case-study-tab-rotate));
+}
+
+.animata-tab-label {
+  display: inline-block;
+  transform: rotate(-90deg);
+  transform-origin: top left;
+  white-space: nowrap;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--case-study-tab-color);
+  margin-top: 76px;
+  margin-left: 8px;
+  user-select: none;
 }
 
 /* ==========================================================================
@@ -1036,7 +1319,7 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   .home-daily-word,
   .daily-vocab-stamp {
     max-width: 360px;
-    padding: 0.65rem 0.85rem;
+    padding: 0;
   }
 
   .daily-word-glyph-line {
@@ -1088,6 +1371,19 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .home-daily-word,
+  .animata-card-hinge,
+  .animata-sliding-tab {
+    transition: none !important;
+  }
+
+  .animata-case-study-slip:hover .animata-card-hinge,
+  .animata-case-study-card-link:focus-visible .animata-card-hinge,
+  .animata-case-study-slip:hover .animata-sliding-tab,
+  .animata-case-study-card-link:focus-visible .animata-sliding-tab {
+    transform: none !important;
+  }
+
   .home-launcher-card {
     transition: none !important;
     transform: none !important;
@@ -4480,4 +4776,3 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 .test-empty-title {
   color: var(--warm-paper);
 }
-
