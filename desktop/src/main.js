@@ -443,6 +443,40 @@ async function startBackendAndLoadUI() {
 
     if (mainWindow) {
       mainWindow.loadFile(targetFile);
+
+      // Auto-reload UI in dev mode when renderer assets change
+      if (!app.isPackaged && !global.__uiWatcherInitialized) {
+        global.__uiWatcherInitialized = true;
+        const watchDirs = [
+          path.join(__dirname, 'ui'),
+          path.join(__dirname, 'index.html'),
+          path.join(__dirname, 'shell.html')
+        ];
+        let reloadTimer = null;
+        const triggerReload = (filename) => {
+          if (reloadTimer) clearTimeout(reloadTimer);
+          reloadTimer = setTimeout(() => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              console.log('[DevReloader] Reloading UI on file change:', filename || '');
+              mainWindow.webContents.reloadIgnoringCache();
+            }
+          }, 150);
+        };
+
+        watchDirs.forEach(dirPath => {
+          if (fs.existsSync(dirPath)) {
+            try {
+              fs.watch(dirPath, { recursive: true }, (eventType, filename) => {
+                if (filename && !filename.includes('.git') && !filename.includes('node_modules')) {
+                  triggerReload(filename);
+                }
+              });
+            } catch (err) {
+              console.debug('[DevReloader] Watch error:', err.message);
+            }
+          }
+        });
+      }
     }
   } catch (err) {
     console.error('[Main] Failed to start backend:', err.message);

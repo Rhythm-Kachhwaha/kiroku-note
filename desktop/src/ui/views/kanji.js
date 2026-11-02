@@ -62,6 +62,17 @@ export class KanjiView {
     this.container.innerHTML = `
       <div class="kanji-view-wrapper">
         <div class="kanji-view-container">
+          <div class="grammar-header-row">
+            <div class="grammar-brand-header" aria-label="Kanji 漢字">
+              <h1 class="grammar-word-title">
+                <span class="hero-letter">K</span><span class="hero-letter">A</span><span class="hero-letter">N</span><span class="hero-letter">J</span><span class="hero-letter">I</span>
+              </h1>
+              <span class="grammar-word-kanji">
+                <span class="hero-letter">漢</span><span class="hero-letter">字</span>
+              </span>
+            </div>
+          </div>
+
           <!-- Top Search & JLPT Level Filters -->
           <div class="kanji-search-card tactile-card">
             <div class="kanji-search-row">

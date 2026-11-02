@@ -67,6 +67,17 @@ export class VocabMainView {
     this.container.innerHTML = `
       <div class="vocab-main-wrapper">
         <div class="vocab-main-container">
+          <div class="grammar-header-row">
+            <div class="grammar-brand-header" aria-label="Vocab 単語">
+              <h1 class="grammar-word-title">
+                <span class="hero-letter">V</span><span class="hero-letter">O</span><span class="hero-letter">C</span><span class="hero-letter">A</span><span class="hero-letter">B</span>
+              </h1>
+              <span class="grammar-word-kanji">
+                <span class="hero-letter">単</span><span class="hero-letter">語</span>
+              </span>
+            </div>
+          </div>
+
           <!-- Top Bar: Search, Mode Switcher & Navigation -->
           <div class="vocab-search-section">
             <div class="vocab-search-bar-row">

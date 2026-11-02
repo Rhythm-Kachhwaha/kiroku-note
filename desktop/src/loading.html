@@ -4,9 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kiroku Note - Starting...</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Hina+Mincho&family=Lilita+One&family=M+PLUS+Rounded+1c:wght@700&family=Quicksand:wght@600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after {
       box-sizing: border-box;
@@ -21,8 +18,8 @@
     }
 
     body {
-      background: radial-gradient(circle at 50% 35%, #f4eee6 0%, #ede3d6 60%, #e2d7c5 100%);
-      color: #121110;
+      background: #141311;
+      color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
       display: flex;
       flex-direction: column;
@@ -57,10 +54,11 @@
     }
 
     .brand-title .word-kiroku {
-      font-family: 'Lilita One', cursive, sans-serif;
+      font-family: 'Ranchers', cursive, sans-serif;
       display: inline-flex;
-      color: #121110;
+      color: #ffffff;
       letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
 
     .brand-title .word-space {
@@ -69,10 +67,10 @@
     }
 
     .brand-title .word-note {
-      font-family: 'Hina Mincho', serif;
-      font-weight: 700;
+      font-family: 'Mochiy Pop P One', 'Zen Kaku Gothic New', sans-serif;
+      font-weight: 400;
       display: inline-flex;
-      color: #b84632;
+      color: #e06852;
       font-size: 2.05rem;
       letter-spacing: 0.05em;
     }
@@ -100,8 +98,8 @@
       display: inline-flex;
       align-items: center;
       padding: 0.4rem 1.05rem;
-      background: rgba(18, 17, 16, 0.05);
-      border: 1px solid rgba(18, 17, 16, 0.08);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 9999px;
     }
 
@@ -109,7 +107,7 @@
       font-family: 'Quicksand', 'M PLUS Rounded 1c', sans-serif;
       font-size: 0.88rem;
       font-weight: 600;
-      color: #6a6157;
+      color: rgba(255, 255, 255, 0.72);
       letter-spacing: 0.02em;
       line-height: 1.4;
       max-width: 340px;
@@ -118,17 +116,34 @@
       text-overflow: ellipsis;
     }
   </style>
+  <style>
+    @font-face {
+      font-family: 'Ranchers';
+      src: url('./ui/assets/fonts/ranchers-latin-400-normal.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Mochiy Pop P One';
+      src: url('./ui/assets/fonts/mochiy-pop-one-japanese-400-normal.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+  </style>
 </head>
 <body>
   <div class="splash-container">
-    <div class="brand-title" aria-label="Kiroku ノート">
+    <div class="brand-title" aria-label="KIROKU ノート">
       <span class="word-kiroku">
         <span class="letter" style="--delay: 0.00s;">K</span>
-        <span class="letter" style="--delay: 0.08s;">i</span>
-        <span class="letter" style="--delay: 0.16s;">r</span>
-        <span class="letter" style="--delay: 0.24s;">o</span>
-        <span class="letter" style="--delay: 0.32s;">k</span>
-        <span class="letter" style="--delay: 0.40s;">u</span>
+        <span class="letter" style="--delay: 0.08s;">I</span>
+        <span class="letter" style="--delay: 0.16s;">R</span>
+        <span class="letter" style="--delay: 0.24s;">O</span>
+        <span class="letter" style="--delay: 0.32s;">K</span>
+        <span class="letter" style="--delay: 0.40s;">U</span>
       </span>
       <span class="word-space">&nbsp;</span>
       <span class="word-note">

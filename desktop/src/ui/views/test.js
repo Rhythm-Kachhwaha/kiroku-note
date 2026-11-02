@@ -60,6 +60,17 @@ export class TestView {
     this.container.innerHTML = `
       <div class="test-view-wrapper">
         <div class="test-view-container" id="test-main-container">
+          <div class="grammar-header-row">
+            <div class="grammar-brand-header" aria-label="Test テスト">
+              <h1 class="grammar-word-title">
+                <span class="hero-letter">T</span><span class="hero-letter">E</span><span class="hero-letter">S</span><span class="hero-letter">T</span>
+              </h1>
+              <span class="grammar-word-kanji">
+                <span class="hero-letter">テ</span><span class="hero-letter">ス</span><span class="hero-letter">ト</span>
+              </span>
+            </div>
+          </div>
+
           <!-- Visible Error Banner -->
           <div class="test-error-banner" id="test-error-banner" style="display: none;">
             <span class="error-msg" id="test-error-msg"></span>

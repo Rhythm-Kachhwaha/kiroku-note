@@ -56,12 +56,14 @@ export class GrammarView {
           <!-- Page Header -->
           <div class="grammar-header-row">
             <div>
-              <div class="flex items-center gap-2">
-                <span class="grammar-header-dot"></span>
-                <span class="font-mono text-sm text-primary">Grammar Studio</span>
+              <div class="grammar-brand-header" aria-label="Grammar 文法">
+                <h1 class="grammar-word-title">
+                  <span class="hero-letter">G</span><span class="hero-letter">R</span><span class="hero-letter">A</span><span class="hero-letter">M</span><span class="hero-letter">M</span><span class="hero-letter">A</span><span class="hero-letter">R</span>
+                </h1>
+                <span class="grammar-word-kanji">
+                  <span class="hero-letter">文</span><span class="hero-letter">法</span>
+                </span>
               </div>
-              <h1 class="grammar-title">Sentence Structure &amp; Grammar Reference</h1>
-              <p class="grammar-subtitle">Morphological tokenization with audited JLPT grammar patterns (N5–N1).</p>
             </div>
           </div>
 
