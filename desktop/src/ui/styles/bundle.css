@@ -217,7 +217,7 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   line-height: 1;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #ffffff !important;
+  color: var(--architectural-cream, #E2DAC2) !important;
   display: flex;
 }
 
