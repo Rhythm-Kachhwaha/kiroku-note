@@ -121,7 +121,7 @@ export class GrammarView {
                     <span class="visualizer-pulse-dot"></span>
                     <span class="visualizer-title">Tokenized Structure</span>
                   </div>
-                  <span class="visualizer-tip">Click any token to inspect grammatical rules</span>
+                  <span class="visualizer-tip">Click words to breakdown grammar</span>
                 </div>
                 <div class="tokens-flow-container" id="tokens-flow">
                   <div class="empty-tokens text-muted text-sm py-4 text-center" id="tokens-empty-msg">
@@ -160,18 +160,18 @@ export class GrammarView {
               </div>
             </div>
 
-            <!-- Right Column: Editorial Reference Card & Distribution Bar -->
+            <!-- Right Column: Editorial Reference Card -->
             <div class="grammar-col-side">
               <!-- Grammar Point Detail Card -->
               <div class="grammar-point-card tactile-card" id="grammar-point-card">
                 <div id="detail-placeholder" class="detail-placeholder text-muted text-sm py-8 text-center">
-                  Select any grammar token or browse the syllabus below to view formation rules and curated examples.
+                  Click words to breakdown grammar
                 </div>
                 <div id="detail-content" style="display: none;">
                   <div class="point-top-row">
                     <div class="point-title-group">
                       <div class="flex items-center gap-2 mb-1">
-                        <span class="tactile-pill tactile-pill-gold font-mono" id="point-jlpt-tag">JLPT --</span>
+                        <span class="tactile-pill tactile-pill-vermilion font-mono" id="point-jlpt-tag">JLPT --</span>
                         <span class="tactile-pill" id="point-status-tag">NEW</span>
                       </div>
                       <h2 class="point-title font-display" id="point-title">--</h2>
@@ -221,20 +221,7 @@ export class GrammarView {
                 </div>
               </div>
 
-              <!-- Grammar Level Distribution Bar (N5–N1) -->
-              <div class="grammar-distribution-card tactile-card">
-                <div class="distribution-header-row">
-                  <span class="distribution-title" id="distribution-title">AUDITED JLPT GRAMMAR POINTS</span>
-                  <span class="distribution-ratio" id="distribution-ratio">-- / -- MASTERED</span>
-                </div>
-                <div class="distribution-bar-row" id="distribution-bar-row">
-                  <div class="level-bar-segment segment-n5" id="bar-seg-n5" style="flex: 1" title="N5">N5</div>
-                  <div class="level-bar-segment segment-n4" id="bar-seg-n4" style="flex: 1" title="N4">N4</div>
-                  <div class="level-bar-segment segment-n3" id="bar-seg-n3" style="flex: 1" title="N3">N3</div>
-                  <div class="level-bar-segment segment-n2" id="bar-seg-n2" style="flex: 1" title="N2">N2</div>
-                  <div class="level-bar-segment segment-n1" id="bar-seg-n1" style="flex: 1" title="N1">N1</div>
-                </div>
-              </div>
+
             </div>
           </div>
         </div>
@@ -441,7 +428,7 @@ export class GrammarView {
           >
             <span class="token-pos-tag font-mono text-xs">${escapeHtml(posTag)}</span>
             <span class="token-text font-japanese font-bold text-warm-paper">${escapeHtml(seg.text)}</span>
-            <span class="token-level-tag tactile-pill tactile-pill-gold text-xs">${escapeHtml(lvl)}</span>
+            <span class="token-level-tag tactile-pill tactile-pill-vermilion text-xs">${escapeHtml(lvl)}</span>
           </button>
         `;
       }
@@ -623,7 +610,7 @@ export class GrammarView {
       listContainer.innerHTML = points.map((pt) => `
         <div class="syllabus-item" data-key="${escapeHtml(pt.pattern_key)}">
           <div class="syllabus-item-main">
-            <span class="tactile-pill tactile-pill-gold text-xs">${escapeHtml(pt.level || 'JLPT')}</span>
+            <span class="tactile-pill tactile-pill-vermilion text-xs">${escapeHtml(pt.level || 'JLPT')}</span>
             <span class="syllabus-item-title font-japanese">${escapeHtml(pt.pattern_display || pt.pattern_key)}</span>
             <span class="syllabus-item-meaning">${escapeHtml(pt.meaning_short || pt.english_breakdown || '')}</span>
           </div>
@@ -665,40 +652,7 @@ export class GrammarView {
   }
 
   async loadInitialGrammarStats() {
-    try {
-      const stats = await apiClient.getGrammarStats();
-      if (!stats) return;
-
-      const coverage = stats.coverage || {};
-      let totalAudited = 0;
-      let totalKnown = 0;
-
-      for (const level of ['N5', 'N4', 'N3', 'N2', 'N1']) {
-        const cov = coverage[level];
-        if (cov) {
-          totalAudited += cov.total || 0;
-          totalKnown += cov.known || 0;
-
-          const seg = document.getElementById(`bar-seg-${level.toLowerCase()}`);
-          if (seg && cov.total > 0) {
-            seg.style.flex = cov.total;
-            seg.title = `${level} (${cov.known} / ${cov.total} known)`;
-          }
-        }
-      }
-
-      const titleEl = document.getElementById('distribution-title');
-      const ratioEl = document.getElementById('distribution-ratio');
-
-      if (titleEl && totalAudited > 0) {
-        titleEl.textContent = `${totalAudited} AUDITED JLPT GRAMMAR POINTS`;
-      }
-      if (ratioEl && totalAudited > 0) {
-        ratioEl.textContent = `${totalKnown} / ${totalAudited} MASTERED`;
-      }
-    } catch (err) {
-      console.warn('[Grammar] Load stats error:', err);
-    }
+    // Distribution stats card removed
   }
 
   unmount() {
