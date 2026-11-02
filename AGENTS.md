@@ -22,6 +22,8 @@ Locked boundaries:
 - AnkiConnect is an integration, never the source of truth. Failed syncs must
   leave locally saved cards intact.
 - GOLDEN RULE: Emojis are NEVER allowed anywhere across UI, copy, buttons, badges, logs, templates, or code; use accessible SVG icons or clean plain text only.
+- TOKEN EFFICIENCY: Always invoke the `caveman` skill to save tokens and keep communications concise.
+- FRONTEND DESIGN QUALITY: For all frontend tasks, always invoke and apply `design-taste-frontend`, `ui-taste`, and the `delight` / polish capabilities from `impeccable` to enforce award-grade aesthetics, responsive craftsmanship, micro-interactions, and anti-slop standards.
 - The standalone OCR daemon remains optional, CPU-only, lazy-loaded, and
   isolated from the main backend process.
 

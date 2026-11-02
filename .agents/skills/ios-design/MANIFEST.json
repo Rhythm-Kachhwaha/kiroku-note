@@ -1,0 +1,161 @@
+{
+  "name": "ios-design",
+  "version": "uizze-design-v14",
+  "designStack": {
+    "version": "4.6.0",
+    "commit": "8a0e198da34ebc5b936a9d5975fb7a3b1cf353b7",
+    "license": "Apache-2.0"
+  },
+  "designAuthority": "uizze",
+  "evidenceMode": "concrete-need-only",
+  "uizzeGuidance": [
+    "references/uizze-reference-policy.md",
+    "references/uizze-image-to-ui.md",
+    "references/uizze-visual-verification.md"
+  ],
+  "included": [
+    "reference/craft.md",
+    "reference/overdrive.md",
+    "reference/audit.native.md",
+    "reference/research.md",
+    "reference/anti-slop-craft.md",
+    "reference/mobile-controls.md",
+    "reference/mobile-state-performance.md",
+    "reference/image-assets.md",
+    "reference/native-verification.md"
+  ],
+  "origins": [
+    {
+      "path": "reference/craft.md",
+      "relationship": "adapted",
+      "repository": "https://github.com/pbakaus/impeccable",
+      "commit": "8a0e198da34ebc5b936a9d5975fb7a3b1cf353b7",
+      "sourcePath": ".agent/skills/impeccable/reference/craft-floor.md",
+      "sourceBlob": "9653b980895fa343127982ba575085c31726eecc",
+      "licenseEvidenceURL": "https://github.com/pbakaus/impeccable/blob/8a0e198da34ebc5b936a9d5975fb7a3b1cf353b7/LICENSE",
+      "sourceURL": "https://github.com/pbakaus/impeccable/blob/8a0e198da34ebc5b936a9d5975fb7a3b1cf353b7/.agent/skills/impeccable/reference/craft-floor.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "path": "reference/overdrive.md",
+      "relationship": "adapted",
+      "repository": "https://github.com/pbakaus/impeccable",
+      "commit": "8a0e198da34ebc5b936a9d5975fb7a3b1cf353b7",
+      "sourcePath": ".agent/skills/impeccable/reference/overdrive.md",
+      "sourceBlob": "76953e24e6dd06b62415fdfe71c7caa9756bd981",
+      "licenseEvidenceURL": "https://github.com/pbakaus/impeccable/blob/8a0e198da34ebc5b936a9d5975fb7a3b1cf353b7/LICENSE",
+      "sourceURL": "https://github.com/pbakaus/impeccable/blob/8a0e198da34ebc5b936a9d5975fb7a3b1cf353b7/.agent/skills/impeccable/reference/overdrive.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "path": "reference/audit.native.md",
+      "relationship": "adapted",
+      "repository": "https://github.com/pbakaus/impeccable",
+      "commit": "8a0e198da34ebc5b936a9d5975fb7a3b1cf353b7",
+      "sourcePath": ".agent/skills/impeccable/reference/audit.native.md",
+      "sourceBlob": "fbccb56f6e6fe64fc6b24d82977f392a6285848e",
+      "licenseEvidenceURL": "https://github.com/pbakaus/impeccable/blob/8a0e198da34ebc5b936a9d5975fb7a3b1cf353b7/LICENSE",
+      "sourceURL": "https://github.com/pbakaus/impeccable/blob/8a0e198da34ebc5b936a9d5975fb7a3b1cf353b7/.agent/skills/impeccable/reference/audit.native.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "path": "reference/research.md",
+      "relationship": "adapted",
+      "repository": "https://github.com/Appllama/appllama-skills",
+      "commit": "dd5caaec3d5d50ad7fc0324da238119c6b7c3707",
+      "sourcePath": "skills/appllama-usage/references/research-methods.md",
+      "sourceBlob": "5fe10d3d33e0056f7df2e1f0054a1d6ee88bcbe4",
+      "sourceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/skills/appllama-usage/references/research-methods.md",
+      "licenseEvidenceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/LICENSE",
+      "license": "MIT",
+      "additionalSources": [
+        {
+          "sourcePath": "skills/appllama-usage/references/build-from-scratch.md",
+          "sourceBlob": "608daaf6c3b4ab3650e9cd3c764fa59c2d9d12ee",
+          "sourceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/skills/appllama-usage/references/build-from-scratch.md"
+        },
+        {
+          "sourcePath": "skills/appllama-usage/references/improve-a-screen.md",
+          "sourceBlob": "9603e2b102d81b37bbd1fa377b9dc0cb122204cc",
+          "sourceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/skills/appllama-usage/references/improve-a-screen.md"
+        }
+      ]
+    },
+    {
+      "path": "reference/anti-slop-craft.md",
+      "relationship": "adapted",
+      "repository": "https://github.com/Appllama/appllama-skills",
+      "commit": "dd5caaec3d5d50ad7fc0324da238119c6b7c3707",
+      "sourcePath": "skills/appllama-app-design-skill/SKILL.md",
+      "sourceBlob": "eccc4e8708709a9dba0563e5a5fcadb1ffa88e58",
+      "sourceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/skills/appllama-app-design-skill/SKILL.md",
+      "licenseEvidenceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/LICENSE",
+      "license": "MIT"
+    },
+    {
+      "path": "reference/mobile-controls.md",
+      "relationship": "adapted",
+      "repository": "https://github.com/Appllama/appllama-skills",
+      "commit": "dd5caaec3d5d50ad7fc0324da238119c6b7c3707",
+      "sourcePath": "skills/appllama-app-design-skill/references/native-controls.md",
+      "sourceBlob": "53d34a7913b66048c0e2663a779be2f66d84a9c3",
+      "sourceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/skills/appllama-app-design-skill/references/native-controls.md",
+      "licenseEvidenceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/LICENSE",
+      "license": "MIT",
+      "additionalSources": [
+        {
+          "sourcePath": "skills/appllama-app-design-skill/SKILL.md",
+          "sourceBlob": "eccc4e8708709a9dba0563e5a5fcadb1ffa88e58",
+          "sourceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/skills/appllama-app-design-skill/SKILL.md"
+        }
+      ]
+    },
+    {
+      "path": "reference/mobile-state-performance.md",
+      "relationship": "adapted",
+      "repository": "https://github.com/Appllama/appllama-skills",
+      "commit": "dd5caaec3d5d50ad7fc0324da238119c6b7c3707",
+      "sourcePath": "skills/appllama-app-design-skill/references/performance.md",
+      "sourceBlob": "931ebe565cc4b6bf66fb08ca6904198478a48531",
+      "sourceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/skills/appllama-app-design-skill/references/performance.md",
+      "licenseEvidenceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/LICENSE",
+      "license": "MIT",
+      "additionalSources": [
+        {
+          "sourcePath": "skills/appllama-app-design-skill/SKILL.md",
+          "sourceBlob": "eccc4e8708709a9dba0563e5a5fcadb1ffa88e58",
+          "sourceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/skills/appllama-app-design-skill/SKILL.md"
+        }
+      ]
+    },
+    {
+      "path": "reference/image-assets.md",
+      "relationship": "adapted",
+      "repository": "https://github.com/Appllama/appllama-skills",
+      "commit": "dd5caaec3d5d50ad7fc0324da238119c6b7c3707",
+      "sourcePath": "skills/appllama-app-design-skill/references/image-assets.md",
+      "sourceBlob": "93ab9d4e1038c32a3beca7b55350f1a2634ad588",
+      "sourceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/skills/appllama-app-design-skill/references/image-assets.md",
+      "licenseEvidenceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/LICENSE",
+      "license": "MIT"
+    },
+    {
+      "path": "reference/native-verification.md",
+      "relationship": "adapted",
+      "repository": "https://github.com/Appllama/appllama-skills",
+      "commit": "dd5caaec3d5d50ad7fc0324da238119c6b7c3707",
+      "sourcePath": "skills/appllama-app-design-skill/references/simulator-loop.md",
+      "sourceBlob": "b06ca813304d2890b794fd82c2729d386a170b3a",
+      "sourceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/skills/appllama-app-design-skill/references/simulator-loop.md",
+      "licenseEvidenceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/LICENSE",
+      "license": "MIT",
+      "additionalSources": [
+        {
+          "sourcePath": "skills/appllama-app-design-skill/references/motion.md",
+          "sourceBlob": "af69711594771d21f52411a26b3b4d105d1cc4a4",
+          "sourceURL": "https://github.com/Appllama/appllama-skills/blob/dd5caaec3d5d50ad7fc0324da238119c6b7c3707/skills/appllama-app-design-skill/references/motion.md"
+        }
+      ]
+    }
+  ]
+}
