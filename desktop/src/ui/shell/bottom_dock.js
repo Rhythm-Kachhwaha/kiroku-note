@@ -3,11 +3,46 @@
  * Tactile pill dock with flowing spring-indicator pill, accessible vector SVGs, and keyboard navigation.
  */
 
+function springValue(t, omega, zeta) {
+  if (zeta >= 1) return 1 - Math.exp(-omega * t) * (1 + omega * t);
+  const wd = omega * Math.sqrt(1 - zeta * zeta);
+  return 1 - Math.exp(-zeta * omega * t) *
+    (Math.cos(wd * t) + (zeta * omega / wd) * Math.sin(wd * t));
+}
+
+function buildPillKeyframes(from, to, duration = 650, steps = 36) {
+  const movingRight = to.left >= from.left;
+  const lead  = { omega: 20, zeta: 0.72 };
+  const trail = { omega: 13, zeta: 0.88 };
+  const L = movingRight ? trail : lead;
+  const R = movingRight ? lead  : trail;
+  const fromR = from.left + from.width;
+  const toR = to.left + to.width;
+  const frames = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * (duration / 1000);
+    const last = i === steps;
+    const left  = last ? to.left : from.left + (to.left - from.left) * springValue(t, L.omega, L.zeta);
+    const right = last ? toR     : fromR + (toR - fromR) * springValue(t, R.omega, R.zeta);
+    frames.push({
+      transform: `translateX(${left}px)`,
+      width: `${Math.max(24, right - left)}px`,
+      offset: i / steps
+    });
+  }
+  return frames;
+}
+
 export class BottomDock {
   constructor(options = {}) {
     this.container = options.container || document.getElementById('bottom-dock-container');
     this.onTabChange = options.onTabChange || (() => {});
     this.activeTab = 'home';
+    this._pillX = null;
+    this._pillW = null;
+    this._currentAnimation = null;
+    this._pillAnim = null;
+    this._rendered = false;
     this.tabs = [
       {
         id: 'home',
@@ -59,6 +94,7 @@ export class BottomDock {
 
   render() {
     if (!this.container) return;
+    if (this._rendered && this.container.querySelector('#bottom-dock')) return;
 
     const tabsHtml = this.tabs.map((tab) => `
       <a href="#${tab.id}"
@@ -82,6 +118,7 @@ export class BottomDock {
         </nav>
       </div>
     `;
+    this._rendered = true;
   }
 
   setupEvents() {
@@ -221,21 +258,93 @@ export class BottomDock {
     const pill = document.getElementById('nav-spring-pill') || document.getElementById('nav-pill-indicator');
     if (!dock || !pill || !element) return;
 
-    const leftOffset = element.offsetLeft;
-    const width = element.offsetWidth;
-    if (width === 0) return;
+    const targetX = element.offsetLeft;
+    const targetW = element.offsetWidth;
+    if (targetW === 0) return;
 
-    if (!animated) {
-      pill.style.transition = 'none';
-      pill.style.transform = `translateX(${leftOffset}px)`;
-      pill.style.width = `${width}px`;
-      requestAnimationFrame(() => {
-        pill.style.transition = '';
-      });
-    } else {
-      pill.style.transform = `translateX(${leftOffset}px)`;
-      pill.style.width = `${width}px`;
+    let fromX = this._pillX !== null ? this._pillX : targetX;
+    let fromW = this._pillW !== null ? this._pillW : targetW;
+
+    if (this._currentAnimation) {
+      try {
+        const computedStyle = window.getComputedStyle(pill);
+        const transformStr = computedStyle.transform;
+        if (transformStr && transformStr !== 'none') {
+          if (typeof DOMMatrixReadOnly === 'function') {
+            const matrix = new DOMMatrixReadOnly(transformStr);
+            if (!isNaN(matrix.m41)) {
+              fromX = matrix.m41;
+            }
+          } else {
+            const match = transformStr.match(/matrix\([^,]+,[^,]+,[^,]+,[^,]+,\s*([^,]+),/);
+            if (match) {
+              const parsed = parseFloat(match[1]);
+              if (!isNaN(parsed)) fromX = parsed;
+            }
+          }
+        }
+        const computedWidth = parseFloat(computedStyle.width);
+        if (!isNaN(computedWidth) && computedWidth > 0) {
+          fromW = computedWidth;
+        }
+      } catch (err) {
+        console.debug('[BottomDock] Error reading computed style during cancel:', err);
+      }
+      this._currentAnimation.cancel();
+      this._currentAnimation = null;
+      this._pillAnim = null;
     }
+
+    // Write final values to inline styles
+    pill.style.transform = `translateX(${targetX}px)`;
+    pill.style.width = `${targetW}px`;
+
+    const hasChanged = Math.abs(fromX - targetX) > 0.5 || Math.abs(fromW - targetW) > 0.5;
+
+    if (animated && hasChanged && typeof pill.animate === 'function') {
+      const prefersReduced = Boolean(
+        typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+      );
+
+      let animation;
+      if (prefersReduced) {
+        const duration = 220;
+        const easing = 'ease-out';
+        animation = pill.animate(
+          [
+            { transform: `translateX(${fromX}px)`, width: `${fromW}px` },
+            { transform: `translateX(${targetX}px)`, width: `${targetW}px` }
+          ],
+          {
+            duration: duration,
+            easing: easing
+          }
+        );
+      } else {
+        const from = { left: fromX, width: fromW };
+        const to = { left: targetX, width: targetW };
+        const duration = Math.round(450 + Math.min(300, Math.abs(targetX - fromX) * 0.4));
+        const keyframes = buildPillKeyframes(from, to, duration);
+        animation = pill.animate(keyframes, {
+          duration: duration,
+          easing: 'linear',
+          fill: 'none'
+        });
+      }
+
+      this._currentAnimation = animation;
+      this._pillAnim = animation;
+      animation.onfinish = () => {
+        if (this._currentAnimation === animation) {
+          this._currentAnimation = null;
+          this._pillAnim = null;
+        }
+      };
+    }
+
+    this._pillX = targetX;
+    this._pillW = targetW;
   }
 
   updatePillPosition(animated = true, retryCount = 0) {
@@ -251,10 +360,25 @@ export class BottomDock {
       return;
     }
 
+    if (!animated && this._currentAnimation) {
+      if (
+        this._pillX !== null &&
+        Math.abs(activeItem.offsetLeft - this._pillX) < 1 &&
+        Math.abs(activeItem.offsetWidth - this._pillW) < 1
+      ) {
+        return;
+      }
+    }
+
     this.movePillTo(activeItem, animated);
   }
 
   destroy() {
+    if (this._currentAnimation) {
+      this._currentAnimation.cancel();
+      this._currentAnimation = null;
+      this._pillAnim = null;
+    }
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('resize', this.handleResize);
   }

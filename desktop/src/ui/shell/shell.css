@@ -299,7 +299,6 @@
   pointer-events: none;
   z-index: 1000;
   padding: 0 1rem;
-  view-transition-name: bottom-dock;
 }
 
 .bottom-dock {
@@ -327,6 +326,7 @@
 .nav-spring-pill,
 #nav-pill-indicator {
   position: absolute;
+  left: 0;
   top: 5px;
   bottom: 5px;
   border-radius: var(--radius-full);
@@ -334,8 +334,7 @@
   box-shadow: 1.5px 1.5px 0px #151413;
   pointer-events: none;
   will-change: transform, width;
-  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    width 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: none !important;
   z-index: 1;
 }
 
@@ -355,7 +354,7 @@
   text-decoration: none;
   cursor: pointer;
   outline: none;
-  transition: color var(--duration-fast) ease, transform var(--duration-instant) ease-out;
+  transition: color 240ms ease 90ms, transform var(--duration-instant) ease-out;
 }
 
 .nav-tab-item:hover {
@@ -425,7 +424,7 @@
 @media (prefers-reduced-motion: reduce) {
   .brand-letter,
   .chrome-action-btn-settings:hover svg,
-  .nav-spring-pill {
+  .nav-tab-item {
     transition: none !important;
   }
 }
@@ -436,11 +435,7 @@
   z-index: 9999;
 }
 
-/* Keep bottom dock rock-solid during view transitions */
-::view-transition-group(bottom-dock) {
-  animation: none;
-  z-index: 9999;
-}
+
 
 /* Mascot Slots and Lit Moon Stage */
 .mascot-slot {
