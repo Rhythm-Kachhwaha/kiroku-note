@@ -134,6 +134,8 @@
 
   /* Spring Physics & Motion Easing */
   --spring-snappy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-slow: cubic-bezier(.405, 0, .025, 1);
+  --ease-minor-spring: cubic-bezier(0.18, 0.89, 0.82, 1.04);
   --spring-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-instant: 90ms;
   --duration-fast: 160ms;

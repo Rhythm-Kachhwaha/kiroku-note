@@ -8,6 +8,9 @@
     content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:*; font-src 'self';">
   <title>Kiroku Note</title>
 
+  <!-- Early Preload for Rive WebAssembly Runtime -->
+  <link rel="preload" href="./ui/vendor/rive.wasm" as="fetch" type="application/wasm" crossorigin>
+
   <!-- Local Offline CSS Bundles (Zero Runtime CDNs) -->
   <link rel="stylesheet" href="./ui/styles/tokens.css">
   <link rel="stylesheet" href="./ui/styles/fonts.css">
@@ -33,6 +36,11 @@
 
   <!-- Application Bootstrap Script (Vanilla ES6 Modules) -->
   <script type="module">
+    if (window.__KIROKU_PERF_DEBUG__) performance.mark('app:start');
+    import { prefetchRiveAssets } from './ui/rive_mascot.js';
+    // Warm Rive runtime and companion asset bytes immediately at boot
+    prefetchRiveAssets();
+
     import { TopChrome } from './ui/shell/top_chrome.js';
     import { BottomDock } from './ui/shell/bottom_dock.js';
     import { AppRouter } from './ui/router.js';

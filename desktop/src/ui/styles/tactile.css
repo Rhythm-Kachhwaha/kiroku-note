@@ -201,24 +201,6 @@
   color: var(--warm-paper);
 }
 
-/* Asymmetric Comic Dialogue Speech Bubble */
-.comic-speech-bubble {
-  position: relative;
-  background-color: var(--warm-paper);
-  color: var(--ink-black);
-  border: 1.5px solid var(--tactile-stroke);
-  border-radius: 20px 20px 20px 4px;
-  box-shadow: var(--shadow-md);
-  padding: var(--space-md);
-  transition: transform var(--duration-fast) ease,
-              box-shadow var(--duration-fast) ease;
-}
-
-.comic-speech-bubble:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-}
-
 /* ==========================================================================
    Organic Shape Backings (Ambient Silhouettes without Glassmorphism)
    ========================================================================== */
@@ -341,8 +323,7 @@
   .tactile-btn:active,
   .tactile-card-interactive:hover,
   .comic-burst-sticker:hover,
-  .tactile-badge-burst:hover,
-  .comic-speech-bubble:hover {
+  .tactile-badge-burst:hover {
     transform: none !important;
     transition: opacity var(--duration-fast) ease !important;
   }
