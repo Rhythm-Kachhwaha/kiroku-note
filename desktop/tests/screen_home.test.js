@@ -139,7 +139,9 @@ test('Home Screen Styles: bundle.css styles mascot stage, organic backing, and c
     'todays-word-card',
     'streak-card',
     'continue-card',
-    'benchmark-card'
+    'benchmark-card',
+    'character-tile',
+    'character-lineup'
   ];
   for (const sel of forbiddenSelectors) {
     assert.ok(!css.includes(sel), `bundle.css must NOT contain forbidden selector: "${sel}"`);
@@ -147,8 +149,8 @@ test('Home Screen Styles: bundle.css styles mascot stage, organic backing, and c
 
   assert.ok(css.includes('.organic-shape-backing'), 'bundle.css must style .organic-shape-backing');
   assert.ok(css.includes('.home-daily-word') || css.includes('.daily-vocab-stamp'), 'bundle.css must style daily word stamp');
-  assert.ok(css.includes('.character-tile'), 'bundle.css must style .character-tile');
-  assert.ok(css.includes('.character-lineup'), 'bundle.css must style .character-lineup');
+  assert.ok(css.includes('.home-launcher-card'), 'bundle.css must style .home-launcher-card');
+  assert.ok(css.includes('.home-launcher-grid'), 'bundle.css must style .home-launcher-grid');
 
   // No legacy chocolate/orange hex codes
   const legacyColors = ['#26170D', '#FF8A1F', '#FFF1DC'];
@@ -157,43 +159,43 @@ test('Home Screen Styles: bundle.css styles mascot stage, organic backing, and c
   }
 });
 
+test('Home Screen Launchers: Two launcher cards render with tab ids vocab and kanji, labels, and roles', async () => {
+  const { HomeView, LAUNCHER_CARDS } = await import('../src/ui/views/home.js');
 
-test('Home Screen Lineup: Six character tiles render with expected tab ids, labels, and roles', async () => {
-  const { HomeView } = await import('../src/ui/views/home.js');
-  const { CHARACTER_LINEUP } = await import('../src/ui/rive_character.js');
+  assert.equal(LAUNCHER_CARDS.length, 2, 'Launcher config must define exactly 2 cards (Vocab and Kanji)');
 
-  assert.equal(CHARACTER_LINEUP.length, 6, 'Lineup must define exactly 6 character modes');
-
-  const expectedModes = [
-    { tabId: 'vocab', name: 'Vocab', file: '24603-46108-character-series-of-01.riv' },
-    { tabId: 'kanji', name: 'Kanji', file: '24617-46109-character-series-of-02.riv' },
-    { tabId: 'grammar', name: 'Grammar', file: '24622-46110-character-series-of-02.riv' },
-    { tabId: 'study', name: 'Practice', file: '24718-46207-cat-robot-character-07.riv' },
-    { tabId: 'test', name: 'Exam', file: '24719-46209-cat-robot-character-08.riv' },
-    { tabId: 'settings', name: 'Settings', file: '24739-46235-cat-robot-character-09.riv' }
+  const expectedCards = [
+    { id: 'vocab', tab: 'vocab', title: 'Vocab', descriptor: 'Quick Add, mining, Anki' },
+    { id: 'kanji', tab: 'kanji', title: 'Kanji', descriptor: 'Strokes and components' }
   ];
 
-  for (let i = 0; i < expectedModes.length; i++) {
-    const exp = expectedModes[i];
-    const actual = CHARACTER_LINEUP[i];
-    assert.equal(actual.tabId, exp.tabId, `Tile ${i} tabId must match ${exp.tabId}`);
-    assert.equal(actual.name, exp.name, `Tile ${i} name must match ${exp.name}`);
-    assert.equal(actual.file, exp.file, `Tile ${i} file must match ${exp.file}`);
+  for (let i = 0; i < expectedCards.length; i++) {
+    const exp = expectedCards[i];
+    const actual = LAUNCHER_CARDS[i];
+    assert.equal(actual.id, exp.id, `Card ${i} id must match ${exp.id}`);
+    assert.equal(actual.tab, exp.tab, `Card ${i} tab must match ${exp.tab}`);
+    assert.equal(actual.title, exp.title, `Card ${i} title must match ${exp.title}`);
+    assert.equal(actual.descriptor, exp.descriptor, `Card ${i} descriptor must match ${exp.descriptor}`);
+    assert.ok(actual.glyphSvg, `Card ${i} must supply inlined glyphSvg`);
   }
 
-  const container = { innerHTML: '', querySelectorAll: () => [] };
+  const container = { innerHTML: '', querySelectorAll: () => [], querySelector: () => null };
   const routerMock = { navigateToTab: () => {} };
   const homeView = new HomeView(routerMock);
   await homeView.mount(container);
 
-  assert.ok(container.innerHTML.includes('class="character-lineup"'), 'Home mounts .character-lineup');
-  for (const exp of expectedModes) {
-    assert.ok(container.innerHTML.includes(`data-tab="${exp.tabId}"`), `Home DOM contains data-tab="${exp.tabId}"`);
-    assert.ok(container.innerHTML.includes(exp.name), `Home DOM contains name ${exp.name}`);
+  assert.ok(container.innerHTML.includes('class="home-launcher-grid"'), 'Home mounts .home-launcher-grid');
+  for (const exp of expectedCards) {
+    assert.ok(container.innerHTML.includes(`data-tab="${exp.tab}"`), `Home DOM contains data-tab="${exp.tab}"`);
+    assert.ok(container.innerHTML.includes(exp.title), `Home DOM contains title ${exp.title}`);
+    assert.ok(container.innerHTML.includes(exp.descriptor), `Home DOM contains descriptor ${exp.descriptor}`);
+    assert.ok(container.innerHTML.includes('role="button"'), 'Card must have role="button"');
+    assert.ok(container.innerHTML.includes('tabindex="0"'), 'Card must have tabindex="0"');
+    assert.ok(container.innerHTML.includes(`aria-label="${exp.title}: ${exp.descriptor}"`), `Card must have aria-label`);
   }
 });
 
-test('Home Screen Lineup: Click or Enter navigation invokes navigateToTab with correct tabId', async () => {
+test('Home Screen Launchers: Click and Enter invoke navigateToTab with correct tabId', async () => {
   const { HomeView } = await import('../src/ui/views/home.js');
   const navigatedTabs = [];
   const routerMock = {
@@ -202,117 +204,184 @@ test('Home Screen Lineup: Click or Enter navigation invokes navigateToTab with c
     }
   };
 
-  const homeView = new HomeView(routerMock);
-  const mockTile = {
-    getBoundingClientRect: () => ({ left: 100, top: 100, width: 80, height: 300 }),
+  const listeners = new Map();
+  const mockCardVocab = {
+    addEventListener: (event, fn) => {
+      if (!listeners.has('vocab:' + event)) listeners.set('vocab:' + event, []);
+      listeners.get('vocab:' + event).push(fn);
+    },
+    querySelector: () => ({
+      pauseAnimations: () => {},
+      setCurrentTime: () => {},
+      getCurrentTime: () => 0
+    }),
+    classList: { add: () => {}, remove: () => {} }
+  };
+  const mockCardKanji = {
+    addEventListener: (event, fn) => {
+      if (!listeners.has('kanji:' + event)) listeners.set('kanji:' + event, []);
+      listeners.get('kanji:' + event).push(fn);
+    },
+    querySelector: () => ({
+      pauseAnimations: () => {},
+      setCurrentTime: () => {},
+      getCurrentTime: () => 0
+    }),
     classList: { add: () => {}, remove: () => {} }
   };
 
-  const config = { tabId: 'study', name: 'Practice' };
-  homeView.runCircularReveal(mockTile, config.tabId);
+  const container = {
+    innerHTML: '',
+    querySelector: (sel) => {
+      if (sel === '#launcher-card-vocab') return mockCardVocab;
+      if (sel === '#launcher-card-kanji') return mockCardKanji;
+      return null;
+    },
+    querySelectorAll: () => []
+  };
 
-  await new Promise((resolve) => setTimeout(resolve, 350));
-  assert.ok(navigatedTabs.includes('study'), 'Activating tile must navigate to study tab');
+  const homeView = new HomeView(routerMock);
+  await homeView.mount(container);
+
+  // Trigger click on Vocab
+  const vocabClickFns = listeners.get('vocab:click') || [];
+  vocabClickFns.forEach(fn => fn({ preventDefault: () => {}, stopPropagation: () => {} }));
+  assert.ok(navigatedTabs.includes('vocab'), 'Clicking Vocab card must navigate to vocab');
+
+  // Trigger Enter keydown on Kanji
+  const kanjiKeyFns = listeners.get('kanji:keydown') || [];
+  kanjiKeyFns.forEach(fn => fn({ key: 'Enter', preventDefault: () => {}, stopPropagation: () => {} }));
+  assert.ok(navigatedTabs.includes('kanji'), 'Pressing Enter on Kanji card must navigate to kanji');
+
   homeView.unmount();
 });
 
-test('Home Screen Lineup: Cleanup is called on unmount for all character instances without leaks', async () => {
+test('Home Screen Stroke Glyphs: Inlined SVGs contain currentColor and neither #333c45 nor #000000', async () => {
+  const { HIRAGANA_A_SVG, KANJI_DAI_SVG, HOME_GLYPHS } = await import('../src/ui/assets/home_glyphs.js');
+
+  assert.ok(HIRAGANA_A_SVG.includes('currentColor'), 'Hiragana SVG must use currentColor');
+  assert.ok(KANJI_DAI_SVG.includes('currentColor'), 'Kanji SVG must use currentColor');
+
+  assert.ok(!HIRAGANA_A_SVG.toLowerCase().includes('#333c45'), 'Hiragana SVG must not contain #333c45');
+  assert.ok(!HIRAGANA_A_SVG.toLowerCase().includes('#000000'), 'Hiragana SVG must not contain #000000');
+  assert.ok(!KANJI_DAI_SVG.toLowerCase().includes('#333c45'), 'Kanji SVG must not contain #333c45');
+  assert.ok(!KANJI_DAI_SVG.toLowerCase().includes('#000000'), 'Kanji SVG must not contain #000000');
+
+  assert.equal(HOME_GLYPHS.vocab, HIRAGANA_A_SVG, 'HOME_GLYPHS.vocab matches HIRAGANA_A_SVG');
+  assert.equal(HOME_GLYPHS.kanji, KANJI_DAI_SVG, 'HOME_GLYPHS.kanji matches KANJI_DAI_SVG');
+});
+
+test('Home Screen Stroke Glyphs: IDs and references are unique across both SVGs after inlining', async () => {
+  const { HIRAGANA_A_SVG, KANJI_DAI_SVG } = await import('../src/ui/assets/home_glyphs.js');
+
+  const hiraIds = Array.from(HIRAGANA_A_SVG.matchAll(/id="([^"]+)"/g)).map(m => m[1]);
+  const kanjiIds = Array.from(KANJI_DAI_SVG.matchAll(/id="([^"]+)"/g)).map(m => m[1]);
+
+  assert.ok(hiraIds.length > 0, 'Hiragana must have elements with IDs');
+  assert.ok(kanjiIds.length > 0, 'Kanji must have elements with IDs');
+
+  const allIds = [...hiraIds, ...kanjiIds];
+  const uniqueIds = new Set(allIds);
+
+  assert.equal(
+    allIds.length,
+    uniqueIds.size,
+    `All IDs across both inlined SVGs must be strictly unique! Duplicates: ${allIds.filter((item, index) => allIds.indexOf(item) !== index)}`
+  );
+
+  // Every url(#...) reference in Kanji must resolve to an existing ID
+  const kanjiUrls = Array.from(KANJI_DAI_SVG.matchAll(/url\(#([^)]+)\)/g)).map(m => m[1]);
+  assert.ok(kanjiUrls.length > 0, 'Kanji SVG uses clip-path url references');
+  for (const ref of kanjiUrls) {
+    assert.ok(kanjiIds.includes(ref), `Kanji clipPath reference url(#${ref}) must exist in Kanji IDs`);
+  }
+});
+
+test('Home Screen: Home loads no character .riv file and no character tiles', () => {
+  const content = fs.readFileSync(homeJsPath, 'utf8');
+
+  // Verify removed elements & lineup references
+  assert.ok(!content.includes('character-tile'), 'home.js must NOT contain .character-tile');
+  assert.ok(!content.includes('character-lineup'), 'home.js must NOT contain .character-lineup');
+  assert.ok(!content.includes('CHARACTER_LINEUP'), 'home.js must NOT import or use CHARACTER_LINEUP');
+  assert.ok(!content.includes('runCircularReveal'), 'home.js must NOT contain runCircularReveal');
+  assert.ok(!content.includes('mountCharacter'), 'home.js must NOT call mountCharacter');
+
+  // Forbidden character .riv files
+  const forbiddenRivFiles = [
+    '24603-46108-character-series-of-01.riv',
+    '24617-46109-character-series-of-02.riv',
+    '24622-46110-character-series-of-02.riv',
+    '24718-46207-cat-robot-character-07.riv',
+    '24719-46209-cat-robot-character-08.riv',
+    '24739-46235-cat-robot-character-09.riv'
+  ];
+
+  for (const riv of forbiddenRivFiles) {
+    assert.ok(!content.includes(riv), `home.js must NOT load character .riv file: "${riv}"`);
+  }
+});
+
+test('Home Screen Lifecycle: Unmount leaves no listeners or timers', async () => {
   const { HomeView } = await import('../src/ui/views/home.js');
   const homeView = new HomeView({ navigateToTab: () => {} });
 
-  let cleanedUpCount = 0;
-  homeView.characterControllers = [
-    { cleanup: () => { cleanedUpCount++; } },
-    { cleanup: () => { cleanedUpCount++; } },
-    { cleanup: () => { cleanedUpCount++; } },
-    { cleanup: () => { cleanedUpCount++; } },
-    { cleanup: () => { cleanedUpCount++; } },
-    { cleanup: () => { cleanedUpCount++; } }
-  ];
   homeView.jumpTimeout = setTimeout(() => {}, 5000);
+  homeView.bubbleFallbackTimer = setTimeout(() => {}, 5000);
+  homeView.mouseMoveHandler = () => {};
+  homeView.mouseLeaveHandler = () => {};
+  homeView.visibilityHandler = () => {};
+  homeView.escapeHandler = () => {};
 
-  homeView.unmount();
+  let cleanedUpMascot = false;
+  homeView.riveMascot = { cleanup: () => { cleanedUpMascot = true; } };
 
-  assert.equal(cleanedUpCount, 6, 'unmount() must invoke cleanup on all 6 character controllers');
-  assert.equal(homeView.jumpTimeout, null, 'unmount() must clear and nullify jumpTimeout');
-  assert.equal(homeView.characterControllers.length, 0, 'characterControllers must be reset to empty array');
-});
-
-test('Home Screen Lineup: Failed Rive load gracefully degrades to fallback without throwing', async () => {
-  const { mountCharacter } = await import('../src/ui/rive_character.js');
-
-  let errorHandled = false;
-  const result = await mountCharacter(null, 'non-existent.riv', {
-    onError: () => { errorHandled = true; }
+  let cardTimerCleared = false;
+  homeView.cardControllers.set('vocab', {
+    resetToRest: () => { cardTimerCleared = true; }
   });
 
-  assert.equal(result.instance, null, 'Result instance is null on fallback');
-  assert.doesNotThrow(() => {
-    result.cleanup();
-    result.pause();
-    result.resume();
-    result.playReaction();
-  }, 'Controller fallback methods must be safe no-ops');
+  homeView.unmount();
+
+  assert.equal(homeView.jumpTimeout, null, 'unmount() must clear jumpTimeout');
+  assert.equal(homeView.bubbleFallbackTimer, null, 'unmount() must clear bubbleFallbackTimer');
+  assert.equal(homeView.mouseMoveHandler, null, 'unmount() must remove mouseMoveHandler');
+  assert.equal(homeView.mouseLeaveHandler, null, 'unmount() must reset mouseLeaveHandler');
+  assert.equal(homeView.visibilityHandler, null, 'unmount() must remove visibilityHandler');
+  assert.equal(homeView.escapeHandler, null, 'unmount() must remove escapeHandler');
+  assert.equal(homeView.riveMascot, null, 'unmount() must nullify riveMascot');
+  assert.equal(cleanedUpMascot, true, 'unmount() must invoke cleanup on riveMascot');
+  assert.equal(cardTimerCleared, true, 'unmount() must reset card controllers');
+  assert.equal(homeView.cardControllers.size, 0, 'unmount() must clear cardControllers map');
 });
 
-test('Home Screen Lineup: Hover intent plays only one character at a time and handles transitions smoothly without sticking', async () => {
-  const { HomeView } = await import('../src/ui/views/home.js');
-  const homeView = new HomeView({ navigateToTab: () => {} });
+test('Mascot Companion: Runtime and riv prefetch are started once and shared', async () => {
+  const { prefetchRiveAssets } = await import('../src/ui/rive_mascot.js');
 
-  const states = [false, false, false, false, false, false];
-  homeView.characterControllers = states.map((_, i) => ({
-    get isPlaying() { return states[i]; },
-    resume: () => { states[i] = true; },
-    pause: () => { states[i] = false; },
-    cleanup: () => {}
-  }));
+  const firstCall = prefetchRiveAssets();
+  const secondCall = prefetchRiveAssets();
 
-  const mockTiles = states.map(() => ({
-    classList: {
-      classes: new Set(),
-      add(c) { this.classes.add(c); },
-      remove(c) { this.classes.delete(c); },
-      contains(c) { return this.classes.has(c); }
-    }
-  }));
-  const mockLineup = {
-    classList: {
-      classes: new Set(),
-      add(c) { this.classes.add(c); },
-      remove(c) { this.classes.delete(c); },
-      contains(c) { return this.classes.has(c); }
-    }
-  };
-  homeView.container = {
-    querySelectorAll: (sel) => sel === '.character-tile' ? mockTiles : [],
-    querySelector: (sel) => sel === '.character-lineup' ? mockLineup : null
-  };
+  assert.equal(
+    firstCall.wasmInitPromise,
+    secondCall.wasmInitPromise,
+    'wasmInitPromise must be cached and identical across calls'
+  );
+  assert.equal(
+    firstCall.rivBufferPromise,
+    secondCall.rivBufferPromise,
+    'rivBufferPromise must be cached and identical across calls'
+  );
+});
 
-  // Hover tile 0
-  homeView.applyTileHover(0);
-  assert.equal(homeView.activePlayingIndex, 0, 'activePlayingIndex must be 0');
-  assert.equal(states[0], true, 'Character 0 must be playing');
-  assert.equal(mockTiles[0].classList.contains('is-hovered'), true, 'Tile 0 must have is-hovered');
-  assert.equal(mockLineup.classList.contains('has-active-hover'), true, 'Lineup must have has-active-hover');
+test('Mascot Companion: Cat canvas stays hidden until onLoad and load failure shows static fallback', async () => {
+  const { mountRiveMascot } = await import('../src/ui/rive_mascot.js');
 
-  // Switch hover to tile 2
-  homeView.applyTileHover(2);
-  assert.equal(homeView.activePlayingIndex, 2, 'activePlayingIndex must be 2');
-  assert.equal(states[0], false, 'Character 0 must be paused');
-  assert.equal(states[2], true, 'Character 2 must be playing');
-  assert.equal(mockTiles[0].classList.contains('is-hovered'), false, 'Tile 0 must not have is-hovered');
-  assert.equal(mockTiles[2].classList.contains('is-hovered'), true, 'Tile 2 must have is-hovered');
+  // Test failed load calls fallback callback without throwing
+  let fallbackInvoked = false;
+  const result = await mountRiveMascot(null, {
+    onFallback: () => { fallbackInvoked = true; }
+  });
 
-  // Exactly one character is playing
-  const playingCount = states.filter(Boolean).length;
-  assert.equal(playingCount, 1, 'Exactly one character must be playing at any time');
-
-  // Leave tile 2
-  homeView.applyTileLeave(2, false);
-  assert.equal(homeView.activePlayingIndex, -1, 'activePlayingIndex must reset to -1');
-  assert.equal(states[2], false, 'Character 2 must be paused');
-  assert.equal(mockTiles[2].classList.contains('is-hovered'), false, 'Tile 2 must not have is-hovered');
-  assert.equal(mockLineup.classList.contains('has-active-hover'), false, 'Lineup must remove has-active-hover');
-
-  homeView.unmount();
+  assert.equal(result, null, 'mountRiveMascot returns null on null canvas');
+  assert.equal(fallbackInvoked, true, 'onFallback callback is called when canvas/rive fails');
 });

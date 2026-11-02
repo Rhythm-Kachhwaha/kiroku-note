@@ -1,13 +1,13 @@
 /**
  * Kiroku Note Desktop — Home Screen View Controller
- * Authentic Cat Companion (Left) & Smooth Animated Character-Select Lineup (Right).
+ * Authentic Cat Companion (Left) & Minimal Stroke-Order Animated Launcher Cards (Right).
  * Zero Fake Data: Strictly grounded in authentic datasets and design tokens.
  *
  * Golden Rule: Zero emojis anywhere across code, UI, or logs.
  */
 
 import { mountRiveMascot } from '../rive_mascot.js';
-import { mountCharacter, CHARACTER_LINEUP } from '../rive_character.js';
+import { HOME_GLYPHS } from '../assets/home_glyphs.js';
 
 /**
  * Editorial reference expressions preserved for test contract compatibility:
@@ -45,8 +45,6 @@ const TIME_BASED_GREETINGS = [
   { ja: 'そろそろねよっか', en: 'sorosoro neyokka — let us get some sleep soon. rest up.', minHour: 0, maxHour: 5 },
   { ja: 'おやすみー！', en: 'oyasumi! — good night! catch you tomorrow.', minHour: 0, maxHour: 5 }
 ];
-
-const ROTATING_GREETINGS = TIME_BASED_GREETINGS;
 
 const CURATED_DAILY_WORDS = [
   {
@@ -107,26 +105,42 @@ const CURATED_DAILY_WORDS = [
   }
 ];
 
+export const LAUNCHER_CARDS = [
+  {
+    id: 'vocab',
+    tab: 'vocab',
+    title: 'Vocab',
+    descriptor: 'Quick Add, mining, Anki',
+    glyphSvg: HOME_GLYPHS.vocab,
+    dur: 5.005,
+    restTime: 4.8,
+    drawFinishTime: 3.05
+  },
+  {
+    id: 'kanji',
+    tab: 'kanji',
+    title: 'Kanji',
+    descriptor: 'Strokes and components',
+    glyphSvg: HOME_GLYPHS.kanji,
+    dur: 5.0,
+    restTime: 4.8,
+    drawFinishTime: 2.55
+  }
+];
+
 export class HomeView {
   constructor(router) {
     this.router = router;
     this.container = null;
     this.greetingIndex = null;
     this.jumpTimeout = null;
+    this.bubbleFallbackTimer = null;
     this.mouseMoveHandler = null;
     this.mouseLeaveHandler = null;
     this.visibilityHandler = null;
     this.escapeHandler = null;
-    this.windowResizeHandler = null;
     this.riveMascot = null;
-    this.characterControllers = [];
-    this.activeOverlay = null;
-    this.isNavigating = false;
-    this.activeHoverIndex = 0;
-    this.activePlayingIndex = -1;
-    this.pendingHoverIndex = -1;
-    this.hoverIntentTimer = null;
-    this.leaveTimer = null;
+    this.cardControllers = new Map();
   }
 
   getDefaultGreetingIndex(hour = new Date().getHours()) {
@@ -163,31 +177,32 @@ export class HomeView {
     const greeting = this.getGreeting();
     const dailyWord = this.getDailyWord();
 
-    const tilesHtml = CHARACTER_LINEUP.map((char, index) => `
-      <div class="character-tile"
-           data-tab="${char.tabId}"
-           data-index="${index}"
+    const launcherCardsHtml = LAUNCHER_CARDS.map((card) => `
+      <div class="home-launcher-card tactile-card tactile-card-interactive"
+           id="launcher-card-${card.id}"
+           data-tab="${card.tab}"
            role="button"
            tabindex="0"
-           aria-label="${char.name}: ${char.desc}">
-        <div class="character-canvas-wrap">
-          <canvas class="character-rive-canvas" aria-hidden="true"></canvas>
-          <div class="character-fallback" style="display: none;" aria-hidden="true">
-            <div class="character-fallback-shape"></div>
-            <span class="character-fallback-title">${char.name}</span>
+           aria-label="${card.title}: ${card.descriptor}">
+        <div class="launcher-glyph-side" aria-hidden="true">
+          <div class="launcher-glyph-wrap" id="launcher-glyph-${card.id}">
+            ${card.glyphSvg}
           </div>
         </div>
-        <div class="character-tile-gradient" aria-hidden="true"></div>
-        <div class="character-tile-dim-overlay" aria-hidden="true"></div>
-        <div class="character-tile-meta">
-          <div class="character-tile-name font-display">${char.name}</div>
-          <div class="character-tile-desc font-sans">${char.desc}</div>
+        <div class="launcher-info-side">
+          <div class="launcher-text-group">
+            <h3 class="launcher-title font-display">${card.title}</h3>
+            <p class="launcher-desc font-sans">${card.descriptor}</p>
+          </div>
+          <div class="launcher-action-row" aria-hidden="true">
+            <span class="launcher-arrow font-mono">&rarr;</span>
+          </div>
         </div>
       </div>
     `).join('');
 
     this.container.innerHTML = `
-      <div class="home-view-wrapper character-select-home">
+      <div class="home-view-wrapper home-launcher-view">
         <!-- Hero Brand Wordmark Header -->
         <header class="home-hero-header">
           <div class="home-hero-brand" id="home-hero-brand" aria-label="KIROKU ノート">
@@ -210,8 +225,8 @@ export class HomeView {
         <div class="home-view-container">
           <!-- Mascot & Dialogue Zone (Left Zone) -->
           <div class="home-left-zone">
-            <!-- Manga Speech Burst Dialogue (Belongs to Companion Cat) -->
-            <div class="comic-speech-bubble" id="speech-bubble" aria-label="Mascot greeting">
+            <!-- Manga Speech Burst Dialogue (Anchored to Companion Cat) -->
+            <div class="comic-speech-bubble" id="speech-bubble" aria-label="Mascot greeting" style="opacity: 0; transform: translateY(-4px); transition: opacity 200ms ease, transform 200ms ease;">
               <div class="comic-speech-inner">
                 <div class="speech-header-row">
                   <span class="speech-greeting-ja font-comic">${greeting.ja}</span>
@@ -253,93 +268,266 @@ export class HomeView {
             </div>
           </div>
 
-          <!-- Character-Select Lineup Zone (Right Zone) -->
-          <div class="home-lineup-zone" id="home-lineup-zone">
-            <div class="character-lineup-container">
-              <div class="character-lineup" id="character-lineup" role="region" aria-label="Mode Selection Lineup">
-                ${tilesHtml}
-              </div>
+          <!-- Minimal Launcher Cards Zone (Right Zone) -->
+          <div class="home-launcher-zone" id="home-launcher-zone">
+            <div class="home-launcher-grid" role="region" aria-label="Quick Launchers">
+              ${launcherCardsHtml}
             </div>
           </div>
         </div>
       </div>
     `;
 
+    this.initCardControllers();
     this.setupEvents();
-    this.updateLineupDimensions();
 
     const catCanvas = typeof this.container?.querySelector === 'function'
       ? this.container.querySelector('.rive-mascot-canvas')
       : null;
+    const speechBubble = typeof this.container?.querySelector === 'function'
+      ? this.container.querySelector('#speech-bubble')
+      : null;
+    const fallbackBacking = typeof this.container?.querySelector === 'function'
+      ? this.container.querySelector('.organic-shape-backing')
+      : null;
+
+    let bubbleRevealed = false;
+    const showBubble = () => {
+      if (bubbleRevealed) return;
+      bubbleRevealed = true;
+      if (this.bubbleFallbackTimer) {
+        clearTimeout(this.bubbleFallbackTimer);
+        this.bubbleFallbackTimer = null;
+      }
+      if (speechBubble) {
+        speechBubble.style.opacity = '1';
+        speechBubble.style.transform = 'translateY(0)';
+      }
+    };
+
+    const showFallbackCat = () => {
+      if (fallbackBacking) {
+        fallbackBacking.style.display = 'block';
+        fallbackBacking.innerHTML = `<img src="./ui/assets/mascot/svg_cat.svg" alt="Kiroku Companion" class="mascot-fallback-svg" style="width: 100%; height: 100%; object-fit: contain;">`;
+      }
+      if (catCanvas) {
+        catCanvas.style.display = 'none';
+      }
+      showBubble();
+    };
+
+    // Bubble fallback timer: never leave the bubble floating over an empty space or stuck hidden
+    this.bubbleFallbackTimer = setTimeout(() => {
+      showBubble();
+    }, 1200);
+
     if (catCanvas) {
       try {
-        this.riveMascot = await mountRiveMascot(catCanvas);
-      } catch (e) {
-        console.warn('[Home] Mascot companion mount error:', e);
-      }
-    }
-
-    await this.mountAllCharacters();
-  }
-
-  updateLineupDimensions() {
-    if (!this.container || typeof this.container.querySelector !== 'function') return;
-    const lineup = this.container.querySelector('.character-lineup');
-    if (!lineup) return;
-    const lineupWidth = lineup.clientWidth || 900;
-    // Calculate expanded width of a tile (flex 2.3 vs 5 tiles at 0.74 = 6.0 units, with 5 gaps of 12px)
-    const availableWidth = Math.max(300, lineupWidth - 60);
-    const expandedTileWidth = Math.max(260, Math.round((2.3 / 6.0) * availableWidth));
-    lineup.style.setProperty('--expanded-tile-width', `${expandedTileWidth}px`);
-  }
-
-  async mountAllCharacters() {
-    if (!this.container || typeof this.container.querySelectorAll !== 'function') return;
-    const tileElements = this.container.querySelectorAll('.character-tile');
-    if (!tileElements.length) return;
-
-    // Parallel lazy loading of all six character tiles
-    const mountPromises = Array.from(tileElements).map(async (tile, index) => {
-      const config = CHARACTER_LINEUP[index];
-      if (!config) return null;
-
-      const canvas = typeof tile.querySelector === 'function' ? tile.querySelector('.character-rive-canvas') : null;
-      const fallback = typeof tile.querySelector === 'function' ? tile.querySelector('.character-fallback') : null;
-
-      try {
-        const controller = await mountCharacter(canvas, config.file, {
-          fit: config.fit,
-          alignment: config.alignment,
-          artboard: config.artboard,
-          stateMachine: config.stateMachine,
-          autoplay: false,
-          onLoad: () => {
-            if (canvas) {
-              canvas.style.opacity = '1';
-            }
-            if (this.activePlayingIndex === index) {
-              controller?.resume();
-            } else if (this.activePlayingIndex !== -1) {
-              controller?.pause(false);
-            }
+        this.riveMascot = await mountRiveMascot(catCanvas, {
+          onReady: () => {
+            showBubble();
           },
-          onError: (err) => {
-            console.warn(`[Home] Rive load error for ${config.file}:`, err);
-            if (canvas) canvas.style.display = 'none';
-            if (fallback) fallback.style.display = 'flex';
+          onFallback: () => {
+            showFallbackCat();
           }
         });
-
-        return controller;
-      } catch (err) {
-        console.warn(`[Home] Character mount exception for ${config.name}:`, err);
-        if (canvas) canvas.style.display = 'none';
-        if (fallback) fallback.style.display = 'flex';
-        return null;
+        if (!this.riveMascot) {
+          showFallbackCat();
+        }
+      } catch (e) {
+        console.warn('[Home] Mascot companion mount error:', e);
+        showFallbackCat();
       }
-    });
+    } else {
+      showFallbackCat();
+    }
+  }
 
-    this.characterControllers = await Promise.all(mountPromises);
+  initCardControllers() {
+    this.cardControllers.clear();
+
+    for (const config of LAUNCHER_CARDS) {
+      const cardEl = typeof this.container?.querySelector === 'function'
+        ? this.container.querySelector(`#launcher-card-${config.id}`)
+        : null;
+      const svgEl = cardEl && typeof cardEl.querySelector === 'function'
+        ? cardEl.querySelector('svg')
+        : null;
+
+      // Ensure resting frame is rendered immediately
+      try {
+        if (svgEl?.pauseAnimations) svgEl.pauseAnimations();
+        if (svgEl?.setCurrentTime) svgEl.setCurrentTime(config.restTime);
+      } catch (e) {
+        console.debug('[Home] SVG animation resting init warning:', e);
+      }
+
+      const ctrl = {
+        config,
+        cardEl,
+        svg: svgEl,
+        leaveTimer: null,
+        isAnimating: false,
+        play: () => {
+          if (ctrl.leaveTimer) {
+            clearTimeout(ctrl.leaveTimer);
+            ctrl.leaveTimer = null;
+          }
+          const glyphWrap = ctrl.cardEl?.querySelector?.('.launcher-glyph-wrap');
+          if (glyphWrap) glyphWrap.classList.remove('is-easing-out');
+
+          const reducedMotion = typeof window !== 'undefined' &&
+            window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+          if (reducedMotion) {
+            try {
+              ctrl.svg?.pauseAnimations?.();
+              ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
+            } catch (e) {
+              console.debug('[Home] SVG pause error:', e);
+            }
+            return;
+          }
+
+          try {
+            ctrl.svg?.setCurrentTime?.(0);
+            ctrl.svg?.unpauseAnimations?.();
+            ctrl.isAnimating = true;
+          } catch (e) {
+            console.debug('[Home] SVG play warning:', e);
+          }
+        },
+        stop: () => {
+          if (ctrl.leaveTimer) {
+            clearTimeout(ctrl.leaveTimer);
+            ctrl.leaveTimer = null;
+          }
+
+          const reducedMotion = typeof window !== 'undefined' &&
+            window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+          if (reducedMotion || !ctrl.isAnimating) {
+            try {
+              ctrl.svg?.pauseAnimations?.();
+              ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
+            } catch (e) {
+              console.debug('[Home] SVG pause error:', e);
+            }
+            ctrl.isAnimating = false;
+            return;
+          }
+
+          let currentTime = 0;
+          try {
+            currentTime = (ctrl.svg?.getCurrentTime?.() || 0) % ctrl.config.dur;
+          } catch (e) {
+            console.debug('[Home] SVG getCurrentTime error:', e);
+          }
+
+          const remainingToFinish = ctrl.config.drawFinishTime - currentTime;
+
+          if (currentTime >= ctrl.config.drawFinishTime) {
+            // Strokes already completed; pause on finished frame
+            try {
+              ctrl.svg?.pauseAnimations?.();
+              ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
+            } catch (e) {
+              console.debug('[Home] SVG pause error:', e);
+            }
+            ctrl.isAnimating = false;
+          } else if (remainingToFinish > 0 && remainingToFinish <= 1.0) {
+            // Less than ~1s from done: wait for current pass to finish
+            ctrl.leaveTimer = setTimeout(() => {
+              try {
+                ctrl.svg?.pauseAnimations?.();
+                ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
+              } catch (e) {
+                console.debug('[Home] SVG pause error:', e);
+              }
+              ctrl.isAnimating = false;
+              ctrl.leaveTimer = null;
+            }, Math.round(remainingToFinish * 1000));
+          } else {
+            // More than 1s away: ease out smoothly and settle on finished frame
+            const glyphWrap = ctrl.cardEl?.querySelector?.('.launcher-glyph-wrap');
+            glyphWrap?.classList?.add?.('is-easing-out');
+
+            try {
+              ctrl.svg?.pauseAnimations?.();
+              ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
+            } catch (e) {
+              console.debug('[Home] SVG pause error:', e);
+            }
+            ctrl.isAnimating = false;
+
+            ctrl.leaveTimer = setTimeout(() => {
+              glyphWrap?.classList?.remove?.('is-easing-out');
+              ctrl.leaveTimer = null;
+            }, 180);
+          }
+        },
+        resetToRest: () => {
+          if (ctrl.leaveTimer) {
+            clearTimeout(ctrl.leaveTimer);
+            ctrl.leaveTimer = null;
+          }
+          const glyphWrap = ctrl.cardEl?.querySelector?.('.launcher-glyph-wrap');
+          glyphWrap?.classList?.remove?.('is-easing-out');
+
+          try {
+            ctrl.svg?.pauseAnimations?.();
+            ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
+          } catch (e) {
+            console.debug('[Home] SVG reset error:', e);
+          }
+          ctrl.isAnimating = false;
+        }
+      };
+
+      this.cardControllers.set(config.id, ctrl);
+
+      if (cardEl && typeof cardEl.addEventListener === 'function') {
+        cardEl.addEventListener('pointerenter', () => {
+          for (const [id, otherCtrl] of this.cardControllers) {
+            if (id !== config.id) otherCtrl.stop();
+          }
+          ctrl.play();
+        });
+
+        cardEl.addEventListener('pointerleave', () => {
+          ctrl.stop();
+        });
+
+        cardEl.addEventListener('focus', () => {
+          for (const [id, otherCtrl] of this.cardControllers) {
+            if (id !== config.id) otherCtrl.stop();
+          }
+          ctrl.play();
+        });
+
+        cardEl.addEventListener('blur', () => {
+          ctrl.stop();
+        });
+
+        const activate = (e) => {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          ctrl.resetToRest();
+          this.router.navigateToTab(config.tab);
+        };
+
+        cardEl.addEventListener('click', activate);
+        cardEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            activate(e);
+          }
+        });
+      }
+    }
   }
 
   setupEvents() {
@@ -348,7 +536,6 @@ export class HomeView {
     const mascotStage = document.getElementById('mascot-stage');
     const mascotWrap = document.getElementById('mascot-character-wrap');
     const dailyWordStamp = document.getElementById('daily-word-stamp');
-    const tiles = this.container.querySelectorAll('.character-tile');
 
     // 1. Cat mascot companion click reaction
     if (mascotStage && mascotWrap) {
@@ -415,121 +602,17 @@ export class HomeView {
       mascotStage.addEventListener('mouseleave', this.mouseLeaveHandler);
     }
 
-    // 3. Attach pointer events with ~40ms hover intent to each character tile
-    tiles.forEach((tile, index) => {
-      const config = CHARACTER_LINEUP[index];
-      const canvas = typeof tile.querySelector === 'function' ? tile.querySelector('.character-rive-canvas') : null;
-
-      tile.addEventListener('pointerenter', () => {
-        if (this.leaveTimer) {
-          clearTimeout(this.leaveTimer);
-          this.leaveTimer = null;
-        }
-        if (this.hoverIntentTimer) {
-          clearTimeout(this.hoverIntentTimer);
-          this.hoverIntentTimer = null;
-        }
-        this.pendingHoverIndex = index;
-        this.hoverIntentTimer = setTimeout(() => {
-          this.hoverIntentTimer = null;
-          this.applyTileHover(index);
-        }, 40);
-      });
-
-      tile.addEventListener('pointerleave', () => {
-        if (this.pendingHoverIndex === index) {
-          if (this.hoverIntentTimer) {
-            clearTimeout(this.hoverIntentTimer);
-            this.hoverIntentTimer = null;
-          }
-          this.pendingHoverIndex = -1;
-        }
-        if (this.activePlayingIndex === index) {
-          if (this.leaveTimer) clearTimeout(this.leaveTimer);
-          this.leaveTimer = setTimeout(() => {
-            this.leaveTimer = null;
-            if (this.pendingHoverIndex === -1) {
-              this.applyTileLeave(index, true);
-            }
-          }, 30);
-        }
-      });
-
-      tile.addEventListener('focus', () => {
-        if (this.hoverIntentTimer) {
-          clearTimeout(this.hoverIntentTimer);
-          this.hoverIntentTimer = null;
-        }
-        this.applyTileHover(index, true);
-      });
-
-      tile.addEventListener('blur', () => {
-        this.applyTileLeave(index, true);
-      });
-
-      const activate = (e) => {
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-        this.handleTileActivate(tile, config, index);
-      };
-
-      tile.addEventListener('click', activate);
-      tile.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          activate(e);
-        }
-      });
-
-      if (canvas) {
-        canvas.addEventListener('click', activate);
-      }
-    });
-
-    const lineup = typeof this.container?.querySelector === 'function'
-      ? this.container.querySelector('.character-lineup')
-      : null;
-    if (lineup) {
-      lineup.addEventListener('pointerleave', () => {
-        this.resetAllHoverStates(true);
-      });
-    }
-
-    // Window resize debounced listener to update lineup dimensions
-    let windowResizeTimer = null;
-    this.windowResizeHandler = () => {
-      if (windowResizeTimer) clearTimeout(windowResizeTimer);
-      windowResizeTimer = setTimeout(() => {
-        windowResizeTimer = null;
-        this.updateLineupDimensions();
-      }, 100);
-    };
-    if (typeof window !== 'undefined') {
-      window.addEventListener('resize', this.windowResizeHandler);
-    }
-
-    // 4. Pause all characters when document is hidden
+    // 3. Pause all cards when document is hidden
     this.visibilityHandler = () => {
       if (document.hidden) {
-        this.resetAllHoverStates(false);
-      } else {
-        if (this.activePlayingIndex !== -1 && this.characterControllers[this.activePlayingIndex]) {
-          this.characterControllers[this.activePlayingIndex]?.resume();
+        for (const ctrl of this.cardControllers.values()) {
+          ctrl.resetToRest();
         }
       }
     };
     document.addEventListener('visibilitychange', this.visibilityHandler);
 
-    // 5. Escape key removes any active transition overlay
-    this.escapeHandler = (e) => {
-      if (e.key === 'Escape' && this.activeOverlay) {
-        this.cleanupOverlay();
-      }
-    };
-    window.addEventListener('keydown', this.escapeHandler);
-
-    // 6. Daily word stamp navigation to Vocab desk
+    // 4. Daily word stamp navigation to Vocab desk
     if (dailyWordStamp) {
       const navigateVocab = () => {
         this.router.navigateToTab('vocab');
@@ -544,241 +627,37 @@ export class HomeView {
     }
   }
 
-  applyTileHover(index, immediate = false) {
-    if (index < 0 || index >= CHARACTER_LINEUP.length) return;
-    if (this.activePlayingIndex === index) return;
-
-    const tiles = this.container && typeof this.container.querySelectorAll === 'function'
-      ? this.container.querySelectorAll('.character-tile')
-      : [];
-    const lineup = this.container && typeof this.container.querySelector === 'function'
-      ? this.container.querySelector('.character-lineup')
-      : null;
-
-    // Ensure strictly only ONE instance plays at any time
-    if (Array.isArray(this.characterControllers)) {
-      this.characterControllers.forEach((ctrl, i) => {
-        if (i !== index && ctrl) {
-          if (ctrl.isPlaying === undefined || ctrl.isPlaying) {
-            ctrl.pause(false);
-          }
-        }
-      });
-    }
-
-    tiles.forEach((t, i) => {
-      if (i !== index) {
-        t.classList?.remove('is-hovered');
-      }
-    });
-
-    this.activePlayingIndex = index;
-    this.activeHoverIndex = index;
-
-    if (tiles[index]) {
-      tiles[index].classList.add('is-hovered');
-    }
-    if (lineup) {
-      lineup.classList.add('has-active-hover');
-    }
-
-    // Play character immediately with no await
-    this.characterControllers[index]?.resume();
-  }
-
-  applyTileLeave(index, graceful = true) {
-    const tiles = this.container && typeof this.container.querySelectorAll === 'function'
-      ? this.container.querySelectorAll('.character-tile')
-      : [];
-    const lineup = this.container && typeof this.container.querySelector === 'function'
-      ? this.container.querySelector('.character-lineup')
-      : null;
-
-    if (this.activePlayingIndex === index) {
-      this.characterControllers[index]?.pause(graceful);
-      this.activePlayingIndex = -1;
-    }
-
-    if (tiles[index]) {
-      tiles[index].classList.remove('is-hovered');
-    }
-
-    const hasAnyActive = Array.from(tiles).some((t) => t.classList?.contains('is-hovered') || (typeof document !== 'undefined' && t === document.activeElement));
-    if (!hasAnyActive && lineup) {
-      lineup.classList.remove('has-active-hover');
-    }
-  }
-
-  resetAllHoverStates(graceful = true) {
-    if (this.hoverIntentTimer) {
-      clearTimeout(this.hoverIntentTimer);
-      this.hoverIntentTimer = null;
-    }
-    if (this.leaveTimer) {
-      clearTimeout(this.leaveTimer);
-      this.leaveTimer = null;
-    }
-    this.pendingHoverIndex = -1;
-
-    const tiles = this.container && typeof this.container.querySelectorAll === 'function'
-      ? this.container.querySelectorAll('.character-tile')
-      : [];
-    const lineup = this.container && typeof this.container.querySelector === 'function'
-      ? this.container.querySelector('.character-lineup')
-      : null;
-
-    if (this.activePlayingIndex !== -1) {
-      this.characterControllers[this.activePlayingIndex]?.pause(graceful);
-      this.activePlayingIndex = -1;
-    }
-
-    tiles.forEach((t) => t.classList?.remove('is-hovered'));
-    if (lineup) {
-      lineup.classList.remove('has-active-hover');
-    }
-  }
-
-  handleTileActivate(tile, config, index) {
-    if (this.isNavigating) return;
-    this.isNavigating = true;
-
-    // 1. Play character reaction if available
-    this.characterControllers[index]?.playReaction();
-
-    // 2. Tactile click feedback using this.jumpTimeout
-    tile.classList.add('is-activating');
-    if (this.jumpTimeout) {
-      clearTimeout(this.jumpTimeout);
-      this.jumpTimeout = null;
-    }
-    this.jumpTimeout = setTimeout(() => {
-      tile.classList.remove('is-activating');
-      this.jumpTimeout = null;
-    }, 180);
-
-    // 3. Circular clip-path reveal into destination mode
-    this.runCircularReveal(tile, config.tabId);
-  }
-
-  runCircularReveal(tile, destinationTabId) {
-    if (typeof document === 'undefined' || typeof window === 'undefined') {
-      this.router.navigateToTab(destinationTabId);
-      this.isNavigating = false;
-      return;
-    }
-
-    const reducedMotion = typeof window !== 'undefined' &&
-      window.matchMedia &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    this.cleanupOverlay();
-
-    const rect = tile?.getBoundingClientRect ? tile.getBoundingClientRect() : { left: 0, top: 0, width: 100, height: 100 };
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    const innerWidth = window.innerWidth || 800;
-    const innerHeight = window.innerHeight || 600;
-    const maxDistance = Math.hypot(
-      Math.max(centerX, innerWidth - centerX),
-      Math.max(centerY, innerHeight - centerY)
-    );
-
-    const overlay = document.createElement('div');
-    overlay.className = 'character-mode-transition-overlay';
-    overlay.setAttribute('aria-hidden', 'true');
-    this.activeOverlay = overlay;
-    document.body.appendChild(overlay);
-
-    if (reducedMotion) {
-      overlay.style.opacity = '0';
-      overlay.style.transition = 'opacity 150ms ease';
-      requestAnimationFrame(() => {
-        overlay.style.opacity = '1';
-        setTimeout(() => {
-          this.router.navigateToTab(destinationTabId);
-          setTimeout(() => {
-            this.cleanupOverlay();
-            this.isNavigating = false;
-          }, 60);
-        }, 150);
-      });
-      return;
-    }
-
-    // Full circular clip-path expansion
-    overlay.style.clipPath = `circle(0px at ${centerX}px ${centerY}px)`;
-    overlay.style.transition = 'clip-path 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease';
-
-    requestAnimationFrame(() => {
-      overlay.style.clipPath = `circle(${Math.ceil(maxDistance + 60)}px at ${centerX}px ${centerY}px)`;
-
-      // Navigate at midpoint (~260ms) while overlay covers the viewport
-      setTimeout(() => {
-        try {
-          this.router.navigateToTab(destinationTabId);
-        } catch (err) {
-          console.warn('[Home] Navigation error:', err);
-          this.cleanupOverlay();
-          this.isNavigating = false;
-          return;
-        }
-
-        // Fade overlay out after destination mounts
-        setTimeout(() => {
-          overlay.style.opacity = '0';
-          setTimeout(() => {
-            this.cleanupOverlay();
-            this.isNavigating = false;
-          }, 180);
-        }, 220);
-      }, 260);
-    });
-  }
-
-  cleanupOverlay() {
-    if (this.activeOverlay) {
-      try {
-        this.activeOverlay.remove();
-      } catch (e) {
-        console.debug('[Home] Overlay cleanup error:', e);
-      }
-      this.activeOverlay = null;
-    }
-  }
-
   unmount() {
     if (this.jumpTimeout) {
       clearTimeout(this.jumpTimeout);
       this.jumpTimeout = null;
     }
-    if (this.hoverIntentTimer) {
-      clearTimeout(this.hoverIntentTimer);
-      this.hoverIntentTimer = null;
+    if (this.bubbleFallbackTimer) {
+      clearTimeout(this.bubbleFallbackTimer);
+      this.bubbleFallbackTimer = null;
     }
-    if (this.leaveTimer) {
-      clearTimeout(this.leaveTimer);
-      this.leaveTimer = null;
+
+    // Reset and clean up all launcher card controllers
+    for (const ctrl of this.cardControllers.values()) {
+      ctrl.resetToRest();
     }
+    this.cardControllers.clear();
+
     if (this.mouseMoveHandler && typeof window !== 'undefined') {
       window.removeEventListener('mousemove', this.mouseMoveHandler);
-      this.mouseMoveHandler = null;
     }
+    this.mouseMoveHandler = null;
     this.mouseLeaveHandler = null;
 
     if (this.visibilityHandler && typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.visibilityHandler);
-      this.visibilityHandler = null;
     }
+    this.visibilityHandler = null;
+
     if (this.escapeHandler && typeof window !== 'undefined') {
       window.removeEventListener('keydown', this.escapeHandler);
-      this.escapeHandler = null;
     }
-    if (this.windowResizeHandler && typeof window !== 'undefined') {
-      window.removeEventListener('resize', this.windowResizeHandler);
-      this.windowResizeHandler = null;
-    }
-
-    this.cleanupOverlay();
+    this.escapeHandler = null;
 
     // Clean up cat mascot companion
     try {
@@ -788,24 +667,8 @@ export class HomeView {
     }
     this.riveMascot = null;
 
-    // Clean up every character instance
-    if (Array.isArray(this.characterControllers)) {
-      this.characterControllers.forEach((ctrl) => {
-        try {
-          ctrl?.cleanup();
-        } catch (e) {
-          console.debug('[Home] Character controller cleanup error:', e);
-        }
-      });
-      this.characterControllers = [];
-    }
-
-    this.activePlayingIndex = -1;
-    this.pendingHoverIndex = -1;
-
     if (this.container) {
       this.container.innerHTML = '';
     }
-    this.isNavigating = false;
   }
 }
