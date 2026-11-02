@@ -1,15 +1,14 @@
 /**
  * Kiroku Note Desktop — Home Screen View Controller
- * Expressive Editorial + Mascot Companion Landing View (Zero Fake Data).
+ * Authentic Cat Companion (Left) & Minimal Stroke-Order Animated Launcher Cards (Right).
+ * Zero Fake Data: Strictly grounded in authentic datasets and design tokens.
  *
- * Displays:
- * 1. Friendly casual Japanese greetings in an asymmetric comic speech bubble (Mochiy Pop P One font).
- * 2. Authentic Rive animated mascot companion (with fallback to svg_cat.svg).
- * 3. Curated deterministic daily Japanese vocabulary item with JLPT badge linking to Vocab desk.
- * 4. Spacious minimalist quick launcher action stamps to study desks.
+ * Golden Rule: Zero emojis anywhere across code, UI, or logs.
  */
 
 import { mountRiveMascot } from '../rive_mascot.js';
+import { HOME_GLYPHS } from '../assets/home_glyphs.js';
+import { CaseStudyCard } from '../components/case_study_card.js';
 
 /**
  * Editorial reference expressions preserved for test contract compatibility:
@@ -48,64 +47,115 @@ const TIME_BASED_GREETINGS = [
   { ja: 'おやすみー！', en: 'oyasumi! — good night! catch you tomorrow.', minHour: 0, maxHour: 5 }
 ];
 
-const ROTATING_GREETINGS = TIME_BASED_GREETINGS;
-
 const CURATED_DAILY_WORDS = [
   {
-    kanji: '木漏れ日',
-    reading: 'こもれび',
-    romaji: 'komorebi',
-    meaning: 'Sunlight filtering through trees',
-    jlpt: 'N2',
-    category: 'Nature & Poetics'
+    "kanji": "木漏れ日",
+    "reading": "こもれび",
+    "romaji": "komorebi",
+    "meaning": "Sunlight filtering through trees",
+    "jlpt": "N2",
+    "category": "Nature & Poetics",
+    "partOfSpeech": "Noun",
+    "exampleSentence": "木漏れ日の中で、静かに本を読む時間が好きです。",
+    "exampleFurigana": "<ruby>木漏<rt>こぼ</rt></ruby>れ<ruby>日<rt>び</rt></ruby>の<ruby>中<rt>なか</rt></ruby>で、<ruby>静<rt>しず</rt></ruby>かに<ruby>本<rt>ほん</rt></ruby>を<ruby>読<rt>よ</rt></ruby>む<ruby>時間<rt>じかん</rt></ruby>が<ruby>好<rt>す</rt></ruby>きです。",
+    "exampleTranslation": "I love the peaceful time spent reading a book under sunlight filtering through the trees."
   },
   {
-    kanji: '風情',
-    reading: 'ふぜい',
-    romaji: 'fuzei',
-    meaning: 'Taste, elegance, charm, aesthetic atmosphere',
-    jlpt: 'N1',
-    category: 'Aesthetics'
+    "kanji": "風情",
+    "reading": "ふぜい",
+    "romaji": "fuzei",
+    "meaning": "Taste, elegance, charm, aesthetic atmosphere",
+    "jlpt": "N1",
+    "category": "Aesthetics",
+    "partOfSpeech": "Noun",
+    "exampleSentence": "雨上がりの古い町並みには独特の風情がある。",
+    "exampleFurigana": "<ruby>雨上<rt>あめあ</rt></ruby>がりの<ruby>古<rt>ふる</rt></ruby>い<ruby>町並<rt>まちな</rt></ruby>みには<ruby>独特<rt>どくとく</rt></ruby>の<ruby>風情<rt>ふぜい</rt></ruby>がある。",
+    "exampleTranslation": "There is a unique charm to the historic townscape after the rain."
   },
   {
-    kanji: '一期一会',
-    reading: 'いちごいちえ',
-    romaji: 'ichigo ichie',
-    meaning: 'Once-in-a-lifetime encounter; cherish every moment',
-    jlpt: 'N1',
-    category: 'Proverb & Zen'
+    "kanji": "一期一会",
+    "reading": "いちごいちえ",
+    "romaji": "ichigo ichie",
+    "meaning": "Once-in-a-lifetime encounter; cherish every moment",
+    "jlpt": "N1",
+    "category": "Proverb & Zen",
+    "partOfSpeech": "Yojijukugo (Idiom)",
+    "exampleSentence": "出会いは一期一会だから、一つ一つの縁を大切にしよう。",
+    "exampleFurigana": "<ruby>出合<rt>であ</rt></ruby>いは<ruby>一期一会<rt>いちごいちえ</rt></ruby>だから、<ruby>一<rt>ひと</rt></ruby>つ<ruby>一<rt>ひと</rt></ruby>つの<ruby>縁<rt>えん</rt></ruby>を<ruby>大切<rt>たいせつ</rt></ruby>にしよう。",
+    "exampleTranslation": "Every encounter is once in a lifetime, so cherish every bond you form."
   },
   {
-    kanji: '雨宿り',
-    reading: 'あまやどり',
-    romaji: 'amayadori',
-    meaning: 'Sheltering from the rain',
-    jlpt: 'N3',
-    category: 'Daily Life'
+    "kanji": "雨宿り",
+    "reading": "あまやどり",
+    "romaji": "amayadori",
+    "meaning": "Sheltering from the rain",
+    "jlpt": "N3",
+    "category": "Daily Life",
+    "partOfSpeech": "Noun / Suru verb",
+    "exampleSentence": "駅の軒下で雨宿りをしながら友人を待った。",
+    "exampleFurigana": "<ruby>駅<rt>えき</rt></ruby>の<ruby>軒下<rt>のきした</rt></ruby>で<ruby>雨宿<rt>あまやど</rt></ruby>りをしながら<ruby>友人<rt>ゆうじん</rt></ruby>を<ruby>待<rt>ま</rt></ruby>った。",
+    "exampleTranslation": "I waited for my friend while sheltering from the rain under the station eaves."
   },
   {
-    kanji: '陽だまり',
-    reading: 'ひだまり',
-    romaji: 'hidamari',
-    meaning: 'Sunny spot, warm pocket of sunshine',
-    jlpt: 'N2',
-    category: 'Warmth'
+    "kanji": "陽だまり",
+    "reading": "ひだまり",
+    "romaji": "hidamari",
+    "meaning": "Sunny spot, warm pocket of sunshine",
+    "jlpt": "N2",
+    "category": "Warmth",
+    "partOfSpeech": "Noun",
+    "exampleSentence": "猫が縁側の陽だまりで気持ちよさそうに丸くなっている。",
+    "exampleFurigana": "<ruby>猫<rt>ねこ</rt></ruby>が<ruby>縁側<rt>えんがわ</rt></ruby>の<ruby>陽<rt>ひ</rt></ruby>だまりで<ruby>気持<rt>きも</rt></ruby>ちよさそうに<ruby>丸<rt>まる</rt></ruby>くなっている。",
+    "exampleTranslation": "The cat is curled up comfortably in a warm pocket of sunshine on the veranda."
   },
   {
-    kanji: '浮世',
-    reading: 'うきよ',
-    romaji: 'ukiyo',
-    meaning: 'Floating world, fleeting transient life',
-    jlpt: 'N1',
-    category: 'Culture & Art'
+    "kanji": "浮世",
+    "reading": "うきよ",
+    "romaji": "ukiyo",
+    "meaning": "Floating world, fleeting transient life",
+    "jlpt": "N1",
+    "category": "Culture & Art",
+    "partOfSpeech": "Noun",
+    "exampleSentence": "浮世の慌ただしさを忘れ、静かな茶室で心を落ち着かせる。",
+    "exampleFurigana": "<ruby>浮世<rt>うきよ</rt></ruby>の<ruby>慌<rt>あわ</rt></ruby>ただしさを<ruby>忘<rt>わす</rt></ruby>れ、<ruby>静<rt>しず</rt></ruby>かな<ruby>茶室<rt>ちゃしつ</rt></ruby>で<ruby>心<rt>こころ</rt></ruby>を<ruby>落<rt>お</rt></ruby>ち<ruby>着<rt>つ</rt></ruby>かせる。",
+    "exampleTranslation": "Forgetting the rush of this transient world, calm your mind in a quiet tea room."
   },
   {
-    kanji: '心づくし',
-    reading: 'こころづくし',
-    romaji: 'kokorozukushi',
-    meaning: 'Heartfelt kindness, thorough consideration',
-    jlpt: 'N1',
-    category: 'Virtue'
+    "kanji": "心づくし",
+    "reading": "こころづくし",
+    "romaji": "kokorozukushi",
+    "meaning": "Heartfelt kindness, thorough consideration",
+    "jlpt": "N1",
+    "category": "Virtue",
+    "partOfSpeech": "Noun",
+    "exampleSentence": "旅先で地元の人々から受けた心づくしのもてなしに深く感謝した。",
+    "exampleFurigana": "<ruby>旅先<rt>たびさき</rt></ruby>で<ruby>地元<rt>じもと</rt></ruby>の<ruby>人々<rt>ひとびと</rt></ruby>から<ruby>受<rt>う</rt></ruby>けた<ruby>心<rt>こころ</rt></ruby>づくしのもてなしに<ruby>深<rt>ふか</rt></ruby>く<ruby>感謝<rt>かんしゃ</rt></ruby>した。",
+    "exampleTranslation": "I was deeply grateful for the heartfelt hospitality received from local people during my travels."
+  }
+];
+
+export const LAUNCHER_CARDS = [
+  {
+    id: 'vocab',
+    tab: 'vocab',
+    title: 'Vocab',
+    descriptor: 'Quick Add, mining, Anki',
+    glyphSvg: HOME_GLYPHS.vocab,
+    videoSrc: './ui/assets/hiragana_a.webm',
+    dur: 5.005,
+    restTime: 4.8,
+    drawFinishTime: 3.05
+  },
+  {
+    id: 'kanji',
+    tab: 'kanji',
+    title: 'Kanji',
+    descriptor: 'Strokes and components',
+    glyphSvg: HOME_GLYPHS.kanji,
+    videoSrc: './ui/assets/kanji_dai.webm',
+    dur: 5.0,
+    restTime: 4.8,
+    drawFinishTime: 2.55
   }
 ];
 
@@ -114,10 +164,14 @@ export class HomeView {
     this.router = router;
     this.container = null;
     this.greetingIndex = null;
+    this.jumpTimeout = null;
+    this.bubbleFallbackTimer = null;
     this.mouseMoveHandler = null;
     this.mouseLeaveHandler = null;
-    this.jumpTimeout = null;
+    this.visibilityHandler = null;
+    this.escapeHandler = null;
     this.riveMascot = null;
+    this.cardControllers = new Map();
   }
 
   getDefaultGreetingIndex(hour = new Date().getHours()) {
@@ -135,7 +189,7 @@ export class HomeView {
     }
     const d = arg instanceof Date ? arg : new Date();
     const hour = d.getHours();
-    const matches = TIME_BASED_GREETINGS.filter(g => hour >= g.minHour && hour < g.maxHour);
+    const matches = TIME_BASED_GREETINGS.filter((g) => hour >= g.minHour && hour < g.maxHour);
     if (!matches.length) return TIME_BASED_GREETINGS[0];
     const hourSeed = Math.floor(d.getTime() / (1000 * 60 * 60));
     return matches[Math.abs(hourSeed) % matches.length];
@@ -154,8 +208,55 @@ export class HomeView {
     const greeting = this.getGreeting();
     const dailyWord = this.getDailyWord();
 
+    const dailyWordCardHtml = CaseStudyCard({
+      title: dailyWord.kanji,
+      category: 'WORD OF THE DAY',
+      reading: dailyWord.reading,
+      romaji: dailyWord.romaji,
+      meaning: dailyWord.meaning,
+      jlpt: dailyWord.jlpt,
+      partOfSpeech: dailyWord.partOfSpeech || 'Noun',
+      exampleSentence: dailyWord.exampleSentence,
+      exampleFurigana: dailyWord.exampleFurigana,
+      exampleTranslation: dailyWord.exampleTranslation,
+      type: 'content',
+      tabLabel: 'READ WORD',
+      link: '#vocab'
+    });
+
+    const launcherCardsHtml = LAUNCHER_CARDS.map((card) => `
+      <div class="home-launcher-card tactile-card tactile-card-interactive"
+           id="launcher-card-${card.id}"
+           data-tab="${card.tab}"
+           role="button"
+           tabindex="0"
+           aria-label="${card.title}: ${card.descriptor}">
+        <div class="launcher-glyph-side" aria-hidden="true">
+          <div class="launcher-glyph-wrap" id="launcher-glyph-${card.id}">
+            <video class="launcher-glyph-video"
+                   src="${card.videoSrc}"
+                   autoplay
+                   loop
+                   muted
+                   playsinline
+                   preload="auto"
+                   aria-hidden="true"></video>
+          </div>
+        </div>
+        <div class="launcher-info-side">
+          <div class="launcher-text-group">
+            <h3 class="launcher-title font-display">${card.title}</h3>
+            <p class="launcher-desc font-sans">${card.descriptor}</p>
+          </div>
+          <div class="launcher-action-row" aria-hidden="true">
+            <span class="launcher-arrow font-mono">&rarr;</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
     this.container.innerHTML = `
-      <div class="home-view-wrapper">
+      <div class="home-view-wrapper home-launcher-view">
         <!-- Hero Brand Wordmark Header -->
         <header class="home-hero-header">
           <div class="home-hero-brand" id="home-hero-brand" aria-label="KIROKU ノート">
@@ -178,18 +279,22 @@ export class HomeView {
         <div class="home-view-container">
           <!-- Mascot & Dialogue Zone (Left Zone) -->
           <div class="home-left-zone">
-
-            <!-- Manga Speech Burst Dialogue (Anchored to Companion) -->
-            <div class="comic-speech-bubble" id="speech-bubble" aria-label="Mascot greeting">
+            <!-- Manga Speech Burst Dialogue (Anchored to Companion Cat) -->
+            <div class="comic-speech-bubble" id="speech-bubble" aria-label="Mascot greeting" style="opacity: 0; transform: translateY(-4px); transition: opacity 200ms ease, transform 200ms ease;">
+              <svg class="comic-pointer-tail" viewBox="0 0 52 38" preserveAspectRatio="xMidYMin meet" aria-hidden="true" focusable="false">
+                <path d="M4 3C13 7 20 8 26 8C32 8 39 7 48 3C42 13 35 25 26 36C18 25 10 13 4 3Z" />
+              </svg>
               <div class="comic-speech-inner">
-                <div class="speech-header-row">
-                  <span class="speech-greeting-ja font-comic">${greeting.ja}</span>
+                <div class="speech-content">
+                  <div class="speech-header-row">
+                    <span class="speech-greeting-ja font-comic">${greeting.ja}</span>
+                  </div>
+                  <p class="speech-subtitle-en">${greeting.en}</p>
                 </div>
-                <p class="speech-subtitle-en">${greeting.en}</p>
               </div>
-              <div class="comic-pointer-tail" aria-hidden="true"></div>
             </div>
 
+            <!-- Authentic Rive Cat Mascot Companion Stage -->
             <div class="mascot-stage" id="mascot-stage" aria-label="Kiroku study companion" role="button" tabindex="0" title="Click companion to interact">
               <div class="organic-shape-backing" aria-hidden="true" style="display: none;"><!-- fallback: svg_cat.svg --></div>
               <div class="mascot-character-wrap" id="mascot-character-wrap">
@@ -197,140 +302,208 @@ export class HomeView {
               </div>
             </div>
 
-            <!-- Curated Daily Japanese Word Stamp -->
-            <div class="home-daily-word daily-vocab-stamp tactile-card tactile-card-interactive" id="daily-word-stamp" role="button" tabindex="0" title="Click to open Vocabulary Desk">
-              <div class="daily-word-top-row">
-                <div class="daily-word-badges">
-                  <span class="daily-word-pill-jlpt tactile-pill tactile-pill-vermilion">${dailyWord.jlpt}</span>
-                  <span class="daily-word-cat-label font-mono">${dailyWord.category}</span>
-                </div>
-                <span class="daily-word-stamp-action font-mono text-muted">Open in Vocab &rarr;</span>
-              </div>
-              <div class="daily-word-content">
-                <div class="daily-word-glyph-line">
-                  <ruby class="daily-word-kanji font-display">${dailyWord.kanji}<rt class="daily-word-reading font-japanese">${dailyWord.reading}</rt></ruby>
-                  <span class="daily-word-romaji font-mono text-muted">${dailyWord.romaji}</span>
-                </div>
-                <div class="daily-word-gloss font-japanese">${dailyWord.meaning}</div>
-              </div>
-            </div>
+            <!-- Curated Daily Japanese Word: Animata Case Study Card -->
+            ${dailyWordCardHtml}
           </div>
 
-          <!-- Quick Navigation Launcher Zone (Right Zone) -->
-          <div class="home-right-zone" id="home-right-zone">
-            <div class="home-section-heading">
-              <span class="home-section-title font-sans">Study Desks</span>
-              <span class="home-section-subtitle font-mono text-muted">Direct access to learning modules</span>
-            </div>
-
-            <div class="home-action-cards">
-              <div class="home-action-card tactile-card tactile-card-interactive" data-tab="vocab" role="button" tabindex="0" title="Open Vocabulary Desk">
-                <div class="home-action-icon-wrap" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
-                  </svg>
-                </div>
-                <div class="home-action-card-text">
-                  <div class="home-action-card-title font-sans">Vocabulary Desk</div>
-                  <div class="home-action-card-desc font-sans">Quick Add card capture, mining review, and Anki sync.</div>
-                </div>
-                <div class="home-action-card-arrow" aria-hidden="true">&rarr;</div>
-              </div>
-
-              <div class="home-action-card tactile-card tactile-card-interactive" data-tab="kanji" role="button" tabindex="0" title="Open Kanji Desk">
-                <div class="home-action-icon-wrap" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.11 0-2 .9-2 2zm12 4V7h2v2h-2zm0 2h2v2h-2v-2zm-4-4h2v2h-2V7zm0 4h2v2h-2v-2zm-4-4h2v2H7V7zm0 4h2v2H7v-2zm-2 6h14v2H5v-2z"/>
-                  </svg>
-                </div>
-                <div class="home-action-card-text">
-                  <div class="home-action-card-title font-sans">Kanji Master Desk</div>
-                  <div class="home-action-card-desc font-sans">KanjiVG stroke diagrams, decomposition, and components.</div>
-                </div>
-                <div class="home-action-card-arrow" aria-hidden="true">&rarr;</div>
-              </div>
-
-              <div class="home-action-card tactile-card tactile-card-interactive" data-tab="grammar" role="button" tabindex="0" title="Open Grammar Desk">
-                <div class="home-action-icon-wrap" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
-                  </svg>
-                </div>
-                <div class="home-action-card-text">
-                  <div class="home-action-card-title font-sans">Grammar Desk</div>
-                  <div class="home-action-card-desc font-sans">N5–N1 grammar reference points and sentence analysis.</div>
-                </div>
-                <div class="home-action-card-arrow" aria-hidden="true">&rarr;</div>
-              </div>
-
-              <div class="home-action-card tactile-card tactile-card-interactive" data-tab="study" role="button" tabindex="0" title="Open Practice Drills">
-                <div class="home-action-icon-wrap" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/>
-                  </svg>
-                </div>
-                <div class="home-action-card-text">
-                  <div class="home-action-card-title font-sans">Practice Drills</div>
-                  <div class="home-action-card-desc font-sans">Targeted question drills with adaptive repetition.</div>
-                </div>
-                <div class="home-action-card-arrow" aria-hidden="true">&rarr;</div>
-              </div>
-
-              <div class="home-action-card tactile-card tactile-card-interactive" data-tab="test" role="button" tabindex="0" title="Open Examination">
-                <div class="home-action-icon-wrap" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-                  </svg>
-                </div>
-                <div class="home-action-card-text">
-                  <div class="home-action-card-title font-sans">JLPT Examination</div>
-                  <div class="home-action-card-desc font-sans">Simulated official test blocks with section countdown timers.</div>
-                </div>
-                <div class="home-action-card-arrow" aria-hidden="true">&rarr;</div>
-              </div>
-
-              <div class="home-action-card tactile-card tactile-card-interactive" data-tab="settings" role="button" tabindex="0" title="Open Settings & Diagnostics">
-                <div class="home-action-icon-wrap" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-                  </svg>
-                </div>
-                <div class="home-action-card-text">
-                  <div class="home-action-card-title font-sans">Settings & Diagnostics</div>
-                  <div class="home-action-card-desc font-sans">Universal JLPT level, AnkiConnect, OCR daemon, and doctor.</div>
-                </div>
-                <div class="home-action-card-arrow" aria-hidden="true">&rarr;</div>
-              </div>
+          <!-- Minimal Launcher Cards Zone (Right Zone) -->
+          <div class="home-launcher-zone" id="home-launcher-zone">
+            <div class="home-launcher-grid" role="region" aria-label="Quick Launchers">
+              ${launcherCardsHtml}
             </div>
           </div>
         </div>
       </div>
     `;
 
+    this.initCardControllers();
     this.setupEvents();
-    this.riveMascot = await mountRiveMascot(this.container.querySelector('.rive-mascot-canvas'));
+
+    const catCanvas = typeof this.container?.querySelector === 'function'
+      ? this.container.querySelector('.rive-mascot-canvas')
+      : null;
+    const speechBubble = typeof this.container?.querySelector === 'function'
+      ? this.container.querySelector('#speech-bubble')
+      : null;
+    const fallbackBacking = typeof this.container?.querySelector === 'function'
+      ? this.container.querySelector('.organic-shape-backing')
+      : null;
+
+    let bubbleRevealed = false;
+    const showBubble = () => {
+      if (bubbleRevealed) return;
+      bubbleRevealed = true;
+      if (this.bubbleFallbackTimer) {
+        clearTimeout(this.bubbleFallbackTimer);
+        this.bubbleFallbackTimer = null;
+      }
+      if (speechBubble) {
+        speechBubble.style.opacity = '1';
+        speechBubble.style.transform = 'translateY(0)';
+      }
+    };
+
+    const showFallbackCat = () => {
+      if (fallbackBacking) {
+        fallbackBacking.style.display = 'block';
+        fallbackBacking.innerHTML = `<img src="./ui/assets/mascot/svg_cat.svg" alt="Kiroku Companion" class="mascot-fallback-svg" style="width: 100%; height: 100%; object-fit: contain;">`;
+      }
+      if (catCanvas) {
+        catCanvas.style.display = 'none';
+      }
+      showBubble();
+    };
+
+    // Bubble fallback timer: never leave the bubble floating over an empty space or stuck hidden
+    this.bubbleFallbackTimer = setTimeout(() => {
+      showBubble();
+    }, 1200);
+
+    if (catCanvas) {
+      try {
+        this.riveMascot = await mountRiveMascot(catCanvas, {
+          onReady: () => {
+            showBubble();
+          },
+          onFallback: () => {
+            showFallbackCat();
+          }
+        });
+        if (!this.riveMascot) {
+          showFallbackCat();
+        }
+      } catch (e) {
+        console.warn('[Home] Mascot companion mount error:', e);
+        showFallbackCat();
+      }
+    } else {
+      showFallbackCat();
+    }
+  }
+
+  initCardControllers() {
+    this.cardControllers.clear();
+
+    for (const config of LAUNCHER_CARDS) {
+      const cardEl = typeof this.container?.querySelector === 'function'
+        ? this.container.querySelector(`#launcher-card-${config.id}`)
+        : null;
+      const videoEl = cardEl && typeof cardEl.querySelector === 'function'
+        ? cardEl.querySelector('video')
+        : null;
+
+      if (videoEl && typeof videoEl.play === 'function') {
+        try {
+          const p = videoEl.play();
+          if (p && typeof p.catch === 'function') {
+            p.catch((e) => console.debug('[Home] Video play notice:', e));
+          }
+        } catch (e) {
+          console.debug('[Home] Video play notice:', e);
+        }
+      }
+
+      const ctrl = {
+        config,
+        cardEl,
+        video: videoEl,
+        leaveTimer: null,
+        isAnimating: true,
+        play: () => {
+          if (ctrl.video && typeof ctrl.video.play === 'function') {
+            try {
+              ctrl.video.currentTime = 0;
+              const p = ctrl.video.play();
+              if (p && typeof p.catch === 'function') {
+                p.catch((e) => console.debug('[Home] Video play catch:', e));
+              }
+            } catch (e) {
+              console.debug('[Home] Video play warning:', e);
+            }
+          }
+          ctrl.isAnimating = true;
+        },
+        stop: () => {
+          ctrl.isAnimating = false;
+        },
+        resetToRest: () => {
+          ctrl.isAnimating = false;
+        }
+      };
+
+      this.cardControllers.set(config.id, ctrl);
+
+      if (cardEl && typeof cardEl.addEventListener === 'function') {
+        cardEl.addEventListener('pointerenter', () => {
+          for (const [id, otherCtrl] of this.cardControllers) {
+            if (id !== config.id) otherCtrl.stop();
+          }
+          ctrl.play();
+        });
+
+        cardEl.addEventListener('pointerleave', () => {
+          ctrl.stop();
+        });
+
+        cardEl.addEventListener('focus', () => {
+          for (const [id, otherCtrl] of this.cardControllers) {
+            if (id !== config.id) otherCtrl.stop();
+          }
+          ctrl.play();
+        });
+
+        cardEl.addEventListener('blur', () => {
+          ctrl.stop();
+        });
+
+        const activate = (e) => {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          ctrl.resetToRest();
+          this.router.navigateToTab(config.tab);
+        };
+
+        cardEl.addEventListener('click', activate);
+        cardEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            activate(e);
+          }
+        });
+      }
+    }
   }
 
   setupEvents() {
+    if (typeof document === 'undefined') return;
+
     const mascotStage = document.getElementById('mascot-stage');
     const mascotWrap = document.getElementById('mascot-character-wrap');
-    const dailyWordStamp = document.getElementById('daily-word-stamp');
 
-    // Mascot companion click reaction
+    // 1. Cat mascot companion click reaction
     if (mascotStage && mascotWrap) {
       const handleMascotClick = () => {
         const r = this.riveMascot?.instance;
         if (r) {
-          const inputs = r.stateMachineInputs('State Machine 1');
-          const foreheadTrigger = inputs?.find(i => i.name === 'Forehead click');
-          if (foreheadTrigger && typeof foreheadTrigger.fire === 'function') {
-            foreheadTrigger.fire();
+          try {
+            const inputs = r.stateMachineInputs('State Machine 1');
+            const foreheadTrigger = inputs?.find((i) => i.name === 'Forehead click' || i.type === 1);
+            if (foreheadTrigger && typeof foreheadTrigger.fire === 'function') {
+              foreheadTrigger.fire();
+            }
+          } catch (e) {
+            console.debug('[Home] Cat forehead trigger error:', e);
           }
         }
         mascotWrap.style.transform = 'translateY(-10px) scale(1.03)';
-        if (this.jumpTimeout) clearTimeout(this.jumpTimeout);
+        if (this.jumpTimeout) {
+          clearTimeout(this.jumpTimeout);
+          this.jumpTimeout = null;
+        }
         this.jumpTimeout = setTimeout(() => {
-          mascotWrap.style.transform = 'translateY(0) scale(1)';
+          if (mascotWrap) mascotWrap.style.transform = 'translateY(0) scale(1)';
+          this.jumpTimeout = null;
         }, 180);
       };
 
@@ -343,7 +516,7 @@ export class HomeView {
       });
     }
 
-    // Subtle head & pupil cursor tracking on mousemove
+    // 2. Subtle head & pupil cursor tracking on mousemove for cat mascot
     if (mascotStage && mascotWrap && typeof window !== 'undefined') {
       this.mouseMoveHandler = (e) => {
         if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -364,45 +537,43 @@ export class HomeView {
       };
 
       this.mouseLeaveHandler = () => {
-        mascotWrap.style.transform = 'perspective(600px) rotateX(0deg) rotateY(0deg) translate(0px, 0px)';
+        if (mascotWrap) {
+          mascotWrap.style.transform = 'perspective(600px) rotateX(0deg) rotateY(0deg) translate(0px, 0px)';
+        }
       };
 
       window.addEventListener('mousemove', this.mouseMoveHandler);
       mascotStage.addEventListener('mouseleave', this.mouseLeaveHandler);
     }
 
-    // Daily word stamp navigation to Vocab desk
-    if (dailyWordStamp) {
-      const navigateVocab = () => {
+    // 3. Pause all cards when document is hidden
+    this.visibilityHandler = () => {
+      if (document.hidden) {
+        for (const ctrl of this.cardControllers.values()) {
+          ctrl.resetToRest();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+
+    // 4. Daily word: Open in Vocab action (Animata Case Study Card navigation)
+    const btnOpen = document.getElementById('btn-daily-word-open');
+    if (btnOpen) {
+      const navigateVocab = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
         this.router.navigateToTab('vocab');
       };
-      dailyWordStamp.addEventListener('click', navigateVocab);
-      dailyWordStamp.addEventListener('keydown', (e) => {
+
+      btnOpen.addEventListener('click', navigateVocab);
+      btnOpen.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          navigateVocab();
+          navigateVocab(e);
         }
       });
     }
-
-    // Action cards navigation
-    const actionCards = this.container.querySelectorAll('.home-action-card');
-    actionCards.forEach(card => {
-      const tab = card.dataset.tab;
-      if (!tab) return;
-
-      const navigate = () => {
-        this.router.navigateToTab(tab);
-      };
-
-      card.addEventListener('click', navigate);
-      card.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          navigate();
-        }
-      });
-    });
   }
 
   unmount() {
@@ -410,12 +581,46 @@ export class HomeView {
       clearTimeout(this.jumpTimeout);
       this.jumpTimeout = null;
     }
-    if (this.mouseMoveHandler && typeof window !== 'undefined') {
-      window.removeEventListener('mousemove', this.mouseMoveHandler);
+    if (this.bubbleFallbackTimer) {
+      clearTimeout(this.bubbleFallbackTimer);
+      this.bubbleFallbackTimer = null;
+    }
+
+    // Reset and clean up all launcher card controllers
+    for (const ctrl of this.cardControllers.values()) {
+      ctrl.resetToRest();
+    }
+    this.cardControllers.clear();
+
+    if (this.mouseMoveHandler) {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('mousemove', this.mouseMoveHandler);
+      }
       this.mouseMoveHandler = null;
     }
-    this.riveMascot?.cleanup();
+    this.mouseLeaveHandler = null;
+
+    if (this.visibilityHandler) {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', this.visibilityHandler);
+      }
+      this.visibilityHandler = null;
+    }
+    if (this.escapeHandler) {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('keydown', this.escapeHandler);
+      }
+      this.escapeHandler = null;
+    }
+
+    // Clean up cat mascot companion
+    try {
+      this.riveMascot?.cleanup();
+    } catch (e) {
+      console.debug('[Home] Cat mascot cleanup error:', e);
+    }
     this.riveMascot = null;
+
     if (this.container) {
       this.container.innerHTML = '';
     }
