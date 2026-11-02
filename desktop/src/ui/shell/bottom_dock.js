@@ -41,7 +41,10 @@ export class BottomDock {
     this._pillX = null;
     this._pillW = null;
     this._currentAnimation = null;
+<<<<<<< HEAD
     this._pillAnim = null;
+=======
+>>>>>>> 01770a1794815298cef17eb9e8fa1e4542719b27
     this._rendered = false;
     this.tabs = [
       {
@@ -292,7 +295,10 @@ export class BottomDock {
       }
       this._currentAnimation.cancel();
       this._currentAnimation = null;
+<<<<<<< HEAD
       this._pillAnim = null;
+=======
+>>>>>>> 01770a1794815298cef17eb9e8fa1e4542719b27
     }
 
     // Write final values to inline styles
@@ -306,6 +312,7 @@ export class BottomDock {
         typeof window !== 'undefined' &&
         window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
       );
+<<<<<<< HEAD
 
       let animation;
       if (prefersReduced) {
@@ -339,6 +346,25 @@ export class BottomDock {
         if (this._currentAnimation === animation) {
           this._currentAnimation = null;
           this._pillAnim = null;
+=======
+      const duration = prefersReduced ? 220 : 450;
+      const easing = prefersReduced ? 'ease-out' : 'cubic-bezier(0.34, 1.56, 0.64, 1)';
+
+      const animation = pill.animate(
+        [
+          { transform: `translateX(${fromX}px)`, width: `${fromW}px` },
+          { transform: `translateX(${targetX}px)`, width: `${targetW}px` }
+        ],
+        {
+          duration: duration,
+          easing: easing
+        }
+      );
+      this._currentAnimation = animation;
+      animation.onfinish = () => {
+        if (this._currentAnimation === animation) {
+          this._currentAnimation = null;
+>>>>>>> 01770a1794815298cef17eb9e8fa1e4542719b27
         }
       };
     }
@@ -377,7 +403,10 @@ export class BottomDock {
     if (this._currentAnimation) {
       this._currentAnimation.cancel();
       this._currentAnimation = null;
+<<<<<<< HEAD
       this._pillAnim = null;
+=======
+>>>>>>> 01770a1794815298cef17eb9e8fa1e4542719b27
     }
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('resize', this.handleResize);
