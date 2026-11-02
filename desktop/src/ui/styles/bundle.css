@@ -1417,6 +1417,118 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 /* ==========================================================================
+   Home Screen: Compact Viewport Composition
+   Keep the title, companion, launchers, and daily word inside the usable stage.
+   ========================================================================== */
+@media (min-width: 701px) {
+  .home-view-wrapper {
+    position: relative;
+    height: calc(100vh - var(--chrome-top-height) - var(--content-padding-bottom));
+    min-height: 0;
+    max-width: 1320px;
+    padding: 0.7rem 1.5rem 0;
+    overflow: hidden;
+  }
+
+  .home-hero-header {
+    height: 4.1rem;
+    padding: 0.35rem 0 0.65rem;
+    margin-bottom: 0;
+  }
+
+  .home-hero-brand {
+    margin: 0;
+  }
+
+  .home-view-container {
+    position: absolute;
+    top: 5rem;
+    right: 1.5rem;
+    left: 1.5rem;
+    width: auto;
+    height: calc(100vh - var(--chrome-top-height) - var(--content-padding-bottom) - 5rem);
+    min-height: 0;
+    align-items: stretch;
+    gap: clamp(1.25rem, 3vw, 3rem);
+  }
+
+  .home-left-zone {
+    width: clamp(300px, 28vw, 360px);
+    max-width: none;
+    gap: 0.65rem;
+    justify-content: space-between;
+  }
+
+  .comic-speech-bubble {
+    margin-bottom: 0.65rem;
+  }
+
+  .speech-content {
+    padding: 1.35rem clamp(1.75rem, 9%, 2.5rem) 1.45rem;
+  }
+
+  .speech-greeting-ja {
+    font-size: clamp(1.45rem, 2vw, 1.85rem);
+  }
+
+  .speech-subtitle-en {
+    font-size: 0.76rem;
+    margin-top: 0.35rem;
+  }
+
+  .mascot-stage {
+    flex: 1 1 auto;
+    min-height: 9.5rem;
+    padding: 0;
+  }
+
+  .mascot-stage .mascot-character-wrap {
+    max-width: min(230px, 100%);
+  }
+
+  .rive-mascot-canvas {
+    width: min(100%, 230px);
+  }
+
+  .home-daily-word,
+  .daily-vocab-stamp,
+  .wotd-book.book {
+    height: clamp(145px, 20vh, 165px);
+    max-width: none;
+    flex: 0 0 auto;
+  }
+
+  .wotd-book-inside.book-inside,
+  .wotd-book-cover.cover {
+    padding: 0.8rem 1rem;
+    overflow: hidden;
+  }
+
+  .wotd-word-surface {
+    min-height: 42px;
+  }
+
+  .wotd-stroke-char {
+    width: 42px;
+    height: 42px;
+  }
+
+  .home-launcher-zone {
+    justify-content: flex-start;
+    padding: 0;
+  }
+
+  .home-launcher-grid {
+    gap: 0.85rem;
+  }
+
+  .home-launcher-card {
+    min-height: clamp(104px, 15vh, 130px);
+    padding: 1rem 1.25rem;
+  }
+}
+
+/* ==========================================================================
    Vocab Screen Styles
    ========================================================================== */
 .vocab-main-wrapper,

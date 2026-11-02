@@ -77,7 +77,7 @@ export class BottomDock {
     this.container.innerHTML = `
       <div class="bottom-dock-wrapper" role="navigation" aria-label="Main Application Navigation">
         <nav class="bottom-dock" id="bottom-dock" role="tablist" aria-label="Views">
-          <div class="nav-spring-pill" id="nav-spring-pill"></div>
+          <div class="nav-spring-pill" id="nav-spring-pill" data-indicator="nav-pill"></div>
           ${tabsHtml}
         </nav>
       </div>
@@ -107,6 +107,9 @@ export class BottomDock {
         console.debug('[BottomDock] fonts.ready error:', err);
       });
     }
+
+    // Call once after mount to ensure accurate initial position
+    setTimeout(() => this.updatePillPosition(false), 50);
   }
 
   handleKeyDown(e) {
@@ -213,39 +216,42 @@ export class BottomDock {
     }
   }
 
-  updatePillPosition(animated = true, retryCount = 0) {
+  movePillTo(element, animated = true) {
     const dock = document.getElementById('bottom-dock');
-    const pill = document.getElementById('nav-spring-pill');
-    if (!dock || !pill) return;
+    const pill = document.getElementById('nav-spring-pill') || document.getElementById('nav-pill-indicator');
+    if (!dock || !pill || !element) return;
 
-    const activeItem = dock.querySelector(`.nav-tab-item[data-tab="${this.activeTab}"]`);
-    if (!activeItem) return;
-
-    const dockRect = dock.getBoundingClientRect();
-    const itemRect = activeItem.getBoundingClientRect();
-
-    if (itemRect.width === 0) {
-      // Element not yet laid out, schedule on next frame (up to 5 retries)
-      if (retryCount < 5) {
-        requestAnimationFrame(() => this.updatePillPosition(false, retryCount + 1));
-      }
-      return;
-    }
-
-    const left = itemRect.left - dockRect.left;
-    const width = itemRect.width;
+    const leftOffset = element.offsetLeft;
+    const width = element.offsetWidth;
+    if (width === 0) return;
 
     if (!animated) {
       pill.style.transition = 'none';
-      pill.style.transform = `translateX(${left}px)`;
+      pill.style.transform = `translateX(${leftOffset}px)`;
       pill.style.width = `${width}px`;
       requestAnimationFrame(() => {
         pill.style.transition = '';
       });
     } else {
-      pill.style.transform = `translateX(${left}px)`;
+      pill.style.transform = `translateX(${leftOffset}px)`;
       pill.style.width = `${width}px`;
     }
+  }
+
+  updatePillPosition(animated = true, retryCount = 0) {
+    const dock = document.getElementById('bottom-dock');
+    if (!dock) return;
+
+    const activeItem = dock.querySelector(`.nav-tab-item[data-tab="${this.activeTab}"]`);
+    if (!activeItem) return;
+
+    const itemRect = activeItem.getBoundingClientRect();
+    if (itemRect.width === 0 && retryCount < 5) {
+      requestAnimationFrame(() => this.updatePillPosition(false, retryCount + 1));
+      return;
+    }
+
+    this.movePillTo(activeItem, animated);
   }
 
   destroy() {

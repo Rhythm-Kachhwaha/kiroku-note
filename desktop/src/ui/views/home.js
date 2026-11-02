@@ -313,7 +313,7 @@ export class HomeView {
       <div class="home-view-wrapper">
         <!-- Hero Brand Wordmark Header -->
         <header class="home-hero-header">
-          <div class="home-hero-brand" id="home-hero-brand" aria-label="KIROKU ノート">
+          <h1 class="home-hero-brand" id="home-hero-brand" aria-label="KIROKU ノート">
             <div class="hero-word-kiroku">
               <span class="hero-letter">K</span>
               <span class="hero-letter">I</span>
@@ -327,7 +327,7 @@ export class HomeView {
               <span class="hero-letter">ー</span>
               <span class="hero-letter">ト</span>
             </div>
-          </div>
+          </h1>
         </header>
 
         <div class="home-view-container">
