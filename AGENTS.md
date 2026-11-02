@@ -12,9 +12,6 @@ application, or an AI chatbot.
 
 Locked boundaries:
 
-- The current application UI is the extension Side Panel. It uses vanilla
-  HTML, CSS, and JavaScript; do not introduce React, Electron, or Node.js
-  runtime code into the extension.
 - FastAPI and SQLite are the backend and local source of truth.
 - Dictionary access is behind `YomitanService` and the provider seam in
   `backend/app/services/dictionary_provider.py`.
