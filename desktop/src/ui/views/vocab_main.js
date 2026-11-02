@@ -11,9 +11,9 @@ import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import * as wanakana from '../lib/wanakana.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
-import { mountCharacter } from '../rive_character.js';
 
 const DRAFT_STORAGE_KEY = 'kiroku:vocab-mining-draft';
+const ANNOTATED_STORAGE_KEY = 'kiroku:vocab-annotated-state';
 
 export class VocabMainView {
   constructor(router) {
@@ -31,7 +31,11 @@ export class VocabMainView {
     this.lastError = null;
     this.isDirty = false;
     this.draftState = null;
-    this.mascotHandle = null;
+    this.cachedAnnotatedState = null;
+    this.annotatedFilters = {
+      shouldKnow: true,
+      known: true
+    };
     this.quickAddOpen = true;
     this._levelListener = null;
     this._outsideClickListener = null;
@@ -44,7 +48,7 @@ export class VocabMainView {
     this.setupEvents();
     this.setupWanakana();
     this.restoreDraft();
-    this.mountMascot();
+    this.restoreAnnotatedState();
     await Promise.all([
       this.loadInitialMetadata(),
       this.loadGapsShelf()
@@ -58,20 +62,6 @@ export class VocabMainView {
       }
     };
     window.addEventListener('kiroku:learner-level-changed', this._levelListener);
-  }
-
-  async mountMascot() {
-    const canvas = document.getElementById('vocab-mascot-canvas');
-    if (!canvas) return;
-    try {
-      this.mascotHandle = await mountCharacter(canvas, '24603-46108-character-series-of-01.riv', {
-        fit: 'cover',
-        alignment: 'center',
-        autoplay: true
-      });
-    } catch (err) {
-      console.debug('[VocabMain] Mascot mount skipped:', err);
-    }
   }
 
   updateFocusLevelDisplay() {
@@ -152,7 +142,6 @@ export class VocabMainView {
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
               </svg>
               <span>Quick Add</span>
-              <span class="dock-badge-subtle">Dock</span>
             </button>
           </div>
 
@@ -214,39 +203,93 @@ export class VocabMainView {
               <!-- Mode 2: Text Annotator Container -->
               <div id="vocab-text-mode-container" class="vocab-mode-pane" style="display: none;">
                 <div class="text-annotate-card tactile-card">
-                  <div class="text-annotate-header mb-3">
-                    <h2 class="text-lg font-bold font-sans">Text annotator</h2>
-                    <p class="text-sm text-secondary font-sans">
-                      Paste a Japanese article or paragraph. Tokens will be highlighted by your learner status: should know, mined, or known.
-                    </p>
-                  </div>
+                  <!-- Typing Form: Hidden Once Text Is Annotated -->
+                  <div class="text-annotate-composer" id="text-annotate-composer">
+                    <div class="text-annotate-header mb-3">
+                      <h2 class="text-lg font-bold font-sans">Text annotator</h2>
+                      <p class="text-sm text-secondary font-sans">
+                        Paste a Japanese article or paragraph. Tokens will be highlighted by your learner status: should know or known.
+                      </p>
+                    </div>
 
-                  <textarea
-                    id="vocab-text-input"
-                    class="tactile-input form-textarea font-japanese"
-                    rows="4"
-                    placeholder="Paste Japanese text to tokenize and color by learner status..."
-                  ></textarea>
+                    <textarea
+                      id="vocab-text-input"
+                      class="tactile-input form-textarea font-japanese"
+                      rows="4"
+                      placeholder="Paste Japanese text to tokenize and color by learner status..."
+                    ></textarea>
 
-                  <div class="text-annotate-actions">
-                    <button type="button" class="tactile-btn tactile-btn-primary font-sans" id="btn-annotate-text">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                      </svg>
-                      <span>Annotate paragraph</span>
-                    </button>
+                    <div class="text-annotate-actions">
+                      <button type="button" class="tactile-btn tactile-btn-primary font-sans" id="btn-annotate-text">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                        </svg>
+                        <span>Annotate paragraph</span>
+                      </button>
 
-                    <div class="annotation-legend font-sans">
-                      <span class="legend-chip legend-should-know">Should know</span>
-                      <span class="legend-chip legend-mined">Mined</span>
-                      <span class="legend-chip legend-known">Known</span>
+                      <div class="annotation-legend font-sans">
+                        <span class="legend-item legend-should-know">
+                          <span class="legend-dot"></span>
+                          <span>Should know</span>
+                        </span>
+                        <span class="legend-item legend-known">
+                          <span class="legend-dot"></span>
+                          <span>Known</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div class="annotated-result-wrapper surface-pitch-black tactile-card" id="vocab-text-annotated-result" style="display: none; margin-top: 1.25rem;">
-                    <div class="annotated-tokens-stage" id="annotated-tokens-stage"></div>
-                    <p class="text-xs text-muted mt-2 px-3 pb-2 font-sans">
-                      Click any token to inspect its JMdict definition on the Word desk and mine to Anki.
+                  <!-- Reading View (Architectural Cream Box): Active When Text Is Annotated -->
+                  <div class="annotated-result-wrapper arch-cream-reading-box tactile-card" id="vocab-text-annotated-result" style="display: none; margin-top: 0;">
+                    <div class="annotated-result-toolbar">
+                      <div class="annotated-filter-group" role="group" aria-label="Highlight Filters">
+                        <button
+                          type="button"
+                          class="annotated-filter-chip is-active filter-should-know font-sans"
+                          id="btn-filter-should-know"
+                          data-filter="should-know"
+                          title="Toggle Should Know highlights (Vermilion)"
+                        >
+                          <span class="filter-chip-dot"></span>
+                          <span>Should know</span>
+                          <span class="filter-chip-count" id="count-should-know">0</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          class="annotated-filter-chip is-active filter-known font-sans"
+                          id="btn-filter-known"
+                          data-filter="known"
+                          title="Toggle Known highlights (Dark Green)"
+                        >
+                          <span class="filter-chip-dot"></span>
+                          <span>Known</span>
+                          <span class="filter-chip-count" id="count-known">0</span>
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        class="annotated-clear-btn tactile-btn font-sans"
+                        id="btn-clear-annotated"
+                        title="Clear text and re-paste"
+                        aria-label="Clear annotated text"
+                      >
+                        <svg class="dustbin-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M3 6h18"/>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                          <line x1="10" y1="11" x2="10" y2="17"/>
+                          <line x1="14" y1="11" x2="14" y2="17"/>
+                        </svg>
+                        <span>Clear</span>
+                      </button>
+                    </div>
+
+                    <div class="annotated-tokens-stage font-japanese" id="annotated-tokens-stage"></div>
+                    <p class="annotated-reading-hint font-sans">
+                      Click any Japanese word to inspect definition on Word Desk and mine to Anki.
                     </p>
                   </div>
                 </div>
@@ -255,101 +298,85 @@ export class VocabMainView {
 
             <!-- Right Pane: Dedicated Quick Add Side Panel (matching extension UI) -->
             <aside class="vocab-quick-add-dock" id="vocab-quick-add-dock" aria-label="Quick Add Side Panel">
-              <div class="quick-add-dock-header">
-                <div class="dock-header-title-group">
-                  <div class="vocab-mascot-pod" title="Kiroku Companion">
-                    <canvas id="vocab-mascot-canvas" width="88" height="88"></canvas>
-                  </div>
-                  <div>
-                    <h2 class="dock-title">Quick Add</h2>
-                    <span class="dock-badge-subtle">Extension Mode</span>
-                  </div>
-                </div>
-
-                <button type="button" class="dock-close-btn" id="btn-close-quick-add" title="Close Quick Add Panel" aria-label="Close panel">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                  </svg>
-                </button>
-              </div>
-
-              <form class="card-mining-form tactile-card" id="card-mining-form">
-                <div class="mining-form-header">
-                  <div class="mining-title-group">
-                    <span class="mining-unsaved-badge font-sans" id="mining-unsaved-badge" style="display: none;" title="Unsaved changes in this card">
-                      <span class="unsaved-dot"></span>
-                      <span>Unsaved</span>
-                    </span>
-                  </div>
-                  <div class="anki-sync-status-pill font-mono" id="anki-sync-status" style="display: none;"></div>
-                </div>
-
-                <!-- Hidden inputs for data contracts -->
-                <input type="hidden" id="input-expression" value="" />
-                <input type="hidden" id="input-reading" value="" />
-
-                <!-- Meaning Field -->
-                <div class="form-field">
-                  <label for="input-meaning" class="font-sans">Meaning and gloss</label>
-                  <textarea id="input-meaning" class="tactile-input form-textarea font-japanese" rows="3" placeholder="Definition and nuances..."></textarea>
-                </div>
-
-                <!-- Sentence Context & Translation -->
-                <div class="form-field">
-                  <label for="input-sentence" class="font-sans">Example sentence</label>
-                  <textarea id="input-sentence" class="tactile-input form-textarea-sm font-japanese" rows="2" placeholder="Example Japanese sentence..."></textarea>
-                </div>
-                <div class="form-field">
-                  <label for="input-translation" class="font-sans">Translation</label>
-                  <input type="text" id="input-translation" class="tactile-input font-sans" placeholder="English translation..." />
-                </div>
-
-                <!-- Deck Selector & Tags -->
-                <div class="form-row-pair">
-                  <div class="form-field">
-                    <label for="select-deck" class="font-sans">Target deck</label>
-                    <select id="select-deck" class="tactile-input font-sans">
-                      <option value="Default">Default</option>
-                    </select>
-                  </div>
-                  <div class="form-field">
-                    <label for="input-tags" class="font-sans">Tags</label>
-                    <input type="text" id="input-tags" class="tactile-input font-sans" value="kiroku" />
-                  </div>
-                </div>
-
-                <!-- Action Button Row -->
-                <div class="form-actions-row">
-                  <button type="submit" class="tactile-btn tactile-btn-primary card-save-stamp-btn font-sans" id="btn-save-card">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              <div class="quick-add-dock-inner">
+                <div class="quick-add-dock-header">
+                  <h2 class="dock-title">Quick Add</h2>
+                  <button type="button" class="dock-close-btn" id="btn-close-quick-add" title="Close Quick Add Panel" aria-label="Close panel">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                     </svg>
-                    <span>Save Card to Local & Anki</span>
                   </button>
                 </div>
-              </form>
+
+                <form class="card-mining-form tactile-card" id="card-mining-form">
+                  <div class="mining-form-header">
+                    <div class="mining-title-group">
+                      <span class="mining-unsaved-badge font-sans" id="mining-unsaved-badge" style="display: none;" title="Unsaved changes in this card">
+                        <span class="unsaved-dot"></span>
+                        <span>Unsaved</span>
+                      </span>
+                    </div>
+                    <div class="anki-sync-status-pill font-mono" id="anki-sync-status" style="display: none;"></div>
+                  </div>
+
+                  <!-- Hidden inputs for data contracts -->
+                  <input type="hidden" id="input-expression" value="" />
+                  <input type="hidden" id="input-reading" value="" />
+
+                  <!-- Meaning Field -->
+                  <div class="form-field">
+                    <label for="input-meaning" class="font-sans">Meaning and gloss</label>
+                    <textarea id="input-meaning" class="tactile-input form-textarea font-japanese" rows="3" placeholder="Definition and nuances..."></textarea>
+                  </div>
+
+                  <!-- Hint Field -->
+                  <div class="form-field">
+                    <label for="input-hint" class="font-sans">Hint</label>
+                    <input type="text" id="input-hint" class="tactile-input font-sans" placeholder="Mnemonic or memory hook..." />
+                  </div>
+
+                  <!-- Sentence Context & Translation -->
+                  <div class="form-field">
+                    <label for="input-sentence" class="font-sans">Example sentence</label>
+                    <textarea id="input-sentence" class="tactile-input form-textarea-sm font-japanese" rows="2" placeholder="Example Japanese sentence..."></textarea>
+                  </div>
+                  <div class="form-field">
+                    <label for="input-translation" class="font-sans">Translation</label>
+                    <input type="text" id="input-translation" class="tactile-input font-sans" placeholder="English translation..." />
+                  </div>
+
+                  <!-- Personal Study Notes Field -->
+                  <div class="form-field">
+                    <label for="input-notes" class="font-sans">Notes</label>
+                    <textarea id="input-notes" class="tactile-input form-textarea-sm font-sans" rows="2" placeholder="Personal notes or nuances..."></textarea>
+                  </div>
+
+                  <!-- Deck Selector & Tags -->
+                  <div class="form-row-pair">
+                    <div class="form-field">
+                      <label for="select-deck" class="font-sans">Target deck</label>
+                      <select id="select-deck" class="tactile-input font-sans">
+                        <option value="Default">Default</option>
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label for="input-tags" class="font-sans">Tags</label>
+                      <input type="text" id="input-tags" class="tactile-input font-sans" value="kiroku" />
+                    </div>
+                  </div>
+
+                  <!-- Action Button Row -->
+                  <div class="form-actions-row">
+                    <button type="submit" class="tactile-btn tactile-btn-primary card-save-stamp-btn font-sans" id="btn-save-card">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-3H8v-2h3V8h2v3h3v2h-3v3z"/>
+                      </svg>
+                      <span>Save Card</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
             </aside>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-                </button>
-
-                <div class="annotation-legend font-sans">
-                  <span class="legend-chip legend-should-know">Should know</span>
-                  <span class="legend-chip legend-mined">Mined</span>
-                  <span class="legend-chip legend-known">Known</span>
-                </div>
-              </div>
-
-              <div class="annotated-result-wrapper surface-pitch-black tactile-card" id="vocab-text-annotated-result" style="display: none; margin-top: 1.25rem;">
-                <div class="annotated-tokens-stage" id="annotated-tokens-stage"></div>
-                <p class="text-xs text-muted mt-2 px-3 pb-2 font-sans">
-                  Click any token to inspect its JMdict definition on the Word desk and mine to Anki.
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -388,8 +415,10 @@ export class VocabMainView {
         expression: document.getElementById('input-expression')?.value || '',
         reading: document.getElementById('input-reading')?.value || '',
         meaning: document.getElementById('input-meaning')?.value || '',
+        hint: document.getElementById('input-hint')?.value || '',
         example_sentence: document.getElementById('input-sentence')?.value || '',
         example_translation: document.getElementById('input-translation')?.value || '',
+        notes: document.getElementById('input-notes')?.value || '',
         deck_name: document.getElementById('select-deck')?.value || 'Default',
         tags: document.getElementById('input-tags')?.value || 'kiroku',
         isDirty: this.isDirty,
@@ -429,14 +458,18 @@ export class VocabMainView {
       const inputMeaning = document.getElementById('input-meaning');
       const inputSentence = document.getElementById('input-sentence');
       const inputTranslation = document.getElementById('input-translation');
+      const inputHint = document.getElementById('input-hint');
+      const inputNotes = document.getElementById('input-notes');
       const selectDeck = document.getElementById('select-deck');
       const inputTags = document.getElementById('input-tags');
 
       if (inputExpr && draft.expression !== undefined) inputExpr.value = draft.expression;
       if (inputReading && draft.reading !== undefined) inputReading.value = draft.reading;
       if (inputMeaning && draft.meaning !== undefined) inputMeaning.value = draft.meaning;
+      if (inputHint && draft.hint !== undefined) inputHint.value = draft.hint;
       if (inputSentence && draft.example_sentence !== undefined) inputSentence.value = draft.example_sentence;
       if (inputTranslation && draft.example_translation !== undefined) inputTranslation.value = draft.example_translation;
+      if (inputNotes && draft.notes !== undefined) inputNotes.value = draft.notes;
       if (inputTags && draft.tags !== undefined) inputTags.value = draft.tags;
       if (selectDeck && draft.deck_name && this.ankiDecks.includes(draft.deck_name)) {
         selectDeck.value = draft.deck_name;
@@ -641,6 +674,46 @@ export class VocabMainView {
       btnAnnotate.addEventListener('click', () => this.handleAnnotateParagraph());
     }
 
+    // Text annotator filters & clear button
+    const btnFilterShouldKnow = document.getElementById('btn-filter-should-know');
+    if (btnFilterShouldKnow) {
+      btnFilterShouldKnow.addEventListener('click', () => {
+        this.annotatedFilters.shouldKnow = !this.annotatedFilters.shouldKnow;
+        btnFilterShouldKnow.classList.toggle('is-active', this.annotatedFilters.shouldKnow);
+        const stageEl = document.getElementById('annotated-tokens-stage');
+        if (stageEl) {
+          stageEl.classList.toggle('hide-should-know', !this.annotatedFilters.shouldKnow);
+        }
+        if (this.cachedAnnotatedState) {
+          this.cachedAnnotatedState.filters = { ...this.annotatedFilters };
+          this.saveAnnotatedState();
+        }
+      });
+    }
+
+    const btnFilterKnown = document.getElementById('btn-filter-known');
+    if (btnFilterKnown) {
+      btnFilterKnown.addEventListener('click', () => {
+        this.annotatedFilters.known = !this.annotatedFilters.known;
+        btnFilterKnown.classList.toggle('is-active', this.annotatedFilters.known);
+        const stageEl = document.getElementById('annotated-tokens-stage');
+        if (stageEl) {
+          stageEl.classList.toggle('hide-known', !this.annotatedFilters.known);
+        }
+        if (this.cachedAnnotatedState) {
+          this.cachedAnnotatedState.filters = { ...this.annotatedFilters };
+          this.saveAnnotatedState();
+        }
+      });
+    }
+
+    const btnClearAnnotated = document.getElementById('btn-clear-annotated');
+    if (btnClearAnnotated) {
+      btnClearAnnotated.addEventListener('click', () => {
+        this.clearAnnotatedState();
+      });
+    }
+
     // IME Mode pills
     const pills = this.container.querySelectorAll('.ime-pill');
     if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
@@ -684,8 +757,10 @@ export class VocabMainView {
       'input-expression',
       'input-reading',
       'input-meaning',
+      'input-hint',
       'input-sentence',
       'input-translation',
+      'input-notes',
       'input-tags'
     ];
     miningInputIds.forEach((id) => {
@@ -788,11 +863,15 @@ export class VocabMainView {
     if (wordContainer && textContainer) {
       wordContainer.style.display = mode === 'word' ? 'block' : 'none';
       textContainer.style.display = mode === 'text' ? 'block' : 'none';
+      if (mode === 'text') {
+        this.restoreAnnotatedState();
+      }
     }
   }
 
   async handleAnnotateParagraph() {
     const inputEl = document.getElementById('vocab-text-input');
+    const composer = document.getElementById('text-annotate-composer');
     const resultBox = document.getElementById('vocab-text-annotated-result');
     const btn = document.getElementById('btn-annotate-text');
 
@@ -815,8 +894,17 @@ export class VocabMainView {
         return;
       }
 
-      this.renderAnnotatedTokens(tokens);
+      this.cachedAnnotatedState = {
+        text,
+        tokens,
+        filters: { ...this.annotatedFilters }
+      };
+      this.saveAnnotatedState();
+
+      if (composer) composer.style.display = 'none';
       if (resultBox) resultBox.style.display = 'block';
+
+      this.renderAnnotatedTokens(tokens);
     } catch (err) {
       this.showError(`Failed to annotate text: ${err.message}`);
     } finally {
@@ -828,11 +916,30 @@ export class VocabMainView {
     const stageEl = document.getElementById('annotated-tokens-stage');
     if (!stageEl) return;
 
+    let countShouldKnow = 0;
+    let countKnown = 0;
+
     stageEl.innerHTML = tokens.map((t) => {
       const surface = escapeHtml(t.surface || '');
       const lemma = escapeHtml(t.lemma || t.surface || '');
-      const status = t.status || 'unstyled';
-      const statusClass = `token-${status.replace(/_/g, '-')}`;
+      const rawStatus = t.status || 'unstyled';
+
+      // Known is the union of marked known words and mined cards
+      const isKnown = this.knownWordsSet.has(lemma) ||
+                      this.knownWordsSet.has(surface) ||
+                      rawStatus === 'mined' ||
+                      rawStatus === 'known';
+
+      let effectiveStatus = 'unstyled';
+      if (isKnown) {
+        effectiveStatus = 'known';
+        countKnown++;
+      } else if (rawStatus === 'should_know') {
+        effectiveStatus = 'should_know';
+        countShouldKnow++;
+      }
+
+      const statusClass = `token-${effectiveStatus.replace(/_/g, '-')}`;
       const level = t.jlpt_level ? escapeHtml(t.jlpt_level) : '';
 
       return `
@@ -840,14 +947,28 @@ export class VocabMainView {
           class="vocab-annotated-token ${statusClass}"
           data-lemma="${lemma}"
           data-surface="${surface}"
-          data-status="${status}"
+          data-status="${effectiveStatus}"
           data-level="${level}"
           tabindex="0"
           role="button"
-          title="${lemma} (${status}${level ? ` · ${level}` : ''}) — Click to inspect"
+          title="${lemma} (${effectiveStatus === 'should_know' ? 'Should know' : effectiveStatus === 'known' ? 'Known' : 'Other'}${level ? ` · ${level}` : ''}) — Click to inspect"
         >${surface}</span>
       `;
-    }).join(' ');
+    }).join('');
+
+    // Update filter counts and active states
+    const countShouldKnowEl = document.getElementById('count-should-know');
+    const countKnownEl = document.getElementById('count-known');
+    if (countShouldKnowEl) countShouldKnowEl.textContent = countShouldKnow;
+    if (countKnownEl) countKnownEl.textContent = countKnown;
+
+    const btnShouldKnow = document.getElementById('btn-filter-should-know');
+    const btnKnown = document.getElementById('btn-filter-known');
+    if (btnShouldKnow) btnShouldKnow.classList.toggle('is-active', this.annotatedFilters.shouldKnow);
+    if (btnKnown) btnKnown.classList.toggle('is-active', this.annotatedFilters.known);
+
+    stageEl.classList.toggle('hide-should-know', !this.annotatedFilters.shouldKnow);
+    stageEl.classList.toggle('hide-known', !this.annotatedFilters.known);
 
     stageEl.querySelectorAll('.vocab-annotated-token').forEach(tokenEl => {
       const onSelect = () => {
@@ -863,6 +984,67 @@ export class VocabMainView {
         }
       });
     });
+  }
+
+  saveAnnotatedState() {
+    try {
+      if (this.cachedAnnotatedState && typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(ANNOTATED_STORAGE_KEY, JSON.stringify(this.cachedAnnotatedState));
+      }
+    } catch (err) {
+      console.debug('[VocabMain] Failed to save annotated state:', err);
+    }
+  }
+
+  restoreAnnotatedState() {
+    try {
+      let saved = this.cachedAnnotatedState;
+      if (!saved && typeof window !== 'undefined' && window.localStorage) {
+        const raw = window.localStorage.getItem(ANNOTATED_STORAGE_KEY);
+        if (raw) saved = JSON.parse(raw);
+      }
+      if (!saved || !Array.isArray(saved.tokens) || saved.tokens.length === 0) return;
+
+      this.cachedAnnotatedState = saved;
+      const composer = document.getElementById('text-annotate-composer');
+      const resultBox = document.getElementById('vocab-text-annotated-result');
+      const inputEl = document.getElementById('vocab-text-input');
+      if (inputEl && saved.text) inputEl.value = saved.text;
+
+      if (saved.filters) {
+        this.annotatedFilters = { ...saved.filters };
+      }
+
+      this.renderAnnotatedTokens(saved.tokens);
+      if (composer) composer.style.display = 'none';
+      if (resultBox) resultBox.style.display = 'block';
+    } catch (err) {
+      console.debug('[VocabMain] Failed to restore annotated state:', err);
+    }
+  }
+
+  clearAnnotatedState() {
+    this.cachedAnnotatedState = null;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(ANNOTATED_STORAGE_KEY);
+      }
+    } catch (err) {
+      console.debug('[VocabMain] Failed to clear annotated state:', err);
+    }
+
+    const composer = document.getElementById('text-annotate-composer');
+    const resultBox = document.getElementById('vocab-text-annotated-result');
+    const stageEl = document.getElementById('annotated-tokens-stage');
+    const inputEl = document.getElementById('vocab-text-input');
+
+    if (stageEl) stageEl.innerHTML = '';
+    if (resultBox) resultBox.style.display = 'none';
+    if (composer) composer.style.display = 'block';
+    if (inputEl) {
+      inputEl.value = '';
+      inputEl.focus();
+    }
   }
 
   async handleSearchDirect(word) {
@@ -1055,14 +1237,18 @@ export class VocabMainView {
     const inputExpr = document.getElementById('input-expression');
     const inputReading = document.getElementById('input-reading');
     const inputMeaning = document.getElementById('input-meaning');
+    const inputHint = document.getElementById('input-hint');
     const inputSentence = document.getElementById('input-sentence');
     const inputTranslation = document.getElementById('input-translation');
+    const inputNotes = document.getElementById('input-notes');
 
     if (inputExpr) inputExpr.value = expr;
     if (inputReading) inputReading.value = reading;
     if (inputMeaning) inputMeaning.value = term.meaning || term.gloss || '';
+    if (inputHint) inputHint.value = term.hint || '';
     if (inputSentence) inputSentence.value = term.example_sentence || term.sentence || '';
     if (inputTranslation) inputTranslation.value = term.example_translation || term.sentence_translation || '';
+    if (inputNotes) inputNotes.value = term.notes || '';
 
     // Freshly loaded dictionary term is pristine
     this.setDirty(false);
@@ -1077,8 +1263,10 @@ export class VocabMainView {
       expression: document.getElementById('input-expression')?.value?.trim() || '',
       reading: document.getElementById('input-reading')?.value?.trim() || '',
       meaning: document.getElementById('input-meaning')?.value?.trim() || '',
+      hint: document.getElementById('input-hint')?.value?.trim() || '',
       example_sentence: document.getElementById('input-sentence')?.value?.trim() || '',
       example_translation: document.getElementById('input-translation')?.value?.trim() || '',
+      notes: document.getElementById('input-notes')?.value?.trim() || '',
       deck_name: document.getElementById('select-deck')?.value || 'Default',
       tags: document.getElementById('input-tags')?.value?.trim() || 'kiroku'
     };
@@ -1132,14 +1320,6 @@ export class VocabMainView {
 
   unmount() {
     this.saveDraft();
-    if (this.mascotHandle && typeof this.mascotHandle.cleanup === 'function') {
-      try {
-        this.mascotHandle.cleanup();
-      } catch (err) {
-        console.debug('[VocabMain] Mascot cleanup error:', err);
-      }
-      this.mascotHandle = null;
-    }
     if (this._levelListener) {
       window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
       this._levelListener = null;

@@ -122,7 +122,18 @@ Applied in desktop/src/ui/styles/bundle.css without modifying any UI structure:
 
 ---
 
-## 4. Change Protocol
+---
+
+## 4. Strict Design Rules & Anti-Slop Prohibitions
+
+1. **NO MICRO-TAGS / PILL BADGES INSIDE ACTION BUTTONS OR HEADERS**:
+   - **Rule**: Never append tiny capsule tags or mini-pills (e.g. \Dock\, \Mode\, \Extension Mode\, \Beta\) inside action buttons, tab triggers, or header labels.
+   - **Reasoning**: Action buttons must be clean, deliberate, and direct. Tucking miniature capsule pills into buttons creates unnecessary visual noise, reads as generic AI slop, and degrades button readability.
+   - **Permitted Badge Roles**: Badges are strictly restricted to legitimate data metadata (e.g. JLPT levels \N5..N1\, pitch accent \[0] 平板\, grammatical parts of speech, and card status like \Unsaved\).
+
+---
+
+## 5. Change Protocol
 
 Whenever a request touches an interface element:
 1. Consult this file first.

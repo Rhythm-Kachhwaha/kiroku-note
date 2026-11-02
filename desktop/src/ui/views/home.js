@@ -274,8 +274,11 @@ export class HomeView {
     this.currentDailyWord = {
       word: fallbackWord.kanji,
       reading: fallbackWord.reading,
+      romaji: fallbackWord.romaji,
       meaning: fallbackWord.meaning,
       jlpt_level: fallbackWord.jlpt,
+      category: fallbackWord.category,
+      partOfSpeech: fallbackWord.partOfSpeech,
       example_sentence: fallbackWord.exampleSentence,
       example_translation: fallbackWord.exampleTranslation,
       is_saved: false,
@@ -355,21 +358,21 @@ export class HomeView {
                 <canvas class="rive-mascot-canvas" aria-hidden="true"></canvas>
               </div>
             </div>
+          </div>
 
-            <!-- Deterministic Word of the Day Card Anchor (3D Book Flip) -->
-            <div class="home-daily-word daily-vocab-stamp wotd-book book tactile-card"
+          <!-- Center/Right Zone: Animated Stroke Launcher Cards & Word of the Day -->
+          <div class="home-launcher-zone" id="home-launcher-zone">
+            <div class="home-launcher-grid" role="region" aria-label="Study Destinations">
+              ${launcherCardsHtml}
+            </div>
+
+            <!-- Deterministic Word of the Day Card Anchor (Under Launcher Cards) -->
+            <div class="home-daily-word daily-vocab-stamp tactile-card"
                  id="daily-word-stamp"
                  role="region"
                  tabindex="0"
                  aria-label="Word of the day: ${this.currentDailyWord.word} (${this.currentDailyWord.reading}) - ${this.currentDailyWord.meaning}">
               ${this.renderWordOfTheDayCard(this.currentDailyWord)}
-            </div>
-          </div>
-
-          <!-- Center/Right Zone: Animated Stroke Launcher Cards -->
-          <div class="home-launcher-zone" id="home-launcher-zone">
-            <div class="home-launcher-grid" role="region" aria-label="Study Destinations">
-              ${launcherCardsHtml}
             </div>
           </div>
         </div>
@@ -393,81 +396,73 @@ export class HomeView {
     const isSaved = Boolean(data.is_saved);
 
     return `
-      <!-- Inside Page (Revealed when 3D book cover opens) -->
-      <div class="wotd-book-inside book-inside" id="wotd-book-inside">
-        <div class="wotd-inside-header">
-          <div class="wotd-inside-tag font-mono">
-            <span class="wotd-inside-badge font-mono">${data.jlpt_level || 'N3'}</span>
-            <span class="wotd-inside-sub font-mono">${data.has_kanji ? 'VOCABULARY' : 'KANA'}</span>
+      <div class="wotd-card-inner">
+        <!-- Top Meta & Controls Header -->
+        <div class="wotd-header-row">
+          <div class="wotd-badge-group">
+            <span class="wotd-section-tag font-mono">WORD OF THE DAY</span>
+            <span class="wotd-jlpt-pill font-mono">${data.jlpt_level || 'N3'}</span>
+            ${data.category ? `<span class="wotd-category-pill font-mono">${data.category}</span>` : ''}
           </div>
-
-          <!-- Bookmark SVG Button to Save -->
-          <button class="wotd-bookmark-btn ${isSaved ? 'is-added' : ''}"
-                  id="btn-wotd-add"
-                  type="button"
-                  role="button"
-                  ${isSaved ? 'disabled' : ''}
-                  aria-label="${isSaved ? 'Saved in Kiroku' : 'Add to Kiroku'}"
-                  title="${isSaved ? 'Saved in Kiroku' : 'Add to Kiroku'}">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span class="wotd-bookmark-label font-mono">${isSaved ? 'Added' : 'Save'}</span>
-          </button>
-        </div>
-
-        <div class="wotd-inside-meaning">
-          <div class="wotd-inside-meaning-label font-mono">DEFINITION</div>
-          <div class="wotd-meaning-text font-sans">${data.meaning || ''}</div>
-        </div>
-
-        <!-- Expandable Example Drawer (Inside Book Page) -->
-        <div class="wotd-example-drawer" id="wotd-example-drawer" style="${hasExample ? '' : 'display: none;'}">
-          <div class="wotd-example-inner">
-            <div class="wotd-example-block">
-              <div class="wotd-example-label font-mono">EXAMPLE SENTENCE</div>
-              <p class="wotd-example-ja font-japanese">${data.example_sentence || ''}</p>
-              ${data.example_translation ? `<p class="wotd-example-en font-sans">${data.example_translation}</p>` : ''}
-            </div>
-          </div>
-        </div>
-
-        <div class="wotd-inside-footer">
-          <a href="#vocab" class="wotd-link-vocab font-mono text-muted" id="btn-daily-word-open" title="Open in Vocabulary Desk">
-            Open in Vocab Desk &rarr;
-          </a>
-        </div>
-      </div>
-
-      <!-- Front Cover Layer (Swings open -82deg on hover/focus) -->
-      <div class="wotd-book-cover cover" id="wotd-book-cover">
-        <div class="wotd-spine-hinge" aria-hidden="true"></div>
-
-        <div class="wotd-cover-inner">
-          <div class="wotd-header-row">
-            <div class="wotd-badges">
-              <span class="wotd-label font-mono">WORD OF THE DAY</span>
-              <span class="wotd-jlpt-pill font-mono">${data.jlpt_level || 'N3'}</span>
-            </div>
-            <button class="wotd-btn-replay" id="btn-wotd-replay" aria-label="Replay" title="Replay write-in animation">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <div class="wotd-actions-row">
+            <button class="wotd-btn-replay"
+                    id="btn-wotd-replay"
+                    type="button"
+                    aria-label="Replay write-in animation"
+                    title="Replay stroke order">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polyline points="23 4 23 10 17 10"></polyline>
                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
               </svg>
             </button>
+            <button class="wotd-bookmark-btn ${isSaved ? 'is-added' : ''}"
+                    id="btn-wotd-add"
+                    type="button"
+                    role="button"
+                    ${isSaved ? 'disabled' : ''}
+                    aria-label="${isSaved ? 'Saved in Kiroku' : 'Add to Kiroku'}"
+                    title="${isSaved ? 'Saved in Kiroku' : 'Save to Kiroku'}">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span class="wotd-bookmark-label font-mono">${isSaved ? 'Added' : 'Save'}</span>
+            </button>
           </div>
+        </div>
 
-          <!-- Word Surface: Stroke-Order Paths in Vermilion -->
+        <!-- Main Word Display & Kana / Romaji Reading -->
+        <div class="wotd-main-display">
           <div class="wotd-word-surface" id="wotd-word-surface">
             ${this.renderWordGlyphs(data)}
           </div>
-
-          <!-- Reading & Open Affordance on Cover -->
           <div class="wotd-details-row is-revealed" id="wotd-details-row">
             <div class="wotd-reading-line">
               <span class="wotd-reading font-japanese">${data.reading || ''}</span>
+              ${data.romaji ? `<span class="wotd-romaji font-mono">${data.romaji}</span>` : ''}
             </div>
-            <div class="wotd-cover-hint font-mono">Hover to open &bull; Save inside &rarr;</div>
+            <div class="wotd-meaning-text font-sans">${data.meaning || ''}</div>
+          </div>
+        </div>
+
+        <!-- Collapsible Drawer Container (Reveals on Hover, Focus, or Tap) -->
+        <div class="wotd-collapsible-wrapper" id="wotd-collapsible-wrapper">
+          <div class="wotd-collapsible-inner">
+            <!-- Example Sentence Context Inset -->
+            <div class="wotd-example-drawer" id="wotd-example-drawer" style="${hasExample ? '' : 'display: none;'}">
+              <div class="wotd-example-block">
+                <div class="wotd-example-label font-mono">EXAMPLE</div>
+                <p class="wotd-example-ja font-japanese">${data.example_sentence || ''}</p>
+                ${data.example_translation ? `<p class="wotd-example-en font-sans">${data.example_translation}</p>` : ''}
+              </div>
+            </div>
+
+            <!-- Footer Link to Vocab Desk -->
+            <div class="wotd-footer-row">
+              <a href="#vocab" class="wotd-link-vocab font-mono" id="btn-daily-word-open" title="Open in Vocabulary Desk">
+                <span>Open in Vocab Desk</span>
+                <span class="wotd-arrow font-mono" aria-hidden="true">&rarr;</span>
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -927,8 +922,8 @@ export class HomeView {
               foreheadTrigger.fire();
             }
           } catch (e) {
-          console.debug('[Home] Path length computation fallback:', e);
-        }
+            console.debug('[Home] Path length computation fallback:', e);
+          }
         }
         mascotWrap.style.transform = 'translateY(-10px) scale(1.03)';
         if (this.jumpTimeout) {
@@ -986,7 +981,6 @@ export class HomeView {
     const btnReplay = document.getElementById('btn-wotd-replay');
     const btnAdd = document.getElementById('btn-wotd-add');
     const btnOpen = document.getElementById('btn-daily-word-open');
-    const coverEl = document.getElementById('wotd-book-cover');
 
     // 1. Replay button: re-runs write-in animation
     if (btnReplay) {
@@ -1057,16 +1051,19 @@ export class HomeView {
       });
     }
 
-    // 4. Click cover to toggle open state
-    if (coverEl && cardEl) {
-      coverEl.addEventListener('click', (e) => {
-        if (e.target.closest('#btn-wotd-replay')) return;
-        cardEl.classList.toggle('is-open');
-      });
-    }
-
-    // 5. Card keyboard focus navigation to vocab desk on Enter if not clicking internal controls
+    // 4. Card keyboard focus navigation to vocab desk on Enter if not clicking internal controls, and tap toggle for touch
     if (cardEl) {
+      cardEl.addEventListener('click', (e) => {
+        if (e.target.closest('#btn-wotd-replay') ||
+          e.target.closest('#btn-wotd-add') ||
+          e.target.closest('#btn-daily-word-open') ||
+          e.target.closest('button') ||
+          e.target.closest('a')) {
+          return;
+        }
+        cardEl.classList.toggle('is-expanded');
+      });
+
       cardEl.addEventListener('keydown', (e) => {
         if (e.target === cardEl && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
