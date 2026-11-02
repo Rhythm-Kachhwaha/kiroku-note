@@ -423,12 +423,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .brand-letter,
-<<<<<<< HEAD
   .chrome-action-btn-settings:hover svg,
   .nav-tab-item {
-=======
-  .chrome-action-btn-settings:hover svg {
->>>>>>> 01770a1794815298cef17eb9e8fa1e4542719b27
     transition: none !important;
   }
 }
