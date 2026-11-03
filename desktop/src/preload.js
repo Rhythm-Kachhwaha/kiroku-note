@@ -100,6 +100,11 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   openInstructions: () => ipcRenderer.invoke('app:open-instructions'),
   getRiveAssetUrl: (assetName) => ipcRenderer.invoke('runtime:get-rive-asset-url', assetName),
   getServicesStatus: () => ipcRenderer.invoke('backend:services-status'),
+  extensionPairing: {
+    create: () => ipcRenderer.invoke('extension:pairing:create'),
+    revokeAll: () => ipcRenderer.invoke('extension:pairing:revoke-all'),
+    status: () => ipcRenderer.invoke('extension:pairing:status')
+  },
   toggleOcr: () => ipcRenderer.invoke('ocr:toggle'),
   chrome: chromeShim,
 

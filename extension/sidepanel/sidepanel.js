@@ -28,6 +28,64 @@ const API_KNOWN_WORDS_MARK_URL = `${BACKEND_BASE_URL}/api/known-words/mark`;
 const API_GRAMMAR_ANALYZE_URL = `${BACKEND_BASE_URL}/api/grammar/analyze`;
 const API_GRAMMAR_SETUP_URL = `${BACKEND_BASE_URL}/api/grammar/setup-check`;
 
+// The paired extension token is intentionally session-only: it is distinct
+// from the desktop launch token and disappears when the browser session ends.
+const EXTENSION_AUTH_STORAGE_KEY = "kiroku.extension.session_token";
+let extensionAuthToken = null;
+const nativeFetch = typeof globalThis.fetch === "function" ? globalThis.fetch.bind(globalThis) : null;
+
+if (globalThis.chrome?.storage?.session) {
+  globalThis.chrome.storage.session.get(EXTENSION_AUTH_STORAGE_KEY).then((stored) => {
+    extensionAuthToken = stored?.[EXTENSION_AUTH_STORAGE_KEY] || null;
+  }).catch(() => {});
+}
+
+function isLocalKirokuApi(input) {
+  const url = typeof input === "string" ? input : input?.url;
+  return typeof url === "string" && url.startsWith(`${BACKEND_BASE_URL}/api/`);
+}
+
+if (nativeFetch) {
+  globalThis.fetch = (input, init = {}) => {
+    if (!extensionAuthToken || !isLocalKirokuApi(input)) return nativeFetch(input, init);
+    const headers = new Headers(init.headers || (typeof input === "object" ? input.headers : undefined));
+    headers.set("Authorization", `Bearer ${extensionAuthToken}`);
+    return nativeFetch(input, { ...init, headers });
+  };
+}
+
+async function redeemExtensionPairing(code) {
+  if (!nativeFetch) throw new Error("Fetch is unavailable.");
+  const response = await nativeFetch(`${BACKEND_BASE_URL}/api/auth/extension-pairings/redeem`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: String(code || "").trim() })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.token) throw new Error(payload.detail || "Pairing failed.");
+  extensionAuthToken = payload.token;
+  await chrome.storage.session.set({ [EXTENSION_AUTH_STORAGE_KEY]: extensionAuthToken });
+}
+
+if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", () => {
+  const codeInput = document.querySelector("#extension-pairing-code");
+  const submit = document.querySelector("#extension-pairing-submit");
+  const status = document.querySelector("#extension-pairing-status");
+  if (!codeInput || !submit || !status) return;
+  submit.addEventListener("click", async () => {
+    submit.disabled = true;
+    try {
+      await redeemExtensionPairing(codeInput.value);
+      codeInput.value = "";
+      status.textContent = "Paired for this browser session.";
+    } catch (error) {
+      status.textContent = error?.message || "Pairing failed.";
+    } finally {
+      submit.disabled = false;
+    }
+  });
+});
+
 const kanjiStrokesCache = new Map();
 const annotatedCuesCache = new Map();
 const minedWordsSet = new Set();

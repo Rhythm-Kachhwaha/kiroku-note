@@ -16,28 +16,77 @@ APP_VERSION = "2.1.0"
 
 DEFAULT_KIROKU_HOST = "127.0.0.1"
 DEFAULT_KIROKU_PORT = 21828
-DEFAULT_ALLOWED_ORIGIN_REGEX = r"^(chrome-extension://.*|http://(localhost|127\.0\.0\.1)(:\d+)?)$"
+DEFAULT_ALLOWED_ORIGIN_REGEX = r"^http://(localhost|127\.0\.0\.1)(:\d+)?$"
+LEGACY_EXTENSION_ORIGIN_REGEX = r"chrome-extension://.*"
+
+
+def _comma_separated(env: dict[str, str], name: str) -> tuple[str, ...]:
+    return tuple(value.strip() for value in env.get(name, "").split(",") if value.strip())
+
+
+def get_allowed_extension_ids(env: dict[str, str] | None = None) -> tuple[str, ...]:
+    """Return explicit production and opt-in development extension IDs.
+
+    No extension origin is trusted until an ID is configured.  Development IDs
+    are deliberately separate so a packaged build cannot accidentally trust an
+    unpacked extension.
+    """
+    env_dict = os.environ if env is None else env
+    production = _comma_separated(env_dict, "KIROKU_EXTENSION_IDS")
+    development = ()
+    if env_dict.get("KIROKU_ENABLE_DEV_EXTENSION_IDS", "").strip().lower() in {"1", "true", "yes"}:
+        development = _comma_separated(env_dict, "KIROKU_DEV_EXTENSION_IDS")
+    return tuple(dict.fromkeys((*production, *development)))
+
+
+def get_extension_origin_policy(env: dict[str, str] | None = None) -> str:
+    """Return the staged extension-origin policy; allowlisting is the default."""
+    value = (os.environ if env is None else env).get("KIROKU_EXTENSION_ORIGIN_POLICY", "allowlist").strip().lower()
+    return value if value in {"legacy", "allowlist"} else "allowlist"
+
+
+def is_legacy_extension_origin_rollback_enabled(env: dict[str, str] | None = None) -> bool:
+    """Allow the old broad extension policy only as an explicit temporary rollback."""
+    env_dict = os.environ if env is None else env
+    return (
+        get_extension_origin_policy(env_dict) == "legacy"
+        and env_dict.get("KIROKU_ALLOW_LEGACY_EXTENSION_ORIGINS", "").strip().lower() in {"1", "true", "yes"}
+    )
+
+
+def get_legacy_token_mode(env: dict[str, str] | None = None) -> str:
+    """Return the legacy mutation token rollout mode; enforcement is opt-in."""
+    value = (os.environ if env is None else env).get("KIROKU_LEGACY_TOKEN_MODE", "off").strip().lower()
+    return value if value in {"off", "warn", "enforce"} else "off"
+
+
+def is_extension_pairing_enabled(env: dict[str, str] | None = None) -> bool:
+    value = (os.environ if env is None else env).get("KIROKU_EXTENSION_PAIRING_ENABLED", "").strip().lower()
+    return value in {"1", "true", "yes"}
 
 
 def get_allowed_origin_regex(env: dict[str, str] | None = None) -> str:
     """
     Resolve regex pattern for trusted CORS origins.
-    Defaults to loopback localhost/127.0.0.1 and Chrome extension origins.
+    Defaults to loopback localhost/127.0.0.1. Extension origins are accepted
+    only when explicitly configured and the allowlist stage is active.
     Can be extended with comma-separated origins in KIROKU_ALLOWED_ORIGINS.
     Never permits wildcard '*' with credentials.
     """
     env_dict = os.environ if env is None else env
+    if is_legacy_extension_origin_rollback_enabled(env_dict):
+        return f"^({DEFAULT_ALLOWED_ORIGIN_REGEX[1:-1]}|{LEGACY_EXTENSION_ORIGIN_REGEX})$"
+    origins = [f"chrome-extension://{extension_id}" for extension_id in get_allowed_extension_ids(env_dict)]
     custom = env_dict.get("KIROKU_ALLOWED_ORIGINS")
-    if not custom or not str(custom).strip():
-        return DEFAULT_ALLOWED_ORIGIN_REGEX
+    if custom and str(custom).strip():
+        origins.extend(o.strip() for o in str(custom).split(",") if o.strip() and o.strip() != "*")
 
-    origins = [o.strip() for o in str(custom).split(",") if o.strip() and o.strip() != "*"]
     if not origins:
         return DEFAULT_ALLOWED_ORIGIN_REGEX
 
     escaped = [re.escape(o) for o in origins]
     custom_subpattern = "|".join(escaped)
-    return f"^({DEFAULT_ALLOWED_ORIGIN_REGEX[2:-2]}|{custom_subpattern})$"
+    return f"^({DEFAULT_ALLOWED_ORIGIN_REGEX[1:-1]}|{custom_subpattern})$"
 
 
 def load_dotenv(env_path: Path | None = None, override: bool = False) -> None:

@@ -5,6 +5,7 @@ import io
 import logging
 import os
 import re
+import secrets
 import time
 from contextlib import asynccontextmanager
 
@@ -65,6 +66,11 @@ from app.schemas import (
 from app.config import (
     APP_VERSION,
     get_allowed_origin_regex,
+    get_allowed_extension_ids,
+    get_extension_origin_policy,
+    is_legacy_extension_origin_rollback_enabled,
+    get_legacy_token_mode,
+    is_extension_pairing_enabled,
     get_llm_api_key,
     get_llm_jlpt_level,
     get_llm_key_name,
@@ -100,6 +106,8 @@ from app.services.llm_service import (
     get_llm_service,
 )
 from app.services.yomitan import YomitanError, YomitanService
+from app.api.study.auth import get_study_api_token
+from app.services.legacy_api_auth import legacy_api_auth
 
 # Debug mode: set KIROKU_DEBUG=1 to enable /docs, /redoc, and hot-reload.
 # Off by default so production/distributed builds do not expose developer APIs.
@@ -113,6 +121,8 @@ from app.services.ocr_process_manager import OcrProcessManager
 
 
 log = logging.getLogger("kiroku_backend")
+if is_legacy_extension_origin_rollback_enabled():
+    log.warning("Legacy broad extension-origin rollback is active; configure extension IDs and remove this override.")
 CLOUD_AUTO_POLL_INTERVAL_SECONDS = 150.0
 
 
@@ -295,6 +305,27 @@ app = FastAPI(
 )
 
 
+def _bearer_token(request: Request) -> str | None:
+    authorization = request.headers.get("authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    return token.strip() if scheme.lower() == "bearer" and token.strip() else None
+
+
+def _is_desktop_request(request: Request) -> bool:
+    configured = get_study_api_token()
+    token = _bearer_token(request)
+    return bool(configured and token and secrets.compare_digest(token, configured))
+
+
+def _is_legacy_mutation(request: Request) -> bool:
+    return (
+        request.method in {"POST", "PUT", "PATCH", "DELETE"}
+        and request.url.path.startswith("/api/")
+        and not request.url.path.startswith("/api/study/")
+        and not request.url.path.startswith("/api/auth/")
+    )
+
+
 @app.middleware("http")
 async def validate_request_security(request: Request, call_next):
     # 1. Host header validation (prevent DNS rebinding)
@@ -314,6 +345,21 @@ async def validate_request_security(request: Request, call_next):
                 content={"detail": "Forbidden: Untrusted Origin."},
             )
 
+    # Stage 2/3: all legacy state changes flow through this one policy. Study
+    # routes retain their existing router-level bearer dependency.
+    if _is_legacy_mutation(request):
+        mode = get_legacy_token_mode()
+        token = _bearer_token(request)
+        authorized = _is_desktop_request(request) or legacy_api_auth.has_extension_token(token)
+        if mode == "warn" and not authorized:
+            legacy_api_auth.missing_token_counts[request.url.path] += 1
+            log.warning("Legacy API mutation missing a recognized token: route=%s", request.url.path)
+        elif mode == "enforce" and not authorized:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Unauthorized: a desktop or paired extension token is required."},
+            )
+
     return await call_next(request)
 
 
@@ -323,6 +369,65 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _require_desktop_control(request: Request) -> None:
+    if not _is_desktop_request(request):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: desktop control token is required.",
+        )
+
+
+@app.post("/api/auth/extension-pairings/register")
+async def register_extension_pairing(request: Request) -> dict[str, object]:
+    """Register a desktop-generated pairing code as a short-lived hash."""
+    _require_desktop_control(request)
+    if not is_extension_pairing_enabled():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Extension pairing is disabled.")
+    body = await request.json()
+    code = str(body.get("code", "")).strip() if isinstance(body, dict) else ""
+    if len(code) < 8 or len(code) > 64:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid pairing code.")
+    return {"ok": True, "expires_in_seconds": legacy_api_auth.create_pairing(code)}
+
+
+@app.post("/api/auth/extension-pairings/redeem")
+async def redeem_extension_pairing(request: Request) -> dict[str, object]:
+    """Redeem one allowed-origin pairing code for a separate extension token."""
+    if not is_extension_pairing_enabled():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Extension pairing is disabled.")
+    origin = request.headers.get("origin", "")
+    if not origin or origin not in {f"chrome-extension://{item}" for item in get_allowed_extension_ids()}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden: unpaired extension origin.")
+    body = await request.json()
+    code = str(body.get("code", "")).strip() if isinstance(body, dict) else ""
+    try:
+        token = legacy_api_auth.redeem_pairing(code, origin)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired pairing code.")
+    return {"token": token, "scope": "legacy:write"}
+
+
+@app.post("/api/auth/extension-pairings/revoke-all")
+async def revoke_extension_pairings(request: Request) -> dict[str, object]:
+    """Let the desktop revoke every current-launch extension token."""
+    _require_desktop_control(request)
+    return {"revoked": legacy_api_auth.revoke_all_extension_tokens()}
+
+
+@app.get("/api/auth/extension-pairings/status")
+async def extension_pairing_status(request: Request) -> dict[str, object]:
+    _require_desktop_control(request)
+    return {
+        "origin_policy": get_extension_origin_policy(),
+        "legacy_origin_rollback_active": is_legacy_extension_origin_rollback_enabled(),
+        "token_mode": get_legacy_token_mode(),
+        "pairing_enabled": is_extension_pairing_enabled(),
+        **legacy_api_auth.status(),
+    }
 
 from app.api.subtitle import subtitle_router
 from app.api.grammar import grammar_router

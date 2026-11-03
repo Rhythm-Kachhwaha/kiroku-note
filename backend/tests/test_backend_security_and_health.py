@@ -4,7 +4,7 @@ Session 2 — Backend Core Fixes & Security Hardening Tests
 Verifies:
   1. Origin null is blocked from CORS / state-changing requests.
   2. Untrusted origins (https://evil.com) receive 403 on state-changing methods.
-  3. Trusted origins (chrome-extension://*, http://localhost:*, http://127.0.0.1:*) succeed.
+  3. Only configured extension origins and loopback origins succeed.
   4. Requests with no Origin header (curl, local scripts) succeed.
   5. Host header validation prevents DNS rebinding (evil.com returns 403).
   6. /api/health returns cached response within TTL without re-querying services.
@@ -77,13 +77,13 @@ class BackendSecurityAndHealthTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 403)
         self.assertIn("Forbidden", resp.json().get("detail", ""))
 
-    def test_state_changing_allowed_chrome_extension_origin(self):
-        """State-changing POST with chrome-extension:// origin must be allowed."""
+    def test_state_changing_unconfigured_chrome_extension_origin_forbidden(self):
+        """Stage 1 rejects an extension ID that was not explicitly configured."""
         resp = self.client.post(
             "/api/cards/sync-all",
             headers={"Origin": "chrome-extension://abcdefghijklmnop"},
         )
-        self.assertNotEqual(resp.status_code, 403)
+        self.assertEqual(resp.status_code, 403)
 
     def test_state_changing_allowed_local_origin(self):
         """State-changing POST with local origin must be allowed."""

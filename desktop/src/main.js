@@ -4,10 +4,11 @@
  * Authenticated Study HTTP API Bridge, and Secure IPC Communication.
  */
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeTheme, nativeImage, shell, Notification } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeTheme, nativeImage, shell, Notification, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const crypto = require('crypto');
 const { pathToFileURL } = require('url');
 const { ProcessManager } = require('./process_manager');
 const { DesktopStore } = require('./store');
@@ -47,6 +48,35 @@ const studyApiClient = new StudyApiClient({
   port: processManager.port,
   getToken: () => processManager.getApiToken()
 });
+
+async function desktopControlRequest(pathname, body = {}) {
+  const response = await fetch(`http://${processManager.host || '127.0.0.1'}:${processManager.port || 21828}${pathname}`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${processManager.getApiToken()}`
+    },
+    body: JSON.stringify(body)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+  return data;
+}
+
+function createPairingCode() {
+  return crypto.randomBytes(8).toString('hex').toUpperCase().match(/.{1,4}/g).join('-');
+}
+
+async function generateAndRegisterPairingCode() {
+  const code = createPairingCode();
+  const result = await desktopControlRequest('/api/auth/extension-pairings/register', { code });
+  return { code, expiresInSeconds: result.expires_in_seconds };
+}
+
+async function revokeAllExtensionPairings() {
+  return desktopControlRequest('/api/auth/extension-pairings/revoke-all');
+}
 
 // Set native theme to dark by default
 nativeTheme.themeSource = 'dark';
@@ -180,6 +210,44 @@ function updateSystemTrayMenu() {
       ? '  OCR Engine: Ready (Active)'
       : '  OCR Engine: Off (Stopped)';
   }
+
+  menuTemplate.push({
+    label: 'Generate Extension Pairing Code',
+    enabled: processManager.status === 'running',
+    click: async () => {
+      try {
+        const pairing = await generateAndRegisterPairingCode();
+        await dialog.showMessageBox(mainWindow || undefined, {
+          type: 'info',
+          title: 'Extension Pairing Code',
+          message: pairing.code,
+          detail: `Enter this code in the Kiroku extension within ${pairing.expiresInSeconds / 60} minutes.`
+        });
+      } catch (error) {
+        await dialog.showMessageBox(mainWindow || undefined, {
+          type: 'error',
+          title: 'Extension Pairing Unavailable',
+          message: error.message
+        });
+      }
+    }
+  });
+  menuTemplate.push({
+    label: 'Revoke Extension Access',
+    enabled: processManager.status === 'running',
+    click: async () => {
+      try {
+        const result = await revokeAllExtensionPairings();
+        await dialog.showMessageBox(mainWindow || undefined, {
+          type: 'info', title: 'Extension Access Revoked', message: `${result.revoked} extension session(s) revoked.`
+        });
+      } catch (error) {
+        await dialog.showMessageBox(mainWindow || undefined, {
+          type: 'error', title: 'Extension Revocation Unavailable', message: error.message
+        });
+      }
+    }
+  });
 
   const ocrActionLabel = trayServicesStatus.ocrAvailable ? 'Stop OCR Engine' : 'Start OCR Engine';
 
@@ -688,6 +756,8 @@ function setupIpcHandlers() {
 
       const requestHeaders = {
         'Accept': 'application/json',
+        'Origin': `http://127.0.0.1:${port}`,
+        'Authorization': `Bearer ${processManager.getApiToken()}`,
         ...headers
       };
 
@@ -791,6 +861,25 @@ function setupIpcHandlers() {
         }
       };
     }
+  });
+
+  // The pairing code is generated in the main process and only its hash is
+  // registered with the backend. The extension receives a separate token.
+  ipcMain.handle('extension:pairing:create', async () => {
+    return generateAndRegisterPairingCode();
+  });
+
+  ipcMain.handle('extension:pairing:revoke-all', async () => {
+    return revokeAllExtensionPairings();
+  });
+
+  ipcMain.handle('extension:pairing:status', async () => {
+    const response = await fetch(`http://${processManager.host || '127.0.0.1'}:${processManager.port || 21828}/api/auth/extension-pairings/status`, {
+      headers: { 'Authorization': `Bearer ${processManager.getApiToken()}` }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+    return data;
   });
 
   // Secure Study API bridge handler
