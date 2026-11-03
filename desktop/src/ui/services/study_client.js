@@ -48,6 +48,13 @@ export class StudyClient {
     });
   }
 
+  async getWeakAreas() {
+    return this.request({
+      method: 'GET',
+      path: '/api/study/v1/analytics/weak-areas'
+    });
+  }
+
   async getDiagnostics() {
     return this.request({
       method: 'GET',

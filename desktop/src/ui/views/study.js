@@ -17,6 +17,13 @@ import {
   writeStoredSession
 } from '../utils/session_recovery.js';
 import { getEligibleQuestionCount } from '../utils/practice_setup.js';
+import {
+  formatDuration,
+  formatMetricLabel,
+  formatPercent,
+  getProgressMetrics,
+  hasProgressHistory
+} from '../utils/progress_formatters.js';
 
 export function filterMistakes(items, { level = '', format = '', format_code: formatCode = '' } = {}) {
   return (Array.isArray(items) ? items : []).filter((item) => (
@@ -258,6 +265,9 @@ export class StudyView {
           <button type="button" class="tactile-btn w-full mt-2" id="btn-open-bank">
             Browse Question Bank
           </button>
+          <button type="button" class="tactile-btn w-full mt-2" id="btn-open-progress">
+            View Progress
+          </button>
         </div>
       </div>
     `;
@@ -332,6 +342,110 @@ export class StudyView {
       btnMistakes.addEventListener('click', () => this.loadMistakesNotebook());
     }
     document.getElementById('btn-open-bank')?.addEventListener('click', () => this.loadQuestionBank());
+    document.getElementById('btn-open-progress')?.addEventListener('click', () => this.loadProgress());
+  }
+
+  async loadProgress() {
+    const area = document.getElementById('study-content-area');
+    if (!area) return;
+    area.innerHTML = '<div class="tactile-card text-center py-12 text-muted"><span class="font-mono text-sm">Loading progress...</span></div>';
+    try {
+      const [overview, weakAreas] = await Promise.all([
+        studyClient.getLearningOverview(),
+        studyClient.getWeakAreas()
+      ]);
+      this.renderProgress(overview || {}, Array.isArray(weakAreas) ? weakAreas : []);
+    } catch (err) {
+      console.error('[Study] Progress error:', err);
+      this.showError('Progress failed: ' + (err.message || 'Unable to load progress'));
+      this.renderSetupChooser();
+    }
+  }
+
+  renderProgress(overview = {}, weakAreas = []) {
+    const area = document.getElementById('study-content-area');
+    if (!area) return;
+    if (!hasProgressHistory(overview, weakAreas)) {
+      area.innerHTML = `
+        <div class="study-empty-state tactile-card text-center py-10">
+          <div class="flex items-center justify-between gap-3 mb-4 text-left">
+            <div>
+              <span class="font-mono text-xs text-gold uppercase tracking-wider">Study</span>
+              <h2 class="text-xl font-bold text-warm-paper mt-1">Progress</h2>
+            </div>
+            <button type="button" class="tactile-btn tactile-btn-sm" id="btn-back-from-progress">Back</button>
+          </div>
+          <h3 class="study-empty-title">No study history yet</h3>
+          <p class="text-secondary text-sm max-w-md mx-auto">Complete a practice session to see accuracy and weak areas here.</p>
+        </div>
+      `;
+      document.getElementById('btn-back-from-progress')?.addEventListener('click', () => this.renderSetupChooser());
+      return;
+    }
+
+    const summary = overview.learning_summary || {};
+    const metrics = getProgressMetrics(summary);
+    const renderAccuracyRows = (items) => (Array.isArray(items) ? items : []).map((item) => `
+      <div class="flex items-center justify-between gap-3 py-2 border-b border-white/10 last:border-b-0">
+        <span class="text-secondary">${escapeHtml(item.group_name || item.level || item.family || 'Unknown')}</span>
+        <span class="font-mono text-warm-paper">${formatPercent(item.accuracy ?? item.accuracy_percent)}</span>
+      </div>
+    `).join('');
+    const renderWeakAreas = weakAreas.map((item) => `
+      <div class="tactile-card surface-pitch-black p-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-mono text-xs text-gold">${escapeHtml(item.format_code || '')} · ${escapeHtml(item.level || '')}</span>
+          <span class="font-mono text-xs text-warm-paper">${formatPercent(item.accuracy)}</span>
+        </div>
+        <p class="text-secondary text-sm mt-1">${escapeHtml(item.description || item.category || 'Weak area')}</p>
+      </div>
+    `).join('');
+    const sectionTimes = summary.time_per_section || summary.time_by_section;
+    const renderSectionTimes = sectionTimes && typeof sectionTimes === 'object'
+      ? Object.entries(sectionTimes).map(([section, duration]) => `
+        <div class="flex items-center justify-between gap-3 py-2 border-b border-white/10 last:border-b-0">
+          <span class="text-secondary">${escapeHtml(formatMetricLabel(section))}</span>
+          <span class="font-mono text-warm-paper">${formatDuration(duration)}</span>
+        </div>
+      `).join('')
+      : '';
+
+    area.innerHTML = `
+      <div class="study-progress-card tactile-card">
+        <div class="flex items-center justify-between gap-3 mb-5">
+          <div>
+            <span class="font-mono text-xs text-gold uppercase tracking-wider">Study</span>
+            <h2 class="text-xl font-bold text-warm-paper mt-1">Progress</h2>
+          </div>
+          <button type="button" class="tactile-btn tactile-btn-sm" id="btn-back-from-progress">Back</button>
+        </div>
+        ${metrics.length ? `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">${metrics.map((metric) => `
+          <div class="tactile-card surface-pitch-black p-3">
+            <span class="text-xs text-muted block uppercase font-mono">${escapeHtml(metric.label)}</span>
+            <span class="font-mono text-xl font-bold text-warm-paper">${escapeHtml(metric.value)}</span>
+          </div>
+        `).join('')}</div>` : ''}
+        <div class="grid md:grid-cols-2 gap-4">
+          <section class="tactile-card surface-pitch-black p-4">
+            <h3 class="font-bold text-warm-paper mb-2">Accuracy by level</h3>
+            ${renderAccuracyRows(overview.accuracy_by_level) || '<p class="text-secondary text-sm">No level accuracy recorded.</p>'}
+          </section>
+          <section class="tactile-card surface-pitch-black p-4">
+            <h3 class="font-bold text-warm-paper mb-2">Accuracy by format</h3>
+            ${renderAccuracyRows(overview.accuracy_by_family) || '<p class="text-secondary text-sm">No format accuracy recorded.</p>'}
+          </section>
+          ${renderSectionTimes ? `<section class="tactile-card surface-pitch-black p-4">
+            <h3 class="font-bold text-warm-paper mb-2">Time per section</h3>
+            ${renderSectionTimes}
+          </section>` : ''}
+          <section class="tactile-card surface-pitch-black p-4">
+            <h3 class="font-bold text-warm-paper mb-2">Weak areas</h3>
+            <div class="space-y-2">${weakAreas.length ? weakAreas.join('') : '<p class="text-secondary text-sm">No weak areas recorded.</p>'}</div>
+          </section>
+        </div>
+      </div>
+    `;
+    document.getElementById('btn-back-from-progress')?.addEventListener('click', () => this.renderSetupChooser());
   }
 
   async loadQuestionBank(filters = {}, page = 1) {
