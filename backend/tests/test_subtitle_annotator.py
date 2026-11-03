@@ -345,6 +345,55 @@ def test_kana_spellings_and_aliases(test_db: Path, text: str, expected_surface: 
         assert "飯" not in surfaces
 
 
+@pytest.mark.parametrize(
+    ("text", "lemma"),
+    [
+        ("地域社会", "地域社会"),
+        ("高齢者", "高齢者"),
+        ("情報共有", "情報共有"),
+        ("個人情報", "個人情報"),
+        ("勉強していた", "勉強"),
+        ("作っておく", "作る"),
+        ("身についてきた", "身につく"),
+        ("作られる", "作る"),
+        ("高めながら", "高める"),
+        ("コンビニ", "コンビニ"),
+        ("スマートフォン", "スマートフォン"),
+        ("テクノロジー", "テクノロジー"),
+        ("アプリケーション", "アプリケーション"),
+        ("アリサ", "アリサ"),
+    ],
+)
+def test_vocab_tokenizer_keeps_compounds_inflections_and_loanwords(
+    test_db: Path, text: str, lemma: str
+):
+    service = SubtitleAnnotatorService(db_path=test_db, learner_level="N1")
+    tokens = service.annotate_text(text)
+
+    assert len(tokens) == 1
+    assert tokens[0]["surface"] == text
+    assert tokens[0]["lemma"] == lemma
+    assert tokens[0]["start_char"] == 0
+    assert tokens[0]["end_char"] == len(text)
+
+
+def test_vocab_tokenizer_offsets_ai_boundaries_and_function_words(test_db: Path):
+    service = SubtitleAnnotatorService(db_path=test_db, learner_level="N1")
+    tokens = service.annotate_text("地域社会。AI\nアリサは")
+
+    assert [(t["surface"], t["start_char"], t["end_char"]) for t in tokens] == [
+        ("地域社会", 0, 4),
+        ("。", 4, 5),
+        ("A", 5, 6),
+        ("I", 6, 7),
+        ("\n", 7, 8),
+        ("アリサ", 8, 11),
+        ("は", 11, 12),
+    ]
+    assert tokens[2]["surface"] != "AI"
+    assert tokens[-1]["status"] == "unstyled"
+
+
 def test_spelling_variant_alias(test_db: Path):
     """Known spelling variants resolve to the canonical dictionary entry."""
     service = SubtitleAnnotatorService(db_path=test_db, learner_level="N1")

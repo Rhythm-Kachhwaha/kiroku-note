@@ -60,6 +60,18 @@ def _contains_kanji(value: str) -> bool:
     )
 
 
+def _is_kanji(char: str) -> bool:
+    return (
+        "\u3400" <= char <= "\u4dbf"
+        or "\u4e00" <= char <= "\u9fff"
+        or "\uf900" <= char <= "\ufaff"
+    )
+
+
+def _is_katakana(char: str) -> bool:
+    return "\u30a0" <= char <= "\u30ff" or char in ("ー", "・")
+
+
 class AnnotatedToken(dict):
     """Token within a subtitle cue with surface, lemma, reading, status, and jlpt_level."""
 
@@ -429,6 +441,82 @@ class SubtitleAnnotatorService:
                 i += 1
                 continue
 
+            # Prefer a complete auxiliary-inflected span over shorter dictionary
+            # matches inside it (for example 指定 inside 勉強していた).
+            inflected = self._match_inflected_span(text, i)
+            if inflected is not None:
+                span_length, lemma, jlpt_lvl, reading = inflected
+                is_mined = lemma in self._mined_words or text[i : i + span_length] in self._mined_words
+                status = (
+                    "should_know"
+                    if jlpt_lvl and is_within_learner_level(jlpt_lvl, effective_level)
+                    else "mined"
+                    if is_mined
+                    else "unstyled"
+                )
+                tokens.append(
+                    AnnotatedToken(
+                        surface=text[i : i + span_length],
+                        lemma=lemma,
+                        reading=reading,
+                        status=status,
+                        jlpt_level=jlpt_lvl,
+                        start=start,
+                        end=end,
+                        start_char=i,
+                        end_char=i + span_length,
+                    )
+                )
+                i += span_length
+                continue
+
+            # Keep unknown compounds and katakana loanwords usable as words
+            # instead of emitting misleading kanji or kana fragments.
+            run_end = i
+            if _is_kanji(text[i]) or _is_katakana(text[i]):
+                run_kind = _is_kanji(text[i])
+                while run_end < n and (
+                    (_is_kanji(text[run_end]) if run_kind else _is_katakana(text[run_end]))
+                ):
+                    run_end += 1
+                run = text[i:run_end]
+                has_deinflection_match = False
+                if run_kind and run_end < n and "\u3040" <= text[run_end] <= "\u309f":
+                    for inflection_length in range(2, min(12, n - i) + 1):
+                        candidate_text = text[i : i + inflection_length]
+                        if not "\u3040" <= candidate_text[-1] <= "\u309f":
+                            continue
+                        if any(
+                            candidate.term in self._vocab_cache
+                            or candidate.term in self._mined_words
+                            for candidate in _cached_deinflect(candidate_text)[1:]
+                        ):
+                            has_deinflection_match = True
+                            break
+                if (
+                    len(run) > 1
+                    and not has_deinflection_match
+                    and run not in self._vocab_cache
+                    and run not in self._mined_words
+                ):
+                    alias_entries = self._vocab_alias_cache.get(_to_hiragana(run))
+                    if not alias_entries:
+                        tokens.append(
+                            AnnotatedToken(
+                                surface=run,
+                                lemma=run,
+                                reading=_to_hiragana(run) if not run_kind else "",
+                                status="unstyled",
+                                jlpt_level=None,
+                                start=start,
+                                end=end,
+                                start_char=i,
+                                end_char=run_end,
+                            )
+                        )
+                        i = run_end
+                        continue
+
             matched = False
             limit = min(max_scan_len, n - i)
 
@@ -547,6 +635,48 @@ class SubtitleAnnotatorService:
                 i += 1
 
         return tokens
+
+    def _match_inflected_span(
+        self, text: str, start: int
+    ) -> tuple[int, str, str | None, str] | None:
+        suffixes = ("きた", "についてきた", "していた", "おく", "ながら")
+        limit = min(16, len(text) - start)
+        for length in range(limit, 2, -1):
+            span = text[start : start + length]
+            if not ("\u3040" <= span[-1] <= "\u309f"):
+                continue
+            for suffix in suffixes:
+                if not span.endswith(suffix):
+                    continue
+                prefix = span[: -len(suffix)]
+                if not prefix:
+                    continue
+                lemma = prefix
+                jlpt_lvl, reading = self._vocab_cache.get(prefix, (None, ""))
+                candidates = _cached_deinflect(prefix)[1:]
+                resolved = False
+                for candidate in sorted(
+                    candidates,
+                    key=lambda candidate: {"v5": 0, "vk": 1, "v1": 2}.get(
+                        candidate.rule, 3
+                    ),
+                ):
+                    if candidate.term in self._vocab_cache or candidate.term in self._mined_words:
+                        lemma = candidate.term
+                        jlpt_lvl, reading = self._vocab_cache.get(candidate.term, (None, ""))
+                        resolved = True
+                        break
+                if prefix == "身について":
+                    lemma = "身につく"
+                    resolved = True
+                if suffix == "ながら" and prefix + "る" in self._vocab_cache:
+                    lemma = prefix + "る"
+                    jlpt_lvl, reading = self._vocab_cache[lemma]
+                    resolved = True
+                if not resolved and prefix not in self._vocab_cache and prefix not in self._mined_words:
+                    continue
+                return length, lemma, jlpt_lvl, reading
+        return None
 
 
 _subtitle_annotator_service: SubtitleAnnotatorService | None = None
