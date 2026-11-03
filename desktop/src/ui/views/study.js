@@ -11,6 +11,36 @@ import { escapeHtml, renderStudyText, sanitizePromptMarkup } from '../utils/sani
 import { renderAssetSlot } from '../assets_map.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
 
+export function filterMistakes(items, { level = '', format = '', format_code: formatCode = '' } = {}) {
+  return (Array.isArray(items) ? items : []).filter((item) => (
+    (!level || item.level === level) &&
+    (!(format || formatCode) || item.format_code === (format || formatCode))
+  ));
+}
+
+export function filterBankQuestions(items, { level = '', format = '', status = '' } = {}) {
+  return (Array.isArray(items) ? items : []).filter((item) => (
+    (!level || item.level === level) &&
+    (!format || item.format_code === format) &&
+    (!status || item.verification_status === status)
+  ));
+}
+
+export function getBankPage(items, page = 1, pageSize = 20) {
+  const safePageSize = Math.max(1, Number(pageSize) || 20);
+  const safePage = Math.max(1, Number(page) || 1);
+  const total = Array.isArray(items) ? items.length : 0;
+  const pageCount = Math.max(1, Math.ceil(total / safePageSize));
+  const currentPage = Math.min(safePage, pageCount);
+  const start = (currentPage - 1) * safePageSize;
+  return {
+    items: (Array.isArray(items) ? items : []).slice(start, start + safePageSize),
+    page: currentPage,
+    pageCount,
+    total
+  };
+}
+
 function extractPassageContent(item) {
   if (!item) return null;
   if (item.group_context && Array.isArray(item.group_context.parts) && item.group_context.parts.length > 0) {
@@ -188,6 +218,12 @@ export class StudyView {
           <button type="button" class="tactile-btn tactile-btn-primary w-full" id="btn-start-practice">
             <span>Start Practice Drill (${escapeHtml(this.activeLevel)})</span>
           </button>
+          <button type="button" class="tactile-btn w-full mt-2" id="btn-open-mistakes">
+            Open Mistakes Notebook
+          </button>
+          <button type="button" class="tactile-btn w-full mt-2" id="btn-open-bank">
+            Browse Question Bank
+          </button>
         </div>
       </div>
     `;
@@ -234,6 +270,265 @@ export class StudyView {
         this.loadPracticeSession(this.activeLevel, this.selectedCount);
       });
     }
+    const btnMistakes = document.getElementById('btn-open-mistakes');
+    if (btnMistakes) {
+      btnMistakes.addEventListener('click', () => this.loadMistakesNotebook());
+    }
+    document.getElementById('btn-open-bank')?.addEventListener('click', () => this.loadQuestionBank());
+  }
+
+  async loadQuestionBank(filters = {}) {
+    const area = document.getElementById('study-content-area');
+    if (!area) return;
+    area.innerHTML = '<div class="tactile-card text-center py-12 text-muted"><span class="font-mono text-sm">Loading question bank...</span></div>';
+    try {
+      const response = await studyClient.searchQuestions({
+        level: filters.level || undefined,
+        format_code: filters.format || undefined,
+        verification_status: filters.status || undefined,
+        limit: 100,
+        offset: 0
+      });
+      this.renderQuestionBank(response?.items || [], filters, response?.total);
+    } catch (err) {
+      console.error('[Study] Question bank error:', err);
+      this.showError('Question bank failed: ' + (err.message || 'Unable to load questions'));
+      this.renderSetupChooser();
+    }
+  }
+
+  renderQuestionBank(items, filters = {}, totalFromApi = null, page = 1) {
+    const area = document.getElementById('study-content-area');
+    if (!area) return;
+    const formats = [...new Set(items.map((item) => item.format_code).filter(Boolean))].sort();
+    const statuses = [...new Set(items.map((item) => item.verification_status).filter(Boolean))].sort();
+    const filtered = filterBankQuestions(items, filters);
+    const pageData = getBankPage(filtered, page, 10);
+    area.innerHTML = `
+      <div class="study-bank-card tactile-card">
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <span class="font-mono text-xs text-gold uppercase tracking-wider">Study</span>
+            <h2 class="text-xl font-bold text-warm-paper mt-1">Question Bank</h2>
+            <p class="text-secondary text-sm">Find questions and report defective content. Revisions remain sealed.</p>
+          </div>
+          <button type="button" class="tactile-btn tactile-btn-sm" id="btn-back-from-bank">Back</button>
+        </div>
+        <div class="flex gap-2 mb-4 flex-wrap">
+          <select class="tactile-input" id="bank-level-filter" aria-label="Filter by level">
+            <option value="">All levels</option>
+            ${['N5', 'N4', 'N3', 'N2', 'N1'].map((level) => `<option value="${level}" ${filters.level === level ? 'selected' : ''}>${level}</option>`).join('')}
+          </select>
+          <select class="tactile-input" id="bank-format-filter" aria-label="Filter by format">
+            <option value="">All formats</option>
+            ${formats.map((format) => `<option value="${escapeHtml(format)}" ${filters.format === format ? 'selected' : ''}>${escapeHtml(format)}</option>`).join('')}
+          </select>
+          <select class="tactile-input" id="bank-status-filter" aria-label="Filter by verification status">
+            <option value="">All statuses</option>
+            ${statuses.map((status) => `<option value="${escapeHtml(status)}" ${filters.status === status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}
+          </select>
+        </div>
+        <div id="bank-list">
+          ${pageData.items.length ? pageData.items.map((item) => `
+            <button type="button" class="tactile-card-interactive w-full text-left p-3 mb-2 bank-list-item" data-question-id="${escapeHtml(String(item.question_id))}">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-mono text-xs text-gold">${escapeHtml(item.level || '')} · ${escapeHtml(item.format_code || '')}</span>
+                <span class="text-xs text-muted">${escapeHtml(item.verification_status || 'unverified')}</span>
+              </div>
+              <div class="font-japanese text-warm-paper mt-1">${item.prompt_html || escapeHtml(item.prompt_markup || '')}</div>
+            </button>
+          `).join('') : '<div class="study-empty-state text-center py-8 text-secondary">No questions match these filters.</div>'}
+        </div>
+        <div class="flex items-center justify-between mt-4">
+          <span class="text-xs text-muted">Showing ${pageData.items.length} of ${totalFromApi ?? pageData.total}</span>
+          <div class="flex gap-2">
+            <button type="button" class="tactile-btn tactile-btn-sm" id="btn-bank-prev" ${pageData.page <= 1 ? 'disabled' : ''}>Previous</button>
+            <span class="text-xs text-muted py-2">${pageData.page} / ${pageData.pageCount}</span>
+            <button type="button" class="tactile-btn tactile-btn-sm" id="btn-bank-next" ${pageData.page >= pageData.pageCount ? 'disabled' : ''}>Next</button>
+          </div>
+        </div>
+        <div id="bank-detail" class="mt-4"></div>
+      </div>
+    `;
+
+    document.getElementById('btn-back-from-bank')?.addEventListener('click', () => this.renderSetupChooser());
+    const applyFilters = () => this.loadQuestionBank({
+      level: document.getElementById('bank-level-filter')?.value || '',
+      format: document.getElementById('bank-format-filter')?.value || '',
+      status: document.getElementById('bank-status-filter')?.value || ''
+    });
+    document.getElementById('bank-level-filter')?.addEventListener('change', applyFilters);
+    document.getElementById('bank-format-filter')?.addEventListener('change', applyFilters);
+    document.getElementById('bank-status-filter')?.addEventListener('change', applyFilters);
+    document.getElementById('btn-bank-prev')?.addEventListener('click', () => this.renderQuestionBank(items, filters, totalFromApi, pageData.page - 1));
+    document.getElementById('btn-bank-next')?.addEventListener('click', () => this.renderQuestionBank(items, filters, totalFromApi, pageData.page + 1));
+    area.querySelectorAll('.bank-list-item').forEach((button) => {
+      button.addEventListener('click', () => this.loadQuestionDetail(button.dataset.questionId));
+    });
+  }
+
+  async loadQuestionDetail(questionId) {
+    const detail = document.getElementById('bank-detail');
+    if (!detail) return;
+    detail.innerHTML = '<div class="text-muted text-sm">Loading question detail...</div>';
+    try {
+      const [question, provenance] = await Promise.all([
+        studyClient.getQuestion(questionId),
+        studyClient.getQuestionProvenance(questionId)
+      ]);
+      const choices = Array.isArray(question?.choices) ? question.choices : [];
+      detail.innerHTML = `
+        <div class="tactile-card surface-pitch-black p-4">
+          <h3 class="font-bold text-warm-paper mb-2">Question ${escapeHtml(String(question?.external_id || questionId))}</h3>
+          <div class="font-japanese text-warm-paper mb-3">${question?.prompt_html || sanitizePromptMarkup(question?.prompt_markup || '')}</div>
+          <div class="text-sm text-secondary mb-3">${choices.map((choice) => `<div>${escapeHtml(choice.choice_key || choice.id || '')}: ${choice.text_html || escapeHtml(choice.text || choice.text_markup || '')}</div>`).join('')}</div>
+          <div class="text-xs text-muted mb-3">Answer: ${escapeHtml(question?.canonical_choice_key || 'Not recorded')} · Verification: ${escapeHtml(provenance?.verification?.status || 'unverified')}</div>
+          <div class="text-xs text-secondary mb-3">Provenance: ${escapeHtml((provenance?.sources || []).map((source) => source.citation || source.name).filter(Boolean).join('; ') || 'No source recorded')}</div>
+          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-report-question">Report a defect</button>
+          <div id="bank-report-form" class="mt-3"></div>
+        </div>
+      `;
+      document.getElementById('btn-report-question')?.addEventListener('click', () => this.renderQuestionReportForm(questionId));
+    } catch (err) {
+      console.error('[Study] Question detail error:', err);
+      detail.innerHTML = `<div class="text-secondary text-sm">${escapeHtml(err.message || 'Unable to load question detail.')}</div>`;
+    }
+  }
+
+  renderQuestionReportForm(questionId) {
+    const form = document.getElementById('bank-report-form');
+    if (!form) return;
+    form.innerHTML = `
+      <form id="question-report-form">
+        <label class="text-xs font-mono text-muted uppercase block mb-1" for="report-issue-type">Issue type</label>
+        <select class="tactile-input w-full mb-2" id="report-issue-type">
+          <option value="incorrect_answer">Incorrect answer</option>
+          <option value="bad_explanation">Bad explanation</option>
+          <option value="wrong_format">Wrong format</option>
+          <option value="typo_or_content">Typo or content</option>
+          <option value="audio_media_issue">Audio or media issue</option>
+          <option value="other">Other</option>
+        </select>
+        <textarea class="tactile-input w-full mb-2" id="report-details" minlength="3" maxlength="2000" required placeholder="Describe the defect"></textarea>
+        <button type="submit" class="tactile-btn tactile-btn-primary">Submit report</button>
+        <span class="text-sm text-secondary ml-2" id="report-status"></span>
+      </form>
+    `;
+    document.getElementById('question-report-form')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const status = document.getElementById('report-status');
+      try {
+        await studyClient.reportQuestion(questionId, {
+          issue_type: document.getElementById('report-issue-type')?.value,
+          details: document.getElementById('report-details')?.value
+        });
+        if (status) status.textContent = 'Report submitted.';
+      } catch (err) {
+        console.error('[Study] Question report error:', err);
+        if (status) status.textContent = 'Report failed: ' + (err.message || 'Unable to submit report');
+      }
+    });
+  }
+
+  async loadMistakesNotebook(filters = {}) {
+    const area = document.getElementById('study-content-area');
+    if (!area) return;
+    area.innerHTML = '<div class="tactile-card text-center py-12 text-muted"><span class="font-mono text-sm">Loading mistakes...</span></div>';
+    try {
+      const response = await studyClient.getIncorrectHistory({ limit: 100, ...filters });
+      this.renderMistakesNotebook(response?.items || [], filters);
+    } catch (err) {
+      console.error('[Study] Mistakes history error:', err);
+      this.showError('Mistakes notebook failed: ' + (err.message || 'Unable to load history'));
+      this.renderSetupChooser();
+    }
+  }
+
+  renderMistakesNotebook(items, filters = {}) {
+    const area = document.getElementById('study-content-area');
+    if (!area) return;
+    const formats = [...new Set(items.map((item) => item.format_code).filter(Boolean))].sort();
+    const visibleItems = filterMistakes(items, filters);
+    area.innerHTML = `
+      <div class="study-mistakes-card tactile-card">
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <span class="font-mono text-xs text-gold uppercase tracking-wider">Study</span>
+            <h2 class="text-xl font-bold text-warm-paper mt-1">Mistakes Notebook</h2>
+          </div>
+          <button type="button" class="tactile-btn tactile-btn-sm" id="btn-back-to-study">Back</button>
+        </div>
+        <div class="flex gap-2 mb-4 flex-wrap">
+          <select class="tactile-input" id="mistakes-level-filter" aria-label="Filter by level">
+            <option value="">All levels</option>
+            ${['N5', 'N4', 'N3', 'N2', 'N1'].map((level) => `<option value="${level}" ${filters.level === level ? 'selected' : ''}>${level}</option>`).join('')}
+          </select>
+          <select class="tactile-input" id="mistakes-format-filter" aria-label="Filter by format">
+            <option value="">All formats</option>
+            ${formats.map((format) => `<option value="${escapeHtml(format)}" ${filters.format === format ? 'selected' : ''}>${escapeHtml(format)}</option>`).join('')}
+          </select>
+          <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-practice-mistakes">Practice Mistakes</button>
+        </div>
+        <div id="mistakes-list">
+          ${visibleItems.length ? visibleItems.map((item) => `
+            <button type="button" class="tactile-card-interactive w-full text-left p-3 mb-2 mistake-list-item" data-question-id="${item.question_id}">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-mono text-xs text-gold">${escapeHtml(item.level)} · ${escapeHtml(item.format_code)}</span>
+                <span class="text-xs text-muted">${item.incorrect_count} mistakes</span>
+              </div>
+              <div class="font-japanese text-warm-paper mt-1">${item.prompt_html || escapeHtml(item.prompt_markup || '')}</div>
+            </button>
+          `).join('') : '<div class="study-empty-state text-center py-8 text-secondary">No mistakes match these filters.</div>'}
+        </div>
+        <div id="mistake-detail" class="mt-4"></div>
+      </div>
+    `;
+
+    document.getElementById('btn-back-to-study')?.addEventListener('click', () => this.renderSetupChooser());
+    const levelFilter = document.getElementById('mistakes-level-filter');
+    const formatFilter = document.getElementById('mistakes-format-filter');
+    const applyFilters = () => this.loadMistakesNotebook({
+      level: levelFilter?.value || '',
+      format_code: formatFilter?.value || ''
+    });
+    levelFilter?.addEventListener('change', applyFilters);
+    formatFilter?.addEventListener('change', applyFilters);
+    document.getElementById('btn-practice-mistakes')?.addEventListener('click', () => {
+      this.selectedSessionType = 'trouble';
+      this.loadPracticeSession(filters.level || this.activeLevel, this.selectedCount, filters.format_code || null);
+    });
+    area.querySelectorAll('.mistake-list-item').forEach((button) => {
+      button.addEventListener('click', () => this.loadMistakeDetail(button.dataset.questionId));
+    });
+  }
+
+  async loadMistakeDetail(questionId) {
+    const detail = document.getElementById('mistake-detail');
+    if (!detail) return;
+    detail.innerHTML = '<div class="text-muted text-sm">Loading detail...</div>';
+    try {
+      const item = await studyClient.getIncorrectQuestionDetail(questionId);
+      const latest = item?.timeline?.[item.timeline.length - 1];
+      detail.innerHTML = `
+        <div class="tactile-card surface-pitch-black p-4">
+          <h3 class="font-bold text-warm-paper mb-2">Review detail</h3>
+          <p class="text-secondary text-sm mb-3">${latest?.explanation_markup ? sanitizePromptMarkup(latest.explanation_markup) : 'No explanation was recorded.'}</p>
+          <div class="text-xs text-muted mb-3">
+            Your answer: ${escapeHtml(latest?.selected_choice_key || 'Unknown')}
+            · Correct answer: ${escapeHtml(latest?.canonical_choice_key || 'Unknown')}
+            · Time: ${latest?.time_spent_ms ?? 0} ms
+          </div>
+          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-practice-selected-mistake">Practice this mistake</button>
+        </div>
+      `;
+      document.getElementById('btn-practice-selected-mistake')?.addEventListener('click', () => {
+        this.selectedSessionType = 'trouble';
+        this.loadPracticeSession(item.level, 1, item.format_code || null);
+      });
+    } catch (err) {
+      console.error('[Study] Mistake detail error:', err);
+      detail.innerHTML = `<div class="text-secondary text-sm">${escapeHtml(err.message || 'Unable to load mistake detail.')}</div>`;
+    }
   }
 
   async updateBankSummaryDisplay() {
@@ -255,7 +550,7 @@ export class StudyView {
     }
   }
 
-  async loadPracticeSession(level = 'N4', count = 10) {
+  async loadPracticeSession(level = 'N4', count = 10, formatCode = null) {
     this.activeLevel = level;
     this.clearError();
     this.stopActiveTimer();
@@ -273,7 +568,7 @@ export class StudyView {
     }
 
     try {
-      const session = await studyClient.createPracticeSession(level, count, null, this.selectedSessionType);
+      const session = await studyClient.createPracticeSession(level, count, formatCode, this.selectedSessionType);
       const items = session?.items || [];
 
       if (!items || items.length === 0) {

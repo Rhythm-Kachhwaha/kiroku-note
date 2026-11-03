@@ -154,6 +154,7 @@ def get_trouble_questions(
 @supporting_router.get("/history/incorrect", response_model=PaginatedResponse)
 def get_incorrect_questions_history(
     level: Optional[str] = Query(default=None, pattern=r"^N[1-5]$"),
+    format_code: Optional[str] = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     conn: sqlite3.Connection = Depends(get_study_db),
@@ -167,6 +168,9 @@ def get_incorrect_questions_history(
         if level:
             where_clauses.append("q.level = ?")
             params.append(level)
+        if format_code:
+            where_clauses.append("q.format_code = ?")
+            params.append(format_code)
 
         where_sql = " WHERE " + " AND ".join(where_clauses)
         count_sql = f"""
@@ -193,7 +197,42 @@ def get_incorrect_questions_history(
                 COALESCE(qas.total_correct, 0) as total_correct,
                 CASE WHEN qas.last_is_correct = 1 THEN 1 ELSE 0 END as is_resolved,
                 CASE WHEN qas.last_is_correct = 1 THEN 'improved' ELSE 'needs_review' END as improvement_status,
-                qas.last_attempted_at
+                qas.last_attempted_at,
+                (
+                    SELECT rc.choice_key
+                    FROM response r_latest
+                    LEFT JOIN revision_choice rc ON r_latest.selected_choice_id = rc.id
+                    JOIN attempt_item ai_latest ON r_latest.attempt_item_id = ai_latest.id
+                    WHERE ai_latest.question_id = q.id AND r_latest.is_correct = 0
+                    ORDER BY r_latest.answered_at DESC, r_latest.id DESC
+                    LIMIT 1
+                ) as your_answer,
+                (
+                    SELECT rc.choice_key
+                    FROM response r_latest
+                    LEFT JOIN revision_choice rc ON r_latest.canonical_choice_id = rc.id
+                    JOIN attempt_item ai_latest ON r_latest.attempt_item_id = ai_latest.id
+                    WHERE ai_latest.question_id = q.id AND r_latest.is_correct = 0
+                    ORDER BY r_latest.answered_at DESC, r_latest.id DESC
+                    LIMIT 1
+                ) as correct_answer,
+                (
+                    SELECT ra.rationale_markup
+                    FROM response r_latest
+                    JOIN attempt_item ai_latest ON r_latest.attempt_item_id = ai_latest.id
+                    LEFT JOIN revision_answer ra ON ai_latest.pinned_question_revision_id = ra.question_revision_id
+                    WHERE ai_latest.question_id = q.id AND r_latest.is_correct = 0
+                    ORDER BY r_latest.answered_at DESC, r_latest.id DESC
+                    LIMIT 1
+                ) as explanation_markup,
+                (
+                    SELECT r_latest.time_spent_ms
+                    FROM response r_latest
+                    JOIN attempt_item ai_latest ON r_latest.attempt_item_id = ai_latest.id
+                    WHERE ai_latest.question_id = q.id AND r_latest.is_correct = 0
+                    ORDER BY r_latest.answered_at DESC, r_latest.id DESC
+                    LIMIT 1
+                ) as time_spent_ms
             FROM response r
             JOIN attempt_item ai ON r.attempt_item_id = ai.id
             JOIN question q ON ai.question_id = q.id
@@ -482,4 +521,3 @@ def get_study_diagnostics(
         return report.model_dump()
     except Exception as exc:
         raise map_domain_exception(exc)
-

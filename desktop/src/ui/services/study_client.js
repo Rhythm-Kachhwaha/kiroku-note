@@ -92,6 +92,29 @@ export class StudyClient {
     });
   }
 
+  async reportQuestion(id, payload) {
+    return this.request({
+      method: 'POST',
+      path: `/api/study/v1/bank/questions/${encodeURIComponent(id)}/reports`,
+      body: payload
+    });
+  }
+
+  async getIncorrectHistory(query = {}) {
+    return this.request({
+      method: 'GET',
+      path: '/api/study/v1/history/incorrect',
+      query
+    });
+  }
+
+  async getIncorrectQuestionDetail(questionId) {
+    return this.request({
+      method: 'GET',
+      path: `/api/study/v1/history/incorrect/${encodeURIComponent(questionId)}`
+    });
+  }
+
   // Practice Engine (Milestone 6)
   async createPracticeSession(level = 'N3', count = 10, formatId = null, sessionType = 'practice') {
     let body;
