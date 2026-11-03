@@ -96,6 +96,8 @@ test('MascotHost creates one Rive file and preserves the state machine instance'
   assert.equal(riveFileCount, 1);
   assert.equal(riveCount, 1);
   assert.equal(host.instance.params.stateMachine, 'State Machine 1');
+  assert.equal(host.element.style.width, '100%');
+  assert.equal(host.element.style.height, '100%');
   assert.equal(host.canvas.style.opacity, '1');
   assert.equal(pauseCount, 1);
   assert.ok(playCount >= 2);

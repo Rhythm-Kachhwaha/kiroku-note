@@ -45,6 +45,9 @@ export class MascotHost {
 
     this.element = document.createElement('div');
     this.element.className = 'mascot-rive-host';
+    this.element.style.display = 'block';
+    this.element.style.width = '100%';
+    this.element.style.height = '100%';
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'rive-mascot-canvas';
     this.canvas.setAttribute('aria-hidden', 'true');
