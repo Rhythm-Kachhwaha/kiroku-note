@@ -91,6 +91,8 @@ class RawAcquisitionCache:
                 fetch_latency_ms=meta.get("fetch_latency_ms", 0),
                 provider=meta.get("provider", "cached"),
                 metadata=meta.get("metadata", {}),
+                max_chars=meta.get("max_chars"),
+                truncated=meta.get("truncated", False),
             )
         except Exception as exc:
             logger.warning("Failed to read raw acquisition cache for %s: %s", url, exc)
@@ -117,9 +119,10 @@ class RawAcquisitionCache:
             "fetch_latency_ms": result.fetch_latency_ms,
             "content_sha256": content_hash,
             "cached_at": datetime.now(timezone.utc).isoformat(),
+            "max_chars": result.max_chars,
+            "truncated": result.truncated,
             "metadata": result.metadata,
         }
         meta_path.write_text(json.dumps(meta_payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
         return md_path
-

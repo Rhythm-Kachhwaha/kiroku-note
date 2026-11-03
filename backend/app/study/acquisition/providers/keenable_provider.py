@@ -96,14 +96,15 @@ class KeenableProvider(BaseAcquisitionProvider):
 
         params: dict[str, Any] = {
             "url": url,
-            "max_chars": 50000,
+            "max_chars": opts.max_chars,
             "live": str(opts.force_live).lower(),
         }
         if opts.prompt:
             params["prompt"] = opts.prompt
 
-        max_attempts = max(1, opts.max_retries)
+        max_attempts = max(1, opts.max_retries) + (1 if opts.allow_live_fetch else 0)
         last_error: Exception | None = None
+        live_retry_used = False
 
         client = self._client or httpx.Client(timeout=opts.timeout_seconds)
         should_close_client = self._client is None
@@ -126,10 +127,13 @@ class KeenableProvider(BaseAcquisitionProvider):
                         if attempt == max_attempts:
                             response.raise_for_status()
 
-                        # Exponential backoff: 1s, 2s, 4s with random jitter
+                        retry_after = _retry_after_seconds(
+                            response.headers.get("Retry-After"),
+                            opts.max_retry_after_seconds,
+                        )
                         base_backoff = 2 ** (attempt - 1)
                         jitter = random.uniform(-opts.rate_limit_jitter, opts.rate_limit_jitter)
-                        backoff = max(0.5, base_backoff + jitter)
+                        backoff = retry_after if retry_after is not None else max(0.5, base_backoff + jitter)
                         logger.warning(
                             "Keenable HTTP %d on attempt %d/%d for %s. Retrying in %.2fs",
                             response.status_code,
@@ -138,7 +142,7 @@ class KeenableProvider(BaseAcquisitionProvider):
                             url,
                             backoff,
                         )
-                        time.sleep(backoff)
+                        time.sleep(min(backoff, opts.max_retry_after_seconds))
                         continue
 
                     response.raise_for_status()
@@ -148,6 +152,18 @@ class KeenableProvider(BaseAcquisitionProvider):
                     content = data.get("content", "")
                     title = data.get("title", "")
                     meta = {k: v for k, v in data.items() if k not in ("content", "title")}
+                    provider_truncated = bool(
+                        data.get("truncated")
+                        or data.get("is_truncated")
+                        or meta.get("truncation")
+                    )
+                    not_indexed = bool(data.get("not_indexed") or data.get("indexed") is False)
+                    if not_indexed and opts.allow_live_fetch and not opts.force_live and not live_retry_used:
+                        live_retry_used = True
+                        params["live"] = "true"
+                        continue
+                    if opts.force_live or live_retry_used:
+                        meta["live_fetch_used"] = True
 
                     # If title wasn't returned in json, extract from first line if markdown Title: header
                     if not title and content.startswith("Title: "):
@@ -165,6 +181,8 @@ class KeenableProvider(BaseAcquisitionProvider):
                         fetch_latency_ms=latency_ms,
                         provider=self.provider_name,
                         metadata=meta,
+                        max_chars=opts.max_chars,
+                        truncated=provider_truncated or len(content) >= opts.max_chars,
                     )
 
                 except PermissionError:
@@ -175,13 +193,13 @@ class KeenableProvider(BaseAcquisitionProvider):
                         raise PermissionError(f"Keenable API 403 Forbidden for {url}") from exc
                     if attempt == max_attempts:
                         break
-                    time.sleep(2 ** (attempt - 1))
+                    time.sleep(min(2 ** (attempt - 1), opts.max_retry_after_seconds))
                 except (httpx.TimeoutException, httpx.NetworkError) as exc:
                     last_error = exc
                     logger.warning("Keenable network error on attempt %d/%d: %s", attempt, max_attempts, exc)
                     if attempt == max_attempts:
                         break
-                    time.sleep(2 ** (attempt - 1))
+                    time.sleep(min(2 ** (attempt - 1), opts.max_retry_after_seconds))
 
             raise RuntimeError(f"Keenable fetch failed after {max_attempts} attempts for {url}: {last_error}") from last_error
 
@@ -189,3 +207,12 @@ class KeenableProvider(BaseAcquisitionProvider):
             if should_close_client:
                 client.close()
 
+
+def _retry_after_seconds(value: str | None, maximum: float) -> float | None:
+    """Parse a bounded numeric Retry-After value without exposing request data."""
+    if not value:
+        return None
+    try:
+        return max(0.0, min(float(value), maximum))
+    except ValueError:
+        return None

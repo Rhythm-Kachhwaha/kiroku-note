@@ -13,6 +13,7 @@ from app.study.acquisition.enums import (
     AcquisitionItemStatus,
     AcquisitionJobStatus,
     CrawlStatus,
+    PageOutcome,
     ProviderKind,
 )
 
@@ -25,6 +26,9 @@ class FetchOptions(BaseModel):
     prompt: str | None = None
     rate_limit_delay: float = 1.5
     rate_limit_jitter: float = 0.5
+    max_chars: int = 200_000
+    allow_live_fetch: bool = False
+    max_retry_after_seconds: float = 30.0
 
 
 class RawFetchResult(BaseModel):
@@ -37,6 +41,8 @@ class RawFetchResult(BaseModel):
     fetch_latency_ms: int = 0
     provider: str = ProviderKind.KEENABLE.value
     metadata: dict[str, Any] = Field(default_factory=dict)
+    max_chars: int | None = None
+    truncated: bool = False
 
 
 class DiscoveredExercise(BaseModel):
@@ -56,6 +62,13 @@ class CrawlResult(BaseModel):
     status: CrawlStatus = CrawlStatus.COMPLETED
     warnings: list[str] = Field(default_factory=list)
     error: str | None = None
+    outcome: PageOutcome = PageOutcome.SUCCESS
+    failed_page: int | None = None
+    failed_url: str | None = None
+    failure_category: str | None = None
+    attempt_count: int = 0
+    next_page: int | None = None
+    resume_category_url: str | None = None
 
 
 class AcquisitionJobRecord(BaseModel):
@@ -72,6 +85,12 @@ class AcquisitionJobRecord(BaseModel):
     error_summary: str | None = None
     created_at: str = ""
     updated_at: str = ""
+    cursor_category_url: str | None = None
+    cursor_page: int | None = None
+    failure_category: str | None = None
+    failure_page: int | None = None
+    failure_url: str | None = None
+    failure_attempt_count: int = 0
 
 
 class AcquisitionItemRecord(BaseModel):
@@ -96,4 +115,3 @@ class JobProgress(BaseModel):
     total_acquired: int
     total_failed: int
     items: list[AcquisitionItemRecord] = Field(default_factory=list)
-

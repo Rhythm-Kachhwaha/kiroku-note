@@ -22,6 +22,7 @@ class AcquisitionJobStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     PAUSED = "paused"
+    PARTIAL = "partial"
 
 
 class AcquisitionItemStatus(str, Enum):
@@ -39,4 +40,13 @@ class CrawlStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     PAUSED = "paused"
+    PARTIAL = "partial"
 
+
+class PageOutcome(str, Enum):
+    """Normalized outcome for one category page."""
+    END_OF_CATEGORY = "end_of_category"
+    TRANSIENT_FAILURE = "transient_failure"
+    BLOCKED = "blocked"
+    NOT_INDEXED = "not_indexed"
+    SUCCESS = "success"

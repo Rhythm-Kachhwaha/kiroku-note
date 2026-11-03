@@ -24,6 +24,7 @@ from app.study.acquisition.models import (
     JobProgress,
 )
 from app.study.ulid import generate_ulid
+from app.study.provenance import normalize_source_url
 
 
 def _utc_now() -> str:
@@ -106,7 +107,7 @@ class AcquisitionJobService:
                     (
                         item_id,
                         job_id,
-                        item.url,
+                        normalize_source_url(item.url),
                         item.title,
                         item.ordinal,
                         AcquisitionItemStatus.QUEUED.value,
@@ -130,6 +131,31 @@ class AcquisitionJobService:
         )
 
         return added_count
+
+    @staticmethod
+    def save_crawl_cursor(conn, job_id: str, category_url: str, next_page: int,
+                          failure_category: str | None = None, failed_url: str | None = None,
+                          attempt_count: int = 0, diagnostic: str | None = None) -> None:
+        """Persist the next category page and safe failure details for resumption."""
+        now = _utc_now()
+        conn.execute(
+            """UPDATE acquisition_job SET cursor_category_url=?, cursor_page=?,
+               failure_category=?, failure_page=?, failure_url=?,
+               failure_attempt_count=?, error_summary=coalesce(?, error_summary),
+               updated_at=? WHERE id=?""",
+            (normalize_source_url(category_url), next_page, failure_category, next_page,
+             normalize_source_url(failed_url) if failed_url else None, attempt_count,
+             diagnostic, now, job_id),
+        )
+
+    @staticmethod
+    def clear_crawl_cursor(conn, job_id: str) -> None:
+        conn.execute(
+            """UPDATE acquisition_job SET cursor_category_url=NULL, cursor_page=NULL,
+               failure_category=NULL, failure_page=NULL, failure_url=NULL,
+               failure_attempt_count=0 WHERE id=?""",
+            (job_id,),
+        )
 
     @staticmethod
     def update_job_status(
@@ -240,6 +266,12 @@ class AcquisitionJobService:
             error_summary=row["error_summary"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            cursor_category_url=row["cursor_category_url"],
+            cursor_page=row["cursor_page"],
+            failure_category=row["failure_category"],
+            failure_page=row["failure_page"],
+            failure_url=row["failure_url"],
+            failure_attempt_count=row["failure_attempt_count"],
         )
 
     @staticmethod
@@ -321,4 +353,3 @@ class AcquisitionJobService:
         )
 
         return reset_count
-

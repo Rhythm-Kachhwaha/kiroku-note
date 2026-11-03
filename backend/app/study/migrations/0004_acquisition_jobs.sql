@@ -10,11 +10,17 @@ CREATE TABLE IF NOT EXISTS acquisition_job (
     target_category_url TEXT NOT NULL,
     jlpt_level TEXT NOT NULL,
     section_category TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'crawling', 'completed', 'failed', 'paused')),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'crawling', 'completed', 'failed', 'paused', 'partial')),
     total_discovered INTEGER NOT NULL DEFAULT 0,
     total_acquired INTEGER NOT NULL DEFAULT 0,
     total_failed INTEGER NOT NULL DEFAULT 0,
     error_summary TEXT DEFAULT NULL,
+    cursor_category_url TEXT DEFAULT NULL,
+    cursor_page INTEGER DEFAULT NULL,
+    failure_category TEXT DEFAULT NULL,
+    failure_page INTEGER DEFAULT NULL,
+    failure_url TEXT DEFAULT NULL,
+    failure_attempt_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 ) STRICT;
@@ -36,4 +42,3 @@ CREATE TABLE IF NOT EXISTS acquisition_job_item (
 
 CREATE INDEX IF NOT EXISTS idx_acq_job_status ON acquisition_job(status);
 CREATE INDEX IF NOT EXISTS idx_acq_item_status ON acquisition_job_item(job_id, status);
-

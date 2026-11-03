@@ -21,13 +21,14 @@ from app.study.acquisition.crawler.url_filter import (
     extract_level_and_section,
     is_exercise_url,
 )
-from app.study.acquisition.enums import CrawlStatus
+from app.study.acquisition.enums import CrawlStatus, PageOutcome
 from app.study.acquisition.models import (
     CrawlResult,
     DiscoveredExercise,
     FetchOptions,
 )
 from app.study.acquisition.providers.base import BaseAcquisitionProvider
+from app.study.provenance import normalize_source_url
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ class CategoryCrawler:
         self,
         category_url: str,
         force_live: bool = False,
+        start_page: int = 1,
     ) -> CrawlResult:
         """
         Crawl a category URL and discover all exercise links across pages.
@@ -77,7 +79,7 @@ class CategoryCrawler:
                 error=f"Invalid category URL: {category_url}",
             )
 
-        current_page = 1
+        current_page = max(1, start_page)
         options = FetchOptions(
             timeout_seconds=30.0,
             force_live=force_live,
@@ -109,23 +111,46 @@ class CategoryCrawler:
                         category_url=category_url,
                         discovered=discovered,
                         total_pages_visited=total_pages,
-                        status=CrawlStatus.FAILED,
                         warnings=warnings,
                         error=f"Access blocked (403 Forbidden): {exc}",
+                        outcome=PageOutcome.BLOCKED,
+                        failed_page=current_page,
+                        failed_url=page_url,
+                        failure_category="blocked",
+                        next_page=current_page,
+                        resume_category_url=base_clean_url,
                     )
                 except Exception as exc:
-                    # If page 2+ gets 404, not found, or unprovided page, pagination has terminated normally
-                    if current_page > 1:
+                    if current_page > 1 and _is_not_found(exc):
                         logger.info("Pagination reached end at page %d: %s", current_page, exc)
                         break
                     return CrawlResult(
                         category_url=category_url,
                         discovered=discovered,
                         total_pages_visited=total_pages,
-                        status=CrawlStatus.FAILED,
                         warnings=warnings,
                         error=f"Fetch failed on page {current_page} ({page_url}): {exc}",
+                        status=CrawlStatus.PARTIAL if current_page > 1 else CrawlStatus.FAILED,
+                        outcome=PageOutcome.TRANSIENT_FAILURE,
+                        failed_page=current_page,
+                        failed_url=page_url,
+                        failure_category=_failure_category(exc),
+                        attempt_count=getattr(exc, "attempt_count", 1),
+                        next_page=current_page,
+                        resume_category_url=base_clean_url,
                     )
+
+            if fetch_result.status_code == 404 and current_page > 1:
+                break
+            if fetch_result.status_code == 403:
+                return _failure_result(category_url, discovered, total_pages, warnings, current_page, page_url,
+                                       PageOutcome.BLOCKED, "blocked", "Access blocked (403 Forbidden).")
+            if fetch_result.status_code in (408, 425, 429) or fetch_result.status_code >= 500:
+                return _failure_result(category_url, discovered, total_pages, warnings, current_page, page_url,
+                                       PageOutcome.TRANSIENT_FAILURE, "transient", f"Transient fetch failure ({fetch_result.status_code}).")
+            if fetch_result.metadata.get("not_indexed"):
+                return _failure_result(category_url, discovered, total_pages, warnings, current_page, page_url,
+                                       PageOutcome.NOT_INDEXED, "not_indexed", "Provider did not index this page; retry or use live fetch.")
 
             total_pages += 1
             markdown = fetch_result.raw_markdown
@@ -144,6 +169,9 @@ class CategoryCrawler:
             for title_match, link_url in MARKDOWN_LINK_PATTERN.findall(markdown):
                 norm_link = link_url.strip().split("#")[0]
                 if is_exercise_url(norm_link) and norm_link not in seen_urls:
+                    norm_link = normalize_source_url(norm_link)
+                    if norm_link in seen_urls:
+                        continue
                     seen_urls.add(norm_link)
                     lvl, sec = extract_level_and_section(norm_link, title_match)
                     ordinal = len(discovered) + 1
@@ -178,5 +206,38 @@ class CategoryCrawler:
             total_pages_visited=total_pages,
             status=CrawlStatus.COMPLETED,
             warnings=warnings,
+            outcome=PageOutcome.END_OF_CATEGORY,
         )
 
+
+def _is_not_found(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return "404" in text or "not found" in text or "no registered response" in text
+
+
+def _failure_category(exc: Exception) -> str:
+    text = str(exc).lower()
+    if "403" in text or isinstance(exc, PermissionError):
+        return "blocked"
+    if "not index" in text:
+        return "not_indexed"
+    return "transient"
+
+
+def _failure_result(category_url, discovered, total_pages, warnings, page, url, outcome, category, error):
+    warnings = [*warnings, f"Page {page} requires attention: {error}"]
+    return CrawlResult(
+        category_url=category_url,
+        discovered=discovered,
+        total_pages_visited=total_pages,
+        status=CrawlStatus.PARTIAL if total_pages else CrawlStatus.FAILED,
+        warnings=warnings,
+        error=error,
+        outcome=outcome,
+        failed_page=page,
+        failed_url=url,
+        failure_category=category,
+        attempt_count=1,
+        next_page=page,
+        resume_category_url=category_url.rstrip("/"),
+    )
