@@ -213,7 +213,13 @@ export class HomeView {
     this.jumpTimeout = null;
     this.bubbleFallbackTimer = null;
     this.mouseMoveHandler = null;
+    this.mouseEnterHandler = null;
     this.mouseLeaveHandler = null;
+    this.tiltFrame = null;
+    this.tiltTarget = { x: 0, y: 0 };
+    this.tiltCurrent = { x: 0, y: 0 };
+    this.tiltStage = null;
+    this.cardIntersectionObserver = null;
     this.visibilityHandler = null;
     this.escapeHandler = null;
     this.midnightTimer = null;
@@ -703,6 +709,7 @@ export class HomeView {
         svg: svgEl,
         leaveTimer: null,
         isAnimating: false,
+        inViewport: true,
         play: () => {
           if (ctrl.leaveTimer) {
             clearTimeout(ctrl.leaveTimer);
@@ -715,7 +722,7 @@ export class HomeView {
             window.matchMedia &&
             window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-          if (reducedMotion) {
+          if (reducedMotion || document.hidden === true || !ctrl.inViewport) {
             try {
               ctrl.svg?.pauseAnimations?.();
               ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
@@ -788,6 +795,20 @@ export class HomeView {
       };
 
       this.cardControllers.set(config.id, ctrl);
+      if (cardEl && typeof IntersectionObserver === 'function') {
+        if (!this.cardIntersectionObserver) {
+          this.cardIntersectionObserver = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+              const observedCtrl = this.cardControllers.get(entry.target.dataset?.cardId);
+              if (!observedCtrl) continue;
+              observedCtrl.inViewport = entry.isIntersecting;
+              if (!entry.isIntersecting) observedCtrl.stop();
+            }
+          });
+        }
+        cardEl.dataset.cardId = config.id;
+        this.cardIntersectionObserver.observe(cardEl);
+      }
 
       if (cardEl && typeof cardEl.addEventListener === 'function') {
         cardEl.addEventListener('pointerenter', () => {
@@ -852,10 +873,7 @@ export class HomeView {
     if (this.visibilityHandler) {
       document.addEventListener('visibilitychange', this.visibilityHandler);
     }
-    if (this.mouseMoveHandler) {
-      window.addEventListener('mousemove', this.mouseMoveHandler);
-    }
-    this.activeListenerCount = (this.visibilityHandler ? 1 : 0) + (this.mouseMoveHandler ? 1 : 0);
+    this.activeListenerCount = this.visibilityHandler ? 1 : 0;
     if (Date.now() - this._lastRefreshAt > 30000) {
       this._lastRefreshAt = Date.now();
       this.hydrateDailyWord();
@@ -866,9 +884,7 @@ export class HomeView {
     if (this.visibilityHandler) {
       document.removeEventListener('visibilitychange', this.visibilityHandler);
     }
-    if (this.mouseMoveHandler) {
-      window.removeEventListener('mousemove', this.mouseMoveHandler);
-    }
+    this.stopTiltTracking();
     this.activeListenerCount = 0;
   }
 
@@ -976,32 +992,86 @@ export class HomeView {
 
       // Subtle mouse tracking
       if (typeof window !== 'undefined') {
+        this.tiltStage = mascotStage;
+        this.mouseEnterHandler = () => {
+          window.addEventListener('pointermove', this.mouseMoveHandler);
+        };
         this.mouseMoveHandler = (e) => {
           if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
             return;
           }
           const rect = mascotStage.getBoundingClientRect();
+          const margin = 48;
+          if (
+            e.clientX < rect.left - margin ||
+            e.clientX > rect.right + margin ||
+            e.clientY < rect.top - margin ||
+            e.clientY > rect.bottom + margin
+          ) {
+            this.stopTiltTracking();
+            this.scheduleTiltReset();
+            return;
+          }
           const centerX = rect.left + rect.width / 2;
           const centerY = rect.top + rect.height / 2;
           const deltaX = (e.clientX - centerX) / (window.innerWidth / 2 || 1);
           const deltaY = (e.clientY - centerY) / (window.innerHeight / 2 || 1);
           const clampedX = Math.max(-1, Math.min(1, deltaX));
           const clampedY = Math.max(-1, Math.min(1, deltaY));
-          const tiltX = -clampedY * 4;
-          const tiltY = clampedX * 5;
-          const moveX = clampedX * 4;
-          const moveY = clampedY * 3;
-          mascotWrap.style.transform = `perspective(600px) rotateX(${tiltX.toFixed(1)}deg) rotateY(${tiltY.toFixed(1)}deg) translate(${moveX.toFixed(1)}px, ${moveY.toFixed(1)}px)`;
+          this.tiltTarget = {
+            x: clampedX,
+            y: clampedY
+          };
+          this.scheduleTiltFrame();
         };
 
         this.mouseLeaveHandler = () => {
-          if (mascotWrap) {
-            mascotWrap.style.transform = 'perspective(600px) rotateX(0deg) rotateY(0deg) translate(0px, 0px)';
-          }
+          this.scheduleTiltReset();
         };
 
+        mascotStage.addEventListener('pointerenter', this.mouseEnterHandler);
         mascotStage.addEventListener('mouseleave', this.mouseLeaveHandler);
       }
+    }
+  }
+
+  scheduleTiltFrame() {
+    if (this.tiltFrame !== null) return;
+    const requestFrame = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (callback) => setTimeout(callback, 0);
+    this.tiltFrame = requestFrame(() => {
+      this.tiltFrame = null;
+      const ease = 0.18;
+      this.tiltCurrent.x += (this.tiltTarget.x - this.tiltCurrent.x) * ease;
+      this.tiltCurrent.y += (this.tiltTarget.y - this.tiltCurrent.y) * ease;
+      const tiltX = -this.tiltCurrent.y * 4;
+      const tiltY = this.tiltCurrent.x * 5;
+      const moveX = this.tiltCurrent.x * 4;
+      const moveY = this.tiltCurrent.y * 3;
+      if (this.tiltStage) {
+        const mascotWrap = document.getElementById('mascot-character-wrap');
+        if (mascotWrap) {
+          mascotWrap.style.transform = `perspective(600px) rotateX(${tiltX.toFixed(1)}deg) rotateY(${tiltY.toFixed(1)}deg) translate(${moveX.toFixed(1)}px, ${moveY.toFixed(1)}px)`;
+        }
+      }
+      if (
+        Math.abs(this.tiltTarget.x - this.tiltCurrent.x) > 0.01 ||
+        Math.abs(this.tiltTarget.y - this.tiltCurrent.y) > 0.01
+      ) {
+        this.scheduleTiltFrame();
+      }
+    });
+  }
+
+  scheduleTiltReset() {
+    this.tiltTarget = { x: 0, y: 0 };
+    this.scheduleTiltFrame();
+  }
+
+  stopTiltTracking() {
+    if (this.mouseMoveHandler && typeof window !== 'undefined') {
+      window.removeEventListener('pointermove', this.mouseMoveHandler);
     }
   }
 
@@ -1164,11 +1234,20 @@ export class HomeView {
       ctrl.resetToRest();
     }
     this.cardControllers.clear();
+    this.cardIntersectionObserver?.disconnect();
+    this.cardIntersectionObserver = null;
 
-    if (this.mouseMoveHandler && typeof window !== 'undefined') {
-      window.removeEventListener('mousemove', this.mouseMoveHandler);
+    this.stopTiltTracking();
+    if (this.tiltFrame !== null) {
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this.tiltFrame);
+      else clearTimeout(this.tiltFrame);
+      this.tiltFrame = null;
+    }
+    if (this.tiltStage && this.mouseEnterHandler) {
+      this.tiltStage.removeEventListener('pointerenter', this.mouseEnterHandler);
     }
     this.mouseMoveHandler = null;
+    this.mouseEnterHandler = null;
     this.mouseLeaveHandler = null;
 
     if (this.visibilityHandler && typeof document !== 'undefined') {

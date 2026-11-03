@@ -8,6 +8,8 @@ class FakeElement {
     this.children = [];
     this.parentNode = null;
     this.style = {};
+    this.clientWidth = tagName === 'canvas' ? 320 : 0;
+    this.clientHeight = tagName === 'canvas' ? 240 : 0;
   }
 
   appendChild(child) {
@@ -35,6 +37,7 @@ test('MascotHost creates one Rive file and preserves the state machine instance'
   let playCount = 0;
   let pauseCount = 0;
   let resizeCount = 0;
+  const documentListeners = new Map();
 
   class FakeRiveFile {
     constructor(params) {
@@ -66,7 +69,12 @@ test('MascotHost creates one Rive file and preserves the state machine instance'
   }
 
   globalThis.document = {
-    createElement: (tagName) => new FakeElement(tagName)
+    createElement: (tagName) => new FakeElement(tagName),
+    hidden: false,
+    addEventListener: (type, listener) => documentListeners.set(type, listener),
+    removeEventListener: (type, listener) => {
+      if (documentListeners.get(type) === listener) documentListeners.delete(type);
+    }
   };
   globalThis.window = {
     matchMedia: () => ({ matches: false }),
@@ -101,5 +109,13 @@ test('MascotHost creates one Rive file and preserves the state machine instance'
   assert.equal(host.canvas.style.opacity, '1');
   assert.equal(pauseCount, 1);
   assert.ok(playCount >= 2);
-  assert.ok(resizeCount >= 2);
+  assert.equal(resizeCount, 1);
+
+  document.hidden = true;
+  documentListeners.get('visibilitychange')();
+  assert.equal(pauseCount, 2);
+
+  document.hidden = false;
+  documentListeners.get('visibilitychange')();
+  assert.ok(playCount >= 3);
 });

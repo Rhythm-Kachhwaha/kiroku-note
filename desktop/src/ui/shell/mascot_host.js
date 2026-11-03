@@ -20,6 +20,9 @@ export class MascotHost {
     this.instance = null;
     this.riveFile = null;
     this.resizeObserver = null;
+    this.visibilityHandler = null;
+    this.resizeFrame = null;
+    this.lastSurfaceSize = null;
     this.createPromise = null;
     this.attachedSlot = null;
     this.reducedMotion = getReducedMotion();
@@ -109,6 +112,16 @@ export class MascotHost {
     }
 
     this.instance = new window.rive.Rive(params);
+    this.visibilityHandler = () => {
+      if (document.hidden) {
+        this.pause();
+      } else if (this.attachedSlot) {
+        this.resume();
+      }
+    };
+    if (typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', this.visibilityHandler);
+    }
     this.resizeObserver = typeof ResizeObserver === 'function'
       ? new ResizeObserver(() => this.resize())
       : null;
@@ -123,7 +136,8 @@ export class MascotHost {
     slotEl.appendChild(this.element);
     this.attachedSlot = slotEl;
     this.canvas.style.opacity = '1';
-    this.resume();
+    if (typeof document !== 'undefined' && document.hidden) this.pause();
+    else this.resume();
     this.resize();
     markPerf('mascot:attach');
     markPerf('mascot:visible');
@@ -149,12 +163,37 @@ export class MascotHost {
   }
 
   resize() {
-    this.instance?.resizeDrawingSurfaceToCanvas?.();
+    if (this.resizeFrame !== null) return;
+    const requestFrame = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (callback) => setTimeout(callback, 0);
+    this.resizeFrame = requestFrame(() => {
+      this.resizeFrame = null;
+      const width = this.canvas?.clientWidth ?? this.canvas?.width ?? null;
+      const height = this.canvas?.clientHeight ?? this.canvas?.height ?? null;
+      const pixelRatio = window.devicePixelRatio || 1;
+      const surfaceSize = width === null || height === null
+        ? null
+        : `${Math.round(width * pixelRatio)}x${Math.round(height * pixelRatio)}`;
+      if (surfaceSize === this.lastSurfaceSize && this.lastSurfaceSize !== null) return;
+      this.lastSurfaceSize = surfaceSize;
+      this.instance?.resizeDrawingSurfaceToCanvas?.();
+    });
   }
 
   destroy() {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    if (this.visibilityHandler && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+    }
+    this.visibilityHandler = null;
+    if (this.resizeFrame !== null) {
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this.resizeFrame);
+      else clearTimeout(this.resizeFrame);
+      this.resizeFrame = null;
+    }
+    this.lastSurfaceSize = null;
     this.instance?.cleanup?.();
     this.element?.remove?.();
     this.element = null;
