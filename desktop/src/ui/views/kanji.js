@@ -494,6 +494,7 @@ export class KanjiView {
     this.strokePaths.forEach((path, i) => {
       const length = path.getTotalLength();
       path.style.strokeDasharray = `${length}px ${length}px`;
+      path.style.fill = 'none';
       if (i < this.currentStrokeIndex) {
         path.style.stroke = '#F5F1E8'; // Warm paper
         path.style.opacity = '1';
@@ -603,16 +604,18 @@ export class KanjiView {
       ? getComputedStyle(document.documentElement).getPropertyValue('--ease-out').trim() || 'ease-out'
       : 'ease-out';
     const animation = path.animate(
-      [{ 'stroke-dashoffset': `${length}px` }, { 'stroke-dashoffset': '0px' }],
+      [{ strokeDashoffset: `${length}px` }, { strokeDashoffset: '0px' }],
       { duration: 280, easing, fill: 'forwards' },
     );
     this.strokeAnimations.add(animation);
-    animation.finished.then(() => {
+    animation.onfinish = () => {
       this.strokeAnimations.delete(animation);
       this.advanceStroke(playToken);
-    }, () => {
+    };
+    animation.oncancel = () => {
       this.strokeAnimations.delete(animation);
-    });
+    };
+    animation.play();
   }
 
   advanceStroke(playToken) {
