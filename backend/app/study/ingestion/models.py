@@ -45,11 +45,32 @@ class IngestInput(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class ExtractedTextSpan(BaseModel):
+    """Coordinate-bearing text span from a document page."""
+    text: str
+    bbox: tuple[float, float, float, float]
+    font_size: float = 0.0
+    direction: Literal["horizontal", "vertical"] = "horizontal"
+    page_number: int
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ExtractedLine(BaseModel):
+    """Deterministically ordered text spans sharing a visual line."""
+    text: str
+    spans: list[ExtractedTextSpan] = Field(default_factory=list)
+    bbox: tuple[float, float, float, float]
+    direction: Literal["horizontal", "vertical"] = "horizontal"
+    confidence: float = 1.0
+
+
 class ExtractedPage(BaseModel):
     """Text and visual content extracted from a single document page."""
     page_number: int  # 1-based index
     text: str
     images: list[dict[str, Any]] = Field(default_factory=list)
+    spans: list[ExtractedTextSpan] = Field(default_factory=list)
+    lines: list[ExtractedLine] = Field(default_factory=list)
     confidence: float = 1.0
     metadata: dict[str, Any] = Field(default_factory=dict)
 

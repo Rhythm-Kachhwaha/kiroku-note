@@ -26,8 +26,13 @@ from app.study.ingestion.adapters import (
     ScannedImageInputAdapter,
     StructuredJsonInputAdapter,
 )
+from app.study.ingestion.adapters.pdf_coordinates import (
+    VectorLine,
+    markup_for_lines,
+    order_lines,
+)
 from app.study.ingestion.enums import IngestAdapterKind
-from app.study.ingestion.models import IngestInput
+from app.study.ingestion.models import ExtractedTextSpan, IngestInput
 
 
 def test_pasted_text_adapter_basic():
@@ -157,6 +162,48 @@ def test_pdf_text_adapter(tmp_path: Path):
     assert doc.metadata["page_count"] == 1
 
 
+def test_coordinate_ordering_handles_columns_and_vertical_text():
+    """Coordinate extraction orders columns and vertical Japanese deterministically."""
+    spans = [
+        ExtractedTextSpan(text="右", bbox=(300, 100, 312, 112), font_size=12, page_number=1),
+        ExtractedTextSpan(text="左", bbox=(100, 100, 112, 112), font_size=12, page_number=1),
+        ExtractedTextSpan(
+            text="縦",
+            bbox=(400, 200, 412, 212),
+            font_size=12,
+            direction="vertical",
+            page_number=1,
+        ),
+    ]
+    lines = order_lines(spans, page_width=500, page_height=700)
+
+    assert [line.text for line in lines] == ["縦", "左", "右"]
+    assert lines[0].direction == "vertical"
+
+
+def test_coordinate_markup_only_emits_unambiguous_marks():
+    """Ruby and vector underlines become canonical markup without guessing."""
+    spans = [
+        ExtractedTextSpan(text="漢字", bbox=(100, 100, 124, 112), font_size=12, page_number=1),
+        ExtractedTextSpan(text="かんじ", bbox=(100, 112, 124, 118), font_size=6, page_number=1),
+        ExtractedTextSpan(text="{star}", bbox=(130, 100, 170, 112), font_size=12, page_number=1),
+    ]
+    lines = order_lines(spans, page_width=500, page_height=700)
+
+    assert markup_for_lines(lines, [VectorLine(100, 99, 124, 99)]) == "{u|[漢字|かんじ]}{star}"
+
+
+def test_coordinate_markup_preserves_blank_symbols():
+    """Blank-looking source symbols remain source text rather than inferred blanks."""
+    spans = [
+        ExtractedTextSpan(text="＿", bbox=(100, 100, 112, 112), font_size=12, page_number=1),
+        ExtractedTextSpan(text="★", bbox=(120, 100, 132, 112), font_size=12, page_number=1),
+    ]
+    lines = order_lines(spans, page_width=500, page_height=700)
+
+    assert markup_for_lines(lines) == "＿★"
+
+
 def test_scanned_image_adapter_with_mock_ocr(monkeypatch: pytest.MonkeyPatch):
     """Test image adapter inspects PIL image and runs OcrService."""
     # Generate a small 100x50 in-memory PNG
@@ -211,4 +258,3 @@ def test_audio_adapter_mime_and_transcript():
     assert doc.media_assets[0].mime_type == "audio/mpeg"
     assert doc.media_assets[0].duration_ms == 45000
     assert "男の人と女の人が話しています。" in doc.raw_text
-

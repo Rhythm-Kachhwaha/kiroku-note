@@ -11,6 +11,11 @@ from pathlib import Path
 from typing import Any
 
 from app.study.ingestion.adapters.base import BaseInputAdapter
+from app.study.ingestion.adapters.pdf_coordinates import (
+    extract_page_coordinates,
+    markup_for_lines,
+    remove_repeated_edge_lines,
+)
 from app.study.ingestion.enums import IngestAdapterKind
 from app.study.ingestion.models import ExtractedDocument, ExtractedPage, IngestInput
 
@@ -60,10 +65,29 @@ class PdfTextInputAdapter(BaseInputAdapter):
         total_extracted_chars = 0
 
         for idx, page in enumerate(reader.pages, start=1):
+            width = float(page.mediabox.width)
+            height = float(page.mediabox.height)
+            spans = []
+            lines = []
+            vector_lines = []
+            coordinate_error = ""
             try:
-                page_text = page.extract_text() or ""
-            except Exception:
-                page_text = ""
+                spans, lines, vector_lines = extract_page_coordinates(
+                    page,
+                    page_number=idx,
+                    page_width=width,
+                    page_height=height,
+                )
+                page_text = markup_for_lines(lines, vector_lines)
+            except (AttributeError, TypeError, ValueError, NotImplementedError) as exc:
+                coordinate_error = str(exc)
+                spans = []
+                lines = []
+                vector_lines = []
+                try:
+                    page_text = page.extract_text() or ""
+                except Exception:
+                    page_text = ""
 
             page_text = page_text.replace("\r\n", "\n").replace("\r", "\n").strip()
             char_count = len(page_text)
@@ -76,11 +100,22 @@ class PdfTextInputAdapter(BaseInputAdapter):
                 ExtractedPage(
                     page_number=idx,
                     text=page_text,
+                    spans=spans,
+                    lines=lines,
                     confidence=page_confidence,
                     metadata={
-                        "width": float(page.mediabox.width),
-                        "height": float(page.mediabox.height),
+                        "width": width,
+                        "height": height,
                         "image_count": len(getattr(page, "images", [])),
+                        "coordinate_extraction": "visitor" if spans else "fallback",
+                        "coordinate_error": coordinate_error,
+                        "vector_line_count": len(vector_lines),
+                        "vector_lines": [line.__dict__ for line in vector_lines],
+                        "fidelity_flags": (
+                            ["ruby_unverified", "underline_unverified"]
+                            if not spans
+                            else []
+                        ),
                     },
                 )
             )
@@ -88,6 +123,12 @@ class PdfTextInputAdapter(BaseInputAdapter):
             if page_text:
                 full_text_parts.append(f"=== Page {idx} ===\n{page_text}")
 
+        remove_repeated_edge_lines(pages)
+        full_text_parts = [
+            f"=== Page {page.page_number} ===\n{page.text}"
+            for page in pages
+            if page.text
+        ]
         raw_text = "\n\n".join(full_text_parts)
 
         # Average extraction confidence across pages
@@ -108,12 +149,17 @@ class PdfTextInputAdapter(BaseInputAdapter):
             citation=input_data.citation,
             url=input_data.url,
             default_level=input_data.default_level,
-            extraction_method="pypdf2_text_extraction",
+            extraction_method=(
+                "pypdf2_coordinate_text_extraction"
+                if any(page.spans for page in pages)
+                else "pypdf2_text_extraction"
+            ),
             extraction_confidence=round(avg_confidence, 2),
             metadata={
                 "page_count": len(pages),
                 "total_chars": total_extracted_chars,
                 "encrypted": bool(getattr(reader, "is_encrypted", False)),
+                "coordinate_aware": any(page.spans for page in pages),
                 **input_data.metadata,
             },
         )
