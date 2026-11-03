@@ -16,7 +16,8 @@ export class KanjiView {
     this.currentChar = '静';
     this.currentStrokes = 0;
     this.isPlaying = false;
-    this.playTimer = null;
+    this.strokeAnimations = new Set();
+    this.strokePlayToken = 0;
     this.currentStrokeIndex = 0;
     this.strokePaths = [];
     this.strokeNumbers = [];
@@ -491,18 +492,23 @@ export class KanjiView {
     this.currentStrokeIndex = Math.max(0, Math.min(index, this.strokePaths.length - 1));
 
     this.strokePaths.forEach((path, i) => {
+      const length = path.getTotalLength();
+      path.style.strokeDasharray = `${length}px ${length}px`;
       if (i < this.currentStrokeIndex) {
         path.style.stroke = '#F5F1E8'; // Warm paper
         path.style.opacity = '1';
         path.style.strokeWidth = '3';
+        path.style.strokeDashoffset = '0px';
       } else if (i === this.currentStrokeIndex) {
         path.style.stroke = '#F7E0BA'; // Planetoño gold accent for active stroke
         path.style.opacity = '1';
         path.style.strokeWidth = '4.5';
+        path.style.strokeDashoffset = `${length}px`;
       } else {
         path.style.stroke = '#444444';
         path.style.opacity = '0.2';
         path.style.strokeWidth = '2';
+        path.style.strokeDashoffset = `${length}px`;
       }
     });
 
@@ -538,29 +544,24 @@ export class KanjiView {
 
   startStrokePlay() {
     if (this.strokePaths.length === 0) return;
+    this.cancelStrokeAnimations();
     this.isPlaying = true;
     const btn = document.getElementById('btn-stroke-play');
     if (btn) btn.textContent = 'Pause';
 
     if (this.currentStrokeIndex >= this.strokePaths.length - 1) {
       this.currentStrokeIndex = 0;
+      this.renderStrokeStep(0);
     }
 
-    this.playTimer = setInterval(() => {
-      if (this.currentStrokeIndex < this.strokePaths.length - 1) {
-        this.renderStrokeStep(this.currentStrokeIndex + 1);
-      } else {
-        this.pauseStrokes();
-      }
-    }, 450);
+    this.animateCurrentStroke(this.strokePlayToken);
   }
 
   pauseStrokes() {
     this.isPlaying = false;
-    if (this.playTimer) {
-      clearInterval(this.playTimer);
-      this.playTimer = null;
-    }
+    this.cancelStrokeAnimations();
+    const currentPath = this.strokePaths[this.currentStrokeIndex];
+    if (currentPath) currentPath.style.strokeDashoffset = '0px';
     const btn = document.getElementById('btn-stroke-play');
     if (btn) btn.textContent = 'Play';
   }
@@ -569,6 +570,59 @@ export class KanjiView {
     this.pauseStrokes();
     this.renderStrokeStep(0);
     this.startStrokePlay();
+  }
+
+  cancelStrokeAnimations() {
+    this.strokePlayToken += 1;
+    this.strokeAnimations.forEach((animation) => animation.cancel());
+    this.strokeAnimations.clear();
+  }
+
+  animateCurrentStroke(playToken) {
+    if (!this.isPlaying || playToken !== this.strokePlayToken) return;
+
+    const path = this.strokePaths[this.currentStrokeIndex];
+    if (!path) {
+      this.pauseStrokes();
+      return;
+    }
+
+    const length = path.getTotalLength();
+    path.style.strokeDasharray = `${length}px ${length}px`;
+    path.style.strokeDashoffset = `${length}px`;
+
+    const reducedMotion = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) {
+      path.style.strokeDashoffset = '0px';
+      this.advanceStroke(playToken);
+      return;
+    }
+
+    const easing = typeof document !== 'undefined'
+      ? getComputedStyle(document.documentElement).getPropertyValue('--ease-out').trim() || 'ease-out'
+      : 'ease-out';
+    const animation = path.animate(
+      [{ 'stroke-dashoffset': `${length}px` }, { 'stroke-dashoffset': '0px' }],
+      { duration: 280, easing, fill: 'forwards' },
+    );
+    this.strokeAnimations.add(animation);
+    animation.finished.then(() => {
+      this.strokeAnimations.delete(animation);
+      this.advanceStroke(playToken);
+    }, () => {
+      this.strokeAnimations.delete(animation);
+    });
+  }
+
+  advanceStroke(playToken) {
+    if (!this.isPlaying || playToken !== this.strokePlayToken) return;
+    if (this.currentStrokeIndex < this.strokePaths.length - 1) {
+      this.renderStrokeStep(this.currentStrokeIndex + 1);
+      this.animateCurrentStroke(playToken);
+    } else {
+      this.pauseStrokes();
+    }
   }
 
   renderCompounds(compounds) {
