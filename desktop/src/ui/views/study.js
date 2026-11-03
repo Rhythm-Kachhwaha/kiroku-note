@@ -7,7 +7,7 @@
  */
 
 import { studyClient } from '../services/study_client.js';
-import { escapeHtml, sanitizePromptMarkup } from '../utils/sanitizer.js';
+import { escapeHtml, renderStudyText, sanitizePromptMarkup } from '../utils/sanitizer.js';
 import { renderAssetSlot } from '../assets_map.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
 
@@ -15,11 +15,11 @@ function extractPassageContent(item) {
   if (!item) return null;
   if (item.group_context && Array.isArray(item.group_context.parts) && item.group_context.parts.length > 0) {
     return item.group_context.parts
-      .map(p => (p.title ? `${p.title}\n` : '') + (p.markup || ''))
+      .map(p => (p.title ? `${escapeHtml(p.title)}\n` : '') + renderStudyText(p, 'markup', 'text_html'))
       .join('\n\n');
   }
-  if (typeof item.group_context === 'string') return item.group_context;
-  return item.group_text || item.passage_text || null;
+  if (typeof item.group_context === 'string') return escapeHtml(item.group_context);
+  return item.group_text || item.passage_text ? escapeHtml(item.group_text || item.passage_text) : null;
 }
 
 export class StudyView {
@@ -360,7 +360,7 @@ export class StudyView {
             <span class="passage-title font-mono text-xs text-gold uppercase tracking-wider">Reading Passage</span>
           </div>
           <div class="passage-body-content text-sm leading-relaxed font-japanese text-warm-paper">
-            ${sanitizePromptMarkup(passageText)}
+            ${passageText}
           </div>
         </div>
       ` : ''}
@@ -372,7 +372,7 @@ export class StudyView {
           <span class="text-xs text-muted font-mono">Q${this.currentQuestionIndex + 1}</span>
         </div>
         <h2 class="study-prompt-text font-japanese" id="study-prompt-ja">
-          ${sanitizePromptMarkup(promptText)}
+          ${item.prompt_markup ? renderStudyText(item, 'prompt_markup', 'prompt_html') : escapeHtml(promptText)}
         </h2>
 
         <!-- Media Streaming Containers -->
@@ -396,7 +396,7 @@ export class StudyView {
               tabindex="0"
             >
               <span class="choice-num font-mono">${i + 1}</span>
-              <span class="choice-text font-japanese">${sanitizePromptMarkup(cText)}</span>
+              <span class="choice-text font-japanese">${choice.text_markup ? renderStudyText(choice) : escapeHtml(cText)}</span>
             </button>
           `;
         }).join('')}

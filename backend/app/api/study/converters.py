@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from html import escape
 from typing import Optional
 
 from app.api.study.schemas import (
@@ -20,6 +21,22 @@ from app.api.study.schemas import (
 from app.study.exam.models import ExamItemPresentation
 from app.study.formats import FORMAT_REGISTRY, get_format
 from app.study.session.models import PracticeItemPresentation
+from app.study.markup import parse_markup
+from app.study.markup.serializer import to_safe_html
+
+
+def render_markup_html(markup: Optional[str]) -> str:
+    """Render stored study markup as a safe HTML fragment.
+
+    Older records may contain malformed markup, so preserve their visible text
+    safely instead of failing an otherwise usable study response.
+    """
+    if not markup:
+        return ""
+    try:
+        return to_safe_html(parse_markup(markup))
+    except Exception:
+        return escape(markup)
 
 
 def _get_question_media_url(conn: sqlite3.Connection, question_id: int, role: str) -> Optional[str]:
@@ -106,6 +123,7 @@ def practice_item_to_dto(
                 label=c.label,
                 mode=c.mode,
                 text_markup=c.text_markup,
+                text_html=render_markup_html(c.text_markup),
                 image_url=img_url,
                 asset_id=c.asset_id,
             )
@@ -121,6 +139,7 @@ def practice_item_to_dto(
                 role=p.role,
                 title=p.title,
                 markup=p.markup,
+                text_html=render_markup_html(p.markup),
             )
             for p in item.group_context.parts
         ]
@@ -231,6 +250,7 @@ def practice_item_to_dto(
         structural_family=_get_structural_family(item.format_code),
         instruction_text=instruction_text,
         prompt_markup=item.prompt_markup,
+        prompt_html=render_markup_html(item.prompt_markup),
         choices=choices_dto,
         group_context=group_dto,
         audio_url=audio_url,
@@ -276,6 +296,7 @@ def exam_item_to_dto(
                 label=c.label,
                 mode=c.mode,
                 text_markup=c.text_markup,
+                text_html=render_markup_html(c.text_markup),
                 image_url=img_url,
                 asset_id=c.asset_id,
             )
@@ -290,6 +311,7 @@ def exam_item_to_dto(
                 role=p.role,
                 title=p.title,
                 markup=p.markup,
+                text_html=render_markup_html(p.markup),
             )
             for p in item.group_context.parts
         ]
@@ -361,6 +383,7 @@ def exam_item_to_dto(
         structural_family=_get_structural_family(item.format_code),
         instruction_text=instruction_text,
         prompt_markup=item.prompt_markup,
+        prompt_html=render_markup_html(item.prompt_markup),
         choices=choices_dto,
         group_context=group_dto,
         audio_url=audio_url,

@@ -22,6 +22,7 @@ from app.api.study.converters import (
     _get_question_media_url,
     _get_structural_family,
     _is_question_bookmarked,
+    render_markup_html,
 )
 from app.api.study.deps import get_media_store, get_study_db
 from app.api.study.errors import StudyBadRequestError, StudyNotFoundError, map_domain_exception
@@ -368,7 +369,7 @@ def search_bank_questions(
             LIMIT ? OFFSET ?;
         """
         rows = conn.execute(query_sql, tuple(params + [limit, offset])).fetchall()
-        items = [dict(r) for r in rows]
+        items = [dict(r, prompt_html=render_markup_html(r["prompt_markup"])) for r in rows]
 
         return PaginatedResponse(total=total, limit=limit, offset=offset, items=items)
     except Exception as exc:
@@ -442,6 +443,7 @@ def get_bank_question_detail(
                 label=c["label"],
                 mode="image" if c["asset_id"] else "text",
                 text_markup=c["text_markup"],
+                text_html=render_markup_html(c["text_markup"]),
                 image_url=f"/api/study/v1/media/{c['asset_id']}" if c["asset_id"] else None,
                 asset_id=c["asset_id"],
             )
@@ -474,6 +476,7 @@ def get_bank_question_detail(
                         role=p["role"],
                         title="",
                         markup=p["markup"],
+                        text_html=render_markup_html(p["markup"]),
                     )
                     for p in parts_rows
                 ]
@@ -564,6 +567,7 @@ def get_bank_question_detail(
             structural_family=_get_structural_family(q_row["format_code"]),
             instruction_text=instruction_text,
             prompt_markup=q_row["prompt_markup"],
+            prompt_html=render_markup_html(q_row["prompt_markup"]),
             choices=choices,
             group_context=group_dto,
             audio_url=audio_url,

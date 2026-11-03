@@ -5709,6 +5709,39 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   line-height: 1;
 }
 
+/* Server-rendered study markup targets */
+.study-target-blank {
+  display: inline-flex;
+  min-width: 4.5em;
+  justify-content: center;
+  border-bottom: 2px solid currentColor;
+  white-space: nowrap;
+}
+
+.study-target-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4em;
+  min-height: 1.4em;
+  border: 1px solid currentColor;
+  line-height: 1;
+}
+
+.study-target-underline {
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.12em;
+}
+
+.study-prompt-text ruby rt,
+.test-prompt-body ruby rt,
+.choice-text ruby rt,
+.passage-body-content ruby rt {
+  font-size: 0.55em;
+  line-height: 1;
+}
+
 .test-choice-card.is-selected-choice {
   background-color: var(--surface-container-high);
   border-color: var(--gold);

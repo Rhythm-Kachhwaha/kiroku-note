@@ -24,7 +24,8 @@ const ALLOWED_TAGS = new Set([
 
 const ALLOWED_CLASSES = new Set([
   'star', 'blank', 'prompt-text', 'ruby-text', 'blank-slot', 'question-anchor',
-  'font-japanese', 'text-gold', 'text-muted'
+  'font-japanese', 'text-gold', 'text-muted',
+  'study-target-blank', 'study-target-underline', 'study-target-star'
 ]);
 
 /**
@@ -78,6 +79,8 @@ export function sanitizePromptMarkup(markup) {
             } else {
               child.removeAttribute('class');
             }
+          } else if (attrName === 'data-anchor' && child.classList.contains('study-target-blank')) {
+            child.setAttribute('data-anchor', attr.value);
           } else {
             child.removeAttribute(attr.name);
           }
@@ -92,5 +95,18 @@ export function sanitizePromptMarkup(markup) {
 
   sanitizeNode(doc.body);
   return doc.body.innerHTML;
+}
+
+/**
+ * Prefer the server-rendered study HTML and safely fall back to literal text
+ * for older API responses that only carry markup.
+ */
+export function renderStudyText(item, rawField = 'text_markup', htmlField = 'text_html') {
+  if (item && typeof item === 'object') {
+    const rendered = item[htmlField];
+    if (typeof rendered === 'string' && rendered) return sanitizePromptMarkup(rendered);
+    return escapeHtml(item[rawField] ?? '');
+  }
+  return escapeHtml(item ?? '');
 }
 

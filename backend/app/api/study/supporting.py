@@ -23,6 +23,7 @@ from app.api.study.deps import (
     get_study_db,
 )
 from app.api.study.errors import StudyNotFoundError, map_domain_exception
+from app.api.study.converters import render_markup_html
 from app.api.study.schemas import (
     AddBookmarkRequest,
     BookmarkItemDTO,
@@ -135,6 +136,7 @@ def get_trouble_questions(
                 category=it.category,
                 format_code=it.format_code,
                 prompt_markup=it.prompt_markup,
+                prompt_html=render_markup_html(it.prompt_markup),
                 attempts_count=it.attempts_count,
                 correct_count=it.correct_count,
                 accuracy=it.accuracy,
@@ -203,7 +205,7 @@ def get_incorrect_questions_history(
             LIMIT ? OFFSET ?;
         """
         rows = conn.execute(query_sql, tuple(params + [limit, offset])).fetchall()
-        items = [dict(r) for r in rows]
+        items = [dict(r, prompt_html=render_markup_html(r["prompt_markup"])) for r in rows]
 
         return PaginatedResponse(
             total=total,
@@ -376,6 +378,7 @@ def get_bookmarks(
                 category=r["category"],
                 format_code=r["format_code"],
                 prompt_markup=r["prompt_markup"],
+                prompt_html=render_markup_html(r["prompt_markup"]),
                 notes=r["notes"] or "",
                 created_at=r["created_at"],
                 is_eligible=bool(r["is_eligible"]),

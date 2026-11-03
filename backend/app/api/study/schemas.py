@@ -25,6 +25,7 @@ class ChoiceDTO(StudyAPIBaseModel):
     label: str
     mode: str = "text"  # text | image | unprinted
     text_markup: Optional[str] = None
+    text_html: str = ""
     image_url: Optional[str] = None
     asset_id: Optional[int] = None
 
@@ -34,6 +35,7 @@ class GroupPartDTO(StudyAPIBaseModel):
     role: str
     title: str = ""
     markup: str
+    text_html: str = ""
     image_url: Optional[str] = None
 
 
@@ -57,6 +59,7 @@ class QuestionDTO(StudyAPIBaseModel):
     structural_family: Optional[str] = None
     instruction_text: Optional[str] = None
     prompt_markup: str
+    prompt_html: str = ""
     choices: List[ChoiceDTO] = Field(default_factory=list)
     group_context: Optional[GroupContextDTO] = None
     audio_url: Optional[str] = None
@@ -264,6 +267,7 @@ class TroubleQuestionItem(StudyAPIBaseModel):
     category: str
     format_code: str
     prompt_markup: str
+    prompt_html: str = ""
     attempts_count: int
     correct_count: int
     accuracy: float
@@ -294,6 +298,7 @@ class BookmarkItemDTO(StudyAPIBaseModel):
     category: str
     format_code: str
     prompt_markup: str
+    prompt_html: str = ""
     notes: str = ""
     created_at: str
     is_eligible: bool = True
@@ -474,6 +479,7 @@ class QuestionDetailDTO(StudyAPIBaseModel):
     structural_family: Optional[str] = None
     instruction_text: Optional[str] = None
     prompt_markup: str
+    prompt_html: str = ""
     choices: List[ChoiceDTO] = Field(default_factory=list)
     group_context: Optional[GroupContextDTO] = None
     audio_url: Optional[str] = None
