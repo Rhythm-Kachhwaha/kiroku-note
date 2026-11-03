@@ -45,6 +45,26 @@ Backend targeted command: `$env:PYTHONPATH='.;backend'; python -m pytest <test> 
 Desktop targeted command: `node --test <test>`. Extension targeted command:
 `node --test <test>`.
 
+Ask the user before running the full backend suite, even if a task requests it.
+
+## Efficient agent workflow
+
+The user names the task; determine the smallest valid path without asking them
+how to read files or save tokens. Work in this order: task, area map, files
+named by the task, targeted test. Read no unrelated maps or documentation.
+
+Use a skill only when the user names it, the platform requires it, or the task
+directly matches its description. Do not load design or UI skills for backend,
+documentation, tests, refactors, or configuration. For UI work, read
+`docs/maps/ui-rules.md` first and load only one relevant skill unless the task
+requires more.
+
+Do not explore files, browse external sources, or inspect broad directories
+unless the task requires it. After three substantive file reads, summarize only
+what affects the task before reading more. Send one concise update before a
+multi-step run and one result after it. The active slice card overrides broad
+repository guidance.
+
 ## Maps
 
 Read only the map for the active area. `docs/maps/ui-rules.md` is default UI
