@@ -15399,7 +15399,7 @@
       "variants": [
         "ことができる"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ことができる. Meaning: can; be able to; be possible to. Formation: Verb-dict + ことができる."
@@ -16063,7 +16063,7 @@
       "variants": [
         "ので"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ので. Meaning: because; since. Formation: Verb-plain / i-Adj + ので / na-Adj + な + ので / Noun + な + ので."
@@ -16322,9 +16322,11 @@
     "matcher": {
       "type": "pattern",
       "variants": [
-        "ようにする"
+        "ようにする",
+        "ようにして",
+        "ようにし"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ようにする. Meaning: try to; make sure to; make a habit of. Formation: Verb-dict / Verb-nai + ようにする."
@@ -18847,7 +18849,7 @@
       "variants": [
         "から"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜から（from）. Meaning: from (a starting point in time or place). Formation: Noun + から."

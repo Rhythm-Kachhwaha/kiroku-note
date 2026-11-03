@@ -30,6 +30,7 @@ class MatchedGrammarSpan:
     matched_formation: str | None = None
     also_possible: bool = False
     concept_id: str | None = None
+    span_approx: bool = False
 
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
@@ -69,9 +70,78 @@ class GrammarMatcher:
             start -= 1
         return start
 
+    @staticmethod
+    def _token_kind(token: dict[str, Any], text: str) -> str:
+        if text in _BARE_PARTICLES:
+            return "particle"
+        pos = " ".join(
+            str(token.get(key, ""))
+            for key in ("pos", "part_of_speech", "partOfSpeech", "part_of_speech_detail")
+        ).lower()
+        if "助詞" in pos or "particle" in pos:
+            return "particle"
+        if (
+            "動詞" in pos
+            or "verb" in pos
+            or "形容詞" in pos
+            or "adjective" in pos
+            or "助動詞" in pos
+            or "auxiliary" in pos
+            or token.get("is_auxiliary")
+            or token.get("is_predicate")
+        ):
+            return "predicate"
+        base = str(token.get("base_form", token.get("lemma", "")))
+        return "predicate" if base == "する" or text in {"する", "し", "した", "して"} else "other"
+
+    @classmethod
+    def _anchored_start(
+        cls,
+        token_spans: list[tuple[str, int, int, dict[str, Any]]],
+        match_start: int,
+    ) -> int:
+        token_index = next(
+            (
+                index for index, (_, start, end, _) in enumerate(token_spans)
+                if start <= match_start < end or start == match_start
+            ),
+            None,
+        )
+        if token_index is None:
+            return match_start
+        start = match_start
+        current_index = token_index
+        while current_index:
+            previous = token_spans[current_index - 1]
+            current = token_spans[current_index]
+            if previous[2] != current[1] or cls._token_kind(previous[3], previous[0]) == "particle":
+                break
+            next_kind = cls._token_kind(current[3], current[0])
+            previous_kind = cls._token_kind(previous[3], previous[0])
+            is_suru_noun = (
+                previous_kind == "other"
+                and next_kind == "predicate"
+                and str(current[3].get("base_form", current[3].get("lemma", ""))) == "する"
+            )
+            if previous_kind != "predicate" and not is_suru_noun:
+                break
+            start = previous[1]
+            current_index -= 1
+        return start
+
+    @staticmethod
+    def _token_boundaries(
+        token_spans: list[tuple[str, int, int, dict[str, Any]]],
+        start: int,
+        end: int,
+    ) -> bool:
+        return any(token_start == start for _, token_start, _, _ in token_spans) and any(
+            token_end == end for _, _, token_end, _ in token_spans
+        )
+
     def _candidate(
         self, point: dict[str, Any], raw_text: str, start: int, end: int, *,
-        confidence: str = "high", matched: str | None = None,
+        confidence: str = "high", matched: str | None = None, span_approx: bool = False,
     ) -> MatchedGrammarSpan:
         breakdown = point.get("english_breakdown", "")
         formation = point.get("formation")
@@ -84,7 +154,7 @@ class GrammarMatcher:
             level=point.get("level", ""), meaning_short=point.get("meaning_short", ""),
             english_breakdown=breakdown, formation=formation,
             confidence=confidence, matched_formation=matched,
-            concept_id=point.get("concept_id"),
+            concept_id=point.get("concept_id"), span_approx=span_approx,
         )
 
     @staticmethod
@@ -121,8 +191,8 @@ class GrammarMatcher:
             return None
         prefixes = {
             "て": r"[\u3041-\u309f\u30a1-\u30fa\u30f7-\u30ff々ー一-龯]+て",
-            "た": r"[\u3041-\u309f\u30a1-\u309f\u30a1-\u30fa\u30f7-\u30ff々ー一-龯]+た",
-            "ない": r"[\u3041-\u309f\u30a1-\u309f\u30a1-\u30fa\u30f7-\u30ff々ー一-龯]+ない",
+            "た": r"[\u3041-\u309f\u30a1-\u30fa\u30f7-\u30ff々ー一-龯]+た",
+            "ない": r"[\u3041-\u309f\u30a1-\u30fa\u30f7-\u30ff々ー一-龯]+ない",
             "ます-stem": r"[\u3041-\u309f\u30a1-\u30fa\u30f7-\u30ff々ー一-龯]+",
             "dictionary": r"[\u3041-\u309f\u30a1-\u30fa\u30f7-\u30ff々ー一-龯]+",
             "plain": r"[\u3041-\u309f\u30a1-\u30fa\u30f7-\u30ff々ー一-龯]+",
@@ -139,10 +209,17 @@ class GrammarMatcher:
         variants = spec.get("variants") or point.get("variants") or []
         return [re.escape(value) for value in variants if isinstance(value, str) and value]
 
-    def _match_point(self, point: dict[str, Any], raw_text: str) -> list[MatchedGrammarSpan]:
+    def _match_point(
+        self,
+        point: dict[str, Any],
+        raw_text: str,
+        tokens: list[tuple[str, int, int, dict[str, Any]]] | None = None,
+    ) -> list[MatchedGrammarSpan]:
         spec = point.get("matcher") or {}
         if not isinstance(spec, dict) or spec.get("match_mode") == "reference_only":
             return []
+        token_spans = tokens or []
+        span_approx = not bool(token_spans)
         matches: list[MatchedGrammarSpan] = []
         if spec.get("type") == "discontinuous":
             first = spec.get("first")
@@ -156,6 +233,7 @@ class GrammarMatcher:
                 matches.append(self._candidate(
                     point, raw_text, match.start(), match.end(),
                     confidence=str(spec.get("confidence", "high")),
+                    span_approx=span_approx,
                 ))
             return matches
 
@@ -177,6 +255,10 @@ class GrammarMatcher:
                 )
                 if not self._guarded(match, raw_text, guards):
                     continue
+                if token_spans and len(match.group()) <= 2 and not self._token_boundaries(
+                    token_spans, match.start(), match.end()
+                ):
+                    continue
                 start = match.start()
                 matched = None
                 if point["pattern_key"] in {"てしまう", "ておく"}:
@@ -193,9 +275,12 @@ class GrammarMatcher:
                         matched = "V-て + とく" if match.group().endswith("とく") else "V-て + おく"
                 elif spec.get("ambiguity_group") == "そうだ":
                     start = self._grammar_start(raw_text, match.end() - 3)
+                if token_spans:
+                    start = self._anchored_start(token_spans, start)
                 matches.append(self._candidate(
                     point, raw_text, start, match.end(),
                     confidence=str(spec.get("confidence", "high")), matched=matched,
+                    span_approx=span_approx,
                 ))
         return matches
 
@@ -205,8 +290,9 @@ class GrammarMatcher:
         candidates: list[MatchedGrammarSpan] = []
         points = self.reference.get_points()
         by_key = {point["pattern_key"]: point for point in points}
+        token_spans = self._tokens(tokens, raw_text)
         for point in points:
-            candidates.extend(self._match_point(point, raw_text))
+            candidates.extend(self._match_point(point, raw_text, token_spans))
 
         if show_basic_particles:
             particle_tokens = tokens or [{"text": char} for char in raw_text]

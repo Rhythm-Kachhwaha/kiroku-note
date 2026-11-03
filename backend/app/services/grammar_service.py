@@ -160,7 +160,7 @@ class GrammarService:
                 if is_within_learner_level(point.get("level"), filter_level)
             ]
             if hide_known:
-                cached_points = self._hide_known(cached)
+                cached_points = self._hide_known({"points": points})
                 points = cached_points
             return {**cached, "learner_level": level, "points": points, "cached": True}
 
