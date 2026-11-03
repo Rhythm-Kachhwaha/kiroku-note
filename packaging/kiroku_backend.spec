@@ -32,6 +32,7 @@ hidden_imports = (
         "sqlite3",
         "pydantic",
         "pydantic_core",
+        "multipart",
         "sniffio",
         "unicodedata",
         "email.mime.multipart",

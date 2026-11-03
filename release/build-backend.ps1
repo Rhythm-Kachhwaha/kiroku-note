@@ -38,8 +38,23 @@ if (-not $PyInstallerCheck) {
 }
 Write-Host "  Found PyInstaller version: $PyInstallerCheck" -ForegroundColor Green
 
-# 3. Clean previous build artifacts
-Write-Host "`n[3/5] Cleaning prior build output..." -ForegroundColor Yellow
+# 3. Verify backend runtime dependencies before freezing the application.
+Write-Host "`n[3/6] Checking backend runtime dependencies..." -ForegroundColor Yellow
+$RequirementsPath = Join-Path $PROJECT_ROOT "backend\requirements.txt"
+python -m pip install -r "$RequirementsPath"
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "[FATAL] Failed to install backend runtime dependencies from $RequirementsPath."
+    exit $LASTEXITCODE
+}
+python -c "import fastapi, multipart, uvicorn"
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "[FATAL] Backend runtime dependency verification failed. Ensure FastAPI, python-multipart, and Uvicorn are installed."
+    exit 1
+}
+Write-Host "  Backend runtime dependencies verified." -ForegroundColor Green
+
+# 4. Clean previous build artifacts
+Write-Host "`n[4/6] Cleaning prior build output..." -ForegroundColor Yellow
 $DistDir = Join-Path $PROJECT_ROOT "dist\backend"
 $BuildDir = Join-Path $PROJECT_ROOT "build"
 
@@ -52,8 +67,8 @@ if (Test-Path $BuildDir) {
 New-Item -ItemType Directory -Path $DistDir -Force | Out-Null
 Write-Host "  Cleaned build and dist directories." -ForegroundColor Green
 
-# 4. Run PyInstaller Build
-Write-Host "`n[4/5] Building standalone executable with PyInstaller..." -ForegroundColor Yellow
+# 5. Run PyInstaller Build
+Write-Host "`n[5/6] Building standalone executable with PyInstaller..." -ForegroundColor Yellow
 $SpecPath = Join-Path $PROJECT_ROOT "packaging\kiroku_backend.spec"
 if (-not (Test-Path $SpecPath)) {
     Write-Error "[FATAL] Spec file not found at: $SpecPath"
@@ -69,8 +84,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 $BuildDuration = ((Get-Date) - $BuildStartTime).TotalSeconds
 
-# 5. Verify Output Artifact
-Write-Host "`n[5/5] Verifying output binary..." -ForegroundColor Yellow
+# 6. Verify Output Artifact
+Write-Host "`n[6/6] Verifying output binary..." -ForegroundColor Yellow
 $ExePath = Join-Path $DistDir "KirokuNote\KirokuNote.exe"
 if (-not (Test-Path $ExePath)) {
     Write-Error "[FATAL] Expected executable was not produced at: $ExePath"

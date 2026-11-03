@@ -444,6 +444,8 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   z-index: 1;
   box-sizing: border-box;
   inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   color: var(--ink-black);
   background: var(--architectural-cream, #E2DAC2);
   border: 2px solid #151413;
@@ -473,22 +475,27 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 .speech-content {
+  box-sizing: border-box;
   min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
   padding: clamp(0.75rem, 1.5vh, 1.15rem) clamp(1.25rem, 2.8vw, 2rem);
 }
 
 .speech-header-row {
   display: flex;
   min-width: 0;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: flex-start;
   gap: 0.5rem;
 }
 
 .speech-greeting-ja {
+  min-inline-size: 0;
   max-width: 100%;
-  overflow-wrap: normal;
-  word-break: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   line-break: strict;
   font-family: "Mochiy Pop P One", var(--font-japanese), sans-serif;
   font-size: clamp(1.25rem, 2.2vw, 1.75rem);
@@ -503,6 +510,7 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 }
 
 .speech-subtitle-en {
+  min-inline-size: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
   font-family: var(--font-sans);

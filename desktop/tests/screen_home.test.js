@@ -151,6 +151,9 @@ test('Home Screen Styles: bundle.css styles mascot stage, organic backing, and c
   assert.ok(css.includes('.home-daily-word') || css.includes('.daily-vocab-stamp'), 'bundle.css must style daily word stamp');
   assert.ok(css.includes('.home-launcher-card'), 'bundle.css must style .home-launcher-card');
   assert.ok(css.includes('.home-launcher-grid'), 'bundle.css must style .home-launcher-grid');
+  assert.ok(css.includes('.speech-header-row') && css.includes('flex-wrap: wrap'), 'Speech heading must wrap inside the bubble');
+  assert.ok(css.includes('.speech-greeting-ja') && css.includes('overflow-wrap: anywhere'), 'Speech heading must contain long text');
+  assert.ok(css.includes('.comic-speech-inner') && css.includes('min-inline-size: 0'), 'Speech bubble content must be allowed to shrink');
 
   // No legacy chocolate/orange hex codes
   const legacyColors = ['#26170D', '#FF8A1F', '#FFF1DC'];
