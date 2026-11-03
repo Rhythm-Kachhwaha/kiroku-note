@@ -31,6 +31,7 @@ from app.study.ingestion.segmentation.patterns import (
     QUESTION_START_RE,
     SECTION_HEADER_RE,
     STAR_MARKER_RE,
+    STANDALONE_PAGE_NUMBER_RE,
     UNDERLINE_RAW_RE,
     normalize_label,
 )
@@ -51,20 +52,65 @@ class TextSegmenter:
             return self._segment_from_structured_metadata(doc)
 
         # 2. Extract separate answer key if present at document end
-        ak_match = ANSWER_KEY_SECTION_RE.search(doc.raw_text)
+        source_lines = self._source_lines(doc)
+        ak_index = next(
+            (
+                index
+                for index, (line, _) in enumerate(source_lines)
+                if ANSWER_KEY_SECTION_RE.match(line.strip())
+            ),
+            None,
+        )
         answer_key: dict[str, int] = {}
-        if ak_match:
-            answer_key = self._answer_key_parser.parse_answer_key_section(doc.raw_text)
-            text_for_parsing = doc.raw_text[:ak_match.start()].strip()
-        else:
-            text_for_parsing = doc.raw_text
+        if ak_index is not None:
+            answer_key_text = "\n".join(line for line, _ in source_lines[ak_index:])
+            answer_key = self._answer_key_parser.parse_answer_key_section(answer_key_text)
+            source_lines = source_lines[:ak_index]
 
         if doc.metadata.get("answers"):
             external_answers = self._answer_key_parser.normalize_external_answer_key(doc.metadata["answers"])
             answer_key.update(external_answers)
 
         # 3. Parse by sections and problem blocks
-        return self._segment_raw_text(text_for_parsing, doc, answer_key)
+        return self._segment_raw_text(source_lines, doc, answer_key)
+
+    def _source_lines(self, doc: ExtractedDocument) -> list[tuple[str, int | None]]:
+        """Return source lines with page provenance, without synthetic page markers."""
+        if doc.pages:
+            lines = [
+                (line, page.page_number)
+                for page in doc.pages
+                for line in page.text.splitlines()
+            ]
+        else:
+            lines = []
+            current_page: int | None = None
+            for raw_line in doc.raw_text.splitlines():
+                marker = re.fullmatch(r"\s*===\s*Page\s+(\d+)\s*===\s*", raw_line, re.IGNORECASE)
+                if marker:
+                    current_page = int(marker.group(1))
+                    continue
+                lines.append((raw_line, current_page))
+
+        boundary_lines: dict[str, set[int]] = {}
+        page_lines: dict[int, list[str]] = {}
+        for line, page_number in lines:
+            if page_number is not None and line.strip():
+                page_lines.setdefault(page_number, []).append(line.strip())
+        for page_number, page_content in page_lines.items():
+            if page_content:
+                boundary_lines.setdefault(page_content[0], set()).add(page_number)
+                if len(page_content) > 1:
+                    boundary_lines.setdefault(page_content[-1], set()).add(page_number)
+
+        repeated_boundary_lines = {
+            line for line, pages in boundary_lines.items() if len(pages) >= 2
+        }
+        return [
+            (line, page_number)
+            for line, page_number in lines
+            if not (page_number is not None and line.strip() in repeated_boundary_lines)
+        ]
 
     def _segment_from_structured_metadata(
         self,
@@ -92,7 +138,7 @@ class TextSegmenter:
                     raw_body=raw_body,
                     parts=parts,
                     anchors=anchors,
-                    page_number=g_dict.get("page_number", 1),
+                    page_number=g_dict.get("page_number"),
                     raw_source_text=str(g_dict),
                     attached_assets=g_dict.get("attached_assets", []),
                 )
@@ -166,7 +212,7 @@ class TextSegmenter:
                     group_reference=q_dict.get("content_group_id") or q_dict.get("group_reference"),
                     group_ordinal=q_dict.get("group_ordinal"),
                     anchor_key=q_dict.get("anchor_key"),
-                    page_number=q_dict.get("page_number", 1),
+                    page_number=q_dict.get("page_number"),
                     raw_source_text=str(q_dict),
                     attached_assets=q_dict.get("attached_assets", []),
                 )
@@ -176,7 +222,7 @@ class TextSegmenter:
 
     def _segment_raw_text(
         self,
-        text: str,
+        source_lines: list[tuple[str, int | None]],
         doc: ExtractedDocument,
         answer_key: dict[str, int],
     ) -> tuple[list[QuestionDraft], list[GroupDraft]]:
@@ -184,7 +230,8 @@ class TextSegmenter:
         questions: list[QuestionDraft] = []
         groups: list[GroupDraft] = []
 
-        lines = text.split("\n")
+        lines = [line for line, _ in source_lines]
+        line_pages = [page_number for _, page_number in source_lines]
         current_section = ""
         current_instruction = ""
         current_passage_lines: list[str] = []
@@ -228,7 +275,7 @@ class TextSegmenter:
                     raw_body="",
                     parts=[],
                     anchors=[],
-                    page_number=1,
+                    page_number=line_pages[i],
                 )
                 groups.append(current_group)
                 i += 1
@@ -237,7 +284,7 @@ class TextSegmenter:
             # Check if this line starts a question (e.g. "1 ", "問1", "（1）")
             q_match = QUESTION_START_RE.match(line)
             is_choice_line = False
-            if q_match:
+            if q_match and not STANDALONE_PAGE_NUMBER_RE.fullmatch(line):
                 rest = line[q_match.end():].strip()
                 if self._contains_multiple_choices(line) and not self._contains_multiple_choices(rest):
                     is_choice_line = True
@@ -248,6 +295,9 @@ class TextSegmenter:
                     body = "\n".join(current_passage_lines).strip()
                     body = re.sub(r"\[\s*([0-9０-９]+)\s*\]", r"{blank|\1}", body)
                     current_group.raw_body = body
+                    current_group.raw_source_text = "\n".join(
+                        [current_group.title, *current_passage_lines]
+                    ).strip()
                     # Extract any blank anchors from passage body (e.g. [ 25 ] or 【35】)
                     anchors = self._extract_passage_anchors(body)
                     current_group.anchors = anchors
@@ -255,7 +305,14 @@ class TextSegmenter:
 
                 # Parse this question block
                 q_draft, next_i = self._parse_question_block(
-                    lines, i, current_section, current_instruction, current_group, answer_key, questions
+                    lines,
+                    i,
+                    current_section,
+                    current_instruction,
+                    current_group,
+                    answer_key,
+                    questions,
+                    line_pages[i],
                 )
                 if q_draft:
                     questions.append(q_draft)
@@ -273,6 +330,9 @@ class TextSegmenter:
             body = "\n".join(current_passage_lines).strip()
             body = re.sub(r"\[\s*([0-9０-９]+)\s*\]", r"{blank|\1}", body)
             current_group.raw_body = body
+            current_group.raw_source_text = "\n".join(
+                [current_group.title, *current_passage_lines]
+            ).strip()
             current_group.anchors = self._extract_passage_anchors(body)
             current_group.parts = [{"ordinal": 1, "role": "text", "markup": body}]
 
@@ -309,6 +369,8 @@ class TextSegmenter:
     ) -> bool:
         """Determine if a line starts a new question vs choices or answer."""
         if INLINE_ANSWER_RE.search(line):
+            return False
+        if STANDALONE_PAGE_NUMBER_RE.fullmatch(line):
             return False
 
         q_match = QUESTION_START_RE.match(line)
@@ -347,6 +409,7 @@ class TextSegmenter:
         current_group: GroupDraft | None,
         answer_key: dict[str, int],
         questions_so_far: list[QuestionDraft] | None = None,
+        page_number: int | None = None,
     ) -> tuple[QuestionDraft | None, int]:
         """Parse question stem, choices, and answer from a sequence of lines."""
         start_line = lines[start_idx].strip()
@@ -489,6 +552,7 @@ class TextSegmenter:
             group_reference=current_group.draft_id if current_group else None,
             group_ordinal=grp_ord,
             anchor_key=anchor_key,
+            page_number=page_number,
             line_number=start_idx + 1,
             raw_source_text=full_raw_text,
         )

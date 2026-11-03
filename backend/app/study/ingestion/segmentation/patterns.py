@@ -68,6 +68,9 @@ QUESTION_START_RE = re.compile(
     re.MULTILINE,
 )
 
+# A page number is not a question when it is the entire line.
+STANDALONE_PAGE_NUMBER_RE = re.compile(r"^(?:page\s*)?[0-9０-９]{1,4}[\.．、]?$", re.IGNORECASE)
+
 # Inline or multi-choice delimiters:
 # 1. Circled numbers: ①, ②, ③, ④
 CIRCLED_CHOICE_SPLIT_RE = re.compile(r"([①②③④])\s*")
@@ -101,4 +104,3 @@ ANSWER_KEY_SECTION_RE = re.compile(
     r"^(?:【\s*)?(?:正解一覧|解答一覧|Answer\s*Key|(?:正解|解答|正答)(?:\s*】|\s*$))",
     re.MULTILINE | re.IGNORECASE,
 )
-

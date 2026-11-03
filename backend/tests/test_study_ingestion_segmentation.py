@@ -162,3 +162,49 @@ def test_text_segmenter_f4_text_grammar_blanks():
     assert questions[0].anchor_key == "25"
     assert questions[1].anchor_key == "26"
 
+
+def test_text_segmenter_preserves_page_provenance_across_pages():
+    page_one = (
+        "1 ページをまたぐ問題です。\n"
+        "これはページをまたぐ文章です。\n"
+    )
+    page_two = (
+        "これは続きです。\n"
+        "① はい ② いいえ ③ 不明 ④ その他\n"
+    )
+    doc = ExtractedDocument(
+        adapter_kind=IngestAdapterKind.PDF_TEXT,
+        raw_text="=== Page 1 ===\n" + page_one + "=== Page 2 ===\n" + page_two,
+        pages=[
+            ExtractedPage(page_number=1, text=page_one),
+            ExtractedPage(page_number=2, text=page_two),
+        ],
+        source_name="Paged Test",
+    )
+
+    questions, groups = TextSegmenter().segment(doc)
+
+    assert len(groups) == 0
+    assert len(questions) == 1
+    assert questions[0].page_number == 1
+    assert "これは続きです" in questions[0].raw_stem
+    assert "=== Page" not in questions[0].raw_source_text
+
+
+def test_text_segmenter_ignores_page_numbers_and_repeated_boundaries():
+    page_one = "模擬試験\n1 問題です。\n① はい ② いいえ ③ 不明 ④ その他\n3\n"
+    page_two = "模擬試験\n2 別の問題です。\n① はい ② いいえ ③ 不明 ④ その他\n3\n"
+    doc = ExtractedDocument(
+        adapter_kind=IngestAdapterKind.PDF_TEXT,
+        raw_text="",
+        pages=[
+            ExtractedPage(page_number=4, text=page_one),
+            ExtractedPage(page_number=5, text=page_two),
+        ],
+        source_name="Boundary Test",
+    )
+
+    questions, _ = TextSegmenter().segment(doc)
+
+    assert [question.page_number for question in questions] == [4, 5]
+    assert [question.raw_stem for question in questions] == ["問題です。", "別の問題です。"]
