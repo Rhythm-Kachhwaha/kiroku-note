@@ -21,7 +21,8 @@ from app.config import (
     is_within_learner_level,
 )
 from app.services.jlpt_reference import JlptReferenceService
-from app.services.tokenizers import LegacyTokenizer, get_sudachi_tokenizer
+from app.services.tokenizers import LegacyTokenizer, get_sudachi_tokenizer, merge_morphemes
+from app.services.tokenizers.base import Morpheme
 from kiroku_dictionary.deinflect import DeinflectionCandidate, deinflect
 
 logger = logging.getLogger(__name__)
@@ -64,8 +65,8 @@ COPULAS: frozenset[str] = frozenset([
 FUNCTION_WORDS: frozenset[str] = PARTICLES | COPULAS
 
 _LEVEL_PRIORITY: dict[str, int] = {"N5": 5, "N4": 4, "N3": 3, "N2": 2, "N1": 1}
-_SPELLING_VARIANTS: dict[str, tuple[str, ...]] = {
-    "綺麗": ("奇麗",),
+_EXPLICIT_ALIASES: dict[str, tuple[str, ...]] = {
+    "御飯": ("ご飯",),
     "奇麗": ("綺麗",),
     "私": ("わたし",),
 }
@@ -298,18 +299,9 @@ class SubtitleAnnotatorService:
                         elif not existing_r and r:
                             vocab_dict[w] = (existing_lvl, r)
 
-                    if _contains_kanji(w):
-                        alias_keys = set(_SPELLING_VARIANTS.get(w, ()))
-                        if r:
-                            alias_keys.add(r)
-                        if w.startswith("御") and len(w) > 1:
-                            alias_keys.update({f"ご{w[1:]}", f"お{w[1:]}"})
-                        for alias in alias_keys:
-                            normalized_alias = _to_hiragana(alias)
-                            if normalized_alias and normalized_alias != w:
-                                alias_candidates.setdefault(normalized_alias, set()).add(
-                                    (w, lvl, r)
-                                )
+                    for alias in _EXPLICIT_ALIASES.get(w, ()):
+                        if alias and alias != w:
+                            alias_candidates.setdefault(alias, set()).add((w, lvl, r))
 
                 kanji_rows = cursor.execute("SELECT character, level FROM kanji").fetchall()
                 for char, level in kanji_rows:
@@ -472,6 +464,19 @@ class SubtitleAnnotatorService:
         n = len(text)
         i = 0
         max_scan_len = 16
+        morphology: dict[int, Morpheme] = {}
+        morpheme_boundaries: dict[int, Morpheme] = {}
+        if self._tokenizer.name == "sudachi":
+            original_morphemes = self._tokenizer.tokenize(text)
+            morpheme_boundaries = {
+                morpheme.start: morpheme for morpheme in original_morphemes
+            }
+            original_spans = {
+                (morpheme.start, morpheme.end) for morpheme in original_morphemes
+            }
+            for morpheme in merge_morphemes(original_morphemes):
+                if (morpheme.start, morpheme.end) not in original_spans:
+                    morphology[morpheme.start] = morpheme
 
         while i < n:
             if text[i].isspace():
@@ -491,9 +496,66 @@ class SubtitleAnnotatorService:
                 i += 1
                 continue
 
+            morpheme = morphology.get(i)
+            if morpheme is not None:
+                surface = text[morpheme.start : morpheme.end]
+                lookup_keys = (morpheme.lemma, morpheme.normalized, surface)
+                dictionary_match = next(
+                    (
+                        key
+                        for key in lookup_keys
+                        if key in self._vocab_cache or key in self._mined_words
+                    ),
+                    None,
+                )
+                lemma = morpheme.lemma or dictionary_match or surface
+                jlpt_lvl, reading = self._vocab_cache.get(lemma, (None, ""))
+                reading = reading or self._mined_readings.get(lemma, "")
+                is_mined = lemma in self._mined_words or surface in self._mined_words
+                status = (
+                    "should_know"
+                    if jlpt_lvl and is_within_learner_level(jlpt_lvl, effective_level)
+                    else "mined"
+                    if is_mined
+                    else "unstyled"
+                )
+                tokens.append(
+                    AnnotatedToken(
+                        surface=surface,
+                        lemma=lemma,
+                        reading=reading,
+                        status=status,
+                        jlpt_level=jlpt_lvl,
+                        start=start,
+                        end=end,
+                        start_char=i,
+                        end_char=morpheme.end,
+                    )
+                )
+                i = morpheme.end
+                continue
+
+            boundary = morpheme_boundaries.get(i)
+            next_boundary = (
+                morpheme_boundaries.get(boundary.end) if boundary is not None else None
+            )
+
             # Prefer a complete auxiliary-inflected span over shorter dictionary
             # matches inside it (for example 指定 inside 勉強していた).
-            inflected = self._match_inflected_span(text, i)
+            inflected = (
+                None
+                if (
+                    boundary is not None
+                    and (
+                        boundary.surface in {"やすい", "なさい", "よう", "ように"}
+                        or boundary.lemma in {"やすい", "なさる", "よう"}
+                    )
+                ) or (
+                    next_boundary is not None
+                    and next_boundary.surface in {"やすい", "なさい"}
+                )
+                else self._match_inflected_span(text, i)
+            )
             if inflected is not None:
                 span_length, lemma, jlpt_lvl, reading = inflected
                 is_mined = lemma in self._mined_words or text[i : i + span_length] in self._mined_words
@@ -518,6 +580,29 @@ class SubtitleAnnotatorService:
                     )
                 )
                 i += span_length
+                continue
+
+            if (
+                boundary is not None
+                and next_boundary is not None
+                and next_boundary.surface in {"ながら", "やすい", "なさい"}
+                and boundary.lemma in self._vocab_cache
+            ):
+                jlpt_lvl, reading = self._vocab_cache[boundary.lemma]
+                tokens.append(
+                    AnnotatedToken(
+                        surface=boundary.surface,
+                        lemma=boundary.lemma,
+                        reading=reading,
+                        status="unstyled",
+                        jlpt_level=jlpt_lvl,
+                        start=start,
+                        end=end,
+                        start_char=i,
+                        end_char=boundary.end,
+                    )
+                )
+                i = boundary.end
                 continue
 
             # Keep unknown compounds and katakana loanwords usable as words
@@ -569,6 +654,15 @@ class SubtitleAnnotatorService:
 
             matched = False
             limit = min(max_scan_len, n - i)
+            if (
+                boundary is not None
+                and next_boundary is not None
+                and (
+                    next_boundary.surface in {"ながら", "やすい", "なさい", "よう", "ように"}
+                    or next_boundary.lemma in {"ながら", "やすい", "なさる", "よう"}
+                )
+            ):
+                limit = min(limit, boundary.end - i)
 
             for l in range(limit, 0, -1):
                 sub = text[i : i + l]
@@ -667,6 +761,30 @@ class SubtitleAnnotatorService:
                     break
 
             if not matched:
+                if (
+                    boundary is not None
+                    and (
+                        boundary.surface in {"ながら", "やすい", "なさい", "よう", "ように"}
+                        or boundary.lemma in {"ながら", "やすい", "なさる", "よう"}
+                    )
+                ):
+                    lemma = boundary.lemma
+                    jlpt_lvl, reading = self._vocab_cache.get(lemma, (None, ""))
+                    tokens.append(
+                        AnnotatedToken(
+                            surface=boundary.surface,
+                            lemma=lemma,
+                            reading=reading,
+                            status="unstyled",
+                            jlpt_level=jlpt_lvl,
+                            start=start,
+                            end=end,
+                            start_char=i,
+                            end_char=boundary.end,
+                        )
+                    )
+                    i = boundary.end
+                    continue
                 # Emit single unstyled character
                 char = text[i]
                 tokens.append(
@@ -689,7 +807,7 @@ class SubtitleAnnotatorService:
     def _match_inflected_span(
         self, text: str, start: int
     ) -> tuple[int, str, str | None, str] | None:
-        suffixes = ("きた", "についてきた", "していた", "おく", "ながら")
+        suffixes = ("きた", "していた", "おく", "ながら")
         limit = min(16, len(text) - start)
         for length in range(limit, 2, -1):
             span = text[start : start + length]
