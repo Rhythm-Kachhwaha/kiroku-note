@@ -50,4 +50,5 @@ Desktop targeted command: `node --test <test>`. Extension targeted command:
 Read only the map for the active area. `docs/maps/ui-rules.md` is default UI
 reference. Use design, animation, and visual-review skills only when a task
 explicitly asks for design, animation, or UI polish. Archive is historical:
-`docs/archive/`. See `STATUS.md` for current state and open issues.
+`docs/archive/`. Do not read other `docs/` files unless a task card explicitly
+names them. See `STATUS.md` for current state and open issues.

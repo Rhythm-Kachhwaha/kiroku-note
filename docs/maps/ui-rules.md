@@ -1,19 +1,18 @@
 # UI rules
 
-Use established CSS tokens. Core palette: `--pure-black` #000000,
-`--ink-black` #141311, `--ink-surface` #1C1B19,
-`--elevated-surface` #2A2926, `--warm-paper` #F5F1E8,
-`--tactile-stroke` #151413, `--vermilion` #D94B38,
-`--alpine-berry` #F7E0BA, `--organza-peach` #FBEEDA,
-`--jade` #4EBB7B, and `--amber` #F59E0B.
+This is the only active UI design reference. Use existing tokens:
+`--pure-black`, `--ink-black`, `--ink-surface`, `--elevated-surface`,
+`--warm-paper`, `--tactile-stroke`, `--vermilion`, `--alpine-berry`,
+`--organza-peach`, `--jade`, and `--amber`.
 
-FINAL: Kanji Mastery section and Bottom Navigation Dock, including sliding pill.
-Do not change their markup, layout, colors, geometry, or animation timing.
+FINAL: Bottom Navigation Dock, including its sliding pill, and Kanji Mastery.
+Their markup, layout, colors, geometry, and animation timing are locked. Do not
+add dock items. New screens open from existing screens.
 
-Use existing `--ease-*` motion tokens. Honor `prefers-reduced-motion`. Keep
-existing animations; performance work may change their driver, not remove them.
-No emoji. Use accessible SVG icons or plain text. Do not add micro-tags inside
-action buttons or headers; badges are only for real data metadata.
+Use existing `--ease-*` tokens. Honor `prefers-reduced-motion`. Keep every
+animation; performance changes may alter its driver only. No emoji: use
+accessible SVG icons or plain text. Do not put micro-tags in buttons or
+headings. Badges represent actual metadata only.
 
-Use design, animation, or visual-review skills only when the task explicitly
-asks for design, animation, or UI polish.
+Load a design, animation, or visual-review skill only for an explicitly
+requested design, animation, or UI-polish task.
