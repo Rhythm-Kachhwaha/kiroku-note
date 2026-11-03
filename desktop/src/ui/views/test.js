@@ -25,6 +25,8 @@ function extractPassageContent(item) {
 export class TestView {
   constructor(router) {
     this.router = router;
+    this.keepAlive = true;
+    this.activeListenerCount = 0;
     this.container = null;
     this.sessionId = null;
     this.activeLevel = 'N4';
@@ -46,14 +48,28 @@ export class TestView {
   async mount(container) {
     this.container = container;
     this.renderShell();
-    this.setupGlobalEvents();
 
     try {
       this.activeLevel = await getUniversalJlptLevel();
     } catch (err) {
       console.debug('[Test] Resolve universal level error:', err);
     }
+
     this.renderExamSetup();
+  }
+
+  onShow() {
+    this.setupGlobalEvents();
+    if (this.sessionId && this.questions.length > 0 && !this.timerInterval) {
+      this.startTimer();
+    }
+    this.activeListenerCount = 1;
+  }
+
+  onHide() {
+    window.removeEventListener('keydown', this.handleKeyDown);
+    this.stopTimer();
+    this.activeListenerCount = 0;
   }
 
   renderShell() {
@@ -904,8 +920,7 @@ export class TestView {
   }
 
   unmount() {
-    this.stopTimer();
-    window.removeEventListener('keydown', this.handleKeyDown);
+    this.onHide();
     if (this._noticeTimeout) {
       clearTimeout(this._noticeTimeout);
       this._noticeTimeout = null;

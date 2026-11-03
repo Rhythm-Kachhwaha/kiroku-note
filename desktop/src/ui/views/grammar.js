@@ -14,6 +14,7 @@ import { escapeHtml, sanitizePromptMarkup } from '../utils/sanitizer.js';
 export class GrammarView {
   constructor(router) {
     this.router = router;
+    this.keepAlive = true;
     this.container = null;
     this.analyzedTokens = [];
     this.activeGrammarPoint = null;

@@ -25,6 +25,8 @@ function extractPassageContent(item) {
 export class StudyView {
   constructor(router) {
     this.router = router;
+    this.keepAlive = true;
+    this.activeListenerCount = 0;
     this.container = null;
     this.sessionId = null;
     this.practiceItems = [];
@@ -46,15 +48,29 @@ export class StudyView {
   async mount(container) {
     this.container = container;
     this.renderShell();
-    window.removeEventListener('keydown', this.handleKeyDown);
-    window.addEventListener('keydown', this.handleKeyDown);
 
     try {
       this.activeLevel = await getUniversalJlptLevel();
     } catch (err) {
       console.debug('[Study] Resolve learner level error:', err);
     }
+
     this.renderSetupChooser();
+  }
+
+  onShow() {
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keydown', this.handleKeyDown);
+    if (this.sessionId && !this.timerInterval && this.practiceItems.length > 0) {
+      this.startActiveTimer();
+    }
+    this.activeListenerCount = 1;
+  }
+
+  onHide() {
+    window.removeEventListener('keydown', this.handleKeyDown);
+    this.stopActiveTimer();
+    this.activeListenerCount = 0;
   }
 
   renderShell() {
@@ -699,7 +715,7 @@ export class StudyView {
   }
 
   unmount() {
-    window.removeEventListener('keydown', this.handleKeyDown);
+    this.onHide();
     this.stopActiveTimer();
     if (this.activeBlobUrls && this.activeBlobUrls.length > 0) {
       this.activeBlobUrls.forEach(url => studyClient.revokeMediaBlobUrl(url));

@@ -11,6 +11,7 @@ import { getUniversalJlptLevel } from '../utils/learner.js';
 export class KanjiView {
   constructor(router) {
     this.router = router;
+    this.keepAlive = true;
     this.container = null;
     this.currentChar = '静';
     this.currentStrokes = 0;
@@ -731,6 +732,10 @@ export class KanjiView {
     if (this.container) {
       this.container.innerHTML = '';
     }
+  }
+
+  onHide() {
+    this.pauseStrokes();
   }
 }
 

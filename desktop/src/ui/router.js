@@ -18,6 +18,11 @@ export class AppRouter {
     this.bottomDock = options.bottomDock || null;
     this.currentTab = null;
     this.currentViewInstance = null;
+    this.currentViewHost = null;
+    this.viewInstances = new Map();
+    this.viewHosts = new Map();
+    this.activeListenerCount = 0;
+    this.debugCounters = { activeListeners: 0 };
 
     this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'study'];
 
@@ -71,18 +76,44 @@ export class AppRouter {
     }
 
     // Modern View Transition execution
-    const updateDOM = () => {
-      // Unmount previous view
-      if (this.currentViewInstance && typeof this.currentViewInstance.unmount === 'function') {
-        this.currentViewInstance.unmount();
+    const updateDOM = async () => {
+      const previousView = this.currentViewInstance;
+      if (previousView) {
+        if (previousView.keepAlive) {
+          previousView.onHide?.();
+          const previousHost = this.viewHosts.get(this.currentTab);
+          if (previousHost) previousHost.hidden = true;
+        } else {
+          previousView.unmount?.();
+          this.currentViewHost?.remove();
+        }
       }
 
       this.currentTab = tabId;
       const ViewClass = this.routes[tabId];
-      this.currentViewInstance = new ViewClass(this);
-      this.currentViewInstance.mount(this.viewContainer);
+      let view = this.viewInstances.get(tabId);
+      let host = this.viewHosts.get(tabId);
 
-      // Scroll view back to top
+      if (!view || !view.keepAlive) {
+        view = new ViewClass(this);
+        host = document.createElement('div');
+        host.className = 'router-view-host';
+        host.hidden = false;
+        this.viewContainer.appendChild(host);
+        if (view.keepAlive) {
+          this.viewInstances.set(tabId, view);
+          this.viewHosts.set(tabId, host);
+        }
+        await view.mount(host);
+      } else {
+        host.hidden = false;
+      }
+
+      this.currentViewInstance = view;
+      this.currentViewHost = host;
+      if (view.keepAlive) view.onShow?.();
+      this.updateListenerDebugCounter();
+
       window.scrollTo(0, 0);
     };
 
@@ -90,7 +121,7 @@ export class AppRouter {
     const safeUpdateDOM = () => {
       if (domUpdated) return;
       domUpdated = true;
-      updateDOM();
+      return updateDOM();
     };
 
     if (typeof document.startViewTransition === 'function') {
@@ -105,27 +136,52 @@ export class AppRouter {
           console.debug('[Router] Transition types unsupported, using callback:', typesErr);
           transition = document.startViewTransition(() => safeUpdateDOM());
         }
+
+        if (updateHistory) {
+          window.location.hash = tabId;
+        }
         if (transition && transition.finished) {
           await transition.finished;
         }
       } catch (err) {
         console.debug('[Router] View transition fallback:', err);
-        safeUpdateDOM();
+        await safeUpdateDOM();
+        if (updateHistory) {
+          window.location.hash = tabId;
+        }
       }
     } else {
-      safeUpdateDOM();
+      await safeUpdateDOM();
+      if (updateHistory) {
+        window.location.hash = tabId;
+      }
     }
+  }
 
-    if (updateHistory) {
-      window.location.hash = tabId;
+  updateListenerDebugCounter() {
+    let count = 0;
+    for (const [tabId, view] of this.viewInstances) {
+      if (!this.viewHosts.get(tabId)?.hidden) {
+        count += Number(view.activeListenerCount || 0);
+      }
     }
+    this.activeListenerCount = count;
+    this.debugCounters.activeListeners = count;
   }
 
   destroy() {
     window.removeEventListener('popstate', this.handlePopState);
-    if (this.currentViewInstance && typeof this.currentViewInstance.unmount === 'function') {
-      this.currentViewInstance.unmount();
+    for (const [tabId, view] of this.viewInstances) {
+      view.unmount?.();
+      this.viewHosts.get(tabId)?.remove();
     }
+    if (this.currentViewInstance && !this.currentViewInstance.keepAlive) {
+      this.currentViewInstance.unmount?.();
+    }
+    this.viewInstances.clear();
+    this.viewHosts.clear();
+    this.currentViewHost = null;
+    this.activeListenerCount = 0;
+    this.debugCounters.activeListeners = 0;
   }
 }
-

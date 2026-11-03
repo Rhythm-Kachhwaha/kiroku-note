@@ -18,6 +18,8 @@ const ANNOTATED_STORAGE_KEY = 'kiroku:vocab-annotated-state';
 export class VocabMainView {
   constructor(router) {
     this.router = router;
+    this.keepAlive = true;
+    this.activeListenerCount = 0;
     this.container = null;
     this.currentTerm = null;
     this.currentMode = 'word'; // 'word' | 'text'
@@ -39,6 +41,7 @@ export class VocabMainView {
     this.quickAddOpen = true;
     this._levelListener = null;
     this._outsideClickListener = null;
+    this._lastRefreshAt = 0;
   }
 
   async mount(container) {
@@ -61,7 +64,31 @@ export class VocabMainView {
         this.loadGapsShelf();
       }
     };
-    window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+    this._lastRefreshAt = Date.now();
+  }
+
+  async onShow() {
+    if (this._levelListener) {
+      window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+    }
+    if (this._outsideClickListener) {
+      document.addEventListener('click', this._outsideClickListener);
+    }
+    if (Date.now() - this._lastRefreshAt > 30000) {
+      this._lastRefreshAt = Date.now();
+      await Promise.all([this.loadInitialMetadata(), this.loadGapsShelf()]);
+    }
+    this.activeListenerCount = (this._levelListener ? 1 : 0) + (this._outsideClickListener ? 1 : 0);
+  }
+
+  onHide() {
+    if (this._levelListener) {
+      window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
+    }
+    if (this._outsideClickListener) {
+      document.removeEventListener('click', this._outsideClickListener);
+    }
+    this.activeListenerCount = 0;
   }
 
   updateFocusLevelDisplay() {
@@ -836,7 +863,6 @@ export class VocabMainView {
         }
       }
     };
-    document.addEventListener('click', this._outsideClickListener);
   }
 
   switchToMode(mode) {
@@ -1320,14 +1346,9 @@ export class VocabMainView {
 
   unmount() {
     this.saveDraft();
-    if (this._levelListener) {
-      window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
-      this._levelListener = null;
-    }
-    if (this._outsideClickListener) {
-      document.removeEventListener('click', this._outsideClickListener);
-      this._outsideClickListener = null;
-    }
+    this.onHide();
+    this._levelListener = null;
+    this._outsideClickListener = null;
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
     }

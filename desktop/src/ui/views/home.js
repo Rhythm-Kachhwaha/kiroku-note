@@ -205,6 +205,9 @@ const MENU_ITEMS = [
 export class HomeView {
   constructor(router) {
     this.router = router;
+    this.keepAlive = true;
+    this.activeListenerCount = 0;
+    this._lastRefreshAt = 0;
     this.container = null;
     this.greetingIndex = null;
     this.jumpTimeout = null;
@@ -387,6 +390,7 @@ export class HomeView {
     this.triggerWordWriteIn();
 
     // Hydrate Word of the Day dynamically from backend in background
+    this._lastRefreshAt = Date.now();
     this.hydrateDailyWord();
   }
 
@@ -842,7 +846,30 @@ export class HomeView {
         }
       }
     };
-    document.addEventListener('visibilitychange', this.visibilityHandler);
+  }
+
+  onShow() {
+    if (this.visibilityHandler) {
+      document.addEventListener('visibilitychange', this.visibilityHandler);
+    }
+    if (this.mouseMoveHandler) {
+      window.addEventListener('mousemove', this.mouseMoveHandler);
+    }
+    this.activeListenerCount = (this.visibilityHandler ? 1 : 0) + (this.mouseMoveHandler ? 1 : 0);
+    if (Date.now() - this._lastRefreshAt > 30000) {
+      this._lastRefreshAt = Date.now();
+      this.hydrateDailyWord();
+    }
+  }
+
+  onHide() {
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+    }
+    if (this.mouseMoveHandler) {
+      window.removeEventListener('mousemove', this.mouseMoveHandler);
+    }
+    this.activeListenerCount = 0;
   }
 
   setupMascot() {
@@ -972,7 +999,6 @@ export class HomeView {
           }
         };
 
-        window.addEventListener('mousemove', this.mouseMoveHandler);
         mascotStage.addEventListener('mouseleave', this.mouseLeaveHandler);
       }
     }
