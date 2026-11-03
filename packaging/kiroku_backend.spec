@@ -17,7 +17,7 @@ SPEC_DIR = Path(SPEC).resolve().parent
 PROJECT_ROOT = SPEC_DIR.parent
 BACKEND_DIR = PROJECT_ROOT / "backend"
 
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 VERSION_FILE = PROJECT_ROOT / "packaging" / "version-info.txt"
 
@@ -28,6 +28,7 @@ hidden_imports = (
     + collect_submodules("starlette")
     + collect_submodules("anyio")
     + collect_submodules("app")
+    + collect_submodules("sudachipy")
     + [
         "sqlite3",
         "pydantic",
@@ -116,6 +117,10 @@ hidden_imports.extend([
     "anki_stats",
 ])
 hidden_imports.extend(collect_submodules("kiroku_dictionary"))
+hidden_imports.extend(collect_submodules("sudachidict_small"))
+hidden_imports.extend(collect_submodules("sudachidict_core"))
+datas.extend(collect_data_files("sudachidict_small"))
+datas.extend(collect_data_files("sudachidict_core"))
 
 a = Analysis(
     [str(PROJECT_ROOT / "run_backend.py")],

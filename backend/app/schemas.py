@@ -287,6 +287,9 @@ class HealthResponse(BaseModel):
     ankiconnect: bool
     ocr: bool
     db: bool
+    tokenizer: str = "legacy"
+    tokenizer_dictionary: str = "openjlpt"
+    tokenizer_ready: bool = True
 
 
 class AnkiStatusResponse(BaseModel):
@@ -741,4 +744,3 @@ class DailyWordResponse(BaseModel):
     kanji_characters: list[str] = Field(default_factory=list)
     stroke_svgs: dict[str, str] = Field(default_factory=dict)
     date: str
-

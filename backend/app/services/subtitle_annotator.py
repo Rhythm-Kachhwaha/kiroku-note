@@ -13,14 +13,45 @@ import sqlite3
 from typing import Any, Iterable
 import unicodedata
 
-from app.config import get_db_path, get_learner_jlpt_level, is_within_learner_level
+from app.config import (
+    get_db_path,
+    get_learner_jlpt_level,
+    get_sudachi_dictionary_variant,
+    get_tokenizer_mode,
+    is_within_learner_level,
+)
 from app.services.jlpt_reference import JlptReferenceService
+from app.services.tokenizers import LegacyTokenizer, get_sudachi_tokenizer
 from kiroku_dictionary.deinflect import DeinflectionCandidate, deinflect
 
 logger = logging.getLogger(__name__)
 
 # Module-level LRU cache for deinflection candidate generation
 _cached_deinflect = functools.lru_cache(maxsize=16384)(deinflect)
+
+
+def get_tokenizer_status() -> dict[str, Any]:
+    """Report tokenizer readiness without opening the annotator's SQLite resources."""
+    mode = get_tokenizer_mode()
+    dictionary_variant = get_sudachi_dictionary_variant()
+    if mode == "legacy":
+        return {"tokenizer": "legacy", "dictionary": "openjlpt", "ready": True}
+    try:
+        tokenizer = get_sudachi_tokenizer(dictionary_variant)
+    except Exception as exc:
+        if mode == "sudachi":
+            return {
+                "tokenizer": "sudachi",
+                "dictionary": dictionary_variant,
+                "ready": False,
+                "error": str(exc),
+            }
+        return {"tokenizer": "legacy", "dictionary": "openjlpt", "ready": True}
+    return {
+        "tokenizer": tokenizer.name,
+        "dictionary": tokenizer.dictionary_variant,
+        "ready": tokenizer.ready,
+    }
 
 PARTICLES: frozenset[str] = frozenset([
     "は", "が", "を", "に", "へ", "で", "と", "の", "も", "から", "まで", "より", "か", "よ", "ね", "わ"
@@ -194,12 +225,31 @@ class SubtitleAnnotatorService:
         self._jlpt_service = jlpt_service or JlptReferenceService()
         self._default_learner_level = learner_level
         self._default_ignore_function_words = ignore_function_words
+        configured_mode = get_tokenizer_mode()
+        dictionary_variant = get_sudachi_dictionary_variant()
+        if configured_mode == "legacy":
+            self._tokenizer = LegacyTokenizer()
+        else:
+            try:
+                self._tokenizer = get_sudachi_tokenizer(dictionary_variant)
+            except Exception:
+                if configured_mode == "sudachi":
+                    raise
+                self._tokenizer = LegacyTokenizer()
 
         self._mined_words: set[str] = set()
         self._mined_readings: dict[str, str] = {}
         self.reload_mined_words()
 
         self._init_openjlpt_cache()
+
+    def tokenizer_status(self) -> dict[str, Any]:
+        """Return the active tokenizer and dictionary readiness for diagnostics."""
+        return {
+            "tokenizer": self._tokenizer.name,
+            "dictionary": self._tokenizer.dictionary_variant,
+            "ready": self._tokenizer.ready,
+        }
 
     def _init_openjlpt_cache(self) -> None:
         """Pre-load and index OpenJLPT vocab and kanji in memory for sub-millisecond lookups."""

@@ -99,6 +99,22 @@ DEFAULT_LLM_JLPT_LEVEL = "N3"
 VALID_JLPT_LEVELS = frozenset({"N1", "N2", "N3", "N4", "N5"})
 DEFAULT_LEARNER_JLPT_LEVEL = "N4"
 _JLPT_DIFFICULTY: dict[str, int] = {"N5": 1, "N4": 2, "N3": 3, "N2": 4, "N1": 5}
+VALID_TOKENIZER_MODES = frozenset({"auto", "sudachi", "legacy"})
+VALID_SUDACHI_DICTIONARIES = frozenset({"small", "core"})
+
+
+def get_tokenizer_mode(env: dict[str, str] | None = None) -> str:
+    """Resolve the tokenizer rollout mode, defaulting safely to automatic selection."""
+    value = (os.environ if env is None else env).get("KIROKU_TOKENIZER", "auto").strip().lower()
+    return value if value in VALID_TOKENIZER_MODES else "auto"
+
+
+def get_sudachi_dictionary_variant(env: dict[str, str] | None = None) -> str:
+    """Resolve the selected Sudachi dictionary variant."""
+    value = (os.environ if env is None else env).get(
+        "KIROKU_SUDACHI_DICTIONARY", "small"
+    ).strip().lower()
+    return value if value in VALID_SUDACHI_DICTIONARIES else "small"
 
 
 def get_llm_config_file_path(env: dict[str, str] | None = None) -> Path:

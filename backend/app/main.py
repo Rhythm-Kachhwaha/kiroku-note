@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from app.config import APP_VERSION
 from app.db.connection import db_session, init_db
 from app.services.media_storage import MediaStorageService
+from app.services.subtitle_annotator import get_tokenizer_status
 from app.schemas import (
     AnkiDecksResponse,
     AnkiModelCapabilitiesResponse,
@@ -417,6 +418,7 @@ def get_health() -> HealthResponse:
     except Exception:
         ocr_ok = False
 
+    tokenizer = get_tokenizer_status()
     response = HealthResponse(
         status="ok",
         version=APP_VERSION,
@@ -424,6 +426,9 @@ def get_health() -> HealthResponse:
         ankiconnect=anki_ok,
         ocr=ocr_ok,
         db=db_ok,
+        tokenizer=tokenizer["tokenizer"],
+        tokenizer_dictionary=tokenizer["dictionary"],
+        tokenizer_ready=tokenizer["ready"],
     )
     _health_cache["timestamp"] = time.monotonic()
     _health_cache["response"] = response
@@ -1402,4 +1407,3 @@ def get_daily_word(
         stroke_svgs=stroke_svgs,
         date=date_str,
     )
-
