@@ -23,6 +23,10 @@ export class AppRouter {
     this.viewHosts = new Map();
     this.activeListenerCount = 0;
     this.debugCounters = { activeListeners: 0 };
+    this.navigationQueue = Promise.resolve();
+    this.navigationToken = 0;
+    this.expectedHash = null;
+    this.errorState = null;
 
     this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'study'];
 
@@ -38,10 +42,12 @@ export class AppRouter {
     };
 
     this.handlePopState = this.handlePopState.bind(this);
+    this.handleHashChange = this.handleHashChange.bind(this);
   }
 
   init() {
     window.addEventListener('popstate', this.handlePopState);
+    window.addEventListener('hashchange', this.handleHashChange);
 
     // Initial navigation based on URL hash or default to 'home'
     const initialHash = window.location.hash.replace('#', '') || 'home';
@@ -53,16 +59,37 @@ export class AppRouter {
     this.navigateToTab(hash, false);
   }
 
-  async navigateToTab(tabId, updateHistory = true) {
+  handleHashChange() {
+    const hash = window.location.hash.replace('#', '') || 'home';
+    if (this.expectedHash === hash) {
+      this.expectedHash = null;
+      return;
+    }
+    this.navigateToTab(hash, false);
+  }
+
+  navigateToTab(tabId, updateHistory = true) {
+    const requestToken = ++this.navigationToken;
+    this.navigationQueue = this.navigationQueue
+      .catch((error) => {
+        console.error('[Router] Navigation failed:', error);
+      })
+      .then(() => this.performNavigation(tabId, updateHistory, requestToken));
+    return this.navigationQueue;
+  }
+
+  async performNavigation(tabId, updateHistory, requestToken) {
     if (!this.routes[tabId]) {
       console.warn(`[Router] Route not found: ${tabId}, falling back to home`);
       tabId = 'home';
     }
 
+    if (requestToken !== this.navigationToken) return;
     if (this.currentTab === tabId && this.currentViewInstance) {
       return;
     }
 
+    this.clearErrorState();
     const prevIndex = this.tabOrder.indexOf(this.currentTab);
     const nextIndex = this.tabOrder.indexOf(tabId);
     const direction = nextIndex >= prevIndex ? 'forward' : 'backward';
@@ -78,7 +105,35 @@ export class AppRouter {
     // Modern View Transition execution
     const updateDOM = async () => {
       const previousView = this.currentViewInstance;
-      if (previousView) {
+      const ViewClass = this.routes[tabId];
+      let view = this.viewInstances.get(tabId);
+      let host = this.viewHosts.get(tabId);
+      let createdView = false;
+      let createdHost = false;
+
+      if (!view || !view.keepAlive) {
+        view = new ViewClass(this);
+        host = document.createElement('div');
+        host.className = 'router-view-host';
+        host.hidden = true;
+        this.viewContainer.appendChild(host);
+        createdView = true;
+        createdHost = true;
+        try {
+          await view.mount(host);
+        } catch (error) {
+          this.cleanupFailedMount(view, host, createdHost);
+          this.showErrorState(previousView, error, tabId);
+          return;
+        }
+      }
+
+      if (requestToken !== this.navigationToken) {
+        this.cleanupFailedMount(createdView ? view : null, createdHost ? host : null);
+        return;
+      }
+
+      if (previousView && previousView !== view) {
         if (previousView.keepAlive) {
           previousView.onHide?.();
           const previousHost = this.viewHosts.get(this.currentTab);
@@ -87,30 +142,18 @@ export class AppRouter {
           previousView.unmount?.();
           this.currentViewHost?.remove();
         }
-      }
-
-      this.currentTab = tabId;
-      const ViewClass = this.routes[tabId];
-      let view = this.viewInstances.get(tabId);
-      let host = this.viewHosts.get(tabId);
-
-      if (!view || !view.keepAlive) {
-        view = new ViewClass(this);
-        host = document.createElement('div');
-        host.className = 'router-view-host';
-        host.hidden = false;
-        this.viewContainer.appendChild(host);
-        if (view.keepAlive) {
-          this.viewInstances.set(tabId, view);
-          this.viewHosts.set(tabId, host);
-        }
-        await view.mount(host);
       } else {
         host.hidden = false;
       }
 
+      this.currentTab = tabId;
       this.currentViewInstance = view;
       this.currentViewHost = host;
+      host.hidden = false;
+      if (view.keepAlive) {
+        this.viewInstances.set(tabId, view);
+        this.viewHosts.set(tabId, host);
+      }
       if (view.keepAlive) view.onShow?.();
       this.updateListenerDebugCounter();
 
@@ -138,6 +181,7 @@ export class AppRouter {
         }
 
         if (updateHistory) {
+          this.expectedHash = tabId;
           window.location.hash = tabId;
         }
         if (transition && transition.finished) {
@@ -147,15 +191,53 @@ export class AppRouter {
         console.debug('[Router] View transition fallback:', err);
         await safeUpdateDOM();
         if (updateHistory) {
+          this.expectedHash = tabId;
           window.location.hash = tabId;
         }
       }
     } else {
       await safeUpdateDOM();
       if (updateHistory) {
+        this.expectedHash = tabId;
         window.location.hash = tabId;
       }
     }
+  }
+
+  cleanupFailedMount(view, host, removeHost = Boolean(host)) {
+    if (view) {
+      try {
+        view.unmount?.();
+      } catch (cleanupError) {
+        console.error('[Router] Failed to clean up view after mount error:', cleanupError);
+      }
+    }
+    if (removeHost) host?.remove();
+  }
+
+  showErrorState(previousView, error, tabId) {
+    console.error(`[Router] Failed to mount view "${tabId}":`, error);
+    const host = previousView && this.currentViewHost
+      ? this.currentViewHost
+      : this.viewContainer;
+    const errorElement = document.createElement('div');
+    errorElement.className = 'grammar-error-banner router-error-state';
+    errorElement.setAttribute?.('role', 'alert');
+    const message = document.createElement('span');
+    message.textContent = 'This view could not be loaded.';
+    const retry = document.createElement('button');
+    retry.className = 'tactile-btn tactile-btn-sm';
+    retry.textContent = 'Retry';
+    retry.addEventListener('click', () => this.navigateToTab(tabId));
+    errorElement.appendChild(message);
+    errorElement.appendChild(retry);
+    host.appendChild(errorElement);
+    this.errorState = { element: errorElement };
+  }
+
+  clearErrorState() {
+    this.errorState?.element?.remove();
+    this.errorState = null;
   }
 
   updateListenerDebugCounter() {
@@ -171,6 +253,9 @@ export class AppRouter {
 
   destroy() {
     window.removeEventListener('popstate', this.handlePopState);
+    window.removeEventListener('hashchange', this.handleHashChange);
+    this.navigationToken += 1;
+    this.clearErrorState();
     for (const [tabId, view] of this.viewInstances) {
       view.unmount?.();
       this.viewHosts.get(tabId)?.remove();
