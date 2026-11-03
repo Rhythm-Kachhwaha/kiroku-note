@@ -318,6 +318,42 @@ def test_complex_deinflection_chain(test_db: Path):
     assert tok["status"] == "should_know"
 
 
+@pytest.mark.parametrize(
+    "text, expected_surface",
+    [
+        ("ご飯", "ご飯"),
+        ("わたし", "わたし"),
+        ("お金", "お金"),
+        ("ありがとう", "ありがとう"),
+        ("ごちそうさま", "ごちそうさま"),
+        ("食べさせられた", "食べさせられた"),
+        ("勉強しています", "勉強"),
+    ],
+)
+def test_kana_spellings_and_aliases(test_db: Path, text: str, expected_surface: str):
+    """Kana spellings and common aliases are tokenized without kanji fragments."""
+    service = SubtitleAnnotatorService(db_path=test_db, learner_level="N4")
+    tokens = service.annotate_text(text)
+    surfaces = [token["surface"] for token in tokens]
+
+    assert expected_surface in surfaces
+    if text == "ご飯":
+        gohan = next(token for token in tokens if token["surface"] == "ご飯")
+        assert gohan["lemma"] == "御飯"
+        assert gohan["reading"] == "ごはん"
+        assert gohan["jlpt_level"] == "N5"
+        assert "飯" not in surfaces
+
+
+def test_spelling_variant_alias(test_db: Path):
+    """Known spelling variants resolve to the canonical dictionary entry."""
+    service = SubtitleAnnotatorService(db_path=test_db, learner_level="N1")
+    tokens = service.annotate_text("綺麗")
+
+    assert len(tokens) == 1
+    assert tokens[0]["lemma"] == "奇麗"
+
+
 def test_dynamic_mined_word_addition_and_reload(test_db: Path):
     """add_mined_word immediately marks word as mined; reload_mined_words refreshes from SQLite."""
     service = SubtitleAnnotatorService(db_path=test_db, learner_level="N5")

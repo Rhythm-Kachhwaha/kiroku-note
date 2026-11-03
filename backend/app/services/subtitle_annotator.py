@@ -11,6 +11,7 @@ import logging
 from pathlib import Path
 import sqlite3
 from typing import Any, Iterable
+import unicodedata
 
 from app.config import get_db_path, get_learner_jlpt_level, is_within_learner_level
 from app.services.jlpt_reference import JlptReferenceService
@@ -32,6 +33,31 @@ COPULAS: frozenset[str] = frozenset([
 FUNCTION_WORDS: frozenset[str] = PARTICLES | COPULAS
 
 _LEVEL_PRIORITY: dict[str, int] = {"N5": 5, "N4": 4, "N3": 3, "N2": 2, "N1": 1}
+_SPELLING_VARIANTS: dict[str, tuple[str, ...]] = {
+    "綺麗": ("奇麗",),
+    "奇麗": ("綺麗",),
+    "私": ("わたし",),
+}
+
+
+def _to_hiragana(value: str) -> str:
+    """Normalize katakana aliases to hiragana without changing other characters."""
+    normalized = unicodedata.normalize("NFKC", value)
+    return "".join(
+        chr(ord(char) - 0x60)
+        if "\u30a1" <= char <= "\u30f6"
+        else char
+        for char in normalized
+    )
+
+
+def _contains_kanji(value: str) -> bool:
+    return any(
+        "\u3400" <= char <= "\u4dbf"
+        or "\u4e00" <= char <= "\u9fff"
+        or "\uf900" <= char <= "\ufaff"
+        for char in value
+    )
 
 
 class AnnotatedToken(dict):
@@ -135,8 +161,15 @@ class AnnotatedCue(dict):
 class SubtitleAnnotatorService:
     """Service providing high-throughput tokenization and annotation for subtitle cues."""
 
-    # Class-level cache: db_path_str -> (vocab_dict, kanji_dict)
-    _openjlpt_cache: dict[str, tuple[dict[str, tuple[str, str]], dict[str, str]]] = {}
+    # Class-level cache: db_path_str -> (exact vocab, aliases, kanji)
+    _openjlpt_cache: dict[
+        str,
+        tuple[
+            dict[str, tuple[str, str]],
+            dict[str, tuple[tuple[str, str, str], ...]],
+            dict[str, str],
+        ],
+    ] = {}
 
     def __init__(
         self,
@@ -164,10 +197,15 @@ class SubtitleAnnotatorService:
             else "default"
         )
         if cache_key in self._openjlpt_cache:
-            self._vocab_cache, self._kanji_cache = self._openjlpt_cache[cache_key]
+            (
+                self._vocab_cache,
+                self._vocab_alias_cache,
+                self._kanji_cache,
+            ) = self._openjlpt_cache[cache_key]
             return
 
         vocab_dict: dict[str, tuple[str, str]] = {}
+        alias_candidates: dict[str, set[tuple[str, str, str]]] = {}
         kanji_dict: dict[str, str] = {}
 
         conn = (
@@ -198,6 +236,19 @@ class SubtitleAnnotatorService:
                         elif not existing_r and r:
                             vocab_dict[w] = (existing_lvl, r)
 
+                    if _contains_kanji(w):
+                        alias_keys = set(_SPELLING_VARIANTS.get(w, ()))
+                        if r:
+                            alias_keys.add(r)
+                        if w.startswith("御") and len(w) > 1:
+                            alias_keys.update({f"ご{w[1:]}", f"お{w[1:]}"})
+                        for alias in alias_keys:
+                            normalized_alias = _to_hiragana(alias)
+                            if normalized_alias and normalized_alias != w:
+                                alias_candidates.setdefault(normalized_alias, set()).add(
+                                    (w, lvl, r)
+                                )
+
                 kanji_rows = cursor.execute("SELECT character, level FROM kanji").fetchall()
                 for char, level in kanji_rows:
                     if not char:
@@ -209,8 +260,25 @@ class SubtitleAnnotatorService:
             except Exception as err:
                 logger.debug("Failed to build OpenJLPT memory cache: %s", err)
 
-        self._openjlpt_cache[cache_key] = (vocab_dict, kanji_dict)
+        vocab_alias_dict: dict[str, tuple[tuple[str, str, str], ...]] = {}
+        for alias, candidates in alias_candidates.items():
+            best_by_lemma: dict[str, tuple[str, str, str]] = {}
+            for candidate in candidates:
+                lemma, level, _ = candidate
+                existing = best_by_lemma.get(lemma)
+                if existing is None or _LEVEL_PRIORITY[level] > _LEVEL_PRIORITY[existing[1]]:
+                    best_by_lemma[lemma] = candidate
+            resolved_candidates = tuple(sorted(best_by_lemma.values()))
+            if len({level for _, level, _ in resolved_candidates}) == 1:
+                vocab_alias_dict[alias] = resolved_candidates
+
+        self._openjlpt_cache[cache_key] = (
+            vocab_dict,
+            vocab_alias_dict,
+            kanji_dict,
+        )
         self._vocab_cache = vocab_dict
+        self._vocab_alias_cache = vocab_alias_dict
         self._kanji_cache = kanji_dict
 
     def reload_mined_words(self) -> None:
@@ -395,6 +463,10 @@ class SubtitleAnnotatorService:
                         or self._mined_readings.get(sub, "")
                     )
                     best_match = (sub, jlpt_lvl, rdg)
+                elif _to_hiragana(sub) in self._vocab_alias_cache:
+                    alias_entries = self._vocab_alias_cache[_to_hiragana(sub)]
+                    alias_lemma, jlpt_lvl, rdg = alias_entries[0]
+                    best_match = (alias_lemma, jlpt_lvl, rdg)
                 elif l == 1 and sub in self._kanji_cache:
                     jlpt_lvl = self._kanji_cache[sub]
                     best_match = (sub, jlpt_lvl, "")
