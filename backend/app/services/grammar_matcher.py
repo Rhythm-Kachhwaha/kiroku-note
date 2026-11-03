@@ -99,17 +99,30 @@ class GrammarMatcher:
         cls,
         token_spans: list[tuple[str, int, int, dict[str, Any]]],
         match_start: int,
+        match_end: int | None = None,
     ) -> int:
-        token_index = next(
+        if match_end is None:
+            match_end = match_start + 1
+        overlapping = [
+            index for index, (_, start, end, _) in enumerate(token_spans)
+            if start < match_end and match_start < end
+        ]
+        first_kind = (
+            cls._token_kind(token_spans[overlapping[0]][3], token_spans[overlapping[0]][0])
+            if overlapping else None
+        )
+        token_index = overlapping[0] if first_kind == "particle" else next(
             (
-                index for index, (_, start, end, _) in enumerate(token_spans)
-                if start <= match_start < end or start == match_start
+                index for index in overlapping
+                if cls._token_kind(token_spans[index][3], token_spans[index][0]) == "predicate"
             ),
             None,
         )
+        if token_index is None and overlapping:
+            token_index = overlapping[0]
         if token_index is None:
             return match_start
-        start = match_start
+        start = token_spans[token_index][1]
         current_index = token_index
         while current_index:
             previous = token_spans[current_index - 1]
@@ -200,6 +213,12 @@ class GrammarMatcher:
         return prefixes[required] + re.escape(suffix)
 
     def _regexes(self, point: dict[str, Any], spec: dict[str, Any]) -> list[str]:
+        if point.get("pattern_key") == "たい":
+            stem = _JAPANESE + "+"
+            return [f"{stem}(?:たくなかった|たくない|たかった|たい)"]
+        if point.get("pattern_key") == "ている":
+            stem = _JAPANESE + "+"
+            return [f"{stem}(?:ていなかった|ていない|ていた|ている)"]
         regex = spec.get("regex")
         if isinstance(regex, str) and regex:
             return [regex]
@@ -207,7 +226,21 @@ class GrammarMatcher:
         if inflection_regex:
             return [inflection_regex]
         variants = spec.get("variants") or point.get("variants") or []
-        return [re.escape(value) for value in variants if isinstance(value, str) and value]
+        regexes = [re.escape(value) for value in variants if isinstance(value, str) and value]
+        return regexes
+
+    @staticmethod
+    def _bounded_fallback_start(raw_text: str, start: int, end: int | None = None) -> int:
+        particles = set("はがをにへでとのも")
+        while start > 0 and re.match(_JAPANESE, raw_text[start - 1]):
+            if raw_text[start - 1] in particles:
+                break
+            start -= 1
+        if end is not None:
+            for offset, char in enumerate(raw_text[start:end]):
+                if char in particles:
+                    start = start + offset + 1
+        return start
 
     def _match_point(
         self,
@@ -276,7 +309,16 @@ class GrammarMatcher:
                 elif spec.get("ambiguity_group") == "そうだ":
                     start = self._grammar_start(raw_text, match.end() - 3)
                 if token_spans:
-                    start = self._anchored_start(token_spans, start)
+                    start = self._anchored_start(token_spans, start, match.end())
+                    if not any(
+                        self._token_kind(token[3], token[0]) == "predicate"
+                        for token in token_spans
+                    ) and regex.startswith("["):
+                        start = self._bounded_fallback_start(raw_text, start, match.end())
+                else:
+                    start = self._bounded_fallback_start(
+                        raw_text, start, match.end() if regex.startswith("[") else None
+                    )
                 matches.append(self._candidate(
                     point, raw_text, start, match.end(),
                     confidence=str(spec.get("confidence", "high")), matched=matched,
