@@ -10,6 +10,13 @@ import { studyClient } from '../services/study_client.js';
 import { escapeHtml, renderStudyText, sanitizePromptMarkup } from '../utils/sanitizer.js';
 import { renderAssetSlot } from '../assets_map.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
+import {
+  clearStoredSession,
+  decideSessionRecovery,
+  readStoredSession,
+  writeStoredSession
+} from '../utils/session_recovery.js';
+import { getEligibleQuestionCount } from '../utils/practice_setup.js';
 
 export function filterMistakes(items, { level = '', format = '', format_code: formatCode = '' } = {}) {
   return (Array.isArray(items) ? items : []).filter((item) => (
@@ -65,6 +72,8 @@ export class StudyView {
     this.activeLevel = 'N4';
     this.selectedCount = 10;
     this.selectedSessionType = 'practice';
+    this.selectedCategory = 'all';
+    this.selectedFormatCode = 'all';
     this.elapsedSeconds = 0;
     this.timerInterval = null;
     this.questionStartTime = 0;
@@ -85,7 +94,13 @@ export class StudyView {
       console.debug('[Study] Resolve learner level error:', err);
     }
 
-    this.renderSetupChooser();
+    try {
+      this.cachedBankSummary = await studyClient.getBankSummary();
+    } catch (err) {
+      console.debug('[Study] Bank summary preload failed:', err.message);
+    }
+
+    await this.restoreActiveSessionOrSetup();
   }
 
   onShow() {
@@ -199,6 +214,25 @@ export class StudyView {
           </div>
         </div>
 
+        <div class="setup-field-group mb-5">
+          <label class="text-xs font-mono text-muted uppercase block mb-2">Category</label>
+          <div class="drill-category-pills flex gap-2 flex-wrap" id="drill-category-pills">
+            ${this.getPracticeCategories().map(category => `
+              <button type="button" class="tactile-pill drill-category-pill ${this.selectedCategory === category ? 'is-active tactile-pill-gold' : ''}" data-category="${escapeHtml(category)}">${escapeHtml(category === 'all' ? 'All Categories' : category)}</button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="setup-field-group mb-5">
+          <label class="text-xs font-mono text-muted uppercase block mb-2">Format</label>
+          <div class="drill-format-pills flex gap-2 flex-wrap" id="drill-format-pills">
+            ${this.getPracticeFormats().map(format => `
+              <button type="button" class="tactile-pill drill-format-pill ${this.selectedFormatCode === format ? 'is-active tactile-pill-gold' : ''}" data-format="${escapeHtml(format)}">${escapeHtml(format === 'all' ? 'All Formats' : format)}</button>
+            `).join('')}
+          </div>
+          <div class="text-xs text-muted mt-2" id="study-eligible-count"></div>
+        </div>
+
         <!-- Question Count -->
         <div class="setup-field-group mb-6">
           <label class="text-xs font-mono text-muted uppercase block mb-2">Question Count</label>
@@ -263,11 +297,34 @@ export class StudyView {
       });
     });
 
+    area.querySelectorAll('.drill-category-pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        area.querySelectorAll('.drill-category-pill').forEach(b => b.classList.remove('is-active', 'tactile-pill-gold'));
+        btn.classList.add('is-active', 'tactile-pill-gold');
+        this.selectedCategory = btn.dataset.category;
+        this.updateBankSummaryDisplay();
+      });
+    });
+
+    area.querySelectorAll('.drill-format-pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        area.querySelectorAll('.drill-format-pill').forEach(b => b.classList.remove('is-active', 'tactile-pill-gold'));
+        btn.classList.add('is-active', 'tactile-pill-gold');
+        this.selectedFormatCode = btn.dataset.format;
+        this.updateBankSummaryDisplay();
+      });
+    });
+
     // Start practice button
     const btnStart = document.getElementById('btn-start-practice');
     if (btnStart) {
       btnStart.addEventListener('click', () => {
-        this.loadPracticeSession(this.activeLevel, this.selectedCount);
+        this.loadPracticeSession(
+          this.activeLevel,
+          this.selectedCount,
+          this.selectedFormatCode === 'all' ? null : this.selectedFormatCode,
+          this.selectedCategory === 'all' ? null : this.selectedCategory
+        );
       });
     }
     const btnMistakes = document.getElementById('btn-open-mistakes');
@@ -543,17 +600,23 @@ export class StudyView {
         this.cachedBankSummary = await studyClient.getBankSummary();
       }
       const summary = this.cachedBankSummary;
-      const levelData = summary?.levels?.[this.activeLevel];
-      const eligibleCount = levelData?.eligible_count ?? levelData?.total_count ?? 0;
+      const eligibleCount = getEligibleQuestionCount(
+        summary,
+        this.activeLevel,
+        this.selectedCategory,
+        this.selectedFormatCode
+      );
       const totalBank = summary?.total_questions ?? 0;
       statEl.textContent = `${eligibleCount} questions available for ${this.activeLevel} (${totalBank} total in bank)`;
+      const countEl = document.getElementById('study-eligible-count');
+      if (countEl) countEl.textContent = `${eligibleCount} eligible questions; session capped at ${this.selectedCount}.`;
     } catch (err) {
       console.debug('[Study] Bank summary lookup failed:', err.message);
       statEl.textContent = `Question bank active for ${this.activeLevel}`;
     }
   }
 
-  async loadPracticeSession(level = 'N4', count = 10, formatCode = null) {
+  async loadPracticeSession(level = 'N4', count = 10, formatCode = null, category = null) {
     this.activeLevel = level;
     this.clearError();
     this.stopActiveTimer();
@@ -571,7 +634,16 @@ export class StudyView {
     }
 
     try {
-      const session = await studyClient.createPracticeSession(level, count, formatCode, this.selectedSessionType);
+      const session = await studyClient.createPracticeSession({
+        level,
+        question_count: count,
+        format_code: formatCode,
+        category,
+        session_type: this.selectedSessionType,
+        ...(this.selectedSessionType === 'weak_area' ? { target_weak_areas: true } : {}),
+        ...(this.selectedSessionType === 'bookmarked' ? { bookmarked_only: true } : {}),
+        ...(['trouble', 'review'].includes(this.selectedSessionType) ? { incorrect_only: true } : {})
+      });
       const items = session?.items || [];
 
       if (!items || items.length === 0) {
@@ -580,6 +652,12 @@ export class StudyView {
       }
 
       this.sessionId = session.session_id || session.external_id;
+      writeStoredSession('kiroku.active.practice', {
+        session_id: this.sessionId,
+        status: session.status || 'active',
+        level,
+        started_at: session.started_at
+      });
       this.practiceItems = items;
       this.currentQuestionIndex = 0;
       this.hasAnswered = false;
@@ -591,6 +669,79 @@ export class StudyView {
       this.showError('Practice session error: ' + (err.message || 'Check backend status'));
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  getPracticeCategories() {
+    const formats = this.cachedBankSummary?.levels?.[this.activeLevel]?.formats || [];
+    return ['all', ...new Set(formats.map(item => item.category).filter(Boolean))];
+  }
+
+  getPracticeFormats() {
+    const formats = this.cachedBankSummary?.levels?.[this.activeLevel]?.formats || [];
+    return ['all', ...new Set(formats.map(item => item.format_code).filter(Boolean))];
+  }
+
+  async restoreActiveSessionOrSetup() {
+    const storedPractice = readStoredSession('kiroku.active.practice');
+    const storedExam = readStoredSession('kiroku.active.exam');
+    const recovery = decideSessionRecovery({ practice: storedPractice, exam: storedExam });
+    if (recovery.action === 'ignore_stale') {
+      clearStoredSession(recovery.type === 'practice' ? 'kiroku.active.practice' : 'kiroku.active.exam');
+    }
+    if (recovery.action !== 'offer') {
+      this.renderSetupChooser();
+      return;
+    }
+
+    const area = document.getElementById('study-content-area');
+    if (!area) return;
+    const label = recovery.type === 'exam' ? 'exam' : 'practice drill';
+    area.innerHTML = `
+      <div class="tactile-card text-center py-8">
+        <h2 class="text-xl font-bold text-warm-paper mb-2">Resume ${label}?</h2>
+        <p class="text-secondary text-sm mb-5">An active ${label} was found.</p>
+        <div class="flex justify-center gap-3">
+          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-resume-session">Resume</button>
+          <button type="button" class="tactile-btn" id="btn-abandon-session">Abandon</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('btn-resume-session')?.addEventListener('click', () => {
+      if (recovery.type === 'exam') {
+        writeStoredSession('kiroku.resume.exam', recovery.session);
+        this.router.navigateToTab('test');
+      } else {
+        this.resumePracticeSession(recovery.session);
+      }
+    });
+    document.getElementById('btn-abandon-session')?.addEventListener('click', async () => {
+      try {
+        if (recovery.type === 'practice') {
+          await studyClient.abandonPracticeSession(recovery.session.session_id || recovery.session.external_id);
+        }
+        clearStoredSession(recovery.type === 'practice' ? 'kiroku.active.practice' : 'kiroku.active.exam');
+        this.renderSetupChooser();
+      } catch (err) {
+        this.showError(`Unable to abandon session: ${err.message || 'Study API error'}`);
+      }
+    });
+  }
+
+  async resumePracticeSession(stored) {
+    try {
+      const session = await studyClient.getPracticeSession(stored.session_id || stored.external_id);
+      this.sessionId = session.session_id || session.external_id;
+      this.practiceItems = session.items || [];
+      this.currentQuestionIndex = Math.min(Number(session.current_position) || 0, Math.max(0, this.practiceItems.length - 1));
+      this.activeLevel = session.level || stored.level || this.activeLevel;
+      this.elapsedSeconds = Math.floor((Number(session.total_elapsed_ms) || 0) / 1000);
+      this.startActiveTimer();
+      this.renderQuestion();
+    } catch (err) {
+      clearStoredSession('kiroku.active.practice');
+      this.showError(`Unable to resume practice session: ${err.message || 'Study API error'}`);
+      this.renderSetupChooser();
     }
   }
 
@@ -911,6 +1062,7 @@ export class StudyView {
       } catch (err) {
         console.warn('[Study] Complete session error:', err.message);
       }
+      clearStoredSession('kiroku.active.practice');
     }
 
     const { correct, total } = this.sessionSummary;

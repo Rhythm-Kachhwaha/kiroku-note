@@ -10,6 +10,7 @@
 import { studyClient } from '../services/study_client.js';
 import { escapeHtml, renderStudyText } from '../utils/sanitizer.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
+import { clearStoredSession, readStoredSession, writeStoredSession } from '../utils/session_recovery.js';
 
 function extractPassageContent(item) {
   if (!item) return null;
@@ -42,6 +43,7 @@ export class TestView {
     this.flagged = new Set();
     this.activeBlobUrls = [];
     this._noticeTimeout = null;
+    this.isPaused = false;
     this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
@@ -55,7 +57,13 @@ export class TestView {
       console.debug('[Test] Resolve universal level error:', err);
     }
 
-    this.renderExamSetup();
+    const resume = readStoredSession('kiroku.resume.exam');
+    if (resume) {
+      clearStoredSession('kiroku.resume.exam');
+      await this.resumeExamSession(resume);
+    } else {
+      this.renderExamSetup();
+    }
   }
 
   onShow() {
@@ -69,6 +77,9 @@ export class TestView {
   onHide() {
     window.removeEventListener('keydown', this.handleKeyDown);
     this.stopTimer();
+    if (this.sessionId && !this.isPaused && this.sections.length > 0) {
+      this.pauseForBackground();
+    }
     this.activeListenerCount = 0;
   }
 
@@ -318,6 +329,12 @@ export class TestView {
     try {
       const session = await studyClient.createExamSession(level);
       this.sessionId = session?.session_id || session?.external_id;
+      writeStoredSession('kiroku.active.exam', {
+        session_id: this.sessionId,
+        status: session?.status || 'active',
+        level,
+        started_at: session?.started_at
+      });
 
       this.sections = session?.sections || [];
       this.currentSectionIndex = 0;
@@ -345,10 +362,10 @@ export class TestView {
         const filtered = items.filter(q => {
           const fc = (q.format_code || '').toUpperCase();
           const sf = (q.structural_family || '').toUpperCase();
-          if (this.selectedFormatFilter === 'F1') return fc.startsWith('F1') || sf.includes('F1') || q.category === 'vocabulary';
-          if (this.selectedFormatFilter === 'F2') return fc.startsWith('F2') || sf.includes('F2') || q.category === 'grammar';
-          if (this.selectedFormatFilter === 'F3_F4') return fc.startsWith('F3') || fc.startsWith('F4') || sf.includes('F3') || sf.includes('F4') || q.category === 'reading';
-          if (this.selectedFormatFilter === 'F5_F6') return fc.startsWith('F5') || fc.startsWith('F6') || sf.includes('F5') || sf.includes('F6') || q.category === 'listening';
+          if (this.selectedFormatFilter === 'F1') return fc === 'F1';
+          if (this.selectedFormatFilter === 'F2') return fc === 'F2';
+          if (this.selectedFormatFilter === 'F3_F4') return fc === 'F3' || fc === 'F4';
+          if (this.selectedFormatFilter === 'F5_F6') return fc === 'F5' || fc === 'F6';
           return true;
         });
         if (filtered.length > 0) {
@@ -430,6 +447,7 @@ export class TestView {
           <span class="timer-label font-mono text-xs">TIME REMAINING:</span>
           <span class="timer-countdown font-mono font-bold" id="exam-countdown">${this.formatCountdown(this.remainingSeconds)}</span>
         </div>
+        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-pause-exam">${this.isPaused ? 'Resume' : 'Pause'}</button>
       </div>
 
       <!-- Question Content Area -->
@@ -470,6 +488,63 @@ export class TestView {
     const btnFinish = document.getElementById('btn-finish-exam');
     if (btnFinish) {
       btnFinish.addEventListener('click', () => this.confirmSubmitSection());
+    }
+    document.getElementById('btn-pause-exam')?.addEventListener('click', () => this.togglePause());
+  }
+
+  async togglePause() {
+    const currentSection = this.sections[this.currentSectionIndex] || {};
+    const blockOrder = currentSection.block_order || (this.currentSectionIndex + 1);
+    try {
+      if (this.isPaused) {
+        await studyClient.resumeExamSection(this.sessionId, blockOrder);
+        this.isPaused = false;
+        this.startTimer();
+      } else {
+        await studyClient.pauseExamSection(this.sessionId, blockOrder);
+        this.isPaused = true;
+        this.stopTimer();
+      }
+
+      async pauseForBackground() {
+        const currentSection = this.sections[this.currentSectionIndex] || {};
+        const blockOrder = currentSection.block_order || (this.currentSectionIndex + 1);
+        try {
+          await studyClient.pauseExamSection(this.sessionId, blockOrder);
+          this.isPaused = true;
+          writeStoredSession('kiroku.active.exam', {
+            session_id: this.sessionId,
+            status: 'paused',
+            level: this.activeLevel,
+            started_at: currentSection.started_at
+          });
+        } catch (err) {
+          console.warn('[Test] Pause exam on background failed:', err.message);
+        }
+      }
+      this.renderExamStage();
+    } catch (err) {
+      this.showError(`Unable to ${this.isPaused ? 'resume' : 'pause'} exam: ${err.message || 'Study API error'}`);
+    }
+  }
+
+  async resumeExamSession(stored) {
+    try {
+      const session = await studyClient.getExamSession(stored.session_id || stored.external_id);
+      this.sessionId = session?.session_id || session?.external_id;
+      this.activeLevel = session?.level || stored.level || this.activeLevel;
+      this.sections = session?.sections || [];
+      this.currentSectionIndex = Number(session?.current_section_index) || 0;
+      const section = this.sections[this.currentSectionIndex] || {};
+      this.questions = section.items || session?.current_section_items || session?.items || [];
+      this.currentIndex = Number(session?.current_position) || 0;
+      this.remainingSeconds = section.remaining_time_seconds || section.allocated_time_seconds || 45 * 60;
+      this.isPaused = true;
+      this.renderExamStage();
+    } catch (err) {
+      clearStoredSession('kiroku.active.exam');
+      this.showError(`Unable to resume exam: ${err.message || 'Study API error'}`);
+      this.renderExamSetup();
     }
   }
 
@@ -755,6 +830,7 @@ export class TestView {
         }
 
         await studyClient.completeExamSession(this.sessionId);
+        clearStoredSession('kiroku.active.exam');
         const result = await studyClient.getExamResult(this.sessionId);
         this.renderResultState(result);
       } else {
