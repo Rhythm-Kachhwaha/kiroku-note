@@ -7,7 +7,7 @@
  * Golden Rule: Zero emojis anywhere across code, UI, or logs.
  */
 
-import { mountRiveMascot } from '../rive_mascot.js';
+import { getMascotHost } from '../shell/mascot_host.js';
 import { HOME_GLYPHS } from '../assets/home_glyphs.js';
 
 /**
@@ -355,7 +355,6 @@ export class HomeView {
             <div class="mascot-stage" id="mascot-stage" aria-label="Kiroku study companion" role="button" tabindex="0" title="Click companion to interact">
               <div class="organic-shape-backing" aria-hidden="true" style="display: none;"></div>
               <div class="mascot-character-wrap" id="mascot-character-wrap">
-                <canvas class="rive-mascot-canvas" aria-hidden="true"></canvas>
               </div>
             </div>
           </div>
@@ -865,8 +864,8 @@ export class HomeView {
       }
     };
 
-    const catCanvas = typeof this.container?.querySelector === 'function'
-      ? this.container.querySelector('.rive-mascot-canvas')
+    const mascotSlot = typeof this.container?.querySelector === 'function'
+      ? this.container.querySelector('.mascot-character-wrap')
       : null;
     const fallbackBacking = typeof this.container?.querySelector === 'function'
       ? this.container.querySelector('.organic-shape-backing')
@@ -877,22 +876,25 @@ export class HomeView {
         fallbackBacking.style.display = 'block';
         fallbackBacking.innerHTML = `<img src="./ui/assets/mascot/svg_cat.svg" alt="Kiroku Companion" class="mascot-fallback-svg" style="width: 100%; height: 100%; object-fit: contain;">`;
       }
-      if (catCanvas) {
-        catCanvas.style.display = 'none';
+      if (mascotSlot) {
+        mascotSlot.style.display = 'none';
       }
       showBubble();
     };
 
-    if (catCanvas) {
-      mountRiveMascot(catCanvas, {
-        onLoad: () => {
-          showBubble();
-        },
-        onFallback: () => {
-          showFallbackCat();
-        }
-      }).then((instance) => {
-        this.riveMascot = instance;
+    if (mascotSlot) {
+      const host = getMascotHost();
+      host.ensureCreated().then(() => {
+        if (!this.container || !mascotSlot.parentNode) return;
+        host.attach(mascotSlot, {
+          onReady: () => {
+            showBubble();
+          },
+          onFallback: () => {
+            showFallbackCat();
+          }
+        });
+        this.riveMascot = host;
       }).catch((e) => {
         console.debug('[Home] Mascot mount warning:', e);
         showFallbackCat();
@@ -1152,12 +1154,7 @@ export class HomeView {
     }
     this.escapeHandler = null;
 
-    // Clean up cat companion
-    try {
-      this.riveMascot?.cleanup();
-    } catch (e) {
-      console.debug('[Home] Cat mascot cleanup note:', e);
-    }
+    getMascotHost().detach();
     this.riveMascot = null;
 
     if (this.container) {

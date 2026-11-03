@@ -28,6 +28,7 @@
 
   <!-- Floating Tactile Bottom Navigation Dock -->
   <div id="bottom-dock-container"></div>
+  <div id="mascot-host-stash" hidden></div>
 
   <!-- Vendored CSP-Safe Lottie SVG Player Runtime -->
   <script src="./ui/vendor/lottie.min.js"></script>
@@ -38,6 +39,7 @@
   <script type="module">
     if (window.__KIROKU_PERF_DEBUG__) performance.mark('app:start');
     import { prefetchRiveAssets } from './ui/rive_mascot.js';
+    import { scheduleMascotHostCreation } from './ui/shell/mascot_host.js';
     // Warm Rive runtime and companion asset bytes immediately at boot
     prefetchRiveAssets();
 
@@ -79,6 +81,7 @@
 
       // 4. Start Router
       router.init();
+      scheduleMascotHostCreation();
     }
 
     if (document.readyState === 'loading') {
