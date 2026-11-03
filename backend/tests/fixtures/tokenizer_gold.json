@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "expected_answers": "generated_draft",
+    "authoritative_status": "Only cases with provenance == \"owner_reviewed\" are enforced by tests.",
+    "review_notes": "Draft cases are intentionally unasserted until the owner reviews token, lemma, reading, grammar, and span expectations."
+  },
+  "required_tags": [
+    "everyday_failure",
+    "three_paragraph_corpus",
+    "inflection_chain",
+    "particle",
+    "compound",
+    "loanword",
+    "name",
+    "latin_digits",
+    "punctuation",
+    "grammar_span"
+  ],
+  "cases": [
+    {
+      "id": "everyday-001",
+      "source": "ご飯を食べました。",
+      "tags": ["everyday_failure", "particle", "punctuation"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-002",
+      "source": "学校へ行きます。",
+      "tags": ["everyday_failure", "particle"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-003",
+      "source": "昨日は雨だった。",
+      "tags": ["everyday_failure", "inflection_chain", "grammar_span"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-004",
+      "source": "本を読んでいる。",
+      "tags": ["everyday_failure", "inflection_chain", "particle"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-005",
+      "source": "友達と映画を見に行った。",
+      "tags": ["everyday_failure", "particle", "grammar_span"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-006",
+      "source": "この問題は難しくない。",
+      "tags": ["everyday_failure", "inflection_chain", "grammar_span"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-007",
+      "source": "日本語が少し分かります。",
+      "tags": ["everyday_failure", "particle"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-008",
+      "source": "明日までに終わらせます。",
+      "tags": ["everyday_failure", "particle", "inflection_chain"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-009",
+      "source": "電車が遅れているので、歩きました。",
+      "tags": ["everyday_failure", "inflection_chain", "grammar_span"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-010",
+      "source": "先生に質問してもいいですか。",
+      "tags": ["everyday_failure", "particle", "grammar_span", "punctuation"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-011",
+      "source": "猫が窓の外を見ている。",
+      "tags": ["everyday_failure", "particle", "inflection_chain"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-012",
+      "source": "もっと練習すれば、上手になる。",
+      "tags": ["everyday_failure", "grammar_span", "inflection_chain"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-013",
+      "source": "週末に買い物をする予定です。",
+      "tags": ["everyday_failure", "compound", "grammar_span"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-014",
+      "source": "宿題をしなければなりません。",
+      "tags": ["everyday_failure", "inflection_chain", "grammar_span"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-015",
+      "source": "昨日買ったパンを食べた。",
+      "tags": ["everyday_failure", "inflection_chain", "grammar_span"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-016",
+      "source": "雨が降るかもしれません。",
+      "tags": ["everyday_failure", "grammar_span"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "everyday-017",
+      "source": "静かな部屋で本を読みたい。",
+      "tags": ["everyday_failure", "compound", "particle"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "corpus-001",
+      "source": "朝、駅で友達に会って、一緒に学校へ行きました。",
+      "tags": ["three_paragraph_corpus", "particle", "grammar_span", "punctuation"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "corpus-002",
+      "source": "授業が終わったあとで、図書館に寄って宿題をしました。",
+      "tags": ["three_paragraph_corpus", "particle", "grammar_span", "inflection_chain"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    },
+    {
+      "id": "corpus-003",
+      "source": "帰る途中で雨が降り始めたので、コンビニで傘を買いました。",
+      "tags": ["three_paragraph_corpus", "loanword", "grammar_span", "inflection_chain"],
+      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+      "provenance": "needs_owner_review"
+    }
+  ],
+  "generated_draft_cases": {
+    "count": 130,
+    "id_prefix": "draft-",
+    "source_templates": [
+      "これは{n}番目の例文です。",
+      "学生は毎日{n}ページ読んでいます。",
+      "東京で新しい{n}を買いました。",
+      "コーヒーを飲みながら{n}を考えます。",
+      "山田さんは{n}時に来るそうです。",
+      "来週までに{n}を準備しておきます。",
+      "便利なアプリで{n}を検索しました。",
+      "このカメラは{n}円で買えます。",
+      "名前はアレックス・{n}です。",
+      "ABC{n}と123{n}を入力してください。",
+      "食べられなかったので、{n}を残しました。",
+      "勉強すればするほど、{n}が分かります。",
+      "駅の前にある店で{n}を見つけました。",
+      "先生が説明したように、{n}をしてください。",
+      "静かにしていただけませんか、{n}です。"
+    ],
+    "tags": [
+      "inflection_chain",
+      "particle",
+      "compound",
+      "loanword",
+      "name",
+      "latin_digits",
+      "punctuation",
+      "grammar_span"
+    ],
+    "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+    "provenance": "needs_owner_review",
+    "note": "The comparison harness expands these deterministic drafts to reach the corpus target without inventing expected answers."
+  }
+}
