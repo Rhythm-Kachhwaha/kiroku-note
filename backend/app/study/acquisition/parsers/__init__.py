@@ -10,6 +10,7 @@ from app.study.acquisition.parsers.models import (
     ParsedPassage,
     ParsedQuestion,
 )
+from app.study.acquisition.parsers.registry import get_source_parser
 
 __all__ = [
     "BaseSourceParser",
@@ -19,5 +20,5 @@ __all__ = [
     "ParsedQuestion",
     "ParsedPassage",
     "ParsedExercise",
+    "get_source_parser",
 ]
-

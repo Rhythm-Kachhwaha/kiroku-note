@@ -32,6 +32,12 @@ from app.study.acquisition.orchestrator import (
     CategoryAcquisitionResult,
     SingleAcquisitionResult,
 )
+from app.study.acquisition.discovery import DiscoveryCandidate, DiscoveryStrategyRunner
+from app.study.acquisition.source_profiles import (
+    SourceProfile,
+    load_source_profile,
+    load_source_profiles,
+)
 from app.study.acquisition.parsers import (
     BaseSourceParser,
     JapaneseTest4YouParser,
@@ -89,4 +95,9 @@ __all__ = [
     "AcquisitionJobRecord",
     "AcquisitionItemRecord",
     "JobProgress",
+    "SourceProfile",
+    "load_source_profile",
+    "load_source_profiles",
+    "DiscoveryCandidate",
+    "DiscoveryStrategyRunner",
 ]

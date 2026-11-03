@@ -28,6 +28,7 @@ from app.study.acquisition.models import (
     FetchOptions,
 )
 from app.study.acquisition.providers.base import BaseAcquisitionProvider
+from app.study.acquisition.source_profiles import SourceProfile, load_source_profile
 from app.study.provenance import normalize_source_url
 
 logger = logging.getLogger(__name__)
@@ -49,12 +50,15 @@ class CategoryCrawler:
         delay_seconds: float = 1.5,
         jitter_seconds: float = 0.5,
         max_pages: int = 50,
+        source_profile: SourceProfile | None = None,
     ) -> None:
         self._provider = provider
         self._cache = cache or RawAcquisitionCache()
         self._delay_seconds = delay_seconds
         self._jitter_seconds = jitter_seconds
         self._max_pages = max_pages
+        self._profile = source_profile or load_source_profile("japanesetest4you")
+        self._source_slug = self._profile.source_slug
 
     def crawl_category(
         self,
@@ -93,8 +97,8 @@ class CategoryCrawler:
 
             # Check cache or fetch
             fetch_result = None
-            if not force_live and self._cache.has(page_url):
-                fetch_result = self._cache.get(page_url)
+            if not force_live and self._cache.has(page_url, source_slug=self._source_slug):
+                fetch_result = self._cache.get(page_url, source_slug=self._source_slug)
 
             if fetch_result is None:
                 # Polite sleep between live fetches (after the first live fetch)
@@ -105,7 +109,7 @@ class CategoryCrawler:
 
                 try:
                     fetch_result = self._provider.fetch_page(page_url, options=options)
-                    self._cache.put(fetch_result)
+                    self._cache.put(fetch_result, source_slug=self._source_slug)
                 except PermissionError as exc:
                     return CrawlResult(
                         category_url=category_url,
@@ -168,7 +172,10 @@ class CategoryCrawler:
             page_new_urls = 0
             for title_match, link_url in MARKDOWN_LINK_PATTERN.findall(markdown):
                 norm_link = link_url.strip().split("#")[0]
-                if is_exercise_url(norm_link) and norm_link not in seen_urls:
+                accepted = self._profile.accepts_url(norm_link)
+                if accepted and self._source_slug == "japanesetest4you":
+                    accepted = is_exercise_url(norm_link)
+                if accepted and norm_link not in seen_urls:
                     norm_link = normalize_source_url(norm_link)
                     if norm_link in seen_urls:
                         continue
@@ -182,6 +189,7 @@ class CategoryCrawler:
                             ordinal=ordinal,
                             jlpt_level=lvl,
                             section=sec,
+                            source_slug=self._source_slug,
                         )
                     )
                     page_new_urls += 1

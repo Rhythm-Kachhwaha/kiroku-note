@@ -52,6 +52,8 @@ class DiscoveredExercise(BaseModel):
     ordinal: int = 0
     jlpt_level: str = ""
     section: str = ""
+    source_slug: str = "japanesetest4you"
+    match_reason: str = ""
 
 
 class CrawlResult(BaseModel):

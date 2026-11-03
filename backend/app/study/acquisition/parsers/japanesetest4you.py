@@ -140,6 +140,7 @@ def _is_discard_choice_line(line: str) -> bool:
 
 def _normalize_passage_markup(text: str) -> str:
     """Normalize passage text blanks and escape stray brackets for Study Bank AST."""
+    text = _normalize_explicit_markup(text)
     norm = re.sub(r"\[\s*(\d+)\s*\]|【\s*(\d+)\s*】", r"{blank|\1}", text)
 
     def _escape_bracket(match: re.Match) -> str:
@@ -153,6 +154,7 @@ def _normalize_passage_markup(text: str) -> str:
 
 def _normalize_blank(text: str) -> str:
     """Normalize underscores to {blank} token and convert anchor brackets."""
+    text = _normalize_explicit_markup(text)
     norm = BLANK_RE.sub("{blank}", text)
     norm = re.sub(r"\[\s*(\d+)\s*\]", r"【\1】", norm)
 
@@ -163,6 +165,22 @@ def _normalize_blank(text: str) -> str:
         return f"\\[{inner}\\]"
 
     return re.sub(r"\[(.*?)\]", _escape_bracket, norm)
+
+
+def _normalize_explicit_markup(text: str) -> str:
+    """Convert unambiguous source HTML marks to canonical study markup."""
+    normalized = re.sub(
+        r"<ruby[^>]*>\s*<rb[^>]*>(.*?)</rb>\s*<rt[^>]*>(.*?)</rt>\s*</ruby>",
+        r"[\1|\2]",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    return re.sub(
+        r"<(?:u|ins)[^>]*>(.*?)</(?:u|ins)>",
+        r"{u|\1}",
+        normalized,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
 
 
 class JapaneseTest4YouParser(BaseSourceParser):
@@ -184,6 +202,7 @@ class JapaneseTest4YouParser(BaseSourceParser):
     ) -> ParsedExercise:
         """Parse raw markdown/HTML into a validated ParsedExercise structure."""
         warnings: list[str] = []
+        fidelity_flags: set[str] = set()
 
         # Preprocess input: convert <br> to newlines
         normalized_content = re.sub(r"<br\s*/?>", "\n", raw_markdown, flags=re.IGNORECASE)
@@ -539,6 +558,25 @@ class JapaneseTest4YouParser(BaseSourceParser):
 
         all_audio_urls = [t.track_url for t in exercise_audio_tracks]
 
+        if "(cid:" in raw_markdown or "\ufffd" in raw_markdown:
+            fidelity_flags.add("source_markup_loss_suspected")
+        if re.search(r"<u\b|<ins\b|\{u\|", raw_markdown, re.IGNORECASE) and not any(
+            "{u|" in q.stem for q in questions
+        ):
+            fidelity_flags.add("underline_unverified")
+        has_ruby_markup = any(
+            "[" in text and "|" in text
+            for text in [*(p.text for p in passages), *(q.stem for q in questions)]
+        )
+        if re.search(r"<ruby\b|\[.+?\|.+?\]", raw_markdown, re.IGNORECASE) and not has_ruby_markup:
+            fidelity_flags.add("ruby_unverified")
+        if any(len(q.choices) not in (3, 4) for q in questions):
+            fidelity_flags.add("choice_layout_ambiguous")
+        if any(q.answer is None for q in questions):
+            fidelity_flags.add("answer_key_missing")
+        for flag in sorted(fidelity_flags):
+            warnings.append(f"Fidelity warning: {flag}.")
+
         return ParsedExercise(
             title=resolved_title,
             url=url,
@@ -550,6 +588,7 @@ class JapaneseTest4YouParser(BaseSourceParser):
             audio_tracks=exercise_audio_tracks,
             audio_urls=all_audio_urls,
             warnings=warnings,
+            fidelity_flags=sorted(fidelity_flags),
         )
 
     def _build_question(

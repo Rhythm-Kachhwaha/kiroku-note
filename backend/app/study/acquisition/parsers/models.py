@@ -166,6 +166,7 @@ class ParsedExercise(BaseModel):
     audio_tracks: list[AudioAssociation] = Field(default_factory=list)
     audio_urls: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    fidelity_flags: list[str] = Field(default_factory=list)
 
     def to_m3_structured_payload(self) -> dict[str, Any]:
         """

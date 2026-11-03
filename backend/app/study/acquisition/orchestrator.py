@@ -34,6 +34,8 @@ from app.study.acquisition.parsers.japanesetest4you import JapaneseTest4YouParse
 from app.study.acquisition.parsers.models import ParsedExercise
 from app.study.acquisition.providers.base import BaseAcquisitionProvider
 from app.study.acquisition.providers.registry import get_acquisition_provider
+from app.study.acquisition.source_profiles import SourceProfile, load_source_profile
+from app.study.acquisition.parsers.registry import get_source_parser
 from app.study.contracts.enums import JlptLevel
 from app.study.ingestion.enums import IngestAdapterKind, ReviewStatus, StageStatus
 from app.study.ingestion.models import IngestInput, IngestionResult
@@ -81,6 +83,7 @@ class AcquisitionOrchestrator:
         asset_downloader: AssetDownloader | None = None,
         pipeline: IngestionPipeline | None = None,
         verification_service: VerificationService | None = None,
+        source_profile: SourceProfile | None = None,
     ) -> None:
         self._provider = provider or get_acquisition_provider()
         self._cache = cache or RawAcquisitionCache()
@@ -88,6 +91,9 @@ class AcquisitionOrchestrator:
         self._downloader = asset_downloader
         self._pipeline = pipeline or IngestionPipeline()
         self._verification_service = verification_service
+        self._profile = source_profile or load_source_profile("japanesetest4you")
+        if parser is None:
+            self._parser = get_source_parser(self._profile.parser_id)
 
     def acquire_exercise_url(
         self,
@@ -106,15 +112,15 @@ class AcquisitionOrchestrator:
 
         # 1. Fetch & Cache Stage
         raw_fetch: RawFetchResult | None = None
-        if not force_live and self._cache.has(url):
-            raw_fetch = self._cache.get(url)
-            md_path, _ = self._cache.get_cache_paths(url)
+        if not force_live and self._cache.has(url, source_slug=self._profile.source_slug):
+            raw_fetch = self._cache.get(url, source_slug=self._profile.source_slug)
+            md_path, _ = self._cache.get_cache_paths(url, source_slug=self._profile.source_slug)
             cache_path_str = str(md_path)
 
         if raw_fetch is None:
             try:
                 raw_fetch = self._provider.fetch_page(url)
-                saved_path = self._cache.put(raw_fetch)
+                saved_path = self._cache.put(raw_fetch, source_slug=self._profile.source_slug)
                 cache_path_str = str(saved_path)
             except Exception as exc:
                 logger.error("Failed to fetch %s: %s", url, exc)
@@ -158,14 +164,14 @@ class AcquisitionOrchestrator:
         ingest_input = IngestInput(
             adapter_kind=IngestAdapterKind.STRUCTURED_JSON,
             content=structured_payload,
-            source_name="JapaneseTest4You",
+            source_name=self._profile.display_name,
             source_type="web_capture",
             url=url,
             citation=parsed.title,
             license_or_permission="Public educational web exercise",
             default_level=level_enum,
             auto_approve=auto_approve,  # Default False: remains NEEDS_REVIEW
-            metadata={"cache_path": cache_path_str},
+            metadata={"cache_path": cache_path_str, "fidelity_flags": parsed.fidelity_flags},
         )
 
         ingestion_res = self._pipeline.run(
@@ -225,7 +231,7 @@ class AcquisitionOrchestrator:
         # 1. Create Job in study.db
         job = AcquisitionJobService.create_job(
             conn=conn,
-            source_name="JapaneseTest4You",
+            source_name=self._profile.display_name,
             target_category_url=category_url,
             jlpt_level=level,
             section_category=sec,
@@ -235,6 +241,7 @@ class AcquisitionOrchestrator:
         active_crawler = crawler or CategoryCrawler(
             provider=self._provider,
             cache=self._cache,
+            source_profile=self._profile,
         )
         crawl_res = active_crawler.crawl_category(category_url, force_live=force_live)
 
@@ -364,4 +371,3 @@ class AcquisitionOrchestrator:
             total_failed=progress.total_failed if progress else 0,
             exercise_results=exercise_results,
         )
-
