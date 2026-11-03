@@ -1,9 +1,6 @@
 # Status
 
 Current state: Slice S0 documentation and agent-context reduction is complete.
-Last change: area maps added; root agent guide reduced to a focused router.
-Last change: historical root documents and desktop inspection prototypes moved.
-Last change: colliding historical root documents were retained as `*.root.md` archives.
-Last change: `ui-rules.md` is the only active UI design reference.
-Last change: default agent workflow now gates skills, reads, and full-suite runs.
+Recent changes: area maps and archival moves; UI rules consolidated; skill, read,
+test, and ignore gates added.
 Open issues: none.

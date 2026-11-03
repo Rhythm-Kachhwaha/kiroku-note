@@ -50,8 +50,9 @@ Ask the user before running the full backend suite, even if a task requests it.
 ## Efficient agent workflow
 
 The user names the task; determine the smallest valid path without asking them
-how to read files or save tokens. Work in this order: task, area map, files
-named by the task, targeted test. Read no unrelated maps or documentation.
+how to read files or save tokens. Work in this order: task, `IGNORE.md`, area
+map, files named by the task, targeted test. Read no unrelated maps or
+documentation.
 
 Use a skill only when the user names it, the platform requires it, or the task
 directly matches its description. Do not load design or UI skills for backend,
