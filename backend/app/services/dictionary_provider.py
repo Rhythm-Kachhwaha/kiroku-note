@@ -24,6 +24,7 @@ from app.services.yomitan import (
     YomitanResponseError,
     YomitanUnavailableError,
 )
+from app.services.operational_diagnostics import record_operational_failure
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +70,9 @@ def resolve_dictionary_db_path(custom_path: str | Path | None = None) -> Path:
     try:
         home = Path.home()
         candidates.append(home / ".local" / "share" / "KirokuNote" / "kiroku_dict.sqlite")
-    except Exception:
-        pass
+    except Exception as exc:
+        # Home-directory discovery is optional; the repository fallback remains valid.
+        record_operational_failure("dictionary.home_path", exc, level=logging.DEBUG)
 
     for cand in candidates:
         if cand.is_file():
@@ -202,8 +204,8 @@ class YomitanHttpProvider(DictionaryProvider):
                                 if d_name and d_name not in seen:
                                     seen.add(d_name)
                                     found_dicts.append(d_name)
-            except Exception:
-                pass
+            except Exception as exc:
+                record_operational_failure("dictionary.discovery_term", exc, level=logging.DEBUG)
 
         try:
             raw_kanji = self._post_json("/kanjiEntries", {"character": "一"})
@@ -214,8 +216,8 @@ class YomitanHttpProvider(DictionaryProvider):
                         if k_dict and k_dict not in seen:
                             seen.add(k_dict)
                             found_dicts.append(k_dict)
-        except Exception:
-            pass
+        except Exception as exc:
+            record_operational_failure("dictionary.discovery_kanji", exc, level=logging.DEBUG)
 
         return found_dicts
 

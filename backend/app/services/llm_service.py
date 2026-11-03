@@ -7,12 +7,18 @@ Uses only standard library urllib for zero extra runtime dependencies.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import socket
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Optional
+
+from app.services.operational_diagnostics import record_operational_failure
+
+
+logger = logging.getLogger(__name__)
 
 from app.config import (
     DEFAULT_LLM_JLPT_LEVEL,
@@ -218,8 +224,8 @@ def _send_http_json(url: str, data: dict, headers: dict[str, str], timeout: floa
         err_body = ""
         try:
             err_body = exc.read().decode("utf-8", errors="replace")
-        except Exception:
-            pass
+        except Exception as read_error:
+            record_operational_failure("llm.http_error_body_read", read_error, level=logging.DEBUG)
         sanitized_reason = _sanitize_llm_error_text(str(exc.reason), headers)
         sanitized_body = _sanitize_llm_error_text(err_body, headers)
         raise LLMAPIError(f"LLM API error ({exc.code} {sanitized_reason}): {sanitized_body or sanitized_reason}") from exc

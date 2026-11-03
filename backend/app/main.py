@@ -19,6 +19,7 @@ from app.config import APP_VERSION
 from app.db.connection import db_session, init_db
 from app.services.media_storage import MediaStorageService
 from app.services.subtitle_annotator import get_tokenizer_status
+from app.services.operational_diagnostics import record_operational_failure
 from app.schemas import (
     AnkiDecksResponse,
     AnkiModelCapabilitiesResponse,
@@ -494,7 +495,8 @@ def get_health() -> HealthResponse:
         with db_session() as conn:
             conn.execute("SELECT 1")
         db_ok = True
-    except Exception:
+    except Exception as exc:
+        record_operational_failure("health.database", exc)
         db_ok = False
 
     # 2. Yomitan check
@@ -502,7 +504,8 @@ def get_health() -> HealthResponse:
     try:
         yomitan_service = YomitanService()
         yomitan_ok = yomitan_service.check_availability()
-    except Exception:
+    except Exception as exc:
+        record_operational_failure("health.yomitan", exc)
         yomitan_ok = False
 
     # 3. AnkiConnect check
@@ -511,7 +514,8 @@ def get_health() -> HealthResponse:
         card_service = CardService()
         anki_status = card_service.get_anki_status()
         anki_ok = bool(anki_status.connected)
-    except Exception:
+    except Exception as exc:
+        record_operational_failure("health.anki", exc)
         anki_ok = False
 
     # 4. Standalone OCR check
@@ -520,7 +524,8 @@ def get_health() -> HealthResponse:
         ocr_service = OcrService()
         ocr_status = ocr_service.get_status()
         ocr_ok = bool(ocr_status.available)
-    except Exception:
+    except Exception as exc:
+        record_operational_failure("health.ocr", exc)
         ocr_ok = False
 
     tokenizer = get_tokenizer_status()
@@ -1299,8 +1304,8 @@ def get_vocab_coverage() -> VocabCoverageResponse:
                 lvl = row[0]
                 if lvl in levels:
                     levels[lvl].total = int(row[1])
-        except Exception:
-            pass
+        except Exception as exc:
+            record_operational_failure("vocab.level_counts", exc)
             
     mined_words_set = set()
     total_known = 0
@@ -1363,8 +1368,8 @@ def get_vocab_gaps(level: str | None = None, limit: int = 50) -> VocabGapsRespon
                     ))
                     if len(gaps) >= max(1, min(int(limit), 200)):
                         break
-        except Exception:
-            pass
+        except Exception as exc:
+            record_operational_failure("vocab.gaps_query", exc)
 
     return VocabGapsResponse(level=target_level, gaps=gaps, total_gaps=len(gaps))
 
@@ -1485,8 +1490,8 @@ def get_daily_word(
             if isinstance(first_ex, dict):
                 example_ja = first_ex.get("ja") or first_ex.get("sentence")
                 example_en = first_ex.get("en") or first_ex.get("translation")
-    except Exception:
-        pass
+    except Exception as exc:
+        record_operational_failure("daily_word.example_payload", exc, level=logging.DEBUG)
 
     kanji_chars = [ch for ch in word if "\u4e00" <= ch <= "\u9fff"]
     strokes_service = get_kanji_strokes_service()
@@ -1496,8 +1501,8 @@ def get_daily_word(
             svg = strokes_service.get_stroke_svg(ch)
             if svg:
                 stroke_svgs[ch] = svg
-        except Exception:
-            pass
+        except Exception as exc:
+            record_operational_failure("daily_word.stroke_lookup", exc, level=logging.DEBUG)
 
     return DailyWordResponse(
         word=word,

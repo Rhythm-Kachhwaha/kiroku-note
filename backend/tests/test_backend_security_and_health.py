@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 
 from app.db.connection import init_db
 from app.main import app, clear_health_cache
+from app.services.operational_diagnostics import get_operational_failure_counts, reset_operational_failure_counts
 from app.repositories.card_repository import CardDraft, CardRepository
 import tempfile
 from pathlib import Path
@@ -29,6 +30,7 @@ import os
 class BackendSecurityAndHealthTests(unittest.TestCase):
     def setUp(self):
         clear_health_cache()
+        reset_operational_failure_counts()
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = Path(self.temp_dir.name) / "test_sec_health.db"
         self.original_env = os.environ.get("ANKIMINER_DB_PATH")
@@ -39,6 +41,7 @@ class BackendSecurityAndHealthTests(unittest.TestCase):
 
     def tearDown(self):
         clear_health_cache()
+        reset_operational_failure_counts()
         if self.original_env is not None:
             os.environ["ANKIMINER_DB_PATH"] = self.original_env
         else:
@@ -139,6 +142,16 @@ class BackendSecurityAndHealthTests(unittest.TestCase):
         self.assertEqual(resp2.status_code, 200)
         self.assertEqual(mock_yomitan_cls.call_count, 1)
         self.assertEqual(resp1.json(), resp2.json())
+
+    @patch("app.main.YomitanService")
+    def test_health_probe_failure_is_counted_without_exposing_error_details(self, mock_yomitan_cls):
+        mock_yomitan_cls.side_effect = RuntimeError("private endpoint detail")
+
+        response = self.client.get("/api/health")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["yomitan"])
+        self.assertEqual(get_operational_failure_counts(), {"health.yomitan": 1})
 
     # ── 4. CSV EXPORT STATUS ALIAS ───────────────────────────────────────────
 

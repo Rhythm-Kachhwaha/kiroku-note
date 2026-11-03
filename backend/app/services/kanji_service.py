@@ -2,12 +2,17 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 import re
 import sqlite3
 from typing import Any
 
 from app.services.kanji_strokes import get_kanji_strokes_service
+from app.services.operational_diagnostics import record_operational_failure
+
+
+logger = logging.getLogger(__name__)
 
 JLPT_REF_PATH = Path(__file__).resolve().parent.parent / "data" / "jlpt_reference.sqlite"
 DICT_PATH = Path(__file__).resolve().parent.parent.parent.parent / "kiroku_dict.sqlite"
@@ -73,8 +78,8 @@ class KanjiService:
                         "kunyomi": kunyomi,
                         "meanings": meanings,
                     }
-            except Exception:
-                pass
+            except Exception as exc:
+                record_operational_failure("kanji.jlpt_details", exc, level=logging.DEBUG)
 
         # 2. Try kiroku_dict.sqlite
         if self.dict_db_path.exists():
@@ -98,8 +103,8 @@ class KanjiService:
                         "kunyomi": kunyomi,
                         "meanings": meanings,
                     }
-            except Exception:
-                pass
+            except Exception as exc:
+                record_operational_failure("kanji.dictionary_details", exc, level=logging.DEBUG)
 
         return None
 
@@ -140,8 +145,8 @@ class KanjiService:
                                 seen.add(p.lower())
                                 deduped.append(p)
                         gloss = " · ".join(deduped[:4])
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        record_operational_failure("kanji.compound_gloss", exc, level=logging.DEBUG)
 
                 compounds.append({
                     "term": row["term"],
@@ -150,8 +155,8 @@ class KanjiService:
                     "score": float(row["score"] or 0),
                 })
             conn.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            record_operational_failure("kanji.compounds", exc, level=logging.DEBUG)
 
         return compounds
 

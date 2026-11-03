@@ -30,6 +30,7 @@ from app.schemas import (
 )
 from app.services.anki_connect import AnkiConnectService, AnkiConnectionError, AnkiError
 from app.services.media_storage import MediaStorageService
+from app.services.operational_diagnostics import record_operational_failure
 from app.services.yomitan import YomitanError, YomitanService
 
 
@@ -485,8 +486,8 @@ class CardService:
             try:
                 from app.services.jlpt_reference import JlptReferenceService
                 card_jlpt = JlptReferenceService().lookup_word(card.expression)
-            except Exception:
-                pass
+            except Exception as exc:
+                record_operational_failure("cards.jlpt_lookup", exc, level=logging.DEBUG)
 
         kanji_entries = card.kanji_entries or []
         if not kanji_entries and card.expression:

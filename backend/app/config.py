@@ -5,11 +5,17 @@ Centralized host, port, and user-data settings for the local FastAPI backend.
 """
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 import re
 import sys
 from typing import Any
+
+from app.services.operational_diagnostics import record_operational_failure
+
+
+logger = logging.getLogger(__name__)
 
 APP_NAME = "KirokuNote"
 APP_VERSION = "2.1.0"
@@ -125,8 +131,8 @@ def load_dotenv(env_path: Path | None = None, override: bool = False) -> None:
                     val = val[1:-1]
                 if override or key not in os.environ:
                     os.environ[key] = val
-    except Exception:
-        pass
+    except Exception as exc:
+        record_operational_failure("config.dotenv_load", exc)
 
 
 # Automatically load root .env if present on module import
@@ -199,15 +205,15 @@ def load_stored_llm_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                             store = get_secret_store()
                             if not store.has_secret("llm_api_key"):
                                 store.set_secret("llm_api_key", legacy_key)
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            record_operational_failure("config.llm_secret_migration", exc)
                     try:
                         save_stored_llm_config(data, env)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        record_operational_failure("config.llm_config_migration", exc)
                 return data
-    except Exception:
-        pass
+    except Exception as exc:
+        record_operational_failure("config.llm_config_load", exc)
     return {}
 
 
@@ -305,8 +311,8 @@ def get_db_path(env: dict[str, str] | None = None) -> Path:
                 home_local = Path.home() / "AppData" / "Local"
                 if home_local not in candidate_bases:
                     candidate_bases.append(home_local)
-            except Exception:
-                pass
+            except Exception as exc:
+                record_operational_failure("config.windows_data_directory", exc, level=logging.DEBUG)
 
         for base in candidate_bases:
             kiroku_candidate = base / APP_NAME / "data" / "kiroku.db"
@@ -323,8 +329,8 @@ def get_db_path(env: dict[str, str] | None = None) -> Path:
         else:
             try:
                 posix_base = Path.home() / ".local" / "share"
-            except Exception:
-                pass
+            except Exception as exc:
+                record_operational_failure("config.posix_data_directory", exc, level=logging.DEBUG)
 
         if posix_base is not None:
             kiroku_posix = posix_base / APP_NAME / "data" / "kiroku.db"
@@ -529,8 +535,9 @@ def _get_registry_install_paths() -> list[Path]:
         seen.add(p_str.lower())
         try:
             discovered.append(Path(p_str))
-        except Exception:
-            pass
+        except Exception as exc:
+            # A malformed registry candidate is optional discovery data.
+            record_operational_failure("config.anki_candidate_path", exc, level=logging.DEBUG)
 
     try:
         import winreg
@@ -567,8 +574,8 @@ def _get_registry_install_paths() -> list[Path]:
                             continue
             except OSError:
                 continue
-    except Exception:
-        pass
+    except Exception as exc:
+        record_operational_failure("config.anki_registry_discovery", exc, level=logging.DEBUG)
 
     return discovered
 
@@ -725,8 +732,8 @@ def get_llm_api_key(env: dict[str, str] | None = None) -> str | None:
         key = store.get_secret("llm_api_key")
         if key and key.strip():
             return key.strip()
-    except Exception:
-        pass
+    except Exception as exc:
+        record_operational_failure("config.llm_secret_read", exc)
 
     # 2. Fall back to environment variable
     env_dict = os.environ if env is None else env

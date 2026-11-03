@@ -38,6 +38,7 @@ from app.study.migrations.runner import (
     get_current_user_version,
     get_migrations_dir,
 )
+from app.services.operational_diagnostics import get_operational_failure_counts
 
 
 class DiagnosticSeverity(str, Enum):
@@ -140,6 +141,7 @@ class StudyDiagnosticReport(BaseModel):
     media_storage: MediaAccessibilityReport
     media_integrity: MediaIntegrityReport
     bank_readiness: BankReadinessReport
+    operational_failure_counts: Dict[str, int] = Field(default_factory=get_operational_failure_counts)
     actionable_messages: List[str] = Field(default_factory=list)
 
 

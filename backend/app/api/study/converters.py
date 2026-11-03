@@ -8,6 +8,7 @@ active attempts.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from html import escape
 from typing import Optional
@@ -23,6 +24,10 @@ from app.study.formats import FORMAT_REGISTRY, get_format
 from app.study.session.models import PracticeItemPresentation
 from app.study.markup import parse_markup
 from app.study.markup.serializer import to_safe_html
+from app.services.operational_diagnostics import record_operational_failure
+
+
+logger = logging.getLogger(__name__)
 
 
 def render_markup_html(markup: Optional[str]) -> str:
@@ -54,8 +59,8 @@ def _get_question_media_url(conn: sqlite3.Connection, question_id: int, role: st
         ).fetchone()
         if row and row["asset_id"]:
             return f"/api/study/v1/media/{row['asset_id']}"
-    except Exception:
-        pass
+    except Exception as exc:
+        record_operational_failure("study.question_media_url", exc, level=logging.DEBUG)
     return None
 
 
@@ -88,8 +93,8 @@ def _get_group_audio_url(conn: sqlite3.Connection, group_id: int) -> Optional[st
         ).fetchone()
         if row and row["asset_id"]:
             return f"/api/study/v1/media/{row['asset_id']}"
-    except Exception:
-        pass
+    except Exception as exc:
+        record_operational_failure("study.group_audio_url", exc, level=logging.DEBUG)
     return None
 
 
@@ -236,8 +241,8 @@ def practice_item_to_dto(
                     explanation_markup = payload.get("explanation_markup", "")
                 if row["payload_json"]:
                     correct_order = payload.get("correct_order")
-    except Exception:
-        pass
+    except Exception as exc:
+        record_operational_failure("study.practice_item_metadata", exc, level=logging.DEBUG)
 
     return QuestionDTO(
         attempt_item_id=item.attempt_item_id,
@@ -363,8 +368,8 @@ def exam_item_to_dto(
                 group_ordinal = payload.get("group_ordinal")
             if is_exam_completed:
                 correct_order = payload.get("correct_order")
-    except Exception:
-        pass
+    except Exception as exc:
+        record_operational_failure("study.exam_item_metadata", exc, level=logging.DEBUG)
 
     # Strictly mask answer key if exam is not completed
     is_correct = item.is_correct if is_exam_completed else None
