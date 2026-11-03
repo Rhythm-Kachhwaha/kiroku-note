@@ -54,3 +54,36 @@ def test_comparison_report_is_deterministic_without_tokenizers():
 def test_authoritative_cases_only_are_comparable():
     cases = [case for case in load_cases(FIXTURE) if case["provenance"] == "owner_reviewed"]
     assert cases == []
+
+
+def test_authoritative_comparison_reports_segmentation_lemma_and_span_errors():
+    cases = [{
+        "id": "reviewed-001",
+        "source": "日本語",
+        "expected": {
+            "surfaces": ["日本語"],
+            "lemmas": ["日本語"],
+            "readings": ["にほんご"],
+            "pos": [["名詞"]],
+            "spans": [[0, 3]],
+        },
+        "provenance": "owner_reviewed",
+    }]
+
+    report = compare(cases, {
+        "fixture-runner": lambda text: [{
+            "surface": "日本",
+            "lemma": "日本",
+            "reading": "にほん",
+            "pos": ["名詞"],
+            "start": 0,
+            "end": 2,
+        }],
+    })
+
+    result = report["runners"]["fixture-runner"]
+    assert result["authoritative_case_errors"] == 1
+    assert result["segmentation_errors"] == 1
+    assert result["lemma_errors"] == 1
+    assert result["span_errors"] == 1
+    assert result["error_cases"] == ["reviewed-001"]
