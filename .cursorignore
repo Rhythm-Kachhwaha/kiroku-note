@@ -1,0 +1,12 @@
+docs/archive/
+grammar-audits/
+desktop/src/ui/vendor/
+desktop/src/ui/lib/
+*.riv
+*.wasm
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.avif
