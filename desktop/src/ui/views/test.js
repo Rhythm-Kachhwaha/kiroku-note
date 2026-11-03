@@ -506,25 +506,26 @@ export class TestView {
         this.stopTimer();
       }
 
-      async pauseForBackground() {
-        const currentSection = this.sections[this.currentSectionIndex] || {};
-        const blockOrder = currentSection.block_order || (this.currentSectionIndex + 1);
-        try {
-          await studyClient.pauseExamSection(this.sessionId, blockOrder);
-          this.isPaused = true;
-          writeStoredSession('kiroku.active.exam', {
-            session_id: this.sessionId,
-            status: 'paused',
-            level: this.activeLevel,
-            started_at: currentSection.started_at
-          });
-        } catch (err) {
-          console.warn('[Test] Pause exam on background failed:', err.message);
-        }
-      }
       this.renderExamStage();
     } catch (err) {
       this.showError(`Unable to ${this.isPaused ? 'resume' : 'pause'} exam: ${err.message || 'Study API error'}`);
+    }
+  }
+
+  async pauseForBackground() {
+    const currentSection = this.sections[this.currentSectionIndex] || {};
+    const blockOrder = currentSection.block_order || (this.currentSectionIndex + 1);
+    try {
+      await studyClient.pauseExamSection(this.sessionId, blockOrder);
+      this.isPaused = true;
+      writeStoredSession('kiroku.active.exam', {
+        session_id: this.sessionId,
+        status: 'paused',
+        level: this.activeLevel,
+        started_at: currentSection.started_at
+      });
+    } catch (err) {
+      console.warn('[Test] Pause exam on background failed:', err.message);
     }
   }
 
