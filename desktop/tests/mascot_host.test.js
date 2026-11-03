@@ -41,6 +41,8 @@ test('MascotHost creates one Rive file and preserves the state machine instance'
       riveFileCount += 1;
       assert.equal(params.buffer.byteLength, 4);
     }
+
+    async init() {}
   }
 
   class FakeRive {

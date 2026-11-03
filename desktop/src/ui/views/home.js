@@ -900,11 +900,12 @@ export class HomeView {
 
     const showFallbackCat = () => {
       if (fallbackBacking) {
-        fallbackBacking.style.display = 'block';
-        fallbackBacking.innerHTML = `<img src="./ui/assets/mascot/svg_cat.svg" alt="Kiroku Companion" class="mascot-fallback-svg" style="width: 100%; height: 100%; object-fit: contain;">`;
+        fallbackBacking.style.display = 'none';
+        fallbackBacking.innerHTML = '';
       }
       if (mascotSlot) {
-        mascotSlot.style.display = 'none';
+        mascotSlot.style.display = 'flex';
+        mascotSlot.innerHTML = `<img src="./ui/assets/mascot/Cat typing.svg" alt="Kiroku Companion" class="mascot-fallback-svg" style="width: 100%; height: 100%; object-fit: contain;">`;
       }
       showBubble();
     };

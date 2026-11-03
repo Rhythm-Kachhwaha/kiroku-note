@@ -98,6 +98,7 @@ export class MascotHost {
 
     if (buffer) {
       this.riveFile = new window.rive.RiveFile({ buffer });
+      await this.riveFile.init();
       params.riveFile = this.riveFile;
     } else {
       params.src = window.desktopAPI?.getRiveAssetUrl
