@@ -49,8 +49,8 @@ export class MascotHost {
     this.canvas.className = 'rive-mascot-canvas';
     this.canvas.setAttribute('aria-hidden', 'true');
     this.element.appendChild(this.canvas);
-    this.canvas.style.opacity = '0';
-    this.canvas.style.transition = this.reducedMotion ? 'none' : 'opacity 200ms ease';
+    this.canvas.style.opacity = '1';
+    this.canvas.style.transition = 'none';
 
     const assets = this.loadAssets
       ? await this.loadAssets()
@@ -65,7 +65,6 @@ export class MascotHost {
       this.resize();
       requestAnimationFrame(() => {
         markPerf('first_frame_drawn');
-        this.canvas.style.opacity = '1';
         this.onReady?.();
       });
     };
@@ -120,6 +119,7 @@ export class MascotHost {
     this.onFallback = onFallback;
     slotEl.appendChild(this.element);
     this.attachedSlot = slotEl;
+    this.canvas.style.opacity = '1';
     this.resume();
     this.resize();
     markPerf('mascot:attach');
