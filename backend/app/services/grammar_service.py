@@ -2,22 +2,32 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
+import logging
 from pathlib import Path
 import re
 import sqlite3
+import time
 from typing import Any
 
 from app.config import (
     get_db_path,
     get_learner_jlpt_level,
+    get_sudachi_dictionary_variant,
     is_within_learner_level,
     normalize_jlpt_level,
 )
 from app.db.connection import db_session
-from .dictionary_provider import DictionaryProvider, YomitanHttpProvider
+from .dictionary_provider import DictionaryProvider, LocalDictionaryProvider
 from .grammar_matcher import GrammarMatcher
 from .grammar_reference import GrammarReferenceService, resolve_grammar_reference_db_path
+from .tokenizers import get_sudachi_tokenizer, sudachi_status
+
+logger = logging.getLogger(__name__)
+
+GRAMMAR_CACHE_TTL_SECONDS = 24 * 60 * 60
+GRAMMAR_CACHE_MAX_ENTRIES = 1000
 
 
 class GrammarService:
@@ -28,11 +38,12 @@ class GrammarService:
         reference: GrammarReferenceService | None = None,
         db_path: str | Path | None = None,
     ):
-        self.provider = provider or YomitanHttpProvider()
+        self.provider = provider or LocalDictionaryProvider()
         self.reference = reference or GrammarReferenceService()
         self.matcher = matcher or GrammarMatcher(self.reference)
         self.db_path = db_path
         self._index_version = self._get_index_version()
+        self._ensure_cache_schema()
 
     def _get_index_version(self) -> str:
         path = resolve_grammar_reference_db_path()
@@ -41,39 +52,137 @@ class GrammarService:
         except OSError:
             return "missing"
 
-    def _cache_key(self, sentence: str, dictionary_hash: str) -> tuple[str, str, str]:
-        digest = hashlib.sha256(sentence.encode("utf-8")).hexdigest()
-        return digest, self._index_version, dictionary_hash
+    def _tokenizer_version(self, dictionary_variant: str) -> str:
+        versions: list[str] = []
+        for package in ("SudachiPy", f"sudachidict_{dictionary_variant}"):
+            try:
+                versions.append(f"{package}={importlib.metadata.version(package)}")
+            except importlib.metadata.PackageNotFoundError:
+                versions.append(f"{package}=missing")
+        return f"sudachi:{dictionary_variant}:{';'.join(versions)}"
 
-    def _cache_get(self, key: tuple[str, str, str]) -> dict[str, Any] | None:
+    def _ensure_cache_schema(self) -> None:
+        try:
+            with db_session(self.db_path) as conn:
+                columns = {
+                    row["name"]
+                    for row in conn.execute("PRAGMA table_info(grammar_cache)").fetchall()
+                }
+                if columns and "tokenizer_version" not in columns:
+                    conn.execute("DROP TABLE grammar_cache")
+                conn.execute(
+                    """CREATE TABLE IF NOT EXISTS grammar_cache (
+                        sentence_hash TEXT NOT NULL,
+                        index_version TEXT NOT NULL,
+                        tokenizer_version TEXT NOT NULL,
+                        grammar_dict_hash TEXT NOT NULL,
+                        response_json TEXT NOT NULL,
+                        created_at REAL NOT NULL,
+                        PRIMARY KEY(
+                            sentence_hash, index_version,
+                            tokenizer_version, grammar_dict_hash
+                        )
+                    )"""
+                )
+                cutoff = time.time() - GRAMMAR_CACHE_TTL_SECONDS
+                conn.execute("DELETE FROM grammar_cache WHERE created_at <= ?", (cutoff,))
+                conn.execute(
+                    """DELETE FROM grammar_cache
+                    WHERE rowid NOT IN (
+                        SELECT rowid FROM grammar_cache
+                        ORDER BY created_at DESC
+                        LIMIT ?
+                    )""",
+                    (GRAMMAR_CACHE_MAX_ENTRIES,),
+                )
+                conn.commit()
+        except sqlite3.DatabaseError as exc:
+            logger.warning("Unable to maintain grammar analysis cache: %s", exc)
+
+    def _cache_key(
+        self,
+        sentence: str,
+        tokenizer_version: str,
+        dictionary_hash: str,
+    ) -> tuple[str, str, str, str]:
+        digest = hashlib.sha256(sentence.encode("utf-8")).hexdigest()
+        self._index_version = self._get_index_version()
+        return digest, self._index_version, tokenizer_version, dictionary_hash
+
+    def _cache_get(self, key: tuple[str, str, str, str]) -> dict[str, Any] | None:
         try:
             with db_session(self.db_path) as conn:
                 row = conn.execute(
-                    "SELECT response_json FROM grammar_cache WHERE sentence_hash=? AND index_version=? AND grammar_dict_hash=?",
-                    key,
+                    """SELECT response_json FROM grammar_cache
+                    WHERE sentence_hash=? AND index_version=?
+                      AND tokenizer_version=? AND grammar_dict_hash=?
+                      AND created_at > ?""",
+                    (*key, time.time() - GRAMMAR_CACHE_TTL_SECONDS),
                 ).fetchone()
                 return json.loads(row["response_json"]) if row else None
-        except sqlite3.OperationalError:
+        except (sqlite3.DatabaseError, json.JSONDecodeError) as exc:
+            logger.warning("Unable to read grammar analysis cache: %s", exc)
             return None
 
-    def _cache_put(self, key: tuple[str, str, str], response: dict[str, Any]) -> None:
+    def _cache_put(self, key: tuple[str, str, str, str], response: dict[str, Any]) -> None:
         try:
             with db_session(self.db_path) as conn:
                 conn.execute(
                     """CREATE TABLE IF NOT EXISTS grammar_cache (
                         sentence_hash TEXT NOT NULL, index_version TEXT NOT NULL,
-                        grammar_dict_hash TEXT NOT NULL, response_json TEXT NOT NULL,
-                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        PRIMARY KEY(sentence_hash, index_version, grammar_dict_hash)
+                        tokenizer_version TEXT NOT NULL, grammar_dict_hash TEXT NOT NULL,
+                        response_json TEXT NOT NULL, created_at REAL NOT NULL,
+                        PRIMARY KEY(sentence_hash, index_version, tokenizer_version, grammar_dict_hash)
                     )"""
                 )
                 conn.execute(
-                    "INSERT OR REPLACE INTO grammar_cache(sentence_hash,index_version,grammar_dict_hash,response_json) VALUES(?,?,?,?)",
-                    (*key, json.dumps(response, ensure_ascii=False)),
+                    """INSERT OR REPLACE INTO grammar_cache(
+                        sentence_hash,index_version,tokenizer_version,
+                        grammar_dict_hash,response_json,created_at
+                    ) VALUES(?,?,?,?,?,?)""",
+                    (*key, json.dumps(response, ensure_ascii=False), time.time()),
+                )
+                conn.execute(
+                    """DELETE FROM grammar_cache
+                    WHERE rowid NOT IN (
+                        SELECT rowid FROM grammar_cache
+                        ORDER BY created_at DESC
+                        LIMIT ?
+                    )""",
+                    (GRAMMAR_CACHE_MAX_ENTRIES,),
                 )
                 conn.commit()
-        except sqlite3.DatabaseError:
-            pass
+        except sqlite3.DatabaseError as exc:
+            logger.warning("Unable to write grammar analysis cache: %s", exc)
+
+    def _local_tokens(self, sentence: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        dictionary_variant = get_sudachi_dictionary_variant()
+        status = sudachi_status(dictionary_variant)
+        if not status.get("ready"):
+            return [], {
+                "source": "none",
+                "status": "unavailable",
+                "version": self._tokenizer_version(dictionary_variant),
+            }
+        tokenizer = get_sudachi_tokenizer(dictionary_variant)
+        tokens = [
+            {
+                "text": morpheme.surface,
+                "surface": morpheme.surface,
+                "lemma": morpheme.lemma,
+                "base_form": morpheme.lemma,
+                "reading": morpheme.reading,
+                "pos": " ".join(morpheme.pos),
+                "start": morpheme.start,
+                "end": morpheme.end,
+            }
+            for morpheme in tokenizer.tokenize(sentence)
+        ]
+        return tokens, {
+            "source": "sudachi",
+            "status": "ready",
+            "version": self._tokenizer_version(dictionary_variant),
+        }
 
     def _dictionary_notes(
         self, points: list[dict[str, Any]], dictionary_name: str | None
@@ -136,8 +245,9 @@ class GrammarService:
         sentence = sentence.strip()
         level = normalize_jlpt_level(learner_level) or get_learner_jlpt_level()
         filter_level = level if show_below_level else "N1"
+        tokens, tokenizer = self._local_tokens(sentence)
         # Dictionary discovery is deliberately kept out of the sentence path:
-        # analysis is budgeted around one tokenizer request.
+        # analysis is budgeted around one local tokenizer request.
         # Learner filtering changes the response, so keep cache entries isolated
         # by the normalized level rather than allowing a filtered response to
         # satisfy a request for a broader level.
@@ -149,9 +259,9 @@ class GrammarService:
                 "designated_dictionary": designated_dictionary or "",
             }, sort_keys=True).encode()
         ).hexdigest()
-        key = self._cache_key(sentence, dictionary_hash)
-        cached = self._cache_get(key)
-        if cached is not None:
+        key = self._cache_key(sentence, tokenizer["version"], dictionary_hash)
+        cached = self._cache_get(key) if tokenizer["source"] == "sudachi" else None
+        if cached is not None and cached.get("tokenizer_source") == "sudachi":
             # The cache predates learner-level-aware keys. Re-filter cached
             # points so a response generated for another level cannot leak
             # out-of-scope grammar.
@@ -164,12 +274,7 @@ class GrammarService:
                 points = cached_points
             return {**cached, "learner_level": level, "points": points, "cached": True}
 
-        tokens: list[dict[str, Any]] = []
-        limited_offline = not getattr(self.provider, "supports_sentence_tokenization", True)
-        try:
-            tokens = self.provider.tokenize_with_inflection(sentence)
-        except Exception:
-            limited_offline = True
+        limited_offline = tokenizer["source"] != "sudachi"
 
         # A selection containing one lexical item is a dictionary lookup, not
         # sentence grammar. This also prevents matching a bare word such as わけ.
@@ -195,9 +300,12 @@ class GrammarService:
             "learner_level": level,
             "points": points,
             "is_limited_offline": limited_offline,
+            "tokenizer_source": tokenizer["source"],
+            "tokenizer_status": tokenizer["status"],
             "cached": False,
         }
-        self._cache_put(key, response)
+        if tokenizer["source"] == "sudachi" and not limited_offline:
+            self._cache_put(key, response)
         return response
 
     def _hide_known(self, response: dict[str, Any]) -> list[dict[str, Any]]:
@@ -220,7 +328,8 @@ class GrammarService:
     def setup_check(self) -> dict[str, Any]:
         try:
             dictionaries = self.provider.discover_available_dictionaries()
-        except Exception:
+        except Exception as exc:
+            logger.warning("Unable to discover local grammar dictionaries: %s", exc)
             dictionaries = []
         counts: dict[str, int] = {}
         try:
@@ -229,13 +338,12 @@ class GrammarService:
             index_loaded = bool(counts)
         except Exception:
             index_loaded = False
-        try:
-            yomitan_available = bool(self.provider.check_availability())
-        except Exception:
-            yomitan_available = False
+        tokenizer = self._local_tokens("日")[1]
         return {
-            "yomitan_available": yomitan_available,
+            "yomitan_available": False,
             "index_loaded": index_loaded,
             "point_counts_by_level": counts,
             "designated_grammar_dictionary_hits": dictionaries,
+            "tokenizer_source": tokenizer["source"],
+            "tokenizer_status": tokenizer["status"],
         }

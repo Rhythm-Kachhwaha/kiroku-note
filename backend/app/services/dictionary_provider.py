@@ -223,9 +223,8 @@ class YomitanHttpProvider(DictionaryProvider):
 class LocalDictionaryProvider(DictionaryProvider):
     """Standalone local dictionary engine provider wrapping kiroku_dictionary.
 
-    The local word index does not provide sentence tokenization. Grammar
-    analysis may use literal fallback matching, and marks responses as
-    limited rather than claiming full tokenizer availability.
+    The local word index provides dictionary notes only. Grammar sentence
+    tokenization is supplied independently by the local Sudachi adapter.
     """
 
     supports_sentence_tokenization = False

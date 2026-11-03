@@ -41,6 +41,8 @@ class GrammarAnalyzeResponse(BaseModel):
     learner_level: str
     points: list[GrammarPointResponse] = Field(default_factory=list)
     is_limited_offline: bool = False
+    tokenizer_source: str = "none"
+    tokenizer_status: str = "unavailable"
     cached: bool = False
 
 
@@ -49,6 +51,8 @@ class GrammarSetupCheckResponse(BaseModel):
     index_loaded: bool
     point_counts_by_level: dict[str, int] = Field(default_factory=dict)
     designated_grammar_dictionary_hits: list[str] = Field(default_factory=list)
+    tokenizer_source: str = "none"
+    tokenizer_status: str = "unavailable"
 
 
 class CaptureRequest(BaseModel):

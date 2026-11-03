@@ -19,11 +19,13 @@ def test_isolated_word_has_no_grammar():
     assert result["points"] == []
 
 
-def test_sentence_uses_literal_fallback_when_offline():
+def test_sentence_uses_local_tokenizer_when_dictionary_provider_is_offline():
     result = GrammarService(provider=OfflineProvider(), db_path=":memory:").analyze(
         "宿題を忘れてしまった。"
     )
-    assert result["is_limited_offline"] is True
+    assert result["is_limited_offline"] is False
+    assert result["tokenizer_source"] == "sudachi"
+    assert result["tokenizer_status"] == "ready"
     assert any(point["pattern_key"] == "てしまう" for point in result["points"])
 
 
