@@ -277,7 +277,7 @@ export class StudyView {
     document.getElementById('btn-open-bank')?.addEventListener('click', () => this.loadQuestionBank());
   }
 
-  async loadQuestionBank(filters = {}) {
+  async loadQuestionBank(filters = {}, page = 1) {
     const area = document.getElementById('study-content-area');
     if (!area) return;
     area.innerHTML = '<div class="tactile-card text-center py-12 text-muted"><span class="font-mono text-sm">Loading question bank...</span></div>';
@@ -286,10 +286,10 @@ export class StudyView {
         level: filters.level || undefined,
         format_code: filters.format || undefined,
         verification_status: filters.status || undefined,
-        limit: 100,
-        offset: 0
+        limit: 10,
+        offset: (Math.max(1, page) - 1) * 10
       });
-      this.renderQuestionBank(response?.items || [], filters, response?.total);
+      this.renderQuestionBank(response?.items || [], filters, response?.total, page);
     } catch (err) {
       console.error('[Study] Question bank error:', err);
       this.showError('Question bank failed: ' + (err.message || 'Unable to load questions'));
@@ -303,7 +303,10 @@ export class StudyView {
     const formats = [...new Set(items.map((item) => item.format_code).filter(Boolean))].sort();
     const statuses = [...new Set(items.map((item) => item.verification_status).filter(Boolean))].sort();
     const filtered = filterBankQuestions(items, filters);
-    const pageData = getBankPage(filtered, page, 10);
+    const pageData = getBankPage(filtered, 1, 10);
+    const total = Number.isFinite(Number(totalFromApi)) ? Number(totalFromApi) : pageData.total;
+    const pageCount = Math.max(1, Math.ceil(total / 10));
+    const currentPage = Math.min(Math.max(1, Number(page) || 1), pageCount);
     area.innerHTML = `
       <div class="study-bank-card tactile-card">
         <div class="flex items-center justify-between gap-3 mb-4">
@@ -340,11 +343,11 @@ export class StudyView {
           `).join('') : '<div class="study-empty-state text-center py-8 text-secondary">No questions match these filters.</div>'}
         </div>
         <div class="flex items-center justify-between mt-4">
-          <span class="text-xs text-muted">Showing ${pageData.items.length} of ${totalFromApi ?? pageData.total}</span>
+          <span class="text-xs text-muted">Showing ${pageData.items.length} of ${total}</span>
           <div class="flex gap-2">
-            <button type="button" class="tactile-btn tactile-btn-sm" id="btn-bank-prev" ${pageData.page <= 1 ? 'disabled' : ''}>Previous</button>
-            <span class="text-xs text-muted py-2">${pageData.page} / ${pageData.pageCount}</span>
-            <button type="button" class="tactile-btn tactile-btn-sm" id="btn-bank-next" ${pageData.page >= pageData.pageCount ? 'disabled' : ''}>Next</button>
+            <button type="button" class="tactile-btn tactile-btn-sm" id="btn-bank-prev" ${currentPage <= 1 ? 'disabled' : ''}>Previous</button>
+            <span class="text-xs text-muted py-2">${currentPage} / ${pageCount}</span>
+            <button type="button" class="tactile-btn tactile-btn-sm" id="btn-bank-next" ${currentPage >= pageCount ? 'disabled' : ''}>Next</button>
           </div>
         </div>
         <div id="bank-detail" class="mt-4"></div>
@@ -360,8 +363,8 @@ export class StudyView {
     document.getElementById('bank-level-filter')?.addEventListener('change', applyFilters);
     document.getElementById('bank-format-filter')?.addEventListener('change', applyFilters);
     document.getElementById('bank-status-filter')?.addEventListener('change', applyFilters);
-    document.getElementById('btn-bank-prev')?.addEventListener('click', () => this.renderQuestionBank(items, filters, totalFromApi, pageData.page - 1));
-    document.getElementById('btn-bank-next')?.addEventListener('click', () => this.renderQuestionBank(items, filters, totalFromApi, pageData.page + 1));
+    document.getElementById('btn-bank-prev')?.addEventListener('click', () => this.loadQuestionBank(filters, currentPage - 1));
+    document.getElementById('btn-bank-next')?.addEventListener('click', () => this.loadQuestionBank(filters, currentPage + 1));
     area.querySelectorAll('.bank-list-item').forEach((button) => {
       button.addEventListener('click', () => this.loadQuestionDetail(button.dataset.questionId));
     });
