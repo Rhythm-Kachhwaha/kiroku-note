@@ -51,6 +51,7 @@ class ExtractedPage(BaseModel):
     text: str
     images: list[dict[str, Any]] = Field(default_factory=list)
     confidence: float = 1.0
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ExtractedMediaAsset(BaseModel):
@@ -194,4 +195,3 @@ class IngestionResult(BaseModel):
     failed_questions: int = 0
     errors: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
-

@@ -447,6 +447,26 @@ class ImportPreviewResponse(StudyAPIBaseModel):
     warnings: List[str] = Field(default_factory=list)
 
 
+class PdfImportPageInspectionDTO(StudyAPIBaseModel):
+    page_number: int
+    text_char_count: int
+    japanese_ratio: float
+    replacement_indicators: int
+    image_coverage_estimate: float
+    page_width: Optional[float] = None
+    page_height: Optional[float] = None
+    route: str
+    force_ocr: bool = False
+
+
+class PdfImportInspectionResponse(StudyAPIBaseModel):
+    import_id: str
+    filename: str
+    sha256: str
+    page_count: int
+    pages: List[PdfImportPageInspectionDTO] = Field(default_factory=list)
+
+
 class ImportCommitRequest(StudyAPIBaseModel):
     preview_id: Optional[str] = None
     approved: bool = True

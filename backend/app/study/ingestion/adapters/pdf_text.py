@@ -50,6 +50,8 @@ class PdfTextInputAdapter(BaseInputAdapter):
         except Exception as exc:
             raise ValueError(f"Failed to open PDF document: {exc}") from exc
 
+        if getattr(reader, "is_encrypted", False):
+            raise ValueError("Encrypted PDFs are not supported; upload an unlocked PDF.")
         if len(reader.pages) == 0:
             raise ValueError("PDF document contains 0 pages.")
 
@@ -75,6 +77,11 @@ class PdfTextInputAdapter(BaseInputAdapter):
                     page_number=idx,
                     text=page_text,
                     confidence=page_confidence,
+                    metadata={
+                        "width": float(page.mediabox.width),
+                        "height": float(page.mediabox.height),
+                        "image_count": len(getattr(page, "images", [])),
+                    },
                 )
             )
 
@@ -106,7 +113,7 @@ class PdfTextInputAdapter(BaseInputAdapter):
             metadata={
                 "page_count": len(pages),
                 "total_chars": total_extracted_chars,
+                "encrypted": bool(getattr(reader, "is_encrypted", False)),
                 **input_data.metadata,
             },
         )
-

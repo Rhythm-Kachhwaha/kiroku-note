@@ -14,7 +14,7 @@ import re
 import sqlite3
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Header, Query, status
+from fastapi import APIRouter, Depends, File, Header, Query, UploadFile, status
 
 from app.api.study.converters import (
     _get_group_audio_url,
@@ -47,6 +47,7 @@ from app.api.study.schemas import (
     ImportPreviewItemDTO,
     ImportPreviewRequest,
     ImportPreviewResponse,
+    PdfImportInspectionResponse,
     IngestionProvenanceDTO,
     LevelSummaryItem,
     PaginatedResponse,
@@ -64,6 +65,7 @@ from app.study.ingestion.enums import IngestAdapterKind, ReviewStatus
 from app.study.ingestion.models import IngestInput
 from app.study.ingestion.persistence import PersistenceService
 from app.study.ingestion.pipeline import IngestionPipeline
+from app.study.ingestion.staged_import import StagedImportError, StagedPdfImportService
 from app.study.media import MediaStore
 from app.study.tx import unit_of_work
 from app.study.ulid import generate_ulid
@@ -941,6 +943,30 @@ def update_report_status(
 # M14 Agent-Assisted Question Import
 # =============================================================================
 
+@bank_router.post("/bank/import/pdf/inspect", response_model=PdfImportInspectionResponse)
+def inspect_pdf_import(
+    file: UploadFile = File(...),
+    force_ocr_pages: Optional[str] = Query(default=None, description="Comma-separated 1-based page numbers"),
+) -> PdfImportInspectionResponse:
+    """Stage and inspect a PDF without creating questions or revisions."""
+    forced_pages: list[int] = []
+    if force_ocr_pages:
+        try:
+            forced_pages = [int(value.strip()) for value in force_ocr_pages.split(",") if value.strip()]
+        except ValueError as exc:
+            raise StudyBadRequestError("force_ocr_pages must contain page numbers.", code="INVALID_PAGE_LIST") from exc
+    try:
+        result = StagedPdfImportService().inspect_upload(
+            file,
+            filename=file.filename,
+            content_type=file.content_type,
+            force_ocr_pages=forced_pages,
+        )
+    except StagedImportError as exc:
+        raise StudyBadRequestError(str(exc), code="PDF_IMPORT_REJECTED") from exc
+    return PdfImportInspectionResponse(**result)
+
+
 @bank_router.post("/bank/import/preview", response_model=ImportPreviewResponse)
 def preview_agent_import(
     request: ImportPreviewRequest,
@@ -1185,4 +1211,3 @@ def commit_agent_import(
         )
     except Exception as exc:
         raise map_domain_exception(exc)
-
