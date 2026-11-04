@@ -1,0 +1,1357 @@
+/* De-yellow Home View: replace yellowish accents with warm paper / muted slate / vermilion */
+.mascot-ambient-glow {
+  background: radial-gradient(circle, rgba(224, 104, 82, 0.12) 0%, rgba(255, 255, 255, 0.03) 50%, transparent 70%) !important;
+}
+
+.home-view-wrapper .tactile-pill-gold {
+  background: rgba(245, 241, 232, 0.1) !important;
+  color: var(--warm-paper) !important;
+  border-color: rgba(245, 241, 232, 0.2) !important;
+}
+
+
+
+
+/* ==========================================================================
+   Home Hero Brand Wordmark & Smooth Individual Letter Float (from loading.html)
+   ========================================================================== */
+@font-face {
+  font-family: "Ranchers";
+  src: url("../assets/fonts/ranchers.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.home-hero-header {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem 0 1rem 0;
+  margin-bottom: 0.25rem;
+}
+
+.home-hero-header {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 0 clamp(0.4rem, 1vh, 0.85rem) 0;
+  padding: 0;
+}
+
+.home-hero-brand {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: center;
+  gap: clamp(0.5rem, 1vw, 0.85rem);
+  padding: 0;
+  user-select: none;
+}
+
+.hero-word-kiroku {
+  font-family: "Ranchers", cursive, sans-serif !important;
+  font-size: clamp(2rem, 3.8vw, 3.2rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--architectural-cream) !important;
+  display: flex;
+}
+
+.hero-word-note {
+  font-family: "Mochiy Pop P One", "Zen Kaku Gothic New", sans-serif !important;
+  font-size: clamp(1.15rem, 2.2vw, 1.8rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: var(--vermilion) !important;
+  display: flex;
+  align-self: flex-end;
+  margin-bottom: 0.2rem;
+}
+
+/* Individual Letter Float on hover only: strictly smooth lift, zero glow */
+.hero-letter {
+  display: inline-block;
+  cursor: default;
+  transition: transform 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
+}
+
+.hero-letter:hover {
+  transform: translateY(-10px);
+}
+
+/* Character Select Hero Brand Header */
+.compact-hero-header {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.25rem 0 0.25rem 0;
+  margin-bottom: 0;
+}
+
+.compact-hero-header .home-hero-brand {
+  padding: 0;
+  gap: 0.65rem;
+}
+
+.compact-hero-header .hero-word-kiroku {
+  font-size: 2.5rem;
+}
+
+.compact-hero-header .hero-word-note {
+  font-size: 1.4rem;
+  margin-bottom: 0.15rem;
+}
+
+@media (max-width: 860px) {
+  .home-hero-brand {
+    align-items: center;
+    padding: 0.75rem 0;
+  }
+
+  .hero-word-kiroku {
+    font-size: 2.8rem;
+  }
+
+  .hero-word-note {
+    font-size: 1.6rem;
+  }
+}
+
+/* ==========================================================================
+   Home Screen Styles — Expressive Editorial + Mascot Companion
+   Zero fake dashboard metrics; high-contrast Planetoño tactile physics.
+   ========================================================================== */
+.home-view-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  height: calc(100vh - var(--chrome-top-height, 48px) - var(--content-padding-bottom, 96px));
+  min-height: 0;
+  padding: clamp(0.5rem, 1.5vh, 1rem) clamp(1.5rem, 3vw, 2.5rem) 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+  contain: layout paint;
+}
+
+.home-view-container {
+  position: static;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(1.5rem, 3.5vw, 3.5rem);
+  width: 100%;
+}
+
+/* Companion Stage & Speech Bubble (Left Zone ~40%) */
+.home-left-zone {
+  position: relative;
+  flex: 0 0 38%;
+  width: 38%;
+  max-width: 460px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1rem, 2vh, 1.5rem);
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.mascot-ambient-glow {
+  display: none !important;
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200, 169, 74, 0.16) 0%, rgba(217, 75, 56, 0.05) 50%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Asymmetric Comic Speech Bubble */
+@font-face {
+  font-family: "Mochiy Pop P One";
+  src: url("../assets/fonts/mochiy-pop-one-japanese-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-comic {
+  font-family: "Mochiy Pop P One", var(--font-japanese), sans-serif;
+}
+
+.comic-speech-bubble {
+  position: relative;
+  z-index: 3;
+  isolation: isolate;
+  inline-size: fit-content;
+  min-inline-size: min(13rem, 100%);
+  max-inline-size: min(100%, 360px);
+  box-sizing: border-box;
+  cursor: default;
+  margin-bottom: 0.65rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  user-select: none;
+}
+
+.comic-speech-inner {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  color: var(--ink-black);
+  background: var(--architectural-cream);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: 34% 42% 39% 45% / 42% 45% 48% 44%;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.comic-pointer-tail {
+  position: absolute;
+  z-index: 0;
+  bottom: -1.35rem;
+  left: 50%;
+  display: block;
+  inline-size: 3.2rem;
+  block-size: 2.2rem;
+  transform: translateX(-50%);
+  filter: drop-shadow(3px 3px 0 var(--tactile-stroke));
+  pointer-events: none;
+}
+
+.comic-pointer-tail path {
+  fill: var(--architectural-cream);
+  stroke: var(--tactile-stroke);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.speech-content {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  padding: clamp(0.75rem, 1.5vh, 1.15rem) clamp(1.25rem, 2.8vw, 2rem);
+}
+
+.speech-header-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+.speech-greeting-ja {
+  min-inline-size: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-break: strict;
+  font-family: "Mochiy Pop P One", var(--font-japanese), sans-serif;
+  font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--ink-black);
+  letter-spacing: 0.02em;
+}
+
+.speech-rotation-hint {
+  display: none;
+}
+
+.speech-subtitle-en {
+  min-inline-size: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-family: var(--font-sans);
+  font-size: clamp(0.68rem, 0.85vw, 0.78rem);
+  color: rgba(20, 19, 17, 0.75);
+  margin: 0.25rem 0 0;
+  line-height: 1.35;
+}
+
+/* Mascot Stage & Organic Tilted Backing Shape */
+.mascot-stage {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  perspective: 600px;
+}
+
+.mascot-stage .organic-shape-backing {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(230px, 24vw, 340px);
+  height: clamp(210px, 22vw, 310px);
+  transform: translate(-50%, -50%) rotate(-3deg);
+  background-color: var(--warm-paper);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: 46% 54% 58% 42% / 44% 48% 52% 56%;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  pointer-events: none;
+  z-index: 1;
+  transition: transform var(--duration-normal) var(--spring-snappy);
+}
+
+.mascot-stage:hover .organic-shape-backing {
+  transform: translate(-50%, -50%) rotate(1deg) scale(1.02);
+}
+
+.mascot-stamp-badge {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--tactile-stroke);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  transform: rotate(6deg);
+  z-index: 3;
+  transition: transform var(--duration-fast) var(--spring-snappy);
+}
+
+.mascot-stage:hover .mascot-stamp-badge {
+  transform: rotate(12deg) scale(1.06);
+}
+
+.mascot-character-wrap {
+  position: relative;
+  z-index: 2;
+  width: clamp(170px, 19vw, 290px);
+  height: clamp(170px, 19vw, 290px);
+  max-width: 290px;
+  max-height: 290px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-style: preserve-3d;
+  transition: transform var(--duration-fast) var(--spring-snappy);
+}
+
+.rive-mascot-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .mascot-stage,
+  .mascot-stage .organic-shape-backing,
+  .mascot-character-wrap {
+    transition: none;
+  }
+}
+
+.mascot-stage:hover .mascot-character-wrap {
+  transform: translateY(-4px) scale(1.02);
+}
+
+.mascot-stage .mascot-character-wrap.is-tracking {
+  transform: perspective(600px) rotateX(var(--mascot-tilt-x, 0deg)) rotateY(var(--mascot-tilt-y, 0deg)) translate(var(--mascot-shift-x, 0), var(--mascot-shift-y, 0));
+}
+
+.mascot-stage .mascot-character-wrap.is-reacting {
+  animation: mascot-companion-bounce 180ms var(--spring-snappy);
+}
+
+.mascot-portrait-field {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 0.5rem 0.75rem 0.25rem;
+  background: var(--warm-paper);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: 46% 54% 42% 58% / 48% 44% 56% 52%;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.home-cat-img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.45));
+  user-select: none;
+}
+
+.mascot-eyes {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+}
+
+.mascot-eye {
+  position: absolute;
+  width: 20px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--warm-paper);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: 50%;
+  box-shadow: inset 0 -2px 0 rgba(21, 20, 19, 0.12);
+}
+
+.mascot-eye-left {
+  left: 35%;
+  top: 34%;
+}
+
+.mascot-eye-right {
+  right: 35%;
+  top: 34%;
+}
+
+.mascot-pupil {
+  width: 9px;
+  height: 12px;
+  display: block;
+  background: var(--tactile-stroke);
+  border-radius: 50%;
+  transform: translate(var(--pupil-x, 0), var(--pupil-y, 0));
+  transition: transform 70ms linear;
+}
+
+@keyframes mascot-companion-bounce {
+  50% {
+    transform: translateY(-14px) scale(1.05);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .mascot-character-wrap,
+  .mascot-pupil,
+  .mascot-stage .mascot-character-wrap.is-reacting {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   Home Screen: Word of the Day (Architectural Cream Tactile Specimen Card)
+   ========================================================================== */
+
+.home-daily-word,
+.daily-vocab-stamp {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background-color: var(--architectural-cream);
+  border-radius: 14px;
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  outline: none;
+  color: var(--ink-black);
+  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.home-daily-word:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--tactile-stroke);
+}
+
+.home-daily-word:focus-visible {
+  outline: 2px solid var(--vermilion);
+  outline-offset: 3px;
+}
+
+.wotd-card-inner {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.25rem, 0.6vh, 0.45rem);
+  padding: clamp(0.6rem, 1.2vh, 0.85rem) clamp(0.85rem, 1.5vw, 1.15rem);
+  gap: clamp(0.2rem, 0.5vh, 0.4rem);
+  padding: clamp(0.5rem, 1vh, 0.85rem) clamp(0.85rem, 1.5vw, 1.15rem);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Header Row: Badges & Interactive Controls */
+.wotd-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.wotd-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.wotd-section-tag {
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: var(--ink-black);
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.wotd-section-tag::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--rust-signal);
+  flex-shrink: 0;
+}
+
+.wotd-jlpt-pill {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background-color: var(--rust-signal);
+  border: 1.5px solid var(--tactile-stroke);
+  color: var(--pure-white);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.wotd-category-pill {
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(21, 20, 19, 0.25);
+  color: var(--elevated-surface);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Actions Row: Replay & Save */
+.wotd-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.wotd-btn-replay {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: 6px;
+  color: var(--ink-black);
+  cursor: pointer;
+  outline: none;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 140ms ease;
+}
+
+.wotd-btn-replay svg {
+  transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.wotd-btn-replay:hover {
+  background: var(--pure-white);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.wotd-btn-replay:hover svg {
+  transform: rotate(45deg);
+}
+
+.wotd-btn-replay:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--tactile-stroke);
+}
+
+.wotd-btn-replay:focus-visible {
+  outline: 2px solid var(--tactile-stroke);
+  outline-offset: 2px;
+}
+
+/* Bookmark / Save Button */
+.wotd-bookmark-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  background-color: var(--tactile-stroke);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: 6px;
+  color: var(--architectural-cream);
+  cursor: pointer;
+  outline: none;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.wotd-bookmark-btn:hover {
+  background-color: var(--vermilion);
+  border-color: var(--tactile-stroke);
+  color: var(--pure-white);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.wotd-bookmark-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--tactile-stroke);
+}
+
+.wotd-bookmark-btn:focus-visible {
+  outline: 2px solid var(--tactile-stroke);
+  outline-offset: 2px;
+}
+
+.wotd-bookmark-btn.is-added {
+  background-color: var(--jade);
+  border-color: var(--tactile-stroke);
+  color: var(--ink-black);
+  cursor: default;
+  transform: none !important;
+  box-shadow: 2px 2px 0 var(--tactile-stroke) !important;
+}
+
+.wotd-bookmark-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* Main Word & Reading Display */
+.wotd-main-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.wotd-word-surface {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.wotd-stroke-container {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.wotd-stroke-char {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--vermilion);
+  filter: drop-shadow(0 2px 4px rgba(217, 75, 56, 0.25));
+}
+
+.wotd-stroke-svg {
+  width: 44px;
+  height: 44px;
+  display: block;
+}
+
+.wotd-stroke-path {
+  /* Dynamic stroke dashoffset controlled by triggerWordWriteIn() */
+}
+
+.wotd-plain-char {
+  font-size: 2.1rem;
+  font-weight: 500;
+  color: var(--vermilion);
+  line-height: 1;
+}
+
+.wotd-mask-reveal-wrap {
+  overflow: hidden;
+  display: inline-block;
+}
+
+.wotd-word-text {
+  font-size: 2.1rem;
+  font-weight: 600;
+  color: var(--vermilion) !important;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  display: inline-block;
+  filter: drop-shadow(0 2px 4px rgba(217, 75, 56, 0.25));
+}
+
+/* Reading & Meaning Details Row */
+.wotd-details-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 220ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.wotd-details-row.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.wotd-reading-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.wotd-reading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink-black);
+  line-height: 1.2;
+}
+
+.wotd-romaji {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--slate-border);
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+}
+
+.wotd-meaning-text {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink-black);
+  line-height: 1.3;
+}
+
+/* ==========================================================================
+   Word of the Day: Hover / Focus / Tap Reveal Drawer
+   ========================================================================== */
+.wotd-collapsible-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  will-change: grid-template-rows;
+}
+
+.wotd-collapsible-inner {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.wotd-collapsible-wrapper .wotd-example-drawer,
+.wotd-collapsible-wrapper .wotd-footer-row {
+  opacity: 0;
+  transform: translateY(8px);
+  filter: blur(2px);
+  pointer-events: none;
+  transition: opacity 180ms ease,
+    transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    filter 180ms ease;
+}
+
+.home-daily-word:hover .wotd-collapsible-wrapper,
+.home-daily-word:focus-within .wotd-collapsible-wrapper,
+.home-daily-word.is-expanded .wotd-collapsible-wrapper {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 320ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.home-daily-word:hover .wotd-collapsible-wrapper .wotd-example-drawer,
+.home-daily-word:focus-within .wotd-collapsible-wrapper .wotd-example-drawer,
+.home-daily-word.is-expanded .wotd-collapsible-wrapper .wotd-example-drawer {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+  pointer-events: auto;
+  transition: opacity 300ms ease,
+    transform 300ms cubic-bezier(0.23, 1, 0.32, 1),
+    filter 300ms ease;
+}
+
+.home-daily-word:hover .wotd-collapsible-wrapper .wotd-footer-row,
+.home-daily-word:focus-within .wotd-collapsible-wrapper .wotd-footer-row,
+.home-daily-word.is-expanded .wotd-collapsible-wrapper .wotd-footer-row {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+  pointer-events: auto;
+  transition: opacity 300ms ease 60ms,
+    transform 300ms cubic-bezier(0.23, 1, 0.32, 1) 60ms,
+    filter 300ms ease 60ms;
+}
+
+/* Example Drawer / Context Inset Well */
+.wotd-example-drawer {
+  width: 100%;
+}
+
+.wotd-example-block {
+  padding: 0.45rem 0.65rem;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1.5px solid rgba(21, 20, 19, 0.16);
+  border-radius: 8px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.wotd-example-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--slate-border);
+  margin-bottom: 0.2rem;
+  text-transform: uppercase;
+}
+
+.wotd-example-ja {
+  font-size: 0.84rem;
+  color: var(--ink-black);
+  line-height: 1.45;
+  margin: 0 0 0.15rem 0;
+}
+
+.wotd-example-ja ruby rt {
+  font-size: 0.6em;
+  color: var(--slate-stroke);
+}
+
+.wotd-example-en {
+  font-size: 0.74rem;
+  color: var(--slate-stroke);
+  line-height: 1.35;
+  margin: 0;
+}
+
+/* Footer: Open in Vocab Desk */
+.wotd-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 0.2rem;
+}
+
+.wotd-link-vocab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--ink-black);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  transition: color 140ms ease;
+}
+
+.wotd-link-vocab .wotd-arrow {
+  display: inline-block;
+  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.wotd-link-vocab:hover,
+.wotd-link-vocab:focus-visible {
+  color: var(--vermilion);
+}
+
+.wotd-link-vocab:hover .wotd-arrow,
+.wotd-link-vocab:focus-visible .wotd-arrow {
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .home-daily-word,
+  .wotd-btn-replay,
+  .wotd-btn-replay svg,
+  .wotd-bookmark-btn,
+  .wotd-link-vocab .wotd-arrow,
+  .wotd-details-row {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .wotd-details-row {
+    opacity: 1 !important;
+  }
+}
+
+/* ==========================================================================
+   Home Screen: Full Window Responsive Layout & Launcher Cards
+   ========================================================================== */
+.home-view-wrapper.character-select-home {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem var(--content-padding-bottom, 96px) 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Minimal Launcher Cards Zone (Vocab & Kanji) */
+.home-launcher-zone {
+  flex: 1 1 58%;
+  width: 58%;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(0.85rem, 1.8vh, 1.35rem);
+  gap: clamp(0.6rem, 1.4vh, 1.25rem);
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.home-launcher-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: clamp(0.75rem, 1.5vw, 1.25rem);
+  width: 100%;
+  align-items: stretch;
+}
+
+.home-launcher-card {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: clamp(0.75rem, 1.2vw, 1.25rem);
+  padding: clamp(0.75rem, 1.4vh, 1.15rem) clamp(0.85rem, 1.4vw, 1.35rem);
+  min-height: clamp(86px, 12vh, 120px);
+  background-color: var(--ink-surface);
+  border: 1.5px solid var(--subtle-border);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  transition: transform var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1),
+    background-color var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1),
+    border-color var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.home-launcher-card:hover,
+.home-launcher-card:focus-visible {
+  transform: translateY(-3px) scale(1.01);
+  background-color: var(--ink-card) !important;
+  border-color: var(--gold) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), 0 0 18px rgba(200, 169, 74, 0.18) !important;
+}
+
+.home-launcher-card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.launcher-glyph-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--warm-paper);
+  transition: color var(--duration-fast, 180ms) ease,
+    opacity var(--duration-fast, 180ms) ease;
+}
+
+.launcher-glyph-wrap.is-easing-out {
+  opacity: 0.85;
+}
+
+.home-launcher-card:hover .launcher-glyph-wrap,
+.home-launcher-card:focus-visible .launcher-glyph-wrap {
+  color: var(--gold) !important;
+}
+
+.home-launcher-card:hover .launcher-arrow,
+.home-launcher-card:focus-visible .launcher-arrow {
+  color: var(--gold) !important;
+  transform: translateX(4px);
+}
+
+.home-launcher-card:active {
+  transform: translateY(-1px) scale(0.995);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Glyph Container: large glyph (approx 60% of card height), centered */
+.launcher-glyph-side {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 78px;
+  height: 78px;
+}
+
+.launcher-glyph-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pure-white);
+  transition: color var(--duration-fast, 180ms) ease,
+    transform var(--duration-fast, 180ms) cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity var(--duration-fast, 180ms) ease;
+}
+
+.launcher-glyph-wrap svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.launcher-glyph-video {
+  width: 100%;
+  height: 100%;
+  max-width: 78px;
+  max-height: 78px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  filter: invert(1) brightness(1.8);
+  transition: transform var(--duration-fast, 180ms) cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.launcher-glyph-wrap.is-easing-out {
+  opacity: 0.85;
+}
+
+.home-launcher-card:hover .launcher-glyph-wrap,
+.home-launcher-card:focus-visible .launcher-glyph-wrap {
+  color: var(--pure-white) !important;
+  transform: scale(1.06);
+}
+
+.home-launcher-card:hover .launcher-glyph-video,
+.home-launcher-card:focus-visible .launcher-glyph-video {
+  filter: none !important;
+  transform: scale(1.08);
+}
+
+/* Information Side: Title, Descriptor, and Arrow */
+.launcher-info-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.launcher-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.launcher-title {
+  font-family: "Lilita One", var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 400;
+  color: var(--warm-paper);
+  line-height: 1.15;
+  letter-spacing: 0.03em;
+  margin: 0;
+  transition: color var(--duration-fast, 180ms) ease;
+}
+
+.home-launcher-card:hover .launcher-title,
+.home-launcher-card:focus-visible .launcher-title {
+  color: var(--pure-white) !important;
+}
+
+.launcher-desc {
+  font-family: var(--font-sans);
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--paper-muted);
+  line-height: 1.35;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--duration-fast, 180ms) ease;
+}
+
+.home-launcher-card:hover .launcher-desc,
+.home-launcher-card:focus-visible .launcher-desc {
+  color: var(--warm-paper) !important;
+}
+
+.launcher-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.launcher-arrow {
+  font-size: 1.35rem;
+  line-height: 1;
+  color: var(--text-muted);
+  transition: transform var(--duration-fast, 180ms) cubic-bezier(0.34, 1.56, 0.64, 1),
+    color var(--duration-fast, 180ms) ease;
+}
+
+.home-launcher-card:hover .launcher-arrow,
+.home-launcher-card:focus-visible .launcher-arrow {
+  color: var(--pure-white) !important;
+  transform: translateX(5px);
+}
+
+/* Daily Word Slim Strip above Dock */
+.daily-word-slim-strip {
+  width: 100%;
+  padding: 0.5rem 1rem !important;
+  margin-top: 0.25rem;
+  background-color: var(--ink-surface) !important;
+  border: 1.5px solid var(--tactile-stroke) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-sm) !important;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.daily-word-strip-inner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+  flex-wrap: nowrap;
+}
+
+.daily-word-strip-inner .daily-word-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.daily-word-strip-inner .daily-word-glyph-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.daily-word-strip-inner .daily-word-gloss {
+  flex: 1 1 auto;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.daily-word-strip-inner .daily-word-stamp-action {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+
+/* Circular Clip-Path Reveal Transition Overlay */
+.character-mode-transition-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--ink-black);
+  z-index: 99999;
+  pointer-events: all;
+}
+
+/* Responsive Adaptations for Narrow / Companion Window (<= 720px) */
+@media (max-width: 720px) {
+  .home-view-wrapper {
+    height: auto;
+    min-height: 100%;
+    overflow-y: visible;
+    overflow-x: hidden;
+    padding: 0.75rem 1rem calc(var(--content-padding-bottom, 96px) + 1.5rem) 1rem;
+  }
+
+  .home-hero-header {
+    margin-bottom: 0.85rem;
+  }
+
+  .home-view-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    height: auto;
+  }
+
+  .home-left-zone {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 360px;
+    height: auto;
+    gap: 0.75rem;
+  }
+
+  .comic-speech-bubble {
+    max-inline-size: min(100%, 320px);
+    margin-bottom: 0.5rem;
+  }
+
+  .speech-content {
+    padding: 1.25rem clamp(1.5rem, 10%, 2rem);
+  }
+
+  .mascot-stage {
+    padding: 0;
+  }
+
+  .mascot-stage .mascot-character-wrap {
+    width: 170px;
+    height: 170px;
+    max-width: 170px;
+    max-height: 170px;
+  }
+
+  .rive-mascot-canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  .home-launcher-zone {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 360px;
+    height: auto;
+    gap: 1rem;
+  }
+
+  .home-launcher-grid {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .home-launcher-card {
+    min-height: 72px;
+    padding: 0.65rem 0.85rem;
+  }
+
+  .launcher-glyph-side {
+    width: 48px;
+    height: 48px;
+  }
+
+  .launcher-title {
+    font-size: 1.1rem;
+  }
+
+  .launcher-desc {
+    font-size: 0.75rem;
+  }
+
+  .home-daily-word,
+  .daily-vocab-stamp {
+    max-width: 360px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .home-daily-word,
+  .wotd-card,
+  .wotd-stroke-path,
+  .wotd-word-text,
+  .wotd-details-row,
+  .wotd-collapsible-wrapper,
+  .wotd-example-drawer,
+  .wotd-footer-row {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .wotd-details-row {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .home-launcher-card {
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .launcher-glyph-wrap {
+    transition: none !important;
+  }
+
+  .launcher-arrow {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+

@@ -107,6 +107,7 @@ export class KanjiView {
             </div>
 
             <!-- Kanji Quick Browse Row with Dropdown & Option to View All -->
+            <!-- FINAL:KANJI-MASTERY-MARKUP START -->
             <div class="kanji-browse-row">
               <div class="kanji-browse-toggle-bar">
                 <button
@@ -146,6 +147,7 @@ export class KanjiView {
                 </div>
               </div>
             </div>
+            <!-- FINAL:KANJI-MASTERY-MARKUP END -->
           </div>
 
           <!-- Visible Error Banner -->

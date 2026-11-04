@@ -28,6 +28,18 @@
   --rust-signal: #EC4624;       /* High-energy industrial action & error stamp */
   --heat-marker: #F39120;       /* High-visibility active level & difficulty orange */
   --architectural-cream: #E2DAC2; /* Heavy structural limestone washi cream */
+  --pure-white: #FFFFFF;
+  --iron-core-dark: #161818;
+  --iron-core-black: #101212;
+  --iron-core-light: #2E3636;
+  --iron-core-surface: #2D3535;
+  --rust-signal-dark: #D83D1D;
+  --grammar-green: #88C570;
+  --architectural-cream-light: #EDE7D4;
+  --slate-stroke: #4A473F;
+  --slate-border: #5A574F;
+  --forest-green: #1B5E20;
+  --vermilion-soft: #E06852;
 
   /* Alpha Tints & States */
   --subtle-border: rgba(245, 241, 232, 0.12);

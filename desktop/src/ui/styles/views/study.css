@@ -1,0 +1,612 @@
+/* ==========================================================================
+   Study Screen Styles
+   ========================================================================== */
+.study-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1.25rem !important;
+}
+
+.study-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.study-prompt-card {
+  margin-bottom: 1.25rem;
+}
+
+.study-prompt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.study-prompt-text {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--warm-paper);
+  line-height: 1.6;
+}
+
+.study-choices-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+@media (min-width: 600px) {
+  .study-choices-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.study-choice-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.85rem;
+  padding: 1rem 1.25rem !important;
+  text-align: left;
+}
+
+.choice-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--tactile-stroke);
+  background-color: var(--surface-container-high);
+  color: var(--warm-paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+.choice-text {
+  font-size: 1.1rem;
+}
+
+.study-choice-btn.is-choice-correct {
+  background-color: rgba(78, 187, 123, 0.2) !important;
+  border-color: var(--status-green) !important;
+  color: var(--status-green) !important;
+}
+
+.study-choice-btn.is-choice-incorrect {
+  background-color: rgba(217, 75, 56, 0.2) !important;
+  border-color: var(--vermilion) !important;
+  color: var(--vermilion) !important;
+}
+
+/* Feedback Banner */
+.grading-feedback-banner {
+  padding: 0.85rem 1.25rem !important;
+  margin-bottom: 1.25rem;
+  animation: pop-bounce 0.25s var(--spring-snappy);
+}
+
+@keyframes pop-bounce {
+  0% {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.banner-correct {
+  background-color: rgba(78, 187, 123, 0.15) !important;
+  border-color: var(--status-green) !important;
+  color: var(--status-green);
+}
+
+.banner-incorrect {
+  background-color: rgba(217, 75, 56, 0.15) !important;
+  border-color: var(--vermilion) !important;
+  color: var(--vermilion);
+}
+
+.grading-feedback-content {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.grading-status-icon {
+  font-size: 1.6rem;
+  font-weight: 900;
+}
+
+.grading-verdict {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.pedagogical-explanation-card {
+  margin-bottom: 1.25rem;
+}
+
+.explanation-text {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--warm-paper);
+  margin-top: 0.5rem;
+}
+
+.adaptive-rating-section {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--ink-border);
+}
+
+.rating-buttons-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.btn-rate-difficulty.is-selected-rating {
+  border-color: var(--gold-eye) !important;
+  box-shadow: 0 0 8px rgba(200, 169, 74, 0.4) !important;
+}
+
+
+.study-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background-color: rgba(217, 75, 56, 0.15);
+  border: 1px solid var(--vermilion);
+  border-radius: var(--radius-sm);
+  color: var(--vermilion);
+  font-size: 0.85rem;
+}
+
+.study-empty-state,
+.study-complete-card {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.study-empty-title,
+.study-complete-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  margin-bottom: 0.5rem;
+}
+
+.study-level-picker {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+
+/* ==========================================================================
+   Study Practice Screen Styles — Planetoño Tactile Physics
+   ========================================================================== */
+.study-view-wrapper {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 2rem 1.5rem;
+}
+
+.study-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Study section segmented control */
+.study-segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 3px;
+  background-color: var(--surface-container);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.study-segment-tab {
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+
+.study-segment-tab.is-active {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+}
+
+.study-segment-tab:focus-visible {
+  outline: 2px solid var(--warm-paper);
+  outline-offset: 2px;
+}
+
+.study-segment-pane[hidden] {
+  display: none;
+}
+
+.study-filter-chip {
+  min-height: 32px;
+}
+
+.study-flag-question {
+  margin-left: 0.25rem;
+}
+
+.bank-list-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.bank-list-row .bank-list-item {
+  flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .study-segment-tab,
+  #study-report-drawer {
+    transition: none;
+  }
+}
+
+.study-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: rgba(217, 75, 56, 0.15);
+  border: 2px solid var(--vermilion);
+  border-radius: var(--radius-md);
+  color: var(--warm-paper);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.btn-dismiss-error {
+  background: transparent;
+  border: none;
+  color: var(--warm-paper);
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+
+.btn-dismiss-error:hover {
+  opacity: 1;
+}
+
+/* Study Setup Card */
+.study-setup-card {
+  padding: 1.75rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.study-bank-info {
+  background-color: var(--pure-black);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.drill-mode-pills,
+.drill-count-pills {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Drill Header Bar */
+.study-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.study-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.study-question-count {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.study-timer {
+  display: flex;
+  align-items: center;
+  color: var(--gold);
+  font-weight: 600;
+}
+
+/* Study Reading Passage */
+.study-passage-pane {
+  background-color: var(--pure-black);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+/* Study Prompt Card (Pitch-Black var(--pure-black)) */
+.study-prompt-card {
+  background-color: var(--pure-black);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 1.5rem;
+}
+
+.study-prompt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.study-prompt-text {
+  font-family: var(--font-japanese);
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 2;
+  color: var(--warm-paper);
+}
+
+.study-prompt-text ruby rt {
+  font-size: 0.55em;
+  color: var(--gold);
+  user-select: none;
+  line-height: 1;
+}
+
+/* Interactive Choices Grid */
+.study-choices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.study-choice-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 1rem 1.25rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  color: var(--warm-paper);
+  cursor: pointer;
+  outline: none;
+  text-align: left;
+  transition: transform var(--duration-instant) ease-out,
+    box-shadow var(--duration-instant) ease-out,
+    background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+}
+
+.study-choice-btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  background-color: var(--surface-container-high);
+}
+
+.study-choice-btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.study-choice-btn .choice-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--tactile-stroke);
+  background: var(--surface-container-high);
+  color: var(--warm-paper);
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-right: 0.85rem;
+  flex-shrink: 0;
+}
+
+.study-choice-btn .choice-text {
+  font-family: var(--font-japanese);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--warm-paper);
+}
+
+.study-choice-btn .choice-text ruby rt {
+  font-size: 0.55em;
+  color: var(--gold);
+  line-height: 1;
+}
+
+/* Choice Correct / Incorrect States */
+.study-choice-btn.is-choice-correct {
+  background-color: var(--jade) !important;
+  color: var(--pure-black) !important;
+  border-color: var(--tactile-stroke) !important;
+  font-weight: 600;
+}
+
+.study-choice-btn.is-choice-correct .choice-num {
+  background-color: var(--pure-black);
+  color: var(--jade);
+  border-color: var(--pure-black);
+}
+
+.study-choice-btn.is-choice-correct .choice-text {
+  color: var(--pure-black) !important;
+}
+
+.study-choice-btn.is-choice-incorrect {
+  background-color: var(--vermilion) !important;
+  color: var(--warm-paper) !important;
+  border-color: var(--tactile-stroke) !important;
+}
+
+.study-choice-btn.is-choice-incorrect .choice-num {
+  background-color: var(--pure-black);
+  color: var(--vermilion);
+  border-color: var(--pure-black);
+}
+
+/* Grading Feedback Banner */
+.grading-feedback-banner {
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  transition: background-color 0.2s ease, border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.grading-feedback-banner.banner-correct {
+  background-color: rgba(78, 187, 123, 0.15);
+  border-color: var(--jade);
+  color: var(--jade);
+}
+
+.grading-feedback-banner.banner-incorrect {
+  background-color: rgba(217, 75, 56, 0.15);
+  border-color: var(--vermilion);
+  color: var(--vermilion);
+}
+
+.grading-feedback-content {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.grading-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grading-text-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.grading-verdict {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: var(--font-sans);
+}
+
+.grading-points {
+  color: var(--text-secondary);
+}
+
+/* Pedagogical Explanation Card */
+.pedagogical-explanation-card {
+  padding: 1.5rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.explanation-title {
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.btn-rate-difficulty.is-selected-rating {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 0 2px var(--gold-glow), 3px 3px 0 var(--tactile-stroke) !important;
+  color: var(--gold) !important;
+}
+
+/* Study Complete Card */
+.study-complete-card {
+  padding: 2rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.study-complete-title {
+  color: var(--warm-paper);
+}
+
+/* Study Empty State */
+.study-empty-state {
+  padding: 2.5rem 1.5rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.study-empty-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  margin-bottom: 0.5rem;
+}
+
+.study-level-picker {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+

@@ -115,6 +115,13 @@ UI-exploration/
 kiroku-ui-exploration/
 !docs/
 docs/*
+!docs/maps/
+!docs/maps/**
+!docs/archive/
+!docs/archive/plans/
+!docs/archive/plans/**
+!docs/archive/grammar-audits/
+!docs/archive/grammar-audits/*.md
 !docs/design/
 !docs/design/**
 !docs/desktop-wireup/
@@ -123,9 +130,6 @@ docs/*
 !docs/study_http_api_reference.md
 !docs/study-bank/
 !docs/study-bank/*
-!docs/archive/
-!docs/archive/grammar-audits/
-!docs/archive/grammar-audits/*.md
 superpowers/plans/
 
 # Cloud Queue local artifacts & diagnostics
@@ -172,3 +176,4 @@ desktop/tests/screenshots/home_1920x1080.png
 desktop/tests/screenshots/before_900x600.png
 desktop/tests/screenshots/before_1280x720.png
 desktop/tests/screenshots/before_1920x1080.png
+desktop/tests/verification_report.json

@@ -1,12 +1,12 @@
-# Testing Strategy and Conventions
+# Testing map
 
-1. Prefer behavior tests over source-grep checks: instantiate views/components, dispatch user actions, and assert DOM state or API calls.
-2. Source-substring assertions (`content.includes(...)`) are reserved exclusively for locked FINAL files (e.g., bottom dock and Kanji mastery blocks) to guarantee byte invariants.
-3. For desktop UI tests in Node, use `desktop/tests/helpers/dom.js` to provide lightweight DOM mocks without heavyweight dependencies like jsdom.
-4. Run only targeted tests during development: backend with `$env:PYTHONPATH='.;backend'; python -m pytest <test> -q`, desktop/extension with `node --test <test>`.
-5. Backend tests must honor markers: `@pytest.mark.network` for tests needing internet, `@pytest.mark.windows` for Windows-specific flows.
-6. Extension tests must assert DOM structures and client API contracts without altering verified browser behavior.
-7. Endpoints and schemas are verified against `desktop/tests/fixtures/openapi.json` without manually editing fixture files.
-8. GUI-dependent tests (Electron window launch, real transport) must skip gracefully on headless Linux CI when `DISPLAY` is missing.
-9. Mocking external services (Yomitan, AnkiConnect) should use contract-compliant fixtures instead of ad-hoc payloads.
-10. Test suite hygiene: keep tests deterministic, fast, isolated, and free of persistent side-effects or leftover temporary files.
+1. **Testing policy** — Prefer behavior and contract tests over fragile source-substring grep checks; use `desktop/tests/helpers/dom.js` for lightweight fake DOM in Node tests.
+2. **FINAL lock tests** — `desktop/tests/final_lock.test.js` guards locked byte-identical components (bottom dock and Kanji mastery). Source-substring assertions are reserved for locked invariants.
+3. **Backend suite** — Run with `$env:PYTHONPATH='.;backend'; python -m pytest <test> -q`. Honor pytest markers: `network` for online/live resources, `windows` for Windows-specific flows.
+4. **Desktop suite** — Run with `node --test desktop/tests/<name>.test.js`. Target only directly affected or card-named tests.
+5. **Extension suite** — Run with `node --test extension/tests/<name>.test.js`. Assert DOM structures and client API contracts without breaking browser behaviors.
+6. **Headless & CI** — Skip GUI-dependent lifecycle and transport tests gracefully on Linux CI when DISPLAY is absent.
+7. **OpenAPI contract** — Endpoints and schemas are verified against `desktop/tests/fixtures/openapi.json` without manual ad-hoc edits.
+8. **Service isolation** — Mock external services (Yomitan, AnkiConnect) with contract-compliant fixtures; do not fabricate study data.
+9. **Test suite hygiene** — Keep tests deterministic, fast, isolated, and free of persistent side-effects or leftover temporary files.
+10. **Targeted testing only** — Never run full backend/desktop/extension suites unless explicitly requested.
