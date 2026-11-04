@@ -13,6 +13,7 @@ const { pathToFileURL } = require('url');
 const { ProcessManager } = require('./process_manager');
 const { DesktopStore } = require('./store');
 const { StudyApiClient } = require('./study_api_client');
+const { createLogger } = require('./logger');
 
 // Enforce single-instance lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -26,6 +27,7 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 let statusPollingInterval = null;
+let uiReloadTimer = null;
 let lastMenuState = null;
 let trayServicesStatus = {
   backendRunning: false,
@@ -48,6 +50,11 @@ const studyApiClient = new StudyApiClient({
   port: processManager.port,
   getToken: () => processManager.getApiToken()
 });
+
+// Guarded main-process logger. Writes to %LOCALAPPDATA%/KirokuNote/logs/desktop.log
+// and tolerates closed stdout/stderr pipes so a recurring timer log cannot
+// crash the main process (see desktop/tests/electron_epipe.test.js).
+const log = createLogger();
 
 async function desktopControlRequest(pathname, body = {}) {
   const response = await fetch(`http://${processManager.host || '127.0.0.1'}:${processManager.port || 21828}${pathname}`, {
@@ -520,12 +527,11 @@ async function startBackendAndLoadUI() {
           path.join(__dirname, 'index.html'),
           path.join(__dirname, 'shell.html')
         ];
-        let reloadTimer = null;
         const triggerReload = (filename) => {
-          if (reloadTimer) clearTimeout(reloadTimer);
-          reloadTimer = setTimeout(() => {
+          if (uiReloadTimer) clearTimeout(uiReloadTimer);
+          uiReloadTimer = setTimeout(() => {
             if (mainWindow && !mainWindow.isDestroyed()) {
-              console.log('[DevReloader] Reloading UI on file change:', filename || '');
+              log.log('[DevReloader] Reloading UI on file change:', filename || '');
               mainWindow.webContents.reloadIgnoringCache();
             }
           }, 150);
@@ -540,7 +546,7 @@ async function startBackendAndLoadUI() {
                 }
               });
             } catch (err) {
-              console.debug('[DevReloader] Watch error:', err.message);
+              log.warn('[DevReloader] Watch error:', err.message);
             }
           }
         });
@@ -557,10 +563,7 @@ async function startBackendAndLoadUI() {
 
 async function quitApplication() {
   isQuitting = true;
-  if (statusPollingInterval) {
-    clearInterval(statusPollingInterval);
-    statusPollingInterval = null;
-  }
+  stopStatusPolling();
   try {
     await processManager.stopBackend();
   } catch (err) {
@@ -571,6 +574,18 @@ async function quitApplication() {
     tray = null;
   }
   app.quit();
+}
+
+/** Stop recurring timers so no main-process callback runs during/after shutdown. */
+function stopStatusPolling() {
+  if (statusPollingInterval) {
+    clearInterval(statusPollingInterval);
+    statusPollingInterval = null;
+  }
+  if (uiReloadTimer) {
+    clearTimeout(uiReloadTimer);
+    uiReloadTimer = null;
+  }
 }
 
 // Second instance detection - focus existing window
@@ -651,6 +666,7 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  stopStatusPolling();
   try {
     processManager.stopBackend();
   } catch (_) {}
