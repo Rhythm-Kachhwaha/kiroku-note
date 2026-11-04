@@ -12,7 +12,7 @@
   left: 0;
   right: 0;
   height: var(--chrome-top-height, 48px);
-  background-color: var(--pure-black, #000000);
+  background-color: var(--pure-black);
   border-bottom: 1px solid var(--subtle-border, rgba(245, 241, 232, 0.12));
   z-index: 1000;
   display: flex;
@@ -47,7 +47,7 @@
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.1em;
-  color: var(--architectural-cream, #E2DAC2);
+  color: var(--architectural-cream);
   display: inline-flex;
 }
 
@@ -59,14 +59,14 @@
 .brand-badge {
   padding: 0.15rem 0.5rem;
   border-radius: var(--radius-full);
-  background-color: var(--gold, #C8A94A);
-  color: var(--tactile-stroke, #151413);
+  background-color: var(--gold);
+  color: var(--tactile-stroke);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   box-shadow: var(--shadow-sm);
-  border: 1px solid var(--tactile-stroke, #151413);
+  border: 1px solid var(--tactile-stroke);
   transition: transform var(--duration-fast) var(--spring-snappy);
 }
 
@@ -91,7 +91,7 @@
 
 .top-chrome-section-indicator {
   font-weight: 600;
-  color: var(--warm-paper, #F5F1E8);
+  color: var(--warm-paper);
   letter-spacing: 0.02em;
 }
 
@@ -117,7 +117,7 @@
   align-items: center;
   gap: 0.3rem;
   padding: 0.2rem 0.45rem;
-  background-color: var(--surface-container-low, #141311);
+  background-color: var(--surface-container-low);
   border: 1px solid var(--subtle-border, rgba(245, 241, 232, 0.12));
   border-radius: var(--radius-sm, 8px);
   font-family: var(--font-mono);
@@ -128,31 +128,31 @@
 }
 
 .telemetry-chip:hover {
-  background-color: var(--surface-container-high, #2A2926);
-  border-color: var(--gold, #C8A94A);
+  background-color: var(--surface-container-high);
+  border-color: var(--gold);
 }
 
 .telemetry-pip {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background-color: var(--status-inactive, #595855);
+  background-color: var(--status-inactive);
   transition: background-color var(--duration-normal) ease, box-shadow var(--duration-normal) ease;
   flex-shrink: 0;
 }
 
 .telemetry-pip.is-online {
-  background-color: var(--jade, #4EBB7B);
+  background-color: var(--jade);
   box-shadow: 0 0 6px rgba(78, 187, 123, 0.6);
 }
 
 .telemetry-pip.is-checking {
-  background-color: var(--amber, #F59E0B);
+  background-color: var(--amber);
   box-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
 }
 
 .telemetry-pip.is-offline {
-  background-color: var(--vermilion, #D94B38);
+  background-color: var(--vermilion);
 }
 
 .telemetry-label {
@@ -166,9 +166,9 @@
   gap: 0.35rem;
   padding: 0.2rem 0.55rem;
   border-radius: var(--radius-full);
-  background-color: var(--surface-container-high, #2A2926);
-  border: 1px solid var(--gold, #C8A94A);
-  color: var(--gold, #C8A94A);
+  background-color: var(--surface-container-high);
+  border: 1px solid var(--gold);
+  color: var(--gold);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 700;
@@ -179,7 +179,7 @@
 
 .top-chrome-learner-badge:hover {
   transform: translateY(-1px);
-  background-color: var(--surface-container-highest, #363532);
+  background-color: var(--surface-container-highest);
 }
 
 /* Utility Action Buttons (History & Settings) */
@@ -189,9 +189,9 @@
   min-width: 36px;
   min-height: 36px;
   border-radius: var(--radius-sm);
-  background-color: var(--surface-container-low, #141311);
-  border: 1px solid var(--tactile-stroke, #151413);
-  color: var(--warm-paper, #F5F1E8);
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--tactile-stroke);
+  color: var(--warm-paper);
   box-shadow: var(--shadow-sm);
   display: flex;
   align-items: center;
@@ -204,14 +204,14 @@
 }
 
 .chrome-action-btn:focus-visible {
-  outline: 2px solid var(--gold, #C8A94A);
+  outline: 2px solid var(--gold);
   outline-offset: 2px;
 }
 
 .chrome-action-btn:hover {
   transform: translate(-1px, -1px);
   box-shadow: var(--shadow-md);
-  background-color: var(--surface-container-high, #2A2926);
+  background-color: var(--surface-container-high);
 }
 
 .chrome-action-btn:active {
@@ -264,26 +264,26 @@
 }
 
 .window-control-btn:hover {
-  background-color: var(--surface-container-high, #2A2926);
-  color: var(--warm-paper, #F5F1E8);
+  background-color: var(--surface-container-high);
+  color: var(--warm-paper);
 }
 
 .window-control-btn:active {
-  background-color: var(--surface-container-highest, #363532);
+  background-color: var(--surface-container-highest);
 }
 
 .window-control-btn:focus-visible {
-  outline: 2px solid var(--gold, #C8A94A);
+  outline: 2px solid var(--gold);
   outline-offset: 1px;
 }
 
 .window-control-btn.window-control-close:hover {
-  background-color: var(--vermilion, #D94B38);
-  color: #FFFFFF;
+  background-color: var(--vermilion);
+  color: var(--pure-white);
 }
 
 .window-control-btn.window-control-close:active {
-  background-color: var(--vermilion-active, #B33424);
+  background-color: var(--vermilion-active);
 }
 
 /* FINAL:BOTTOM-DOCK START */

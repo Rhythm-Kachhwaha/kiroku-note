@@ -27,7 +27,7 @@
   font-size: 0.85rem !important;
   font-weight: 700 !important;
   letter-spacing: 0.05em !important;
-  color: #F59E0B !important;
+  color: var(--amber) !important;
   background: transparent !important;
   border: none !important;
   padding: 0.25rem 0.5rem !important;

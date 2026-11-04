@@ -118,5 +118,42 @@
   color: var(--warm-paper);
 }
 
+/* Status Dot Indicator Component */
+.status-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+  background-color: var(--text-muted);
+  box-shadow: 0 0 0 1.5px var(--tactile-stroke);
+  flex-shrink: 0;
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+  user-select: none;
+  transition: background-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
+}
+
+.status-dot[data-state="ready"],
+.status-dot[data-state="connected"],
+.status-dot[data-state="running"],
+.status-dot.tactile-pill-gold {
+  background-color: var(--jade);
+  box-shadow: 0 0 6px rgba(78, 187, 123, 0.4), 0 0 0 1.5px var(--tactile-stroke);
+}
+
+.status-dot[data-state="checking"],
+.status-dot[data-state="pending"] {
+  background-color: var(--amber);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4), 0 0 0 1.5px var(--tactile-stroke);
+}
+
+.status-dot[data-state="error"],
+.status-dot[data-state="disconnected"],
+.status-dot[data-state="stopped"] {
+  background-color: var(--vermilion);
+  box-shadow: 0 0 0 1.5px var(--tactile-stroke);
+}
+
 
 

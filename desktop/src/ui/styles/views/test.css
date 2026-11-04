@@ -118,7 +118,7 @@
 
 .test-option-card.is-selected .option-shortcut {
   background-color: var(--vermilion);
-  color: #FFFFFF;
+  color: var(--pure-white);
 }
 
 .option-text {
@@ -376,7 +376,7 @@
   gap: 1rem;
 }
 
-/* Exam Prompt Card (Pitch-Black #000000) */
+/* Exam Prompt Card (Pitch-Black var(--pure-black)) */
 .test-prompt-card {
   background-color: var(--pure-black);
   border: 2px solid var(--tactile-stroke);
@@ -417,7 +417,7 @@
 
 .btn-flag-review.is-flagged {
   background-color: var(--gold);
-  color: #000000;
+  color: var(--pure-black);
   border-color: var(--tactile-stroke);
   box-shadow: 2px 2px 0 var(--tactile-stroke);
   font-weight: 700;
@@ -544,7 +544,7 @@
 
 .test-choice-card.is-selected-choice .choice-num {
   background-color: var(--gold);
-  color: #000000;
+  color: var(--pure-black);
   border-color: var(--tactile-stroke);
 }
 
@@ -605,7 +605,7 @@
 
 .palette-item.is-flagged {
   background-color: var(--gold);
-  color: #000000;
+  color: var(--pure-black);
   font-weight: 700;
   border-color: var(--tactile-stroke);
   box-shadow: 2px 2px 0 var(--tactile-stroke);
@@ -650,4 +650,26 @@
 
 .test-empty-title {
   color: var(--warm-paper);
+}
+
+/* Exam feedback and notice helper classes */
+.is-correct,
+.exam-section-status.is-correct {
+  background-color: var(--jade);
+  color: var(--ink-black);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.is-wrong,
+.exam-section-status.is-wrong {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.notice-gold,
+.test-notice-toast.notice-gold {
+  background-color: var(--surface-container-high);
+  color: var(--warm-paper);
+  border: 1.5px solid var(--gold);
 }

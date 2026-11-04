@@ -47,7 +47,7 @@
 }
 
 .level-pill.is-active {
-  background-color: var(--alpine-berry, #F7E0BA);
+  background-color: var(--alpine-berry);
   color: var(--tactile-stroke);
 }
 
@@ -355,7 +355,7 @@
   align-items: center;
   justify-content: center;
   padding: 1.5rem 0;
-  background-color: #000000;
+  background-color: var(--pure-black);
   border: 1px solid var(--tactile-stroke);
   border-radius: var(--radius-md);
 }

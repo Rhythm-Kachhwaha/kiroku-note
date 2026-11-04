@@ -55,7 +55,6 @@ export class SettingsView {
             <div class="settings-card tactile-card">
               <div class="card-header-row">
                 <h3 class="card-title">Target JLPT Level</h3>
-                <span class="tactile-pill tactile-pill-gold" id="current-universal-level-tag">Active</span>
               </div>
               <p class="card-desc">
                 Sets your universal study level across all tabs (Vocabulary, Grammar, Kanji, Practice drills, and Exam simulations) so you don't have to select it repeatedly.
@@ -85,7 +84,7 @@ export class SettingsView {
             <div class="settings-card tactile-card">
               <div class="card-header-row">
                 <h3 class="card-title">AnkiConnect Sync</h3>
-                <span class="tactile-pill" id="anki-status-tag">Checking...</span>
+                <span class="status-dot" id="anki-status-tag" data-state="checking" title="Checking..."></span>
               </div>
               <p class="card-desc">Direct local HTTP synchronization to Anki desktop client.</p>
 
@@ -110,7 +109,7 @@ export class SettingsView {
             <div class="settings-card tactile-card">
               <div class="card-header-row">
                 <h3 class="card-title">Yomitan Provider</h3>
-                <span class="tactile-pill" id="yomitan-status-tag">Checking...</span>
+                <span class="status-dot" id="yomitan-status-tag" data-state="checking" title="Checking..."></span>
               </div>
               <p class="card-desc">Local Yomitan dictionary server integration for fast bilingual definition lookup.</p>
               <div class="mt-3">
@@ -129,7 +128,7 @@ export class SettingsView {
             <div class="settings-card tactile-card">
               <div class="card-header-row">
                 <h3 class="card-title">Manga-OCR Daemon</h3>
-                <span class="tactile-pill" id="ocr-status-tag">Stopped</span>
+                <span class="status-dot" id="ocr-status-tag" data-state="stopped" title="Stopped"></span>
               </div>
               <p class="card-desc">Isolated, optional CPU-only manga-ocr background server on loopback port 21829.</p>
 
@@ -142,7 +141,7 @@ export class SettingsView {
             <div class="settings-card tactile-card">
               <div class="card-header-row">
                 <h3 class="card-title">AI Explanation Provider</h3>
-                <span class="tactile-pill tactile-pill-gold" id="llm-status-tag">Key Protected</span>
+                <span class="status-dot" id="llm-status-tag" data-state="ready" title="Key Protected"></span>
               </div>
               <p class="card-desc">Generates nuanced pedagogical grammar explanations and disambiguation advice.</p>
 
@@ -195,7 +194,7 @@ export class SettingsView {
             <div class="settings-card tactile-card">
               <div class="card-header-row">
                 <h3 class="card-title">System Doctor Diagnostics</h3>
-                <span class="tactile-pill tactile-pill-gold">Read-Only</span>
+                <span class="status-dot" data-state="ready" title="Read-Only"></span>
               </div>
               <p class="card-desc">Non-mutating verification of SQLite database integrity, sealed triggers, and media assets.</p>
 
@@ -220,7 +219,7 @@ export class SettingsView {
             <div class="settings-card tactile-card">
               <div class="card-header-row">
                 <h3 class="card-title">FastAPI Backend Service</h3>
-                <span class="tactile-pill tactile-pill-gold">Supervisor Managed</span>
+                <span class="status-dot" data-state="ready" title="Supervisor Managed"></span>
               </div>
               <p class="card-desc">Local desktop process supervisor maintaining kiroku.db, SQLite WAL transactions, and port bindings.</p>
 

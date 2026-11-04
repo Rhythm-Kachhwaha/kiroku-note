@@ -8,7 +8,7 @@
 .test-view-wrapper,
 .study-view-wrapper,
 .settings-view-wrapper {
-  background-color: var(--pure-black, #000000);
+  background-color: var(--pure-black);
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
@@ -210,11 +210,11 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.6rem 1.25rem;
-  background-color: var(--architectural-cream, #E2DAC2);
-  color: var(--ink-black, #141311);
-  border: 2px solid var(--tactile-stroke, #151413);
+  background-color: var(--architectural-cream);
+  color: var(--ink-black);
+  border: 2px solid var(--tactile-stroke);
   border-radius: var(--radius-md, 12px);
-  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
   font-family: var(--font-sans);
   font-size: 0.95rem;
   font-weight: 700;
@@ -228,19 +228,19 @@
 
 .vocab-mode-pill-btn:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--tactile-stroke, #151413);
-  background-color: #EDE6D3;
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  background-color: var(--architectural-cream-light);
 }
 
 .vocab-mode-pill-btn:active {
   transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--tactile-stroke, #151413);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
 .vocab-mode-pill-btn.is-active {
-  background-color: var(--vermilion, #D94B38);
-  color: var(--warm-paper, #F5F1E8);
-  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
 }
 
 .vocab-mode-pill-btn .pill-subtag {
@@ -255,11 +255,11 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.55rem 1rem;
-  background-color: var(--architectural-cream, #E2DAC2);
-  color: #141311;
-  border: 1.5px solid var(--tactile-stroke, #151413);
+  background-color: var(--architectural-cream);
+  color: var(--ink-black);
+  border: 1.5px solid var(--tactile-stroke);
   border-radius: var(--radius-md, 12px);
-  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
   font-family: var(--font-sans);
   font-size: 0.85rem;
   font-weight: 700;
@@ -272,13 +272,13 @@
 
 .vocab-quick-add-toggle-btn:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
-  background-color: #EDE6D3;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  background-color: var(--architectural-cream-light);
 }
 
 .vocab-quick-add-toggle-btn:active {
   transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--tactile-stroke, #151413);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
 .vocab-quick-add-toggle-btn.is-open {
@@ -313,10 +313,10 @@
   width: 390px;
   max-width: 390px;
   flex: 0 0 390px;
-  background-color: var(--ink-surface, #1C1B19);
-  border: 2px solid var(--tactile-stroke, #151413);
+  background-color: var(--ink-surface);
+  border: 2px solid var(--tactile-stroke);
   border-radius: var(--radius-lg, 16px);
-  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
@@ -381,7 +381,7 @@
   font-family: var(--font-sans);
   font-size: 1.05rem;
   font-weight: 700;
-  color: var(--warm-paper, #F5F1E8);
+  color: var(--warm-paper);
 }
 
 .dock-badge-subtle {
@@ -390,7 +390,7 @@
   padding: 2px 7px;
   border-radius: 9999px;
   background-color: rgba(79, 187, 188, 0.12);
-  color: var(--industrial-aqua, #4FBBBC);
+  color: var(--industrial-aqua);
   border: 1px solid rgba(79, 187, 188, 0.35);
 }
 
@@ -416,8 +416,8 @@
   height: 44px;
   border-radius: 8px;
   overflow: hidden;
-  background: var(--ink-black, #141311);
-  border: 1px solid var(--tactile-stroke, #151413);
+  background: var(--ink-black);
+  border: 1px solid var(--tactile-stroke);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -546,7 +546,7 @@
   text-align: left;
 }
 
-/* Pure Pitch-Black JMdict Card (#000000, crisp #151413 border, warm paper text) */
+/* Pure Pitch-Black JMdict Card (var(--pure-black), crisp var(--tactile-stroke) border, warm paper text) */
 .jmdict-card {
   margin-top: 1rem;
   background-color: var(--pure-black) !important;
@@ -666,9 +666,9 @@
   padding: 0.15rem 0.55rem;
   border-radius: var(--radius-full);
   background-color: var(--gold);
-  color: #151413;
-  border: 1px solid #151413;
-  box-shadow: 1px 1px 0 #151413;
+  color: var(--tactile-stroke);
+  border: 1px solid var(--tactile-stroke);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
   font-family: var(--font-sans);
   font-size: 0.7rem;
   font-weight: 700;
@@ -680,7 +680,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #151413;
+  background-color: var(--tactile-stroke);
 }
 
 .form-header-row {
@@ -1065,9 +1065,9 @@
   width: 100%;
   max-width: 440px;
   background-color: var(--surface-container-high);
-  border: 2px solid #151413;
+  border: 2px solid var(--tactile-stroke);
   border-radius: var(--radius-lg);
-  box-shadow: 4px 4px 0 #151413;
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
   padding: 1.5rem;
 }
 
@@ -1085,11 +1085,11 @@
 .vocab-mode-tabs {
   display: inline-flex;
   gap: 4px;
-  background-color: var(--surface-container, #1C1B19);
-  border: 1.5px solid var(--tactile-stroke, #151413);
+  background-color: var(--surface-container);
+  border: 1.5px solid var(--tactile-stroke);
   border-radius: var(--radius-md, 12px);
   padding: 3px;
-  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
 }
 
 .vocab-mode-tab {
@@ -1125,10 +1125,10 @@
   display: inline-flex;
   gap: 4px;
   padding: 3px;
-  background-color: var(--surface-container, #1C1B19);
-  border: 1.5px solid var(--tactile-stroke, #151413);
+  background-color: var(--surface-container);
+  border: 1.5px solid var(--tactile-stroke);
   border-radius: var(--radius-md, 12px);
-  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
 }
 
 .vocab-segment-tab {
@@ -1166,11 +1166,11 @@
   gap: 0.75rem;
   width: 100%;
   padding: 0.85rem 1.1rem;
-  background-color: var(--ink-surface, #1C1B19);
-  color: var(--warm-paper, #F5F1E8);
-  border: 2px solid var(--tactile-stroke, #151413);
+  background-color: var(--ink-surface);
+  color: var(--warm-paper);
+  border: 2px solid var(--tactile-stroke);
   border-radius: var(--radius-lg, 16px);
-  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
   font-family: var(--font-sans);
   text-align: left;
   cursor: pointer;
@@ -1180,12 +1180,12 @@
 
 .vocab-annotate-toggle:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--tactile-stroke, #151413);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
 }
 
 .vocab-annotate-toggle:active {
   transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--tactile-stroke, #151413);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
 .vocab-annotate-title {
@@ -1229,8 +1229,8 @@
 
 .gap-chip-static:hover {
   transform: none;
-  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413);
-  border-color: var(--tactile-stroke, #151413);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  border-color: var(--tactile-stroke);
 }
 
 .gap-mine-btn {
@@ -1250,8 +1250,8 @@
   margin-top: 1.5rem;
   padding: 1.25rem;
   background-color: var(--ink-surface);
-  border: 2px solid var(--tactile-stroke, #151413);
-  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
   border-radius: var(--radius-lg);
 }
 
@@ -1287,8 +1287,8 @@
   gap: 0.45rem;
   padding: 0.4rem 0.75rem;
   border-radius: var(--radius-sm);
-  border: 1.5px solid var(--tactile-stroke, #151413);
-  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413);
+  border: 1.5px solid var(--tactile-stroke);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
   background: var(--surface-container);
   color: var(--warm-paper);
   cursor: pointer;
@@ -1299,13 +1299,13 @@
 
 .gap-chip:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
   border-color: var(--gold);
 }
 
 .gap-chip:active {
   transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--tactile-stroke, #151413);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
 }
 
 .gap-word {
@@ -1316,8 +1316,8 @@
 .text-annotate-card {
   padding: 1.25rem;
   background-color: var(--ink-surface);
-  border: 2px solid var(--tactile-stroke, #151413);
-  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
   border-radius: var(--radius-lg);
 }
 
@@ -1337,8 +1337,8 @@
   gap: 1.25rem;
   align-items: center;
   padding: 0.4rem 0.85rem;
-  background-color: var(--surface-container, #1C1B19);
-  border: 1.5px solid var(--tactile-stroke, #151413);
+  background-color: var(--surface-container);
+  border: 1.5px solid var(--tactile-stroke);
   border-radius: var(--radius-sm, 8px);
 }
 
@@ -1360,28 +1360,28 @@
 }
 
 .legend-should-know {
-  color: var(--vermilion, #D94B38);
+  color: var(--vermilion);
 }
 
 .legend-should-know .legend-dot {
-  background-color: var(--vermilion, #D94B38);
+  background-color: var(--vermilion);
 }
 
 .legend-known {
-  color: #1B5E20;
+  color: var(--forest-green);
 }
 
 .legend-known .legend-dot {
-  background-color: #1B5E20;
+  background-color: var(--forest-green);
 }
 
 /* Architectural Cream Reading Box for Paragraph Annotations */
 .annotated-result-wrapper,
 .annotated-result-wrapper.arch-cream-reading-box {
-  background-color: var(--architectural-cream, #E2DAC2) !important;
-  color: var(--ink-black, #141311) !important;
-  border: 2px solid var(--tactile-stroke, #151413) !important;
-  box-shadow: 4px 4px 0 var(--tactile-stroke, #151413) !important;
+  background-color: var(--architectural-cream) !important;
+  color: var(--ink-black) !important;
+  border: 2px solid var(--tactile-stroke) !important;
+  box-shadow: 4px 4px 0 var(--tactile-stroke) !important;
   border-radius: var(--radius-md, 12px) !important;
   padding: 1.25rem 1.5rem !important;
 }
@@ -1411,7 +1411,7 @@
   gap: 0.45rem;
   padding: 0.35rem 0.75rem;
   border-radius: 9999px;
-  border: 1.5px solid var(--tactile-stroke, #151413);
+  border: 1.5px solid var(--tactile-stroke);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
@@ -1439,34 +1439,34 @@
 
 /* Should Know Filter Chip */
 .annotated-filter-chip.filter-should-know.is-active {
-  background-color: #FFFFFF;
-  color: var(--vermilion, #D94B38);
-  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413);
+  background-color: var(--pure-white);
+  color: var(--vermilion);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
 }
 
 .annotated-filter-chip.filter-should-know.is-active .filter-chip-dot {
-  background-color: var(--vermilion, #D94B38);
+  background-color: var(--vermilion);
 }
 
 .annotated-filter-chip.filter-should-know.is-active .filter-chip-count {
   background-color: rgba(217, 75, 56, 0.12);
-  color: var(--vermilion, #D94B38);
+  color: var(--vermilion);
 }
 
 /* Known Filter Chip (Union of known + mined) */
 .annotated-filter-chip.filter-known.is-active {
-  background-color: #FFFFFF;
-  color: #1B5E20;
-  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413);
+  background-color: var(--pure-white);
+  color: var(--forest-green);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
 }
 
 .annotated-filter-chip.filter-known.is-active .filter-chip-dot {
-  background-color: #1B5E20;
+  background-color: var(--forest-green);
 }
 
 .annotated-filter-chip.filter-known.is-active .filter-chip-count {
   background-color: rgba(27, 94, 32, 0.12);
-  color: #1B5E20;
+  color: var(--forest-green);
 }
 
 /* Inactive Filter Chip State */
@@ -1501,7 +1501,7 @@
   gap: 0.4rem;
   padding: 0.35rem 0.75rem;
   background-color: transparent;
-  color: #4A473F;
+  color: var(--slate-stroke);
   border: 1.5px solid transparent;
   border-radius: var(--radius-sm, 8px);
   font-size: 0.8rem;
@@ -1514,7 +1514,7 @@
 }
 
 .annotated-clear-btn:hover {
-  color: var(--vermilion, #D94B38);
+  color: var(--vermilion);
   background-color: rgba(217, 75, 56, 0.08);
   border-color: rgba(217, 75, 56, 0.3);
   transform: translate(-1px, -1px);
@@ -1531,7 +1531,7 @@
 
 .annotated-reading-hint {
   font-size: 0.8rem;
-  color: #4A473F;
+  color: var(--slate-stroke);
   margin-top: 0.85rem;
   padding: 0 0.25rem;
   font-family: var(--font-sans);
@@ -1543,7 +1543,7 @@
   font-size: 1.35rem;
   font-weight: 700;
   padding: 0.5rem 0;
-  color: var(--ink-black, #141311) !important;
+  color: var(--ink-black) !important;
   letter-spacing: 0.03em;
   word-break: break-word;
 }
@@ -1566,7 +1566,7 @@
 
 /* Should Know: Vivid Vermilion text (sharp, readable, no washed-out yellow) */
 .vocab-annotated-token.token-should-know {
-  color: var(--vermilion, #D94B38) !important;
+  color: var(--vermilion) !important;
   background: transparent !important;
   border: none !important;
   font-weight: 700;
@@ -1574,7 +1574,7 @@
 
 /* Known (union of known and mined): Deep Dark Green text */
 .vocab-annotated-token.token-known {
-  color: #1B5E20 !important;
+  color: var(--forest-green) !important;
   background: transparent !important;
   border: none !important;
   font-weight: 700;
@@ -1582,7 +1582,7 @@
 
 /* Regular unstyled text */
 .vocab-annotated-token.token-unstyled {
-  color: var(--ink-black, #141311) !important;
+  color: var(--ink-black) !important;
   background: transparent !important;
   border: none !important;
   font-weight: 700;
@@ -1590,10 +1590,10 @@
 
 /* Dynamic filter toggling: words gracefully revert to normal black text when unchecked */
 .annotated-tokens-stage.hide-should-know .token-should-know {
-  color: var(--ink-black, #141311) !important;
+  color: var(--ink-black) !important;
 }
 
 .annotated-tokens-stage.hide-known .token-known {
-  color: var(--ink-black, #141311) !important;
+  color: var(--ink-black) !important;
 }
 

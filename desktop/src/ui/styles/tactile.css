@@ -92,7 +92,7 @@
 
 .tactile-btn-primary:hover:not(:disabled) {
   background-color: var(--vermilion-hover);
-  color: #FFFFFF;
+  color: var(--pure-white);
 }
 
 .tactile-btn-primary:active:not(:disabled) {
@@ -106,7 +106,7 @@
 }
 
 .tactile-btn-paper:hover:not(:disabled) {
-  background-color: #FFFFFF;
+  background-color: var(--pure-white);
 }
 
 /* Gold Accent Button */
@@ -273,12 +273,12 @@
 }
 
 .tactile-pill-gold {
-  background-color: var(--alpine-berry, #F7E0BA);
+  background-color: var(--alpine-berry);
   color: var(--tactile-stroke);
 }
 
 .tactile-pill-peach {
-  background-color: var(--organza-peach, #FBEEDA);
+  background-color: var(--organza-peach);
   color: var(--tactile-stroke);
 }
 

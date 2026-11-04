@@ -497,7 +497,7 @@ export class HomeView {
                     data-stroke-idx="${i}"
                     d="${d}"
                     fill="none"
-                    stroke="var(--vermilion, #D94B38)"
+                    stroke="var(--vermilion)"
                     stroke-width="3.6"
                     stroke-linecap="round"
                     stroke-linejoin="round" />
@@ -513,7 +513,7 @@ export class HomeView {
           }
         }
         // Fallback for kana / characters inside mixed words
-        return `<span class="wotd-plain-char font-japanese" style="color: var(--vermilion, #D94B38);">${char}</span>`;
+        return `<span class="wotd-plain-char font-japanese" style="color: var(--vermilion);">${char}</span>`;
       }).join('');
 
       return `<div class="wotd-stroke-container" id="wotd-stroke-container">${renderedChars}</div>`;
@@ -522,7 +522,7 @@ export class HomeView {
     // Case 2: Clean left-to-right mask/clip-path reveal of glyph text
     return `
       <div class="wotd-mask-reveal-wrap">
-        <span class="wotd-word-text font-japanese" id="wotd-word-text" style="color: var(--vermilion, #D94B38);">${data.word}</span>
+        <span class="wotd-word-text font-japanese" id="wotd-word-text" style="color: var(--vermilion);">${data.word}</span>
       </div>
     `;
   }

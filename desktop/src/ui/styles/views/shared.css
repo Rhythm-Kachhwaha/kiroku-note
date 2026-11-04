@@ -50,7 +50,7 @@ html,
 body {
   width: 100%;
   height: 100%;
-  background-color: var(--pure-black, #000000) !important;
+  background-color: var(--pure-black) !important;
   color: var(--text-primary);
   font-family: var(--font-sans);
   overflow-x: hidden;
@@ -84,7 +84,7 @@ body {
   padding-top: 0;
   padding-bottom: var(--content-padding-bottom);
   box-sizing: border-box;
-  background-color: var(--pure-black, #000000);
+  background-color: var(--pure-black);
 }
 
 /* View Transitions Directional Slides */

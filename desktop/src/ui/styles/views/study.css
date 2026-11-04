@@ -376,7 +376,7 @@
   overflow-y: auto;
 }
 
-/* Study Prompt Card (Pitch-Black #000000) */
+/* Study Prompt Card (Pitch-Black var(--pure-black)) */
 .study-prompt-card {
   background-color: var(--pure-black);
   border: 2px solid var(--tactile-stroke);
@@ -477,19 +477,19 @@
 /* Choice Correct / Incorrect States */
 .study-choice-btn.is-choice-correct {
   background-color: var(--jade) !important;
-  color: #000000 !important;
+  color: var(--pure-black) !important;
   border-color: var(--tactile-stroke) !important;
   font-weight: 600;
 }
 
 .study-choice-btn.is-choice-correct .choice-num {
-  background-color: #000000;
+  background-color: var(--pure-black);
   color: var(--jade);
-  border-color: #000000;
+  border-color: var(--pure-black);
 }
 
 .study-choice-btn.is-choice-correct .choice-text {
-  color: #000000 !important;
+  color: var(--pure-black) !important;
 }
 
 .study-choice-btn.is-choice-incorrect {
@@ -499,9 +499,9 @@
 }
 
 .study-choice-btn.is-choice-incorrect .choice-num {
-  background-color: #000000;
+  background-color: var(--pure-black);
   color: var(--vermilion);
-  border-color: #000000;
+  border-color: var(--pure-black);
 }
 
 /* Grading Feedback Banner */
