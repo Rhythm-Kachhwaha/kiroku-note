@@ -45,11 +45,36 @@ class GrammarMatcher:
 
     def __init__(self, reference_service: GrammarReferenceService | None = None):
         self.reference = reference_service or GrammarReferenceService()
-        # Compiled matcher regexes cached for the lifetime of the matcher so
-        # repeated match_sentence calls on the same service do not recompile
-        # patterns (Python's module-level re cache cannot absorb hundreds of
-        # points across repeated calls).
         self._compiled_cache: dict[int, list[tuple[re.Pattern[str], bool]]] = {}
+
+    @classmethod
+    def _ensure_morpheme_tokens(
+        cls, tokens: list[dict[str, Any]], raw_text: str
+    ) -> list[dict[str, Any]]:
+        if tokens and any("pos" in t or "lemma" in t or len(str(t.get("text", t.get("surface", "")))) > 1 for t in tokens):
+            return tokens
+        try:
+            from .tokenizers import get_sudachi_tokenizer, sudachi_status
+            from app.config import get_sudachi_dictionary_variant
+            variant = get_sudachi_dictionary_variant()
+            if sudachi_status(variant).get("ready"):
+                tok = get_sudachi_tokenizer(variant)
+                return [
+                    {
+                        "text": m.surface,
+                        "surface": m.surface,
+                        "lemma": m.lemma,
+                        "base_form": m.lemma,
+                        "reading": m.reading,
+                        "pos": m.pos if isinstance(m.pos, (list, tuple)) else tuple(m.pos.split()),
+                        "start": m.start,
+                        "end": m.end,
+                    }
+                    for m in tok.tokenize(raw_text)
+                ]
+        except Exception:
+            pass
+        return tokens
 
     @staticmethod
     def _tokens(tokens: list[dict[str, Any]], raw_text: str) -> list[tuple[str, int, int, dict[str, Any]]]:
@@ -59,11 +84,17 @@ class GrammarMatcher:
             text = str(token.get("text", token.get("surface", "")))
             if not text:
                 continue
-            start = raw_text.find(text, cursor)
-            if start < 0:
-                continue
-            result.append((text, start, start + len(text), token))
-            cursor = start + len(text)
+            if "start" in token and "end" in token:
+                start = int(token["start"])
+                end = int(token["end"])
+                result.append((text, start, end, token))
+                cursor = end
+            else:
+                start = raw_text.find(text, cursor)
+                if start < 0:
+                    continue
+                result.append((text, start, start + len(text), token))
+                cursor = start + len(text)
         return result
 
     @staticmethod
@@ -106,6 +137,7 @@ class GrammarMatcher:
         token_spans: list[tuple[str, int, int, dict[str, Any]]],
         match_start: int,
         match_end: int | None = None,
+        starts_bracket: bool = False,
     ) -> int:
         if match_end is None:
             match_end = match_start + 1
@@ -117,13 +149,22 @@ class GrammarMatcher:
             cls._token_kind(token_spans[overlapping[0]][3], token_spans[overlapping[0]][0])
             if overlapping else None
         )
-        token_index = overlapping[0] if first_kind == "particle" else next(
-            (
-                index for index in overlapping
-                if cls._token_kind(token_spans[index][3], token_spans[index][0]) == "predicate"
-            ),
-            None,
-        )
+        if overlapping:
+            if not starts_bracket and token_spans[overlapping[0]][1] == match_start:
+                token_index = overlapping[0]
+            elif first_kind == "particle":
+                token_index = overlapping[0]
+            else:
+                token_index = next(
+                    (
+                        index for index in overlapping
+                        if cls._token_kind(token_spans[index][3], token_spans[index][0]) == "predicate"
+                    ),
+                    None,
+                )
+        else:
+            token_index = None
+
         if token_index is None and overlapping:
             token_index = overlapping[0]
         if token_index is None:
@@ -137,10 +178,14 @@ class GrammarMatcher:
                 break
             next_kind = cls._token_kind(current[3], current[0])
             previous_kind = cls._token_kind(previous[3], previous[0])
+            current_pos = " ".join(current[3].get("pos", [])) if isinstance(current[3].get("pos"), (list, tuple)) else str(current[3].get("pos", ""))
+            previous_pos = " ".join(previous[3].get("pos", [])) if isinstance(previous[3].get("pos"), (list, tuple)) else str(previous[3].get("pos", ""))
+            if "動詞" in current_pos and "形容詞" in previous_pos:
+                break
             is_suru_noun = (
                 previous_kind == "other"
                 and next_kind == "predicate"
-                and str(current[3].get("base_form", current[3].get("lemma", ""))) == "する"
+                and str(current[3].get("base_form", current[3].get("lemma", ""))) in {"する", "だ", "です"}
             )
             if previous_kind != "predicate" and not is_suru_noun:
                 break
@@ -148,15 +193,101 @@ class GrammarMatcher:
             current_index -= 1
         return start
 
-    @staticmethod
-    def _token_boundaries(
+    @classmethod
+    def _extend_to_preceding_verb(
+        cls,
         token_spans: list[tuple[str, int, int, dict[str, Any]]],
         start: int,
+    ) -> int:
+        idx = next((i for i, (_, s, _, _) in enumerate(token_spans) if s == start), None)
+        if idx is None:
+            idx = next((i for i, (_, s, _, _) in enumerate(token_spans) if s >= start), None)
+        if idx is None:
+            return start
+        curr = idx
+        while curr > 0:
+            prev = token_spans[curr - 1]
+            prev_tok = prev[3]
+            prev_text = prev[0]
+            pos_str = " ".join(prev_tok.get("pos", [])) if isinstance(prev_tok.get("pos"), (list, tuple)) else str(prev_tok.get("pos", ""))
+            if "動詞" in pos_str:
+                start = prev[1]
+                if curr > 1:
+                    before_prev = token_spans[curr - 2]
+                    if (
+                        cls._token_kind(before_prev[3], before_prev[0]) == "other"
+                        and str(prev_tok.get("base_form", prev_tok.get("lemma", ""))) == "する"
+                    ):
+                        start = before_prev[1]
+                break
+            elif prev_text in {"た", "ない", "なかった", "だ"} or "助動詞" in pos_str:
+                start = prev[1]
+                curr -= 1
+            else:
+                break
+        return start
+
+    @classmethod
+    def _extend_to_preceding_predicate(
+        cls,
+        token_spans: list[tuple[str, int, int, dict[str, Any]]],
+        start: int,
+    ) -> int:
+        idx = next((i for i, (_, s, _, _) in enumerate(token_spans) if s == start), None)
+        if idx is None:
+            idx = next((i for i, (_, s, _, _) in enumerate(token_spans) if s >= start), None)
+        if idx is None:
+            return start
+        curr = idx
+        while curr > 0:
+            prev = token_spans[curr - 1]
+            prev_tok = prev[3]
+            prev_text = prev[0]
+            kind = cls._token_kind(prev_tok, prev_text)
+            if kind == "predicate":
+                start = prev[1]
+                curr -= 1
+                if curr > 0:
+                    before_prev = token_spans[curr - 1]
+                    if (
+                        cls._token_kind(before_prev[3], before_prev[0]) == "other"
+                        and str(prev_tok.get("base_form", prev_tok.get("lemma", ""))) == "する"
+                    ):
+                        start = before_prev[1]
+                break
+            else:
+                break
+        return start
+
+    @staticmethod
+    def _token_boundaries(
+        morpheme_spans: list[tuple[str, int, int, dict[str, Any]]],
+        start: int,
         end: int,
+        pattern_key: str = "",
     ) -> bool:
-        return any(token_start == start for _, token_start, _, _ in token_spans) and any(
-            token_end == end for _, _, token_end, _ in token_spans
-        )
+        if not morpheme_spans:
+            return True
+        # Check start and end boundaries
+        has_start = any(token_start == start for _, token_start, _, _ in morpheme_spans)
+        has_end = any(token_end == end for _, _, token_end, _ in morpheme_spans)
+        if not (has_start and has_end):
+            return False
+
+        # Reject match fully inside one morpheme whose lemma != pattern (kills まい in うまい, だ in です)
+        base_pattern = pattern_key.split("(")[0].strip()
+        pattern_candidates = {pattern_key, base_pattern, base_pattern.lstrip("〜~").strip()}
+        if "/" in pattern_key:
+            for part in pattern_key.split("/"):
+                pattern_candidates.add(part.strip().lstrip("〜~").strip())
+        for _, t_start, t_end, token in morpheme_spans:
+            if t_start <= start and end <= t_end:
+                m_lemma = token.get("lemma") or token.get("base_form") or ""
+                m_surface = token.get("surface") or token.get("text", "")
+                if m_lemma or m_surface:
+                    if m_lemma not in pattern_candidates and m_surface not in pattern_candidates:
+                        return False
+        return True
 
     def _candidate(
         self, point: dict[str, Any], raw_text: str, start: int, end: int, *,
@@ -223,8 +354,10 @@ class GrammarMatcher:
             stem = _JAPANESE + "+"
             return [f"{stem}(?:たくなかった|たくない|たかった|たい)"]
         if point.get("pattern_key") == "ている":
+            return [r"(?:ていなかった|ていない|ていた|ている)"]
+        if spec.get("ambiguity_group") == "そうだ":
             stem = _JAPANESE + "+"
-            return [f"{stem}(?:ていなかった|ていない|ていた|ている)"]
+            return [f"{stem}そう(?:だ|です|で|な|に)"]
         regex = spec.get("regex")
         if isinstance(regex, str) and regex:
             return [regex]
@@ -238,15 +371,6 @@ class GrammarMatcher:
     def _point_data(
         self, point: dict[str, Any], spec: dict[str, Any]
     ) -> list[tuple[re.Pattern[str], bool]]:
-        """Return compiled regexes for a point, cached per matcher.
-
-        Cache keyed by point identity: the bundled index dicts are cached and
-        reused across match_sentence calls, so the same point object keeps the
-        same id for the matcher's lifetime. Distinct points (including colliding
-        pattern keys with different specs) get distinct entries. Compiling once
-        avoids the per-call regex-cache churn Python's module-level re cache
-        cannot absorb across hundreds of points on repeated calls.
-        """
         cache_key = id(point)
         cached = self._compiled_cache.get(cache_key)
         if cached is not None:
@@ -273,25 +397,109 @@ class GrammarMatcher:
                     start = start + offset + 1
         return start
 
+    @staticmethod
+    def _token_matches_morph_spec(token: dict[str, Any], item: dict[str, Any]) -> bool:
+        if "surface" in item:
+            exp = item["surface"]
+            exps = [exp] if isinstance(exp, str) else list(exp)
+            surf = token.get("surface") or token.get("text", "")
+            if surf not in exps:
+                return False
+        if "lemma" in item:
+            exp = item["lemma"]
+            exps = [exp] if isinstance(exp, str) else list(exp)
+            lemma = token.get("lemma") or token.get("base_form", "")
+            if lemma not in exps:
+                return False
+        if "pos_prefix" in item:
+            pref = item["pos_prefix"]
+            prefs = [pref] if isinstance(pref, str) else list(pref)
+            pos_val = token.get("pos", "")
+            pos_str = " ".join(pos_val) if isinstance(pos_val, (list, tuple)) else str(pos_val)
+            if not any(pos_str.startswith(p) or p in pos_str for p in prefs):
+                return False
+        if "form" in item:
+            form = item["form"]
+            token_form = token.get("form") or token.get("inflection_form") or ""
+            pos_val = token.get("pos", "")
+            pos_str = " ".join(pos_val) if isinstance(pos_val, (list, tuple)) else str(pos_val)
+            if not (form in token_form or form in pos_str):
+                return False
+        return True
+
+    def _match_morph_point(
+        self,
+        point: dict[str, Any],
+        raw_text: str,
+        token_spans: list[tuple[str, int, int, dict[str, Any]]],
+    ) -> list[MatchedGrammarSpan]:
+        spec = point.get("matcher") or {}
+        sequence = spec.get("sequence") or spec.get("pattern") or []
+        if not sequence or not token_spans:
+            return []
+
+        matches: list[MatchedGrammarSpan] = []
+        n_tokens = len(token_spans)
+
+        def match_from(m_idx: int, s_idx: int) -> list[int]:
+            if s_idx == len(sequence):
+                return [m_idx]
+            item = sequence[s_idx]
+            is_optional = item.get("optional", False)
+            ends: list[int] = []
+
+            if m_idx < n_tokens and self._token_matches_morph_spec(token_spans[m_idx][3], item):
+                ends.extend(match_from(m_idx + 1, s_idx + 1))
+
+            if is_optional:
+                ends.extend(match_from(m_idx, s_idx + 1))
+
+            return ends
+
+        for start_idx in range(n_tokens):
+            end_indices = match_from(start_idx, 0)
+            for end_idx in set(end_indices):
+                if end_idx <= start_idx:
+                    continue
+                first_tok = token_spans[start_idx]
+                last_tok = token_spans[end_idx - 1]
+                m_start = first_tok[1]
+                m_end = last_tok[2]
+
+                # Span extends left only over the same predicate chain (stop at particles 助詞)
+                if spec.get("extend_predicate", True):
+                    m_start = self._anchored_start(token_spans, m_start, m_end)
+
+                matches.append(self._candidate(
+                    point, raw_text, m_start, m_end,
+                    confidence=str(spec.get("confidence", "high")),
+                    span_approx=False,
+                ))
+        return matches
+
     def _match_point(
         self,
         point: dict[str, Any],
         raw_text: str,
-        tokens: list[tuple[str, int, int, dict[str, Any]]] | None = None,
+        token_spans: list[tuple[str, int, int, dict[str, Any]]],
+        morpheme_spans: list[tuple[str, int, int, dict[str, Any]]] | None = None,
     ) -> list[MatchedGrammarSpan]:
         spec = point.get("matcher") or {}
         if not isinstance(spec, dict) or spec.get("match_mode") == "reference_only":
             return []
-        token_spans = tokens or []
         span_approx = not bool(token_spans)
         matches: list[MatchedGrammarSpan] = []
+
+        if spec.get("type") == "morph":
+            morph_tokens = morpheme_spans or token_spans
+            return self._match_morph_point(point, raw_text, morph_tokens)
+
         if spec.get("type") == "discontinuous":
             first = spec.get("first")
             second = spec.get("second")
             if not isinstance(first, str) or not isinstance(second, str):
                 return []
             gap = int(spec.get("max_gap", 20))
-            clause_break = spec.get("clause_break", "[、。！？]")
             pattern = f"(?P<a>{first})(?P<m>[^、。！？]{{0,{gap}}}?)(?P<b>{second})"
             for match in re.finditer(pattern, raw_text):
                 matches.append(self._candidate(
@@ -301,25 +509,29 @@ class GrammarMatcher:
                 ))
             return matches
 
+        guard_spans = morpheme_spans or token_spans
         compiled = self._point_data(point, spec)
         for pattern, starts_bracket in compiled:
             for match in pattern.finditer(raw_text):
                 if spec.get("ambiguity_group") == "そうだ":
-                    prefix = match.group()[:-3]
-                    is_plain = prefix.endswith(("る", "た", "ない", "だ"))
+                    sou_match = re.search(r"そう(?:だ|です|で|な|に)", match.group())
+                    prefix = match.group()[:sou_match.start()] if sou_match else match.group()[:-3]
+                    is_plain = prefix.endswith(("る", "た", "ない", "だ", "かった", "いた", "した"))
                     if point["pattern_key"] == "そうだ(hearsay)" and not is_plain:
                         continue
                     if point["pattern_key"] == "そうだ(appearance)" and is_plain:
                         continue
+
                 guards = None if spec.get("ambiguity_group") == "そうだ" else (
                     spec.get("guards") or point.get("guards")
                 )
                 if not self._guarded(match, raw_text, guards):
                     continue
-                if token_spans and len(match.group()) <= 2 and not self._token_boundaries(
-                    token_spans, match.start(), match.end()
+                if guard_spans and not self._token_boundaries(
+                    guard_spans, match.start(), match.end(), pattern_key=point.get("pattern_key", "")
                 ):
                     continue
+
                 start = match.start()
                 matched = None
                 if point["pattern_key"] in {"てしまう", "ておく"}:
@@ -335,18 +547,28 @@ class GrammarMatcher:
                     else:
                         matched = "V-て + とく" if match.group().endswith("とく") else "V-て + おく"
                 elif spec.get("ambiguity_group") == "そうだ":
-                    start = self._grammar_start(raw_text, match.end() - 3)
+                    sou_match = re.search(r"そう(?:だ|です|で|な|に)", match.group())
+                    suffix_pos = (match.start() + sou_match.start()) if sou_match else (match.end() - 3)
+                    start = self._grammar_start(raw_text, suffix_pos)
+
                 if token_spans:
-                    start = self._anchored_start(token_spans, start, match.end())
+                    start = self._anchored_start(token_spans, start, match.end(), starts_bracket=starts_bracket)
                     if not any(
                         self._token_kind(token[3], token[0]) == "predicate"
                         for token in token_spans
                     ) and starts_bracket:
                         start = self._bounded_fallback_start(raw_text, start, match.end())
+
+                    # Fix spans for ほうがいい/たほうがいい and はずがない
+                    if "ほうがいい" in point.get("pattern_key", ""):
+                        start = self._extend_to_preceding_verb(token_spans, start)
+                    elif point.get("pattern_key") == "はずがない":
+                        start = self._extend_to_preceding_predicate(token_spans, start)
                 else:
                     start = self._bounded_fallback_start(
                         raw_text, start, match.end() if starts_bracket else None
                     )
+
                 matches.append(self._candidate(
                     point, raw_text, start, match.end(),
                     confidence=str(spec.get("confidence", "high")), matched=matched,
@@ -354,18 +576,35 @@ class GrammarMatcher:
                 ))
         return matches
 
+    @staticmethod
+    def _is_component_pattern(parent_key: str, child_key: str, parent_text: str, child_text: str) -> bool:
+        child_base = child_key.split("(")[0].strip()
+        parent_base = parent_key.split("(")[0].strip()
+        if child_base in {"ば", "ない", "だ", "た", "ている", "ていた", "まい"}:
+            return True
+        if child_base in parent_base or child_text in parent_text:
+            return True
+        return False
+
     def match_sentence(
-        self, tokens: list[dict], raw_text: str, show_basic_particles: bool = False
+        self, tokens: list[dict] | None = None, raw_text: str = "", show_basic_particles: bool = False, show_all: bool = False
     ) -> list[MatchedGrammarSpan]:
         candidates: list[MatchedGrammarSpan] = []
         points = self.reference.get_points()
         by_key = {point["pattern_key"]: point for point in points}
-        token_spans = self._tokens(tokens, raw_text)
+
+        active_tokens = tokens if (tokens is not None and len(tokens) > 0) else self._ensure_morpheme_tokens([], raw_text)
+        token_spans = self._tokens(active_tokens, raw_text)
+
+        # Build morpheme spans specifically for boundary guarding
+        morpheme_tokens = self._ensure_morpheme_tokens(active_tokens, raw_text)
+        morpheme_spans = self._tokens(morpheme_tokens, raw_text)
+
         for point in points:
-            candidates.extend(self._match_point(point, raw_text, token_spans))
+            candidates.extend(self._match_point(point, raw_text, token_spans, morpheme_spans))
 
         if show_basic_particles:
-            particle_tokens = tokens or [{"text": char} for char in raw_text]
+            particle_tokens = active_tokens or [{"text": char} for char in raw_text]
             for token, start, end, _ in self._tokens(particle_tokens, raw_text):
                 if token in _BARE_PARTICLES and token in by_key:
                     candidates.append(self._candidate(by_key[token], raw_text, start, end))
@@ -381,6 +620,19 @@ class GrammarMatcher:
             dedup_key = (item.concept_id or item.pattern_key, item.start, item.end)
             unique.setdefault(dedup_key, item)
         candidates = list(unique.values())
+
+        # Suppress contained weaker candidates: if span A strictly contains span B and B's pattern is a component
+        if not show_all:
+            suppressed: set[int] = set()
+            for i, a in enumerate(candidates):
+                for j, b in enumerate(candidates):
+                    if i == j or j in suppressed:
+                        continue
+                    is_contained = (a.start <= b.start and b.end <= a.end) and (a.end - a.start > b.end - b.start)
+                    if is_contained and self._is_component_pattern(a.pattern_key, b.pattern_key, a.text, b.text):
+                        suppressed.add(j)
+            candidates = [item for idx, item in enumerate(candidates) if idx not in suppressed]
+
         candidates.sort(key=lambda item: (-(item.end - item.start), item.start, item.pattern_key))
         occupied: list[tuple[int, int]] = []
         for item in candidates:

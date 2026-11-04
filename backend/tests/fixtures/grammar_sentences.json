@@ -1,0 +1,243 @@
+[
+  {
+    "sentence": "日本に行ったことがあります",
+    "expected": [
+      {
+        "pattern_key": "たことがある",
+        "alt_keys": ["たことがあります"],
+        "text": "行ったことがあります"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "雨が降りそうです",
+    "expected": [
+      {
+        "pattern_key": "そうだ(appearance)",
+        "text": "降りそうです"
+      }
+    ],
+    "forbidden": ["だ"],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "彼は医者だそうです",
+    "expected": [
+      {
+        "pattern_key": "そうだ(hearsay)",
+        "text": "医者だそうです"
+      }
+    ],
+    "forbidden": ["だ"],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "勉強しなければならない",
+    "expected": [
+      {
+        "pattern_key": "なければならない",
+        "text": "勉強しなければならない"
+      }
+    ],
+    "forbidden": ["ば", "ない"],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "早く寝たほうがいい",
+    "expected": [
+      {
+        "pattern_key": "たほうがいい",
+        "alt_keys": ["ほうがいい"],
+        "text": "寝たほうがいい"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "この本は読みやすいです",
+    "expected": [
+      {
+        "pattern_key": "やすい",
+        "alt_keys": ["やすい / にくい"],
+        "text": "読みやすい"
+      }
+    ],
+    "forbidden": ["だ"],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "学校に行く前に",
+    "expected": [
+      {
+        "pattern_key": "前に",
+        "text": "行く前に"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "試験に合格するために毎日勉強している",
+    "expected": [
+      {
+        "pattern_key": "ために",
+        "text": "合格するために"
+      },
+      {
+        "pattern_key": "ている",
+        "text": "勉強している"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "先生に褒められて嬉しかった",
+    "expected": [
+      {
+        "pattern_key": "受身",
+        "text": "褒められ"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": true
+  },
+  {
+    "sentence": "彼が来るかどうかわからない",
+    "expected": [
+      {
+        "pattern_key": "かどうか",
+        "text": "来るかどうか"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "忙しいのに手伝ってくれた",
+    "expected": [
+      {
+        "pattern_key": "のに",
+        "text": "忙しいのに"
+      },
+      {
+        "pattern_key": "てくれる",
+        "text": "手伝ってくれた"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": true
+  },
+  {
+    "sentence": "雨が降っても行きます",
+    "expected": [
+      {
+        "pattern_key": "ても",
+        "alt_keys": ["ても / でも"],
+        "text": "降っても"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": true
+  },
+  {
+    "sentence": "食べたり飲んだりした",
+    "expected": [
+      {
+        "pattern_key": "たり〜たり",
+        "alt_keys": ["たりたり"],
+        "text": "食べたり飲んだりした"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": true
+  },
+  {
+    "sentence": "ごはんを食べながら",
+    "expected": [
+      {
+        "pattern_key": "ながら",
+        "text": "食べながら"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "歌がうまいだけでなく",
+    "expected": [
+      {
+        "pattern_key": "だけでなく",
+        "text": "うまいだけでなく"
+      }
+    ],
+    "forbidden": ["まい"],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "行かせていただきます",
+    "expected": [
+      {
+        "pattern_key": "使役",
+        "text": "行かせて"
+      },
+      {
+        "pattern_key": "ていただく",
+        "text": "ていただきます"
+      }
+    ],
+    "forbidden": ["ていた", "ている"],
+    "xfail_slice13": true
+  },
+  {
+    "sentence": "そんなことをするはずがない",
+    "expected": [
+      {
+        "pattern_key": "はずがない",
+        "text": "するはずがない"
+      }
+    ],
+    "forbidden": ["ない"],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "言わなければよかったのに",
+    "expected": [
+      {
+        "pattern_key": "なければよかった",
+        "text": "言わなければよかった"
+      },
+      {
+        "pattern_key": "のに",
+        "text": "のに"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": true
+  },
+  {
+    "sentence": "日本に住むことにした",
+    "expected": [
+      {
+        "pattern_key": "ことにする",
+        "text": "住むことにした"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": true
+  },
+  {
+    "sentence": "日本語を話せるようにしている",
+    "expected": [
+      {
+        "pattern_key": "ようにする",
+        "text": "話せるようにしている"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": true
+  }
+]
