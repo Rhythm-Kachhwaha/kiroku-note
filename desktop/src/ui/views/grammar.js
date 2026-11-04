@@ -24,6 +24,7 @@ export class GrammarView {
     this.onlySeenInCards = false;
     this.currentSyllabusLevel = 'N4';
     this.currentSyllabusSearch = '';
+    this.activeSegment = 'analyze';
   }
 
   async mount(container) {
@@ -79,6 +80,15 @@ export class GrammarView {
             <button type="button" class="btn-dismiss-error" id="btn-dismiss-grammar-error" aria-label="Dismiss error">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
             </button>
+          </div>
+
+          <!-- Segments: Analyze | Syllabus | Seen -->
+          <div class="grammar-top-controls">
+            <div class="grammar-segments" role="tablist" aria-label="Grammar sections">
+              <button type="button" class="grammar-segment-tab is-active" id="grammar-tab-analyze" data-segment="analyze" role="tab" aria-selected="true">Analyze</button>
+              <button type="button" class="grammar-segment-tab" id="grammar-tab-syllabus" data-segment="syllabus" role="tab" aria-selected="false">Syllabus</button>
+              <button type="button" class="grammar-segment-tab" id="grammar-tab-seen" data-segment="seen" role="tab" aria-selected="false">Seen</button>
+            </div>
           </div>
 
           <!-- Responsive Layout Grid: Left (Analyzer + Visualizer + Syllabus) + Right (Editorial Reference Card + Stats) -->
@@ -181,6 +191,20 @@ export class GrammarView {
                   <div class="syllabus-empty-state text-sm text-muted py-4 text-center">Loading syllabus points...</div>
                 </div>
               </div>
+
+              <!-- Seen in Cards Segment Card -->
+              <div class="grammar-seen-card tactile-card" id="grammar-seen-card" style="display: none;">
+                <div class="visualizer-header-row">
+                  <div class="visualizer-header-left">
+                    <span class="visualizer-title">Seen in your cards</span>
+                  </div>
+                  <span class="text-xs text-muted font-mono" id="seen-count-summary">0 points recorded</span>
+                </div>
+                <p class="text-sm text-secondary font-sans mb-3">Grammar encounters discovered across your saved Anki cards and study bank, sorted by frequency.</p>
+                <div class="seen-encounters-list" id="seen-encounters-list">
+                  <div class="text-sm text-muted py-4 text-center">Loading card encounters...</div>
+                </div>
+              </div>
             </div>
 
             <!-- Right Column: Editorial Reference Card -->
@@ -200,20 +224,24 @@ export class GrammarView {
                       <h2 class="point-title font-display" id="point-title">--</h2>
                     </div>
 
-                    <!-- Mastery Status Selector -->
-                    <div class="mastery-status-group" id="mastery-status-group" role="radiogroup" aria-label="Grammar Point Mastery">
-                      <button type="button" class="mastery-pill" data-status="new">New</button>
-                      <button type="button" class="mastery-pill" data-status="learning">Learning</button>
-                      <button type="button" class="mastery-pill" data-status="known">Known</button>
+                    <!-- Mastery Status & Practice Action -->
+                    <div class="point-action-cluster" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                      <div class="mastery-status-group" id="mastery-status-group" role="radiogroup" aria-label="Grammar Point Mastery">
+                        <button type="button" class="mastery-pill" data-status="new">New</button>
+                        <button type="button" class="mastery-pill" data-status="learning">Learning</button>
+                        <button type="button" class="mastery-pill" data-status="known">Known</button>
+                      </div>
+                      <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary font-sans" id="btn-practice-grammar" title="Practice this grammar point">
+                        Practice this
+                      </button>
                     </div>
                   </div>
 
-                  <!-- Focused detail tabs -->
+                  <!-- Focused detail tabs: Meaning | Formation | Examples -->
                   <div class="point-tabs" role="tablist" aria-label="Grammar point details">
                     <button type="button" class="point-tab is-active" data-tab="meaning" role="tab" aria-selected="true">Meaning</button>
                     <button type="button" class="point-tab" data-tab="examples" role="tab" aria-selected="false" tabindex="-1">Examples</button>
                     <button type="button" class="point-tab" data-tab="formation" role="tab" aria-selected="false" tabindex="-1">Formation</button>
-                    <button type="button" class="point-tab" data-tab="cards" role="tab" aria-selected="false" tabindex="-1">Seen in your cards</button>
                   </div>
 
                   <div class="point-panel is-active" data-panel="meaning" role="tabpanel">
@@ -273,6 +301,23 @@ export class GrammarView {
   }
 
   setupEvents() {
+    // Segments: Analyze | Syllabus | Seen
+    const segButtons = this.container?.querySelectorAll('.grammar-segment-tab');
+    segButtons?.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.selectSegment(btn.dataset.segment);
+      });
+    });
+
+    // Practice button
+    const btnPractice = document.getElementById('btn-practice-grammar');
+    if (btnPractice) {
+      btnPractice.addEventListener('click', () => {
+        if (!this.activeGrammarPoint || !this.activeGrammarPoint.pattern_key) return;
+        this.router.navigateToTab('study', { query: `pattern_key=${encodeURIComponent(this.activeGrammarPoint.pattern_key)}` });
+      });
+    }
+
     const btnAnalyze = document.getElementById('btn-analyze-sentence');
     const inputSentence = document.getElementById('sentence-input');
     const btnDismiss = document.getElementById('btn-dismiss-grammar-error');
@@ -341,7 +386,7 @@ export class GrammarView {
         try {
           const result = await apiClient.analyzeGrammar(text);
           if (result && Array.isArray(result.points)) {
-            this.renderAnalyzedSentence(text, result.points);
+            this.renderAnalyzedSentence(text, result.points, result.tokens);
           } else {
             this.renderTokensFlow([text]);
           }
@@ -479,7 +524,88 @@ export class GrammarView {
     }
   }
 
-  renderAnalyzedSentence(sentenceText, points) {
+  selectSegment(segment) {
+    this.activeSegment = segment;
+    const tabAnalyze = document.getElementById('grammar-tab-analyze');
+    const tabSyllabus = document.getElementById('grammar-tab-syllabus');
+    const tabSeen = document.getElementById('grammar-tab-seen');
+    const analyzerCard = this.container?.querySelector('.grammar-analyzer-card');
+    const visualizerCard = this.container?.querySelector('.grammar-visualizer-card');
+    const syllabusCard = this.container?.querySelector('.grammar-syllabus-card');
+    const seenCard = document.getElementById('grammar-seen-card');
+
+    [tabAnalyze, tabSyllabus, tabSeen].forEach((tab) => {
+      if (tab) {
+        const isActive = tab.dataset.segment === segment;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      }
+    });
+
+    if (segment === 'analyze') {
+      if (analyzerCard) analyzerCard.style.display = '';
+      if (visualizerCard) visualizerCard.style.display = '';
+      if (syllabusCard) syllabusCard.style.display = 'none';
+      if (seenCard) seenCard.style.display = 'none';
+    } else if (segment === 'syllabus') {
+      if (analyzerCard) analyzerCard.style.display = 'none';
+      if (visualizerCard) visualizerCard.style.display = 'none';
+      if (syllabusCard) syllabusCard.style.display = '';
+      if (seenCard) seenCard.style.display = 'none';
+    } else if (segment === 'seen') {
+      if (analyzerCard) analyzerCard.style.display = 'none';
+      if (visualizerCard) visualizerCard.style.display = 'none';
+      if (syllabusCard) syllabusCard.style.display = 'none';
+      if (seenCard) seenCard.style.display = '';
+      this.loadSeenEncounters();
+    }
+  }
+
+  async loadSeenEncounters() {
+    const listEl = document.getElementById('seen-encounters-list');
+    const summaryEl = document.getElementById('seen-count-summary');
+    if (!listEl) return;
+
+    try {
+      const data = await apiClient.getGrammarSyllabus({ level: '' });
+      const points = Array.isArray(data) ? data : (data.points || data.items || []);
+      const seenPoints = points
+        .filter((p) => (p.seen_count || 0) > 0)
+        .sort((a, b) => (b.seen_count || 0) - (a.seen_count || 0));
+
+      if (summaryEl) summaryEl.textContent = `${seenPoints.length} points recorded`;
+
+      if (seenPoints.length === 0) {
+        listEl.innerHTML = '<div class="text-sm text-muted py-6 text-center">No card encounters recorded yet. Save cards containing grammar points to view them here.</div>';
+        return;
+      }
+
+      listEl.innerHTML = seenPoints.map((p) => `
+        <div class="seen-list-item tactile-card" data-key="${escapeHtml(p.pattern_key)}" role="button" tabindex="0">
+          <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+            <span class="tactile-pill tactile-pill-vermilion text-xs font-mono">${escapeHtml(p.level || 'JLPT')}</span>
+            <span class="font-display font-bold text-warm-paper">${escapeHtml(p.pattern_display || p.pattern_key)}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span class="text-xs text-muted font-mono">${p.seen_count} encounter${p.seen_count === 1 ? '' : 's'}</span>
+            <span class="text-xs text-primary font-sans">View detail &rarr;</span>
+          </div>
+        </div>
+      `).join('');
+
+      listEl.querySelectorAll('.seen-list-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          const key = item.dataset.key;
+          const target = seenPoints.find((p) => p.pattern_key === key);
+          if (target) this.displayGrammarDetail(target);
+        });
+      });
+    } catch (err) {
+      listEl.innerHTML = `<div class="text-sm text-red py-4 text-center">Failed to load card encounters: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  renderAnalyzedSentence(sentenceText, points, tokens) {
     const flow = document.getElementById('tokens-flow');
     const highlight = document.getElementById('sentence-highlight');
     const spans = normalizeGrammarSpans(sentenceText, points);
@@ -510,25 +636,49 @@ export class GrammarView {
       return;
     }
 
-    flow.innerHTML = segments.map((seg, i) => {
-      if (seg.isGrammar) {
-        const point = seg.point;
-        const level = point.level || 'JLPT';
+    if (tokens && Array.isArray(tokens) && tokens.length > 0) {
+      flow.innerHTML = tokens.map((t, i) => {
+        const isParticle = Boolean(t.pos && (t.pos.includes('助詞') || t.pos.includes('助動詞') || t.pos.includes('particle')));
+        const isClause = Boolean(t.pos && (t.pos.includes('接続') || t.pos.includes('clause')));
+        const isAqua = isParticle || isClause || t.level === 'N3';
+        const levelTag = t.level || '';
+        const levelClass = isAqua ? 'token-aqua-badge' : '';
+        const chipClass = isAqua ? 'token-chip-particle' : '';
+
         return `
           <button
             type="button"
-            class="grammar-token-chip tactile-card-interactive"
-            data-span-index="${i}"
-            data-key="${escapeHtml(point.pattern_key)}"
-            title="${escapeHtml(point.meaning_short || point.pattern_display || point.pattern_key)}"
+            class="grammar-token-chip tactile-card-interactive ${chipClass}"
+            data-token-index="${i}"
+            data-lemma="${escapeHtml(t.lemma || t.surface || '')}"
+            title="${escapeHtml(t.surface)} (${escapeHtml(t.reading || '')}) · ${escapeHtml(t.pos || '')}"
           >
-            <span class="token-text font-japanese font-bold">${escapeHtml(seg.text)}</span>
-            <span class="token-level-tag tactile-pill text-xs">${escapeHtml(level)}</span>
+            <span class="token-text font-japanese font-bold">${escapeHtml(t.surface)}</span>
+            ${levelTag ? `<span class="token-level-tag tactile-pill text-xs ${levelClass}">${escapeHtml(levelTag)}</span>` : ''}
           </button>
         `;
-      }
-      return `<span class="plain-token font-japanese text-secondary">${escapeHtml(seg.text)}</span>`;
-    }).join('');
+      }).join('');
+    } else {
+      flow.innerHTML = segments.map((seg, i) => {
+        if (seg.isGrammar) {
+          const point = seg.point;
+          const level = point.level || 'JLPT';
+          return `
+            <button
+              type="button"
+              class="grammar-token-chip tactile-card-interactive"
+              data-span-index="${i}"
+              data-key="${escapeHtml(point.pattern_key)}"
+              title="${escapeHtml(point.meaning_short || point.pattern_display || point.pattern_key)}"
+            >
+              <span class="token-text font-japanese font-bold">${escapeHtml(seg.text)}</span>
+              <span class="token-level-tag tactile-pill text-xs">${escapeHtml(level)}</span>
+            </button>
+          `;
+        }
+        return `<span class="plain-token font-japanese text-secondary">${escapeHtml(seg.text)}</span>`;
+      }).join('');
+    }
 
     this.bindGrammarSpanSelection(segments);
 

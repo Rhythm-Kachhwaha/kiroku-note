@@ -1052,3 +1052,77 @@
   color: var(--architectural-cream);
 }
 
+
+
+/* Slice 20 Segments & Aqua Tokens */
+.grammar-top-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.grammar-segments {
+  display: inline-flex;
+  gap: 0.35rem;
+  background: var(--iron-core);
+  padding: 0.25rem;
+  border-radius: 6px;
+  border: 1.5px solid var(--tactile-stroke);
+}
+
+.grammar-segment-tab {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  padding: 0.4rem 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all var(--duration-fast) var(--spring-snappy);
+}
+
+.grammar-segment-tab:hover {
+  color: var(--warm-paper);
+}
+
+.grammar-segment-tab.is-active {
+  background: var(--warm-paper);
+  color: var(--pure-black);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.token-chip-particle {
+  border-color: var(--industrial-aqua) !important;
+}
+
+.token-chip-particle .token-text {
+  color: var(--industrial-aqua) !important;
+}
+
+.token-aqua-badge {
+  background-color: var(--industrial-aqua) !important;
+  color: var(--pure-black) !important;
+}
+
+.grammar-seen-card {
+  padding: 1.25rem;
+}
+
+.seen-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--spring-snappy);
+}
+
+.seen-list-item:hover {
+  transform: translate(-1px, -1px);
+}

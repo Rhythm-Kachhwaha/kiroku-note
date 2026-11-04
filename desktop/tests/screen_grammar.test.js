@@ -173,7 +173,7 @@ test('Grammar View: bundle.css styles grammar studio with Planetoño tactile phy
 test('Grammar View: R10 focused detail tabs, token diagnostics, seen filter, and backend spans', () => {
   const content = fs.readFileSync(grammarViewPath, 'utf8');
 
-  for (const tab of ['meaning', 'examples', 'formation', 'cards']) {
+  for (const tab of ['meaning', 'examples', 'formation']) {
     assert.ok(
       content.includes(`data-tab="${tab}"`),
       `GrammarView must render the ${tab} detail tab`
@@ -242,3 +242,21 @@ test('Grammar View: Zero emojis across code, templates, and styles', () => {
   }
 });
 
+
+
+test('Grammar View: Slice 20 segments (Analyze | Syllabus | Seen), practice button, and aqua tokens', () => {
+  const content = fs.readFileSync(grammarViewPath, 'utf8');
+
+  // Segments
+  assert.ok(content.includes('id="grammar-tab-analyze"'), 'Must render Analyze segment tab');
+  assert.ok(content.includes('id="grammar-tab-syllabus"'), 'Must render Syllabus segment tab');
+  assert.ok(content.includes('id="grammar-tab-seen"'), 'Must render Seen segment tab');
+  assert.ok(content.includes('id="grammar-seen-card"'), 'Must render Seen card');
+
+  // Practice button
+  assert.ok(content.includes('id="btn-practice-grammar"'), 'Must render Practice this button');
+  assert.ok(content.includes("this.router.navigateToTab('study'"), 'Practice this must navigate to study');
+
+  // Aqua tokens
+  assert.ok(content.includes('token-chip-particle') || content.includes('token-aqua-badge'), 'Must support aqua token chips');
+});
