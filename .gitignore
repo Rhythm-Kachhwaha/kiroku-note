@@ -128,6 +128,7 @@ docs/*
 !docs/desktop-wireup/**
 !docs/REPOSITORY_AUDIT_2026-10-29.md
 !docs/study_http_api_reference.md
+!docs/link-protocol.md
 !docs/study-bank/
 !docs/study-bank/*
 superpowers/plans/
