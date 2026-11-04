@@ -59,3 +59,58 @@ def test_browse_kanji_by_level():
     assert len(data["kanji"]) == 10
     assert "character" in data["kanji"][0]
     assert "level" in data["kanji"][0]
+
+
+def test_kanji_service_missing_db_explicit_error(tmp_path):
+    from app.services.kanji_service import KanjiService
+    service = KanjiService(jlpt_db_path=tmp_path / "nonexistent.sqlite")
+    res = service.browse("N3")
+    assert res["error"] is not None
+    assert "missing" in res["error"].lower() or "not found" in res["error"].lower()
+    assert res["kanji"] == []
+
+
+def test_kanji_service_compounds_warm_speed():
+    import time
+    from app.services.kanji_service import KanjiService
+    service = KanjiService()
+    # prime cache
+    service.get_compounds("日")
+    start = time.perf_counter()
+    res = service.get_compounds("日", limit=10)
+    elapsed_ms = (time.perf_counter() - start) * 1000.0
+    assert elapsed_ms < 50.0, f"Expected warm compound lookup < 50ms, took {elapsed_ms:.2f}ms"
+
+
+def test_kanji_service_get_batch():
+    from app.services.kanji_service import KanjiService
+    service = KanjiService()
+    batch = service.get_batch(["日", "本", "語"])
+    assert "日" in batch
+    assert "本" in batch
+    assert "語" in batch
+    assert batch["日"]["character"] == "日"
+    assert batch["本"]["character"] == "本"
+    assert batch["語"]["character"] == "語"
+
+    # String input test
+    batch_str = service.get_batch("日本語")
+    assert "日" in batch_str
+    assert "本" in batch_str
+    assert "語" in batch_str
+
+
+def test_kanji_service_thread_local_connection_reuse():
+    from app.services.kanji_service import KanjiService
+    service = KanjiService()
+    conn1 = service._get_jlpt_conn()
+    conn2 = service._get_jlpt_conn()
+    assert conn1 is conn2
+
+
+def test_kanji_service_no_cwd_dict_fallback(monkeypatch, tmp_path):
+    from app.services.kanji_service import resolve_kanji_dict_path
+    monkeypatch.chdir(tmp_path)
+    resolved = resolve_kanji_dict_path()
+    assert resolved.parent != tmp_path
+
