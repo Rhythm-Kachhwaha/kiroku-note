@@ -444,3 +444,4 @@ if (typeof window !== 'undefined') {
   window.kirokuUi.openKanji = openKanjiDrawer;
   window.kirokuUi.closeKanji = closeKanjiDrawer;
 }
+
