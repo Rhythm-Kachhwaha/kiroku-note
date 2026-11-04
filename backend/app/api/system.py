@@ -173,7 +173,9 @@ async def register_extension_pairing(request: Request) -> dict[str, object]:
     code = str(body.get("code", "")).strip() if isinstance(body, dict) else ""
     if len(code) < 8 or len(code) > 64:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid pairing code.")
-    return {"ok": True, "expires_in_seconds": legacy_api_auth.create_pairing(code)}
+    scopes = body.get("scopes") or body.get("scope") if isinstance(body, dict) else None
+    label = str(body.get("label", "")).strip() if isinstance(body, dict) else ""
+    return {"ok": True, "expires_in_seconds": legacy_api_auth.create_pairing(code, scopes=scopes, label=label)}
 
 
 @router.post("/api/auth/extension-pairings/redeem")
@@ -186,13 +188,19 @@ async def redeem_extension_pairing(request: Request) -> dict[str, object]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden: unpaired extension origin.")
     body = await request.json()
     code = str(body.get("code", "")).strip() if isinstance(body, dict) else ""
+    scopes = body.get("scopes") or body.get("scope") if isinstance(body, dict) else None
+    label = str(body.get("label", "")).strip() if isinstance(body, dict) else ""
     try:
-        token = legacy_api_auth.redeem_pairing(code, origin)
+        token = legacy_api_auth.redeem_pairing(code, origin, scopes=scopes, label=label)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired pairing code.")
-    return {"token": token, "scope": "legacy:write"}
+    granted_scopes = legacy_api_auth.get_token_scopes(token)
+    primary_scope = "link:rw" if "link:rw" in granted_scopes and "legacy:write" not in granted_scopes else (
+        "legacy:write" if "legacy:write" in granted_scopes else next(iter(granted_scopes), "legacy:write")
+    )
+    return {"token": str(token), "scope": primary_scope, "scopes": sorted(granted_scopes)}
 
 
 @router.post("/api/auth/extension-pairings/revoke-all")
