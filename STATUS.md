@@ -1,6 +1,5 @@
 # Status
-R1 gold corpus and offline tokenizer comparison harness are complete; all 150 cases remain owner-review gated.
-S1 study markup rendering is complete.
-S3a matcher spans and S3b common reference-only promotions are complete; targeted tests pending. R4 spans and compound forms pass.
-P0 PDF upload inspection is complete; targeted tests pass.
-R6 Electron router robustness, R8 recoverable-failure diagnostics, R9 study segments, R10 grammar detail diagnostics, and R11 vocab Capture/Inventory with the inventory gaps shelf are complete; targeted tests pass.
+R1 gold corpus and offline tokenizer harness complete; owner-review gated.
+R6-R11 desktop/backend slices complete; targeted tests pass.
+R15/R17 agent efficiency pack and commit convention complete; map-path test added.
+STATUS concise; inventories live in docs/maps/.

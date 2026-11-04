@@ -1,12 +1,23 @@
+# Cursor ignore policy
+
+Synchronized from IGNORE.md, which is the single source of truth for material
+the agent should not read, index, or modify unless a task explicitly names it.
+
 docs/archive/
 grammar-audits/
 desktop/src/ui/vendor/
 desktop/src/ui/lib/
 *.riv
 *.wasm
-*.png
-*.jpg
-*.jpeg
-*.webp
-*.gif
-*.avif
+ARCHITECTURE.md
+README.md
+docs/design/
+docs/desktop-wireup/
+docs/study-bank/
+docs/Audio
+docs/Frame
+.agents/
+desktop/tests/fixtures/openapi.json
+backend/app/data/master_grammar_dataset.json
+backend/app/data/master_grammar_provenance.json
+backend/data/.secrets.enc

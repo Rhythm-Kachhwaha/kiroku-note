@@ -37,13 +37,6 @@
       "skillPath": ".agents/skills/impeccable/SKILL.md",
       "computedHash": "1c48f0f9ad4bf6cac3c1a17e511b064153b6439d6af5028189a0d7c1708e5aa9"
     },
-    "ios-design": {
-      "source": "uizze.sh",
-      "sourceUrl": "https://uizze.sh/",
-      "sourceType": "well-known",
-      "computedHash": "de4e9ed42df966a90087ea3a723571521ce72420442cbf6686388c00b2597312",
-      "wellKnownDigest": "sha256:ae3d720aa60c1655c3dae48bc07c448527e367ab24ed829020ba0a5f6268b691"
-    },
     "ui-taste": {
       "source": "uizze.sh",
       "sourceUrl": "https://uizze.sh/",
