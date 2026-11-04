@@ -1,54 +1,50 @@
 """
-API endpoints for Kiroku Link live analysis pipeline (Slice 40).
+FastAPI endpoints for Link live analysis (Slice 40).
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
-
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.link.analysis import analysis_pipeline, install_link_hub_hook
-
-# Auto-hook WebSocket hub when module is imported
-install_link_hub_hook()
+from app.link.analysis import link_analysis_service
 
 router = APIRouter(prefix="/api/link", tags=["link-analysis"])
 
 
-@router.get(
-    "/cues/{hash}",
-    summary="Get annotated subtitle cues and vocabulary coverage by cue list hash",
-    response_model=Dict[str, Any],
-)
-def get_link_cues(
-    hash: str,
-    from_idx: Optional[int] = Query(None, alias="from", description="Starting cue index (inclusive)"),
-    to_idx: Optional[int] = Query(None, alias="to", description="Ending cue index (exclusive)"),
+@router.get("/cues/{cue_hash}", summary="Get annotated cues with known% and gap words list")
+def get_cues(
+    cue_hash: str,
+    from_idx: Optional[int] = Query(None, alias="from", ge=0, description="Start cue index"),
+    to_idx: Optional[int] = Query(None, alias="to", ge=0, description="End cue index"),
 ) -> Dict[str, Any]:
-    """Return annotated tokens, per-cue known percentage, and gap words for a cue list hash."""
-    res = analysis_pipeline.get_cues(hash, from_idx=from_idx, to_idx=to_idx)
-    if res is None:
+    """Returns range of annotated cues with per-cue known% and gap words list."""
+    cues = link_analysis_service.get_cues_range(cue_hash, from_idx, to_idx)
+    if cues is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Cue analysis for hash '{hash}' not found",
+            detail=f"Cue list with hash '{cue_hash}' not found or not yet processed",
         )
-    return res
+    return {
+        "hash": cue_hash,
+        "cues": cues,
+        "count": len(cues),
+    }
 
 
-@router.get(
-    "/cue-grammar",
-    summary="Get cached grammar points for a specific cue index",
-    response_model=Dict[str, Any],
-)
+@router.get("/cue-grammar", summary="Get cached grammar points per cue")
 def get_cue_grammar(
-    hash: str = Query(..., description="Cue list hash"),
-    i: int = Query(..., description="Cue index"),
+    cue_hash: str = Query(..., alias="hash", description="Subtitle cue list hash"),
+    i: int = Query(..., alias="i", ge=0, description="Cue index"),
 ) -> Dict[str, Any]:
-    """Return cached grammar analysis for cue `i` under `hash`."""
-    res = analysis_pipeline.get_cue_grammar(hash, i)
-    if res is None:
+    """Returns cached grammar points for cue `i`."""
+    points = link_analysis_service.get_cue_grammar(cue_hash, i)
+    if points is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Cue index {i} not found for hash '{hash}'",
+            detail=f"Cue {i} for hash '{cue_hash}' not found",
         )
-    return res
+    return {
+        "hash": cue_hash,
+        "i": i,
+        "points": points,
+    }

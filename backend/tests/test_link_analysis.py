@@ -1,138 +1,138 @@
 """
-Unit and integration tests for Kiroku Link Live Analysis Pipeline (Slice 40).
+Tests for Slice 40: Link Live Analysis Pipeline.
 """
+from __future__ import annotations
+
 import time
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.link_analysis import router
-from app.link.analysis import LiveAnalysisPipeline, analysis_pipeline, install_link_hub_hook
+from app.api.registry import discover_routers
+from app.link.analysis import LinkAnalysisService, link_analysis_service
+from app.link.session import LinkVideoSession
 from app.main import app
 
 
 @pytest.fixture
-def test_pipeline():
-    pipeline = LiveAnalysisPipeline(max_entries=10)
-    return pipeline
-
-
-@pytest.fixture
 def client():
+    # Ensure discover_routers has picked up link_analysis
     return TestClient(app)
 
 
-def test_pipeline_schedule_and_chunked_processing(test_pipeline):
+def test_link_analysis_service_processing():
+    service = LinkAnalysisService(max_lru=2)
     sample_cues = [
-        {"i": 0, "s": 0.0, "e": 3.0, "text": "猫が好きです。"},
-        {"i": 1, "s": 3.5, "e": 6.0, "text": "日本語を勉強しています。"},
+        {"i": 0, "s": 0.0, "e": 2.5, "text": "こんにちは世界"},
+        {"i": 1, "s": 3.0, "e": 5.5, "text": "日本語を勉強します"},
+        {"i": 2, "s": 6.0, "e": 8.5, "text": "猫が好きです"},
     ]
-    cue_hash = "testhash1234"
-    payload = {"hash": cue_hash, "cues": sample_cues}
+    cue_hash = "testhash123"
 
-    returned_hash = test_pipeline.schedule_analysis(payload)
-    assert returned_hash == cue_hash
+    # Synchronous processing check
+    service._process_cues_background(cue_hash, sample_cues, learner_level="N4")
 
-    # Wait briefly for threadpool execution
-    timeout = 5.0
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        cues_res = test_pipeline.get_cues(cue_hash)
-        if cues_res and cues_res.get("status") == "ready":
-            break
-        time.sleep(0.05)
+    # Range retrieval
+    all_cues = service.get_cues_range(cue_hash)
+    assert all_cues is not None
+    assert len(all_cues) == 3
 
-    res = test_pipeline.get_cues(cue_hash)
-    assert res is not None
-    assert res["status"] == "ready"
-    assert res["total"] == 2
-    assert len(res["cues"]) == 2
+    # Check cue 1 structure
+    cue1 = all_cues[1]
+    assert cue1["i"] == 1
+    assert "tokens" in cue1
+    assert isinstance(cue1["known_pct"], float)
+    assert isinstance(cue1["gap_words"], list)
 
-    # Verify first cue annotations
-    c0 = res["cues"][0]
-    assert c0["i"] == 0
-    assert c0["text"] == "猫が好きです。"
-    assert len(c0["tokens"]) > 0
-    assert "known_pct" in c0
-    assert isinstance(c0["gap_words"], list)
+    # Check slicing with from_idx and to_idx
+    sliced = service.get_cues_range(cue_hash, from_idx=1, to_idx=1)
+    assert sliced is not None
+    assert len(sliced) == 1
+    assert sliced[0]["i"] == 1
 
-    # Test slicing with from_idx and to_idx
-    slice_res = test_pipeline.get_cues(cue_hash, from_idx=1, to_idx=2)
-    assert slice_res is not None
-    assert len(slice_res["cues"]) == 1
-    assert slice_res["cues"][0]["i"] == 1
+    # Check grammar extraction & caching
+    grammar_pts = service.get_cue_grammar(cue_hash, 2, learner_level="N4")
+    assert grammar_pts is not None
+    assert isinstance(grammar_pts, list)
+
+    # Re-retrieval should hit cache
+    cached_pts = service.get_cue_grammar(cue_hash, 2)
+    assert cached_pts == grammar_pts
 
 
-def test_pipeline_cue_grammar_caching(test_pipeline):
+def test_link_analysis_lru_eviction():
+    service = LinkAnalysisService(max_lru=2)
+
+    service._process_cues_background("hash1", [{"i": 0, "s": 0, "e": 1, "text": "a"}], "N4")
+    service._process_cues_background("hash2", [{"i": 0, "s": 0, "e": 1, "text": "b"}], "N4")
+    assert service.get_cues_range("hash1") is not None
+    assert service.get_cues_range("hash2") is not None
+
+    # Third insertion evicts oldest (hash1)
+    service._process_cues_background("hash3", [{"i": 0, "s": 0, "e": 1, "text": "c"}], "N4")
+    assert service.get_cues_range("hash1") is None
+    assert service.get_cues_range("hash2") is not None
+    assert service.get_cues_range("hash3") is not None
+
+
+def test_api_link_cues_endpoints(client: TestClient):
+    cue_hash = "apihash456"
     sample_cues = [
-        {"i": 0, "s": 1.0, "e": 4.0, "text": "猫が好きです。"},
+        {"i": 0, "s": 1.0, "e": 2.0, "text": "猫"},
+        {"i": 1, "s": 2.5, "e": 4.0, "text": "犬"},
     ]
-    cue_hash = "grammarhash456"
-    test_pipeline.schedule_analysis({"hash": cue_hash, "cues": sample_cues})
+    # Populate service
+    link_analysis_service._process_cues_background(cue_hash, sample_cues, "N4")
 
-    timeout = 5.0
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        if test_pipeline.get_cues(cue_hash, 0, 1):
-            break
-        time.sleep(0.05)
+    # 1. 404 on unknown hash
+    res_404 = client.get("/api/link/cues/nonexistent_hash")
+    assert res_404.status_code == 404
 
-    grammar_res = test_pipeline.get_cue_grammar(cue_hash, 0)
-    assert grammar_res is not None
-    assert grammar_res["hash"] == cue_hash
-    assert grammar_res["i"] == 0
-    assert grammar_res["sentence"] == "猫が好きです。"
-    assert isinstance(grammar_res["points"], list)
-
-    # Calling again returns cached points
-    second_res = test_pipeline.get_cue_grammar(cue_hash, 0)
-    assert second_res == grammar_res
-
-
-def test_api_get_cues_and_grammar(client):
-    # Register test payload in process-wide pipeline
-    cue_hash = "apihash789"
-    cues = [
-        {"i": 0, "s": 0.5, "e": 2.0, "text": "こんにちは世界"},
-        {"i": 1, "s": 2.5, "e": 4.0, "text": "美味しいご飯を食べる"},
-    ]
-    analysis_pipeline.schedule_analysis({"hash": cue_hash, "cues": cues})
-
-    # Wait for completion
-    timeout = 5.0
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        res = client.get(f"/api/link/cues/{cue_hash}")
-        if res.status_code == 200 and res.json().get("status") == "ready":
-            break
-        time.sleep(0.05)
-
-    # GET /api/link/cues/{hash}?from=0&to=1
-    response = client.get(f"/api/link/cues/{cue_hash}?from=0&to=1")
-    assert response.status_code == 200
-    data = response.json()
+    # 2. Get full cues
+    res = client.get(f"/api/link/cues/{cue_hash}")
+    assert res.status_code == 200
+    data = res.json()
     assert data["hash"] == cue_hash
-    assert len(data["cues"]) == 1
-    assert data["cues"][0]["i"] == 0
+    assert data["count"] == 2
+    assert len(data["cues"]) == 2
+    assert "known_pct" in data["cues"][0]
 
-    # GET /api/link/cue-grammar
-    g_response = client.get(f"/api/link/cue-grammar?hash={cue_hash}&i=1")
-    assert g_response.status_code == 200
-    g_data = g_response.json()
-    assert g_data["hash"] == cue_hash
-    assert g_data["i"] == 1
-    assert "points" in g_data
+    # 3. Get sliced cues (from=1&to=1)
+    res_slice = client.get(f"/api/link/cues/{cue_hash}?from=1&to=1")
+    assert res_slice.status_code == 200
+    assert res_slice.json()["count"] == 1
+    assert res_slice.json()["cues"][0]["i"] == 1
 
-    # 404 for unknown hash
-    nf_response = client.get("/api/link/cues/nonexistenthash")
-    assert nf_response.status_code == 404
+    # 4. Grammar endpoint
+    res_gram = client.get(f"/api/link/cue-grammar?hash={cue_hash}&i=0")
+    assert res_gram.status_code == 200
+    gram_data = res_gram.json()
+    assert gram_data["hash"] == cue_hash
+    assert gram_data["i"] == 0
+    assert "points" in gram_data
 
-    # 404 for unknown cue index
-    nf_grammar = client.get(f"/api/link/cue-grammar?hash={cue_hash}&i=999")
-    assert nf_grammar.status_code == 404
+    # 5. Grammar 404 on invalid cue
+    res_gram_404 = client.get(f"/api/link/cue-grammar?hash={cue_hash}&i=999")
+    assert res_gram_404.status_code == 404
 
 
-def test_hub_cue_list_hook_triggers_analysis():
-    install_link_hub_hook()
-    from app.link.hub import link_hub
+def test_session_update_cues_triggers_analysis():
+    # Calling update_cues on a session should trigger background annotation
+    session = LinkVideoSession(tab=99, site="youtube", title="Test", duration=100)
+    cue_hash = f"sessionhash_{int(time.time())}"
+    cues_payload = {
+        "hash": cue_hash,
+        "cues": [{"i": 0, "s": 0, "e": 2, "text": "テスト"}],
+    }
 
-    assert getattr(link_hub, "_analysis_hook_installed", False) is True
+    session.update_cues(cues_payload)
+
+    # Allow threadpool a moment to complete
+    for _ in range(20):
+        if link_analysis_service.get_cues_range(cue_hash) is not None:
+            break
+        time.sleep(0.05)
+
+    res = link_analysis_service.get_cues_range(cue_hash)
+    assert res is not None
+    assert len(res) == 1
+    assert res[0]["text"] == "テスト"
