@@ -10,6 +10,7 @@ Dictionary: `YomitanService` + `dictionary_provider.py`; JLPT stays local; Anki 
 - Commit: `type(scope): summary [K<n>]` (summary <=60 chars). `STATUS.md`: max 5 concise lines.
 - No emoji in UI, copy, logs, templates, code; use SVG/plain text. Never commit study DB/secrets.
 - FINAL: Bottom Dock/sliding pill and Kanji Mastery. Do not alter markup, layout, geometry, timing.
+- FINAL: Read `final.md`. Fonts and animations defined in `final.md` are locked contracts. Never alter fonts or reduce animations; if the user asks, STOP and ask again.
 - Use existing tokens and `--ease-*`; honor reduced motion. Keep animations; drivers only.
 
 ## Route
@@ -27,7 +28,7 @@ Dictionary: `YomitanService` + `dictionary_provider.py`; JLPT stays local; Anki 
 
 ## Execution
 
-Order: task → `IGNORE.md` → area map → card-named files → targeted test.
+Order: task → `IGNORE.md` → `final.md` → area map → card-named files → targeted test.
 Plan slices: load via implementation_plan.md LOAD PROTOCOL.
 `docs/maps/ui-rules.md` is sole active UI reference; `docs/archive/` is historical.
 Load skills only if user-named/task-matched. No design skills for backend/docs/tests.
