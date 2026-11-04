@@ -143,6 +143,35 @@ test('Vocab History: Wires bulk selection and floating bulk actions bar', () => 
   );
 });
 
+test('Vocab History: Inventory segment tops with Gaps for your level and mines once', () => {
+  const content = fs.readFileSync(vocabHistoryPath, 'utf8');
+
+  assert.ok(content.includes('class="vocab-segments"'), 'Inventory must render Capture | Inventory segments');
+  assert.ok(content.includes('id="vocab-tab-capture"'), 'Inventory must offer a Capture segment');
+  assert.ok(
+    content.includes("this.router.navigateToTab('vocab')"),
+    'Capture segment must return to the existing vocab route'
+  );
+  assert.ok(content.includes('Gaps for your level'), 'Gaps shelf must use the Gaps for your level heading');
+  assert.ok(content.includes('id="vocab-gaps-shelf"'), 'Inventory must render the gaps shelf');
+  assert.ok(content.includes('id="btn-refresh-gaps"'), 'Inventory must render the refresh gaps button');
+  assert.ok(content.includes('apiClient.getVocabGaps('), 'Inventory must load gaps from the backend');
+  assert.ok(content.includes('mineGap('), 'Gap rows must expose a mine action');
+  assert.ok(content.includes('apiClient.saveCard('), 'Mining a gap must save exactly one card');
+  assert.ok(
+    content.includes('this.miningWords.has('),
+    'Mining must guard against a second save for the same word'
+  );
+  assert.ok(
+    content.includes('this.gaps = this.gaps.filter('),
+    'A mined word must be removed from the shelf after saving'
+  );
+  assert.ok(
+    content.includes('source_type: \'vocab_gap\''),
+    'Mined gap cards must record their provenance'
+  );
+});
+
 test('Vocab History: Slide-out inspector drawer with accessible escape key and focus trap', () => {
   const content = fs.readFileSync(vocabHistoryPath, 'utf8');
 

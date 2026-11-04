@@ -1,10 +1,10 @@
 /**
- * Kiroku Note Desktop — Vocab Main View Controller (Word Desk & Text Annotator)
- * Headword showcase, WanaKana IME, JMdict pitch-black sense block, radical breakdown,
- * live AnkiConnect deck fetching, known-words management, card mining persistence,
- * dirty state indicator (#mining-unsaved-badge), draft state retention across tab switches,
- * universal JLPT focus level integration, "Should know, not yet seen" gap shelf,
- * and paragraph text status annotation.
+ * Kiroku Note Desktop — Vocab Capture View Controller (Quick Add & Word Desk)
+ * Capture | Inventory segments, Quick Add first, headword showcase, WanaKana IME,
+ * JMdict pitch-black sense block, live AnkiConnect deck fetching, known-words
+ * management, card mining persistence, dirty state indicator (#mining-unsaved-badge),
+ * draft retention across tab switches, universal JLPT focus level integration, and a
+ * collapsed "Annotate a passage" section. Inventory is the existing history route.
  */
 
 import { apiClient } from '../services/api_client.js';
@@ -22,9 +22,7 @@ export class VocabMainView {
     this.activeListenerCount = 0;
     this.container = null;
     this.currentTerm = null;
-    this.currentMode = 'word'; // 'word' | 'text'
     this.learnerLevel = 'N4';
-    this.gaps = [];
     this.searchDebounceTimer = null;
     this.imeMode = 'hiragana'; // 'hiragana' | 'katakana' | 'english'
     this.knownWordsSet = new Set();
@@ -52,16 +50,12 @@ export class VocabMainView {
     this.setupWanakana();
     this.restoreDraft();
     this.restoreAnnotatedState();
-    await Promise.all([
-      this.loadInitialMetadata(),
-      this.loadGapsShelf()
-    ]);
+    await this.loadInitialMetadata();
 
     this._levelListener = (e) => {
       if (e.detail?.level) {
         this.learnerLevel = e.detail.level;
         this.updateFocusLevelDisplay();
-        this.loadGapsShelf();
       }
     };
     this._lastRefreshAt = Date.now();
@@ -76,7 +70,7 @@ export class VocabMainView {
     }
     if (Date.now() - this._lastRefreshAt > 30000) {
       this._lastRefreshAt = Date.now();
-      await Promise.all([this.loadInitialMetadata(), this.loadGapsShelf()]);
+      await this.loadInitialMetadata();
     }
     this.activeListenerCount = (this._levelListener ? 1 : 0) + (this._outsideClickListener ? 1 : 0);
   }
@@ -147,22 +141,12 @@ export class VocabMainView {
             <div class="candidate-dropdown" id="candidate-dropdown" style="display: none;" role="listbox"></div>
           </div>
 
-          <!-- Playful Animated Option Selector Row (Cream cards, black font, Emil physics) -->
-          <div class="vocab-playful-selector-row">
-            <div class="vocab-mode-tabs" role="tablist" aria-label="Vocabulary View Mode" style="display: none;">
-              <button type="button" class="vocab-mode-tab is-active" id="tab-mode-word" role="tab" aria-selected="true">Word</button>
-              <button type="button" class="vocab-mode-tab" id="tab-mode-text" role="tab" aria-selected="false">Text</button>
+          <!-- Capture | Inventory segments; Quick Add is the first capture panel -->
+          <div class="vocab-top-controls">
+            <div class="vocab-segments" role="tablist" aria-label="Vocabulary sections">
+              <button type="button" class="vocab-segment-tab is-active" id="vocab-tab-capture" data-segment="capture" role="tab" aria-selected="true">Capture</button>
+              <button type="button" class="vocab-segment-tab" id="vocab-tab-inventory" data-segment="inventory" role="tab" aria-selected="false">Inventory</button>
             </div>
-
-            <button type="button" class="vocab-mode-pill-btn is-active" id="btn-select-word-mode" data-mode="word">
-              <span>Word Desk</span>
-              <span class="pill-subtag">単語</span>
-            </button>
-
-            <button type="button" class="vocab-mode-pill-btn" id="btn-select-text-mode" data-mode="text">
-              <span>Text Annotator</span>
-              <span class="pill-subtag">本文</span>
-            </button>
 
             <button type="button" class="vocab-quick-add-toggle-btn is-open" id="btn-toggle-quick-add" title="Toggle Quick Add side panel">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -172,9 +156,9 @@ export class VocabMainView {
             </button>
           </div>
 
-          <!-- Two-Column Workspace Split: Left Content + Right Quick Add Panel -->
+          <!-- Two-Column Workspace Split: Quick Add first, then Word Desk -->
           <div class="vocab-workspace-split">
-            <!-- Left Pane: Word Details or Text Annotator -->
+            <!-- Left Pane: Word Details and collapsed passage annotator -->
             <div class="vocab-main-pane">
               <!-- Mode 1: Word Desk Container -->
               <div id="vocab-word-mode-container" class="vocab-mode-pane">
@@ -209,27 +193,20 @@ export class VocabMainView {
                     <div class="jmdict-senses-list" id="jmdict-senses"></div>
                   </div>
                 </section>
-
-                <!-- Quiet Shelf Under Desk: Should know, not yet seen -->
-                <div class="vocab-gaps-shelf tactile-card" id="vocab-gaps-shelf">
-                  <div class="gaps-shelf-header">
-                    <div class="gaps-title-row">
-                      <span class="gaps-title font-sans font-bold">Should know, not yet seen</span>
-                      <span class="text-xs text-muted font-sans">Words at or below your target focus level not yet marked known or mined.</span>
-                    </div>
-                    <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-refresh-gaps" title="Reload unseen vocabulary gaps">
-                      Refresh
-                    </button>
-                  </div>
-                  <div class="vocab-gaps-list" id="vocab-gaps-list">
-                    <span class="text-xs text-muted py-2 font-sans">Loading vocabulary recommendations...</span>
-                  </div>
-                </div>
               </div>
 
-              <!-- Mode 2: Text Annotator Container -->
-              <div id="vocab-text-mode-container" class="vocab-mode-pane" style="display: none;">
-                <div class="text-annotate-card tactile-card">
+              <!-- Collapsed passage annotator -->
+              <section class="vocab-annotate-section" id="vocab-annotate-section">
+                <button type="button" class="vocab-annotate-toggle" id="btn-toggle-annotate" aria-expanded="false" aria-controls="vocab-annotate-body">
+                  <span class="vocab-annotate-title">Annotate a passage</span>
+                  <span class="vocab-annotate-sub">Paste Japanese text to highlight known and should-know words.</span>
+                  <svg class="vocab-annotate-chevron" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                    <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>
+                  </svg>
+                </button>
+
+                <div class="vocab-annotate-body" id="vocab-annotate-body" hidden>
+                  <div class="text-annotate-card tactile-card">
                   <!-- Typing Form: Hidden Once Text Is Annotated -->
                   <div class="text-annotate-composer" id="text-annotate-composer">
                     <div class="text-annotate-header mb-3">
@@ -319,8 +296,9 @@ export class VocabMainView {
                       Click any Japanese word to inspect definition on Word Desk and mine to Anki.
                     </p>
                   </div>
+                  </div>
                 </div>
-              </div>
+              </section>
             </div>
 
             <!-- Right Pane: Dedicated Quick Add Side Panel (matching extension UI) -->
@@ -575,57 +553,6 @@ export class VocabMainView {
     }
   }
 
-  async loadGapsShelf() {
-    const listEl = document.getElementById('vocab-gaps-list');
-    if (!listEl) return;
-
-    try {
-      const res = await apiClient.getVocabGaps(this.learnerLevel, 16);
-      const gaps = res?.gaps || [];
-      this.gaps = gaps;
-      this.renderGapsShelf(gaps);
-    } catch (err) {
-      console.debug('[VocabMain] Failed to load vocab gaps shelf:', err);
-      if (listEl) {
-        listEl.innerHTML = `<span class="text-xs text-muted">Unable to load vocabulary gaps for JLPT ${escapeHtml(this.learnerLevel)}.</span>`;
-      }
-    }
-  }
-
-  renderGapsShelf(gaps) {
-    const listEl = document.getElementById('vocab-gaps-list');
-    if (!listEl) return;
-
-    if (!Array.isArray(gaps) || gaps.length === 0) {
-      listEl.innerHTML = `
-        <div class="gaps-empty-notice text-xs text-muted py-2">
-          No unseen vocabulary gaps found for JLPT ${escapeHtml(this.learnerLevel)}.
-        </div>
-      `;
-      return;
-    }
-
-    listEl.innerHTML = gaps.map((item) => {
-      const word = escapeHtml(item.word || '');
-      const reading = escapeHtml(item.reading || '');
-      const level = escapeHtml(item.level || this.learnerLevel);
-      return `
-        <button type="button" class="gap-chip tactile-card" data-word="${word}" title="Click to inspect ${word}">
-          <span class="gap-word font-japanese font-bold">${word}</span>
-          ${reading ? `<span class="gap-reading font-japanese text-muted text-xs">${reading}</span>` : ''}
-          <span class="tactile-pill tactile-pill-gold font-sans text-xs">${level}</span>
-        </button>
-      `;
-    }).join('');
-
-    listEl.querySelectorAll('.gap-chip').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const word = btn.dataset.word;
-        if (word) this.handleSearchDirect(word);
-      });
-    });
-  }
-
   setupWanakana() {
     const input = document.getElementById('vocab-search-input');
     if (!input) return;
@@ -647,24 +574,14 @@ export class VocabMainView {
   }
 
   setupEvents() {
-    // Mode switcher: Word vs Text
-    const tabWord = document.getElementById('tab-mode-word');
-    const tabText = document.getElementById('tab-mode-text');
-    const btnSelectWord = document.getElementById('btn-select-word-mode');
-    const btnSelectText = document.getElementById('btn-select-text-mode');
-
-    if (tabWord) {
-      tabWord.addEventListener('click', () => this.switchToMode('word'));
+    // Capture | Inventory segments (Inventory is the existing history route)
+    const tabCapture = document.getElementById('vocab-tab-capture');
+    const tabInventory = document.getElementById('vocab-tab-inventory');
+    if (tabCapture) {
+      tabCapture.addEventListener('click', () => this.handleSegmentSelect('capture'));
     }
-    if (tabText) {
-      tabText.addEventListener('click', () => this.switchToMode('text'));
-    }
-
-    if (btnSelectWord) {
-      btnSelectWord.addEventListener('click', () => this.switchToMode('word'));
-    }
-    if (btnSelectText) {
-      btnSelectText.addEventListener('click', () => this.switchToMode('text'));
+    if (tabInventory) {
+      tabInventory.addEventListener('click', () => this.handleSegmentSelect('inventory'));
     }
 
     // Quick Add side panel toggle
@@ -689,10 +606,14 @@ export class VocabMainView {
       btnCloseQuickAdd.addEventListener('click', () => toggleQuickAdd(false));
     }
 
-    // Refresh gaps button
-    const btnRefreshGaps = document.getElementById('btn-refresh-gaps');
-    if (btnRefreshGaps) {
-      btnRefreshGaps.addEventListener('click', () => this.loadGapsShelf());
+    // Collapsed "Annotate a passage" section
+    const btnToggleAnnotate = document.getElementById('btn-toggle-annotate');
+    if (btnToggleAnnotate) {
+      btnToggleAnnotate.addEventListener('click', () => {
+        const willOpen = btnToggleAnnotate.getAttribute('aria-expanded') !== 'true';
+        this.setAnnotatorOpen(willOpen);
+        if (willOpen) this.restoreAnnotatedState();
+      });
     }
 
     // Text annotator button
@@ -865,34 +786,20 @@ export class VocabMainView {
     };
   }
 
-  switchToMode(mode) {
-    this.currentMode = mode;
-    const tabWord = document.getElementById('tab-mode-word');
-    const tabText = document.getElementById('tab-mode-text');
-    const btnSelectWord = document.getElementById('btn-select-word-mode');
-    const btnSelectText = document.getElementById('btn-select-text-mode');
-    const wordContainer = document.getElementById('vocab-word-mode-container');
-    const textContainer = document.getElementById('vocab-text-mode-container');
-
-    if (tabWord && tabText) {
-      tabWord.classList.toggle('is-active', mode === 'word');
-      tabWord.setAttribute('aria-selected', mode === 'word' ? 'true' : 'false');
-      tabText.classList.toggle('is-active', mode === 'text');
-      tabText.setAttribute('aria-selected', mode === 'text' ? 'true' : 'false');
+  handleSegmentSelect(segment) {
+    if (segment === 'inventory') {
+      this.router.navigateToTab('vocab-history');
     }
+  }
 
-    if (btnSelectWord && btnSelectText) {
-      btnSelectWord.classList.toggle('is-active', mode === 'word');
-      btnSelectText.classList.toggle('is-active', mode === 'text');
+  setAnnotatorOpen(isOpen) {
+    const toggle = document.getElementById('btn-toggle-annotate');
+    const body = document.getElementById('vocab-annotate-body');
+    if (toggle) {
+      toggle.classList.toggle('is-open', isOpen);
+      toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     }
-
-    if (wordContainer && textContainer) {
-      wordContainer.style.display = mode === 'word' ? 'block' : 'none';
-      textContainer.style.display = mode === 'text' ? 'block' : 'none';
-      if (mode === 'text') {
-        this.restoreAnnotatedState();
-      }
-    }
+    if (body) body.hidden = !isOpen;
   }
 
   async handleAnnotateParagraph() {
@@ -1041,6 +948,7 @@ export class VocabMainView {
         this.annotatedFilters = { ...saved.filters };
       }
 
+      this.setAnnotatorOpen(true);
       this.renderAnnotatedTokens(saved.tokens);
       if (composer) composer.style.display = 'none';
       if (resultBox) resultBox.style.display = 'block';
@@ -1075,16 +983,14 @@ export class VocabMainView {
 
   async handleSearchDirect(word) {
     if (!word) return;
-    this.switchToMode('word');
     const input = document.getElementById('vocab-search-input');
     if (input) input.value = word;
     this.isLoading = true;
     this.hideError();
 
     try {
-      const captureRes = (typeof apiClient.lookupWord === 'function')
-        ? await apiClient.lookupWord(word)
-        : await apiClient.captureText(word);
+      // Kiroku's local dictionary path; no Yomitan API fallback.
+      const captureRes = await apiClient.captureText(word);
 
       if (captureRes && (captureRes.expression || captureRes.reading)) {
         this.displayTerm(captureRes);
@@ -1132,9 +1038,8 @@ export class VocabMainView {
           const entries = res?.entries || (Array.isArray(res) ? res : []);
           this.renderCandidates(entries);
         } else {
-          const captureRes = (typeof apiClient.lookupWord === 'function')
-            ? await apiClient.lookupWord(trimmed)
-            : await apiClient.captureText(trimmed);
+          // Kiroku's local dictionary path; no Yomitan API fallback.
+          const captureRes = await apiClient.captureText(trimmed);
 
           if (captureRes && (captureRes.expression || captureRes.reading)) {
             this.displayTerm(captureRes);
@@ -1317,8 +1222,6 @@ export class VocabMainView {
         `;
       }
       this.clearDraft();
-      // Reload gaps shelf as this card is now mined
-      await this.loadGapsShelf();
     } catch (err) {
       this.showError(`Save Failed: ${err.message}`);
       if (statusPill) {

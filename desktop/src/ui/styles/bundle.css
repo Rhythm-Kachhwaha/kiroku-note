@@ -1924,7 +1924,7 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   border-width: 0 !important;
   box-shadow: none !important;
   opacity: 0 !important;
-  transform: translateX(70px) scale(0.97) !important;
+  transform: translateX(-70px) scale(0.97) !important;
   pointer-events: none !important;
 }
 
@@ -4965,6 +4965,142 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
 .vocab-mode-tab.is-active {
   background-color: var(--vermilion);
   color: var(--warm-paper);
+}
+
+/* ==========================================================================
+   Vocab Capture | Inventory Segments and Collapsed Annotator
+   ========================================================================== */
+.vocab-top-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.vocab-segments {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  background-color: var(--surface-container, #1C1B19);
+  border: 1.5px solid var(--tactile-stroke, #151413);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413);
+}
+
+.vocab-segment-tab {
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  color: var(--text-secondary, rgba(245, 241, 232, 0.70));
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+
+.vocab-segment-tab.is-active {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+}
+
+.vocab-segment-tab:focus-visible {
+  outline: 2px solid var(--warm-paper);
+  outline-offset: 2px;
+}
+
+.vocab-annotate-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.vocab-annotate-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.85rem 1.1rem;
+  background-color: var(--ink-surface, #1C1B19);
+  color: var(--warm-paper, #F5F1E8);
+  border: 2px solid var(--tactile-stroke, #151413);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke, #151413);
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--duration-instant, 100ms) cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow var(--duration-instant, 100ms) cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.vocab-annotate-toggle:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--tactile-stroke, #151413);
+}
+
+.vocab-annotate-toggle:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke, #151413);
+}
+
+.vocab-annotate-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.vocab-annotate-sub {
+  flex: 1;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.vocab-annotate-chevron {
+  flex: 0 0 auto;
+  transition: transform var(--duration-fast) ease;
+}
+
+.vocab-annotate-toggle.is-open .vocab-annotate-chevron {
+  transform: rotate(180deg);
+}
+
+.vocab-annotate-body[hidden] {
+  display: none;
+}
+
+/* Quick Add is the first capture panel */
+.vocab-quick-add-dock {
+  order: -1;
+}
+
+/* Inventory gaps shelf mine action */
+.vocab-gaps-shelf.history-gaps-shelf {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+}
+
+.gap-chip-static {
+  cursor: default;
+}
+
+.gap-chip-static:hover {
+  transform: none;
+  box-shadow: 2px 2px 0 var(--tactile-stroke, #151413);
+  border-color: var(--tactile-stroke, #151413);
+}
+
+.gap-mine-btn {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vocab-segment-tab,
+  .vocab-annotate-toggle,
+  .vocab-annotate-chevron {
+    transition: none;
+  }
 }
 
 .vocab-gaps-shelf {

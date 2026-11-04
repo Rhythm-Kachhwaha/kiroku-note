@@ -1,11 +1,13 @@
 /**
- * Kiroku Note Desktop — Vocab History View Controller
- * Card inventory data grid, telemetry metric pods, bulk selection,
- * sync status troubleshooting, server-side search & pagination, and slide-over card inspector drawer.
+ * Kiroku Note Desktop — Vocab Inventory View Controller
+ * Capture | Inventory segments, "Gaps for your level" shelf with one-click mining,
+ * card inventory data grid, telemetry metric pods, bulk selection, sync status
+ * troubleshooting, server-side search & pagination, and slide-over card inspector drawer.
  */
 
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
+import { getUniversalJlptLevel } from '../utils/learner.js';
 
 export class VocabHistoryView {
   constructor(router) {
@@ -21,19 +23,44 @@ export class VocabHistoryView {
     this.totalCards = 0;
     this.isLoading = false;
     this.lastError = null;
+    this.learnerLevel = 'N4';
+    this.gaps = [];
+    this.miningWords = new Set();
+    this._levelListener = null;
   }
 
   async mount(container) {
     this.container = container;
+    this.learnerLevel = await getUniversalJlptLevel();
     this.render();
     this.setupEvents();
-    await this.loadData();
+
+    this._levelListener = (e) => {
+      if (e.detail?.level) {
+        this.learnerLevel = e.detail.level;
+        this.loadGapsShelf();
+      }
+    };
+    window.addEventListener('kiroku:learner-level-changed', this._levelListener);
+
+    await Promise.all([
+      this.loadData(),
+      this.loadGapsShelf()
+    ]);
   }
 
   render() {
     this.container.innerHTML = `
       <div class="history-view-wrapper">
         <div class="history-view-container">
+          <!-- Capture | Inventory segments; Capture returns to the vocab route -->
+          <div class="vocab-top-controls">
+            <div class="vocab-segments" role="tablist" aria-label="Vocabulary sections">
+              <button type="button" class="vocab-segment-tab" id="vocab-tab-capture" data-segment="capture" role="tab" aria-selected="false">Capture</button>
+              <button type="button" class="vocab-segment-tab is-active" id="vocab-tab-inventory" data-segment="inventory" role="tab" aria-selected="true">Inventory</button>
+            </div>
+          </div>
+
           <!-- Page Header & Metrics Row -->
           <div class="history-header-section">
             <div class="history-title-row">
@@ -51,6 +78,22 @@ export class VocabHistoryView {
                 <button class="tactile-btn" id="btn-export-csv" title="Export cards collection">
                   <span>Export</span>
                 </button>
+              </div>
+            </div>
+
+            <!-- Gaps shelf at the top of Inventory -->
+            <div class="vocab-gaps-shelf history-gaps-shelf tactile-card" id="vocab-gaps-shelf">
+              <div class="gaps-shelf-header">
+                <div class="gaps-title-row">
+                  <span class="gaps-title font-sans font-bold">Gaps for your level</span>
+                  <span class="text-xs text-muted font-sans">Words at or below your target level not yet marked known or mined. Mine adds one card.</span>
+                </div>
+                <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-refresh-gaps" title="Reload unseen vocabulary gaps">
+                  Refresh
+                </button>
+              </div>
+              <div class="vocab-gaps-list" id="vocab-gaps-list">
+                <span class="text-xs text-muted py-2 font-sans">Loading vocabulary gaps...</span>
               </div>
             </div>
 
@@ -183,6 +226,20 @@ export class VocabHistoryView {
   }
 
   setupEvents() {
+    const tabCapture = document.getElementById('vocab-tab-capture');
+    const tabInventory = document.getElementById('vocab-tab-inventory');
+    if (tabCapture) {
+      tabCapture.addEventListener('click', () => this.router.navigateToTab('vocab'));
+    }
+    if (tabInventory) {
+      tabInventory.addEventListener('click', () => this.loadGapsShelf());
+    }
+
+    const btnRefreshGaps = document.getElementById('btn-refresh-gaps');
+    if (btnRefreshGaps) {
+      btnRefreshGaps.addEventListener('click', () => this.loadGapsShelf());
+    }
+
     const searchInput = document.getElementById('history-search-input');
     if (searchInput) {
       let debounceTimer = null;
@@ -405,6 +462,92 @@ export class VocabHistoryView {
     const count = this.selectedIds.size;
     countEl.textContent = String(count);
     bar.style.display = count > 0 ? 'flex' : 'none';
+  }
+
+  async loadGapsShelf() {
+    const listEl = document.getElementById('vocab-gaps-list');
+    if (!listEl) return;
+
+    try {
+      const res = await apiClient.getVocabGaps(this.learnerLevel, 16);
+      this.renderGapsShelf(res?.gaps || []);
+    } catch (err) {
+      console.debug('[VocabHistory] Failed to load vocab gaps shelf:', err);
+      listEl.innerHTML = `<span class="text-xs text-muted">Unable to load vocabulary gaps for JLPT ${escapeHtml(this.learnerLevel)}.</span>`;
+    }
+  }
+
+  renderGapsShelf(gaps) {
+    const listEl = document.getElementById('vocab-gaps-list');
+    if (!listEl) return;
+
+    this.gaps = Array.isArray(gaps) ? gaps : [];
+
+    if (this.gaps.length === 0) {
+      listEl.innerHTML = `
+        <div class="gaps-empty-notice text-xs text-muted py-2">
+          No unseen vocabulary gaps found for JLPT ${escapeHtml(this.learnerLevel)}.
+        </div>
+      `;
+      return;
+    }
+
+    listEl.innerHTML = this.gaps.map((item, index) => {
+      const word = escapeHtml(item.expression || '');
+      const reading = escapeHtml(item.reading || '');
+      const level = escapeHtml(item.jlpt_level || this.learnerLevel);
+      const isMining = this.miningWords.has(String(item.expression || '').trim());
+      return `
+        <div class="gap-chip gap-chip-static" data-gap-index="${index}">
+          <span class="gap-word font-japanese font-bold">${word}</span>
+          ${reading ? `<span class="gap-reading font-japanese text-muted text-xs">${reading}</span>` : ''}
+          <span class="tactile-pill tactile-pill-gold font-sans text-xs">${level}</span>
+          <button type="button" class="gap-mine-btn tactile-btn tactile-btn-sm font-sans" data-gap-index="${index}" ${isMining ? 'disabled' : ''}>${isMining ? 'Mining...' : 'Mine'}</button>
+        </div>
+      `;
+    }).join('');
+
+    listEl.querySelectorAll('.gap-mine-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const index = Number(btn.dataset.gapIndex);
+        if (Number.isInteger(index)) this.mineGap(index);
+      });
+    });
+  }
+
+  async mineGap(index) {
+    const gap = this.gaps[index];
+    if (!gap) return;
+
+    const word = String(gap.expression || '').trim();
+    if (!word || this.miningWords.has(word)) return;
+
+    this.miningWords.add(word);
+    this.renderGapsShelf(this.gaps);
+
+    try {
+      await apiClient.saveCard({
+        expression: word,
+        reading: String(gap.reading || '').trim(),
+        meaning: String(gap.meaning || '').trim(),
+        example_sentence: '',
+        example_translation: '',
+        notes: '',
+        deck_name: 'Default',
+        tags: 'kiroku',
+        jlpt_level: gap.jlpt_level || this.learnerLevel,
+        source_type: 'vocab_gap'
+      });
+      // Drop the mined word before refreshing so a second click cannot add another card.
+      this.gaps = this.gaps.filter((entry) => String(entry.expression || '').trim() !== word);
+      this.renderGapsShelf(this.gaps);
+      await this.loadData();
+    } catch (err) {
+      this.showError(`Mine gap failed: ${err.message}`);
+    } finally {
+      this.miningWords.delete(word);
+      this.renderGapsShelf(this.gaps);
+    }
   }
 
   async loadData() {
@@ -751,6 +894,10 @@ export class VocabHistoryView {
   }
 
   unmount() {
+    if (this._levelListener) {
+      window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
+      this._levelListener = null;
+    }
     if (this.container) {
       this.container.innerHTML = '';
     }

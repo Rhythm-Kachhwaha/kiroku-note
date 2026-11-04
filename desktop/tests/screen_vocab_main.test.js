@@ -146,9 +146,18 @@ test('Vocab Main: Structure and interactive elements match Planetoño UI contrac
   assert.ok(content.includes('id="card-mining-form"'), 'Must render card-mining-form');
   assert.ok(content.includes('id="btn-save-card"'), 'Must render Vermilion save card button');
 
-  // Gap shelf
-  assert.ok(content.includes('id="vocab-gaps-shelf"'), 'Must render vocab-gaps-shelf');
-  assert.ok(content.includes('id="btn-refresh-gaps"'), 'Must render refresh gaps button');
+  // Capture | Inventory segments and collapsed annotator
+  assert.ok(content.includes('class="vocab-segments"'), 'Must render Capture | Inventory segments');
+  assert.ok(content.includes('id="vocab-tab-capture"'), 'Must render Capture segment');
+  assert.ok(content.includes('id="vocab-tab-inventory"'), 'Must render Inventory segment');
+  assert.ok(content.includes('id="vocab-annotate-section"'), 'Must render collapsed annotator section');
+  assert.ok(content.includes('id="btn-toggle-annotate"'), 'Must render annotator toggle');
+  assert.ok(content.includes('Annotate a passage'), 'Annotator section must be labelled Annotate a passage');
+  assert.equal(
+    content.includes('id="vocab-gaps-shelf"'),
+    false,
+    'Gap shelf belongs to the Inventory view, not Capture'
+  );
 });
 
 test('Vocab Main: bundle.css styles vocabulary view with Planetoño tactile physics and pitch-black JMdict', () => {
@@ -195,6 +204,33 @@ test('Vocab Main: bundle.css styles vocabulary view with Planetoño tactile phys
       `bundle.css must not contain legacy color "${c}"`
     );
   }
+});
+
+test('Vocab Main: Capture | Inventory keeps routes and opens Inventory through the history route', () => {
+  const content = fs.readFileSync(vocabMainPath, 'utf8');
+
+  assert.ok(
+    content.includes("this.router.navigateToTab('vocab-history')"),
+    'Inventory segment must open the existing vocab-history route'
+  );
+  assert.ok(
+    content.includes("handleSegmentSelect('inventory')"),
+    'Inventory segment must be wired to handleSegmentSelect'
+  );
+  assert.equal(
+    content.includes('vocab-text-mode-container'),
+    false,
+    'Capture no longer hides the word desk behind a Text mode'
+  );
+  assert.equal(
+    content.includes('btn-select-text-mode'),
+    false,
+    'Capture must not keep the old Text Annotator mode pill'
+  );
+  assert.ok(
+    content.includes("const captureRes = await apiClient.captureText("),
+    'Dictionary enrichment must use the Kiroku capture path directly'
+  );
 });
 
 test('Vocab Main: Zero emojis across code, templates, and styles', () => {
