@@ -57,15 +57,15 @@ SPECIAL_MATCHERS: dict[str, dict[str, Any]] = {
         "type": "regex",
         "regex": "[ぁ-ゖァ-ヺ一-龯]+させられ(?:たくなかった|ない|る|た)",
     },
-    "ことになる": {"type": "regex", "regex": "ことにな(?:る|った)"},
-    "かもしれない": {"type": "regex", "regex": "かもしれない"},
+    "ことになる": {"type": "regex", "regex": "ことにな(?:る|った|ります|りました|って)"},
+    "かもしれない": {"type": "regex", "regex": "かもしれ(?:ない|ません|なかった|ませんでした)"},
     "ざるを得ない": {"type": "regex", "regex": "ざるを得ない"},
     "はずがない": {"type": "regex", "regex": "はずがない"},
-    "たことがあります": {"type": "regex", "regex": "たことが(?:ある|あります)"},
-    "ておく": {"type": "regex", "regex": "(?:[てで]おく|[ぁ-ゖァ-ヺ一-龯]+とく)"},
+    "たことがあります": {"type": "regex", "regex": "たことが(?:ある|あります|ない|ありません)"},
+    "ておく": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:[てで]お(?:く|きます|いた|きました|いて)|とく)"},
     "てしまう": {
         "type": "regex",
-        "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:てしま(?:う|っ(?:た|て|たら)?)|ちゃ(?:う|っ(?:た|て|たら)?))",
+        "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:てしま(?:う|っ(?:た|て|たら)?|い(?:ます|ました))|ちゃ(?:う|っ(?:た|て|たら)?))",
         "matched_formation": "V-て + {suffix}",
     },
     "なければならない": {
@@ -76,17 +76,17 @@ SPECIAL_MATCHERS: dict[str, dict[str, Any]] = {
         "type": "discontinuous",
         "first": "[ぁ-ゖァ-ヺ一-龯]+ば",
         "second": "[ぁ-ゖァ-ヺ一-龯]+ほど",
-        "max_gap": 20,
-        "clause_break": "[、。！？]",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
     },
     "とかとか": {
         "type": "discontinuous",
         "first": "[ぁ-ゖァ-ヺ一-龯]+とか",
         "second": "[ぁ-ゖァ-ヺ一-龯]+(?:とか|ている|る)",
-        "max_gap": 20,
-        "clause_break": "[、。！？]",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
     },
-    "おになる": {"type": "regex", "regex": "お[ぁ-ゖァ-ヺ一-龯]{1,6}になる"},
+    "おになる": {"type": "regex", "regex": "お[ぁ-ゖァ-ヺ一-龯]{1,6}にな(?:る|った|ります|りました)"},
     "そうだ(appearance)": {
         "type": "regex",
         "regex": "[ぁ-ゖァ-ヺ一-龯]+そうだ",
@@ -103,35 +103,253 @@ SPECIAL_MATCHERS: dict[str, dict[str, Any]] = {
     },
     "にもかかわらず": {"type": "regex", "regex": "にもかかわらず"},
     "にしては": {"type": "regex", "regex": "にしては"},
+
+    "のに": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+のに"},
+    "ので": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ので"},
+    "ても": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:ても|でも)"},
+    "ても / でも": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:ても|でも)"},
+    "てもいい": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:てもいい|でもいい|てもいいです|でもいいです)"},
+    "てはいけない": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:てはいけない|ではいけない|てはいけません|ではいけません|ちゃだめ|じゃだめ)"},
+    "なくてもいい": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+なくてもいい(?:です)?"},
+    "たことがある": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+たことが(?:ある|あります|ない|ありません)"},
+    "たり〜たり": {
+        "type": "discontinuous",
+        "first": "[ぁ-ゖァ-ヺ一-龯]+たり",
+        "second": "[ぁ-ゖァ-ヺ一-龯]+たり(?:した|する|して|し)?",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
+    },
+    "たり〜たり": {
+        "type": "discontinuous",
+        "first": "[^はがをでにとも、。！？\\s]+?(?:たり|だり)",
+        "second": "[^はがをでにとも、。！？\\s]+(?:たり|だり)(?:します|しました|した|する|して|し)?",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
+    },
+    "たりたり": {
+        "type": "discontinuous",
+        "first": "[^はがをでにとも、。！？\\s]+?(?:たり|だり)",
+        "second": "[^はがをでにとも、。！？\\s]+(?:たり|だり)(?:します|しました|した|する|して|し)?",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
+    },
+    "たりたりする": {
+        "type": "discontinuous",
+        "first": "[^はがをでにとも、。！？\\s]+?(?:たり|だり)",
+        "second": "[^はがをでにとも、。！？\\s]+(?:たり|だり)(?:します|しました|した|する|して|し)?",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
+    },
+    "てみる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+て(?:みる|みます|みた|みて|みよう)"},
+    "ていく": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+て(?:いく|いきます|いった|いって)"},
+    "てくる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+て(?:くる|きます|きた|きて)"},
+    "てある": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+て(?:ある|あります|あった|ありました)"},
+    "てあげる": {"type": "regex", "regex": "てあげ(?:ました|ません|ます|たら|ば|た|て|る)"},
+    "てくれる": {"type": "regex", "regex": "てくれ(?:ました|ません|ます|たら|ば|た|て|る)"},
+    "てもらう": {"type": "regex", "regex": "てもら(?:いました|いません|います|ったら|えば|った|って|う)"},
+    "てくださる / ていただく": {"type": "regex", "regex": "て(?:くださいました|くださいます|いただいた|いただきます|ください|くださる|いただく)"},
+    "ていただく": {"type": "regex", "regex": "て(?:いただきます|いただいた|いただき|いただく)"},
+    "受身": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:られ|[あかさただなはまらがざばぱ]れ)"},
+    "受身形": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:られ|[あかさただなはまらがざばぱ]れ)"},
+    "れる / られる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:られ|[あかさただなはまらがざばぱ]れ)"},
+    "使役": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:させ|[あかさただなはまらがざばぱ]せ)(?:て|た|る|ます|ない)?"},
+    "使役形": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:させ|[あかさただなはまらがざばぱ]せ)(?:て|た|る|ます|ない)?"},
+    "せる / させる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:させ|[あかさただなはまらがざばぱ]せ)(?:て|た|る|ます|ない)?"},
+    "ばよかった": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:なければ|なきゃ|ば)よかった"},
+    "なければよかった": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:なければ|なきゃ)よかった"},
+    "ことにする": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ことに(?:している|しました|します|しない|する|した|して)"},
+    "ようにする": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ように(?:している|しました|します|しない|する|した|して)"},
+    "ようになる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ように(?:なりました|なります|なっている|なった|なって|なる)"},
+    "ことができる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ことが(?:できます|できない|できた|できる)"},
+    "こと": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+こと[。！]"},
+    "ように": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ように"},
+    "ような / ように": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ような"},
+    "と言う": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+と言(?:う|った|いました|います)"},
+    "させてください": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+させてください"},
+    "ほどない": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ほど[ぁ-ゖァ-ヺ一-龯]+(?:ない|くありません)"},
+    "なかなかない": {"type": "regex", "regex": "なかなか[ぁ-ゖァ-ヺ一-龯]+(?:ない|ません)"},
+    "やすい / にくい": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:やすい|にくい)"},
+    "やすい": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+やすい"},
+    "にくい": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+にくい"},
+    "すぎる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+すぎ(?:る|た|て|ます|ない)"},
+    "過ぎる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:すぎ|過ぎ)(?:る|た|て|ます|ない)"},
+    "始める / 終わる / 続ける": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:始め|おわ|終わ|続け)(?:る|た|て|ます|ました|ない)"},
+    "方": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+方", "guards": {"forbidden_preceding": ["の", "な", "い"]}},
+    "ば": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ば"},
+    "たら": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+たら(?:どう)?"},
+    "たらどう": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+たらどう(?:ですか|？|\\?)?"},
+    "おそれがある": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+おそれがある"},
+    "てならない": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+てならない"},
+    "をとして": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+を[ぁ-ゖァ-ヺ一-龯]*として"},
+    "かのようだ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+かのような[ぁ-ゖァ-ヺ一-龯]+"},
+    "かねる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+かね(?:る|ます|ない)"},
+    "たとえても": {
+        "type": "discontinuous",
+        "first": "たとえ",
+        "second": "[ぁ-ゖァ-ヺ一-龯]+(?:ても|でも)",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
+    },
+    "やらやら": {
+        "type": "discontinuous",
+        "first": "[ぁ-ゖァ-ヺ一-龯]+やら",
+        "second": "[ぁ-ゖァ-ヺ一-龯]+やら",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
+    },
+    "ずに済む / ないで済む": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:ずに済|ないで済)(?:む|んだ|んで|みます)"},
+    "てもさしつかえない": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+てもさしつかえ(?:ない|ありません)"},
+    "といったらない": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+といったら(?:ない|なかった)"},
+    "なりなり": {
+        "type": "discontinuous",
+        "first": "[ぁ-ゖァ-ヺ一-龯]+なり",
+        "second": "[ぁ-ゖァ-ヺ一-龯]+なり",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
+    },
+    "に堪える / に堪えない": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+に(?:堪え|耐え)(?:る|ない)"},
+    "をもって": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+を(?:もって|もちまして)"},
+    "ただのみ": {"type": "regex", "regex": "ただ[ぁ-ゖァ-ヺ一-龯]+のみ(?:だ)?"},
+    "だのだの": {
+        "type": "discontinuous",
+        "first": "[ぁ-ゖァ-ヺ一-龯]+だの",
+        "second": "[ぁ-ゖァ-ヺ一-龯]+だの",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
+    },
+    "かれかれ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+かれ[ぁ-ゖァ-ヺ一-龯]+かれ"},
+    "つつ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+つつ(?:も)?"},
+    "つつ / つつも": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+つつ(?:も)?"},
+    "かないかのうちに": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+か[ぁ-ゖァ-ヺ一-龯]+ないかのうちに"},
+    "反面 / 半面": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:反面|半面)"},
+    "次第": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+次第"},
+    "上": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+上に"},
+    "以上": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+以上(?:は)?"},
+    "際": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+際(?:に|は)?"},
+    "末": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:の末|末に|末)"},
+    "た末": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+た末(?:に)?"},
+    "を余儀なくされる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+を余儀なくされ(?:る|た)"},
+    "に至る / に至って / に至っては": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+に至(?:る|った|って(?:は)?)"},
+    "に至って": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+に至(?:る|った|って(?:は)?)"},
+    "てやまない": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+てやまない"},
+    "うものなら": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+[おう]ものなら"},
+    "うが / うと": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:[よう]が|[よう]と)"},
+    "(よ)うがまいが / (よ)うとまいと": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:ようが|ようと)まい(?:が|と)"},
+    "(よ)うにもない": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+[よう]にも[ぁ-ゖァ-ヺ一-龯]+ない"},
+    "ずじまい": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ずじまい(?:だ|だった)?"},
+    "手前": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+手前"},
+    "とは": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+とは"},
+    "なり": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+なり"},
+    "まみれ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+まみれ"},
+    "ゆえ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ゆえ(?:に)?"},
+    "げ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+げ(?:に|な)?"},
+    "うではないか": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+[よう]ではないか"},
+    "合う": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+合(?:う|った|って|い|います)"},
+    "直す": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+直(?:す|した|して|します)"},
+    "かける": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+かけ(?:る|の|た|だ)"},
+    "切る / 切れない": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+切(?:る|れない|れた|り)"},
+    "出す": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+出(?:す|した|して|します)"},
+    "ふりをする": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ふりを(?:する|した|して)"},
+    "ところだ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ところ(?:だ|です|だった|でした)?"},
+    "はずだ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+はず(?:だ|です|だった|でした)?"},
+    "たところ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+たところ"},
+    "ようだ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+よう(?:だ|です|な|に)?(?:ね)?"},
+    "みたい": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+みたい(?:だ|です|な|に)?"},
+    "まま": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+まま(?:だ|で)?"},
+    "とき": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+とき(?:に)?"},
+    "間 / 間に": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+間(?:に)?"},
+    "中": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+中(?:です|だ)?"},
+    "予定": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+予定(?:です|だ)?"},
+    "ことがある": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ことが(?:ある|あります)"},
+    "たがる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+たが(?:る|っている|った|り)"},
+    "くする / にする": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:く|に)し(?:て|ます|た)"},
+    "くなる / になる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:く|に)(?:なる|なった|なって|なります)"},
+    "そうにする": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+そうに(?:する|していた|した)"},
+    "ようとする": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ようと(?:する|した|して|している)"},
+    "ように言う / ように頼む": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ように(?:言う|言った|頼む|頼んだ)"},
+    "うと思う": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+[よう]と思(?:う|っている|った|います)"},
+    "ても構わない": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:ても|でも)構(?:わない|いません|わなくて)"},
+    "せられる / させられる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:せられ|させられ)(?:る|た|て|ます|ない)"},
+    "あげる / くれる / もらう": {"type": "regex", "regex": "(?:あげ|くれ|もら)(?:ました|ません|ます|たら|ば|た|て|る)", "guards": {"forbidden_preceding": ["て", "で"]}},
+    "おう / よう": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+[およ]う"},
+    "え / ろ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+[えろ]"},
+    "さ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+さ"},
+    "し": {"type": "regex", "regex": "[^、。！？\s]+(?:る|た|ない|い|だ|でした|だった|ます|ました)し、"},
+    "ということだ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ということ(?:だ|です)"},
+    "からにかけて": {
+        "type": "discontinuous",
+        "first": "[ぁ-ゖァ-ヺ一-龯]+から",
+        "second": "[ぁ-ゖァ-ヺ一-龯]+にかけて",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
+    },
+    "もばも": {
+        "type": "discontinuous",
+        "first": "[ぁ-ゖァ-ヺ一-龯]+も",
+        "second": "[ぁ-ゖァ-ヺ一-龯]+ば",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
+    },
+    "さえば": {
+        "type": "discontinuous",
+        "first": "[ぁ-ゖァ-ヺ一-龯]+さえ",
+        "second": "[ぁ-ゖァ-ヺ一-龯]+ば",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
+    },
+    "たらた": {
+        "type": "discontinuous",
+        "first": "[ぁ-ゖァ-ヺ一-龯]+たら",
+        "second": "[ぁ-ゖァ-ヺ一-龯]+た",
+        "max_gap": 25,
+        "clause_break": "[。！？]",
+    },
+    "ほどはない": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ほど[ぁ-ゖァ-ヺ一-龯]+はない"},
+    "ことはが": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ことは[ぁ-ゖァ-ヺ一-龯]+が"},
+    "たところで": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+たところで"},
+    "上は": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+上は"},
+    "末に": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+末に"},
+    "ごとき / ごとく": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+かのごとく"},
+    "並み": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+並み"},
+    "折に": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+折に"},
+    "放題": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+放題"},
+    "びる / びて / びた": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+び(?:る|て|た)"},
+    "ぬ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ぬ"},
+    "のみ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+のみ"},
+    "限り": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+限り(?:では)?"},
+    "がち": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+がち(?:だ|な)?"},
+    "きり": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+きり"},
+    "こそ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+こそ"},
+    "さえ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+さえ"},
+    "たて": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+たて(?:の|だ)?"},
+    "気味": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+気味"},
+    "込む": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+込(?:む|んだ|んで|みます)"},
+    "通す": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+通(?:す|した|して|します)"},
+    "向き / 向け": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:向け|向き)"},
+    "おする": {"type": "regex", "regex": "お[ぁ-ゖァ-ヺ一-龯]{1,6}する"},
+    "がる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+が(?:る|っている|った)"},
+    "目": {"type": "regex", "regex": "[0-9一二三四五六七八九十百]+番目|[0-9一二三四五六七八九十百]+つ目|[0-9一二三四五六七八九十百]+人目"},
+    "ずつ": {"type": "regex", "regex": "[0-9一二三四五六七八九十百]+[ぁ-ゖァ-ヺ一-龯]*ずつ"},
+    "に行く": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+に行(?:く|きます|った|って)"},
+    "まだていない": {"type": "regex", "regex": "まだ[ぁ-ゖァ-ヺ一-龯]+てい(?:ない|ません)"},
+    "もうた": {"type": "regex", "regex": "もう[ぁ-ゖァ-ヺ一-龯]+(?:た|ました)"},
+    "あまりない": {"type": "regex", "regex": "あまり[ぁ-ゖァ-ヺ一-龯]+(?:ない|ません|なかった)"},
+    "全然ない": {"type": "regex", "regex": "全然[ぁ-ゖァ-ヺ一-龯]+(?:ない|ません|なかった)"},
+    "何もない / 誰もない": {"type": "regex", "regex": "(?:何も|誰も)[ぁ-ゖァ-ヺ一-龯]+(?:ない|ません|なかった)"},
+    "が好き / が嫌い": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+が(?:好き|嫌い)"},
+    "がある / がいる": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+が(?:ある|あります|いる|います)"},
+    "にする": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+に(?:する|した|します|しました)"},
+    "だけ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+だけ"},
+    "ごろ": {"type": "regex", "regex": "[0-9一二三四五六七八九十]+時ごろ"},
 }
 
 REFERENCE_ONLY_KEYS = {
-    "か(or)", "か(question)", "ね", "よ", "の方がより",
-    "ととどちらが", "の中でが一番", "てはいけない",
-    "なければならない / なくてはいけない", "たりたりする", "たことがある",
-    "に行く", "がある / がいる", "くなる / になる", "にする(decide)",
-    "まだていない", "もうた", "あまりない", "全然ない", "何もない / 誰もない",
-    "ことにする", "てあげる", "ていく", "てくる", "てくれる", "過ぎる",
-    "あげる / くれる / もらう", "てくださる / ていただく", "てしまう / ちゃう",
-    "てある", "らしい(hearsay/conjecture)", "ようだ", "すぎる",
-    "ことができる", "える / られる(potential)",
-    "れる / られる(passive)", "せられる / させられる", "おう / よう",
-    "(よ)うと思う", "ようにする", "ようになる", "たがる",
-    "はずだ", "か(embedded question)", "と言う", "ところだ",
-    "始める / 終わる / 続ける", "出す", "ほどない", "なかなかない", "ことがある",
-    "尊敬語", "謙譲語", "おする", "ても構わない", "の / こと(nominalizer)",
-    "たらどう", "くする / にする(make)", "そうにする", "よう",
-    "ように言う / ように頼む", "ようとする", "もばも", "まるでようだ",
-    "さえば", "たらた", "ということだ", "からにかけて", "ふりをする",
-    "切る / 切れない", "かける", "合う", "直す", "ほどはない", "かのようだ",
-    "に至って", "を余儀なくされる", "かねる", "ことはが", "抜く",
-    "てならない", "をとして", "かないかのうちに", "おそれがある", "たとえても",
-    "やらやら", "ずに済む / ないで済む", "た末", "に至る / に至って / に至っては",
-    "を余儀なくされる", "(よ)うがまいが / (よ)うとまいと", "(よ)うにもない",
-    "つつ", "てもさしつかえない", "といったらない", "なりなり",
-    "に堪える / に堪えない", "をもって", "ただのみ", "だのだの", "かれかれ",
-    "くない / かった / くなかった",
     "は", "が", "を", "に", "へ", "で", "と", "の", "も", "や",
+    "ね", "よ", "か", "て", "た", "な", "かい", "なあ", "ぞ・ぜ", "っけ",
+    "か(or)", "か(question)", "か(embedded question)", "尊敬語", "謙譲語",
+    "ととどちらが", "の中でが一番", "の方がより",
+    "さぞ", "さも", "とて",
+    "くない / かった / くなかった",
 }
 
 VOCAB_PATTERNS = {
@@ -296,15 +514,24 @@ def determine_matcher(key: str, pattern: str, variants: list[str]) -> tuple[dict
         spec = dict(SPECIAL_MATCHERS[key])
         guards = spec.pop("guards", None)
         return spec, guards
-    if key in REFERENCE_ONLY_KEYS:
-        return {"type": "pattern", "variants": variants, "match_mode": "reference_only"}, None
-    if any(k in REFERENCE_ONLY_KEYS for k in variants):
-        return {"type": "pattern", "variants": variants, "match_mode": "reference_only"}, None
-    if key in VOCAB_PATTERNS or any(v in VOCAB_PATTERNS for v in variants):
-        return {"type": "pattern", "variants": variants, "match_mode": "reference_only"}, None
-    if all((len(v) <= 2 and v != "ずに") or v in {"は", "が", "を", "に", "へ", "で", "と", "の", "も"} for v in variants):
-        return {"type": "pattern", "variants": variants, "match_mode": "reference_only"}, None
-    return {"type": "pattern", "variants": variants, "match_mode": "auto"}, None
+    if (
+        key in REFERENCE_ONLY_KEYS
+        or any(k in REFERENCE_ONLY_KEYS for k in variants)
+        or key in VOCAB_PATTERNS
+        or any(v in VOCAB_PATTERNS for v in variants)
+    ):
+        reason = "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
+        if any(p in key for p in ["尊敬語", "謙譲語"]):
+            reason = "Sociolinguistic honorific system requiring pragmatic context."
+        elif any(p in key for p in ["より", "一番", "どちら"]):
+            reason = "Comparative discourse pattern requiring semantic arguments."
+        elif key in {"は", "が", "を", "に", "へ", "で", "と", "の", "も", "や", "ね", "よ"}:
+            reason = "Single bare particle requires syntactic role disambiguation."
+        return {"type": "pattern", "variants": variants, "match_mode": "reference_only", "reference_reason": reason}, None
+    guards = None
+    if any(len(v) <= 3 for v in variants):
+        guards = {"minimum_sentence_context": 5}
+    return {"type": "pattern", "variants": variants, "match_mode": "auto"}, guards
 
 
 def reconcile_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -408,26 +635,51 @@ def reconcile_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
         ],
     }
 
-    noni_cont: dict[str, Any] = {
-        "slug": "noni_contrast",
-        "pattern_display": "のに (contrast)",
+    noni: dict[str, Any] = {
+        "slug": "noni",
+        "pattern_display": "のに",
         "pattern_key": "のに",
-        "meaning_short": "although; in spite of; even though",
-        "formation": "Plain form + のに",
+        "meaning_short": "although; in spite of; even though; for the purpose of",
+        "formation": "Plain form / V-dictionary + のに",
         "variants": ["のに"],
-        "examples": [{"ja": "一生懸命勉強したのに、試験に落ちた。", "en": "Although I studied hard, I failed the exam."}],
+        "examples": [
+            {"ja": "一生懸命勉強したのに、試験に落ちた。", "en": "Although I studied hard, I failed the exam."},
+            {"ja": "この辞書は漢字を調べるのに便利だ。", "en": "This dictionary is convenient for looking up kanji."}
+        ],
         "group_id": "のに",
         "source_evidence": [],
     }
-    noni_purp: dict[str, Any] = {
-        "slug": "noni_purpose",
-        "pattern_display": "のに (purpose)",
-        "pattern_key": "のに",
-        "meaning_short": "for the purpose of; in order to",
-        "formation": "V-dictionary + のに",
-        "variants": ["のに"],
-        "examples": [{"ja": "この辞書は漢字を調べるのに便利だ。", "en": "This dictionary is convenient for looking up kanji."}],
-        "group_id": "のに",
+    tari_tari: dict[str, Any] = {
+        "slug": "tari_tari",
+        "pattern_display": "〜たり〜たり",
+        "pattern_key": "たり〜たり",
+        "meaning_short": "do such things as … and …",
+        "formation": "V-た + り + V-た + りする",
+        "variants": ["たり〜たり", "たりたり", "たりたりする", "たり"],
+        "examples": [{"ja": "休みの日は本を読んだり、音楽を聴いたりします。", "en": "On my days off, I do things like read books and listen to music."}],
+        "group_id": "たり〜たり",
+        "source_evidence": [],
+    }
+    ukemi: dict[str, Any] = {
+        "slug": "ukemi",
+        "pattern_display": "受身",
+        "pattern_key": "受身",
+        "meaning_short": "passive form (be done)",
+        "formation": "V-れる / V-られる",
+        "variants": ["受身", "受身形", "れる", "られる", "れる / られる"],
+        "examples": [{"ja": "先生に褒められて嬉しかった。", "en": "I was praised by the teacher and was happy."}],
+        "group_id": "受身",
+        "source_evidence": [],
+    }
+    shieki: dict[str, Any] = {
+        "slug": "shieki",
+        "pattern_display": "使役",
+        "pattern_key": "使役",
+        "meaning_short": "causative form (make/let do)",
+        "formation": "V-せる / V-させる",
+        "variants": ["使役", "使役形", "せる", "させる", "せる / させる"],
+        "examples": [{"ja": "母は子どもに野菜を食べさせた。", "en": "The mother made the child eat vegetables."}],
+        "group_id": "使役",
         "source_evidence": [],
     }
     shieki_ukemi: dict[str, Any] = {
@@ -454,7 +706,7 @@ def reconcile_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
         "source_evidence": [{"source": "Kiroku matcher seed", "source_level": "N4", "source_pattern": "なければならない"}],
     }
 
-    concepts.extend([souda_app, souda_hear, rashii_conj, rashii_typ, noni_cont, noni_purp, shieki_ukemi, nakereba_naranai])
+    concepts.extend([souda_app, souda_hear, rashii_conj, rashii_typ, noni, tari_tari, ukemi, shieki, shieki_ukemi, nakereba_naranai])
 
     # Ingest OpenJLPT rows
     for oj in openjlpt_list:
@@ -469,7 +721,13 @@ def reconcile_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
         elif k == "らしい":
             target = rashii_conj if oj["source_level"] in {"N4", "N3"} and "hear" in oj["meaning"].lower() else rashii_typ
         elif k == "のに":
-            target = noni_cont if "although" in oj["meaning"].lower() or "even" in oj["meaning"].lower() else noni_purp
+            target = noni
+        elif k in {"たりたり", "たり〜たり", "たりたりする"}:
+            target = tari_tari
+        elif k in {"れる / られる", "れる", "られる", "受身", "受身形"}:
+            target = ukemi
+        elif k in {"せる / させる", "せる", "させる", "使役", "使役形"}:
+            target = shieki
         elif k in {"なければならない", "なければならない / なくてはいけない"}:
             target = nakereba_naranai
         else:
@@ -514,10 +772,23 @@ def reconcile_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
     for cur in curated_list:
         k = cur["norm_key"]
         target = None
-        for c in concepts:
-            if c["pattern_key"] == k:
-                target = c
-                break
+        if k == "そうだ" or cur["pattern"].startswith("〜そうだ"):
+            target = souda_hear if "hear" in cur["meaning"].lower() or "hearsay" in cur["pattern"].lower() else souda_app
+        elif k == "らしい":
+            target = rashii_conj if cur["source_level"] in {"N4", "N3"} and "hear" in cur["meaning"].lower() else rashii_typ
+        elif k == "のに":
+            target = noni
+        elif k in {"たりたり", "たり〜たり", "たりたりする"}:
+            target = tari_tari
+        elif k in {"れる / られる", "れる", "られる", "受身", "受身形"}:
+            target = ukemi
+        elif k in {"せる / させる", "せる", "させる", "使役", "使役形"}:
+            target = shieki
+        else:
+            for c in concepts:
+                if c["pattern_key"] == k:
+                    target = c
+                    break
         if target:
             target["source_evidence"].append({
                 "source": "JLPT Reference Curated",
@@ -607,10 +878,13 @@ def reconcile_dataset() -> tuple[list[dict[str, Any]], dict[str, Any]]:
             else:
                 target = rashii_typ
         elif k == "のに":
-            if "purpose" in mean.lower() or "order to" in mean.lower():
-                target = noni_purp
-            else:
-                target = noni_cont
+            target = noni
+        elif k in {"たりたり", "たり〜たり", "たりたりする"}:
+            target = tari_tari
+        elif k in {"れる / られる", "れる", "られる", "受身", "受身形"}:
+            target = ukemi
+        elif k in {"せる / させる", "せる", "させる", "使役", "使役形"}:
+            target = shieki
         elif k in {"させられる", "される", "使役受身"}:
             target = shieki_ukemi
         elif k in {"なければならない", "なくてはいけない", "なくてはならない", "なきゃ", "なくちゃ"}:

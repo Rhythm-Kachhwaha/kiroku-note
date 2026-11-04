@@ -1,10 +1,10 @@
 {
   "summary": {
     "total_reference_entries": 848,
-    "total_canonical_concepts": 900,
+    "total_canonical_concepts": 896,
     "counts_by_status": {
-      "NEW_CONCEPT": 333,
-      "EQUIVALENT": 396,
+      "NEW_CONCEPT": 331,
+      "EQUIVALENT": 398,
       "VOCAB_REFERENCE": 35,
       "LEVEL_RECONCILED": 84
     },
@@ -48,7 +48,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n5_point_74"
+      "concept_id": "c_n5_point_73"
     },
     {
       "source_level": "N5",
@@ -92,7 +92,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n5_point_67"
+      "concept_id": "c_n5_point_66"
     },
     {
       "source_level": "N5",
@@ -147,7 +147,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n5_point_84"
+      "concept_id": "c_n5_point_83"
     },
     {
       "source_level": "N5",
@@ -169,7 +169,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n5_point_84"
+      "concept_id": "c_n5_point_83"
     },
     {
       "source_level": "N5",
@@ -345,7 +345,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n5_point_61"
+      "concept_id": "c_n5_point_60"
     },
     {
       "source_level": "N5",
@@ -554,7 +554,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n5_point_63"
+      "concept_id": "c_n5_point_62"
     },
     {
       "source_level": "N5",
@@ -565,7 +565,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n5_point_69"
+      "concept_id": "c_n5_point_68"
     },
     {
       "source_level": "N5",
@@ -741,7 +741,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n5_point_60"
+      "concept_id": "c_n5_point_59"
     },
     {
       "source_level": "N5",
@@ -761,9 +761,9 @@
       "japanese": "たり～たり",
       "meaning": "do such things as A and B",
       "url": null,
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n5_taritari"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n5_tari_tari"
     },
     {
       "source_level": "N5",
@@ -829,7 +829,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n5_point_89"
+      "concept_id": "c_n5_point_88"
     },
     {
       "source_level": "N5",
@@ -972,7 +972,7 @@
       "url": null,
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N4 to N5 by easiest-level rule",
-      "concept_id": "c_n5_point_72"
+      "concept_id": "c_n5_point_71"
     },
     {
       "source_level": "N4",
@@ -983,7 +983,7 @@
       "url": null,
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N4 to N5 by easiest-level rule",
-      "concept_id": "c_n5_point_62"
+      "concept_id": "c_n5_point_61"
     },
     {
       "source_level": "N4",
@@ -994,7 +994,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_39"
+      "concept_id": "c_n4_point_37"
     },
     {
       "source_level": "N4",
@@ -1016,7 +1016,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_57"
+      "concept_id": "c_n4_point_55"
     },
     {
       "source_level": "N4",
@@ -1038,7 +1038,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_62"
+      "concept_id": "c_n4_point_60"
     },
     {
       "source_level": "N4",
@@ -1049,7 +1049,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_73"
+      "concept_id": "c_n4_point_71"
     },
     {
       "source_level": "N4",
@@ -1093,7 +1093,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_84"
+      "concept_id": "c_n4_point_82"
     },
     {
       "source_level": "N4",
@@ -1115,7 +1115,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_50"
+      "concept_id": "c_n4_point_48"
     },
     {
       "source_level": "N4",
@@ -1137,7 +1137,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_61"
+      "concept_id": "c_n4_point_59"
     },
     {
       "source_level": "N4",
@@ -1148,7 +1148,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_52"
+      "concept_id": "c_n4_point_50"
     },
     {
       "source_level": "N4",
@@ -1159,7 +1159,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_53"
+      "concept_id": "c_n4_point_51"
     },
     {
       "source_level": "N4",
@@ -1225,7 +1225,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_54"
+      "concept_id": "c_n4_point_52"
     },
     {
       "source_level": "N4",
@@ -1236,7 +1236,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_85"
+      "concept_id": "c_n4_point_83"
     },
     {
       "source_level": "N4",
@@ -1258,7 +1258,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_51"
+      "concept_id": "c_n4_point_49"
     },
     {
       "source_level": "N4",
@@ -1269,7 +1269,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_85"
+      "concept_id": "c_n4_point_83"
     },
     {
       "source_level": "N4",
@@ -1324,7 +1324,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_67"
+      "concept_id": "c_n4_point_65"
     },
     {
       "source_level": "N4",
@@ -1368,7 +1368,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_83"
+      "concept_id": "c_n4_point_81"
     },
     {
       "source_level": "N4",
@@ -1390,7 +1390,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_66"
+      "concept_id": "c_n4_point_64"
     },
     {
       "source_level": "N4",
@@ -1478,7 +1478,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_79"
+      "concept_id": "c_n4_point_77"
     },
     {
       "source_level": "N4",
@@ -1500,7 +1500,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_64"
+      "concept_id": "c_n4_point_62"
     },
     {
       "source_level": "N4",
@@ -1533,7 +1533,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_41"
+      "concept_id": "c_n4_point_39"
     },
     {
       "source_level": "N4",
@@ -1544,7 +1544,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_38"
+      "concept_id": "c_n4_point_36"
     },
     {
       "source_level": "N4",
@@ -1588,7 +1588,7 @@
       "url": null,
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N4 to N5 by easiest-level rule",
-      "concept_id": "c_n5_point_69"
+      "concept_id": "c_n5_point_68"
     },
     {
       "source_level": "N4",
@@ -1599,7 +1599,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_60"
+      "concept_id": "c_n4_point_58"
     },
     {
       "source_level": "N4",
@@ -1621,7 +1621,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_noni_contrast"
+      "concept_id": "c_n4_noni"
     },
     {
       "source_level": "N4",
@@ -1632,7 +1632,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_noni_purpose"
+      "concept_id": "c_n4_noni"
     },
     {
       "source_level": "N4",
@@ -1665,7 +1665,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_71"
+      "concept_id": "c_n4_point_69"
     },
     {
       "source_level": "N4",
@@ -1676,7 +1676,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_82"
+      "concept_id": "c_n4_point_80"
     },
     {
       "source_level": "N4",
@@ -1687,7 +1687,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_61"
+      "concept_id": "c_n4_point_59"
     },
     {
       "source_level": "N4",
@@ -1698,7 +1698,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_31"
+      "concept_id": "c_n4_ukemi"
     },
     {
       "source_level": "N4",
@@ -1720,7 +1720,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_80"
+      "concept_id": "c_n4_point_78"
     },
     {
       "source_level": "N4",
@@ -1753,7 +1753,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_33"
+      "concept_id": "c_n4_shieki"
     },
     {
       "source_level": "N4",
@@ -1764,7 +1764,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_68"
+      "concept_id": "c_n4_point_66"
     },
     {
       "source_level": "N4",
@@ -1786,7 +1786,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_43"
+      "concept_id": "c_n4_point_41"
     },
     {
       "source_level": "N4",
@@ -1863,7 +1863,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_58"
+      "concept_id": "c_n4_point_56"
     },
     {
       "source_level": "N4",
@@ -1896,7 +1896,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_49"
+      "concept_id": "c_n4_point_47"
     },
     {
       "source_level": "N4",
@@ -1907,7 +1907,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_40"
+      "concept_id": "c_n4_point_38"
     },
     {
       "source_level": "N4",
@@ -1918,7 +1918,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_77"
+      "concept_id": "c_n4_point_75"
     },
     {
       "source_level": "N4",
@@ -1962,7 +1962,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_48"
+      "concept_id": "c_n4_point_46"
     },
     {
       "source_level": "N4",
@@ -1995,7 +1995,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_86"
+      "concept_id": "c_n4_point_84"
     },
     {
       "source_level": "N4",
@@ -2116,7 +2116,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_42"
+      "concept_id": "c_n4_point_40"
     },
     {
       "source_level": "N4",
@@ -2149,7 +2149,7 @@
       "url": null,
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N4 to N5 by easiest-level rule",
-      "concept_id": "c_n5_point_83"
+      "concept_id": "c_n5_point_82"
     },
     {
       "source_level": "N4",
@@ -2193,7 +2193,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_55"
+      "concept_id": "c_n4_point_53"
     },
     {
       "source_level": "N4",
@@ -2204,7 +2204,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_78"
+      "concept_id": "c_n4_point_76"
     },
     {
       "source_level": "N4",
@@ -2215,7 +2215,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_90"
+      "concept_id": "c_n4_point_87"
     },
     {
       "source_level": "N4",
@@ -2226,7 +2226,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_61"
+      "concept_id": "c_n4_point_59"
     },
     {
       "source_level": "N4",
@@ -2246,9 +2246,9 @@
       "japanese": "受身形（うけみけい）",
       "meaning": "passive form; passive voice",
       "url": null,
-      "status": "NEW_CONCEPT",
-      "notes": "Reference entry added as canonical concept",
-      "concept_id": "c_n4_ukemi_kei"
+      "status": "EQUIVALENT",
+      "notes": "",
+      "concept_id": "c_n4_ukemi"
     },
     {
       "source_level": "N4",
@@ -2270,7 +2270,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_60"
+      "concept_id": "c_n4_point_58"
     },
     {
       "source_level": "N4",
@@ -2336,7 +2336,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_47"
+      "concept_id": "c_n4_point_45"
     },
     {
       "source_level": "N4",
@@ -2347,7 +2347,7 @@
       "url": null,
       "status": "EQUIVALENT",
       "notes": "",
-      "concept_id": "c_n4_point_46"
+      "concept_id": "c_n4_point_44"
     },
     {
       "source_level": "N4",
@@ -2380,7 +2380,7 @@
       "url": null,
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N4 to N5 by easiest-level rule",
-      "concept_id": "c_n5_point_73"
+      "concept_id": "c_n5_point_72"
     },
     {
       "source_level": "N4",
@@ -2457,7 +2457,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%e3%82%88%e3%81%8b%e3%81%a3%e3%81%9f-ba-yokatta-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N3 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_76"
+      "concept_id": "c_n4_point_74"
     },
     {
       "source_level": "N3",
@@ -2479,7 +2479,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%b0%ef%bd%9e%e3%81%ae%e3%81%ab-ba-noni-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N3 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_39"
+      "concept_id": "c_n4_point_37"
     },
     {
       "source_level": "N3",
@@ -2567,7 +2567,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a0%e3%81%91-dake-meaning-as-much-as/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N3 to N5 by easiest-level rule",
-      "concept_id": "c_n5_point_74"
+      "concept_id": "c_n5_point_73"
     },
     {
       "source_level": "N3",
@@ -2611,7 +2611,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a9%e3%82%93%e3%81%aa%e3%81%ab%ef%bd%9e%e3%81%a6%e3%82%82-donna-ni-temo-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N3 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_42"
+      "concept_id": "c_n4_point_40"
     },
     {
       "source_level": "N3",
@@ -2710,7 +2710,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%bb%e3%81%a9%ef%bd%9e%e3%81%aa%e3%81%84-hodo-nai-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N3 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_63"
+      "concept_id": "c_n4_point_61"
     },
     {
       "source_level": "N3",
@@ -2732,7 +2732,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%84%e3%81%8f%e3%82%89%ef%bd%9e%e3%81%a6%e3%82%82-ikura-temo-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N3 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_42"
+      "concept_id": "c_n4_point_40"
     },
     {
       "source_level": "N3",
@@ -3051,7 +3051,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%82%e3%81%97%e3%82%82%e3%80%9c%e3%81%9f%e3%82%89-moshimo-tara-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N3 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_40"
+      "concept_id": "c_n4_point_38"
     },
     {
       "source_level": "N3",
@@ -3689,7 +3689,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9f%e3%82%81%e3%81%ab-tame-ni-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N3 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_44"
+      "concept_id": "c_n4_point_42"
     },
     {
       "source_level": "N3",
@@ -3865,7 +3865,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%a6%e3%82%82%e3%81%8b%e3%81%be%e3%82%8f%e3%81%aa%e3%81%84-temo-kamawanai-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N3 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_74"
+      "concept_id": "c_n4_point_72"
     },
     {
       "source_level": "N3",
@@ -4327,7 +4327,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%82%88%e3%81%86%e3%81%ab-you-ni-meaning-in-order-to/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N3 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_45"
+      "concept_id": "c_n4_point_43"
     },
     {
       "source_level": "N3",
@@ -4393,7 +4393,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/jlpt-n3-grammar-%e3%81%9a%e3%81%a4-zutsu-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N3 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_65"
+      "concept_id": "c_n4_point_63"
     },
     {
       "source_level": "N2",
@@ -4426,7 +4426,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/n2-%e3%81%b0%e3%81%8b%e3%82%8a-bakari-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N2 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_57"
+      "concept_id": "c_n4_point_55"
     },
     {
       "source_level": "N2",
@@ -8364,7 +8364,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%95-sa-ending-particle-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N1 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_80"
+      "concept_id": "c_n4_point_78"
     },
     {
       "source_level": "N1",
@@ -8551,7 +8551,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9f%e3%82%89%ef%bd%9e%e3%81%9f%e3%81%a7-tara-tade-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N1 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_40"
+      "concept_id": "c_n4_point_38"
     },
     {
       "source_level": "N1",
@@ -8562,7 +8562,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/%e3%81%9f%e3%82%89%ef%bd%9e%e3%81%a8%e3%81%93%e3%82%8d%e3%81%a0-tara-tokoro-da-meaning/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N1 to N4 by easiest-level rule",
-      "concept_id": "c_n4_point_40"
+      "concept_id": "c_n4_point_38"
     },
     {
       "source_level": "N1",
@@ -8793,7 +8793,7 @@
       "url": "https://jlptsensei.com/learn-japanese-grammar/n1-%e3%81%a8%e3%81%84%e3%81%86-to-iu-meaning-all-every/",
       "status": "LEVEL_RECONCILED",
       "notes": "Reconciled from N1 to N5 by easiest-level rule",
-      "concept_id": "c_n5_point_83"
+      "concept_id": "c_n5_point_82"
     },
     {
       "source_level": "N1",

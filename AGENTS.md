@@ -33,6 +33,7 @@ Plan slices: load via implementation_plan.md LOAD PROTOCOL.
 `docs/maps/ui-rules.md` is sole active UI reference; `docs/archive/` is historical.
 Load skills only if user-named/task-matched. No design skills for backend/docs/tests.
 After 3 reads, report findings before more. One update before multi-step; one result after.
+After you're done with whole task provide : End note explaining user what happened and what changed in simple words, and how its gonna benefit end user.
 
 ## Tests
 

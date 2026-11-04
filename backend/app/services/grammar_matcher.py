@@ -499,8 +499,10 @@ class GrammarMatcher:
             second = spec.get("second")
             if not isinstance(first, str) or not isinstance(second, str):
                 return []
-            gap = int(spec.get("max_gap", 20))
-            pattern = f"(?P<a>{first})(?P<m>[^、。！？]{{0,{gap}}}?)(?P<b>{second})"
+            gap = int(spec.get("max_gap", 25))
+            break_chars = spec.get("clause_break", "[、。！？]")
+            allowed_gap = f"[^{break_chars[1:-1]}]" if break_chars.startswith("[") and break_chars.endswith("]") else f"[^{break_chars}]"
+            pattern = f"(?P<a>{first})(?P<m>{allowed_gap}{{0,{gap}}}?)(?P<b>{second})"
             for match in re.finditer(pattern, raw_text):
                 matches.append(self._candidate(
                     point, raw_text, match.start(), match.end(),
@@ -582,7 +584,7 @@ class GrammarMatcher:
         parent_base = parent_key.split("(")[0].strip()
         if child_base in {"ば", "ない", "だ", "た", "ている", "ていた", "まい"}:
             return True
-        if child_base in parent_base or child_text in parent_text:
+        if child_base in parent_base:
             return True
         return False
 
@@ -620,6 +622,26 @@ class GrammarMatcher:
             dedup_key = (item.concept_id or item.pattern_key, item.start, item.end)
             unique.setdefault(dedup_key, item)
         candidates = list(unique.values())
+
+        # Boundary adjustments for overlapping/connected grammar points:
+        for a in candidates:
+            if not a.pattern_key:
+                continue
+            for b in candidates:
+                if b is a or not b.pattern_key:
+                    continue
+                if b.pattern_key == "のに" and a.start <= b.start < a.end < b.end:
+                    b.start = a.end
+                    b.text = raw_text[b.start:b.end]
+                elif (
+                    a.pattern_key in {"使役", "使役形", "受身", "受身形"}
+                    and b.pattern_key in {"ていただく", "てくださる / ていただく", "てくださる"}
+                    and a.start <= b.start < a.end < b.end
+                ):
+                    te_idx = raw_text.rfind("て", a.start, a.end)
+                    if te_idx >= 0:
+                        b.start = te_idx
+                        b.text = raw_text[b.start:b.end]
 
         # Suppress contained weaker candidates: if span A strictly contains span B and B's pattern is a component
         if not show_all:

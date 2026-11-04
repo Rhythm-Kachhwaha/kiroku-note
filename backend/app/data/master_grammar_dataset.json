@@ -23,6 +23,12 @@
         "source_pattern": "〜そうだ（appearance）"
       },
       {
+        "source": "JLPT Reference Curated",
+        "source_level": "N4",
+        "source_pattern": "〜そうだ（appearance）",
+        "curated_id": 23
+      },
+      {
         "source": "Kiroku matcher seed",
         "source_level": "N4",
         "source_pattern": "そうだ(appearance)"
@@ -165,7 +171,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: らしい (conjecture). Meaning: seems like; I heard; typical of. Formation: Plain form + らしい."
   },
   {
@@ -209,14 +217,16 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: らしい (typical). Meaning: seems; I heard; typical (less casual than みたい). Formation: Noun + らしい."
   },
   {
-    "pattern_display": "のに (contrast)",
+    "pattern_display": "のに",
     "pattern_key": "のに",
-    "meaning_short": "although; in spite of; even though",
-    "formation": "Plain form + のに",
+    "meaning_short": "although; in spite of; even though; for the purpose of",
+    "formation": "Plain form / V-dictionary + のに",
     "variants": [
       "のに"
     ],
@@ -224,43 +234,7 @@
       {
         "ja": "一生懸命勉強したのに、試験に落ちた。",
         "en": "Although I studied hard, I failed the exam."
-      }
-    ],
-    "group_id": "のに",
-    "source_evidence": [
-      {
-        "source": "OpenJLPT",
-        "source_level": "N4",
-        "source_pattern": "〜のに（although）"
       },
-      {
-        "source": "JLPT Sensei N4",
-        "source_level": "N4",
-        "source_pattern": "のに",
-        "ref_num": 62
-      }
-    ],
-    "canonical_level": "N4",
-    "concept_id": "c_n4_noni_contrast",
-    "matcher": {
-      "type": "pattern",
-      "variants": [
-        "のに"
-      ],
-      "match_mode": "reference_only"
-    },
-    "guards": null,
-    "english_breakdown": "Pattern: のに (contrast). Meaning: although; in spite of; even though. Formation: Plain form + のに."
-  },
-  {
-    "pattern_display": "のに (purpose)",
-    "pattern_key": "のに",
-    "meaning_short": "for the purpose of; in order to",
-    "formation": "V-dictionary + のに",
-    "variants": [
-      "のに"
-    ],
-    "examples": [
       {
         "ja": "この辞書は漢字を調べるのに便利だ。",
         "en": "This dictionary is convenient for looking up kanji."
@@ -271,7 +245,18 @@
       {
         "source": "OpenJLPT",
         "source_level": "N4",
+        "source_pattern": "〜のに（although）"
+      },
+      {
+        "source": "OpenJLPT",
+        "source_level": "N4",
         "source_pattern": "〜のに（purpose）"
+      },
+      {
+        "source": "JLPT Sensei N4",
+        "source_level": "N4",
+        "source_pattern": "のに",
+        "ref_num": 62
       },
       {
         "source": "JLPT Sensei N4",
@@ -281,16 +266,144 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_noni_purpose",
+    "concept_id": "c_n4_noni",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "のに"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+のに"
     },
     "guards": null,
-    "english_breakdown": "Pattern: のに (purpose). Meaning: for the purpose of; in order to. Formation: V-dictionary + のに."
+    "english_breakdown": "Pattern: のに. Meaning: although; in spite of; even though; for the purpose of. Formation: Plain form / V-dictionary + のに."
+  },
+  {
+    "pattern_display": "〜たり〜たり",
+    "pattern_key": "たり〜たり",
+    "meaning_short": "do such things as … and …",
+    "formation": "V-た + り + V-た + りする",
+    "variants": [
+      "たり〜たり",
+      "たりたり",
+      "たりたりする",
+      "たり"
+    ],
+    "examples": [
+      {
+        "ja": "休みの日は本を読んだり、音楽を聴いたりします。",
+        "en": "On my days off, I do things like read books and listen to music."
+      }
+    ],
+    "group_id": "たり〜たり",
+    "source_evidence": [
+      {
+        "source": "OpenJLPT",
+        "source_level": "N5",
+        "source_pattern": "〜たり〜たりする"
+      },
+      {
+        "source": "JLPT Sensei N5",
+        "source_level": "N5",
+        "source_pattern": "たり～たり",
+        "ref_num": 68
+      }
+    ],
+    "canonical_level": "N5",
+    "concept_id": "c_n5_tari_tari",
+    "matcher": {
+      "type": "discontinuous",
+      "first": "[^はがをでにとも、。！？\\s]+?(?:たり|だり)",
+      "second": "[^はがをでにとも、。！？\\s]+(?:たり|だり)(?:します|しました|した|する|して|し)?",
+      "max_gap": 25,
+      "clause_break": "[。！？]"
+    },
+    "guards": null,
+    "english_breakdown": "Pattern: 〜たり〜たり. Meaning: do such things as … and …. Formation: V-た + り + V-た + りする."
+  },
+  {
+    "pattern_display": "受身",
+    "pattern_key": "受身",
+    "meaning_short": "passive form (be done)",
+    "formation": "V-れる / V-られる",
+    "variants": [
+      "受身",
+      "受身形",
+      "れる",
+      "られる",
+      "れる / られる"
+    ],
+    "examples": [
+      {
+        "ja": "先生に褒められて嬉しかった。",
+        "en": "I was praised by the teacher and was happy."
+      }
+    ],
+    "group_id": "受身",
+    "source_evidence": [
+      {
+        "source": "OpenJLPT",
+        "source_level": "N4",
+        "source_pattern": "〜れる / 〜られる（passive）"
+      },
+      {
+        "source": "JLPT Sensei N4",
+        "source_level": "N4",
+        "source_pattern": "られる",
+        "ref_num": 69
+      },
+      {
+        "source": "JLPT Sensei N4",
+        "source_level": "N4",
+        "source_pattern": "受身形（うけみけい）",
+        "ref_num": 119
+      }
+    ],
+    "canonical_level": "N4",
+    "concept_id": "c_n4_ukemi",
+    "matcher": {
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:られ|[あかさただなはまらがざばぱ]れ)"
+    },
+    "guards": null,
+    "english_breakdown": "Pattern: 受身. Meaning: passive form (be done). Formation: V-れる / V-られる."
+  },
+  {
+    "pattern_display": "使役",
+    "pattern_key": "使役",
+    "meaning_short": "causative form (make/let do)",
+    "formation": "V-せる / V-させる",
+    "variants": [
+      "使役",
+      "使役形",
+      "せる",
+      "させる",
+      "せる / させる"
+    ],
+    "examples": [
+      {
+        "ja": "母は子どもに野菜を食べさせた。",
+        "en": "The mother made the child eat vegetables."
+      }
+    ],
+    "group_id": "使役",
+    "source_evidence": [
+      {
+        "source": "OpenJLPT",
+        "source_level": "N4",
+        "source_pattern": "〜せる / 〜させる"
+      },
+      {
+        "source": "JLPT Sensei N4",
+        "source_level": "N4",
+        "source_pattern": "させる",
+        "ref_num": 74
+      }
+    ],
+    "canonical_level": "N4",
+    "concept_id": "c_n4_shieki",
+    "matcher": {
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:させ|[あかさただなはまらがざばぱ]せ)(?:て|た|る|ます|ない)?"
+    },
+    "guards": null,
+    "english_breakdown": "Pattern: 使役. Meaning: causative form (make/let do). Formation: V-せる / V-させる."
   },
   {
     "pattern_display": "使役受身",
@@ -440,7 +553,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜がてら. Meaning: while; on the way; taking the opportunity of. Formation: Verb-stem / Noun + がてら."
   },
   {
@@ -580,7 +695,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜すら. Meaning: even; not even (an extreme example). Formation: Noun (+ particle) + すら."
   },
   {
@@ -626,7 +743,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ずくめ. Meaning: nothing but; entirely; one ... after another. Formation: Noun + ずくめ."
   },
   {
@@ -670,7 +789,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜たら最後 / 〜が最後. Meaning: once ... (there's no going back); if ever ..., that's the end. Formation: Verb-ta + ら最後 / Verb-ta + が最後."
   },
   {
@@ -756,11 +877,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_8",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "てやまない"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+てやまない"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜てやまない. Meaning: never cease to; sincerely; deeply (hope, respect, love). Formation: Verb-te + やまない."
@@ -961,11 +1079,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_13",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "うものなら"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+[おう]ものなら"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜(よ)うものなら. Meaning: if one were to (do), (something terrible would happen). Formation: Verb-volitional + ものなら."
@@ -1010,14 +1125,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_14",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "に至る",
-        "に至って",
-        "に至っては",
-        "に至った"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+に至(?:る|った|って(?:は)?)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜に至る / 〜に至って / 〜に至っては. Meaning: reach; lead to; only when it came to; as for (the most extreme case). Formation: Noun / Verb-dict + に至る / Noun / Verb-dict + に至って / Noun + に至っては."
@@ -1099,11 +1208,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "を余儀なくされる"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+を余儀なくされ(?:る|た)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜を余儀なくされる. Meaning: be forced to; have no choice but to. Formation: Noun + を余儀なくされる."
@@ -1220,12 +1326,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_18",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "うが",
-        "うと"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:[よう]が|[よう]と)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜(よ)うが / 〜(よ)うと. Meaning: no matter (what, how); even if. Formation: Verb-volitional + が / Verb-volitional + と / i-Adj stem + かろうが / na-Adj + だろうが / Noun + だろうが."
@@ -1487,7 +1589,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜極まる / 〜極まりない. Meaning: extremely; utterly. Formation: na-Adj + 極まる / na-Adj + 極まりない."
   },
   {
@@ -1527,7 +1631,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜の極み. Meaning: the height of; the utmost. Formation: Noun + の極み."
   },
   {
@@ -1563,13 +1669,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_27",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ごとき",
-        "ごとく",
-        "ごとし"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+かのごとく"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ごとき / 〜ごとく. Meaning: like; as; (after a person) the likes of. Formation: Noun + の + ごとく / Verb-plain + (が) + ごとく / Noun + (の) + ごとき + Noun."
@@ -1691,7 +1792,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜始末だ. Meaning: end up (in a bad state); (things) have come to this. Formation: Verb-dict + 始末だ / この + 始末だ."
   },
   {
@@ -1725,11 +1828,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_31",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ずじまい"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ずじまい(?:だ|だった)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ずじまい. Meaning: end up never doing; never got around to. Formation: Verb-nai stem + ずじまい (する → せずじまい)."
@@ -1969,7 +2069,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜たる. Meaning: as (one in the position of); befitting. Formation: Noun + たる + Noun / Noun + たるもの."
   },
   {
@@ -2009,11 +2111,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_2",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "つつ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+つつ(?:も)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜つ〜つ. Meaning: (doing) A and B alternately; back and forth. Formation: Verb-stem + つ + Verb-stem + つ."
@@ -2065,7 +2164,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜であれ / 〜であれ〜であれ. Meaning: whatever (it is); whoever; whether A or B. Formation: Noun + であれ / Question word + であれ / Noun + であれ + Noun + であれ."
   },
   {
@@ -2179,11 +2280,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_41",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "手前"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+手前"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜手前. Meaning: since (considering how it looks to others); out of consideration for. Formation: Verb-plain / Noun + の + 手前."
@@ -2213,11 +2311,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_42",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "てもさしつかえない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+てもさしつかえ(?:ない|ありません)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜てもさしつかえない. Meaning: it's all right to; there's no problem if. Formation: Verb-te + もさしつかえない / i-Adj-ku + て + もさしつかえない / na-Adj + でもさしつかえない / Noun + でもさしつかえない."
@@ -2455,11 +2550,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_48",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "といったらない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+といったら(?:ない|なかった)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜といったらない. Meaning: indescribably; extremely; beyond words. Formation: i-Adj / na-Adj / Noun + といったらない."
@@ -2577,11 +2669,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_51",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "とは"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+とは"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜とは. Meaning: (to think) that ...!; I'm surprised that. Formation: Verb-plain / i-Adj / na-Adj / Noun + とは."
@@ -2863,7 +2952,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜なしに(は). Meaning: without. Formation: Noun + なしに(は)."
   },
   {
@@ -2973,11 +3064,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_61",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "なり"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+なり"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜なり. Meaning: as soon as; the moment. Formation: Verb-dict + なり."
@@ -3013,11 +3101,11 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_62",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "なりなり"
-      ],
-      "match_mode": "reference_only"
+      "type": "discontinuous",
+      "first": "[ぁ-ゖァ-ヺ一-龯]+なり",
+      "second": "[ぁ-ゖァ-ヺ一-龯]+なり",
+      "max_gap": 25,
+      "clause_break": "[。！？]"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜なり〜なり. Meaning: either A or B; A or B or whatever. Formation: Noun + なり + Noun + なり / Verb-dict + なり + Verb-dict + なり."
@@ -3061,7 +3149,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜なりに / 〜なりの. Meaning: in one's own way; as far as (one's limits) allow. Formation: Noun + なりに / Noun + なりの + Noun / i-Adj + なりに / Verb-plain + なりに."
   },
   {
@@ -3221,7 +3311,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜にして. Meaning: only (at/with); even for; being both A and B. Formation: Noun + にして."
   },
   {
@@ -3290,12 +3382,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_69",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "に堪える",
-        "に堪えない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+に(?:堪え|耐え)(?:る|ない)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜に堪える / 〜に堪えない. Meaning: be worth (doing); unbearable to (see, hear); (feel) deeply. Formation: Verb-dict + に堪える / Noun + に堪える / Verb-dict + に堪えない / Noun + に堪えない."
@@ -3339,7 +3427,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜に足る. Meaning: worthy of; sufficient to. Formation: Verb-dict + に足る + Noun / Noun + に足る + Noun."
   },
   {
@@ -3487,7 +3577,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜の至り. Meaning: utmost; the height of (in set phrases). Formation: Noun + の至り."
   },
   {
@@ -3607,7 +3699,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ばこそ. Meaning: precisely because; only because. Formation: Verb-ba + こそ / i-Adj stem + ければこそ / na-Adj + であればこそ / Noun + であればこそ."
   },
   {
@@ -3771,7 +3865,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜まじき. Meaning: unacceptable for (someone in that position); should not. Formation: Noun + に + あるまじき + Noun / Verb-dict + まじき + Noun."
   },
   {
@@ -3855,7 +3951,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜までだ / 〜までのことだ. Meaning: (I'll) just (do); I merely (did). Formation: Verb-dict + までだ / Verb-ta + までだ / Verb-dict + までのことだ."
   },
   {
@@ -3889,11 +3987,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_83",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "まみれ"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+まみれ"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜まみれ. Meaning: covered in; smeared with. Formation: Noun + まみれ."
@@ -4012,7 +4107,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ものを. Meaning: if only (..., but); although (regret or reproach). Formation: Verb-plain / i-Adj / na-Adj + な + ものを."
   },
   {
@@ -4052,7 +4149,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜や否や. Meaning: as soon as; the moment; no sooner ... than. Formation: Verb-dict + や否や / Verb-dict + や."
   },
   {
@@ -4080,11 +4179,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_88",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ゆえ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ゆえ(?:に)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ゆえ(に). Meaning: because of; due to; therefore. Formation: Noun + (の) + ゆえ(に) / Verb-plain + (が) + ゆえ(に) / i-Adj + (が) + ゆえ(に) / na-Adj + である + がゆえに."
@@ -4208,7 +4304,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜を機に. Meaning: taking the opportunity of; with (an event) as a turning point. Formation: Noun + を機に / Verb-plain + の + を機に."
   },
   {
@@ -4283,12 +4381,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_93",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "をもって",
-        "をもちまして"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+を(?:もって|もちまして)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜をもって. Meaning: with; by means of; as of (a time). Formation: Noun + をもって."
@@ -4466,7 +4560,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜うえは. Meaning: now that; since (one must). Formation: Verb-dict / Verb-ta + うえは."
   },
   {
@@ -4494,11 +4590,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_99",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ただのみ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "ただ[ぁ-ゖァ-ヺ一-龯]+のみ(?:だ)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: ただ〜のみ. Meaning: only; just; nothing but. Formation: ただ + Noun + のみ / ただ + Verb-dict + のみ."
@@ -4534,11 +4627,11 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_100",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "だのだの"
-      ],
-      "match_mode": "reference_only"
+      "type": "discontinuous",
+      "first": "[ぁ-ゖァ-ヺ一-龯]+だの",
+      "second": "[ぁ-ゖァ-ヺ一-龯]+だの",
+      "max_gap": 25,
+      "clause_break": "[。！？]"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜だの〜だの. Meaning: things like A and B (complaining list). Formation: Noun / Verb-plain / i-Adj / na-Adj + だの + ... + だの."
@@ -4842,7 +4935,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ずとも. Meaning: even without; without having to. Formation: Verb-nai stem + ずとも (する → せずとも)."
   },
   {
@@ -4964,7 +5059,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜じみる / 〜じみた. Meaning: smack of; seem like (in a bad way); -ish. Formation: Noun + じみる / Noun + じみた + Noun."
   },
   {
@@ -5004,7 +5101,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ぐるみ. Meaning: including all; the whole (group) together. Formation: Noun + ぐるみ."
   },
   {
@@ -5158,11 +5257,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_116",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "かれかれ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+かれ[ぁ-ゖァ-ヺ一-龯]+かれ"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜かれ〜かれ. Meaning: whether A or B; A or B alike (fixed pairs). Formation: i-Adj stem + かれ + i-Adj stem + かれ."
@@ -5914,11 +6010,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_14",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "かのようだ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+かのような[ぁ-ゖァ-ヺ一-龯]+"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜かのようだ. Meaning: as if; as though (when it isn't really so). Formation: Verb-plain / i-Adj + かのようだ / na-Adj + である + かのようだ / Noun + である + かのようだ."
@@ -6006,11 +6099,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_16",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "かねる"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+かね(?:る|ます|ない)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜かねる. Meaning: cannot; be unable to (polite refusal); find it hard to. Formation: Verb-stem + かねる."
@@ -6182,7 +6272,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ものか. Meaning: no way (will I); as if; I'll never. Formation: Verb-dict / i-Adj / na-Adj + な + ものか."
   },
   {
@@ -6222,7 +6314,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ものの. Meaning: although; even though (but the expected result doesn't follow). Formation: Verb-plain / i-Adj / na-Adj + な / na-Adj + である / Noun + である + ものの."
   },
   {
@@ -6390,7 +6484,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ことか. Meaning: how ...!; how much ...!. Formation: Question word + … + Verb-plain / i-Adj / na-Adj + な + ことか."
   },
   {
@@ -6430,7 +6526,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ことに（は）. Meaning: (emotion)-ly; what is (surprising, sad, etc.) is that. Formation: Verb-ta / i-Adj / na-Adj + な + ことに（は）."
   },
   {
@@ -6626,11 +6724,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_6",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ことはが"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ことは[ぁ-ゖァ-ヺ一-龯]+が"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ことは〜が. Meaning: it's true that ..., but; (I) do ..., but. Formation: Verb-plain + ことは + Verb-plain + が / i-Adj + ことは + i-Adj + が / na-Adj + な + ことは + na-Adj + だ + が."
@@ -6672,7 +6767,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜あげく. Meaning: after (a long, troublesome process); in the end. Formation: Verb-ta + あげく / Noun + の + あげく."
   },
   {
@@ -6712,7 +6809,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜あまり（に）. Meaning: so much that; out of excessive; because of too much. Formation: Verb-dict / Verb-ta / na-Adj + な / Noun + の + あまり（に）."
   },
   {
@@ -6751,11 +6850,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_30",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "上"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+上に"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜上（に）. Meaning: besides; on top of; in addition to. Formation: Verb-plain / i-Adj / na-Adj + な / Noun + である + 上（に）."
@@ -6795,9 +6891,11 @@
       "variants": [
         "上で"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜上で. Meaning: after (doing), upon; in (doing), when it comes to. Formation: Verb-ta + 上で / Noun + の + 上で / Verb-dict + 上で."
   },
   {
@@ -6825,11 +6923,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_31",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "以上"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+以上(?:は)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜以上（は）. Meaning: since; now that; as long as. Formation: Verb-plain / na-Adj + である / Noun + である + 以上（は）."
@@ -7099,11 +7194,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_38",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "際"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+際(?:に|は)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜際（に）. Meaning: when; at the time of; on the occasion of. Formation: Verb-dict / Verb-ta / Noun + の + 際（に）."
@@ -7139,11 +7231,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_39",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "次第"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+次第"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜次第. Meaning: as soon as (then immediately). Formation: Verb-stem + 次第 / Noun + 次第."
@@ -7187,7 +7276,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜次第だ / 〜次第で. Meaning: depending on; it depends on. Formation: Noun + 次第だ / Noun + 次第で / Noun + 次第では."
   },
   {
@@ -7215,11 +7306,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_41",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "末"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:の末|末に|末)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜末（に）. Meaning: after (a long process of); finally, at the end of. Formation: Verb-ta + 末（に） / Noun + の + 末（に）."
@@ -7261,11 +7349,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_42",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "たところで"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+たところで"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜たところで. Meaning: even if (it would be no use); no matter how much. Formation: Verb-ta + ところで."
@@ -7301,11 +7386,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "たところ"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+たところ"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜たところ. Meaning: when (I) did ..., (I found that); upon doing. Formation: Verb-ta + ところ."
@@ -7590,12 +7672,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_48",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "反面",
-        "半面"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:反面|半面)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜反面 / 〜半面. Meaning: on the other hand; while (it is ...). Formation: Verb-plain / i-Adj / na-Adj + な / na-Adj + である / Noun + である + 反面."
@@ -7642,7 +7720,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ながら（も）. Meaning: although; despite; while (contrary to expectation). Formation: Verb-stem / Verb-nai / i-Adj / na-Adj / Noun + ながら（も）."
   },
   {
@@ -7671,12 +7751,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_49",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "つつ",
-        "つつも"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+つつ(?:も)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜つつ / 〜つつも. Meaning: while (doing); although, even while. Formation: Verb-stem + つつ / Verb-stem + つつも."
@@ -7843,7 +7919,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜得る / 〜得ない. Meaning: can; be possible / cannot; be impossible. Formation: Verb-stem + 得る / Verb-stem + 得ない."
   },
   {
@@ -7883,7 +7961,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜がたい. Meaning: hard to; almost impossible to (emotionally). Formation: Verb-stem + がたい."
   },
   {
@@ -7997,11 +8077,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_54",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "てならない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+てならない"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜てならない. Meaning: can't help (feeling); feel terribly; extremely. Formation: Verb-te + ならない / i-Adj-ku + てならない / na-Adj + でならない."
@@ -8043,7 +8120,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜てこそ. Meaning: only by (doing); only when. Formation: Verb-te + こそ."
   },
   {
@@ -8123,7 +8202,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜て以来. Meaning: ever since. Formation: Verb-te + 以来 / Noun + 以来."
   },
   {
@@ -8203,7 +8284,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜に限る. Meaning: nothing beats; the best thing is. Formation: Verb-dict / Verb-nai / Noun + に限る."
   },
   {
@@ -8317,7 +8400,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜に限り. Meaning: limited to; only (for). Formation: Noun + に限り."
   },
   {
@@ -8351,7 +8436,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜かぎり. Meaning: as long as; as far as (to the limit of). Formation: Verb-dict / Verb-te + いる / i-Adj / na-Adj + である / Noun + である + かぎり."
   },
   {
@@ -8537,7 +8624,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜にしろ / 〜にせよ. Meaning: even if; whether ... or ...; in any case. Formation: Verb-plain / i-Adj / na-Adj / Noun + にしろ・にせよ."
   },
   {
@@ -8925,7 +9014,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜につき. Meaning: per; for each; due to (in formal notices). Formation: Noun + につき."
   },
   {
@@ -9039,7 +9130,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜抜きで / 〜抜きに. Meaning: without; leaving out. Formation: Noun + 抜きで / Noun + 抜きに / Noun + 抜きの + Noun."
   },
   {
@@ -9261,11 +9354,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_83",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "をとして"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+を[ぁ-ゖァ-ヺ一-龯]*として"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜を〜として. Meaning: treating (A) as (B); with A as B. Formation: Noun + を + Noun + として / Noun + を + Noun + とする."
@@ -9377,11 +9467,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_86",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "かないかのうちに"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+か[ぁ-ゖァ-ヺ一-龯]+ないかのうちに"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜か〜ないかのうちに. Meaning: as soon as; barely ... when. Formation: Verb-dict + か + Verb-nai + かのうちに / Verb-ta + か + Verb-nai + かのうちに."
@@ -9417,11 +9504,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_17",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "きり"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+きり"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜きり. Meaning: since (and nothing after); only; just. Formation: Verb-ta + きり / Noun + きり."
@@ -9457,11 +9541,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_87",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "げ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+げ(?:に|な)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜げ. Meaning: seeming; looking (as if); with an air of. Formation: i-Adj stem + げ / na-Adj + げ / Verb-stem + たげ."
@@ -9884,11 +9965,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_96",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "うではないか"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+[よう]ではないか"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜（よ）うではないか. Meaning: let's (formal call to action); why don't we. Formation: Verb-volitional + ではないか / Verb-volitional + ではありませんか."
@@ -9958,11 +10036,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_98",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "おそれがある"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+おそれがある"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜おそれがある. Meaning: there is a risk that; could (bad outcome). Formation: Verb-dict + おそれがある / Noun + の + おそれがある."
@@ -10004,7 +10079,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜せいか. Meaning: perhaps because; maybe due to. Formation: Verb-plain / i-Adj / na-Adj + な / Noun + の + せいか."
   },
   {
@@ -10052,7 +10129,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜だけあって / 〜だけに. Meaning: as might be expected (since); precisely because; all the more because. Formation: Verb-plain / i-Adj / na-Adj + な / Noun + だけあって・だけに."
   },
   {
@@ -10126,11 +10205,11 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_20",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "たとえても"
-      ],
-      "match_mode": "reference_only"
+      "type": "discontinuous",
+      "first": "たとえ",
+      "second": "[ぁ-ゖァ-ヺ一-龯]+(?:ても|でも)",
+      "max_gap": 25,
+      "clause_break": "[。！？]"
     },
     "guards": null,
     "english_breakdown": "Pattern: たとえ〜ても. Meaning: even if; no matter. Formation: たとえ + Verb-te + も / たとえ + i-Adj-ku + ても / たとえ + na-Adj + でも / たとえ + Noun + でも."
@@ -10166,11 +10245,11 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_102",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "やらやら"
-      ],
-      "match_mode": "reference_only"
+      "type": "discontinuous",
+      "first": "[ぁ-ゖァ-ヺ一-龯]+やら",
+      "second": "[ぁ-ゖァ-ヺ一-龯]+やら",
+      "max_gap": 25,
+      "clause_break": "[。！？]"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜やら〜やら. Meaning: what with ... and ...; and ... and (among other things). Formation: Noun + やら + Noun + やら / Verb-dict + やら + Verb-dict + やら / i-Adj + やら + i-Adj + やら."
@@ -10207,12 +10286,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_103",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ずに済む",
-        "ないで済む"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:ずに済|ないで済)(?:む|んだ|んで|みます)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ずに済む / 〜ないで済む. Meaning: get by without; not have to; be spared from. Formation: Verb-nai stem + ずに済む / Verb-nai + で済む."
@@ -10308,7 +10383,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜わけだ. Meaning: no wonder; that's why; it follows that. Formation: Verb-plain / i-Adj / na-Adj + な / Noun + という + わけだ."
   },
   {
@@ -10492,7 +10569,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ものだ. Meaning: it's natural that; one should; used to (nostalgia); how ...! (deep feeling). Formation: Verb-dict / Verb-ta / i-Adj / na-Adj + な + ものだ."
   },
   {
@@ -10578,9 +10657,11 @@
         "もの",
         "もん"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜もの / 〜もん. Meaning: because (casual excuse or self-justification). Formation: Sentence + もの / もん."
   },
   {
@@ -10628,7 +10709,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ものだから / 〜もので. Meaning: because; since (explaining or excusing a situation). Formation: Verb-plain / i-Adj / na-Adj + な / Noun + な + ものだから / もので."
   },
   {
@@ -10674,7 +10757,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ことだ. Meaning: should; the best thing is to (advice). Formation: Verb-dict / Verb-nai + ことだ."
   },
   {
@@ -10834,11 +10919,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_3",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "こと"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+こと[。！]"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜こと（instruction）. Meaning: must; do (written rule or instruction). Formation: Verb-dict / Verb-nai + こと."
@@ -10869,12 +10951,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_32",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ように言う",
-        "ように頼む"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ように(?:言う|言った|頼む|頼んだ)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ように言う / 〜ように頼む. Meaning: tell someone to do; ask someone to do (reported command or request). Formation: Verb-dict / Verb-nai + ように言う / ように頼む."
@@ -10910,11 +10988,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_33",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ようとする"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ようと(?:する|した|して|している)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ようとする. Meaning: try to; attempt to; be about to. Formation: Verb-volitional + とする."
@@ -10998,7 +11073,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜一方だ. Meaning: keep on -ing; more and more (change in one direction). Formation: Verb-dict + 一方だ."
   },
   {
@@ -11038,7 +11115,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜一方で. Meaning: while; on the other hand; at the same time. Formation: Verb-plain / i-Adj / na-Adj + な / Noun + である + 一方で."
   },
   {
@@ -11172,7 +11251,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜によって / 〜による. Meaning: by (agent); by means of; due to; depending on. Formation: Noun + によって / Noun + による + Noun."
   },
   {
@@ -11334,11 +11415,11 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_43",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "もばも"
-      ],
-      "match_mode": "reference_only"
+      "type": "discontinuous",
+      "first": "[ぁ-ゖァ-ヺ一-龯]+も",
+      "second": "[ぁ-ゖァ-ヺ一-龯]+ば",
+      "max_gap": 25,
+      "clause_break": "[。！？]"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜も〜ば〜も. Meaning: both ... and ...; not only ... but also. Formation: Noun + も + Verb-ba + Noun + も / Noun + も + i-Adj stem + ければ + Noun + も."
@@ -11380,7 +11461,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜っぽい. Meaning: -ish; -like; tends to (casual). Formation: Noun / Verb-stem / i-Adj stem + っぽい."
   },
   {
@@ -11418,9 +11501,11 @@
       "variants": [
         "的"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜的. Meaning: -ic; -al; in terms of. Formation: Noun + 的な + Noun / Noun + 的に."
   },
   {
@@ -11455,12 +11540,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_4",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ような",
-        "ように"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ような"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ような / 〜ように（like）. Meaning: like; as; such as. Formation: Verb-plain / Noun + の + ような / ように."
@@ -11494,7 +11575,7 @@
       "variants": [
         "まるでようだ"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
     "guards": null,
     "english_breakdown": "Pattern: まるで〜ようだ. Meaning: just like; as if. Formation: まるで + Verb-plain / Noun + の + ようだ."
@@ -11668,7 +11749,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ずに. Meaning: without doing. Formation: Verb-nai stem + ずに."
   },
   {
@@ -11702,11 +11785,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_8",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "まま"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+まま(?:だ|で)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜まま. Meaning: as it is; unchanged; while still (in a state). Formation: Verb-ta / Verb-nai / i-Adj / na-Adj + な / Noun + の + まま."
@@ -11748,7 +11828,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜うちに. Meaning: while (before it changes); before it's too late; in the course of. Formation: Verb-dict / Verb-te + いる / Verb-nai / i-Adj / na-Adj + な / Noun + の + うちに."
   },
   {
@@ -11840,8 +11922,8 @@
       "type": "discontinuous",
       "first": "[ぁ-ゖァ-ヺ一-龯]+ば",
       "second": "[ぁ-ゖァ-ヺ一-龯]+ほど",
-      "max_gap": 20,
-      "clause_break": "[、。！？]"
+      "max_gap": 25,
+      "clause_break": "[。！？]"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ば〜ほど. Meaning: the more ... the more. Formation: Verb-ba + Verb-dict + ほど / i-Adj stem + ければ + i-Adj + ほど / na-Adj + なら + na-Adj + な + ほど."
@@ -11881,9 +11963,11 @@
       "variants": [
         "ほど"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ほど. Meaning: to the extent that; so ... that. Formation: Verb-plain / i-Adj / na-Adj + な / Noun + ほど."
   },
   {
@@ -11930,7 +12014,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜くらい / 〜ぐらい（extent）. Meaning: to the extent that; so ... that; at least (something minimal). Formation: Verb-plain / i-Adj / na-Adj + な / Noun + くらい."
   },
   {
@@ -11964,11 +12050,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_52",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "さえ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+さえ"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜さえ. Meaning: even. Formation: Noun + さえ / Noun + でさえ / Noun + にさえ."
@@ -12004,11 +12087,11 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_53",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "さえば"
-      ],
-      "match_mode": "reference_only"
+      "type": "discontinuous",
+      "first": "[ぁ-ゖァ-ヺ一-龯]+さえ",
+      "second": "[ぁ-ゖァ-ヺ一-龯]+ば",
+      "max_gap": 25,
+      "clause_break": "[。！？]"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜さえ〜ば. Meaning: if only; as long as; provided that. Formation: Noun + さえ + Verb-ba / Verb-stem + さえ + すれば / Verb-te + さえ + いれば."
@@ -12044,11 +12127,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_54",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "こそ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+こそ"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜こそ. Meaning: precisely; it is ... that; (strong emphasis). Formation: Noun + こそ."
@@ -12098,7 +12178,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜として. Meaning: as; in the role or capacity of. Formation: Noun + として / Noun + としての + Noun."
   },
   {
@@ -12538,7 +12620,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜たびに. Meaning: every time; whenever. Formation: Verb-dict / Noun + の + たびに."
   },
   {
@@ -12578,7 +12662,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ごとに. Meaning: every; each; at intervals of. Formation: Noun + ごとに / Verb-dict + ごとに."
   },
   {
@@ -12618,7 +12704,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜最中に. Meaning: right in the middle of; while (busy with). Formation: Verb-te + いる / Noun + の + 最中に."
   },
   {
@@ -12738,7 +12826,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜せいで. Meaning: because of; due to (bad result, blame). Formation: Verb-plain / i-Adj / na-Adj + な / Noun + の + せいで."
   },
   {
@@ -12808,11 +12898,11 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_73",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "たらた"
-      ],
-      "match_mode": "reference_only"
+      "type": "discontinuous",
+      "first": "[ぁ-ゖァ-ヺ一-龯]+たら",
+      "second": "[ぁ-ゖァ-ヺ一-龯]+た",
+      "max_gap": 25,
+      "clause_break": "[。！？]"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜たら〜た. Meaning: when I did A, (I found that) B; upon doing, I discovered. Formation: Verb-ta + ら ... Verb-ta."
@@ -12862,7 +12952,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜たって / 〜だって. Meaning: even if; no matter (casual). Formation: Verb-ta + って / i-Adj-ku + たって / na-Adj / Noun + だって."
   },
   {
@@ -13104,7 +13196,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ばいい. Meaning: should; all you need to do is; I hope (with のに/けど: I wish). Formation: Verb-ba + いい / i-Adj stem + ければ + いい."
   },
   {
@@ -13136,9 +13230,11 @@
       "variants": [
         "場合"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜場合（は）. Meaning: in the case of; if; in the event that. Formation: Verb-plain / i-Adj / na-Adj + な / Noun + の + 場合（は）."
   },
   {
@@ -13260,9 +13356,11 @@
       "variants": [
         "とか"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜とか（hearsay）. Meaning: I heard something like; apparently. Formation: Sentence + とか."
   },
   {
@@ -13300,9 +13398,11 @@
       "variants": [
         "って"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜って. Meaning: (casual quotation) says that; I heard; as for; what is. Formation: Sentence + って / Noun + って."
   },
   {
@@ -13336,11 +13436,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_85",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ということだ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ということ(?:だ|です)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ということだ. Meaning: I heard that; it means that; in other words. Formation: Sentence + ということだ."
@@ -13456,7 +13553,8 @@
         "わりに",
         "わりには"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜わりに / 〜わりには. Meaning: considering; for (unexpectedly). Formation: Verb-plain / i-Adj / na-Adj + な / Noun + の + わりに."
@@ -13498,7 +13596,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜くせに. Meaning: even though; despite (critical, reproachful). Formation: Verb-plain / i-Adj / na-Adj + な / Noun + の + くせに."
   },
   {
@@ -13532,11 +13632,11 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_90",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "からにかけて"
-      ],
-      "match_mode": "reference_only"
+      "type": "discontinuous",
+      "first": "[ぁ-ゖァ-ヺ一-龯]+から",
+      "second": "[ぁ-ゖァ-ヺ一-龯]+にかけて",
+      "max_gap": 25,
+      "clause_break": "[。！？]"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜から〜にかけて. Meaning: from ... through; over (a period or area). Formation: Noun + から + Noun + にかけて."
@@ -13580,7 +13680,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ぶり. Meaning: for the first time in (a period); manner, way of doing. Formation: Noun + ぶり / Verb-stem + ぶり."
   },
   {
@@ -13618,7 +13720,8 @@
       "variants": [
         "っけ"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜っけ. Meaning: was it?; did I?; (trying to recall). Formation: Verb-ta / Noun + だ / Noun + だった + っけ."
@@ -13688,11 +13791,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_94",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ふりをする"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ふりを(?:する|した|して)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ふりをする. Meaning: pretend to; act as if. Formation: Verb-plain / i-Adj / na-Adj + な / Noun + の + ふりをする."
@@ -13735,12 +13835,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_95",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "向き",
-        "向け"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:向け|向き)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜向き / 〜向け. Meaning: suitable for / aimed at; intended for. Formation: Noun + 向き / Noun + 向け."
@@ -13782,11 +13878,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_96",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "がち"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+がち(?:だ|な)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜がち. Meaning: tend to; be prone to; often. Formation: Verb-stem / Noun + がち."
@@ -13822,11 +13915,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_97",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "気味"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+気味"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜気味. Meaning: a touch of; slightly; somewhat (in that condition). Formation: Noun / Verb-stem + 気味."
@@ -13874,7 +13964,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜だらけ. Meaning: full of; covered with; riddled with. Formation: Noun + だらけ."
   },
   {
@@ -13915,12 +14007,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_99",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "切る",
-        "切れない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+切(?:る|れない|れた|り)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜切る / 〜切れない. Meaning: do completely; finish / can't finish; too many to. Formation: Verb-stem + 切る / Verb-stem + 切れない."
@@ -13956,11 +14044,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_100",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "かける"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+かけ(?:る|の|た|だ)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜かける. Meaning: half-done; start to; be about to. Formation: Verb-stem + かける / Verb-stem + かけの + Noun."
@@ -13996,11 +14081,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_101",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "合う"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+合(?:う|った|って|い|います)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜合う. Meaning: do to each other; do together. Formation: Verb-stem + 合う."
@@ -14036,11 +14118,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_102",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "直す"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+直(?:す|した|して|します)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜直す. Meaning: redo; do over again (to fix or improve). Formation: Verb-stem + 直す."
@@ -14082,7 +14161,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜づらい. Meaning: hard to; difficult or uncomfortable to. Formation: Verb-stem + づらい."
   },
   {
@@ -14130,7 +14211,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜べきだ / 〜べきではない. Meaning: should; ought to / should not. Formation: Verb-dict + べきだ / Verb-dict + べきではない."
   },
   {
@@ -14158,11 +14241,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_104",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ほどはない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ほど[ぁ-ゖァ-ヺ一-龯]+はない"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ほど〜はない. Meaning: nothing is as ... as; there's no ... like. Formation: Noun + ほど + i-Adj / na-Adj + な + Noun + はない."
@@ -14252,9 +14332,11 @@
       "variants": [
         "まで"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜まで（even）. Meaning: even (an extreme case). Formation: Noun + まで / Noun + にまで."
   },
   {
@@ -14424,7 +14506,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜なんか / 〜なんて. Meaning: things like; the likes of (dismissive or humble); how ...! (surprise). Formation: Noun + なんか / Noun + なんて / Sentence + なんて."
   },
   {
@@ -14454,15 +14538,15 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_12",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "あげる",
-        "くれる",
-        "もらう"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "(?:あげ|くれ|もら)(?:ました|ません|ます|たら|ば|た|て|る)"
     },
-    "guards": null,
+    "guards": {
+      "forbidden_preceding": [
+        "て",
+        "で"
+      ]
+    },
     "english_breakdown": "Pattern: あげる / くれる / もらう. Meaning: give (to someone else); give (to me or my group); receive. Formation: Noun (receiver) + に + Noun + を + あげる / Noun (giver) + が + Noun + を + くれる / Noun (giver) + に + Noun + を + もらう."
   },
   {
@@ -14502,11 +14586,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_13",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "てあげる"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "てあげ(?:ました|ません|ます|たら|ば|た|て|る)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜てあげる. Meaning: do something for someone (as a favor). Formation: Verb-te + あげる."
@@ -14548,11 +14629,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_14",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "てくれる"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "てくれ(?:ました|ません|ます|たら|ば|た|て|る)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜てくれる. Meaning: someone does something for me (or my group). Formation: Verb-te + くれる."
@@ -14594,11 +14672,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_15",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "てもらう"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "てもら(?:いました|いません|います|ったら|えば|った|って|う)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜てもらう. Meaning: have someone do something (for me); get someone to do. Formation: Verb-te + もらう."
@@ -14629,12 +14704,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_16",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "てくださる",
-        "ていただく"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "て(?:くださいました|くださいます|いただいた|いただきます|ください|くださる|いただく)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜てくださる / 〜ていただく. Meaning: (honorific) someone kindly does for me; (humble) I receive the favor of someone doing. Formation: Verb-te + くださる / Verb-te + いただく."
@@ -14676,11 +14747,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_17",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ていく"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+て(?:いく|いきます|いった|いって)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ていく. Meaning: do something and go; go on doing (from now into the future). Formation: Verb-te + いく."
@@ -14722,11 +14790,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_18",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "てくる"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+て(?:くる|きます|きた|きて)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜てくる. Meaning: do something and come back; come doing; (change) up to now; start to. Formation: Verb-te + くる."
@@ -14768,9 +14833,11 @@
         "てしまう",
         "ちゃう"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜てしまう / 〜ちゃう. Meaning: finish completely; do by accident; end up doing (with regret). Formation: Verb-te + しまう."
   },
   {
@@ -14811,7 +14878,7 @@
     "concept_id": "c_n4_point_20",
     "matcher": {
       "type": "regex",
-      "regex": "(?:[てで]おく|[ぁ-ゖァ-ヺ一-龯]+とく)"
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:[てで]お(?:く|きます|いた|きました|いて)|とく)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ておく. Meaning: do in advance (to prepare); do and leave as is. Formation: Verb-te + おく."
@@ -14853,11 +14920,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_21",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "てみる"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+て(?:みる|みます|みた|みて|みよう)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜てみる. Meaning: try doing (to see what it is like). Formation: Verb-te + みる."
@@ -14893,11 +14957,8 @@
     "canonical_level": "N5",
     "concept_id": "c_n5_point_4",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "てある"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+て(?:ある|あります|あった|ありました)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜てある. Meaning: has been done (and stays that way); resulting state of a deliberate action. Formation: Verb-te + ある."
@@ -14927,11 +14988,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_22",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "とき"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+とき(?:に)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜とき. Meaning: when; at the time when. Formation: Verb-plain / i-Adj / na-Adj + な / Noun + の + とき."
@@ -14974,12 +15032,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_23",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "間",
-        "間に"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+間(?:に)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜間 / 〜間に. Meaning: while; during (the whole time); at some point during. Formation: Verb-te + いる / Verb-dict / Noun + の + 間（に）."
@@ -15015,11 +15069,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_24",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ようだ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+よう(?:だ|です|な|に)?(?:ね)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ようだ. Meaning: it seems; it appears (judging from evidence). Formation: Verb-plain / i-Adj + ようだ / na-Adj + な + ようだ / Noun + の + ようだ."
@@ -15055,11 +15106,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_25",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "みたい"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+みたい(?:だ|です|な|に)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜みたい. Meaning: seems like; looks like; like (casual). Formation: Verb-plain / i-Adj / na-Adj / Noun + みたい."
@@ -15095,11 +15143,8 @@
     "canonical_level": "N5",
     "concept_id": "c_n5_point_5",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "すぎる"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+すぎ(?:る|た|て|ます|ない)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜すぎる. Meaning: too; too much; excessively. Formation: Verb-stem / i-Adj stem / na-Adj + すぎる."
@@ -15141,13 +15186,16 @@
     "canonical_level": "N5",
     "concept_id": "c_n5_point_6",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "方"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+方"
     },
-    "guards": null,
+    "guards": {
+      "forbidden_preceding": [
+        "の",
+        "な",
+        "い"
+      ]
+    },
     "english_breakdown": "Pattern: 〜方. Meaning: how to; way of doing. Formation: Verb-stem + 方."
   },
   {
@@ -15187,11 +15235,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_26",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "中"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+中(?:です|だ)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜中. Meaning: in the middle of; during (ちゅう); throughout; all over (じゅう). Formation: Noun + 中."
@@ -15239,7 +15284,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜つもり. Meaning: intend to; plan to. Formation: Verb-dict / Verb-nai + つもり."
   },
   {
@@ -15267,11 +15314,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_27",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "予定"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+予定(?:です|だ)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜予定. Meaning: plan to; be scheduled to. Formation: Verb-dict + 予定 / Noun + の + 予定."
@@ -15313,11 +15357,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_28",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ことにする"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ことに(?:している|しました|します|しない|する|した|して)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ことにする. Meaning: decide to. Formation: Verb-dict / Verb-nai + ことにする."
@@ -15359,7 +15400,7 @@
     "concept_id": "c_n4_point_29",
     "matcher": {
       "type": "regex",
-      "regex": "ことにな(?:る|った)"
+      "regex": "ことにな(?:る|った|ります|りました|って)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ことになる. Meaning: it has been decided that; it turns out that. Formation: Verb-dict / Verb-nai + ことになる."
@@ -15395,11 +15436,8 @@
     "canonical_level": "N4",
     "concept_id": "c_n4_point_30",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ことができる"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ことが(?:できます|できない|できた|できる)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ことができる. Meaning: can; be able to; be possible to. Formation: Verb-dict + ことができる."
@@ -15425,12 +15463,6 @@
         "source": "OpenJLPT",
         "source_level": "N4",
         "source_pattern": "〜える / 〜られる（potential）"
-      },
-      {
-        "source": "JLPT Sensei N4",
-        "source_level": "N4",
-        "source_pattern": "られる",
-        "ref_num": 69
       }
     ],
     "canonical_level": "N4",
@@ -15443,86 +15475,10 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜える / 〜られる（potential）. Meaning: can; be able to (potential form). Formation: Verb-dict (Group 1: final u → e) + る / Verb-nai stem + られる (Group 2)."
-  },
-  {
-    "pattern_display": "〜れる / 〜られる（passive）",
-    "pattern_key": "れる / られる",
-    "meaning_short": "be done (by someone); passive voice",
-    "formation": "Verb-nai stem + れる (Group 1) / Verb-nai stem + られる (Group 2)",
-    "variants": [
-      "れる",
-      "られる"
-    ],
-    "examples": [
-      {
-        "ja": "先生に作文をほめられました。",
-        "en": "My essay was praised by my teacher."
-      }
-    ],
-    "group_id": null,
-    "source_evidence": [
-      {
-        "source": "OpenJLPT",
-        "source_level": "N4",
-        "source_pattern": "〜れる / 〜られる（passive）"
-      }
-    ],
-    "canonical_level": "N4",
-    "concept_id": "c_n4_point_32",
-    "matcher": {
-      "type": "pattern",
-      "variants": [
-        "れる",
-        "られる"
-      ],
-      "match_mode": "auto"
-    },
-    "guards": null,
-    "english_breakdown": "Pattern: 〜れる / 〜られる（passive）. Meaning: be done (by someone); passive voice. Formation: Verb-nai stem + れる (Group 1) / Verb-nai stem + られる (Group 2)."
-  },
-  {
-    "pattern_display": "〜せる / 〜させる",
-    "pattern_key": "せる / させる",
-    "meaning_short": "make someone do; let someone do (causative)",
-    "formation": "Verb-nai stem + せる (Group 1) / Verb-nai stem + させる (Group 2)",
-    "variants": [
-      "せる",
-      "させる"
-    ],
-    "examples": [
-      {
-        "ja": "母は毎日弟に野菜を食べさせる。",
-        "en": "My mother makes my little brother eat vegetables every day."
-      }
-    ],
-    "group_id": null,
-    "source_evidence": [
-      {
-        "source": "OpenJLPT",
-        "source_level": "N4",
-        "source_pattern": "〜せる / 〜させる"
-      },
-      {
-        "source": "JLPT Sensei N4",
-        "source_level": "N4",
-        "source_pattern": "させる",
-        "ref_num": 74
-      }
-    ],
-    "canonical_level": "N4",
-    "concept_id": "c_n4_point_33",
-    "matcher": {
-      "type": "pattern",
-      "variants": [
-        "せる",
-        "させる"
-      ],
-      "match_mode": "auto"
-    },
-    "guards": null,
-    "english_breakdown": "Pattern: 〜せる / 〜させる. Meaning: make someone do; let someone do (causative). Formation: Verb-nai stem + せる (Group 1) / Verb-nai stem + させる (Group 2)."
   },
   {
     "pattern_display": "〜せられる / 〜させられる",
@@ -15548,14 +15504,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_34",
+    "concept_id": "c_n4_point_32",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "せられる",
-        "させられる"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:せられ|させられ)(?:る|た|て|ます|ない)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜せられる / 〜させられる. Meaning: be made to do (against one's will). Formation: Verb-nai stem + せられる (Group 1; short form される) / Verb-nai stem + させられる (Group 2)."
@@ -15584,14 +15536,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_35",
+    "concept_id": "c_n4_point_33",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "おう",
-        "よう"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+[およ]う"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜おう / 〜よう. Meaning: let's (casual); I'll (volitional form). Formation: Verb-dict (Group 1: final u → o) + う / Verb-stem + よう (Group 2)."
@@ -15619,13 +15567,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_36",
+    "concept_id": "c_n4_point_34",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "うと思う"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+[よう]と思(?:う|っている|った|います)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜(よ)うと思う. Meaning: be thinking of doing; plan to. Formation: Verb-volitional + と思う."
@@ -15654,14 +15599,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_37",
+    "concept_id": "c_n4_point_35",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "え",
-        "ろ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+[えろ]"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜え / 〜ろ. Meaning: do it! (imperative form; blunt command). Formation: Verb-dict (Group 1: final u → e) / Verb-stem + ろ (Group 2)."
@@ -15706,7 +15647,8 @@
       "variants": [
         "な"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜な（prohibition）. Meaning: don't! (strong prohibition). Formation: Verb-dict + な."
@@ -15740,7 +15682,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_38",
+    "concept_id": "c_n4_point_36",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -15748,7 +15690,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜なさい. Meaning: do (instruction from a parent, teacher, etc.). Formation: Verb-stem + なさい."
   },
   {
@@ -15787,14 +15731,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_39",
+    "concept_id": "c_n4_point_37",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ば",
-        "ばのに"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ば"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ば. Meaning: if. Formation: Verb-ba / i-Adj stem + ければ / na-Adj + なら / Noun + なら."
@@ -15849,16 +15789,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_40",
+    "concept_id": "c_n4_point_38",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "たら",
-        "もしもたら",
-        "たらたで",
-        "たらところだ"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+たら(?:どう)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜たら. Meaning: if; when; after. Formation: Verb-ta + ら / i-Adj stem + かったら / na-Adj + だったら / Noun + だったら."
@@ -15892,15 +15826,17 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_41",
+    "concept_id": "c_n4_point_39",
     "matcher": {
       "type": "pattern",
       "variants": [
         "なら"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜なら. Meaning: if (it's the case that); if you're talking about. Formation: Verb-plain / i-Adj / na-Adj / Noun + なら."
   },
   {
@@ -15965,7 +15901,8 @@
       "variants": [
         "と"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Single bare particle requires syntactic role disambiguation."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜と（conditional）. Meaning: when; if; whenever (natural or automatic result). Formation: Verb-dict / Verb-nai / i-Adj + と / na-Adj + だ + と / Noun + だ + と."
@@ -16014,16 +15951,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_42",
+    "concept_id": "c_n4_point_40",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ても",
-        "でも",
-        "どんなにても",
-        "いくらても"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:ても|でも)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ても / 〜でも. Meaning: even if; even though. Formation: Verb-te + も / i-Adj-ku + ても / na-Adj + でも / Noun + でも."
@@ -16059,11 +15990,8 @@
     "canonical_level": "N5",
     "concept_id": "c_n5_point_10",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ので"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ので"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ので. Meaning: because; since. Formation: Verb-plain / i-Adj + ので / na-Adj + な + ので / Noun + な + ので."
@@ -16110,7 +16038,8 @@
         "て",
         "で"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜て（reason）. Meaning: because; so (cause of a feeling or state). Formation: Verb-te / i-Adj stem + くて / na-Adj + で / Noun + で."
@@ -16144,13 +16073,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_43",
+    "concept_id": "c_n4_point_41",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "し"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[^、。！？\\s]+(?:る|た|ない|い|だ|でした|だった|ます|ました)し、"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜し. Meaning: and what's more; and besides (listing reasons). Formation: Verb-plain / i-Adj + し / na-Adj + だ + し / Noun + だ + し."
@@ -16200,7 +16126,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜けど / 〜けれども. Meaning: but; although; (soft lead-in). Formation: Sentence + けど / けれども."
   },
   {
@@ -16232,7 +16160,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_44",
+    "concept_id": "c_n4_point_42",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -16240,7 +16168,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ために. Meaning: in order to; for (the sake of); because of. Formation: Verb-dict / Verb-ta / Noun + の + ために."
   },
   {
@@ -16272,13 +16202,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_45",
+    "concept_id": "c_n4_point_43",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ように"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ように"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ように（purpose）. Meaning: so that; in order that. Formation: Verb-dict / Verb-nai + ように."
@@ -16318,15 +16245,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_46",
+    "concept_id": "c_n4_point_44",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ようにする",
-        "ようにして",
-        "ようにし"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ように(?:している|しました|します|しない|する|した|して)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ようにする. Meaning: try to; make sure to; make a habit of. Formation: Verb-dict / Verb-nai + ようにする."
@@ -16366,13 +16288,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_47",
+    "concept_id": "c_n4_point_45",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ようになる"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ように(?:なりました|なります|なっている|なった|なって|なる)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ようになる. Meaning: come to; reach the point where (change in ability or habit). Formation: Verb-dict / Verb-nai + ようになる."
@@ -16406,7 +16325,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_48",
+    "concept_id": "c_n4_point_46",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -16446,13 +16365,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_49",
+    "concept_id": "c_n4_point_47",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "たがる"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+たが(?:る|っている|った|り)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜たがる. Meaning: (someone else) wants to. Formation: Verb-stem + たがる."
@@ -16487,14 +16403,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_50",
+    "concept_id": "c_n4_point_48",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "がる",
-        "がっている"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+が(?:る|っている|った)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜がる. Meaning: (someone else) feels; shows signs of feeling. Formation: i-Adj stem / na-Adj + がる."
@@ -16533,10 +16445,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_51",
+    "concept_id": "c_n4_point_49",
     "matcher": {
       "type": "regex",
-      "regex": "かもしれない"
+      "regex": "かもしれ(?:ない|ません|なかった|ませんでした)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜かもしれない. Meaning: might; may; possibly. Formation: Verb-plain / i-Adj / na-Adj / Noun + かもしれない."
@@ -16578,7 +16490,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜だろう. Meaning: probably; I suppose (plain form of でしょう). Formation: Verb-plain / i-Adj / na-Adj / Noun + だろう."
   },
   {
@@ -16610,13 +16524,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_52",
+    "concept_id": "c_n4_point_50",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "はずだ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+はず(?:だ|です|だった|でした)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜はずだ. Meaning: should be; is expected to (based on reasoning). Formation: Verb-plain / i-Adj + はずだ / na-Adj + な + はずだ / Noun + の + はずだ."
@@ -16655,7 +16566,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_53",
+    "concept_id": "c_n4_point_51",
     "matcher": {
       "type": "regex",
       "regex": "はずがない"
@@ -16708,7 +16619,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜んです / 〜のです. Meaning: it's that ...; (explaining or asking for an explanation). Formation: Verb-plain / i-Adj + んです / na-Adj + な + んです / Noun + な + んです."
   },
   {
@@ -16740,7 +16653,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_54",
+    "concept_id": "c_n4_point_52",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -16804,7 +16717,8 @@
         "か",
         "かか"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜か（embedded question）. Meaning: embedded question (what, where, who, etc.). Formation: Question word + ... + Verb-plain / i-Adj / na-Adj / Noun + か."
@@ -16838,7 +16752,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_55",
+    "concept_id": "c_n4_point_53",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -16846,7 +16760,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜と思う. Meaning: I think that. Formation: Verb-plain / i-Adj + と思う / na-Adj + だ + と思う / Noun + だ + と思う."
   },
   {
@@ -16872,13 +16788,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_56",
+    "concept_id": "c_n4_point_54",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "と言う"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+と言(?:う|った|いました|います)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜と言う. Meaning: say that; tell (quotation). Formation: 「Sentence」 + と言う / Sentence (plain) + と言う."
@@ -16924,7 +16837,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_57",
+    "concept_id": "c_n4_point_55",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -16932,7 +16845,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ばかり. Meaning: nothing but; only; all. Formation: Noun + ばかり."
   },
   {
@@ -16964,7 +16879,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_58",
+    "concept_id": "c_n4_point_56",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -16998,13 +16913,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_59",
+    "concept_id": "c_n4_point_57",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ところだ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ところ(?:だ|です|だった|でした)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ところだ. Meaning: be about to; be in the middle of; have just done. Formation: Verb-dict / Verb-te + いる / Verb-ta + ところだ."
@@ -17045,14 +16957,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_60",
+    "concept_id": "c_n4_point_58",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "やすい",
-        "にくい"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:やすい|にくい)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜やすい / 〜にくい. Meaning: easy to; hard to. Formation: Verb-stem + やすい / Verb-stem + にくい."
@@ -17100,15 +17008,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_61",
+    "concept_id": "c_n4_point_59",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "始める",
-        "終わる",
-        "続ける"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:始め|おわ|終わ|続け)(?:る|た|て|ます|ました|ない)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜始める / 〜終わる / 〜続ける. Meaning: start doing; finish doing; keep doing. Formation: Verb-stem + 始める / Verb-stem + 終わる / Verb-stem + 続ける."
@@ -17142,13 +17045,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_62",
+    "concept_id": "c_n4_point_60",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "出す"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+出(?:す|した|して|します)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜出す. Meaning: suddenly start doing; burst out. Formation: Verb-stem + 出す."
@@ -17182,13 +17082,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_63",
+    "concept_id": "c_n4_point_61",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ほどない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ほど[ぁ-ゖァ-ヺ一-龯]+(?:ない|くありません)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ほど〜ない. Meaning: not as ... as. Formation: Noun / Verb-plain + ほど + i-Adj-ku + ない / na-Adj + ではない."
@@ -17222,13 +17119,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_64",
+    "concept_id": "c_n4_point_62",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "なかなかない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "なかなか[ぁ-ゖァ-ヺ一-龯]+(?:ない|ません)"
     },
     "guards": null,
     "english_breakdown": "Pattern: なかなか〜ない. Meaning: not easily; just won't; not readily. Formation: なかなか + Verb-nai."
@@ -17262,13 +17156,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_65",
+    "concept_id": "c_n4_point_63",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ずつ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[0-9一二三四五六七八九十百]+[ぁ-ゖァ-ヺ一-龯]*ずつ"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ずつ. Meaning: each; at a time; little by little. Formation: Noun (quantity) + ずつ."
@@ -17324,7 +17215,8 @@
       "variants": [
         "も"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Single bare particle requires syntactic role disambiguation."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜も（emphasis）. Meaning: as many as; as much as; (with a negative) not even one. Formation: Noun (number + counter) + も."
@@ -17358,7 +17250,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_66",
+    "concept_id": "c_n4_point_64",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -17366,7 +17258,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜までに. Meaning: by (a deadline); before. Formation: Noun / Verb-dict + までに."
   },
   {
@@ -17398,13 +17292,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_67",
+    "concept_id": "c_n4_point_65",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ことがある"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ことが(?:ある|あります)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ことがある. Meaning: sometimes; there are times when. Formation: Verb-dict / Verb-nai + ことがある."
@@ -17480,13 +17371,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_68",
+    "concept_id": "c_n4_point_66",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "させてください"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+させてください"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜させてください. Meaning: please let me (do). Formation: Verb-nai stem + せてください (Group 1) / Verb-nai stem + させてください (Group 2)."
@@ -17514,13 +17402,14 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_69",
+    "concept_id": "c_n4_point_67",
     "matcher": {
       "type": "pattern",
       "variants": [
         "尊敬語"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Sociolinguistic honorific system requiring pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 尊敬語. Meaning: honorific verbs; respectful language for others' actions. Formation: いらっしゃる（行く・来る・いる） / 召し上がる（食べる・飲む） / おっしゃる（言う） / なさる（する） / ご覧になる（見る） / くださる（くれる）."
@@ -17548,13 +17437,14 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_70",
+    "concept_id": "c_n4_point_68",
     "matcher": {
       "type": "pattern",
       "variants": [
         "謙譲語"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Sociolinguistic honorific system requiring pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 謙譲語. Meaning: humble verbs; modest language for one's own actions. Formation: 参る（行く・来る） / おる（いる） / いただく（食べる・飲む・もらう） / 申す（言う） / いたす（する） / 拝見する（見る） / 伺う（聞く・訪ねる）."
@@ -17593,10 +17483,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_71",
+    "concept_id": "c_n4_point_69",
     "matcher": {
       "type": "regex",
-      "regex": "お[ぁ-ゖァ-ヺ一-龯]{1,6}になる"
+      "regex": "お[ぁ-ゖァ-ヺ一-龯]{1,6}にな(?:る|った|ります|りました)"
     },
     "guards": null,
     "english_breakdown": "Pattern: お〜になる. Meaning: (honorific) someone respected does. Formation: お + Verb-stem + になる."
@@ -17624,13 +17514,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_72",
+    "concept_id": "c_n4_point_70",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "おする"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "お[ぁ-ゖァ-ヺ一-龯]{1,6}する"
     },
     "guards": null,
     "english_breakdown": "Pattern: お〜する. Meaning: (humble) I do (for someone respected). Formation: お + Verb-stem + する / ご + Noun + する."
@@ -17664,7 +17551,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_73",
+    "concept_id": "c_n4_point_71",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -17704,13 +17591,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_74",
+    "concept_id": "c_n4_point_72",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ても構わない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:ても|でも)構(?:わない|いません|わなくて)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ても構わない. Meaning: don't mind if; it's fine if. Formation: Verb-te + も構わない / i-Adj-ku + ても構わない / na-Adj + でも構わない / Noun + でも構わない."
@@ -17739,14 +17623,15 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_75",
+    "concept_id": "c_n4_point_73",
     "matcher": {
       "type": "pattern",
       "variants": [
         "の",
         "こと"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜の / 〜こと（nominalizer）. Meaning: the act of doing (turns a verb phrase into a noun). Formation: Verb-plain + の / Verb-plain + こと."
@@ -17780,13 +17665,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_76",
+    "concept_id": "c_n4_point_74",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ばよかった"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:なければ|なきゃ|ば)よかった"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ばよかった. Meaning: should have (done); I wish I had. Formation: Verb-ba + よかった / Verb-nai stem + なければよかった."
@@ -17820,13 +17702,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_77",
+    "concept_id": "c_n4_point_75",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "たらどう"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+たらどう(?:ですか|？|\\?)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜たらどう. Meaning: why don't you ...?; how about ...?. Formation: Verb-ta + らどう."
@@ -17905,13 +17784,13 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_78",
+    "concept_id": "c_n4_point_76",
     "matcher": {
       "type": "discontinuous",
       "first": "[ぁ-ゖァ-ヺ一-龯]+とか",
       "second": "[ぁ-ゖァ-ヺ一-龯]+(?:とか|ている|る)",
-      "max_gap": 20,
-      "clause_break": "[、。！？]"
+      "max_gap": 25,
+      "clause_break": "[。！？]"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜とか〜とか. Meaning: things like A and B; A, B and so on (casual). Formation: Noun + とか + Noun + とか / Verb-dict + とか + Verb-dict + とか."
@@ -17945,15 +17824,17 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_79",
+    "concept_id": "c_n4_point_77",
     "matcher": {
       "type": "pattern",
       "variants": [
         "など"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜など. Meaning: etc.; and so on; such as. Formation: Noun + など."
   },
   {
@@ -17997,9 +17878,11 @@
       "variants": [
         "でも"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜でも（suggestion）. Meaning: or something (softening a suggestion). Formation: Noun + でも."
   },
   {
@@ -18037,13 +17920,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_80",
+    "concept_id": "c_n4_point_78",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "さ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+さ"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜さ. Meaning: -ness (turns an adjective into a noun of degree). Formation: i-Adj stem + さ / na-Adj + さ."
@@ -18071,13 +17951,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_81",
+    "concept_id": "c_n4_point_79",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "目"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[0-9一二三四五六七八九十百]+番目|[0-9一二三四五六七八九十百]+つ目|[0-9一二三四五六七八九十百]+人目"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜目. Meaning: -th (ordinal: first, second, third ...). Formation: Noun (number + counter) + 目."
@@ -18111,7 +17988,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_82",
+    "concept_id": "c_n4_point_80",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -18119,7 +17996,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜おきに. Meaning: every other; at intervals of. Formation: Noun (number + counter) + おきに."
   },
   {
@@ -18152,14 +18031,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_83",
+    "concept_id": "c_n4_point_81",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "くする",
-        "にする"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:く|に)し(?:て|ます|た)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜くする / 〜にする（make）. Meaning: make (something) ...; change something to a state. Formation: i-Adj-ku + する / na-Adj + に + する / Noun + に + する."
@@ -18193,7 +18068,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_84",
+    "concept_id": "c_n4_point_82",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -18201,7 +18076,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜がする. Meaning: (a smell, sound, taste or feeling) is perceived. Formation: Noun + がする."
   },
   {
@@ -18240,7 +18117,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_85",
+    "concept_id": "c_n4_point_83",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -18249,7 +18126,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜かな / 〜かしら. Meaning: I wonder. Formation: Verb-plain / i-Adj / na-Adj / Noun + かな / かしら."
   },
   {
@@ -18282,7 +18161,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_86",
+    "concept_id": "c_n4_point_84",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -18331,7 +18210,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ないで. Meaning: without doing; instead of doing. Formation: Verb-nai + で."
   },
   {
@@ -18400,7 +18281,8 @@
         "はが... は",
         "はで有名"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Single bare particle requires syntactic role disambiguation."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜は. Meaning: as for; marks the topic of the sentence. Formation: Noun + は."
@@ -18474,7 +18356,8 @@
         "こそ「が",
         "けれど」"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Single bare particle requires syntactic role disambiguation."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜が（subject）. Meaning: marks the subject; points out new or focused information. Formation: Noun + が."
@@ -18525,7 +18408,8 @@
       "variants": [
         "を"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Single bare particle requires syntactic role disambiguation."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜を. Meaning: marks the direct object of a verb; marks a place moved through or left. Formation: Noun + を."
@@ -18618,7 +18502,8 @@
         "へ",
         "にを重ねて"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Single bare particle requires syntactic role disambiguation."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜に（time）. Meaning: at; on; in (a specific point in time). Formation: Noun + に."
@@ -18657,7 +18542,8 @@
       "variants": [
         "へ"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Single bare particle requires syntactic role disambiguation."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜へ. Meaning: to; toward (the direction of movement). Formation: Noun + へ."
@@ -18713,7 +18599,8 @@
       "variants": [
         "で"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Single bare particle requires syntactic role disambiguation."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜で（place of action）. Meaning: at; in (the place where an action happens). Formation: Noun + で."
@@ -18753,7 +18640,8 @@
       "variants": [
         "や"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Single bare particle requires syntactic role disambiguation."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜や. Meaning: and (giving some examples out of more); ... and so on. Formation: Noun + や + Noun."
@@ -18798,7 +18686,8 @@
       "variants": [
         "の"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Single bare particle requires syntactic role disambiguation."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜の（possessive）. Meaning: 's; of (possession, belonging or description). Formation: Noun + の + Noun."
@@ -18851,7 +18740,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜から（from）. Meaning: from (a starting point in time or place). Formation: Noun + から."
   },
   {
@@ -18889,7 +18780,8 @@
       "variants": [
         "ね"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Single bare particle requires syntactic role disambiguation."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ね. Meaning: isn't it?; right? (seeking agreement or sharing a feeling). Formation: Sentence + ね."
@@ -18929,7 +18821,8 @@
       "variants": [
         "よ"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Single bare particle requires syntactic role disambiguation."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜よ. Meaning: you know; I tell you (giving new information or emphasis). Formation: Sentence + よ."
@@ -18979,7 +18872,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜より. Meaning: than (the standard of comparison). Formation: Noun + より."
   },
   {
@@ -19011,7 +18906,8 @@
       "variants": [
         "の方がより"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Comparative discourse pattern requiring semantic arguments."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜の方が〜より. Meaning: X is more ... than Y. Formation: Noun + の方が + Noun + より."
@@ -19045,7 +18941,8 @@
       "variants": [
         "ととどちらが"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Comparative discourse pattern requiring semantic arguments."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜と〜とどちらが. Meaning: which is more ..., X or Y?. Formation: Noun + と + Noun + とどちらが."
@@ -19079,7 +18976,8 @@
       "variants": [
         "の中でが一番"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Comparative discourse pattern requiring semantic arguments."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜の中で〜が一番. Meaning: ... is the most ... among/of. Formation: Noun + の中で + Noun + が一番."
@@ -19113,9 +19011,11 @@
       "variants": [
         "です"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜です. Meaning: is; am; are (polite copula). Formation: Noun + です / na-Adj + です / i-Adj + です."
   },
   {
@@ -19165,7 +19065,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜だ. Meaning: is; am; are (plain copula). Formation: Noun + だ / na-Adj + だ."
   },
   {
@@ -19255,7 +19157,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜でした. Meaning: was; were (polite past copula). Formation: Noun + でした / na-Adj + でした."
   },
   {
@@ -19287,9 +19191,11 @@
       "variants": [
         "ます"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ます. Meaning: polite non-past verb ending (do; will do). Formation: Verb-stem + ます."
   },
   {
@@ -19323,7 +19229,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ません. Meaning: do not; will not (polite negative). Formation: Verb-stem + ません."
   },
   {
@@ -19357,7 +19265,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ました. Meaning: did (polite past). Formation: Verb-stem + ました."
   },
   {
@@ -19505,7 +19415,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ない. Meaning: do not; will not (plain negative of verbs). Formation: Verb-nai stem + ない."
   },
   {
@@ -19537,7 +19449,8 @@
       "variants": [
         "た"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜た. Meaning: did (plain past of verbs). Formation: Verb-ta."
@@ -19908,11 +19821,8 @@
     "canonical_level": "N5",
     "concept_id": "c_n5_point_54",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "てもいい"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:てもいい|でもいい|てもいいです|でもいいです)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜てもいい. Meaning: may; it's okay to. Formation: Verb-te + もいい."
@@ -19948,11 +19858,8 @@
     "canonical_level": "N5",
     "concept_id": "c_n5_point_55",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "てはいけない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:てはいけない|ではいけない|てはいけません|ではいけません|ちゃだめ|じゃだめ)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜てはいけない. Meaning: must not; may not. Formation: Verb-te + はいけない."
@@ -19988,11 +19895,8 @@
     "canonical_level": "N5",
     "concept_id": "c_n5_point_56",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "なくてもいい"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+なくてもいい(?:です)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜なくてもいい. Meaning: don't have to; need not. Formation: Verb-nai stem + なくてもいい."
@@ -20077,42 +19981,10 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
-    "english_breakdown": "Pattern: 〜てから. Meaning: after doing; (do A) and then (B); since. Formation: Verb-te + から."
-  },
-  {
-    "pattern_display": "〜たり〜たりする",
-    "pattern_key": "たりたりする",
-    "meaning_short": "do things like A and B; sometimes A, sometimes B",
-    "formation": "Verb-ta + り + Verb-ta + りする",
-    "variants": [
-      "たりたりする"
-    ],
-    "examples": [
-      {
-        "ja": "日曜日はそうじをしたり、洗濯をしたりします。",
-        "en": "On Sundays I do things like cleaning and laundry."
-      }
-    ],
-    "group_id": null,
-    "source_evidence": [
-      {
-        "source": "OpenJLPT",
-        "source_level": "N5",
-        "source_pattern": "〜たり〜たりする"
-      }
-    ],
-    "canonical_level": "N5",
-    "concept_id": "c_n5_point_59",
-    "matcher": {
-      "type": "pattern",
-      "variants": [
-        "たりたりする"
-      ],
-      "match_mode": "reference_only"
+    "guards": {
+      "minimum_sentence_context": 5
     },
-    "guards": null,
-    "english_breakdown": "Pattern: 〜たり〜たりする. Meaning: do things like A and B; sometimes A, sometimes B. Formation: Verb-ta + り + Verb-ta + りする."
+    "english_breakdown": "Pattern: 〜てから. Meaning: after doing; (do A) and then (B); since. Formation: Verb-te + から."
   },
   {
     "pattern_display": "〜たことがある",
@@ -20143,13 +20015,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_60",
+    "concept_id": "c_n5_point_59",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "たことがある"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+たことが(?:ある|あります|ない|ありません)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜たことがある. Meaning: have (ever) done; have the experience of doing. Formation: Verb-ta + ことがある."
@@ -20183,7 +20052,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_61",
+    "concept_id": "c_n5_point_60",
     "matcher": {
       "type": "regex",
       "regex": "[ぁ-ゖァ-ヺ一-龯]+前に"
@@ -20220,7 +20089,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_62",
+    "concept_id": "c_n5_point_61",
     "matcher": {
       "type": "regex",
       "regex": "[ぁ-ゖァ-ヺ一-龯]+後で"
@@ -20257,13 +20126,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_63",
+    "concept_id": "c_n5_point_62",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "に行く"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+に行(?:く|きます|った|って)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜に行く. Meaning: go (somewhere) to do. Formation: Verb-stem + に行く / Noun + に行く."
@@ -20292,14 +20158,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_64",
+    "concept_id": "c_n5_point_63",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "が好き",
-        "が嫌い"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+が(?:好き|嫌い)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜が好き / 〜が嫌い. Meaning: like; dislike. Formation: Noun + が好き / Noun + が嫌い / Verb-dict + の + が好き."
@@ -20328,7 +20190,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_65",
+    "concept_id": "c_n5_point_64",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20337,7 +20199,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜が上手 / 〜が下手. Meaning: good at; bad at. Formation: Noun + が上手 / Noun + が下手."
   },
   {
@@ -20364,14 +20228,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_66",
+    "concept_id": "c_n5_point_65",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "がある",
-        "がいる"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+が(?:ある|あります|いる|います)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜がある / 〜がいる. Meaning: there is; there are; have (ある for things, いる for people and animals). Formation: Noun + がある / Noun + がいる."
@@ -20405,7 +20265,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_67",
+    "concept_id": "c_n5_point_66",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20440,14 +20300,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_68",
+    "concept_id": "c_n5_point_67",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "くなる",
-        "になる"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:く|に)(?:なる|なった|なって|なります)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜くなる / 〜になる. Meaning: become; get; turn. Formation: i-Adj-ku + なる / na-Adj + になる / Noun + になる."
@@ -20487,13 +20343,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_69",
+    "concept_id": "c_n5_point_68",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "にする"
-      ],
-      "match_mode": "auto"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+に(?:する|した|します|しました)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜にする（decide）. Meaning: decide on; choose; I'll have. Formation: Noun + にする."
@@ -20521,13 +20374,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_70",
+    "concept_id": "c_n5_point_69",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "まだていない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "まだ[ぁ-ゖァ-ヺ一-龯]+てい(?:ない|ません)"
     },
     "guards": null,
     "english_breakdown": "Pattern: まだ〜ていない. Meaning: not yet (have done). Formation: まだ + Verb-te + いない / まだ + Verb-te + いません."
@@ -20555,13 +20405,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_71",
+    "concept_id": "c_n5_point_70",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "もうた"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "もう[ぁ-ゖァ-ヺ一-龯]+(?:た|ました)"
     },
     "guards": null,
     "english_breakdown": "Pattern: もう〜た. Meaning: already (have done); (in questions) yet. Formation: もう + Verb-ta / もう + Verb-stem + ました."
@@ -20595,13 +20442,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_72",
+    "concept_id": "c_n5_point_71",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "あまりない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "あまり[ぁ-ゖァ-ヺ一-龯]+(?:ない|ません|なかった)"
     },
     "guards": null,
     "english_breakdown": "Pattern: あまり〜ない. Meaning: not very; not much; not often. Formation: あまり + Verb-nai / あまり + i-Adj-ku + ない / あまり + na-Adj + じゃない."
@@ -20635,13 +20479,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_73",
+    "concept_id": "c_n5_point_72",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "全然ない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "全然[ぁ-ゖァ-ヺ一-龯]+(?:ない|ません|なかった)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 全然〜ない. Meaning: not at all; not in the least. Formation: 全然 + Verb-nai / 全然 + i-Adj-ku + ない / 全然 + na-Adj + じゃない."
@@ -20681,13 +20522,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_74",
+    "concept_id": "c_n5_point_73",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "だけ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+だけ"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜だけ. Meaning: only; just. Formation: Noun + だけ / Verb-dict + だけ."
@@ -20715,13 +20553,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_75",
+    "concept_id": "c_n5_point_74",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ごろ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[0-9一二三四五六七八九十]+時ごろ"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜ごろ. Meaning: around; about (a point in time). Formation: Noun + ごろ."
@@ -20750,14 +20585,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_76",
+    "concept_id": "c_n5_point_75",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "何もない",
-        "誰もない"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "(?:何も|誰も)[ぁ-ゖァ-ヺ一-龯]+(?:ない|ません|なかった)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 何も〜ない / 誰も〜ない. Meaning: nothing; nobody; not anything; not anyone. Formation: 何も + Verb-nai / 誰も + Verb-nai."
@@ -20787,7 +20618,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_77",
+    "concept_id": "c_n5_point_76",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20797,7 +20628,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 何か / 誰か / どこか. Meaning: something; someone; somewhere. Formation: Question word + か."
   },
   {
@@ -20826,7 +20659,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_78",
+    "concept_id": "c_n5_point_77",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20835,9 +20668,11 @@
         "あれ",
         "どれ"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: これ / それ / あれ / どれ. Meaning: this one; that one (near you); that one (over there); which one. Formation: これ / それ / あれ / どれ."
   },
   {
@@ -20866,7 +20701,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_79",
+    "concept_id": "c_n5_point_78",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20875,9 +20710,11 @@
         "あの",
         "どの"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: この / その / あの / どの. Meaning: this; that (near you); that ... over there; which (before a noun). Formation: この / その / あの / どの + Noun."
   },
   {
@@ -20906,7 +20743,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_80",
+    "concept_id": "c_n5_point_79",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20917,7 +20754,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ここ / そこ / あそこ / どこ. Meaning: here; there (near you); over there; where. Formation: ここ / そこ / あそこ / どこ."
   },
   {
@@ -20945,7 +20784,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_81",
+    "concept_id": "c_n5_point_80",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -20953,7 +20792,8 @@
         "かった",
         "くなかった"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜くない / 〜かった / 〜くなかった. Meaning: negative and past forms of i-adjectives (is not; was; was not). Formation: i-Adj stem + くない / i-Adj stem + かった / i-Adj stem + くなかった."
@@ -20982,7 +20822,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_82",
+    "concept_id": "c_n5_point_81",
     "matcher": {
       "type": "regex",
       "regex": "[ぁ-ゖァ-ヺ一-龯]+くて"
@@ -21025,7 +20865,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_83",
+    "concept_id": "c_n5_point_82",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -21033,7 +20873,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜という（named）. Meaning: called; named. Formation: Noun + という + Noun."
   },
   {
@@ -21078,7 +20920,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_84",
+    "concept_id": "c_n5_point_83",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -21088,7 +20930,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜がいます / 〜があります. Meaning: there is/are (animate or inanimate). Formation: Noun + が + います/あります."
   },
   {
@@ -21120,7 +20964,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_85",
+    "concept_id": "c_n5_point_84",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -21160,10 +21004,10 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_86",
+    "concept_id": "c_n5_point_85",
     "matcher": {
       "type": "regex",
-      "regex": "たことが(?:ある|あります)"
+      "regex": "たことが(?:ある|あります|ない|ありません)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜たことがあります. Meaning: have done before; experienced. Formation: Verb-ta + ことがあります."
@@ -21196,7 +21040,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_87",
+    "concept_id": "c_n5_point_86",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -21235,7 +21079,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_88",
+    "concept_id": "c_n5_point_87",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -21280,7 +21124,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_89",
+    "concept_id": "c_n5_point_88",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -21319,7 +21163,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_90",
+    "concept_id": "c_n5_point_89",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -21359,7 +21203,7 @@
       }
     ],
     "canonical_level": "N5",
-    "concept_id": "c_n5_point_91",
+    "concept_id": "c_n5_point_90",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -21370,45 +21214,6 @@
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜なければなりません / 〜なくてはいけません. Meaning: must do; have to do. Formation: Verb-negative + ければなりません / くてはいけません."
-  },
-  {
-    "pattern_display": "〜そうだ（appearance）",
-    "pattern_key": "そうだ",
-    "meaning_short": "looks like; appears that",
-    "formation": "Verb-stem / i-adjective stem + そうだ",
-    "variants": [
-      "そうだ"
-    ],
-    "examples": [
-      {
-        "ja": "このケーキはおいしそうだ。",
-        "en": "This cake looks delicious."
-      },
-      {
-        "ja": "雨が降りそうです。",
-        "en": "It looks like it will rain."
-      }
-    ],
-    "group_id": null,
-    "source_evidence": [
-      {
-        "source": "JLPT Reference Curated",
-        "source_level": "N4",
-        "source_pattern": "〜そうだ（appearance）",
-        "curated_id": 23
-      }
-    ],
-    "canonical_level": "N4",
-    "concept_id": "c_n4_point_87",
-    "matcher": {
-      "type": "pattern",
-      "variants": [
-        "そうだ"
-      ],
-      "match_mode": "auto"
-    },
-    "guards": null,
-    "english_breakdown": "Pattern: 〜そうだ（appearance）. Meaning: looks like; appears that. Formation: Verb-stem / i-adjective stem + そうだ."
   },
   {
     "pattern_display": "〜てしまう",
@@ -21438,10 +21243,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_88",
+    "concept_id": "c_n4_point_85",
     "matcher": {
       "type": "regex",
-      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:てしま(?:う|っ(?:た|て|たら)?)|ちゃ(?:う|っ(?:た|て|たら)?))",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:てしま(?:う|っ(?:た|て|たら)?|い(?:ます|ました))|ちゃ(?:う|っ(?:た|て|たら)?))",
       "matched_formation": "V-て + {suffix}"
     },
     "guards": null,
@@ -21475,13 +21280,10 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_89",
+    "concept_id": "c_n4_point_86",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "過ぎる"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+(?:すぎ|過ぎ)(?:る|た|て|ます|ない)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜過ぎる. Meaning: too much; excessive. Formation: Verb-stem / i-adjective stem / na-adjective stem + すぎる."
@@ -21516,11 +21318,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_point_109",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "そうにする"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+そうに(?:する|していた|した)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜そうにする. Meaning: pretend to; act as if. Formation: Verb-plain + そうにする."
@@ -21559,7 +21358,7 @@
       }
     ],
     "canonical_level": "N4",
-    "concept_id": "c_n4_point_90",
+    "concept_id": "c_n4_point_87",
     "matcher": {
       "type": "pattern",
       "variants": [
@@ -21567,7 +21366,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜ところ. Meaning: time; place; situation; about to. Formation: Verb-plain / Verb-te / Verb-ta + ところ."
   },
   {
@@ -21682,9 +21483,11 @@
       "variants": [
         "よう"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜よう. Meaning: way/manner of; like; in order to. Formation: Verb-plain + よう."
   },
   {
@@ -21721,9 +21524,11 @@
       "variants": [
         "一方"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 〜一方. Meaning: on the one hand; on the other hand; while. Formation: Noun/Verb-plain + 一方."
   },
   {
@@ -21756,11 +21561,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_point_105",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "に至って"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+に至(?:る|った|って(?:は)?)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜に至って. Meaning: when it comes to; at the point of. Formation: Noun + に至って."
@@ -21951,11 +21753,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_point_121",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "た末"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+た末(?:に)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 〜た末. Meaning: after all; in the end; as a result of. Formation: Verb-ta + 末（に/の）."
@@ -22056,7 +21855,8 @@
       "variants": [
         "どんな"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: どんな. Meaning: what kind of; what sort of."
@@ -22086,7 +21886,8 @@
       "variants": [
         "どうして"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: どうして. Meaning: why; for what reason; how."
@@ -22116,7 +21917,8 @@
       "variants": [
         "どうやって"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: どうやって. Meaning: how; in what way; by what means."
@@ -22176,9 +21978,11 @@
       "variants": [
         "一番"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 一番. Meaning: the most; the best."
   },
   {
@@ -22208,7 +22012,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 一緒に. Meaning: together."
   },
   {
@@ -22236,7 +22042,8 @@
       "variants": [
         "いつも"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: いつも. Meaning: always; usually; habitually."
@@ -22276,7 +22083,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: まだ. Meaning: still; not yet."
   },
   {
@@ -22304,9 +22113,11 @@
       "variants": [
         "もう"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: もう. Meaning: already; anymore; again; other."
   },
   {
@@ -22364,7 +22175,8 @@
       "variants": [
         "なあ"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: なあ. Meaning: sentence ending particle; confirmation; admiration, etc.."
@@ -22394,9 +22206,11 @@
       "variants": [
         "なる"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: なる. Meaning: to become."
   },
   {
@@ -22564,7 +22378,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: お / ご. Meaning: polite marker; honorific prefix particle."
   },
   {
@@ -22592,7 +22408,8 @@
       "variants": [
         "しかし"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: しかし. Meaning: but; however ~."
@@ -22622,7 +22439,8 @@
       "variants": [
         "それから"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: それから. Meaning: and; and then; after that; since then."
@@ -22652,40 +22470,11 @@
       "variants": [
         "そして"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: そして. Meaning: and; and then; thus; and now ~."
-  },
-  {
-    "pattern_display": "たり～たり",
-    "pattern_key": "たりたり",
-    "meaning_short": "do such things as A and B",
-    "formation": null,
-    "variants": [
-      "たりたり"
-    ],
-    "examples": [],
-    "group_id": null,
-    "source_evidence": [
-      {
-        "source": "JLPT Sensei N5",
-        "source_level": "N5",
-        "source_pattern": "たり～たり",
-        "ref_num": 68
-      }
-    ],
-    "canonical_level": "N5",
-    "concept_id": "c_n5_taritari",
-    "matcher": {
-      "type": "pattern",
-      "variants": [
-        "たりたり"
-      ],
-      "match_mode": "auto"
-    },
-    "guards": null,
-    "english_breakdown": "Pattern: たり～たり. Meaning: do such things as A and B."
   },
   {
     "pattern_display": "時",
@@ -22712,9 +22501,11 @@
       "variants": [
         "時"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 時. Meaning: when; at this time."
   },
   {
@@ -22750,7 +22541,8 @@
         "とても",
         "とてもない"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: とても. Meaning: very; awfully; exceedingly."
@@ -22812,7 +22604,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 場合は. Meaning: in the event of; in the case that ~."
   },
   {
@@ -22842,7 +22636,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: だけで. Meaning: just by; just by doing."
   },
   {
@@ -22902,7 +22698,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: が必要. Meaning: need; necessary."
   },
   {
@@ -22930,9 +22728,11 @@
       "variants": [
         "がり"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: がり. Meaning: personality; someone tends to / has a tendency or sensitivity to ~."
   },
   {
@@ -23022,7 +22822,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 意向形. Meaning: volitional form; let's do ~."
   },
   {
@@ -23140,7 +22942,8 @@
       "variants": [
         "かい"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: かい. Meaning: turns a sentence into a yes/no question."
@@ -23200,7 +23003,8 @@
       "variants": [
         "きっと"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: きっと. Meaning: surely; undoubtedly; almost certainly; most likely."
@@ -23230,9 +23034,11 @@
       "variants": [
         "頃"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 頃. Meaning: around; about; when."
   },
   {
@@ -23260,7 +23066,8 @@
       "variants": [
         "急に"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 急に. Meaning: quickly; immediately; hastily; suddenly; abruptly; unexpectedly ~."
@@ -23292,7 +23099,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: または. Meaning: both; or; otherwise; choice between [A] or [B]."
   },
   {
@@ -23442,7 +23251,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: なさる. Meaning: to do (honorific)."
   },
   {
@@ -23532,7 +23343,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: の中で. Meaning: in; among ~."
   },
   {
@@ -23562,7 +23375,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: さっき. Meaning: some time ago; just now."
   },
   {
@@ -23592,7 +23407,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: さすが. Meaning: as one would expect; as is to be expected; even ~."
   },
   {
@@ -23682,7 +23499,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: それに. Meaning: besides; in addition; also; moreover ~."
   },
   {
@@ -23772,7 +23591,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ていた. Meaning: was doing something (past continuous)."
   },
   {
@@ -23832,7 +23653,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: てやる. Meaning: to do for; to do a favor (casual)."
   },
   {
@@ -24016,36 +23839,6 @@
     "english_breakdown": "Pattern: と聞いた. Meaning: I heard...."
   },
   {
-    "pattern_display": "受身形",
-    "pattern_key": "受身形",
-    "meaning_short": "passive form; passive voice",
-    "formation": null,
-    "variants": [
-      "受身形"
-    ],
-    "examples": [],
-    "group_id": null,
-    "source_evidence": [
-      {
-        "source": "JLPT Sensei N4",
-        "source_level": "N4",
-        "source_pattern": "受身形（うけみけい）",
-        "ref_num": 119
-      }
-    ],
-    "canonical_level": "N4",
-    "concept_id": "c_n4_ukemi_kei",
-    "matcher": {
-      "type": "pattern",
-      "variants": [
-        "受身形"
-      ],
-      "match_mode": "auto"
-    },
-    "guards": null,
-    "english_breakdown": "Pattern: 受身形. Meaning: passive form; passive voice."
-  },
-  {
     "pattern_display": "やっと",
     "pattern_key": "やっと",
     "meaning_short": "at last; finally; barely; narrowly ~",
@@ -24072,7 +23865,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: やっと. Meaning: at last; finally; barely; narrowly ~."
   },
   {
@@ -24102,7 +23897,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 予定だ. Meaning: plan to; intend to."
   },
   {
@@ -24160,9 +23957,11 @@
       "variants": [
         "ぜひ"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ぜひ. Meaning: by all means; certainly; definitely ~."
   },
   {
@@ -24192,7 +23991,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 上げる. Meaning: to finish doing ~."
   },
   {
@@ -24282,7 +24083,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ぶりに. Meaning: for the first time in (period of time)."
   },
   {
@@ -24310,7 +24113,8 @@
       "variants": [
         "だけど"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: だけど. Meaning: but; however; although; regarding ~."
@@ -24370,9 +24174,11 @@
       "variants": [
         "ふと"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ふと. Meaning: suddenly; accidentally; unexpectedly; unintentionally ~."
   },
   {
@@ -24402,7 +24208,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 一度に. Meaning: all at once."
   },
   {
@@ -24430,9 +24238,11 @@
       "variants": [
         "一体"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 一体. Meaning: emphasis; what on earth; what in the world."
   },
   {
@@ -24462,7 +24272,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: か何か. Meaning: or something ~."
   },
   {
@@ -24490,9 +24302,11 @@
       "variants": [
         "結果"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 結果. Meaning: as a result of; after ~."
   },
   {
@@ -24520,9 +24334,11 @@
       "variants": [
         "結局"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 結局. Meaning: after all; eventually; in the end ~."
   },
   {
@@ -24546,11 +24362,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_komu",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "込む"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+込(?:む|んだ|んで|みます)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 込む. Meaning: to do something for a long time or to move something inside."
@@ -24582,7 +24395,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: まるで. Meaning: as if; as though; just like ~."
   },
   {
@@ -24610,7 +24425,8 @@
       "variants": [
         "まさか"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: まさか. Meaning: there's no way; that's impossible; you must be joking."
@@ -24672,7 +24488,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: むしろ. Meaning: rather; instead; better ~."
   },
   {
@@ -24732,7 +24550,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ないと. Meaning: must do; unless/if you don't ~."
   },
   {
@@ -25002,9 +24822,11 @@
       "variants": [
         "には"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: には. Meaning: for the purpose of; in order to ~."
   },
   {
@@ -25092,9 +24914,11 @@
       "variants": [
         "際に"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 際に. Meaning: when; at the time of; in the case of ~."
   },
   {
@@ -25124,7 +24948,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: さらに. Meaning: furthermore; again; more and more ~."
   },
   {
@@ -25152,9 +24978,11 @@
       "variants": [
         "さて"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: さて. Meaning: conjunction: well; now; then ~."
   },
   {
@@ -25304,7 +25132,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: すでに. Meaning: something has already been done/taken place; is already the case."
   },
   {
@@ -25424,7 +25254,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 確かに. Meaning: surely, certainly ~."
   },
   {
@@ -25448,11 +25280,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_tate",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "たて"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+たて(?:の|だ)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: たて. Meaning: just done; freshly done; newly done."
@@ -25484,7 +25313,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 例えば. Meaning: for example; for instance ~."
   },
   {
@@ -25544,7 +25375,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: て済む. Meaning: sufficient by; no problem to; resolve by ~."
   },
   {
@@ -25728,7 +25561,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: といい / たらいい. Meaning: it would be nice if; should; I hope ~."
   },
   {
@@ -25788,7 +25623,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: と共に. Meaning: together with; at the same time as; as well as ~."
   },
   {
@@ -25820,7 +25657,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 途中で/途中に. Meaning: on the way; in the middle of ~."
   },
   {
@@ -25848,7 +25687,8 @@
       "variants": [
         "ところで"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: ところで. Meaning: by the way ~."
@@ -25878,7 +25718,8 @@
       "variants": [
         "ところが"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: ところが. Meaning: even so; however; even though ~."
@@ -25904,11 +25745,8 @@
     "canonical_level": "N3",
     "concept_id": "c_n3_toosu",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "通す"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+通(?:す|した|して|します)"
     },
     "guards": null,
     "english_breakdown": "Pattern: 通す. Meaning: to do until the end; to continually do; through ~."
@@ -25938,9 +25776,11 @@
       "variants": [
         "つい"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: つい. Meaning: accidentally; unintentionally; by mistake."
   },
   {
@@ -25970,7 +25810,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ついに. Meaning: finally; at last; in the end ~."
   },
   {
@@ -26000,7 +25842,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: つまり. Meaning: in other words; in summary; in short ~."
   },
   {
@@ -26145,7 +25989,8 @@
       "variants": [
         "割に"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 割に. Meaning: considering ~; for ~; despite ~."
@@ -26177,7 +26022,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: わざと. Meaning: on purpose; intentionally ~."
   },
   {
@@ -26237,7 +26084,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: よりも. Meaning: in comparison to; rather than; more than ~."
   },
   {
@@ -26385,7 +26234,8 @@
       "variants": [
         "ちなみに"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: ちなみに. Meaning: by the way; in this connection; incidentally; (conjunction)."
@@ -26447,7 +26297,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: だけは. Meaning: to do all that one can."
   },
   {
@@ -26535,7 +26387,8 @@
       "variants": [
         "どうせ"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: どうせ. Meaning: anyhow; in any case; at any rate; after all; no matter what."
@@ -26565,7 +26418,8 @@
       "variants": [
         "再び"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 再び. Meaning: again; once more."
@@ -26595,7 +26449,8 @@
       "variants": [
         "ふうに"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: ふうに. Meaning: this way; that way; in such a way; how."
@@ -26625,9 +26480,11 @@
       "variants": [
         "逆に"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 逆に. Meaning: conversely; on the contrary ~."
   },
   {
@@ -26655,7 +26512,8 @@
       "variants": [
         "果たして"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 果たして. Meaning: as was expected; sure enough; really; actually ~."
@@ -26685,7 +26543,8 @@
       "variants": [
         "一応"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 一応. Meaning: more or less; pretty much; roughly; tentatively ~."
@@ -26715,9 +26574,11 @@
       "variants": [
         "以外"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 以外. Meaning: with the exception of; excepting ~."
   },
   {
@@ -26747,7 +26608,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 以上に. Meaning: more than; not less than; beyond ~."
   },
   {
@@ -26777,7 +26640,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 以上は. Meaning: because; since; seeing that ~."
   },
   {
@@ -26805,7 +26670,8 @@
       "variants": [
         "いきなり"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: いきなり. Meaning: abruptly; suddenly; all of a sudden; without warning."
@@ -26835,7 +26701,8 @@
       "variants": [
         "一気に"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 一気に. Meaning: in one go; without stopping; all at once; immediately; instantly; right away ~."
@@ -26865,7 +26732,8 @@
       "variants": [
         "いわゆる"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: いわゆる. Meaning: what is called; as it is called; the so-called; so to speak​."
@@ -26895,7 +26763,8 @@
       "variants": [
         "いよいよ"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: いよいよ. Meaning: at last; finally; beyond doubt."
@@ -26981,11 +26850,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_kagiri",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "限り"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+限り(?:では)?"
     },
     "guards": null,
     "english_breakdown": "Pattern: 限り. Meaning: as long as; while… is the case; as far as; while ~."
@@ -27197,7 +27063,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ままに. Meaning: as, to do as ~."
   },
   {
@@ -27349,7 +27217,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 中を / 中では. Meaning: in; on; in the midst of; when; while ~."
   },
   {
@@ -27439,9 +27309,11 @@
       "variants": [
         "なお"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: なお. Meaning: still; yet​; furthermore; in addition ~."
   },
   {
@@ -27651,7 +27523,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: につけ. Meaning: every time; whenever; as; whether; in (either case)​."
   },
   {
@@ -27709,9 +27583,11 @@
       "variants": [
         "にて"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: にて. Meaning: in, at, with, by (formal particle)."
   },
   {
@@ -27771,7 +27647,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: の下で. Meaning: under; with ~."
   },
   {
@@ -27825,11 +27703,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_nomi",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "のみ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+のみ"
     },
     "guards": null,
     "english_breakdown": "Pattern: のみ. Meaning: only; nothing but​."
@@ -27855,11 +27730,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_nu",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "ぬ"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+ぬ"
     },
     "guards": null,
     "english_breakdown": "Pattern: ぬ. Meaning: negative verb conjugation; traditional version of ない."
@@ -27951,7 +27823,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 恐らく. Meaning: perhaps; likely; probably; I dare say ~."
   },
   {
@@ -28009,9 +27883,11 @@
       "variants": [
         "及び"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 及び. Meaning: and; as well as ~."
   },
   {
@@ -28101,7 +27977,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: せめて. Meaning: at least; at most ~."
   },
   {
@@ -28131,7 +28009,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 次第に. Meaning: gradually (progress into a state); in sequence; in order."
   },
   {
@@ -28161,7 +28041,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: しかも. Meaning: moreover; furthermore; and yet; what’s more ~."
   },
   {
@@ -28191,7 +28073,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: その上. Meaning: besides; in addition; furthermore ~."
   },
   {
@@ -28365,11 +28249,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_sue_ni",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "末に"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+末に"
     },
     "guards": null,
     "english_breakdown": "Pattern: 末に. Meaning: finally; after; following; at the end/ conclusion of ~."
@@ -28431,7 +28312,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 直ちに. Meaning: at once; immediately; directly; in person; automatically ~."
   },
   {
@@ -28461,7 +28344,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: たまえ. Meaning: do~; order somebody to do something."
   },
   {
@@ -28521,7 +28406,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: てでも. Meaning: even if I have to; by all means ~."
   },
   {
@@ -28581,7 +28468,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: てまで. Meaning: even; will go far so as to ~."
   },
   {
@@ -28651,7 +28540,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ては / では. Meaning: whenever; if; when~; repetitive action."
   },
   {
@@ -28929,7 +28820,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: とも. Meaning: even if; no matter (who, what, when, where, why, how); though ~."
   },
   {
@@ -28953,11 +28846,8 @@
     "canonical_level": "N2",
     "concept_id": "c_n2_ue_wa",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "上は"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+上は"
     },
     "guards": null,
     "english_breakdown": "Pattern: 上は. Meaning: now that; since; as long as ~."
@@ -29019,7 +28909,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: やがて. Meaning: before long; soon; almost; eventually ~."
   },
   {
@@ -29051,7 +28943,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: よほど / よっぽど. Meaning: very; greatly; much; to a large extent."
   },
   {
@@ -29199,7 +29093,8 @@
       "variants": [
         "要するに"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: 要するに. Meaning: in short; in a word; to sum up; to put it simply ~."
@@ -29231,7 +29126,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 敢えて. Meaning: dare to; daringly; deliberately; purposely ~."
   },
   {
@@ -29291,7 +29188,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 案の定. Meaning: just as one thought; as usual; sure enough."
   },
   {
@@ -29347,13 +29246,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_biru",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "びる",
-        "びて",
-        "びた"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+び(?:る|て|た)"
     },
     "guards": null,
     "english_breakdown": "Pattern: びる / びて / びた. Meaning: to seem to be; to appear; to behave as ~."
@@ -29389,7 +29283,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ぶる / ぶって / ぶった. Meaning: assuming the air of; behaving like; to pretend / act like ~."
   },
   {
@@ -29715,11 +29611,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_houdai",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "放題"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+放題"
     },
     "guards": null,
     "english_breakdown": "Pattern: 放題. Meaning: doing as one pleases; to one's heart's content; leaving uncontrolled."
@@ -29815,7 +29708,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: いかに. Meaning: how; in what way; how much; to what extent."
   },
   {
@@ -29909,7 +29804,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: か否か. Meaning: whether or not ~."
   },
   {
@@ -29939,7 +29836,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 限りだ. Meaning: to feel strongly."
   },
   {
@@ -30033,7 +29932,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: からある / からする / からの. Meaning: at least; as much as; as many as ~."
   },
   {
@@ -30061,7 +29962,8 @@
       "variants": [
         "かつて"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: かつて. Meaning: once; before; formerly; ever; former; ex-."
@@ -30333,7 +30235,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: まくる. Meaning: to do over and over again; to do relentlessly."
   },
   {
@@ -30453,7 +30357,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: もはや. Meaning: already; now; no longer; not anymore."
   },
   {
@@ -30721,11 +30627,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_nami",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "並み"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+並み"
     },
     "guards": null,
     "english_breakdown": "Pattern: 並み. Meaning: average; ordinary; same level as; equal to; on par with ~."
@@ -30757,7 +30660,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 何しろ. Meaning: at any rate; after all; anyhow; anyway; in any case; because; as you know ~."
   },
   {
@@ -31379,7 +31284,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: のやら / ものやら / ことやら. Meaning: I wonder...; unsure; I don’t know ~."
   },
   {
@@ -31409,7 +31316,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: を経て. Meaning: through; by way of; after; via ~."
   },
   {
@@ -31593,7 +31502,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: を境に. Meaning: since ~ (indicates a large change before & after)."
   },
   {
@@ -31677,11 +31588,8 @@
     "canonical_level": "N1",
     "concept_id": "c_n1_ori_ni",
     "matcher": {
-      "type": "pattern",
-      "variants": [
-        "折に"
-      ],
-      "match_mode": "reference_only"
+      "type": "regex",
+      "regex": "[ぁ-ゖァ-ヺ一-龯]+折に"
     },
     "guards": null,
     "english_breakdown": "Pattern: 折に. Meaning: when; at the time; on the occasion ~."
@@ -31713,7 +31621,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: およそ. Meaning: about; roughly; generally; approximately; completely​ ~."
   },
   {
@@ -31741,7 +31651,8 @@
       "variants": [
         "さも"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: さも. Meaning: really (seem, appear, etc.); truly; as if ~."
@@ -31801,7 +31712,8 @@
       "variants": [
         "さぞ"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: さぞ. Meaning: surely; certainly; no doubt; indeed​ ~."
@@ -31867,7 +31779,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 損なう / 損ねる / 損じる. Meaning: to do something wrong; by mistake; to miss a chance; to fail to ~."
   },
   {
@@ -32741,7 +32655,8 @@
       "variants": [
         "とて"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: とて. Meaning: even; even if/though ~."
@@ -32835,7 +32750,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: 尽くす. Meaning: to use up (completely without anything remaining); to exhaust; to run out of ~."
   },
   {
@@ -32867,7 +32784,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ってば / ったら. Meaning: speaking of; I told you already; come on (annoyance / dissatisfaction)."
   },
   {
@@ -32935,7 +32854,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: わ. Meaning: feminine sentence ending particle."
   },
   {
@@ -33109,7 +33030,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ようが / ようと. Meaning: even if; no matter how/what ~."
   },
   {
@@ -33139,7 +33062,9 @@
       ],
       "match_mode": "auto"
     },
-    "guards": null,
+    "guards": {
+      "minimum_sentence_context": 5
+    },
     "english_breakdown": "Pattern: ゆえに. Meaning: therefore; consequently​; because of; due to ~."
   },
   {
@@ -33169,7 +33094,8 @@
         "ぞ",
         "ぜ"
       ],
-      "match_mode": "reference_only"
+      "match_mode": "reference_only",
+      "reference_reason": "Isolated particle or discourse/conversational pattern requiring full pragmatic context."
     },
     "guards": null,
     "english_breakdown": "Pattern: ぞ・ぜ. Meaning: ending particle; adds force or indicates command."

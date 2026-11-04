@@ -103,7 +103,7 @@
       }
     ],
     "forbidden": [],
-    "xfail_slice13": true
+    "xfail_slice13": false
   },
   {
     "sentence": "彼が来るかどうかわからない",
@@ -129,7 +129,7 @@
       }
     ],
     "forbidden": [],
-    "xfail_slice13": true
+    "xfail_slice13": false
   },
   {
     "sentence": "雨が降っても行きます",
@@ -141,7 +141,7 @@
       }
     ],
     "forbidden": [],
-    "xfail_slice13": true
+    "xfail_slice13": false
   },
   {
     "sentence": "食べたり飲んだりした",
@@ -153,7 +153,7 @@
       }
     ],
     "forbidden": [],
-    "xfail_slice13": true
+    "xfail_slice13": false
   },
   {
     "sentence": "ごはんを食べながら",
@@ -186,11 +186,12 @@
       },
       {
         "pattern_key": "ていただく",
+        "alt_keys": ["てくださる / ていただく"],
         "text": "ていただきます"
       }
     ],
     "forbidden": ["ていた", "ている"],
-    "xfail_slice13": true
+    "xfail_slice13": false
   },
   {
     "sentence": "そんなことをするはずがない",
@@ -208,6 +209,7 @@
     "expected": [
       {
         "pattern_key": "なければよかった",
+        "alt_keys": ["ばよかった"],
         "text": "言わなければよかった"
       },
       {
@@ -216,7 +218,7 @@
       }
     ],
     "forbidden": [],
-    "xfail_slice13": true
+    "xfail_slice13": false
   },
   {
     "sentence": "日本に住むことにした",
@@ -227,7 +229,7 @@
       }
     ],
     "forbidden": [],
-    "xfail_slice13": true
+    "xfail_slice13": false
   },
   {
     "sentence": "日本語を話せるようにしている",
@@ -238,6 +240,96 @@
       }
     ],
     "forbidden": [],
-    "xfail_slice13": true
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "雨が降ったので傘を持っていきました",
+    "expected": [
+      {
+        "pattern_key": "ので",
+        "text": "降ったので"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "時間がないので急ぎましょう",
+    "expected": [
+      {
+        "pattern_key": "ので",
+        "text": "ないので"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "風邪を引いたので会社を休みました",
+    "expected": [
+      {
+        "pattern_key": "ので",
+        "text": "引いたので"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "この電車に乗る",
+    "expected": [],
+    "forbidden": ["ので"],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "本を読んで寝た",
+    "expected": [],
+    "forbidden": ["ので"],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "友達にプレゼントを買ってあげた",
+    "expected": [
+      {
+        "pattern_key": "てあげる",
+        "text": "買ってあげた"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "妹の宿題を手伝ってあげました",
+    "expected": [
+      {
+        "pattern_key": "てあげる",
+        "text": "手伝ってあげました"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "お土産を持って行ってあげた",
+    "expected": [
+      {
+        "pattern_key": "てあげる",
+        "text": "行ってあげた"
+      }
+    ],
+    "forbidden": [],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "花に水をあげた",
+    "expected": [],
+    "forbidden": ["てあげる"],
+    "xfail_slice13": false
+  },
+  {
+    "sentence": "お寺にあげる",
+    "expected": [],
+    "forbidden": ["てあげる"],
+    "xfail_slice13": false
   }
 ]

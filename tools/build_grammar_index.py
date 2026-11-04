@@ -14,34 +14,7 @@ DEFAULT_OUTPUT = ROOT / "backend" / "app" / "data" / "grammar_reference.sqlite"
 OPENJLPT_DIR = ROOT / "backend" / "app" / "data" / "openjlpt_grammar"
 MASTER_DATASET_PATH = ROOT / "backend" / "app" / "data" / "master_grammar_dataset.json"
 
-REFERENCE_ONLY_KEYS = {
-    "か(or)", "か(question)", "ね", "よ", "の方がより",
-    "ととどちらが", "の中でが一番", "てはいけない",
-    "なければならない / なくてはいけない", "たりたりする", "たことがある",
-    "に行く", "がある / がいる", "くなる / になる", "にする(decide)",
-    "まだていない", "もうた", "あまりない", "全然ない", "何もない / 誰もない",
-    "ことにする", "てあげる", "ていく", "てくる", "てくれる", "過ぎる",
-    "あげる / くれる / もらう", "てくださる / ていただく", "てしまう / ちゃう",
-    "てある", "らしい(hearsay/conjecture)", "ようだ", "すぎる",
-    "ことができる", "える / られる(potential)",
-    "れる / られる(passive)", "せられる / させられる", "おう / よう",
-    "(よ)うと思う", "ようにする", "ようになる", "たがる",
-    "はずだ", "か(embedded question)", "と言う", "ところだ",
-    "始める / 終わる / 続ける", "出す", "ほどない", "なかなかない", "ことがある",
-    "尊敬語", "謙譲語", "おする", "ても構わない", "の / こと(nominalizer)",
-    "たらどう", "くする / にする(make)", "そうにする", "よう",
-    "ように言う / ように頼む", "ようとする", "もばも", "まるでようだ",
-    "さえば", "たらた", "ということだ", "からにかけて", "ふりをする",
-    "切る / 切れない", "かける", "合う", "直す", "ほどはない", "かのようだ",
-    "に至って", "を余儀なくされる", "かねる", "ことはが", "抜く",
-    "てならない", "をとして", "かないかのうちに", "おそれがある", "たとえても",
-    "やらやら", "ずに済む / ないで済む", "た末", "に至る / に至って / に至っては",
-    "を余儀なくされる", "(よ)うがまいが / (よ)うとまいと", "(よ)うにもない",
-    "てもさしつかえない", "といったらない", "なりなり",
-    "に堪える / に堪えない", "をもって", "ただのみ", "だのだの", "かれかれ",
-    "くない / かった / くなかった",
-    "は", "が", "を", "に", "へ", "で", "と", "の", "も",
-}
+from tools.reconcile_grammar_dataset import REFERENCE_ONLY_KEYS
 
 FALLBACK_ROWS = [
     ("使役受身", "N4", "be made to; be forced to",
@@ -84,6 +57,10 @@ FALLBACK_ROWS = [
 
 def matcher_spec(key: str, pattern: str) -> dict[str, object]:
     """Create the data-only matching contract for one reference row."""
+    from tools.reconcile_grammar_dataset import SPECIAL_MATCHERS
+
+    if key in SPECIAL_MATCHERS:
+        return dict(SPECIAL_MATCHERS[key])
     if key in REFERENCE_ONLY_KEYS:
         return {
             "type": "pattern",
@@ -132,7 +109,7 @@ def matcher_spec(key: str, pattern: str) -> dict[str, object]:
             "clause_break": "[、。！？]",
         }
     if key in {"おになる", "お〜になる"}:
-        return {"type": "regex", "regex": "お[ぁ-ゖァ-ヺ一-龯]{1,6}になる"}
+        return {"type": "regex", "regex": "お[ぁ-ゖァ-ヺ一-龯]{1,6}にな(?:る|った|ります|りました)"}
     if key == "そうだ(appearance)":
         return {
             "type": "regex",
