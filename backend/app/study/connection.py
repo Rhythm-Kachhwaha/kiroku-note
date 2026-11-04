@@ -18,6 +18,7 @@ Guarantees:
 from __future__ import annotations
 
 from contextlib import contextmanager
+import logging
 import os
 from pathlib import Path
 import sqlite3
@@ -26,7 +27,11 @@ from typing import Iterator, Set
 import weakref
 
 from app.config import get_study_db_path
+from app.services.operational_diagnostics import record_operational_failure
 from app.study.tx import unit_of_work
+
+
+logger = logging.getLogger(__name__)
 
 
 class StudyDatabaseError(Exception):
@@ -131,8 +136,9 @@ class StudyDatabaseManager:
             self._open_connections.discard(conn)
         try:
             conn.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            # The connection is already unusable; closing is best-effort cleanup.
+            record_operational_failure("study.connection_close", exc, level=logging.DEBUG)
 
     def close_all(self) -> int:
         """
@@ -150,8 +156,9 @@ class StudyDatabaseManager:
             try:
                 conn.close()
                 closed_count += 1
-            except Exception:
-                pass
+            except Exception as exc:
+                # Restore/backup proceeds even if one stale handle refuses to close.
+                record_operational_failure("study.connection_close_all", exc, level=logging.DEBUG)
         return closed_count
 
 

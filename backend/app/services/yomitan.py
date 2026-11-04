@@ -8,6 +8,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlparse
 from urllib.request import Request, urlopen
 
+from app.services.operational_diagnostics import record_operational_failure
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_YOMITAN_ENDPOINT = "http://127.0.0.1:19633"
@@ -550,7 +552,9 @@ class YomitanService:
                         raw_tags=raw_tags,
                     )
                     normalized.append(entry)
-            except Exception:
+            except Exception as exc:
+                # A malformed entry is skipped; remaining dictionary entries stay usable.
+                record_operational_failure("dictionary.term_entry_parse", exc, level=logging.DEBUG)
                 continue
         return normalized
 
@@ -1054,6 +1058,8 @@ class YomitanService:
                     frequencies=frequencies,
                 )
                 normalized.append(entry)
-            except Exception:
+            except Exception as exc:
+                # A malformed kanji entry is skipped; remaining entries stay usable.
+                record_operational_failure("dictionary.kanji_entry_parse", exc, level=logging.DEBUG)
                 continue
         return normalized

@@ -774,6 +774,7 @@ def has_secure_llm_key(env: dict[str, str] | None = None) -> bool:
         store = get_secret_store(secrets_path=secrets_path)
         return store.has_secret("llm_api_key")
     except Exception:
+        # An unreadable secret store means no usable key; callers treat this as "not configured".
         return False
 
 

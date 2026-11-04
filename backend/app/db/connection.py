@@ -105,6 +105,7 @@ def get_db_connection(db_path: Path | str | None = None) -> sqlite3.Connection:
             try:
                 conn.close()
             except Exception:
+                # Best-effort cleanup; the original connection error is raised below.
                 pass
         raise RuntimeError(
             f"Failed to initialize SQLite connection to '{target_path}': {err}. "
