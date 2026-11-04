@@ -17,13 +17,18 @@ export class GrammarView {
     this.keepAlive = true;
     this.container = null;
     this.analyzedTokens = [];
+    this.analyzedSpans = [];
     this.activeGrammarPoint = null;
+    this.activeDetailTab = 'meaning';
+    this.tokensDiagnosticOpen = readSessionFlag(TOKENS_DIAGNOSTIC_KEY);
+    this.onlySeenInCards = false;
     this.currentSyllabusLevel = 'N4';
     this.currentSyllabusSearch = '';
   }
 
   async mount(container) {
     this.container = container;
+    this.tokensDiagnosticOpen = readSessionFlag(TOKENS_DIAGNOSTIC_KEY);
     try {
       let storedLevel = null;
       if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
@@ -114,17 +119,26 @@ export class GrammarView {
                 </div>
               </div>
 
-              <!-- Centerpiece Pitch-Black Segmented Visualizer (#000000) -->
+              <!-- Centerpiece Pitch-Black Sentence Highlight + Diagnostic Token Flow -->
               <div class="grammar-visualizer-card surface-pitch-black tactile-card">
                 <div class="visualizer-ambient-glow"></div>
                 <div class="visualizer-header-row">
                   <div class="visualizer-header-left">
                     <span class="visualizer-pulse-dot"></span>
-                    <span class="visualizer-title">Tokenized Structure</span>
+                    <span class="visualizer-title">Sentence Structure</span>
                   </div>
-                  <span class="visualizer-tip">Click words to breakdown grammar</span>
+                  <button
+                    type="button"
+                    class="tokens-toggle"
+                    id="btn-toggle-tokens"
+                    aria-pressed="${this.tokensDiagnosticOpen ? 'true' : 'false'}"
+                    aria-controls="tokens-flow"
+                  >Tokens</button>
                 </div>
-                <div class="tokens-flow-container" id="tokens-flow">
+                <div class="sentence-highlight" id="sentence-highlight" aria-live="polite">
+                  <span class="sentence-highlight-empty">Analyze a sentence to highlight grammar spans.</span>
+                </div>
+                <div class="tokens-flow-container" id="tokens-flow" ${this.tokensDiagnosticOpen ? '' : 'hidden'}>
                   <div class="empty-tokens text-muted text-sm py-4 text-center" id="tokens-empty-msg">
                     Enter a Japanese sentence above and click "Analyze Sentence" to inspect tokenized structure.
                   </div>
@@ -148,12 +162,20 @@ export class GrammarView {
                     <button type="button" class="syllabus-level-pill ${this.currentSyllabusLevel === 'N2' ? 'is-active' : ''}" data-level="N2">N2</button>
                     <button type="button" class="syllabus-level-pill ${this.currentSyllabusLevel === 'N1' ? 'is-active' : ''}" data-level="N1">N1</button>
                   </div>
-                  <input
-                    type="text"
-                    class="tactile-input syllabus-search-input"
-                    id="syllabus-search"
-                    placeholder="Search grammar patterns..."
-                  />
+                  <div class="syllabus-filter-actions">
+                    <button
+                      type="button"
+                      class="syllabus-filter-chip ${this.onlySeenInCards ? 'is-active' : ''}"
+                      id="syllabus-seen-filter"
+                      aria-pressed="${this.onlySeenInCards ? 'true' : 'false'}"
+                    >Seen in your cards</button>
+                    <input
+                      type="text"
+                      class="tactile-input syllabus-search-input"
+                      id="syllabus-search"
+                      placeholder="Search grammar patterns..."
+                    />
+                  </div>
                 </div>
                 <div class="syllabus-list" id="syllabus-list">
                   <div class="syllabus-empty-state text-sm text-muted py-4 text-center">Loading syllabus points...</div>
@@ -176,7 +198,6 @@ export class GrammarView {
                         <span class="tactile-pill" id="point-status-tag">NEW</span>
                       </div>
                       <h2 class="point-title font-display" id="point-title">--</h2>
-                      <p class="point-meaning" id="point-meaning">--</p>
                     </div>
 
                     <!-- Mastery Status Selector -->
@@ -187,36 +208,57 @@ export class GrammarView {
                     </div>
                   </div>
 
-                  <!-- Formation Rules -->
-                  <div class="point-formation-box">
-                    <div class="flex items-center justify-between mb-2">
-                      <h4 class="formation-label">Formation Rules</h4>
-                      <span class="text-xs text-muted font-mono">Structure</span>
+                  <!-- Focused detail tabs -->
+                  <div class="point-tabs" role="tablist" aria-label="Grammar point details">
+                    <button type="button" class="point-tab is-active" data-tab="meaning" role="tab" aria-selected="true">Meaning</button>
+                    <button type="button" class="point-tab" data-tab="examples" role="tab" aria-selected="false" tabindex="-1">Examples</button>
+                    <button type="button" class="point-tab" data-tab="formation" role="tab" aria-selected="false" tabindex="-1">Formation</button>
+                    <button type="button" class="point-tab" data-tab="cards" role="tab" aria-selected="false" tabindex="-1">Seen in your cards</button>
+                  </div>
+
+                  <div class="point-panel is-active" data-panel="meaning" role="tabpanel">
+                    <div class="point-meaning-box">
+                      <p class="point-meaning" id="point-meaning">--</p>
+                      <p class="point-meaning-secondary" id="point-meaning-secondary" hidden></p>
                     </div>
-                    <div class="formation-list" id="point-formations">
-                      <span class="text-sm text-muted">No formation rules listed.</span>
+                  </div>
+
+                  <!-- Formation Rules -->
+                  <div class="point-panel" data-panel="formation" role="tabpanel" hidden>
+                    <div class="point-formation-box">
+                      <div class="flex items-center justify-between mb-2">
+                        <h4 class="formation-label">Formation</h4>
+                        <span class="text-xs text-muted font-mono">Structure</span>
+                      </div>
+                      <div class="formation-list" id="point-formations">
+                        <span class="text-sm text-muted">No formation rules listed.</span>
+                      </div>
                     </div>
                   </div>
 
                   <!-- Curated Example Sentences with Ruby/Furigana -->
-                  <div class="point-examples-section">
-                    <div class="flex items-center justify-between mb-2">
-                      <h4 class="examples-label">Curated Examples</h4>
-                      <span class="text-xs text-muted font-mono">Context</span>
-                    </div>
-                    <div class="examples-list" id="point-examples">
-                      <span class="text-sm text-muted">No example sentences available.</span>
+                  <div class="point-panel" data-panel="examples" role="tabpanel" hidden>
+                    <div class="point-examples-section">
+                      <div class="flex items-center justify-between mb-2">
+                        <h4 class="examples-label">Examples</h4>
+                        <span class="text-xs text-muted font-mono">Context</span>
+                      </div>
+                      <div class="examples-list" id="point-examples">
+                        <span class="text-sm text-muted">No example sentences available.</span>
+                      </div>
                     </div>
                   </div>
 
-                  <!-- Sentence Encounters (Mining History Context) -->
-                  <div class="point-encounters-section">
-                    <div class="flex items-center justify-between mb-2">
-                      <h4 class="encounters-label">Mining History Encounters</h4>
-                      <span class="text-xs text-muted font-mono" id="encounters-count-badge">0 recorded</span>
-                    </div>
-                    <div class="encounters-list" id="point-encounters">
-                      <span class="text-sm text-muted">Select a grammar point to inspect encounters.</span>
+                  <!-- Grammar Seen in the User's Cards -->
+                  <div class="point-panel" data-panel="cards" role="tabpanel" hidden>
+                    <div class="point-encounters-section">
+                      <div class="flex items-center justify-between mb-2">
+                        <h4 class="encounters-label">Seen in your cards</h4>
+                        <span class="text-xs text-muted font-mono" id="encounters-count-badge">0 recorded</span>
+                      </div>
+                      <div class="encounters-list" id="point-encounters">
+                        <span class="text-sm text-muted">Select a grammar point to inspect card encounters.</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -240,6 +282,35 @@ export class GrammarView {
     if (btnDismiss) {
       btnDismiss.addEventListener('click', () => this.clearError());
     }
+
+    // Token flow diagnostic toggle (session-persistent)
+    const btnTokens = document.getElementById('btn-toggle-tokens');
+    if (btnTokens) {
+      btnTokens.addEventListener('click', () => {
+        this.toggleTokensDiagnostic();
+      });
+    }
+    this.applyTokensDiagnosticState();
+
+    // Focused grammar detail tabs
+    this.container.querySelectorAll('.point-tab').forEach((tab) => {
+      tab.addEventListener('click', () => this.selectDetailTab(tab.dataset.tab));
+      tab.addEventListener('keydown', (event) => {
+        const tabs = Array.from(this.container.querySelectorAll('.point-tab'));
+        const index = tabs.indexOf(tab);
+        if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+          event.preventDefault();
+          const next = event.key === 'ArrowRight'
+            ? tabs[(index + 1) % tabs.length]
+            : tabs[(index - 1 + tabs.length) % tabs.length];
+          this.selectDetailTab(next.dataset.tab, { focus: true });
+        } else if (event.key === 'Home' || event.key === 'End') {
+          event.preventDefault();
+          const target = event.key === 'Home' ? tabs[0] : tabs[tabs.length - 1];
+          this.selectDetailTab(target.dataset.tab, { focus: true });
+        }
+      });
+    });
 
     if (inputSentence && charCounter) {
       inputSentence.addEventListener('input', () => {
@@ -345,6 +416,20 @@ export class GrammarView {
       });
     });
 
+    // Seen-in-cards index filter
+    const seenFilter = document.getElementById('syllabus-seen-filter');
+    if (seenFilter) {
+      seenFilter.addEventListener('click', () => {
+        this.onlySeenInCards = !this.onlySeenInCards;
+        seenFilter.classList.toggle('is-active', this.onlySeenInCards);
+        seenFilter.setAttribute('aria-pressed', this.onlySeenInCards ? 'true' : 'false');
+        this.loadSyllabus({
+          level: this.currentSyllabusLevel,
+          search: this.currentSyllabusSearch
+        });
+      });
+    }
+
     // Syllabus search input
     const searchInput = document.getElementById('syllabus-search');
     let searchDebounce = null;
@@ -378,78 +463,124 @@ export class GrammarView {
     }
   }
 
-  renderAnalyzedSentence(sentenceText, points) {
-    const container = document.getElementById('tokens-flow');
-    if (!container) return;
+  toggleTokensDiagnostic(force) {
+    this.tokensDiagnosticOpen = typeof force === 'boolean' ? force : !this.tokensDiagnosticOpen;
+    writeSessionFlag(TOKENS_DIAGNOSTIC_KEY, this.tokensDiagnosticOpen);
+    this.applyTokensDiagnosticState();
+  }
 
-    if (!points || points.length === 0) {
-      this.renderTokensFlow([sentenceText]);
+  applyTokensDiagnosticState() {
+    const flow = document.getElementById('tokens-flow');
+    const btn = document.getElementById('btn-toggle-tokens');
+    if (flow) flow.hidden = !this.tokensDiagnosticOpen;
+    if (btn) {
+      btn.classList.toggle('is-active', this.tokensDiagnosticOpen);
+      btn.setAttribute('aria-pressed', this.tokensDiagnosticOpen ? 'true' : 'false');
+    }
+  }
+
+  renderAnalyzedSentence(sentenceText, points) {
+    const flow = document.getElementById('tokens-flow');
+    const highlight = document.getElementById('sentence-highlight');
+    const spans = normalizeGrammarSpans(sentenceText, points);
+    this.analyzedSpans = spans;
+
+    const segments = buildSentenceSegments(sentenceText, spans);
+
+    if (highlight) {
+      highlight.innerHTML = segments.map((seg, i) => {
+        if (!seg.isGrammar) {
+          return `<span class="sentence-plain">${escapeHtml(seg.text)}</span>`;
+        }
+        const point = seg.point;
+        return `<span
+          class="grammar-span"
+          role="button"
+          tabindex="0"
+          data-span-index="${i}"
+          title="${escapeHtml(point.meaning_short || point.pattern_display || point.pattern_key)}"
+        >${escapeHtml(seg.text)}</span>`;
+      }).join('');
+    }
+
+    if (!flow) return;
+
+    if (spans.length === 0) {
+      flow.innerHTML = `<div class="empty-tokens text-muted text-sm py-4 text-center">No grammar points detected in this sentence.</div>`;
       return;
     }
 
-    const segments = [];
-    let lastIdx = 0;
-
-    const sortedPoints = [...points].sort((a, b) => {
-      const idxA = a.position !== undefined ? a.position : (a.start !== undefined ? a.start : sentenceText.indexOf(a.pattern_display || a.pattern_key));
-      const idxB = b.position !== undefined ? b.position : (b.start !== undefined ? b.start : sentenceText.indexOf(b.pattern_display || b.pattern_key));
-      return idxA - idxB;
-    });
-
-    for (const pt of sortedPoints) {
-      const display = pt.text || pt.pattern_display || pt.pattern_key;
-      const idx = pt.position !== undefined ? pt.position : (pt.start !== undefined ? pt.start : sentenceText.indexOf(display, lastIdx));
-
-      if (idx > lastIdx && idx <= sentenceText.length) {
-        segments.push({ text: sentenceText.substring(lastIdx, idx), isGrammar: false });
-      }
-
-      if (idx !== -1 && idx < sentenceText.length) {
-        const segText = sentenceText.substring(idx, idx + display.length) || display;
-        segments.push({ text: segText, isGrammar: true, point: pt });
-        lastIdx = Math.max(lastIdx, idx + display.length);
-      }
-    }
-
-    if (lastIdx < sentenceText.length) {
-      segments.push({ text: sentenceText.substring(lastIdx), isGrammar: false });
-    }
-
-    container.innerHTML = segments.map((seg, i) => {
+    flow.innerHTML = segments.map((seg, i) => {
       if (seg.isGrammar) {
-        const lvl = seg.point?.level || 'JLPT';
+        const point = seg.point;
+        const level = point.level || 'JLPT';
         return `
           <button
             type="button"
-            class="grammar-token-chip is-active-point tactile-card-interactive"
-            data-index="${i}"
-            data-key="${escapeHtml(seg.point.pattern_key)}"
-            title="${escapeHtml(seg.point.meaning_short || seg.point.pattern_display || seg.point.pattern_key)}"
+            class="grammar-token-chip tactile-card-interactive"
+            data-span-index="${i}"
+            data-key="${escapeHtml(point.pattern_key)}"
+            title="${escapeHtml(point.meaning_short || point.pattern_display || point.pattern_key)}"
           >
             <span class="token-text font-japanese font-bold">${escapeHtml(seg.text)}</span>
-            <span class="token-level-tag tactile-pill text-xs">${escapeHtml(lvl)}</span>
+            <span class="token-level-tag tactile-pill text-xs">${escapeHtml(level)}</span>
           </button>
         `;
       }
       return `<span class="plain-token font-japanese text-secondary">${escapeHtml(seg.text)}</span>`;
     }).join('');
 
-    container.querySelectorAll('.grammar-token-chip').forEach((chip) => {
-      chip.addEventListener('click', () => {
-        container.querySelectorAll('.grammar-token-chip').forEach((c) => c.classList.remove('is-selected-token'));
-        chip.classList.add('is-selected-token');
+    this.bindGrammarSpanSelection(segments);
 
-        const key = chip.dataset.key;
-        const pt = points.find((p) => p.pattern_key === key);
-        if (pt) {
-          this.displayGrammarDetail(pt);
+    if (spans.length > 0) {
+      this.displayGrammarDetail(spans[0].point);
+      const firstGrammarIndex = segments.findIndex((seg) => seg.isGrammar);
+      if (firstGrammarIndex >= 0) this.markSelectedSpan(firstGrammarIndex, segments);
+    }
+  }
+
+  bindGrammarSpanSelection(segments) {
+    const select = (element) => {
+      const index = Number(element.dataset.spanIndex);
+      const seg = segments[index];
+      if (!seg || !seg.isGrammar) return;
+      this.markSelectedSpan(index, segments);
+      this.displayGrammarDetail(seg.point);
+    };
+
+    this.container.querySelectorAll('#sentence-highlight .grammar-span').forEach((span) => {
+      span.addEventListener('click', () => select(span));
+      span.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          select(span);
         }
       });
     });
 
-    if (sortedPoints.length > 0) {
-      this.displayGrammarDetail(sortedPoints[0]);
-      container.querySelector('.grammar-token-chip')?.classList.add('is-selected-token');
+    this.container.querySelectorAll('#tokens-flow .grammar-token-chip').forEach((chip) => {
+      chip.addEventListener('click', () => select(chip));
+    });
+  }
+
+  markSelectedSpan(index, segments) {
+    this.container.querySelectorAll('.grammar-span, .grammar-token-chip').forEach((element) => {
+      element.classList.remove('is-selected-span', 'is-selected-token');
+    });
+
+    this.container.querySelectorAll(`[data-span-index="${index}"]`).forEach((element) => {
+      if (element.classList.contains('grammar-span')) {
+        element.classList.add('is-selected-span');
+      } else {
+        element.classList.add('is-selected-token');
+      }
+    });
+
+    const seg = segments[index];
+    if (seg && seg.isGrammar) {
+      this.container.querySelectorAll('#sentence-highlight .grammar-span').forEach((element) => {
+        element.classList.toggle('is-active-point', element.dataset.spanIndex === String(index));
+      });
     }
   }
 
@@ -479,6 +610,7 @@ export class GrammarView {
     const statusTag = document.getElementById('point-status-tag');
     const title = document.getElementById('point-title');
     const meaning = document.getElementById('point-meaning');
+    const meaningSecondary = document.getElementById('point-meaning-secondary');
     const formationsBox = document.getElementById('point-formations');
     const examplesBox = document.getElementById('point-examples');
     const encountersBox = document.getElementById('point-encounters');
@@ -492,7 +624,17 @@ export class GrammarView {
     }
 
     if (title) title.textContent = point.pattern_display || point.pattern_key;
-    if (meaning) meaning.textContent = point.meaning_short || point.english_breakdown || '--';
+
+    const shortMeaning = point.meaning_short || '';
+    const breakdown = point.english_breakdown || '';
+    if (meaning) meaning.textContent = shortMeaning || breakdown || '--';
+    if (meaningSecondary) {
+      const showBreakdown = breakdown && breakdown !== shortMeaning;
+      meaningSecondary.textContent = showBreakdown ? breakdown : '';
+      meaningSecondary.hidden = !showBreakdown;
+    }
+
+    this.selectDetailTab(this.activeDetailTab);
 
     const masteryPills = this.container.querySelectorAll('#mastery-status-group .mastery-pill');
     masteryPills.forEach((pill) => {
@@ -552,11 +694,12 @@ export class GrammarView {
       }
     }
 
-    // Encounters
+    // Encounters (grammar seen in the user's cards)
     if (encountersBox) {
-      encountersBox.innerHTML = `<span class="text-sm text-muted">Loading recorded encounters...</span>`;
+      encountersBox.innerHTML = `<span class="text-sm text-muted">Loading card encounters...</span>`;
       try {
         const encRes = await apiClient.getGrammarEncounters(point.pattern_key);
+        if (this.activeGrammarPoint !== point) return;
         const encounters = encRes?.encounters || point.encounters || [];
         if (encountersBadge) {
           encountersBadge.textContent = `${encounters.length} recorded`;
@@ -569,13 +712,34 @@ export class GrammarView {
             </div>
           `).join('');
         } else {
-          encountersBox.innerHTML = `<span class="text-sm text-muted">No recorded sentence encounters yet.</span>`;
+          encountersBox.innerHTML = `<span class="text-sm text-muted">No card encounters recorded yet.</span>`;
         }
       } catch (err) {
         console.debug('[Grammar] Load encounters error:', err);
-        encountersBox.innerHTML = `<span class="text-sm text-muted">No recorded sentence encounters yet.</span>`;
+        if (this.activeGrammarPoint !== point) return;
+        encountersBox.innerHTML = `<span class="text-sm text-muted">No card encounters recorded yet.</span>`;
       }
     }
+  }
+
+  selectDetailTab(tab, options = {}) {
+    const tabs = ['meaning', 'examples', 'formation', 'cards'];
+    const nextTab = tabs.includes(tab) ? tab : 'meaning';
+    this.activeDetailTab = nextTab;
+
+    this.container.querySelectorAll('.point-tab').forEach((button) => {
+      const active = button.dataset.tab === nextTab;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.setAttribute('tabindex', active ? '0' : '-1');
+      if (active && options.focus) button.focus();
+    });
+
+    this.container.querySelectorAll('.point-panel').forEach((panel) => {
+      const active = panel.dataset.panel === nextTab;
+      panel.hidden = !active;
+      panel.classList.toggle('is-active', active);
+    });
   }
 
   async loadSyllabus(params = {}) {
@@ -586,23 +750,33 @@ export class GrammarView {
     listContainer.innerHTML = `<div class="syllabus-empty-state text-sm text-muted py-6 text-center">Loading syllabus points...</div>`;
 
     try {
-      const result = await apiClient.getGrammarSyllabus({
+      const query = {
         level: params.level || '',
-        search: params.search || '',
-        limit: 100,
-        offset: 0
-      });
-
-      const points = result?.points || [];
-      const total = result?.total || points.length;
+        search: params.search || ''
+      };
+      let points;
+      let total;
+      if (this.onlySeenInCards) {
+        points = await this.fetchSeenSyllabusPoints(query);
+        total = points.length;
+      } else {
+        const result = await apiClient.getGrammarSyllabus({ ...query, limit: 100, offset: 0 });
+        points = result?.points || [];
+        total = result?.total || points.length;
+      }
 
       if (countLabel) {
-        countLabel.textContent = `${total} points found`;
+        countLabel.textContent = this.onlySeenInCards
+          ? `${total} seen points`
+          : `${total} points found`;
       }
 
       if (points.length === 0) {
         const queryText = (params.search || params.level) ? ` matching "${escapeHtml(params.search || params.level)}"` : '';
-        listContainer.innerHTML = `<div class="syllabus-empty-state text-sm text-muted py-6 text-center">No grammar patterns found${queryText}.</div>`;
+        const emptyText = this.onlySeenInCards
+          ? `No grammar patterns seen in your cards${queryText} yet.`
+          : `No grammar patterns found${queryText}.`;
+        listContainer.innerHTML = `<div class="syllabus-empty-state text-sm text-muted py-6 text-center">${emptyText}</div>`;
         return;
       }
 
@@ -636,6 +810,28 @@ export class GrammarView {
     }
   }
 
+  async fetchSeenSyllabusPoints(query) {
+    const pageSize = 100;
+    const seen = [];
+    let offset = 0;
+    let total = Infinity;
+
+    while (offset < total && offset < 2000) {
+      const page = await apiClient.getGrammarSyllabus({
+        ...query,
+        limit: pageSize,
+        offset
+      });
+      const pagePoints = page?.points || [];
+      total = page?.total ?? pagePoints.length;
+      seen.push(...pagePoints.filter((pt) => Number(pt.seen_count) > 0));
+      offset += pagePoints.length;
+      if (pagePoints.length === 0) break;
+    }
+
+    return seen;
+  }
+
   updateSyllabusItemStatus(patternKey, newStatus) {
     const listContainer = document.getElementById('syllabus-list');
     if (!listContainer) return;
@@ -655,10 +851,89 @@ export class GrammarView {
   }
 
   unmount() {
+    this.analyzedSpans = [];
     if (this.container) {
       this.container.innerHTML = '';
     }
   }
+}
+
+const TOKENS_DIAGNOSTIC_KEY = 'grammar.tokensDiagnosticOpen';
+
+function readSessionFlag(key) {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return false;
+    return window.sessionStorage.getItem(key) === 'true';
+  } catch (err) {
+    console.debug('[Grammar] Read session flag error:', err);
+    return false;
+  }
+}
+
+function writeSessionFlag(key, value) {
+  try {
+    if (typeof window === 'undefined' || !window.sessionStorage) return;
+    window.sessionStorage.setItem(key, value ? 'true' : 'false');
+  } catch (err) {
+    console.debug('[Grammar] Write session flag error:', err);
+  }
+}
+
+function normalizeGrammarSpans(sentenceText, points) {
+  if (!Array.isArray(points) || points.length === 0) return [];
+
+  const candidates = points.map((point) => {
+    const display = point.text || point.pattern_display || point.pattern_key || '';
+    const fallbackStart = Number.isInteger(point.position) ? point.position : sentenceText.indexOf(display);
+    const start = Number.isInteger(point.start) ? point.start : fallbackStart;
+    if (start < 0 || start >= sentenceText.length) return null;
+
+    let end = Number.isInteger(point.end) ? point.end : start + display.length;
+    if (end <= start) end = start + Math.max(display.length, 1);
+    end = Math.min(end, sentenceText.length);
+    if (end <= start) return null;
+
+    return {
+      point,
+      start,
+      end,
+      text: point.text || sentenceText.slice(start, end)
+    };
+  }).filter(Boolean);
+
+  candidates.sort((a, b) => a.start - b.start || b.end - a.end);
+
+  const spans = [];
+  let cursor = 0;
+  for (const candidate of candidates) {
+    if (candidate.start < cursor) continue;
+    spans.push(candidate);
+    cursor = candidate.end;
+  }
+  return spans;
+}
+
+function buildSentenceSegments(sentenceText, spans) {
+  const segments = [];
+  let lastIndex = 0;
+
+  for (const span of spans) {
+    if (span.start > lastIndex) {
+      segments.push({ text: sentenceText.slice(lastIndex, span.start), isGrammar: false });
+    }
+    segments.push({
+      text: sentenceText.slice(span.start, span.end),
+      isGrammar: true,
+      point: span.point
+    });
+    lastIndex = span.end;
+  }
+
+  if (lastIndex < sentenceText.length) {
+    segments.push({ text: sentenceText.slice(lastIndex), isGrammar: false });
+  }
+
+  return segments;
 }
 
 function formatExampleJapanese(raw) {

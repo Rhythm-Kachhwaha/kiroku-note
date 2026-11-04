@@ -158,6 +158,63 @@ test('Grammar View: bundle.css styles grammar studio with Planetoño tactile phy
   }
 });
 
+test('Grammar View: R10 focused detail tabs, token diagnostics, seen filter, and backend spans', () => {
+  const content = fs.readFileSync(grammarViewPath, 'utf8');
+
+  for (const tab of ['meaning', 'examples', 'formation', 'cards']) {
+    assert.ok(
+      content.includes(`data-tab="${tab}"`),
+      `GrammarView must render the ${tab} detail tab`
+    );
+  }
+  assert.ok(
+    content.includes('Seen in your cards'),
+    'GrammarView must label the card-encounter detail tab'
+  );
+  assert.ok(
+    content.includes('selectDetailTab('),
+    'GrammarView must switch between focused detail panels'
+  );
+
+  assert.ok(
+    content.includes('btn-toggle-tokens'),
+    'GrammarView must render a Tokens diagnostic toggle'
+  );
+  assert.ok(
+    content.includes('toggleTokensDiagnostic('),
+    'GrammarView must toggle the diagnostic token flow'
+  );
+  assert.ok(
+    content.includes('TOKENS_DIAGNOSTIC_KEY') && content.includes('sessionStorage'),
+    'GrammarView must persist the token toggle state for the session'
+  );
+
+  assert.ok(
+    content.includes('syllabus-seen-filter'),
+    'GrammarView must render a Seen in your cards index filter'
+  );
+  assert.ok(
+    content.includes('onlySeenInCards') && content.includes('seen_count'),
+    'GrammarView must filter syllabus points by recorded card encounters'
+  );
+
+  assert.ok(
+    content.includes('normalizeGrammarSpans(') &&
+      content.includes('point.start') &&
+      content.includes('point.end'),
+    'GrammarView must highlight sentence spans from backend start/end offsets'
+  );
+});
+
+test('Grammar View: R10 styles exist for focused panels, spans, and diagnostic toggle', () => {
+  const bundleCssPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'styles', 'bundle.css');
+  const css = fs.readFileSync(bundleCssPath, 'utf8');
+
+  for (const selector of ['.tokens-toggle', '.sentence-highlight', '.grammar-span', '.point-tabs', '.point-tab', '.syllabus-filter-chip']) {
+    assert.ok(css.includes(selector), `bundle.css must style ${selector}`);
+  }
+});
+
 test('Grammar View: Zero emojis across code, templates, and styles', () => {
   const bundleCssPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'styles', 'bundle.css');
   const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
