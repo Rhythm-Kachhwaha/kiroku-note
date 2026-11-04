@@ -106,6 +106,14 @@ contextBridge.exposeInMainWorld('desktopAPI', {
     status: () => ipcRenderer.invoke('extension:pairing:status')
   },
   toggleOcr: () => ipcRenderer.invoke('ocr:toggle'),
+  getLinkEndpoint: () => ipcRenderer.invoke('desktop:link:endpoint'),
+  journeyApi: {
+    request: (options = {}) => {
+      const p = typeof options.path === 'string' ? options.path : '';
+      const normPath = p.startsWith('/api/journey') ? p : `/api/journey${p.startsWith('/') ? '' : '/'}${p}`;
+      return ipcRenderer.invoke('study:request', { ...options, path: normPath });
+    }
+  },
   chrome: chromeShim,
 
   // General FastAPI Backend IPC Proxy (safe bridge without direct fetch or CORS issues)

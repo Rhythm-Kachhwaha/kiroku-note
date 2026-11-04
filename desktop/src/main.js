@@ -910,8 +910,8 @@ function setupIpcHandlers() {
 
       const { method = 'GET', path: reqPath, query, body, headers, timeoutMs, clientRequestId, range } = req;
 
-      // Strict IPC validation: Only permit /api/study/v1 or /api/health
-      if (typeof reqPath !== 'string' || (!reqPath.startsWith('/api/study/v1') && reqPath !== '/api/health')) {
+      // Strict IPC validation: Only permit /api/study/v1, /api/journey, /api/link, or /api/health
+      if (typeof reqPath !== 'string' || (!reqPath.startsWith('/api/study/v1') && !reqPath.startsWith('/api/journey') && !reqPath.startsWith('/api/link') && reqPath !== '/api/health')) {
         throw new Error(`Unauthorized or invalid Study API path: ${reqPath}`);
       }
 
@@ -963,6 +963,19 @@ function setupIpcHandlers() {
         }
       };
     }
+  });
+
+  // Slice 38: Return Link WebSocket URL + Desktop Bearer Token
+  ipcMain.handle('desktop:link:endpoint', async () => {
+    const host = processManager.host || '127.0.0.1';
+    const port = processManager.port || 21828;
+    const token = processManager.getApiToken();
+    return {
+      wsUrl: `ws://${host}:${port}/api/link/ws`,
+      token: token || '',
+      host,
+      port
+    };
   });
 
   // Desktop storage shim for chrome.storage.local
