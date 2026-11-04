@@ -92,3 +92,88 @@ test('Test View: Error handling is visible with banner (no silent catches)', () 
   );
 });
 
+test('Test View: Queries per-section exam readiness for the selected level', () => {
+  const content = fs.readFileSync(testViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('studyClient.getExamReadiness('),
+    'TestView must call studyClient.getExamReadiness to surface section availability'
+  );
+  assert.ok(
+    content.includes('exam-section-availability'),
+    'TestView must render a per-section availability panel before starting'
+  );
+  assert.ok(
+    content.includes('loadSectionAvailability('),
+    'TestView must refresh section availability when the level changes'
+  );
+});
+
+test('Test View: Marks sections incomplete/short in availability panel', () => {
+  const content = fs.readFileSync(testViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('Short by'),
+    'TestView must mark sections that are short by a missing question count'
+  );
+  assert.ok(
+    content.includes('Available'),
+    'TestView must mark satisfied sections as available'
+  );
+  assert.ok(
+    content.includes('is_satisfied'),
+    'TestView must use backend readiness satisfaction to classify sections'
+  );
+  assert.ok(
+    content.includes('Some sections are incomplete'),
+    'TestView must warn when any section is incomplete before starting'
+  );
+});
+
+test('Test View: Empty state offers Open question bank instead of dead end', () => {
+  const content = fs.readFileSync(testViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('btn-open-question-bank'),
+    'TestView incomplete-bank empty state must include Open Question Bank button'
+  );
+  assert.ok(
+    content.includes("navigateToTab('vocab')"),
+    'TestView Open Question Bank must navigate to the question bank tab'
+  );
+});
+
+test('Test View: Result state offers Review mistakes for the attempt', () => {
+  const content = fs.readFileSync(testViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('btn-review-mistakes'),
+    'TestView result state must include Review Mistakes button'
+  );
+  assert.ok(
+    content.includes("navigateToTab('study')"),
+    'TestView Review Mistakes must navigate to the study/mistakes tab'
+  );
+  assert.ok(
+    content.includes('renderResultState('),
+    'TestView must implement result state rendering'
+  );
+});
+
+test('Test View: Resume banner is pinned at the top', () => {
+  const content = fs.readFileSync(testViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('test-resume-banner'),
+    'TestView must include a resume banner'
+  );
+  assert.ok(
+    content.includes('position: sticky; top: 0'),
+    'TestView resume banner must be pinned at the top of the view'
+  );
+  assert.ok(
+    content.includes('btn-resume-banner'),
+    'TestView resume banner must expose a Resume action'
+  );
+});
+

@@ -278,9 +278,10 @@ class StudyApiClient {
     return res.data;
   }
 
-  /** Exam readiness */
-  async getExamReadiness() {
-    const res = await this.request({ method: 'GET', path: '/api/study/v1/exam/readiness' });
+  /** Exam readiness for an optional JLPT level (N1-N5) */
+  async getExamReadiness(level = null) {
+    const query = level ? { level } : undefined;
+    const res = await this.request({ method: 'GET', path: '/api/study/v1/exam/readiness', query });
     return res.data;
   }
 

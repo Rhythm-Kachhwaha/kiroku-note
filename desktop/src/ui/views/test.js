@@ -8,7 +8,7 @@
  */
 
 import { studyClient } from '../services/study_client.js';
-import { escapeHtml, renderStudyText } from '../utils/sanitizer.js';
+import { escapeHtml, renderStudyText, sanitizePromptMarkup } from '../utils/sanitizer.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
 import { clearStoredSession, readStoredSession, writeStoredSession } from '../utils/session_recovery.js';
 
@@ -44,6 +44,12 @@ export class TestView {
     this.activeBlobUrls = [];
     this._noticeTimeout = null;
     this.isPaused = false;
+    this.readinessReport = null;
+    this.readinessRequestToken = 0;
+    this.sectionReadiness = null;
+    this.attemptMistakes = null;
+    this.attemptMistakesLoading = false;
+    this.resumeBannerMessage = null;
     this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
@@ -68,8 +74,11 @@ export class TestView {
 
   onShow() {
     this.setupGlobalEvents();
-    if (this.sessionId && this.questions.length > 0 && !this.timerInterval) {
+    if (this.sessionId && this.questions.length > 0 && !this.timerInterval && !this.isPaused) {
       this.startTimer();
+    }
+    if (this.sessionId && this.isPaused) {
+      this.showResumeBanner(`JLPT ${this.activeLevel} exam paused. Resume to continue.`, true);
     }
     this.activeListenerCount = 1;
   }
@@ -106,6 +115,22 @@ export class TestView {
             </button>
           </div>
 
+          <!-- Pinned resume banner -->
+          <div
+            class="test-resume-banner tactile-card"
+            id="test-resume-banner"
+            role="status"
+            aria-live="polite"
+            hidden
+            style="position: sticky; top: 0; z-index: 30; display: none; align-items: center; justify-content: space-between; gap: 1rem;"
+          >
+            <div>
+              <span class="font-mono text-xs text-gold uppercase tracking-wider block">Examination In Progress</span>
+              <span class="text-sm text-warm-paper" id="test-resume-banner-message"></span>
+            </div>
+            <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-resume-banner">Resume</button>
+          </div>
+
           <!-- Main Stage Slot -->
           <div id="test-stage-area">
             <div class="tactile-card text-center py-12 text-muted">
@@ -120,6 +145,31 @@ export class TestView {
     if (btnDismiss) {
       btnDismiss.addEventListener('click', () => this.clearError());
     }
+
+    const btnResumeBanner = document.getElementById('btn-resume-banner');
+    if (btnResumeBanner) {
+      btnResumeBanner.addEventListener('click', () => this.togglePause());
+    }
+  }
+
+  showResumeBanner(message, showResumeAction = false) {
+    this.resumeBannerMessage = message;
+    const banner = document.getElementById('test-resume-banner');
+    const text = document.getElementById('test-resume-banner-message');
+    const btn = document.getElementById('btn-resume-banner');
+    if (!banner) return;
+    if (text) text.textContent = message;
+    banner.hidden = false;
+    banner.style.display = 'flex';
+    if (btn) btn.hidden = !showResumeAction;
+  }
+
+  hideResumeBanner() {
+    this.resumeBannerMessage = null;
+    const banner = document.getElementById('test-resume-banner');
+    if (!banner) return;
+    banner.hidden = true;
+    banner.style.display = 'none';
   }
 
   setupGlobalEvents() {
@@ -184,6 +234,7 @@ export class TestView {
   renderExamSetup() {
     this.clearError();
     this.stopTimer();
+    this.hideResumeBanner();
     const stage = document.getElementById('test-stage-area');
     if (!stage) return;
 
@@ -254,6 +305,16 @@ export class TestView {
           </div>
         </div>
 
+        <!-- Per-Section Question Availability (shown before starting) -->
+        <div class="setup-field-group mb-5">
+          <label class="text-xs font-mono text-muted uppercase block mb-2">Section Question Availability</label>
+          <div id="exam-section-availability" class="exam-section-availability">
+            <div class="tactile-card p-3 text-sm">
+              <span class="font-mono text-xs text-muted block mb-2">Loading section supply for JLPT ${escapeHtml(this.activeLevel)}...</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Serious Anti-Cheat & Diagnostic Rules Notice -->
         <div class="test-info-box tactile-card surface-pitch-black p-4 mb-6">
           <span class="font-mono text-xs text-gold uppercase tracking-wider block mb-1">Diagnostic Simulation Rules</span>
@@ -280,6 +341,7 @@ export class TestView {
         if (btnStart) {
           btnStart.querySelector('span').textContent = `Begin Examination (${this.activeLevel})`;
         }
+        this.loadSectionAvailability(this.activeLevel);
       });
     });
 
@@ -308,6 +370,64 @@ export class TestView {
         this.loadExamSession(this.activeLevel);
       });
     }
+
+    // Load per-section question availability for the selected level
+    this.loadSectionAvailability(this.activeLevel);
+  }
+
+  async loadSectionAvailability(level) {
+    const panel = document.getElementById('exam-section-availability');
+    if (!panel) return;
+    try {
+      const report = await studyClient.getExamReadiness(level);
+      this.sectionReadiness = report;
+      panel.innerHTML = this.renderSectionAvailabilityHtml(report);
+    } catch (err) {
+      console.debug('[Test] Section availability lookup failed:', err.message);
+      panel.innerHTML = `
+        <div class="tactile-card p-3 text-sm text-secondary">
+          <span class="font-mono text-xs text-muted block mb-2">Section availability unavailable.</span>
+        </div>
+      `;
+    }
+  }
+
+  renderSectionAvailabilityHtml(report) {
+    const sections = Array.isArray(report?.sections) ? report.sections : [];
+    if (sections.length === 0) {
+      return `
+        <div class="tactile-card p-3 text-sm text-secondary">
+          <span class="font-mono text-xs text-muted block mb-2">No section availability data.</span>
+        </div>
+      `;
+    }
+    return `
+      <div class="exam-section-list">
+        ${sections.map((sec) => {
+          const required = Number(sec.required_count || 0);
+          const available = Number(sec.available_count || 0);
+          const ready = Boolean(sec.is_satisfied) && available >= required;
+          const missing = Math.max(0, required - available);
+          const badgeStyle = ready
+            ? 'background-color: var(--jade, #4EBB7B); color: var(--ink-black, #141311); border: 1px solid var(--ink-black, #141311);'
+            : 'background-color: var(--vermilion, #D94B38); color: #FFFFFF; border: 1px solid #B33424;';
+          return `
+            <div class="exam-section-row tactile-card p-3 mb-2 flex justify-between items-center">
+              <div>
+                <span class="font-mono text-xs text-gold uppercase tracking-wider block mb-1">${escapeHtml(sec.label || 'Section')}</span>
+                <span class="text-sm text-warm-paper font-mono">
+                  ${available} / ${required} questions
+                </span>
+              </div>
+              <span class="exam-section-status font-mono text-xs font-bold px-2 py-1 rounded" style="${badgeStyle}">
+                ${ready ? 'Available' : `Short by ${missing}`}
+              </span>
+            </div>
+          `;
+        }).join('')}
+        ${report && !report.is_ready ? `<div class="mt-2 text-xs text-vermilion font-mono">Some sections are incomplete — the simulation will be short in those sections.</div>` : ''}
+      </div>
+    `;
   }
 
   async loadExamSession(level = 'N4') {
@@ -415,6 +535,11 @@ export class TestView {
             >${lvl}</button>
           `).join('')}
         </div>
+        <div class="empty-state-actions mt-6">
+          <button type="button" class="tactile-btn tactile-btn-primary w-full" id="btn-open-question-bank">
+            <span>Open Question Bank</span>
+          </button>
+        </div>
       </div>
     `;
 
@@ -424,6 +549,13 @@ export class TestView {
         this.loadExamSession(selected);
       });
     });
+
+    const btnBank = document.getElementById('btn-open-question-bank');
+    if (btnBank) {
+      btnBank.addEventListener('click', () => {
+        this.router?.navigateToTab('vocab');
+      });
+    }
   }
 
   renderExamStage() {
@@ -923,6 +1055,9 @@ export class TestView {
           <button type="button" class="tactile-btn tactile-btn-primary" id="btn-return-home">
             <span>Return to Dashboard</span>
           </button>
+          <button type="button" class="tactile-btn tactile-btn-sm" id="btn-review-mistakes">
+            <span>Review Mistakes</span>
+          </button>
         </div>
       </div>
     `;
@@ -931,6 +1066,13 @@ export class TestView {
     if (btnHome) {
       btnHome.addEventListener('click', () => {
         this.router?.navigateToTab('home');
+      });
+    }
+
+    const btnMistakes = document.getElementById('btn-review-mistakes');
+    if (btnMistakes) {
+      btnMistakes.addEventListener('click', () => {
+        this.router?.navigateToTab('study');
       });
     }
   }
