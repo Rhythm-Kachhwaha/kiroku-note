@@ -1,6 +1,7 @@
 """Optional, cached SudachiPy tokenizer adapter."""
 from __future__ import annotations
 
+import threading
 from threading import Lock
 from typing import Any
 
@@ -23,12 +24,26 @@ class SudachiTokenizer:
         if Dictionary is None:
             raise RuntimeError("SudachiPy is not installed")
         self.dictionary_variant = dictionary_variant
-        self._tokenizer = Dictionary(dict=dictionary_variant).tokenizer()
+        self._dictionary = Dictionary(dict=dictionary_variant)
+        self._local = threading.local()
         self.ready = True
+
+    def _get_tokenizer(self):
+        tokenizer = getattr(self._local, "tokenizer", None)
+        if tokenizer is None:
+            tokenizer = self._dictionary.tokenizer()
+            self._local.tokenizer = tokenizer
+        return tokenizer
+
+    @property
+    def _tokenizer(self):
+        """Backwards compatibility for callers or tests expecting _tokenizer."""
+        return self._get_tokenizer()
 
     def tokenize(self, text: str) -> list[Morpheme]:
         result: list[Morpheme] = []
-        for token in self._tokenizer.tokenize(text, mode="C"):
+        tokenizer = self._get_tokenizer()
+        for token in tokenizer.tokenize(text, mode="C"):
             start = token.begin()
             end = token.end()
             pos = tuple(str(part) for part in token.part_of_speech())

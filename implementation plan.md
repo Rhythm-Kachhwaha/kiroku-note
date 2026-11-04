@@ -1,4 +1,4 @@
-Completed : 1, 2, 3, 4, 5, 6, 7
+Completed : 1, 2, 3, 4, 5, 6, 7, 8
 # KIROKU PLAN (agent-only; terse)
 
 ## LOAD PROTOCOL (read this header only, then your slice)
