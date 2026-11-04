@@ -23,6 +23,8 @@ def test_analyze_route_returns_spans(monkeypatch, tmp_path):
     body = response.json()
     assert any(point["pattern_key"] == "てしまう" for point in body["points"])
     assert body["points"][0]["start"] < body["points"][0]["end"]
+    assert "tokens" in body
+    assert isinstance(body["tokens"], list)
 
 
 def test_setup_check_route(monkeypatch, tmp_path):
@@ -30,7 +32,10 @@ def test_setup_check_route(monkeypatch, tmp_path):
     monkeypatch.setattr(grammar, "_service", GrammarService(provider=Provider(), db_path=tmp_path / "db.sqlite"))
     response = TestClient(app).post("/api/grammar/setup-check")
     assert response.status_code == 200
-    assert response.json()["index_loaded"] is True
+    data = response.json()
+    assert data["index_loaded"] is True
+    assert "yomitan_available" in data
+    assert isinstance(data["yomitan_available"], bool)
 
 
 def test_grammar_syllabus_route(tmp_path, monkeypatch):

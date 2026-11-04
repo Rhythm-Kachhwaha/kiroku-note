@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 GRAMMAR_CACHE_TTL_SECONDS = 24 * 60 * 60
 GRAMMAR_CACHE_MAX_ENTRIES = 1000
+GRAMMAR_MATCHER_VERSION = "v14.0"
 
 
 class GrammarService:
@@ -48,9 +49,9 @@ class GrammarService:
     def _get_index_version(self) -> str:
         path = resolve_grammar_reference_db_path()
         try:
-            return f"{path.stat().st_mtime_ns}:{path.stat().st_size}"
+            return f"matcher_{GRAMMAR_MATCHER_VERSION}:{path.stat().st_mtime_ns}:{path.stat().st_size}"
         except OSError:
-            return "missing"
+            return f"matcher_{GRAMMAR_MATCHER_VERSION}:missing"
 
     def _tokenizer_version(self, dictionary_variant: str) -> str:
         versions: list[str] = []
@@ -164,25 +165,76 @@ class GrammarService:
                 "status": "unavailable",
                 "version": self._tokenizer_version(dictionary_variant),
             }
-        tokenizer = get_sudachi_tokenizer(dictionary_variant)
+        try:
+            from app.services import sentence_analysis
+            analysis = sentence_analysis.analyze(sentence, variant=dictionary_variant)
+            morphemes = analysis.morphemes
+        except Exception:
+            tokenizer = get_sudachi_tokenizer(dictionary_variant)
+            morphemes = tokenizer.tokenize(sentence)
         tokens = [
             {
-                "text": morpheme.surface,
-                "surface": morpheme.surface,
-                "lemma": morpheme.lemma,
-                "base_form": morpheme.lemma,
-                "reading": morpheme.reading,
-                "pos": " ".join(morpheme.pos),
-                "start": morpheme.start,
-                "end": morpheme.end,
+                "text": m.surface,
+                "surface": m.surface,
+                "lemma": m.lemma,
+                "base_form": m.lemma,
+                "reading": m.reading,
+                "pos": m.pos if isinstance(m.pos, (list, tuple)) else tuple(m.pos.split()),
+                "start": m.start,
+                "end": m.end,
             }
-            for morpheme in tokenizer.tokenize(sentence)
+            for m in morphemes
         ]
         return tokens, {
             "source": "sudachi",
             "status": "ready",
             "version": self._tokenizer_version(dictionary_variant),
         }
+
+    def _build_response_tokens(self, tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not tokens:
+            return []
+        from app.services.jlpt_reference import JlptReferenceService
+        jlpt_ref = JlptReferenceService()
+
+        words = {str(t.get("surface", "")) for t in tokens if t.get("surface")} | {str(t.get("lemma", "")) for t in tokens if t.get("lemma")}
+        words.discard("")
+        known_set: set[str] = set()
+        if words:
+            try:
+                with db_session(self.db_path) as conn:
+                    q_marks = ",".join("?" for _ in words)
+                    word_list = list(words)
+                    for r in conn.execute(f"SELECT word FROM known_words WHERE word IN ({q_marks})", word_list).fetchall():
+                        if r[0]:
+                            known_set.add(str(r[0]))
+                    for r in conn.execute(f"SELECT expression FROM cards WHERE expression IN ({q_marks})", word_list).fetchall():
+                        if r[0]:
+                            known_set.add(str(r[0]))
+                    for r in conn.execute(f"SELECT normalized_expression FROM cards WHERE normalized_expression IN ({q_marks})", word_list).fetchall():
+                        if r[0]:
+                            known_set.add(str(r[0]))
+            except Exception:
+                pass
+
+        result = []
+        for t in tokens:
+            surface = str(t.get("surface", t.get("text", "")))
+            lemma = str(t.get("lemma", t.get("base_form", surface)))
+            reading = str(t.get("reading", ""))
+            pos_val = t.get("pos", "")
+            pos_str = " ".join(pos_val) if isinstance(pos_val, (list, tuple)) else str(pos_val)
+            lvl = jlpt_ref.lookup_word_exact(lemma) or jlpt_ref.lookup_word(surface)
+            is_known = (lemma in known_set or surface in known_set)
+            result.append({
+                "surface": surface,
+                "lemma": lemma,
+                "reading": reading,
+                "pos": pos_str,
+                "level": lvl,
+                "known": is_known,
+            })
+        return result
 
     def _dictionary_notes(
         self, points: list[dict[str, Any]], dictionary_name: str | None
@@ -246,6 +298,7 @@ class GrammarService:
         level = normalize_jlpt_level(learner_level) or get_learner_jlpt_level()
         filter_level = level if show_below_level else "N1"
         tokens, tokenizer = self._local_tokens(sentence)
+        response_tokens = self._build_response_tokens(tokens)
         # Dictionary discovery is deliberately kept out of the sentence path:
         # analysis is budgeted around one local tokenizer request.
         # Learner filtering changes the response, so keep cache entries isolated
@@ -272,7 +325,13 @@ class GrammarService:
             if hide_known:
                 cached_points = self._hide_known({"points": points})
                 points = cached_points
-            return {**cached, "learner_level": level, "points": points, "cached": True}
+            return {
+                **cached,
+                "learner_level": level,
+                "points": points,
+                "tokens": cached.get("tokens", response_tokens),
+                "cached": True,
+            }
 
         limited_offline = tokenizer["source"] != "sudachi"
 
@@ -299,6 +358,7 @@ class GrammarService:
             "sentence": sentence,
             "learner_level": level,
             "points": points,
+            "tokens": response_tokens,
             "is_limited_offline": limited_offline,
             "tokenizer_source": tokenizer["source"],
             "tokenizer_status": tokenizer["status"],
@@ -338,12 +398,26 @@ class GrammarService:
             index_loaded = bool(counts)
         except Exception:
             index_loaded = False
-        tokenizer = self._local_tokens("日")[1]
+
+        dictionary_variant = get_sudachi_dictionary_variant()
+        st = sudachi_status(dictionary_variant)
+        tokenizer_status = "ready" if st.get("ready") else "unavailable"
+        tokenizer_source = "sudachi" if st.get("ready") else "none"
+
+        yomitan_available = False
+        try:
+            from app.services.yomitan import YomitanService
+            yomitan_service = YomitanService()
+            yomitan_available = bool(yomitan_service.check_availability())
+        except Exception as exc:
+            logger.debug("Yomitan availability check failed: %s", exc)
+            yomitan_available = False
+
         return {
-            "yomitan_available": False,
+            "yomitan_available": yomitan_available,
             "index_loaded": index_loaded,
             "point_counts_by_level": counts,
             "designated_grammar_dictionary_hits": dictionaries,
-            "tokenizer_source": tokenizer["source"],
-            "tokenizer_status": tokenizer["status"],
+            "tokenizer_source": tokenizer_source,
+            "tokenizer_status": tokenizer_status,
         }

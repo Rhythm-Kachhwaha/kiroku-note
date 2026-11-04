@@ -117,3 +117,34 @@ def test_designated_dictionary_notes_are_bounded_and_fail_soft(tmp_path):
     ).analyze("食べてしまった。", designated_dictionary="Grammar Notes")
     assert failed["points"]
     assert all("dictionary_notes" not in point for point in failed["points"])
+
+
+def test_analyze_returns_structured_tokens(tmp_path):
+    service = GrammarService(provider=OfflineProvider(), db_path=tmp_path / "tokens.sqlite")
+    result = service.analyze("日本語を勉強している。")
+    assert "tokens" in result
+    tokens = result["tokens"]
+    assert len(tokens) > 0
+    token = tokens[0]
+    assert "surface" in token
+    assert "lemma" in token
+    assert "reading" in token
+    assert "pos" in token
+    assert "level" in token
+    assert "known" in token
+    assert isinstance(token["known"], bool)
+
+
+def test_setup_check_reports_yomitan_and_tokenizer():
+    service = GrammarService(provider=OfflineProvider(), db_path=":memory:")
+    check = service.setup_check()
+    assert "yomitan_available" in check
+    assert isinstance(check["yomitan_available"], bool)
+    assert check["tokenizer_source"] in {"sudachi", "none"}
+    assert check["tokenizer_status"] in {"ready", "unavailable"}
+
+
+def test_cache_key_includes_matcher_version():
+    service = GrammarService(provider=OfflineProvider(), db_path=":memory:")
+    key1 = service._cache_key("テスト", "sudachi_v1", "dict_hash")
+    assert "matcher_" in key1[1]

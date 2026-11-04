@@ -2,8 +2,9 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.schemas import (
-    GrammarAnalyzeRequest, GrammarAnalyzeResponse, GrammarSetupCheckResponse,
+    GrammarAnalyzeRequest, GrammarSetupCheckResponse,
 )
+from app.schemas_grammar import GrammarAnalyzeResponse
 from app.services.grammar_service import GrammarService
 from app.services.grammar_tracker import GrammarTrackerService
 
