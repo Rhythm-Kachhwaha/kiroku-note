@@ -75,6 +75,12 @@ export class BottomDock {
         iconSvg: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>`
       },
       {
+        id: 'anime',
+        label: 'Anime',
+        sublabel: 'アニメ',
+        iconSvg: `<svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zm-11-3l6-4-6-4v8z"/></svg>`
+      },
+      {
         id: 'study',
         label: 'Study',
         sublabel: '自習',

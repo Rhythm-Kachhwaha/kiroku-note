@@ -1,0 +1,199 @@
+/* ==========================================================================
+   Anime Screen Styles — Industrial Companion Player & Live Cues
+   Palette: Iron Core, Industrial Aqua, Rust Signal, Heat Marker,
+            Architectural Cream, Pitch Black.
+   Planetoño zero-blur offset shadows, Zen Old Mincho typography, responsive split layout.
+   ========================================================================== */
+
+.anime-view-wrapper {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 2.5rem 1.5rem;
+  background-color: var(--pure-black);
+}
+
+.anime-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.anime-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .anime-layout-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.anime-player-card {
+  background-color: var(--surface-elevated);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.anime-session-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.anime-session-title {
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--architectural-cream);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.anime-site-chip {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--tactile-stroke);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--industrial-aqua);
+}
+
+.anime-live-cue-box {
+  background: var(--pure-black);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  padding: 1.75rem 1.5rem;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.anime-live-cue-japanese {
+  font-family: var(--font-japanese);
+  font-size: 1.85rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--architectural-cream);
+  letter-spacing: 0.04em;
+  word-break: break-word;
+}
+
+.anime-live-cue-empty {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.anime-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-top: 0.5rem;
+}
+
+.anime-control-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--warm-paper);
+  color: var(--tactile-stroke);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--spring-snappy),
+              box-shadow var(--duration-fast) var(--spring-snappy);
+}
+
+.anime-control-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.anime-control-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.anime-control-btn.btn-primary {
+  background-color: var(--rust-signal);
+  color: var(--pure-white);
+}
+
+.anime-time-indicator {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--heat-marker);
+  background: var(--pure-black);
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.anime-sidebar-card {
+  background-color: var(--surface-elevated);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.anime-sidebar-title {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--industrial-aqua);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.anime-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+}
+
+.anime-status-val {
+  font-weight: 600;
+  color: var(--architectural-cream);
+}

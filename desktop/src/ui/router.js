@@ -11,6 +11,7 @@ import { KanjiView } from './views/kanji.js';
 import { TestView } from './views/test.js';
 import { StudyView } from './views/study.js';
 import { SettingsView } from './views/settings.js';
+import { AnimeView } from './views/anime.js';
 
 export class AppRouter {
   constructor(options = {}) {
@@ -29,7 +30,7 @@ export class AppRouter {
     this.errorState = null;
     this.pendingTab = null;
 
-    this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'study'];
+    this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'anime', 'study'];
 
     this.routes = {
       'home': HomeView,
@@ -38,6 +39,7 @@ export class AppRouter {
       'grammar': GrammarView,
       'kanji': KanjiView,
       'test': TestView,
+      'anime': AnimeView,
       'study': StudyView,
       'settings': SettingsView
     };

@@ -61,6 +61,7 @@ export class TopChrome {
       'grammar': 'Grammar',
       'kanji': 'Kanji',
       'test': 'Mock Exam',
+      'anime': 'Anime',
       'study': 'Study Drills',
       'settings': 'Settings'
     };
