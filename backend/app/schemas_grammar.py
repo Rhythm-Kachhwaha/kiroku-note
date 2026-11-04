@@ -29,3 +29,4 @@ class GrammarAnalyzeResponse(BaseModel):
     tokenizer_source: str = "none"
     tokenizer_status: str = "unavailable"
     cached: bool = False
+

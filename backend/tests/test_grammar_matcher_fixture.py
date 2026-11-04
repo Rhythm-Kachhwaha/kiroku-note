@@ -77,3 +77,4 @@ def test_morph_matcher_evaluation_and_predicate_chain_extension():
     assert len(spans) == 1
     assert spans[0].pattern_key == "ことにする"
     assert spans[0].text == "走ることにし"
+
