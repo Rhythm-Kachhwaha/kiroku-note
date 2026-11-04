@@ -56,8 +56,9 @@ def _sudachi_tokenize(text: str, dictionary: str) -> list[dict[str, Any]]:
     from sudachipy import dictionary as sudachi_dictionary
     from sudachipy import tokenizer as sudachi_tokenizer
 
-    tokenizer = sudachi_dictionary.Dictionary(dict=dictionary).create()
+    dict_obj = sudachi_dictionary.Dictionary(dict=dictionary)
     mode = sudachi_tokenizer.Tokenizer.SplitMode.C
+    tokenizer = dict_obj.create() if hasattr(dict_obj, "create") else dict_obj.tokenizer(mode=mode)
     return [{
         "surface": token.surface(),
         "lemma": token.dictionary_form(),
@@ -78,6 +79,7 @@ def _normalise_token(token: Any) -> dict[str, Any]:
             "pos": token.get("pos", []),
             "start": token.get("start"),
             "end": token.get("end"),
+            "level": token.get("level", token.get("jlpt_level")),
             "normalized": token.get("normalized", token.get("surface", token.get("text", ""))),
         }
     return {"surface": str(token), "lemma": "", "reading": "", "pos": [], "start": None, "end": None, "normalized": str(token)}
@@ -85,6 +87,27 @@ def _normalise_token(token: Any) -> dict[str, Any]:
 
 def _available_runners() -> dict[str, Callable[[str], list[dict[str, Any]]]]:
     runners: dict[str, Callable[[str], list[dict[str, Any]]]] = {}
+    started = time.perf_counter()
+    try:
+        from app.services.subtitle_annotator import SubtitleAnnotatorService
+        service = SubtitleAnnotatorService()
+        def _pipeline_run(text: str) -> list[dict[str, Any]]:
+            toks = service.annotate_text(text)
+            return [{
+                "surface": t["surface"],
+                "lemma": t["lemma"],
+                "reading": t["reading"],
+                "pos": [t["pos"]] if isinstance(t["pos"], str) else list(t["pos"]),
+                "start": t["start_char"],
+                "end": t["end_char"],
+                "level": t.get("jlpt_level"),
+                "normalized": t["lemma"],
+            } for t in toks]
+        runners["kiroku-pipeline"] = _pipeline_run
+        setattr(runners["kiroku-pipeline"], "load_time_ms", round((time.perf_counter() - started) * 1000, 3))
+    except Exception:
+        pass
+
     started = time.perf_counter()
     try:
         module = importlib.import_module("backend.app.services.subtitle_annotator")
@@ -118,6 +141,9 @@ def _field_errors(
         "readings": [token["reading"] for token in actual],
         "pos": [token["pos"] for token in actual],
     }
+    if "levels" in expected and expected["levels"]:
+        actual_fields["levels"] = [token.get("level") for token in actual]
+
     errors: dict[str, int] = {}
     for field, values in actual_fields.items():
         expected_values = expected.get(field, [])

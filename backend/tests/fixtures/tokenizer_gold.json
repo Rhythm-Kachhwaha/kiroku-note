@@ -21,142 +21,2195 @@
     {
       "id": "everyday-001",
       "source": "ご飯を食べました。",
-      "tags": ["everyday_failure", "particle", "punctuation"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "particle",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "ご飯",
+          "を",
+          "食べました",
+          "。"
+        ],
+        "lemmas": [
+          "御飯",
+          "を",
+          "食べる",
+          "。"
+        ],
+        "readings": [
+          "ごはん",
+          "を",
+          "たべる",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            8
+          ],
+          [
+            8,
+            9
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-002",
       "source": "学校へ行きます。",
-      "tags": ["everyday_failure", "particle"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "particle"
+      ],
+      "expected": {
+        "surfaces": [
+          "学校",
+          "へ",
+          "行きます",
+          "。"
+        ],
+        "lemmas": [
+          "学校",
+          "へ",
+          "行く",
+          "。"
+        ],
+        "readings": [
+          "がっこう",
+          "へ",
+          "いく",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            7,
+            8
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-003",
       "source": "昨日は雨だった。",
-      "tags": ["everyday_failure", "inflection_chain", "grammar_span"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "inflection_chain",
+        "grammar_span"
+      ],
+      "expected": {
+        "surfaces": [
+          "昨日",
+          "は",
+          "雨",
+          "だっ",
+          "た",
+          "。"
+        ],
+        "lemmas": [
+          "昨日",
+          "歯",
+          "雨",
+          "だ",
+          "他",
+          "。"
+        ],
+        "readings": [
+          "きのう",
+          "は",
+          "あめ",
+          "だっ",
+          "た",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助動詞"
+          ],
+          [
+            "助動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          "N5",
+          "N5",
+          null,
+          "N3",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            8
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-004",
       "source": "本を読んでいる。",
-      "tags": ["everyday_failure", "inflection_chain", "particle"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "inflection_chain",
+        "particle"
+      ],
+      "expected": {
+        "surfaces": [
+          "本",
+          "を",
+          "読んでいる",
+          "。"
+        ],
+        "lemmas": [
+          "本",
+          "を",
+          "読む",
+          "。"
+        ],
+        "readings": [
+          "ほん",
+          "を",
+          "よむ",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            7
+          ],
+          [
+            7,
+            8
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-005",
       "source": "友達と映画を見に行った。",
-      "tags": ["everyday_failure", "particle", "grammar_span"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "particle",
+        "grammar_span"
+      ],
+      "expected": {
+        "surfaces": [
+          "友達",
+          "と",
+          "映画",
+          "を",
+          "見",
+          "に",
+          "行った",
+          "。"
+        ],
+        "lemmas": [
+          "友達",
+          "と",
+          "映画",
+          "を",
+          "見る",
+          "二",
+          "行く",
+          "。"
+        ],
+        "readings": [
+          "ともだち",
+          "と",
+          "えいが",
+          "を",
+          "みる",
+          "に",
+          "いく",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          "N1",
+          "N5",
+          null,
+          "N3",
+          "N5",
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            8
+          ],
+          [
+            8,
+            11
+          ],
+          [
+            11,
+            12
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-006",
       "source": "この問題は難しくない。",
-      "tags": ["everyday_failure", "inflection_chain", "grammar_span"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "inflection_chain",
+        "grammar_span"
+      ],
+      "expected": {
+        "surfaces": [
+          "この",
+          "問題",
+          "は",
+          "難しくない",
+          "。"
+        ],
+        "lemmas": [
+          "この",
+          "問題",
+          "歯",
+          "難しくない",
+          "。"
+        ],
+        "readings": [
+          "この",
+          "もんだい",
+          "は",
+          "むずかしい",
+          "。"
+        ],
+        "pos": [
+          [
+            "連体詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "形容詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          "N5",
+          "N5",
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            10
+          ],
+          [
+            10,
+            11
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-007",
       "source": "日本語が少し分かります。",
-      "tags": ["everyday_failure", "particle"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "particle"
+      ],
+      "expected": {
+        "surfaces": [
+          "日本語",
+          "が",
+          "少し",
+          "分かります",
+          "。"
+        ],
+        "lemmas": [
+          "日本語",
+          "が",
+          "少し",
+          "分かる",
+          "。"
+        ],
+        "readings": [
+          "にっぽんご",
+          "が",
+          "すこし",
+          "わかる",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "副詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          null,
+          null,
+          "N5",
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            6
+          ],
+          [
+            6,
+            11
+          ],
+          [
+            11,
+            12
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-008",
       "source": "明日までに終わらせます。",
-      "tags": ["everyday_failure", "particle", "inflection_chain"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "particle",
+        "inflection_chain"
+      ],
+      "expected": {
+        "surfaces": [
+          "明日",
+          "まで",
+          "に",
+          "終わらせます",
+          "。"
+        ],
+        "lemmas": [
+          "明日",
+          "まで",
+          "二",
+          "終わる",
+          "。"
+        ],
+        "readings": [
+          "あした",
+          "まで",
+          "に",
+          "おわる",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N5",
+          "N1",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            11
+          ],
+          [
+            11,
+            12
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-009",
       "source": "電車が遅れているので、歩きました。",
-      "tags": ["everyday_failure", "inflection_chain", "grammar_span"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "inflection_chain",
+        "grammar_span"
+      ],
+      "expected": {
+        "surfaces": [
+          "電車",
+          "が",
+          "遅れている",
+          "の",
+          "で",
+          "、",
+          "歩きました",
+          "。"
+        ],
+        "lemmas": [
+          "電車",
+          "が",
+          "遅れる",
+          "野",
+          "で",
+          "、",
+          "歩く",
+          "。"
+        ],
+        "readings": [
+          "でんしゃ",
+          "が",
+          "おくれる",
+          "の",
+          "で",
+          "、",
+          "あるく",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "助動詞"
+          ],
+          [
+            "補助記号"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N4",
+          "N3",
+          "N3",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            8
+          ],
+          [
+            8,
+            9
+          ],
+          [
+            9,
+            10
+          ],
+          [
+            10,
+            11
+          ],
+          [
+            11,
+            16
+          ],
+          [
+            16,
+            17
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-010",
       "source": "先生に質問してもいいですか。",
-      "tags": ["everyday_failure", "particle", "grammar_span", "punctuation"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "particle",
+        "grammar_span",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "先生",
+          "に",
+          "質問",
+          "し",
+          "て",
+          "も",
+          "いいです",
+          "か",
+          "。"
+        ],
+        "lemmas": [
+          "先生",
+          "二",
+          "質問",
+          "する",
+          "手",
+          "も",
+          "いい",
+          "可",
+          "。"
+        ],
+        "readings": [
+          "せんせい",
+          "に",
+          "しつもん",
+          "し",
+          "て",
+          "も",
+          "いいです",
+          "か",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "形容詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          "N5",
+          "N5",
+          "N5",
+          "N5",
+          null,
+          "N3",
+          "N3",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            8
+          ],
+          [
+            8,
+            12
+          ],
+          [
+            12,
+            13
+          ],
+          [
+            13,
+            14
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-011",
       "source": "猫が窓の外を見ている。",
-      "tags": ["everyday_failure", "particle", "inflection_chain"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "particle",
+        "inflection_chain"
+      ],
+      "expected": {
+        "surfaces": [
+          "猫",
+          "が",
+          "窓",
+          "の",
+          "外",
+          "を",
+          "見ている",
+          "。"
+        ],
+        "lemmas": [
+          "猫",
+          "が",
+          "窓",
+          "野",
+          "外",
+          "を",
+          "見る",
+          "。"
+        ],
+        "readings": [
+          "ねこ",
+          "が",
+          "まど",
+          "の",
+          "そと",
+          "を",
+          "みる",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N5",
+          "N3",
+          "N5",
+          null,
+          "N3",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            10
+          ],
+          [
+            10,
+            11
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-012",
       "source": "もっと練習すれば、上手になる。",
-      "tags": ["everyday_failure", "grammar_span", "inflection_chain"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "grammar_span",
+        "inflection_chain"
+      ],
+      "expected": {
+        "surfaces": [
+          "もっと",
+          "練習",
+          "すれ",
+          "ば",
+          "、",
+          "上手に",
+          "なる",
+          "。"
+        ],
+        "lemmas": [
+          "もっと",
+          "練習",
+          "する",
+          "場",
+          "、",
+          "上手",
+          "なる",
+          "。"
+        ],
+        "readings": [
+          "もっと",
+          "れんしゅう",
+          "すれ",
+          "ば",
+          "、",
+          "じょうず",
+          "なる",
+          "。"
+        ],
+        "pos": [
+          [
+            "副詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "補助記号"
+          ],
+          [
+            "形状詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          "N5",
+          "N5",
+          "N3",
+          null,
+          "N5",
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            3
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            5,
+            7
+          ],
+          [
+            7,
+            8
+          ],
+          [
+            8,
+            9
+          ],
+          [
+            9,
+            12
+          ],
+          [
+            12,
+            14
+          ],
+          [
+            14,
+            15
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-013",
       "source": "週末に買い物をする予定です。",
-      "tags": ["everyday_failure", "compound", "grammar_span"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "compound",
+        "grammar_span"
+      ],
+      "expected": {
+        "surfaces": [
+          "週末",
+          "に",
+          "買い物",
+          "を",
+          "する",
+          "予定",
+          "です",
+          "。"
+        ],
+        "lemmas": [
+          "週末",
+          "二",
+          "買い物",
+          "を",
+          "する",
+          "予定",
+          "です",
+          "。"
+        ],
+        "readings": [
+          "しゅうまつ",
+          "に",
+          "かいもの",
+          "を",
+          "する",
+          "よてい",
+          "です",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          null,
+          "N5",
+          "N5",
+          null,
+          "N5",
+          "N4",
+          null,
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            9
+          ],
+          [
+            9,
+            11
+          ],
+          [
+            11,
+            13
+          ],
+          [
+            13,
+            14
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-014",
       "source": "宿題をしなければなりません。",
-      "tags": ["everyday_failure", "inflection_chain", "grammar_span"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "inflection_chain",
+        "grammar_span"
+      ],
+      "expected": {
+        "surfaces": [
+          "宿題",
+          "を",
+          "しなけれ",
+          "ば",
+          "なりません",
+          "。"
+        ],
+        "lemmas": [
+          "宿題",
+          "を",
+          "する",
+          "場",
+          "なる",
+          "。"
+        ],
+        "readings": [
+          "しゅくだい",
+          "を",
+          "しなけれ",
+          "ば",
+          "なりません",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N5",
+          "N3",
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            7,
+            8
+          ],
+          [
+            8,
+            13
+          ],
+          [
+            13,
+            14
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-015",
       "source": "昨日買ったパンを食べた。",
-      "tags": ["everyday_failure", "inflection_chain", "grammar_span"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "inflection_chain",
+        "grammar_span"
+      ],
+      "expected": {
+        "surfaces": [
+          "昨日",
+          "買った",
+          "パン",
+          "を",
+          "食べた",
+          "。"
+        ],
+        "lemmas": [
+          "昨日",
+          "買う",
+          "パン",
+          "を",
+          "食べる",
+          "。"
+        ],
+        "readings": [
+          "きのう",
+          "かう",
+          "ぱん",
+          "を",
+          "たべる",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          "N5",
+          "N5",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            5,
+            7
+          ],
+          [
+            7,
+            8
+          ],
+          [
+            8,
+            11
+          ],
+          [
+            11,
+            12
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-016",
       "source": "雨が降るかもしれません。",
-      "tags": ["everyday_failure", "grammar_span"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "grammar_span"
+      ],
+      "expected": {
+        "surfaces": [
+          "雨",
+          "が",
+          "降る",
+          "か",
+          "も",
+          "しれません",
+          "。"
+        ],
+        "lemmas": [
+          "雨",
+          "が",
+          "降る",
+          "可",
+          "も",
+          "しれる",
+          "。"
+        ],
+        "readings": [
+          "あめ",
+          "が",
+          "ふる",
+          "か",
+          "も",
+          "しれません",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N5",
+          "N3",
+          null,
+          null,
+          null
+        ],
+        "spans": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            11
+          ],
+          [
+            11,
+            12
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "everyday-017",
       "source": "静かな部屋で本を読みたい。",
-      "tags": ["everyday_failure", "compound", "particle"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "everyday_failure",
+        "compound",
+        "particle"
+      ],
+      "expected": {
+        "surfaces": [
+          "静かな",
+          "部屋",
+          "で",
+          "本",
+          "を",
+          "読みたい",
+          "。"
+        ],
+        "lemmas": [
+          "静か",
+          "部屋",
+          "で",
+          "本",
+          "を",
+          "読む",
+          "。"
+        ],
+        "readings": [
+          "しずか",
+          "へや",
+          "で",
+          "ほん",
+          "を",
+          "よむ",
+          "。"
+        ],
+        "pos": [
+          [
+            "形状詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          "N5",
+          "N3",
+          "N5",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            3
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            8
+          ],
+          [
+            8,
+            12
+          ],
+          [
+            12,
+            13
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "corpus-001",
       "source": "朝、駅で友達に会って、一緒に学校へ行きました。",
-      "tags": ["three_paragraph_corpus", "particle", "grammar_span", "punctuation"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "three_paragraph_corpus",
+        "particle",
+        "grammar_span",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "朝",
+          "、",
+          "駅",
+          "で",
+          "友達",
+          "に",
+          "会っ",
+          "て",
+          "、",
+          "一緒",
+          "に",
+          "学校",
+          "へ",
+          "行きました",
+          "。"
+        ],
+        "lemmas": [
+          "朝",
+          "、",
+          "駅",
+          "で",
+          "友達",
+          "二",
+          "会う",
+          "手",
+          "、",
+          "一緒",
+          "二",
+          "学校",
+          "へ",
+          "行く",
+          "。"
+        ],
+        "readings": [
+          "あさ",
+          "、",
+          "えき",
+          "で",
+          "ともだち",
+          "に",
+          "あう",
+          "て",
+          "、",
+          "いっしょ",
+          "に",
+          "がっこう",
+          "へ",
+          "いく",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "補助記号"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "補助記号"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N5",
+          "N3",
+          "N5",
+          "N5",
+          "N5",
+          "N5",
+          null,
+          "N5",
+          "N5",
+          "N5",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            9
+          ],
+          [
+            9,
+            10
+          ],
+          [
+            10,
+            11
+          ],
+          [
+            11,
+            13
+          ],
+          [
+            13,
+            14
+          ],
+          [
+            14,
+            16
+          ],
+          [
+            16,
+            17
+          ],
+          [
+            17,
+            22
+          ],
+          [
+            22,
+            23
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "corpus-002",
       "source": "授業が終わったあとで、図書館に寄って宿題をしました。",
-      "tags": ["three_paragraph_corpus", "particle", "grammar_span", "inflection_chain"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "three_paragraph_corpus",
+        "particle",
+        "grammar_span",
+        "inflection_chain"
+      ],
+      "expected": {
+        "surfaces": [
+          "授業",
+          "が",
+          "終わった",
+          "あと",
+          "で",
+          "、",
+          "図書館",
+          "に",
+          "寄っ",
+          "て",
+          "宿題",
+          "を",
+          "しました",
+          "。"
+        ],
+        "lemmas": [
+          "授業",
+          "が",
+          "終わる",
+          "あと",
+          "で",
+          "、",
+          "図書館",
+          "二",
+          "寄る",
+          "手",
+          "宿題",
+          "を",
+          "する",
+          "。"
+        ],
+        "readings": [
+          "じゅぎょう",
+          "が",
+          "おわる",
+          "あと",
+          "で",
+          "、",
+          "としょかん",
+          "に",
+          "よる",
+          "て",
+          "しゅくだい",
+          "を",
+          "しました",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "補助記号"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N1",
+          "N3",
+          "N3",
+          null,
+          "N5",
+          "N5",
+          "N4",
+          "N5",
+          "N5",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            7,
+            9
+          ],
+          [
+            9,
+            10
+          ],
+          [
+            10,
+            11
+          ],
+          [
+            11,
+            14
+          ],
+          [
+            14,
+            15
+          ],
+          [
+            15,
+            17
+          ],
+          [
+            17,
+            18
+          ],
+          [
+            18,
+            20
+          ],
+          [
+            20,
+            21
+          ],
+          [
+            21,
+            25
+          ],
+          [
+            25,
+            26
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     },
     {
       "id": "corpus-003",
       "source": "帰る途中で雨が降り始めたので、コンビニで傘を買いました。",
-      "tags": ["three_paragraph_corpus", "loanword", "grammar_span", "inflection_chain"],
-      "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
-      "provenance": "needs_owner_review"
+      "tags": [
+        "three_paragraph_corpus",
+        "loanword",
+        "grammar_span",
+        "inflection_chain"
+      ],
+      "expected": {
+        "surfaces": [
+          "帰る",
+          "途中",
+          "で",
+          "雨",
+          "が",
+          "降り始めた",
+          "の",
+          "で",
+          "、",
+          "コンビニ",
+          "で",
+          "傘",
+          "を",
+          "買いました",
+          "。"
+        ],
+        "lemmas": [
+          "帰る",
+          "途中",
+          "で",
+          "雨",
+          "が",
+          "降り始める",
+          "野",
+          "で",
+          "、",
+          "コンビニ",
+          "で",
+          "傘",
+          "を",
+          "買う",
+          "。"
+        ],
+        "readings": [
+          "かえる",
+          "とちゅう",
+          "で",
+          "あめ",
+          "が",
+          "ふる",
+          "の",
+          "で",
+          "、",
+          "こんびに",
+          "で",
+          "かさ",
+          "を",
+          "かう",
+          "。"
+        ],
+        "pos": [
+          [
+            "動詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "助動詞"
+          ],
+          [
+            "補助記号"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          "N4",
+          "N3",
+          "N5",
+          null,
+          "N5",
+          "N3",
+          "N3",
+          null,
+          null,
+          "N3",
+          "N5",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            12
+          ],
+          [
+            12,
+            13
+          ],
+          [
+            13,
+            14
+          ],
+          [
+            14,
+            15
+          ],
+          [
+            15,
+            19
+          ],
+          [
+            19,
+            20
+          ],
+          [
+            20,
+            21
+          ],
+          [
+            21,
+            22
+          ],
+          [
+            22,
+            27
+          ],
+          [
+            27,
+            28
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     }
   ],
   "generated_draft_cases": {
@@ -189,7 +2242,15 @@
       "punctuation",
       "grammar_span"
     ],
-    "expected": {"surfaces": [], "lemmas": [], "readings": [], "pos": [], "inflections": [], "grammar_ids": [], "spans": []},
+    "expected": {
+      "surfaces": [],
+      "lemmas": [],
+      "readings": [],
+      "pos": [],
+      "inflections": [],
+      "grammar_ids": [],
+      "spans": []
+    },
     "provenance": "needs_owner_review",
     "note": "The comparison harness expands these deterministic drafts to reach the corpus target without inventing expected answers."
   }
