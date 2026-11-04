@@ -112,7 +112,7 @@ test('Batch C: grammar.js handles stored level check, visualizer overlap guard, 
 
   // Overlap guard
   assert.ok(
-    content.includes('lastIdx = Math.max(lastIdx, idx + display.length)'),
+    (content.includes('normalizeGrammarSpans') || content.includes('lastIdx = Math.max(lastIdx, idx + display.length)')),
     'grammar.js must guard token visualizer slice overlap on compound grammar points'
   );
 

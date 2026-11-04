@@ -4,7 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-test('Electron Lifecycle: Launches window, creates system tray, and exits cleanly', () => {
+const hasGui = process.platform === 'win32' || Boolean(process.env.DISPLAY);
+
+test('Electron Lifecycle: Launches window, creates system tray, and exits cleanly', { skip: !hasGui ? 'Skipped: headless environment without DISPLAY on non-Windows' : false }, () => {
   const repoRoot = path.resolve(__dirname, '..', '..');
   const launchScript = path.join(repoRoot, 'desktop', 'bin', 'launch.js');
   const resultJsonPath = path.join(__dirname, 'lifecycle_result.json');

@@ -30,7 +30,9 @@ async function waitForBackend(port, timeout = 15000) {
   throw new Error(`Backend on port ${port} failed to start in time`);
 }
 
-test('Real-transport test: Renderer under file:// successfully performs GET and POST round-trips via IPC proxy', async (t) => {
+const hasGui = process.platform === 'win32' || Boolean(process.env.DISPLAY);
+
+test('Real-transport test: Renderer under file:// successfully performs GET and POST round-trips via IPC proxy', { skip: !hasGui ? 'Skipped: headless environment without DISPLAY on non-Windows' : false }, async (t) => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kiroku_transport_test_'));
   const runnerScript = path.join(tempDir, 'transport_runner.js');
   const resultJsonPath = path.join(tempDir, 'transport_result.json');
