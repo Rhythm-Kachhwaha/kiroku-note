@@ -11,6 +11,7 @@ import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import * as wanakana from '../lib/wanakana.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
+import './vocab_watch.js';
 
 const DRAFT_STORAGE_KEY = 'kiroku:vocab-mining-draft';
 const ANNOTATED_STORAGE_KEY = 'kiroku:vocab-annotated-state';
