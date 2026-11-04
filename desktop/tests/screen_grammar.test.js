@@ -6,6 +6,18 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..', '..');
 const grammarViewPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'views', 'grammar.js');
 
+function readBundleCss(bundlePath) {
+  let css = fs.readFileSync(bundlePath, 'utf8');
+  if (css.includes('@import')) {
+    css = css.replace(/@import\s+['"](.+?)['"];/g, (_, rel) => {
+      const impPath = path.resolve(path.dirname(bundlePath), rel);
+      return fs.existsSync(impPath) ? fs.readFileSync(impPath, 'utf8') : '';
+    });
+  }
+  return css;
+}
+
+
 test('Grammar View: No hardcoded mock data in production templates', () => {
   const content = fs.readFileSync(grammarViewPath, 'utf8');
 
@@ -113,7 +125,7 @@ test('Grammar View: Error handling is visible with banner (no silent catches)', 
 
 test('Grammar View: bundle.css styles grammar studio with Planetoño tactile physics, pitch-black visualizer, and editorial Zen Old Mincho', () => {
   const bundleCssPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'styles', 'bundle.css');
-  const css = fs.readFileSync(bundleCssPath, 'utf8');
+  const css = readBundleCss(bundleCssPath);
 
   // Planetoño tactile borders and shadows
   assert.ok(
@@ -208,7 +220,7 @@ test('Grammar View: R10 focused detail tabs, token diagnostics, seen filter, and
 
 test('Grammar View: R10 styles exist for focused panels, spans, and diagnostic toggle', () => {
   const bundleCssPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'styles', 'bundle.css');
-  const css = fs.readFileSync(bundleCssPath, 'utf8');
+  const css = readBundleCss(bundleCssPath);
 
   for (const selector of ['.tokens-toggle', '.sentence-highlight', '.grammar-span', '.point-tabs', '.point-tab', '.syllabus-filter-chip']) {
     assert.ok(css.includes(selector), `bundle.css must style ${selector}`);

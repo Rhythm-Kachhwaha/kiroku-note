@@ -7,6 +7,18 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 const vocabMainPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'views', 'vocab_main.js');
 const bundleCssPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'styles', 'bundle.css');
 
+function readBundleCss(bundlePath) {
+  let css = fs.readFileSync(bundlePath, 'utf8');
+  if (css.includes('@import')) {
+    css = css.replace(/@import\s+['"](.+?)['"];/g, (_, rel) => {
+      const impPath = path.resolve(path.dirname(bundlePath), rel);
+      return fs.existsSync(impPath) ? fs.readFileSync(impPath, 'utf8') : '';
+    });
+  }
+  return css;
+}
+
+
 test('Vocab Main: No hardcoded 食べる or fake sample sentence on initial mount', () => {
   const content = fs.readFileSync(vocabMainPath, 'utf8');
 
@@ -161,7 +173,7 @@ test('Vocab Main: Structure and interactive elements match Planetoño UI contrac
 });
 
 test('Vocab Main: bundle.css styles vocabulary view with Planetoño tactile physics and pitch-black JMdict', () => {
-  const css = fs.readFileSync(bundleCssPath, 'utf8');
+  const css = readBundleCss(bundleCssPath);
 
   // Planetoño tactile borders and shadows
   assert.ok(

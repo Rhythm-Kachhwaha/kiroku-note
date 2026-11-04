@@ -27,6 +27,7 @@ export class AppRouter {
     this.navigationToken = 0;
     this.expectedHash = null;
     this.errorState = null;
+    this.pendingTab = null;
 
     this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'study'];
 
@@ -56,12 +57,15 @@ export class AppRouter {
 
   handlePopState() {
     const hash = window.location.hash.replace('#', '') || 'home';
+    if (this.currentTab === hash || this.pendingTab === hash || this.expectedHash === hash) {
+      return;
+    }
     this.navigateToTab(hash, false);
   }
 
   handleHashChange() {
     const hash = window.location.hash.replace('#', '') || 'home';
-    if (this.expectedHash === hash) {
+    if (this.expectedHash === hash || this.currentTab === hash || this.pendingTab === hash) {
       this.expectedHash = null;
       return;
     }
@@ -69,12 +73,27 @@ export class AppRouter {
   }
 
   navigateToTab(tabId, updateHistory = true) {
+    if (this.currentTab === tabId && this.currentViewInstance) {
+      return Promise.resolve();
+    }
+    if (this.pendingTab === tabId) {
+      return this.navigationQueue;
+    }
+    this.pendingTab = tabId;
     const requestToken = ++this.navigationToken;
     this.navigationQueue = this.navigationQueue
       .catch((error) => {
         console.error('[Router] Navigation failed:', error);
       })
-      .then(() => this.performNavigation(tabId, updateHistory, requestToken));
+      .then(async () => {
+        try {
+          await this.performNavigation(tabId, updateHistory, requestToken);
+        } finally {
+          if (this.pendingTab === tabId) {
+            this.pendingTab = null;
+          }
+        }
+      });
     return this.navigationQueue;
   }
 
@@ -181,8 +200,11 @@ export class AppRouter {
         }
 
         if (updateHistory) {
-          this.expectedHash = tabId;
-          window.location.hash = tabId;
+          const currentHash = window.location.hash.replace('#', '');
+          if (currentHash !== tabId) {
+            this.expectedHash = tabId;
+            window.location.hash = tabId;
+          }
         }
         if (transition && transition.finished) {
           await transition.finished;
@@ -191,8 +213,11 @@ export class AppRouter {
         console.debug('[Router] View transition fallback:', err);
         await safeUpdateDOM();
         if (updateHistory) {
-          this.expectedHash = tabId;
-          window.location.hash = tabId;
+          const currentHash = window.location.hash.replace('#', '');
+          if (currentHash !== tabId) {
+            this.expectedHash = tabId;
+            window.location.hash = tabId;
+          }
         }
       }
     } else {

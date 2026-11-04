@@ -70,6 +70,43 @@
   font-display: swap;
 }
 
+/* Ranchers (Brand expressive wordmark) */
+@font-face {
+  font-family: "Ranchers";
+  src: url("../assets/fonts/ranchers-latin-400-normal.woff2") format("woff2"),
+       url("../assets/fonts/ranchers.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Mochiy Pop P One (Playful Japanese display) */
+@font-face {
+  font-family: "Mochiy Pop P One";
+  src: url("../assets/fonts/mochiy-pop-one-japanese-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Lilita One (Launcher display headers) */
+@font-face {
+  font-family: "Lilita One";
+  src: url("../assets/fonts/lilita-one.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Hina Mincho (Literary Japanese serif) */
+@font-face {
+  font-family: "Hina Mincho";
+  src: url("../assets/fonts/hina-mincho.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ==========================================================================
    Deprecated Legacy Families (Disabled / Inactive)
    Mochiy Pop One, Epilogue, and Noto Serif are preserved below for reference

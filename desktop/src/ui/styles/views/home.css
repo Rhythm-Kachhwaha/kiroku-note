@@ -17,7 +17,7 @@
    ========================================================================== */
 @font-face {
   font-family: "Ranchers";
-  src: url("../assets/fonts/ranchers.ttf") format("truetype");
+  src: url("../../assets/fonts/ranchers.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -189,7 +189,7 @@
 /* Asymmetric Comic Speech Bubble */
 @font-face {
   font-family: "Mochiy Pop P One";
-  src: url("../assets/fonts/mochiy-pop-one-japanese-400-normal.woff2") format("woff2");
+  src: url("../../assets/fonts/mochiy-pop-one-japanese-400-normal.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -199,7 +199,12 @@
   font-family: "Mochiy Pop P One", var(--font-japanese), sans-serif;
 }
 
+.comic-speech-bubble:hover {
+  transform: translateY(-2px);
+}
+
 .comic-speech-bubble {
+  transition: transform var(--duration-fast, 180ms) var(--spring-snappy, cubic-bezier(0.34, 1.56, 0.64, 1));
   position: relative;
   z-index: 3;
   isolation: isolate;
@@ -925,15 +930,8 @@
 
 @media (prefers-reduced-motion: reduce) {
 
-  .home-daily-word,
-  .wotd-btn-replay,
-  .wotd-btn-replay svg,
-  .wotd-bookmark-btn,
-  .wotd-link-vocab .wotd-arrow,
   .wotd-details-row {
-    transition: none !important;
-    animation: none !important;
-    transform: none !important;
+    transition: opacity var(--duration-fast) ease;
   }
 
   .wotd-details-row {
