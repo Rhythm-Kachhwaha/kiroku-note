@@ -286,6 +286,7 @@
   background-color: var(--vermilion-active, #B33424);
 }
 
+/* FINAL:BOTTOM-DOCK START */
 /* ==========================================================================
    Floating Tactile Bottom Navigation Dock
    ========================================================================== */
@@ -386,6 +387,7 @@
   outline: 2px solid var(--gold, #C8A94A);
   outline-offset: 2px;
 }
+/* FINAL:BOTTOM-DOCK END */
 
 /* ==========================================================================
    Responsive Adaptations
