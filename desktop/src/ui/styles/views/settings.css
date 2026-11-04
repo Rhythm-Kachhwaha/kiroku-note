@@ -155,5 +155,121 @@
   box-shadow: 0 0 0 1.5px var(--tactile-stroke);
 }
 
+/* Slice 24 Regrouped Layout: Left Rail + Content Pane */
+.settings-layout {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  position: relative;
+}
 
+.settings-rail {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.5rem;
+  background-color: var(--surface-container-low);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
 
+.settings-rail-title {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  padding: 0.25rem 0.75rem 0.5rem;
+}
+
+.settings-rail-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all var(--duration-fast) var(--ease-out-quad);
+  border: 1px solid transparent;
+}
+
+.settings-rail-link:hover {
+  color: var(--warm-paper);
+  background-color: var(--surface-container);
+}
+
+.settings-rail-link.is-active {
+  color: var(--warm-paper);
+  background-color: var(--surface-container-high);
+  border-color: var(--gold);
+  font-weight: 600;
+}
+
+.settings-rail-link .rail-badge {
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-full);
+  background-color: var(--surface-container);
+  color: var(--text-muted);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.settings-content-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.settings-section {
+  scroll-margin-top: 1.5rem;
+}
+
+.settings-legacy-details {
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-container-low);
+  padding: 0.75rem 1rem;
+}
+
+.settings-legacy-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-legacy-details summary:hover {
+  color: var(--warm-paper);
+}
+
+.settings-legacy-content {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--tactile-stroke);
+}
+
+@media (max-width: 768px) {
+  .settings-layout {
+    flex-direction: column;
+  }
+  .settings-rail {
+    width: 100%;
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+}

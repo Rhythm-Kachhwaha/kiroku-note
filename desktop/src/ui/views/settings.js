@@ -2,6 +2,7 @@
  * Kiroku Note Desktop — Global Settings & Telemetry View Controller
  * Universal JLPT level curriculum, service integrations (AnkiConnect, Yomitan, OCR, LLM),
  * encrypted DPAPI keys, doctor diagnostics report, app data affordances, and backend supervisor controls.
+ * Slice 24: Regrouped with Left Rail navigation, Language engine status card, and legacy Yomitan section.
  */
 
 import { apiClient } from '../services/api_client.js';
@@ -16,12 +17,14 @@ export class SettingsView {
     this.router = router;
     this.container = null;
     this.ocrRunning = false;
+    this._scrollObserver = null;
   }
 
   async mount(container) {
     this.container = container;
     this.render();
     this.setupEvents();
+    this.setupScrollspy();
     await this.loadInitialSettings();
   }
 
@@ -37,7 +40,7 @@ export class SettingsView {
                 <span class="font-mono text-sm text-gold">Settings</span>
               </div>
               <h1 class="settings-title">Preferences &amp; System Health</h1>
-              <p class="settings-subtitle">Manage study curriculum, connection endpoints, encrypted credentials, and system diagnostics.</p>
+              <p class="settings-subtitle">Manage study curriculum, connection endpoints, language engine, and system diagnostics.</p>
             </div>
           </div>
 
@@ -47,203 +50,322 @@ export class SettingsView {
             <button type="button" class="btn-dismiss-error" id="btn-dismiss-settings-error" aria-label="Dismiss error"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
           </div>
 
-          <!-- Section 0: Universal Study Level Curriculum -->
-          <div class="settings-group-header mt-4">
-            <span class="font-mono text-xs text-gold">Curriculum</span>
-            <h2 class="text-base font-bold text-warm-paper">Universal JLPT Study Level</h2>
-          </div>
-          <div class="settings-cards-grid mt-2">
-            <div class="settings-card tactile-card">
-              <div class="card-header-row">
-                <h3 class="card-title">Target JLPT Level</h3>
-              </div>
-              <p class="card-desc">
-                Sets your universal study level across all tabs (Vocabulary, Grammar, Kanji, Practice drills, and Exam simulations) so you don't have to select it repeatedly.
-              </p>
-              <div class="syllabus-controls-row mt-3">
-                <div class="syllabus-level-pills" id="settings-level-pills" role="radiogroup" aria-label="Universal JLPT Level">
-                  <button type="button" class="tactile-pill learner-level-pill" data-level="N5">N5</button>
-                  <button type="button" class="tactile-pill learner-level-pill" data-level="N4">N4</button>
-                  <button type="button" class="tactile-pill learner-level-pill" data-level="N3">N3</button>
-                  <button type="button" class="tactile-pill learner-level-pill" data-level="N2">N2</button>
-                  <button type="button" class="tactile-pill learner-level-pill" data-level="N1">N1</button>
+          <!-- Two-column Regrouped Layout: Left Rail + Content Pane -->
+          <div class="settings-layout mt-4">
+            <!-- Left Rail Anchor Nav -->
+            <nav class="settings-rail" id="settings-nav-rail" aria-label="Settings Sections">
+              <span class="settings-rail-title">Navigation</span>
+              <a href="#settings-section-level" class="settings-rail-link is-active" data-target="settings-section-level">
+                <span>Level</span>
+              </a>
+              <a href="#settings-section-dictionary-anki" class="settings-rail-link" data-target="settings-section-dictionary-anki">
+                <span>Dictionary &amp; Anki</span>
+              </a>
+              <a href="#settings-section-language-engine" class="settings-rail-link" data-target="settings-section-language-engine">
+                <span>Language engine</span>
+              </a>
+              <a href="#settings-section-link" class="settings-rail-link" data-target="settings-section-link">
+                <span>Link</span>
+                <span class="rail-badge">Soon</span>
+              </a>
+              <a href="#settings-section-rewards" class="settings-rail-link" data-target="settings-section-rewards">
+                <span>Rewards</span>
+                <span class="rail-badge">Soon</span>
+              </a>
+              <a href="#settings-section-diagnostics" class="settings-rail-link" data-target="settings-section-diagnostics">
+                <span>Diagnostics</span>
+              </a>
+            </nav>
+
+            <!-- Right Content Pane -->
+            <div class="settings-content-pane">
+              <!-- Section 1: Level -->
+              <section class="settings-section" id="settings-section-level">
+                <div class="settings-group-header">
+                  <span class="font-mono text-xs text-gold">Curriculum</span>
+                  <h2 class="text-base font-bold text-warm-paper">Universal JLPT Study Level</h2>
                 </div>
-              </div>
-              <p class="text-xs text-muted mt-2">
-                Note: Selecting a level sets your active study focus. It does not automatically mark prior grammar points or kanji as mastered; your progress honestly reflects your real study history.
-              </p>
-            </div>
-          </div>
+                <div class="settings-cards-grid mt-2">
+                  <div class="settings-card tactile-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">Target JLPT Level</h3>
+                    </div>
+                    <p class="card-desc">
+                      Sets your universal study level across all tabs (Vocabulary, Grammar, Kanji, Practice drills, and Exam simulations) so you don't have to select it repeatedly.
+                    </p>
+                    <div class="syllabus-controls-row mt-3">
+                      <div class="syllabus-level-pills" id="settings-level-pills" role="radiogroup" aria-label="Universal JLPT Level">
+                        <button type="button" class="tactile-pill learner-level-pill" data-level="N5">N5</button>
+                        <button type="button" class="tactile-pill learner-level-pill" data-level="N4">N4</button>
+                        <button type="button" class="tactile-pill learner-level-pill" data-level="N3">N3</button>
+                        <button type="button" class="tactile-pill learner-level-pill" data-level="N2">N2</button>
+                        <button type="button" class="tactile-pill learner-level-pill" data-level="N1">N1</button>
+                      </div>
+                    </div>
+                    <p class="text-xs text-muted mt-2">
+                      Note: Selecting a level sets your active study focus. It does not automatically mark prior grammar points or kanji as mastered; your progress honestly reflects your real study history.
+                    </p>
+                  </div>
 
-          <!-- Section: Upload Questions (PDF & Questions Ingestion) -->
-          <div class="settings-group-header mt-6" id="settings-group-upload-questions">
-            <span class="font-mono text-xs text-gold">Question Bank</span>
-            <h2 class="text-base font-bold text-warm-paper">Upload Questions</h2>
-          </div>
-          <div class="settings-cards-grid mt-2">
-            <div class="settings-card tactile-card" id="settings-upload-questions-card">
-              <div class="card-header-row">
-                <h3 class="card-title">Upload Questions</h3>
-              </div>
-              <p class="card-desc">
-                Upload mock test PDFs, pasted practice sentences, or JSON question sets to extract and preview questions directly into your Study Bank.
-              </p>
-              <div id="settings-upload-questions-mount" class="mt-3"></div>
-            </div>
-          </div>
-
-          <!-- Section 1: Integrations -->
-          <div class="settings-group-header mt-6">
-            <span class="font-mono text-xs text-gold">Integrations</span>
-            <h2 class="text-base font-bold text-warm-paper">External Mining &amp; Dictionary Providers</h2>
-          </div>
-          <div class="settings-cards-grid mt-2">
-            <!-- Card 1: AnkiConnect Integration -->
-            <div class="settings-card tactile-card">
-              <div class="card-header-row">
-                <h3 class="card-title">AnkiConnect Sync</h3>
-                <span class="status-dot" id="anki-status-tag" data-state="checking" title="Checking..."></span>
-              </div>
-              <p class="card-desc">Direct local HTTP synchronization to Anki desktop client.</p>
-
-              <div class="form-field mt-3">
-                <label for="anki-url-input">AnkiConnect Endpoint URL</label>
-                <input type="text" id="anki-url-input" class="tactile-input font-mono text-sm" value="http://127.0.0.1:8765" />
-              </div>
-
-              <div class="form-field mt-3">
-                <label for="select-settings-deck">Target Mining Deck</label>
-                <select id="select-settings-deck" class="tactile-input font-mono text-sm">
-                  <option value="">(Checking available Anki decks...)</option>
-                </select>
-              </div>
-
-              <div class="card-actions-row mt-3">
-                <button type="button" class="tactile-btn tactile-btn-primary" id="btn-test-anki">Test Connection</button>
-              </div>
-            </div>
-
-            <!-- Card: Yomitan Status -->
-            <div class="settings-card tactile-card">
-              <div class="card-header-row">
-                <h3 class="card-title">Yomitan Provider</h3>
-                <span class="status-dot" id="yomitan-status-tag" data-state="checking" title="Checking..."></span>
-              </div>
-              <p class="card-desc">Local Yomitan dictionary server integration for fast bilingual definition lookup.</p>
-              <div class="mt-3">
-                <span class="font-mono text-xs text-muted">Endpoint: loopback /api/yomitan/dictionaries</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Section 2: Optional Services -->
-          <div class="settings-group-header mt-6">
-            <span class="font-mono text-xs text-gold">Optional Services</span>
-            <h2 class="text-base font-bold text-warm-paper">Local OCR &amp; AI Explanations</h2>
-          </div>
-          <div class="settings-cards-grid mt-2">
-            <!-- Card 2: OCR Daemon Controls (Port 21829) -->
-            <div class="settings-card tactile-card">
-              <div class="card-header-row">
-                <h3 class="card-title">Manga-OCR Daemon</h3>
-                <span class="status-dot" id="ocr-status-tag" data-state="stopped" title="Stopped"></span>
-              </div>
-              <p class="card-desc">Isolated, optional CPU-only manga-ocr background server on loopback port 21829.</p>
-
-              <div class="card-actions-row mt-3">
-                <button type="button" class="tactile-btn" id="btn-toggle-ocr">Start OCR Server</button>
-              </div>
-            </div>
-
-            <!-- Card 3: LLM Provider Configuration -->
-            <div class="settings-card tactile-card">
-              <div class="card-header-row">
-                <h3 class="card-title">AI Explanation Provider</h3>
-                <span class="status-dot" id="llm-status-tag" data-state="ready" title="Key Protected"></span>
-              </div>
-              <p class="card-desc">Generates nuanced pedagogical grammar explanations and disambiguation advice.</p>
-
-              <div class="form-row-pair mt-3">
-                <div class="form-field">
-                  <label for="llm-provider-select">Provider</label>
-                  <select id="llm-provider-select" class="tactile-input">
-                    <option value="none">None (Offline Pure Rule-Based)</option>
-                    <option value="groq">Groq (Ultra-Fast Llama-3)</option>
-                    <option value="gemini">Google Gemini</option>
-                    <option value="ollama">Ollama (Local Offline)</option>
-                  </select>
+                  <!-- Upload Questions Card (PDF & Questions Ingestion) -->
+                  <div class="settings-card tactile-card" id="settings-upload-questions-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">Upload Questions</h3>
+                    </div>
+                    <p class="card-desc">
+                      Upload mock test PDFs, pasted practice sentences, or JSON question sets to extract and preview questions directly into your Study Bank.
+                    </p>
+                    <div id="settings-upload-questions-mount" class="mt-3"></div>
+                  </div>
                 </div>
-                <div class="form-field">
-                  <label for="llm-model-input">Model Name</label>
-                  <input type="text" id="llm-model-input" class="tactile-input font-mono text-sm" placeholder="e.g. llama-3.3-70b-versatile" />
+              </section>
+
+              <!-- Section 2: Dictionary & Anki -->
+              <section class="settings-section" id="settings-section-dictionary-anki">
+                <div class="settings-group-header">
+                  <span class="font-mono text-xs text-gold">Integrations</span>
+                  <h2 class="text-base font-bold text-warm-paper">Dictionary &amp; Anki Integration</h2>
                 </div>
-              </div>
+                <div class="settings-cards-grid mt-2">
+                  <!-- AnkiConnect Sync Card -->
+                  <div class="settings-card tactile-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">AnkiConnect Sync</h3>
+                      <span class="status-dot" id="anki-status-tag" data-state="checking" title="Checking..."></span>
+                    </div>
+                    <p class="card-desc">Direct local HTTP synchronization to Anki desktop client.</p>
 
-              <div class="form-field mt-3">
-                <label for="llm-key-input">API Key (Protected by Windows DPAPI)</label>
-                <div style="position: relative; display: flex; align-items: center;">
-                  <input type="password" id="llm-key-input" class="tactile-input font-mono text-sm" style="padding-right: 2.2rem; width: 100%;" placeholder="Enter API key to update..." />
-                  <button type="button" class="btn-toggle-key-visibility" id="btn-toggle-key-visibility" title="Toggle visibility" aria-label="Toggle key visibility" style="position: absolute; right: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; display: flex; align-items: center;">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                      <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                    </svg>
-                  </button>
+                    <div class="form-field mt-3">
+                      <label for="anki-url-input">AnkiConnect Endpoint URL</label>
+                      <input type="text" id="anki-url-input" class="tactile-input font-mono text-sm" value="http://127.0.0.1:8765" />
+                    </div>
+
+                    <div class="form-field mt-3">
+                      <label for="select-settings-deck">Target Mining Deck</label>
+                      <select id="select-settings-deck" class="tactile-input font-mono text-sm">
+                        <option value="">(Checking available Anki decks...)</option>
+                      </select>
+                    </div>
+
+                    <div class="card-actions-row mt-3">
+                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-test-anki">Test Connection</button>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div class="card-actions-row mt-3">
-                <button type="button" class="tactile-btn tactile-btn-primary" id="btn-save-llm">Save Settings</button>
-                <button type="button" class="tactile-btn" id="btn-test-llm">Test LLM Connection</button>
-              </div>
+                <!-- Collapsed Legacy dictionary provider at bottom of Dictionary & Anki -->
+                <details class="settings-legacy-details mt-3" id="settings-legacy-yomitan-details">
+                  <summary>
+                    <div class="flex items-center gap-2">
+                      <span class="font-mono text-xs text-muted uppercase">Legacy dictionary provider</span>
+                      <span class="status-dot" id="yomitan-status-tag" data-state="checking" title="Checking..."></span>
+                    </div>
+                    <span class="text-xs text-muted font-mono">Show / Hide</span>
+                  </summary>
+                  <div class="settings-legacy-content">
+                    <div class="card-header-row">
+                      <h4 class="card-title text-sm">Yomitan Provider (Deprecated)</h4>
+                    </div>
+                    <p class="card-desc text-xs">Local Yomitan dictionary server integration for fast bilingual definition lookup. Kiroku Note now prioritizes local offline dictionaries.</p>
+                    <div class="mt-2">
+                      <span class="font-mono text-xs text-muted">Endpoint: loopback /api/yomitan/dictionaries</span>
+                    </div>
+                  </div>
+                </details>
+              </section>
 
-              <div class="llm-test-result-box mt-3" id="llm-test-result" style="display: none;">
-                <span class="font-mono text-xs text-muted" id="llm-test-output"></span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Section 3 & 4: Diagnostics & Process Control -->
-          <div class="settings-group-header mt-6">
-            <span class="font-mono text-xs text-gold">Diagnostics &amp; System</span>
-            <h2 class="text-base font-bold text-warm-paper">Database Diagnostics &amp; Process Lifecycle</h2>
-          </div>
-          <div class="settings-cards-grid mt-2">
-            <!-- Card 4: Doctor Diagnostics & Maintenance -->
-            <div class="settings-card tactile-card">
-              <div class="card-header-row">
-                <h3 class="card-title">System Doctor Diagnostics</h3>
-                <span class="status-dot" data-state="ready" title="Read-Only"></span>
-              </div>
-              <p class="card-desc">Non-mutating verification of SQLite database integrity, sealed triggers, and media assets.</p>
-
-              <div class="doctor-summary-box mt-3" id="doctor-summary" style="display: none;">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="tactile-pill tactile-pill-gold" id="doctor-status-badge">Integrity Verified</span>
-                  <span class="font-mono text-xs text-secondary" id="doctor-db-path">--</span>
+              <!-- Section 3: Language engine -->
+              <section class="settings-section" id="settings-section-language-engine">
+                <div class="settings-group-header">
+                  <span class="font-mono text-xs text-gold">Engine</span>
+                  <h2 class="text-base font-bold text-warm-paper">Language Engine</h2>
                 </div>
-              </div>
+                <div class="settings-cards-grid mt-2">
+                  <div class="settings-card tactile-card" id="settings-language-engine-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">Japanese Language Engine</h3>
+                      <span class="status-dot" id="tokenizer-status-tag" data-state="checking" title="Checking..."></span>
+                    </div>
+                    <p class="card-desc">Morphological tokenization and part-of-speech segmentation powering subtitle sync and grammar analysis.</p>
 
-              <div class="doctor-results-box mt-2" id="doctor-results" style="display: none;">
-                <pre class="doctor-pre font-mono text-xs" id="doctor-output"></pre>
-              </div>
+                    <div class="form-row-pair mt-3">
+                      <div class="form-field">
+                        <label for="select-tokenizer-mode">Tokenizer Mode</label>
+                        <select id="select-tokenizer-mode" class="tactile-input font-mono text-sm">
+                          <option value="auto">Automatic (Recommended)</option>
+                          <option value="sudachi">SudachiPy (Deep Morphological)</option>
+                          <option value="legacy">Legacy Heuristic / Regex</option>
+                        </select>
+                      </div>
+                      <div class="form-field">
+                        <label>Lexicon Dictionary</label>
+                        <div class="tactile-card p-2 flex items-center justify-between" style="background-color: var(--surface-container-low); height: 38px;">
+                          <span class="font-mono text-xs text-warm-paper" id="tokenizer-dict-display">Dictionary: Core</span>
+                          <span class="status-dot" id="tokenizer-dict-dot" data-state="ready" title="Dictionary active"></span>
+                        </div>
+                      </div>
+                    </div>
 
-              <div class="card-actions-row mt-3">
-                <button type="button" class="tactile-btn tactile-btn-primary" id="btn-run-doctor">Run Doctor Check</button>
-                <button type="button" class="tactile-btn" id="btn-open-appdata">Open App Data</button>
-              </div>
-            </div>
+                    <div class="mt-3 flex items-center justify-between p-3 tactile-card" style="background-color: var(--surface-container-low);">
+                      <div>
+                        <span class="font-mono text-xs text-muted block uppercase">Engine State</span>
+                        <span class="font-mono text-sm text-warm-paper" id="tokenizer-ready-label">Checking runtime status...</span>
+                      </div>
+                      <button type="button" class="tactile-btn tactile-btn-sm" id="btn-probe-tokenizer">Verify Engine</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-            <!-- Card 5: Backend Process Supervisor -->
-            <div class="settings-card tactile-card">
-              <div class="card-header-row">
-                <h3 class="card-title">FastAPI Backend Service</h3>
-                <span class="status-dot" data-state="ready" title="Supervisor Managed"></span>
-              </div>
-              <p class="card-desc">Local desktop process supervisor maintaining kiroku.db, SQLite WAL transactions, and port bindings.</p>
+              <!-- Section 4: Link (Coming empty) -->
+              <section class="settings-section" id="settings-section-link">
+                <div class="settings-group-header">
+                  <span class="font-mono text-xs text-gold">Companion Sync</span>
+                  <h2 class="text-base font-bold text-warm-paper">Kiroku Link</h2>
+                </div>
+                <div class="settings-cards-grid mt-2">
+                  <div class="settings-card tactile-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">Browser Link Companion</h3>
+                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted">Coming in Slice 38</span>
+                    </div>
+                    <p class="card-desc">
+                      Bi-directional companion bridge connecting Chrome/Chromium video players directly to Kiroku Note desktop.
+                    </p>
+                    <div class="p-4 mt-3 rounded border border-tactile text-center bg-surface-lowest">
+                      <span class="font-mono text-xs text-muted">Link companion integration will be unlocked in Slice 38.</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-              <div class="card-actions-row mt-3">
-                <button type="button" class="tactile-btn" id="btn-restart-backend">Restart Backend Service</button>
-              </div>
+              <!-- Section 5: Rewards (Coming empty) -->
+              <section class="settings-section" id="settings-section-rewards">
+                <div class="settings-group-header">
+                  <span class="font-mono text-xs text-gold">Gamification &amp; Records</span>
+                  <h2 class="text-base font-bold text-warm-paper">Study Rewards &amp; Stamps</h2>
+                </div>
+                <div class="settings-cards-grid mt-2">
+                  <div class="settings-card tactile-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">Ink &amp; Stamp Ledger</h3>
+                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted">Coming in Slice 33</span>
+                    </div>
+                    <p class="card-desc">
+                      Effort-based ink ledger, adaptive daily ritual quests, and non-punitive stamp collection book.
+                    </p>
+                    <div class="p-4 mt-3 rounded border border-tactile text-center bg-surface-lowest">
+                      <span class="font-mono text-xs text-muted">Gamification and rewards ledger will be unlocked in Slice 33.</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Section 6: Diagnostics -->
+              <section class="settings-section" id="settings-section-diagnostics">
+                <div class="settings-group-header">
+                  <span class="font-mono text-xs text-gold">Diagnostics &amp; System</span>
+                  <h2 class="text-base font-bold text-warm-paper">Database Diagnostics &amp; Process Lifecycle</h2>
+                </div>
+                <div class="settings-cards-grid mt-2">
+                  <!-- Manga-OCR Daemon -->
+                  <div class="settings-card tactile-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">Manga-OCR Daemon</h3>
+                      <span class="status-dot" id="ocr-status-tag" data-state="stopped" title="Stopped"></span>
+                    </div>
+                    <p class="card-desc">Isolated, optional CPU-only manga-ocr background server on loopback port 21829.</p>
+
+                    <div class="card-actions-row mt-3">
+                      <button type="button" class="tactile-btn" id="btn-toggle-ocr">Start OCR Server</button>
+                    </div>
+                  </div>
+
+                  <!-- AI Explanation Provider -->
+                  <div class="settings-card tactile-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">AI Explanation Provider</h3>
+                      <span class="status-dot" id="llm-status-tag" data-state="ready" title="Key Protected"></span>
+                    </div>
+                    <p class="card-desc">Generates nuanced pedagogical grammar explanations and disambiguation advice.</p>
+
+                    <div class="form-row-pair mt-3">
+                      <div class="form-field">
+                        <label for="llm-provider-select">Provider</label>
+                        <select id="llm-provider-select" class="tactile-input">
+                          <option value="none">None (Offline Pure Rule-Based)</option>
+                          <option value="groq">Groq (Ultra-Fast Llama-3)</option>
+                          <option value="gemini">Google Gemini</option>
+                          <option value="ollama">Ollama (Local Offline)</option>
+                        </select>
+                      </div>
+                      <div class="form-field">
+                        <label for="llm-model-input">Model Name</label>
+                        <input type="text" id="llm-model-input" class="tactile-input font-mono text-sm" placeholder="e.g. llama-3.3-70b-versatile" />
+                      </div>
+                    </div>
+
+                    <div class="form-field mt-3">
+                      <label for="llm-key-input">API Key (Protected by Windows DPAPI)</label>
+                      <div style="position: relative; display: flex; align-items: center;">
+                        <input type="password" id="llm-key-input" class="tactile-input font-mono text-sm" style="padding-right: 2.2rem; width: 100%;" placeholder="Enter API key to update..." />
+                        <button type="button" class="btn-toggle-key-visibility" id="btn-toggle-key-visibility" title="Toggle visibility" aria-label="Toggle key visibility" style="position: absolute; right: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; display: flex; align-items: center;">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="card-actions-row mt-3">
+                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-save-llm">Save Settings</button>
+                      <button type="button" class="tactile-btn" id="btn-test-llm">Test LLM Connection</button>
+                    </div>
+
+                    <div class="llm-test-result-box mt-3" id="llm-test-result" style="display: none;">
+                      <span class="font-mono text-xs text-muted" id="llm-test-output"></span>
+                    </div>
+                  </div>
+
+                  <!-- System Doctor Diagnostics -->
+                  <div class="settings-card tactile-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">System Doctor Diagnostics</h3>
+                      <span class="status-dot" data-state="ready" title="Read-Only"></span>
+                    </div>
+                    <p class="card-desc">Non-mutating verification of SQLite database integrity, sealed triggers, and media assets.</p>
+
+                    <div class="doctor-summary-box mt-3" id="doctor-summary" style="display: none;">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span class="tactile-pill tactile-pill-gold" id="doctor-status-badge">Integrity Verified</span>
+                        <span class="font-mono text-xs text-secondary" id="doctor-db-path">--</span>
+                      </div>
+                    </div>
+
+                    <div class="doctor-results-box mt-2" id="doctor-results" style="display: none;">
+                      <pre class="doctor-pre font-mono text-xs" id="doctor-output"></pre>
+                    </div>
+
+                    <div class="card-actions-row mt-3">
+                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-run-doctor">Run Doctor Check</button>
+                      <button type="button" class="tactile-btn" id="btn-open-appdata">Open App Data</button>
+                    </div>
+                  </div>
+
+                  <!-- Backend Process Supervisor -->
+                  <div class="settings-card tactile-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">FastAPI Backend Service</h3>
+                      <span class="status-dot" data-state="ready" title="Supervisor Managed"></span>
+                    </div>
+                    <p class="card-desc">Local desktop process supervisor maintaining kiroku.db, SQLite WAL transactions, and port bindings.</p>
+
+                    <div class="card-actions-row mt-3">
+                      <button type="button" class="tactile-btn" id="btn-restart-backend">Restart Backend Service</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         </div>
@@ -264,6 +386,44 @@ export class SettingsView {
     const banner = document.getElementById('settings-error-banner');
     if (banner) {
       banner.style.display = 'none';
+    }
+  }
+
+  setupScrollspy() {
+    const railLinks = this.container.querySelectorAll('.settings-rail-link');
+    const sections = this.container.querySelectorAll('.settings-section');
+
+    railLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetId = link.getAttribute('data-target');
+        const targetSection = document.getElementById(targetId);
+        if (targetSection) {
+          targetSection.scrollIntoView({ behavior: 'smooth' });
+          railLinks.forEach(l => l.classList.remove('is-active'));
+          link.classList.add('is-active');
+        }
+      });
+    });
+
+    if (typeof window !== 'undefined' && 'IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            railLinks.forEach(link => {
+              if (link.getAttribute('data-target') === id) {
+                link.classList.add('is-active');
+              } else {
+                link.classList.remove('is-active');
+              }
+            });
+          }
+        });
+      }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+
+      sections.forEach(sec => observer.observe(sec));
+      this._scrollObserver = observer;
     }
   }
 
@@ -291,6 +451,32 @@ export class SettingsView {
         await setUniversalJlptLevel(lvl);
       });
     });
+
+    // Tokenizer Mode Selector
+    const selectTokMode = document.getElementById('select-tokenizer-mode');
+    if (selectTokMode) {
+      selectTokMode.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('kiroku.tokenizer.mode', val);
+        }
+      });
+    }
+
+    // Probe Tokenizer button
+    const btnProbeTok = document.getElementById('btn-probe-tokenizer');
+    if (btnProbeTok) {
+      btnProbeTok.addEventListener('click', async () => {
+        btnProbeTok.disabled = true;
+        btnProbeTok.textContent = 'Probing...';
+        try {
+          await this.loadTokenizerStatus();
+        } finally {
+          btnProbeTok.disabled = false;
+          btnProbeTok.textContent = 'Verify Engine';
+        }
+      });
+    }
 
     // Anki Mining Deck Selector
     const selectDeck = document.getElementById('select-settings-deck');
@@ -378,28 +564,27 @@ export class SettingsView {
         this.clearError();
 
         try {
-          const provider = document.getElementById('llm-provider-select')?.value;
-          const model = document.getElementById('llm-model-input')?.value?.trim();
-          const apiKey = document.getElementById('llm-key-input')?.value?.trim();
+          const provider = document.getElementById('llm-provider-select')?.value || 'none';
+          const model = document.getElementById('llm-model-input')?.value?.trim() || '';
+          const keyInput = document.getElementById('llm-key-input');
+          const apiKey = keyInput?.value?.trim() || undefined;
 
-          const payload = { provider };
-          if (model) payload.model = model;
+          const payload = { provider, model };
           if (apiKey) payload.api_key = apiKey;
 
           await apiClient.updateLlmConfig(payload);
-          const keyInput = document.getElementById('llm-key-input');
-          if (keyInput) {
-            keyInput.value = '';
-            keyInput.placeholder = '•••••••• (Saved in Windows DPAPI)';
-          }
           const tag = document.getElementById('llm-status-tag');
           if (tag) {
-            tag.textContent = provider === 'none' ? 'Offline Mode' : 'Configured';
-            tag.className = `tactile-pill ${provider !== 'none' ? 'tactile-pill-gold' : ''}`;
+            tag.textContent = 'Config Saved';
+            tag.className = 'tactile-pill tactile-pill-gold';
+          }
+          if (keyInput && apiKey) {
+            keyInput.value = '';
+            keyInput.placeholder = '•••••••• (Configured in Windows DPAPI)';
           }
         } catch (err) {
-          console.error('[Settings] Save LLM config failed:', err);
-          this.showError('Failed to save LLM settings: ' + (err.message || 'Validation error'));
+          console.warn('[Settings] Save LLM config failed:', err);
+          this.showError('Failed to save LLM settings: ' + (err.message || 'API error'));
         } finally {
           btnSaveLlm.disabled = false;
           btnSaveLlm.textContent = 'Save Settings';
@@ -407,7 +592,7 @@ export class SettingsView {
       });
     }
 
-    // Test LLM Latency
+    // Test LLM Connection
     const btnTestLlm = document.getElementById('btn-test-llm');
     if (btnTestLlm) {
       btnTestLlm.addEventListener('click', async () => {
@@ -417,24 +602,21 @@ export class SettingsView {
 
         const resultBox = document.getElementById('llm-test-result');
         const outputEl = document.getElementById('llm-test-output');
-        if (resultBox && outputEl) {
-          resultBox.style.display = 'block';
-          outputEl.textContent = 'Testing model latency...';
-        }
+        if (resultBox) resultBox.style.display = 'block';
+        if (outputEl) outputEl.textContent = 'Sending latency ping to configured provider...';
 
-        const startTime = Date.now();
         try {
-          const res = await apiClient.testLlm('Hello, test connection.');
-          const latencyMs = Date.now() - startTime;
+          const res = await apiClient.testLlm();
           if (outputEl) {
-            outputEl.textContent = `Latency: ${latencyMs}ms · Response: ${res?.result || JSON.stringify(res)}`;
+            const ms = res?.latency_ms !== undefined ? `${Math.round(res.latency_ms)}ms` : 'ok';
+            outputEl.textContent = `Provider status: ${res?.status || 'OK'} (${ms}). Model response verified.`;
           }
         } catch (err) {
           console.warn('[Settings] Test LLM failed:', err);
           if (outputEl) {
-            outputEl.textContent = `Error (${Date.now() - startTime}ms): ${err.message || 'Request failed'}`;
+            outputEl.textContent = `Connection test failed: ${err.message}`;
           }
-          this.showError('LLM test failed: ' + (err.message || 'Check provider key and network'));
+          this.showError('LLM connection test failed: ' + (err.message || 'Check provider API key or network'));
         } finally {
           btnTestLlm.disabled = false;
           btnTestLlm.textContent = 'Test LLM Connection';
@@ -442,11 +624,12 @@ export class SettingsView {
       });
     }
 
-    // Key Visibility Toggle
-    const btnToggleKey = document.getElementById('btn-toggle-key-visibility');
-    const keyInput = document.getElementById('llm-key-input');
-    if (btnToggleKey && keyInput) {
-      btnToggleKey.addEventListener('click', () => {
+    // Toggle API Key visibility
+    const btnToggleVis = document.getElementById('btn-toggle-key-visibility');
+    if (btnToggleVis) {
+      btnToggleVis.addEventListener('click', () => {
+        const keyInput = document.getElementById('llm-key-input');
+        if (!keyInput) return;
         const isPass = keyInput.type === 'password';
         keyInput.type = isPass ? 'text' : 'password';
       });
@@ -549,6 +732,18 @@ export class SettingsView {
       console.debug('[Settings] Restore learner level error:', err);
     }
 
+    // Language engine status & stored mode
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const storedMode = window.localStorage.getItem('kiroku.tokenizer.mode') || 'auto';
+        const sel = document.getElementById('select-tokenizer-mode');
+        if (sel) sel.value = storedMode;
+      }
+      await this.loadTokenizerStatus();
+    } catch (err) {
+      console.debug('[Settings] Initial tokenizer status error:', err);
+    }
+
     // 1. OCR status
     try {
       const ocrRes = await apiClient.getOcrStatus();
@@ -595,6 +790,9 @@ export class SettingsView {
         const connected = Boolean(ankiRes.connected);
         tag.textContent = connected ? `Connected (v${ankiRes.version || '?'})` : 'Unavailable';
         tag.className = `tactile-pill ${connected ? 'tactile-pill-gold' : ''}`;
+        if (connected) {
+          await this.loadAnkiDecks();
+        }
       }
     } catch (err) {
       console.warn('[Settings] Initial Anki status error:', err);
@@ -626,6 +824,43 @@ export class SettingsView {
       }
     } catch (err) {
       console.warn('[Settings] Initial LLM config error:', err);
+    }
+  }
+
+  async loadTokenizerStatus() {
+    const statusTag = document.getElementById('tokenizer-status-tag');
+    const dictDisplay = document.getElementById('tokenizer-dict-display');
+    const dictDot = document.getElementById('tokenizer-dict-dot');
+    const readyLabel = document.getElementById('tokenizer-ready-label');
+    if (!statusTag && !readyLabel) return;
+
+    try {
+      const health = await apiClient.getHealth();
+      const tok = health?.tokenizer || 'legacy';
+      const dict = health?.tokenizer_dictionary || 'core';
+      const ready = Boolean(health?.tokenizer_ready !== false);
+
+      if (statusTag) {
+        statusTag.dataset.state = ready ? 'ready' : 'stopped';
+        statusTag.title = ready ? 'Ready' : 'Standby';
+      }
+      if (dictDisplay) {
+        dictDisplay.textContent = `Dictionary: ${dict}`;
+      }
+      if (dictDot) {
+        dictDot.dataset.state = ready ? 'ready' : 'stopped';
+      }
+      if (readyLabel) {
+        readyLabel.textContent = `Engine: ${tok} • Dictionary: ${dict} • ${ready ? 'Ready (Active)' : 'Standby'}`;
+      }
+    } catch (err) {
+      console.warn('[Settings] Tokenizer health probe failed:', err);
+      if (readyLabel) {
+        readyLabel.textContent = 'Engine status unavailable (offline)';
+      }
+      if (statusTag) {
+        statusTag.dataset.state = 'error';
+      }
     }
   }
 
@@ -697,6 +932,10 @@ export class SettingsView {
   }
 
   unmount() {
+    if (this._scrollObserver) {
+      this._scrollObserver.disconnect();
+      this._scrollObserver = null;
+    }
     if (this.container) {
       this.container.innerHTML = '';
     }
