@@ -1565,7 +1565,8 @@
 }
 
 /* Should Know: Vivid Vermilion text (sharp, readable, no washed-out yellow) */
-.vocab-annotated-token.token-should-know {
+.vocab-annotated-token.token-should-know,
+.vocab-annotated-token.token-gap {
   color: var(--vermilion) !important;
   background: transparent !important;
   border: none !important;
@@ -1581,15 +1582,25 @@
 }
 
 /* Regular unstyled text */
-.vocab-annotated-token.token-unstyled {
+.vocab-annotated-token.token-unstyled,
+.vocab-annotated-token.token-new {
   color: var(--ink-black) !important;
   background: transparent !important;
   border: none !important;
   font-weight: 700;
 }
 
+.legend-item.legend-gap .legend-dot {
+  background-color: var(--vermilion);
+}
+
+.legend-item.legend-new .legend-dot {
+  background-color: var(--ink-black);
+}
+
 /* Dynamic filter toggling: words gracefully revert to normal black text when unchecked */
-.annotated-tokens-stage.hide-should-know .token-should-know {
+.annotated-tokens-stage.hide-should-know .token-should-know,
+.annotated-tokens-stage.hide-gap .token-gap {
   color: var(--ink-black) !important;
 }
 
@@ -1597,3 +1608,10 @@
   color: var(--ink-black) !important;
 }
 
+
+
+.vocab-watch-container {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  margin-top: 1.5rem;
+}

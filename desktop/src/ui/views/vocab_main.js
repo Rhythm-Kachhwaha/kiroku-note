@@ -24,7 +24,8 @@ export class VocabMainView {
     this.currentTerm = null;
     this.learnerLevel = 'N4';
     this.searchDebounceTimer = null;
-    this.imeMode = 'hiragana'; // 'hiragana' | 'katakana' | 'english'
+    this.imeMode = 'hiragana';
+    this.activeSegment = 'capture'; // 'hiragana' | 'katakana' | 'english'
     this.knownWordsSet = new Set();
     this.ankiDecks = ['Default'];
     this.isLoading = false;
@@ -146,6 +147,7 @@ export class VocabMainView {
             <div class="vocab-segments" role="tablist" aria-label="Vocabulary sections">
               <button type="button" class="vocab-segment-tab is-active" id="vocab-tab-capture" data-segment="capture" role="tab" aria-selected="true">Capture</button>
               <button type="button" class="vocab-segment-tab" id="vocab-tab-inventory" data-segment="inventory" role="tab" aria-selected="false">Inventory</button>
+              <button type="button" class="vocab-segment-tab" id="vocab-tab-watch" data-segment="watch" role="tab" aria-selected="false">Watch</button>
             </div>
 
             <button type="button" class="vocab-quick-add-toggle-btn is-open" id="btn-toggle-quick-add" title="Toggle Quick Add side panel">
@@ -195,24 +197,21 @@ export class VocabMainView {
                 </section>
               </div>
 
-              <!-- Collapsed passage annotator -->
+              <!-- Read a passage full section -->
               <section class="vocab-annotate-section" id="vocab-annotate-section">
-                <button type="button" class="vocab-annotate-toggle" id="btn-toggle-annotate" aria-expanded="false" aria-controls="vocab-annotate-body">
-                  <span class="vocab-annotate-title">Annotate a passage</span>
-                  <span class="vocab-annotate-sub">Paste Japanese text to highlight known and should-know words.</span>
-                  <svg class="vocab-annotate-chevron" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-                    <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>
-                  </svg>
-                </button>
+                <div class="vocab-annotate-toggle is-open" id="btn-toggle-annotate" role="region" aria-label="Read a passage">
+                  <span class="vocab-annotate-title">Read a passage</span>
+                  <span class="vocab-annotate-sub">Annotate a passage to inspect known, gap, and new vocabulary.</span>
+                </div>
 
-                <div class="vocab-annotate-body" id="vocab-annotate-body" hidden>
+                <div class="vocab-annotate-body" id="vocab-annotate-body">
                   <div class="text-annotate-card tactile-card">
                   <!-- Typing Form: Hidden Once Text Is Annotated -->
                   <div class="text-annotate-composer" id="text-annotate-composer">
                     <div class="text-annotate-header mb-3">
-                      <h2 class="text-lg font-bold font-sans">Text annotator</h2>
+                      <h2 class="text-lg font-bold font-sans">Read a passage</h2>
                       <p class="text-sm text-secondary font-sans">
-                        Paste a Japanese article or paragraph. Tokens will be highlighted by your learner status: should know or known.
+                        Paste a Japanese article or paragraph. Tokens will be highlighted by your learner status: known, gap, or new.
                       </p>
                     </div>
 
@@ -232,13 +231,17 @@ export class VocabMainView {
                       </button>
 
                       <div class="annotation-legend font-sans">
-                        <span class="legend-item legend-should-know">
-                          <span class="legend-dot"></span>
-                          <span>Should know</span>
-                        </span>
                         <span class="legend-item legend-known">
                           <span class="legend-dot"></span>
                           <span>Known</span>
+                        </span>
+                        <span class="legend-item legend-gap legend-should-know">
+                          <span class="legend-dot"></span>
+                          <span>Gap</span>
+                        </span>
+                        <span class="legend-item legend-new legend-unstyled">
+                          <span class="legend-dot"></span>
+                          <span>New</span>
                         </span>
                       </div>
                     </div>
@@ -382,6 +385,15 @@ export class VocabMainView {
                 </form>
               </div>
             </aside>
+          </div>
+
+          <!-- Watch empty state card (Slice 19 placeholder, content in 39) -->
+          <div id="vocab-watch-container" class="vocab-watch-container tactile-card" style="display: none;">
+            <div class="empty-state-card">
+              <h2 class="text-xl font-bold font-display text-warm-paper mb-2">Watch</h2>
+              <p class="text-secondary font-sans mb-4">Link not connected</p>
+              <p class="text-xs text-muted font-sans">Connect Kiroku Link or the browser extension to stream vocabulary from video playback.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -582,6 +594,10 @@ export class VocabMainView {
     }
     if (tabInventory) {
       tabInventory.addEventListener('click', () => this.handleSegmentSelect('inventory'));
+    }
+    const tabWatch = document.getElementById('vocab-tab-watch');
+    if (tabWatch) {
+      tabWatch.addEventListener('click', () => this.handleSegmentSelect('watch'));
     }
 
     // Quick Add side panel toggle
@@ -789,6 +805,31 @@ export class VocabMainView {
   handleSegmentSelect(segment) {
     if (segment === 'inventory') {
       this.router.navigateToTab('vocab-history');
+      return;
+    }
+    const tabCapture = document.getElementById('vocab-tab-capture');
+    const tabInventory = document.getElementById('vocab-tab-inventory');
+    const tabWatch = document.getElementById('vocab-tab-watch');
+    const workspace = this.container?.querySelector('.vocab-workspace-split');
+    const searchSection = this.container?.querySelector('.vocab-search-section');
+    const watchContainer = document.getElementById('vocab-watch-container');
+
+    if (segment === 'watch') {
+      this.activeSegment = 'watch';
+      if (tabCapture) { tabCapture.classList.remove('is-active'); tabCapture.setAttribute('aria-selected', 'false'); }
+      if (tabInventory) { tabInventory.classList.remove('is-active'); tabInventory.setAttribute('aria-selected', 'false'); }
+      if (tabWatch) { tabWatch.classList.add('is-active'); tabWatch.setAttribute('aria-selected', 'true'); }
+      if (workspace) workspace.style.display = 'none';
+      if (searchSection) searchSection.style.display = 'none';
+      if (watchContainer) watchContainer.style.display = 'block';
+    } else {
+      this.activeSegment = 'capture';
+      if (tabCapture) { tabCapture.classList.add('is-active'); tabCapture.setAttribute('aria-selected', 'true'); }
+      if (tabInventory) { tabInventory.classList.remove('is-active'); tabInventory.setAttribute('aria-selected', 'false'); }
+      if (tabWatch) { tabWatch.classList.remove('is-active'); tabWatch.setAttribute('aria-selected', 'false'); }
+      if (workspace) workspace.style.display = '';
+      if (searchSection) searchSection.style.display = '';
+      if (watchContainer) watchContainer.style.display = 'none';
     }
   }
 
@@ -857,23 +898,26 @@ export class VocabMainView {
       const lemma = escapeHtml(t.lemma || t.surface || '');
       const rawStatus = t.status || 'unstyled';
 
-      // Known is the union of marked known words and mined cards
-      const isKnown = this.knownWordsSet.has(lemma) ||
+      // Known is the union of marked known words, mined cards, and slice 10 known flag
+      const isKnown = Boolean(t.known) ||
+                      this.knownWordsSet.has(lemma) ||
                       this.knownWordsSet.has(surface) ||
                       rawStatus === 'mined' ||
                       rawStatus === 'known';
 
-      let effectiveStatus = 'unstyled';
+      let effectiveStatus = 'new';
       if (isKnown) {
         effectiveStatus = 'known';
         countKnown++;
-      } else if (rawStatus === 'should_know') {
-        effectiveStatus = 'should_know';
+      } else if (rawStatus === 'should_know' || t.status === 'should_know') {
+        effectiveStatus = 'gap';
         countShouldKnow++;
+      } else {
+        effectiveStatus = 'new';
       }
 
-      const statusClass = `token-${effectiveStatus.replace(/_/g, '-')}`;
-      const level = t.jlpt_level ? escapeHtml(t.jlpt_level) : '';
+      const statusClass = `token-${effectiveStatus} ${effectiveStatus === 'gap' ? 'token-should-know token-gap' : ''} ${effectiveStatus === 'new' ? 'token-unstyled token-new' : ''}`;
+      const level = (t.jlpt_level || t.est_level) ? escapeHtml(t.jlpt_level || t.est_level) : '';
 
       return `
         <span
@@ -884,7 +928,7 @@ export class VocabMainView {
           data-level="${level}"
           tabindex="0"
           role="button"
-          title="${lemma} (${effectiveStatus === 'should_know' ? 'Should know' : effectiveStatus === 'known' ? 'Known' : 'Other'}${level ? ` · ${level}` : ''}) — Click to inspect"
+          title="${lemma} (${effectiveStatus === 'gap' ? 'Gap' : effectiveStatus === 'known' ? 'Known' : 'New'}${level ? ` · ${level}` : ''}) — Click to inspect"
         >${surface}</span>
       `;
     }).join('');

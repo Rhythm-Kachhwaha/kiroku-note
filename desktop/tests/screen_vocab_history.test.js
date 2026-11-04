@@ -193,3 +193,19 @@ test('Vocab History: Slide-out inspector drawer with accessible escape key and f
   );
 });
 
+
+test('Vocab History: Slice 19 filters row and drill gaps button', () => {
+  const content = fs.readFileSync(vocabHistoryPath, 'utf8');
+
+  // Segments
+  assert.ok(content.includes('id="vocab-tab-watch"'), 'Must render Watch segment tab');
+
+  // Drill gaps
+  assert.ok(content.includes('id="btn-drill-gaps"'), 'Must render Drill these button on gaps shelf');
+  assert.ok(content.includes("this.router.navigateToTab('study'"), 'Drill these must navigate to study');
+
+  // Filters row (level, source, status)
+  assert.ok(content.includes('data-filter-type="level"'), 'Must render level filter group');
+  assert.ok(content.includes('data-filter-type="source"'), 'Must render source filter group');
+  assert.ok(content.includes('data-filter-type="status"'), 'Must render status filter group');
+});

@@ -17,6 +17,8 @@ export class VocabHistoryView {
     this.selectedCard = null;
     this.selectedIds = new Set();
     this.filterStatus = 'all';
+    this.filterLevel = 'all';
+    this.filterSource = 'all';
     this.searchQuery = '';
     this.currentPage = 1;
     this.pageSize = 20;
@@ -58,6 +60,7 @@ export class VocabHistoryView {
             <div class="vocab-segments" role="tablist" aria-label="Vocabulary sections">
               <button type="button" class="vocab-segment-tab" id="vocab-tab-capture" data-segment="capture" role="tab" aria-selected="false">Capture</button>
               <button type="button" class="vocab-segment-tab is-active" id="vocab-tab-inventory" data-segment="inventory" role="tab" aria-selected="true">Inventory</button>
+              <button type="button" class="vocab-segment-tab" id="vocab-tab-watch" data-segment="watch" role="tab" aria-selected="false">Watch</button>
             </div>
           </div>
 
@@ -88,9 +91,14 @@ export class VocabHistoryView {
                   <span class="gaps-title font-sans font-bold">Gaps for your level</span>
                   <span class="text-xs text-muted font-sans">Words at or below your target level not yet marked known or mined. Mine adds one card.</span>
                 </div>
-                <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-refresh-gaps" title="Reload unseen vocabulary gaps">
-                  Refresh
-                </button>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary font-sans" id="btn-drill-gaps" title="Practice these gap words in Study">
+                    Drill these
+                  </button>
+                  <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-refresh-gaps" title="Reload unseen vocabulary gaps">
+                    Refresh
+                  </button>
+                </div>
               </div>
               <div class="vocab-gaps-list" id="vocab-gaps-list">
                 <span class="text-xs text-muted py-2 font-sans">Loading vocabulary gaps...</span>
@@ -128,20 +136,41 @@ export class VocabHistoryView {
             <button class="tactile-btn tactile-btn-sm" id="btn-history-retry">Retry</button>
           </div>
 
-          <!-- Toolbar: Search Filter & Status Tabs -->
+          <!-- Toolbar: Search Filter & Filters Row (level, source, status) -->
           <div class="history-toolbar tactile-card">
             <div class="toolbar-search-wrap">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5S11.99 14 9.5 14z"/>
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 14z"/>
               </svg>
               <input type="text" id="history-search-input" class="tactile-input" placeholder="Search expression, reading, or meaning..." />
             </div>
 
-            <div class="toolbar-status-filter" role="radiogroup">
-              <button class="filter-pill is-active" data-filter="all">All</button>
-              <button class="filter-pill" data-filter="synced">Synced</button>
-              <button class="filter-pill" data-filter="pending">Pending</button>
-              <button class="filter-pill" data-filter="failed">Failed</button>
+            <div class="toolbar-filters-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-top: 0.75rem;">
+              <div class="toolbar-filter-group" data-filter-type="level" role="radiogroup" aria-label="Level Filter" style="display: flex; gap: 0.25rem; align-items: center;">
+                <span class="text-xs text-muted font-mono">Level:</span>
+                <button type="button" class="filter-pill filter-level-pill is-active" data-level="all">All</button>
+                <button type="button" class="filter-pill filter-level-pill" data-level="N5">N5</button>
+                <button type="button" class="filter-pill filter-level-pill" data-level="N4">N4</button>
+                <button type="button" class="filter-pill filter-level-pill" data-level="N3">N3</button>
+                <button type="button" class="filter-pill filter-level-pill" data-level="N2">N2</button>
+                <button type="button" class="filter-pill filter-level-pill" data-level="N1">N1</button>
+              </div>
+
+              <div class="toolbar-filter-group" data-filter-type="source" role="radiogroup" aria-label="Source Filter" style="display: flex; gap: 0.25rem; align-items: center;">
+                <span class="text-xs text-muted font-mono">Source:</span>
+                <button type="button" class="filter-pill filter-source-pill is-active" data-source="all">All</button>
+                <button type="button" class="filter-pill filter-source-pill" data-source="quick_add">Quick Add</button>
+                <button type="button" class="filter-pill filter-source-pill" data-source="subtitle">Subtitle</button>
+                <button type="button" class="filter-pill filter-source-pill" data-source="vocab_gap">Gaps</button>
+              </div>
+
+              <div class="toolbar-filter-group toolbar-status-filter" data-filter-type="status" role="radiogroup" aria-label="Status Filter" style="display: flex; gap: 0.25rem; align-items: center;">
+                <span class="text-xs text-muted font-mono">Status:</span>
+                <button type="button" class="filter-pill filter-status-pill is-active" data-filter="all">All</button>
+                <button type="button" class="filter-pill filter-status-pill" data-filter="synced">Synced</button>
+                <button type="button" class="filter-pill filter-status-pill" data-filter="pending">Pending</button>
+                <button type="button" class="filter-pill filter-status-pill" data-filter="failed">Failed</button>
+              </div>
             </div>
           </div>
 
@@ -228,8 +257,23 @@ export class VocabHistoryView {
   setupEvents() {
     const tabCapture = document.getElementById('vocab-tab-capture');
     const tabInventory = document.getElementById('vocab-tab-inventory');
+    const tabWatch = document.getElementById('vocab-tab-watch');
     if (tabCapture) {
       tabCapture.addEventListener('click', () => this.router.navigateToTab('vocab'));
+    }
+    if (tabWatch) {
+      tabWatch.addEventListener('click', () => this.router.navigateToTab('vocab', { segment: 'watch' }));
+    }
+
+    const btnDrillGaps = document.getElementById('btn-drill-gaps');
+    if (btnDrillGaps) {
+      btnDrillGaps.addEventListener('click', () => {
+        const words = (this.gaps || [])
+          .map((g) => (typeof g === 'string' ? g : g.expression || g.word))
+          .filter(Boolean);
+        const query = words.length ? `words=${encodeURIComponent(words.join(','))}` : '';
+        this.router.navigateToTab('study', { query });
+      });
     }
     if (tabInventory) {
       tabInventory.addEventListener('click', () => this.loadGapsShelf());
@@ -253,12 +297,34 @@ export class VocabHistoryView {
       });
     }
 
-    const filterPills = this.container.querySelectorAll('.filter-pill');
-    filterPills.forEach((pill) => {
+    const statusPills = this.container.querySelectorAll('.toolbar-status-filter .filter-pill');
+    statusPills.forEach((pill) => {
       pill.addEventListener('click', () => {
-        filterPills.forEach((p) => p.classList.remove('is-active'));
+        statusPills.forEach((p) => p.classList.remove('is-active'));
         pill.classList.add('is-active');
         this.filterStatus = pill.dataset.filter;
+        this.currentPage = 1;
+        this.loadData();
+      });
+    });
+
+    const levelPills = this.container.querySelectorAll('.filter-level-pill');
+    levelPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        levelPills.forEach((p) => p.classList.remove('is-active'));
+        pill.classList.add('is-active');
+        this.filterLevel = pill.dataset.level;
+        this.currentPage = 1;
+        this.loadData();
+      });
+    });
+
+    const sourcePills = this.container.querySelectorAll('.filter-source-pill');
+    sourcePills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        sourcePills.forEach((p) => p.classList.remove('is-active'));
+        pill.classList.add('is-active');
+        this.filterSource = pill.dataset.source;
         this.currentPage = 1;
         this.loadData();
       });
@@ -572,6 +638,12 @@ export class VocabHistoryView {
 
       if (this.filterStatus !== 'all') {
         params.sync_status = this.filterStatus;
+      }
+      if (this.filterLevel !== 'all') {
+        params.jlpt_level = this.filterLevel;
+      }
+      if (this.filterSource !== 'all') {
+        params.source_type = this.filterSource;
       }
 
       const [statsRes, cardsRes] = await Promise.allSettled([
