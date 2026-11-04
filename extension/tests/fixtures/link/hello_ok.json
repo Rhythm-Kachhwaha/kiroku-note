@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "id": "msg-003",
+  "ts": 1730750000200,
+  "type": "hello.ok",
+  "src": "hub",
+  "sid": "sess-xyz789",
+  "seq": 1,
+  "payload": {
+    "sid": "sess-xyz789"
+  }
+}

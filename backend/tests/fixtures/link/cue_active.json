@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "id": "msg-010",
+  "ts": 1730750000900,
+  "type": "cue.active",
+  "src": "ext",
+  "sid": "sess-xyz789",
+  "seq": 6,
+  "payload": {
+    "i": 1
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "id": "msg-014",
+  "ts": 1730750001300,
+  "type": "cmd.toggle",
+  "src": "desk",
+  "sid": "sess-xyz789",
+  "seq": 4,
+  "payload": {}
+}

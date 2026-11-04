@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "id": "msg-007",
+  "ts": 1730750000600,
+  "type": "video.attach",
+  "src": "ext",
+  "sid": "sess-xyz789",
+  "seq": 3,
+  "payload": {
+    "tab": 42,
+    "site": "youtube.com",
+    "title": "Japanese Comprehensible Input Episode 1",
+    "duration": 1420.5,
+    "drm": false
+  }
+}

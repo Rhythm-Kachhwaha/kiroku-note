@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "id": "msg-006",
+  "ts": 1730750000500,
+  "type": "ack",
+  "src": "hub",
+  "sid": "sess-xyz789",
+  "seq": 3,
+  "payload": {
+    "id": "msg-999",
+    "ok": false,
+    "err": "Invalid role for command"
+  }
+}

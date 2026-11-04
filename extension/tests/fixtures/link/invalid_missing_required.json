@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "bad-005",
+  "ts": 1730750000000,
+  "type": "video.attach",
+  "src": "ext",
+  "seq": 1,
+  "payload": {
+    "tab": 1
+  }
+}

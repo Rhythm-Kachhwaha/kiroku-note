@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "id": "msg-018",
+  "ts": 1730750001700,
+  "type": "cmd.rate",
+  "src": "desk",
+  "sid": "sess-xyz789",
+  "seq": 8,
+  "payload": {
+    "v": 1.25
+  }
+}

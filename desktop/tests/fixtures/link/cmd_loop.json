@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "id": "msg-017",
+  "ts": 1730750001600,
+  "type": "cmd.loop",
+  "src": "desk",
+  "sid": "sess-xyz789",
+  "seq": 7,
+  "payload": {
+    "s": 12.0,
+    "e": 16.5,
+    "count": 3
+  }
+}

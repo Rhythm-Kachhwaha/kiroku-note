@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "id": "msg-019",
+  "ts": 1730750001800,
+  "type": "cmd.offset",
+  "src": "desk",
+  "sid": "sess-xyz789",
+  "seq": 9,
+  "payload": {
+    "ms": -250
+  }
+}

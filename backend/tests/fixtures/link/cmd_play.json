@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "id": "msg-012",
+  "ts": 1730750001100,
+  "type": "cmd.play",
+  "src": "desk",
+  "sid": "sess-xyz789",
+  "seq": 2,
+  "payload": {}
+}

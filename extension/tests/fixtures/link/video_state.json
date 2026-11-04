@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "id": "msg-008",
+  "ts": 1730750000700,
+  "type": "video.state",
+  "src": "ext",
+  "sid": "sess-xyz789",
+  "seq": 4,
+  "payload": {
+    "t": 124.5,
+    "paused": false,
+    "rate": 1.0,
+    "vol": 0.85,
+    "muted": false
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "id": "msg-004",
+  "ts": 1730750000300,
+  "type": "bye",
+  "src": "ext",
+  "sid": "sess-xyz789",
+  "seq": 2,
+  "payload": {
+    "reason": "tab_closed"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "v": 1,
+  "id": "msg-020",
+  "ts": 1730750001900,
+  "type": "cmd.clip",
+  "src": "desk",
+  "sid": "sess-xyz789",
+  "seq": 10,
+  "payload": {
+    "reqId": "clip-req-123",
+    "s": 10.0,
+    "e": 15.0,
+    "want": [
+      "image",
+      "audio"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "id": "msg-011",
+  "ts": 1730750001000,
+  "type": "clip.result",
+  "src": "ext",
+  "sid": "sess-xyz789",
+  "seq": 7,
+  "payload": {
+    "reqId": "clip-req-123",
+    "image_b64": "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+    "audio_b64": "data:audio/mp3;base64,//uQxAAAAANIA"
+  }
+}

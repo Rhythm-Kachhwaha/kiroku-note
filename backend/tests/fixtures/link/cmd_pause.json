@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "id": "msg-013",
+  "ts": 1730750001200,
+  "type": "cmd.pause",
+  "src": "desk",
+  "sid": "sess-xyz789",
+  "seq": 3,
+  "payload": {}
+}

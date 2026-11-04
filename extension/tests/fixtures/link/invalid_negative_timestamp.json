@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "bad-006",
+  "ts": -100,
+  "type": "hello",
+  "src": "ext",
+  "seq": 1,
+  "payload": {
+    "role": "ext",
+    "token": "tok",
+    "client": "client"
+  }
+}

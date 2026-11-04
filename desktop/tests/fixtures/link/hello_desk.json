@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "msg-002",
+  "ts": 1730750000100,
+  "type": "hello",
+  "src": "desk",
+  "seq": 1,
+  "payload": {
+    "role": "desk",
+    "token": "test-desktop-control-token",
+    "client": "kiroku-desktop/2.1.0"
+  }
+}

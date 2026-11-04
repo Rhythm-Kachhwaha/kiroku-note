@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "msg-015",
+  "ts": 1730750001400,
+  "type": "cmd.seek",
+  "src": "desk",
+  "sid": "sess-xyz789",
+  "seq": 5,
+  "payload": {
+    "t": 350.0,
+    "delta": null
+  }
+}
