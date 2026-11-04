@@ -1,0 +1,222 @@
+/* ==========================================================================
+   Kanji Drawer Styles — Planetoño tactile physics & Pure Black Desk
+   Used across Vocab, Grammar, and Study tabs via window.kirokuUi.openKanji
+   ========================================================================== */
+
+.kanji-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 10000;
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--spring-snappy);
+}
+
+.kanji-drawer-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.kanji-drawer {
+  position: relative;
+  width: 440px;
+  max-width: 92vw;
+  height: 100%;
+  background-color: var(--pure-black);
+  border-left: 2px solid var(--tactile-stroke);
+  box-shadow: -4px 0 0 var(--tactile-stroke);
+  padding: 1.5rem;
+  overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform var(--duration-fast) var(--spring-snappy);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.kanji-drawer-backdrop.is-open .kanji-drawer {
+  transform: translateX(0);
+}
+
+.kanji-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--ink-border);
+}
+
+.kanji-drawer-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.kanji-drawer-char {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--warm-paper);
+}
+
+.kanji-drawer-close-btn {
+  background: transparent;
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast) var(--spring-snappy);
+}
+
+.kanji-drawer-close-btn:hover {
+  color: var(--warm-paper);
+  border-color: var(--warm-paper);
+  transform: translate(-1px, -1px);
+}
+
+.kanji-drawer-close-btn:active {
+  transform: translate(1px, 1px);
+}
+
+/* Stroke Player Box */
+.kanji-drawer-stroke-box {
+  background-color: var(--pure-black);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: 6px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.kanji-drawer-canvas-wrap {
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kanji-drawer-canvas-wrap svg {
+  width: 100%;
+  height: 100%;
+}
+
+.kanji-drawer-stroke-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.5rem;
+}
+
+/* Readings & Meanings Box */
+.kanji-drawer-section {
+  background-color: var(--iron-core);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.kanji-drawer-section-title {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.kanji-readings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.kanji-reading-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.kanji-reading-val {
+  font-family: var(--font-japanese);
+  font-size: 0.95rem;
+  color: var(--warm-paper);
+  font-weight: 500;
+}
+
+.kanji-meanings-val {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--warm-paper);
+  line-height: 1.4;
+}
+
+/* Weak Kanji Row */
+.kanji-weak-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.kanji-weak-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: var(--pure-black);
+  border: 1.5px solid var(--rust-signal);
+  color: var(--rust-signal);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.5rem;
+  font-family: var(--font-japanese);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--spring-snappy);
+}
+
+.kanji-weak-pill:hover {
+  transform: translate(-1px, -1px);
+}
+
+.kanji-weak-pill:active {
+  transform: translate(1px, 1px);
+}
+
+.kanji-weak-count {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* Compounds List */
+.kanji-drawer-compounds-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.kanji-drawer-compound-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.35rem 0.5rem;
+  background-color: var(--pure-black);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: 4px;
+}
