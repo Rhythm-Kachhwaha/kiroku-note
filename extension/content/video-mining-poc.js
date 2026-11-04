@@ -2907,4 +2907,8 @@
 
   window.__KIROKU_VIDEO_POC__ = pocExport;
   window.__ANKIMINER_VIDEO_POC__ = pocExport;
+  window.__kirokuVideo = {
+    getVideo: () => pocInstance.activeVideo || null,
+    getInstance: () => pocInstance
+  };
 })();

@@ -149,6 +149,45 @@ function isAllowedJimakuUrl(url) {
   return true;
 }
 
+// --- Slice 37: Link Client & Content Relay ---
+try {
+  if (typeof importScripts === 'function') {
+    importScripts('link/link-client.js');
+  }
+} catch (_) {}
+
+let linkClient = null;
+
+function initLinkClient() {
+  const ClientClass = typeof LinkClient !== 'undefined'
+    ? LinkClient
+    : (typeof globalThis !== 'undefined' && globalThis.LinkClient ? globalThis.LinkClient.LinkClient : null);
+
+  if (ClientClass && !linkClient) {
+    linkClient = new ClientClass();
+    linkClient.onMessage((msg) => {
+      if (msg?.type && msg.type.startsWith('cmd.')) {
+        chrome.tabs.query({ active: true }, (tabs) => {
+          for (const tab of tabs) {
+            if (tab.id) {
+              chrome.tabs.sendMessage(tab.id, {
+                type: 'LINK_CMD',
+                cmdType: msg.type,
+                payload: msg.payload
+              }).catch(() => {});
+            }
+          }
+        });
+      }
+    });
+    linkClient.start().catch(() => {});
+  }
+}
+
+if (typeof chrome !== 'undefined') {
+  initLinkClient();
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "SET_MINING_MODE") {
     isMiningModeEnabled = Boolean(message.enabled);
@@ -326,6 +365,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.error("[AnkiMiner Background] OCR captureVisibleTab failed:", err);
         sendResponse({ ok: false, error: err?.message || "Failed to capture screenshot for OCR" });
       });
+    return true;
+  }
+  if (message?.type === 'LINK_RELAY_OUT') {
+    if (!linkClient) {
+      initLinkClient();
+    }
+    if (linkClient && message.linkType) {
+      const payload = Object.assign({}, message.payload || {});
+      if (sender?.tab?.id) {
+        payload.tab = sender.tab.id;
+      }
+      linkClient.send(message.linkType, payload);
+    }
+    sendResponse({ ok: true });
     return true;
   }
   if (message?.type === "OCR_SELECTION_CANCELLED") {

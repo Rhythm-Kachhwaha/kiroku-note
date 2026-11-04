@@ -60,7 +60,8 @@
         "content/capture-utils.js",
         "content/content.js",
         "content/video-mining-poc.js",
-        "content/ocr-selection.js"
+        "content/ocr-selection.js",
+        "content/link-bridge.js"
       ],
       "run_at": "document_idle",
       "all_frames": true,
