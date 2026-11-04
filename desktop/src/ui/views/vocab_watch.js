@@ -6,6 +6,7 @@
 
 import { LinkClient } from '../services/link_client.js';
 import { LinkStore } from '../services/link_store.js';
+import { LinkMineService } from '../services/link_mine.js';
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
@@ -16,6 +17,10 @@ export class VocabWatchView {
     this.apiClient = options.apiClient || apiClient;
     this.linkClient = options.linkClient || null;
     this.linkStore = options.linkStore || null;
+    this.linkMineService = options.linkMineService || new LinkMineService({
+      linkStore: this.linkStore,
+      apiClient: this.apiClient
+    });
     this.container = null;
     this.learnerLevel = options.learnerLevel || 'N4';
 
@@ -82,6 +87,9 @@ export class VocabWatchView {
       if (this.linkClient) {
         this.linkStore = window.kirokuLinkStore || new LinkStore(this.linkClient);
       }
+    }
+    if (this.linkMineService && this.linkStore) {
+      this.linkMineService.linkStore = this.linkStore;
     }
   }
 
@@ -501,7 +509,7 @@ export class VocabWatchView {
     const btnAddCard = document.getElementById('btn-watch-add-card');
     if (btnAddCard) {
       btnAddCard.addEventListener('click', () => {
-        this.openQuickAddWithCurrentCue();
+        this.mineCurrentLine(btnAddCard);
       });
     }
 
@@ -766,8 +774,7 @@ export class VocabWatchView {
     const addBtn = popover.querySelector('#btn-popover-add-card');
     if (addBtn) {
       addBtn.addEventListener('click', () => {
-        this.openQuickAddWithTerm(surface, reading, glossText);
-        this.closePopover();
+        this.mineTerm(surface, reading, glossText, addBtn);
       });
     }
   }
@@ -807,6 +814,111 @@ export class VocabWatchView {
     if (dock) {
       dock.classList.remove('is-collapsed');
     }
+  }
+
+  async mineTerm(surface, reading, meaning, triggerBtn = null) {
+    if (triggerBtn) {
+      triggerBtn.disabled = true;
+      triggerBtn.textContent = 'Mining...';
+    }
+    const res = await this.linkMineService.mineWord({
+      expression: surface,
+      reading: reading,
+      meaning: meaning,
+      cue: this.activeCue,
+      session: this.session
+    });
+
+    if (res.ok) {
+      this.markTokenKnown(surface);
+      if (triggerBtn) {
+        triggerBtn.textContent = res.timedOut ? 'Saved (no media)' : 'Saved to Anki!';
+      }
+      setTimeout(() => this.closePopover(), 900);
+      return res;
+    } else {
+      if (triggerBtn) {
+        triggerBtn.disabled = false;
+        triggerBtn.textContent = 'Retry Mine';
+        triggerBtn.onclick = () => this.mineTerm(surface, reading, meaning, triggerBtn);
+      }
+      this.showInlineNotice(res.error || 'Failed to create card', 'error');
+      return res;
+    }
+  }
+
+  async mineCurrentLine(triggerBtn = null) {
+    if (!this.activeCue) return;
+    if (triggerBtn) {
+      triggerBtn.disabled = true;
+      triggerBtn.textContent = 'Mining line...';
+    }
+    const res = await this.linkMineService.mineWord({
+      expression: this.activeCue.text,
+      reading: '',
+      meaning: '',
+      cue: this.activeCue,
+      session: this.session
+    });
+
+    if (res.ok) {
+      if (triggerBtn) {
+        triggerBtn.textContent = res.timedOut ? 'Line saved (no media)' : 'Line saved!';
+        setTimeout(() => {
+          triggerBtn.disabled = false;
+          triggerBtn.textContent = 'Add Card';
+        }, 1500);
+      }
+      return res;
+    } else {
+      if (triggerBtn) {
+        triggerBtn.disabled = false;
+        triggerBtn.textContent = 'Retry line';
+        triggerBtn.onclick = () => this.mineCurrentLine(triggerBtn);
+      }
+      this.showInlineNotice(res.error || 'Failed to mine line', 'error');
+      return res;
+    }
+  }
+
+  markTokenKnown(surface) {
+    if (!surface) return;
+    if (this.activeCue?.text && this.annotationsCache.has(this.activeCue.text)) {
+      const tokens = this.annotationsCache.get(this.activeCue.text);
+      if (Array.isArray(tokens)) {
+        tokens.forEach((t) => {
+          if (t.surface === surface || t.lemma === surface) {
+            t.status = 'known';
+            t.known = true;
+          }
+        });
+      }
+    }
+    if (typeof document !== 'undefined') {
+      const chips = document.querySelectorAll(`.watch-token-chip[data-surface="${surface}"]`);
+      chips.forEach((c) => {
+        c.classList.remove('is-gap', 'is-new', 'is-unstyled');
+        c.classList.add('is-known');
+      });
+    }
+  }
+
+  showInlineNotice(message, type = 'info') {
+    if (typeof document === 'undefined') return;
+    let noticeEl = document.getElementById('watch-inline-notice');
+    if (!noticeEl) {
+      noticeEl = document.createElement('div');
+      noticeEl.id = 'watch-inline-notice';
+      noticeEl.className = 'watch-peek-box font-sans text-xs';
+      noticeEl.style.marginTop = '8px';
+      const stage = document.querySelector('.watch-stage');
+      if (stage) stage.appendChild(noticeEl);
+    }
+    noticeEl.textContent = message;
+    noticeEl.style.display = 'block';
+    setTimeout(() => {
+      if (noticeEl) noticeEl.style.display = 'none';
+    }, 4000);
   }
 
   unmount() {
