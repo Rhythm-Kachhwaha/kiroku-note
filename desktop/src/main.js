@@ -85,6 +85,9 @@ async function revokeAllExtensionPairings() {
   return desktopControlRequest('/api/auth/extension-pairings/revoke-all');
 }
 
+// Disable hardware acceleration to prevent GPU driver crash / blank frame on Windows
+app.disableHardwareAcceleration();
+
 // Set native theme to dark by default
 nativeTheme.themeSource = 'dark';
 Menu.setApplicationMenu(null);
@@ -218,6 +221,17 @@ function updateSystemTrayMenu() {
       : '  OCR Engine: Off (Stopped)';
   }
 
+  const ocrActionLabel = trayServicesStatus.ocrAvailable ? 'Stop OCR Engine' : 'Start OCR Engine';
+
+  const menuTemplate = [
+    { label: headerLabel, enabled: false },
+    { type: 'separator' },
+    { label: 'Service Status:', enabled: false },
+    { label: `  Yomitan: ${yomitanText}`, enabled: false },
+    { label: `  AnkiConnect: ${ankiText}`, enabled: false },
+    { label: ocrLabel, enabled: false }
+  ];
+
   menuTemplate.push({
     label: 'Generate Extension Pairing Code',
     enabled: processManager.status === 'running',
@@ -255,17 +269,6 @@ function updateSystemTrayMenu() {
       }
     }
   });
-
-  const ocrActionLabel = trayServicesStatus.ocrAvailable ? 'Stop OCR Engine' : 'Start OCR Engine';
-
-  const menuTemplate = [
-    { label: headerLabel, enabled: false },
-    { type: 'separator' },
-    { label: 'Service Status:', enabled: false },
-    { label: `  Yomitan: ${yomitanText}`, enabled: false },
-    { label: `  AnkiConnect: ${ankiText}`, enabled: false },
-    { label: ocrLabel, enabled: false }
-  ];
 
   if (trayServicesStatus.ocrInstalled) {
     menuTemplate.push({
