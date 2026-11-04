@@ -1,4 +1,4 @@
 # Status
-P0 complete; Slices 15-24 complete; Slices 35-39 Vocab watch live sentence panel complete.
-Completed : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 35, 36, 37, 38, 39
+P0 complete; Slices 15-24 complete; Slices 35-40 Live analysis pipeline complete.
+Completed : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 35, 36, 37, 38, 39, 40
 STATUS concise; inventories live in docs/maps/.
