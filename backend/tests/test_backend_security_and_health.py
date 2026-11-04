@@ -189,6 +189,36 @@ class BackendSecurityAndHealthTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["deleted_count"], 1)
 
+    # ── 6. HEALTH SERVICE SINGLETON REUSE ──────────────────────────────
+
+    def test_health_service_singletons_are_reused_not_reconstructed(self):
+        """Health checks reuse long-lived service instances instead of building
+        YomitanService, CardService, and OcrService on every request."""
+        from app.main import (
+            _health_card,
+            _health_ocr,
+            _health_yomitan,
+            clear_health_cache,
+        )
+
+        clear_health_cache()
+
+        y1 = _health_yomitan()
+        y2 = _health_yomitan()
+        self.assertIs(y1, y2, "YomitanService should be a reused singleton")
+
+        c1 = _health_card()
+        c2 = _health_card()
+        self.assertIs(c1, c2, "CardService should be a reused singleton")
+
+        o1 = _health_ocr()
+        o2 = _health_ocr()
+        self.assertIs(o1, o2, "OcrService should be a reused singleton")
+
+        # clear_health_cache resets singletons so the next probe is fresh.
+        clear_health_cache()
+        self.assertIsNot(_health_yomitan(), y1)
+
 
 if __name__ == "__main__":
     unittest.main()

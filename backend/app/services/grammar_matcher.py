@@ -13,6 +13,7 @@ _BARE_PARTICLES = {
     "より", "か", "よ", "ね", "わ",
 }
 _JAPANESE = r"[\u3041-\u309f\u30a1-\u30fa\u30f7-\u30ff々ー一-龯]"
+_JAPANESE_RE = re.compile(_JAPANESE)
 
 
 @dataclass
@@ -44,6 +45,11 @@ class GrammarMatcher:
 
     def __init__(self, reference_service: GrammarReferenceService | None = None):
         self.reference = reference_service or GrammarReferenceService()
+        # Compiled matcher regexes cached for the lifetime of the matcher so
+        # repeated match_sentence calls on the same service do not recompile
+        # patterns (Python's module-level re cache cannot absorb hundreds of
+        # points across repeated calls).
+        self._compiled_cache: dict[int, list[tuple[re.Pattern[str], bool]]] = {}
 
     @staticmethod
     def _tokens(tokens: list[dict[str, Any]], raw_text: str) -> list[tuple[str, int, int, dict[str, Any]]]:
@@ -64,7 +70,7 @@ class GrammarMatcher:
     def _grammar_start(raw_text: str, suffix_start: int) -> int:
         particles = set("はがをにへでとのも")
         start = suffix_start
-        while start > 0 and re.match(_JAPANESE, raw_text[start - 1]):
+        while start > 0 and _JAPANESE_RE.match(raw_text[start - 1]):
             if raw_text[start - 1] in particles:
                 break
             start -= 1
@@ -229,10 +235,35 @@ class GrammarMatcher:
         regexes = [re.escape(value) for value in variants if isinstance(value, str) and value]
         return regexes
 
+    def _point_data(
+        self, point: dict[str, Any], spec: dict[str, Any]
+    ) -> list[tuple[re.Pattern[str], bool]]:
+        """Return compiled regexes for a point, cached per matcher.
+
+        Cache keyed by point identity: the bundled index dicts are cached and
+        reused across match_sentence calls, so the same point object keeps the
+        same id for the matcher's lifetime. Distinct points (including colliding
+        pattern keys with different specs) get distinct entries. Compiling once
+        avoids the per-call regex-cache churn Python's module-level re cache
+        cannot absorb across hundreds of points on repeated calls.
+        """
+        cache_key = id(point)
+        cached = self._compiled_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        compiled: list[tuple[re.Pattern[str], bool]] = []
+        for regex in self._regexes(point, spec):
+            try:
+                compiled.append((re.compile(regex), regex.startswith("[")))
+            except re.error:
+                continue
+        self._compiled_cache[cache_key] = compiled
+        return compiled
+
     @staticmethod
     def _bounded_fallback_start(raw_text: str, start: int, end: int | None = None) -> int:
         particles = set("はがをにへでとのも")
-        while start > 0 and re.match(_JAPANESE, raw_text[start - 1]):
+        while start > 0 and _JAPANESE_RE.match(raw_text[start - 1]):
             if raw_text[start - 1] in particles:
                 break
             start -= 1
@@ -270,12 +301,9 @@ class GrammarMatcher:
                 ))
             return matches
 
-        for regex in self._regexes(point, spec):
-            try:
-                found = re.finditer(regex, raw_text)
-            except re.error:
-                continue
-            for match in found:
+        compiled = self._point_data(point, spec)
+        for pattern, starts_bracket in compiled:
+            for match in pattern.finditer(raw_text):
                 if spec.get("ambiguity_group") == "そうだ":
                     prefix = match.group()[:-3]
                     is_plain = prefix.endswith(("る", "た", "ない", "だ"))
@@ -313,11 +341,11 @@ class GrammarMatcher:
                     if not any(
                         self._token_kind(token[3], token[0]) == "predicate"
                         for token in token_spans
-                    ) and regex.startswith("["):
+                    ) and starts_bracket:
                         start = self._bounded_fallback_start(raw_text, start, match.end())
                 else:
                     start = self._bounded_fallback_start(
-                        raw_text, start, match.end() if regex.startswith("[") else None
+                        raw_text, start, match.end() if starts_bracket else None
                     )
                 matches.append(self._candidate(
                     point, raw_text, start, match.end(),

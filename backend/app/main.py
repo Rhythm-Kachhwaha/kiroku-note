@@ -475,9 +475,45 @@ HEALTH_CACHE_TTL_SECONDS = 3.0
 
 
 def clear_health_cache() -> None:
-    """Helper to clear health cache for testing or manual refresh."""
+    """Helper to clear health cache for testing or manual refresh.
+
+    Also resets the lazily-created health service singletons so callers get a
+    fresh probe on the next health check.
+    """
+    global _health_yomitan_service, _health_card_service, _health_ocr_service
     _health_cache["timestamp"] = 0.0
     _health_cache["response"] = None
+    _health_yomitan_service = None
+    _health_card_service = None
+    _health_ocr_service = None
+
+
+# Lazily-created, long-lived service singletons reused by /api/health so each
+# health check does not reconstruct YomitanService, CardService, or OcrService.
+_health_yomitan_service: YomitanService | None = None
+_health_card_service: CardService | None = None
+_health_ocr_service: OcrService | None = None
+
+
+def _health_yomitan() -> YomitanService:
+    global _health_yomitan_service
+    if _health_yomitan_service is None:
+        _health_yomitan_service = YomitanService()
+    return _health_yomitan_service
+
+
+def _health_card() -> CardService:
+    global _health_card_service
+    if _health_card_service is None:
+        _health_card_service = CardService()
+    return _health_card_service
+
+
+def _health_ocr() -> OcrService:
+    global _health_ocr_service
+    if _health_ocr_service is None:
+        _health_ocr_service = OcrService()
+    return _health_ocr_service
 
 
 @app.get("/api/health", response_model=HealthResponse)
@@ -499,29 +535,29 @@ def get_health() -> HealthResponse:
         record_operational_failure("health.database", exc)
         db_ok = False
 
-    # 2. Yomitan check
+    # 2. Yomitan check (reused singleton, not reconstructed per request)
     yomitan_ok = False
     try:
-        yomitan_service = YomitanService()
+        yomitan_service = _health_yomitan()
         yomitan_ok = yomitan_service.check_availability()
     except Exception as exc:
         record_operational_failure("health.yomitan", exc)
         yomitan_ok = False
 
-    # 3. AnkiConnect check
+    # 3. AnkiConnect check (reused singleton, not reconstructed per request)
     anki_ok = False
     try:
-        card_service = CardService()
+        card_service = _health_card()
         anki_status = card_service.get_anki_status()
         anki_ok = bool(anki_status.connected)
     except Exception as exc:
         record_operational_failure("health.anki", exc)
         anki_ok = False
 
-    # 4. Standalone OCR check
+    # 4. Standalone OCR check (reused singleton, not reconstructed per request)
     ocr_ok = False
     try:
-        ocr_service = OcrService()
+        ocr_service = _health_ocr()
         ocr_status = ocr_service.get_status()
         ocr_ok = bool(ocr_status.available)
     except Exception as exc:
