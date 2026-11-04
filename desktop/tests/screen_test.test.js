@@ -177,3 +177,48 @@ test('Test View: Resume banner is pinned at the top', () => {
   );
 });
 
+test('Test View: Slice 23 readiness line, history list, and retake weak section', () => {
+  const content = fs.readFileSync(testViewPath, 'utf8');
+
+  // 1. Readiness line
+  assert.ok(
+    content.includes('id="exam-readiness-banner"'),
+    'TestView must include exam-readiness-banner at setup top'
+  );
+  assert.ok(
+    content.includes('(estimate, not official)'),
+    'TestView readiness line must include honest (estimate, not official) wording'
+  );
+  assert.ok(
+    content.includes('loadReadinessEstimate('),
+    'TestView must call loadReadinessEstimate'
+  );
+
+  // 2. History section
+  assert.ok(
+    content.includes('id="exam-history-section"'),
+    'TestView must include exam-history-section'
+  );
+  assert.ok(
+    content.includes('studyClient.getExamHistory('),
+    'TestView must fetch history from studyClient.getExamHistory'
+  );
+  assert.ok(
+    content.includes('loadExamHistory('),
+    'TestView must call loadExamHistory on setup and level switch'
+  );
+
+  // 3. Retake weak section
+  assert.ok(
+    content.includes('id="btn-retake-weak-section"'),
+    'TestView must include retake weak section button when weak section detected'
+  );
+  assert.ok(
+    content.includes('weakSection'),
+    'TestView must detect weak section from scoring_sections'
+  );
+
+  // 4. Zero raw hex codes in test.js
+  const hexMatches = content.match(/#[0-9a-fA-F]{3,6}/g);
+  assert.equal(hexMatches, null, 'TestView must have zero raw hex fallbacks');
+});

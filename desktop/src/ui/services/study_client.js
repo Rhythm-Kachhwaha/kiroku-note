@@ -268,6 +268,14 @@ export class StudyClient {
     });
   }
 
+  async getExamHistory(query = {}) {
+    return this.request({
+      method: 'GET',
+      path: '/api/study/v1/exam/history',
+      query
+    });
+  }
+
   /**
    * Fetches a Bearer-authenticated media asset (MP3 audio track or diagram image)
    * from /api/study/v1/media/{assetId} and creates a local blob URL for inline media playback.

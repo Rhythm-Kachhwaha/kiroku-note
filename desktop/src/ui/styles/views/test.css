@@ -667,9 +667,61 @@
   border: 1px solid var(--tactile-stroke);
 }
 
+.test-notice-toast {
+  position: fixed;
+  bottom: 80px;
+  right: 24px;
+  z-index: 9999;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: 0.85rem;
+  max-width: 380px;
+  transition: opacity 0.25s ease;
+  background-color: var(--surface-container-high);
+  color: var(--warm-paper);
+  border: 1.5px solid var(--gold);
+}
+
 .notice-gold,
 .test-notice-toast.notice-gold {
   background-color: var(--surface-container-high);
   color: var(--warm-paper);
   border: 1.5px solid var(--gold);
+}
+
+
+/* Slice 23 History & Readiness */
+.exam-readiness-banner {
+  border: 1.5px solid var(--tactile-stroke);
+  background-color: var(--surface-container-low);
+  border-radius: var(--radius-md);
+}
+
+.exam-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.exam-history-card {
+  padding: 0.75rem 1rem;
+  background-color: var(--surface-container);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.badge-complete {
+  background-color: var(--jade);
+  color: var(--ink-black);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.badge-short {
+  background-color: var(--vermilion);
+  color: var(--pure-white);
+  border: 1px solid var(--rust-signal);
 }

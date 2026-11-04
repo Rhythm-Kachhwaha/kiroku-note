@@ -201,19 +201,6 @@ export class TestView {
       notice.className = 'tactile-card test-notice-toast';
       notice.setAttribute('role', 'status');
       notice.setAttribute('aria-live', 'polite');
-      notice.style.position = 'fixed';
-      notice.style.bottom = '80px';
-      notice.style.right = '24px';
-      notice.style.zIndex = '9999';
-      notice.style.backgroundColor = 'var(--surface-container-high, #2A2926)';
-      notice.style.color = 'var(--warm-paper, #F5F1E8)';
-      notice.style.border = '1.5px solid var(--gold, #C8A94A)';
-      notice.style.padding = '0.75rem 1.25rem';
-      notice.style.borderRadius = 'var(--radius-md, 12px)';
-      notice.style.boxShadow = 'var(--shadow-md)';
-      notice.style.fontSize = '0.85rem';
-      notice.style.maxWidth = '380px';
-      notice.style.transition = 'opacity 0.25s ease';
       document.body.appendChild(notice);
     }
     notice.textContent = message;
@@ -240,6 +227,17 @@ export class TestView {
 
     stage.innerHTML = `
       <div class="test-setup-card tactile-card">
+        <!-- Readiness Line at Setup Screen Top -->
+        <div id="exam-readiness-banner" class="exam-readiness-banner p-3 mb-4 flex items-center justify-between">
+          <div>
+            <span class="font-mono text-xs text-gold uppercase tracking-wider block">Estimated Readiness</span>
+            <span id="exam-readiness-text" class="text-sm text-warm-paper font-mono">
+              Calculating readiness for JLPT ${escapeHtml(this.activeLevel)}...
+            </span>
+          </div>
+          <span class="text-xs text-muted font-mono">(estimate, not official)</span>
+        </div>
+
         <div class="setup-header-row mb-4">
           <div>
             <span class="font-mono text-xs text-gold uppercase tracking-wider">Examination Simulation</span>
@@ -323,6 +321,19 @@ export class TestView {
           </p>
         </div>
 
+        <!-- History Section: Past Attempts -->
+        <div id="exam-history-section" class="setup-field-group mb-5">
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-mono text-muted uppercase block">Past Attempts</label>
+            <span class="text-xs font-mono text-muted">Diagnostic History</span>
+          </div>
+          <div id="exam-history-list" class="exam-history-list">
+            <div class="tactile-card p-3 text-sm text-secondary">
+              <span class="font-mono text-xs text-muted">Loading exam history for JLPT ${escapeHtml(this.activeLevel)}...</span>
+            </div>
+          </div>
+        </div>
+
         <div class="setup-action-row pt-2">
           <button type="button" class="tactile-btn tactile-btn-primary w-full" id="btn-start-exam">
             <span>Begin Examination (${escapeHtml(this.activeLevel)})</span>
@@ -342,6 +353,8 @@ export class TestView {
           btnStart.querySelector('span').textContent = `Begin Examination (${this.activeLevel})`;
         }
         this.loadSectionAvailability(this.activeLevel);
+        this.loadReadinessEstimate(this.activeLevel);
+        this.loadExamHistory(this.activeLevel);
       });
     });
 
@@ -373,6 +386,8 @@ export class TestView {
 
     // Load per-section question availability for the selected level
     this.loadSectionAvailability(this.activeLevel);
+    this.loadReadinessEstimate(this.activeLevel);
+    this.loadExamHistory(this.activeLevel);
   }
 
   async loadSectionAvailability(level) {
@@ -387,6 +402,75 @@ export class TestView {
       panel.innerHTML = `
         <div class="tactile-card p-3 text-sm text-secondary">
           <span class="font-mono text-xs text-muted block mb-2">Section availability unavailable.</span>
+        </div>
+      `;
+    }
+  }
+
+  async loadReadinessEstimate(level) {
+    const textEl = document.getElementById('exam-readiness-text');
+    if (!textEl) return;
+    try {
+      const overview = await studyClient.getLearningOverview();
+      const levelAcc = (overview?.accuracy_by_level || []).find(l => (l.level || '').toUpperCase() === (level || '').toUpperCase());
+      if (levelAcc && levelAcc.accuracy !== undefined) {
+        const pct = Math.round(Number(levelAcc.accuracy) * 100);
+        textEl.textContent = `${pct}% pass-readiness estimate for ${escapeHtml(level)}`;
+      } else {
+        const readiness = this.sectionReadiness || await studyClient.getExamReadiness(level).catch(() => null);
+        const sections = Array.isArray(readiness?.sections) ? readiness.sections : [];
+        if (sections.length > 0) {
+          const satisfied = sections.filter(s => s.is_satisfied && Number(s.available_count || 0) >= Number(s.required_count || 0)).length;
+          const pct = Math.round((satisfied / sections.length) * 100);
+          textEl.textContent = `${pct}% bank-readiness estimate for ${escapeHtml(level)}`;
+        } else {
+          textEl.textContent = `No historical diagnostic data for ${escapeHtml(level)}`;
+        }
+      }
+    } catch (err) {
+      console.debug('[Test] Readiness estimate lookup failed:', err.message);
+      textEl.textContent = `Readiness data unavailable for ${escapeHtml(level)}`;
+    }
+  }
+
+  async loadExamHistory(level) {
+    const listEl = document.getElementById('exam-history-list');
+    if (!listEl) return;
+    try {
+      const res = await studyClient.getExamHistory({ level, limit: 5 });
+      const items = Array.isArray(res?.items) ? res.items : [];
+      if (items.length === 0) {
+        listEl.innerHTML = `
+          <div class="tactile-card p-3 text-sm text-secondary">
+            <span class="font-mono text-xs text-muted">No past exam attempts recorded for JLPT ${escapeHtml(level)}.</span>
+          </div>
+        `;
+        return;
+      }
+      listEl.innerHTML = items.map(item => {
+        const dateStr = item.completed_at || item.created_at || 'Recent';
+        const formattedDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+        const score = item.estimated_total_score !== undefined && item.estimated_total_score !== null
+          ? `${item.estimated_total_score} pts`
+          : 'Incomplete';
+        const passed = Boolean(item.passed_overall);
+        const badgeClass = passed ? 'badge-complete' : 'badge-short';
+        const statusLabel = passed ? 'Passed' : (item.status === 'completed' ? 'Did Not Pass' : 'Incomplete');
+        return `
+          <div class="exam-history-card">
+            <div>
+              <span class="font-mono text-xs text-gold uppercase block">${escapeHtml(item.level || level)} • ${escapeHtml(formattedDate)}</span>
+              <span class="text-sm font-mono text-warm-paper font-bold">${escapeHtml(score)}</span>
+            </div>
+            <span class="tactile-pill text-xs font-mono px-2 py-0.5 ${badgeClass}">${statusLabel}</span>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      console.debug('[Test] Exam history lookup failed:', err.message);
+      listEl.innerHTML = `
+        <div class="tactile-card p-3 text-sm text-secondary">
+          <span class="font-mono text-xs text-muted">Could not load exam history.</span>
         </div>
       `;
     }
@@ -408,9 +492,7 @@ export class TestView {
           const available = Number(sec.available_count || 0);
           const ready = Boolean(sec.is_satisfied) && available >= required;
           const missing = Math.max(0, required - available);
-          const badgeStyle = ready
-            ? 'background-color: var(--jade, #4EBB7B); color: var(--ink-black, #141311); border: 1px solid var(--ink-black, #141311);'
-            : 'background-color: var(--vermilion, #D94B38); color: #FFFFFF; border: 1px solid #B33424;';
+          const badgeClass = ready ? 'badge-complete' : 'badge-short';
           return `
             <div class="exam-section-row tactile-card p-3 mb-2 flex justify-between items-center">
               <div>
@@ -419,7 +501,7 @@ export class TestView {
                   ${available} / ${required} questions
                 </span>
               </div>
-              <span class="exam-section-status font-mono text-xs font-bold px-2 py-1 rounded" style="${badgeStyle}">
+              <span class="exam-section-status font-mono text-xs font-bold px-2 py-1 rounded ${badgeClass}">
                 ${ready ? 'Available' : `Short by ${missing}`}
               </span>
             </div>
@@ -993,6 +1075,8 @@ export class TestView {
     const statusClass = isPassed ? 'tactile-pill-jade' : 'tactile-pill-vermilion';
 
     const sections = Array.isArray(result?.scoring_sections) ? result.scoring_sections : [];
+    const weakSection = sections.find(sec => !sec.passed_threshold) ||
+      (sections.length > 0 ? [...sections].sort((a, b) => (a.raw_accuracy || 0) - (b.raw_accuracy || 0))[0] : null);
 
     stage.innerHTML = `
       <div class="test-result-card tactile-card text-center py-10">
@@ -1051,10 +1135,15 @@ export class TestView {
           </div>
         ` : ''}
 
-        <div class="study-level-picker mt-8">
+        <div class="study-level-picker mt-8 flex justify-center gap-3 flex-wrap">
           <button type="button" class="tactile-btn tactile-btn-primary" id="btn-return-home">
             <span>Return to Dashboard</span>
           </button>
+          ${weakSection ? `
+            <button type="button" class="tactile-btn tactile-btn-secondary" id="btn-retake-weak-section">
+              <span>Retake Weak Section (${escapeHtml(weakSection.section_name || 'Weak Section')})</span>
+            </button>
+          ` : ''}
           <button type="button" class="tactile-btn tactile-btn-sm" id="btn-review-mistakes">
             <span>Review Mistakes</span>
           </button>
@@ -1073,6 +1162,17 @@ export class TestView {
     if (btnMistakes) {
       btnMistakes.addEventListener('click', () => {
         this.router?.navigateToTab('study');
+      });
+    }
+
+    const btnRetake = document.getElementById('btn-retake-weak-section');
+    if (btnRetake && weakSection) {
+      btnRetake.addEventListener('click', () => {
+        const sName = (weakSection.section_name || '').toLowerCase();
+        if (sName.includes('reading')) this.selectedScope = 'reading';
+        else if (sName.includes('listen')) this.selectedScope = 'listening';
+        else this.selectedScope = 'knowledge';
+        this.loadExamSession(this.activeLevel);
       });
     }
   }
