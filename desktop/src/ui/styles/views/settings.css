@@ -1,0 +1,122 @@
+/* ==========================================================================
+   Settings Screen Styles
+
+.settings-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background-color: rgba(217, 75, 56, 0.15);
+  border: 1px solid var(--vermilion);
+  border-radius: var(--radius-sm);
+  color: var(--vermilion);
+  font-size: 0.85rem;
+}
+
+.form-row-pair {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.form-row-pair .form-field {
+  flex: 1;
+}
+
+.llm-test-result-box {
+  background-color: var(--surface-container-lowest);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--warm-paper);
+}
+
+   ========================================================================== */
+.settings-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.settings-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  margin-top: 0.2rem;
+}
+
+.settings-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.settings-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 800px) {
+  .settings-cards-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.settings-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.card-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.card-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.doctor-results-box {
+  background-color: var(--surface-container-lowest);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.doctor-pre {
+  color: var(--text-secondary);
+}
+
+.doctor-summary-box {
+  background-color: var(--surface-container-lowest);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+}
+
+.btn-toggle-key-visibility:hover {
+  color: var(--warm-paper);
+}
+
+
+
