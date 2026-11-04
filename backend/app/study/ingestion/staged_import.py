@@ -11,7 +11,7 @@ import uuid
 from app.config import get_study_dir
 from app.study.ingestion.adapters.pdf_text import PdfTextInputAdapter
 from app.study.ingestion.enums import IngestAdapterKind
-from app.study.ingestion.models import IngestInput
+from app.study.ingestion.models import ExtractedDocument, IngestInput
 
 
 class StagedImportError(ValueError):
@@ -199,3 +199,38 @@ class StagedPdfImportService:
     def _write_metadata(self, import_id: str, metadata: dict[str, Any]) -> None:
         path = self.root / f"{import_id}.json"
         path.write_text(json.dumps(metadata, ensure_ascii=False), encoding="utf-8")
+
+    def get_metadata(self, import_id: str) -> dict[str, Any] | None:
+        """Return staged import metadata, or None if missing or expired."""
+        self.cleanup_expired()
+        metadata_path = self.root / f"{import_id}.json"
+        if not metadata_path.is_file():
+            return None
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            if datetime.fromisoformat(metadata["expires_at"]) <= datetime.now(timezone.utc):
+                return None
+            return metadata
+        except (OSError, json.JSONDecodeError, KeyError, ValueError):
+            return None
+
+    def extract_document(self, import_id: str) -> ExtractedDocument | None:
+        """Re-extract the staged PDF document into an ExtractedDocument."""
+        metadata = self.get_metadata(import_id)
+        if metadata is None:
+            return None
+        pdf_path = self._pdf_path(import_id)
+        if not pdf_path.is_file():
+            return None
+        input_data = IngestInput(
+            adapter_kind=IngestAdapterKind.PDF_TEXT,
+            content=pdf_path,
+            source_name=metadata.get("filename", ""),
+            source_type="pdf_upload",
+            license_or_permission="user_provided",
+            metadata={"sha256": metadata.get("sha256", "")},
+        )
+        try:
+            return PdfTextInputAdapter().extract(input_data)
+        except (ImportError, ValueError):
+            return None
