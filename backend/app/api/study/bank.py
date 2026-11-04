@@ -963,7 +963,8 @@ def inspect_pdf_import(
             force_ocr_pages=forced_pages,
         )
     except StagedImportError as exc:
-        raise StudyBadRequestError(str(exc), code="PDF_IMPORT_REJECTED") from exc
+        code = getattr(exc, "code", None) or "PDF_IMPORT_REJECTED"
+        raise StudyBadRequestError(str(exc), code=code) from exc
     return PdfImportInspectionResponse(**result)
 
 

@@ -20,6 +20,13 @@ Sudachi's dictionary lineage and Japanese lexical resources acknowledge
 mecab-ipadic-NEologd contributors. Kiroku Note does not bundle NEologd or
 copy its database contents.
 
+## pypdf
+
+`pypdf` is pinned by `backend/requirements.txt` to `>=4,<6`. It is used for
+PDF text extraction in the study import pipeline. It is distributed under the
+BSD 3-Clause license. The package source and license text are available from
+the pypdf distribution.
+
 ## R2 dictionary decision
 
 The small dictionary is the default. On the 150-case R1 corpus, all cases

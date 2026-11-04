@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 import pytest
 from PIL import Image
-import PyPDF2
+import pypdf
 
 from app.services.ocr_service import OcrResult, OcrService, OcrStatus
 from app.study.contracts.enums import JlptLevel
@@ -139,8 +139,8 @@ def test_structured_json_adapter_malformed_rejection():
 
 def test_pdf_text_adapter(tmp_path: Path):
     """Test digital PDF text extraction page by page."""
-    # Create an in-memory PDF using PyPDF2
-    writer = PyPDF2.PdfWriter()
+    # Create an in-memory PDF using pypdf
+    writer = pypdf.PdfWriter()
     page1 = writer.add_blank_page(width=300, height=400)
     # Write empty PDF to file to test reading
     pdf_path = tmp_path / "test.pdf"

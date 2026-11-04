@@ -5,10 +5,10 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
-import tempfile
 from typing import Any
 import uuid
 
+from app.config import get_study_dir
 from app.study.ingestion.adapters.pdf_text import PdfTextInputAdapter
 from app.study.ingestion.enums import IngestAdapterKind
 from app.study.ingestion.models import IngestInput
@@ -16,6 +16,10 @@ from app.study.ingestion.models import IngestInput
 
 class StagedImportError(ValueError):
     """Raised when an uploaded document cannot be safely staged or inspected."""
+
+    def __init__(self, message: str, code: str | None = None) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 class StagedPdfImportService:
@@ -25,8 +29,9 @@ class StagedPdfImportService:
     CHUNK_SIZE = 1024 * 1024
 
     def __init__(self, root: Path | None = None) -> None:
-        self.root = root or (Path(tempfile.gettempdir()) / "kiroku-note-study-imports")
+        self.root = root or (get_study_dir() / "pdf_imports")
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        self.cleanup_expired()  # cleanup on startup
 
     def inspect_upload(
         self,
@@ -70,6 +75,12 @@ class StagedPdfImportService:
         existing = self._find_by_hash(sha256)
         if existing:
             pdf_path.unlink(missing_ok=True)
+            # Refresh TTL and apply new force_ocr_pages on dedupe hit
+            existing["expires_at"] = (datetime.now(timezone.utc) + self.TTL).isoformat()
+            new_forced = set(force_ocr_pages or [])
+            for page in existing.get("pages", []):
+                page["force_ocr"] = page["page_number"] in new_forced
+            self._write_metadata(existing["import_id"], existing)
             return existing
 
         try:
@@ -86,7 +97,11 @@ class StagedPdfImportService:
                 license_or_permission="user_provided",
                 metadata={"sha256": sha256},
             )
-            document = PdfTextInputAdapter().extract(input_data)
+            try:
+                document = PdfTextInputAdapter().extract(input_data)
+            except ImportError as exc:
+                pdf_path.unlink(missing_ok=True)
+                raise StagedImportError("PDF support not installed", code="PDF_SUPPORT_MISSING") from exc
         except StagedImportError:
             pdf_path.unlink(missing_ok=True)
             raise
@@ -127,6 +142,9 @@ class StagedPdfImportService:
                 route = "mixed"
             else:
                 route = "selectable_text"
+            # OCR routes are marked skipped_ocr (no OCR work at staging)
+            if route in ("image_only", "garbled_text_layer"):
+                route = "skipped_ocr"
             pages.append(
                 {
                     "page_number": page.page_number,
@@ -137,6 +155,7 @@ class StagedPdfImportService:
                     "page_width": page.metadata.get("width"),
                     "page_height": page.metadata.get("height"),
                     "route": route,
+                    "has_text": char_count > 0,
                     "force_ocr": page.page_number in forced,
                 }
             )

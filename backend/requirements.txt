@@ -6,3 +6,4 @@ pystray>=0.19,<1.0
 SudachiPy>=0.7,<0.8
 sudachidict_small==20261015
 sudachidict_core==20261015
+pypdf>=4,<6
