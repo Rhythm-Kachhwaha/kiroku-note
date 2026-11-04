@@ -39,7 +39,9 @@ Validates:
 from __future__ import annotations
 
 import concurrent.futures
+import importlib
 import json
+import os
 from pathlib import Path
 import sqlite3
 import pytest
@@ -316,15 +318,29 @@ def test_auth_unconfigured_in_production_rejects(security_test_env, monkeypatch)
 # 2. CORS & Local Network Exposure Tests
 # =============================================================================
 
-def test_cors_trusted_origin_allowed(security_test_env):
-    client: TestClient = security_test_env["client"]
-    headers = {
-        **security_test_env["auth_headers"],
-        "Origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
-    }
-    res = client.get("/api/study/v1/bank/summary", headers=headers)
-    assert res.status_code == 200
-    assert res.headers.get("access-control-allow-origin") == "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
+def test_cors_trusted_origin_allowed(security_test_env, monkeypatch):
+    """Legacy extension-origin rollback allows chrome-extension origins."""
+    monkeypatch.setenv("KIROKU_EXTENSION_ORIGIN_POLICY", "legacy")
+    monkeypatch.setenv("KIROKU_ALLOW_LEGACY_EXTENSION_ORIGINS", "1")
+    import app.config as config_mod
+    import app.main as main_mod
+    importlib.reload(config_mod)
+    importlib.reload(main_mod)
+    try:
+        client = TestClient(main_mod.app)
+        headers = {
+            **security_test_env["auth_headers"],
+            "Origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+        }
+        res = client.get("/api/study/v1/bank/summary", headers=headers)
+        assert res.status_code == 200
+        assert res.headers.get("access-control-allow-origin") == "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
+    finally:
+        # Restore app.main to default CORS config so sibling tests see default origin policy.
+        for _var in ("KIROKU_EXTENSION_ORIGIN_POLICY", "KIROKU_ALLOW_LEGACY_EXTENSION_ORIGINS"):
+            os.environ.pop(_var, None)
+        importlib.reload(config_mod)
+        importlib.reload(main_mod)
 
 
 def test_cors_untrusted_origin_blocked(security_test_env):
@@ -332,6 +348,18 @@ def test_cors_untrusted_origin_blocked(security_test_env):
     headers = {
         **security_test_env["auth_headers"],
         "Origin": "http://malicious-website.com",
+    }
+    res = client.post("/api/study/v1/practice/sessions", json={"level": "N5"}, headers=headers)
+    assert res.status_code == 403
+    assert "Untrusted Origin" in res.text
+
+
+def test_cors_default_config_rejects_extension_origin(security_test_env):
+    """Default config (legacy rollback off) rejects extension origins."""
+    client: TestClient = security_test_env["client"]
+    headers = {
+        **security_test_env["auth_headers"],
+        "Origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
     }
     res = client.post("/api/study/v1/practice/sessions", json={"level": "N5"}, headers=headers)
     assert res.status_code == 403

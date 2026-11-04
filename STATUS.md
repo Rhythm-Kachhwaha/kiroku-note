@@ -1,5 +1,5 @@
 # Status
-R1 gold corpus and offline tokenizer harness complete; owner-review gated.
-R6-R11 desktop/backend slices complete; targeted tests pass.
-R15/R17 agent efficiency pack and commit convention complete; map-path test added.
+P0 slice 1 (BE): pytest markers, m7b path skips, CORS legacy config; targeted tests pass.
+Completed : 1
+K4 bundle.css split per view with preserved cascade order.
 STATUS concise; inventories live in docs/maps/.

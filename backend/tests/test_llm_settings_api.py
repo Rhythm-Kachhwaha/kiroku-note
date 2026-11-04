@@ -247,6 +247,8 @@ def test_empty_or_invalid_secret_validation(client):
     assert resp.status_code == 422
 
 
+@pytest.mark.windows
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-only packaged exe flow")
 def test_frozen_exe_llm_saving_api_workflow(client, tmp_path):
     """
     Verify that in frozen/packaged mode (sys.frozen=True), the LLM saving API works

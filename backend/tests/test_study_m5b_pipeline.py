@@ -121,6 +121,7 @@ def test_m5b_database_initialization(temp_study_env):
 # 2. Controlled Ingestion & Multimodal Safety Tests
 # =============================================================================
 
+@pytest.mark.network
 def test_m5b_ingestion_and_multimodal_safety_quarantine(temp_study_env):
     """Verify text questions and multimodal media questions ingest with proper safety quarantine."""
     pipeline = M5BPilotPipeline(
@@ -160,6 +161,7 @@ def test_m5b_ingestion_and_multimodal_safety_quarantine(temp_study_env):
 # 3. Dual-Model Verification with Independent Mock Providers
 # =============================================================================
 
+@pytest.mark.network
 def test_m5b_dual_model_verification_scenarios(temp_study_env):
     """
     Verify Scenario A (agreement) results in approval, while
@@ -216,6 +218,7 @@ def test_m5b_dual_model_verification_scenarios(temp_study_env):
         assert len(reasons) == 0
 
 
+@pytest.mark.network
 def test_m5b_dual_model_disagreement_quarantine(temp_study_env):
     """Verify Scenario C (models disagree with each other) results in quarantine."""
     provider_a = MockAIProvider(
@@ -262,6 +265,7 @@ def test_m5b_dual_model_disagreement_quarantine(temp_study_env):
 # 4. Idempotency Verification Test
 # =============================================================================
 
+@pytest.mark.network
 def test_m5b_pilot_idempotency(temp_study_env):
     """Verify running pilot ingestion twice on the same URLs produces ZERO duplicates."""
     pipeline = M5BPilotPipeline(
