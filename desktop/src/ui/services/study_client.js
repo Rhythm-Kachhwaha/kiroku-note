@@ -325,6 +325,51 @@ export class StudyClient {
       }
     }
   }
+
+  // Bank Import & PDF Ingestion (Slice 22)
+  async previewImport(body) {
+    return this.request({
+      method: 'POST',
+      path: '/api/study/v1/bank/import/preview',
+      body
+    });
+  }
+
+  async commitImport(body) {
+    return this.request({
+      method: 'POST',
+      path: '/api/study/v1/bank/import/commit',
+      body
+    });
+  }
+
+  async inspectPdfImport(fileData, filename = 'document.pdf') {
+    return this.request({
+      method: 'POST',
+      path: '/api/study/v1/bank/import/pdf/inspect',
+      body: { file: fileData, filename }
+    });
+  }
+
+  async getPdfPages(importId, fromPage = 1, toPage = 20) {
+    return this.request({
+      method: 'GET',
+      path: /api/study/v1/bank/import/pdf//pages,
+      query: { from: fromPage, to: toPage }
+    });
+  }
+
+  async previewPdfImport(importId, options = {}) {
+    return this.request({
+      method: 'POST',
+      path: /api/study/v1/bank/import/pdf//preview,
+      body: {
+        pages: options.pages || [],
+        default_level: options.default_level || 'N5',
+        source_name: options.source_name || 'PDF Import'
+      }
+    });
+  }
 }
 
 export const studyClient = new StudyClient();

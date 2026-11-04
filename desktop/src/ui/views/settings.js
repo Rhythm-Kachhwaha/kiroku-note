@@ -9,6 +9,7 @@ import { studyClient } from '../services/study_client.js';
 import { renderAssetSlot } from '../assets_map.js';
 import { getUniversalJlptLevel, setUniversalJlptLevel } from '../utils/learner.js';
 import { escapeHtml } from '../utils/sanitizer.js';
+import { renderStudyImport } from './study_import.js';
 
 export class SettingsView {
   constructor(router) {
@@ -71,6 +72,23 @@ export class SettingsView {
               <p class="text-xs text-muted mt-2">
                 Note: Selecting a level sets your active study focus. It does not automatically mark prior grammar points or kanji as mastered; your progress honestly reflects your real study history.
               </p>
+            </div>
+          </div>
+
+          <!-- Section: Upload Questions (PDF & Questions Ingestion) -->
+          <div class="settings-group-header mt-6" id="settings-group-upload-questions">
+            <span class="font-mono text-xs text-gold">Question Bank</span>
+            <h2 class="text-base font-bold text-warm-paper">Upload Questions</h2>
+          </div>
+          <div class="settings-cards-grid mt-2">
+            <div class="settings-card tactile-card" id="settings-upload-questions-card">
+              <div class="card-header-row">
+                <h3 class="card-title">Upload Questions</h3>
+              </div>
+              <p class="card-desc">
+                Upload mock test PDFs, pasted practice sentences, or JSON question sets to extract and preview questions directly into your Study Bank.
+              </p>
+              <div id="settings-upload-questions-mount" class="mt-3"></div>
             </div>
           </div>
 
@@ -250,6 +268,11 @@ export class SettingsView {
   }
 
   setupEvents() {
+    const uploadMount = document.getElementById('settings-upload-questions-mount');
+    if (uploadMount && !uploadMount.hasChildNodes()) {
+      renderStudyImport(uploadMount);
+    }
+
     const btnDismiss = document.getElementById('btn-dismiss-settings-error');
     if (btnDismiss) {
       btnDismiss.addEventListener('click', () => this.clearError());

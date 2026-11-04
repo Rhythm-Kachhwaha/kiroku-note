@@ -104,3 +104,40 @@ test('Study View: Error handling is visible with banner (no silent catches)', ()
   );
 });
 
+
+
+test('Study View: Slice 22 segments, Bank Import panel, and Mistakes cross-links', () => {
+  const content = fs.readFileSync(studyViewPath, 'utf8');
+
+  // Segments
+  assert.ok(content.includes("id: 'practice'"), 'Must contain practice segment');
+  assert.ok(content.includes("id: 'bank'"), 'Must contain bank segment');
+  assert.ok(content.includes("id: 'mistakes'"), 'Must contain mistakes segment');
+  assert.ok(content.includes("id: 'progress'"), 'Must contain progress segment');
+
+  // Bank import panel
+  assert.ok(content.includes('btn-toggle-bank-import'), 'Must render bank import toggle button');
+  assert.ok(content.includes('bank-import-mount'), 'Must render bank import mount container');
+  assert.ok(content.includes('renderStudyImport'), 'Must wire renderStudyImport');
+
+  // Mistakes cross-links
+  assert.ok(content.includes('crosslink-grammar-btn'), 'Must render grammar crosslink');
+  assert.ok(content.includes('crosslink-kanji-btn'), 'Must render kanji crosslink');
+});
+
+test('Study Import: PDF drop zone, page list with route labels, and commit flow', () => {
+  const importJsPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'views', 'study_import.js');
+  const content = fs.readFileSync(importJsPath, 'utf8');
+
+  // Drop zone and file input
+  assert.ok(content.includes('pdf-drop-zone'), 'Must render pdf drop zone');
+  assert.ok(content.includes('pdf-file-input'), 'Must render pdf file input');
+
+  // OCR unavailable notice
+  assert.ok(content.includes('needs OCR - not available'), 'Image-only pages must be marked needs OCR - not available');
+
+  // StudyClient endpoints
+  assert.ok(content.includes('studyClient.inspectPdfImport('), 'Must call inspectPdfImport');
+  assert.ok(content.includes('studyClient.previewPdfImport('), 'Must call previewPdfImport');
+  assert.ok(content.includes('studyClient.commitImport('), 'Must call commitImport');
+});

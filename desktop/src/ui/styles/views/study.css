@@ -610,3 +610,83 @@
   gap: 0.5rem;
 }
 
+
+/* ==========================================================================
+   Study Import & PDF Ingestion Styles (Slice 22)
+   ========================================================================== */
+.study-import-panel {
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  background-color: var(--surface-container-low);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+}
+
+.study-import-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.import-mode-pills {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.import-mode-pill.is-active {
+  background-color: var(--warm-paper);
+  color: var(--pure-black);
+}
+
+.import-drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  border: 2px dashed var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-container);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--spring-snappy);
+}
+
+.import-drop-zone:hover,
+.import-drop-zone.is-dragover {
+  border-color: var(--accent-gold);
+  background-color: var(--surface-container-high);
+  transform: translate(-1px, -1px);
+}
+
+.pdf-pages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.5rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.pdf-page-chip {
+  background-color: var(--surface-container);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast) var(--spring-snappy);
+}
+
+.pdf-page-chip.is-selected {
+  border-color: var(--accent-gold);
+  background-color: var(--surface-container-high);
+}
+
+.pdf-page-chip.is-disabled {
+  opacity: 0.5;
+}
+
+.import-preview-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}

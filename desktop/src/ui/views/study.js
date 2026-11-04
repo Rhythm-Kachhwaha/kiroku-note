@@ -7,6 +7,7 @@
  */
 
 import { studyClient } from '../services/study_client.js';
+import { renderStudyImport } from './study_import.js';
 import { escapeHtml, renderStudyText, sanitizePromptMarkup } from '../utils/sanitizer.js';
 import { renderAssetSlot } from '../assets_map.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
@@ -666,6 +667,14 @@ export class StudyView {
           </div>
           <button type="button" class="tactile-btn tactile-btn-sm" id="btn-back-from-bank">Back</button>
         </div>
+
+        <!-- Bank Import Section (Collapsed Panel) -->
+        <div class="bank-import-panel-wrapper mb-4">
+          <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary font-sans" id="btn-toggle-bank-import">
+            Import Questions (PDF, Text, JSON)
+          </button>
+          <div id="bank-import-mount" class="mt-3" style="display: none;"></div>
+        </div>
         <div class="flex gap-2 mb-4 flex-wrap">
           <select class="tactile-input" id="bank-level-filter" aria-label="Filter by level">
             <option value="">All levels</option>
@@ -713,6 +722,18 @@ export class StudyView {
     `;
 
     document.getElementById('btn-back-from-bank')?.addEventListener('click', () => this.switchSegment('practice'));
+    const btnToggleImport = document.getElementById('btn-toggle-bank-import');
+    const importMount = document.getElementById('bank-import-mount');
+    if (btnToggleImport && importMount) {
+      btnToggleImport.addEventListener('click', () => {
+        const isHidden = importMount.style.display === 'none';
+        importMount.style.display = isHidden ? 'block' : 'none';
+        btnToggleImport.textContent = isHidden ? 'Hide Import Panel' : 'Import Questions (PDF, Text, JSON)';
+        if (isHidden && !importMount.hasChildNodes()) {
+          renderStudyImport(importMount);
+        }
+      });
+    }
     const applyFilters = () => this.loadQuestionBank({
       level: document.getElementById('bank-level-filter')?.value || '',
       format: document.getElementById('bank-format-filter')?.value || '',
@@ -844,15 +865,40 @@ export class StudyView {
           <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-practice-mistakes">Practice Mistakes</button>
         </div>
         <div id="mistakes-list">
-          ${visibleItems.length ? visibleItems.map((item) => `
-            <button type="button" class="tactile-card-interactive w-full text-left p-3 mb-2 mistake-list-item" data-question-id="${item.question_id}">
-              <div class="flex items-center justify-between gap-2">
-                <span class="font-mono text-xs text-gold">${escapeHtml(item.level)} · ${escapeHtml(item.format_code)}</span>
-                <span class="text-xs text-muted">${item.incorrect_count} mistakes</span>
+          ${visibleItems.length ? visibleItems.map((item) => {
+            const promptText = `${item.prompt_html || ''} ${item.prompt_markup || ''} ${item.target || ''}`;
+            const kanjiMatches = promptText.match(/[\u4e00-\u9faf]/g) || [];
+            const firstKanji = kanjiMatches[0] || item.kanji || '';
+            const grammarKey = item.grammar_point || item.pattern_key || item.grammar_key || '';
+
+            return `
+            <div class="mistake-item-card tactile-card p-3 mb-2" style="border: 1.5px solid var(--tactile-stroke);">
+              <button type="button" class="w-full text-left mistake-list-item" data-question-id="${item.question_id}" style="background: transparent; border: none; padding: 0; cursor: pointer;">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="font-mono text-xs text-gold">${escapeHtml(item.level)} · ${escapeHtml(item.format_code)}</span>
+                  <span class="text-xs text-muted">${item.incorrect_count} mistakes</span>
+                </div>
+                <div class="font-japanese text-warm-paper mt-1">${item.prompt_html || escapeHtml(item.prompt_markup || '')}</div>
+              </button>
+              <div class="mistake-crosslinks-row flex items-center gap-3 mt-2 pt-2 border-t border-ink">
+                ${grammarKey ? `
+                  <button type="button" class="crosslink-grammar-btn text-xs text-primary font-sans" data-grammar="${escapeHtml(grammarKey)}" style="background: none; border: none; cursor: pointer; text-decoration: underline;">
+                    Open grammar point
+                  </button>
+                ` : `
+                  <button type="button" class="crosslink-grammar-btn text-xs text-primary font-sans" data-grammar="${escapeHtml(item.format_code || 'grammar')}" style="background: none; border: none; cursor: pointer; text-decoration: underline;">
+                    Open grammar point
+                  </button>
+                `}
+                ${firstKanji ? `
+                  <button type="button" class="crosslink-kanji-btn text-xs text-primary font-sans" data-kanji="${escapeHtml(firstKanji)}" style="background: none; border: none; cursor: pointer; text-decoration: underline;">
+                    Open kanji
+                  </button>
+                ` : ''}
               </div>
-              <div class="font-japanese text-warm-paper mt-1">${item.prompt_html || escapeHtml(item.prompt_markup || '')}</div>
-            </button>
-          `).join('') : '<div class="study-empty-state text-center py-8 text-secondary">No mistakes match these filters.</div>'}
+            </div>
+            `;
+          }).join('') : '<div class="study-empty-state text-center py-8 text-secondary">No mistakes match these filters.</div>'}
         </div>
         <div id="mistake-detail" class="mt-4"></div>
       </div>
@@ -875,6 +921,26 @@ export class StudyView {
     });
     area.querySelectorAll('.mistake-list-item').forEach((button) => {
       button.addEventListener('click', () => this.loadMistakeDetail(button.dataset.questionId));
+    });
+
+    area.querySelectorAll('.crosslink-grammar-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pt = btn.dataset.grammar;
+        if (pt) this.router.navigateToTab('grammar', { query: `point=${encodeURIComponent(pt)}` });
+      });
+    });
+
+    area.querySelectorAll('.crosslink-kanji-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const k = btn.dataset.kanji;
+        if (k && window.kirokuUi?.openKanji) {
+          window.kirokuUi.openKanji(k);
+        } else if (k) {
+          this.router.navigateToTab('kanji', { query: `search=${encodeURIComponent(k)}` });
+        }
+      });
     });
   }
 
