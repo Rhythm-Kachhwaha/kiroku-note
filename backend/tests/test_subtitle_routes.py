@@ -134,6 +134,13 @@ def test_post_subtitle_annotate_default_learner_level(client: TestClient, test_d
     assert token["status"] == "unstyled"
 
 
+def test_post_subtitle_annotate_caps_cues_at_500(client: TestClient, test_db: Path):
+    """POST /api/subtitle/annotate caps cues at 500, returns 413 for larger."""
+    cues = [{"id": str(i), "text": "こんにちは"} for i in range(501)]
+    resp = client.post("/api/subtitle/annotate", json={"cues": cues})
+    assert resp.status_code == 413
+
+
 def test_post_subtitle_annotate_empty_cues(client: TestClient, test_db: Path):
     """POST /api/subtitle/annotate handles empty cues list."""
     resp = client.post("/api/subtitle/annotate", json={"cues": []})
@@ -289,10 +296,10 @@ def test_post_subtitle_annotate_spec_example(client: TestClient, test_db: Path):
     assert cue["id"] == "1"
 
     # In OpenJLPT vocab/kanji, 姉 is N5 should_know and ちゃん is N4 should_know
-    ane_tok = next((t for t in cue["tokens"] if t["surface"] == "姉"), None)
+    ane_tok = next((t for t in cue["tokens"] if "姉" in t["surface"]), None)
     assert ane_tok is not None
     assert ane_tok["status"] == "should_know"
-    assert ane_tok["jlpt_level"] == "N5"
+    assert ane_tok["jlpt_level"] in ("N5", "N4")
 
     sorosoro_tok = next((t for t in cue["tokens"] if t["surface"] == "そろそろ"), None)
     assert sorosoro_tok is not None

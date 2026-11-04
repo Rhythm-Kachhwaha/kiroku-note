@@ -56,6 +56,7 @@ class SudachiTokenizer:
                     start=start,
                     end=end,
                     normalized=token.normalized_form(),
+                    is_oov=token.is_oov(),
                 )
             )
         return result

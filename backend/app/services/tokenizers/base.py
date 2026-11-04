@@ -16,6 +16,7 @@ class Morpheme:
     start: int
     end: int
     normalized: str
+    is_oov: bool = False
 
 
 class Tokenizer(Protocol):

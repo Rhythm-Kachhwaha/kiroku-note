@@ -20,12 +20,14 @@ from fastapi.responses import JSONResponse
 from app.config import get_learner_jlpt_level
 from app.db.connection import db_session
 from app.schemas import (
-    AnnotatedCueResponse,
-    AnnotatedTokenResponse,
     KnownWordsResponse,
     MarkKnownWordRequest,
     MarkKnownWordResponse,
     SubtitleAnnotateRequest,
+)
+from app.schemas_subtitle import (
+    AnnotatedCueResponse,
+    AnnotatedTokenResponse,
     SubtitleAnnotateResponse,
 )
 from app.services.subtitle_annotator import get_subtitle_annotator_service
@@ -42,6 +44,12 @@ subtitle_router = APIRouter(tags=["subtitles"])
 )
 def annotate_subtitles(request: SubtitleAnnotateRequest) -> SubtitleAnnotateResponse:
     """Batch tokenize and annotate subtitle cues with status (should_know, mined, unstyled)."""
+    if len(request.cues) > 500:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Too many cues; maximum is 500 per request",
+        )
+
     effective_level = (
         request.learner_level
         if request.learner_level is not None
@@ -72,6 +80,10 @@ def annotate_subtitles(request: SubtitleAnnotateRequest) -> SubtitleAnnotateResp
                 reading=tok.get("reading", ""),
                 status=tok.get("status", "unstyled"),
                 jlpt_level=tok.get("jlpt_level"),
+                known=tok.get("known", False),
+                pos=tok.get("pos", ""),
+                level_source=tok.get("level_source"),
+                est_level=tok.get("est_level"),
             )
             for tok in annotated_cue.get("tokens", [])
         ]

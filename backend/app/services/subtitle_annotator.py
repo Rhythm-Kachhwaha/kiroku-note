@@ -1,58 +1,84 @@
-"""Subtitle Annotator Service.
+"""Subtitle Cue Vocabulary and Status Annotation Service.
 
-Performs greedy forward longest-match tokenization and annotation on Japanese subtitle cues.
 Matches mined cards, known words, and OpenJLPT vocabulary/kanji with green precedence on overlap:
-  should_know (if level <= learner_level) > mined (if in mined set) > unstyled.
+should_know (if level <= learner_level) > mined (if in mined set) > unstyled
 """
 from __future__ import annotations
 
-import functools
+from dataclasses import dataclass
 import logging
 from pathlib import Path
 import sqlite3
-from typing import Any, Iterable
 import unicodedata
+from typing import Any, Optional
 
 from app.config import (
     get_db_path,
     get_learner_jlpt_level,
     get_sudachi_dictionary_variant,
     get_tokenizer_mode,
-    is_within_learner_level,
 )
 from app.services.jlpt_reference import JlptReferenceService
-from app.services.tokenizers import LegacyTokenizer, get_sudachi_tokenizer, merge_morphemes
+from app.services.sentence_analysis import analyze
 from app.services.tokenizers.base import Morpheme
-from kiroku_dictionary.deinflect import DeinflectionCandidate, deinflect
+from app.services.tokenizers.legacy import LegacyTokenizer
+from app.services.tokenizers.merge import merge_morphemes
+from app.services.tokenizers.sudachi import get_sudachi_tokenizer
+from kiroku_dictionary.deinflect import deinflect
 
 logger = logging.getLogger(__name__)
 
-# Module-level LRU cache for deinflection candidate generation
-_cached_deinflect = functools.lru_cache(maxsize=16384)(deinflect)
+LEGACY_HACKS = True
+
+_global_service: SubtitleAnnotatorService | None = None
 
 
-def get_tokenizer_status() -> dict[str, Any]:
-    """Report tokenizer readiness without opening the annotator's SQLite resources."""
-    mode = get_tokenizer_mode()
-    dictionary_variant = get_sudachi_dictionary_variant()
-    if mode == "legacy":
-        return {"tokenizer": "legacy", "dictionary": "openjlpt", "ready": True}
-    try:
-        tokenizer = get_sudachi_tokenizer(dictionary_variant)
-    except Exception as exc:
-        if mode == "sudachi":
-            return {
-                "tokenizer": "sudachi",
-                "dictionary": dictionary_variant,
-                "ready": False,
-                "error": str(exc),
-            }
+def set_subtitle_annotator_service(service: SubtitleAnnotatorService | None) -> None:
+    """Explicitly set or reset the process-wide subtitle annotator singleton."""
+    global _global_service
+    _global_service = service
+
+
+def get_subtitle_annotator_service(
+    db_path: Path | str | None = None,
+    jlpt_service: JlptReferenceService | None = None,
+    learner_level: str | None = None,
+    ignore_function_words: bool = True,
+    force_new: bool = False,
+) -> SubtitleAnnotatorService:
+    """Return a process-wide singleton of SubtitleAnnotatorService."""
+    global _global_service
+    if force_new or _global_service is None or db_path is not None or jlpt_service is not None:
+        service = SubtitleAnnotatorService(
+            db_path=db_path,
+            jlpt_service=jlpt_service,
+            learner_level=learner_level,
+            ignore_function_words=ignore_function_words,
+        )
+        if _global_service is None and db_path is None and jlpt_service is None and not force_new:
+            _global_service = service
+        elif force_new:
+            _global_service = service
+        return service
+    return _global_service
+
+
+def get_active_tokenizer_status() -> dict[str, Any]:
+    """Report the current runtime tokenizer selection."""
+    if _global_service is not None:
+        return _global_service.tokenizer_status()
+    tokenizer = get_sudachi_tokenizer()
+    if tokenizer is None:
         return {"tokenizer": "legacy", "dictionary": "openjlpt", "ready": True}
     return {
         "tokenizer": tokenizer.name,
         "dictionary": tokenizer.dictionary_variant,
         "ready": tokenizer.ready,
     }
+
+
+get_tokenizer_status = get_active_tokenizer_status
+
 
 PARTICLES: frozenset[str] = frozenset([
     "は", "が", "を", "に", "へ", "で", "と", "の", "も", "から", "まで", "より", "か", "よ", "ね", "わ"
@@ -100,8 +126,18 @@ def _is_kanji(char: str) -> bool:
     )
 
 
-def _is_katakana(char: str) -> bool:
-    return "\u30a0" <= char <= "\u30ff" or char in ("ー", "・")
+def _estimate_kanji_level(text: str, kanji_cache: dict[str, str]) -> str | None:
+    kanji_levels = []
+    for char in text:
+        if _is_kanji(char):
+            lvl = kanji_cache.get(char)
+            if lvl:
+                kanji_levels.append(lvl)
+            else:
+                kanji_levels.append("N1")
+    if not kanji_levels:
+        return None
+    return min(kanji_levels, key=lambda l: _LEVEL_PRIORITY.get(l, 99))
 
 
 class AnnotatedToken(dict):
@@ -118,6 +154,10 @@ class AnnotatedToken(dict):
         end: float = 0.0,
         start_char: int = 0,
         end_char: int = 0,
+        known: bool = False,
+        pos: str = "",
+        level_source: str | None = None,
+        est_level: str | None = None,
     ) -> None:
         super().__init__(
             surface=surface,
@@ -129,6 +169,10 @@ class AnnotatedToken(dict):
             end=end,
             start_char=start_char,
             end_char=end_char,
+            known=known,
+            pos=pos,
+            level_source=level_source,
+            est_level=est_level,
         )
 
     @property
@@ -167,9 +211,25 @@ class AnnotatedToken(dict):
     def end_char(self) -> int:
         return self["end_char"]
 
+    @property
+    def known(self) -> bool:
+        return self.get("known", False)
+
+    @property
+    def pos(self) -> str:
+        return self.get("pos", "")
+
+    @property
+    def level_source(self) -> str | None:
+        return self.get("level_source")
+
+    @property
+    def est_level(self) -> str | None:
+        return self.get("est_level")
+
 
 class AnnotatedCue(dict):
-    """Subtitle cue with timing and tokenized annotated content."""
+    """Subtitle cue containing a list of AnnotatedToken objects."""
 
     def __init__(
         self,
@@ -178,12 +238,7 @@ class AnnotatedCue(dict):
         text: str,
         tokens: list[AnnotatedToken],
     ) -> None:
-        super().__init__(
-            start=start,
-            end=end,
-            text=text,
-            tokens=tokens,
-        )
+        super().__init__(start=start, end=end, text=text, tokens=tokens)
 
     @property
     def start(self) -> float:
@@ -205,13 +260,15 @@ class AnnotatedCue(dict):
 class SubtitleAnnotatorService:
     """Service providing high-throughput tokenization and annotation for subtitle cues."""
 
-    # Class-level cache: db_path_str -> (exact vocab, aliases, kanji)
+    # Class-level cache: db_path_str -> (exact vocab, by_norm, by_reading, kanji, aliases)
     _openjlpt_cache: dict[
         str,
         tuple[
             dict[str, tuple[str, str]],
-            dict[str, tuple[tuple[str, str, str], ...]],
+            dict[str, list[tuple[str, str, str]]],
+            dict[str, list[tuple[str, str]]],
             dict[str, str],
+            dict[str, tuple[tuple[str, str, str], ...]],
         ],
     ] = {}
 
@@ -262,12 +319,16 @@ class SubtitleAnnotatorService:
         if cache_key in self._openjlpt_cache:
             (
                 self._vocab_cache,
-                self._vocab_alias_cache,
+                self._vocab_norm_cache,
+                self._vocab_reading_cache,
                 self._kanji_cache,
+                self._vocab_alias_cache,
             ) = self._openjlpt_cache[cache_key]
             return
 
         vocab_dict: dict[str, tuple[str, str]] = {}
+        vocab_norm_dict: dict[str, list[tuple[str, str, str]]] = {}
+        vocab_reading_dict: dict[str, list[tuple[str, str]]] = {}
         alias_candidates: dict[str, set[tuple[str, str, str]]] = {}
         kanji_dict: dict[str, str] = {}
 
@@ -293,15 +354,22 @@ class SubtitleAnnotatorService:
                         vocab_dict[w] = (lvl, r)
                     else:
                         existing_lvl, existing_r = vocab_dict[w]
-                        # Prefer beginner level (lower index / N5 > N4 > N3...)
                         if _LEVEL_PRIORITY.get(lvl, 0) > _LEVEL_PRIORITY.get(existing_lvl, 0):
                             vocab_dict[w] = (lvl, r or existing_r)
                         elif not existing_r and r:
                             vocab_dict[w] = (existing_lvl, r)
 
-                    for alias in _EXPLICIT_ALIASES.get(w, ()):
-                        if alias and alias != w:
-                            alias_candidates.setdefault(alias, set()).add((w, lvl, r))
+                    norm = _to_hiragana(unicodedata.normalize("NFKC", w))
+                    vocab_norm_dict.setdefault(norm, []).append((w, lvl, r))
+
+                    if r:
+                        r_hira = _to_hiragana(unicodedata.normalize("NFKC", r))
+                        vocab_reading_dict.setdefault(r_hira, []).append((w, lvl))
+
+                    if LEGACY_HACKS:
+                        for alias in _EXPLICIT_ALIASES.get(w, ()):
+                            if alias and alias != w:
+                                alias_candidates.setdefault(alias, set()).add((w, lvl, r))
 
                 kanji_rows = cursor.execute("SELECT character, level FROM kanji").fetchall()
                 for char, level in kanji_rows:
@@ -315,25 +383,30 @@ class SubtitleAnnotatorService:
                 logger.debug("Failed to build OpenJLPT memory cache: %s", err)
 
         vocab_alias_dict: dict[str, tuple[tuple[str, str, str], ...]] = {}
-        for alias, candidates in alias_candidates.items():
-            best_by_lemma: dict[str, tuple[str, str, str]] = {}
-            for candidate in candidates:
-                lemma, level, _ = candidate
-                existing = best_by_lemma.get(lemma)
-                if existing is None or _LEVEL_PRIORITY[level] > _LEVEL_PRIORITY[existing[1]]:
-                    best_by_lemma[lemma] = candidate
-            resolved_candidates = tuple(sorted(best_by_lemma.values()))
-            if len({level for _, level, _ in resolved_candidates}) == 1:
-                vocab_alias_dict[alias] = resolved_candidates
+        if LEGACY_HACKS:
+            for alias, candidates in alias_candidates.items():
+                best_by_lemma: dict[str, tuple[str, str, str]] = {}
+                for candidate in candidates:
+                    lemma, level, _ = candidate
+                    existing = best_by_lemma.get(lemma)
+                    if existing is None or _LEVEL_PRIORITY[level] > _LEVEL_PRIORITY[existing[1]]:
+                        best_by_lemma[lemma] = candidate
+                resolved_candidates = tuple(sorted(best_by_lemma.values()))
+                if len({level for _, level, _ in resolved_candidates}) == 1:
+                    vocab_alias_dict[alias] = resolved_candidates
 
         self._openjlpt_cache[cache_key] = (
             vocab_dict,
-            vocab_alias_dict,
+            vocab_norm_dict,
+            vocab_reading_dict,
             kanji_dict,
+            vocab_alias_dict,
         )
         self._vocab_cache = vocab_dict
-        self._vocab_alias_cache = vocab_alias_dict
+        self._vocab_norm_cache = vocab_norm_dict
+        self._vocab_reading_cache = vocab_reading_dict
         self._kanji_cache = kanji_dict
+        self._vocab_alias_cache = vocab_alias_dict
 
     def reload_mined_words(self) -> None:
         """Query and cache mined cards and known words from the authoritative database."""
@@ -445,7 +518,7 @@ class SubtitleAnnotatorService:
         start: float = 0.0,
         end: float = 0.0,
     ) -> list[AnnotatedToken]:
-        """Tokenize and annotate Japanese text using greedy forward longest-match scanning."""
+        """Tokenize and annotate Japanese text using Sudachi-primary analysis with legacy fallback."""
         if not text:
             return []
 
@@ -460,6 +533,223 @@ class SubtitleAnnotatorService:
             else self._default_ignore_function_words
         )
 
+        if self._tokenizer.name == "legacy":
+            return self._annotate_legacy(
+                text=text,
+                learner_level=effective_level,
+                ignore_function_words=effective_ignore_fn,
+                start=start,
+                end=end,
+            )
+
+        return self._annotate_sudachi(
+            text=text,
+            learner_level=effective_level,
+            ignore_function_words=effective_ignore_fn,
+            start=start,
+            end=end,
+        )
+
+    def _annotate_sudachi(
+        self,
+        text: str,
+        learner_level: str,
+        ignore_function_words: bool,
+        start: float,
+        end: float,
+    ) -> list[AnnotatedToken]:
+        if text in FUNCTION_WORDS:
+            jlpt_lvl = self._vocab_cache.get(text, (None, ""))[0]
+            status = (
+                "should_know"
+                if not ignore_function_words and jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level)
+                else "unstyled"
+            )
+            return [
+                AnnotatedToken(
+                    surface=text,
+                    lemma=text,
+                    reading=text,
+                    status=status,
+                    jlpt_level=jlpt_lvl,
+                    start=start,
+                    end=end,
+                    start_char=0,
+                    end_char=len(text),
+                    known=False,
+                    pos="助詞",
+                    level_source="vocab" if jlpt_lvl else None,
+                    est_level=None,
+                )
+            ]
+
+        analysis = analyze(text, variant=self._tokenizer.dictionary_variant)
+        tokens: list[AnnotatedToken] = []
+
+        for m in analysis.merged:
+            if m.surface.isspace():
+                tokens.append(
+                    AnnotatedToken(
+                        surface=m.surface,
+                        lemma=m.surface,
+                        reading="",
+                        status="unstyled",
+                        jlpt_level=None,
+                        start=start,
+                        end=end,
+                        start_char=m.start,
+                        end_char=m.end,
+                        known=False,
+                        pos="",
+                        level_source=None,
+                        est_level=None,
+                    )
+                )
+                continue
+
+            if m.is_oov:
+                # OOV units keep greedy fallback only for those spans
+                span_tokens = self._annotate_legacy(
+                    text=m.surface,
+                    learner_level=learner_level,
+                    ignore_function_words=ignore_function_words,
+                    start=start,
+                    end=end,
+                )
+                for st in span_tokens:
+                    shifted = AnnotatedToken(
+                        surface=st.surface,
+                        lemma=st.lemma,
+                        reading=st.reading,
+                        status=st.status,
+                        jlpt_level=st.jlpt_level,
+                        start=start,
+                        end=end,
+                        start_char=m.start + st.start_char,
+                        end_char=m.start + st.end_char,
+                        known=st.known,
+                        pos=st.pos or (m.pos[0] if m.pos else ""),
+                        level_source=st.level_source or ("vocab" if st.jlpt_level else None),
+                        est_level=st.est_level,
+                    )
+                    tokens.append(shifted)
+                continue
+
+            # Lookup order: lemma -> normalized_form -> surface -> (kana-only unit) by_reading
+            jlpt_lvl = None
+            rdg = ""
+            level_source = None
+            est_level = None
+            resolved_lemma = m.lemma
+
+            if m.lemma in self._vocab_cache:
+                jlpt_lvl, rdg = self._vocab_cache[m.lemma]
+                level_source = "vocab"
+            elif m.normalized in self._vocab_cache:
+                jlpt_lvl, rdg = self._vocab_cache[m.normalized]
+                level_source = "vocab"
+                if len(m.normalized) == len(m.lemma):
+                    resolved_lemma = m.normalized
+            elif m.surface in self._vocab_cache:
+                jlpt_lvl, rdg = self._vocab_cache[m.surface]
+                level_source = "vocab"
+                if len(m.surface) == len(m.lemma):
+                    resolved_lemma = m.surface
+            elif norm_hits := self._vocab_norm_cache.get(_to_hiragana(unicodedata.normalize("NFKC", m.lemma))):
+                jlpt_lvl, rdg = norm_hits[0][1], norm_hits[0][2]
+                level_source = "vocab"
+            elif not _contains_kanji(m.surface):
+                rdg_key = _to_hiragana(m.reading or m.surface)
+                hits = self._vocab_reading_cache.get(rdg_key, [])
+                if hits:
+                    if len(hits) == 1:
+                        jlpt_lvl = hits[0][1]
+                        rdg = rdg_key
+                        level_source = "vocab"
+                        resolved_lemma = hits[0][0]
+                    else:
+                        unique_levels = {h[1] for h in hits}
+                        if len(unique_levels) == 1:
+                            jlpt_lvl = hits[0][1]
+                            rdg = rdg_key
+                            level_source = "vocab"
+                            resolved_lemma = hits[0][0]
+                        else:
+                            best_hit = max(hits, key=lambda h: _LEVEL_PRIORITY.get(h[1], 0))
+                            jlpt_lvl = best_hit[1]
+                            rdg = rdg_key
+                            level_source = "vocab"
+                            resolved_lemma = best_hit[0]
+
+            if level_source != "vocab":
+                if _contains_kanji(m.surface) or _contains_kanji(m.lemma):
+                    est = _estimate_kanji_level(m.surface, self._kanji_cache)
+                    if est:
+                        est_level = est
+                        level_source = "kanji_est"
+                        jlpt_lvl = None
+
+            is_mined = (
+                (resolved_lemma in self._mined_words)
+                or (m.lemma in self._mined_words)
+                or (m.surface in self._mined_words)
+                or (m.normalized in self._mined_words)
+            )
+            if not is_mined:
+                for deinf_cand in deinflect(m.surface):
+                    if deinf_cand.term in self._mined_words:
+                        is_mined = True
+                        resolved_lemma = deinf_cand.term
+                        break
+            known = is_mined
+            token_reading = (
+                self._mined_readings.get(resolved_lemma)
+                or self._mined_readings.get(m.lemma)
+                or self._mined_readings.get(m.surface)
+                or rdg
+                or _to_hiragana(m.reading or m.surface)
+            )
+
+            if level_source == "vocab" and jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level):
+                if ignore_function_words and (m.surface in FUNCTION_WORDS or resolved_lemma in FUNCTION_WORDS):
+                    status = "unstyled"
+                else:
+                    status = "should_know"
+            elif is_mined:
+                status = "mined"
+            else:
+                status = "unstyled"
+
+            pos_str = m.pos[0] if m.pos else ""
+            tokens.append(
+                AnnotatedToken(
+                    surface=m.surface,
+                    lemma=resolved_lemma,
+                    reading=token_reading,
+                    status=status,
+                    jlpt_level=jlpt_lvl,
+                    start=start,
+                    end=end,
+                    start_char=m.start,
+                    end_char=m.end,
+                    known=known,
+                    pos=pos_str,
+                    level_source=level_source,
+                    est_level=est_level,
+                )
+            )
+
+        return tokens
+
+    def _annotate_legacy(
+        self,
+        text: str,
+        learner_level: str,
+        ignore_function_words: bool,
+        start: float,
+        end: float,
+    ) -> list[AnnotatedToken]:
+        """Legacy greedy forward longest-match scanning path."""
         tokens: list[AnnotatedToken] = []
         n = len(text)
         i = 0
@@ -513,11 +803,13 @@ class SubtitleAnnotatorService:
                 reading = reading or self._mined_readings.get(lemma, "")
                 is_mined = lemma in self._mined_words or surface in self._mined_words
                 status = (
-                    "should_know"
-                    if jlpt_lvl and is_within_learner_level(jlpt_lvl, effective_level)
-                    else "mined"
+                    "mined"
                     if is_mined
-                    else "unstyled"
+                    else (
+                        "should_know"
+                        if jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level)
+                        else "unstyled"
+                    )
                 )
                 tokens.append(
                     AnnotatedToken(
@@ -528,43 +820,33 @@ class SubtitleAnnotatorService:
                         jlpt_level=jlpt_lvl,
                         start=start,
                         end=end,
-                        start_char=i,
+                        start_char=morpheme.start,
                         end_char=morpheme.end,
                     )
                 )
                 i = morpheme.end
                 continue
 
-            boundary = morpheme_boundaries.get(i)
-            next_boundary = (
-                morpheme_boundaries.get(boundary.end) if boundary is not None else None
-            )
+            # Greedy longest-match scan: try lengths from max_scan_len down to 1
+            matched = False
+            best_match: tuple[str, str | None, str] | None = None
+            match_len = 0
 
-            # Prefer a complete auxiliary-inflected span over shorter dictionary
-            # matches inside it (for example 指定 inside 勉強していた).
-            inflected = (
-                None
-                if (
-                    boundary is not None
-                    and (
-                        boundary.surface in {"やすい", "なさい", "よう", "ように"}
-                        or boundary.lemma in {"やすい", "なさる", "よう"}
-                    )
-                ) or (
-                    next_boundary is not None
-                    and next_boundary.surface in {"やすい", "なさい"}
-                )
-                else self._match_inflected_span(text, i)
-            )
-            if inflected is not None:
+            # 1. First check deinflection chains (verbs and adjectives)
+            inflected = self._match_inflected_span(text, i, n)
+            if inflected:
                 span_length, lemma, jlpt_lvl, reading = inflected
-                is_mined = lemma in self._mined_words or text[i : i + span_length] in self._mined_words
+                is_mined = (lemma in self._mined_words) or (
+                    text[i : i + span_length] in self._mined_words
+                )
                 status = (
-                    "should_know"
-                    if jlpt_lvl and is_within_learner_level(jlpt_lvl, effective_level)
-                    else "mined"
+                    "mined"
                     if is_mined
-                    else "unstyled"
+                    else (
+                        "should_know"
+                        if jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level)
+                        else "unstyled"
+                    )
                 )
                 tokens.append(
                     AnnotatedToken(
@@ -582,10 +864,10 @@ class SubtitleAnnotatorService:
                 i += span_length
                 continue
 
+            boundary = morpheme_boundaries.get(i)
             if (
                 boundary is not None
-                and next_boundary is not None
-                and next_boundary.surface in {"ながら", "やすい", "なさい"}
+                and boundary.surface == text[i : boundary.end]
                 and boundary.lemma in self._vocab_cache
             ):
                 jlpt_lvl, reading = self._vocab_cache[boundary.lemma]
@@ -593,7 +875,7 @@ class SubtitleAnnotatorService:
                     AnnotatedToken(
                         surface=boundary.surface,
                         lemma=boundary.lemma,
-                        reading=reading,
+                        reading=reading or boundary.reading,
                         status="unstyled",
                         jlpt_level=jlpt_lvl,
                         start=start,
@@ -605,192 +887,182 @@ class SubtitleAnnotatorService:
                 i = boundary.end
                 continue
 
-            # Keep unknown compounds and katakana loanwords usable as words
-            # instead of emitting misleading kanji or kana fragments.
-            run_end = i
-            if _is_kanji(text[i]) or _is_katakana(text[i]):
-                run_kind = _is_kanji(text[i])
-                while run_end < n and (
-                    (_is_kanji(text[run_end]) if run_kind else _is_katakana(text[run_end]))
+            # 2. Check for katakana loanword runs
+            if "\u30a1" <= text[i] <= "\u30f6":
+                katakana_end = i
+                while katakana_end < n and (
+                    "\u30a1" <= text[katakana_end] <= "\u30f6"
+                    or text[katakana_end] == "\u30fc"
                 ):
-                    run_end += 1
-                run = text[i:run_end]
-                has_deinflection_match = False
-                if run_kind and run_end < n and "\u3040" <= text[run_end] <= "\u309f":
-                    for inflection_length in range(2, min(12, n - i) + 1):
-                        candidate_text = text[i : i + inflection_length]
-                        if not "\u3040" <= candidate_text[-1] <= "\u309f":
-                            continue
-                        if any(
-                            candidate.term in self._vocab_cache
-                            or candidate.term in self._mined_words
-                            for candidate in _cached_deinflect(candidate_text)[1:]
-                        ):
-                            has_deinflection_match = True
-                            break
-                if (
-                    len(run) > 1
-                    and not has_deinflection_match
-                    and run not in self._vocab_cache
-                    and run not in self._mined_words
-                ):
-                    alias_entries = self._vocab_alias_cache.get(_to_hiragana(run))
-                    if not alias_entries:
+                    katakana_end += 1
+                run = text[i:katakana_end]
+
+                deinflected_candidates = deinflect(run)
+                for candidate in deinflected_candidates:
+                    if (
+                        candidate.term in self._mined_words
+                        or candidate.term in self._vocab_cache
+                    ):
+                        jlpt_lvl, reading = self._vocab_cache.get(
+                            candidate.term, (None, "")
+                        )
                         tokens.append(
                             AnnotatedToken(
                                 surface=run,
-                                lemma=run,
-                                reading=_to_hiragana(run) if not run_kind else "",
-                                status="unstyled",
+                                lemma=candidate.term,
+                                reading=reading or run,
+                                status="mined"
+                                if candidate.term in self._mined_words
+                                else "unstyled",
+                                jlpt_level=jlpt_lvl,
+                                start=start,
+                                end=end,
+                                start_char=i,
+                                end_char=katakana_end,
+                            )
+                        )
+                        i = katakana_end
+                        matched = True
+                        break
+                if matched:
+                    continue
+
+                if (
+                    run in self._mined_words
+                    and run not in self._vocab_cache
+                    and _to_hiragana(run) in self._vocab_alias_cache
+                ):
+                    alias_entries = self._vocab_alias_cache.get(_to_hiragana(run))
+                    if alias_entries:
+                        alias_lemma, jlpt_lvl, reading = alias_entries[0]
+                        tokens.append(
+                            AnnotatedToken(
+                                surface=run,
+                                lemma=alias_lemma,
+                                reading=reading or _to_hiragana(run),
+                                status="mined",
                                 jlpt_level=None,
                                 start=start,
                                 end=end,
                                 start_char=i,
-                                end_char=run_end,
+                                end_char=katakana_end,
                             )
                         )
-                        i = run_end
+                        i = katakana_end
                         continue
 
-            matched = False
-            limit = min(max_scan_len, n - i)
-            if (
-                boundary is not None
-                and next_boundary is not None
-                and (
-                    next_boundary.surface in {"ながら", "やすい", "なさい", "よう", "ように"}
-                    or next_boundary.lemma in {"ながら", "やすい", "なさる", "よう"}
-                )
-            ):
-                limit = min(limit, boundary.end - i)
-
-            for l in range(limit, 0, -1):
-                sub = text[i : i + l]
-
-                # 1. Particles and copulas check
-                if sub in FUNCTION_WORDS and effective_ignore_fn:
+                if run in self._mined_words:
                     tokens.append(
                         AnnotatedToken(
-                            surface=sub,
-                            lemma=sub,
-                            reading=sub,
+                            surface=run,
+                            lemma=run,
+                            reading=self._mined_readings.get(run, run),
+                            status="mined",
+                            jlpt_level=None,
+                            start=start,
+                            end=end,
+                            start_char=i,
+                            end_char=katakana_end,
+                        )
+                    )
+                    i = katakana_end
+                    continue
+
+                if run not in self._vocab_cache:
+                    tokens.append(
+                        AnnotatedToken(
+                            surface=run,
+                            lemma=run,
+                            reading=_to_hiragana(run),
                             status="unstyled",
                             jlpt_level=None,
                             start=start,
                             end=end,
                             start_char=i,
-                            end_char=i + l,
+                            end_char=katakana_end,
                         )
                     )
-                    i += l
-                    matched = True
-                    break
+                    i = katakana_end
+                    continue
 
-                # 2. Direct dictionary & mined words check
-                best_match: tuple[str, str | None, str] | None = None
+            # 3. Standard longest match scan
+            for length in range(min(n - i, max_scan_len), 0, -1):
+                sub = text[i : i + length]
                 if sub in self._vocab_cache or sub in self._mined_words:
                     jlpt_lvl, rdg = self._vocab_cache.get(sub, (None, ""))
-                    rdg = (
-                        rdg
-                        or self._mined_readings.get(sub, "")
-                    )
+                    if not rdg and sub in self._mined_readings:
+                        rdg = self._mined_readings[sub]
                     best_match = (sub, jlpt_lvl, rdg)
+                    match_len = length
+                    break
                 elif _to_hiragana(sub) in self._vocab_alias_cache:
                     alias_entries = self._vocab_alias_cache[_to_hiragana(sub)]
                     alias_lemma, jlpt_lvl, rdg = alias_entries[0]
                     best_match = (alias_lemma, jlpt_lvl, rdg)
-                elif l == 1 and sub in self._kanji_cache:
+                    match_len = length
+                    break
+                elif length == 1 and sub in self._kanji_cache:
                     jlpt_lvl = self._kanji_cache[sub]
                     best_match = (sub, jlpt_lvl, "")
-                elif 1 < l <= 12 and ("\u3040" <= sub[-1] <= "\u309f"):
-                    # Only invoke deinflection BFS for candidate inflected ranges ending in hiragana
-                    try:
-                        candidates = _cached_deinflect(sub)
-                    except Exception:
-                        candidates = []
-
-                    for c in candidates[1:]:
+                    match_len = length
+                    break
+                elif length > 1:
+                    candidates = deinflect(sub)
+                    found = False
+                    for c in candidates:
                         if c.term in self._mined_words or c.term in self._vocab_cache:
                             jlpt_lvl, rdg = self._vocab_cache.get(c.term, (None, ""))
-                            rdg = (
-                                rdg
-                                or self._mined_readings.get(c.term, "")
-                                or self._mined_readings.get(sub, "")
-                            )
+                            if not rdg and c.term in self._mined_readings:
+                                rdg = self._mined_readings[c.term]
                             best_match = (c.term, jlpt_lvl, rdg)
+                            match_len = length
+                            found = True
                             break
+                    if found:
+                        break
 
-                # Fallback: function words when ignore_function_words=False
-                if best_match is None and sub in FUNCTION_WORDS and not effective_ignore_fn:
-                    jlpt_lvl, rdg = self._vocab_cache.get(sub, (None, ""))
-                    best_match = (sub, jlpt_lvl, rdg or sub)
+            if not best_match:
+                sub = text[i : i + 1]
+                jlpt_lvl, rdg = self._vocab_cache.get(sub, (None, ""))
+                best_match = (sub, jlpt_lvl, rdg or sub)
+                match_len = 1
 
-                if best_match is not None:
-                    lemma, jlpt_lvl, reading = best_match
+            if best_match:
+                lemma, jlpt_lvl, reading = best_match
+                sub = text[i : i + match_len]
 
-                    # Green Overlap Precedence:
-                    # should_know (if level <= learner_level) > mined (if in mined set) > unstyled
-                    is_mined = (lemma in self._mined_words) or (sub in self._mined_words)
-                    if jlpt_lvl and is_within_learner_level(jlpt_lvl, effective_level):
-                        if effective_ignore_fn and (
-                            sub in FUNCTION_WORDS or lemma in FUNCTION_WORDS
-                        ):
-                            status = "unstyled"
-                        else:
-                            status = "should_know"
-                    elif is_mined:
-                        status = "mined"
-                    else:
+                is_mined = (lemma in self._mined_words) or (sub in self._mined_words)
+                if jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level):
+                    if ignore_function_words and (
+                        sub in FUNCTION_WORDS or lemma in FUNCTION_WORDS
+                    ):
                         status = "unstyled"
+                    else:
+                        status = "should_know"
+                elif is_mined:
+                    status = "mined"
+                else:
+                    status = "unstyled"
 
-                    tokens.append(
-                        AnnotatedToken(
-                            surface=sub,
-                            lemma=lemma,
-                            reading=reading,
-                            status=status,
-                            jlpt_level=jlpt_lvl,
-                            start=start,
-                            end=end,
-                            start_char=i,
-                            end_char=i + l,
-                        )
-                    )
-                    i += l
-                    matched = True
-                    break
-
-            if not matched:
-                if (
-                    boundary is not None
-                    and (
-                        boundary.surface in {"ながら", "やすい", "なさい", "よう", "ように"}
-                        or boundary.lemma in {"ながら", "やすい", "なさる", "よう"}
-                    )
-                ):
-                    lemma = boundary.lemma
-                    jlpt_lvl, reading = self._vocab_cache.get(lemma, (None, ""))
-                    tokens.append(
-                        AnnotatedToken(
-                            surface=boundary.surface,
-                            lemma=lemma,
-                            reading=reading,
-                            status="unstyled",
-                            jlpt_level=jlpt_lvl,
-                            start=start,
-                            end=end,
-                            start_char=i,
-                            end_char=boundary.end,
-                        )
-                    )
-                    i = boundary.end
-                    continue
-                # Emit single unstyled character
-                char = text[i]
                 tokens.append(
                     AnnotatedToken(
-                        surface=char,
-                        lemma=char,
+                        surface=sub,
+                        lemma=lemma,
+                        reading=reading,
+                        status=status,
+                        jlpt_level=jlpt_lvl,
+                        start=start,
+                        end=end,
+                        start_char=i,
+                        end_char=i + match_len,
+                    )
+                )
+                i += match_len
+            else:
+                tokens.append(
+                    AnnotatedToken(
+                        surface=text[i],
+                        lemma=text[i],
                         reading="",
                         status="unstyled",
                         jlpt_level=None,
@@ -805,78 +1077,38 @@ class SubtitleAnnotatorService:
         return tokens
 
     def _match_inflected_span(
-        self, text: str, start: int
+        self, text: str, i: int, n: int
     ) -> tuple[int, str, str | None, str] | None:
-        suffixes = ("きた", "していた", "おく", "ながら")
-        limit = min(16, len(text) - start)
-        for length in range(limit, 2, -1):
-            span = text[start : start + length]
-            if not ("\u3040" <= span[-1] <= "\u309f"):
-                continue
-            for suffix in suffixes:
-                if not span.endswith(suffix):
-                    continue
-                prefix = span[: -len(suffix)]
-                if not prefix:
-                    continue
-                lemma = prefix
-                jlpt_lvl, reading = self._vocab_cache.get(prefix, (None, ""))
-                candidates = _cached_deinflect(prefix)[1:]
-                resolved = False
-                for candidate in sorted(
-                    candidates,
-                    key=lambda candidate: {"v5": 0, "vk": 1, "v1": 2}.get(
-                        candidate.rule, 3
-                    ),
-                ):
-                    if candidate.term in self._vocab_cache or candidate.term in self._mined_words:
-                        lemma = candidate.term
-                        jlpt_lvl, reading = self._vocab_cache.get(candidate.term, (None, ""))
-                        resolved = True
-                        break
-                if prefix == "身について":
-                    lemma = "身につく"
-                    resolved = True
-                if suffix == "ながら" and prefix + "る" in self._vocab_cache:
-                    lemma = prefix + "る"
-                    jlpt_lvl, reading = self._vocab_cache[lemma]
-                    resolved = True
-                if not resolved and prefix not in self._vocab_cache and prefix not in self._mined_words:
-                    continue
-                return length, lemma, jlpt_lvl, reading
+        """Attempt to match inflected verbs/adjectives."""
+        _INFLECTED_SUFFIXES = (
+            "ながら", "やすい", "にくい", "たい", "たくない", "たかった", "たくなかった",
+            "そう", "そうだ", "そうに", "そうな", "られる", "られた", "られない",
+            "られると", "させる", "させた", "させない", "ている", "ていた", "ていません",
+            "ていました", "て", "で", "た", "だ", "ない", "なかった", "ば",
+            "れば", "たら", "だら", "なら", "ます", "ました", "ません", "ませんでした",
+        )
+        for length in range(min(n - i, 16), 1, -1):
+            sub = text[i : i + length]
+            for suffix in _INFLECTED_SUFFIXES:
+                if sub.endswith(suffix):
+                    prefix = sub[: -len(suffix)]
+                    if prefix:
+                        candidates = deinflect(sub)
+                        for candidate in candidates:
+                            if candidate.term in self._mined_words or candidate.term in self._vocab_cache:
+                                jlpt_lvl, reading = self._vocab_cache.get(candidate.term, (None, ""))
+                                if not reading and candidate.term in self._mined_readings:
+                                    reading = self._mined_readings[candidate.term]
+                                return length, candidate.term, jlpt_lvl, reading
         return None
 
 
-_subtitle_annotator_service: SubtitleAnnotatorService | None = None
-_current_service_db_path: Path | None = None
-
-
-def get_subtitle_annotator_service(
-    db_path: Path | str | None = None,
-    jlpt_service: JlptReferenceService | None = None,
-    force_new: bool = False,
-) -> SubtitleAnnotatorService:
-    """Return singleton instance of SubtitleAnnotatorService, creating or re-binding if needed."""
-    global _subtitle_annotator_service, _current_service_db_path
-    resolved_path = Path(db_path) if db_path is not None else get_db_path()
-    if (
-        _subtitle_annotator_service is None
-        or force_new
-        or _current_service_db_path != resolved_path
-    ):
-        _subtitle_annotator_service = SubtitleAnnotatorService(
-            db_path=resolved_path,
-            jlpt_service=jlpt_service,
-        )
-        _current_service_db_path = resolved_path
-    return _subtitle_annotator_service
-
-
-def set_subtitle_annotator_service(service: SubtitleAnnotatorService | None) -> None:
-    """Set or reset the global SubtitleAnnotatorService singleton instance."""
-    global _subtitle_annotator_service, _current_service_db_path
-    _subtitle_annotator_service = service
-    if service is not None:
-        _current_service_db_path = service._db_path
-    else:
-        _current_service_db_path = None
+def is_within_learner_level(word_level: str | None, learner_level: str | None) -> bool:
+    """Return True if word_level <= learner_level."""
+    if not word_level or not learner_level:
+        return False
+    w_p = _LEVEL_PRIORITY.get(word_level.upper())
+    l_p = _LEVEL_PRIORITY.get(learner_level.upper())
+    if w_p is None or l_p is None:
+        return False
+    return w_p >= l_p
