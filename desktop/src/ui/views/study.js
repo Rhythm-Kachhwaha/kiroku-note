@@ -25,6 +25,13 @@ import {
   hasProgressHistory
 } from '../utils/progress_formatters.js';
 
+export const STUDY_SEGMENTS = [
+  { id: 'practice', label: 'Practice' },
+  { id: 'bank', label: 'Bank' },
+  { id: 'mistakes', label: 'Mistakes' },
+  { id: 'progress', label: 'Progress' }
+];
+
 export function filterMistakes(items, { level = '', format = '', format_code: formatCode = '' } = {}) {
   return (Array.isArray(items) ? items : []).filter((item) => (
     (!level || item.level === level) &&
@@ -88,11 +95,69 @@ export class StudyView {
     this.isLoading = false;
     this.activeBlobUrls = [];
     this.cachedBankSummary = null;
+    this.activeSegment = 'practice';
+    this.segmentMounted = { practice: false, bank: false, mistakes: false, progress: false };
+    this.bankFilters = { level: '', format: '', status: '', bookmarked: false };
+    this.bankPage = 1;
+    this.mistakesFilters = { level: '', format_code: '' };
+    this.bookmarkedOnly = false;
+    this.reportQuestionId = null;
     this.handleKeyDown = this.handleKeyDown.bind(this);
+  }
+
+  segmentArea(segment = this.activeSegment) {
+    const id = segment === 'practice' ? 'study-content-area' : `study-segment-${segment}`;
+    return document.getElementById(id);
+  }
+
+  switchSegment(segment) {
+    const target = STUDY_SEGMENTS.some((entry) => entry.id === segment) ? segment : 'practice';
+    if (target === this.activeSegment && this.segmentMounted[target]) return;
+    this.activeSegment = target;
+
+    this.container?.querySelectorAll('.study-segment-tab').forEach((tab) => {
+      const isActive = tab.dataset.segment === target;
+      tab.classList.toggle('is-active', isActive);
+      tab.setAttribute('aria-selected', String(isActive));
+      tab.tabIndex = isActive ? 0 : -1;
+    });
+
+    STUDY_SEGMENTS.forEach((entry) => {
+      const pane = this.segmentArea(entry.id);
+      if (pane) pane.hidden = entry.id !== target;
+    });
+
+    if (!this.segmentMounted[target] || target === 'progress') {
+      this.segmentMounted[target] = true;
+      this.mountSegment(target);
+    }
+  }
+
+  mountSegment(segment) {
+    if (segment === 'bank') return this.loadQuestionBank(this.bankFilters, this.bankPage);
+    if (segment === 'mistakes') return this.loadMistakesNotebook(this.mistakesFilters);
+    if (segment === 'progress') return this.loadProgress();
+    this.segmentMounted.practice = true;
+    return this.restoreActiveSessionOrSetup();
+  }
+
+  renderSegmentFailure(segment, title, message, retry) {
+    const area = this.segmentArea(segment);
+    if (!area) return;
+    area.innerHTML = `
+      <div class="study-empty-state tactile-card text-center py-10">
+        <h2 class="study-empty-title">${escapeHtml(title)}</h2>
+        <p class="text-secondary text-sm max-w-md mx-auto mb-4">${escapeHtml(message)}</p>
+        <button type="button" class="tactile-btn tactile-btn-primary" id="btn-retry-${segment}">Retry</button>
+      </div>
+    `;
+    document.getElementById(`btn-retry-${segment}`)?.addEventListener('click', retry);
   }
 
   async mount(container) {
     this.container = container;
+    this.activeSegment = 'practice';
+    this.segmentMounted = { practice: false, bank: false, mistakes: false, progress: false };
     this.renderShell();
 
     try {
@@ -108,6 +173,7 @@ export class StudyView {
     }
 
     await this.restoreActiveSessionOrSetup();
+    this.segmentMounted.practice = true;
   }
 
   onShow() {
@@ -137,21 +203,84 @@ export class StudyView {
             </button>
           </div>
 
-          <!-- Dynamic Question Drill View Slot -->
-          <div id="study-content-area">
+          <!-- Section Segments -->
+          <div class="study-segments" role="tablist" aria-label="Study sections">
+            ${STUDY_SEGMENTS.map((segment) => `
+              <button
+                type="button"
+                class="study-segment-tab ${segment.id === this.activeSegment ? 'is-active' : ''}"
+                id="study-tab-${segment.id}"
+                data-segment="${segment.id}"
+                role="tab"
+                aria-selected="${segment.id === this.activeSegment}"
+                aria-controls="${segment.id === 'practice' ? 'study-content-area' : `study-segment-${segment.id}`}"
+                tabindex="${segment.id === this.activeSegment ? '0' : '-1'}"
+              >${segment.label}</button>
+            `).join('')}
+          </div>
+
+          <!-- Practice Segment -->
+          <div id="study-content-area" class="study-segment-pane" data-segment="practice" role="tabpanel" aria-labelledby="study-tab-practice">
             <div class="tactile-card text-center py-12 text-muted">
               <span class="font-mono text-sm">Loading practice setup...</span>
             </div>
           </div>
 
+          <!-- Bank Segment -->
+          <div id="study-segment-bank" class="study-segment-pane" data-segment="bank" role="tabpanel" aria-labelledby="study-tab-bank" hidden></div>
+
+          <!-- Mistakes Segment -->
+          <div id="study-segment-mistakes" class="study-segment-pane" data-segment="mistakes" role="tabpanel" aria-labelledby="study-tab-mistakes" hidden></div>
+
+          <!-- Progress Segment -->
+          <div id="study-segment-progress" class="study-segment-pane" data-segment="progress" role="tabpanel" aria-labelledby="study-tab-progress" hidden></div>
+
+          <!-- Question Report Drawer -->
+          <div class="drawer-backdrop" id="study-report-backdrop" style="display: none;"></div>
+          <aside class="card-inspector-drawer study-report-drawer" id="study-report-drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="study-report-drawer-title">
+            <div class="drawer-header">
+              <h3 class="drawer-title" id="study-report-drawer-title">Report a question</h3>
+              <button type="button" class="drawer-close-btn" id="btn-close-study-report" aria-label="Close report drawer">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            </div>
+            <div class="drawer-body" id="study-report-drawer-body"></div>
+          </aside>
+
         </div>
       </div>
     `;
+
+    this.container.querySelectorAll('.study-segment-tab').forEach((tab) => {
+      tab.addEventListener('click', () => this.switchSegment(tab.dataset.segment));
+    });
 
     const btnDismiss = document.getElementById('btn-dismiss-study-error');
     if (btnDismiss) {
       btnDismiss.addEventListener('click', () => this.clearError());
     }
+
+    document.getElementById('btn-close-study-report')?.addEventListener('click', () => this.closeReportDrawer());
+    document.getElementById('study-report-backdrop')?.addEventListener('click', () => this.closeReportDrawer());
+  }
+
+  openReportDrawer(questionId) {
+    this.reportQuestionId = questionId;
+    const drawer = document.getElementById('study-report-drawer');
+    const backdrop = document.getElementById('study-report-backdrop');
+    this.renderQuestionReportForm(questionId);
+    drawer?.classList.add('is-open');
+    drawer?.setAttribute('aria-hidden', 'false');
+    if (backdrop) backdrop.style.display = 'block';
+    document.getElementById('report-details')?.focus();
+  }
+
+  closeReportDrawer() {
+    const drawer = document.getElementById('study-report-drawer');
+    const backdrop = document.getElementById('study-report-backdrop');
+    drawer?.classList.remove('is-open');
+    drawer?.setAttribute('aria-hidden', 'true');
+    if (backdrop) backdrop.style.display = 'none';
   }
 
   showError(message) {
@@ -173,7 +302,7 @@ export class StudyView {
   renderSetupChooser() {
     this.clearError();
     this.stopActiveTimer();
-    const area = document.getElementById('study-content-area');
+    const area = this.segmentArea('practice');
     if (!area) return;
 
     area.innerHTML = `
@@ -216,8 +345,20 @@ export class StudyView {
           <div class="drill-mode-pills flex gap-2 flex-wrap" id="drill-mode-pills">
             <button type="button" class="tactile-pill drill-mode-pill ${this.selectedSessionType === 'practice' ? 'is-active tactile-pill-gold' : ''}" data-mode="practice">Fresh Questions</button>
             <button type="button" class="tactile-pill drill-mode-pill ${this.selectedSessionType === 'weak_area' ? 'is-active tactile-pill-gold' : ''}" data-mode="weak_area">Weak Spots</button>
-            <button type="button" class="tactile-pill drill-mode-pill ${this.selectedSessionType === 'bookmarked' ? 'is-active tactile-pill-gold' : ''}" data-mode="bookmarked">Bookmarked</button>
             <button type="button" class="tactile-pill drill-mode-pill ${this.selectedSessionType === 'trouble' ? 'is-active tactile-pill-gold' : ''}" data-mode="trouble">Mistakes Review</button>
+          </div>
+        </div>
+
+        <!-- Drill Filters -->
+        <div class="setup-field-group mb-5">
+          <label class="text-xs font-mono text-muted uppercase block mb-2">Filters</label>
+          <div class="study-filter-chips flex gap-2 flex-wrap" id="drill-filter-chips">
+            <button
+              type="button"
+              class="tactile-pill study-filter-chip ${this.bookmarkedOnly ? 'is-active tactile-pill-gold' : ''}"
+              data-filter="bookmarked"
+              aria-pressed="${this.bookmarkedOnly}"
+            >Bookmarked</button>
           </div>
         </div>
 
@@ -298,6 +439,18 @@ export class StudyView {
       });
     });
 
+    // Wire filter chips (Bookmarked is a filter, not a drill mode)
+    area.querySelectorAll('.study-filter-chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const isActive = !btn.classList.contains('is-active');
+        btn.classList.toggle('is-active', isActive);
+        btn.classList.toggle('tactile-pill-gold', isActive);
+        btn.setAttribute('aria-pressed', String(isActive));
+        this.bookmarkedOnly = isActive;
+        this.updateBankSummaryDisplay();
+      });
+    });
+
     // Wire count pills
     area.querySelectorAll('.drill-count-pill').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -337,16 +490,13 @@ export class StudyView {
         );
       });
     }
-    const btnMistakes = document.getElementById('btn-open-mistakes');
-    if (btnMistakes) {
-      btnMistakes.addEventListener('click', () => this.loadMistakesNotebook());
-    }
-    document.getElementById('btn-open-bank')?.addEventListener('click', () => this.loadQuestionBank());
-    document.getElementById('btn-open-progress')?.addEventListener('click', () => this.loadProgress());
+    document.getElementById('btn-open-mistakes')?.addEventListener('click', () => this.switchSegment('mistakes'));
+    document.getElementById('btn-open-bank')?.addEventListener('click', () => this.switchSegment('bank'));
+    document.getElementById('btn-open-progress')?.addEventListener('click', () => this.switchSegment('progress'));
   }
 
   async loadProgress() {
-    const area = document.getElementById('study-content-area');
+    const area = this.segmentArea('progress');
     if (!area) return;
     area.innerHTML = '<div class="tactile-card text-center py-12 text-muted"><span class="font-mono text-sm">Loading progress...</span></div>';
     try {
@@ -357,13 +507,18 @@ export class StudyView {
       this.renderProgress(overview || {}, Array.isArray(weakAreas) ? weakAreas : []);
     } catch (err) {
       console.error('[Study] Progress error:', err);
+      this.renderSegmentFailure(
+        'progress',
+        'Progress unavailable',
+        err.message || 'Unable to load progress.',
+        () => this.loadProgress()
+      );
       this.showError('Progress failed: ' + (err.message || 'Unable to load progress'));
-      this.renderSetupChooser();
     }
   }
 
   renderProgress(overview = {}, weakAreas = []) {
-    const area = document.getElementById('study-content-area');
+    const area = this.segmentArea('progress');
     if (!area) return;
     if (!hasProgressHistory(overview, weakAreas)) {
       area.innerHTML = `
@@ -379,7 +534,7 @@ export class StudyView {
           <p class="text-secondary text-sm max-w-md mx-auto">Complete a practice session to see accuracy and weak areas here.</p>
         </div>
       `;
-      document.getElementById('btn-back-from-progress')?.addEventListener('click', () => this.renderSetupChooser());
+      document.getElementById('btn-back-from-progress')?.addEventListener('click', () => this.switchSegment('practice'));
       return;
     }
 
@@ -398,6 +553,12 @@ export class StudyView {
           <span class="font-mono text-xs text-warm-paper">${formatPercent(item.accuracy)}</span>
         </div>
         <p class="text-secondary text-sm mt-1">${escapeHtml(item.description || item.category || 'Weak area')}</p>
+        <button
+          type="button"
+          class="tactile-btn tactile-btn-sm mt-2 btn-practice-weak-area"
+          data-level="${escapeHtml(item.level || '')}"
+          data-format="${escapeHtml(item.format_code || '')}"
+        >Practice these</button>
       </div>
     `).join('');
     const sectionTimes = summary.time_per_section || summary.time_by_section;
@@ -440,36 +601,53 @@ export class StudyView {
           </section>` : ''}
           <section class="tactile-card surface-pitch-black p-4">
             <h3 class="font-bold text-warm-paper mb-2">Weak areas</h3>
-            <div class="space-y-2">${weakAreas.length ? weakAreas.join('') : '<p class="text-secondary text-sm">No weak areas recorded.</p>'}</div>
+            <div class="space-y-2">${weakAreas.length ? renderWeakAreas : '<p class="text-secondary text-sm">No weak areas recorded.</p>'}</div>
           </section>
         </div>
       </div>
     `;
-    document.getElementById('btn-back-from-progress')?.addEventListener('click', () => this.renderSetupChooser());
+    document.getElementById('btn-back-from-progress')?.addEventListener('click', () => this.switchSegment('practice'));
+    area.querySelectorAll('.btn-practice-weak-area').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.selectedSessionType = 'trouble';
+        this.bookmarkedOnly = false;
+        this.activeLevel = btn.dataset.level || this.activeLevel;
+        this.switchSegment('practice');
+        this.loadPracticeSession(this.activeLevel, this.selectedCount, btn.dataset.format || null);
+      });
+    });
   }
 
-  async loadQuestionBank(filters = {}, page = 1) {
-    const area = document.getElementById('study-content-area');
+  async loadQuestionBank(filters = this.bankFilters, page = 1) {
+    this.bankFilters = { ...this.bankFilters, ...(filters || {}) };
+    this.bankPage = page;
+    const area = this.segmentArea('bank');
     if (!area) return;
     area.innerHTML = '<div class="tactile-card text-center py-12 text-muted"><span class="font-mono text-sm">Loading question bank...</span></div>';
     try {
       const response = await studyClient.searchQuestions({
-        level: filters.level || undefined,
-        format_code: filters.format || undefined,
-        verification_status: filters.status || undefined,
+        level: this.bankFilters.level || undefined,
+        format_code: this.bankFilters.format || undefined,
+        verification_status: this.bankFilters.status || undefined,
+        is_bookmarked: this.bankFilters.bookmarked ? true : undefined,
         limit: 10,
         offset: (Math.max(1, page) - 1) * 10
       });
-      this.renderQuestionBank(response?.items || [], filters, response?.total, page);
+      this.renderQuestionBank(response?.items || [], this.bankFilters, response?.total, page);
     } catch (err) {
       console.error('[Study] Question bank error:', err);
+      this.renderSegmentFailure(
+        'bank',
+        'Question bank unavailable',
+        err.message || 'Unable to load questions.',
+        () => this.loadQuestionBank(this.bankFilters, this.bankPage)
+      );
       this.showError('Question bank failed: ' + (err.message || 'Unable to load questions'));
-      this.renderSetupChooser();
     }
   }
 
   renderQuestionBank(items, filters = {}, totalFromApi = null, page = 1) {
-    const area = document.getElementById('study-content-area');
+    const area = this.segmentArea('bank');
     if (!area) return;
     const formats = [...new Set(items.map((item) => item.format_code).filter(Boolean))].sort();
     const statuses = [...new Set(items.map((item) => item.verification_status).filter(Boolean))].sort();
@@ -501,16 +679,25 @@ export class StudyView {
             <option value="">All statuses</option>
             ${statuses.map((status) => `<option value="${escapeHtml(status)}" ${filters.status === status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}
           </select>
+          <button
+            type="button"
+            class="tactile-pill study-filter-chip ${filters.bookmarked ? 'is-active tactile-pill-gold' : ''}"
+            id="bank-bookmarked-filter"
+            aria-pressed="${Boolean(filters.bookmarked)}"
+          >Bookmarked</button>
         </div>
         <div id="bank-list">
           ${pageData.items.length ? pageData.items.map((item) => `
-            <button type="button" class="tactile-card-interactive w-full text-left p-3 mb-2 bank-list-item" data-question-id="${escapeHtml(String(item.question_id))}">
-              <div class="flex items-center justify-between gap-2">
-                <span class="font-mono text-xs text-gold">${escapeHtml(item.level || '')} · ${escapeHtml(item.format_code || '')}</span>
-                <span class="text-xs text-muted">${escapeHtml(item.verification_status || 'unverified')}</span>
-              </div>
-              <div class="font-japanese text-warm-paper mt-1">${item.prompt_html || escapeHtml(item.prompt_markup || '')}</div>
-            </button>
+            <div class="bank-list-row" data-question-id="${escapeHtml(String(item.question_id))}">
+              <button type="button" class="tactile-card-interactive w-full text-left p-3 bank-list-item" data-question-id="${escapeHtml(String(item.question_id))}">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="font-mono text-xs text-gold">${escapeHtml(item.level || '')} · ${escapeHtml(item.format_code || '')}</span>
+                  <span class="text-xs text-muted">${escapeHtml(item.verification_status || 'unverified')}</span>
+                </div>
+                <div class="font-japanese text-warm-paper mt-1">${item.prompt_html || escapeHtml(item.prompt_markup || '')}</div>
+              </button>
+              <button type="button" class="tactile-btn tactile-btn-sm bank-row-report" data-question-id="${escapeHtml(String(item.question_id))}">Report</button>
+            </div>
           `).join('') : '<div class="study-empty-state text-center py-8 text-secondary">No questions match these filters.</div>'}
         </div>
         <div class="flex items-center justify-between mt-4">
@@ -525,7 +712,7 @@ export class StudyView {
       </div>
     `;
 
-    document.getElementById('btn-back-from-bank')?.addEventListener('click', () => this.renderSetupChooser());
+    document.getElementById('btn-back-from-bank')?.addEventListener('click', () => this.switchSegment('practice'));
     const applyFilters = () => this.loadQuestionBank({
       level: document.getElementById('bank-level-filter')?.value || '',
       format: document.getElementById('bank-format-filter')?.value || '',
@@ -534,10 +721,17 @@ export class StudyView {
     document.getElementById('bank-level-filter')?.addEventListener('change', applyFilters);
     document.getElementById('bank-format-filter')?.addEventListener('change', applyFilters);
     document.getElementById('bank-status-filter')?.addEventListener('change', applyFilters);
-    document.getElementById('btn-bank-prev')?.addEventListener('click', () => this.loadQuestionBank(filters, currentPage - 1));
-    document.getElementById('btn-bank-next')?.addEventListener('click', () => this.loadQuestionBank(filters, currentPage + 1));
+    document.getElementById('bank-bookmarked-filter')?.addEventListener('click', () => {
+      this.bankFilters.bookmarked = !this.bankFilters.bookmarked;
+      this.loadQuestionBank(this.bankFilters, 1);
+    });
+    document.getElementById('btn-bank-prev')?.addEventListener('click', () => this.loadQuestionBank(this.bankFilters, currentPage - 1));
+    document.getElementById('btn-bank-next')?.addEventListener('click', () => this.loadQuestionBank(this.bankFilters, currentPage + 1));
     area.querySelectorAll('.bank-list-item').forEach((button) => {
       button.addEventListener('click', () => this.loadQuestionDetail(button.dataset.questionId));
+    });
+    area.querySelectorAll('.bank-row-report').forEach((button) => {
+      button.addEventListener('click', () => this.openReportDrawer(button.dataset.questionId));
     });
   }
 
@@ -559,10 +753,9 @@ export class StudyView {
           <div class="text-xs text-muted mb-3">Answer: ${escapeHtml(question?.canonical_choice_key || 'Not recorded')} · Verification: ${escapeHtml(provenance?.verification?.status || 'unverified')}</div>
           <div class="text-xs text-secondary mb-3">Provenance: ${escapeHtml((provenance?.sources || []).map((source) => source.citation || source.name).filter(Boolean).join('; ') || 'No source recorded')}</div>
           <button type="button" class="tactile-btn tactile-btn-primary" id="btn-report-question">Report a defect</button>
-          <div id="bank-report-form" class="mt-3"></div>
         </div>
       `;
-      document.getElementById('btn-report-question')?.addEventListener('click', () => this.renderQuestionReportForm(questionId));
+      document.getElementById('btn-report-question')?.addEventListener('click', () => this.openReportDrawer(questionId));
     } catch (err) {
       console.error('[Study] Question detail error:', err);
       detail.innerHTML = `<div class="text-secondary text-sm">${escapeHtml(err.message || 'Unable to load question detail.')}</div>`;
@@ -570,9 +763,10 @@ export class StudyView {
   }
 
   renderQuestionReportForm(questionId) {
-    const form = document.getElementById('bank-report-form');
-    if (!form) return;
-    form.innerHTML = `
+    const body = document.getElementById('study-report-drawer-body');
+    if (!body) return;
+    body.innerHTML = `
+      <p class="text-xs text-muted font-mono">Question ${escapeHtml(String(questionId))}</p>
       <form id="question-report-form">
         <label class="text-xs font-mono text-muted uppercase block mb-1" for="report-issue-type">Issue type</label>
         <select class="tactile-input w-full mb-2" id="report-issue-type">
@@ -604,22 +798,28 @@ export class StudyView {
     });
   }
 
-  async loadMistakesNotebook(filters = {}) {
-    const area = document.getElementById('study-content-area');
+  async loadMistakesNotebook(filters = this.mistakesFilters) {
+    this.mistakesFilters = { ...this.mistakesFilters, ...(filters || {}) };
+    const area = this.segmentArea('mistakes');
     if (!area) return;
     area.innerHTML = '<div class="tactile-card text-center py-12 text-muted"><span class="font-mono text-sm">Loading mistakes...</span></div>';
     try {
-      const response = await studyClient.getIncorrectHistory({ limit: 100, ...filters });
-      this.renderMistakesNotebook(response?.items || [], filters);
+      const response = await studyClient.getIncorrectHistory({ limit: 100, ...this.mistakesFilters });
+      this.renderMistakesNotebook(response?.items || [], this.mistakesFilters);
     } catch (err) {
       console.error('[Study] Mistakes history error:', err);
+      this.renderSegmentFailure(
+        'mistakes',
+        'Mistakes unavailable',
+        err.message || 'Unable to load history.',
+        () => this.loadMistakesNotebook(this.mistakesFilters)
+      );
       this.showError('Mistakes notebook failed: ' + (err.message || 'Unable to load history'));
-      this.renderSetupChooser();
     }
   }
 
   renderMistakesNotebook(items, filters = {}) {
-    const area = document.getElementById('study-content-area');
+    const area = this.segmentArea('mistakes');
     if (!area) return;
     const formats = [...new Set(items.map((item) => item.format_code).filter(Boolean))].sort();
     const visibleItems = filterMistakes(items, filters);
@@ -639,7 +839,7 @@ export class StudyView {
           </select>
           <select class="tactile-input" id="mistakes-format-filter" aria-label="Filter by format">
             <option value="">All formats</option>
-            ${formats.map((format) => `<option value="${escapeHtml(format)}" ${filters.format === format ? 'selected' : ''}>${escapeHtml(format)}</option>`).join('')}
+            ${formats.map((format) => `<option value="${escapeHtml(format)}" ${filters.format_code === format ? 'selected' : ''}>${escapeHtml(format)}</option>`).join('')}
           </select>
           <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-practice-mistakes">Practice Mistakes</button>
         </div>
@@ -658,7 +858,7 @@ export class StudyView {
       </div>
     `;
 
-    document.getElementById('btn-back-to-study')?.addEventListener('click', () => this.renderSetupChooser());
+    document.getElementById('btn-back-to-study')?.addEventListener('click', () => this.switchSegment('practice'));
     const levelFilter = document.getElementById('mistakes-level-filter');
     const formatFilter = document.getElementById('mistakes-format-filter');
     const applyFilters = () => this.loadMistakesNotebook({
@@ -669,6 +869,8 @@ export class StudyView {
     formatFilter?.addEventListener('change', applyFilters);
     document.getElementById('btn-practice-mistakes')?.addEventListener('click', () => {
       this.selectedSessionType = 'trouble';
+      this.bookmarkedOnly = false;
+      this.switchSegment('practice');
       this.loadPracticeSession(filters.level || this.activeLevel, this.selectedCount, filters.format_code || null);
     });
     area.querySelectorAll('.mistake-list-item').forEach((button) => {
@@ -697,6 +899,8 @@ export class StudyView {
       `;
       document.getElementById('btn-practice-selected-mistake')?.addEventListener('click', () => {
         this.selectedSessionType = 'trouble';
+        this.bookmarkedOnly = false;
+        this.switchSegment('practice');
         this.loadPracticeSession(item.level, 1, item.format_code || null);
       });
     } catch (err) {
@@ -738,7 +942,7 @@ export class StudyView {
     this.sessionSummary = { correct: 0, total: 0 };
     this.isLoading = true;
 
-    const area = document.getElementById('study-content-area');
+    const area = this.segmentArea('practice');
     if (area) {
       area.innerHTML = `
         <div class="tactile-card text-center py-12 text-muted">
@@ -755,7 +959,7 @@ export class StudyView {
         category,
         session_type: this.selectedSessionType,
         ...(this.selectedSessionType === 'weak_area' ? { target_weak_areas: true } : {}),
-        ...(this.selectedSessionType === 'bookmarked' ? { bookmarked_only: true } : {}),
+        ...((this.bookmarkedOnly || this.selectedSessionType === 'bookmarked') ? { bookmarked_only: true } : {}),
         ...(['trouble', 'review'].includes(this.selectedSessionType) ? { incorrect_only: true } : {})
       });
       const items = session?.items || [];
@@ -808,7 +1012,7 @@ export class StudyView {
       return;
     }
 
-    const area = document.getElementById('study-content-area');
+    const area = this.segmentArea('practice');
     if (!area) return;
     const label = recovery.type === 'exam' ? 'exam' : 'practice drill';
     area.innerHTML = `
@@ -860,7 +1064,7 @@ export class StudyView {
   }
 
   renderEmptyState(level, message) {
-    const area = document.getElementById('study-content-area');
+    const area = this.segmentArea('practice');
     if (!area) return;
 
     area.innerHTML = `
@@ -893,7 +1097,7 @@ export class StudyView {
   }
 
   renderQuestion() {
-    const area = document.getElementById('study-content-area');
+    const area = this.segmentArea('practice');
     if (!area) return;
 
     const item = this.practiceItems[this.currentQuestionIndex];
@@ -919,6 +1123,7 @@ export class StudyView {
 
     const audioAssetId = item.audio_asset_id || item.media_asset_id || item.listening_audio_asset_id || (item.assets?.find(a => a.role === 'audio' || a.asset_type === 'audio')?.asset_id);
     const diagramAssetId = item.diagram_asset_id || item.image_asset_id || (item.assets?.find(a => a.role === 'diagram' || a.asset_type === 'image')?.asset_id);
+    const reportQuestionId = item.question_id ?? item.id ?? null;
 
     area.innerHTML = `
       <!-- Drill Session Header Bar -->
@@ -926,6 +1131,7 @@ export class StudyView {
         <div class="study-header-left">
           <span class="tactile-pill tactile-pill-gold">${escapeHtml(level)} · ${escapeHtml(category)}</span>
           <span class="study-question-count font-mono">Item ${this.currentQuestionIndex + 1} of ${this.practiceItems.length}</span>
+          ${reportQuestionId !== null ? `<button type="button" class="tactile-btn tactile-btn-sm study-flag-question" id="btn-flag-question">Flag</button>` : ''}
         </div>
         <div class="study-timer font-mono text-sm" id="study-active-timer">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="vertical-align: -2px; margin-right: 4px;"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0 0 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9a8.994 8.994 0 0 0 7.03-14.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>Active: <span id="study-timer-val">${this.formatTimer(this.elapsedSeconds)}</span>
@@ -1074,6 +1280,11 @@ export class StudyView {
       });
     }
 
+    // In-drill report flag
+    document.getElementById('btn-flag-question')?.addEventListener('click', () => {
+      this.openReportDrawer(reportQuestionId);
+    });
+
     // Rating buttons listeners
     area.querySelectorAll('.btn-rate-difficulty').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
@@ -1167,7 +1378,7 @@ export class StudyView {
 
   async renderCompleteState() {
     this.stopActiveTimer();
-    const area = document.getElementById('study-content-area');
+    const area = this.segmentArea('practice');
     if (!area) return;
 
     if (this.sessionId) {
@@ -1250,7 +1461,16 @@ export class StudyView {
   }
 
   handleKeyDown(e) {
+    if (e.key === 'Escape') {
+      const drawer = document.getElementById('study-report-drawer');
+      if (drawer?.classList.contains('is-open')) {
+        e.preventDefault();
+        this.closeReportDrawer();
+        return;
+      }
+    }
     if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+    if (this.activeSegment !== 'practice') return;
     const item = this.practiceItems[this.currentQuestionIndex];
     if (!item) return;
 
@@ -1281,6 +1501,7 @@ export class StudyView {
   unmount() {
     this.onHide();
     this.stopActiveTimer();
+    this.closeReportDrawer();
     if (this.activeBlobUrls && this.activeBlobUrls.length > 0) {
       this.activeBlobUrls.forEach(url => studyClient.revokeMediaBlobUrl(url));
       this.activeBlobUrls = [];

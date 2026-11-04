@@ -5145,6 +5145,73 @@ html:active-view-transition-type(backward)::view-transition-new(root) {
   gap: 1.25rem;
 }
 
+/* Study section segmented control */
+.study-segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 3px;
+  background-color: var(--surface-container);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.study-segment-tab {
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+
+.study-segment-tab.is-active {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+}
+
+.study-segment-tab:focus-visible {
+  outline: 2px solid var(--warm-paper);
+  outline-offset: 2px;
+}
+
+.study-segment-pane[hidden] {
+  display: none;
+}
+
+.study-filter-chip {
+  min-height: 32px;
+}
+
+.study-flag-question {
+  margin-left: 0.25rem;
+}
+
+.bank-list-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.bank-list-row .bank-list-item {
+  flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .study-segment-tab,
+  #study-report-drawer {
+    transition: none;
+  }
+}
+
 .study-error-banner {
   display: flex;
   align-items: center;
