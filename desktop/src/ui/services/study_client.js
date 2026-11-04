@@ -362,7 +362,7 @@ export class StudyClient {
   async getPdfPages(importId, fromPage = 1, toPage = 20) {
     return this.request({
       method: 'GET',
-      path: /api/study/v1/bank/import/pdf//pages,
+      path: `/api/study/v1/bank/import/pdf/${importId}/pages`,
       query: { from: fromPage, to: toPage }
     });
   }
@@ -370,7 +370,7 @@ export class StudyClient {
   async previewPdfImport(importId, options = {}) {
     return this.request({
       method: 'POST',
-      path: /api/study/v1/bank/import/pdf//preview,
+      path: `/api/study/v1/bank/import/pdf/${importId}/preview`,
       body: {
         pages: options.pages || [],
         default_level: options.default_level || 'N5',
