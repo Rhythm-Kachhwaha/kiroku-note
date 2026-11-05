@@ -1046,4 +1046,53 @@ function setupIpcHandlers() {
     await refreshServicesStatus(true);
     return trayServicesStatus;
   });
+
+  // --- Theater Tier 2 IPC Handlers (Slice 43) ---
+  const { TheaterViewController } = require('./theater_view.js');
+  const theaterController = new TheaterViewController({
+    mainWindow,
+    onDrmDetected: (info) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('theater:drm-alert', info);
+      }
+    },
+    onAskHostApproval: async (_hostname) => {
+      return true;
+    }
+  });
+
+  ipcMain.handle('theater:open-url', async (_event, url, bounds) => {
+    return await theaterController.openUrl(url, bounds);
+  });
+
+  ipcMain.handle('theater:close', async () => {
+    theaterController.close();
+    return { ok: true };
+  });
+
+  ipcMain.handle('theater:command', async (_event, cmd, payload) => {
+    return theaterController.sendCommand(cmd, payload);
+  });
+
+  ipcMain.handle('theater:status', () => {
+    return theaterController.getStatus();
+  });
+
+  ipcMain.handle('theater:open-command', async (_event, payload = {}) => {
+    const url = payload.url;
+    if (url) {
+      return await theaterController.openUrl(url);
+    }
+    return { ok: false, error: 'No URL provided' };
+  });
+
+  ipcMain.on('theater:drm-detected', (_event, info) => {
+    theaterController.handleDrmDetection(info);
+  });
+
+  ipcMain.on('theater:bridge:event', (_event, data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('theater:bridge:event', data);
+    }
+  });
 }
