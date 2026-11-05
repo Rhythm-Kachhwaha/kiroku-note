@@ -19,6 +19,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.services.yomitan import (
+    DictionaryDatabaseMissingError,
     IdentifiedTerm,
     YomitanError,
     YomitanResponseError,
@@ -79,6 +80,31 @@ def resolve_dictionary_db_path(custom_path: str | Path | None = None) -> Path:
             return cand
 
     return repo_root / "kiroku_dict.sqlite"
+
+
+def get_dictionary_db_info(custom_path: str | Path | None = None) -> dict[str, Any]:
+    """Inspect and return metadata flags for the resolved local dictionary database."""
+    resolved = resolve_dictionary_db_path(custom_path)
+    db_present = resolved.is_file()
+    jitendex = False
+    kanjidic = False
+    if db_present:
+        try:
+            conn = sqlite3.connect(f"file:{resolved}?mode=ro", uri=True)
+            cur = conn.cursor()
+            cur.execute("SELECT key, value FROM meta WHERE key IN ('jitendex_title', 'kanjidic_title')")
+            meta = dict(cur.fetchall())
+            jitendex = bool(meta.get("jitendex_title"))
+            kanjidic = bool(meta.get("kanjidic_title"))
+            conn.close()
+        except Exception:
+            pass
+    return {
+        "db_present": db_present,
+        "db_path": str(resolved),
+        "jitendex": jitendex,
+        "kanjidic": kanjidic,
+    }
 
 
 class DictionaryProvider(ABC):
@@ -238,8 +264,9 @@ class LocalDictionaryProvider(DictionaryProvider):
     def _get_engine(self) -> Any:
         if self._engine is None:
             if not os.path.exists(self._db_path):
-                raise YomitanUnavailableError(
-                    f"Local dictionary database not found at '{self._db_path}'. Build it with: python -m kiroku_dictionary.build"
+                raise DictionaryDatabaseMissingError(
+                    db_path=self._db_path,
+                    message=f"Local dictionary database not found at '{self._db_path}'. Run provisioning in Settings > Dictionary.",
                 )
             from kiroku_dictionary import DictionaryEngine
             self._engine = DictionaryEngine(self._db_path)

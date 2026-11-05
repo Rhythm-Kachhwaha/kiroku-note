@@ -225,6 +225,75 @@ def save_stored_llm_config(config_dict: dict[str, Any], env: dict[str, str] | No
         json.dump(cleaned, f, indent=2, ensure_ascii=False)
 
 
+def get_app_config_file_path(env: dict[str, str] | None = None) -> Path:
+    """Resolve JSON file path for stored general application configuration."""
+    return get_data_dir(env) / "app_config.json"
+
+
+def load_stored_app_config(env: dict[str, str] | None = None) -> dict[str, Any]:
+    """Load stored application settings from JSON file in user data directory."""
+    config_path = get_app_config_file_path(env)
+    if not config_path.is_file():
+        return {}
+    try:
+        import json
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        record_operational_failure("config.app_config_load", exc)
+        return {}
+
+
+def save_stored_app_config(config_dict: dict[str, Any], env: dict[str, str] | None = None) -> None:
+    """Save application settings to JSON file in user data directory."""
+    config_path = get_app_config_file_path(env)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    import json
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config_dict, f, indent=2, ensure_ascii=False)
+
+
+VALID_DICTIONARY_BACKENDS = frozenset({"local", "local+yomitan", "yomitan", "auto"})
+
+
+def get_dictionary_backend(env: dict[str, str] | None = None) -> str:
+    """Resolve configured dictionary backend: local (default), local+yomitan, yomitan, auto."""
+    env_dict = os.environ if env is None else env
+    val = env_dict.get("DICTIONARY_BACKEND") or env_dict.get("KIROKU_DICTIONARY_BACKEND")
+    if val:
+        norm = val.strip().lower()
+        if norm in VALID_DICTIONARY_BACKENDS:
+            return norm
+    stored = load_stored_app_config(env_dict)
+    dict_cfg = stored.get("dictionary")
+    if isinstance(dict_cfg, dict) and "backend" in dict_cfg:
+        norm = str(dict_cfg["backend"]).strip().lower()
+        if norm in VALID_DICTIONARY_BACKENDS:
+            return norm
+    return "local"
+
+
+def is_yomitan_secondary_enabled(env: dict[str, str] | None = None) -> bool:
+    """Resolve whether Yomitan secondary lookup is enabled."""
+    env_dict = os.environ if env is None else env
+    val = env_dict.get("KIROKU_YOMITAN_SECONDARY") or env_dict.get("KIROKU_DICTIONARY_YOMITAN_SECONDARY")
+    if val is not None:
+        return val.strip().lower() in {"1", "true", "yes", "on"}
+
+    stored = load_stored_app_config(env_dict)
+    dict_cfg = stored.get("dictionary")
+    if isinstance(dict_cfg, dict) and "yomitan_secondary" in dict_cfg:
+        return bool(dict_cfg["yomitan_secondary"])
+    if "dictionary.yomitan_secondary" in stored:
+        return bool(stored["dictionary.yomitan_secondary"])
+
+    backend = get_dictionary_backend(env_dict)
+    if backend in ("local+yomitan", "auto"):
+        return True
+    return False
+
+
 def get_app_data_dir(env: dict[str, str] | None = None) -> Path:
     """
     Resolve the base user-data directory for Kiroku Note.

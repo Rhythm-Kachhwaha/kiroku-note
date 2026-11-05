@@ -294,6 +294,7 @@ class HealthResponse(BaseModel):
     tokenizer: str = "legacy"
     tokenizer_dictionary: str = "openjlpt"
     tokenizer_ready: bool = True
+    dictionary: Optional[dict[str, Any]] = None
 
 
 class AnkiStatusResponse(BaseModel):

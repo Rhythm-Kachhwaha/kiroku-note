@@ -21,6 +21,8 @@ def capture_term(request: CaptureRequest) -> CaptureResponse:
             return service.capture_and_save(request.text, request.deck_name)
         return service.capture_term(request.text, request.deck_name)
     except YomitanError as error:
+        code = getattr(error, "code", None)
+        detail = {"code": code, "message": str(error)} if code else str(error)
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail
         ) from error

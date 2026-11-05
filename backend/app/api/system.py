@@ -16,6 +16,7 @@ from app.config import (
 )
 from app.db.connection import db_session
 from app.schemas import HealthResponse
+from app.services.dictionary_provider import get_dictionary_db_info, YomitanHttpProvider
 from app.services.legacy_api_auth import legacy_api_auth
 from app.services.ocr_service import OcrService
 from app.services.operational_diagnostics import record_operational_failure
@@ -102,14 +103,44 @@ def get_health() -> HealthResponse:
         record_operational_failure("health.database", exc)
         db_ok = False
 
-    # 2. Yomitan check (reused singleton, not reconstructed per request)
+    # 2. Yomitan / Dictionary check (reused singleton, not reconstructed per request)
     yomitan_ok = False
+    dict_health: dict[str, Any] = {}
     try:
         yomitan_service = _health_yomitan()
         yomitan_ok = yomitan_service.check_availability()
+        db_info = get_dictionary_db_info()
+        yomitan_reachable = False
+        try:
+            if getattr(yomitan_service, "_yomitan_provider", None) is not None:
+                yomitan_reachable = yomitan_service._yomitan_provider.check_availability()
+            else:
+                yomitan_reachable = YomitanHttpProvider().check_availability()
+        except Exception:
+            yomitan_reachable = False
+
+        dict_health = {
+            "backend": yomitan_service.backend_name,
+            "db_present": db_info["db_present"],
+            "db_path": db_info["db_path"],
+            "jitendex": db_info["jitendex"],
+            "kanjidic": db_info["kanjidic"],
+            "yomitan_secondary": bool(getattr(yomitan_service, "yomitan_secondary_enabled", False)),
+            "yomitan_reachable": bool(yomitan_reachable),
+        }
     except Exception as exc:
         record_operational_failure("health.yomitan", exc)
         yomitan_ok = False
+        db_info = get_dictionary_db_info()
+        dict_health = {
+            "backend": "local",
+            "db_present": db_info["db_present"],
+            "db_path": db_info["db_path"],
+            "jitendex": db_info["jitendex"],
+            "kanjidic": db_info["kanjidic"],
+            "yomitan_secondary": False,
+            "yomitan_reachable": False,
+        }
 
     # 3. AnkiConnect check (reused singleton, not reconstructed per request)
     anki_ok = False
@@ -142,6 +173,7 @@ def get_health() -> HealthResponse:
         tokenizer=tokenizer["tokenizer"],
         tokenizer_dictionary=tokenizer["dictionary"],
         tokenizer_ready=tokenizer["ready"],
+        dictionary=dict_health,
     )
     _health_cache["timestamp"] = time.monotonic()
     _health_cache["response"] = response
