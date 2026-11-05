@@ -12,6 +12,7 @@ const API_OCR_STATUS_URL = `${BACKEND_BASE_URL}/api/ocr/status`;
 const API_OCR_RECOGNIZE_URL = `${BACKEND_BASE_URL}/api/ocr/recognize`;
 const API_YOMITAN_DICTIONARIES_URL = `${BACKEND_BASE_URL}/api/yomitan/dictionaries`;
 const API_HEALTH_URL = `${BACKEND_BASE_URL}/api/health`;
+const API_SETUP_CHECKLIST_URL = `${BACKEND_BASE_URL}/api/setup/checklist`;
 const API_CARDS_STATS_URL = `${BACKEND_BASE_URL}/api/cards/stats`;
 const API_CARDS_BULK_DELETE_URL = `${BACKEND_BASE_URL}/api/cards/bulk`;
 const API_CARDS_BULK_SYNC_URL = `${BACKEND_BASE_URL}/api/cards/bulk-sync`;
@@ -1867,6 +1868,35 @@ function ensureSecondaryYomitanIndicator() {
   return indicatorYomitanSecondary;
 }
 
+async function checkSetupChecklist() {
+  try {
+    const res = await fetch(API_SETUP_CHECKLIST_URL);
+    if (!res.ok) return null;
+    const items = await res.json().catch(() => []);
+    if (!Array.isArray(items)) return null;
+    const failedRequired = items.filter((item) => item && item.required && !item.ok);
+    if (failedRequired.length > 0) {
+      const first = failedRequired[0];
+      showBackendBanner(
+        "setup-failure",
+        `Setup issue: ${first.detail || first.id}`,
+        "Settings",
+        () => {
+          if (typeof switchMiningTab === "function") switchMiningTab("settings");
+        }
+      );
+      return items;
+    }
+    const banner = typeof document !== "undefined" ? document.querySelector("#backend-error-banner") : null;
+    if (banner && banner.classList && banner.classList.contains("setup-failure")) {
+      hideBackendBanner();
+    }
+    return items;
+  } catch (err) {
+    return null;
+  }
+}
+
 async function checkHealthStatus() {
   try {
     const res = await fetch(API_HEALTH_URL);
@@ -1913,6 +1943,8 @@ async function checkHealthStatus() {
     } else {
       setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Offline");
     }
+
+    await checkSetupChecklist();
 
     return data;
   } catch (_) {
@@ -12300,6 +12332,9 @@ if (typeof module !== "undefined" && module.exports) {
     checkAnkiStatus,
     triggerSyncAll,
     checkHealthStatus,
+    checkSetupChecklist,
+    showBackendBanner,
+    hideBackendBanner,
     exportCardsCsv,
     btnExportCards,
     settingShowVerbType,

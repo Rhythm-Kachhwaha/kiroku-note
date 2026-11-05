@@ -1,5 +1,5 @@
 # Status
-Anime immersion verification audit complete across features A-E.
-Hardware acceleration toggle, hover gloss, and furigana verified.
-Push layout inspector and next episode bridge verified.
-All 30 desktop, 2 extension, and 53 backend tests pass green.
+Setup checklist endpoint added at /api/setup/checklist.
+Desktop Settings wired with checklist and fix action buttons.
+Extension sidepanel banner triggers on required item failures.
+All setup checklist backend, desktop, and ext tests pass.

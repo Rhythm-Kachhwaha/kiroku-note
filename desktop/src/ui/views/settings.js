@@ -58,6 +58,9 @@ export class SettingsView {
               <a href="#settings-section-level" class="settings-rail-link is-active" data-target="settings-section-level">
                 <span>Level</span>
               </a>
+              <a href="#settings-section-checklist" class="settings-rail-link" data-target="settings-section-checklist">
+                <span>Checklist</span>
+              </a>
               <a href="#settings-section-dictionary-anki" class="settings-rail-link" data-target="settings-section-dictionary-anki">
                 <span>Dictionary &amp; Anki</span>
               </a>
@@ -116,6 +119,29 @@ export class SettingsView {
                       Upload mock test PDFs, pasted practice sentences, or JSON question sets to extract and preview questions directly into your Study Bank.
                     </p>
                     <div id="settings-upload-questions-mount" class="mt-3"></div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Section: Setup Checklist -->
+              <section class="settings-section" id="settings-section-checklist">
+                <div class="settings-group-header">
+                  <span class="font-mono text-xs text-gold">Setup &amp; Health</span>
+                  <h2 class="text-base font-bold text-warm-paper">Setup Checklist</h2>
+                </div>
+                <div class="settings-cards-grid mt-2">
+                  <div class="settings-card tactile-card" id="card-setup-checklist">
+                    <div class="card-header-row">
+                      <div>
+                        <h3 class="card-title">System Setup &amp; Dependencies</h3>
+                        <p class="card-desc">Verify local database, services, extension pairing, and dependencies.</p>
+                      </div>
+                      <button type="button" class="tactile-btn text-xs" id="btn-refresh-checklist">Refresh Checklist</button>
+                    </div>
+
+                    <div class="setup-checklist-list mt-3 flex flex-col gap-2" id="setup-checklist-items">
+                      <div class="text-xs font-mono text-muted">Loading checklist...</div>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -649,6 +675,42 @@ export class SettingsView {
       });
     }
 
+    // Setup Checklist Refresh button
+    const btnRefreshChecklist = document.getElementById('btn-refresh-checklist');
+    if (btnRefreshChecklist) {
+      btnRefreshChecklist.addEventListener('click', async () => {
+        btnRefreshChecklist.disabled = true;
+        btnRefreshChecklist.textContent = 'Checking...';
+        try {
+          await this.loadSetupChecklist();
+        } finally {
+          btnRefreshChecklist.disabled = false;
+          btnRefreshChecklist.textContent = 'Refresh Checklist';
+        }
+      });
+    }
+
+    // Setup Checklist action delegation (Provision dictionary, copy pairing code)
+    const checklistContainer = document.getElementById('setup-checklist-items');
+    if (checklistContainer) {
+      checklistContainer.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.btn-checklist-action');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        if (action === 'provision_dictionary') {
+          const btnProv = document.getElementById('btn-provision-dict');
+          if (btnProv) {
+            btnProv.click();
+          } else {
+            await apiClient.request('/api/dictionary/provision', { method: 'POST' });
+            await this.loadSetupChecklist();
+          }
+        } else if (action === 'copy_pairing_code') {
+          await this.handleCopyPairingCode(btn);
+        }
+      });
+    }
+
     // Provision Dictionary button
     const btnProvDict = document.getElementById('btn-provision-dict');
     if (btnProvDict) {
@@ -938,7 +1000,9 @@ export class SettingsView {
       if (toggle) {
         toggle.checked = hwEnabled;
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn('[Settings] Failed reading hardware acceleration setting:', err);
+    }
 
     // Language engine status & stored mode
     try {
@@ -1039,6 +1103,117 @@ export class SettingsView {
       }
     } catch (err) {
       console.warn('[Settings] Initial LLM config error:', err);
+    }
+
+    // 4. Setup Checklist
+    try {
+      await this.loadSetupChecklist();
+    } catch (err) {
+      console.warn('[Settings] Initial setup checklist error:', err);
+    }
+  }
+
+  async handleCopyPairingCode(btn) {
+    try {
+      let code = null;
+      if (typeof window !== 'undefined' && window.electronAPI?.extensionPairing?.create) {
+        const res = await window.electronAPI.extensionPairing.create();
+        code = res?.code;
+      } else {
+        const generatedCode = 'KP-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+        try {
+          await apiClient.request('/api/auth/extension-pairings/register', {
+            method: 'POST',
+            body: JSON.stringify({ code: generatedCode, label: 'Desktop Settings' }),
+            headers: { 'Content-Type': 'application/json' },
+          });
+          code = generatedCode;
+        } catch {
+          code = generatedCode;
+        }
+      }
+
+      if (code && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(code);
+      }
+
+      if (btn) {
+        const origText = btn.textContent;
+        btn.textContent = 'Code Copied!';
+        btn.disabled = true;
+        setTimeout(() => {
+          btn.textContent = origText;
+          btn.disabled = false;
+        }, 3000);
+      }
+    } catch (err) {
+      console.warn('[Settings] Failed copying pairing code:', err);
+      this.showError('Failed to copy pairing code: ' + (err.message || 'Unknown error'));
+    }
+  }
+
+  async loadSetupChecklist() {
+    const container = document.getElementById('setup-checklist-items');
+    if (!container) return;
+
+    try {
+      const items = await apiClient.request('/api/setup/checklist');
+      if (!Array.isArray(items)) return;
+
+      const titles = {
+        dictionary_db: 'Dictionary Database',
+        tokenizer_dict: 'Tokenizer Dictionary',
+        extension_pairing: 'Extension Origin & Pairing',
+        anki: 'AnkiConnect Reachability',
+        pdf_dependency: 'PDF Reader Dependency',
+        data_dir_writable: 'Data Directory Permissions',
+        yomitan: 'Yomitan Server (Secondary)',
+        ocr: 'Manga-OCR Service',
+      };
+
+      container.innerHTML = items.map((item) => {
+        const title = titles[item.id] || item.id;
+        let dotState = 'ready';
+        let dotTitle = 'Ready';
+        if (!item.ok) {
+          if (item.informational) {
+            dotState = 'stopped';
+            dotTitle = 'Offline (Optional)';
+          } else {
+            dotState = 'error';
+            dotTitle = 'Attention Required';
+          }
+        }
+
+        let actionBtnHtml = '';
+        if (!item.ok && item.fix_action === 'provision_dictionary') {
+          actionBtnHtml = '<button type="button" class="tactile-btn tactile-btn-primary text-xs btn-checklist-action" data-action="provision_dictionary">Provision Dictionary</button>';
+        } else if (item.fix_action === 'copy_pairing_code' || item.id === 'extension_pairing') {
+          actionBtnHtml = '<button type="button" class="tactile-btn text-xs btn-checklist-action" data-action="copy_pairing_code">Copy Pairing Code</button>';
+        }
+
+        return `
+          <div class="checklist-item flex items-center justify-between p-2 rounded border border-glass bg-glass-surface" data-item-id="${escapeHtml(item.id)}">
+            <div class="flex items-center gap-3">
+              <span class="status-dot" data-state="${dotState}" title="${dotTitle}"></span>
+              <div>
+                <div class="font-medium text-xs text-warm-paper">${escapeHtml(title)}</div>
+                <div class="font-mono text-xs text-muted">${escapeHtml(item.detail || '')}</div>
+              </div>
+            </div>
+            <div class="checklist-actions flex items-center gap-2">
+              ${actionBtnHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      console.warn('[Settings] Failed loading setup checklist:', err);
+      container.innerHTML = `
+        <div class="text-xs font-mono text-muted">
+          Unable to load setup checklist: ${escapeHtml(err.message || 'API error')}
+        </div>
+      `;
     }
   }
 
