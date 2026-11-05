@@ -32,6 +32,14 @@ class DictionaryDatabaseMissingError(YomitanUnavailableError):
             msg = "Local dictionary database not found. Run provisioning in Settings > Dictionary."
         super().__init__(msg)
 
+
+class DictionaryTermNotFoundError(YomitanResponseError):
+    code = "DICT_TERM_NOT_FOUND"
+
+    def __init__(self, message: str = "Dictionary could not identify a Japanese term in this selection."):
+        self.code = "DICT_TERM_NOT_FOUND"
+        super().__init__(message)
+
 @dataclass(frozen=True)
 class IdentifiedTerm:
     expression: str
@@ -163,14 +171,12 @@ class YomitanService:
         self._timeout_seconds = timeout_seconds
         self._jlpt_reference = jlpt_reference_service or JlptReferenceService()
         raw_backend = (backend or get_dictionary_backend()).lower().strip()
-        if raw_backend == "auto":
-            raw_backend = "local+yomitan"
         self._backend = raw_backend
         self._local_db_path = local_db_path
         if yomitan_secondary is not None:
             self._yomitan_secondary = bool(yomitan_secondary)
         else:
-            self._yomitan_secondary = is_yomitan_secondary_enabled() or (self._backend == "local+yomitan")
+            self._yomitan_secondary = is_yomitan_secondary_enabled() or (self._backend in ("local+yomitan", "auto"))
 
         from app.services.dictionary_provider import (
             DictionaryProvider,
@@ -190,7 +196,7 @@ class YomitanService:
             )
             self._provider = self._yomitan_provider
             self._local_provider = None
-        elif self._backend in ("local", "local+yomitan"):
+        elif self._backend in ("local", "local+yomitan", "auto"):
             self._local_provider = LocalDictionaryProvider(db_path=self._local_db_path)
             self._provider = self._local_provider
             self._yomitan_provider = YomitanHttpProvider(

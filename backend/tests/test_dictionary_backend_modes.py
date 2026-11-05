@@ -74,7 +74,7 @@ class DictionaryBackendModesTests(unittest.TestCase):
         self.assertEqual(get_dictionary_backend(), "auto")
         self.assertTrue(is_yomitan_secondary_enabled())
         svc_auto = YomitanService()
-        self.assertEqual(svc_auto.backend_name, "local+yomitan")
+        self.assertEqual(svc_auto.backend_name, "auto")
 
         os.environ["DICTIONARY_BACKEND"] = "yomitan"
         self.assertEqual(get_dictionary_backend(), "yomitan")

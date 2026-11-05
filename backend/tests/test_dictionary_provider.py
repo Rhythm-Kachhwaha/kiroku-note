@@ -23,13 +23,13 @@ LOCAL_DB_PATH = str(REPO_ROOT / "kiroku_dict.sqlite")
 
 
 class DictionaryProviderTests(unittest.TestCase):
-    def test_default_backend_is_yomitan(self):
+    def test_default_backend_is_local(self):
         with patch.dict(os.environ, {}, clear=False):
             if "DICTIONARY_BACKEND" in os.environ:
                 del os.environ["DICTIONARY_BACKEND"]
             service = YomitanService()
-            self.assertEqual(service.backend_name, "yomitan")
-            self.assertIsInstance(service._provider, YomitanHttpProvider)
+            self.assertEqual(service.backend_name, "local")
+            self.assertIsInstance(service._provider, LocalDictionaryProvider)
 
     def test_unknown_backend_raises_value_error(self):
         with self.assertRaises(ValueError) as ctx:
@@ -130,15 +130,14 @@ class DictionaryProviderTests(unittest.TestCase):
         self.assertEqual(enriched.expression, "本")
         self.assertGreater(len(enriched.entries), 0)
 
-    def test_local_backend_sentence_guard(self):
-        """Sentence input without Yomitan should guide user to type word/phrase."""
+    def test_local_backend_sentence_selection_identifies(self):
+        """Sentence input without Yomitan should identify the first headword."""
         if not os.path.exists(LOCAL_DB_PATH):
             self.skipTest("kiroku_dict.sqlite not found")
 
         service = YomitanService(backend="local", local_db_path=LOCAL_DB_PATH)
-        with self.assertRaises(YomitanResponseError) as ctx:
-            service.identify("私は日本語を勉強しています。")
-        self.assertIn("Full-sentence tokenization requires Yomitan", str(ctx.exception))
+        term = service.identify("私は日本語を勉強しています。")
+        self.assertEqual(term.expression, "私")
 
     def test_local_provider_marks_sentence_tokenization_unavailable(self):
         provider = LocalDictionaryProvider(db_path=LOCAL_DB_PATH)

@@ -20,6 +20,7 @@ from urllib.request import Request, urlopen
 
 from app.services.yomitan import (
     DictionaryDatabaseMissingError,
+    DictionaryTermNotFoundError,
     IdentifiedTerm,
     YomitanError,
     YomitanResponseError,
@@ -243,15 +244,10 @@ class LocalDictionaryProvider(DictionaryProvider):
         if not clean:
             raise YomitanResponseError("Cannot identify an empty text.")
 
-        # Full-sentence guard: sentence punctuation or long sentence
-        sentence_punct = ("。", "！", "？", "\n", "、")
-        if any(p in clean for p in sentence_punct) or (len(clean) > 30 and " " in clean):
-            raise YomitanResponseError(
-                "Local dictionary engine requires typed word/phrase input. Full-sentence tokenization requires Yomitan."
-            )
-
         engine = self._get_engine()
-        results = engine.lookup_terms(clean, max_results=1)
+
+        # 1. Direct word lookup hits -> use it
+        results = engine.lookup_terms(clean, max_results=1, mode="word")
         if results:
             top = results[0]
             return IdentifiedTerm(
@@ -261,11 +257,66 @@ class LocalDictionaryProvider(DictionaryProvider):
                 deinflected_text=top.term,
             )
 
-        # Fallback for unrecognized Japanese text
-        if any("\u3040" <= ch <= "\u9fff" or "\uf900" <= ch <= "\ufaff" or ch == "\u3005" for ch in clean):
+        stripped = clean.strip(" \t\r\n　「」『』（）［］【】〈〉《》〔〕“”‘’\"'.,、。！？")
+        if not stripped:
+            stripped = clean
+
+        # Tokenize with Sudachi (mode C) to inspect structure
+        tokens = []
+        try:
+            from app.services.tokenizers.sudachi import get_sudachi_tokenizer
+            tok = get_sudachi_tokenizer()
+            tokens = tok.tokenize(stripped)
+        except Exception as exc:
+            logger.debug("Sudachi tokenization skipped in identify: %s", exc)
+
+        from kiroku_dictionary.lookup import is_kana_only
+
+        # 2. Multi-token selection: prefer longest dictionary hit from selection start via scan; else first content token
+        if len(tokens) > 1 or any(p in clean for p in ("。", "！", "？", "\n", "、", " ", "　")):
+            particles = {"の", "に", "を", "は", "が", "で", "と", "へ", "も", "か", "や", "ね", "よ", "から", "まで", "より"}
+            scan_results = engine.lookup_terms(stripped, max_results=5, mode="scan")
+            if scan_results:
+                top = scan_results[0]
+                if not (len(stripped) > len(top.source) and top.source in particles):
+                    return IdentifiedTerm(
+                        expression=top.term,
+                        reading=top.reading,
+                        source_text=top.source or stripped,
+                        deinflected_text=top.term,
+                    )
+
+            if tokens:
+                chosen_token = None
+                for t in tokens:
+                    pos0 = t.pos[0] if t.pos else ""
+                    if pos0 not in ("助詞", "補助記号", "記号", "空白"):
+                        chosen_token = t
+                        break
+                if chosen_token is None:
+                    chosen_token = tokens[0]
+
+                for candidate_str in (chosen_token.lemma, chosen_token.surface):
+                    if not candidate_str:
+                        continue
+                    tok_hits = engine.lookup_terms(candidate_str, max_results=1, mode="word")
+                    if tok_hits:
+                        top = tok_hits[0]
+                        return IdentifiedTerm(
+                            expression=top.term,
+                            reading=top.reading,
+                            source_text=chosen_token.surface or clean,
+                            deinflected_text=top.term,
+                        )
+
+        # 3. Single-token selection or no hit: fallback to raw text ONLY when selection is single kana word with no entry
+        if is_kana_only(clean) and not any(ch in clean for ch in " \t\r\n　、。！？") and len(clean) <= 30:
             return IdentifiedTerm(clean, clean, clean, clean)
 
-        raise YomitanResponseError("Local dictionary could not identify a Japanese term in this selection.")
+        # 4. No hit -> raise typed error DICT_TERM_NOT_FOUND
+        raise DictionaryTermNotFoundError(
+            f"Local dictionary could not identify a Japanese term in '{clean}'."
+        )
 
     def fetch_term_payload(self, term: str) -> dict[str, Any]:
         from kiroku_dictionary.yomitan_payload import format_term_entries_payload
