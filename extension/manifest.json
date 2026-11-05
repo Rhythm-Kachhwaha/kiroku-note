@@ -52,7 +52,8 @@
       ],
       "js": [
         "content/capture-utils.js",
-        "content/content.js"
+        "content/content.js",
+        "content/reader/page_parser.js"
       ],
       "run_at": "document_idle",
       "all_frames": true,
