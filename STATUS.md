@@ -1,5 +1,5 @@
 # Status
-Group 1, Group 2 (Slices 5-10), Slices 11-12, Group 5 (16-19), 24-25.
-Client-profile contract matrix and routes map operational.
-76 matrix tests verify extension, desktop, and origin security.
-Targeted tests pass: test_client_contract.py (76 passed).
+Group 1, Group 2 (5-10), Group 3 (11-13), Group 5 (16-19), 24-25.
+Desktop endpoint audit complete: zero 404/405 across 90 endpoints.
+Fixed vocab_watch dictionary lookup and query parameter alignment.
+Targeted tests pass: desktop_endpoints.test.js, audit script.

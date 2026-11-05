@@ -4569,6 +4569,141 @@
         }
       }
     },
+    "/api/dictionary/status": {
+      "get": {
+        "tags": [
+          "dictionary"
+        ],
+        "summary": "Get Dictionary Status",
+        "description": "Return status of local dictionary database and background provisioning.",
+        "operationId": "get_dictionary_status_api_dictionary_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dictionary/provision": {
+      "post": {
+        "tags": [
+          "dictionary"
+        ],
+        "summary": "Provision Dictionary",
+        "description": "Trigger background download, compilation, and provisioning of local dictionary database.",
+        "operationId": "provision_dictionary_api_dictionary_provision_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ProvisionRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Provision Dictionary Api Dictionary Provision Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dictionary/settings": {
+      "get": {
+        "tags": [
+          "dictionary"
+        ],
+        "summary": "Get Dictionary Settings",
+        "description": "Return dictionary configuration settings.",
+        "operationId": "get_dictionary_settings_api_dictionary_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionarySettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "dictionary"
+        ],
+        "summary": "Update Dictionary Settings",
+        "description": "Update and persist dictionary configuration settings.",
+        "operationId": "update_dictionary_settings_api_dictionary_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DictionarySettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionarySettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/link/status": {
       "get": {
         "tags": [
@@ -6511,7 +6646,7 @@
     "/api/llm/key": {
       "post": {
         "summary": "Save Llm Secret",
-        "description": "Save or replace the LLM API key in OS secure storage (Windows DPAPI).\n\nThe plaintext key is not retained, logged, or exposed in any response.",
+        "description": "Save or replace the LLM API key in OS secure storage (Windows DPAPI).\nThe plaintext key is not retained, logged, or exposed in any response.",
         "operationId": "save_llm_secret_api_llm_key_post",
         "requestBody": {
           "content": {
@@ -6548,7 +6683,7 @@
       },
       "delete": {
         "summary": "Delete Llm Secret",
-        "description": "Delete the LLM API key from OS secure storage.\n\nIf an environment variable (KIROKU_LLM_API_KEY) is present, backend will fall back to it.",
+        "description": "Delete the LLM API key from OS secure storage.\nIf an environment variable (KIROKU_LLM_API_KEY) is present, backend will fall back to it.",
         "operationId": "delete_llm_secret_api_llm_key_delete",
         "responses": {
           "200": {
@@ -6567,7 +6702,7 @@
     "/api/llm/secret": {
       "post": {
         "summary": "Save Llm Secret",
-        "description": "Save or replace the LLM API key in OS secure storage (Windows DPAPI).\n\nThe plaintext key is not retained, logged, or exposed in any response.",
+        "description": "Save or replace the LLM API key in OS secure storage (Windows DPAPI).\nThe plaintext key is not retained, logged, or exposed in any response.",
         "operationId": "save_llm_secret_api_llm_secret_post",
         "requestBody": {
           "content": {
@@ -6604,7 +6739,7 @@
       },
       "delete": {
         "summary": "Delete Llm Secret",
-        "description": "Delete the LLM API key from OS secure storage.\n\nIf an environment variable (KIROKU_LLM_API_KEY) is present, backend will fall back to it.",
+        "description": "Delete the LLM API key from OS secure storage.\nIf an environment variable (KIROKU_LLM_API_KEY) is present, backend will fall back to it.",
         "operationId": "delete_llm_secret_api_llm_secret_delete",
         "responses": {
           "200": {
@@ -6700,7 +6835,7 @@
     "/api/cloud/pull": {
       "post": {
         "summary": "Pull Cloud Queue",
-        "description": "Run the same best-effort queue, Anki stats, and card mirror sync as the background poller.\n\nNewly pulled cloud cards remain local and pending; they are not automatically sent to Anki.",
+        "description": "Run the same best-effort queue, Anki stats, and card mirror sync as the background poller.\nNewly pulled cloud cards remain local and pending; they are not automatically sent to Anki.",
         "operationId": "pull_cloud_queue_api_cloud_pull_post",
         "responses": {
           "200": {
@@ -6885,7 +7020,7 @@
     "/api/vocab/daily-word": {
       "get": {
         "summary": "Get Daily Word",
-        "description": "Return deterministic Word of the Day for a given calendar date.\n\n\n\nPrefers words at or just above the user's current JLPT level setting,\n\nand prefers words NOT already in saved cards. Falls back gracefully.\n\nIncludes stroke vector SVGs for kanji when available.",
+        "description": "Return deterministic Word of the Day for a given calendar date.\n\nPrefers words at or just above the user's current JLPT level setting,\nand prefers words NOT already in saved cards. Falls back gracefully.\nIncludes stroke vector SVGs for kanji when available.",
         "operationId": "get_daily_word_api_vocab_daily_word_get",
         "parameters": [
           {
@@ -8692,6 +8827,81 @@
         ],
         "title": "DictionaryEntry"
       },
+      "DictionarySettingsRequest": {
+        "properties": {
+          "yomitan_secondary": {
+            "type": "boolean",
+            "title": "Yomitan Secondary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "yomitan_secondary"
+        ],
+        "title": "DictionarySettingsRequest"
+      },
+      "DictionarySettingsResponse": {
+        "properties": {
+          "yomitan_secondary": {
+            "type": "boolean",
+            "title": "Yomitan Secondary"
+          },
+          "backend": {
+            "type": "string",
+            "title": "Backend"
+          }
+        },
+        "type": "object",
+        "required": [
+          "yomitan_secondary",
+          "backend"
+        ],
+        "title": "DictionarySettingsResponse"
+      },
+      "DictionaryStatusResponse": {
+        "properties": {
+          "db_present": {
+            "type": "boolean",
+            "title": "Db Present"
+          },
+          "db_path": {
+            "type": "string",
+            "title": "Db Path"
+          },
+          "jitendex": {
+            "type": "boolean",
+            "title": "Jitendex"
+          },
+          "kanjidic": {
+            "type": "boolean",
+            "title": "Kanjidic"
+          },
+          "yomitan_secondary": {
+            "type": "boolean",
+            "title": "Yomitan Secondary"
+          },
+          "backend": {
+            "type": "string",
+            "title": "Backend"
+          },
+          "provisioning": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Provisioning"
+          }
+        },
+        "type": "object",
+        "required": [
+          "db_present",
+          "db_path",
+          "jitendex",
+          "kanjidic",
+          "yomitan_secondary",
+          "backend",
+          "provisioning"
+        ],
+        "title": "DictionaryStatusResponse"
+      },
       "EncounterRequest": {
         "properties": {
           "pattern_key": {
@@ -9811,6 +10021,18 @@
             "type": "boolean",
             "title": "Tokenizer Ready",
             "default": true
+          },
+          "dictionary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dictionary"
           }
         },
         "type": "object",
@@ -10264,6 +10486,26 @@
             },
             "type": "array",
             "title": "Warnings"
+          },
+          "skipped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Skipped"
+          },
+          "skipped_count": {
+            "type": "integer",
+            "title": "Skipped Count",
+            "default": 0
+          },
+          "skipped_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Skipped Counts"
           }
         },
         "type": "object",
@@ -11419,6 +11661,13 @@
             "type": "boolean",
             "title": "Force Ocr",
             "default": false
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flags"
           }
         },
         "type": "object",
@@ -11731,6 +11980,56 @@
           "quiz"
         ],
         "title": "PrimerResponse"
+      },
+      "ProvisionRequest": {
+        "properties": {
+          "jitendex_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jitendex Url"
+          },
+          "kanjidic_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kanjidic Url"
+          },
+          "jitendex_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jitendex Sha256"
+          },
+          "kanjidic_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kanjidic Sha256"
+          }
+        },
+        "type": "object",
+        "title": "ProvisionRequest"
       },
       "QuestionDTO": {
         "properties": {

@@ -194,7 +194,7 @@ export class ApiClient {
   async searchEnglishDictionary(query) {
     if (!query || !query.trim()) return [];
     return this.request('/api/dictionary/search-english', {
-      query: { q: query.trim() }
+      query: { query: query.trim() }
     });
   }
 

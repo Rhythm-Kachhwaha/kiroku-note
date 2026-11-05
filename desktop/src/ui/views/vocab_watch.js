@@ -757,10 +757,10 @@ export class VocabWatchView {
     // Fetch dictionary details
     let glossText = '';
     try {
-      const searchRes = await (this.apiClient.searchDictionary ? this.apiClient.searchDictionary(lemma) : this.apiClient.request(`/api/dictionary/search?q=${encodeURIComponent(lemma)}`));
-      const entry = Array.isArray(searchRes) ? searchRes[0] : searchRes?.results?.[0];
+      const searchRes = await (this.apiClient.searchDictionary ? this.apiClient.searchDictionary(lemma) : this.apiClient.captureText(lemma));
+      const entry = Array.isArray(searchRes) ? searchRes[0] : (searchRes?.results?.[0] || searchRes);
       if (entry) {
-        glossText = entry.glossary?.join('; ') || entry.meaning || entry.definition || 'Definition found.';
+        glossText = entry.glossary?.join('; ') || entry.meaning || entry.definition || (Array.isArray(entry.definitions) ? entry.definitions.join('; ') : entry.definitions) || 'Definition found.';
       } else {
         glossText = 'No dictionary definition found.';
       }
