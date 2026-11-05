@@ -9,7 +9,9 @@ from fastapi import APIRouter, HTTPException, Query, status
 from app.link.episode import (
     episode_service,
     get_episode_record,
+    group_episodes_by_series,
     list_episode_records,
+    save_episode_position,
 )
 from app.schemas_link_episode import (
     EpisodeRecord,
@@ -17,6 +19,8 @@ from app.schemas_link_episode import (
     PrimerResponse,
     RecapRequest,
     RecapResponse,
+    SeriesGroup,
+    UpdatePositionRequest,
 )
 
 router = APIRouter(prefix="/api/link", tags=["link-episode"])
@@ -57,8 +61,28 @@ def post_recap(request: RecapRequest) -> RecapResponse:
         title=request.title,
         site=request.site,
         learner_level=request.learner_level,
+        last_position_ms=request.last_position_ms or 0,
     )
     return RecapResponse(**res)
+
+
+@router.post("/episodes/{cue_hash}/position", response_model=EpisodeRecord, summary="Update episode playback position")
+def post_episode_position(cue_hash: str, request: UpdatePositionRequest) -> EpisodeRecord:
+    """Saves throttled playback position (in ms) for an episode."""
+    rec = save_episode_position(
+        hash_val=cue_hash,
+        last_position_ms=request.last_position_ms,
+        title=request.title,
+        site=request.site,
+    )
+    return EpisodeRecord(**rec)
+
+
+@router.get("/series", response_model=List[SeriesGroup], summary="Get watch history grouped by series")
+def get_series() -> List[SeriesGroup]:
+    """Returns watch history grouped by series with known% per episode."""
+    groups = group_episodes_by_series()
+    return [SeriesGroup(series=g["series"], episodes=[EpisodeRecord(**ep) for ep in g["episodes"]]) for g in groups]
 
 
 @router.get("/episodes", response_model=List[EpisodeRecord], summary="List persisted episode records")

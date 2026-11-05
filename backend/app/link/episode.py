@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import logging
 from pathlib import Path
 import random
+import re
 import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -45,20 +46,39 @@ CREATE TABLE IF NOT EXISTS link_episode (
     known_pct REAL NOT NULL DEFAULT 0.0,
     mined INTEGER NOT NULL DEFAULT 0,
     minutes REAL NOT NULL DEFAULT 0.0,
-    ts TEXT NOT NULL
+    ts TEXT NOT NULL,
+    last_position_ms INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_link_episode_ts ON link_episode (ts DESC);
 """
 
 
+def extract_series_title(title: str) -> str:
+    """Extract clean series name by stripping episode numbers and release tags."""
+    if not title:
+        return "Unknown Series"
+    t = re.sub(r"\[.*?\]|\(.*?\)", "", title).strip()
+    t = re.sub(r"(?i)\b(?:episode|ep|e|s\d+e|s\d+)\s*[-.:]?\s*\d+.*", "", t).strip()
+    t = re.sub(r"第\s*\d+\s*[話話].*", "", t).strip()
+    t = re.sub(r"[-_#]\s*\d+\b.*", "", t).strip()
+    t = re.sub(r"\s+-\s*$", "", t).strip()
+    return t or title
+
+
 def init_link_episode_db(conn: Optional[sqlite3.Connection] = None) -> None:
-    """Ensure the link_episode table exists."""
+    """Ensure the link_episode table exists and has all required columns."""
     close_after = False
     if conn is None:
         conn = get_db_connection()
         close_after = True
     try:
         conn.executescript(EPISODE_SCHEMA_SQL)
+        # Migrate table if last_position_ms is missing
+        cur = conn.cursor()
+        cur.execute("PRAGMA table_info(link_episode)")
+        cols = [r[1] for r in cur.fetchall()]
+        if "last_position_ms" not in cols:
+            conn.execute("ALTER TABLE link_episode ADD COLUMN last_position_ms INTEGER NOT NULL DEFAULT 0")
         conn.commit()
     finally:
         if close_after:
@@ -73,6 +93,7 @@ def save_episode_record(
     mined: int,
     minutes: float,
     ts: Optional[str] = None,
+    last_position_ms: int = 0,
     conn: Optional[sqlite3.Connection] = None,
 ) -> Dict[str, Any]:
     """Upsert an episode record in SQLite."""
@@ -88,17 +109,18 @@ def save_episode_record(
         with conn:
             conn.execute(
                 """
-                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(hash) DO UPDATE SET
                     title = excluded.title,
                     site = excluded.site,
                     known_pct = excluded.known_pct,
                     mined = excluded.mined,
                     minutes = excluded.minutes,
-                    ts = excluded.ts
+                    ts = excluded.ts,
+                    last_position_ms = CASE WHEN excluded.last_position_ms > 0 THEN excluded.last_position_ms ELSE link_episode.last_position_ms END
                 """,
-                (hash_val, title, site, round(known_pct, 1), mined, round(minutes, 1), now_ts),
+                (hash_val, title, site, round(known_pct, 1), mined, round(minutes, 1), now_ts, max(0, last_position_ms)),
             )
         return {
             "hash": hash_val,
@@ -108,6 +130,54 @@ def save_episode_record(
             "mined": mined,
             "minutes": round(minutes, 1),
             "ts": now_ts,
+            "last_position_ms": max(0, last_position_ms),
+            "series": extract_series_title(title),
+        }
+    finally:
+        if close_after:
+            conn.close()
+
+
+def save_episode_position(
+    hash_val: str,
+    last_position_ms: int,
+    title: str = "",
+    site: str = "",
+    conn: Optional[sqlite3.Connection] = None,
+) -> Dict[str, Any]:
+    """Updates last watched position in milliseconds for an episode."""
+    close_after = False
+    if conn is None:
+        conn = get_db_connection()
+        close_after = True
+
+    init_link_episode_db(conn)
+    now_ts = datetime.now(timezone.utc).isoformat()
+    try:
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms)
+                VALUES (?, ?, ?, 0.0, 0, 0.0, ?, ?)
+                ON CONFLICT(hash) DO UPDATE SET
+                    last_position_ms = excluded.last_position_ms,
+                    title = CASE WHEN excluded.title != '' THEN excluded.title ELSE link_episode.title END,
+                    site = CASE WHEN excluded.site != '' THEN excluded.site ELSE link_episode.site END,
+                    ts = excluded.ts
+                """,
+                (hash_val, title, site, now_ts, max(0, last_position_ms)),
+            )
+        rec = get_episode_record(hash_val, conn=conn)
+        return rec or {
+            "hash": hash_val,
+            "title": title,
+            "site": site,
+            "known_pct": 0.0,
+            "mined": 0,
+            "minutes": 0.0,
+            "ts": now_ts,
+            "last_position_ms": max(0, last_position_ms),
+            "series": extract_series_title(title),
         }
     finally:
         if close_after:
@@ -125,20 +195,23 @@ def get_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None)
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT hash, title, site, known_pct, mined, minutes, ts FROM link_episode WHERE hash = ?",
+            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms FROM link_episode WHERE hash = ?",
             (hash_val,),
         )
         row = cur.fetchone()
         if not row:
             return None
+        title = row[1] or ""
         return {
             "hash": row[0],
-            "title": row[1],
-            "site": row[2],
-            "known_pct": row[3],
-            "mined": row[4],
-            "minutes": row[5],
-            "ts": row[6],
+            "title": title,
+            "site": row[2] or "",
+            "known_pct": row[3] or 0.0,
+            "mined": row[4] or 0,
+            "minutes": row[5] or 0.0,
+            "ts": row[6] or "",
+            "last_position_ms": row[7] or 0,
+            "series": extract_series_title(title),
         }
     finally:
         if close_after:
@@ -156,25 +229,38 @@ def list_episode_records(limit: int = 50, conn: Optional[sqlite3.Connection] = N
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT hash, title, site, known_pct, mined, minutes, ts FROM link_episode ORDER BY ts DESC LIMIT ?",
+            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms FROM link_episode ORDER BY ts DESC LIMIT ?",
             (limit,),
         )
         rows = cur.fetchall()
         return [
             {
                 "hash": r[0],
-                "title": r[1],
-                "site": r[2],
-                "known_pct": r[3],
-                "mined": r[4],
-                "minutes": r[5],
-                "ts": r[6],
+                "title": r[1] or "",
+                "site": r[2] or "",
+                "known_pct": r[3] or 0.0,
+                "mined": r[4] or 0,
+                "minutes": r[5] or 0.0,
+                "ts": r[6] or "",
+                "last_position_ms": r[7] or 0,
+                "series": extract_series_title(r[1] or ""),
             }
             for r in rows
         ]
     finally:
         if close_after:
             conn.close()
+
+
+def group_episodes_by_series(records: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+    """Group episode records by extracted series title."""
+    recs = records if records is not None else list_episode_records(limit=100)
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for r in recs:
+        series_name = r.get("series") or extract_series_title(r.get("title", ""))
+        grouped.setdefault(series_name, []).append(r)
+
+    return [{"series": s, "episodes": eps} for s, eps in grouped.items()]
 
 
 class EpisodeService:
@@ -418,6 +504,7 @@ class EpisodeService:
         title: str = "",
         site: str = "",
         learner_level: Optional[str] = None,
+        last_position_ms: int = 0,
     ) -> Dict[str, Any]:
         """
         Generate Post-Session Recap:
@@ -507,6 +594,7 @@ class EpisodeService:
             mined=len(mined_set),
             minutes=minutes,
             ts=now_ts,
+            last_position_ms=last_position_ms,
         )
 
         return {

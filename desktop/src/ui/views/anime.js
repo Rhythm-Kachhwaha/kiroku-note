@@ -41,6 +41,9 @@ export class AnimeView {
     this.currentFilter = 'all';
     this.lastLoadedHash = null;
     this._fetchingGrammar = new Set();
+    this._positionSaveTimer = null;
+    this._lastSavedPositionSec = null;
+    this.resumePositionMs = 0;
   }
 
   async mount(container) {
@@ -95,10 +98,42 @@ export class AnimeView {
                 <div class="anime-time-indicator" id="anime-time-indicator">00:00 / 00:00</div>
               </div>
 
+              <!-- Resume Prompt Banner (Slice 28) -->
+              <div class="anime-resume-banner" id="anime-resume-banner" style="display: none;">
+                <span class="anime-resume-text" id="anime-resume-text">Resume playback?</span>
+                <div class="flex items-center gap-2">
+                  <button type="button" class="anime-control-btn btn-primary anime-resume-btn" id="btn-anime-resume">
+                    Resume
+                  </button>
+                  <button type="button" class="anime-control-btn anime-resume-btn" id="btn-anime-dismiss-resume">
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+
               <!-- Live Japanese Subtitle Cue Display -->
               <div class="anime-live-cue-box" id="anime-cue-box">
                 <div class="anime-live-cue-japanese" id="anime-cue-text">
                   <span class="anime-live-cue-empty">Start playback in browser with Kiroku Extension to mine Japanese dialogue</span>
+                </div>
+              </div>
+
+              <!-- Unknown-density sparkline (Slice 28) -->
+              <div class="anime-sparkline-card" id="anime-sparkline-card">
+                <div class="anime-sparkline-header">
+                  <span>Dialogue Unknown Density</span>
+                  <div class="anime-sparkline-legend">
+                    <div class="anime-sparkline-legend-item">
+                      <span class="anime-sparkline-dot is-easiest"></span>
+                      <span>Easiest 5</span>
+                    </div>
+                    <div class="anime-sparkline-legend-item">
+                      <span class="anime-sparkline-dot is-hardest"></span>
+                      <span>Hardest 5</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="anime-sparkline-track" id="anime-sparkline-track" aria-label="Unknown density timeline sparkline">
                 </div>
               </div>
 
@@ -215,6 +250,17 @@ export class AnimeView {
                   Supported video sites: YouTube, Netflix, Crunchyroll, and local videos.
                   Dialogue cues synchronize automatically when active.
                 </p>
+              </div>
+            </div>
+
+            <!-- Watch History & Series Grouping (Slice 28) -->
+            <div class="anime-history-card" id="anime-history-card">
+              <div class="anime-sidebar-title">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                Watch History
+              </div>
+              <div class="anime-history-list" id="anime-history-list">
+                <span class="text-xs text-muted" style="text-align: center; padding: 1rem 0;">No watch history yet</span>
               </div>
             </div>
           </div>
@@ -336,6 +382,40 @@ export class AnimeView {
       listContainer?.classList.toggle('hide-token-colors', !this.showTokenColors);
       this.renderTranscriptList();
     });
+
+    // Resume button
+    const btnResume = this.container.querySelector('#btn-anime-resume');
+    btnResume?.addEventListener('click', () => {
+      if (this.resumePositionMs > 0) {
+        this.linkStore?.seek(this.resumePositionMs / 1000);
+        this._dismissResumeBanner();
+      }
+    });
+
+    // Dismiss resume button
+    const btnDismissResume = this.container.querySelector('#btn-anime-dismiss-resume');
+    btnDismissResume?.addEventListener('click', () => {
+      this._dismissResumeBanner();
+    });
+
+    // Sparkline click delegation
+    const sparklineTrack = this.container.querySelector('#anime-sparkline-track');
+    sparklineTrack?.addEventListener('click', (e) => {
+      const bar = e.target.closest('.anime-sparkline-bar');
+      if (bar && bar.dataset.start !== undefined) {
+        const s = parseFloat(bar.dataset.start);
+        if (!isNaN(s)) {
+          this.linkStore?.seek(s);
+        }
+      }
+    });
+
+    // Throttled position saving every 15s while playing
+    if (!this._positionSaveTimer && typeof setInterval !== 'undefined') {
+      this._positionSaveTimer = setInterval(() => {
+        this._savePositionIfPlaying();
+      }, 15000);
+    }
 
     // Local keyboard navigation
     this._keyListener = (e) => {
@@ -520,8 +600,131 @@ export class AnimeView {
     if (summary.cueHash && summary.cueHash !== this.lastLoadedHash) {
       this.lastLoadedHash = summary.cueHash;
       this.fetchCuesAnalysis(summary.cueHash);
+      this.checkResumePosition(summary.cueHash);
     }
     this.renderTranscriptList();
+    this.renderSparkline();
+    this.fetchWatchHistory();
+  }
+
+  async checkResumePosition(hash) {
+    if (!hash || !this.apiClient) return;
+    try {
+      const res = await this.apiClient.request(`/api/link/episodes/${encodeURIComponent(hash)}`);
+      if (res && res.last_position_ms && res.last_position_ms > 5000) {
+        const curSec = this.linkStore?.videoState?.t || 0;
+        if (curSec < 10) {
+          this.resumePositionMs = res.last_position_ms;
+          const resumeTextEl = this.container?.querySelector('#anime-resume-text');
+          const resumeBannerEl = this.container?.querySelector('#anime-resume-banner');
+          if (resumeTextEl) {
+            resumeTextEl.textContent = `Resume at ${this._formatTime(res.last_position_ms / 1000)}?`;
+          }
+          if (resumeBannerEl) {
+            resumeBannerEl.style.display = 'flex';
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  _dismissResumeBanner() {
+    const resumeBannerEl = this.container?.querySelector('#anime-resume-banner');
+    if (resumeBannerEl) {
+      resumeBannerEl.style.display = 'none';
+    }
+    this.resumePositionMs = 0;
+  }
+
+  _savePositionIfPlaying() {
+    if (!this.linkStore || !this.apiClient) return;
+    const summary = this.linkStore.getStatusSummary();
+    if (!summary.videoState || summary.videoState.paused || !summary.cueHash) return;
+    const curSec = summary.videoState.t || 0;
+    if (this._lastSavedPositionSec !== null && Math.abs(curSec - this._lastSavedPositionSec) < 5) return;
+    this._lastSavedPositionSec = curSec;
+    const posMs = Math.round(curSec * 1000);
+    this.apiClient.request(`/api/link/episodes/${encodeURIComponent(summary.cueHash)}/position`, {
+      method: 'POST',
+      body: {
+        last_position_ms: posMs,
+        title: summary.activeSession?.title || '',
+        site: summary.activeSession?.site || ''
+      }
+    }).catch(err => console.debug('[AnimeView] savePosition failed:', err));
+  }
+
+  renderSparkline() {
+    const track = this.container?.querySelector('#anime-sparkline-track');
+    if (!track) return;
+
+    const allCues = this.linkStore?.cues || [];
+    const cueHash = this.linkStore?.cueHash;
+    const activeCueIndex = this.linkStore?.activeCueIndex;
+
+    if (allCues.length === 0) {
+      track.innerHTML = '<span class="text-xs text-muted" style="margin: auto;">No cues for sparkline</span>';
+      return;
+    }
+
+    const cuesWithCounts = allCues.map((cue) => {
+      const ann = this.annotatedCuesMap.get(`${cueHash}:${cue.i}`);
+      const count = ann && Array.isArray(ann.gap_words) ? ann.gap_words.length : 0;
+      return { cue, count };
+    });
+
+    const maxCount = Math.max(1, ...cuesWithCounts.map(x => x.count));
+
+    // Sort to determine easiest 5 and hardest 5
+    const sorted = [...cuesWithCounts].sort((a, b) => a.count - b.count);
+    const easiest5 = new Set(sorted.slice(0, 5).map(x => x.cue.i));
+    const hardest5 = new Set(sorted.slice(-5).map(x => x.cue.i));
+
+    track.innerHTML = cuesWithCounts.map(({ cue, count }) => {
+      const heightPct = Math.max(15, Math.round((count / maxCount) * 100));
+      const isActive = cue.i === activeCueIndex;
+      let extraClass = '';
+      if (isActive) extraClass += ' is-active';
+      if (hardest5.has(cue.i)) extraClass += ' is-hardest';
+      else if (easiest5.has(cue.i)) extraClass += ' is-easiest';
+
+      const timeStr = this._formatTime(cue.s);
+      return `<div class="anime-sparkline-bar${extraClass}" data-cue-index="${cue.i}" data-start="${cue.s}" style="height: ${heightPct}%;" title="[${timeStr}] Cue #${cue.i + 1}: ${count} unknown"></div>`;
+    }).join('');
+  }
+
+  async fetchWatchHistory() {
+    const listEl = this.container?.querySelector('#anime-history-list');
+    if (!listEl || !this.apiClient || this._fetchingHistory) return;
+    this._fetchingHistory = true;
+    try {
+      const groups = await this.apiClient.request('/api/link/series');
+      if (Array.isArray(groups) && groups.length > 0) {
+        let html = '';
+        for (const group of groups) {
+          const seriesTitle = escapeHtml(group.series || 'Series');
+          html += `<div class="anime-status-row" style="font-weight: 700; color: var(--industrial-aqua); border: none; padding-top: 0.5rem;">${seriesTitle}</div>`;
+          for (const ep of (group.episodes || [])) {
+            const epTitle = escapeHtml(ep.title || 'Episode');
+            const knownPct = typeof ep.known_pct === 'number' ? ep.known_pct : 0;
+            const posStr = ep.last_position_ms ? ` • Pos: ${this._formatTime(ep.last_position_ms / 1000)}` : '';
+            html += `
+              <div class="anime-history-item" data-hash="${escapeHtml(ep.hash)}" data-pos="${ep.last_position_ms || 0}">
+                <span class="anime-history-item-title">${epTitle}</span>
+                <div class="anime-history-item-meta">
+                  <span class="anime-history-known">${knownPct}% known</span>
+                  <span>${ep.mined} mined${posStr}</span>
+                </div>
+              </div>
+            `;
+          }
+        }
+        listEl.innerHTML = html;
+      }
+    } catch (_) {
+    } finally {
+      this._fetchingHistory = false;
+    }
   }
 
   async fetchCuesAnalysis(hash) {
@@ -685,6 +888,10 @@ export class AnimeView {
   }
 
   unmount() {
+    if (this._positionSaveTimer) {
+      clearInterval(this._positionSaveTimer);
+      this._positionSaveTimer = null;
+    }
     if (this._keyListener && typeof window !== 'undefined') {
       window.removeEventListener('keydown', this._keyListener);
       this._keyListener = null;

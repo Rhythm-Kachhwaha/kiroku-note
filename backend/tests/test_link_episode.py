@@ -213,3 +213,43 @@ def test_api_endpoints(test_db, client):
     assert ep_data["title"] == "Dog Running"
     assert ep_data["mined"] == 1
 
+
+def test_episode_position_and_series_grouping(test_db, client):
+    """Test last_position_ms persistence, series extraction, and grouped series endpoint."""
+    from app.link.episode import extract_series_title, save_episode_position
+
+    # 1. Test series extraction
+    assert extract_series_title("Frieren: Beyond Journey's End - Episode 04") == "Frieren: Beyond Journey's End"
+    assert extract_series_title("One Piece - 1085 [1080p]") == "One Piece"
+    assert extract_series_title("Spy x Family S01E03") == "Spy x Family"
+
+    # 2. Save position via helper
+    rec = save_episode_position("pos_ep_1", 760000, title="Sousou no Frieren Ep. 01", site="crunchyroll")
+    assert rec["last_position_ms"] == 760000
+    assert rec["series"] == "Sousou no Frieren"
+
+    # 3. Save position via API
+    resp = client.post("/api/link/episodes/pos_ep_2/position", json={
+        "last_position_ms": 320000,
+        "title": "Sousou no Frieren Ep. 02",
+        "site": "crunchyroll"
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["last_position_ms"] == 320000
+    assert data["series"] == "Sousou no Frieren"
+
+    # 4. Check get single episode
+    single_resp = client.get("/api/link/episodes/pos_ep_2")
+    assert single_resp.status_code == 200
+    assert single_resp.json()["last_position_ms"] == 320000
+
+    # 5. Check series grouping endpoint
+    series_resp = client.get("/api/link/series")
+    assert series_resp.status_code == 200
+    series_groups = series_resp.json()
+    assert len(series_groups) >= 1
+    frieren_group = next((g for g in series_groups if g["series"] == "Sousou no Frieren"), None)
+    assert frieren_group is not None
+    assert len(frieren_group["episodes"]) == 2
+

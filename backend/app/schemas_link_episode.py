@@ -53,6 +53,7 @@ class RecapRequest(BaseModel):
     site: str = ""
     mined_words: List[str] = Field(default_factory=list)
     minutes: float = 0.0
+    last_position_ms: Optional[int] = 0
     cues: Optional[List[Dict[str, Any]]] = None
     learner_level: Optional[str] = None
 
@@ -79,4 +80,17 @@ class EpisodeRecord(BaseModel):
     mined: int
     minutes: float
     ts: str
+    last_position_ms: int = 0
+    series: str = ""
+
+
+class UpdatePositionRequest(BaseModel):
+    last_position_ms: int = Field(ge=0)
+    title: str = ""
+    site: str = ""
+
+
+class SeriesGroup(BaseModel):
+    series: str
+    episodes: List[EpisodeRecord]
 
