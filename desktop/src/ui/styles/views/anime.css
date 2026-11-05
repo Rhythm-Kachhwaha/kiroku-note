@@ -108,11 +108,36 @@
 
 .anime-controls-bar {
   display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.anime-controls-subrow {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: wrap;
-  padding-top: 0.5rem;
+  width: 100%;
+}
+
+.anime-control-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--surface);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  padding: 0.25rem 0.5rem;
+}
+
+.anime-offset-badge {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--industrial-aqua);
+  padding: 0.15rem 0.35rem;
 }
 
 .anime-control-btn {
@@ -147,6 +172,21 @@
 .anime-control-btn.btn-primary {
   background-color: var(--rust-signal);
   color: var(--pure-white);
+}
+
+.anime-control-btn.is-active,
+.anime-control-btn.active {
+  background-color: var(--industrial-aqua);
+  color: var(--pure-black);
+}
+
+.anime-control-btn:disabled,
+.anime-control-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none !important;
+  box-shadow: 2px 2px 0 var(--tactile-stroke) !important;
 }
 
 .anime-time-indicator {
