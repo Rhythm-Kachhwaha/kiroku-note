@@ -159,33 +159,46 @@ try {
 let linkClient = null;
 
 function initLinkClient() {
-  const ClientClass = typeof LinkClient !== 'undefined'
-    ? LinkClient
-    : (typeof globalThis !== 'undefined' && globalThis.LinkClient ? globalThis.LinkClient.LinkClient : null);
+  let ClientClass = null;
+  if (typeof LinkClient === 'function') {
+    ClientClass = LinkClient;
+  } else if (typeof LinkClient === 'object' && LinkClient && typeof LinkClient.LinkClient === 'function') {
+    ClientClass = LinkClient.LinkClient;
+  } else if (typeof globalThis !== 'undefined' && globalThis.LinkClient) {
+    ClientClass = typeof globalThis.LinkClient === 'function' ? globalThis.LinkClient : globalThis.LinkClient.LinkClient;
+  }
 
   if (ClientClass && !linkClient) {
-    linkClient = new ClientClass();
-    linkClient.onMessage((msg) => {
-      if (msg?.type && msg.type.startsWith('cmd.')) {
-        chrome.tabs.query({ active: true }, (tabs) => {
-          for (const tab of tabs) {
-            if (tab.id) {
-              chrome.tabs.sendMessage(tab.id, {
-                type: 'LINK_CMD',
-                cmdType: msg.type,
-                payload: msg.payload
-              }).catch(() => {});
+    try {
+      linkClient = new ClientClass();
+      linkClient.onMessage((msg) => {
+        if (msg?.type && msg.type.startsWith('cmd.')) {
+          chrome.tabs.query({ active: true }, (tabs) => {
+            for (const tab of tabs) {
+              if (tab.id) {
+                chrome.tabs.sendMessage(tab.id, {
+                  type: 'LINK_CMD',
+                  cmdType: msg.type,
+                  payload: msg.payload
+                }).catch(() => {});
+              }
             }
-          }
-        });
-      }
-    });
-    linkClient.start().catch(() => {});
+          });
+        }
+      });
+      linkClient.start().catch(() => {});
+    } catch (err) {
+      console.warn('[Background] LinkClient initialization skipped or failed:', err);
+    }
   }
 }
 
 if (typeof chrome !== 'undefined') {
-  initLinkClient();
+  try {
+    initLinkClient();
+  } catch (err) {
+    console.warn('[Background] initLinkClient top-level caught:', err);
+  }
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -406,6 +419,17 @@ chrome.tabs.onUpdated?.addListener?.((tabId, changeInfo, tab) => {
     }).catch(() => {});
   }
 });
+
+if (typeof chrome !== "undefined") {
+  if (chrome.sidePanel?.setPanelBehavior) {
+    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  }
+  if (chrome.runtime?.onInstalled) {
+    chrome.runtime.onInstalled.addListener(() => {
+      chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true }).catch(() => {});
+    });
+  }
+}
 
 if (typeof chrome !== "undefined" && chrome.action?.onClicked) {
   chrome.action.onClicked.addListener(handleUserInitiatedCapture);

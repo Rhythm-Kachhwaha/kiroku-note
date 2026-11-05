@@ -11,10 +11,13 @@
  */
 
 (function (root, factory) {
+  const exports = factory();
   if (typeof module !== "undefined" && module.exports) {
-    module.exports = factory();
+    module.exports = exports;
   } else {
-    root.LinkClient = factory();
+    const Client = exports.LinkClient || exports;
+    root.LinkClient = Client;
+    Object.assign(root.LinkClient, exports);
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
