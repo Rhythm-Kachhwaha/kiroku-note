@@ -1,4 +1,5 @@
 # Status
-P0 complete; Slices 15-24, 35-43 complete; Slices 44 (Primer/Recap), 45 (Hotkeys/Study-Pause), 47 (Security) complete.
-Completed : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 47
+All implementation plan slices 1-49 completed; extension monolith split and full suite green (260/260).
+OpenAPI fixture regenerated (119 paths); final_lock.test.js passed unchanged.
+Integration run verified: backend 728+ tests passed, desktop test suite run, non-drift anomalies mapped to owner slices.
 STATUS concise; inventories live in docs/maps/.
