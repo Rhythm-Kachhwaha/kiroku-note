@@ -28,16 +28,77 @@ const API_KNOWN_WORDS_MARK_URL = `${BACKEND_BASE_URL}/api/known-words/mark`;
 const API_GRAMMAR_ANALYZE_URL = `${BACKEND_BASE_URL}/api/grammar/analyze`;
 const API_GRAMMAR_SETUP_URL = `${BACKEND_BASE_URL}/api/grammar/setup-check`;
 
-// The paired extension token is intentionally session-only: it is distinct
-// from the desktop launch token and disappears when the browser session ends.
+// The paired extension token is session-only by default, but can be
+// remembered persistently in local storage if chosen by the user.
 const EXTENSION_AUTH_STORAGE_KEY = "kiroku.extension.session_token";
+const EXTENSION_AUTH_REMEMBERED_KEY = "kiroku.extension.remembered_token";
 let extensionAuthToken = null;
+let lastBannerTime = 0;
 const nativeFetch = typeof globalThis.fetch === "function" ? globalThis.fetch.bind(globalThis) : null;
 
-if (globalThis.chrome?.storage?.session) {
-  globalThis.chrome.storage.session.get(EXTENSION_AUTH_STORAGE_KEY).then((stored) => {
-    extensionAuthToken = stored?.[EXTENSION_AUTH_STORAGE_KEY] || null;
-  }).catch(() => {});
+function showBackendBanner(type, message, actionText, actionCallback, force = false) {
+  const now = Date.now();
+  if (!force && now - lastBannerTime < 1000) return; // Debounce banner updates
+  lastBannerTime = now;
+
+  if (typeof document === "undefined") return;
+  const banner = document.querySelector("#backend-error-banner");
+  const msgEl = document.querySelector("#backend-error-banner-message");
+  const btn = document.querySelector("#backend-error-banner-action");
+  if (!banner || !msgEl) return;
+
+  msgEl.textContent = message;
+  banner.className = `backend-error-banner ${type}`;
+  banner.hidden = false;
+
+  if (actionText && actionCallback && btn) {
+    btn.textContent = actionText;
+    btn.hidden = false;
+    btn.onclick = () => {
+      actionCallback();
+      banner.hidden = true;
+    };
+  } else if (btn) {
+    btn.hidden = true;
+  }
+}
+
+function hideBackendBanner() {
+  if (typeof document === "undefined") return;
+  const banner = document.querySelector("#backend-error-banner");
+  if (banner) banner.hidden = true;
+}
+
+function updatePairingUIState() {
+  if (typeof document === "undefined") return;
+  const forgetBtn = document.querySelector("#extension-pairing-forget");
+  const status = document.querySelector("#extension-pairing-status");
+  if (extensionAuthToken) {
+    if (forgetBtn) forgetBtn.style.display = "";
+    if (status) status.textContent = "Paired with desktop.";
+  } else {
+    if (forgetBtn) forgetBtn.style.display = "none";
+    if (status) status.textContent = "";
+  }
+}
+
+if (globalThis.chrome?.storage) {
+  if (chrome.storage.session) {
+    chrome.storage.session.get(EXTENSION_AUTH_STORAGE_KEY).then((stored) => {
+      if (stored?.[EXTENSION_AUTH_STORAGE_KEY]) {
+        extensionAuthToken = stored[EXTENSION_AUTH_STORAGE_KEY];
+        updatePairingUIState();
+      }
+    }).catch(() => {});
+  }
+  if (chrome.storage.local) {
+    chrome.storage.local.get(EXTENSION_AUTH_REMEMBERED_KEY).then((stored) => {
+      if (stored?.[EXTENSION_AUTH_REMEMBERED_KEY] && !extensionAuthToken) {
+        extensionAuthToken = stored[EXTENSION_AUTH_REMEMBERED_KEY];
+        updatePairingUIState();
+      }
+    }).catch(() => {});
+  }
 }
 
 function isLocalKirokuApi(input) {
@@ -46,15 +107,40 @@ function isLocalKirokuApi(input) {
 }
 
 if (nativeFetch) {
-  globalThis.fetch = (input, init = {}) => {
-    if (!extensionAuthToken || !isLocalKirokuApi(input)) return nativeFetch(input, init);
-    const headers = new Headers(init.headers || (typeof input === "object" ? input.headers : undefined));
-    headers.set("Authorization", `Bearer ${extensionAuthToken}`);
-    return nativeFetch(input, { ...init, headers });
+  globalThis.fetch = async (input, init = {}) => {
+    const isLocal = isLocalKirokuApi(input);
+    let finalInit = init;
+    if (extensionAuthToken && isLocal) {
+      const headers = new Headers(init.headers || (typeof input === "object" ? input.headers : undefined));
+      headers.set("Authorization", `Bearer ${extensionAuthToken}`);
+      finalInit = { ...init, headers };
+    }
+    try {
+      const response = await nativeFetch(input, finalInit);
+      if (isLocal) {
+        if (response.status === 401) {
+          showBackendBanner("unauthorized", "Desktop pairing required.", "Pair", () => {
+            if (typeof switchMiningTab === "function") switchMiningTab("settings");
+          });
+        } else if (response.status === 403) {
+          showBackendBanner("forbidden", "Untrusted origin: extension ID not accepted by backend.", "Settings", () => {
+            if (typeof switchMiningTab === "function") switchMiningTab("settings");
+          });
+        } else if (response.ok) {
+          hideBackendBanner();
+        }
+      }
+      return response;
+    } catch (err) {
+      if (isLocal) {
+        showBackendBanner("network-error", "Kiroku backend not running.", "Retry", null);
+      }
+      throw err;
+    }
   };
 }
 
-async function redeemExtensionPairing(code) {
+async function redeemExtensionPairing(code, remember = false) {
   if (!nativeFetch) throw new Error("Fetch is unavailable.");
   const response = await nativeFetch(`${BACKEND_BASE_URL}/api/auth/extension-pairings/redeem`, {
     method: "POST",
@@ -64,26 +150,70 @@ async function redeemExtensionPairing(code) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload.token) throw new Error(payload.detail || "Pairing failed.");
   extensionAuthToken = payload.token;
-  await chrome.storage.session.set({ [EXTENSION_AUTH_STORAGE_KEY]: extensionAuthToken });
+
+  if (remember) {
+    if (globalThis.chrome?.storage?.local) {
+      await chrome.storage.local.set({ [EXTENSION_AUTH_REMEMBERED_KEY]: extensionAuthToken });
+    }
+    if (globalThis.chrome?.storage?.session) {
+      await chrome.storage.session.remove(EXTENSION_AUTH_STORAGE_KEY).catch(() => {});
+    }
+  } else {
+    if (globalThis.chrome?.storage?.session) {
+      await chrome.storage.session.set({ [EXTENSION_AUTH_STORAGE_KEY]: extensionAuthToken });
+    }
+    if (globalThis.chrome?.storage?.local) {
+      await chrome.storage.local.remove(EXTENSION_AUTH_REMEMBERED_KEY).catch(() => {});
+    }
+  }
+  hideBackendBanner();
+  updatePairingUIState();
+  return extensionAuthToken;
+}
+
+async function forgetExtensionPairing() {
+  extensionAuthToken = null;
+  if (globalThis.chrome?.storage?.session) {
+    await chrome.storage.session.remove(EXTENSION_AUTH_STORAGE_KEY).catch(() => {});
+  }
+  if (globalThis.chrome?.storage?.local) {
+    await chrome.storage.local.remove(EXTENSION_AUTH_REMEMBERED_KEY).catch(() => {});
+  }
+  updatePairingUIState();
 }
 
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", () => {
   const codeInput = document.querySelector("#extension-pairing-code");
+  const rememberCheckbox = document.querySelector("#extension-pairing-remember");
   const submit = document.querySelector("#extension-pairing-submit");
+  const forget = document.querySelector("#extension-pairing-forget");
   const status = document.querySelector("#extension-pairing-status");
-  if (!codeInput || !submit || !status) return;
-  submit.addEventListener("click", async () => {
-    submit.disabled = true;
-    try {
-      await redeemExtensionPairing(codeInput.value);
-      codeInput.value = "";
-      status.textContent = "Paired for this browser session.";
-    } catch (error) {
-      status.textContent = error?.message || "Pairing failed.";
-    } finally {
-      submit.disabled = false;
-    }
-  });
+
+  updatePairingUIState();
+
+  if (submit) {
+    submit.addEventListener("click", async () => {
+      if (!codeInput || !submit) return;
+      submit.disabled = true;
+      try {
+        const remember = Boolean(rememberCheckbox?.checked);
+        await redeemExtensionPairing(codeInput.value, remember);
+        codeInput.value = "";
+        if (status) status.textContent = remember ? "Paired & remembered on this browser." : "Paired for this browser session.";
+      } catch (error) {
+        if (status) status.textContent = error?.message || "Pairing failed.";
+      } finally {
+        submit.disabled = false;
+      }
+    });
+  }
+
+  if (forget) {
+    forget.addEventListener("click", async () => {
+      await forgetExtensionPairing();
+      if (status) status.textContent = "Pairing removed.";
+    });
+  }
 });
 
 const kanjiStrokesCache = new Map();

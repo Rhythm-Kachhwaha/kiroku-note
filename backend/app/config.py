@@ -64,8 +64,8 @@ def get_legacy_token_mode(env: dict[str, str] | None = None) -> str:
 
 
 def is_extension_pairing_enabled(env: dict[str, str] | None = None) -> bool:
-    value = (os.environ if env is None else env).get("KIROKU_EXTENSION_PAIRING_ENABLED", "").strip().lower()
-    return value in {"1", "true", "yes"}
+    value = (os.environ if env is None else env).get("KIROKU_EXTENSION_PAIRING_ENABLED", "1").strip().lower()
+    return value in {"1", "true", "yes", "on"}
 
 
 def get_allowed_origin_regex(env: dict[str, str] | None = None) -> str:

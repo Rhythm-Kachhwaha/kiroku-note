@@ -24,11 +24,13 @@
   const MIN_RECONNECT_MS = 1000;
   const MAX_RECONNECT_MS = 30000;
   const EXTENSION_AUTH_STORAGE_KEY = "kiroku.extension.session_token";
+  const EXTENSION_AUTH_PERSISTENT_STORAGE_KEY = "kiroku.extension.remembered_token";
 
   class LinkClient {
     constructor(options = {}) {
       this.wsUrl = options.wsUrl || DEFAULT_WS_URL;
       this.token = options.token || null;
+      this.needsPairing = false;
       this.clientId = options.clientId || `ext-${Date.now()}`;
       this.heartbeatIntervalMs = options.heartbeatIntervalMs || DEFAULT_HEARTBEAT_INTERVAL_MS;
       this.minReconnectMs = options.minReconnectMs || MIN_RECONNECT_MS;
@@ -63,9 +65,9 @@
             }
           }
           if (chrome.storage.local) {
-            const stored = await chrome.storage.local.get(EXTENSION_AUTH_STORAGE_KEY).catch(() => null);
-            if (stored && stored[EXTENSION_AUTH_STORAGE_KEY]) {
-              this.token = stored[EXTENSION_AUTH_STORAGE_KEY];
+            const stored = await chrome.storage.local.get([EXTENSION_AUTH_PERSISTENT_STORAGE_KEY, EXTENSION_AUTH_STORAGE_KEY]).catch(() => null);
+            if (stored && (stored[EXTENSION_AUTH_PERSISTENT_STORAGE_KEY] || stored[EXTENSION_AUTH_STORAGE_KEY])) {
+              this.token = stored[EXTENSION_AUTH_PERSISTENT_STORAGE_KEY] || stored[EXTENSION_AUTH_STORAGE_KEY];
               return this.token;
             }
           }
@@ -78,10 +80,40 @@
       this.stopped = false;
       await this.resolveToken();
       if (!this.token) {
-        // Offline or unauthenticated: silent no-op
+        // Offline or unauthenticated: surface needs_pairing state
+        this.needsPairing = true;
+        this._updateStatusChip("needs_pairing");
+        this._notifyStateChange();
         return;
       }
+      this.needsPairing = false;
+      this._updateStatusChip("connecting");
       this._connect();
+    }
+
+    _updateStatusChip(status) {
+      if (typeof document === "undefined") return;
+      const chip = document.querySelector("#indicator-link");
+      if (!chip) return;
+      const val = chip.querySelector(".system-status-value");
+      chip.classList.remove("ok", "error", "checking", "warning", "unpaired");
+      if (status === "ok") {
+        chip.classList.add("ok");
+        if (val) val.textContent = "Connected";
+        chip.title = "Link: Connected to Desktop";
+      } else if (status === "needs_pairing") {
+        chip.classList.add("warning");
+        if (val) val.textContent = "Needs Pairing";
+        chip.title = "Link: Desktop pairing required";
+      } else if (status === "connecting") {
+        chip.classList.add("checking");
+        if (val) val.textContent = "Connecting…";
+        chip.title = "Link: Connecting…";
+      } else {
+        chip.classList.add("error");
+        if (val) val.textContent = "Disconnected";
+        chip.title = "Link: Disconnected";
+      }
     }
 
     stop() {
@@ -162,6 +194,8 @@
 
         if (msg.type === "hello.ok") {
           this.authenticated = true;
+          this.needsPairing = false;
+          this._updateStatusChip("ok");
           this._startHeartbeat();
           this._notifyStateChange();
           return;
@@ -192,6 +226,7 @@
     _onClose() {
       this.connected = false;
       this.authenticated = false;
+      this._updateStatusChip(this.token ? "disconnected" : "needs_pairing");
       this._clearTimers();
       this._notifyStateChange();
       if (!this.stopped) {
@@ -265,7 +300,8 @@
     _notifyStateChange() {
       const state = {
         connected: this.connected,
-        authenticated: this.authenticated
+        authenticated: this.authenticated,
+        needsPairing: Boolean(!this.token && !this.authenticated)
       };
       for (const listener of this.stateListeners) {
         try {
