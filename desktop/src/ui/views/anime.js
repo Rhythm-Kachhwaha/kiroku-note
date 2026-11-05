@@ -81,10 +81,10 @@ export class AnimeView {
     this.sessionGapWordsSeen = 0;
 
     // Subtitle Blurring & Listening Mode
-    this.blurSubtitlesEnabled = false;
+    this.blurSubtitlesEnabled = (typeof localStorage !== 'undefined' && localStorage.getItem('kiroku_blur_subtitles_enabled') === 'true');
 
     // Dual Subtitles
-    this.dualSubtitlesEnabled = true;
+    this.dualSubtitlesEnabled = (typeof localStorage !== 'undefined' && localStorage.getItem('kiroku_dual_subtitles_enabled') !== 'false');
 
     // Shadowing Mode
     this.shadowingRecorder = new ShadowingRecorder();
@@ -158,6 +158,7 @@ export class AnimeView {
                   <span id="anime-active-title">No active video stream</span>
                 </div>
                 <div class="flex items-center gap-2">
+                  <span class="badge-1t anime-cue-1t-badge" id="anime-cue-1t-badge" style="display: none;" title="1-Target sentence (i+1)">1T</span>
                   <span class="anime-mined-counter" id="anime-mined-counter">0 mined</span>
                   <div class="anime-time-indicator" id="anime-time-indicator">00:00 / 00:00</div>
                 </div>
@@ -766,6 +767,9 @@ export class AnimeView {
       } else if (e.code === 'KeyB' || e.key === 'b' || e.key === 'B') {
         e.preventDefault();
         this.toggleBlurSubtitles();
+      } else if (e.code === 'KeyD' || e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        this.toggleDualSubtitles();
       } else if (e.code === 'KeyS' || e.key === 's' || e.key === 'S') {
         e.preventDefault();
         this.toggleShadowRecording();
@@ -1149,7 +1153,19 @@ export class AnimeView {
         secEl.classList.remove('is-hidden');
         const secondary = summary.activeCue?.secondary_text || summary.activeCue?.secondaryText || '';
         secEl.textContent = secondary;
+        secEl.classList.toggle('is-blurred', this.blurSubtitlesEnabled);
       }
+    }
+
+    // Live 1T badge update in session strip
+    const badge1t = this.container.querySelector('#anime-cue-1t-badge');
+    if (badge1t) {
+      const activeCue = summary.activeCue;
+      const ann = (summary.cueHash && activeCue && typeof activeCue.i === 'number')
+        ? this.annotatedCuesMap.get(`${summary.cueHash}:${activeCue.i}`)
+        : null;
+      const is1T = this.is1TCue(ann);
+      badge1t.style.display = is1T ? 'inline-flex' : 'none';
     }
 
     // Transcript cues fetching and rendering
@@ -1708,9 +1724,16 @@ export class AnimeView {
 
   toggleBlurSubtitles(forceState = null) {
     this.blurSubtitlesEnabled = forceState !== null ? forceState : !this.blurSubtitlesEnabled;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('kiroku_blur_subtitles_enabled', String(this.blurSubtitlesEnabled));
+    }
     const cueEl = this.container?.querySelector('#anime-cue-text');
     if (cueEl) {
       cueEl.classList.toggle('is-blurred', this.blurSubtitlesEnabled);
+    }
+    const secEl = this.container?.querySelector('#anime-secondary-cue-text');
+    if (secEl) {
+      secEl.classList.toggle('is-blurred', this.blurSubtitlesEnabled);
     }
     const label = this.container?.querySelector('#anime-blur-label');
     if (label) {
@@ -1724,9 +1747,13 @@ export class AnimeView {
 
   toggleDualSubtitles(forceState = null) {
     this.dualSubtitlesEnabled = forceState !== null ? forceState : !this.dualSubtitlesEnabled;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('kiroku_dual_subtitles_enabled', String(this.dualSubtitlesEnabled));
+    }
     const secEl = this.container?.querySelector('#anime-secondary-cue-text');
     if (secEl) {
       secEl.classList.toggle('is-hidden', !this.dualSubtitlesEnabled);
+      secEl.classList.toggle('is-blurred', this.blurSubtitlesEnabled);
     }
     const label = this.container?.querySelector('#anime-dual-label');
     if (label) {

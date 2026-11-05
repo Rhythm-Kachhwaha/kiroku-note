@@ -16,11 +16,36 @@
 
   const JAPANESE_CHAR_REGEX = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/;
 
+  function injectReaderStyles() {
+    if (typeof document === "undefined" || document.getElementById("kiroku-web-reader-styles")) return;
+    const style = document.createElement("style");
+    style.id = "kiroku-web-reader-styles";
+    style.textContent = `
+      .kiroku-web-chip {
+        display: inline-block;
+        padding: 0 0.15em;
+        margin: 0 0.05em;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: background-color 150ms ease, box-shadow 150ms ease;
+        border-bottom: 1.5px dotted rgba(0, 0, 0, 0.3);
+      }
+      .kiroku-web-chip:hover {
+        background-color: rgba(0, 209, 178, 0.2);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+      }
+    `;
+    if (document.head) {
+      document.head.appendChild(style);
+    }
+  }
+
   class PageParser {
     constructor(options = {}) {
       this.apiBase = options.apiBase || "http://127.0.0.1:21828";
       this.activeChip = null;
       this.glossCard = null;
+      injectReaderStyles();
     }
 
     isJapaneseText(str) {

@@ -152,6 +152,17 @@
   transition: opacity var(--duration-fast) var(--ease-out);
 }
 
+.anime-secondary-cue-text.is-blurred {
+  filter: blur(6px);
+  opacity: 0.5;
+  transition: filter var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
+}
+
+.anime-secondary-cue-text.is-blurred:hover {
+  filter: blur(0px);
+  opacity: 1;
+}
+
 .anime-secondary-cue-text.is-hidden {
   display: none;
 }

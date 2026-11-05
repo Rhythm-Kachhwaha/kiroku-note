@@ -154,11 +154,12 @@ async def link_websocket_endpoint(websocket: WebSocket) -> None:
 class CondensedAudioRequest(BaseModel):
     cues: List[Dict[str, Any]] = Field(default_factory=list)
     source_audio_path: str = ""
+    padding: float = 0.15
 
 
 @router.post("/export-condensed-audio")
 async def export_condensed_audio(req: CondensedAudioRequest):
-    filter_chain = build_ffmpeg_concat_filter(req.cues)
+    filter_chain = build_ffmpeg_concat_filter(req.cues, padding=req.padding)
     return {
         "ok": True,
         "filter": filter_chain,

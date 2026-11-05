@@ -97,6 +97,14 @@ export class MangaView {
         this.loadImageFile(file);
       }
     });
+
+    const lookupPanel = this.container.querySelector('#manga-inspector-lookup');
+    lookupPanel?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-manga-mine-word');
+      if (btn && btn.dataset.word) {
+        this.mineWord(btn.dataset.word, btn);
+      }
+    });
   }
 
   loadImageFile(file) {
@@ -233,7 +241,13 @@ export class MangaView {
       if (res && Array.isArray(res.entries) && res.entries.length > 0) {
         lookupEl.innerHTML = res.entries.slice(0, 3).map((entry) => `
           <div class="manga-dict-entry mb-2">
-            <div class="font-bold text-accent">${escapeHtml(entry.expression || entry.kanji || text)}</div>
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-accent">${escapeHtml(entry.expression || entry.kanji || text)}</span>
+              <button type="button" class="anime-control-btn btn-sm btn-manga-mine-word" data-word="${escapeHtml(entry.expression || entry.kanji || text)}">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                <span>Mine</span>
+              </button>
+            </div>
             <div class="text-xs text-muted">${escapeHtml(entry.reading || '')}</div>
             <div class="text-xs">${escapeHtml((entry.glossary || []).join('; '))}</div>
           </div>
@@ -243,6 +257,28 @@ export class MangaView {
       }
     } catch (err) {
       console.debug('[MangaView] Dictionary lookup fallback:', err);
+    }
+  }
+
+  async mineWord(word, btn = null) {
+    if (!word) return;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg><span>Mined</span>`;
+    }
+    try {
+      await this.apiClient.request('/api/cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expression: word,
+          reading: '',
+          meaning: '',
+          source: 'manga'
+        })
+      });
+    } catch (err) {
+      console.warn('[MangaView] Mine word failed:', err);
     }
   }
 

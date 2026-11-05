@@ -1,5 +1,6 @@
 # Status
-Slice 7: Manga and comic reader OCR canvas added.
-Canvas allows drag-and-drop manga pages with bounding box OCR.
-Recognized text triggers instant dictionary lookup.
-Tests in desktop/tests/manga_viewer.test.js pass.
+Slice 8 (Stack Polish): Immersion suite stack findings resolved.
+Blur and dual subtitle settings persist to localStorage.
+Live 1T cue badge and hotkey D wired; secondary blur synced.
+Condensed audio padding and Manga inspector mining operational.
+All 21 suite tests across backend, desktop, and extension pass.
