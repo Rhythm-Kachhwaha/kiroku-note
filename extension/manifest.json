@@ -3,6 +3,7 @@
   "name": "Kiroku Note",
   "version": "2.1.0",
   "description": "Local-first Japanese vocabulary mining.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsuZvv489mSlMrfNRls8Up++e/YBVMinBx4d7fRQJRZuqYhyH91EZTs3YDV9GR6/h6DJBEWxR6pyRYANl0YUAZhSfEYdfYZc09UnP0E5296PNedrB6FQ/vENjWHtkfkNmIWSmdKReSHcHtC3QlsZ/Z0nEDfGnQgRjgaNQ98vID449dQHJ2nZFWx/tbhJYpNPADjreW1IZ7Ohf/1Grez10HuKOJHaqlwpXww1uur98OkuqY9j+PBXDRDWMWlLBa6I5XWV4HQ/IGh6hneBCm00lD7DLGQug54nEMMUiqSVAQm/29fidiu+uNjnbc8xsX3P45pmErootDLfS92AMkVIgqQIDAQAB",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

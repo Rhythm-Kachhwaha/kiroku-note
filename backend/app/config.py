@@ -24,6 +24,7 @@ DEFAULT_KIROKU_HOST = "127.0.0.1"
 DEFAULT_KIROKU_PORT = 21828
 DEFAULT_ALLOWED_ORIGIN_REGEX = r"^http://(localhost|127\.0\.0\.1)(:\d+)?$"
 LEGACY_EXTENSION_ORIGIN_REGEX = r"chrome-extension://.*"
+DEFAULT_EXTENSION_IDS: tuple[str, ...] = ("chnnchfpjephcpgamfkjnfobfnjabika",)
 
 
 def _comma_separated(env: dict[str, str], name: str) -> tuple[str, ...]:
@@ -31,18 +32,14 @@ def _comma_separated(env: dict[str, str], name: str) -> tuple[str, ...]:
 
 
 def get_allowed_extension_ids(env: dict[str, str] | None = None) -> tuple[str, ...]:
-    """Return explicit production and opt-in development extension IDs.
-
-    No extension origin is trusted until an ID is configured.  Development IDs
-    are deliberately separate so a packaged build cannot accidentally trust an
-    unpacked extension.
-    """
+    """Return explicit production, pinned default, and opt-in development extension IDs."""
     env_dict = os.environ if env is None else env
     production = _comma_separated(env_dict, "KIROKU_EXTENSION_IDS")
+    defaults = DEFAULT_EXTENSION_IDS
     development = ()
     if env_dict.get("KIROKU_ENABLE_DEV_EXTENSION_IDS", "").strip().lower() in {"1", "true", "yes"}:
         development = _comma_separated(env_dict, "KIROKU_DEV_EXTENSION_IDS")
-    return tuple(dict.fromkeys((*production, *development)))
+    return tuple(dict.fromkeys((*production, *defaults, *development)))
 
 
 def get_extension_origin_policy(env: dict[str, str] | None = None) -> str:

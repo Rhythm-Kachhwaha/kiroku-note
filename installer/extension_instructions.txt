@@ -29,6 +29,7 @@ Application Notes:
 - Start the Kiroku Note desktop application from the Start Menu.
 - Launch Kiroku Note from the Start Menu and leave its local backend running.
 - The local backend service runs on http://127.0.0.1:21828.
+- The extension ID is pinned and pre-trusted by the backend (chnnchfpjephcpgamfkjnfobfnjabika); no environment configuration needed.
 - Your mined vocabulary cards, database, and media are safely stored in:
   %LOCALAPPDATA%\KirokuNote\
   and will never be deleted by application upgrades or uninstalls.

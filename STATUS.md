@@ -1,4 +1,4 @@
 # Status
-Slice 2 completed: added boot-in-real-mode test suite and VM dom boot helper.
-Tested script tag parsing, content script concat parsing, file existence, and tab toggle.
-Targeted tests pass (9/9): boot_real_mode.test.js and hero-view.test.js.
+Slice 3 completed: extension key generated, pinned in manifest.json & config.py by default.
+Origin validation trusts pinned ID without extra env setup; random IDs blocked.
+Targeted tests pass (28/28): test_extension_origin_default, test_legacy_api_auth, test_backend_security_and_health.

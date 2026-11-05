@@ -90,6 +90,7 @@ backend/study/raw_acquisition/
 experiments/
 
 # Secrets & Environment variables
+*.pem
 .env
 .env.*
 *.env
