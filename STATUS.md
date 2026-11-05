@@ -1,6 +1,5 @@
 # Status
-Anime immersion task 2 complete: hover gloss & quick mine.
-Precision token segmentation attaches OpenJLPT glosses.
-Live cue box renders interactive tokens with hover gloss card.
-Quick mine triggers non-blocking card creation without pauses.
-All targeted desktop and backend annotator tests pass green.
+Anime immersion task 3 complete: selective furigana ruby engine.
+Ruby markup generated for kanji at/above learner target level.
+Furigana toggle button wired with zero-jitter Mincho styling.
+Unit and final lock tests pass green with zero emoji.

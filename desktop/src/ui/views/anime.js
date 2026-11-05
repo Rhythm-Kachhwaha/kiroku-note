@@ -19,6 +19,18 @@ function isGrammarAboveLevel(pointLevel, userLevel) {
   return pRank > uRank;
 }
 
+function containsKanji(str) {
+  return /[\u4e00-\u9faf\u3400-\u4dbf]/.test(str || '');
+}
+
+function shouldShowFurigana(tokenLevel, learnerLevel) {
+  if (!learnerLevel) return true;
+  if (!tokenLevel) return true;
+  const pRank = JLPT_ORDER[tokenLevel] || 0;
+  const uRank = JLPT_ORDER[learnerLevel] || 0;
+  return pRank >= uRank;
+}
+
 export class AnimeView {
   constructor(router, options = {}) {
     this.router = router;
@@ -40,6 +52,7 @@ export class AnimeView {
     this.annotatedCuesMap = new Map();
     this.cueGrammarMap = new Map();
     this.showTokenColors = true;
+    this.furiganaEnabled = true;
     this.currentFilter = 'all';
     this.lastLoadedHash = null;
     this._fetchingGrammar = new Set();
@@ -239,6 +252,9 @@ export class AnimeView {
                     </select>
                     <button type="button" class="anime-control-btn btn-sm" id="btn-anime-toggle-coloring" aria-label="Toggle token coloring">
                       <span id="anime-coloring-label">Colors: On</span>
+                    </button>
+                    <button type="button" class="anime-control-btn btn-sm" id="btn-anime-toggle-furigana" aria-label="Toggle selective furigana">
+                      <span id="anime-furigana-label">Furigana: On</span>
                     </button>
                   </div>
                 </div>
@@ -531,6 +547,18 @@ export class AnimeView {
       }
       const listContainer = this.container.querySelector('#anime-transcript-list');
       listContainer?.classList.toggle('hide-token-colors', !this.showTokenColors);
+      this.renderTranscriptList();
+    });
+
+    // Furigana toggle button
+    const btnToggleFurigana = this.container.querySelector('#btn-anime-toggle-furigana');
+    btnToggleFurigana?.addEventListener('click', () => {
+      this.furiganaEnabled = !this.furiganaEnabled;
+      const label = this.container.querySelector('#anime-furigana-label');
+      if (label) {
+        label.textContent = this.furiganaEnabled ? 'Furigana: On' : 'Furigana: Off';
+      }
+      this.updateFromStore();
       this.renderTranscriptList();
     });
 
@@ -1281,7 +1309,16 @@ export class AnimeView {
       const status = tok.status || 'unstyled';
       const statusClass = (this.showTokenColors && status !== 'unstyled') ? `is-${status} token-${status}` : '';
 
-      return `<span class="anime-token-chip ${statusClass}" data-surface="${surface}" data-lemma="${lemma}" data-reading="${reading}" data-gloss="${gloss}" data-jlpt="${jlpt}" data-status="${status}"><span class="anime-token-surface">${surface}</span></span>`;
+      const rawSurface = tok.surface || '';
+      const rawReading = tok.reading || '';
+      const hasKanji = containsKanji(rawSurface);
+      const showRuby = this.furiganaEnabled && hasKanji && rawReading && rawReading !== rawSurface && shouldShowFurigana(tok.jlpt_level, this.learnerLevel);
+
+      const displayContent = showRuby
+        ? `<ruby>${surface}<rt>${reading}</rt></ruby>`
+        : surface;
+
+      return `<span class="anime-token-chip ${statusClass}" data-surface="${surface}" data-lemma="${lemma}" data-reading="${reading}" data-gloss="${gloss}" data-jlpt="${jlpt}" data-status="${status}"><span class="anime-token-surface">${displayContent}</span></span>`;
     }).join('');
   }
 

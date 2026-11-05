@@ -818,3 +818,23 @@
   color: var(--text-muted);
   box-shadow: none;
 }
+
+/* Selective Furigana Ruby Text (Zero Line Jitter in Zen Old Mincho) */
+.anime-live-cue-japanese ruby,
+.anime-transcript-text ruby {
+  ruby-align: center;
+  ruby-position: over;
+  display: inline-ruby;
+}
+
+.anime-live-cue-japanese rt,
+.anime-transcript-text rt {
+  font-family: var(--font-japanese);
+  font-size: 0.52em;
+  line-height: 1;
+  color: var(--gold);
+  user-select: none;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-emphasis: none;
+}
