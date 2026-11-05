@@ -31,6 +31,39 @@ export function computeFileHash(fileOrName, size = 0, lastModified = 0) {
 }
 
 /**
+ * Natural alphanumeric sort comparison (e.g. Ep 2 before Ep 10)
+ */
+export function naturalCompare(a, b) {
+  const strA = typeof a === 'string' ? a : (a?.name || '');
+  const strB = typeof b === 'string' ? b : (b?.name || '');
+  return strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
+}
+
+/**
+ * Finds the next episode file in the same folder list using natural sorting.
+ */
+export function findNextEpisode(currentName, fileList) {
+  if (!currentName || !Array.isArray(fileList) || fileList.length === 0) return null;
+  const videoFiles = fileList.filter(f => {
+    const name = typeof f === 'string' ? f : (f?.name || '');
+    return /\.(mp4|mkv|webm)$/i.test(name);
+  });
+  if (videoFiles.length <= 1) return null;
+
+  const sorted = [...videoFiles].sort((a, b) => naturalCompare(a, b));
+
+  const curIdx = sorted.findIndex(f => {
+    const name = typeof f === 'string' ? f : (f?.name || '');
+    return name === currentName;
+  });
+
+  if (curIdx >= 0 && curIdx < sorted.length - 1) {
+    return sorted[curIdx + 1];
+  }
+  return null;
+}
+
+/**
  * Jimaku Subtitle Acquisition Provider (Ported from extension)
  */
 export class JimakuSearchProvider {
@@ -170,6 +203,26 @@ export class PlayerAdapter {
     if (!this.videoEl) return;
     const v = this.videoEl;
 
+    // Restore remembered volume & playbackRate (Slice 31)
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const savedRate = parseFloat(localStorage.getItem('kiroku:theater:rate'));
+        if (!isNaN(savedRate) && savedRate > 0) {
+          v.playbackRate = savedRate;
+        }
+        const savedVol = parseFloat(localStorage.getItem('kiroku:theater:vol'));
+        if (!isNaN(savedVol) && savedVol >= 0 && savedVol <= 1) {
+          v.volume = savedVol;
+        }
+        const savedMuted = localStorage.getItem('kiroku:theater:muted');
+        if (savedMuted !== null) {
+          v.muted = savedMuted === 'true';
+        }
+      } catch (err) {
+        console.debug('[Theater] localStorage read volume/rate failed:', err);
+      }
+    }
+
     const emitState = () => {
       const state = {
         t: v.currentTime || 0,
@@ -195,7 +248,23 @@ export class PlayerAdapter {
     v.addEventListener('timeupdate', emitState);
     v.addEventListener('play', emitState);
     v.addEventListener('pause', emitState);
-    v.addEventListener('ratechange', emitState);
+    v.addEventListener('ratechange', () => {
+      emitState();
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem('kiroku:theater:rate', String(v.playbackRate));
+        } catch (_) {}
+      }
+    });
+    v.addEventListener('volumechange', () => {
+      emitState();
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem('kiroku:theater:vol', String(v.volume));
+          localStorage.setItem('kiroku:theater:muted', String(v.muted));
+        } catch (_) {}
+      }
+    });
     v.addEventListener('seeked', emitState);
 
     v.addEventListener('loadedmetadata', () => {
@@ -543,6 +612,112 @@ export class TheaterView {
     this.currentSubName = '';
     this.lastError = null;
     this.isJimakuOpen = false;
+
+    // Slice 31 Polish: Recent files, folder files & next episode, offset, hotkeys
+    this.folderFiles = [];
+    this.nextEpisodeFile = null;
+    this.subtitleOffsetMs = 0;
+    this.isRecentOpen = false;
+    this._keyListener = null;
+  }
+
+  getRecentFiles() {
+    if (typeof localStorage === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem('kiroku:theater:recent_files');
+      return raw ? JSON.parse(raw) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  addRecentFile(file) {
+    if (!file || typeof localStorage === 'undefined') return;
+    try {
+      const recents = this.getRecentFiles().filter(r => r.name !== file.name);
+      recents.unshift({
+        name: file.name,
+        size: file.size || 0,
+        lastModified: file.lastModified || 0,
+        hash: computeFileHash(file),
+        openedAt: Date.now()
+      });
+      localStorage.setItem('kiroku:theater:recent_files', JSON.stringify(recents.slice(0, 10)));
+    } catch (err) {
+      console.debug('[Theater] save recent file failed:', err);
+    }
+  }
+
+  renderRecentFiles() {
+    const dropdown = this.container?.querySelector('#theater-recent-dropdown');
+    if (!dropdown) return;
+    const recents = this.getRecentFiles();
+    if (recents.length === 0) {
+      dropdown.innerHTML = '<span class="text-xs text-muted" style="padding:0.5rem;">No recent files</span>';
+      return;
+    }
+    dropdown.innerHTML = recents.map(r => {
+      let posText = '';
+      if (typeof localStorage !== 'undefined' && r.hash) {
+        const savedPos = localStorage.getItem(`kiroku:theater:pos:${r.hash}`);
+        if (savedPos) {
+          const s = Math.floor(parseFloat(savedPos) || 0);
+          posText = ` • ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+        }
+      }
+      return `
+        <div class="theater-recent-item" data-name="${escapeHtml(r.name)}" data-hash="${escapeHtml(r.hash || '')}">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;">${escapeHtml(r.name)}</span>
+          <span class="text-xs text-muted">${posText}</span>
+        </div>
+      `;
+    }).join('');
+
+    dropdown.querySelectorAll('.theater-recent-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const name = el.getAttribute('data-name');
+        dropdown.style.display = 'none';
+        this.isRecentOpen = false;
+        const match = this.folderFiles.find(f => f.name === name);
+        if (match) {
+          this.openVideoFile(match, this.folderFiles);
+        } else {
+          this.openVideoFile({ name });
+        }
+      });
+    });
+  }
+
+  setSubtitleOffset(val, isDelta = false) {
+    if (isDelta) {
+      this.subtitleOffsetMs += val;
+    } else {
+      this.subtitleOffsetMs = val;
+    }
+    this.playerAdapter.offsetSec = this.subtitleOffsetMs / 1000;
+    this.updateOffsetDisplay();
+  }
+
+  updateOffsetDisplay() {
+    const badge = this.container?.querySelector('#theater-offset-badge');
+    if (badge) {
+      const val = this.subtitleOffsetMs;
+      badge.textContent = `${val > 0 ? '+' : ''}${val}ms`;
+    }
+  }
+
+  playNextEpisode() {
+    if (this.nextEpisodeFile) {
+      this.openVideoFile(this.nextEpisodeFile, this.folderFiles);
+    }
+  }
+
+  updateNextEpisodeButton() {
+    const btn = this.container?.querySelector('#theater-next-episode-btn');
+    if (btn) {
+      btn.disabled = !this.nextEpisodeFile;
+      btn.title = this.nextEpisodeFile ? `Next: ${this.nextEpisodeFile.name} (Hotkey N)` : 'No next episode found (Hotkey N)';
+    }
   }
 
   ensureStyles() {
@@ -579,6 +754,18 @@ export class TheaterView {
               <input type="file" id="theater-video-input" accept="video/mp4,video/webm,video/x-matroska,.mp4,.mkv,.webm" style="display:none;" />
             </label>
 
+            <!-- Recent Files (Slice 31) -->
+            <div class="theater-recent-wrapper">
+              <button type="button" class="theater-btn" id="theater-recent-btn" title="Recent Files">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span>Recent</span>
+              </button>
+              <div class="theater-recent-dropdown" id="theater-recent-dropdown" style="display: none;"></div>
+            </div>
+
             <label class="theater-btn" title="Load Subtitle File (srt, ass, vtt)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 6h16M4 12h16M4 18h10"></path>
@@ -586,6 +773,23 @@ export class TheaterView {
               <span>Load Subtitles</span>
               <input type="file" id="theater-sub-input" accept=".srt,.ass,.ssa,.vtt" style="display:none;" />
             </label>
+
+            <!-- Next Episode (Slice 31) -->
+            <button type="button" class="theater-btn" id="theater-next-episode-btn" title="Next Episode (Hotkey N)" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                <line x1="19" y1="5" x2="19" y2="19"></line>
+              </svg>
+              <span>Next Ep</span>
+            </button>
+
+            <!-- Subtitle Offset Controls (Slice 31) -->
+            <div class="theater-offset-controls">
+              <span class="text-xs text-muted">Offset:</span>
+              <button type="button" class="theater-btn theater-btn-sm" id="btn-theater-offset-minus" title="Offset -100ms (Hotkey [)">-100ms</button>
+              <button type="button" class="theater-btn theater-btn-sm" id="btn-theater-offset-zero" title="Reset Offset (Hotkey \)"><span id="theater-offset-badge">0ms</span></button>
+              <button type="button" class="theater-btn theater-btn-sm" id="btn-theater-offset-plus" title="Offset +100ms (Hotkey ])">+100ms</button>
+            </div>
 
             <button type="button" class="theater-btn" id="theater-jimaku-btn">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -715,34 +919,115 @@ export class TheaterView {
     }
 
     // Drag and Drop support with sidecar auto-detection
-    if (dropzone) {
-      dropzone.addEventListener('dragover', (e) => {
+    const attachDropEvents = (targetEl) => {
+      if (!targetEl) return;
+      targetEl.addEventListener('dragover', (e) => {
         e.preventDefault();
-        dropzone.classList.add('is-dragover');
+        dropzone?.classList.add('is-dragover');
       });
-      dropzone.addEventListener('dragleave', () => {
-        dropzone.classList.remove('is-dragover');
+      targetEl.addEventListener('dragleave', () => {
+        dropzone?.classList.remove('is-dragover');
       });
-      dropzone.addEventListener('drop', async (e) => {
+      targetEl.addEventListener('drop', async (e) => {
         e.preventDefault();
-        dropzone.classList.remove('is-dragover');
+        dropzone?.classList.remove('is-dragover');
         const files = Array.from(e.dataTransfer?.files || []);
         if (files.length === 0) return;
 
         // Auto-detect video vs subtitle files
-        const videoFile = files.find(f => /\.(mp4|mkv|webm)$/i.test(f.name));
-        const subFile = files.find(f => /\.(srt|ass|ssa|vtt)$/i.test(f.name));
+        const videoFiles = files.filter(f => /\.(mp4|mkv|webm)$/i.test(f.name));
+        const subFiles = files.filter(f => /\.(srt|ass|ssa|vtt)$/i.test(f.name));
 
-        if (videoFile) {
-          this.openVideoFile(videoFile);
-          // Check for matching sidecar subtitle in the dropped file list
-          if (subFile) {
-            await this.loadSubtitleFile(subFile);
+        if (files.length > 1) {
+          this.folderFiles = files;
+        }
+
+        if (videoFiles.length > 0) {
+          videoFiles.sort((a, b) => naturalCompare(a, b));
+          this.openVideoFile(videoFiles[0], files);
+          if (subFiles.length > 0) {
+            await this.loadSubtitleFile(subFiles[0]);
           }
-        } else if (subFile) {
-          await this.loadSubtitleFile(subFile);
+        } else if (subFiles.length > 0) {
+          await this.loadSubtitleFile(subFiles[0]);
         }
       });
+    };
+
+    attachDropEvents(dropzone);
+    attachDropEvents(this.videoEl);
+
+    // Recent Files Dropdown (Slice 31)
+    const recentBtn = this.container.querySelector('#theater-recent-btn');
+    const recentDropdown = this.container.querySelector('#theater-recent-dropdown');
+    if (recentBtn && recentDropdown) {
+      recentBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.isRecentOpen = !this.isRecentOpen;
+        recentDropdown.style.display = this.isRecentOpen ? 'flex' : 'none';
+        if (this.isRecentOpen) {
+          this.renderRecentFiles();
+        }
+      });
+    }
+
+    // Next Episode Button (Slice 31)
+    const nextEpBtn = this.container.querySelector('#theater-next-episode-btn');
+    if (nextEpBtn) {
+      nextEpBtn.addEventListener('click', () => {
+        this.playNextEpisode();
+      });
+    }
+
+    // Subtitle Offset Controls (Slice 31)
+    const btnOffsetMinus = this.container.querySelector('#btn-theater-offset-minus');
+    const btnOffsetZero = this.container.querySelector('#btn-theater-offset-zero');
+    const btnOffsetPlus = this.container.querySelector('#btn-theater-offset-plus');
+
+    btnOffsetMinus?.addEventListener('click', () => {
+      this.setSubtitleOffset(-100, true);
+    });
+    btnOffsetZero?.addEventListener('click', () => {
+      this.setSubtitleOffset(0, false);
+    });
+    btnOffsetPlus?.addEventListener('click', () => {
+      this.setSubtitleOffset(100, true);
+    });
+
+    // Keyboard Hotkeys (Slice 31 - shared with Slice 26)
+    this._keyListener = (e) => {
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) {
+        return;
+      }
+      if (e.code === 'Space') {
+        e.preventDefault();
+        this.playerAdapter.handleCommand('cmd.toggle');
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        this.playerAdapter.handleCommand('cmd.cue', { to: 'prev' });
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        this.playerAdapter.handleCommand('cmd.cue', { to: 'next' });
+      } else if (e.code === 'KeyR' || e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        this.playerAdapter.handleCommand('cmd.cue', { to: 'replay' });
+      } else if (e.code === 'KeyN' || e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        this.playNextEpisode();
+      } else if (e.key === '[' || e.code === 'BracketLeft') {
+        e.preventDefault();
+        this.setSubtitleOffset(-100, true);
+      } else if (e.key === ']' || e.code === 'BracketRight') {
+        e.preventDefault();
+        this.setSubtitleOffset(100, true);
+      } else if (e.key === '\\' || e.code === 'Backslash' || e.key === '0') {
+        e.preventDefault();
+        this.setSubtitleOffset(0, false);
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', this._keyListener);
     }
 
     // Jimaku Search Modal Events
@@ -846,14 +1131,20 @@ export class TheaterView {
     }
   }
 
-  openVideoFile(file) {
+  openVideoFile(file, siblingFiles = null) {
     this.currentFileName = file.name;
     this.lastError = null;
+    this.addRecentFile(file);
+    if (Array.isArray(siblingFiles) && siblingFiles.length > 0) {
+      this.folderFiles = siblingFiles;
+    }
+    this.nextEpisodeFile = findNextEpisode(file.name, this.folderFiles);
     const placeholder = this.container?.querySelector('#theater-placeholder');
     if (placeholder) placeholder.style.display = 'none';
 
     this.playerAdapter.attachFile(file, file.name);
     this.updateLabels();
+    this.updateNextEpisodeButton();
   }
 
   async loadSubtitleFile(file) {
@@ -872,6 +1163,20 @@ export class TheaterView {
     const label = this.container?.querySelector('#theater-file-label');
     if (label) {
       label.textContent = this.currentFileName || 'No video loaded';
+    }
+  }
+
+  unmount() {
+    if (this._keyListener && typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this._keyListener);
+      this._keyListener = null;
+    }
+    if (this.watchView && typeof this.watchView.unmount === 'function') {
+      this.watchView.unmount();
+    }
+    if (this.container) {
+      this.container.innerHTML = '';
+      this.container = null;
     }
   }
 }
