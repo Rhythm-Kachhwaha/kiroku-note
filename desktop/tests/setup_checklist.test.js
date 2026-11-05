@@ -69,3 +69,4 @@ test('Extension Sidepanel: Defines setup checklist check and banner trigger', ()
     'Extension sidepanel.js must surface setup failure via banner'
   );
 });
+

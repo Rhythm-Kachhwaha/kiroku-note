@@ -88,3 +88,4 @@ def test_setup_checklist_unpaired_extension_reports_action(client: TestClient) -
         ext_item = data["extension_pairing"]
         assert ext_item["ok"] is False
         assert ext_item["fix_action"] == "copy_pairing_code"
+
