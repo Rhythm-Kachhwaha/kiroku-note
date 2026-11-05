@@ -7,6 +7,9 @@
  */
 
 (() => {
+  if (typeof globalThis !== "undefined" && globalThis.YouTubeAdapter) {
+    return;
+  }
   function isYouTubePage() {
     if (typeof location === "undefined") return false;
     return location.hostname.includes("youtube.com");

@@ -27,6 +27,28 @@ async function ensureOcrContentScript(tabId) {
   } catch (_) {}
 }
 
+const VIDEO_MINING_SCRIPTS = [
+  "lib/subtitle-parser.js",
+  "lib/subtitle-provider.js",
+  "lib/jimaku-provider.js",
+  "lib/image-cropper.js",
+  "content/video-mining.js",
+  "content/link-bridge.js"
+];
+
+async function ensureVideoMiningScript(tabId) {
+  if (!tabId || tabId < 0) return;
+  try {
+    const ping = await chrome.tabs.sendMessage(tabId, { type: "PING_VIDEO_MINING" }).catch(() => null);
+    if (ping?.ok) return;
+
+    await chrome.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      files: VIDEO_MINING_SCRIPTS
+    });
+  } catch (_) {}
+}
+
 async function handleUserInitiatedCapture(tab) {
   let targetTab = tab;
   if (!targetTab?.id) {
@@ -304,6 +326,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "VIDEO_DETECTED") {
+    const tabId = sender?.tab?.id;
+    if (tabId) {
+      ensureVideoMiningScript(tabId);
+    }
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message?.type === "ENSURE_VIDEO_MINING") {
+    activeTab().then(tab => {
+      if (tab?.id) {
+        ensureVideoMiningScript(tab.id);
+      }
+    }).catch(() => {});
+    sendResponse({ ok: true });
+    return true;
+  }
+
   if (message?.type === "LOAD_SUBTITLE_CUES" || message?.type === "CLEAR_SUBTITLES" || message?.type === "SET_SUBTITLE_OFFSET" || message?.type === "SELECT_YOUTUBE_TRACK" || message?.type === "UPDATE_ANNOTATED_CUES") {
     if (message?.type === "LOAD_SUBTITLE_CUES" && Array.isArray(message.cues)) {
       try {
@@ -323,8 +364,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.storage.local.remove(["active_subtitle_cues", "active_subtitle_filename"]);
       } catch (_) {}
     }
-    activeTab().then(tab => {
+    activeTab().then(async tab => {
       if (tab?.id) {
+        await ensureVideoMiningScript(tab.id);
         chrome.tabs.sendMessage(tab.id, message).catch(() => {});
       }
     }).catch(() => {});
@@ -448,5 +490,6 @@ if (typeof module !== "undefined" && module.exports) {
     isAllowedTimedtextUrl,
     isAllowedJimakuUrl,
     handleUserInitiatedCapture,
+    ensureVideoMiningScript,
   };
 }

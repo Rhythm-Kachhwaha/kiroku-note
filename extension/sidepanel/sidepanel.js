@@ -10129,6 +10129,11 @@ function switchMiningTab(targetTab) {
     tabBtnVideo.setAttribute("aria-selected", String(isVideo));
     if (isVideo) {
       updateVideoCuePreviewText();
+      try {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({ type: "ENSURE_VIDEO_MINING" }).catch(() => {});
+        }
+      } catch (_) {}
     }
   }
   if (videoMiningView) {

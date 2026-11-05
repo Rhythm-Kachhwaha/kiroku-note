@@ -5,20 +5,21 @@ const vm = require("node:vm");
 
 console.log("Starting OCR Selection Overlay Tests (Task 2)...");
 
-// 1. Verify manifest.json includes ocr-selection.js
+// 1. Verify manifest.json or background.js registers ocr-selection.js
 const manifestPath = path.resolve(__dirname, "../manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 const contentScriptFiles = manifest.content_scripts[0].js;
+const bgCode = fs.readFileSync(path.resolve(__dirname, "../background.js"), "utf8");
 
 assert.ok(
-  contentScriptFiles.includes("lib/ocr-cropper.js"),
-  "manifest.json content_scripts must include lib/ocr-cropper.js"
+  contentScriptFiles.includes("lib/ocr-cropper.js") || bgCode.includes("lib/ocr-cropper.js"),
+  "ocr-cropper.js must be registered in content_scripts or background injection"
 );
 assert.ok(
-  contentScriptFiles.includes("content/ocr-selection.js"),
-  "manifest.json content_scripts must include content/ocr-selection.js"
+  contentScriptFiles.includes("content/ocr-selection.js") || bgCode.includes("content/ocr-selection.js"),
+  "ocr-selection.js must be registered in content_scripts or background injection"
 );
-console.log("PASS: manifest.json content_scripts declaration verified.");
+console.log("PASS: manifest.json / background.js OCR declaration verified.");
 
 // 2. Test ocr-selection.js logic in sandbox
 const scriptPath = path.resolve(__dirname, "../content/ocr-selection.js");

@@ -104,4 +104,59 @@
       }
     }, true);
   }
+
+  // Lightweight Video Detection (Slice 34)
+  function initVideoDetector() {
+    let videoNotified = false;
+    function notifyVideo() {
+      if (videoNotified) return;
+      if (typeof window !== "undefined" && (window.__KIROKU_VIDEO_POC__ || window.__ANKIMINER_VIDEO_POC__)) {
+        videoNotified = true;
+        return;
+      }
+      const hasVideo = typeof document !== "undefined" && typeof document.querySelector === "function" && document.querySelector("video");
+      if (hasVideo) {
+        videoNotified = true;
+        try {
+          chrome.runtime.sendMessage({ type: "VIDEO_DETECTED" }).catch(() => {});
+        } catch (_) {}
+      }
+    }
+
+    notifyVideo();
+
+    if (!videoNotified && typeof document !== "undefined") {
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", notifyVideo, { once: true });
+      }
+      if (typeof MutationObserver !== "undefined") {
+        const obs = new MutationObserver((mutations) => {
+          if (videoNotified) {
+            obs.disconnect();
+            return;
+          }
+          for (const m of mutations) {
+            for (const n of (m.addedNodes || [])) {
+              if (n && n.nodeType === 1 && ((n.tagName || "").toLowerCase() === "video" || (typeof n.querySelector === "function" && n.querySelector("video")))) {
+                notifyVideo();
+                obs.disconnect();
+                return;
+              }
+            }
+          }
+        });
+        const target = document.body || document.documentElement;
+        if (target) {
+          obs.observe(target, { childList: true, subtree: true });
+        }
+      }
+      document.addEventListener("play", notifyVideo, true);
+      document.addEventListener("playing", notifyVideo, true);
+      document.addEventListener("loadeddata", notifyVideo, true);
+    }
+  }
+
+  try {
+    initVideoDetector();
+  } catch (_) {}
 })();

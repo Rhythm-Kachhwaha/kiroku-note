@@ -407,6 +407,10 @@
     }
 
     handleMessage(message, _sender, sendResponse) {
+      if (message?.type === "PING_VIDEO_MINING" || message?.type === "PING_KIROKU_VIDEO") {
+        sendResponse?.({ ok: true, active: Boolean(this.activeVideo) });
+        return true;
+      }
       if (message?.type === "TRIGGER_VIDEO_SCREENSHOT") {
         this.captureCurrentFrame(message.options).then(res => {
           sendResponse?.(res);

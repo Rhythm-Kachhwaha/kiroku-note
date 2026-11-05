@@ -7,6 +7,9 @@
  */
 
 (() => {
+  if (typeof globalThis !== "undefined" && globalThis.NetflixAdapter) {
+    return;
+  }
   function isNetflixPage() {
     if (typeof location === "undefined") return false;
     return location.hostname.includes("netflix.com");
