@@ -15,10 +15,14 @@ from fastapi.responses import JSONResponse
 
 from app.link.hub import (
     authenticate_link_token,
+    check_link_host,
     check_link_origin,
     link_hub,
 )
-from app.schemas_link import LINK_PROTOCOL_VERSION
+from app.schemas_link import (
+    LINK_PROTOCOL_VERSION,
+    MAX_CUE_LIST_PAYLOAD_BYTES,
+)
 
 router = APIRouter(prefix="/api/link", tags=["link"])
 
@@ -33,8 +37,16 @@ def get_link_status() -> Dict[str, Any]:
 async def link_websocket_endpoint(websocket: WebSocket) -> None:
     """
     WebSocket endpoint for Extension <-> Desktop link companion protocol.
-    Enforces origin policy and 3-second authenticated hello handshake.
+    Enforces loopback host check (anti-DNS rebinding), origin policy,
+    oversize frame guards, and 3-second authenticated hello handshake.
     """
+    # 1. DNS rebinding check on Host header
+    host = websocket.headers.get("host")
+    if not check_link_host(host):
+        await websocket.close(code=4401, reason="DNS rebinding rejected: invalid host")
+        return
+
+    # 2. Origin check
     origin = websocket.headers.get("origin")
     if not check_link_origin(origin):
         await websocket.close(code=4401, reason="Forbidden origin")
@@ -42,9 +54,12 @@ async def link_websocket_endpoint(websocket: WebSocket) -> None:
 
     await websocket.accept()
 
-    # 1. Enforce 3.0 second first-message handshake
+    # 3. Enforce 3.0 second first-message handshake & frame limit
     try:
         first_raw = await asyncio.wait_for(websocket.receive_text(), timeout=3.0)
+        if len(first_raw.encode("utf-8")) > MAX_CUE_LIST_PAYLOAD_BYTES:
+            await websocket.close(code=1009, reason="Oversize handshake frame")
+            return
         first_msg = json.loads(first_raw)
     except Exception:
         await websocket.close(code=4401, reason="Handshake timeout or invalid payload")
@@ -67,7 +82,7 @@ async def link_websocket_endpoint(websocket: WebSocket) -> None:
         await websocket.close(code=4401, reason="Unauthorized token or role")
         return
 
-    # 2. Register client and send hello.ok
+    # 4. Register client and send hello.ok
     client = link_hub.register_client(websocket, role, client_name)
     hello_ok = {
         "v": LINK_PROTOCOL_VERSION,
@@ -81,14 +96,17 @@ async def link_websocket_endpoint(websocket: WebSocket) -> None:
     }
     await client.send_envelope(hello_ok)
 
-    # 3. If desk connected, replay active sessions
+    # 5. If desk connected, replay active sessions
     if role == "desk":
         await link_hub.replay_to_desk(client)
 
-    # 4. Message reception loop
+    # 6. Message reception loop with oversize frame protection
     try:
         while True:
             text = await websocket.receive_text()
+            if len(text.encode("utf-8")) > MAX_CUE_LIST_PAYLOAD_BYTES:
+                await websocket.close(code=1009, reason="Oversize message frame")
+                return
             try:
                 data = json.loads(text)
             except Exception:

@@ -54,3 +54,11 @@ Only `desk` may originate `cmd.*` messages. Hub rejects any `cmd.*` from `ext`.
 - Rate limits: maximum 30 messages/sec per client.
 - Role enforcement: only `desk` can issue `cmd.*`.
 - No Widevine/DRM bypass: DRM sites emit `drm: true` and play in browser; Kiroku acts as companion.
+
+## 7. Threat Model
+- **Untrusted Web Content & Cross-Origin Sites**: Malicious websites in browser tabs must not issue commands or access companion data. Mitigated by strict Origin header validation (`check_link_origin`), denying wildcard/subdomain spoofing, and requiring cryptographic token verification during the 3-second `hello` handshake.
+- **DNS Rebinding**: Malicious external domains resolving to `127.0.0.1` are blocked at handshake by strict `Host` header enforcement (`127.0.0.1`, `localhost`, `[::1]`).
+- **Privilege Escalation**: Browser extensions and untrusted video contexts cannot issue control commands (`cmd.*`); commands are exclusively permitted from authenticated `desk` clients.
+- **Denial of Service & Buffer Exhaustion**: WebSocket frames are strictly limited to 1MB (`MAX_CUE_LIST_PAYLOAD_BYTES`), with standard events capped at 64KB and a sliding window rate limit (30 msgs/sec). Oversized frames terminate the connection with code `1009`.
+- **Credential Leakage**: Handshake tokens are transmitted only within WebSocket payload bodies over loopback, never logged in diagnostic output or exposed via query parameters.
+- **Renderer Isolation in Theater**: Embedded streaming WebContentsViews operate in an isolated sandbox (`contextIsolation: true`, `nodeIntegration: false`) with no access to Electron `desktopAPI`.

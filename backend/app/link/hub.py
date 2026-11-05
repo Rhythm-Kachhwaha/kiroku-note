@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import secrets
 import time
 from typing import Any, Dict, List, Optional, Set
@@ -23,23 +24,49 @@ from app.schemas_link import (
 from app.services.legacy_api_auth import legacy_api_auth
 
 
+def check_link_host(host: Optional[str]) -> bool:
+    """
+    Prevents DNS-rebinding attacks by validating the HTTP/WS Host header.
+    Only strictly allows loopback interfaces (127.0.0.1, localhost, [::1])
+    and test runners (testserver).
+    """
+    if not host:
+        return True
+    host_clean = host.strip().lower()
+    # Strip optional port number
+    if host_clean.startswith("[") and "]" in host_clean:
+        hostname = host_clean.split("]")[0] + "]"
+    else:
+        hostname = host_clean.split(":")[0]
+
+    return hostname in ("127.0.0.1", "localhost", "::1", "[::1]", "testserver")
+
+
 def check_link_origin(origin: Optional[str]) -> bool:
-    """Verifies that the WebSocket origin is allowed (localhost, Electron/file, or paired extension)."""
+    """
+    Verifies that the WebSocket origin is strictly allowed (localhost, Electron/file, or paired extension).
+    Uses strict regex matching to prevent subdomains like http://localhost.evil.com.
+    """
     if not origin:
         return True
-    origin_lower = origin.lower()
+    origin_lower = origin.lower().strip()
     if origin_lower in ("null", "file://", "vscode-file://", "devtools://"):
         return True
     if origin_lower.startswith("file:"):
         return True
-    if origin_lower.startswith("http://127.0.0.1") or origin_lower.startswith("http://localhost"):
+
+    # Strict loopback origin match (with optional port)
+    if re.match(r"^https?://(127\.0\.0\.1|localhost)(:\d+)?$", origin_lower):
         return True
+
+    # Extension origin check
     if origin_lower.startswith("chrome-extension://"):
         ext_id = origin_lower.replace("chrome-extension://", "").split("/")[0]
         allowed = get_allowed_extension_ids()
         if not allowed or ext_id in allowed:
             return True
         return False
+
     return False
 
 
