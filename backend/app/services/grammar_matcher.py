@@ -1,7 +1,7 @@
 """Data-driven sentence matching against the bundled grammar index."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import logging
 import re
 from typing import Any
@@ -35,6 +35,7 @@ class MatchedGrammarSpan:
     also_possible: bool = False
     concept_id: str | None = None
     span_approx: bool = False
+    pattern_aliases: list[str] = field(default_factory=list)
 
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
@@ -303,6 +304,7 @@ class GrammarMatcher:
         return MatchedGrammarSpan(
             pattern_key=point["pattern_key"],
             pattern_display=point.get("pattern_display", f"〜{point['pattern_key']}"),
+            pattern_aliases=list(point.get("pattern_aliases") or []),
             text=raw_text[start:end], start=start, end=end,
             level=point.get("level", ""), meaning_short=point.get("meaning_short", ""),
             english_breakdown=breakdown, formation=formation,

@@ -23,6 +23,7 @@ class GrammarAnalyzeRequest(BaseModel):
 class GrammarPointResponse(BaseModel):
     pattern_key: str
     pattern_display: str
+    pattern_aliases: list[str] = Field(default_factory=list)
     text: str
     start: int
     end: int

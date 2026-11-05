@@ -70,20 +70,40 @@ class GrammarReferenceService:
             cid = item.get("concept_id") or f"c_{item['id']}"
             concepts_by_id[cid] = item
 
-            norm_key = _normalize_key(item["pattern_key"])
-            by_key.setdefault(norm_key, []).append(item)
+            raw_key = item["pattern_key"]
+            if "/" in raw_key:
+                parts = [p.strip() for p in raw_key.split("/") if p.strip()]
+                canonical_key = parts[0]
+                aliases = parts[1:]
+            else:
+                canonical_key = raw_key
+                aliases = []
+            item["pattern_key"] = canonical_key
+            item["pattern_aliases"] = aliases
 
-            existing = index.get(norm_key)
+            norm_canonical = _normalize_key(canonical_key)
+            by_key.setdefault(norm_canonical, []).append(item)
+            for alias in aliases:
+                by_key.setdefault(_normalize_key(alias), []).append(item)
+            if raw_key != canonical_key:
+                by_key.setdefault(_normalize_key(raw_key), []).append(item)
+
+            existing = index.get(norm_canonical)
             if existing is None:
                 if not item.get("sources"):
                     item["sources"] = [dict(item)]
-                index[norm_key] = item
+                index[norm_canonical] = item
             else:
                 cur_sources = existing.setdefault("sources", [dict(existing)])
                 new_sources = item.get("sources") or [dict(item)]
                 for s in new_sources:
                     if s not in cur_sources:
                         cur_sources.append(s)
+
+            for alias in aliases:
+                norm_alias = _normalize_key(alias)
+                if norm_alias not in index:
+                    index[norm_alias] = item
 
         self._loaded_data = {
             "concepts_by_id": concepts_by_id,

@@ -14,6 +14,11 @@ class GrammarTrackerService:
         self.db_path = db_path
         init_db(db_path)
 
+    def migrate_legacy_keys(self) -> int:
+        from app.db.connection import migrate_canonical_grammar_keys
+        with db_session(self.db_path) as conn:
+            return migrate_canonical_grammar_keys(conn)
+
     def record_encounter(
         self, pattern_key: str, display: str, sentence: str, source: str,
         source_title: str | None = None, video_timestamp_ms: int | None = None,

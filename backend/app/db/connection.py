@@ -123,6 +123,76 @@ def db_session(db_path: Path | str | None = None) -> Iterator[sqlite3.Connection
         conn.close()
 
 
+def migrate_canonical_grammar_keys(conn: sqlite3.Connection) -> int:
+    """Migrate legacy combined pattern keys (e.g. 'てしまう / ちゃう') to canonical first alternative."""
+    try:
+        rows = conn.execute("SELECT * FROM grammar_points WHERE pattern_key LIKE '%/%'").fetchall()
+    except sqlite3.DatabaseError:
+        return 0
+    if not rows:
+        return 0
+    migrated_count = 0
+    status_ranks = {"known": 3, "learning": 2, "new": 1, "ignored": 0}
+    for row in rows:
+        old_key = row["pattern_key"]
+        canonical_key = old_key.split("/")[0].strip()
+        if not canonical_key or canonical_key == old_key:
+            continue
+        existing_canonical = conn.execute(
+            "SELECT * FROM grammar_points WHERE pattern_key = ?", (canonical_key,)
+        ).fetchone()
+        if existing_canonical:
+            old_rank = status_ranks.get(row["status"], 1)
+            cur_rank = status_ranks.get(existing_canonical["status"], 1)
+            merged_status = row["status"] if old_rank > cur_rank else existing_canonical["status"]
+            merged_count = existing_canonical["seen_count"] + row["seen_count"]
+            first_seen = min(existing_canonical["first_seen_at"], row["first_seen_at"])
+            last_seen = max(existing_canonical["last_seen_at"], row["last_seen_at"])
+            card_id = existing_canonical["card_id"] or row["card_id"]
+            conn.execute(
+                """UPDATE grammar_points SET status=?, seen_count=?, first_seen_at=?, last_seen_at=?, card_id=?
+                   WHERE pattern_key=?""",
+                (merged_status, merged_count, first_seen, last_seen, card_id, canonical_key),
+            )
+        else:
+            conn.execute(
+                """INSERT INTO grammar_points (pattern_key, display, level, status, seen_count, first_seen_at, last_seen_at, card_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    canonical_key,
+                    row["display"],
+                    row["level"],
+                    row["status"],
+                    row["seen_count"],
+                    row["first_seen_at"],
+                    row["last_seen_at"],
+                    row["card_id"],
+                ),
+            )
+        conn.execute(
+            "UPDATE grammar_encounters SET pattern_key = ? WHERE pattern_key = ?",
+            (canonical_key, old_key),
+        )
+        conn.execute("DELETE FROM grammar_points WHERE pattern_key = ?", (old_key,))
+        migrated_count += 1
+    try:
+        orphan_encounters = conn.execute(
+            "SELECT DISTINCT pattern_key FROM grammar_encounters WHERE pattern_key LIKE '%/%'"
+        ).fetchall()
+        for enc in orphan_encounters:
+            old_k = enc["pattern_key"]
+            canon = old_k.split("/")[0].strip()
+            if canon and canon != old_k:
+                conn.execute(
+                    "UPDATE grammar_encounters SET pattern_key = ? WHERE pattern_key = ?",
+                    (canon, old_k),
+                )
+    except sqlite3.DatabaseError:
+        pass
+    conn.commit()
+    return migrated_count
+
+
 def init_db(db_path: Path | str | None = None) -> None:
     """Initialize the SQLite database schema, run migrations, and recover interrupted syncs."""
     with db_session(db_path) as conn:
@@ -156,4 +226,5 @@ def init_db(db_path: Path | str | None = None) -> None:
 
         # Recover cards left stuck in 'syncing' state from a previously interrupted process
         conn.execute("UPDATE cards SET sync_status = 'pending' WHERE sync_status = 'syncing'")
+        migrate_canonical_grammar_keys(conn)
         conn.commit()
