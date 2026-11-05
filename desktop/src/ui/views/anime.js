@@ -236,6 +236,10 @@ export class AnimeView {
                   </div>
 
                   <div class="flex items-center gap-2">
+                    <button type="button" class="anime-control-btn" id="btn-anime-export-condensed" aria-label="Export Condensed Audio">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                      <span>Condensed Audio</span>
+                    </button>
                     <button type="button" class="anime-control-btn" id="btn-anime-queue-gaps" aria-label="Queue gap words">
                       Queue Gaps
                     </button>
@@ -481,6 +485,11 @@ export class AnimeView {
 
     btnClip?.addEventListener('click', () => {
       this.mineActiveLine();
+    });
+
+    const btnExportCondensed = this.container.querySelector('#btn-anime-export-condensed');
+    btnExportCondensed?.addEventListener('click', () => {
+      this.exportCondensedAudio();
     });
 
     // Queue gap words button
@@ -833,6 +842,27 @@ export class AnimeView {
       const s = activeCue ? activeCue.s : (summary.videoState?.t || 0);
       const e = activeCue ? activeCue.e : (s + 3.0);
       this.linkStore.requestClip(reqId, s, e, ['image', 'audio']);
+    }
+  }
+
+  async exportCondensedAudio() {
+    const cues = this.linkStore?.cues || [];
+    if (!cues.length) return null;
+    const btn = this.container?.querySelector('#btn-anime-export-condensed');
+    if (btn) btn.disabled = true;
+
+    try {
+      const res = await this.apiClient.request('/api/link/export-condensed-audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cues })
+      });
+      return res;
+    } catch (err) {
+      console.warn('[AnimeView] exportCondensedAudio error:', err);
+      return null;
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 

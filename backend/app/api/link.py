@@ -25,6 +25,7 @@ from app.schemas_link import (
     LINK_PROTOCOL_VERSION,
     MAX_CUE_LIST_PAYLOAD_BYTES,
 )
+from app.services.condensed_audio import build_ffmpeg_concat_filter
 
 router = APIRouter(prefix="/api/link", tags=["link"])
 
@@ -148,3 +149,19 @@ async def link_websocket_endpoint(websocket: WebSocket) -> None:
         pass
     finally:
         link_hub.unregister_client(websocket)
+
+
+class CondensedAudioRequest(BaseModel):
+    cues: List[Dict[str, Any]] = Field(default_factory=list)
+    source_audio_path: str = ""
+
+
+@router.post("/export-condensed-audio")
+async def export_condensed_audio(req: CondensedAudioRequest):
+    filter_chain = build_ffmpeg_concat_filter(req.cues)
+    return {
+        "ok": True,
+        "filter": filter_chain,
+        "cue_count": len(req.cues),
+        "status": "ready"
+    }
