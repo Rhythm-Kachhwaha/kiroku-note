@@ -13,14 +13,14 @@ Use only named desktop tests: `node --test desktop/tests/<name>.test.js`.
 | GET | `/api/anki/decks` | ok | yes | desktop/src/ui/services/api_client.js |
 | GET | `/api/anki/models` | ok | yes | desktop/src/ui/services/api_client.js |
 | GET | `/api/anki/status` | ok | yes | desktop/src/ui/services/api_client.js |
-| POST | `/api/capture` | ok | yes | desktop/src/ui/views/watch_primer.js |
 | POST | `/api/capture` | ok | yes | desktop/src/ui/services/api_client.js |
+| POST | `/api/capture` | ok | yes | desktop/src/ui/views/watch_primer.js |
 | GET | `/api/cards` | ok | yes | desktop/src/ui/services/api_client.js |
 | DELETE | `/api/cards/bulk` | ok | yes | desktop/src/ui/services/api_client.js |
 | POST | `/api/cards/bulk-sync` | ok | yes | desktop/src/ui/services/api_client.js |
 | GET | `/api/cards/export` | ok | yes | desktop/src/ui/services/api_client.js |
-| POST | `/api/cards/save` | ok | yes | desktop/src/ui/services/api_client.js |
 | POST | `/api/cards/save` | ok | yes | desktop/src/ui/services/link_mine.js |
+| POST | `/api/cards/save` | ok | yes | desktop/src/ui/services/api_client.js |
 | GET | `/api/cards/stats` | ok | yes | desktop/src/ui/services/api_client.js |
 | POST | `/api/cards/sync-all` | ok | yes | desktop/src/ui/services/api_client.js |
 | DELETE | `/api/cards/{card_id}` | ok | yes | desktop/src/ui/services/api_client.js |
@@ -44,8 +44,8 @@ Use only named desktop tests: `node --test desktop/tests/<name>.test.js`.
 | GET | `/api/kanji/seen` | ok | yes | desktop/src/ui/services/api_client.js |
 | GET | `/api/kanji/strokes/{character}` | ok | yes | desktop/src/ui/services/api_client.js |
 | GET | `/api/known-words` | ok | yes | desktop/src/ui/services/api_client.js |
-| POST | `/api/known-words/mark` | ok | yes | desktop/src/ui/services/api_client.js |
 | POST | `/api/known-words/mark` | ok | yes | desktop/src/ui/services/link_mine.js |
+| POST | `/api/known-words/mark` | ok | yes | desktop/src/ui/services/api_client.js |
 | DELETE | `/api/known-words/mark/{word}` | ok | yes | desktop/src/ui/services/api_client.js |
 | GET | `/api/learner` | ok | yes | desktop/src/ui/services/api_client.js |
 | PUT | `/api/learner` | ok | yes | desktop/src/ui/services/api_client.js |
@@ -94,8 +94,8 @@ Use only named desktop tests: `node --test desktop/tests/<name>.test.js`.
 | POST | `/api/study/v1/practice/sessions/{id}/feedback` | ok | yes | desktop/src/ui/services/study_client.js |
 | GET | `/api/study/v1/settings` | ok | yes | desktop/src/ui/services/study_client.js |
 | PATCH | `/api/study/v1/settings` | ok | yes | desktop/src/ui/services/study_client.js |
-| POST | `/api/subtitle/annotate` | ok | yes | desktop/src/ui/services/api_client.js |
 | POST | `/api/subtitle/annotate` | ok | yes | desktop/src/ui/views/vocab_watch.js |
+| POST | `/api/subtitle/annotate` | ok | yes | desktop/src/ui/services/api_client.js |
 | GET | `/api/vocab/coverage` | ok | yes | desktop/src/ui/services/api_client.js |
 | GET | `/api/vocab/daily-word` | ok | yes | desktop/src/ui/services/api_client.js |
 | GET | `/api/vocab/gaps` | ok | yes | desktop/src/ui/services/api_client.js |

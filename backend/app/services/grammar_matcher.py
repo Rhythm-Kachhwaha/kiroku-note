@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 import re
 from typing import Any
 
 from .grammar_reference import GrammarReferenceService
+
+logger = logging.getLogger(__name__)
 
 
 _BARE_PARTICLES = {
@@ -385,16 +388,28 @@ class GrammarMatcher:
         return compiled
 
     @staticmethod
-    def _bounded_fallback_start(raw_text: str, start: int, end: int | None = None) -> int:
+    def _bounded_fallback_start(
+        raw_text: str,
+        start: int,
+        end: int | None = None,
+        pattern_suffix: str | None = None,
+    ) -> int:
         particles = set("はがをにへでとのも")
         while start > 0 and _JAPANESE_RE.match(raw_text[start - 1]):
             if raw_text[start - 1] in particles:
                 break
             start -= 1
-        if end is not None:
-            for offset, char in enumerate(raw_text[start:end]):
-                if char in particles:
-                    start = start + offset + 1
+        if end is not None and start < end:
+            limit = end - 1
+            if pattern_suffix and pattern_suffix in raw_text[start:end]:
+                suffix_offset = raw_text[start:end].rfind(pattern_suffix)
+                if suffix_offset > 0:
+                    limit = start + suffix_offset
+            new_start = start
+            for idx in range(start, limit):
+                if raw_text[idx] in particles:
+                    new_start = idx + 1
+            start = min(new_start, end - 1) if new_start < end else start
         return start
 
     @staticmethod
@@ -553,13 +568,19 @@ class GrammarMatcher:
                     suffix_pos = (match.start() + sou_match.start()) if sou_match else (match.end() - 3)
                     start = self._grammar_start(raw_text, suffix_pos)
 
+                pattern_suffix = None
+                for cand in (point.get("variants") or []) + [point.get("pattern_key", "")]:
+                    if cand and cand in match.group():
+                        pattern_suffix = cand
+                        break
+
                 if token_spans:
                     start = self._anchored_start(token_spans, start, match.end(), starts_bracket=starts_bracket)
                     if not any(
                         self._token_kind(token[3], token[0]) == "predicate"
                         for token in token_spans
                     ) and starts_bracket:
-                        start = self._bounded_fallback_start(raw_text, start, match.end())
+                        start = self._bounded_fallback_start(raw_text, start, match.end(), pattern_suffix=pattern_suffix)
 
                     # Fix spans for ほうがいい/たほうがいい and はずがない
                     if "ほうがいい" in point.get("pattern_key", ""):
@@ -568,7 +589,7 @@ class GrammarMatcher:
                         start = self._extend_to_preceding_predicate(token_spans, start)
                 else:
                     start = self._bounded_fallback_start(
-                        raw_text, start, match.end() if starts_bracket else None
+                        raw_text, start, match.end() if starts_bracket else None, pattern_suffix=pattern_suffix
                     )
 
                 matches.append(self._candidate(
@@ -642,6 +663,19 @@ class GrammarMatcher:
                     if te_idx >= 0:
                         b.start = te_idx
                         b.text = raw_text[b.start:b.end]
+
+        # Post-filter: drop invalid spans (not 0 <= start < end <= len or text != raw_text[start:end])
+        valid_candidates: list[MatchedGrammarSpan] = []
+        for item in candidates:
+            if 0 <= item.start < item.end <= len(raw_text) and item.text == raw_text[item.start:item.end]:
+                valid_candidates.append(item)
+            else:
+                logger.debug(
+                    "Dropping invalid grammar span: pattern=%s start=%s end=%s text=%r expected_text=%r",
+                    item.pattern_key, item.start, item.end, item.text,
+                    raw_text[item.start:item.end] if 0 <= item.start < item.end <= len(raw_text) else "",
+                )
+        candidates = valid_candidates
 
         # Suppress contained weaker candidates: if span A strictly contains span B and B's pattern is a component
         if not show_all:

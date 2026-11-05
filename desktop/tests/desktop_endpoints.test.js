@@ -106,3 +106,4 @@ test('desktop endpoints audit: all desktop-used paths exist in openapi.json fixt
     `Found desktop UI paths missing from OpenAPI fixture:\n${missing.join('\n')}`
   );
 });
+
