@@ -43,3 +43,4 @@ def test_master_dataset_example_sentences_span_invariants():
                     f"Span text mismatch for pattern {span.pattern_key} in sentence {sentence!r}: "
                     f"got {span.text!r}, expected {sentence[span.start:span.end]!r}"
                 )
+
