@@ -52,3 +52,19 @@ test('Sidepanel UI: Cloud queue refresh button uses vector SVG icon and connects
   assert.ok(js.includes('/api/cloud/pull'), 'Calls /api/cloud/pull endpoint');
 });
 
+test('Sidepanel UI: Settings Cards section exposes cloud pull, sync all, and counters', () => {
+  const html = fs.readFileSync('extension/sidepanel/sidepanel.html', 'utf8');
+  assert.ok(html.includes('id="settings-group-cards"'), 'settings-group-cards exists');
+  assert.ok(html.includes('id="btn-settings-sync-all"'), 'btn-settings-sync-all exists');
+  assert.ok(html.includes('id="btn-settings-pull-cloud"'), 'btn-settings-pull-cloud exists');
+  assert.ok(html.includes('id="settings-cloud-count-badge"'), 'settings-cloud-count-badge exists');
+  assert.ok(html.includes('id="settings-cards-count"'), 'settings-cards-count exists');
+  assert.ok(html.includes('id="settings-cards-synced"'), 'settings-cards-synced exists');
+  assert.ok(!html.includes('☁️'), 'Zero cloud emojis in HTML');
+
+  const js = fs.readFileSync('extension/sidepanel/sidepanel.js', 'utf8');
+  assert.ok(js.includes('btnSettingsSyncAll'), 'btnSettingsSyncAll queried in JS');
+  assert.ok(js.includes('btnSettingsPullCloud'), 'btnSettingsPullCloud queried in JS');
+  assert.ok(js.includes('settingsCloudCountBadge'), 'settingsCloudCountBadge queried in JS');
+});
+

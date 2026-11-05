@@ -1,4 +1,4 @@
 # Status
-Group 1 & Slices 5-7 complete: boot, pairing, local dict & identify.
-Slice 24 complete: retired Quick/Ask/History tabs from UI with gate constant.
-Extension tests pass (quick-add, customizable-layout, boot_real_mode, text-ask).
+Group 1, Slices 5-7 & Group 7 (Slices 24-25) complete.
+UI decluttered to Text/Video tabs; cloud pull & sync accessible in Settings.
+Targeted tests pass: boot_real_mode, cloud-queue, deck-aware, packaging.

@@ -1266,6 +1266,16 @@ const undoToast = document.querySelector("#undo-toast");
 const undoToastMessage = document.querySelector("#undo-toast-message");
 const btnUndoDelete = document.querySelector("#btn-undo-delete");
 
+// Settings Cards & Cloud Sync Elements (Slice 25)
+const settingsCardsCount = document.querySelector("#settings-cards-count");
+const settingsCardsSynced = document.querySelector("#settings-cards-synced");
+const settingsCloudCountBadge = document.querySelector("#settings-cloud-count-badge");
+const btnSettingsSyncAll = document.querySelector("#btn-settings-sync-all");
+const btnSettingsPullCloud = document.querySelector("#btn-settings-pull-cloud");
+const settingsSyncProgressGroup = document.querySelector("#settings-sync-progress-group");
+const settingsSyncProgressBar = document.querySelector("#settings-sync-progress-bar");
+const settingsSyncLabel = document.querySelector("#settings-sync-label");
+
 // Bulk Operations Elements (T4-A)
 const bulkActionBar = typeof document !== "undefined" && document ? document.querySelector("#bulk-action-bar") : null;
 const bulkSelectAllCb = typeof document !== "undefined" && document ? document.querySelector("#bulk-select-all-cb") : null;
@@ -6067,10 +6077,24 @@ async function triggerSyncAll(options = {}) {
     btnSyncAll.classList.add("syncing");
     btnSyncAll.textContent = "Syncing…";
   }
+  if (!silent && typeof btnSettingsSyncAll !== "undefined" && btnSettingsSyncAll) {
+    btnSettingsSyncAll.disabled = true;
+  }
   if (!silent && syncAllStatus) {
     syncAllStatus.hidden = false;
     syncAllStatus.className = "sync-all-status";
     syncAllStatus.textContent = "Checking Anki & syncing cards…";
+  }
+
+  if (!silent && typeof settingsSyncProgressGroup !== "undefined" && settingsSyncProgressGroup) {
+    settingsSyncProgressGroup.hidden = false;
+    if (settingsSyncProgressBar) {
+      settingsSyncProgressBar.style.width = "10%";
+      settingsSyncProgressBar.style.background = "var(--accent-anki, #64b5f6)";
+    }
+    if (settingsSyncLabel) {
+      settingsSyncLabel.textContent = "Connecting to Anki and syncing cards…";
+    }
   }
 
   if (!silent && typeof syncProgressModal !== "undefined" && syncProgressModal) {
@@ -6106,12 +6130,26 @@ async function triggerSyncAll(options = {}) {
         }
         if (typeof btnDismissSyncModal !== "undefined" && btnDismissSyncModal) btnDismissSyncModal.hidden = false;
       }
+      if (!silent && typeof settingsSyncProgressGroup !== "undefined" && settingsSyncProgressGroup) {
+        if (settingsSyncProgressBar) {
+          settingsSyncProgressBar.style.width = "100%";
+          settingsSyncProgressBar.style.background = "var(--accent-coral, #ff8c70)";
+        }
+        if (settingsSyncLabel) settingsSyncLabel.textContent = `Sync failed: ${errMsg}`;
+      }
       if (!silent) setStatus(`Sync All failed: ${errMsg}`, true);
       await loadHistory().catch(() => {});
       return;
     }
 
     const { total_eligible = 0, synced_count = 0, failed_count = 0, results = [] } = body;
+
+    if (!silent && typeof settingsSyncProgressGroup !== "undefined" && settingsSyncProgressGroup) {
+      if (total_eligible === 0) {
+        if (settingsSyncProgressBar) settingsSyncProgressBar.style.width = "100%";
+        if (settingsSyncLabel) settingsSyncLabel.textContent = "No cards to sync (all up to date).";
+      }
+    }
 
     if (!silent && typeof syncProgressModal !== "undefined" && syncProgressModal) {
       if (total_eligible === 0) {
@@ -6153,10 +6191,21 @@ async function triggerSyncAll(options = {}) {
             const pct = Math.round(((i + 1) / results.length) * 100);
             syncModalProgressBar.style.width = `${pct}%`;
           }
+          if (typeof settingsSyncProgressBar !== "undefined" && settingsSyncProgressBar) {
+            const pct = Math.round(((i + 1) / results.length) * 100);
+            settingsSyncProgressBar.style.width = `${pct}%`;
+          }
+          if (typeof settingsSyncLabel !== "undefined" && settingsSyncLabel) {
+            settingsSyncLabel.textContent = `Syncing (${i + 1}/${results.length})…`;
+          }
         }
 
         if (typeof syncProgressSummary !== "undefined" && syncProgressSummary) {
           syncProgressSummary.textContent = `Sync complete: ${synced_count} succeeded, ${failed_count} failed.`;
+        }
+        if (typeof settingsSyncProgressBar !== "undefined" && settingsSyncProgressBar) settingsSyncProgressBar.style.width = "100%";
+        if (typeof settingsSyncLabel !== "undefined" && settingsSyncLabel) {
+          settingsSyncLabel.textContent = `Sync complete: ${synced_count} succeeded, ${failed_count} failed.`;
         }
         if (typeof btnDismissSyncModal !== "undefined" && btnDismissSyncModal) btnDismissSyncModal.hidden = false;
       }
@@ -6214,6 +6263,13 @@ async function triggerSyncAll(options = {}) {
       }
       if (btnDismissSyncModal) btnDismissSyncModal.hidden = false;
     }
+    if (!silent && typeof settingsSyncProgressGroup !== "undefined" && settingsSyncProgressGroup) {
+      if (settingsSyncProgressBar) {
+        settingsSyncProgressBar.style.width = "100%";
+        settingsSyncProgressBar.style.background = "var(--accent-coral, #ff8c70)";
+      }
+      if (settingsSyncLabel) settingsSyncLabel.textContent = `Sync failed: ${msg}`;
+    }
     if (!silent) setStatus(`Sync All failed: ${msg}`, true);
     await loadHistory().catch(() => {});
   } finally {
@@ -6222,6 +6278,14 @@ async function triggerSyncAll(options = {}) {
       btnSyncAll.disabled = false;
       btnSyncAll.classList.remove("syncing");
       btnSyncAll.textContent = "Sync All";
+    }
+    if (typeof btnSettingsSyncAll !== "undefined" && btnSettingsSyncAll) {
+      btnSettingsSyncAll.disabled = false;
+    }
+    if (typeof settingsSyncProgressGroup !== "undefined" && settingsSyncProgressGroup) {
+      setTimeout(() => {
+        if (settingsSyncProgressGroup) settingsSyncProgressGroup.hidden = true;
+      }, 4000);
     }
   }
 }
@@ -6569,6 +6633,15 @@ async function loadHistory() {
         historyCloudCountBadge.style.display = "none";
       }
     }
+    if (typeof settingsCloudCountBadge !== "undefined" && settingsCloudCountBadge) {
+      if (cloudCards.length > 0) {
+        settingsCloudCountBadge.style.display = "inline-block";
+        settingsCloudCountBadge.textContent = cloudUnsyncedCount > 0 ? String(cloudUnsyncedCount) : String(cloudCards.length);
+        settingsCloudCountBadge.title = `${cloudUnsyncedCount} unsynced, ${cloudCards.length} total cloud cards`;
+      } else {
+        settingsCloudCountBadge.style.display = "none";
+      }
+    }
 
     // Filter cards according to active source subtab
     let displayCards = cards;
@@ -6586,6 +6659,13 @@ async function loadHistory() {
     const synced = typeof data.synced_total === "number"
       ? data.synced_total
       : (syncStatus === "synced" ? total : (syncStatus !== "all" && syncStatus ? 0 : cards.filter(c => c.sync_status === "synced").length));
+
+    if (typeof settingsCardsCount !== "undefined" && settingsCardsCount) {
+      settingsCardsCount.textContent = `${total} card${total === 1 ? "" : "s"}`;
+    }
+    if (typeof settingsCardsSynced !== "undefined" && settingsCardsSynced) {
+      settingsCardsSynced.textContent = `(${synced} synced)`;
+    }
 
     if (historyCount) {
       if (currentHistorySource === "cloud") {
@@ -7394,11 +7474,12 @@ if (btnSyncCloudAll) {
 }
 
 async function triggerRefreshCloudQueue() {
-  if (!btnRefreshCloudQueue) return;
-  const icon = btnRefreshCloudQueue.querySelector(".icon-refresh");
-  const label = btnRefreshCloudQueue.querySelector("#btn-refresh-cloud-label");
+  if (!btnRefreshCloudQueue && !btnSettingsPullCloud) return;
+  const icon = btnRefreshCloudQueue ? btnRefreshCloudQueue.querySelector(".icon-refresh") : null;
+  const label = btnRefreshCloudQueue ? btnRefreshCloudQueue.querySelector("#btn-refresh-cloud-label") : null;
 
-  btnRefreshCloudQueue.disabled = true;
+  if (btnRefreshCloudQueue) btnRefreshCloudQueue.disabled = true;
+  if (typeof btnSettingsPullCloud !== "undefined" && btnSettingsPullCloud) btnSettingsPullCloud.disabled = true;
   if (icon) icon.classList.add("spinning");
   if (label) label.textContent = "Syncing…";
   setStatus("Syncing cloud queue, Anki stats, and Anki cards…");
@@ -7423,7 +7504,8 @@ async function triggerRefreshCloudQueue() {
   } catch (err) {
     setStatus(`Cannot connect to Kiroku backend: ${formatErrorMessage(err)}`);
   } finally {
-    btnRefreshCloudQueue.disabled = false;
+    if (btnRefreshCloudQueue) btnRefreshCloudQueue.disabled = false;
+    if (typeof btnSettingsPullCloud !== "undefined" && btnSettingsPullCloud) btnSettingsPullCloud.disabled = false;
     if (icon) icon.classList.remove("spinning");
     if (label) label.textContent = "Sync";
     await loadHistory();
@@ -7432,6 +7514,12 @@ async function triggerRefreshCloudQueue() {
 
 if (btnRefreshCloudQueue) {
   btnRefreshCloudQueue.addEventListener("click", () => triggerRefreshCloudQueue());
+}
+if (typeof btnSettingsSyncAll !== "undefined" && btnSettingsSyncAll) {
+  btnSettingsSyncAll.addEventListener("click", () => triggerSyncAll({ silent: false }));
+}
+if (typeof btnSettingsPullCloud !== "undefined" && btnSettingsPullCloud) {
+  btnSettingsPullCloud.addEventListener("click", () => triggerRefreshCloudQueue());
 }
 
 async function exportCardsCsv() {
@@ -10075,6 +10163,9 @@ function switchMiningTab(targetTab) {
       syncCardTemplateSettingsUI();
       renderLayoutSettingsList(currentCardSectionOrder);
       if (typeof checkLLMStatus === "function") checkLLMStatus().catch(() => {});
+      if (typeof loadHistory === "function") {
+        try { loadHistory().catch(() => {}); } catch (_) {}
+      }
     }
   }
 

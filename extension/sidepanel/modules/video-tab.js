@@ -2321,6 +2321,9 @@ function switchMiningTab(targetTab) {
       syncCardTemplateSettingsUI();
       renderLayoutSettingsList(currentCardSectionOrder);
       if (typeof checkLLMStatus === "function") checkLLMStatus().catch(() => {});
+      if (typeof loadHistory === "function") {
+        try { loadHistory().catch(() => {}); } catch (_) {}
+      }
     }
   }
 

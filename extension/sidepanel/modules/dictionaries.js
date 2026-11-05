@@ -293,6 +293,16 @@ const undoToast = document.querySelector("#undo-toast");
 const undoToastMessage = document.querySelector("#undo-toast-message");
 const btnUndoDelete = document.querySelector("#btn-undo-delete");
 
+// Settings Cards & Cloud Sync Elements (Slice 25)
+const settingsCardsCount = document.querySelector("#settings-cards-count");
+const settingsCardsSynced = document.querySelector("#settings-cards-synced");
+const settingsCloudCountBadge = document.querySelector("#settings-cloud-count-badge");
+const btnSettingsSyncAll = document.querySelector("#btn-settings-sync-all");
+const btnSettingsPullCloud = document.querySelector("#btn-settings-pull-cloud");
+const settingsSyncProgressGroup = document.querySelector("#settings-sync-progress-group");
+const settingsSyncProgressBar = document.querySelector("#settings-sync-progress-bar");
+const settingsSyncLabel = document.querySelector("#settings-sync-label");
+
 // Bulk Operations Elements (T4-A)
 const bulkActionBar = typeof document !== "undefined" && document ? document.querySelector("#bulk-action-bar") : null;
 const bulkSelectAllCb = typeof document !== "undefined" && document ? document.querySelector("#bulk-select-all-cb") : null;
