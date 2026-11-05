@@ -1441,6 +1441,84 @@
         }
       }
     },
+    "/api/study/v1/bank/import/pdf/inspect": {
+      "post": {
+        "tags": [
+          "study-bank"
+        ],
+        "summary": "Inspect Pdf Import",
+        "description": "Stage and inspect a PDF without creating questions or revisions.",
+        "operationId": "inspect_pdf_import_api_study_v1_bank_import_pdf_inspect_post",
+        "parameters": [
+          {
+            "name": "force_ocr_pages",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated 1-based page numbers",
+              "title": "Force Ocr Pages"
+            },
+            "description": "Comma-separated 1-based page numbers"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_inspect_pdf_import_api_study_v1_bank_import_pdf_inspect_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfImportInspectionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/study/v1/bank/import/preview": {
       "post": {
         "tags": [
@@ -3835,6 +3913,22 @@
             }
           },
           {
+            "name": "format_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Format Code"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -4433,48 +4527,13 @@
         }
       }
     },
-    "/api/health": {
-      "get": {
-        "summary": "Get Health",
-        "operationId": "get_health_api_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/cloud/poll": {
-      "post": {
-        "summary": "Trigger Cloud Poll",
-        "description": "Manually trigger a cloud poll cycle to pull cards and sync Anki stats & mirror.",
-        "operationId": "trigger_cloud_poll_api_cloud_poll_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Trigger Cloud Poll Api Cloud Poll Post"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/capture": {
       "post": {
+        "tags": [
+          "capture"
+        ],
         "summary": "Capture Term",
+        "description": "Capture a term (optionally auto-saving it as a card).",
         "operationId": "capture_term_api_capture_post",
         "requestBody": {
           "content": {
@@ -4503,6 +4562,700 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/link/status": {
+      "get": {
+        "tags": [
+          "link"
+        ],
+        "summary": "Get Link Status",
+        "description": "Returns connected extension count, desktop clients, and active video sessions.",
+        "operationId": "get_link_status_api_link_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Link Status Api Link Status Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/link/cues/{cue_hash}": {
+      "get": {
+        "tags": [
+          "link-analysis"
+        ],
+        "summary": "Get annotated cues with known% and gap words list",
+        "description": "Returns range of annotated cues with per-cue known% and gap words list.",
+        "operationId": "get_cues_api_link_cues__cue_hash__get",
+        "parameters": [
+          {
+            "name": "cue_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cue Hash"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start cue index",
+              "title": "From"
+            },
+            "description": "Start cue index"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End cue index",
+              "title": "To"
+            },
+            "description": "End cue index"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Cues Api Link Cues  Cue Hash  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/link/cue-grammar": {
+      "get": {
+        "tags": [
+          "link-analysis"
+        ],
+        "summary": "Get cached grammar points per cue",
+        "description": "Returns cached grammar points for cue `i`.",
+        "operationId": "get_cue_grammar_api_link_cue_grammar_get",
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Subtitle cue list hash",
+              "title": "Hash"
+            },
+            "description": "Subtitle cue list hash"
+          },
+          {
+            "name": "i",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Cue index",
+              "title": "I"
+            },
+            "description": "Cue index"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Cue Grammar Api Link Cue Grammar Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/link/primer": {
+      "post": {
+        "tags": [
+          "link-episode"
+        ],
+        "summary": "Generate episode pre-watch primer",
+        "description": "Generates pre-watch primer with top 20 gap words, top 5 grammar points, and 5 mini quiz questions.",
+        "operationId": "post_primer_api_link_primer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrimerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrimerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/link/primer/{cue_hash}": {
+      "get": {
+        "tags": [
+          "link-episode"
+        ],
+        "summary": "Get pre-watch primer by cue hash",
+        "description": "Retrieves or builds primer for a known cached cue list.",
+        "operationId": "get_primer_by_hash_api_link_primer__cue_hash__get",
+        "parameters": [
+          {
+            "name": "cue_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cue Hash"
+            }
+          },
+          {
+            "name": "learner_level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional learner JLPT level",
+              "title": "Learner Level"
+            },
+            "description": "Optional learner JLPT level"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrimerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/link/recap": {
+      "post": {
+        "tags": [
+          "link-episode"
+        ],
+        "summary": "Generate and persist post-session episode recap",
+        "description": "Calculates lines watched, % known before/after, unseen gap words, and persists episode record.",
+        "operationId": "post_recap_api_link_recap_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecapRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecapResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/link/episodes": {
+      "get": {
+        "tags": [
+          "link-episode"
+        ],
+        "summary": "List persisted episode records",
+        "description": "Returns list of persisted episode records.",
+        "operationId": "get_episodes_api_link_episodes_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EpisodeRecord"
+                  },
+                  "title": "Response Get Episodes Api Link Episodes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/link/episodes/{cue_hash}": {
+      "get": {
+        "tags": [
+          "link-episode"
+        ],
+        "summary": "Get single persisted episode record",
+        "description": "Returns episode record by cue hash.",
+        "operationId": "get_episode_api_link_episodes__cue_hash__get",
+        "parameters": [
+          {
+            "name": "cue_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cue Hash"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpisodeRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/study/v1/bank/import/pdf/{import_id}/pages": {
+      "get": {
+        "summary": "Get Pdf Pages",
+        "description": "Return per-page markup text, line list with bbox, flags, and route\nfor a staged PDF import. Capped at 20 pages per request.",
+        "operationId": "get_pdf_pages_api_study_v1_bank_import_pdf__import_id__pages_get",
+        "parameters": [
+          {
+            "name": "import_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Import Id"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Pdf Pages Api Study V1 Bank Import Pdf  Import Id  Pages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/study/v1/bank/import/pdf/{import_id}/preview": {
+      "post": {
+        "summary": "Preview Pdf Import",
+        "description": "Build an import preview from selected PDF pages.\nReturns ImportPreviewResponse; never commits to the bank.",
+        "operationId": "preview_pdf_import_api_study_v1_bank_import_pdf__import_id__preview_post",
+        "parameters": [
+          {
+            "name": "import_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Import Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PdfPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Get Health",
+        "description": "Report backend dependency health (db, dictionary, AnkiConnect, OCR).",
+        "operationId": "get_health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/extension-pairings/register": {
+      "post": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Register Extension Pairing",
+        "description": "Register a desktop-generated pairing code as a short-lived hash.",
+        "operationId": "register_extension_pairing_api_auth_extension_pairings_register_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Register Extension Pairing Api Auth Extension Pairings Register Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/extension-pairings/redeem": {
+      "post": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Redeem Extension Pairing",
+        "description": "Redeem one allowed-origin pairing code for a separate extension token.",
+        "operationId": "redeem_extension_pairing_api_auth_extension_pairings_redeem_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Redeem Extension Pairing Api Auth Extension Pairings Redeem Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/extension-pairings/revoke-all": {
+      "post": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Revoke Extension Pairings",
+        "description": "Let the desktop revoke every current-launch extension token.",
+        "operationId": "revoke_extension_pairings_api_auth_extension_pairings_revoke_all_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Revoke Extension Pairings Api Auth Extension Pairings Revoke All Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/extension-pairings/status": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Extension Pairing Status",
+        "operationId": "extension_pairing_status_api_auth_extension_pairings_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Extension Pairing Status Api Auth Extension Pairings Status Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cloud/poll": {
+      "post": {
+        "summary": "Trigger Cloud Poll",
+        "description": "Manually trigger a cloud poll cycle to pull cards and sync Anki stats & mirror.",
+        "operationId": "trigger_cloud_poll_api_cloud_poll_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Trigger Cloud Poll Api Cloud Poll Post"
                 }
               }
             }
@@ -5758,7 +6511,7 @@
     "/api/llm/key": {
       "post": {
         "summary": "Save Llm Secret",
-        "description": "Save or replace the LLM API key in OS secure storage (Windows DPAPI).\nThe plaintext key is not retained, logged, or exposed in any response.",
+        "description": "Save or replace the LLM API key in OS secure storage (Windows DPAPI).\n\nThe plaintext key is not retained, logged, or exposed in any response.",
         "operationId": "save_llm_secret_api_llm_key_post",
         "requestBody": {
           "content": {
@@ -5795,7 +6548,7 @@
       },
       "delete": {
         "summary": "Delete Llm Secret",
-        "description": "Delete the LLM API key from OS secure storage.\nIf an environment variable (KIROKU_LLM_API_KEY) is present, backend will fall back to it.",
+        "description": "Delete the LLM API key from OS secure storage.\n\nIf an environment variable (KIROKU_LLM_API_KEY) is present, backend will fall back to it.",
         "operationId": "delete_llm_secret_api_llm_key_delete",
         "responses": {
           "200": {
@@ -5814,7 +6567,7 @@
     "/api/llm/secret": {
       "post": {
         "summary": "Save Llm Secret",
-        "description": "Save or replace the LLM API key in OS secure storage (Windows DPAPI).\nThe plaintext key is not retained, logged, or exposed in any response.",
+        "description": "Save or replace the LLM API key in OS secure storage (Windows DPAPI).\n\nThe plaintext key is not retained, logged, or exposed in any response.",
         "operationId": "save_llm_secret_api_llm_secret_post",
         "requestBody": {
           "content": {
@@ -5851,7 +6604,7 @@
       },
       "delete": {
         "summary": "Delete Llm Secret",
-        "description": "Delete the LLM API key from OS secure storage.\nIf an environment variable (KIROKU_LLM_API_KEY) is present, backend will fall back to it.",
+        "description": "Delete the LLM API key from OS secure storage.\n\nIf an environment variable (KIROKU_LLM_API_KEY) is present, backend will fall back to it.",
         "operationId": "delete_llm_secret_api_llm_secret_delete",
         "responses": {
           "200": {
@@ -5947,7 +6700,7 @@
     "/api/cloud/pull": {
       "post": {
         "summary": "Pull Cloud Queue",
-        "description": "Run the same best-effort queue, Anki stats, and card mirror sync as the background poller.\nNewly pulled cloud cards remain local and pending; they are not automatically sent to Anki.",
+        "description": "Run the same best-effort queue, Anki stats, and card mirror sync as the background poller.\n\nNewly pulled cloud cards remain local and pending; they are not automatically sent to Anki.",
         "operationId": "pull_cloud_queue_api_cloud_pull_post",
         "responses": {
           "200": {
@@ -6132,7 +6885,7 @@
     "/api/vocab/daily-word": {
       "get": {
         "summary": "Get Daily Word",
-        "description": "Return deterministic Word of the Day for a given calendar date.\n\nPrefers words at or just above the user's current JLPT level setting,\nand prefers words NOT already in saved cards. Falls back gracefully.\nIncludes stroke vector SVGs for kanji when available.",
+        "description": "Return deterministic Word of the Day for a given calendar date.\n\n\n\nPrefers words at or just above the user's current JLPT level setting,\n\nand prefers words NOT already in saved cards. Falls back gracefully.\n\nIncludes stroke vector SVGs for kanji when available.",
         "operationId": "get_daily_word_api_vocab_daily_word_get",
         "parameters": [
           {
@@ -6442,6 +7195,38 @@
               }
             ],
             "title": "Jlpt Level"
+          },
+          "known": {
+            "type": "boolean",
+            "title": "Known",
+            "default": false
+          },
+          "pos": {
+            "type": "string",
+            "title": "Pos",
+            "default": ""
+          },
+          "level_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level Source"
+          },
+          "est_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Est Level"
           }
         },
         "additionalProperties": true,
@@ -6532,6 +7317,20 @@
         ],
         "title": "BankSummaryResponse"
       },
+      "Body_inspect_pdf_import_api_study_v1_bank_import_pdf_inspect_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_inspect_pdf_import_api_study_v1_bank_import_pdf_inspect_post"
+      },
       "BookmarkItemDTO": {
         "properties": {
           "id": {
@@ -6561,6 +7360,11 @@
           "prompt_markup": {
             "type": "string",
             "title": "Prompt Markup"
+          },
+          "prompt_html": {
+            "type": "string",
+            "title": "Prompt Html",
+            "default": ""
           },
           "notes": {
             "type": "string",
@@ -7353,6 +8157,11 @@
             ],
             "title": "Text Markup"
           },
+          "text_html": {
+            "type": "string",
+            "title": "Text Html",
+            "default": ""
+          },
           "image_url": {
             "anyOf": [
               {
@@ -7955,6 +8764,49 @@
         ],
         "title": "EncounterRequest"
       },
+      "EpisodeRecord": {
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Hash"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "site": {
+            "type": "string",
+            "title": "Site"
+          },
+          "known_pct": {
+            "type": "number",
+            "title": "Known Pct"
+          },
+          "mined": {
+            "type": "integer",
+            "title": "Mined"
+          },
+          "minutes": {
+            "type": "number",
+            "title": "Minutes"
+          },
+          "ts": {
+            "type": "string",
+            "title": "Ts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hash",
+          "title",
+          "site",
+          "known_pct",
+          "mined",
+          "minutes",
+          "ts"
+        ],
+        "title": "EpisodeRecord"
+      },
       "ExamResult": {
         "properties": {
           "session_id": {
@@ -8432,6 +9284,45 @@
         ],
         "title": "FrequencyRank"
       },
+      "GapWordItem": {
+        "properties": {
+          "word": {
+            "type": "string",
+            "title": "Word"
+          },
+          "reading": {
+            "type": "string",
+            "title": "Reading",
+            "default": ""
+          },
+          "meaning": {
+            "type": "string",
+            "title": "Meaning",
+            "default": ""
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "frequency": {
+            "type": "integer",
+            "title": "Frequency",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "word"
+        ],
+        "title": "GapWordItem"
+      },
       "GenericStatusResponse": {
         "properties": {
           "status": {
@@ -8525,10 +9416,27 @@
             "type": "array",
             "title": "Points"
           },
+          "tokens": {
+            "items": {
+              "$ref": "#/components/schemas/GrammarTokenItem"
+            },
+            "type": "array",
+            "title": "Tokens"
+          },
           "is_limited_offline": {
             "type": "boolean",
             "title": "Is Limited Offline",
             "default": false
+          },
+          "tokenizer_source": {
+            "type": "string",
+            "title": "Tokenizer Source",
+            "default": "none"
+          },
+          "tokenizer_status": {
+            "type": "string",
+            "title": "Tokenizer Status",
+            "default": "unavailable"
           },
           "cached": {
             "type": "boolean",
@@ -8542,6 +9450,40 @@
           "learner_level"
         ],
         "title": "GrammarAnalyzeResponse"
+      },
+      "GrammarPointItem": {
+        "properties": {
+          "pattern_key": {
+            "type": "string",
+            "title": "Pattern Key"
+          },
+          "display": {
+            "type": "string",
+            "title": "Display"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "frequency": {
+            "type": "integer",
+            "title": "Frequency",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "pattern_key",
+          "display"
+        ],
+        "title": "GrammarPointItem"
       },
       "GrammarPointResponse": {
         "properties": {
@@ -8656,6 +9598,16 @@
             },
             "type": "array",
             "title": "Designated Grammar Dictionary Hits"
+          },
+          "tokenizer_source": {
+            "type": "string",
+            "title": "Tokenizer Source",
+            "default": "none"
+          },
+          "tokenizer_status": {
+            "type": "string",
+            "title": "Tokenizer Status",
+            "default": "unavailable"
           }
         },
         "type": "object",
@@ -8664,6 +9616,50 @@
           "index_loaded"
         ],
         "title": "GrammarSetupCheckResponse"
+      },
+      "GrammarTokenItem": {
+        "properties": {
+          "surface": {
+            "type": "string",
+            "title": "Surface"
+          },
+          "lemma": {
+            "type": "string",
+            "title": "Lemma"
+          },
+          "reading": {
+            "type": "string",
+            "title": "Reading",
+            "default": ""
+          },
+          "pos": {
+            "type": "string",
+            "title": "Pos",
+            "default": ""
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "known": {
+            "type": "boolean",
+            "title": "Known",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "surface",
+          "lemma"
+        ],
+        "title": "GrammarTokenItem"
       },
       "GroupContextDTO": {
         "properties": {
@@ -8736,6 +9732,11 @@
             "type": "string",
             "title": "Markup"
           },
+          "text_html": {
+            "type": "string",
+            "title": "Text Html",
+            "default": ""
+          },
           "image_url": {
             "anyOf": [
               {
@@ -8795,6 +9796,21 @@
           "db": {
             "type": "boolean",
             "title": "Db"
+          },
+          "tokenizer": {
+            "type": "string",
+            "title": "Tokenizer",
+            "default": "legacy"
+          },
+          "tokenizer_dictionary": {
+            "type": "string",
+            "title": "Tokenizer Dictionary",
+            "default": "openjlpt"
+          },
+          "tokenizer_ready": {
+            "type": "boolean",
+            "title": "Tokenizer Ready",
+            "default": true
           }
         },
         "type": "object",
@@ -10316,6 +11332,145 @@
         "title": "PassFailAssessment",
         "description": "Overall examination estimated assessment outcome."
       },
+      "PdfImportInspectionResponse": {
+        "properties": {
+          "import_id": {
+            "type": "string",
+            "title": "Import Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "page_count": {
+            "type": "integer",
+            "title": "Page Count"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/PdfImportPageInspectionDTO"
+            },
+            "type": "array",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "import_id",
+          "filename",
+          "sha256",
+          "page_count"
+        ],
+        "title": "PdfImportInspectionResponse"
+      },
+      "PdfImportPageInspectionDTO": {
+        "properties": {
+          "page_number": {
+            "type": "integer",
+            "title": "Page Number"
+          },
+          "text_char_count": {
+            "type": "integer",
+            "title": "Text Char Count"
+          },
+          "japanese_ratio": {
+            "type": "number",
+            "title": "Japanese Ratio"
+          },
+          "replacement_indicators": {
+            "type": "integer",
+            "title": "Replacement Indicators"
+          },
+          "image_coverage_estimate": {
+            "type": "number",
+            "title": "Image Coverage Estimate"
+          },
+          "page_width": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Width"
+          },
+          "page_height": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Height"
+          },
+          "route": {
+            "type": "string",
+            "title": "Route"
+          },
+          "force_ocr": {
+            "type": "boolean",
+            "title": "Force Ocr",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "page_number",
+          "text_char_count",
+          "japanese_ratio",
+          "replacement_indicators",
+          "image_coverage_estimate",
+          "route"
+        ],
+        "title": "PdfImportPageInspectionDTO"
+      },
+      "PdfPreviewRequest": {
+        "properties": {
+          "pages": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Pages",
+            "description": "1-based page numbers to include"
+          },
+          "default_level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(N[1-5])?$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Level"
+          },
+          "source_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Name",
+            "default": "pdf_import"
+          }
+        },
+        "type": "object",
+        "title": "PdfPreviewRequest",
+        "description": "Request body for building a PDF import preview from selected pages."
+      },
       "PitchAccent": {
         "properties": {
           "reading": {
@@ -10487,6 +11642,96 @@
         ],
         "title": "PracticeSessionResponse"
       },
+      "PrimerRequest": {
+        "properties": {
+          "hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hash"
+          },
+          "cues": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cues"
+          },
+          "learner_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learner Level"
+          }
+        },
+        "type": "object",
+        "title": "PrimerRequest"
+      },
+      "PrimerResponse": {
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Hash"
+          },
+          "learner_level": {
+            "type": "string",
+            "title": "Learner Level"
+          },
+          "total_cues": {
+            "type": "integer",
+            "title": "Total Cues"
+          },
+          "gap_words": {
+            "items": {
+              "$ref": "#/components/schemas/GapWordItem"
+            },
+            "type": "array",
+            "title": "Gap Words"
+          },
+          "grammar_points": {
+            "items": {
+              "$ref": "#/components/schemas/GrammarPointItem"
+            },
+            "type": "array",
+            "title": "Grammar Points"
+          },
+          "quiz": {
+            "items": {
+              "$ref": "#/components/schemas/QuizQuestion"
+            },
+            "type": "array",
+            "title": "Quiz"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hash",
+          "learner_level",
+          "total_cues",
+          "gap_words",
+          "grammar_points",
+          "quiz"
+        ],
+        "title": "PrimerResponse"
+      },
       "QuestionDTO": {
         "properties": {
           "attempt_item_id": {
@@ -10542,6 +11787,11 @@
           "prompt_markup": {
             "type": "string",
             "title": "Prompt Markup"
+          },
+          "prompt_html": {
+            "type": "string",
+            "title": "Prompt Html",
+            "default": ""
           },
           "choices": {
             "items": {
@@ -10820,6 +12070,11 @@
           "prompt_markup": {
             "type": "string",
             "title": "Prompt Markup"
+          },
+          "prompt_html": {
+            "type": "string",
+            "title": "Prompt Html",
+            "default": ""
           },
           "choices": {
             "items": {
@@ -11165,6 +12420,182 @@
           "reported_at"
         ],
         "title": "QuestionReportDTO"
+      },
+      "QuizQuestion": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "word": {
+            "type": "string",
+            "title": "Word"
+          },
+          "reading": {
+            "type": "string",
+            "title": "Reading",
+            "default": ""
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Options"
+          },
+          "correct_index": {
+            "type": "integer",
+            "title": "Correct Index"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "word",
+          "prompt",
+          "options",
+          "correct_index"
+        ],
+        "title": "QuizQuestion"
+      },
+      "RecapRequest": {
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Hash"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "site": {
+            "type": "string",
+            "title": "Site",
+            "default": ""
+          },
+          "mined_words": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Mined Words"
+          },
+          "minutes": {
+            "type": "number",
+            "title": "Minutes",
+            "default": 0.0
+          },
+          "cues": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cues"
+          },
+          "learner_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learner Level"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hash"
+        ],
+        "title": "RecapRequest"
+      },
+      "RecapResponse": {
+        "properties": {
+          "hash": {
+            "type": "string",
+            "title": "Hash"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "site": {
+            "type": "string",
+            "title": "Site"
+          },
+          "lines_watched": {
+            "type": "integer",
+            "title": "Lines Watched"
+          },
+          "known_pct_before": {
+            "type": "number",
+            "title": "Known Pct Before"
+          },
+          "known_pct_after": {
+            "type": "number",
+            "title": "Known Pct After"
+          },
+          "words_mined": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Words Mined"
+          },
+          "gap_words_unseen": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Gap Words Unseen"
+          },
+          "minutes": {
+            "type": "number",
+            "title": "Minutes"
+          },
+          "ts": {
+            "type": "string",
+            "title": "Ts"
+          },
+          "review_link": {
+            "type": "string",
+            "title": "Review Link"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hash",
+          "title",
+          "site",
+          "lines_watched",
+          "known_pct_before",
+          "known_pct_after",
+          "words_mined",
+          "gap_words_unseen",
+          "minutes",
+          "ts",
+          "review_link"
+        ],
+        "title": "RecapResponse"
       },
       "SaveCardRequest": {
         "properties": {
@@ -12039,6 +13470,7 @@
             "title": "Cues"
           }
         },
+        "additionalProperties": true,
         "type": "object",
         "title": "SubtitleAnnotateResponse"
       },
@@ -12297,6 +13729,11 @@
           "prompt_markup": {
             "type": "string",
             "title": "Prompt Markup"
+          },
+          "prompt_html": {
+            "type": "string",
+            "title": "Prompt Html",
+            "default": ""
           },
           "attempts_count": {
             "type": "integer",
