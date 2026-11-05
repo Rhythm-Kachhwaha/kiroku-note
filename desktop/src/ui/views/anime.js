@@ -53,6 +53,7 @@ export class AnimeView {
     this.cueGrammarMap = new Map();
     this.showTokenColors = true;
     this.furiganaEnabled = true;
+    this.hoverGlossOnlyPaused = Boolean(options.hoverGlossOnlyPaused);
     this.inspectorOpen = true;
     this.inspectedWord = null;
     this.currentFilter = 'all';
@@ -692,6 +693,17 @@ export class AnimeView {
       } else if (e.code === 'KeyL' || e.key === 'l' || e.key === 'L') {
         e.preventDefault();
         this.toggleLoop();
+      } else if (e.code === 'Tab' || e.key === 'Tab') {
+        e.preventDefault();
+        this.toggleInspector();
+      } else if (e.code === 'KeyN' || e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        const summary = this.linkStore?.getStatusSummary() || {};
+        const isConnected = summary.status === 'connected';
+        const hasNext = Boolean(summary.videoState?.hasNextEpisode || summary.activeSession?.hasNextEpisode);
+        if (isConnected && hasNext) {
+          this.linkStore?.nextEpisode();
+        }
       }
     };
     if (typeof window !== 'undefined') {
@@ -1410,6 +1422,9 @@ export class AnimeView {
 
   showHoverGloss(chip) {
     if (!this.container) return;
+    if (this.hoverGlossOnlyPaused && this.linkStore?.videoState && !this.linkStore.videoState.paused) {
+      return;
+    }
     if (!this.hoverGlossEl) {
       this.hoverGlossEl = document.createElement('div');
       this.hoverGlossEl.className = 'anime-hover-gloss';
@@ -1447,7 +1462,7 @@ export class AnimeView {
         <div class="gloss-definition">${escapeHtml(gloss || 'Context definition')}</div>
       </div>
       <div class="gloss-footer">
-        <button type="button" class="btn-quick-mine tactile-btn ${isMined ? 'is-mined' : ''}" data-surface="${escapeHtml(surface)}" ${isMined ? 'disabled' : ''}>
+        <button type="button" class="btn-quick-mine tactile-btn ${isMined ? 'is-mined' : ''}" id="btn-hover-quick-mine" data-surface="${escapeHtml(surface)}" ${isMined ? 'disabled' : ''}>
           <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
             ${isMined
               ? '<path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>'

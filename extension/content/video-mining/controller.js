@@ -19,10 +19,12 @@
     // Netflix
     'button[data-uia="next-episode-seamless-button"]',
     'button[data-uia="control-next"]',
+    '.button-nfControls-nextEpisode',
     '.button-nfPlayerNextEpisode',
     '[aria-label="Next Episode"]',
 
     // Crunchyroll
+    '[data-testid="vilos-next_episode_button"]',
     '[data-t="next-episode-btn"]',
     '.next-episode-btn',
     'button.vjs-next-button',
@@ -37,8 +39,12 @@
     // HiAnime / Generic Anime Streams
     '.btn-next',
     '.next-episode',
-    'a[title*="Next Episode"]',
-    'button[title*="Next Episode"]',
+    'a[title*="Next" i]',
+    'button[title*="Next" i]',
+    'button[aria-label*="Next" i]',
+    '[class*="next-ep" i]',
+    '[id*="next-ep" i]',
+    'svg[data-icon="forward-step"]',
     '[data-action="next-episode"]',
     '[title*="Next episode" i]',
     'a.forward.button',

@@ -1,6 +1,5 @@
 # Status
-Anime immersion task 5 complete: universal next episode web bridge.
-Link protocol adds cmd.next_episode and hasNextEpisode flags.
-Extension detector inspects Netflix, Crunchyroll, YouTube, HiAnime.
-Desktop Next Ep button dynamically reacts to stream player state.
-All bridge, link schemas, and desktop tests pass green.
+Anime immersion verification audit complete across features A-E.
+Hardware acceleration toggle, hover gloss, and furigana verified.
+Push layout inspector and next episode bridge verified.
+All 30 desktop, 2 extension, and 53 backend tests pass green.
