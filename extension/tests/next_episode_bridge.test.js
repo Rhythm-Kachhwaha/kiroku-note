@@ -54,3 +54,4 @@ test('next_episode_bridge: LinkBridge executes cmd.next_episode', () => {
   assert.equal(handled, true);
   assert.equal(clicked, true);
 });
+

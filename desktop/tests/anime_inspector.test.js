@@ -47,3 +47,4 @@ test('anime_inspector: anime.css styles inspector panel with push layout and des
   const emojiRegex = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
   assert.equal(emojiRegex.test(css), false, 'anime.css must not contain emoji');
 });
+

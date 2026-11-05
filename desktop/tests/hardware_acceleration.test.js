@@ -66,3 +66,4 @@ test('hardware_acceleration: settings.js renders toggle and restart affordance w
   const emojiRegex = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
   assert.equal(emojiRegex.test(settingsContent), false, 'settings.js must not contain emoji');
 });
+
