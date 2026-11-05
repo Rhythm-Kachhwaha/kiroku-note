@@ -1,5 +1,5 @@
 # Status
-Slice 3: Dual subtitles support added.
-Target Japanese and secondary translation rendered cleanly.
-Schemas accept secondary_text; anime view toggles dual track.
-Tests in desktop/tests/anime_dual_subtitles.test.js pass.
+Slice 4: Shadowing mode audio recorder and controls added.
+ShadowingRecorder captures mic audio with MediaRecorder API.
+Inspector hosts record, stop, and play controls with hotkey S.
+Tests in desktop/tests/anime_shadowing.test.js pass.

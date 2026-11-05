@@ -10,6 +10,7 @@ import { LinkMineService } from '../services/link_mine.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import { apiClient } from '../services/api_client.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
+import { ShadowingRecorder } from '../services/shadowing_recorder.js';
 
 const JLPT_ORDER = { 'N5': 1, 'N4': 2, 'N3': 3, 'N2': 4, 'N1': 5 };
 
@@ -84,6 +85,9 @@ export class AnimeView {
 
     // Dual Subtitles
     this.dualSubtitlesEnabled = true;
+
+    // Shadowing Mode
+    this.shadowingRecorder = new ShadowingRecorder();
   }
 
   async mount(container) {
@@ -402,6 +406,24 @@ export class AnimeView {
                   <p class="text-xs text-muted">Pause playback or select dialogue lines to examine grammar points.</p>
                 </div>
               </div>
+
+              <!-- Shadowing Practice Card -->
+              <div class="anime-inspector-shadowing tactile-card" id="anime-inspector-shadowing">
+                <div class="anime-inspector-card-header mb-2 flex items-center justify-between">
+                  <span class="text-xs font-mono text-gold">Shadowing & Pronunciation</span>
+                  <span class="text-xs text-muted" id="anime-shadow-status">Ready</span>
+                </div>
+                <div class="anime-shadow-controls flex items-center gap-2">
+                  <button type="button" class="anime-control-btn btn-sm" id="btn-anime-shadow-record" aria-label="Record Voice (Hotkey S)">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+                    <span id="anime-shadow-record-label">Record</span>
+                  </button>
+                  <button type="button" class="anime-control-btn btn-sm" id="btn-anime-shadow-compare" aria-label="Compare Audio Playback" disabled>
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    <span>Play Mic</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -533,6 +555,17 @@ export class AnimeView {
     const btnToggleDual = this.container.querySelector('#btn-anime-toggle-dual');
     btnToggleDual?.addEventListener('click', () => {
       this.toggleDualSubtitles();
+    });
+
+    // Shadowing record and compare buttons
+    const btnShadowRecord = this.container.querySelector('#btn-anime-shadow-record');
+    btnShadowRecord?.addEventListener('click', () => {
+      this.toggleShadowRecording();
+    });
+
+    const btnShadowCompare = this.container.querySelector('#btn-anime-shadow-compare');
+    btnShadowCompare?.addEventListener('click', () => {
+      this.shadowingRecorder?.playRecording();
     });
 
     // Inspector toggle buttons
@@ -724,6 +757,9 @@ export class AnimeView {
       } else if (e.code === 'KeyB' || e.key === 'b' || e.key === 'B') {
         e.preventDefault();
         this.toggleBlurSubtitles();
+      } else if (e.code === 'KeyS' || e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        this.toggleShadowRecording();
       } else if (e.code === 'Tab' || e.key === 'Tab') {
         e.preventDefault();
         this.toggleInspector();
@@ -1673,6 +1709,38 @@ export class AnimeView {
     this.updateFromStore();
   }
 
+  async toggleShadowRecording() {
+    if (!this.shadowingRecorder) return;
+    const btnRecord = this.container?.querySelector('#btn-anime-shadow-record');
+    const label = this.container?.querySelector('#anime-shadow-record-label');
+    const status = this.container?.querySelector('#anime-shadow-status');
+    const btnCompare = this.container?.querySelector('#btn-anime-shadow-compare');
+
+    if (!this.shadowingRecorder.isRecording) {
+      try {
+        await this.shadowingRecorder.startRecording();
+        if (label) label.textContent = 'Stop';
+        if (btnRecord) btnRecord.classList.add('active');
+        if (status) status.textContent = 'Recording...';
+      } catch (err) {
+        console.warn('[AnimeView] Failed to start shadowing record:', err);
+        if (status) status.textContent = 'Mic Error';
+      }
+    } else {
+      try {
+        const result = await this.shadowingRecorder.stopRecording();
+        if (label) label.textContent = 'Record';
+        if (btnRecord) btnRecord.classList.remove('active');
+        if (status) status.textContent = 'Recorded';
+        if (btnCompare && result?.url) {
+          btnCompare.disabled = false;
+        }
+      } catch (err) {
+        console.warn('[AnimeView] Failed to stop shadowing record:', err);
+      }
+    }
+  }
+
   toggleInspector(forceState = null) {
     this.inspectorOpen = forceState !== null ? forceState : !this.inspectorOpen;
     const panel = this.container?.querySelector('#anime-inspector-panel');
@@ -1687,6 +1755,9 @@ export class AnimeView {
 
   unmount() {
     this._flushSessionStats();
+    if (this.shadowingRecorder) {
+      this.shadowingRecorder.dispose();
+    }
     if (this._positionSaveTimer) {
       clearInterval(this._positionSaveTimer);
       this._positionSaveTimer = null;

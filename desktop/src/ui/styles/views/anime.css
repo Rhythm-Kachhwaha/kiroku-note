@@ -990,6 +990,13 @@
   padding: 1rem;
 }
 
+.anime-inspector-shadowing {
+  background-color: var(--surface-container-high);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
 .anime-inspector-grammar-list {
   display: flex;
   flex-direction: column;
