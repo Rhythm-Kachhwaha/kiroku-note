@@ -12,6 +12,7 @@ import { TestView } from './views/test.js';
 import { StudyView } from './views/study.js';
 import { SettingsView } from './views/settings.js';
 import { AnimeView } from './views/anime.js';
+import { MangaView } from './views/manga.js';
 
 export class AppRouter {
   constructor(options = {}) {
@@ -40,6 +41,7 @@ export class AppRouter {
       'kanji': KanjiView,
       'test': TestView,
       'anime': AnimeView,
+      'manga': MangaView,
       'study': StudyView,
       'settings': SettingsView
     };
