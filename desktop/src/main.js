@@ -4,7 +4,7 @@
  * Authenticated Study HTTP API Bridge, and Secure IPC Communication.
  */
 
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeTheme, nativeImage, shell, Notification, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeTheme, nativeImage, shell, Notification, dialog, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -14,6 +14,7 @@ const { ProcessManager } = require('./process_manager');
 const { DesktopStore } = require('./store');
 const { StudyApiClient } = require('./study_api_client');
 const { createLogger } = require('./logger');
+const { HotkeyManager } = require('./hotkeys');
 
 // Enforce single-instance lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -29,6 +30,7 @@ let isQuitting = false;
 let statusPollingInterval = null;
 let uiReloadTimer = null;
 let lastMenuState = null;
+let hotkeyManager = null;
 let trayServicesStatus = {
   backendRunning: false,
   yomitanConnected: false,
@@ -601,6 +603,10 @@ app.whenReady().then(() => {
   setupIpcHandlers();
   createSystemTray();
   createMainWindow();
+  try {
+    hotkeyManager = new HotkeyManager({ globalShortcut, getMainWindow: () => mainWindow, store, ipcMain });
+    hotkeyManager.register();
+  } catch (_) {}
 
   if (process.env.KIROKU_DESKTOP_TEST_SMOKE === '1') {
     const smokeLog = process.env.KIROKU_SMOKE_LOG || path.join(repoRoot, 'desktop', 'tests', 'smoke_result.json');
@@ -669,6 +675,9 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  if (hotkeyManager) {
+    try { hotkeyManager.unregister(); } catch (_) {}
+  }
   stopStatusPolling();
   try {
     processManager.stopBackend();

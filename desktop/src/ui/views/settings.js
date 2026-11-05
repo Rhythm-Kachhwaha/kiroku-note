@@ -236,6 +236,61 @@ export class SettingsView {
                       <span class="font-mono text-xs text-muted">Link companion integration will be unlocked in Slice 38.</span>
                     </div>
                   </div>
+
+                  <!-- Global Hotkeys Card (Slice 45) -->
+                  <div class="settings-card tactile-card" id="settings-hotkeys-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">Global Hotkeys</h3>
+                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted">Default: Off</span>
+                    </div>
+                    <p class="card-desc">
+                      Optional global shortcut map sending commands to video players (Link companion and Theater): pause/play, prev/next cue, replay cue, loop.
+                    </p>
+                    <div class="settings-form-row mt-3">
+                      <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="setting-global-hotkeys-enabled" class="tactile-checkbox" />
+                        <span class="text-sm text-warm-paper">Enable global playback shortcuts</span>
+                      </label>
+                    </div>
+                    <div class="hotkeys-table-wrapper mt-3 p-3 rounded border border-tactile bg-surface-lowest">
+                      <table class="w-full text-xs font-mono text-muted">
+                        <tbody>
+                          <tr class="border-b border-tactile"><td class="py-1 text-warm-paper">Pause / Play</td><td class="text-right">CmdOrCtrl+Alt+Space</td></tr>
+                          <tr class="border-b border-tactile"><td class="py-1 text-warm-paper">Previous Cue</td><td class="text-right">CmdOrCtrl+Alt+Left</td></tr>
+                          <tr class="border-b border-tactile"><td class="py-1 text-warm-paper">Next Cue</td><td class="text-right">CmdOrCtrl+Alt+Right</td></tr>
+                          <tr class="border-b border-tactile"><td class="py-1 text-warm-paper">Replay Cue</td><td class="text-right">CmdOrCtrl+Alt+R</td></tr>
+                          <tr><td class="py-1 text-warm-paper">Loop Cue</td><td class="text-right">CmdOrCtrl+Alt+L</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- Study-Pause Card (Slice 45) -->
+                  <div class="settings-card tactile-card" id="settings-study-pause-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">Study-Pause</h3>
+                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted">Default: Off</span>
+                    </div>
+                    <p class="card-desc">
+                      Automatically pauses playback when a line has multiple unknown gap words so you can inspect furigana or mine without missing dialogue.
+                    </p>
+                    <div class="settings-form-row mt-3 flex items-center justify-between gap-4">
+                      <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="setting-study-pause-enabled" class="tactile-checkbox" />
+                        <span class="text-sm text-warm-paper">Pause when line has &gt;= N gap words</span>
+                      </label>
+                      <div class="flex items-center gap-2">
+                        <label for="setting-study-pause-threshold" class="text-xs text-muted">N =</label>
+                        <select id="setting-study-pause-threshold" class="tactile-input font-mono text-xs w-16">
+                          <option value="1">1</option>
+                          <option value="2" selected>2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </section>
 
