@@ -1,4 +1,4 @@
 # Status
-Group 1, Slices 5-9, 16-17, 24-25 complete.
-Yomitan optional secondary wiring, local-first dedupe operational.
-Targeted tests pass: dictionary secondary, selection, study view.
+Group 1, Slices 5-9, 16-18, 24-25 complete.
+PDF text quality fixtures and layout tests operational.
+Targeted tests pass: study pdf import, api, text quality.

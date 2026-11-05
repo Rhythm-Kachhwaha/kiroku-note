@@ -163,6 +163,11 @@ class StagedPdfImportService:
                 page_flags.append("non_japanese")
             if is_forced_ocr:
                 page_flags.append("ocr_requested_unavailable")
+            if (
+                page.metadata.get("vertical_text_suspected")
+                or any(l.direction == "vertical" for l in page.lines)
+            ):
+                page_flags.append("vertical_text_suspected")
 
             if char_count == 0:
                 route = "image_only" if image_count else "poor_text_layer"

@@ -44,17 +44,18 @@ def collect_spans(
     """Convert a PDF visitor callback into a normalized text span."""
     if not text or not text.strip() or len(tm) < 6:
         return None
+    clean_text = text.rstrip("\r\n")
     x = float(tm[4])
     y = float(tm[5])
     size = abs(float(font_size)) or 1.0
     direction = _span_direction(tm)
     if direction == "vertical":
-        bbox = (x - size / 2, y, x + size / 2, y + max(size, len(text) * size))
+        bbox = (x - size / 2, y, x + size / 2, y + max(size, len(clean_text) * size))
     else:
-        width = max(size * 0.45, len(text) * size * 0.5)
+        width = max(size * 0.45, len(clean_text) * size * 0.5)
         bbox = (x, y, x + width, y + size)
     return ExtractedTextSpan(
-        text=text,
+        text=clean_text,
         bbox=bbox,
         font_size=size,
         direction=direction,
@@ -92,7 +93,7 @@ def order_lines(
                         or abs(sx1 - cx2) <= max(2.0, seed.font_size * 1.5)
                     )
                 )
-            ruby_aligned = (
+            ruby_over_seed = (
                 same_direction
                 and seed.direction == "horizontal"
                 and candidate.font_size < seed.font_size * 0.78
@@ -100,6 +101,15 @@ def order_lines(
                 and cy1 >= sy2 - seed.font_size * 0.2
                 and cy1 - sy2 <= seed.font_size * 1.5
             )
+            seed_over_candidate = (
+                same_direction
+                and seed.direction == "horizontal"
+                and seed.font_size < candidate.font_size * 0.78
+                and abs(sx1 - cx1) <= max(2.0, candidate.font_size)
+                and sy1 >= cy2 - candidate.font_size * 0.2
+                and sy1 - cy2 <= candidate.font_size * 1.5
+            )
+            ruby_aligned = ruby_over_seed or seed_over_candidate
             if same_direction and (aligned or ruby_aligned):
                 group.append(candidate)
                 matched.append(candidate)
@@ -107,14 +117,15 @@ def order_lines(
             remaining.remove(candidate)
         lines.append(group)
 
-    def line_key(group: list[ExtractedTextSpan]) -> tuple[float, float]:
+    def line_key(group: list[ExtractedTextSpan]) -> tuple[float, float, float]:
         boxes = [_bbox(span) for span in group]
         left = min(box[0] for box in boxes)
         top = max(box[3] for box in boxes)
         direction = group[0].direction
         if direction == "vertical":
-            return (-left, -top)
-        return (left, -top)
+            return (0.0, -left, -top)
+        col = 0.0 if left < page_width * 0.5 else 1.0
+        return (col, -top, left)
 
     ordered: list[ExtractedLine] = []
     for group in sorted(lines, key=line_key):
@@ -122,7 +133,7 @@ def order_lines(
         if direction == "vertical":
             group.sort(key=lambda span: -_bbox(span)[3])
         else:
-            group.sort(key=lambda span: _bbox(span)[0])
+            group.sort(key=lambda span: (_bbox(span)[0], -span.font_size))
         boxes = [_bbox(span) for span in group]
         ordered.append(
             ExtractedLine(
@@ -278,6 +289,7 @@ def extract_page_coordinates(
     def visitor_operand(
         operator: bytes,
         operands: Sequence[Any],
+        *args: Any,
     ) -> None:
         nonlocal current_move
         if operator == b"m" and len(operands) >= 2:

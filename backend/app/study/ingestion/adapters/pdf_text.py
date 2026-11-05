@@ -6,12 +6,14 @@ preserving page numbers and layout for traceability back to source pages.
 """
 from __future__ import annotations
 
+from collections import Counter
 import io
 from pathlib import Path
 from typing import Any
 
 from app.study.ingestion.adapters.base import BaseInputAdapter
 from app.study.ingestion.adapters.pdf_coordinates import (
+    _bbox,
     extract_page_coordinates,
     markup_for_lines,
     remove_repeated_edge_lines,
@@ -96,6 +98,16 @@ class PdfTextInputAdapter(BaseInputAdapter):
             # If page text is very sparse, it might be a scanned page or blank
             page_confidence = 1.0 if char_count > 10 else (0.2 if char_count > 0 else 0.0)
 
+            vertical_suspected = (
+                any(l.direction == "vertical" for l in lines)
+                or any(s.direction == "vertical" for s in spans)
+            )
+            if not vertical_suspected and len(spans) >= 3:
+                x_coords = [_bbox(s)[0] for s in spans if len(s.text.strip()) == 1]
+                counts = Counter(round(x, 1) for x in x_coords)
+                if any(count >= 3 for count in counts.values()):
+                    vertical_suspected = True
+
             pages.append(
                 ExtractedPage(
                     page_number=idx,
@@ -111,6 +123,7 @@ class PdfTextInputAdapter(BaseInputAdapter):
                         "coordinate_error": coordinate_error,
                         "vector_line_count": len(vector_lines),
                         "vector_lines": [line.__dict__ for line in vector_lines],
+                        "vertical_text_suspected": vertical_suspected,
                         "fidelity_flags": (
                             ["ruby_unverified", "underline_unverified"]
                             if not spans

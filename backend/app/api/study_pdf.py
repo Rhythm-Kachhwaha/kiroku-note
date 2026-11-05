@@ -129,6 +129,7 @@ def get_pdf_pages(
                         ),
                         "non_japanese": "non_japanese" in page_flags,
                         "ocr_requested_unavailable": "ocr_requested_unavailable" in page_flags,
+                        "vertical_text_suspected": "vertical_text_suspected" in page_flags,
                         "flag_list": page_flags,
                     },
                     "route": route,
