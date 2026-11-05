@@ -120,6 +120,7 @@ class DictionaryEntry:
     score: int = 0
     raw_content: list[Any] = field(default_factory=list)
     raw_tags: list[dict[str, Any]] = field(default_factory=list)
+    source: str = "local"
 
 
 @dataclass(frozen=True)
@@ -229,14 +230,27 @@ class YomitanService:
 
     def _fetch_term_payload(self, term: str) -> dict[str, Any]:
         if self._backend == "yomitan" and self._provider is not None:
-            return self._provider.fetch_term_payload(term)
+            raw = self._provider.fetch_term_payload(term)
+            if isinstance(raw, dict):
+                for e in raw.get("dictionaryEntries", []):
+                    if isinstance(e, dict):
+                        e.setdefault("source", "yomitan")
+            return raw
 
         local_payload = self._local_provider.fetch_term_payload(term) if self._local_provider else {"dictionaryEntries": []}
+        if isinstance(local_payload, dict):
+            for e in local_payload.get("dictionaryEntries", []):
+                if isinstance(e, dict):
+                    e.setdefault("source", "local")
+
         if (self._backend in ("local+yomitan", "auto") or self._yomitan_secondary) and self._yomitan_provider is not None:
             try:
                 yomi_payload = self._yomitan_provider.fetch_term_payload(term)
                 yomi_entries = yomi_payload.get("dictionaryEntries", []) if isinstance(yomi_payload, dict) else []
                 if yomi_entries:
+                    for e in yomi_entries:
+                        if isinstance(e, dict):
+                            e["source"] = "yomitan"
                     local_entries = local_payload.get("dictionaryEntries", []) if isinstance(local_payload, dict) else []
                     local_payload["dictionaryEntries"] = list(local_entries) + list(yomi_entries)
             except Exception as err:
@@ -579,6 +593,7 @@ class YomitanService:
                 root_pitches = YomitanService._extract_pitches(raw)
                 root_frequencies = YomitanService._extract_frequencies(raw)
 
+                raw_source = str(raw.get("source") or "local")
                 definitions = raw.get("definitions") if isinstance(raw.get("definitions"), list) else []
                 for definition in definitions:
                     if not isinstance(definition, dict):
@@ -612,12 +627,29 @@ class YomitanService:
                         score=score,
                         raw_content=raw_content,
                         raw_tags=raw_tags,
+                        source=raw_source,
                     )
                     normalized.append(entry)
             except Exception as exc:
                 # A malformed entry is skipped; remaining dictionary entries stay usable.
                 record_operational_failure("dictionary.term_entry_parse", exc, level=logging.DEBUG)
                 continue
+
+        # Local-first dedupe by (term, reading): when local entries exist, skip Yomitan entries
+        # whose (term, reading) is already covered by local dictionary
+        local_entries = [e for e in normalized if getattr(e, "source", "local") == "local"]
+        if local_entries:
+            seen_local_keys = {(e.term, e.reading) for e in local_entries if e.term}
+            yomi_entries: list[DictionaryEntry] = []
+            seen_yomi_keys: set[tuple[str, str]] = set()
+            for e in normalized:
+                if getattr(e, "source", "local") != "local":
+                    key = (e.term, e.reading)
+                    if key not in seen_local_keys and key not in seen_yomi_keys:
+                        seen_yomi_keys.add(key)
+                        yomi_entries.append(e)
+            return local_entries + yomi_entries
+
         return normalized
 
     @staticmethod

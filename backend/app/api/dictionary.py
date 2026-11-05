@@ -7,13 +7,28 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from app.config import get_dictionary_backend, is_yomitan_secondary_enabled
+from app.config import (
+    get_dictionary_backend,
+    is_yomitan_secondary_enabled,
+    load_stored_app_config,
+    save_stored_app_config,
+)
 from app.services.dictionary_provider import get_dictionary_db_info
+from app.services.yomitan import reset_dictionary_service
 from kiroku_dictionary.provision import get_provision_status, start_provisioning_in_background
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["dictionary"])
+
+
+class DictionarySettingsRequest(BaseModel):
+    yomitan_secondary: bool
+
+
+class DictionarySettingsResponse(BaseModel):
+    yomitan_secondary: bool
+    backend: str
 
 
 class DictionaryStatusResponse(BaseModel):
@@ -92,3 +107,34 @@ async def provision_dictionary(
         "message": "Dictionary provisioning started in background.",
         "provisioning": get_provision_status(),
     }
+
+
+@router.get("/api/dictionary/settings", response_model=DictionarySettingsResponse)
+def get_dictionary_settings() -> DictionarySettingsResponse:
+    """Return dictionary configuration settings."""
+    return DictionarySettingsResponse(
+        yomitan_secondary=is_yomitan_secondary_enabled(),
+        backend=get_dictionary_backend(),
+    )
+
+
+@router.put("/api/dictionary/settings", response_model=DictionarySettingsResponse)
+def update_dictionary_settings(
+    payload: DictionarySettingsRequest,
+) -> DictionarySettingsResponse:
+    """Update and persist dictionary configuration settings."""
+    stored = load_stored_app_config()
+    dict_cfg = stored.get("dictionary")
+    if not isinstance(dict_cfg, dict):
+        dict_cfg = {}
+        stored["dictionary"] = dict_cfg
+    dict_cfg["yomitan_secondary"] = bool(payload.yomitan_secondary)
+    save_stored_app_config(stored)
+
+    reset_dictionary_service()
+
+    return DictionarySettingsResponse(
+        yomitan_secondary=is_yomitan_secondary_enabled(),
+        backend=get_dictionary_backend(),
+    )
+

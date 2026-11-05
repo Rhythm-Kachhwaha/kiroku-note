@@ -112,6 +112,17 @@ function createMockElement(tag = "div") {
     },
     querySelectorAll(sel) {
       return findAllDescendants(this, sel);
+    },
+    setAttribute(name, val) {
+      if (!this._attributes) this._attributes = {};
+      this._attributes[name] = String(val);
+      if (name.startsWith("data-")) {
+        const camel = name.slice(5).replace(/-([a-z])/g, (_, l) => l.toUpperCase());
+        this.dataset[camel] = String(val);
+      }
+    },
+    getAttribute(name) {
+      return this._attributes?.[name] ?? null;
     }
   };
 

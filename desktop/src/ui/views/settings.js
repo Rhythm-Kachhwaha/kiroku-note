@@ -161,7 +161,7 @@ export class SettingsView {
                         <span class="text-xs text-muted block">Query Yomitan as fallback to enrich entries.</span>
                       </div>
                       <label class="toggle-switch">
-                        <input type="checkbox" id="toggle-yomitan-secondary" disabled />
+                        <input type="checkbox" id="toggle-yomitan-secondary" />
                         <span class="toggle-slider"></span>
                       </label>
                     </div>
@@ -646,6 +646,26 @@ export class SettingsView {
           this.showError('Provision failed: ' + (err.message || 'API error'));
           btnProvDict.disabled = false;
           btnProvDict.textContent = 'Provision Dictionary';
+        }
+      });
+    }
+
+    // Yomitan Secondary Toggle
+    const toggleYomiSec = document.getElementById('toggle-yomitan-secondary');
+    if (toggleYomiSec) {
+      toggleYomiSec.addEventListener('change', async () => {
+        try {
+          const enabled = toggleYomiSec.checked;
+          await apiClient.request('/api/dictionary/settings', {
+            method: 'PUT',
+            body: JSON.stringify({ yomitan_secondary: enabled }),
+            headers: { 'Content-Type': 'application/json' },
+          });
+          await this.loadDictionaryStatus();
+        } catch (err) {
+          console.warn('[Settings] Failed to save Yomitan secondary setting:', err);
+          this.showError('Failed to update Yomitan secondary setting: ' + (err.message || 'Network error'));
+          toggleYomiSec.checked = !toggleYomiSec.checked;
         }
       });
     }

@@ -1,4 +1,4 @@
 # Status
-Group 1, Slices 5-8, 16-17, 24-25 complete.
-PDF extraction caching and TTL cleanup operational.
-Targeted tests pass: study pdf import and pdf text api.
+Group 1, Slices 5-9, 16-17, 24-25 complete.
+Yomitan optional secondary wiring, local-first dedupe operational.
+Targeted tests pass: dictionary secondary, selection, study view.

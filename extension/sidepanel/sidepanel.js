@@ -1848,16 +1848,51 @@ async function checkOcrStatus() {
   }
 }
 
+let indicatorYomitanSecondary = document.querySelector("#indicator-yomitan-secondary");
+function ensureSecondaryYomitanIndicator() {
+  if (!indicatorYomitanSecondary && indicatorYomitan && indicatorYomitan.parentNode) {
+    indicatorYomitanSecondary = document.createElement("span");
+    indicatorYomitanSecondary.id = "indicator-yomitan-secondary";
+    indicatorYomitanSecondary.className = "indicator-pill unavailable";
+    if (typeof indicatorYomitanSecondary.setAttribute === "function") {
+      indicatorYomitanSecondary.setAttribute("aria-label", "Yomitan secondary status");
+    }
+    indicatorYomitanSecondary.title = "Yomitan: Offline";
+    indicatorYomitanSecondary.style.display = "none";
+    const dot = document.createElement("span");
+    dot.className = "indicator-dot";
+    indicatorYomitanSecondary.appendChild(dot);
+    indicatorYomitan.parentNode.insertBefore(indicatorYomitanSecondary, indicatorYomitan.nextSibling);
+  }
+  return indicatorYomitanSecondary;
+}
+
 async function checkHealthStatus() {
   try {
     const res = await fetch(API_HEALTH_URL);
     if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
     const data = await res.json().catch(() => ({}));
 
-    if (data.yomitan) {
-      setIndicatorStatus(indicatorYomitan, "connected", "Yomitan: Connected");
+    const dictHealth = data.dictionary || {};
+    const isDictReady = dictHealth.db_present !== undefined ? Boolean(dictHealth.db_present) : Boolean(data.db || data.yomitan);
+    if (isDictReady) {
+      setIndicatorStatus(indicatorYomitan, "connected", "Dictionary: Ready");
     } else {
-      setIndicatorStatus(indicatorYomitan, "unavailable", "Yomitan: Offline");
+      setIndicatorStatus(indicatorYomitan, "unavailable", "Dictionary: Offline");
+    }
+
+    const secIndicator = ensureSecondaryYomitanIndicator();
+    if (secIndicator) {
+      if (dictHealth.yomitan_secondary) {
+        secIndicator.style.display = "";
+        if (dictHealth.yomitan_reachable) {
+          setIndicatorStatus(secIndicator, "connected", "Yomitan (Secondary): Connected");
+        } else {
+          setIndicatorStatus(secIndicator, "unavailable", "Yomitan (Secondary): Offline");
+        }
+      } else {
+        secIndicator.style.display = "none";
+      }
     }
 
     const isAnkiConnected = Boolean(data.ankiconnect);
@@ -1881,7 +1916,11 @@ async function checkHealthStatus() {
 
     return data;
   } catch (_) {
-    setIndicatorStatus(indicatorYomitan, "unavailable", "Yomitan: Offline");
+    setIndicatorStatus(indicatorYomitan, "unavailable", "Dictionary: Offline");
+    const secIndicator = ensureSecondaryYomitanIndicator();
+    if (secIndicator) {
+      secIndicator.style.display = "none";
+    }
     setIndicatorStatus(indicatorAnki, "unavailable", "Anki: Not connected");
     setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Offline");
     return { status: "error", yomitan: false, ankiconnect: false, ocr: false, db: false };
@@ -4535,6 +4574,12 @@ function renderDetails(body) {
         dictPill.className = "dict-source-pill pill-dict";
         dictPill.textContent = entry.dictionary || "Dictionary";
         header.append(dictPill);
+
+        // Source badge (Local vs Yomitan)
+        const sourceBadge = document.createElement("span");
+        sourceBadge.className = `dict-origin-badge badge source-${entry.source || "local"}`;
+        sourceBadge.textContent = (entry.source === "yomitan") ? "Yomitan" : "Local";
+        header.append(sourceBadge);
 
         // Primary badge
         if (entry.is_primary) {
@@ -10237,7 +10282,9 @@ if (tabBtnAsk) {
 if (btnAskFromText) {
   if (!isRetiredUiEnabled()) {
     btnAskFromText.hidden = true;
-    btnAskFromText.setAttribute("data-retired", "1");
+    if (typeof btnAskFromText.setAttribute === "function") {
+      btnAskFromText.setAttribute("data-retired", "1");
+    }
   }
   btnAskFromText.addEventListener("click", () => {
     if (!isRetiredUiEnabled()) return;
@@ -10582,8 +10629,8 @@ if (typeof btnClearSubtitleSearch !== "undefined" && btnClearSubtitleSearch) {
   });
 }
 
-// Default Yomitan indicator to ready state
-setIndicatorStatus(indicatorYomitan, "connected", "Yomitan: Ready");
+// Default dictionary indicator to ready state
+setIndicatorStatus(indicatorYomitan, "connected", "Dictionary: Ready");
 
 toggle.addEventListener("click", () => {
   setMiningMode(!miningMode).catch(error => {
