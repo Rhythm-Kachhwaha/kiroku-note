@@ -1,6 +1,7 @@
 """Bounded filesystem-backed staging for PDF inspection imports."""
 from __future__ import annotations
 
+from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -27,11 +28,27 @@ class StagedPdfImportService:
     MAX_PAGE_COUNT = 200
     TTL = timedelta(hours=1)
     CHUNK_SIZE = 1024 * 1024
+    MAX_CACHE_DOCUMENTS = 2
+    CLEANUP_INTERVAL_REQUESTS = 5
+
+    _document_cache: OrderedDict[tuple[str, str], ExtractedDocument] = OrderedDict()
+    _request_counter: int = 0
 
     def __init__(self, root: Path | None = None) -> None:
         self.root = root or (get_study_dir() / "pdf_imports")
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.cleanup_expired()  # cleanup on startup
+
+    def _bump_request(self) -> None:
+        StagedPdfImportService._request_counter += 1
+        if StagedPdfImportService._request_counter >= self.CLEANUP_INTERVAL_REQUESTS:
+            StagedPdfImportService._request_counter = 0
+            self.cleanup_expired()
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        cls._document_cache.clear()
+        cls._request_counter = 0
 
     def inspect_upload(
         self,
@@ -188,14 +205,20 @@ class StagedPdfImportService:
 
     def cleanup_expired(self) -> None:
         now = datetime.now(timezone.utc)
+        removed_ids: set[str] = set()
         for metadata_path in self.root.glob("*.json"):
             try:
                 metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
                 if datetime.fromisoformat(metadata["expires_at"]) <= now:
                     metadata_path.unlink(missing_ok=True)
                     self._pdf_path(metadata["import_id"]).unlink(missing_ok=True)
+                    removed_ids.add(metadata.get("import_id", ""))
             except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
                 metadata_path.unlink(missing_ok=True)
+
+        for key in list(self._document_cache.keys()):
+            if key[0] in removed_ids or not (self.root / f"{key[0]}.json").is_file():
+                self._document_cache.pop(key, None)
 
     def _find_by_hash(self, sha256: str) -> dict[str, Any] | None:
         for metadata_path in self.root.glob("*.json"):
@@ -216,7 +239,7 @@ class StagedPdfImportService:
 
     def get_metadata(self, import_id: str) -> dict[str, Any] | None:
         """Return staged import metadata, or None if missing or expired."""
-        self.cleanup_expired()
+        self._bump_request()
         metadata_path = self.root / f"{import_id}.json"
         if not metadata_path.is_file():
             return None
@@ -229,10 +252,17 @@ class StagedPdfImportService:
             return None
 
     def extract_document(self, import_id: str) -> ExtractedDocument | None:
-        """Re-extract the staged PDF document into an ExtractedDocument."""
+        """Re-extract the staged PDF document into an ExtractedDocument with LRU caching."""
         metadata = self.get_metadata(import_id)
         if metadata is None:
             return None
+        sha256 = str(metadata.get("sha256", ""))
+        cache_key = (import_id, sha256)
+
+        if cache_key in self._document_cache:
+            self._document_cache.move_to_end(cache_key)
+            return self._document_cache[cache_key]
+
         pdf_path = self._pdf_path(import_id)
         if not pdf_path.is_file():
             return None
@@ -242,9 +272,16 @@ class StagedPdfImportService:
             source_name=metadata.get("filename", ""),
             source_type="pdf_upload",
             license_or_permission="user_provided",
-            metadata={"sha256": metadata.get("sha256", "")},
+            metadata={"sha256": sha256},
         )
         try:
-            return PdfTextInputAdapter().extract(input_data)
+            doc = PdfTextInputAdapter().extract(input_data)
         except (ImportError, ValueError):
             return None
+
+        self._document_cache[cache_key] = doc
+        self._document_cache.move_to_end(cache_key)
+        while len(self._document_cache) > self.MAX_CACHE_DOCUMENTS:
+            self._document_cache.popitem(last=False)
+
+        return doc

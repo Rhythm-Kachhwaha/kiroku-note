@@ -286,3 +286,41 @@ def test_pdf_preview_short_text_included_and_image_only_skipped(pdf_api_env, mon
     assert skipped_reasons[2] == "image_only"
     assert skipped_reasons[3] == "garbled_text_layer"
 
+
+def test_pdf_extraction_cached_across_requests(pdf_api_env, monkeypatch: pytest.MonkeyPatch):
+    """Test that extraction calls across 3 requests = 1."""
+    from app.study.ingestion.adapters.pdf_text import PdfTextInputAdapter
+    client = pdf_api_env["client"]
+    StagedPdfImportService.clear_cache()
+
+    pdf_data = _make_text_pdf("Question stem text for caching test")
+    import_id = _stage_pdf(pdf_data, filename="cache_test.pdf")
+
+    original_extract = PdfTextInputAdapter.extract
+    call_count = 0
+
+    def counting_extract(self, input_data):
+        nonlocal call_count
+        call_count += 1
+        return original_extract(self, input_data)
+
+    monkeypatch.setattr(PdfTextInputAdapter, "extract", counting_extract)
+
+    # Request 1: GET pages 1-20
+    res1 = client.get(f"/api/study/v1/bank/import/pdf/{import_id}/pages?from=1&to=1")
+    assert res1.status_code == 200
+
+    # Request 2: GET pages again
+    res2 = client.get(f"/api/study/v1/bank/import/pdf/{import_id}/pages?from=1&to=1")
+    assert res2.status_code == 200
+
+    # Request 3: POST preview
+    res3 = client.post(
+        f"/api/study/v1/bank/import/pdf/{import_id}/preview",
+        json={"pages": [1], "default_level": "N5", "source_name": "test"},
+    )
+    assert res3.status_code == 200
+
+    assert call_count == 1, f"Expected 1 extraction call across 3 requests, got {call_count}"
+
+

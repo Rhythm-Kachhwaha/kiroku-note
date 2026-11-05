@@ -164,3 +164,38 @@ def test_page_classification_routes_and_flags(tmp_path: Path, monkeypatch: pytes
     assert p5["route"] == "selectable_text"
     assert "ocr_requested_unavailable" in p5["flags"]
 
+
+def test_cleanup_expired_and_cache_invalidation(tmp_path: Path) -> None:
+    from datetime import datetime, timedelta, timezone
+    import json
+
+    service = StagedPdfImportService(tmp_path)
+    service.clear_cache()
+
+    upload = _Upload(_pdf_bytes(1))
+    meta = service.inspect_upload(upload, filename="cleanup_test.pdf", content_type="application/pdf")
+    import_id = meta["import_id"]
+
+    # Extract document so it enters the LRU cache
+    doc = service.extract_document(import_id)
+    assert doc is not None
+    assert (import_id, meta["sha256"]) in service._document_cache
+
+    # Now simulate expiration
+    meta_file = tmp_path / f"{import_id}.json"
+    data = json.loads(meta_file.read_text(encoding="utf-8"))
+    data["expires_at"] = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    meta_file.write_text(json.dumps(data), encoding="utf-8")
+
+    # Run cleanup
+    service.cleanup_expired()
+
+    # Verify files deleted from disk
+    assert not meta_file.exists()
+    assert not (tmp_path / f"{import_id}.pdf").exists()
+
+    # Verify cache evicted
+    assert (import_id, meta["sha256"]) not in service._document_cache
+    assert service.extract_document(import_id) is None
+
+
