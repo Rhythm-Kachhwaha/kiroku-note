@@ -7,13 +7,26 @@
 import { LinkClient } from '../services/link_client.js';
 import { LinkStore } from '../services/link_store.js';
 import { escapeHtml } from '../utils/sanitizer.js';
+import { apiClient } from '../services/api_client.js';
+import { getUniversalJlptLevel } from '../utils/learner.js';
+
+const JLPT_ORDER = { 'N5': 1, 'N4': 2, 'N3': 3, 'N2': 4, 'N1': 5 };
+
+function isGrammarAboveLevel(pointLevel, userLevel) {
+  const pRank = JLPT_ORDER[pointLevel] || 0;
+  const uRank = JLPT_ORDER[userLevel] || 0;
+  return pRank > uRank;
+}
 
 export class AnimeView {
-  constructor(router) {
+  constructor(router, options = {}) {
     this.router = router;
+    this.options = options;
+    this.apiClient = options.apiClient || apiClient;
+    this.learnerLevel = options.learnerLevel || (typeof getUniversalJlptLevel === 'function' ? getUniversalJlptLevel() : 'N4');
     this.container = null;
-    this.linkClient = null;
-    this.linkStore = null;
+    this.linkClient = options.linkClient || null;
+    this.linkStore = options.linkStore || null;
     this._statusListener = null;
     this._sessionListener = null;
     this._stateListener = null;
@@ -22,6 +35,12 @@ export class AnimeView {
     this._keyListener = null;
     this.subtitleOffset = 0;
     this.isLooping = false;
+    this.annotatedCuesMap = new Map();
+    this.cueGrammarMap = new Map();
+    this.showTokenColors = true;
+    this.currentFilter = 'all';
+    this.lastLoadedHash = null;
+    this._fetchingGrammar = new Set();
   }
 
   async mount(container) {
@@ -136,6 +155,32 @@ export class AnimeView {
                     <button type="button" class="anime-control-btn" id="btn-anime-offset-zero" aria-label="Reset 0ms">0</button>
                     <button type="button" class="anime-control-btn" id="btn-anime-offset-plus" aria-label="Plus 100ms">+100ms</button>
                     <span class="anime-offset-badge" id="anime-offset-badge">0ms</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Transcript Strip Section (Slice 27) -->
+              <div class="anime-transcript-container" id="anime-transcript-container">
+                <div class="anime-transcript-header">
+                  <div class="flex items-center gap-2">
+                    <span class="anime-transcript-title">Transcript Strip</span>
+                    <span class="anime-cues-badge" id="anime-cues-badge">0 cues</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <select class="anime-transcript-filter" id="anime-transcript-filter" aria-label="Filter transcript">
+                      <option value="all">All lines</option>
+                      <option value="max1gap">Lines with &le; 1 unknown</option>
+                      <option value="grammar-above">Grammar above my level</option>
+                    </select>
+                    <button type="button" class="anime-control-btn btn-sm" id="btn-anime-toggle-coloring" aria-label="Toggle token coloring">
+                      <span id="anime-coloring-label">Colors: On</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="anime-transcript-list" id="anime-transcript-list" tabindex="0" role="region" aria-label="Dialogue transcript">
+                  <div class="anime-transcript-empty" id="anime-transcript-empty">
+                    No dialogue cues loaded yet
                   </div>
                 </div>
               </div>
@@ -260,6 +305,38 @@ export class AnimeView {
       this._updateOffsetBadge();
     });
 
+    // Transcript list click delegation
+    const listEl = this.container.querySelector('#anime-transcript-list');
+    listEl?.addEventListener('click', (e) => {
+      const item = e.target.closest('.anime-transcript-item');
+      if (item && item.dataset.start !== undefined) {
+        const startTime = parseFloat(item.dataset.start);
+        if (!isNaN(startTime)) {
+          this.linkStore?.seek(startTime);
+        }
+      }
+    });
+
+    // Filter dropdown change
+    const filterSelect = this.container.querySelector('#anime-transcript-filter');
+    filterSelect?.addEventListener('change', (e) => {
+      this.currentFilter = e.target.value;
+      this.renderTranscriptList();
+    });
+
+    // Color toggle button
+    const btnToggleColor = this.container.querySelector('#btn-anime-toggle-coloring');
+    btnToggleColor?.addEventListener('click', () => {
+      this.showTokenColors = !this.showTokenColors;
+      const label = this.container.querySelector('#anime-coloring-label');
+      if (label) {
+        label.textContent = this.showTokenColors ? 'Colors: On' : 'Colors: Off';
+      }
+      const listContainer = this.container.querySelector('#anime-transcript-list');
+      listContainer?.classList.toggle('hide-token-colors', !this.showTokenColors);
+      this.renderTranscriptList();
+    });
+
     // Local keyboard navigation
     this._keyListener = (e) => {
       const tag = (e.target && e.target.tagName) || '';
@@ -367,7 +444,9 @@ export class AnimeView {
     const chip = this.container.querySelector('#anime-connection-chip');
     if (chip) {
       chip.textContent = isConnected ? 'Connected' : 'Listening';
-      chip.style.color = isConnected ? 'var(--industrial-aqua)' : 'var(--text-muted)';
+      if (chip.style) {
+        chip.style.color = isConnected ? 'var(--industrial-aqua)' : 'var(--text-muted)';
+      }
     }
 
     // Controls disabled state + tooltip when disconnected
@@ -435,6 +514,166 @@ export class AnimeView {
       } else {
         cueTextEl.innerHTML = `<span class="anime-live-cue-empty">Start playback in browser with Kiroku Extension to mine Japanese dialogue</span>`;
       }
+    }
+
+    // Transcript cues fetching and rendering
+    if (summary.cueHash && summary.cueHash !== this.lastLoadedHash) {
+      this.lastLoadedHash = summary.cueHash;
+      this.fetchCuesAnalysis(summary.cueHash);
+    }
+    this.renderTranscriptList();
+  }
+
+  async fetchCuesAnalysis(hash) {
+    if (!hash || !this.apiClient) return;
+    try {
+      const res = await this.apiClient.request(`/api/link/cues/${encodeURIComponent(hash)}`);
+      if (res && Array.isArray(res.cues)) {
+        for (const cue of res.cues) {
+          this.annotatedCuesMap.set(`${hash}:${cue.i}`, cue);
+        }
+        this.renderTranscriptList();
+      }
+    } catch (err) {
+      console.debug('[AnimeView] fetchCuesAnalysis fallback:', err);
+    }
+  }
+
+  async fetchCueGrammar(hash, i) {
+    if (!hash || typeof i !== 'number' || !this.apiClient) return;
+    const key = `${hash}:${i}`;
+    if (this._fetchingGrammar.has(key)) return;
+    this._fetchingGrammar.add(key);
+    try {
+      const res = await this.apiClient.request(`/api/link/cue-grammar?hash=${encodeURIComponent(hash)}&i=${i}`);
+      if (res && Array.isArray(res.points)) {
+        this.cueGrammarMap.set(key, res.points);
+        this.renderTranscriptList();
+      }
+    } catch (err) {
+      console.debug('[AnimeView] fetchCueGrammar fallback:', err);
+    } finally {
+      this._fetchingGrammar.delete(key);
+    }
+  }
+
+  renderTranscriptList() {
+    const listEl = this.container?.querySelector('#anime-transcript-list');
+    const badgeEl = this.container?.querySelector('#anime-cues-badge');
+    if (!listEl) return;
+
+    const allCues = this.linkStore?.cues || [];
+    const cueHash = this.linkStore?.cueHash;
+    const activeCueIndex = this.linkStore?.activeCueIndex;
+
+    if (badgeEl) {
+      badgeEl.textContent = `${allCues.length} cues`;
+    }
+
+    if (allCues.length === 0) {
+      listEl.innerHTML = `<div class="anime-transcript-empty" id="anime-transcript-empty">No dialogue cues loaded yet</div>`;
+      return;
+    }
+
+    // Apply filters
+    let filtered = allCues;
+    if (this.currentFilter === 'max1gap') {
+      filtered = allCues.filter(cue => {
+        const ann = this.annotatedCuesMap.get(`${cueHash}:${cue.i}`);
+        if (!ann) return true; // Keep until analyzed
+        const gapCount = Array.isArray(ann.gap_words) ? ann.gap_words.length : 0;
+        return gapCount <= 1;
+      });
+    } else if (this.currentFilter === 'grammar-above') {
+      filtered = allCues.filter(cue => {
+        const points = this.cueGrammarMap.get(`${cueHash}:${cue.i}`);
+        if (!points || points.length === 0) return false;
+        return points.some(pt => isGrammarAboveLevel(pt.level, this.learnerLevel));
+      });
+    }
+
+    // Virtualization beyond 300 cues
+    let displayCues = filtered;
+    let topSpacerHeight = 0;
+    let bottomSpacerHeight = 0;
+    const CUE_HEIGHT_ESTIMATE = 64;
+
+    if (filtered.length > 300) {
+      const activeIdxInFiltered = filtered.findIndex(c => c.i === activeCueIndex);
+      const center = activeIdxInFiltered >= 0 ? activeIdxInFiltered : 0;
+      const windowStart = Math.max(0, center - 60);
+      const windowEnd = Math.min(filtered.length, windowStart + 180);
+      topSpacerHeight = windowStart * CUE_HEIGHT_ESTIMATE;
+      bottomSpacerHeight = (filtered.length - windowEnd) * CUE_HEIGHT_ESTIMATE;
+      displayCues = filtered.slice(windowStart, windowEnd);
+    }
+
+    let html = '';
+    if (topSpacerHeight > 0) {
+      html += `<div style="height: ${topSpacerHeight}px; pointer-events: none;"></div>`;
+    }
+
+    for (const cue of displayCues) {
+      const isActive = cue.i === activeCueIndex;
+      const ann = this.annotatedCuesMap.get(`${cueHash}:${cue.i}`);
+      const grammarPoints = this.cueGrammarMap.get(`${cueHash}:${cue.i}`) || [];
+
+      // If active and grammar not fetched, trigger prefetch
+      if (isActive && cueHash && !this.cueGrammarMap.has(`${cueHash}:${cue.i}`)) {
+        this.fetchCueGrammar(cueHash, cue.i);
+      }
+
+      // Build tokens / text
+      let textContent = '';
+      if (ann && Array.isArray(ann.tokens) && ann.tokens.length > 0) {
+        textContent = ann.tokens.map(tok => {
+          const status = tok.status || 'unstyled';
+          const surface = escapeHtml(tok.surface || '');
+          const statusClass = (this.showTokenColors && status !== 'unstyled') ? `is-${status} token-${status}` : '';
+          return `<span class="anime-token-chip ${statusClass}" data-surface="${surface}" data-status="${status}"><span class="anime-token-surface">${surface}</span></span>`;
+        }).join('');
+      } else {
+        textContent = escapeHtml(cue.text || '');
+      }
+
+      // Build grammar chips
+      let grammarHtml = '';
+      if (grammarPoints.length > 0) {
+        grammarHtml = `<div class="anime-cue-grammar-row">` + grammarPoints.map(pt => {
+          const above = isGrammarAboveLevel(pt.level, this.learnerLevel);
+          const title = escapeHtml(pt.point || pt.title || '');
+          const lvl = escapeHtml(pt.level || '');
+          return `<span class="anime-grammar-chip ${above ? 'is-above-level' : ''}" data-level="${lvl}">${title} <small>${lvl}</small></span>`;
+        }).join('') + `</div>`;
+      }
+
+      const timeLabel = this._formatTime(cue.s);
+      html += `
+        <div class="anime-transcript-item ${isActive ? 'is-active active' : ''}" data-cue-index="${cue.i}" data-start="${cue.s}">
+          <div class="anime-transcript-meta">
+            <span class="anime-transcript-time">[${timeLabel}]</span>
+            <span>Cue #${cue.i + 1}</span>
+          </div>
+          <div class="anime-transcript-text">
+            ${textContent}
+          </div>
+          ${grammarHtml}
+        </div>
+      `;
+    }
+
+    if (bottomSpacerHeight > 0) {
+      html += `<div style="height: ${bottomSpacerHeight}px; pointer-events: none;"></div>`;
+    }
+
+    listEl.innerHTML = html;
+
+    // Auto-scroll active item into view
+    const activeEl = listEl.querySelector('.anime-transcript-item.is-active');
+    if (activeEl && typeof activeEl.scrollIntoView === 'function') {
+      try {
+        activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } catch (_) {}
     }
   }
 

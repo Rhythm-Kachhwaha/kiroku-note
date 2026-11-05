@@ -188,6 +188,11 @@ export class LinkStore {
     return this.client ? this.client.sendCommand('cmd.clip', { reqId, s, e, want }) : null;
   }
 
+  getCue(index) {
+    if (typeof index !== 'number') return null;
+    return this.cues.find(c => c.i === index) || null;
+  }
+
   getStatusSummary() {
     return {
       connected: this.status === 'connected',

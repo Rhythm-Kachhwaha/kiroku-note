@@ -237,3 +237,189 @@
   font-weight: 600;
   color: var(--architectural-cream);
 }
+
+/* Transcript Strip Styles (Slice 27) */
+.anime-transcript-container {
+  background: var(--surface-elevated);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.anime-transcript-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.anime-transcript-title {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--industrial-aqua);
+}
+
+.anime-cues-badge {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.15rem 0.4rem;
+}
+
+.anime-transcript-filter {
+  background: var(--surface);
+  color: var(--architectural-cream);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.6rem;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.anime-transcript-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  background: var(--pure-black);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  padding: 0.6rem;
+}
+
+.anime-transcript-empty {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.anime-transcript-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--duration-fast) ease, border-color var(--duration-fast) ease;
+}
+
+.anime-transcript-item:hover {
+  background: var(--surface-elevated);
+  border-color: var(--tactile-stroke);
+}
+
+.anime-transcript-item.is-active,
+.anime-transcript-item.active {
+  background: var(--surface-elevated);
+  border: 1.5px solid var(--industrial-aqua);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.anime-transcript-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.anime-transcript-time {
+  color: var(--heat-marker);
+  font-weight: 700;
+}
+
+.anime-transcript-text {
+  font-family: var(--font-japanese);
+  font-size: 1.15rem;
+  line-height: 1.5;
+  color: var(--architectural-cream);
+  word-break: break-word;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  align-items: baseline;
+}
+
+.anime-token-chip {
+  display: inline-block;
+  padding: 0.05rem 0.2rem;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast) ease;
+}
+
+.anime-token-chip.is-known,
+.anime-token-chip.token-known {
+  color: var(--jade);
+}
+
+.anime-token-chip.is-gap,
+.anime-token-chip.is-should_know,
+.anime-token-chip.token-gap {
+  color: var(--rust-signal);
+  border-bottom: 2px solid var(--rust-signal);
+}
+
+.anime-token-chip.is-mined,
+.anime-token-chip.token-mined {
+  color: var(--industrial-aqua);
+  border-bottom: 1.5px solid var(--industrial-aqua);
+}
+
+.anime-token-chip.is-new,
+.anime-token-chip.is-unknown,
+.anime-token-chip.token-unknown {
+  color: var(--heat-marker);
+}
+
+.anime-transcript-list.hide-token-colors .anime-token-chip {
+  color: var(--architectural-cream) !important;
+  border-bottom: none !important;
+}
+
+.anime-cue-grammar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+}
+
+.anime-grammar-chip {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--tactile-stroke);
+  color: var(--architectural-cream);
+}
+
+.anime-grammar-chip.is-above-level {
+  background: var(--surface);
+  border-color: var(--rust-signal);
+  color: var(--rust-signal);
+}
