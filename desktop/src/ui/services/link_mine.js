@@ -137,10 +137,13 @@ export class LinkMineService {
         }
       }
 
+      const isDuplicate = Boolean(saveRes?.is_duplicate || saveRes?.status === 'already_saved');
+
       return {
         ok: true,
         card: saveRes,
         cardId: saveRes?.id || saveRes?.card_id || null,
+        isDuplicate,
         mediaCaptured: Boolean(media.image_b64 || media.audio_b64),
         timedOut: media.timedOut,
         expression: term
@@ -151,6 +154,24 @@ export class LinkMineService {
         error: err.message || 'Failed to save card',
         retry: () => this.mineWord(params)
       };
+    }
+  }
+
+  /**
+   * Check whether a word expression already exists as a card in the collection.
+   */
+  async isDuplicate(term) {
+    if (!term || !this.apiClient) return false;
+    try {
+      if (typeof this.apiClient.checkDuplicate === 'function') {
+        return await this.apiClient.checkDuplicate(term);
+      }
+      const res = await this.apiClient.request(`/api/cards?expression=${encodeURIComponent(term)}&limit=1`);
+      if (Array.isArray(res) && res.length > 0) return true;
+      if (res?.cards && Array.isArray(res.cards) && res.cards.length > 0) return true;
+      return false;
+    } catch (_) {
+      return false;
     }
   }
 }

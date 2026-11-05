@@ -6,6 +6,7 @@
 
 import { LinkClient } from '../services/link_client.js';
 import { LinkStore } from '../services/link_store.js';
+import { LinkMineService } from '../services/link_mine.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import { apiClient } from '../services/api_client.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
@@ -27,6 +28,7 @@ export class AnimeView {
     this.container = null;
     this.linkClient = options.linkClient || null;
     this.linkStore = options.linkStore || null;
+    this.linkMineService = options.linkMineService || null;
     this._statusListener = null;
     this._sessionListener = null;
     this._stateListener = null;
@@ -44,6 +46,9 @@ export class AnimeView {
     this._positionSaveTimer = null;
     this._lastSavedPositionSec = null;
     this.resumePositionMs = 0;
+    this.sessionMinedCount = 0;
+    this.gapWordsQueue = [];
+    this.lastQueuedBatch = [];
   }
 
   async mount(container) {
@@ -60,6 +65,12 @@ export class AnimeView {
       this.linkStore = new LinkStore(this.linkClient);
       this.linkClient.start().catch((err) => {
         console.warn('[AnimeView] LinkClient failed to start:', err);
+      });
+    }
+    if (!this.linkMineService) {
+      this.linkMineService = new LinkMineService({
+        linkStore: this.linkStore,
+        apiClient: this.apiClient
       });
     }
   }
@@ -95,7 +106,10 @@ export class AnimeView {
                 <div class="anime-session-title">
                   <span id="anime-active-title">No active video stream</span>
                 </div>
-                <div class="anime-time-indicator" id="anime-time-indicator">00:00 / 00:00</div>
+                <div class="flex items-center gap-2">
+                  <span class="anime-mined-counter" id="anime-mined-counter">0 mined</span>
+                  <div class="anime-time-indicator" id="anime-time-indicator">00:00 / 00:00</div>
+                </div>
               </div>
 
               <!-- Resume Prompt Banner (Slice 28) -->
@@ -166,6 +180,9 @@ export class AnimeView {
                   </div>
 
                   <div class="flex items-center gap-2">
+                    <button type="button" class="anime-control-btn" id="btn-anime-queue-gaps" aria-label="Queue gap words">
+                      Queue Gaps
+                    </button>
                     <button type="button" class="anime-control-btn btn-primary" id="btn-anime-clip" aria-label="Clip Dialogue">
                       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
                       <span>Mine Line</span>
@@ -218,6 +235,22 @@ export class AnimeView {
                     No dialogue cues loaded yet
                   </div>
                 </div>
+              </div>
+
+              <!-- Review Queue Card (Slice 29) -->
+              <div class="anime-queue-card" id="anime-queue-card" style="display: none;">
+                <div class="anime-queue-header">
+                  <div class="anime-queue-title">
+                    <span>Review Gap Words Queue</span>
+                    <span class="anime-queue-badge" id="anime-queue-count">0</span>
+                  </div>
+                  <div class="anime-queue-actions">
+                    <button type="button" class="anime-control-btn btn-sm" id="btn-queue-undo">Undo</button>
+                    <button type="button" class="anime-control-btn btn-primary btn-sm" id="btn-queue-mine-all">Mine All</button>
+                    <button type="button" class="anime-control-btn btn-sm" id="btn-queue-clear">Clear</button>
+                  </div>
+                </div>
+                <div class="anime-queue-chips" id="anime-queue-chips"></div>
               </div>
             </div>
 
@@ -313,7 +346,45 @@ export class AnimeView {
     });
 
     btnClip?.addEventListener('click', () => {
-      this.clipActiveCue();
+      this.mineActiveLine();
+    });
+
+    // Queue gap words button
+    const btnQueueGaps = this.container.querySelector('#btn-anime-queue-gaps');
+    btnQueueGaps?.addEventListener('click', () => {
+      this.queueGapWords();
+    });
+
+    const btnQueueMineAll = this.container.querySelector('#btn-queue-mine-all');
+    btnQueueMineAll?.addEventListener('click', () => {
+      this.mineAllQueued();
+    });
+
+    const btnQueueUndo = this.container.querySelector('#btn-queue-undo');
+    btnQueueUndo?.addEventListener('click', () => {
+      this.undoQueue();
+    });
+
+    const btnQueueClear = this.container.querySelector('#btn-queue-clear');
+    btnQueueClear?.addEventListener('click', () => {
+      this.clearQueue();
+    });
+
+    // Token click delegation (mine clicked word)
+    this.container.addEventListener('click', (e) => {
+      const tokenChip = e.target.closest('.anime-token-chip');
+      if (tokenChip && tokenChip.dataset.surface) {
+        const surface = tokenChip.dataset.surface;
+        const transcriptItem = tokenChip.closest('.anime-transcript-item');
+        let cue = null;
+        if (transcriptItem && transcriptItem.dataset.cueIndex) {
+          const idx = parseInt(transcriptItem.dataset.cueIndex, 10);
+          cue = this.linkStore?.cues?.find(c => c.i === idx) || null;
+        } else {
+          cue = this.linkStore?.activeCue || null;
+        }
+        this.mineToken(surface, cue, tokenChip);
+      }
     });
 
     // Speed selector buttons
@@ -476,12 +547,173 @@ export class AnimeView {
     this._updateLoopButton();
   }
 
-  clipActiveCue() {
+  async mineActiveLine() {
+    const summary = this.linkStore?.getStatusSummary() || {};
     const activeCue = this.linkStore?.activeCue;
-    const reqId = 'clip-' + Date.now();
-    const s = activeCue ? activeCue.s : (this.linkStore?.videoState?.t || 0);
-    const e = activeCue ? activeCue.e : (s + 3.0);
-    this.linkStore?.requestClip(reqId, s, e, ['image', 'audio']);
+    const text = activeCue?.text || '';
+
+    // If linkMineService is available, use it (handles clip + card creation + known mark)
+    if (this.linkMineService) {
+      try {
+        const res = await this.linkMineService.mineWord({
+          cue: activeCue,
+          session: summary.activeSession,
+          expression: text
+        });
+        if (res && res.ok && !res.isDuplicate) {
+          this.sessionMinedCount++;
+          this._updateMinedBadge();
+        }
+        return res;
+      } catch (err) {
+        console.debug('[AnimeView] mineActiveLine error:', err);
+      }
+    } else if (this.linkStore) {
+      // Direct clip fallback (slice 26 controls emission)
+      const reqId = 'clip-' + Date.now();
+      const s = activeCue ? activeCue.s : (summary.videoState?.t || 0);
+      const e = activeCue ? activeCue.e : (s + 3.0);
+      this.linkStore.requestClip(reqId, s, e, ['image', 'audio']);
+    }
+  }
+
+  async mineToken(surface, cue = null, tokenEl = null) {
+    if (!this.linkMineService || !surface) return;
+    const summary = this.linkStore?.getStatusSummary() || {};
+    const effectiveCue = cue || this.linkStore?.activeCue;
+
+    try {
+      const res = await this.linkMineService.mineWord({
+        cue: effectiveCue,
+        session: summary.activeSession,
+        expression: surface
+      });
+      if (res && res.ok) {
+        if (!res.isDuplicate) {
+          this.sessionMinedCount++;
+          this._updateMinedBadge();
+        }
+        if (tokenEl) {
+          tokenEl.classList.remove('is-gap', 'is-unknown', 'is-new', 'token-gap', 'token-unknown');
+          tokenEl.classList.add('is-mined', 'token-mined');
+        }
+      }
+      return res;
+    } catch (err) {
+      console.debug('[AnimeView] mineToken error:', err);
+    }
+  }
+
+  queueGapWords() {
+    const cueHash = this.linkStore?.cueHash;
+    const activeCue = this.linkStore?.activeCue;
+    const newItems = [];
+
+    // Gaps from active cue
+    if (activeCue) {
+      const ann = this.annotatedCuesMap.get(`${cueHash}:${activeCue.i}`);
+      const gapWords = ann && Array.isArray(ann.gap_words) ? ann.gap_words : [];
+      for (const w of gapWords) {
+        if (!this.gapWordsQueue.some(item => item.word === w)) {
+          newItems.push({ word: w, cue: activeCue });
+        }
+      }
+    }
+
+    // Gaps from current episode cues if active cue had none or to complete batch
+    if (newItems.length === 0 && this.linkStore?.cues) {
+      for (const cue of this.linkStore.cues) {
+        const ann = this.annotatedCuesMap.get(`${cueHash}:${cue.i}`);
+        const gapWords = ann && Array.isArray(ann.gap_words) ? ann.gap_words : [];
+        for (const w of gapWords) {
+          if (!this.gapWordsQueue.some(item => item.word === w) && !newItems.some(item => item.word === w)) {
+            newItems.push({ word: w, cue });
+          }
+        }
+      }
+    }
+
+    if (newItems.length > 0) {
+      this.lastQueuedBatch = newItems;
+      this.gapWordsQueue.push(...newItems);
+      this.renderQueueCard();
+    }
+  }
+
+  async mineAllQueued() {
+    if (!this.linkMineService || this.gapWordsQueue.length === 0 || this.isMiningAll) return;
+    this.isMiningAll = true;
+    const summary = this.linkStore?.getStatusSummary() || {};
+    const toMine = [...this.gapWordsQueue];
+
+    for (const item of toMine) {
+      try {
+        const res = await this.linkMineService.mineWord({
+          cue: item.cue,
+          session: summary.activeSession,
+          expression: item.word
+        });
+        if (res && res.ok && !res.isDuplicate) {
+          this.sessionMinedCount++;
+        }
+      } catch (_) {}
+    }
+
+    this.gapWordsQueue = [];
+    this.lastQueuedBatch = [];
+    this.isMiningAll = false;
+    this._updateMinedBadge();
+    this.renderQueueCard();
+  }
+
+  undoQueue() {
+    if (this.lastQueuedBatch.length > 0) {
+      const wordsToRemove = new Set(this.lastQueuedBatch.map(x => x.word));
+      this.gapWordsQueue = this.gapWordsQueue.filter(item => !wordsToRemove.has(item.word));
+      this.lastQueuedBatch = [];
+    } else if (this.gapWordsQueue.length > 0) {
+      this.gapWordsQueue.pop();
+    }
+    this.renderQueueCard();
+  }
+
+  clearQueue() {
+    this.gapWordsQueue = [];
+    this.lastQueuedBatch = [];
+    this.renderQueueCard();
+  }
+
+  renderQueueCard() {
+    const card = this.container?.querySelector('#anime-queue-card');
+    const badge = this.container?.querySelector('#anime-queue-count');
+    const chipsContainer = this.container?.querySelector('#anime-queue-chips');
+    if (!card) return;
+
+    const count = this.gapWordsQueue.length;
+    if (badge) badge.textContent = String(count);
+
+    if (count === 0) {
+      card.style.display = 'none';
+      if (chipsContainer) chipsContainer.innerHTML = '';
+      return;
+    }
+
+    card.style.display = 'flex';
+    if (chipsContainer) {
+      chipsContainer.innerHTML = this.gapWordsQueue.map((item, idx) => `
+        <span class="anime-queue-chip" data-index="${idx}">
+          ${escapeHtml(item.word)}
+          <span class="anime-queue-chip-remove" data-word="${escapeHtml(item.word)}">&times;</span>
+        </span>
+      `).join('');
+    }
+  }
+
+  _updateMinedBadge() {
+    const counterEl = this.container?.querySelector('#anime-mined-counter');
+    if (counterEl) {
+      counterEl.textContent = `${this.sessionMinedCount} mined`;
+    }
   }
 
   _updateLoopButton() {

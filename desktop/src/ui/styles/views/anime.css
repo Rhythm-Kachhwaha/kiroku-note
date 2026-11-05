@@ -595,3 +595,103 @@
   color: var(--jade);
   font-weight: 700;
 }
+
+/* Mining Parity & Queue (Slice 29) */
+.anime-mined-counter {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--jade);
+  background: var(--surface);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem 0.5rem;
+}
+
+.anime-queue-card {
+  background: var(--surface-elevated);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.anime-queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.anime-queue-title {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--industrial-aqua);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.anime-queue-badge {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--heat-marker);
+  background: var(--pure-black);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+}
+
+.anime-queue-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 0.25rem 0;
+}
+
+.anime-queue-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-japanese);
+  font-size: 0.82rem;
+  color: var(--architectural-cream);
+}
+
+.anime-queue-chip-remove {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.anime-queue-chip-remove:hover {
+  color: var(--rust-signal);
+}
+
+.anime-queue-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.anime-token-chip {
+  cursor: pointer;
+}
+
+.anime-token-chip:hover {
+  background: var(--surface);
+  outline: 1px dashed var(--industrial-aqua);
+}
