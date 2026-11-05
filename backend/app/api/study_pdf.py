@@ -20,7 +20,7 @@ from app.api.study.errors import (
     map_domain_exception,
 )
 from app.api.study.schemas import ImportPreviewResponse
-from app.study.ingestion.enums import IngestAdapterKind
+from app.study.ingestion.enums import IngestAdapterKind, PdfPageSkipReason
 from app.study.ingestion.models import IngestInput
 from app.study.ingestion.pipeline import IngestionPipeline
 from app.study.ingestion.staged_import import StagedPdfImportService
@@ -34,7 +34,12 @@ router = APIRouter(
 )
 
 # Routes that require OCR and are not performed at staging.
-_OCR_ROUTES = {"image_only", "garbled_text_layer", "skipped_ocr"}
+_OCR_ROUTES = {
+    PdfPageSkipReason.IMAGE_ONLY.value,
+    PdfPageSkipReason.GARBLED_TEXT_LAYER.value,
+    PdfPageSkipReason.POOR_TEXT_LAYER.value,
+    "skipped_ocr",
+}
 
 
 class PdfPreviewRequest(BaseModel):
@@ -85,6 +90,10 @@ def get_pdf_pages(
             p["page_number"]: p.get("route", "selectable_text")
             for p in metadata.get("pages", [])
         }
+        staged_flags_map = {
+            p["page_number"]: p.get("flags", [])
+            for p in metadata.get("pages", [])
+        }
 
         pages_out: list[dict[str, Any]] = []
         for pnum in range(start, end + 1):
@@ -93,6 +102,7 @@ def get_pdf_pages(
                 continue
             route = staged_routes.get(pnum, "selectable_text")
             is_ocr = route in _OCR_ROUTES or not page.text
+            page_flags = staged_flags_map.get(pnum, [])
 
             lines_out = []
             if not is_ocr:
@@ -117,6 +127,9 @@ def get_pdf_pages(
                         "coordinate_extraction": page.metadata.get(
                             "coordinate_extraction", "fallback"
                         ),
+                        "non_japanese": "non_japanese" in page_flags,
+                        "ocr_requested_unavailable": "ocr_requested_unavailable" in page_flags,
+                        "flag_list": page_flags,
                     },
                     "route": route,
                     "skipped_ocr": is_ocr,
@@ -173,14 +186,14 @@ def preview_pdf_import(
         for pnum in requested_pages:
             page = page_map.get(pnum)
             if page is None:
-                skipped.append({"page_number": pnum, "reason": "not_found"})
+                skipped.append({"page_number": pnum, "reason": PdfPageSkipReason.NOT_FOUND.value})
                 continue
             route = staged_routes.get(pnum, "selectable_text")
             if route in _OCR_ROUTES or not page.text:
                 skipped.append(
                     {
                         "page_number": pnum,
-                        "reason": route if route in _OCR_ROUTES else "no_text",
+                        "reason": route if route in _OCR_ROUTES else PdfPageSkipReason.NO_TEXT.value,
                     }
                 )
                 continue
@@ -321,6 +334,11 @@ def preview_pdf_import(
             "needs_review" if valid_count > 0 else "invalid"
         )
 
+        skipped_counts: dict[str, int] = {}
+        for s in skipped:
+            r = str(s.get("reason", "unknown"))
+            skipped_counts[r] = skipped_counts.get(r, 0) + 1
+
         return ImportPreviewResponse(
             preview_id="",
             status=status_str,
@@ -332,6 +350,9 @@ def preview_pdf_import(
             groups=preview_groups,
             errors=list(result.errors),
             warnings=list(result.warnings),
+            skipped=skipped,
+            skipped_count=len(skipped),
+            skipped_counts=skipped_counts,
         )
     except StudyAPIError:
         raise

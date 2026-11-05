@@ -80,6 +80,10 @@ class StagedPdfImportService:
             new_forced = set(force_ocr_pages or [])
             for page in existing.get("pages", []):
                 page["force_ocr"] = page["page_number"] in new_forced
+                flags = [f for f in page.get("flags", []) if f != "ocr_requested_unavailable"]
+                if page["force_ocr"]:
+                    flags.append("ocr_requested_unavailable")
+                page["flags"] = flags
             self._write_metadata(existing["import_id"], existing)
             return existing
 
@@ -132,31 +136,41 @@ class StagedPdfImportService:
                 for char in text
                 if "\u3040" <= char <= "\u30ff" or "\u3400" <= char <= "\u9fff"
             )
+            japanese_ratio = round(japanese_count / char_count, 4) if char_count else 0.0
             replacement_count = text.count("\ufffd") + text.count("(cid:")
             image_count = int(page.metadata.get("image_count", 0))
+            is_forced_ocr = page.page_number in forced
+
+            page_flags: list[str] = []
+            if char_count >= 40 and japanese_ratio < 0.1:
+                page_flags.append("non_japanese")
+            if is_forced_ocr:
+                page_flags.append("ocr_requested_unavailable")
+
             if char_count == 0:
                 route = "image_only" if image_count else "poor_text_layer"
-            elif replacement_count or page.confidence < 0.5:
+            elif replacement_count > 0:
                 route = "garbled_text_layer"
+            elif char_count <= 10:
+                route = "short_text"
             elif image_count:
                 route = "mixed"
             else:
                 route = "selectable_text"
-            # OCR routes are marked skipped_ocr (no OCR work at staging)
-            if route in ("image_only", "garbled_text_layer"):
-                route = "skipped_ocr"
+
             pages.append(
                 {
                     "page_number": page.page_number,
                     "text_char_count": char_count,
-                    "japanese_ratio": round(japanese_count / char_count, 4) if char_count else 0.0,
+                    "japanese_ratio": japanese_ratio,
                     "replacement_indicators": replacement_count,
                     "image_coverage_estimate": 1.0 if char_count == 0 and image_count else (0.5 if image_count else 0.0),
                     "page_width": page.metadata.get("width"),
                     "page_height": page.metadata.get("height"),
                     "route": route,
                     "has_text": char_count > 0,
-                    "force_ocr": page.page_number in forced,
+                    "force_ocr": is_forced_ocr,
+                    "flags": page_flags,
                 }
             )
 

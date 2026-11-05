@@ -229,3 +229,60 @@ def test_pdf_preview_unknown_import_returns_import_expired(pdf_api_env):
     assert res.status_code == 404, res.text
     body = res.json()
     assert body["error"]["code"] == "IMPORT_EXPIRED"
+
+
+def test_pdf_preview_short_text_included_and_image_only_skipped(pdf_api_env, monkeypatch: pytest.MonkeyPatch):
+    from app.study.ingestion.adapters.pdf_text import PdfTextInputAdapter
+    from app.study.ingestion.models import ExtractedDocument, ExtractedPage
+    client = pdf_api_env["client"]
+
+    doc = ExtractedDocument(
+        source_name="mixed.pdf",
+        raw_text="dummy raw text",
+        adapter_kind="pdf_text",
+        metadata={"page_count": 3},
+        pages=[
+            # Page 1: 8-char short text (should be included, not skipped!)
+            ExtractedPage(page_number=1, text="12345678", lines=[], metadata={}, confidence=0.2),
+            # Page 2: 0 chars, 1 image -> image_only (should be skipped with reason image_only)
+            ExtractedPage(page_number=2, text="", lines=[], metadata={"image_count": 1}, confidence=0.0),
+            # Page 3: garbled text (should be skipped with reason garbled_text_layer)
+            ExtractedPage(page_number=3, text="bad\ufffdtext", lines=[], metadata={}, confidence=0.8),
+        ],
+    )
+
+    monkeypatch.setattr(PdfTextInputAdapter, "extract", lambda self, inp: doc)
+    writer = pypdf.PdfWriter()
+    for _ in range(3):
+        writer.add_blank_page(width=300, height=400)
+    buf = io.BytesIO()
+    writer.write(buf)
+    import_id = _stage_pdf(buf.getvalue(), filename="mixed.pdf")
+
+    # Inspect pages first to verify routes
+    res_pages = client.get(f"/api/study/v1/bank/import/pdf/{import_id}/pages")
+    assert res_pages.status_code == 200
+    pages_data = res_pages.json()["pages"]
+    assert pages_data[0]["route"] == "short_text"
+    assert pages_data[0]["skipped_ocr"] is False
+    assert pages_data[1]["route"] == "image_only"
+    assert pages_data[1]["skipped_ocr"] is True
+
+    # Now preview all 3 pages
+    res_preview = client.post(
+        f"/api/study/v1/bank/import/pdf/{import_id}/preview",
+        json={"pages": [1, 2, 3], "default_level": "N5", "source_name": "test"},
+    )
+    assert res_preview.status_code == 200, res_preview.text
+    body = res_preview.json()
+
+    assert "skipped" in body
+    assert body["skipped_count"] == 2
+    assert body["skipped_counts"]["image_only"] == 1
+    assert body["skipped_counts"]["garbled_text_layer"] == 1
+
+    skipped_reasons = {s["page_number"]: s["reason"] for s in body["skipped"]}
+    assert 1 not in skipped_reasons  # Page 1 is included!
+    assert skipped_reasons[2] == "image_only"
+    assert skipped_reasons[3] == "garbled_text_layer"
+

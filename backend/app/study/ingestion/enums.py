@@ -55,3 +55,13 @@ class ReviewReasonCode(str, Enum):
     UNRESOLVED_GROUP_ASSOCIATION = "UNRESOLVED_GROUP_ASSOCIATION"
     MANUAL_CORRECTION_REQUIRED = "MANUAL_CORRECTION_REQUIRED"
 
+
+class PdfPageSkipReason(str, Enum):
+    """Reasons why a PDF page is skipped from text-based extraction or preview."""
+    IMAGE_ONLY = "image_only"
+    GARBLED_TEXT_LAYER = "garbled_text_layer"
+    POOR_TEXT_LAYER = "poor_text_layer"
+    NO_TEXT = "no_text"
+    NOT_FOUND = "not_found"
+
+

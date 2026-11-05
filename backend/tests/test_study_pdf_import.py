@@ -100,3 +100,67 @@ def test_pdf_import_error_code_when_support_missing(tmp_path: Path, monkeypatch:
             _Upload(_pdf_bytes()), filename="x.pdf", content_type="application/pdf"
         )
     assert exc.value.code == "PDF_SUPPORT_MISSING"
+
+
+def test_page_classification_routes_and_flags(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.study.ingestion.models import ExtractedDocument, ExtractedPage
+
+    doc = ExtractedDocument(
+        source_name="test.pdf",
+        raw_text="dummy raw text",
+        adapter_kind="pdf_text",
+        metadata={"page_count": 5},
+        pages=[
+            # Page 1: 8 chars -> short_text
+            ExtractedPage(page_number=1, text="12345678", lines=[], metadata={}, confidence=0.2),
+            # Page 2: 0 chars, 1 image -> image_only
+            ExtractedPage(page_number=2, text="", lines=[], metadata={"image_count": 1}, confidence=0.0),
+            # Page 3: contains replacement char -> garbled_text_layer
+            ExtractedPage(page_number=3, text="garbled\ufffdtext", lines=[], metadata={}, confidence=0.8),
+            # Page 4: low japanese ratio with >= 40 chars -> non_japanese flag
+            ExtractedPage(
+                page_number=4,
+                text="This is an English sentence with more than forty characters for testing.",
+                lines=[],
+                metadata={},
+                confidence=1.0,
+            ),
+            # Page 5: force_ocr requested on text page -> ocr_requested_unavailable flag
+            ExtractedPage(
+                page_number=5,
+                text="日本語のテスト文章です。問題なく抽出できます。",
+                lines=[],
+                metadata={},
+                confidence=1.0,
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(PdfTextInputAdapter, "extract", lambda self, inp: doc)
+    service = StagedPdfImportService(tmp_path)
+    res = service.inspect_upload(
+        _Upload(_pdf_bytes(5)),
+        filename="test.pdf",
+        content_type="application/pdf",
+        force_ocr_pages=[5],
+    )
+
+    p1 = res["pages"][0]
+    assert p1["route"] == "short_text"
+    assert p1["has_text"] is True
+
+    p2 = res["pages"][1]
+    assert p2["route"] == "image_only"
+    assert p2["has_text"] is False
+
+    p3 = res["pages"][2]
+    assert p3["route"] == "garbled_text_layer"
+
+    p4 = res["pages"][3]
+    assert p4["route"] == "selectable_text"
+    assert "non_japanese" in p4["flags"]
+
+    p5 = res["pages"][4]
+    assert p5["route"] == "selectable_text"
+    assert "ocr_requested_unavailable" in p5["flags"]
+

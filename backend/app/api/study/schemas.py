@@ -445,6 +445,9 @@ class ImportPreviewResponse(StudyAPIBaseModel):
     groups: List[ImportPreviewGroupDTO] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
+    skipped: List[Dict[str, Any]] = Field(default_factory=list)
+    skipped_count: int = 0
+    skipped_counts: Dict[str, int] = Field(default_factory=dict)
 
 
 class PdfImportPageInspectionDTO(StudyAPIBaseModel):
@@ -457,6 +460,7 @@ class PdfImportPageInspectionDTO(StudyAPIBaseModel):
     page_height: Optional[float] = None
     route: str
     force_ocr: bool = False
+    flags: List[str] = Field(default_factory=list)
 
 
 class PdfImportInspectionResponse(StudyAPIBaseModel):
