@@ -18,6 +18,7 @@
 
 .top-chrome-right {
   pointer-events: auto;
+  z-index: 9999;
 }
 
 
@@ -36,6 +37,8 @@
   cursor: pointer !important;
   display: inline-flex !important;
   align-items: center !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
   transition: opacity 120ms ease, transform 120ms ease !important;
 }
 

@@ -128,6 +128,8 @@ body {
 /* Keep Top Chrome and Bottom Navigation Dock rock-solid during view transitions */
 #top-chrome-container {
   view-transition-name: top-chrome;
+  position: relative;
+  z-index: 9999;
 }
 
 #bottom-dock-container {

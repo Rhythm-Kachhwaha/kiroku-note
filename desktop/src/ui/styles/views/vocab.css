@@ -10,10 +10,10 @@
 .settings-view-wrapper {
   background-color: var(--pure-black);
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1rem 1.5rem 0 1.5rem;
-  contain: layout paint;
+  max-width: 100%;
+  margin: 0;
+  padding: 1rem 2rem 0 2rem;
+  box-sizing: border-box;
 }
 
 .home-launcher-card,

@@ -1,5 +1,6 @@
 /* ==========================================================================
    Settings Screen Styles
+   ========================================================================== */
 
 .settings-error-banner {
   display: flex;
@@ -31,8 +32,6 @@
   font-size: 0.8rem;
   color: var(--warm-paper);
 }
-
-   ========================================================================== */
 .settings-header-row {
   display: flex;
   align-items: flex-start;

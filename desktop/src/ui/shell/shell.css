@@ -23,7 +23,6 @@
   width: 100%;
   box-sizing: border-box;
   -webkit-app-region: drag;
-  view-transition-name: top-chrome;
 }
 
 .top-chrome-left {
