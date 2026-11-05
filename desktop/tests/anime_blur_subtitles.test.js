@@ -20,3 +20,4 @@ test('anime_blur_subtitles: anime.css provides .is-blurred and hover unblur with
   assert.equal(/#[0-9a-fA-F]{3,6}/.test(css), false, 'anime.css must contain no raw hex');
   assert.equal(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/u.test(css), false, 'no emoji');
 });
+

@@ -17,3 +17,4 @@ test('anime_1t_sentence: anime.css styles .badge-1t using gold tactile token', (
   assert.ok(css.includes('.badge-1t'), 'anime.css must style .badge-1t');
   assert.ok(css.includes('var(--gold)'), 'anime.css must use --gold token');
 });
+

@@ -10,3 +10,4 @@ test('anime_condensed_audio: anime.js renders condensed audio export button', ()
   assert.ok(content.includes('btn-anime-export-condensed'), 'anime.js must render #btn-anime-export-condensed');
   assert.ok(content.includes('exportCondensedAudio'), 'anime.js must implement exportCondensedAudio');
 });
+

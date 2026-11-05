@@ -17,3 +17,4 @@ test('anime_dual_subtitles: anime.css styles secondary subtitle with muted token
   assert.ok(css.includes('.anime-secondary-cue-text'), 'anime.css must style secondary cue');
   assert.ok(css.includes('var(--text-muted)'), 'anime.css must style secondary text in muted color');
 });
+

@@ -10,3 +10,4 @@ test('page_parser: parses text nodes and wraps tokens in interactive chips', () 
   assert.ok(content.includes('class PageParser'), 'must define PageParser class');
   assert.ok(content.includes('kiroku-web-chip'), 'must generate kiroku-web-chip class');
 });
+

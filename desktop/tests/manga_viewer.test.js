@@ -19,3 +19,4 @@ test('manga_viewer: manga.css uses design tokens with zero raw hex or emoji', ()
   assert.equal(/#[0-9a-fA-F]{3,6}/.test(css), false, 'no raw hex');
   assert.equal(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/u.test(css), false, 'no emoji');
 });
+

@@ -7,3 +7,4 @@ def test_build_ffmpeg_concat_filter():
     assert "[0:a]atrim=start=1.0:end=4.0,asetpts=PTS-STARTPTS[a0]" in filter_str
     assert "[0:a]atrim=start=10.0:end=12.5,asetpts=PTS-STARTPTS[a1]" in filter_str
     assert "[a0][a1]concat=n=2:v=0:a=1[out]" in filter_str
+

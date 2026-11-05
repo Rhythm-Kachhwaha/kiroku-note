@@ -30,3 +30,4 @@ test('stack_fixes: manga.js supports one-click mining from inspector', () => {
   const mangaJs = fs.readFileSync(mangaJsPath, 'utf8');
   assert.ok(mangaJs.includes('btn-manga-mine-word') || mangaJs.includes('mineWord'), 'manga viewer must support mining');
 });
+

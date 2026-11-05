@@ -18,3 +18,4 @@ test('anime_shadowing: anime.js wires shadowing controls in inspector', () => {
   assert.ok(animeJs.includes('btn-anime-shadow-record'), 'must render record button');
   assert.ok(animeJs.includes('btn-anime-shadow-compare'), 'must render compare audio button');
 });
+
