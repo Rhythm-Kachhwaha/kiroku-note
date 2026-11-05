@@ -160,3 +160,4 @@ test('Slice 31: TheaterView recent files, offset controls, and next episode', as
   // 5. Test unmount cleanup
   view.unmount();
 });
+
