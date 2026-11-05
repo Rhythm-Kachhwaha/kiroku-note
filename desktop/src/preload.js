@@ -98,6 +98,11 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   retryBackend: () => ipcRenderer.invoke('backend:retry'),
   openUserDataFolder: () => ipcRenderer.invoke('app:open-folder'),
   openInstructions: () => ipcRenderer.invoke('app:open-instructions'),
+  onBackendReady: (cb) => {
+    if (typeof cb === 'function') {
+      ipcRenderer.on('backend:ready', (event, data) => cb(data));
+    }
+  },
   getRiveAssetUrl: (assetName) => ipcRenderer.invoke('runtime:get-rive-asset-url', assetName),
   getServicesStatus: () => ipcRenderer.invoke('backend:services-status'),
   extensionPairing: {

@@ -36,6 +36,8 @@ def _make_http_response(payload: dict, status: int = 200):
     return mock_resp
 
 
+@pytest.mark.windows
+@pytest.mark.skipif(sys.platform != "win32", reason="Requires Windows DPAPI secret store")
 def test_save_and_retrieve_secret_lifecycle(client, tmp_path):
     secrets_file = tmp_path / "data" / ".secrets.enc"
     with patch.dict(
@@ -143,6 +145,8 @@ def test_env_var_fallback_and_precedence(client, tmp_path):
         assert get_llm_api_key() == "gsk_env_fallback_key_12345"
 
 
+@pytest.mark.windows
+@pytest.mark.skipif(sys.platform != "win32", reason="Requires Windows DPAPI secret store")
 def test_llm_request_uses_securely_stored_key(client, tmp_path):
     secrets_file = tmp_path / "data" / ".secrets.enc"
     with patch.dict(
@@ -187,6 +191,8 @@ def test_llm_request_uses_securely_stored_key(client, tmp_path):
             assert captured_headers.get("Authorization") == f"Bearer {stored_secret}"
 
 
+@pytest.mark.windows
+@pytest.mark.skipif(sys.platform != "win32", reason="Requires Windows DPAPI secret store")
 def test_security_assertions_raw_secret_never_exposed(client, tmp_path, caplog):
     """
     Search all relevant responses, persisted files, and logs for the test secret,

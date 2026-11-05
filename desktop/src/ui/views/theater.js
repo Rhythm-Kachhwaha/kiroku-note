@@ -45,7 +45,9 @@ export class JimakuSearchProvider {
     if (typeof localStorage !== 'undefined') {
       try {
         localStorage.setItem('jimaku_api_key', this.apiKey);
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[Theater] localStorage setItem failed:', err);
+      }
     }
   }
 
@@ -53,7 +55,9 @@ export class JimakuSearchProvider {
     if (!this.apiKey && typeof localStorage !== 'undefined') {
       try {
         this.apiKey = localStorage.getItem('jimaku_api_key') || '';
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[Theater] localStorage getItem failed:', err);
+      }
     }
     return this.apiKey;
   }
@@ -82,7 +86,9 @@ export class JimakuSearchProvider {
         if (response && response.ok !== false && (response.data || response.text)) {
           return response;
         }
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[Theater] sendMessage failed:', err);
+      }
     }
 
     // Direct fetch fallback
@@ -180,7 +186,9 @@ export class PlayerAdapter {
       if (this.currentHash && typeof localStorage !== 'undefined' && state.t > 0) {
         try {
           localStorage.setItem(`kiroku:theater:pos:${this.currentHash}`, String(state.t));
-        } catch (_) {}
+        } catch (err) {
+          console.debug('[Theater] localStorage save position failed:', err);
+        }
       }
     };
 
@@ -264,7 +272,9 @@ export class PlayerAdapter {
       case 'cmd.play':
         try {
           await this.videoEl.play();
-        } catch (_) {}
+        } catch (err) {
+          console.debug('[Theater] video play failed:', err);
+        }
         return { ok: true };
 
       case 'cmd.pause':
@@ -273,7 +283,11 @@ export class PlayerAdapter {
 
       case 'cmd.toggle':
         if (this.videoEl.paused) {
-          try { await this.videoEl.play(); } catch (_) {}
+          try {
+            await this.videoEl.play();
+          } catch (err) {
+            console.debug('[Theater] video play toggle failed:', err);
+          }
         } else {
           this.videoEl.pause();
         }
@@ -506,7 +520,9 @@ export class PlayerAdapter {
             this.videoEl.currentTime = t;
           }
         }
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[Theater] localStorage get position failed:', err);
+      }
     }
   }
 }

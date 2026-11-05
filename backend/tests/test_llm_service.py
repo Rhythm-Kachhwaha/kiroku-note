@@ -1,6 +1,7 @@
 """Tests for the LLM Assistant Core Service, Providers, and FastAPI Endpoints."""
 import json
 import socket
+import sys
 import urllib.error
 import urllib.request
 from io import BytesIO
@@ -651,6 +652,8 @@ def test_unsupported_task_raises_value_error():
 # 12. LLM Config Endpoints & JSON Persistence Tests
 # ============================================================================
 
+@pytest.mark.windows
+@pytest.mark.skipif(sys.platform != "win32", reason="Requires Windows DPAPI secret store")
 def test_llm_config_get_and_put(client, tmp_path):
     with patch.dict("os.environ", {"KIROKU_DATA_DIR": str(tmp_path)}, clear=True):
         # 1. Initial GET with no env and no stored config

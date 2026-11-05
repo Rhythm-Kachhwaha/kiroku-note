@@ -131,7 +131,11 @@ export class LinkClient {
     this.handshakeTimer = setTimeout(() => {
       if (!this.authenticated) {
         if (this.ws) {
-          try { this.ws.close(4401, 'Handshake timeout'); } catch (_) {}
+          try {
+            this.ws.close(4401, 'Handshake timeout');
+          } catch (err) {
+            console.debug('[LinkClient] Handshake timeout close error:', err);
+          }
         }
       }
     }, 3000);
@@ -310,7 +314,9 @@ export class LinkClient {
           this.ws.send(JSON.stringify(byeEnvelope));
         }
         this.ws.close();
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[LinkClient] WebSocket close error:', err);
+      }
       this.ws = null;
     }
     this.connected = false;

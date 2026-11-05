@@ -6,6 +6,13 @@ class FakeElement {
     this.hidden = false;
     this.children = [];
     this.listeners = {};
+    this.style = {};
+    this.classList = {
+      add() {},
+      remove() {},
+      contains() { return false; },
+      toggle() {}
+    };
   }
 
   appendChild(child) {
@@ -21,6 +28,9 @@ class FakeElement {
   }
 
   setAttribute() {}
+  getAttribute() { return null; }
+  querySelector() { return new FakeElement(); }
+  querySelectorAll() { return []; }
 }
 
 function installDOM() {
@@ -30,6 +40,9 @@ function installDOM() {
   const viewContainer = new FakeElement();
   globalThis.document = {
     createElement: () => new FakeElement(),
+    getElementById: (id) => (id === 'view-container' ? viewContainer : null),
+    querySelector: () => new FakeElement(),
+    querySelectorAll: () => [],
     addEventListener: (type, listener) => { listeners[type] = listener; },
     removeEventListener: () => {}
   };

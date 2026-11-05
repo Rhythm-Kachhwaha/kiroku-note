@@ -1,0 +1,3 @@
+#!/bin/sh
+# Git commit-msg hook for Kiroku Note repository standards
+python tools/check_commit_msg.py "$1"

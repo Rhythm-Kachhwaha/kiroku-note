@@ -47,12 +47,17 @@ export class VocabMainView {
   async mount(container) {
     this.container = container;
     this.learnerLevel = await getUniversalJlptLevel();
+    this.restoreDecksFromCache();
     this.render();
     this.setupEvents();
     this.setupWanakana();
     this.restoreDraft();
     this.restoreAnnotatedState();
-    await this.loadInitialMetadata();
+    
+    // Non-blocking metadata load so view renders and becomes interactive immediately
+    this.loadInitialMetadata().catch((err) => {
+      console.debug('[VocabMain] loadInitialMetadata background error:', err);
+    });
 
     this._levelListener = (e) => {
       if (e.detail?.level) {
@@ -61,6 +66,22 @@ export class VocabMainView {
       }
     };
     this._lastRefreshAt = Date.now();
+  }
+
+  restoreDecksFromCache() {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('kiroku:cached-anki-decks');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.ankiDecks = parsed;
+          }
+        }
+      } catch (err) {
+        console.debug('[VocabMain] Cached decks read error:', err);
+      }
+    }
   }
 
   async onShow() {
@@ -529,6 +550,13 @@ export class VocabMainView {
 
       if (decksRes.status === 'fulfilled' && Array.isArray(decksRes.value)) {
         this.ankiDecks = decksRes.value.length > 0 ? decksRes.value : ['Default'];
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('kiroku:cached-anki-decks', JSON.stringify(this.ankiDecks));
+          } catch (err) {
+            console.debug('[VocabMain] Cache write error:', err);
+          }
+        }
         const select = document.getElementById('select-deck');
         if (select) {
           const previousValue = select.value;

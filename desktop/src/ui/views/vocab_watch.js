@@ -66,7 +66,9 @@ export class VocabWatchView {
     this.ensureStyles();
     try {
       this.learnerLevel = await getUniversalJlptLevel();
-    } catch (_) {}
+    } catch (err) {
+      console.debug('[VocabWatch] getUniversalJlptLevel fallback:', err);
+    }
 
     this._initStore();
     this.render();

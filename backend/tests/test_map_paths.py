@@ -17,7 +17,12 @@ def _named_paths():
     paths = set()
     for map_file in sorted(MAPS_DIR.glob("*.md")):
         text = map_file.read_text(encoding="utf-8")
-        for token in re.findall(BT + r"([^" + BT + r"]+)" + BT, text):
+        for match in re.finditer(BT + r"([^" + BT + r"]+)" + BT + r"(\s*\(planned\))?", text):
+            if match.group(2):
+                continue
+            token = match.group(1).strip()
+            if "(planned)" in token:
+                continue
             # Skip API routes, shell commands, env/placeholder tokens, URLs.
             if token.startswith("/api/"):
                 continue

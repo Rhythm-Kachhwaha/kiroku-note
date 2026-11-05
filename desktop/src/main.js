@@ -87,8 +87,23 @@ async function revokeAllExtensionPairings() {
   return desktopControlRequest('/api/auth/extension-pairings/revoke-all');
 }
 
-// Disable hardware acceleration to prevent GPU driver crash / blank frame on Windows
-app.disableHardwareAcceleration();
+// GPU acceleration configuration: enable hardware rasterization for high frame rates
+// and responsive UI interaction, with stability flags to prevent crashes.
+if (process.env.KIROKU_DISABLE_GPU === '1') {
+  app.disableHardwareAcceleration();
+} else {
+  app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
+  app.commandLine.appendSwitch('enable-gpu-rasterization');
+  app.commandLine.appendSwitch('enable-zero-copy');
+}
+
+// Persistent HTTP keep-alive agent to eliminate TCP handshake latency on every IPC API call
+const apiHttpAgent = new http.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 15000,
+  maxSockets: 20,
+  maxFreeSockets: 10
+});
 
 // Set native theme to dark by default
 nativeTheme.themeSource = 'dark';
@@ -148,7 +163,8 @@ function fetchServiceJson(reqPath) {
       hostname: processManager.host,
       port: processManager.port,
       path: reqPath,
-      timeout: 1000
+      timeout: 1000,
+      agent: apiHttpAgent
     }, (res) => {
       if (res.statusCode !== 200) {
         resolve(null);
@@ -425,9 +441,17 @@ function createMainWindow() {
     mainWindow = null;
   });
 
-  // Show window immediately so user sees the loading state
+  // Show window immediately with target view (index.html boots background app with splash)
+  const isSidepanelView = process.env.KIROKU_DESKTOP_VIEW === 'sidepanel';
+  const isDiagnosticsShell = process.env.KIROKU_DESKTOP_VIEW === 'shell';
+  const targetFile = isSidepanelView
+    ? path.join(repoRoot, 'extension', 'sidepanel', 'sidepanel.html')
+    : isDiagnosticsShell
+    ? path.join(__dirname, 'shell.html')
+    : path.join(__dirname, 'index.html');
+
   mainWindow.show();
-  mainWindow.loadFile(path.join(__dirname, 'loading.html'));
+  mainWindow.loadFile(targetFile);
 }
 
 function createSystemTray() {
@@ -501,7 +525,15 @@ function showMainWindow() {
 
 async function startBackendAndLoadUI() {
   try {
-    if (mainWindow) {
+    const isSidepanelView = process.env.KIROKU_DESKTOP_VIEW === 'sidepanel';
+    const isDiagnosticsShell = process.env.KIROKU_DESKTOP_VIEW === 'shell';
+    const targetFile = isSidepanelView
+      ? path.join(repoRoot, 'extension', 'sidepanel', 'sidepanel.html')
+      : isDiagnosticsShell
+      ? path.join(__dirname, 'shell.html')
+      : path.join(__dirname, 'index.html');
+
+    if (mainWindow && isSidepanelView) {
       mainWindow.loadFile(path.join(__dirname, 'loading.html'));
     }
 
@@ -512,17 +544,15 @@ async function startBackendAndLoadUI() {
     refreshServicesStatus(true).catch(() => {});
 
     // Backend and authenticated Study API are verified ready.
-    // Load Kiroku Native Desktop Shell (or diagnostic shell/sidepanel if requested).
-    const isSidepanelView = process.env.KIROKU_DESKTOP_VIEW === 'sidepanel';
-    const isDiagnosticsShell = process.env.KIROKU_DESKTOP_VIEW === 'shell';
-    const targetFile = isSidepanelView
-      ? path.join(repoRoot, 'extension', 'sidepanel', 'sidepanel.html')
-      : isDiagnosticsShell
-      ? path.join(__dirname, 'shell.html')
-      : path.join(__dirname, 'index.html');
-
-    if (mainWindow) {
-      mainWindow.loadFile(targetFile);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (isSidepanelView || isDiagnosticsShell) {
+        mainWindow.loadFile(targetFile);
+      } else {
+        mainWindow.webContents.send('backend:ready', {
+          host: processManager.host,
+          port: processManager.port
+        });
+      }
 
       // Auto-reload UI in dev mode when renderer assets change
       if (!app.isPackaged && !global.__uiWatcherInitialized) {
@@ -809,7 +839,8 @@ function setupIpcHandlers() {
           path: fullPath,
           method: upperMethod,
           headers: requestHeaders,
-          timeout: timeoutMs
+          timeout: timeoutMs,
+          agent: apiHttpAgent
         };
 
         const httpRequest = http.request(requestOptions, (httpResponse) => {

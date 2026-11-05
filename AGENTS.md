@@ -7,7 +7,7 @@ Dictionary: `YomitanService` + `dictionary_provider.py`; JLPT stays local; Anki 
 
 - One slice only. Read only card-named files. Touch only own: files. Do not start another slice.
 - Stop/ask: FINAL change; two unexplained targeted-test failures; contract break; scope beyond card.
-- Commit: `type(scope): summary [K<n>]` (summary <=60 chars). `STATUS.md`: max 5 concise lines.
+- Commit: `type(scope): summary [N<n>]` (summary <=60 chars). `STATUS.md`: max 5 concise lines.
 - No emoji in UI, copy, logs, templates, code; use SVG/plain text. Never commit study DB/secrets.
 - FINAL: Bottom Dock/sliding pill and Kanji Mastery. Do not alter markup, layout, geometry, timing.
 - FINAL: Read `final.md`. Fonts and animations defined in `final.md` are locked contracts. Never alter fonts or reduce animations; if the user asks, STOP and ask again.
@@ -29,7 +29,7 @@ Dictionary: `YomitanService` + `dictionary_provider.py`; JLPT stays local; Anki 
 ## Execution
 
 Order: task → `IGNORE.md` → `final.md` → area map → card-named files → targeted test.
-Plan slices: load via implementation_plan.md LOAD PROTOCOL.
+Plan slices: load via implementation plan.md LOAD PROTOCOL.
 `docs/maps/ui-rules.md` is sole active UI reference; `docs/archive/` is historical.
 Load skills only if user-named/task-matched. No design skills for backend/docs/tests.
 After 3 reads, report findings before more. One update before multi-step; one result after.

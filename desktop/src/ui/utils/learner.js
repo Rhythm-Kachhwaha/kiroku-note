@@ -11,7 +11,20 @@ let cachedLevel = null;
 export async function getUniversalJlptLevel() {
   if (cachedLevel) return cachedLevel;
 
-  // 1. Try local storage
+  // 1. Try fast synchronous localStorage
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const local = localStorage.getItem('learner_jlpt_level') || localStorage.getItem('learner.jlptLevel');
+      if (local) {
+        cachedLevel = local;
+        return local;
+      }
+    } catch (err) {
+      console.debug('[Learner] Fast localStorage read error:', err);
+    }
+  }
+
+  // 2. Try chrome storage local (extension / shim)
   if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
     try {
       const stored = await new Promise((resolve) => {
@@ -20,6 +33,9 @@ export async function getUniversalJlptLevel() {
       const lvl = stored?.['learner.jlptLevel'] || stored?.['learner_jlpt_level'];
       if (lvl) {
         cachedLevel = lvl;
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.setItem('learner_jlpt_level', lvl); } catch (e) { console.debug('[Learner] sync err:', e); }
+        }
         return lvl;
       }
     } catch (err) {
@@ -27,11 +43,14 @@ export async function getUniversalJlptLevel() {
     }
   }
 
-  // 2. Try backend
+  // 3. Try backend
   try {
     const res = await apiClient.getLearnerSettings();
     if (res?.learner_level) {
       cachedLevel = res.learner_level;
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.setItem('learner_jlpt_level', cachedLevel); } catch (e) { console.debug('[Learner] sync err:', e); }
+      }
       if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
         window.chrome.storage.local.set({
           'learner.jlptLevel': cachedLevel,
@@ -52,7 +71,17 @@ export async function setUniversalJlptLevel(level) {
   const normalized = (level || 'N4').toUpperCase();
   cachedLevel = normalized;
 
-  // 1. Persist to desktop local storage
+  // 1. Fast synchronous localStorage
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem('learner_jlpt_level', normalized);
+      localStorage.setItem('learner.jlptLevel', normalized);
+    } catch (err) {
+      console.debug('[Learner] Fast localStorage write error:', err);
+    }
+  }
+
+  // 2. Persist to desktop local storage
   if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
     try {
       await new Promise((resolve) => {

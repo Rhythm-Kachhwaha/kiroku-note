@@ -54,7 +54,42 @@ export class AppRouter {
 
     // Initial navigation based on URL hash or default to 'home'
     const initialHash = window.location.hash.replace('#', '') || 'home';
-    this.navigateToTab(initialHash, false);
+    this.navigateToTab(initialHash, false).then(() => {
+      this.prewarmViews();
+    });
+  }
+
+  prewarmViews() {
+    if (typeof window === 'undefined') return;
+    const idleFn = typeof window.requestIdleCallback === 'function'
+      ? (cb) => window.requestIdleCallback(cb, { timeout: 1500 })
+      : (cb) => setTimeout(cb, 120);
+
+    idleFn(async () => {
+      // Pre-warm keepAlive views in background (especially vocab) so subsequent clicks are 0ms
+      const warmTargets = ['vocab', 'grammar', 'kanji', 'test', 'study'];
+      for (const tabId of warmTargets) {
+        if (this.viewInstances.has(tabId) || !this.routes[tabId] || this.currentTab === tabId) {
+          continue;
+        }
+        try {
+          const ViewClass = this.routes[tabId];
+          const view = new ViewClass(this);
+          if (!view.keepAlive) continue;
+
+          const host = document.createElement('div');
+          host.className = 'router-view-host';
+          host.hidden = true;
+          this.viewContainer.appendChild(host);
+          await view.mount(host);
+
+          this.viewInstances.set(tabId, view);
+          this.viewHosts.set(tabId, host);
+        } catch (err) {
+          console.debug(`[Router] Prewarm view "${tabId}" skipped:`, err);
+        }
+      }
+    });
   }
 
   handlePopState() {

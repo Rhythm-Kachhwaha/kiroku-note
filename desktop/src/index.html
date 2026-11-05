@@ -20,6 +20,33 @@
 </head>
 
 <body>
+  <!-- Integrated Fast Boot Splash Overlay (Allows background app to pre-render completely) -->
+  <div id="app-loading-splash" class="app-loading-splash">
+    <div class="splash-container">
+      <div class="brand-title" aria-label="Kiroku Note">
+        <span class="word-kiroku">
+          <span class="letter" style="--delay: 0.00s;">K</span>
+          <span class="letter" style="--delay: 0.08s;">i</span>
+          <span class="letter" style="--delay: 0.16s;">r</span>
+          <span class="letter" style="--delay: 0.24s;">o</span>
+          <span class="letter" style="--delay: 0.32s;">k</span>
+          <span class="letter" style="--delay: 0.40s;">u</span>
+        </span>
+        <span class="word-space"></span>
+        <span class="word-note">
+          <span class="letter" style="--delay: 0.48s;">N</span>
+          <span class="letter" style="--delay: 0.56s;">o</span>
+          <span class="letter" style="--delay: 0.64s;">t</span>
+          <span class="letter" style="--delay: 0.72s;">e</span>
+        </span>
+      </div>
+      <div class="status-badge" role="status">
+        <div class="status-indicator"></div>
+        <span class="status-text" id="status-text">Starting background engine...</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Fixed Top Chrome Window Header -->
   <div id="top-chrome-container"></div>
 
@@ -82,6 +109,23 @@
       // 4. Start Router
       router.init();
       scheduleMascotHostCreation();
+
+      // Seamlessly fade and dismiss loading splash now that the entire app is fully rendered and warmed
+      const splash = document.getElementById('app-loading-splash');
+      const dismissSplash = () => {
+        if (splash && !splash.__dismissed) {
+          splash.__dismissed = true;
+          splash.classList.add('hidden-splash');
+          setTimeout(() => {
+            if (splash.parentNode) splash.parentNode.removeChild(splash);
+          }, 320);
+        }
+      };
+
+      if (window.desktopAPI?.onBackendReady) {
+        window.desktopAPI.onBackendReady(() => dismissSplash());
+      }
+      setTimeout(dismissSplash, 600);
     }
 
     if (document.readyState === 'loading') {

@@ -254,6 +254,7 @@ def test_parser_tag_stripping_unit():
 # ============================================================================
 
 
+@pytest.mark.needs_local_db
 def test_real_subtitles_benchmark_episode_1_ass():
     """Benchmark SubtitleAnnotatorService on Episode 1 (.ass) ~397 cues."""
     # 1. Load cues
@@ -273,6 +274,8 @@ def test_real_subtitles_benchmark_episode_1_ass():
         learner_level="N4",
         ignore_function_words=True,
     )
+    if len(service._mined_words) == 0:
+        pytest.skip("Populated local database with mined cards is required (mined > 0)")
     print(f"[Database] Connected to {db_path} ({len(service._mined_words)} mined expressions indexed)")
 
     # 3. Warmup 1 cue
@@ -347,6 +350,7 @@ def test_real_subtitles_benchmark_episode_1_ass():
     assert matenai_tokens[0].status == "should_know"
 
 
+@pytest.mark.needs_local_db
 def test_real_subtitles_benchmark_episode_14_srt():
     """Benchmark SubtitleAnnotatorService on Episode 14 (.srt) ~482 cues."""
     # 1. Load cues

@@ -5,6 +5,13 @@ class FakeHost {
   constructor() {
     this.hidden = false;
     this.children = [];
+    this.style = {};
+    this.classList = {
+      add() {},
+      remove() {},
+      contains() { return false; },
+      toggle() {}
+    };
   }
 
   appendChild(child) {
@@ -14,6 +21,11 @@ class FakeHost {
   remove() {
     this.removed = true;
   }
+
+  setAttribute() {}
+  getAttribute() { return null; }
+  querySelector() { return new FakeHost(); }
+  querySelectorAll() { return []; }
 }
 
 class KeepAliveView {
@@ -62,6 +74,9 @@ test('router keeps opted-in views alive and remounts other views', async () => {
 
   globalThis.document = {
     createElement: () => new FakeHost(),
+    getElementById: (id) => (id === 'view-container' ? viewContainer : null),
+    querySelector: () => new FakeHost(),
+    querySelectorAll: () => [],
     addEventListener() {},
     removeEventListener() {}
   };
