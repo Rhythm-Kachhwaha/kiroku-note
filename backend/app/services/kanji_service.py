@@ -26,6 +26,8 @@ def resolve_kanji_dict_path() -> Path:
 
 
 _local_storage = threading.local()
+_all_kanji_connections: list[sqlite3.Connection] = []
+_kanji_conn_lock = threading.Lock()
 
 
 def _get_reusable_connection(db_path: Path) -> sqlite3.Connection | None:
@@ -49,10 +51,25 @@ def _get_reusable_connection(db_path: Path) -> sqlite3.Connection | None:
         conn = sqlite3.connect(f"file:{abs_posix}?mode=ro", uri=True, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         _local_storage.connections[path_key] = conn
+        with _kanji_conn_lock:
+            _all_kanji_connections.append(conn)
         return conn
     except Exception as exc:
         record_operational_failure("kanji.connection", exc, level=logging.DEBUG)
         return None
+
+
+def close_kanji_connections() -> None:
+    """Close any cached SQLite connections across all threads."""
+    with _kanji_conn_lock:
+        for conn in _all_kanji_connections:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        _all_kanji_connections.clear()
+    if hasattr(_local_storage, "connections"):
+        _local_storage.connections.clear()
 
 
 def _extract_gloss_from_content(content: Any) -> str:

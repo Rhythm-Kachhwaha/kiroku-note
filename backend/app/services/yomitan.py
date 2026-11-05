@@ -1169,3 +1169,9 @@ def reset_dictionary_service() -> None:
                 except Exception:
                     pass
         _dictionary_service_instance = None
+
+    try:
+        from app.services.kanji_service import close_kanji_connections
+        close_kanji_connections()
+    except Exception:
+        pass

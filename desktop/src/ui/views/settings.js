@@ -127,6 +127,51 @@ export class SettingsView {
                   <h2 class="text-base font-bold text-warm-paper">Dictionary &amp; Anki Integration</h2>
                 </div>
                 <div class="settings-cards-grid mt-2">
+                  <!-- Kiroku Dictionary Card -->
+                  <div class="settings-card tactile-card" id="card-kiroku-dictionary">
+                    <div class="card-header-row">
+                      <h3 class="card-title">Kiroku Dictionary</h3>
+                      <span class="status-dot" id="dict-status-tag" data-state="checking" title="Checking..."></span>
+                    </div>
+                    <p class="card-desc">Local Japanese vocabulary (Jitendex) &amp; kanji (KANJIDIC) dictionary engine.</p>
+
+                    <div class="mt-2 text-xs font-mono text-muted" id="dict-info-row">
+                      <span id="dict-db-path-label">Database: checking...</span>
+                    </div>
+
+                    <!-- Progress container (hidden when idle) -->
+                    <div class="mt-3" id="dict-provision-container" style="display: none;">
+                      <div class="flex items-center justify-between text-xs font-mono mb-1">
+                        <span id="dict-provision-label">Provisioning dictionary...</span>
+                        <span id="dict-provision-pct">0%</span>
+                      </div>
+                      <div class="progress-bar-track">
+                        <div class="progress-bar-fill" id="dict-provision-bar" style="width: 0%;"></div>
+                      </div>
+                    </div>
+
+                    <div class="card-actions-row mt-3">
+                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-provision-dict">Provision Dictionary</button>
+                    </div>
+
+                    <!-- Secondary Yomitan Toggle Placeholder (wired in slice 9) -->
+                    <div class="mt-3 pt-3 border-t border-glass flex items-center justify-between">
+                      <div>
+                        <span class="text-xs font-medium text-warm-paper block">Yomitan Secondary Source</span>
+                        <span class="text-xs text-muted block">Query Yomitan as fallback to enrich entries.</span>
+                      </div>
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-yomitan-secondary" disabled />
+                        <span class="toggle-slider"></span>
+                      </label>
+                    </div>
+
+                    <!-- Attribution Text -->
+                    <div class="mt-3 text-xs text-muted font-mono leading-relaxed">
+                      Datasets licensed under CC BY-SA 4.0: Jitendex (&copy; Stephen Kraus, EDRDG, Tatoeba) &amp; KANJIDIC (&copy; EDRDG).
+                    </div>
+                  </div>
+
                   <!-- AnkiConnect Sync Card -->
                   <div class="settings-card tactile-card">
                     <div class="card-header-row">
@@ -585,6 +630,26 @@ export class SettingsView {
       });
     }
 
+    // Provision Dictionary button
+    const btnProvDict = document.getElementById('btn-provision-dict');
+    if (btnProvDict) {
+      btnProvDict.addEventListener('click', async () => {
+        btnProvDict.disabled = true;
+        btnProvDict.textContent = 'Starting...';
+        this.clearError();
+
+        try {
+          await apiClient.request('/api/dictionary/provision', { method: 'POST' });
+          await this.loadDictionaryStatus();
+        } catch (err) {
+          console.warn('[Settings] Dictionary provision start failed:', err);
+          this.showError('Provision failed: ' + (err.message || 'API error'));
+          btnProvDict.disabled = false;
+          btnProvDict.textContent = 'Provision Dictionary';
+        }
+      });
+    }
+
     // Toggle OCR
     const btnOcr = document.getElementById('btn-toggle-ocr');
     if (btnOcr) {
@@ -799,6 +864,13 @@ export class SettingsView {
       console.debug('[Settings] Initial tokenizer status error:', err);
     }
 
+    // Local Dictionary status
+    try {
+      await this.loadDictionaryStatus();
+    } catch (err) {
+      console.debug('[Settings] Initial dictionary status error:', err);
+    }
+
     // 1. OCR status
     try {
       const ocrRes = await apiClient.getOcrStatus();
@@ -879,6 +951,64 @@ export class SettingsView {
       }
     } catch (err) {
       console.warn('[Settings] Initial LLM config error:', err);
+    }
+  }
+
+  async loadDictionaryStatus() {
+    const dictTag = document.getElementById('dict-status-tag');
+    const pathLabel = document.getElementById('dict-db-path-label');
+    const progContainer = document.getElementById('dict-provision-container');
+    const progBar = document.getElementById('dict-provision-bar');
+    const progPct = document.getElementById('dict-provision-pct');
+    const progLabel = document.getElementById('dict-provision-label');
+    const btnProv = document.getElementById('btn-provision-dict');
+    const toggleSecondary = document.getElementById('toggle-yomitan-secondary');
+
+    try {
+      const res = await apiClient.request('/api/dictionary/status');
+      if (!res) return;
+
+      const isReady = Boolean(res.db_present && res.jitendex);
+      if (dictTag) {
+        dictTag.textContent = isReady ? 'Ready' : (res.provisioning?.status === 'running' ? 'Provisioning' : 'Missing');
+        dictTag.className = `tactile-pill ${isReady ? 'tactile-pill-gold' : ''}`;
+        dictTag.dataset.state = isReady ? 'ready' : (res.provisioning?.status === 'running' ? 'checking' : 'stopped');
+      }
+
+      if (pathLabel) {
+        pathLabel.textContent = `Database: ${res.db_path || 'Not found'}`;
+      }
+
+      if (toggleSecondary) {
+        toggleSecondary.checked = Boolean(res.yomitan_secondary);
+      }
+
+      const prov = res.provisioning || {};
+      if (prov.status === 'running') {
+        if (progContainer) progContainer.style.display = 'block';
+        if (progBar) progBar.style.width = `${prov.progress || 0}%`;
+        if (progPct) progPct.textContent = `${Math.round(prov.progress || 0)}%`;
+        if (progLabel) progLabel.textContent = prov.message || 'Provisioning...';
+        if (btnProv) {
+          btnProv.disabled = true;
+          btnProv.textContent = 'Provisioning...';
+        }
+        setTimeout(() => this.loadDictionaryStatus(), 1500);
+      } else {
+        if (progContainer && prov.status === 'completed') {
+          progContainer.style.display = 'none';
+        }
+        if (btnProv) {
+          btnProv.disabled = false;
+          btnProv.textContent = isReady ? 'Re-provision Dictionary' : 'Provision Dictionary';
+        }
+      }
+    } catch (err) {
+      console.debug('[Settings] Dictionary status error:', err);
+      if (dictTag) {
+        dictTag.textContent = 'Unavailable';
+        dictTag.className = 'tactile-pill';
+      }
     }
   }
 

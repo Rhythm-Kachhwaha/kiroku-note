@@ -89,6 +89,11 @@ GRAMMAR_DB = DATA_DIR / "grammar_reference.sqlite"
 if GRAMMAR_DB.exists() and (str(GRAMMAR_DB), os.path.join("app", "data")) not in datas:
     datas.append((str(GRAMMAR_DB), os.path.join("app", "data")))
 
+# Standalone prebuilt local dictionary SQLite database (if present)
+DICT_DB = PROJECT_ROOT / "kiroku_dict.sqlite"
+if DICT_DB.exists() and (str(DICT_DB), ".") not in datas:
+    datas.append((str(DICT_DB), "."))
+
 # Study database migrations (forward-only SQL files)
 STUDY_MIGRATIONS_DIR = BACKEND_DIR / "app" / "study" / "migrations"
 if STUDY_MIGRATIONS_DIR.exists():

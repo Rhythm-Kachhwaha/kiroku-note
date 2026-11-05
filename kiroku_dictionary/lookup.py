@@ -92,21 +92,28 @@ class DictionaryEngine:
     def __init__(self, db_path: str):
         self.db_path = db_path
         self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
+        self._conn_lock = threading.Lock()
 
     def get_connection(self) -> sqlite3.Connection:
         if not hasattr(self._local, "conn") or self._local.conn is None:
             conn = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True, check_same_thread=False)
             apply_runtime_pragmas(conn)
             self._local.conn = conn
+            with self._conn_lock:
+                self._connections.append(conn)
         return self._local.conn
 
     def close(self) -> None:
-        """Close thread-local database connection if open."""
-        if hasattr(self._local, "conn") and self._local.conn is not None:
-            try:
-                self._local.conn.close()
-            except Exception:
-                pass
+        """Close all opened database connections across threads."""
+        with self._conn_lock:
+            for conn in self._connections:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            self._connections.clear()
+        if hasattr(self._local, "conn"):
             self._local.conn = None
 
     def lookup_terms(self, text: str, max_results: int = 10, mode: str = "word") -> list[TermHeadwordGroup]:

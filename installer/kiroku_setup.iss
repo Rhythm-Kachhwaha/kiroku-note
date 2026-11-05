@@ -71,6 +71,10 @@ Source: "extension_instructions.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\backend\app\data\JLPT_REFERENCE_NOTICE.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\backend\app\data\KANJIVG_NOTICE.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\kiroku_dictionary\ATTRIBUTION_NOTICE.md"; DestDir: "{app}"; DestName: "DICTIONARY_ATTRIBUTION_NOTICE.md"; Flags: ignoreversion
+
+; Prebuilt Local Dictionary Database (installs to app directory, never overwriting existing user data)
+Source: "..\kiroku_dict.sqlite"; DestDir: "{localappdata}\KirokuNote"; Flags: ignoreversion onlyifdoesntexist uninsneveruninstall
 
 ; NOTE: User data (study.db, kiroku.db, media files, backups, logs) is explicitly excluded from installation.
 ; All persistent user data resides in %LOCALAPPDATA%\KirokuNote\ and is preserved during upgrades and uninstalls.
