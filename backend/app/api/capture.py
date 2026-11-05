@@ -13,9 +13,9 @@ router = APIRouter(tags=["capture"])
 @router.post("/api/capture", response_model=CaptureResponse)
 def capture_term(request: CaptureRequest) -> CaptureResponse:
     """Capture a term (optionally auto-saving it as a card)."""
-    import app.main
-    yomitan_cls = getattr(app.main, "YomitanService", YomitanService)
-    service = CardService(yomitan_service=yomitan_cls())
+    from app.services.yomitan import get_dictionary_service
+    dict_svc = get_dictionary_service()
+    service = CardService(yomitan_service=dict_svc)
     try:
         if request.auto_save:
             return service.capture_and_save(request.text, request.deck_name)

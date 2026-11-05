@@ -20,22 +20,9 @@ JLPT_REF_PATH = Path(__file__).resolve().parent.parent / "data" / "jlpt_referenc
 
 
 def resolve_kanji_dict_path() -> Path:
-    """Resolve the location of kiroku_dict.sqlite using config data dir and provider discovery."""
-    try:
-        from app.config import get_data_dir
-        candidate = get_data_dir() / "kiroku_dict.sqlite"
-        if candidate.is_file():
-            return candidate
-    except Exception:
-        pass
-
-    try:
-        from app.services.dictionary_provider import resolve_dictionary_db_path
-        return resolve_dictionary_db_path()
-    except Exception:
-        pass
-
-    return Path(__file__).resolve().parent.parent.parent.parent / "kiroku_dict.sqlite"
+    """Resolve the location of kiroku_dict.sqlite via kiroku_dictionary.paths."""
+    from kiroku_dictionary.paths import resolve_db_path
+    return resolve_db_path()
 
 
 _local_storage = threading.local()

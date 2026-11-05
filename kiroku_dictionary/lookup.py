@@ -100,6 +100,15 @@ class DictionaryEngine:
             self._local.conn = conn
         return self._local.conn
 
+    def close(self) -> None:
+        """Close thread-local database connection if open."""
+        if hasattr(self._local, "conn") and self._local.conn is not None:
+            try:
+                self._local.conn.close()
+            except Exception:
+                pass
+            self._local.conn = None
+
     def lookup_terms(self, text: str, max_results: int = 10, mode: str = "word") -> list[TermHeadwordGroup]:
         """
         Lookup vocabulary entries for input text.

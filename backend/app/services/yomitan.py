@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import json, logging, os, re
+import json, logging, os, re, threading
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlparse
@@ -210,6 +210,16 @@ class YomitanService:
     @property
     def yomitan_secondary_enabled(self) -> bool:
         return self._yomitan_secondary
+
+    def close(self) -> None:
+        """Close resources used by local and secondary providers."""
+        if self._local_provider is not None:
+            close_fn = getattr(self._local_provider, "close", None)
+            if callable(close_fn):
+                try:
+                    close_fn()
+                except Exception:
+                    pass
 
     def _fetch_term_payload(self, term: str) -> dict[str, Any]:
         if self._backend == "yomitan" and self._provider is not None:
@@ -1109,3 +1119,47 @@ class YomitanService:
                 record_operational_failure("dictionary.kanji_entry_parse", exc, level=logging.DEBUG)
                 continue
         return normalized
+
+
+_dictionary_service_lock = threading.Lock()
+_dictionary_service_instance: YomitanService | None = None
+
+
+def get_dictionary_service(
+    endpoint: str | None = None,
+    backend: str | None = None,
+    local_db_path: str | None = None,
+    yomitan_secondary: bool | None = None,
+    force_new: bool = False,
+) -> YomitanService:
+    """Thread-safe, module-level cached factory returning shared YomitanService instance."""
+    import app.main
+    yomitan_cls = getattr(app.main, "YomitanService", YomitanService)
+    if yomitan_cls is not YomitanService:
+        return yomitan_cls()
+
+    global _dictionary_service_instance
+    if _dictionary_service_instance is None or force_new:
+        with _dictionary_service_lock:
+            if _dictionary_service_instance is None or force_new:
+                _dictionary_service_instance = YomitanService(
+                    endpoint=endpoint,
+                    backend=backend,
+                    local_db_path=local_db_path,
+                    yomitan_secondary=yomitan_secondary,
+                )
+    return _dictionary_service_instance
+
+
+def reset_dictionary_service() -> None:
+    """Reset cached dictionary service singleton and close open connections."""
+    global _dictionary_service_instance
+    with _dictionary_service_lock:
+        if _dictionary_service_instance is not None:
+            close_fn = getattr(_dictionary_service_instance, "close", None)
+            if callable(close_fn):
+                try:
+                    close_fn()
+                except Exception:
+                    pass
+        _dictionary_service_instance = None

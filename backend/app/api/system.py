@@ -47,12 +47,8 @@ _health_ocr_service: OcrService | None = None
 
 
 def _health_yomitan() -> YomitanService:
-    global _health_yomitan_service
-    if _health_yomitan_service is None:
-        import app.main
-        yomitan_cls = getattr(app.main, "YomitanService", YomitanService)
-        _health_yomitan_service = yomitan_cls()
-    return _health_yomitan_service
+    from app.services.yomitan import get_dictionary_service
+    return get_dictionary_service()
 
 
 def _health_card() -> CardService:
@@ -81,6 +77,8 @@ def clear_health_cache() -> None:
     _health_yomitan_service = None
     _health_card_service = None
     _health_ocr_service = None
+    from app.services.yomitan import reset_dictionary_service
+    reset_dictionary_service()
 
 
 @router.get("/api/health", response_model=HealthResponse)
