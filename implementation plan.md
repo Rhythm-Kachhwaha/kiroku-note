@@ -1,42 +1,4 @@
-Completed : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 47
-# KIROKU PLAN (agent-only; terse)
-
-## LOAD PROTOCOL (read this header only, then your slice)
-User says "do slice N" -> run ONE command, read its output, nothing else from this file.
-PowerShell:
-`$n=N;$s=$false;$p=$false;Get-Content implementation_plan.md|%{if($_ -eq '---SLICES---'){$s=$true;return};if(!$s){$_;return};if($_ -match '^(## SLICE |# PART)'){$p=($_ -match "^## SLICE $n ")};if($p){$_}}`
-bash:
-`awk -v n=N '/^---SLICES---$/{s=1;next} !s{print;next} /^(## SLICE |# PART)/{p=($0 ~ "^## SLICE "n" ")} p' implementation_plan.md`
-Then: read AGENTS.md -> IGNORE.md -> the slice's `read:` map -> `own:` files. Nothing else.
-
-## GLOBAL RULES
-- One slice. No next slice. Touch only `own:` files (+ new files in own dirs). Needing another file = stop, report.
-- agents must verify the current code before implementing a slice, because earlier slices can make later evidence stale.
-- ANIMATIONS: never reduce, remove, shorten, simplify or add "reduced" variants. Existing `prefers-reduced-motion` code stays untouched. Perf work may change drivers only.
-- FINAL (byte-identical, never edit): Bottom Dock (`shell/bottom_dock.js`, dock rules in `shell/shell.css`) and Kanji Mastery block (`kanji.js` mastery section + its CSS). Home page and dock items untouched. New screens open from existing screens.
-- UI: English labels, no emoji (SVG/plain text), tokens from `tokens.css` only (no raw hex), `--ease-*` tokens, no micro-pills in buttons/headings, badges = real metadata only.
-- New backend routes: new file `backend/app/api/<area>.py`, auto-registered (after slice 2). New schemas: new `backend/app/schemas_<area>.py`. Never edit `main.py`, `schemas.py` (exceptions named in slice).
-- Never edit `desktop/tests/fixtures/openapi.json`; slice 49 regenerates it. Run only named tests.
-- Python deps: pin in `backend/requirements.txt`, add license line to `THIRD_PARTY_NOTICES.md`.
-- Tests: backend `$env:PYTHONPATH='.;backend'; python -m pytest <file> -q`; JS `node --test <file>`. Never full suites.
-- Commit: `type(scope): summary [K<n>]` (type = feat|fix|test|docs|refactor|perf|chore; summary <=60 chars, imperative, specific).
-- STATUS.md: replace your line, max 5 lines total. Final report <=5 lines: changed, tests, risks.
-- Not independently verified by planner: Electron UI visuals (no screenshots taken). Verify visually only if slice says.
-- on top of this plan, write the slice that has been completed. (example : "Completed : 1,2,3")
-
-## PHASES / PARALLEL LANES
-Lane = one agent at a time. Different lanes may run simultaneously if their `own:` sets are disjoint (they are, by design).
-- P0 (merge in this order inside lane): BE lane: 1 -> 2. FE-CSS lane: 4 -> 5 -> 6. QA lane: 3. DOC lane: 7. (BE, FE-CSS, QA, DOC run in parallel.)
-- P1 (needs P0 done): TOK: 8 -> 9 -> 10 -> 11. GRAM: 12 -> 13. (14 needs 10+12.) KANJI-BE: 15. PDF: 16 -> 17. SEC: 18. All parallel.
-- P2 (needs 6; each view lane parallel): VOCAB-FE 19 (needs 10). GRAM-FE 20 (needs 14). KANJI-FE 21 (needs 15). STUDY-FE 22 (needs 17). TEST-FE 23. SET-FE 24.
-- P3 gamification: JRN-BE 25 -> 26 -> 27 -> 28. JRN-FE 29 -> 30 -> 31 (needs 22, 25-28). 32, 33 (needs 24), 34 after 29.
-- P4 link: 35 first (spec+fixtures). Then parallel: LINK-BE 36 -> 40; EXT 37; DESK-FE 38 -> 39 (needs 19). THEATER 42 -> 43 (own main process). 41, 44, 45, 46, 47 after deps.
-- LAST (serial): 48 extension split (needs 37,41), 49 integration.
-Hot shared files and sole owners: `desktop/src/preload.js` + `main.js` IPC allowlist -> slice 2b-edit lives in slice 3? NO: owned by slice 38 only (adds `/api/link`, `/api/journey` prefix passthrough once). `desktop/src/ui/router.js` -> nobody (views register inside own file). `bundle.css` -> after slice 4 nobody edits it (it becomes @import list). `docs/maps/*` -> each slice edits only its own map.
-Never run together: 8 with 10 (same file) - already chained. 22 with 29 (same view) - chained by deps.
-
----SLICES---
-
+Completed : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 47, 48, 49
 # PART A - FIXES
 
 ## SLICE 1 | Backend test hygiene
