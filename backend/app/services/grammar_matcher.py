@@ -102,7 +102,7 @@ class GrammarMatcher:
 
     @staticmethod
     def _grammar_start(raw_text: str, suffix_start: int) -> int:
-        particles = set("はがをにへでとのも")
+        particles = set("はがをにへでとのもず")
         start = suffix_start
         while start > 0 and _JAPANESE_RE.match(raw_text[start - 1]):
             if raw_text[start - 1] in particles:
@@ -394,7 +394,7 @@ class GrammarMatcher:
         end: int | None = None,
         pattern_suffix: str | None = None,
     ) -> int:
-        particles = set("はがをにへでとのも")
+        particles = set("はがをにへでとのもず")
         while start > 0 and _JAPANESE_RE.match(raw_text[start - 1]):
             if raw_text[start - 1] in particles:
                 break
@@ -683,6 +683,8 @@ class GrammarMatcher:
             for i, a in enumerate(candidates):
                 for j, b in enumerate(candidates):
                     if i == j or j in suppressed:
+                        continue
+                    if show_basic_particles and b.pattern_key in _BARE_PARTICLES:
                         continue
                     is_contained = (a.start <= b.start and b.end <= a.end) and (a.end - a.start > b.end - b.start)
                     if is_contained and self._is_component_pattern(a.pattern_key, b.pattern_key, a.text, b.text):
