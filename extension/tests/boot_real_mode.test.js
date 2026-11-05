@@ -138,3 +138,4 @@ test("Test D: Run sidepanel.js in VM, assert no throw, toggle Text/Video tabs", 
   assert.equal(textMiningView.hidden, false, "textMiningView must not be hidden when text active");
   assert.equal(videoMiningView.hidden, true, "videoMiningView must be hidden when text active");
 });
+
