@@ -21,6 +21,7 @@ class ProcessManager {
     this.isPackaged = options.isPackaged !== undefined ? options.isPackaged : false;
     this.pythonExecutable = options.pythonExecutable || process.env.PYTHON_PATH || 'python';
     this.packagedExecutablePath = options.packagedExecutablePath || null;
+    this.kirokuDictSqlite = options.kirokuDictSqlite || null;
 
     // Ephemeral Bearer token - generated cryptographically, held only in memory
     this.apiToken = options.apiToken || this._generateEphemeralToken();
@@ -55,6 +56,31 @@ class ProcessManager {
    */
   getApiToken() {
     return this.apiToken;
+  }
+
+  /**
+   * Resolves environment variables to pass to the backend subprocess.
+   */
+  getBackendEnv() {
+    const env = {
+      ...process.env,
+      PYTHONUNBUFFERED: '1',
+      KIROKU_HOST: this.host,
+      KIROKU_PORT: String(this.port),
+      KIROKU_STUDY_API_TOKEN: this.apiToken,
+      KIROKU_EXTENSION_PAIRING_ENABLED: process.env.KIROKU_EXTENSION_PAIRING_ENABLED ?? '1'
+    };
+
+    if (this.kirokuDictSqlite) {
+      env.KIROKU_DICT_SQLITE = this.kirokuDictSqlite;
+    } else if (process.env.KIROKU_DICT_SQLITE) {
+      env.KIROKU_DICT_SQLITE = process.env.KIROKU_DICT_SQLITE;
+    }
+
+    // DICTIONARY_BACKEND unset (default local)
+    delete env.DICTIONARY_BACKEND;
+
+    return env;
   }
 
   /**
@@ -221,13 +247,7 @@ class ProcessManager {
     this.startupErrors = [];
 
     // Environment: ephemeral token, unbuffered output, host and port bindings
-    const env = {
-      ...process.env,
-      PYTHONUNBUFFERED: '1',
-      KIROKU_HOST: this.host,
-      KIROKU_PORT: String(this.port),
-      KIROKU_STUDY_API_TOKEN: this.apiToken
-    };
+    const env = this.getBackendEnv();
 
     const child = spawn(cmdInfo.command, cmdInfo.args, {
       cwd: cmdInfo.cwd,

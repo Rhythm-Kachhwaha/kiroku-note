@@ -8,6 +8,8 @@ Environment variables:
   KIROKU_PORT=<port>   Override default port (21828). Fallback: PORT=<port>.
   KIROKU_DEBUG=1       Enable development mode: hot-reload + /docs + /redoc.
                        Default: off (safe for normal and distributed use).
+  KIROKU_DICT_SQLITE=<path> Explicit path to local dictionary SQLite database.
+  KIROKU_EXTENSION_PAIRING_ENABLED=1 Enable pairing for browser extensions.
 """
 
 import multiprocessing
@@ -32,6 +34,22 @@ from app.config import (  # noqa: E402
     resolve_port,
 )
 from app.db.connection import get_db_path  # noqa: E402
+
+
+def redact_path(path: str | os.PathLike) -> str:
+    """Redact sensitive user/home paths for clean logging."""
+    path_str = str(path)
+    try:
+        from pathlib import Path
+        home = str(Path.home())
+        if home and home in path_str:
+            return path_str.replace(home, "~")
+    except Exception:
+        pass
+    username = os.getenv("USERNAME") or os.getenv("USER")
+    if username and username in path_str:
+        return path_str.replace(username, "<user>")
+    return path_str
 
 
 def check_port_available(host: str, port: int) -> None:
@@ -62,11 +80,17 @@ def start_server() -> None:
     url = f"http://{host}:{port}"
     db_file = get_db_path()
     media_path = get_media_dir()
+    try:
+        from kiroku_dictionary.paths import resolve_db_path
+        dict_db = redact_path(resolve_db_path())
+    except Exception:
+        dict_db = "not available"
 
     print("=" * 60)
     print(f"  {APP_NAME} Local Backend Server v{APP_VERSION}")
     print(f"  URL:      {url}")
     print(f"  Database: {db_file}")
+    print(f"  Dict DB:  {dict_db}")
     print(f"  Media:    {media_path}")
     if debug:
         print(f"  API Docs: {url}/docs  [DEBUG MODE]")
