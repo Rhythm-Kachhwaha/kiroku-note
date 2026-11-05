@@ -79,3 +79,4 @@ class EpisodeRecord(BaseModel):
     mined: int
     minutes: float
     ts: str
+

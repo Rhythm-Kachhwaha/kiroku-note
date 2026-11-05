@@ -78,3 +78,4 @@ def get_episode(cue_hash: str) -> EpisodeRecord:
             detail=f"Episode record with hash '{cue_hash}' not found",
         )
     return EpisodeRecord(**record)
+

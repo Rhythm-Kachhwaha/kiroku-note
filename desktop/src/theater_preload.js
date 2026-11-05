@@ -183,3 +183,4 @@ contextBridge.exposeInMainWorld('__kirokuTheaterBridge', {
   version: '1.0.0',
   isTheaterView: true
 });
+

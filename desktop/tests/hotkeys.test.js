@@ -128,3 +128,4 @@ test('Main process: ONLY registers and unregisters HotkeyManager', () => {
   assert.ok(mainCode.includes('hotkeyManager.register()'), 'Must call hotkeyManager.register()');
   assert.ok(mainCode.includes('hotkeyManager.unregister()'), 'Must call hotkeyManager.unregister()');
 });
+

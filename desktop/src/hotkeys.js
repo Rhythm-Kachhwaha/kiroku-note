@@ -206,3 +206,4 @@ module.exports = {
   DEFAULT_HOTKEYS_CONFIG,
   checkStudyPause
 };
+

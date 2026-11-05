@@ -122,3 +122,4 @@ test('WatchPrimerView: mineAllSequentially iterates sequentially over words', as
   assert.equal(progressUpdates[0].word, '猫');
   assert.equal(progressUpdates[1].word, '犬');
 });
+

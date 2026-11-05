@@ -212,3 +212,4 @@ def test_api_endpoints(test_db, client):
     ep_data = ep_resp.json()
     assert ep_data["title"] == "Dog Running"
     assert ep_data["mined"] == 1
+
