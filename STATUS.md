@@ -1,5 +1,6 @@
 # Status
-Anime immersion task 4 complete: Migaku-style right inspector.
-Collapsible push layout features top vocab and bottom grammar cards.
-Token clicks inspect word definitions; pause refreshes grammar.
-Tactile styling uses pure-black tokens with final locks intact.
+Anime immersion task 5 complete: universal next episode web bridge.
+Link protocol adds cmd.next_episode and hasNextEpisode flags.
+Extension detector inspects Netflix, Crunchyroll, YouTube, HiAnime.
+Desktop Next Ep button dynamically reacts to stream player state.
+All bridge, link schemas, and desktop tests pass green.

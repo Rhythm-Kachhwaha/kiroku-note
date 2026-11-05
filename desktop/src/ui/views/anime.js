@@ -203,6 +203,10 @@ export class AnimeView {
                     <button type="button" class="anime-control-btn" id="btn-anime-next-cue" aria-label="Next line">
                       Next Line
                     </button>
+                    <button type="button" class="anime-control-btn" id="btn-anime-next-ep" aria-label="Next episode in browser" title="Next Episode" disabled>
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                      <span>Next Ep</span>
+                    </button>
                     <button type="button" class="anime-control-btn" id="btn-anime-replay-cue" aria-label="Replay current line">
                       Replay
                     </button>
@@ -418,6 +422,11 @@ export class AnimeView {
 
     btnNextCue?.addEventListener('click', () => {
       this.linkStore?.jumpCue({ delta: 1 });
+    });
+
+    const btnNextEp = this.container.querySelector('#btn-anime-next-ep');
+    btnNextEp?.addEventListener('click', () => {
+      this.linkStore?.nextEpisode();
     });
 
     btnReplayCue?.addEventListener('click', () => {
@@ -942,6 +951,18 @@ export class AnimeView {
         btn.removeAttribute('title');
       }
     });
+
+    // Next episode button availability
+    const btnNextEp = this.container.querySelector('#btn-anime-next-ep');
+    if (btnNextEp) {
+      const hasNext = Boolean(summary.videoState?.hasNextEpisode || summary.activeSession?.hasNextEpisode);
+      btnNextEp.disabled = !isConnected || !hasNext;
+      if (hasNext) {
+        btnNextEp.removeAttribute('title');
+      } else {
+        btnNextEp.setAttribute('title', isConnected ? 'No next episode detected on streaming page' : 'Extension disconnected');
+      }
+    }
 
     // Active title
     const titleEl = this.container.querySelector('#anime-active-title');

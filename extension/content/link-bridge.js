@@ -35,6 +35,18 @@
       this.chromeRuntime = options.chromeRuntime || (typeof chrome !== "undefined" ? chrome.runtime : null);
       this.isDrmSite = options.isDrmSite || this._detectDrmSite.bind(this);
 
+      const Controller = (typeof require === "function")
+        ? (() => {
+            try { return require("./video-mining/controller.js"); } catch (_) { return null; }
+          })()
+        : (typeof root !== "undefined" && root.KirokuVideoController ? root.KirokuVideoController : null);
+
+      const DetectorClass = options.NextEpisodeDetector || Controller?.NextEpisodeDetector;
+      this.nextEpisodeDetector = DetectorClass ? new DetectorClass() : {
+        hasNextEpisode: () => false,
+        triggerNextEpisode: () => false
+      };
+
       this.attached = false;
       this.activeVideo = null;
       this.attachedTabId = null;
@@ -125,13 +137,15 @@
       const site = (typeof location !== "undefined" && location.hostname) ? location.hostname : "unknown";
       const duration = typeof video.duration === "number" && !isNaN(video.duration) ? video.duration : 0.0;
       const drm = this.isDrmSite();
+      const hasNextEpisode = Boolean(this.nextEpisodeDetector?.hasNextEpisode?.());
 
       this.emitToBackground("video.attach", {
         tab: this.attachedTabId || 0,
         site,
         title,
         duration,
-        drm
+        drm,
+        hasNextEpisode
       });
 
       // Emit initial state
@@ -190,13 +204,15 @@
       const paused = Boolean(this.activeVideo.paused);
       const rate = typeof this.activeVideo.playbackRate === "number" ? this.activeVideo.playbackRate : 1.0;
       const duration = typeof this.activeVideo.duration === "number" && !isNaN(this.activeVideo.duration) ? this.activeVideo.duration : 0.0;
+      const hasNextEpisode = Boolean(this.nextEpisodeDetector?.hasNextEpisode?.());
 
       this.emitToBackground("video.state", {
         tab: this.attachedTabId || 0,
         t,
         paused,
         rate,
-        duration
+        duration,
+        hasNextEpisode
       });
     }
 
@@ -358,6 +374,14 @@
               poc.renderer.setDisplayEnabled(nextDisplay);
             }
             return true;
+          }
+          break;
+        }
+
+        case "cmd.next_episode": {
+          if (this.nextEpisodeDetector && typeof this.nextEpisodeDetector.triggerNextEpisode === "function") {
+            const handled = this.nextEpisodeDetector.triggerNextEpisode();
+            return Boolean(handled);
           }
           break;
         }

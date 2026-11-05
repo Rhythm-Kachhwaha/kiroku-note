@@ -42,6 +42,7 @@ class VideoAttachPayload(BaseModel):
     title: str = Field(min_length=1)
     duration: float = Field(ge=0.0)
     drm: bool = False
+    hasNextEpisode: bool = False
 
 
 class VideoStatePayload(BaseModel):
@@ -50,6 +51,7 @@ class VideoStatePayload(BaseModel):
     rate: float = Field(default=1.0, gt=0.0)
     vol: float = Field(default=1.0, ge=0.0, le=1.0)
     muted: bool = False
+    hasNextEpisode: bool = False
 
 
 class CueItem(BaseModel):
@@ -143,6 +145,10 @@ class CmdClipPayload(BaseModel):
     want: List[Literal["image", "audio"]] = Field(min_length=1)
 
 
+class CmdNextEpisodePayload(BaseModel):
+    pass
+
+
 TYPE_PAYLOAD_MAP: Dict[str, type] = {
     "hello": HelloPayload,
     "hello.ok": HelloOkPayload,
@@ -162,6 +168,7 @@ TYPE_PAYLOAD_MAP: Dict[str, type] = {
     "cmd.rate": CmdRatePayload,
     "cmd.offset": CmdOffsetPayload,
     "cmd.clip": CmdClipPayload,
+    "cmd.next_episode": CmdNextEpisodePayload,
 }
 
 

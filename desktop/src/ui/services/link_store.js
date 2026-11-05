@@ -188,6 +188,10 @@ export class LinkStore {
     return this.client ? this.client.sendCommand('cmd.clip', { reqId, s, e, want }) : null;
   }
 
+  nextEpisode() {
+    return this.client ? this.client.sendCommand('cmd.next_episode', {}) : null;
+  }
+
   getCue(index) {
     if (typeof index !== 'number') return null;
     return this.cues.find(c => c.i === index) || null;
