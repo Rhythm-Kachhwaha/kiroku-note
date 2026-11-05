@@ -59,7 +59,11 @@
         "content/adapters/netflix-adapter.js",
         "content/capture-utils.js",
         "content/content.js",
-        "content/video-mining-poc.js",
+        "content/video-mining/detector.js",
+        "content/video-mining/sync.js",
+        "content/video-mining/overlay.js",
+        "content/video-mining/controls.js",
+        "content/video-mining/main.js",
         "content/ocr-selection.js",
         "content/link-bridge.js"
       ],

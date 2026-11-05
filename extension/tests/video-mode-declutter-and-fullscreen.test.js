@@ -242,7 +242,7 @@ test("Recent Subtitle Mining: Words clicked pass cue timestamp to identify and r
 });
 
 test("Video Mining POC: captureCurrentFrame only seeks to targetTime while paused", async () => {
-  const videoMiningPocPath = path.join(__dirname, "../content/video-mining-poc.js");
+  const videoMiningPocPath = require("./helpers/source.js").videoMiningPath;
   const code = fs.readFileSync(videoMiningPocPath, "utf8");
 
   assert.ok(code.includes("options.targetTime"), "captureCurrentFrame must handle options.targetTime");

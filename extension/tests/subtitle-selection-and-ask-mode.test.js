@@ -20,7 +20,7 @@ const sidepanelHtmlPath = path.resolve(__dirname, "../sidepanel/sidepanel.html")
 const sidepanelHtml = fs.readFileSync(sidepanelHtmlPath, "utf8");
 const sidepanelJsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
 const sidepanelJs = fs.readFileSync(sidepanelJsPath, "utf8");
-const pocPath = path.resolve(__dirname, "../content/video-mining-poc.js");
+const pocPath = require("./helpers/source.js").videoMiningPath;
 
 // ---------------------------------------------------------------------------
 // 1. Manifest & Fullscreen Hook Tests

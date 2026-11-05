@@ -11,7 +11,7 @@ const captureUtilsSrc = fs.readFileSync(path.resolve(__dirname, "../content/capt
 const contentScriptSrc = fs.readFileSync(path.resolve(__dirname, "../content/content.js"), "utf8");
 const youtubeAdapterSrc = fs.readFileSync(path.resolve(__dirname, "../content/adapters/youtube-adapter.js"), "utf8");
 const netflixAdapterSrc = fs.readFileSync(path.resolve(__dirname, "../content/adapters/netflix-adapter.js"), "utf8");
-const videoMiningSrc = fs.readFileSync(path.resolve(__dirname, "../content/video-mining-poc.js"), "utf8");
+const videoMiningSrc = require("./helpers/source.js").getVideoMiningSource();
 
 // Mock environment
 function createMockEnvironment({ isYouTube = false, isNetflix = false } = {}) {

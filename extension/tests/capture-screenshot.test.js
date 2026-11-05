@@ -22,8 +22,8 @@ function testManifestConfiguration() {
   assert.ok(cs.js.includes("lib/image-cropper.js"), "content_scripts must include 'lib/image-cropper.js'");
 
   const cropperIdx = cs.js.indexOf("lib/image-cropper.js");
-  const pocIdx = cs.js.indexOf("content/video-mining-poc.js");
-  assert.ok(cropperIdx < pocIdx, "image-cropper.js must be loaded before video-mining-poc.js");
+  const pocIdx = cs.js.findIndex(f => f.includes("video-mining"));
+  assert.ok(cropperIdx < pocIdx, "image-cropper.js must be loaded before video mining scripts");
 
   console.log("PASS: Manifest permissions, host_permissions, and content_scripts order verified.");
 }
@@ -271,7 +271,7 @@ function testBackgroundCaptureMessage() {
 // 4. Contract Tests for VideoMiningPOC.captureCurrentFrame
 // -------------------------------------------------------------
 async function testVideoMiningPocCaptureFrame() {
-  const pocSrc = fs.readFileSync(path.resolve(__dirname, "../content/video-mining-poc.js"), "utf8");
+  const pocSrc = require("./helpers/source.js").getVideoMiningSource();
   const cropperSrc = fs.readFileSync(path.resolve(__dirname, "../lib/image-cropper.js"), "utf8");
 
   const sentMessages = [];

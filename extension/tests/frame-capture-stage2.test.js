@@ -196,7 +196,7 @@ function testDrmDetection() {
 async function testVideoMiningPocAndPlaybackInvariant() {
   console.log("--- 4. Testing VideoMiningPOC & HARD PLAYBACK INVARIANT ---");
 
-  const pocSrc = fs.readFileSync(path.resolve(__dirname, "../content/video-mining-poc.js"), "utf8");
+  const pocSrc = require("./helpers/source.js").getVideoMiningSource();
   const cropperSrc = fs.readFileSync(path.resolve(__dirname, "../lib/image-cropper.js"), "utf8");
 
   const sentMessages = [];

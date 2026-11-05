@@ -10,7 +10,7 @@ const manifestPath = path.resolve(__dirname, "../manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 assert.ok(manifest.content_scripts && manifest.content_scripts.length > 0, "content_scripts must be defined");
 const cs = manifest.content_scripts[0];
-assert.ok(cs.js.includes("content/video-mining-poc.js"), "video-mining-poc.js must be registered in content_scripts");
+assert.ok(cs.js.some(f => f.includes("video-mining")), "video-mining-poc.js must be registered in content_scripts");
 assert.equal(cs.all_frames, true, "all_frames must be true");
 assert.equal(cs.match_about_blank, true, "match_about_blank must be true");
 console.log("PASS: Manifest configuration verified for video-mining-poc.js.");
@@ -18,7 +18,7 @@ console.log("PASS: Manifest configuration verified for video-mining-poc.js.");
 // Load scripts
 const captureUtilsSrc = fs.readFileSync(path.resolve(__dirname, "../content/capture-utils.js"), "utf8");
 const contentScriptSrc = fs.readFileSync(path.resolve(__dirname, "../content/content.js"), "utf8");
-const videoPocSrc = fs.readFileSync(path.resolve(__dirname, "../content/video-mining-poc.js"), "utf8");
+const videoPocSrc = require("./helpers/source.js").getVideoMiningSource();
 
 // Mock environment generator
 function createMockDOMEnvironment({ isIframe = false, iframeId = null } = {}) {

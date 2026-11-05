@@ -39,7 +39,7 @@ assert.ok(html.includes('id="quickadd-suggestions-list"'), "Quick Add suggestion
 
 // Script Loading Order: wanakana.js must load before sidepanel.js
 const wanakanaScriptIdx = html.indexOf('<script src="../lib/wanakana.js"></script>');
-const sidepanelScriptIdx = html.indexOf('<script src="sidepanel.js"></script>');
+const sidepanelScriptIdx = html.indexOf('src="sidepanel.js"');
 assert.ok(wanakanaScriptIdx !== -1, "wanakana.js script must be referenced in sidepanel.html");
 assert.ok(sidepanelScriptIdx !== -1, "sidepanel.js script must be referenced in sidepanel.html");
 assert.ok(wanakanaScriptIdx < sidepanelScriptIdx, "wanakana.js MUST load before sidepanel.js");

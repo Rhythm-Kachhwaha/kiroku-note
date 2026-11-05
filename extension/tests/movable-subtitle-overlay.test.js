@@ -3,7 +3,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 
 // Load the video mining POC script into an isolated test harness
-const pocScriptPath = path.resolve(__dirname, "../content/video-mining-poc.js");
+const pocScriptPath = require("./helpers/source.js").videoMiningPath;
 const pocScript = fs.readFileSync(pocScriptPath, "utf-8");
 
 function createMockEnvironment({ isIframe = false, isHiAnime = true, initialPosition = null, subtitlesDisplayEnabled = true } = {}) {

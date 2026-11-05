@@ -19,7 +19,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const pocPath = path.resolve(__dirname, "../content/video-mining-poc.js");
+const pocPath = require("./helpers/source.js").videoMiningPath;
 
 function createMockEnvironment() {
   const sentMessages = [];
