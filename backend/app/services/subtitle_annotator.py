@@ -6,6 +6,7 @@ should_know (if level <= learner_level) > mined (if in mined set) > unstyled
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import logging
 from pathlib import Path
 import sqlite3
@@ -158,6 +159,7 @@ class AnnotatedToken(dict):
         pos: str = "",
         level_source: str | None = None,
         est_level: str | None = None,
+        gloss: str = "",
     ) -> None:
         super().__init__(
             surface=surface,
@@ -173,6 +175,7 @@ class AnnotatedToken(dict):
             pos=pos,
             level_source=level_source,
             est_level=est_level,
+            gloss=gloss,
         )
 
     @property
@@ -226,6 +229,10 @@ class AnnotatedToken(dict):
     @property
     def est_level(self) -> str | None:
         return self.get("est_level")
+
+    @property
+    def gloss(self) -> str:
+        return self.get("gloss", "")
 
 
 class AnnotatedCue(dict):
@@ -297,6 +304,7 @@ class SubtitleAnnotatorService:
 
         self._mined_words: set[str] = set()
         self._mined_readings: dict[str, str] = {}
+        self._vocab_gloss_cache: dict[str, str] = {}
         self.reload_mined_words()
 
         self._init_openjlpt_cache()
@@ -317,16 +325,17 @@ class SubtitleAnnotatorService:
             else "default"
         )
         if cache_key in self._openjlpt_cache:
-            (
-                self._vocab_cache,
-                self._vocab_norm_cache,
-                self._vocab_reading_cache,
-                self._kanji_cache,
-                self._vocab_alias_cache,
-            ) = self._openjlpt_cache[cache_key]
+            entry = self._openjlpt_cache[cache_key]
+            self._vocab_cache = entry[0]
+            self._vocab_norm_cache = entry[1]
+            self._vocab_reading_cache = entry[2]
+            self._kanji_cache = entry[3]
+            self._vocab_alias_cache = entry[4]
+            self._vocab_gloss_cache = entry[5] if len(entry) > 5 else {}
             return
 
         vocab_dict: dict[str, tuple[str, str]] = {}
+        vocab_gloss_dict: dict[str, str] = {}
         vocab_norm_dict: dict[str, list[tuple[str, str, str]]] = {}
         vocab_reading_dict: dict[str, list[tuple[str, str]]] = {}
         alias_candidates: dict[str, set[tuple[str, str, str]]] = {}
@@ -340,10 +349,15 @@ class SubtitleAnnotatorService:
         if conn is not None:
             try:
                 cursor = conn.cursor()
-                rows = cursor.execute("SELECT word, reading, level FROM vocab").fetchall()
-                for word, reading, level in rows:
-                    if not word:
+                rows = cursor.execute("SELECT word, reading, level, meanings FROM vocab").fetchall()
+                for row in rows:
+                    if not row or not row[0]:
                         continue
+                    word = row[0]
+                    reading = row[1] if len(row) > 1 else ""
+                    level = row[2] if len(row) > 2 else ""
+                    meanings = row[3] if len(row) > 3 else None
+
                     w = word.strip()
                     lvl = str(level).strip().upper() if level else ""
                     r = reading.strip() if reading else ""
@@ -358,6 +372,16 @@ class SubtitleAnnotatorService:
                             vocab_dict[w] = (lvl, r or existing_r)
                         elif not existing_r and r:
                             vocab_dict[w] = (existing_lvl, r)
+
+                    if meanings and w not in vocab_gloss_dict:
+                        try:
+                            parsed = json.loads(meanings) if isinstance(meanings, str) else meanings
+                            if isinstance(parsed, list) and parsed:
+                                vocab_gloss_dict[w] = "; ".join(str(x) for x in parsed[:2])
+                            elif isinstance(parsed, str):
+                                vocab_gloss_dict[w] = parsed
+                        except Exception:
+                            vocab_gloss_dict[w] = str(meanings)
 
                     norm = _to_hiragana(unicodedata.normalize("NFKC", w))
                     vocab_norm_dict.setdefault(norm, []).append((w, lvl, r))
@@ -391,7 +415,7 @@ class SubtitleAnnotatorService:
                     existing = best_by_lemma.get(lemma)
                     if existing is None or _LEVEL_PRIORITY[level] > _LEVEL_PRIORITY[existing[1]]:
                         best_by_lemma[lemma] = candidate
-                resolved_candidates = tuple(sorted(best_by_lemma.values()))
+                    resolved_candidates = tuple(sorted(best_by_lemma.values()))
                 if len({level for _, level, _ in resolved_candidates}) == 1:
                     vocab_alias_dict[alias] = resolved_candidates
 
@@ -401,12 +425,14 @@ class SubtitleAnnotatorService:
             vocab_reading_dict,
             kanji_dict,
             vocab_alias_dict,
+            vocab_gloss_dict,
         )
         self._vocab_cache = vocab_dict
         self._vocab_norm_cache = vocab_norm_dict
         self._vocab_reading_cache = vocab_reading_dict
         self._kanji_cache = kanji_dict
         self._vocab_alias_cache = vocab_alias_dict
+        self._vocab_gloss_cache = vocab_gloss_dict
 
     def reload_mined_words(self) -> None:
         """Query and cache mined cards and known words from the authoritative database."""
@@ -510,6 +536,13 @@ class SubtitleAnnotatorService:
             for c in cues
         ]
 
+    def _lookup_gloss(self, lemma: str, surface: str = "") -> str:
+        return (
+            self._vocab_gloss_cache.get(lemma)
+            or self._vocab_gloss_cache.get(surface)
+            or ""
+        )
+
     def annotate_text(
         self,
         text: str,
@@ -580,6 +613,7 @@ class SubtitleAnnotatorService:
                     pos="助詞",
                     level_source="vocab" if jlpt_lvl else None,
                     est_level=None,
+                    gloss=self._lookup_gloss(text, text),
                 )
             ]
 
@@ -603,6 +637,7 @@ class SubtitleAnnotatorService:
                         pos="",
                         level_source=None,
                         est_level=None,
+                        gloss="",
                     )
                 )
                 continue
@@ -631,6 +666,7 @@ class SubtitleAnnotatorService:
                         pos=st.pos or (m.pos[0] if m.pos else ""),
                         level_source=st.level_source or ("vocab" if st.jlpt_level else None),
                         est_level=st.est_level,
+                        gloss=st.get("gloss") or self._lookup_gloss(st.lemma, st.surface),
                     )
                     tokens.append(shifted)
                 continue
@@ -736,6 +772,7 @@ class SubtitleAnnotatorService:
                     pos=pos_str,
                     level_source=level_source,
                     est_level=est_level,
+                    gloss=self._lookup_gloss(resolved_lemma, m.surface),
                 )
             )
 

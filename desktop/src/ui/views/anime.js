@@ -403,8 +403,20 @@ export class AnimeView {
       this.clearQueue();
     });
 
-    // Token click delegation (mine clicked word)
+    // Quick-mine button & token click delegation
     this.container.addEventListener('click', (e) => {
+      const btnMine = e.target.closest('.btn-quick-mine');
+      if (btnMine && btnMine.dataset.surface) {
+        e.stopPropagation();
+        const surface = btnMine.dataset.surface;
+        const activeCue = this.linkStore?.activeCue;
+        const chip = this._activeHoveredChip;
+        btnMine.disabled = true;
+        btnMine.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg><span>Mined</span>`;
+        this.mineToken(surface, activeCue, chip);
+        return;
+      }
+
       const tokenChip = e.target.closest('.anime-token-chip');
       if (tokenChip && tokenChip.dataset.surface) {
         const surface = tokenChip.dataset.surface;
@@ -417,6 +429,22 @@ export class AnimeView {
           cue = this.linkStore?.activeCue || null;
         }
         this.mineToken(surface, cue, tokenChip);
+      }
+    });
+
+    // In-situ hover gloss triggers for live cue tokens
+    this.container.addEventListener('mouseover', (e) => {
+      const chip = e.target.closest('.anime-token-chip');
+      if (chip && chip.dataset.surface) {
+        this.showHoverGloss(chip);
+      }
+    });
+
+    this.container.addEventListener('mouseout', (e) => {
+      const chip = e.target.closest('.anime-token-chip');
+      const related = e.relatedTarget;
+      if (chip && (!related || !related.closest || !related.closest('.anime-hover-gloss'))) {
+        this.scheduleHideHoverGloss();
       }
     });
 
@@ -870,11 +898,21 @@ export class AnimeView {
       this._updateRateButtons(summary.videoState.rate);
     }
 
-    // Subtitle text
+    // Subtitle text with interactive tokens
     const cueTextEl = this.container.querySelector('#anime-cue-text');
     if (cueTextEl) {
       if (summary.activeCue?.text) {
-        cueTextEl.innerHTML = `<span>${escapeHtml(summary.activeCue.text)}</span>`;
+        const cueHash = summary.cueHash;
+        const activeIdx = summary.activeCue.i;
+        const ann = (cueHash && typeof activeIdx === 'number')
+          ? this.annotatedCuesMap.get(`${cueHash}:${activeIdx}`)
+          : null;
+
+        if (ann && Array.isArray(ann.tokens) && ann.tokens.length > 0) {
+          cueTextEl.innerHTML = this.renderCueTokens(ann.tokens);
+        } else {
+          cueTextEl.innerHTML = `<span class="anime-cue-plain">${escapeHtml(summary.activeCue.text)}</span>`;
+        }
       } else if (summary.activeSession) {
         cueTextEl.innerHTML = `<span class="anime-live-cue-empty">Listening for dialogue subtitles...</span>`;
       } else {
@@ -1230,6 +1268,103 @@ export class AnimeView {
     } catch (err) {
       console.debug('[AnimeView] Failed to save session stats:', err);
     }
+  }
+
+  renderCueTokens(tokens) {
+    if (!tokens || !tokens.length) return '';
+    return tokens.map(tok => {
+      const surface = escapeHtml(tok.surface || '');
+      const lemma = escapeHtml(tok.lemma || tok.surface || '');
+      const reading = escapeHtml(tok.reading || '');
+      const gloss = escapeHtml(tok.gloss || '');
+      const jlpt = escapeHtml(tok.jlpt_level || '');
+      const status = tok.status || 'unstyled';
+      const statusClass = (this.showTokenColors && status !== 'unstyled') ? `is-${status} token-${status}` : '';
+
+      return `<span class="anime-token-chip ${statusClass}" data-surface="${surface}" data-lemma="${lemma}" data-reading="${reading}" data-gloss="${gloss}" data-jlpt="${jlpt}" data-status="${status}"><span class="anime-token-surface">${surface}</span></span>`;
+    }).join('');
+  }
+
+  showHoverGloss(chip) {
+    if (!this.container) return;
+    if (!this.hoverGlossEl) {
+      this.hoverGlossEl = document.createElement('div');
+      this.hoverGlossEl.className = 'anime-hover-gloss';
+      this.hoverGlossEl.style.display = 'none';
+      this.container.appendChild(this.hoverGlossEl);
+
+      this.hoverGlossEl.addEventListener('mouseenter', () => {
+        if (this._hoverGlossHideTimer) {
+          clearTimeout(this._hoverGlossHideTimer);
+          this._hoverGlossHideTimer = null;
+        }
+      });
+      this.hoverGlossEl.addEventListener('mouseleave', () => {
+        this.scheduleHideHoverGloss();
+      });
+    }
+
+    if (this._hoverGlossHideTimer) {
+      clearTimeout(this._hoverGlossHideTimer);
+      this._hoverGlossHideTimer = null;
+    }
+
+    this._activeHoveredChip = chip;
+    const { surface = '', lemma = '', reading = '', gloss = '', jlpt = '', status = '' } = chip.dataset;
+    const displayWord = lemma || surface;
+    const isMined = status === 'mined' || chip.classList.contains('is-mined');
+
+    this.hoverGlossEl.innerHTML = `
+      <div class="anime-hover-gloss-header">
+        <span class="gloss-lemma">${escapeHtml(displayWord)}</span>
+        ${reading ? `<span class="gloss-reading">${escapeHtml(reading)}</span>` : ''}
+        ${jlpt ? `<span class="gloss-badge">${escapeHtml(jlpt)}</span>` : ''}
+      </div>
+      <div class="gloss-body">
+        <div class="gloss-definition">${escapeHtml(gloss || 'Context definition')}</div>
+      </div>
+      <div class="gloss-footer">
+        <button type="button" class="btn-quick-mine tactile-btn ${isMined ? 'is-mined' : ''}" data-surface="${escapeHtml(surface)}" ${isMined ? 'disabled' : ''}>
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+            ${isMined
+              ? '<path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>'
+              : '<path d="M7 2v11h3v9l7-12h-4l4-8z"/>'
+            }
+          </svg>
+          <span>${isMined ? 'Mined' : 'Quick Mine'}</span>
+        </button>
+      </div>
+    `;
+
+    const rect = chip.getBoundingClientRect();
+    const containerRect = this.container.getBoundingClientRect();
+
+    this.hoverGlossEl.style.display = 'block';
+    const glossWidth = this.hoverGlossEl.offsetWidth || 220;
+    const glossHeight = this.hoverGlossEl.offsetHeight || 90;
+
+    let left = (rect.left - containerRect.left) + (rect.width / 2) - (glossWidth / 2);
+    left = Math.max(8, Math.min(left, containerRect.width - glossWidth - 8));
+
+    let top = (rect.top - containerRect.top) - glossHeight - 8;
+    if (top < 8) {
+      top = (rect.bottom - containerRect.top) + 8;
+    }
+
+    this.hoverGlossEl.style.left = `${left}px`;
+    this.hoverGlossEl.style.top = `${top}px`;
+  }
+
+  scheduleHideHoverGloss() {
+    if (this._hoverGlossHideTimer) {
+      clearTimeout(this._hoverGlossHideTimer);
+    }
+    this._hoverGlossHideTimer = setTimeout(() => {
+      if (this.hoverGlossEl) {
+        this.hoverGlossEl.style.display = 'none';
+      }
+      this._activeHoveredChip = null;
+    }, 180);
   }
 
   unmount() {

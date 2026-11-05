@@ -522,3 +522,21 @@ def test_slice_10_required_cases(test_db: Path):
     assert "pos" in token
     assert "level_source" in token
     assert "est_level" in token
+
+
+def test_annotated_token_gloss_and_compound_segmentation(test_db: Path):
+    """AnnotatedToken attaches gloss definition and preserves segmentation lemmas."""
+    service = SubtitleAnnotatorService(db_path=test_db, learner_level="N4")
+    tokens = service.annotate_text("あなたと本を読む")
+    assert len(tokens) >= 3
+
+    # Verify gloss field is available
+    for tok in tokens:
+        assert "gloss" in tok
+
+    # "あなた" should have a gloss definition from OpenJLPT meanings
+    anata = next((t for t in tokens if t["surface"] == "あなた"), None)
+    assert anata is not None
+    assert anata.get("gloss") != ""
+    assert "you" in anata["gloss"].lower()
+

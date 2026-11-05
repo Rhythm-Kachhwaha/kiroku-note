@@ -1,5 +1,6 @@
 # Status
-Anime immersion task 1 complete: hardware acceleration toggle.
-Persistent storage configures GPU rasterization & DRM fallback.
-IPC restart channel wired into Settings diagnostics panel.
-Desktop tests pass green with zero emoji and final lock verified.
+Anime immersion task 2 complete: hover gloss & quick mine.
+Precision token segmentation attaches OpenJLPT glosses.
+Live cue box renders interactive tokens with hover gloss card.
+Quick mine triggers non-blocking card creation without pauses.
+All targeted desktop and backend annotator tests pass green.
