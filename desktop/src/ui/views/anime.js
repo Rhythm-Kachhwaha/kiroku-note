@@ -53,6 +53,8 @@ export class AnimeView {
     this.cueGrammarMap = new Map();
     this.showTokenColors = true;
     this.furiganaEnabled = true;
+    this.inspectorOpen = true;
+    this.inspectedWord = null;
     this.currentFilter = 'all';
     this.lastLoadedHash = null;
     this._fetchingGrammar = new Set();
@@ -120,12 +122,16 @@ export class AnimeView {
               </div>
             </div>
             <div class="flex items-center gap-2">
+              <button type="button" class="anime-control-btn btn-sm" id="btn-anime-toggle-inspector" aria-label="Toggle Inspector Panel">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H5V5h9v12zm5 0h-3V5h3v12z"/></svg>
+                <span>Inspector</span>
+              </button>
               <span class="anime-site-chip" id="anime-connection-chip">Disconnected</span>
             </div>
           </div>
 
           <!-- Main Companion Grid -->
-          <div class="anime-layout-grid">
+          <div class="anime-layout-grid ${this.inspectorOpen ? 'has-inspector' : ''}" id="anime-layout-grid">
             <!-- Left: Live Subtitle Box & Remote Controls -->
             <div class="anime-player-card">
               <div class="anime-session-strip">
@@ -345,6 +351,37 @@ export class AnimeView {
                 <span class="text-xs text-muted" style="text-align: center; padding: 1rem 0;">No watch history yet</span>
               </div>
             </div>
+
+            <!-- Collapsible Migaku-Style Inspector Panel (Vocab Top + Grammar Below) -->
+            <div class="anime-inspector-panel" id="anime-inspector-panel" style="${this.inspectorOpen ? '' : 'display: none;'}">
+              <div class="anime-inspector-header">
+                <div class="flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                  <span class="font-bold">Inspector</span>
+                </div>
+                <button type="button" class="anime-inspector-close-btn" id="btn-anime-close-inspector" aria-label="Collapse inspector">&times;</button>
+              </div>
+
+              <!-- Top: Dedicated Vocab Card -->
+              <div class="anime-inspector-vocab tactile-card" id="anime-inspector-vocab">
+                <div class="anime-inspector-card-header mb-2">
+                  <span class="text-xs font-mono text-gold">Vocabulary Target</span>
+                </div>
+                <div id="anime-inspector-vocab-content">
+                  <p class="text-xs text-muted">Click any subtitle word to inspect definitions and capture audio.</p>
+                </div>
+              </div>
+
+              <!-- Bottom: Sentence Grammar Breakdown -->
+              <div class="anime-inspector-grammar tactile-card" id="anime-inspector-grammar">
+                <div class="anime-inspector-card-header mb-2">
+                  <span class="text-xs font-mono text-gold">Sentence Grammar Breakdown</span>
+                </div>
+                <div class="anime-inspector-grammar-list" id="anime-inspector-grammar-list">
+                  <p class="text-xs text-muted">Pause playback or select dialogue lines to examine grammar points.</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -421,6 +458,17 @@ export class AnimeView {
 
     // Quick-mine button & token click delegation
     this.container.addEventListener('click', (e) => {
+      const btnInspectorMine = e.target.closest('.btn-inspector-mine');
+      if (btnInspectorMine && btnInspectorMine.dataset.surface) {
+        e.stopPropagation();
+        const surface = btnInspectorMine.dataset.surface;
+        const activeCue = this.linkStore?.activeCue;
+        btnInspectorMine.disabled = true;
+        btnInspectorMine.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg><span>Mined</span>`;
+        this.mineToken(surface, activeCue, this._inspectedChip);
+        return;
+      }
+
       const btnMine = e.target.closest('.btn-quick-mine');
       if (btnMine && btnMine.dataset.surface) {
         e.stopPropagation();
@@ -445,7 +493,19 @@ export class AnimeView {
           cue = this.linkStore?.activeCue || null;
         }
         this.mineToken(surface, cue, tokenChip);
+        this.inspectToken(tokenChip);
       }
+    });
+
+    // Inspector toggle buttons
+    const btnToggleInspector = this.container.querySelector('#btn-anime-toggle-inspector');
+    btnToggleInspector?.addEventListener('click', () => {
+      this.toggleInspector();
+    });
+
+    const btnCloseInspector = this.container.querySelector('#btn-anime-close-inspector');
+    btnCloseInspector?.addEventListener('click', () => {
+      this.toggleInspector(false);
     });
 
     // In-situ hover gloss triggers for live cue tokens
@@ -958,6 +1018,11 @@ export class AnimeView {
     this.renderSparkline();
     this.fetchWatchHistory();
 
+    // Sentence grammar refresh on pause for inspector
+    if (summary.videoState?.paused && summary.cueHash && summary.activeCue?.i !== undefined) {
+      this.refreshInspectorGrammar(summary.cueHash, summary.activeCue.i);
+    }
+
     // Video playback watch time tracking (Slice 30)
     const now = Date.now();
     if (this._lastPlayTick && summary.videoState && !summary.videoState.paused) {
@@ -1402,6 +1467,87 @@ export class AnimeView {
       }
       this._activeHoveredChip = null;
     }, 180);
+  }
+
+  inspectToken(chip) {
+    if (!chip) return;
+    this._inspectedChip = chip;
+    const { surface = '', lemma = '', reading = '', gloss = '', jlpt = '', status = '' } = chip.dataset;
+    const isMined = status === 'mined' || chip.classList.contains('is-mined');
+    const displayWord = lemma || surface;
+
+    const vocabContent = this.container?.querySelector('#anime-inspector-vocab-content');
+    if (vocabContent) {
+      vocabContent.innerHTML = `
+        <div class="inspector-word-row">
+          <span class="inspector-word-head">${escapeHtml(displayWord)}</span>
+          ${reading ? `<span class="inspector-word-reading">${escapeHtml(reading)}</span>` : ''}
+          ${jlpt ? `<span class="inspector-badge">${escapeHtml(jlpt)}</span>` : ''}
+        </div>
+        <div class="inspector-word-def mt-2">
+          ${escapeHtml(gloss || 'Context vocabulary definition')}
+        </div>
+        <div class="inspector-word-actions mt-3">
+          <button type="button" class="btn-inspector-mine tactile-btn ${isMined ? 'is-mined' : ''}" data-surface="${escapeHtml(surface)}" ${isMined ? 'disabled' : ''}>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+              ${isMined
+                ? '<path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>'
+                : '<path d="M7 2v11h3v9l7-12h-4l4-8z"/>'
+              }
+            </svg>
+            <span>${isMined ? 'Mined' : 'Quick Mine'}</span>
+          </button>
+        </div>
+      `;
+    }
+
+    if (!this.inspectorOpen) {
+      this.toggleInspector(true);
+    }
+  }
+
+  async refreshInspectorGrammar(hash, i) {
+    const listEl = this.container?.querySelector('#anime-inspector-grammar-list');
+    if (!listEl) return;
+
+    const key = `${hash}:${i}`;
+    let points = this.cueGrammarMap.get(key);
+
+    if (!points && hash && typeof i === 'number') {
+      await this.fetchCueGrammar(hash, i);
+      points = this.cueGrammarMap.get(key);
+    }
+
+    if (Array.isArray(points) && points.length > 0) {
+      listEl.innerHTML = points.map(pt => {
+        const title = escapeHtml(pt.point || pt.title || '');
+        const lvl = escapeHtml(pt.level || '');
+        const desc = escapeHtml(pt.meaning || pt.description || pt.notes || '');
+        return `
+          <div class="inspector-grammar-item">
+            <div class="flex items-center justify-between">
+              <span class="inspector-grammar-title">${title}</span>
+              ${lvl ? `<span class="inspector-badge">${lvl}</span>` : ''}
+            </div>
+            ${desc ? `<p class="inspector-grammar-desc">${desc}</p>` : ''}
+          </div>
+        `;
+      }).join('');
+    } else {
+      listEl.innerHTML = `<p class="text-xs text-muted">No specific JLPT grammar patterns identified in this line.</p>`;
+    }
+  }
+
+  toggleInspector(forceState = null) {
+    this.inspectorOpen = forceState !== null ? forceState : !this.inspectorOpen;
+    const panel = this.container?.querySelector('#anime-inspector-panel');
+    const grid = this.container?.querySelector('#anime-layout-grid');
+    if (panel) {
+      panel.style.display = this.inspectorOpen ? 'flex' : 'none';
+    }
+    if (grid) {
+      grid.classList.toggle('has-inspector', this.inspectorOpen);
+    }
   }
 
   unmount() {
