@@ -1,4 +1,4 @@
 # Status
-Group 1 completed (Slices 1-4): extension boot, real-mode tests, pinned ID, pairing UX & error banners.
-Slice 5-7 completed: local dict default, service singleton, sentence selection identify & DICT_TERM_NOT_FOUND.
-Targeted tests pass: test_dictionary_identify, test_dictionary_paths, test_dictionary_backend_modes (26/26).
+Group 1 & Slices 5-7 complete: boot, pairing, local dict & identify.
+Slice 24 complete: retired Quick/Ask/History tabs from UI with gate constant.
+Extension tests pass (quick-add, customizable-layout, boot_real_mode, text-ask).

@@ -19,6 +19,12 @@ assert.ok(
   html.includes('aria-controls="quickadd-mining-view"'),
   "Quick Add tab button must have role='tab' and aria-controls='quickadd-mining-view'"
 );
+assert.ok(
+  html.includes('id="tab-btn-quickadd"') &&
+  html.includes('hidden') &&
+  html.includes('data-retired="1"'),
+  "Quick Add tab button must be retired and hidden in UI"
+);
 
 // Tab Panel View
 assert.ok(html.includes('id="quickadd-mining-view"'), "Quick Add view #quickadd-mining-view must exist");
@@ -290,6 +296,7 @@ const sandbox = {
   setTimeout,
   clearTimeout,
   AbortController,
+  RETIRED_UI_ENABLED: true,
   fetch: null, // Will mock per test
 };
 

@@ -9942,9 +9942,21 @@ function initVideoCardCollapse() {
   }
 }
 
+let RETIRED_UI_ENABLED = false;
+const RETIRED_TABS = ["quickadd", "ask", "history"];
+function isRetiredUiEnabled() {
+  if (typeof globalThis !== "undefined" && typeof globalThis.RETIRED_UI_ENABLED === "boolean") {
+    return globalThis.RETIRED_UI_ENABLED;
+  }
+  return RETIRED_UI_ENABLED;
+}
+
 function switchMiningTab(targetTab) {
   const validTabs = ["text", "video", "quickadd", "ask", "history", "settings"];
-  const tab = validTabs.includes(targetTab) ? targetTab : "text";
+  let tab = validTabs.includes(targetTab) ? targetTab : "text";
+  if (!isRetiredUiEnabled() && RETIRED_TABS.includes(tab)) {
+    tab = "text";
+  }
   const previousTab = currentMiningTab;
   const settingsPanel = layoutSettingsPopover || cardSettingsPopover;
   const prioritizeVideoSettings = tab === "settings" && (
@@ -10085,6 +10097,9 @@ async function loadTabPreference() {
       const stored = localStorage.getItem("active_mining_tab");
       if (stored) savedTab = stored;
     }
+    if (!isRetiredUiEnabled() && RETIRED_TABS.includes(savedTab)) {
+      savedTab = "text";
+    }
     switchMiningTab(savedTab);
   } catch (_) {}
 }
@@ -10117,13 +10132,24 @@ if (tabBtnVideo) {
   tabBtnVideo.addEventListener("click", () => switchMiningTab("video"));
 }
 if (tabBtnQuickAdd) {
-  tabBtnQuickAdd.addEventListener("click", () => switchMiningTab("quickadd"));
+  tabBtnQuickAdd.addEventListener("click", () => {
+    if (!isRetiredUiEnabled()) return;
+    switchMiningTab("quickadd");
+  });
 }
 if (tabBtnAsk) {
-  tabBtnAsk.addEventListener("click", () => switchMiningTab("ask"));
+  tabBtnAsk.addEventListener("click", () => {
+    if (!isRetiredUiEnabled()) return;
+    switchMiningTab("ask");
+  });
 }
 if (btnAskFromText) {
+  if (!isRetiredUiEnabled()) {
+    btnAskFromText.hidden = true;
+    btnAskFromText.setAttribute("data-retired", "1");
+  }
   btnAskFromText.addEventListener("click", () => {
+    if (!isRetiredUiEnabled()) return;
     const context = buildTextAskContext();
     clearAskContext();
     currentAskTask = "chat";
@@ -10136,7 +10162,10 @@ if (btnAskFromText) {
   });
 }
 if (tabBtnHistory) {
-  tabBtnHistory.addEventListener("click", () => switchMiningTab("history"));
+  tabBtnHistory.addEventListener("click", () => {
+    if (!isRetiredUiEnabled()) return;
+    switchMiningTab("history");
+  });
 }
 if (tabBtnSettings) {
   tabBtnSettings.addEventListener("click", () => switchMiningTab("settings"));
