@@ -1,5 +1,5 @@
 # Status
-Setup checklist endpoint added at /api/setup/checklist.
-Desktop Settings wired with checklist and fix action buttons.
-Extension sidepanel banner triggers on required item failures.
-All setup checklist backend, desktop, and ext tests pass.
+Slice 1: Subtitle blur mode and hotkey B added.
+Target subtitle blurs until hover for listening mode.
+Zero raw hex and zero emoji enforced.
+Tests in desktop/tests/anime_blur_subtitles.test.js pass.

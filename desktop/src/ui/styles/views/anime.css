@@ -112,6 +112,17 @@
   word-break: break-word;
 }
 
+.anime-live-cue-text.is-blurred {
+  filter: blur(6px);
+  opacity: 0.75;
+  transition: filter var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
+}
+
+.anime-live-cue-text.is-blurred:hover {
+  filter: blur(0px);
+  opacity: 1;
+}
+
 .anime-live-cue-empty {
   font-family: var(--font-sans);
   font-size: 0.95rem;

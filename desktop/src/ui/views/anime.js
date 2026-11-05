@@ -78,6 +78,9 @@ export class AnimeView {
     this.seenCueIndices = new Set();
     this.sessionLinesSeen = 0;
     this.sessionGapWordsSeen = 0;
+
+    // Subtitle Blurring & Listening Mode
+    this.blurSubtitlesEnabled = false;
   }
 
   async mount(container) {
@@ -123,6 +126,10 @@ export class AnimeView {
               </div>
             </div>
             <div class="flex items-center gap-2">
+              <button type="button" class="anime-control-btn btn-sm ${this.blurSubtitlesEnabled ? 'active' : ''}" id="btn-anime-toggle-blur" aria-label="Toggle Subtitle Blur (Hotkey B)">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                <span id="anime-blur-label">Blur: ${this.blurSubtitlesEnabled ? 'On' : 'Off'}</span>
+              </button>
               <button type="button" class="anime-control-btn btn-sm" id="btn-anime-toggle-inspector" aria-label="Toggle Inspector Panel">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H5V5h9v12zm5 0h-3V5h3v12z"/></svg>
                 <span>Inspector</span>
@@ -160,7 +167,7 @@ export class AnimeView {
 
               <!-- Live Japanese Subtitle Cue Display -->
               <div class="anime-live-cue-box" id="anime-cue-box">
-                <div class="anime-live-cue-japanese" id="anime-cue-text">
+                <div class="anime-live-cue-japanese anime-live-cue-text ${this.blurSubtitlesEnabled ? 'is-blurred' : ''}" id="anime-cue-text">
                   <span class="anime-live-cue-empty">Start playback in browser with Kiroku Extension to mine Japanese dialogue</span>
                 </div>
               </div>
@@ -507,6 +514,12 @@ export class AnimeView {
       }
     });
 
+    // Subtitle blur toggle
+    const btnToggleBlur = this.container.querySelector('#btn-anime-toggle-blur');
+    btnToggleBlur?.addEventListener('click', () => {
+      this.toggleBlurSubtitles();
+    });
+
     // Inspector toggle buttons
     const btnToggleInspector = this.container.querySelector('#btn-anime-toggle-inspector');
     btnToggleInspector?.addEventListener('click', () => {
@@ -693,6 +706,9 @@ export class AnimeView {
       } else if (e.code === 'KeyL' || e.key === 'l' || e.key === 'L') {
         e.preventDefault();
         this.toggleLoop();
+      } else if (e.code === 'KeyB' || e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        this.toggleBlurSubtitles();
       } else if (e.code === 'Tab' || e.key === 'Tab') {
         e.preventDefault();
         this.toggleInspector();
@@ -1039,6 +1055,7 @@ export class AnimeView {
       } else {
         cueTextEl.innerHTML = `<span class="anime-live-cue-empty">Start playback in browser with Kiroku Extension to mine Japanese dialogue</span>`;
       }
+      cueTextEl.classList.toggle('is-blurred', this.blurSubtitlesEnabled);
     }
 
     // Transcript cues fetching and rendering
@@ -1571,6 +1588,22 @@ export class AnimeView {
       }).join('');
     } else {
       listEl.innerHTML = `<p class="text-xs text-muted">No specific JLPT grammar patterns identified in this line.</p>`;
+    }
+  }
+
+  toggleBlurSubtitles(forceState = null) {
+    this.blurSubtitlesEnabled = forceState !== null ? forceState : !this.blurSubtitlesEnabled;
+    const cueEl = this.container?.querySelector('#anime-cue-text');
+    if (cueEl) {
+      cueEl.classList.toggle('is-blurred', this.blurSubtitlesEnabled);
+    }
+    const label = this.container?.querySelector('#anime-blur-label');
+    if (label) {
+      label.textContent = this.blurSubtitlesEnabled ? 'Blur: On' : 'Blur: Off';
+    }
+    const btn = this.container?.querySelector('#btn-anime-toggle-blur');
+    if (btn) {
+      btn.classList.toggle('active', this.blurSubtitlesEnabled);
     }
   }
 
