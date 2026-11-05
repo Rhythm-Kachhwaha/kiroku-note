@@ -1,5 +1,5 @@
 # Status
-Groups 1-6 complete; Group 8 Slices 26-29 complete.
-Anime mining, token clicks, gap queue, and duplicate checks verified.
-Desktop: 251 passed, 0 failed.
-Targeted tests pass across all subsystems.
+Groups 1-6 complete; Group 8 Slices 26-30 complete.
+Smart pause (gap threshold, auto-replay) and session stats landed.
+Desktop and backend targeted tests pass green.
+Zero regressions; final lock verified.

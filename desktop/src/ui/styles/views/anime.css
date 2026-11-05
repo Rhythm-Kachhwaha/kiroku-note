@@ -695,3 +695,14 @@
   background: var(--surface);
   outline: 1px dashed var(--industrial-aqua);
 }
+
+.anime-smart-pause-card {
+  background-color: var(--surface-elevated);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}

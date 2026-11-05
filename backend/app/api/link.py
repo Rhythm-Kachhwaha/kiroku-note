@@ -7,11 +7,12 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from typing import Any, Dict
+from typing import Any, Dict, List
 import uuid
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 from app.link.hub import (
     authenticate_link_token,
@@ -19,6 +20,7 @@ from app.link.hub import (
     check_link_origin,
     link_hub,
 )
+from app.link.session import list_session_stats, save_session_stat
 from app.schemas_link import (
     LINK_PROTOCOL_VERSION,
     MAX_CUE_LIST_PAYLOAD_BYTES,
@@ -27,10 +29,40 @@ from app.schemas_link import (
 router = APIRouter(prefix="/api/link", tags=["link"])
 
 
+class SessionStatCreate(BaseModel):
+    session_id: str = ""
+    site: str = ""
+    title: str = ""
+    watch_seconds: float = 0.0
+    lines_seen: int = 0
+    words_mined: int = 0
+    gap_words_seen: int = 0
+
+
 @router.get("/status")
 def get_link_status() -> Dict[str, Any]:
     """Returns connected extension count, desktop clients, and active video sessions."""
     return link_hub.get_status()
+
+
+@router.get("/sessions")
+def get_sessions(limit: int = Query(50, ge=1, le=500)) -> List[Dict[str, Any]]:
+    """Returns persisted link session statistics."""
+    return list_session_stats(limit=limit)
+
+
+@router.post("/sessions")
+def create_session_stat(stat: SessionStatCreate) -> Dict[str, Any]:
+    """Records a completed or updated link session stat."""
+    return save_session_stat(
+        session_id=stat.session_id,
+        site=stat.site,
+        title=stat.title,
+        watch_seconds=stat.watch_seconds,
+        lines_seen=stat.lines_seen,
+        words_mined=stat.words_mined,
+        gap_words_seen=stat.gap_words_seen,
+    )
 
 
 @router.websocket("/ws")

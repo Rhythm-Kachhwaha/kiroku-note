@@ -49,6 +49,19 @@ export class AnimeView {
     this.sessionMinedCount = 0;
     this.gapWordsQueue = [];
     this.lastQueuedBatch = [];
+
+    // Smart Pause & Session Stats (Slice 30)
+    this.smartPauseEnabled = false;
+    this.smartPauseThreshold = 2;
+    this.smartAutoReplay = false;
+    this._lastPausedCueIdx = null;
+    this._replayedCueIdx = null;
+    this.sessionStartTime = Date.now();
+    this.sessionWatchSeconds = 0;
+    this._lastPlayTick = null;
+    this.seenCueIndices = new Set();
+    this.sessionLinesSeen = 0;
+    this.sessionGapWordsSeen = 0;
   }
 
   async mount(container) {
@@ -286,6 +299,26 @@ export class AnimeView {
               </div>
             </div>
 
+            <!-- Smart Pause & Study Mode (Slice 30) -->
+            <div class="anime-smart-pause-card" id="anime-smart-pause-card">
+              <div class="anime-sidebar-title">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                Smart Pause
+              </div>
+              <div class="anime-status-row">
+                <label for="anime-smart-pause-toggle" style="cursor: pointer;">Auto-pause on unknown</label>
+                <input type="checkbox" id="anime-smart-pause-toggle" ${this.smartPauseEnabled ? 'checked' : ''} />
+              </div>
+              <div class="anime-status-row" id="anime-smart-pause-threshold-row">
+                <span>Gap word threshold</span>
+                <input type="number" id="anime-smart-pause-threshold" min="1" max="10" value="${this.smartPauseThreshold}" style="width: 48px; text-align: center; background: var(--surface); color: var(--text-primary); border: 1px solid var(--tactile-stroke); border-radius: var(--radius-sm);" />
+              </div>
+              <div class="anime-status-row">
+                <label for="anime-smart-auto-replay" style="cursor: pointer;">Auto-replay line once</label>
+                <input type="checkbox" id="anime-smart-auto-replay" ${this.smartAutoReplay ? 'checked' : ''} />
+              </div>
+            </div>
+
             <!-- Watch History & Series Grouping (Slice 28) -->
             <div class="anime-history-card" id="anime-history-card">
               <div class="anime-sidebar-title">
@@ -441,6 +474,25 @@ export class AnimeView {
       this.renderTranscriptList();
     });
 
+    // Smart pause controls (Slice 30)
+    const smartPauseToggle = this.container.querySelector('#anime-smart-pause-toggle');
+    smartPauseToggle?.addEventListener('change', (e) => {
+      this.smartPauseEnabled = !!e.target.checked;
+    });
+
+    const smartPauseThreshold = this.container.querySelector('#anime-smart-pause-threshold');
+    smartPauseThreshold?.addEventListener('change', (e) => {
+      const val = parseInt(e.target.value, 10);
+      if (!isNaN(val) && val >= 1) {
+        this.smartPauseThreshold = val;
+      }
+    });
+
+    const smartAutoReplay = this.container.querySelector('#anime-smart-auto-replay');
+    smartAutoReplay?.addEventListener('change', (e) => {
+      this.smartAutoReplay = !!e.target.checked;
+    });
+
     // Color toggle button
     const btnToggleColor = this.container.querySelector('#btn-anime-toggle-coloring');
     btnToggleColor?.addEventListener('click', () => {
@@ -486,6 +538,9 @@ export class AnimeView {
       this._positionSaveTimer = setInterval(() => {
         this._savePositionIfPlaying();
       }, 15000);
+      if (this._positionSaveTimer && typeof this._positionSaveTimer.unref === 'function') {
+        this._positionSaveTimer.unref();
+      }
     }
 
     // Local keyboard navigation
@@ -748,7 +803,6 @@ export class AnimeView {
 
   updateFromStore() {
     if (!this.container || !this.linkStore) return;
-
     const summary = this.linkStore.getStatusSummary();
     const isConnected = summary.status === 'connected';
 
@@ -837,6 +891,38 @@ export class AnimeView {
     this.renderTranscriptList();
     this.renderSparkline();
     this.fetchWatchHistory();
+
+    // Video playback watch time tracking (Slice 30)
+    const now = Date.now();
+    if (this._lastPlayTick && summary.videoState && !summary.videoState.paused) {
+      const deltaSec = (now - this._lastPlayTick) / 1000;
+      if (deltaSec > 0 && deltaSec < 5) {
+        this.sessionWatchSeconds += deltaSec;
+      }
+    }
+    this._lastPlayTick = now;
+
+    // Active cue evaluation for seen stats & smart pause (Slice 30)
+    const activeCue = summary.activeCue;
+    if (activeCue && activeCue.i !== undefined) {
+      if (!this.seenCueIndices.has(activeCue.i)) {
+        this.seenCueIndices.add(activeCue.i);
+        this.sessionLinesSeen++;
+        const ann = (summary.cueHash ? this.annotatedCuesMap.get(`${summary.cueHash}:${activeCue.i}`) : null) || this.annotatedCuesMap.get(activeCue.i);
+        const gapWordsCount = ann?.gap_words ? ann.gap_words.length : 0;
+        this.sessionGapWordsSeen += gapWordsCount;
+
+        if (this.smartPauseEnabled && gapWordsCount >= this.smartPauseThreshold) {
+          if (this.smartAutoReplay && this._replayedCueIdx !== activeCue.i) {
+            this._replayedCueIdx = activeCue.i;
+            this.linkStore?.seek(activeCue.s);
+          } else if (this._lastPausedCueIdx !== activeCue.i) {
+            this._lastPausedCueIdx = activeCue.i;
+            this.linkStore?.pause();
+          }
+        }
+      }
+    }
   }
 
   async checkResumePosition(hash) {
@@ -871,6 +957,7 @@ export class AnimeView {
   _savePositionIfPlaying() {
     if (!this.linkStore || !this.apiClient) return;
     const summary = this.linkStore.getStatusSummary();
+    console.log('TRACE checkpoint 1, summary.activeCue:', summary.activeCue);
     if (!summary.videoState || summary.videoState.paused || !summary.cueHash) return;
     const curSec = summary.videoState.t || 0;
     if (this._lastSavedPositionSec !== null && Math.abs(curSec - this._lastSavedPositionSec) < 5) return;
@@ -1119,7 +1206,34 @@ export class AnimeView {
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   }
 
+  async _flushSessionStats() {
+    if (!this.apiClient) return;
+    const summary = this.linkStore?.getStatusSummary() || {};
+    const activeSession = summary.activeSession;
+    if (this.sessionLinesSeen === 0 && this.sessionMinedCount === 0 && this.sessionWatchSeconds < 1) {
+      return;
+    }
+    const payload = {
+      session_id: activeSession ? `tab-${activeSession.tab}` : `anime-${Date.now()}`,
+      site: activeSession?.site || '',
+      title: activeSession?.title || '',
+      watch_seconds: Math.round(this.sessionWatchSeconds * 10) / 10,
+      lines_seen: this.sessionLinesSeen,
+      words_mined: this.sessionMinedCount,
+      gap_words_seen: this.sessionGapWordsSeen,
+    };
+    try {
+      await this.apiClient.request('/api/link/sessions', {
+        method: 'POST',
+        body: payload
+      });
+    } catch (err) {
+      console.debug('[AnimeView] Failed to save session stats:', err);
+    }
+  }
+
   unmount() {
+    this._flushSessionStats();
     if (this._positionSaveTimer) {
       clearInterval(this._positionSaveTimer);
       this._positionSaveTimer = null;

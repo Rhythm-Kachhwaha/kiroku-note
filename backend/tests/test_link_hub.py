@@ -14,8 +14,9 @@ from app.schemas_link import LINK_PROTOCOL_VERSION
 
 
 @pytest.fixture(autouse=True)
-def clean_hub():
+def clean_hub(monkeypatch):
     """Resets in-memory hub sessions and clients between tests."""
+    monkeypatch.setenv("KIROKU_EXTENSION_IDS", "allowed")
     link_hub.sessions.clear()
     link_hub.clients.clear()
     yield
@@ -307,3 +308,33 @@ def test_ws_rate_limiting():
             r.get("type") == "ack" and r.get("payload", {}).get("ok") is False and "Rate limit" in r.get("payload", {}).get("err", "")
             for r in responses
         )
+
+
+def test_link_session_stats_api():
+    client = TestClient(app)
+    # Save a stat
+    post_res = client.post(
+        "/api/link/sessions",
+        json={
+            "session_id": "test-session-123",
+            "site": "crunchyroll",
+            "title": "Frieren - Ep 01",
+            "watch_seconds": 125.5,
+            "lines_seen": 42,
+            "words_mined": 3,
+            "gap_words_seen": 15,
+        },
+    )
+    assert post_res.status_code == 200
+    created = post_res.json()
+    assert created["session_id"] == "test-session-123"
+    assert created["site"] == "crunchyroll"
+    assert created["lines_seen"] == 42
+    assert created["words_mined"] == 3
+
+    # Query stats
+    get_res = client.get("/api/link/sessions?limit=10")
+    assert get_res.status_code == 200
+    sessions = get_res.json()
+    assert isinstance(sessions, list)
+    assert any(s["session_id"] == "test-session-123" for s in sessions)

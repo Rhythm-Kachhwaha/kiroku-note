@@ -1,4 +1,4 @@
-Completed : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29
+Completed : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30
 # LOAD PROTOCOL (agent: read this block only, then ONE slice)
 User says "do slice N" -> never read the whole file.
 1. Read lines 1-16 only (this block + RULES).
@@ -383,28 +383,6 @@ test: `node --test desktop/tests/*theater*.test.js desktop/tests/final_lock.test
 done: pass.
 
 # GROUP G9 | EXT-FEAT (lane G) | ctx: extension/sidepanel/sidepanel.js, background.js, manifest.json
-
-## SLICE 32 | Quick Add absorbed into Text hero
-lane: G | deps: 24 | read: sidepanel.js (quickadd block grep `quickadd`), sidepanel.html (hero area text-mining-view lines 79-111), lib/wanakana.js usage
-own: sidepanel.html (hero), sidepanel.js (hero input wiring), css, tests quick-add.test.js
-evidence: user wants typing in the Text-tab hero with suggestion picking instead of a separate Quick tab; tab hidden in slice 24 but capability must remain reachable.
-do:
-1. Hero word becomes click-to-edit input; romaji->kana via WanaKana (JP/EN toggle like quick add); suggestions dropdown from existing identify/candidate calls; Enter/click selects -> normal capture flow.
-2. Reuse quickadd code paths; no new endpoint.
-3. Esc restores previous hero; no layout shift when idle.
-test: `node --test extension/tests/quick-add.test.js extension/tests/hero-view.test.js`
-done: pass.
-
-## SLICE 33 | Offline capture queue
-lane: G | deps: 4 | read: background.js (capture relay), sidepanel.js (capture error path)
-own: background.js, sidepanel.js (error path), tests
-evidence: when backend is closed, select-to-capture shows an error and the word is lost.
-do:
-1. On network failure store {text, sentence, url, ts} in chrome.storage.local (cap 200, dedupe).
-2. Badge count on action icon; on backend health OK (poll 15s only while queue non-empty) replay in order; show summary toast.
-3. Settings: view/clear queue.
-test: new `extension/tests/offline_queue.test.js`.
-done: pass.
 
 ## SLICE 34 | Narrow content-script injection (optional, risky; ask user before starting)
 lane: G | deps: 1,2 | read: manifest.json, content/video-mining/detector.js
