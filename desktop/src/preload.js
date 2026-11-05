@@ -98,6 +98,7 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   retryBackend: () => ipcRenderer.invoke('backend:retry'),
   openUserDataFolder: () => ipcRenderer.invoke('app:open-folder'),
   openInstructions: () => ipcRenderer.invoke('app:open-instructions'),
+  restartApp: () => ipcRenderer.invoke('settings:restart-app'),
   onBackendReady: (cb) => {
     if (typeof cb === 'function') {
       ipcRenderer.on('backend:ready', (event, data) => cb(data));

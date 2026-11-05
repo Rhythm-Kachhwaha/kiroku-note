@@ -464,6 +464,25 @@ export class SettingsView {
                       <button type="button" class="tactile-btn" id="btn-restart-backend">Restart Backend Service</button>
                     </div>
                   </div>
+
+                  <!-- Hardware Acceleration (GPU) -->
+                  <div class="settings-card tactile-card" id="card-hardware-acceleration">
+                    <div class="card-header-row">
+                      <h3 class="card-title">Hardware Acceleration</h3>
+                      <span class="status-dot" id="gpu-status-dot" data-state="ready" title="Graphics Pipeline"></span>
+                    </div>
+                    <p class="card-desc">Toggles GPU rasterization. Disable if experiencing blank windows or black screen captures when streaming DRM video.</p>
+                    <div class="flex items-center justify-between mt-3">
+                      <label class="tactile-toggle-label flex items-center gap-2 cursor-pointer" for="toggle-hardware-acceleration">
+                        <input type="checkbox" id="toggle-hardware-acceleration" class="tactile-checkbox" checked />
+                        <span class="text-sm font-medium text-warm-paper">Enable GPU Hardware Acceleration</span>
+                      </label>
+                      <button type="button" class="tactile-btn tactile-btn-primary" id="btn-restart-app" style="display: none;">Restart App</button>
+                    </div>
+                    <div class="mt-2 text-xs text-secondary" id="gpu-restart-notice" style="display: none;">
+                      Restart required for graphics acceleration changes to take effect.
+                    </div>
+                  </div>
                 </div>
               </section>
             </div>
@@ -852,6 +871,37 @@ export class SettingsView {
         }
       });
     }
+
+    // Hardware Acceleration Switch
+    const toggleHwAccel = document.getElementById('toggle-hardware-acceleration');
+    const btnRestartApp = document.getElementById('btn-restart-app');
+    const noticeRestart = document.getElementById('gpu-restart-notice');
+
+    if (toggleHwAccel) {
+      toggleHwAccel.addEventListener('change', async () => {
+        const enabled = toggleHwAccel.checked;
+        if (window.chrome?.storage?.local?.set) {
+          await window.chrome.storage.local.set({ hardware_acceleration: enabled });
+        } else if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('hardware_acceleration', String(enabled));
+        }
+
+        if (btnRestartApp) btnRestartApp.style.display = 'inline-block';
+        if (noticeRestart) noticeRestart.style.display = 'block';
+      });
+    }
+
+    if (btnRestartApp) {
+      btnRestartApp.addEventListener('click', async () => {
+        btnRestartApp.disabled = true;
+        btnRestartApp.textContent = 'Restarting...';
+        if (window.desktopAPI?.restartApp) {
+          await window.desktopAPI.restartApp();
+        } else if (window.desktopAPI?.api?.request) {
+          await window.desktopAPI.api.request({ channel: 'settings:restart-app' });
+        }
+      });
+    }
   }
 
   async loadInitialSettings() {
@@ -871,6 +921,24 @@ export class SettingsView {
     } catch (err) {
       console.debug('[Settings] Restore learner level error:', err);
     }
+
+    // Load hardware acceleration setting
+    try {
+      let hwEnabled = true;
+      if (window.chrome?.storage?.local?.get) {
+        const stored = await window.chrome.storage.local.get(['hardware_acceleration']);
+        if (stored && typeof stored.hardware_acceleration === 'boolean') {
+          hwEnabled = stored.hardware_acceleration;
+        }
+      } else if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = window.localStorage.getItem('hardware_acceleration');
+        if (stored !== null) hwEnabled = stored === 'true';
+      }
+      const toggle = document.getElementById('toggle-hardware-acceleration');
+      if (toggle) {
+        toggle.checked = hwEnabled;
+      }
+    } catch (_) {}
 
     // Language engine status & stored mode
     try {

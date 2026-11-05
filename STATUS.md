@@ -1,5 +1,5 @@
 # Status
-Slice 34 complete: narrowed content-script injection.
-Selection capture runs on all pages; video mining injected on demand.
-Static adapters scoped to YouTube/Netflix; 98% payload drop (218KB to 4.4KB).
-Extension packaging, boot real mode, and video tests pass green.
+Anime immersion task 1 complete: hardware acceleration toggle.
+Persistent storage configures GPU rasterization & DRM fallback.
+IPC restart channel wired into Settings diagnostics panel.
+Desktop tests pass green with zero emoji and final lock verified.

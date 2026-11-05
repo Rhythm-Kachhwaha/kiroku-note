@@ -89,7 +89,9 @@ async function revokeAllExtensionPairings() {
 
 // GPU acceleration configuration: enable hardware rasterization for high frame rates
 // and responsive UI interaction, with stability flags to prevent crashes.
-if (process.env.KIROKU_DISABLE_GPU === '1') {
+// Users can toggle hardware_acceleration off in Settings when encountering DRM capture issues.
+const isHardwareAccelerationEnabled = desktopStore.getConfig('hardware_acceleration', true);
+if (process.env.KIROKU_DISABLE_GPU === '1' || isHardwareAccelerationEnabled === false) {
   app.disableHardwareAcceleration();
 } else {
   app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
@@ -1041,6 +1043,19 @@ function setupIpcHandlers() {
   // Extension runtime messaging stub
   ipcMain.handle('chrome:runtime:sendMessage', (event, msg) => {
     return { received: true };
+  });
+
+  // Settings and application lifecycle restart
+  ipcMain.handle('settings:restart-app', () => {
+    app.relaunch();
+    app.exit(0);
+    return true;
+  });
+
+  ipcMain.handle('app:restart', () => {
+    app.relaunch();
+    app.exit(0);
+    return true;
   });
 
   // Tray and Desktop Shell feature integrations

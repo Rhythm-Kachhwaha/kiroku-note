@@ -102,6 +102,19 @@ class DesktopStore {
     this.data = {};
     this.save();
   }
+
+  getConfig(key, defaultVal = undefined) {
+    if (Object.prototype.hasOwnProperty.call(this.data, key)) {
+      return this.data[key];
+    }
+    return defaultVal;
+  }
+
+  setConfig(key, value) {
+    this.data[key] = value;
+    this.save();
+    return value;
+  }
 }
 
 module.exports = { DesktopStore };
