@@ -59,6 +59,7 @@ class CueItem(BaseModel):
     s: float = Field(ge=0.0)
     e: float = Field(ge=0.0)
     text: str
+    secondary_text: Optional[str] = None
 
     @field_validator("e")
     @classmethod
@@ -75,6 +76,7 @@ class CueListPayload(BaseModel):
 
 class CueActivePayload(BaseModel):
     i: Optional[int] = Field(default=None, ge=0)
+    secondary_text: Optional[str] = None
 
 
 class ClipResultPayload(BaseModel):

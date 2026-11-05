@@ -105,8 +105,21 @@
     }
   }
 
+  class DualSubtitleBridge {
+    constructor(options = {}) {
+      this.secondaryTrack = options.secondaryTrack || "en";
+    }
+
+    getSecondaryCueText(doc = (typeof document !== "undefined" ? document : null)) {
+      if (!doc || typeof doc.querySelector !== "function") return null;
+      const secondaryEl = doc.querySelector('.kiroku-secondary-sub, [data-track="secondary"], .ytp-caption-window-rollup:not(.primary), .player-timedtext:not([lang="ja"])');
+      return secondaryEl ? secondaryEl.textContent.trim() : null;
+    }
+  }
+
   return {
     NextEpisodeDetector,
+    DualSubtitleBridge,
     NEXT_EPISODE_SELECTORS
   };
 });

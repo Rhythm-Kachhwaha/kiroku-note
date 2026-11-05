@@ -140,6 +140,22 @@
   line-height: 1;
 }
 
+.anime-secondary-cue-text {
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 0.5rem;
+  letter-spacing: 0.02em;
+  min-height: 1.4rem;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.anime-secondary-cue-text.is-hidden {
+  display: none;
+}
+
 .anime-live-cue-empty {
   font-family: var(--font-sans);
   font-size: 0.95rem;

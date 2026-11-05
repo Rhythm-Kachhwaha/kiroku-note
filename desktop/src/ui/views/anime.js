@@ -81,6 +81,9 @@ export class AnimeView {
 
     // Subtitle Blurring & Listening Mode
     this.blurSubtitlesEnabled = false;
+
+    // Dual Subtitles
+    this.dualSubtitlesEnabled = true;
   }
 
   async mount(container) {
@@ -130,6 +133,10 @@ export class AnimeView {
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
                 <span id="anime-blur-label">Blur: ${this.blurSubtitlesEnabled ? 'On' : 'Off'}</span>
               </button>
+              <button type="button" class="anime-control-btn btn-sm ${this.dualSubtitlesEnabled ? 'active' : ''}" id="btn-anime-toggle-dual" aria-label="Toggle Dual Subtitles">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h8v2H6zm10 0h2v2h-2zm-6-4h8v2h-8z"/></svg>
+                <span id="anime-dual-label">Dual: ${this.dualSubtitlesEnabled ? 'On' : 'Off'}</span>
+              </button>
               <button type="button" class="anime-control-btn btn-sm" id="btn-anime-toggle-inspector" aria-label="Toggle Inspector Panel">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H5V5h9v12zm5 0h-3V5h3v12z"/></svg>
                 <span>Inspector</span>
@@ -170,6 +177,7 @@ export class AnimeView {
                 <div class="anime-live-cue-japanese anime-live-cue-text ${this.blurSubtitlesEnabled ? 'is-blurred' : ''}" id="anime-cue-text">
                   <span class="anime-live-cue-empty">Start playback in browser with Kiroku Extension to mine Japanese dialogue</span>
                 </div>
+                <div class="anime-secondary-cue-text" id="anime-secondary-cue-text"></div>
               </div>
 
               <!-- Unknown-density sparkline (Slice 28) -->
@@ -519,6 +527,12 @@ export class AnimeView {
     const btnToggleBlur = this.container.querySelector('#btn-anime-toggle-blur');
     btnToggleBlur?.addEventListener('click', () => {
       this.toggleBlurSubtitles();
+    });
+
+    // Dual subtitles toggle
+    const btnToggleDual = this.container.querySelector('#btn-anime-toggle-dual');
+    btnToggleDual?.addEventListener('click', () => {
+      this.toggleDualSubtitles();
     });
 
     // Inspector toggle buttons
@@ -1057,6 +1071,19 @@ export class AnimeView {
         cueTextEl.innerHTML = `<span class="anime-live-cue-empty">Start playback in browser with Kiroku Extension to mine Japanese dialogue</span>`;
       }
       cueTextEl.classList.toggle('is-blurred', this.blurSubtitlesEnabled);
+    }
+
+    // Secondary translation subtitle
+    const secEl = this.container.querySelector('#anime-secondary-cue-text');
+    if (secEl) {
+      if (!this.dualSubtitlesEnabled) {
+        secEl.textContent = '';
+        secEl.classList.add('is-hidden');
+      } else {
+        secEl.classList.remove('is-hidden');
+        const secondary = summary.activeCue?.secondary_text || summary.activeCue?.secondaryText || '';
+        secEl.textContent = secondary;
+      }
     }
 
     // Transcript cues fetching and rendering
@@ -1627,6 +1654,23 @@ export class AnimeView {
     if (btn) {
       btn.classList.toggle('active', this.blurSubtitlesEnabled);
     }
+  }
+
+  toggleDualSubtitles(forceState = null) {
+    this.dualSubtitlesEnabled = forceState !== null ? forceState : !this.dualSubtitlesEnabled;
+    const secEl = this.container?.querySelector('#anime-secondary-cue-text');
+    if (secEl) {
+      secEl.classList.toggle('is-hidden', !this.dualSubtitlesEnabled);
+    }
+    const label = this.container?.querySelector('#anime-dual-label');
+    if (label) {
+      label.textContent = this.dualSubtitlesEnabled ? 'Dual: On' : 'Dual: Off';
+    }
+    const btn = this.container?.querySelector('#btn-anime-toggle-dual');
+    if (btn) {
+      btn.classList.toggle('active', this.dualSubtitlesEnabled);
+    }
+    this.updateFromStore();
   }
 
   toggleInspector(forceState = null) {
