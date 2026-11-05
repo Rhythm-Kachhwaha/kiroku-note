@@ -266,6 +266,7 @@ export class AnimeView {
                     <select class="anime-transcript-filter" id="anime-transcript-filter" aria-label="Filter transcript">
                       <option value="all">All lines</option>
                       <option value="max1gap">Lines with &le; 1 unknown</option>
+                      <option value="only-1t">1-Target (i+1) sentences</option>
                       <option value="grammar-above">Grammar above my level</option>
                     </select>
                     <button type="button" class="anime-control-btn btn-sm" id="btn-anime-toggle-coloring" aria-label="Toggle token coloring">
@@ -1260,6 +1261,18 @@ export class AnimeView {
     }
   }
 
+  is1TCue(ann) {
+    if (!ann) return false;
+    if (Array.isArray(ann.gap_words)) {
+      return ann.gap_words.length === 1;
+    }
+    if (Array.isArray(ann.tokens)) {
+      const unknownCount = ann.tokens.filter(tok => tok.status === 'gap' || tok.status === 'unknown' || tok.status === 'new').length;
+      return unknownCount === 1;
+    }
+    return false;
+  }
+
   renderTranscriptList() {
     const listEl = this.container?.querySelector('#anime-transcript-list');
     const badgeEl = this.container?.querySelector('#anime-cues-badge');
@@ -1286,6 +1299,11 @@ export class AnimeView {
         if (!ann) return true; // Keep until analyzed
         const gapCount = Array.isArray(ann.gap_words) ? ann.gap_words.length : 0;
         return gapCount <= 1;
+      });
+    } else if (this.currentFilter === 'only-1t') {
+      filtered = allCues.filter(cue => {
+        const ann = this.annotatedCuesMap.get(`${cueHash}:${cue.i}`);
+        return this.is1TCue(ann);
       });
     } else if (this.currentFilter === 'grammar-above') {
       filtered = allCues.filter(cue => {
@@ -1351,11 +1369,15 @@ export class AnimeView {
       }
 
       const timeLabel = this._formatTime(cue.s);
+      const is1T = this.is1TCue(ann);
+      const badge1tHtml = is1T ? `<span class="badge-1t" title="1-Target sentence (i+1)">1T</span>` : '';
+
       html += `
-        <div class="anime-transcript-item ${isActive ? 'is-active active' : ''}" data-cue-index="${cue.i}" data-start="${cue.s}">
+        <div class="anime-transcript-item ${isActive ? 'is-active active' : ''} ${is1T ? 'is-1t' : ''}" data-cue-index="${cue.i}" data-start="${cue.s}">
           <div class="anime-transcript-meta">
             <span class="anime-transcript-time">[${timeLabel}]</span>
             <span>Cue #${cue.i + 1}</span>
+            ${badge1tHtml}
           </div>
           <div class="anime-transcript-text">
             ${textContent}

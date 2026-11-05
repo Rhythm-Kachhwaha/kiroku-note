@@ -1,5 +1,5 @@
 # Status
-Slice 1: Subtitle blur mode and hotkey B added.
-Target subtitle blurs until hover for listening mode.
-Zero raw hex and zero emoji enforced.
-Tests in desktop/tests/anime_blur_subtitles.test.js pass.
+Slice 2: 1T (i+1) sentence detection and transcript badge added.
+Cues with exactly 1 target gap word display gold 1T badge.
+Transcript filter supports '1-Target (i+1) sentences'.
+Tests in desktop/tests/anime_1t_sentence.test.js pass.

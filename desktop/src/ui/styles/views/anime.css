@@ -123,6 +123,23 @@
   opacity: 1;
 }
 
+.badge-1t {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.4rem;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--pure-black);
+  background: var(--gold);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
 .anime-live-cue-empty {
   font-family: var(--font-sans);
   font-size: 0.95rem;
