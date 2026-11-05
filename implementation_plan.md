@@ -1,4 +1,4 @@
-Completed : 1
+Completed : 1, 2
 # LOAD PROTOCOL (agent: read this block only, then ONE slice)
 User says "do slice N" -> never read the whole file.
 1. Read lines 1-16 only (this block + RULES).

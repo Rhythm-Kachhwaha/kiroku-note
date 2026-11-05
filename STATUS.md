@@ -1,3 +1,4 @@
 # Status
-Slice 1 completed: side panel boot fixed, duplicate escapeHtml removed, classic script mode restored while preserving modules.
-Targeted tests pass: extension-packaging, capture-screenshot, quick-add.
+Slice 2 completed: added boot-in-real-mode test suite and VM dom boot helper.
+Tested script tag parsing, content script concat parsing, file existence, and tab toggle.
+Targeted tests pass (9/9): boot_real_mode.test.js and hero-view.test.js.
