@@ -114,7 +114,35 @@
       const splash = document.getElementById('app-loading-splash');
       const statusText = document.getElementById('status-text');
 
+      const playfulMessages = [
+        "Brewing some espresso...",
+        "Sharpening the digital pencils...",
+        "Dusting off your flashcards...",
+        "Stretching and getting ready...",
+        "Tuning the dictionary bells...",
+        "Waking up the companion cat..."
+      ];
+      let msgIndex = 0;
+      let rotationTimer = null;
+
+      const startMessageRotation = () => {
+        if (!statusText) return;
+        statusText.textContent = playfulMessages[Math.floor(Math.random() * playfulMessages.length)];
+        rotationTimer = setInterval(() => {
+          msgIndex = (msgIndex + 1) % playfulMessages.length;
+          statusText.textContent = playfulMessages[msgIndex];
+        }, 2200);
+      };
+
+      const stopMessageRotation = () => {
+        if (rotationTimer) {
+          clearInterval(rotationTimer);
+          rotationTimer = null;
+        }
+      };
+
       const dismissSplash = () => {
+        stopMessageRotation();
         if (splash && !splash.__dismissed) {
           splash.__dismissed = true;
           if (statusText) statusText.textContent = 'Ready!';
@@ -128,19 +156,18 @@
       };
 
       async function monitorAppReadiness() {
-        if (statusText) statusText.textContent = 'Loading offline fonts...';
+        startMessageRotation();
         try {
           if (document.fonts?.ready) {
             await document.fonts.ready;
           }
         } catch (_) {}
 
-        if (statusText) statusText.textContent = 'Starting background engine...';
-
         let isReady = false;
         const markReady = () => {
           if (isReady) return;
           isReady = true;
+          stopMessageRotation();
           if (statusText) statusText.textContent = 'Warming workspace & companion...';
           setTimeout(dismissSplash, 350);
         };
@@ -167,6 +194,7 @@
             setTimeout(probeBackend, 400);
           } else {
             // Offline fallback after 20s so app remains accessible even if backend is offline
+            stopMessageRotation();
             if (statusText) statusText.textContent = 'Starting in offline mode...';
             setTimeout(dismissSplash, 500);
           }
