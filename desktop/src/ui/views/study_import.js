@@ -70,6 +70,8 @@ export class StudyImportController {
               <h4 class="font-sans font-bold text-xs uppercase text-secondary">Select Pages to Extract</h4>
               <button type="button" class="tactile-btn tactile-btn-sm" id="btn-select-all-pages">Select all text pages</button>
             </div>
+            <div id="pdf-summary-banner" class="text-xs font-sans mb-2 font-mono text-secondary"></div>
+            <div id="pdf-vertical-warning" class="text-xs font-sans p-2 mb-3 tactile-card text-gold" style="display: none; border-left: 3px solid var(--gold);"></div>
             <div class="pdf-pages-grid" id="pdf-pages-grid"></div>
 
             <div class="mt-3 flex items-center justify-end gap-2">
@@ -159,7 +161,7 @@ export class StudyImportController {
     if (btnSelectAll) {
       btnSelectAll.addEventListener('click', () => {
         this.pdfPages.forEach((p) => {
-          if (p.route !== 'image_only' && !p.skipped_ocr) {
+          if (this.isPageReadable(p)) {
             this.selectedPages.add(p.page_number);
           }
         });
@@ -192,9 +194,50 @@ export class StudyImportController {
     }
   }
 
+  isPageReadable(p) {
+    if (!p) return false;
+    if (p.has_text === false) return false;
+    if (p.route === 'image_only' || p.route === 'garbled_text_layer' || p.route === 'poor_text_layer') return false;
+    if (p.skipped_ocr) return false;
+    return true;
+  }
+
+  getPageSkipReason(p) {
+    if (!p) return 'unknown';
+    if (p.route === 'image_only') return 'image-only';
+    if (p.route === 'garbled_text_layer') return 'garbled';
+    if (p.route === 'poor_text_layer') return 'no text';
+    return p.route || 'unreadable';
+  }
+
+  getPageBadge(p) {
+    if (!this.isPageReadable(p)) {
+      const reason = this.getPageSkipReason(p);
+      return { label: `skipped (${reason})`, className: 'text-red' };
+    }
+    if (p.flags && p.flags.includes('non_japanese')) {
+      return { label: 'flagged (non-Japanese)', className: 'text-gold' };
+    }
+    if (p.flags && p.flags.includes('ocr_requested_unavailable')) {
+      return { label: 'flagged (OCR unavailable)', className: 'text-gold' };
+    }
+    if ((p.flags && p.flags.includes('vertical_text_suspected')) || p.vertical_text_suspected) {
+      return { label: 'vertical', className: 'text-gold' };
+    }
+    if (p.route === 'short_text') {
+      return { label: 'short', className: 'text-secondary' };
+    }
+    return { label: 'text', className: 'text-muted' };
+  }
+
   async handleFileSelected(file) {
     if (!file || !file.name.toLowerCase().endsWith('.pdf')) {
       this.setStatus('Please select a valid PDF file (.pdf).', 'error');
+      return;
+    }
+
+    if (file.size && file.size > 25 * 1024 * 1024) {
+      this.setStatus('File exceeds the maximum limit of 25MB. Please upload a smaller PDF.', 'error');
       return;
     }
 
@@ -214,9 +257,9 @@ export class StudyImportController {
       this.pdfPages = inspection.pages || [];
       this.selectedPages.clear();
 
-      // Automatically select text pages by default
+      // Automatically select only readable text pages by default
       this.pdfPages.forEach((p) => {
-        if (p.route !== 'image_only' && !p.skipped_ocr) {
+        if (this.isPageReadable(p)) {
           this.selectedPages.add(p.page_number);
         }
       });
@@ -226,7 +269,16 @@ export class StudyImportController {
       if (pagesSec) pagesSec.style.display = 'block';
       this.renderPageList();
     } catch (err) {
-      this.setStatus(`Failed to inspect PDF: ${err.message}`, 'error');
+      const msg = err.message || '';
+      if (msg.includes('maximum page count') || msg.includes('200')) {
+        this.setStatus('PDF exceeds the maximum limit of 200 pages. Please split your document.', 'error');
+      } else if (msg.includes('maximum upload size') || msg.includes('25MB')) {
+        this.setStatus('File exceeds the maximum limit of 25MB. Please upload a smaller PDF.', 'error');
+      } else if (msg.includes('PDF_EXTRACTION_FAILED') || msg.includes('extract PDF text') || msg.includes('EXTRACTION_FAILED')) {
+        this.setStatus('Unable to extract text from this PDF. The document may be damaged, encrypted, or contain unsupported font encoding.', 'error');
+      } else {
+        this.setStatus(`Failed to inspect PDF: ${msg}`, 'error');
+      }
     }
   }
 
@@ -239,26 +291,59 @@ export class StudyImportController {
       return;
     }
 
+    const summaryEl = this.container.querySelector('#pdf-summary-banner');
+    const warningEl = this.container.querySelector('#pdf-vertical-warning');
+
+    const readable = this.pdfPages.filter((p) => this.isPageReadable(p));
+    const skipped = this.pdfPages.filter((p) => !this.isPageReadable(p));
+
+    if (summaryEl) {
+      if (skipped.length > 0) {
+        const counts = {};
+        skipped.forEach((p) => {
+          const r = this.getPageSkipReason(p);
+          counts[r] = (counts[r] || 0) + 1;
+        });
+        const breakdown = Object.entries(counts).map(([r, c]) => `${r}: ${c}`).join(', ');
+        summaryEl.textContent = `${readable.length} page${readable.length === 1 ? '' : 's'} readable, ${skipped.length} skipped (${breakdown})`;
+      } else {
+        summaryEl.textContent = `${readable.length} page${readable.length === 1 ? '' : 's'} readable, 0 skipped`;
+      }
+    }
+
+    if (warningEl) {
+      const verticalPages = this.pdfPages
+        .filter((p) => (p.flags && p.flags.includes('vertical_text_suspected')) || p.vertical_text_suspected)
+        .map((p) => p.page_number);
+      if (verticalPages.length > 0) {
+        warningEl.style.display = 'block';
+        warningEl.textContent = `Vertical text detected on page ${verticalPages.join(', ')}. Japanese vertical layout extraction may have incomplete reading order.`;
+      } else {
+        warningEl.style.display = 'none';
+      }
+    }
+
     grid.innerHTML = this.pdfPages.map((p) => {
-      const isImageOnly = p.route === 'image_only' || p.skipped_ocr;
-      const routeText = isImageOnly ? 'needs OCR - not available' : (p.route || 'text');
+      const readable = this.isPageReadable(p);
+      const badge = this.getPageBadge(p);
       const isChecked = this.selectedPages.has(p.page_number);
+      const charCount = p.text_char_count || p.char_count || 0;
 
       return `
-        <label class="pdf-page-chip tactile-card ${isImageOnly ? 'is-disabled' : ''} ${isChecked ? 'is-selected' : ''}" style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; margin-bottom: 0.35rem; cursor: ${isImageOnly ? 'not-allowed' : 'pointer'};">
+        <label class="pdf-page-chip tactile-card ${!readable ? 'is-disabled' : ''} ${isChecked ? 'is-selected' : ''}" style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; margin-bottom: 0.35rem; cursor: ${!readable ? 'not-allowed' : 'pointer'};">
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <input
               type="checkbox"
               class="page-select-checkbox"
               data-page="${p.page_number}"
               ${isChecked ? 'checked' : ''}
-              ${isImageOnly ? 'disabled' : ''}
+              ${!readable ? 'disabled' : ''}
             />
             <span class="font-mono text-xs font-bold text-warm-paper">Page ${p.page_number}</span>
           </div>
           <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <span class="text-xs ${isImageOnly ? 'text-red' : 'text-muted'} font-sans">${escapeHtml(routeText)}</span>
-            <span class="text-xs text-muted font-mono">${p.char_count || 0} chars</span>
+            <span class="route-badge text-xs ${badge.className} font-sans font-bold">${escapeHtml(badge.label)}</span>
+            <span class="text-xs text-muted font-mono">${charCount} chars</span>
           </div>
         </label>
       `;
@@ -302,7 +387,14 @@ export class StudyImportController {
       this.setStatus(`Extracted ${this.previewQuestions.length} questions from PDF.`, 'success');
       this.renderPreviewStage();
     } catch (err) {
-      this.setStatus(`PDF Preview failed: ${err.message}`, 'error');
+      const msg = err.message || '';
+      if (msg.includes('IMPORT_EXPIRED') || msg.includes('expired')) {
+        this.setStatus('This import session has expired. Please re-upload your PDF to continue.', 'error');
+      } else if (msg.includes('PDF_EXTRACTION_FAILED') || msg.includes('extract PDF text') || msg.includes('EXTRACTION_FAILED')) {
+        this.setStatus('Unable to extract text from this PDF. The document may be damaged, encrypted, or contain unsupported font encoding.', 'error');
+      } else {
+        this.setStatus(`PDF Preview failed: ${msg}`, 'error');
+      }
     }
   }
 
