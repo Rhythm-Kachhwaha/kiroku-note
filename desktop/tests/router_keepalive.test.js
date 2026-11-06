@@ -112,3 +112,11 @@ test('router keeps opted-in views alive and remounts other views', async () => {
     globalThis.window = previousWindow;
   }
 });
+
+test('AnimeView sets keepAlive and implements onShow and onHide lifecycle', async () => {
+  const { AnimeView } = await import('../src/ui/views/anime.js');
+  const view = new AnimeView({});
+  assert.equal(view.keepAlive, true);
+  assert.equal(typeof view.onShow, 'function');
+  assert.equal(typeof view.onHide, 'function');
+});

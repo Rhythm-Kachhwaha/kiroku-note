@@ -292,6 +292,32 @@ test('Slice 27 Transcript: Rendering, seeking on click, and token coloring', asy
   // Cues 0 and 1 have 0 gap words, cue 2 has 2 gap words
   assert.strictEqual(filteredMax1.length, 2, 'Only cues with <= 1 unknown should render');
 
+  // Test Filter: gap (lines with unknown words only)
+  view.currentFilter = 'gap';
+  view.renderTranscriptList();
+  const filteredGap = container.querySelectorAll('.anime-transcript-item');
+  // Cue 2 has 2 gap words ('冒険', '出かけよう'), cues 0 and 1 have none
+  assert.strictEqual(filteredGap.length, 1, 'Only cue with gap words should render');
+  assert.strictEqual(filteredGap[0].dataset.cueIndex, '2');
+
+  // Test Connection chip in header
+  const chip = container.querySelector('#anime-connection-chip');
+  assert.ok(chip.classList.contains('is-connected'));
+  assert.ok(chip.innerHTML.includes('Connected to youtube'));
+  assert.ok(chip.innerHTML.includes('anime-connection-dot'));
+
+  // Test connecting state
+  fakeStore.status = 'connecting';
+  view.updateFromStore();
+  assert.ok(chip.classList.contains('is-connecting'));
+  assert.ok(chip.innerHTML.includes('Connecting…'));
+
+  // Test disconnected state
+  fakeStore.status = 'disconnected';
+  view.updateFromStore();
+  assert.ok(chip.classList.contains('is-disconnected'));
+  assert.ok(chip.innerHTML.includes('Not Connected'));
+
   // Test Filter: grammar above my level (user is N4, point is N2)
   await view.fetchCueGrammar('hash-frieren-ep1', 1);
   view.currentFilter = 'grammar-above';

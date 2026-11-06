@@ -191,3 +191,33 @@ test('LinkStore: updates session, state, and cues from client events', async () 
 
   client.stop();
 });
+
+test('LinkClient: sends heartbeat pings at interval when connected', async () => {
+  MockWebSocket.instances = [];
+  const { LinkClient } = await import('../src/ui/services/link_client.js');
+
+  const client = new LinkClient({
+    wsUrl: 'ws://127.0.0.1:21828/api/link/ws',
+    token: 'test-token',
+    heartbeatIntervalMs: 50,
+    WebSocketClass: MockWebSocket
+  });
+
+  await client.start();
+  await new Promise(resolve => setTimeout(resolve, 25));
+  const ws = MockWebSocket.instances[0];
+  ws.simulateServerMessage(loadFixture('hello_ok.json'));
+
+  assert.equal(client.authenticated, true);
+  await new Promise(resolve => setTimeout(resolve, 120));
+
+  const pingMessages = ws.sentMessages.map(m => JSON.parse(m)).filter(m => m.type === 'ping');
+  assert.ok(pingMessages.length >= 1, 'Should have sent at least one ping');
+  assert.equal(pingMessages[0].v, 1);
+  assert.equal(pingMessages[0].src, 'desk');
+
+  client.stop();
+  const msgCountAfterStop = ws.sentMessages.length;
+  await new Promise(resolve => setTimeout(resolve, 80));
+  assert.equal(ws.sentMessages.length, msgCountAfterStop, 'No pings sent after stop');
+});

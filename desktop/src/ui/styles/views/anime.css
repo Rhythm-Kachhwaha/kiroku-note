@@ -25,27 +25,39 @@
 
 .anime-layout-grid {
   display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: 1.5rem;
+  grid-template-columns: 1fr 320px;
+  grid-template-rows: auto auto;
+  gap: 1.25rem;
   align-items: start;
-  transition: grid-template-columns var(--duration-fast) var(--spring-smooth);
 }
+.anime-player-card        { grid-column: 1; grid-row: 1; }
+.anime-history-card       { grid-column: 1; grid-row: 2; }
+.anime-sidebar-card       { grid-column: 2; grid-row: 1; }
+.anime-smart-pause-card   { grid-column: 2; grid-row: 2; }
+.anime-inspector-panel    { display: none; }
 
 .anime-layout-grid.has-inspector {
-  grid-template-columns: 1fr 300px 320px;
+  grid-template-columns: 1fr 280px 300px;
+}
+.anime-layout-grid.has-inspector .anime-inspector-panel {
+  display: flex;
+  grid-column: 3;
+  grid-row: 1 / span 2;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1100px) {
   .anime-layout-grid.has-inspector {
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr 280px;
   }
+  .anime-layout-grid.has-inspector .anime-inspector-panel { display: none !important; }
 }
-
-@media (max-width: 900px) {
+@media (max-width: 860px) {
   .anime-layout-grid,
   .anime-layout-grid.has-inspector {
     grid-template-columns: 1fr;
   }
+  .anime-player-card, .anime-history-card,
+  .anime-sidebar-card, .anime-smart-pause-card { grid-column: 1; grid-row: auto; }
 }
 
 .anime-player-card {
@@ -78,6 +90,9 @@
 }
 
 .anime-site-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.15rem 0.5rem;
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -86,7 +101,35 @@
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--industrial-aqua);
+  color: var(--text-muted);
+}
+
+.anime-site-chip .anime-connection-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+.anime-site-chip.is-connected {
+  color: var(--jade);
+}
+.anime-site-chip.is-connected .anime-connection-dot {
+  color: var(--jade);
+}
+
+.anime-site-chip.is-connecting {
+  color: var(--heat-marker);
+}
+.anime-site-chip.is-connecting .anime-connection-dot {
+  color: var(--heat-marker);
+}
+
+.anime-site-chip.is-disconnected {
+  color: var(--text-muted);
+}
+.anime-site-chip.is-disconnected .anime-connection-dot {
+  color: var(--text-muted);
 }
 
 .anime-live-cue-box {
@@ -395,8 +438,9 @@
 }
 
 .anime-transcript-item:hover {
-  background: var(--surface-elevated);
+  background: var(--surface-container-high);
   border-color: var(--tactile-stroke);
+  cursor: pointer;
 }
 
 .anime-transcript-item.is-active,
@@ -919,7 +963,6 @@
   border-radius: var(--radius-lg);
   box-shadow: 3px 3px 0 var(--tactile-stroke);
   padding: 1.25rem;
-  display: flex;
   flex-direction: column;
   gap: 1.25rem;
   min-width: 280px;

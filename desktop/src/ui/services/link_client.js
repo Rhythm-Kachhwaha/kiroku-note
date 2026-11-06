@@ -36,6 +36,7 @@ export class LinkClient {
     this.reconnectAttempts = 0;
     this.reconnectTimer = null;
     this.heartbeatTimer = null;
+    this._heartbeatTimer = null;
     this.handshakeTimer = null;
 
     this.listeners = new Map(); // event -> Set<function>
@@ -228,13 +229,39 @@ export class LinkClient {
     }, delay);
   }
 
+  _sendRaw(msgObj) {
+    const WS_OPEN = (typeof WebSocket !== 'undefined' && WebSocket.OPEN !== undefined) ? WebSocket.OPEN : 1;
+    if (this.ws && (this.ws.readyState === 1 || this.ws.readyState === WS_OPEN)) {
+      try {
+        this.ws.send(typeof msgObj === 'string' ? msgObj : JSON.stringify(msgObj));
+      } catch (err) {
+        this._onError(err);
+      }
+    }
+  }
+
   _startHeartbeat() {
     this._clearHeartbeatTimer();
-    this.heartbeatTimer = setInterval(() => {
-      if (this.connected && this.ws?.readyState === 1) {
-        // Active heartbeat ping interval
+    const interval = this.heartbeatIntervalMs || DEFAULT_HEARTBEAT_INTERVAL_MS;
+    this._heartbeatTimer = setInterval(() => {
+      const WS_OPEN = (typeof WebSocket !== 'undefined' && WebSocket.OPEN !== undefined) ? WebSocket.OPEN : 1;
+      if (this.ws?.readyState === WS_OPEN || this.ws?.readyState === 1) {
+        this._sendRaw({
+          v: LINK_PROTOCOL_VERSION,
+          type: 'ping',
+          src: 'desk',
+          ts: Date.now(),
+          id: `ping-${Date.now()}`,
+          seq: 0,
+          payload: {}
+        });
       }
-    }, this.heartbeatIntervalMs);
+    }, interval);
+    this.heartbeatTimer = this._heartbeatTimer;
+  }
+
+  _cleanup() {
+    this._clearTimers();
   }
 
   _clearTimers() {
@@ -247,6 +274,10 @@ export class LinkClient {
   }
 
   _clearHeartbeatTimer() {
+    if (this._heartbeatTimer) {
+      clearInterval(this._heartbeatTimer);
+      this._heartbeatTimer = null;
+    }
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
@@ -297,7 +328,7 @@ export class LinkClient {
 
   stop() {
     this.stopped = true;
-    this._clearTimers();
+    this._cleanup();
     if (this.ws) {
       try {
         if (this.connected && this.ws.readyState === 1) {

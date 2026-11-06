@@ -32,9 +32,35 @@ function shouldShowFurigana(tokenLevel, learnerLevel) {
   return pRank >= uRank;
 }
 
+let _sharedLinkClient = null;
+let _sharedLinkStore = null;
+let _sharedLinkMineService = null;
+
+export function getSharedLink(options = {}) {
+  if (!_sharedLinkClient) {
+    _sharedLinkClient = options.linkClient || new LinkClient();
+    _sharedLinkStore = options.linkStore || new LinkStore(_sharedLinkClient);
+    _sharedLinkClient.start().catch((err) => {
+      console.warn('[AnimeView] LinkClient failed to start:', err);
+    });
+  }
+  if (!_sharedLinkMineService) {
+    _sharedLinkMineService = options.linkMineService || new LinkMineService({
+      linkStore: _sharedLinkStore,
+      apiClient: options.apiClient || apiClient
+    });
+  }
+  return {
+    linkClient: _sharedLinkClient,
+    linkStore: _sharedLinkStore,
+    linkMineService: _sharedLinkMineService
+  };
+}
+
 export class AnimeView {
   constructor(router, options = {}) {
     this.router = router;
+    this.keepAlive = true;
     this.options = options;
     this.apiClient = options.apiClient || apiClient;
     this.learnerLevel = options.learnerLevel || (typeof getUniversalJlptLevel === 'function' ? getUniversalJlptLevel() : 'N4');
@@ -99,18 +125,11 @@ export class AnimeView {
   }
 
   _initStore() {
-    if (!this.linkClient) {
-      this.linkClient = new LinkClient();
-      this.linkStore = new LinkStore(this.linkClient);
-      this.linkClient.start().catch((err) => {
-        console.warn('[AnimeView] LinkClient failed to start:', err);
-      });
-    }
-    if (!this.linkMineService) {
-      this.linkMineService = new LinkMineService({
-        linkStore: this.linkStore,
-        apiClient: this.apiClient
-      });
+    if (!this.linkClient || !this.linkStore || !this.linkMineService) {
+      const shared = getSharedLink(this.options);
+      if (!this.linkClient) this.linkClient = shared.linkClient;
+      if (!this.linkStore) this.linkStore = shared.linkStore;
+      if (!this.linkMineService) this.linkMineService = shared.linkMineService;
     }
   }
 
@@ -145,7 +164,10 @@ export class AnimeView {
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H5V5h9v12zm5 0h-3V5h3v12z"/></svg>
                 <span>Inspector</span>
               </button>
-              <span class="anime-site-chip" id="anime-connection-chip">Disconnected</span>
+              <span class="anime-site-chip is-disconnected" id="anime-connection-chip">
+                <svg viewBox="0 0 8 8" width="8" height="8" class="anime-connection-dot" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
+                <span class="anime-connection-text">Not Connected</span>
+              </span>
             </div>
           </div>
 
@@ -282,6 +304,7 @@ export class AnimeView {
                   <div class="flex items-center gap-2">
                     <select class="anime-transcript-filter" id="anime-transcript-filter" aria-label="Filter transcript">
                       <option value="all">All lines</option>
+                      <option value="gap">Unknown words only</option>
                       <option value="max1gap">Lines with &le; 1 unknown</option>
                       <option value="only-1t">1-Target (i+1) sentences</option>
                       <option value="grammar-above">Grammar above my level</option>
@@ -640,14 +663,27 @@ export class AnimeView {
       this._updateOffsetBadge();
     });
 
-    // Transcript list click delegation
+    // Transcript list click delegation (click-to-seek)
     const listEl = this.container.querySelector('#anime-transcript-list');
     listEl?.addEventListener('click', (e) => {
+      if (e.target.closest('.anime-token-chip') || e.target.closest('button')) {
+        return;
+      }
       const item = e.target.closest('.anime-transcript-item');
-      if (item && item.dataset.start !== undefined) {
-        const startTime = parseFloat(item.dataset.start);
-        if (!isNaN(startTime)) {
-          this.linkStore?.seek(startTime);
+      if (item) {
+        if (item.dataset.start !== undefined) {
+          const startTime = parseFloat(item.dataset.start);
+          if (!isNaN(startTime)) {
+            this.linkStore?.seek(startTime);
+            return;
+          }
+        }
+        if (item.dataset.cueIndex !== undefined) {
+          const idx = parseInt(item.dataset.cueIndex, 10);
+          const cue = this.linkStore?.cues?.find(c => c.i === idx);
+          if (cue && typeof cue.s === 'number') {
+            this.linkStore?.seek(cue.s);
+          }
         }
       }
     });
@@ -790,18 +826,47 @@ export class AnimeView {
       window.addEventListener('keydown', this._keyListener);
     }
 
-    if (this.linkStore) {
-      this._statusListener = () => this.updateFromStore();
-      this._sessionListener = () => this.updateFromStore();
-      this._stateListener = () => this.updateFromStore();
-      this._cueListener = () => this.updateFromStore();
-      this._activeCueListener = () => this.updateFromStore();
+    this._attachStoreListeners();
+  }
 
-      this.linkStore.on('status', this._statusListener);
-      this.linkStore.on('session', this._sessionListener);
-      this.linkStore.on('video:state', this._stateListener);
-      this.linkStore.on('cues', this._cueListener);
-      this.linkStore.on('cue:active', this._activeCueListener);
+  _attachStoreListeners() {
+    if (!this.linkStore) return;
+    this._detachStoreListeners();
+
+    this._statusListener = () => this.updateFromStore();
+    this._sessionListener = () => this.updateFromStore();
+    this._stateListener = () => this.updateFromStore();
+    this._cueListener = () => this.updateFromStore();
+    this._activeCueListener = () => this.updateFromStore();
+
+    this.linkStore.on('status', this._statusListener);
+    this.linkStore.on('session', this._sessionListener);
+    this.linkStore.on('video:state', this._stateListener);
+    this.linkStore.on('cues', this._cueListener);
+    this.linkStore.on('cue:active', this._activeCueListener);
+  }
+
+  _detachStoreListeners() {
+    if (!this.linkStore) return;
+    if (this._statusListener) {
+      this.linkStore.off('status', this._statusListener);
+      this._statusListener = null;
+    }
+    if (this._sessionListener) {
+      this.linkStore.off('session', this._sessionListener);
+      this._sessionListener = null;
+    }
+    if (this._stateListener) {
+      this.linkStore.off('video:state', this._stateListener);
+      this._stateListener = null;
+    }
+    if (this._cueListener) {
+      this.linkStore.off('cues', this._cueListener);
+      this._cueListener = null;
+    }
+    if (this._activeCueListener) {
+      this.linkStore.off('cue:active', this._activeCueListener);
+      this._activeCueListener = null;
     }
   }
 
@@ -1044,12 +1109,29 @@ export class AnimeView {
     const summary = this.linkStore.getStatusSummary();
     const isConnected = summary.status === 'connected';
 
-    // Connection chip
+    // Connection chip (Task 6)
     const chip = this.container.querySelector('#anime-connection-chip');
     if (chip) {
-      chip.textContent = isConnected ? 'Connected' : 'Listening';
-      if (chip.style) {
-        chip.style.color = isConnected ? 'var(--industrial-aqua)' : 'var(--text-muted)';
+      const dotSvg = '<svg viewBox="0 0 8 8" width="8" height="8" class="anime-connection-dot" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>';
+      chip.classList.remove('is-connected', 'is-connecting', 'is-disconnected');
+      if (summary.status === 'connected') {
+        chip.classList.add('is-connected');
+        let hostname = summary.activeSession?.site;
+        if (!hostname && this.linkClient?.wsUrl) {
+          try {
+            hostname = new URL(this.linkClient.wsUrl).host;
+          } catch (_) {
+            hostname = '127.0.0.1';
+          }
+        }
+        if (!hostname) hostname = 'Companion';
+        chip.innerHTML = `${dotSvg}<span class="anime-connection-text">Connected to ${escapeHtml(hostname)}</span>`;
+      } else if (summary.status === 'connecting') {
+        chip.classList.add('is-connecting');
+        chip.innerHTML = `${dotSvg}<span class="anime-connection-text">Connecting…</span>`;
+      } else {
+        chip.classList.add('is-disconnected');
+        chip.innerHTML = `${dotSvg}<span class="anime-connection-text">Not Connected</span>`;
       }
     }
 
@@ -1402,7 +1484,23 @@ export class AnimeView {
 
     // Apply filters
     let filtered = allCues;
-    if (this.currentFilter === 'max1gap') {
+    if (this.currentFilter === 'gap') {
+      filtered = allCues.filter(cue => {
+        const ann = this.annotatedCuesMap.get(`${cueHash}:${cue.i}`);
+        if (ann) {
+          if (Array.isArray(ann.tokens) && ann.tokens.length > 0) {
+            return ann.tokens.some(t => t.status === 'gap' || t.status === 'unknown' || t.status === 'new');
+          }
+          if (Array.isArray(ann.gap_words) && ann.gap_words.length > 0) {
+            return true;
+          }
+        }
+        if (Array.isArray(cue.tokens) && cue.tokens.length > 0) {
+          return cue.tokens.some(t => t.status === 'gap' || t.status === 'unknown' || t.status === 'new');
+        }
+        return false;
+      });
+    } else if (this.currentFilter === 'max1gap') {
       filtered = allCues.filter(cue => {
         const ann = this.annotatedCuesMap.get(`${cueHash}:${cue.i}`);
         if (!ann) return true; // Keep until analyzed
@@ -1810,25 +1908,39 @@ export class AnimeView {
     }
   }
 
-  unmount() {
-    this._flushSessionStats();
-    if (this.shadowingRecorder) {
-      this.shadowingRecorder.dispose();
+  onShow() {
+    this._attachStoreListeners();
+    if (this._keyListener && typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this._keyListener);
+      window.addEventListener('keydown', this._keyListener);
+    }
+    if (!this._positionSaveTimer && typeof setInterval !== 'undefined') {
+      this._positionSaveTimer = setInterval(() => {
+        this._savePositionIfPlaying();
+      }, 15000);
+      if (this._positionSaveTimer && typeof this._positionSaveTimer.unref === 'function') {
+        this._positionSaveTimer.unref();
+      }
+    }
+    this.updateFromStore();
+  }
+
+  onHide() {
+    this._detachStoreListeners();
+    if (this._keyListener && typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this._keyListener);
     }
     if (this._positionSaveTimer) {
       clearInterval(this._positionSaveTimer);
       this._positionSaveTimer = null;
     }
-    if (this._keyListener && typeof window !== 'undefined') {
-      window.removeEventListener('keydown', this._keyListener);
-      this._keyListener = null;
-    }
-    if (this.linkStore) {
-      if (this._statusListener) this.linkStore.off('status', this._statusListener);
-      if (this._sessionListener) this.linkStore.off('session', this._sessionListener);
-      if (this._stateListener) this.linkStore.off('video:state', this._stateListener);
-      if (this._cueListener) this.linkStore.off('cues', this._cueListener);
-      if (this._activeCueListener) this.linkStore.off('cue:active', this._activeCueListener);
+    this._flushSessionStats();
+  }
+
+  unmount() {
+    this.onHide();
+    if (this.shadowingRecorder) {
+      this.shadowingRecorder.dispose();
     }
     if (this.container) {
       this.container.innerHTML = '';
