@@ -18,6 +18,7 @@ export class SettingsView {
     this.container = null;
     this.ocrRunning = false;
     this._scrollObserver = null;
+    this._linkPollTimer = null;
   }
 
   async mount(container) {
@@ -25,6 +26,7 @@ export class SettingsView {
     this.render();
     this.setupEvents();
     this.setupScrollspy();
+    this._startLinkPolling();
     await this.loadInitialSettings();
   }
 
@@ -69,7 +71,6 @@ export class SettingsView {
               </a>
               <a href="#settings-section-link" class="settings-rail-link" data-target="settings-section-link">
                 <span>Link</span>
-                <span class="rail-badge">Soon</span>
               </a>
               <a href="#settings-section-rewards" class="settings-rail-link" data-target="settings-section-rewards">
                 <span>Rewards</span>
@@ -109,7 +110,13 @@ export class SettingsView {
                       Note: Selecting a level sets your active study focus. It does not automatically mark prior grammar points or kanji as mastered; your progress honestly reflects your real study history.
                     </p>
                   </div>
+                </div>
 
+                <div class="settings-group-header mt-6">
+                  <span class="font-mono text-xs text-gold">Curriculum</span>
+                  <h2 class="text-base font-bold text-warm-paper">Study Bank Questions Ingestion</h2>
+                </div>
+                <div class="settings-cards-grid mt-2">
                   <!-- Upload Questions Card (PDF & Questions Ingestion) -->
                   <div class="settings-card tactile-card" id="settings-upload-questions-card">
                     <div class="card-header-row">
@@ -285,10 +292,23 @@ export class SettingsView {
                       <button type="button" class="tactile-btn tactile-btn-sm" id="btn-probe-tokenizer">Verify Engine</button>
                     </div>
                   </div>
+
+                  <!-- Manga-OCR Daemon -->
+                  <div class="settings-card tactile-card">
+                    <div class="card-header-row">
+                      <h3 class="card-title">Manga-OCR Daemon</h3>
+                      <span class="status-dot" id="ocr-status-tag" data-state="stopped" title="Stopped"></span>
+                    </div>
+                    <p class="card-desc">Isolated, optional CPU-only manga-ocr background server on loopback port 21829.</p>
+
+                    <div class="card-actions-row mt-3">
+                      <button type="button" class="tactile-btn" id="btn-toggle-ocr">Start OCR Server</button>
+                    </div>
+                  </div>
                 </div>
               </section>
 
-              <!-- Section 4: Link (Coming empty) -->
+              <!-- Section 4: Link (Replaces stub: Coming in Slice 38) -->
               <section class="settings-section" id="settings-section-link">
                 <div class="settings-group-header">
                   <span class="font-mono text-xs text-gold">Companion Sync</span>
@@ -298,14 +318,21 @@ export class SettingsView {
                   <div class="settings-card tactile-card">
                     <div class="card-header-row">
                       <h3 class="card-title">Browser Link Companion</h3>
-                      <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-muted">Coming in Slice 38</span>
+                      <div class="flex items-center gap-2">
+                        <span class="status-dot" id="settings-link-dot"></span>
+                        <span class="card-desc" id="settings-link-status-text">Not Connected</span>
+                      </div>
                     </div>
-                    <p class="card-desc">
-                      Bi-directional companion bridge connecting Chrome/Chromium video players directly to Kiroku Note desktop.
-                    </p>
-                    <div class="p-4 mt-3 rounded border border-tactile text-center bg-surface-lowest">
-                      <span class="font-mono text-xs text-muted">Link companion integration will be unlocked in Slice 38.</span>
+                    <p class="card-desc">Bi-directional companion bridge for anime subtitle mining.</p>
+                    <div class="form-row-pair mt-3">
+                      <label class="card-desc font-mono">Pairing Code</label>
+                      <div class="flex gap-2">
+                        <input id="settings-link-code-input" class="tactile-input font-mono text-sm"
+                               placeholder="Paste code from extension" autocomplete="off" />
+                        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-settings-link-pair">Pair</button>
+                      </div>
                     </div>
+                    <div id="settings-link-feedback" class="card-desc mt-2" style="display:none"></div>
                   </div>
 
                   <!-- Global Hotkeys Card (Slice 45) -->
@@ -394,19 +421,6 @@ export class SettingsView {
                   <h2 class="text-base font-bold text-warm-paper">Database Diagnostics &amp; Process Lifecycle</h2>
                 </div>
                 <div class="settings-cards-grid mt-2">
-                  <!-- Manga-OCR Daemon -->
-                  <div class="settings-card tactile-card">
-                    <div class="card-header-row">
-                      <h3 class="card-title">Manga-OCR Daemon</h3>
-                      <span class="status-dot" id="ocr-status-tag" data-state="stopped" title="Stopped"></span>
-                    </div>
-                    <p class="card-desc">Isolated, optional CPU-only manga-ocr background server on loopback port 21829.</p>
-
-                    <div class="card-actions-row mt-3">
-                      <button type="button" class="tactile-btn" id="btn-toggle-ocr">Start OCR Server</button>
-                    </div>
-                  </div>
-
                   <!-- AI Explanation Provider -->
                   <div class="settings-card tactile-card">
                     <div class="card-header-row">
@@ -596,6 +610,68 @@ export class SettingsView {
         await setUniversalJlptLevel(lvl);
       });
     });
+
+    // Browser Link Companion Pairing
+    const btnLinkPair = document.getElementById('btn-settings-link-pair');
+    const inputLinkCode = document.getElementById('settings-link-code-input');
+    const feedbackLink = document.getElementById('settings-link-feedback');
+
+    if (btnLinkPair) {
+      btnLinkPair.addEventListener('click', async () => {
+        const code = inputLinkCode?.value?.trim();
+        if (!code) {
+          if (feedbackLink) {
+            feedbackLink.textContent = 'Please enter a pairing code.';
+            feedbackLink.style.display = 'block';
+            feedbackLink.style.color = 'var(--rust-signal)';
+          }
+          return;
+        }
+
+        btnLinkPair.disabled = true;
+        btnLinkPair.textContent = 'Pairing...';
+        if (feedbackLink) feedbackLink.style.display = 'none';
+
+        try {
+          if (window.desktopAPI?.storeLinkToken) {
+            await window.desktopAPI.storeLinkToken(code);
+          } else if (window.chrome?.storage?.local?.set) {
+            await window.chrome.storage.local.set({ link_token: code });
+          } else if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem('kiroku.link.token', code);
+          }
+
+          try {
+            await apiClient.request('/api/auth/extension-pairings/verify', {
+              method: 'POST',
+              body: JSON.stringify({ code }),
+              headers: { 'Content-Type': 'application/json' },
+            });
+          } catch {
+            // Optional backend pairing registration
+          }
+
+          if (feedbackLink) {
+            feedbackLink.textContent = 'Pairing code saved.';
+            feedbackLink.style.display = 'block';
+            feedbackLink.style.color = 'var(--jade)';
+          }
+          if (inputLinkCode) inputLinkCode.value = '';
+
+          await this.checkLinkStatus();
+        } catch (err) {
+          console.warn('[Settings] Failed pairing link companion:', err);
+          if (feedbackLink) {
+            feedbackLink.textContent = 'Failed to pair: ' + (err.message || 'Error');
+            feedbackLink.style.display = 'block';
+            feedbackLink.style.color = 'var(--rust-signal)';
+          }
+        } finally {
+          btnLinkPair.disabled = false;
+          btnLinkPair.textContent = 'Pair';
+        }
+      });
+    }
 
     // Tokenizer Mode Selector
     const selectTokMode = document.getElementById('select-tokenizer-mode');
@@ -1379,7 +1455,66 @@ export class SettingsView {
     }
   }
 
+  async checkLinkStatus() {
+    const dot = document.getElementById('settings-link-dot');
+    const text = document.getElementById('settings-link-status-text');
+    if (!dot && !text) return;
+
+    try {
+      const res = await apiClient.request('/api/link/status');
+      const isConnected = Boolean(
+        res && (
+          res.connected ||
+          res.status === 'ok' ||
+          (res.connected_ext !== undefined && res.connected_ext > 0) ||
+          (res.desk_clients !== undefined && res.desk_clients > 0) ||
+          (Array.isArray(res.sessions) && res.sessions.length > 0)
+        )
+      );
+
+      if (dot) {
+        dot.className = isConnected ? 'status-dot ok' : 'status-dot error';
+        dot.dataset.state = isConnected ? 'connected' : 'disconnected';
+      }
+      if (text) {
+        if (isConnected) {
+          const sessionsCount = Array.isArray(res.sessions) ? res.sessions.length : 0;
+          text.textContent = sessionsCount > 0 ? `Connected (${sessionsCount} active)` : 'Connected';
+          text.style.color = 'var(--jade)';
+        } else {
+          text.textContent = 'Not Connected';
+          text.style.color = 'var(--text-secondary)';
+        }
+      }
+    } catch {
+      if (dot) {
+        dot.className = 'status-dot error';
+        dot.dataset.state = 'error';
+      }
+      if (text) {
+        text.textContent = 'Not Connected';
+        text.style.color = 'var(--text-secondary)';
+      }
+    }
+  }
+
+  _startLinkPolling() {
+    this._stopLinkPolling();
+    this.checkLinkStatus();
+    this._linkPollTimer = setInterval(() => {
+      this.checkLinkStatus();
+    }, 3000);
+  }
+
+  _stopLinkPolling() {
+    if (this._linkPollTimer) {
+      clearInterval(this._linkPollTimer);
+      this._linkPollTimer = null;
+    }
+  }
+
   unmount() {
+    this._stopLinkPolling();
     if (this._scrollObserver) {
       this._scrollObserver.disconnect();
       this._scrollObserver = null;

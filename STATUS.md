@@ -1,5 +1,6 @@
 # Status
-Slice C: Desktop link client heartbeat & singleton store.
-AnimeView keepAlive enabled with onShow/onHide lifecycle.
-Explicit grid layout, transcript seek & gap filter wired.
-All targeted desktop link and router keepalive tests pass.
+Slice D: Settings layout container query & header styling.
+Moved Upload Questions and Manga-OCR to proper sections.
+Active Browser Link Companion pairing card & status polling.
+Settings rail sticky offset fixed; zero token violations.
+Final lock and screen settings tests pass.
