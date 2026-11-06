@@ -248,6 +248,7 @@ class KirokuDictionaryRegressionGuardTests(unittest.TestCase):
         "datetime",
         "enum",
         "functools",
+        "hashlib",
         "itertools",
         "json",
         "logging",
@@ -257,6 +258,7 @@ class KirokuDictionaryRegressionGuardTests(unittest.TestCase):
         "re",
         "sqlite3",
         "sys",
+        "tempfile",
         "threading",
         "time",
         "typing",
@@ -271,7 +273,11 @@ class KirokuDictionaryRegressionGuardTests(unittest.TestCase):
         "build",
         "deinflect",
         "lookup",
+        "normalizer",
+        "paths",
+        "provision",
         "yomitan_payload",
+        "shutil",
     }
 
     def test_no_forbidden_or_third_party_imports(self):

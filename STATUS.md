@@ -1,6 +1,5 @@
 # Status
-Slice E & F: Manga nav tab in bottom dock and router.
-Manga header button in anime tab and back link in manga view.
-Pill snapshot cross-fade suppressed in view transitions.
-Router pre-mounts view before transition; prewarm throttled.
-All final lock, router, anime, and manga tests pass.
+B-6 fixed: allow stdlib & package modules in dict guard.
+Decoupled app import in kiroku_dictionary/provision.py.
+All 5 kiroku_dictionary tests passing.
+Next: B-2 (LLM JLPT level default).

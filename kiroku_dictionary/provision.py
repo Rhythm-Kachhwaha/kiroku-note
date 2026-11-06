@@ -10,6 +10,7 @@ import json
 import logging
 import os
 from pathlib import Path
+import shutil
 import sqlite3
 import sys
 import tempfile
@@ -205,13 +206,13 @@ def provision_database(
 
         out_db_path.parent.mkdir(parents=True, exist_ok=True)
         # Use shutil.copy2 or os.replace (copy across drive volumes if tmpdir on different mount)
-        import shutil
         shutil.copy2(temp_out, out_db_path)
 
         # Reset dictionary service singleton so new DB is picked up immediately
         try:
-            from app.services.yomitan import reset_dictionary_service
-            reset_dictionary_service()
+            svc_mod = sys.modules.get("app.services.yomitan")
+            if svc_mod and hasattr(svc_mod, "reset_dictionary_service"):
+                svc_mod.reset_dictionary_service()
         except Exception:
             pass
 
