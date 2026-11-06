@@ -1,6 +1,5 @@
 # Status
-Slice 8 (Stack Polish): Immersion suite stack findings resolved.
-Blur and dual subtitle settings persist to localStorage.
-Live 1T cue badge and hotkey D wired; secondary blur synced.
-Condensed audio padding and Manga inspector mining operational.
-All 21 suite tests across backend, desktop, and extension pass.
+Slice A: Link bridge & background pipeline repaired.
+Fixed link-bridge IIFE auto-start scope & window attachment.
+Corrected cue.list and cue.active schemas with stable hash.
+Added HiAnime title fallback, relative seeks, & clip script.

@@ -78,6 +78,20 @@
       return false;
     }
 
+    _getVideoTitle() {
+      let title = (typeof document !== "undefined" && document.title) ? document.title.trim() : "";
+      if (!title && typeof document !== "undefined") {
+        const titleEl = document.querySelector("title");
+        if (titleEl?.textContent) {
+          title = titleEl.textContent.trim();
+        }
+      }
+      if (!title && typeof location !== "undefined" && location.hostname) {
+        title = location.hostname;
+      }
+      return title || "Video";
+    }
+
     start() {
       if (this.chromeRuntime?.onMessage?.addListener) {
         this.chromeRuntime.onMessage.addListener(this._boundRuntimeMessage);
@@ -133,7 +147,7 @@
       } catch (_) {}
 
       // Emit video.attach
-      const title = (typeof document !== "undefined" && document.title) ? document.title : "";
+      const title = this._getVideoTitle();
       const site = (typeof location !== "undefined" && location.hostname) ? location.hostname : "unknown";
       const duration = typeof video.duration === "number" && !isNaN(video.duration) ? video.duration : 0.0;
       const drm = this.isDrmSite();
@@ -220,22 +234,35 @@
       const poc = this.getPocInstance();
       if (poc?.syncEngine?.cues && Array.isArray(poc.syncEngine.cues) && poc.syncEngine.cues.length > 0) {
         const rawCues = poc.syncEngine.cues;
-        const cues = rawCues.map((c, idx) => ({
-          idx,
-          start: typeof c.startTime === "number" ? c.startTime : (c.startMs ? c.startMs / 1000 : 0.0),
-          end: typeof c.endTime === "number" ? c.endTime : (c.endMs ? c.endMs / 1000 : 0.0),
-          text: c.text || c.rawText || "",
-          tokens: Array.isArray(c.tokens) ? c.tokens.map(tok => ({
-            surface: tok.surface || tok.text || "",
-            reading: tok.reading || "",
-            lemma: tok.lemma || "",
-            status: tok.status || "unstyled"
-          })) : []
-        }));
+        const cues = rawCues.map((c, idx) => {
+          const s = typeof c.startTime === "number" ? c.startTime : (c.startMs ? c.startMs / 1000 : 0.0);
+          const rawEnd = typeof c.endTime === "number" ? c.endTime : (c.endMs ? c.endMs / 1000 : 0.0);
+          const e = Math.max(s, rawEnd);
+          return {
+            i: typeof c.id === "number" ? c.id : idx,
+            s,
+            e,
+            text: c.text || c.rawText || ""
+          };
+        });
+
+        const title = this._getVideoTitle();
+        let hash = "";
+        try {
+          const raw = encodeURIComponent(String(title || "")) + String(cues.length);
+          if (typeof btoa === "function") {
+            hash = btoa(raw).slice(0, 16);
+          } else if (typeof Buffer !== "undefined") {
+            hash = Buffer.from(raw).toString("base64").slice(0, 16);
+          }
+        } catch (_) {}
+        if (!hash) {
+          hash = `hash-${Date.now()}-${cues.length}`;
+        }
 
         this.emitToBackground("cue.list", {
           tab: this.attachedTabId || 0,
-          count: cues.length,
+          hash,
           cues
         });
       }
@@ -245,25 +272,24 @@
       if (!cue) {
         this.emitToBackground("cue.active", {
           tab: this.attachedTabId || 0,
-          cue: null
+          i: null,
+          secondary_text: null
         });
         return;
       }
-      const active = {
-        idx: typeof cue.id === "number" ? cue.id : 0,
-        start: typeof cue.startTime === "number" ? cue.startTime : (cue.startMs ? cue.startMs / 1000 : 0.0),
-        end: typeof cue.endTime === "number" ? cue.endTime : (cue.endMs ? cue.endMs / 1000 : 0.0),
-        text: cue.text || cue.rawText || "",
-        tokens: Array.isArray(cue.tokens) ? cue.tokens.map(tok => ({
-          surface: tok.surface || tok.text || "",
-          reading: tok.reading || "",
-          lemma: tok.lemma || "",
-          status: tok.status || "unstyled"
-        })) : []
-      };
+      const cueIndex = typeof cue.id === "number"
+        ? cue.id
+        : (typeof cue.i === "number"
+          ? cue.i
+          : (typeof cue.idx === "number" ? cue.idx : 0));
+      const secondaryText = typeof cue.secondary_text === "string"
+        ? cue.secondary_text
+        : (typeof cue.secondaryText === "string" ? cue.secondaryText : null);
+
       this.emitToBackground("cue.active", {
         tab: this.attachedTabId || 0,
-        cue: active
+        i: cueIndex,
+        secondary_text: secondaryText
       });
     }
 
@@ -282,6 +308,14 @@
       if (message?.type === "LINK_CMD") {
         const cmdType = message.cmdType;
         const payload = message.payload || {};
+        if (cmdType === "SUBTITLE_CUE_CHANGED") {
+          const cue = payload.cue || (payload.payload && payload.payload.cue) || null;
+          this.emitActiveCue(cue);
+          if (sendResponse) {
+            sendResponse({ ok: true });
+          }
+          return true;
+        }
         const handled = this.executeCommand(cmdType, payload);
         if (sendResponse) {
           sendResponse({ ok: handled });
@@ -319,20 +353,31 @@
           break;
 
         case "cmd.seek": {
-          const t = typeof payload.t === "number" ? payload.t : null;
-          if (t !== null && vid) {
-            vid.currentTime = Math.max(0, t);
-            if (poc?.syncEngine?.sync) {
-              poc.syncEngine.sync(true);
+          if (vid) {
+            if (payload.delta !== undefined && !isNaN(Number(payload.delta))) {
+              const delta = Number(payload.delta);
+              vid.currentTime = Math.max(0, (vid.currentTime || 0) + delta);
+              if (poc?.syncEngine?.sync) {
+                poc.syncEngine.sync(true);
+              }
+              this._emitVideoState();
+              return true;
             }
-            this._emitVideoState();
-            return true;
+            const t = typeof payload.t === "number" ? payload.t : (payload.t !== undefined && !isNaN(Number(payload.t)) ? Number(payload.t) : null);
+            if (t !== null) {
+              vid.currentTime = Math.max(0, t);
+              if (poc?.syncEngine?.sync) {
+                poc.syncEngine.sync(true);
+              }
+              this._emitVideoState();
+              return true;
+            }
           }
           break;
         }
 
         case "cmd.jump": {
-          const delta = typeof payload.delta === "number" ? payload.delta : 0;
+          const delta = typeof payload.delta === "number" ? payload.delta : (!isNaN(Number(payload.delta)) ? Number(payload.delta) : 0);
           if (vid) {
             vid.currentTime = Math.max(0, (vid.currentTime || 0) + delta);
             if (poc?.syncEngine?.sync) {
@@ -393,15 +438,16 @@
     }
   }
 
+  // Auto-start in content script environment if in browser
+  if (typeof window !== "undefined") {
+    if (!window.__kirokuLinkBridge) {
+      const bridge = new LinkBridge();
+      bridge.start();
+      window.__kirokuLinkBridge = bridge;
+    }
+  }
+
   return {
     LinkBridge
   };
 });
-
-
-  // Auto-start in content script environment if in browser
-  if (typeof window !== 'undefined') {
-    const bridge = new LinkBridge();
-    bridge.start();
-    window.__kirokuLinkBridge = bridge;
-  }

@@ -32,15 +32,47 @@ const VIDEO_MINING_SCRIPTS = [
   "lib/subtitle-provider.js",
   "lib/jimaku-provider.js",
   "lib/image-cropper.js",
+  "link/clip.js",
   "content/video-mining.js",
   "content/link-bridge.js"
 ];
 
-async function ensureVideoMiningScript(tabId) {
+async function ensureVideoMiningScript(tabId, targetFrameId = null) {
   if (!tabId || tabId < 0) return;
   try {
-    const ping = await chrome.tabs.sendMessage(tabId, { type: "PING_VIDEO_MINING" }).catch(() => null);
-    if (ping?.ok) return;
+    if (typeof targetFrameId === "number" && targetFrameId !== 0) {
+      const ping = await chrome.tabs.sendMessage(tabId, { type: "PING_VIDEO_MINING" }, { frameId: targetFrameId }).catch(() => null);
+      if (ping?.ok) return;
+      await chrome.scripting.executeScript({
+        target: { tabId, frameIds: [targetFrameId] },
+        files: VIDEO_MINING_SCRIPTS
+      });
+      return;
+    }
+
+    if (chrome.webNavigation?.getAllFrames) {
+      const frames = await chrome.webNavigation.getAllFrames({ tabId }).catch(() => []);
+      if (frames && frames.length > 0) {
+        let allOk = true;
+        for (const frame of frames) {
+          const res = await chrome.tabs.sendMessage(tabId, { type: "PING_VIDEO_MINING" }, { frameId: frame.frameId }).catch(() => null);
+          if (!res?.ok) {
+            allOk = false;
+            break;
+          }
+        }
+        if (allOk) return;
+      }
+    } else {
+      const ping = await chrome.tabs.sendMessage(tabId, { type: "PING_VIDEO_MINING" }).catch(() => null);
+      if (!ping?.ok) {
+        await chrome.scripting.executeScript({
+          target: { tabId, allFrames: true },
+          files: VIDEO_MINING_SCRIPTS
+        });
+        return;
+      }
+    }
 
     await chrome.scripting.executeScript({
       target: { tabId, allFrames: true },
@@ -326,10 +358,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "SUBTITLE_CUE_CHANGED") {
+    if (sender?.tab?.id) {
+      chrome.tabs.sendMessage(sender.tab.id, {
+        type: "LINK_CMD",
+        cmdType: "SUBTITLE_CUE_CHANGED",
+        payload: message
+      }).catch(() => {});
+    }
+    sendResponse({ ok: true });
+    return true;
+  }
+
   if (message?.type === "VIDEO_DETECTED") {
     const tabId = sender?.tab?.id;
     if (tabId) {
-      ensureVideoMiningScript(tabId);
+      ensureVideoMiningScript(tabId, sender?.frameId);
     }
     sendResponse({ ok: true });
     return true;
@@ -455,10 +499,13 @@ chrome.tabs.onActivated?.addListener?.(activeInfo => {
 });
 
 chrome.tabs.onUpdated?.addListener?.((tabId, changeInfo, tab) => {
-  if (isMiningModeEnabled && changeInfo.status === "complete" && tab?.url && !tab.url.startsWith("chrome://")) {
-    ensureContentScript(tabId).then(() => {
-      chrome.tabs.sendMessage(tabId, {type: "MINING_MODE_CHANGED", enabled: true}).catch(() => {});
-    }).catch(() => {});
+  if (changeInfo.status === "complete" && tab?.url && !tab.url.startsWith("chrome://")) {
+    if (isMiningModeEnabled) {
+      ensureContentScript(tabId).then(() => {
+        chrome.tabs.sendMessage(tabId, {type: "MINING_MODE_CHANGED", enabled: true}).catch(() => {});
+      }).catch(() => {});
+    }
+    ensureVideoMiningScript(tabId);
   }
 });
 
@@ -491,5 +538,6 @@ if (typeof module !== "undefined" && module.exports) {
     isAllowedJimakuUrl,
     handleUserInitiatedCapture,
     ensureVideoMiningScript,
+    VIDEO_MINING_SCRIPTS,
   };
 }
