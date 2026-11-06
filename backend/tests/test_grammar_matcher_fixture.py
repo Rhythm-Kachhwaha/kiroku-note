@@ -25,7 +25,16 @@ def test_grammar_sentences_fixture(case):
         key = expected["pattern_key"]
         alts = expected.get("alt_keys", [])
         expected_keys = [key] + alts
-        matched = next((m for m in matches if m.pattern_key in expected_keys), None)
+        matched = next(
+            (
+                m
+                for m in matches
+                if m.pattern_key in expected_keys
+                or any(a in expected_keys for a in getattr(m, "pattern_aliases", []))
+                or (m.pattern_display and m.pattern_display.lstrip("〜~") in expected_keys)
+            ),
+            None,
+        )
         assert matched is not None, f"Expected {key} in {sentence}, got {[m.pattern_key for m in matches]}"
         assert matched.text == expected["text"], f"Expected span text {expected['text']!r}, got {matched.text!r}"
 

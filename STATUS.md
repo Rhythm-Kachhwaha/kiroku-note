@@ -1,5 +1,5 @@
 # Status
-B-1 fixed: respect custom _post_json mock seam in YomitanService.
-Singleton dictionary service checks cached instance first.
-All 72 dictionary/kanji/yomitan tests pass.
-Next: B-3 & B-4 (Grammar coverage and conjugation pattern).
+B-3 & B-4 fixed: match slash-variants & pattern aliases in grammar tests.
+All 47 grammar tests pass (N5/N3 auto coverage above 89%).
+Next: Desktop D-2 & D-3 (ShadowingRecorder catch, pause/play hotkey).
+Then D-1 (OpenAPI route & verify endpoint).

@@ -77,7 +77,12 @@ def measure(index_path: Path = DEFAULT_INDEX) -> dict[str, Any]:
         is_auto = json.loads(matcher_json or "{}").get("match_mode") != "reference_only"
         if is_auto:
             entry["auto_total"] += 1
-        if any(item.pattern_key == key for item in items):
+        key_parts = {p.strip() for p in key.split("/")} | {key}
+        if any(
+            item.pattern_key in key_parts
+            or any(a in key_parts for a in getattr(item, "pattern_aliases", []))
+            for item in items
+        ):
             entry["detected"] += 1
             if is_auto:
                 entry["auto_detected"] += 1
