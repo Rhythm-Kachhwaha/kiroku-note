@@ -146,6 +146,12 @@ body {
   z-index: 9999;
 }
 
+::view-transition-old(bottom-dock),
+::view-transition-new(bottom-dock) {
+  animation: none !important;
+  mix-blend-mode: normal;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   background-color: var(--pure-black);

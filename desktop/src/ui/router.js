@@ -31,7 +31,7 @@ export class AppRouter {
     this.errorState = null;
     this.pendingTab = null;
 
-    this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'anime', 'study'];
+    this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'anime', 'study', 'manga'];
 
     this.routes = {
       'home': HomeView,
@@ -78,6 +78,9 @@ export class AppRouter {
           const ViewClass = this.routes[tabId];
           const view = new ViewClass(this);
           if (!view.keepAlive) continue;
+
+          // Yield between each prewarmed view to prevent home frame freeze
+          await new Promise((r) => setTimeout(r, 150));
 
           const host = document.createElement('div');
           host.className = 'router-view-host';
@@ -160,37 +163,38 @@ export class AppRouter {
       }
     }
 
-    // Modern View Transition execution
-    const updateDOM = async () => {
-      const previousView = this.currentViewInstance;
-      const ViewClass = this.routes[tabId];
-      let view = this.viewInstances.get(tabId);
-      let host = this.viewHosts.get(tabId);
-      let createdView = false;
-      let createdHost = false;
+    // Pre-mount view outside transition callback so startViewTransition isn't blocked by async mounting
+    const previousView = this.currentViewInstance;
+    const ViewClass = this.routes[tabId];
+    let view = this.viewInstances.get(tabId);
+    let host = this.viewHosts.get(tabId);
+    let createdView = false;
+    let createdHost = false;
 
-      if (!view || !view.keepAlive) {
-        view = new ViewClass(this);
-        host = document.createElement('div');
-        host.className = 'router-view-host';
-        host.hidden = true;
-        this.viewContainer.appendChild(host);
-        createdView = true;
-        createdHost = true;
-        try {
-          await view.mount(host);
-        } catch (error) {
-          this.cleanupFailedMount(view, host, createdHost);
-          this.showErrorState(previousView, error, tabId);
-          return;
-        }
-      }
-
-      if (requestToken !== this.navigationToken) {
-        this.cleanupFailedMount(createdView ? view : null, createdHost ? host : null);
+    if (!view || !view.keepAlive) {
+      view = new ViewClass(this);
+      host = document.createElement('div');
+      host.className = 'router-view-host';
+      host.hidden = true;
+      this.viewContainer.appendChild(host);
+      createdView = true;
+      createdHost = true;
+      try {
+        await view.mount(host);
+      } catch (error) {
+        this.cleanupFailedMount(view, host, createdHost);
+        this.showErrorState(previousView, error, tabId);
         return;
       }
+    }
 
+    if (requestToken !== this.navigationToken) {
+      this.cleanupFailedMount(createdView ? view : null, createdHost ? host : null);
+      return;
+    }
+
+    // Modern View Transition execution
+    const updateDOM = () => {
       if (previousView && previousView !== view) {
         if (previousView.keepAlive) {
           previousView.onHide?.();
