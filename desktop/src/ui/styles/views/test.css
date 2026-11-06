@@ -226,9 +226,10 @@
    ========================================================================== */
 .test-view-wrapper {
   width: 100%;
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 1.5rem 1.5rem 2rem 1.5rem;
+  max-width: 100%;
+  margin: 0;
+  padding: calc(var(--chrome-top-height, 48px) + 0.75rem) 2rem 2.5rem 2rem;
+  box-sizing: border-box;
 }
 
 .test-view-container {

@@ -196,6 +196,17 @@ export class StudyView {
     this.container.innerHTML = `
       <div class="study-view-wrapper">
         <div class="study-view-container" id="study-main-container">
+          <div class="grammar-header-row">
+            <div class="grammar-brand-header" aria-label="Study 勉強">
+              <h1 class="grammar-word-title">
+                <span class="hero-letter">S</span><span class="hero-letter">T</span><span class="hero-letter">U</span><span class="hero-letter">D</span><span class="hero-letter">Y</span>
+              </h1>
+              <span class="grammar-word-kanji">
+                <span class="hero-letter">勉</span><span class="hero-letter">強</span>
+              </span>
+            </div>
+          </div>
+
           <!-- Visible Error Banner -->
           <div class="study-error-banner" id="study-error-banner" style="display: none;">
             <span class="error-msg" id="study-error-msg"></span>

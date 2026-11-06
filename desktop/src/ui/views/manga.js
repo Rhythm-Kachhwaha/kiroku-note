@@ -30,10 +30,14 @@ export class MangaView {
 
     this.container.innerHTML = `
       <div class="manga-viewer-container">
-        <div class="manga-header-row">
-          <div class="flex items-center gap-2">
-            <h1 class="manga-title">MANGA READER</h1>
-            <span class="text-xs font-mono text-muted">MangaOCR Engine</span>
+        <div class="manga-header-row grammar-header-row">
+          <div class="grammar-brand-header" aria-label="Manga マンガ">
+            <h1 class="grammar-word-title">
+              <span class="hero-letter">M</span><span class="hero-letter">A</span><span class="hero-letter">N</span><span class="hero-letter">G</span><span class="hero-letter">A</span>
+            </h1>
+            <span class="grammar-word-kanji">
+              <span class="hero-letter">マ</span><span class="hero-letter">ン</span><span class="hero-letter">ガ</span>
+            </span>
           </div>
           <div class="manga-toolbar">
             <button type="button" class="anime-control-btn btn-sm" id="btn-manga-back-anime" aria-label="Back to Anime">

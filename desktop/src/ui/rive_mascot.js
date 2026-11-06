@@ -54,9 +54,17 @@ export function prefetchRiveAssets() {
     rivBufferPromise = (async () => {
       try {
         markPerf('getRiveAssetUrl:start');
-        const src = window.desktopAPI?.getRiveAssetUrl
-          ? await window.desktopAPI.getRiveAssetUrl(PRIMARY_COMPANION_ASSET)
-          : `./ui/assets/riv/${PRIMARY_COMPANION_ASSET}`;
+        let src;
+        if (window.desktopAPI?.getRiveAssetUrl) {
+          try {
+            src = await window.desktopAPI.getRiveAssetUrl(PRIMARY_COMPANION_ASSET);
+          } catch (e) {
+            console.debug('[Mascot] desktopAPI.getRiveAssetUrl fallback:', e);
+            src = `./ui/assets/riv/${PRIMARY_COMPANION_ASSET}`;
+          }
+        } else {
+          src = `./ui/assets/riv/${PRIMARY_COMPANION_ASSET}`;
+        }
         markPerf('getRiveAssetUrl:resolved');
 
         const response = await fetch(src);

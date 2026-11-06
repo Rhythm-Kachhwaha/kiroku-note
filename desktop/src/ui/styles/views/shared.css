@@ -140,6 +140,10 @@ body {
   background-color: var(--pure-black);
 }
 
+::view-transition-image-pair(root) {
+  isolation: isolate;
+}
+
 ::view-transition-group(top-chrome),
 ::view-transition-group(bottom-dock) {
   animation: none !important;

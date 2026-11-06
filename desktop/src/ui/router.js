@@ -31,7 +31,7 @@ export class AppRouter {
     this.errorState = null;
     this.pendingTab = null;
 
-    this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'anime', 'study', 'manga'];
+    this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'anime', 'study', 'manga', 'settings'];
 
     this.routes = {
       'home': HomeView,
@@ -161,6 +161,7 @@ export class AppRouter {
       if (this.tabOrder.includes(parentTab)) {
         this.bottomDock.setActiveTab(parentTab, false);
       }
+      this.bottomDock.updatePillPosition(true);
     }
 
     // Pre-mount view outside transition callback so startViewTransition isn't blocked by async mounting

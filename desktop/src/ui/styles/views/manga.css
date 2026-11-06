@@ -8,7 +8,9 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  padding: 1.5rem;
+  max-width: 100%;
+  margin: 0;
+  padding: calc(var(--chrome-top-height, 48px) + 0.75rem) 2rem 2.5rem 2rem;
   box-sizing: border-box;
   background: var(--pure-black);
   color: var(--architectural-cream);
@@ -18,23 +20,18 @@
 
 .manga-header-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 1rem;
-}
-
-.manga-title {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--architectural-cream);
-  margin: 0;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(226, 218, 194, 0.12));
 }
 
 .manga-toolbar {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  align-self: center;
 }
 
 .manga-viewer-layout {

@@ -106,9 +106,15 @@ export class MascotHost {
       await this.riveFile.init();
       params.riveFile = this.riveFile;
     } else {
-      params.src = window.desktopAPI?.getRiveAssetUrl
-        ? await window.desktopAPI.getRiveAssetUrl(PRIMARY_COMPANION_ASSET)
-        : `./ui/assets/riv/${PRIMARY_COMPANION_ASSET}`;
+      let assetUrl = `./ui/assets/riv/${PRIMARY_COMPANION_ASSET}`;
+      if (window.desktopAPI?.getRiveAssetUrl) {
+        try {
+          assetUrl = await window.desktopAPI.getRiveAssetUrl(PRIMARY_COMPANION_ASSET);
+        } catch (e) {
+          console.debug('[MascotHost] desktopAPI.getRiveAssetUrl fallback:', e);
+        }
+      }
+      params.src = assetUrl;
     }
 
     this.instance = new window.rive.Rive(params);
