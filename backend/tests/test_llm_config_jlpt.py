@@ -18,15 +18,17 @@ def client():
     return TestClient(app)
 
 
-def test_default_jlpt_level():
+def test_default_jlpt_level(tmp_path):
+    env = {"KIROKU_DATA_DIR": str(tmp_path)}
     assert DEFAULT_LLM_JLPT_LEVEL == "N3"
-    assert get_llm_jlpt_level({}) == "N3"
+    assert get_llm_jlpt_level(env) == "N3"
 
 
-def test_env_jlpt_level_override():
-    assert get_llm_jlpt_level({"KIROKU_LLM_JLPT_LEVEL": "N1"}) == "N1"
-    assert get_llm_jlpt_level({"KIROKU_LLM_JLPT_LEVEL": "n5"}) == "N5"
-    assert get_llm_jlpt_level({"KIROKU_LLM_JLPT_LEVEL": "invalid"}) == "N3"
+def test_env_jlpt_level_override(tmp_path):
+    env = {"KIROKU_DATA_DIR": str(tmp_path)}
+    assert get_llm_jlpt_level({**env, "KIROKU_LLM_JLPT_LEVEL": "N1"}) == "N1"
+    assert get_llm_jlpt_level({**env, "KIROKU_LLM_JLPT_LEVEL": "n5"}) == "N5"
+    assert get_llm_jlpt_level({**env, "KIROKU_LLM_JLPT_LEVEL": "invalid"}) == "N3"
 
 
 def test_stored_jlpt_level(tmp_path):

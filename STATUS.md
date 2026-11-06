@@ -1,5 +1,5 @@
 # Status
-B-6 fixed: allow stdlib & package modules in dict guard.
-Decoupled app import in kiroku_dictionary/provision.py.
-All 5 kiroku_dictionary tests passing.
-Next: B-2 (LLM JLPT level default).
+B-2 fixed: isolated test data dir for LLM JLPT level tests.
+Verified default LLM JLPT level resolves to N3.
+All 5 test_llm_config_jlpt tests passing.
+Next: B-5 (docs/maps/clients.md missing routes).
