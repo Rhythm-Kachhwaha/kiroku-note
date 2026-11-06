@@ -29,7 +29,6 @@ Dictionary: `YomitanService` + `dictionary_provider.py`; JLPT stays local; Anki 
 
 ## Execution
 
-Whenever a task is given, after you are done analysing details of task, provide user with what you gonna do in simple terms. then ask for permission  to go ahead. Never assume permission given.
 Order: task → `IGNORE.md` → `final.md` → area map → card-named files → targeted test.
 Plan slices: load via implementation plan.md LOAD PROTOCOL.
 `docs/maps/ui-rules.md` is sole active UI reference; `docs/archive/` is historical.
