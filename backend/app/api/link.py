@@ -149,6 +149,11 @@ async def link_websocket_endpoint(websocket: WebSocket) -> None:
         pass
     finally:
         link_hub.unregister_client(websocket)
+        if role == "ext":
+            # Remove all sessions that were attached by this extension client (by sid)
+            stale = [tab for tab, s in link_hub.sessions.items() if getattr(s, "ext_sid", "") == client.sid]
+            for tab in stale:
+                link_hub.sessions.pop(tab, None)
 
 
 class CondensedAudioRequest(BaseModel):

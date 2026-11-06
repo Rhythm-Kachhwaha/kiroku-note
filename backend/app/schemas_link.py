@@ -39,7 +39,7 @@ class AckPayload(BaseModel):
 class VideoAttachPayload(BaseModel):
     tab: int
     site: str = Field(min_length=1)
-    title: str = Field(min_length=1)
+    title: str = Field(default="")
     duration: float = Field(ge=0.0)
     drm: bool = False
     hasNextEpisode: bool = False

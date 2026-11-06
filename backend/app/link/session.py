@@ -141,23 +141,29 @@ class LinkVideoSession:
         title: str,
         duration: float,
         drm: bool = False,
+        ext_sid: str = "",
     ):
         self.tab = tab
         self.site = site
         self.title = title
         self.duration = duration
         self.drm = drm
+        self.ext_sid = ext_sid
         self.last_state: Optional[Dict[str, Any]] = None
         self.last_cue_list: Optional[Dict[str, Any]] = None
         self.last_active_cue: Optional[Dict[str, Any]] = None
         self.created_at = time.time()
         self.updated_at = time.time()
 
-    def update_attach(self, site: str, title: str, duration: float, drm: bool = False) -> None:
+    def update_attach(
+        self, site: str, title: str, duration: float, drm: bool = False, ext_sid: str = ""
+    ) -> None:
         self.site = site
         self.title = title
         self.duration = duration
         self.drm = drm
+        if ext_sid:
+            self.ext_sid = ext_sid
         self.updated_at = time.time()
 
     def update_state(self, state: Dict[str, Any]) -> None:

@@ -1,5 +1,5 @@
 # Status
-Slice A: Link bridge & background pipeline repaired.
-Fixed link-bridge IIFE auto-start scope & window attachment.
-Corrected cue.list and cue.active schemas with stable hash.
-Added HiAnime title fallback, relative seeks, & clip script.
+Slice B: Backend hub hardened against stale sessions.
+Clean up video sessions on extension disconnect by ext_sid.
+Allow empty title in VideoAttachPayload with site fallback.
+All 57 backend link tests passing.

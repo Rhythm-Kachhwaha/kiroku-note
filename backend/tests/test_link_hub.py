@@ -338,3 +338,121 @@ def test_link_session_stats_api():
     sessions = get_res.json()
     assert isinstance(sessions, list)
     assert any(s["session_id"] == "test-session-123" for s in sessions)
+
+
+def test_ws_video_attach_empty_title_fallback_to_site():
+    client = TestClient(app)
+    with client.websocket_connect("/api/link/ws", headers={"origin": "chrome-extension://allowed"}) as ws_ext:
+        ws_ext.send_text(json.dumps({
+            "v": 1,
+            "id": "ext-1",
+            "ts": int(time.time() * 1000),
+            "type": "hello",
+            "src": "ext",
+            "payload": {
+                "role": "ext",
+                "token": "test-link-rw-token",
+                "client": "ext-1",
+            }
+        }))
+        assert json.loads(ws_ext.receive_text())["type"] == "hello.ok"
+
+        # Connect desktop
+        with client.websocket_connect("/api/link/ws", headers={"origin": "file://"}) as ws_desk:
+            ws_desk.send_text(json.dumps({
+                "v": 1,
+                "id": "desk-1",
+                "ts": int(time.time() * 1000),
+                "type": "hello",
+                "src": "desk",
+                "payload": {
+                    "role": "desk",
+                    "token": "test-desktop-control-token",
+                    "client": "desk-1",
+                }
+            }))
+            assert json.loads(ws_desk.receive_text())["type"] == "hello.ok"
+
+            # Ext sends video.attach with empty title (e.g. HiAnime player iframe)
+            ws_ext.send_text(json.dumps({
+                "v": 1,
+                "id": "att-empty",
+                "ts": int(time.time() * 1000),
+                "type": "video.attach",
+                "src": "ext",
+                "payload": {
+                    "tab": 303,
+                    "site": "hianime.to",
+                    "title": "",
+                    "duration": 1420.0,
+                    "drm": False,
+                }
+            }))
+
+            desk_rec = json.loads(ws_desk.receive_text())
+            assert desk_rec["type"] == "video.attach"
+            assert desk_rec["payload"]["title"] == "hianime.to"
+
+            # Check session in hub
+            status_res = client.get("/api/link/status").json()
+            assert len(status_res["sessions"]) == 1
+            assert status_res["sessions"][0]["title"] == "hianime.to"
+
+
+def test_ws_extension_disconnect_cleans_up_sessions():
+    client = TestClient(app)
+    # Ext connects and registers video session
+    with client.websocket_connect("/api/link/ws", headers={"origin": "chrome-extension://allowed"}) as ws_ext:
+        ws_ext.send_text(json.dumps({
+            "v": 1,
+            "id": "ext-1",
+            "ts": int(time.time() * 1000),
+            "type": "hello",
+            "src": "ext",
+            "payload": {
+                "role": "ext",
+                "token": "test-link-rw-token",
+                "client": "ext-1",
+            }
+        }))
+        assert json.loads(ws_ext.receive_text())["type"] == "hello.ok"
+
+        ws_ext.send_text(json.dumps({
+            "v": 1,
+            "id": "att-1",
+            "ts": int(time.time() * 1000),
+            "type": "video.attach",
+            "src": "ext",
+            "payload": {
+                "tab": 404,
+                "site": "youtube.com",
+                "title": "Video to be closed",
+                "duration": 300.0,
+                "drm": False,
+            }
+        }))
+        # Session exists while extension is connected
+        assert 404 in link_hub.sessions
+
+    # Ext has now disconnected; finally block cleans up sessions belonging to this ext
+    assert 404 not in link_hub.sessions
+    status_res = client.get("/api/link/status").json()
+    assert len(status_res["sessions"]) == 0
+
+    # Connecting a desktop client now does NOT receive replay of the disconnected tab
+    with client.websocket_connect("/api/link/ws", headers={"origin": "file://"}) as ws_desk:
+        ws_desk.send_text(json.dumps({
+            "v": 1,
+            "id": "desk-1",
+            "ts": int(time.time() * 1000),
+            "type": "hello",
+            "src": "desk",
+            "payload": {
+                "role": "desk",
+                "token": "test-desktop-control-token",
+                "client": "desk-1",
+            }
+        }))
+        hello_ok = json.loads(ws_desk.receive_text())
+        assert hello_ok["type"] == "hello.ok"
+

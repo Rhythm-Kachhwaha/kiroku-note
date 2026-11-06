@@ -283,17 +283,27 @@ class LinkHub:
         if envelope.type == "video.attach":
             p = envelope.payload
             tab = int(p.get("tab", 0))
+            raw_title = p.get("title", "")
+            fallback_title = p.get("site", "") or "Video"
+            title = raw_title.strip() if isinstance(raw_title, str) and raw_title.strip() else fallback_title
+            if not p.get("title"):
+                msg_dict["payload"]["title"] = title
             if tab in self.sessions:
                 self.sessions[tab].update_attach(
-                    p.get("site", ""), p.get("title", ""), float(p.get("duration", 0.0)), bool(p.get("drm", False))
+                    p.get("site", ""),
+                    title,
+                    float(p.get("duration", 0.0)),
+                    bool(p.get("drm", False)),
+                    ext_sid=sender.sid,
                 )
             else:
                 self.sessions[tab] = LinkVideoSession(
                     tab=tab,
                     site=p.get("site", ""),
-                    title=p.get("title", ""),
+                    title=title,
                     duration=float(p.get("duration", 0.0)),
                     drm=bool(p.get("drm", False)),
+                    ext_sid=sender.sid,
                 )
 
         elif envelope.type == "video.state":
