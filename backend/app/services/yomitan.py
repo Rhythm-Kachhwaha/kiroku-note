@@ -228,7 +228,21 @@ class YomitanService:
                 except Exception:
                     pass
 
+    def _is_custom_post_json(self) -> bool:
+        """Return True if _post_json has been monkeypatched on this instance or overridden in a subclass."""
+        if "_post_json" in self.__dict__:
+            return True
+        return type(self)._post_json is not YomitanService._post_json
+
     def _fetch_term_payload(self, term: str) -> dict[str, Any]:
+        if self._is_custom_post_json():
+            raw = self._post_json("/termEntries", {"term": term})
+            if isinstance(raw, dict):
+                for e in raw.get("dictionaryEntries", []):
+                    if isinstance(e, dict):
+                        e.setdefault("source", "yomitan")
+            return raw if isinstance(raw, dict) else {"dictionaryEntries": []}
+
         if self._backend == "yomitan" and self._provider is not None:
             raw = self._provider.fetch_term_payload(term)
             if isinstance(raw, dict):
@@ -258,6 +272,14 @@ class YomitanService:
         return local_payload
 
     def _fetch_kanji_payload(self, text: str) -> list[dict[str, Any]]:
+        if self._is_custom_post_json():
+            raw = self._post_json("/kanjiEntries", {"character": text})
+            if isinstance(raw, list):
+                return raw
+            if isinstance(raw, dict):
+                return raw.get("kanjiEntries", []) or raw.get("entries", [])
+            return []
+
         if self._backend == "yomitan" and self._provider is not None:
             return self._provider.fetch_kanji_payload(text)
 
@@ -275,6 +297,10 @@ class YomitanService:
         return local_kanji
 
     def identify(self, text: str) -> IdentifiedTerm:
+        if self._is_custom_post_json():
+            raw = self._post_json("/tokenize", {"text": text})
+            return self.normalize_tokenize_response(raw, text)
+
         if self._backend == "yomitan" and self._provider is not None:
             return self._provider.identify(text)
 
@@ -1171,12 +1197,15 @@ def get_dictionary_service(
     force_new: bool = False,
 ) -> YomitanService:
     """Thread-safe, module-level cached factory returning shared YomitanService instance."""
+    global _dictionary_service_instance
+    if _dictionary_service_instance is not None and not force_new:
+        return _dictionary_service_instance
+
     import app.main
     yomitan_cls = getattr(app.main, "YomitanService", YomitanService)
     if yomitan_cls is not YomitanService:
         return yomitan_cls()
 
-    global _dictionary_service_instance
     if _dictionary_service_instance is None or force_new:
         with _dictionary_service_lock:
             if _dictionary_service_instance is None or force_new:
