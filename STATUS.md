@@ -1,5 +1,5 @@
 # Status
-D-3 fixed: removed duplicate accelerator in hotkeys.js.
-desktop/tests/hotkeys.test.js passing 5/5.
-Next: D-1 (OpenAPI fixture drift and extension pairing verify route).
-Then Extension E-1 (kanji-rendering storage read mock).
+D-1 fixed: regenerated openapi.json fixture & fixed pairing endpoint.
+api_contract.test.js & desktop_endpoints.test.js pass 3/3.
+All 24 desktop tests + locks pass.
+Next: E-1 (Extension storage mock promise API).

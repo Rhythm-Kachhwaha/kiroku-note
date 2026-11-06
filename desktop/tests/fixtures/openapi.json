@@ -4728,6 +4728,138 @@
         }
       }
     },
+    "/api/link/sessions": {
+      "get": {
+        "tags": [
+          "link"
+        ],
+        "summary": "Get Sessions",
+        "description": "Returns persisted link session statistics.",
+        "operationId": "get_sessions_api_link_sessions_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Get Sessions Api Link Sessions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "link"
+        ],
+        "summary": "Create Session Stat",
+        "description": "Records a completed or updated link session stat.",
+        "operationId": "create_session_stat_api_link_sessions_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionStatCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Session Stat Api Link Sessions Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/link/export-condensed-audio": {
+      "post": {
+        "tags": [
+          "link"
+        ],
+        "summary": "Export Condensed Audio",
+        "operationId": "export_condensed_audio_api_link_export_condensed_audio_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CondensedAudioRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/link/cues/{cue_hash}": {
       "get": {
         "tags": [
@@ -5015,6 +5147,85 @@
         }
       }
     },
+    "/api/link/episodes/{cue_hash}/position": {
+      "post": {
+        "tags": [
+          "link-episode"
+        ],
+        "summary": "Update episode playback position",
+        "description": "Saves throttled playback position (in ms) for an episode.",
+        "operationId": "post_episode_position_api_link_episodes__cue_hash__position_post",
+        "parameters": [
+          {
+            "name": "cue_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cue Hash"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePositionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpisodeRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/link/series": {
+      "get": {
+        "tags": [
+          "link-episode"
+        ],
+        "summary": "Get watch history grouped by series",
+        "description": "Returns watch history grouped by series with known% per episode.",
+        "operationId": "get_series_api_link_series_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SeriesGroup"
+                  },
+                  "type": "array",
+                  "title": "Response Get Series Api Link Series Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/link/episodes": {
       "get": {
         "tags": [
@@ -5275,6 +5486,32 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/setup/checklist": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Get Setup Checklist",
+        "description": "Report setup readiness and diagnostic status for all dependencies.",
+        "operationId": "get_setup_checklist_api_setup_checklist_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SetupChecklistItem"
+                  },
+                  "type": "array",
+                  "title": "Response Get Setup Checklist Api Setup Checklist Get"
                 }
               }
             }
@@ -8329,6 +8566,30 @@
         ],
         "title": "ChoiceDTO"
       },
+      "CondensedAudioRequest": {
+        "properties": {
+          "cues": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Cues"
+          },
+          "source_audio_path": {
+            "type": "string",
+            "title": "Source Audio Path",
+            "default": ""
+          },
+          "padding": {
+            "type": "number",
+            "title": "Padding",
+            "default": 0.15
+          }
+        },
+        "type": "object",
+        "title": "CondensedAudioRequest"
+      },
       "CreateDiagnosticRequest": {
         "properties": {
           "level": {
@@ -9003,6 +9264,16 @@
           "ts": {
             "type": "string",
             "title": "Ts"
+          },
+          "last_position_ms": {
+            "type": "integer",
+            "title": "Last Position Ms",
+            "default": 0
+          },
+          "series": {
+            "type": "string",
+            "title": "Series",
+            "default": ""
           }
         },
         "type": "object",
@@ -9704,6 +9975,13 @@
           "pattern_display": {
             "type": "string",
             "title": "Pattern Display"
+          },
+          "pattern_aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pattern Aliases"
           },
           "text": {
             "type": "string",
@@ -12794,6 +13072,18 @@
             "title": "Minutes",
             "default": 0.0
           },
+          "last_position_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Position Ms",
+            "default": 0
+          },
           "cues": {
             "anyOf": [
               {
@@ -13499,6 +13789,112 @@
         "type": "object",
         "title": "Sense"
       },
+      "SeriesGroup": {
+        "properties": {
+          "series": {
+            "type": "string",
+            "title": "Series"
+          },
+          "episodes": {
+            "items": {
+              "$ref": "#/components/schemas/EpisodeRecord"
+            },
+            "type": "array",
+            "title": "Episodes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "series",
+          "episodes"
+        ],
+        "title": "SeriesGroup"
+      },
+      "SessionStatCreate": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id",
+            "default": ""
+          },
+          "site": {
+            "type": "string",
+            "title": "Site",
+            "default": ""
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "watch_seconds": {
+            "type": "number",
+            "title": "Watch Seconds",
+            "default": 0.0
+          },
+          "lines_seen": {
+            "type": "integer",
+            "title": "Lines Seen",
+            "default": 0
+          },
+          "words_mined": {
+            "type": "integer",
+            "title": "Words Mined",
+            "default": 0
+          },
+          "gap_words_seen": {
+            "type": "integer",
+            "title": "Gap Words Seen",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "SessionStatCreate"
+      },
+      "SetupChecklistItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "fix_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fix Action"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "default": true
+          },
+          "informational": {
+            "type": "boolean",
+            "title": "Informational",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "ok",
+          "detail"
+        ],
+        "title": "SetupChecklistItem"
+      },
       "SourceProvenanceDTO": {
         "properties": {
           "source_id": {
@@ -14092,6 +14488,30 @@
           "priority_score"
         ],
         "title": "TroubleQuestionItem"
+      },
+      "UpdatePositionRequest": {
+        "properties": {
+          "last_position_ms": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Last Position Ms"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "site": {
+            "type": "string",
+            "title": "Site",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "last_position_ms"
+        ],
+        "title": "UpdatePositionRequest"
       },
       "UpdateQuestionReportRequest": {
         "properties": {

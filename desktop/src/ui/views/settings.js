@@ -642,7 +642,7 @@ export class SettingsView {
           }
 
           try {
-            await apiClient.request('/api/auth/extension-pairings/verify', {
+            await apiClient.request('/api/auth/extension-pairings/register', {
               method: 'POST',
               body: JSON.stringify({ code }),
               headers: { 'Content-Type': 'application/json' },
