@@ -27,7 +27,9 @@ export class SettingsView {
     this.setupEvents();
     this.setupScrollspy();
     this._startLinkPolling();
-    await this.loadInitialSettings();
+    this.loadInitialSettings().catch((err) => {
+      console.warn('[Settings] Background loadInitialSettings warning:', err);
+    });
   }
 
   render() {

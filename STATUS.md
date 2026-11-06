@@ -1,4 +1,5 @@
 # Status
-Hard rule added to AGENTS.md: never merge sidepanel modules.
-All sidepanel modules remain strictly separate.
-Working tree clean at checkpoint 8161399 + rule.
+Settings view opens instantly without blocking on background checks.
+Bottom dock pill animation runs live without view-transition freeze.
+Companion mascot lifecycle and chin/forehead interactions restored.
+Targeted and desktop suites pass: 278 passing, 0 failing.

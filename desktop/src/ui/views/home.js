@@ -878,6 +878,17 @@ export class HomeView {
       this._lastRefreshAt = Date.now();
       this.hydrateDailyWord();
     }
+    if (this.riveMascot) {
+      this.riveMascot.lastSurfaceSize = null;
+      this.riveMascot.resume();
+      this.riveMascot.resize();
+      try {
+        this.riveMascot.instance?.setupRiveListeners?.();
+      } catch (e) {
+        console.debug('[Home] setupRiveListeners onShow error:', e);
+      }
+    }
+    this.scheduleTiltReset();
   }
 
   onHide() {
@@ -885,6 +896,7 @@ export class HomeView {
       document.removeEventListener('visibilitychange', this.visibilityHandler);
     }
     this.stopTiltTracking();
+    this.riveMascot?.pause?.();
     this.activeListenerCount = 0;
   }
 
@@ -958,12 +970,35 @@ export class HomeView {
     const mascotWrap = document.getElementById('mascot-character-wrap');
 
     if (mascotStage && mascotWrap) {
+      const setChinHold = (active) => {
+        const r = this.riveMascot?.instance;
+        if (r) {
+          try {
+            const inputs = r.stateMachineInputs('State Machine 1');
+            const chinInput = inputs?.find((i) => i.name === 'Chin hold' || i.type === 59);
+            if (chinInput) {
+              chinInput.value = Boolean(active);
+            }
+          } catch (e) {
+            console.debug('[Home] Chin hold interaction error:', e);
+          }
+        }
+      };
+
+      mascotStage.addEventListener('pointerdown', (e) => {
+        if (e.button === 0) setChinHold(true);
+      });
+      const releaseChin = () => setChinHold(false);
+      mascotStage.addEventListener('pointerup', releaseChin);
+      mascotStage.addEventListener('pointerleave', releaseChin);
+      mascotStage.addEventListener('pointercancel', releaseChin);
+
       const handleMascotClick = () => {
         const r = this.riveMascot?.instance;
         if (r) {
           try {
             const inputs = r.stateMachineInputs('State Machine 1');
-            const foreheadTrigger = inputs?.find((i) => i.name === 'Forehead click' || i.type === 1);
+            const foreheadTrigger = inputs?.find((i) => i.name === 'Forehead click' || i.type === 58 || i.type === 1);
             if (foreheadTrigger && typeof foreheadTrigger.fire === 'function') {
               foreheadTrigger.fire();
             }

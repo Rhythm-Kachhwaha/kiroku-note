@@ -125,34 +125,40 @@ body {
   }
 }
 
-/* Keep Top Chrome and Bottom Navigation Dock rock-solid during view transitions */
+/* Keep Top Chrome and Bottom Navigation Dock rock-solid and live DOM during view transitions */
 #top-chrome-container {
-  view-transition-name: top-chrome;
+  view-transition-name: none;
   position: relative;
   z-index: 9999;
 }
 
 #bottom-dock-container {
-  view-transition-name: bottom-dock;
+  view-transition-name: none;
+}
+
+:root {
+  view-transition-name: none;
+}
+
+#view-container {
+  view-transition-name: view-content;
 }
 
 ::view-transition {
   background-color: var(--pure-black);
 }
 
-::view-transition-image-pair(root) {
+::view-transition-image-pair(view-content) {
   isolation: isolate;
 }
 
-::view-transition-group(top-chrome),
-::view-transition-group(bottom-dock) {
-  animation: none !important;
-  z-index: 9999;
+::view-transition-group(view-content) {
+  animation-duration: 0.25s;
 }
 
-::view-transition-old(bottom-dock),
-::view-transition-new(bottom-dock) {
-  animation: none !important;
+::view-transition-old(view-content),
+::view-transition-new(view-content) {
+  background-color: var(--pure-black);
   mix-blend-mode: normal;
 }
 
@@ -162,19 +168,23 @@ body {
   mix-blend-mode: normal;
 }
 
-html:active-view-transition-type(forward)::view-transition-old(root) {
+html:active-view-transition-type(forward)::view-transition-old(root),
+html:active-view-transition-type(forward)::view-transition-old(view-content) {
   animation: slide-to-left 0.22s var(--spring-smooth) both;
 }
 
-html:active-view-transition-type(forward)::view-transition-new(root) {
+html:active-view-transition-type(forward)::view-transition-new(root),
+html:active-view-transition-type(forward)::view-transition-new(view-content) {
   animation: slide-from-right 0.25s var(--spring-smooth) both;
 }
 
-html:active-view-transition-type(backward)::view-transition-old(root) {
+html:active-view-transition-type(backward)::view-transition-old(root),
+html:active-view-transition-type(backward)::view-transition-old(view-content) {
   animation: slide-to-right 0.22s var(--spring-smooth) both;
 }
 
-html:active-view-transition-type(backward)::view-transition-new(root) {
+html:active-view-transition-type(backward)::view-transition-new(root),
+html:active-view-transition-type(backward)::view-transition-new(view-content) {
   animation: slide-from-left 0.25s var(--spring-smooth) both;
 }
 

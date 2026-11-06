@@ -31,7 +31,7 @@ export class AppRouter {
     this.errorState = null;
     this.pendingTab = null;
 
-    this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'anime', 'study', 'manga', 'settings'];
+    this.tabOrder = ['home', 'vocab', 'grammar', 'kanji', 'test', 'anime', 'study', 'manga'];
 
     this.routes = {
       'home': HomeView,
@@ -99,6 +99,9 @@ export class AppRouter {
 
   handlePopState() {
     const hash = window.location.hash.replace('#', '') || 'home';
+    if (hash.includes('-section-') || (!this.routes[hash] && hash.startsWith('settings-'))) {
+      return;
+    }
     if (this.currentTab === hash || this.pendingTab === hash || this.expectedHash === hash) {
       return;
     }
@@ -107,6 +110,9 @@ export class AppRouter {
 
   handleHashChange() {
     const hash = window.location.hash.replace('#', '') || 'home';
+    if (hash.includes('-section-') || (!this.routes[hash] && hash.startsWith('settings-'))) {
+      return;
+    }
     if (this.expectedHash === hash || this.currentTab === hash || this.pendingTab === hash) {
       this.expectedHash = null;
       return;
@@ -153,15 +159,19 @@ export class AppRouter {
     this.clearErrorState();
     const prevIndex = this.tabOrder.indexOf(this.currentTab);
     const nextIndex = this.tabOrder.indexOf(tabId);
-    const direction = nextIndex >= prevIndex ? 'forward' : 'backward';
+    const direction = (nextIndex !== -1 && prevIndex !== -1 && nextIndex < prevIndex)
+      ? 'backward'
+      : 'forward';
 
-    // Update Bottom Dock active state (maps 'vocab-history' to 'vocab' tab)
+    // Update Bottom Dock active state if navigating to a dock tab (maps 'vocab-history' to 'vocab' tab)
     if (this.bottomDock) {
       const parentTab = tabId === 'vocab-history' ? 'vocab' : tabId;
-      if (this.tabOrder.includes(parentTab)) {
+      const isDockTab = Array.isArray(this.bottomDock.tabs)
+        ? this.bottomDock.tabs.some((t) => t.id === parentTab)
+        : this.tabOrder.includes(parentTab);
+      if (isDockTab && this.bottomDock.activeTab !== parentTab) {
         this.bottomDock.setActiveTab(parentTab, false);
       }
-      this.bottomDock.updatePillPosition(true);
     }
 
     // Pre-mount view outside transition callback so startViewTransition isn't blocked by async mounting
@@ -251,7 +261,10 @@ export class AppRouter {
           }
         }
         if (transition && transition.finished) {
-          await transition.finished;
+          await Promise.race([
+            transition.finished,
+            new Promise((r) => setTimeout(r, 350))
+          ]);
         }
       } catch (err) {
         console.debug('[Router] View transition fallback:', err);
