@@ -220,8 +220,14 @@ const context = vm.createContext({
     },
     storage: {
       local: {
-        get: (_k, cb) => cb({}),
-        set: (_d, cb) => cb && cb(),
+        get: (_k, cb) => {
+          if (typeof cb === 'function') { cb({}); }
+          return Promise.resolve({});
+        },
+        set: (_d, cb) => {
+          if (typeof cb === 'function') { cb(); }
+          return Promise.resolve();
+        },
       },
     },
   },
