@@ -154,27 +154,8 @@
     </div>
 
     <div class="status-badge">
-      <p class="status-text" id="status-msg">Waking up ...</p>
+      <p class="status-text" id="status-msg">Loading workspace...</p>
     </div>
   </div>
-
-  <script>
-    // Random message rotation
-    (function setupRandomStatus() {
-      const messages = [
-        "Waking up ...",
-        "Brewing some espresso...",
-        "Sharpening the digital pencils...",
-        "Dusting off your flashcards...",
-        "Stretching and getting ready...",
-        "Tuning the dictionary bells..."
-      ];
-      const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-      const el = document.getElementById("status-msg");
-      if (el) {
-        el.textContent = randomMsg;
-      }
-    })();
-  </script>
 </body>
 </html>

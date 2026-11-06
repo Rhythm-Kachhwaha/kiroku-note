@@ -42,7 +42,7 @@
       </div>
       <div class="status-badge" role="status">
         <div class="status-indicator"></div>
-        <span class="status-text" id="status-text">Starting background engine...</span>
+        <span class="status-text" id="status-text">Loading workspace...</span>
       </div>
     </div>
   </div>
@@ -110,97 +110,57 @@
       router.init();
       scheduleMascotHostCreation();
 
-      // Real loading workflow: Wait for offline typography, backend API readiness, and companion warming
+      // Fast boot readiness: ensure typography and initial view mount cleanly, then reveal immediately
       const splash = document.getElementById('app-loading-splash');
       const statusText = document.getElementById('status-text');
 
-      const playfulMessages = [
-        "Brewing some espresso...",
-        "Sharpening the digital pencils...",
-        "Dusting off your flashcards...",
-        "Stretching and getting ready...",
-        "Tuning the dictionary bells...",
-        "Waking up the companion cat..."
-      ];
-      let msgIndex = 0;
-      let rotationTimer = null;
-
-      const startMessageRotation = () => {
-        if (!statusText) return;
-        statusText.textContent = playfulMessages[Math.floor(Math.random() * playfulMessages.length)];
-        rotationTimer = setInterval(() => {
-          msgIndex = (msgIndex + 1) % playfulMessages.length;
-          statusText.textContent = playfulMessages[msgIndex];
-        }, 2200);
-      };
-
-      const stopMessageRotation = () => {
-        if (rotationTimer) {
-          clearInterval(rotationTimer);
-          rotationTimer = null;
-        }
-      };
-
       const dismissSplash = () => {
-        stopMessageRotation();
         if (splash && !splash.__dismissed) {
           splash.__dismissed = true;
-          if (statusText) statusText.textContent = 'Ready!';
+          if (statusText) statusText.textContent = 'Ready';
           setTimeout(() => {
             splash.classList.add('hidden-splash');
             setTimeout(() => {
               if (splash.parentNode) splash.parentNode.removeChild(splash);
-            }, 320);
-          }, 180);
+            }, 300);
+          }, 80);
         }
       };
 
       async function monitorAppReadiness() {
-        startMessageRotation();
-        try {
-          if (document.fonts?.ready) {
-            await document.fonts.ready;
-          }
-        } catch (_) {}
-
         let isReady = false;
         const markReady = () => {
           if (isReady) return;
           isReady = true;
-          stopMessageRotation();
-          if (statusText) statusText.textContent = 'Warming workspace & companion...';
-          setTimeout(dismissSplash, 350);
+          dismissSplash();
         };
 
         if (window.desktopAPI?.onBackendReady) {
           window.desktopAPI.onBackendReady(() => markReady());
         }
 
-        // Active health check probe loop
-        const startTime = Date.now();
-        const probeBackend = async () => {
-          if (isReady) return;
-          try {
-            const res = await fetch('http://127.0.0.1:21828/api/health', {
-              headers: { 'Accept': 'application/json' }
-            }).catch(() => null);
-            if (res && res.ok) {
-              markReady();
-              return;
-            }
-          } catch (_) {}
+        // Fast probe: check if backend is already listening
+        fetch('http://127.0.0.1:21828/api/health', {
+          headers: { 'Accept': 'application/json' }
+        }).then((res) => {
+          if (res && res.ok) markReady();
+        }).catch(() => {});
 
-          if (Date.now() - startTime < 20000) {
-            setTimeout(probeBackend, 400);
-          } else {
-            // Offline fallback after 20s so app remains accessible even if backend is offline
-            stopMessageRotation();
-            if (statusText) statusText.textContent = 'Starting in offline mode...';
-            setTimeout(dismissSplash, 500);
+        // Drop the splash as soon as initial route finishes rendering and fonts settle
+        try {
+          if (document.fonts?.ready) {
+            await document.fonts.ready;
           }
-        };
+        } catch (_) {}
 
-        probeBackend();
+        router.navigationQueue.then(() => {
+          requestAnimationFrame(() => {
+            markReady();
+          });
+        });
+
+        // Safety fallback: never hold the splash for more than 800ms
+        setTimeout(markReady, 800);
       }
 
       monitorAppReadiness();

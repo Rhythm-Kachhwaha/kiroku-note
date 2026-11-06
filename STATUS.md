@@ -1,5 +1,5 @@
 # Status
-Settings view opens instantly without blocking on background checks.
+Fast boot splash reveals UI immediately; removed 20s fake loops.
+Settings view mounts immediately without blocking on network checks.
 Bottom dock pill animation runs live without view-transition freeze.
-Companion mascot lifecycle and chin/forehead interactions restored.
-Targeted and desktop suites pass: 278 passing, 0 failing.
+Companion mascot restored; 278 desktop tests passing.
