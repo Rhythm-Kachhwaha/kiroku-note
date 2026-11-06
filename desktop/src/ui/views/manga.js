@@ -36,6 +36,10 @@ export class MangaView {
             <span class="text-xs font-mono text-muted">MangaOCR Engine</span>
           </div>
           <div class="manga-toolbar">
+            <button type="button" class="anime-control-btn btn-sm" id="btn-manga-back-anime" aria-label="Back to Anime">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+              <span>Back to Anime</span>
+            </button>
             <label class="anime-control-btn btn-sm cursor-pointer" for="manga-file-input">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
               <span>Open Page</span>
@@ -72,6 +76,11 @@ export class MangaView {
 
   setupEvents() {
     if (!this.container) return;
+
+    const btnBackAnime = this.container.querySelector('#btn-manga-back-anime');
+    btnBackAnime?.addEventListener('click', () => {
+      this.router?.navigateToTab?.('anime');
+    });
 
     const fileInput = this.container.querySelector('#manga-file-input');
     fileInput?.addEventListener('change', (e) => {

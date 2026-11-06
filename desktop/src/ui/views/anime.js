@@ -164,6 +164,10 @@ export class AnimeView {
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H5V5h9v12zm5 0h-3V5h3v12z"/></svg>
                 <span>Inspector</span>
               </button>
+              <button type="button" class="anime-control-btn btn-sm" id="btn-open-manga" aria-label="Open Manga Reader">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.5 1 5.6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.2 20.2 5.05 19.8 6.5 19.8c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V5.6c-.6-.35-1.3-.55-2-.6zm-1 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"/></svg>
+                <span>Manga</span>
+              </button>
               <span class="anime-site-chip is-disconnected" id="anime-connection-chip">
                 <svg viewBox="0 0 8 8" width="8" height="8" class="anime-connection-dot" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
                 <span class="anime-connection-text">Not Connected</span>
@@ -610,6 +614,11 @@ export class AnimeView {
     const btnCloseInspector = this.container.querySelector('#btn-anime-close-inspector');
     btnCloseInspector?.addEventListener('click', () => {
       this.toggleInspector(false);
+    });
+
+    const btnOpenManga = this.container.querySelector('#btn-open-manga');
+    btnOpenManga?.addEventListener('click', () => {
+      this.router?.navigateToTab?.('manga');
     });
 
     // In-situ hover gloss triggers for live cue tokens
