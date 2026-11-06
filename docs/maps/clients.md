@@ -57,9 +57,14 @@ This map defines the contract between backend API routes, target clients, and re
 | GET | /api/link/cues/{cue_hash} | both | none |
 | GET | /api/link/episodes | both | none |
 | GET | /api/link/episodes/{cue_hash} | both | none |
+| POST | /api/link/episodes/{cue_hash}/position | both | none |
+| POST | /api/link/export-condensed-audio | desk | none |
 | POST | /api/link/primer | both | legacy_token |
 | GET | /api/link/primer/{cue_hash} | both | none |
 | POST | /api/link/recap | both | legacy_token |
+| GET | /api/link/series | desk | none |
+| GET | /api/link/sessions | both | none |
+| POST | /api/link/sessions | both | none |
 | GET | /api/link/status | both | none |
 | POST | /api/llm/ask | both | legacy_token |
 | GET | /api/llm/config | both | none |
@@ -75,6 +80,7 @@ This map defines the contract between backend API routes, target clients, and re
 | POST | /api/ocr/start | both | legacy_token |
 | GET | /api/ocr/status | both | none |
 | POST | /api/ocr/stop | both | legacy_token |
+| GET | /api/setup/checklist | desk | none |
 | GET | /api/study/v1/analytics/overview | desk | desk_bearer |
 | GET | /api/study/v1/analytics/trouble-questions | desk | desk_bearer |
 | GET | /api/study/v1/analytics/weak-areas | desk | desk_bearer |

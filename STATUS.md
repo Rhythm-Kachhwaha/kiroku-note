@@ -1,5 +1,4 @@
 # Status
-B-2 fixed: isolated test data dir for LLM JLPT level tests.
-Verified default LLM JLPT level resolves to N3.
-All 5 test_llm_config_jlpt tests passing.
-Next: B-5 (docs/maps/clients.md missing routes).
+B-5 fixed: mapped 6 missing API routes in clients.md.
+Verified client contract tests pass 76/76.
+Next: B-1 (Yomitan mock seam and kanji enrichment).
