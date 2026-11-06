@@ -5,6 +5,7 @@ Dictionary: `YomitanService` + `dictionary_provider.py`; JLPT stays local; Anki 
 
 ## Rules
 
+- NEVER MERGE SIDEPANEL: No agent is ever allowed to merge, bundle, concatenate, or combine `extension/sidepanel/modules/*.js` into a single file, or restore/recreate `sidepanel.js` as a monolith. Sidepanel modules must remain separate.
 - One slice only. Read only card-named files. Touch only own: files. Do not start another slice.
 - Stop/ask: FINAL change; two unexplained targeted-test failures; contract break; scope beyond card.
 - Commit: `type(scope): summary [N<n>]` (summary <=60 chars). `STATUS.md`: max 5 concise lines.

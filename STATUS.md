@@ -1,5 +1,4 @@
 # Status
-D-1 fixed: regenerated openapi.json fixture & fixed pairing endpoint.
-api_contract.test.js & desktop_endpoints.test.js pass 3/3.
-All 24 desktop tests + locks pass.
-Next: E-1 (Extension storage mock promise API).
+Hard rule added to AGENTS.md: never merge sidepanel modules.
+All sidepanel modules remain strictly separate.
+Working tree clean at checkpoint 8161399 + rule.
