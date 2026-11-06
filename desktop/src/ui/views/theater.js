@@ -354,6 +354,7 @@ export class PlayerAdapter {
         this.videoEl.pause();
         return { ok: true };
 
+      case 'cmd.pause_play':
       case 'cmd.toggle':
         if (this.videoEl.paused) {
           try {

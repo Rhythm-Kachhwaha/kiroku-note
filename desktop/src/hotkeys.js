@@ -18,7 +18,6 @@ const DEFAULT_HOTKEYS_CONFIG = {
   enabled: false, // default off
   shortcuts: {
     'cmd.pause_play': 'CommandOrControl+Alt+Space',
-    'cmd.toggle': 'CommandOrControl+Alt+Space',
     'cmd.prev_cue': 'CommandOrControl+Alt+Left',
     'cmd.next_cue': 'CommandOrControl+Alt+Right',
     'cmd.replay_cue': 'CommandOrControl+Alt+R',
