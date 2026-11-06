@@ -253,7 +253,9 @@ export class PlayerAdapter {
       if (typeof localStorage !== 'undefined') {
         try {
           localStorage.setItem('kiroku:theater:rate', String(v.playbackRate));
-        } catch (_) {}
+        } catch (err) {
+          console.debug('[Theater] localStorage set rate failed:', err);
+        }
       }
     });
     v.addEventListener('volumechange', () => {
@@ -262,7 +264,9 @@ export class PlayerAdapter {
         try {
           localStorage.setItem('kiroku:theater:vol', String(v.volume));
           localStorage.setItem('kiroku:theater:muted', String(v.muted));
-        } catch (_) {}
+        } catch (err) {
+          console.debug('[Theater] localStorage set volume/muted failed:', err);
+        }
       }
     });
     v.addEventListener('seeked', emitState);

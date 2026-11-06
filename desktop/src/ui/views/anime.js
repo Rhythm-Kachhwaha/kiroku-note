@@ -1023,7 +1023,9 @@ export class AnimeView {
         if (res && res.ok && !res.isDuplicate) {
           this.sessionMinedCount++;
         }
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[AnimeView] mine item error:', err);
+      }
     }
 
     this.gapWordsQueue = [];
@@ -1325,7 +1327,9 @@ export class AnimeView {
           }
         }
       }
-    } catch (_) {}
+    } catch (err) {
+      console.debug('[AnimeView] checkEpisodeResume error:', err);
+    }
   }
 
   _dismissResumeBanner() {
@@ -1422,7 +1426,8 @@ export class AnimeView {
         }
         listEl.innerHTML = html;
       }
-    } catch (_) {
+    } catch (err) {
+      console.debug('[AnimeView] fetchHistory error:', err);
     } finally {
       this._fetchingHistory = false;
     }
@@ -1614,7 +1619,9 @@ export class AnimeView {
     if (activeEl && typeof activeEl.scrollIntoView === 'function') {
       try {
         activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      } catch (_) {}
+      } catch (err) {
+        console.debug('[AnimeView] scrollIntoView error:', err);
+      }
     }
   }
 

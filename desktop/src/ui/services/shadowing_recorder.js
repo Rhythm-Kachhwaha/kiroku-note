@@ -71,7 +71,11 @@ export class ShadowingRecorder {
 
   dispose() {
     if (this.isRecording && this.mediaRecorder) {
-      try { this.mediaRecorder.stop(); } catch (_) {}
+      try {
+        this.mediaRecorder.stop();
+      } catch (err) {
+        console.debug('[ShadowingRecorder] stop error on dispose:', err);
+      }
     }
     if (this.stream) {
       this.stream.getTracks().forEach((t) => t.stop());

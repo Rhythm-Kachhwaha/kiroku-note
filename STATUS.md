@@ -1,5 +1,5 @@
 # Status
-B-3 & B-4 fixed: match slash-variants & pattern aliases in grammar tests.
-All 47 grammar tests pass (N5/N3 auto coverage above 89%).
-Next: Desktop D-2 & D-3 (ShadowingRecorder catch, pause/play hotkey).
+D-2 fixed: replaced silent catch blocks with debug logging.
+guard_no_mock_data.test.js passing 3/3.
+Next: D-3 (Pause/play hotkey command not emitted).
 Then D-1 (OpenAPI route & verify endpoint).
