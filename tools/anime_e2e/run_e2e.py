@@ -51,6 +51,12 @@ def run_scenario(name):
             ignore_default_args=["--disable-extensions"]
         )
 
+        if not context.service_workers:
+            try:
+                context.wait_for_event("serviceworker", timeout=4000)
+            except Exception:
+                pass
+
         try:
             mod.run(context, desk_client)
             print(f"PASS: {name}")

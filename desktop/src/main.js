@@ -79,7 +79,10 @@ function createPairingCode() {
 
 async function generateAndRegisterPairingCode() {
   const code = createPairingCode();
-  const result = await desktopControlRequest('/api/auth/extension-pairings/register', { code });
+  const result = await desktopControlRequest('/api/auth/extension-pairings/register', {
+    code,
+    scopes: ['legacy:write', 'link:rw']
+  });
   return { code, expiresInSeconds: result.expires_in_seconds };
 }
 

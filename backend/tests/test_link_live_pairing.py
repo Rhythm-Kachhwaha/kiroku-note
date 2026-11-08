@@ -49,11 +49,16 @@ def test_live_pairing_and_link_ws(monkeypatch):
             headers={"Origin": origin},
         ) as ws:
             ws.send_json({
+                "v": 1,
+                "id": "ext-hello-1",
+                "ts": 1730750000000,
                 "type": "hello",
-                "version": 1,
-                "role": "ext",
-                "token": ext_token,
-                "client": "extension-test",
+                "src": "ext",
+                "payload": {
+                    "role": "ext",
+                    "token": ext_token,
+                    "client": "extension-test",
+                }
             })
             msg = ws.receive_json()
             assert msg.get("type") == "hello.ok", f"Expected hello.ok but got: {msg}"

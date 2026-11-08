@@ -646,7 +646,7 @@ export class SettingsView {
           try {
             await apiClient.request('/api/auth/extension-pairings/register', {
               method: 'POST',
-              body: JSON.stringify({ code }),
+              body: JSON.stringify({ code, scopes: ['legacy:write', 'link:rw'] }),
               headers: { 'Content-Type': 'application/json' },
             });
           } catch {
@@ -1202,7 +1202,7 @@ export class SettingsView {
         try {
           await apiClient.request('/api/auth/extension-pairings/register', {
             method: 'POST',
-            body: JSON.stringify({ code: generatedCode, label: 'Desktop Settings' }),
+            body: JSON.stringify({ code: generatedCode, scopes: ['legacy:write', 'link:rw'], label: 'Desktop Settings' }),
             headers: { 'Content-Type': 'application/json' },
           });
           code = generatedCode;

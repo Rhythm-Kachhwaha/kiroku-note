@@ -11,17 +11,30 @@ from starlette.websockets import WebSocketDisconnect
 from app.main import app
 from app.link.hub import link_hub
 from app.schemas_link import LINK_PROTOCOL_VERSION
+from app.services.legacy_api_auth import legacy_api_auth
 
 
 @pytest.fixture(autouse=True)
 def clean_hub(monkeypatch):
     """Resets in-memory hub sessions and clients between tests."""
     monkeypatch.setenv("KIROKU_EXTENSION_IDS", "allowed")
+    monkeypatch.setenv("KIROKU_EXTENSION_PAIRING_ENABLED", "1")
     link_hub.sessions.clear()
     link_hub.clients.clear()
+    legacy_api_auth.revoke_all_extension_tokens()
+    legacy_api_auth._attempts.clear()
     yield
     link_hub.sessions.clear()
     link_hub.clients.clear()
+    legacy_api_auth.revoke_all_extension_tokens()
+    legacy_api_auth._attempts.clear()
+
+
+def _mint_test_ext_token(origin: str = "chrome-extension://allowed") -> str:
+    code = f"code-{time.time_ns()}"
+    legacy_api_auth.create_pairing(code, scopes=["legacy:write", "link:rw"])
+    token = legacy_api_auth.redeem_pairing(code, origin, scopes=["legacy:write", "link:rw"])
+    return str(token)
 
 
 def test_link_status_endpoint():
@@ -114,7 +127,7 @@ def test_ws_routing_and_role_enforcement():
             "src": "ext",
             "payload": {
                 "role": "ext",
-                "token": "test-link-rw-token",
+                "token": _mint_test_ext_token(),
                 "client": "ext-1"
             }
         }))
@@ -203,7 +216,7 @@ def test_ws_session_state_replay():
             "src": "ext",
             "payload": {
                 "role": "ext",
-                "token": "test-link-rw-token",
+                "token": _mint_test_ext_token(),
                 "client": "ext-1"
             }
         }))
@@ -351,7 +364,7 @@ def test_ws_video_attach_empty_title_fallback_to_site():
             "src": "ext",
             "payload": {
                 "role": "ext",
-                "token": "test-link-rw-token",
+                "token": _mint_test_ext_token(),
                 "client": "ext-1",
             }
         }))
@@ -411,7 +424,7 @@ def test_ws_extension_disconnect_cleans_up_sessions():
             "src": "ext",
             "payload": {
                 "role": "ext",
-                "token": "test-link-rw-token",
+                "token": _mint_test_ext_token(),
                 "client": "ext-1",
             }
         }))

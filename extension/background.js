@@ -379,6 +379,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "LINK_STATUS") {
+    // Relay status update to sidepanel / other extension views
+    chrome.runtime.sendMessage(message).catch(() => {});
+    return false;
+  }
+
   if (message?.type === "ENSURE_VIDEO_MINING") {
     activeTab().then(tab => {
       if (tab?.id) {

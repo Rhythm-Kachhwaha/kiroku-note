@@ -84,11 +84,9 @@ def authenticate_link_token(role: str, token: str) -> bool:
     if role == "ext":
         if legacy_api_auth.has_extension_token(token):
             scopes = legacy_api_auth.get_token_scopes(token)
-            if not scopes or "link:rw" in scopes:
+            # D2: Ext token accepted if scopes contain 'link:rw' OR 'legacy:write' (or default empty)
+            if not scopes or "link:rw" in scopes or "legacy:write" in scopes:
                 return True
-        # Allow test fixture token if running in test environment
-        if token == "test-link-rw-token":
-            return True
         return False
 
     return False
@@ -131,6 +129,16 @@ class LinkHub:
         self.clients: Dict[WebSocket, LinkClient] = {}
         self.sessions: Dict[int, LinkVideoSession] = {}  # tab_id -> session
         self._seq = 0
+        self.last_reject: Optional[Dict[str, Any]] = None
+
+    def record_reject(self, role: str, reason: str, origin: Optional[str] = None) -> None:
+        """Records the latest handshake rejection reason without storing the token."""
+        self.last_reject = {
+            "role": role,
+            "reason": reason,
+            "origin": origin or "",
+            "ts": int(time.time() * 1000),
+        }
 
     @property
     def ext_clients(self) -> List[LinkClient]:
@@ -159,6 +167,7 @@ class LinkHub:
             "connected_ext": len(self.ext_clients),
             "desk_clients": len(self.desk_clients),
             "sessions": [s.to_dict() for s in self.sessions.values()],
+            "last_reject": self.last_reject,
         }
 
     async def replay_to_desk(self, client: LinkClient) -> None:

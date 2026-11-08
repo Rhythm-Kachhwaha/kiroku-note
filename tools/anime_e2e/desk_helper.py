@@ -31,11 +31,16 @@ class DesktopClient:
                 self._ws = ws
                 # Send hello as desk
                 await ws.send(json.dumps({
+                    "v": 1,
+                    "id": "desk-hello-1",
+                    "ts": 1730750000000,
                     "type": "hello",
-                    "version": 1,
-                    "role": "desk",
-                    "token": self.token,
-                    "client": "desk-test-helper"
+                    "src": "desk",
+                    "payload": {
+                        "role": "desk",
+                        "token": self.token,
+                        "client": "desk-test-helper"
+                    }
                 }))
                 self.connected = True
                 async for raw in ws:
@@ -62,4 +67,11 @@ class DesktopClient:
 
     def stop(self):
         if self._loop and self._loop.is_running():
-            self._loop.call_soon_threadsafe(self._loop.stop)
+            async def _cleanup():
+                if self._ws:
+                    try:
+                        await self._ws.close()
+                    except Exception:
+                        pass
+                self._loop.stop()
+            asyncio.run_coroutine_threadsafe(_cleanup(), self._loop)

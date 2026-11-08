@@ -82,6 +82,7 @@ async def link_websocket_endpoint(websocket: WebSocket) -> None:
     # 2. Origin check
     origin = websocket.headers.get("origin")
     if not check_link_origin(origin):
+        link_hub.record_reject(role="unknown", reason="Forbidden origin", origin=origin)
         await websocket.close(code=4401, reason="Forbidden origin")
         return
 
@@ -91,19 +92,23 @@ async def link_websocket_endpoint(websocket: WebSocket) -> None:
     try:
         first_raw = await asyncio.wait_for(websocket.receive_text(), timeout=3.0)
         if len(first_raw.encode("utf-8")) > MAX_CUE_LIST_PAYLOAD_BYTES:
+            link_hub.record_reject(role="unknown", reason="Oversize handshake frame", origin=origin)
             await websocket.close(code=1009, reason="Oversize handshake frame")
             return
         first_msg = json.loads(first_raw)
     except Exception:
+        link_hub.record_reject(role="unknown", reason="Handshake timeout or invalid payload", origin=origin)
         await websocket.close(code=4401, reason="Handshake timeout or invalid payload")
         return
 
     if not isinstance(first_msg, dict) or first_msg.get("type") != "hello":
+        link_hub.record_reject(role="unknown", reason="First message must be hello", origin=origin)
         await websocket.close(code=4401, reason="First message must be hello")
         return
 
     payload = first_msg.get("payload")
     if not isinstance(payload, dict):
+        link_hub.record_reject(role="unknown", reason="Missing hello payload", origin=origin)
         await websocket.close(code=4401, reason="Missing hello payload")
         return
 
@@ -112,6 +117,7 @@ async def link_websocket_endpoint(websocket: WebSocket) -> None:
     client_name = payload.get("client", "")
 
     if role not in ("ext", "desk") or not authenticate_link_token(role, token):
+        link_hub.record_reject(role=str(role), reason="Unauthorized token or role", origin=origin)
         await websocket.close(code=4401, reason="Unauthorized token or role")
         return
 

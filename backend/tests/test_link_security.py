@@ -14,9 +14,11 @@ Validates:
 from pathlib import Path
 import json
 import logging
+import time
 import pytest
 from fastapi.testclient import TestClient
 
+from app.services.legacy_api_auth import legacy_api_auth
 from app.config import DEFAULT_KIROKU_HOST
 from app.link.hub import (
     authenticate_link_token,
@@ -85,9 +87,17 @@ def test_dns_rebinding_host_header_rejected(client):
             ws.receive_json()
 
 
-def test_ext_cannot_send_cmd(client):
+def test_ext_cannot_send_cmd(client, monkeypatch):
     """Extension role cannot send cmd.* messages; receives ack error and command is dropped."""
-    with client.websocket_connect("/api/link/ws") as ws:
+    monkeypatch.setenv("KIROKU_EXTENSION_IDS", "allowed")
+    monkeypatch.setenv("KIROKU_EXTENSION_PAIRING_ENABLED", "1")
+    legacy_api_auth.revoke_all_extension_tokens()
+    legacy_api_auth._attempts.clear()
+    code = f"sec-{time.time_ns()}"
+    legacy_api_auth.create_pairing(code, scopes=["legacy:write", "link:rw"])
+    ext_token = str(legacy_api_auth.redeem_pairing(code, "chrome-extension://allowed", scopes=["legacy:write", "link:rw"]))
+
+    with client.websocket_connect("/api/link/ws", headers={"Origin": "chrome-extension://allowed"}) as ws:
         # Handshake as extension
         ws.send_json({
             "v": LINK_PROTOCOL_VERSION,
@@ -97,7 +107,7 @@ def test_ext_cannot_send_cmd(client):
             "src": "ext",
             "payload": {
                 "role": "ext",
-                "token": "test-link-rw-token",
+                "token": ext_token,
                 "client": "ext-test"
             }
         })

@@ -10691,6 +10691,38 @@ if (ocrCaptureBtn) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "LINK_STATUS") {
+    const chip = document.querySelector("#indicator-link");
+    if (chip) {
+      const val = chip.querySelector(".system-status-value");
+      chip.classList.remove("ok", "error", "checking", "warning", "unpaired");
+      const status = message.status;
+      const reason = message.reason || "";
+      if (status === "connected" || status === "ok") {
+        chip.classList.add("ok");
+        if (val) val.textContent = "Connected";
+        chip.title = "Link: Connected to Desktop";
+      } else if (status === "no_token" || status === "needs_pairing") {
+        chip.classList.add("warning");
+        if (val) val.textContent = "Needs Pairing";
+        chip.title = `Link: Desktop pairing required${reason ? ` (${reason})` : ""}`;
+      } else if (status === "connecting") {
+        chip.classList.add("checking");
+        if (val) val.textContent = "Connecting…";
+        chip.title = "Link: Connecting…";
+      } else if (status === "unauthorized") {
+        chip.classList.add("error");
+        if (val) val.textContent = "Unauthorized";
+        chip.title = `Link: Unauthorized (4401)${reason ? ` - ${reason}` : ""}`;
+      } else {
+        chip.classList.add("error");
+        if (val) val.textContent = "Unreachable";
+        chip.title = `Link: Unreachable${reason ? ` - ${reason}` : ""}`;
+      }
+    }
+    sendResponse?.({ ok: true });
+    return true;
+  }
   if (message?.type === "ANALYZE_GRAMMAR_SELECTION") {
     const sentence = String(message.sentence || message.selection || "").trim();
     renderTextGrammar(sentence);

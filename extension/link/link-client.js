@@ -83,39 +83,56 @@
       this.stopped = false;
       await this.resolveToken();
       if (!this.token) {
-        // Offline or unauthenticated: surface needs_pairing state
+        // Offline or unauthenticated: surface no_token state
         this.needsPairing = true;
-        this._updateStatusChip("needs_pairing");
+        this.status = "no_token";
+        this.statusReason = "Pairing code required";
+        this._updateStatusChip("no_token", this.statusReason);
         this._notifyStateChange();
         return;
       }
       this.needsPairing = false;
+      this.status = "connecting";
+      this.statusReason = "";
       this._updateStatusChip("connecting");
       this._connect();
     }
 
-    _updateStatusChip(status) {
+    _updateStatusChip(status, reason = "") {
+      this.status = status;
+      this.statusReason = reason;
+      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({
+          type: "LINK_STATUS",
+          status: this.status,
+          reason: this.statusReason
+        }).catch(() => {});
+      }
       if (typeof document === "undefined") return;
       const chip = document.querySelector("#indicator-link");
       if (!chip) return;
       const val = chip.querySelector(".system-status-value");
       chip.classList.remove("ok", "error", "checking", "warning", "unpaired");
-      if (status === "ok") {
+      if (status === "connected" || status === "ok") {
         chip.classList.add("ok");
         if (val) val.textContent = "Connected";
         chip.title = "Link: Connected to Desktop";
-      } else if (status === "needs_pairing") {
+      } else if (status === "no_token" || status === "needs_pairing") {
         chip.classList.add("warning");
         if (val) val.textContent = "Needs Pairing";
-        chip.title = "Link: Desktop pairing required";
+        chip.title = `Link: Desktop pairing required${reason ? ` (${reason})` : ""}`;
       } else if (status === "connecting") {
         chip.classList.add("checking");
         if (val) val.textContent = "Connecting…";
         chip.title = "Link: Connecting…";
+      } else if (status === "unauthorized") {
+        chip.classList.add("error");
+        if (val) val.textContent = "Unauthorized";
+        chip.title = `Link: Unauthorized (4401)${reason ? ` - ${reason}` : ""}`;
       } else {
         chip.classList.add("error");
-        if (val) val.textContent = "Disconnected";
-        chip.title = "Link: Disconnected";
+        if (val) val.textContent = "Unreachable";
+        chip.title = `Link: Unreachable${reason ? ` - ${reason}` : ""}`;
       }
     }
 
@@ -198,7 +215,7 @@
         if (msg.type === "hello.ok") {
           this.authenticated = true;
           this.needsPairing = false;
-          this._updateStatusChip("ok");
+          this._updateStatusChip("connected");
           this._startHeartbeat();
           this._notifyStateChange();
           return;
@@ -226,13 +243,23 @@
       // Handled by onclose
     }
 
-    _onClose() {
+    _onClose(event) {
       this.connected = false;
       this.authenticated = false;
-      this._updateStatusChip(this.token ? "disconnected" : "needs_pairing");
+      const code = event?.code;
+      const reason = event?.reason || "";
+      if (code === 4401) {
+        this.needsPairing = true;
+        this._updateStatusChip("unauthorized", reason || "Invalid pairing token (4401)");
+      } else if (!this.token) {
+        this.needsPairing = true;
+        this._updateStatusChip("no_token", "Pairing required");
+      } else {
+        this._updateStatusChip("unreachable", reason || `Connection closed (code ${code || 'unknown'})`);
+      }
       this._clearTimers();
       this._notifyStateChange();
-      if (!this.stopped) {
+      if (!this.stopped && code !== 4401) {
         this._scheduleReconnect();
       }
     }

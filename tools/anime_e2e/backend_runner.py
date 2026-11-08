@@ -21,7 +21,7 @@ class BackendRunner:
         env["KIROKU_DATA_DIR"] = self.temp_dir.name
         env["KIROKU_PORT"] = str(self.port)
         env["KIROKU_EXTENSION_PAIRING_ENABLED"] = "1"
-        env["KIROKU_DESKTOP_AUTH_TOKEN"] = "desktop-test-token"
+        env["KIROKU_STUDY_API_TOKEN"] = "desktop-test-token"
 
         cmd = [
             sys.executable,

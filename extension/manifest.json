@@ -23,7 +23,9 @@
     "scripting",
     "tabs",
     "clipboardRead",
-    "contextMenus"
+    "contextMenus",
+    "storage",
+    "alarms"
   ],
   "commands": {
     "open-side-panel": {
