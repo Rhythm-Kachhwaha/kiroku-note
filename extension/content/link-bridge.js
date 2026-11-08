@@ -513,6 +513,26 @@
           break;
         }
 
+        case "cmd.clip": {
+          const ClipHandlerClass = (typeof LinkClipHandler === "function")
+            ? LinkClipHandler
+            : (typeof globalThis !== "undefined" && globalThis.LinkClipHandler
+                ? (typeof globalThis.LinkClipHandler === "function" ? globalThis.LinkClipHandler : globalThis.LinkClipHandler.LinkClipHandler)
+                : (typeof window !== "undefined" && window.LinkClipHandler
+                    ? (typeof window.LinkClipHandler === "function" ? window.LinkClipHandler : window.LinkClipHandler.LinkClipHandler)
+                    : null));
+          const handler = ClipHandlerClass ? new ClipHandlerClass({
+            getVideoElement: () => vid
+          }) : null;
+          if (handler) {
+            handler.handleClipCommand(payload).then((clipRes) => {
+              this.emitToBackground("clip.result", clipRes);
+            }).catch(() => {});
+            return true;
+          }
+          break;
+        }
+
         default:
           break;
       }
