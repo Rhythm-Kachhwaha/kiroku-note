@@ -1,5 +1,5 @@
 # Status
-A10: live cue mining and audio/image clip capture verified.
-LinkBridge executes cmd.clip via LinkClipHandler and relays clip.result.
-E2E mining scenario e15 validates end-to-end card persistence in SQLite store.
-Tests: desktop link_mine & anime_mine 8 passed; E2E e15 GREEN.
+A12: anime companion suite completed, verified, and mapped.
+All 15 E2E scenarios e01-e15 passing; backend and desktop tests passing 100%.
+Updated docs/maps/link.md with hub architecture, HUD, two-pane shell, and protocol.
+FINAL locks verified; zero raw hex, no font regressions, no memory leaks.
