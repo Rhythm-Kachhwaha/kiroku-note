@@ -2088,6 +2088,13 @@
       this.netflixAdapter = null;
       this.recentCues = [];
 
+      this.hud = (typeof AnimeHud !== "undefined")
+        ? new AnimeHud(this.activeVideo, this)
+        : (typeof globalThis !== "undefined" && globalThis.AnimeHud ? new globalThis.AnimeHud(this.activeVideo, this) : null);
+      if (this.hud && typeof window !== "undefined") {
+        window.__kirokuAnimeHud = this.hud;
+      }
+
       this.hotkeyController = new SubtitleHotkeyController({
         getVideo: () => this.activeVideo,
         getSyncEngine: () => this.syncEngine,
@@ -2161,6 +2168,14 @@
             }
           } catch (_) {}
           this.broadcastActiveCue(this.syncEngine.currentCue);
+          if (this.hud) {
+            this.hud.setSubStatus({
+              source: "file",
+              name: file.name,
+              count: cues.length,
+              offsetMs: this.syncEngine.offsetMs || 0
+            });
+          }
         }
       } catch (err) {
         console.error("[AnkiMiner Video] Failed to read dropped subtitle file:", err);
@@ -2566,6 +2581,14 @@
           }
           this.renderer.renderCue(this.syncEngine.currentCue);
           this.broadcastActiveCue(this.syncEngine.currentCue);
+          if (this.hud) {
+            this.hud.setSubStatus({
+              source: "file",
+              name: file.name,
+              count: cues.length,
+              offsetMs: this.syncEngine.offsetMs || 0
+            });
+          }
         }
 
         try {
@@ -2693,6 +2716,14 @@
               this.syncEngine.setCues(result.active_subtitle_cues);
               if (result.active_subtitle_filename) this.activeFilename = result.active_subtitle_filename;
               this.broadcastActiveCue(this.syncEngine.currentCue);
+          if (this.hud) {
+            this.hud.setSubStatus({
+              source: "file",
+              name: file.name,
+              count: cues.length,
+              offsetMs: this.syncEngine.offsetMs || 0
+            });
+          }
             }
           });
           if (chrome.storage?.onChanged) {
@@ -2710,6 +2741,14 @@
                 this.renderer.ensureMounted();
                 this.renderer.updatePosition();
                 this.broadcastActiveCue(this.syncEngine.currentCue);
+          if (this.hud) {
+            this.hud.setSubStatus({
+              source: "file",
+              name: file.name,
+              count: cues.length,
+              offsetMs: this.syncEngine.offsetMs || 0
+            });
+          }
               }
             });
           }
@@ -2845,6 +2884,14 @@
               }
             } catch (_) {}
             this.broadcastActiveCue(this.syncEngine.currentCue);
+          if (this.hud) {
+            this.hud.setSubStatus({
+              source: "file",
+              name: file.name,
+              count: cues.length,
+              offsetMs: this.syncEngine.offsetMs || 0
+            });
+          }
           }
         });
         this.ytAdapter.setDisplayEnabled(this.subtitlesDisplayEnabled);
@@ -2889,10 +2936,16 @@
           console.log("[AnkiMiner Video POC] Native TextTracks report:", trackReport);
         } catch {}
         this.renderer.mount(video);
+        if (this.hud) {
+          this.hud.attach(video);
+        }
         this.autoPauseController.attachOverlay(this.renderer.subtitleEl);
         this.syncEngine.attach(video);
       } else {
         console.log("[AnkiMiner Video POC] No active video present.");
+        if (this.hud) {
+          this.hud.detach();
+        }
         this.autoPauseController.detachOverlay();
         this.autoPauseController.detachVideo();
         this.syncEngine.detach();

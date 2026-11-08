@@ -1,5 +1,5 @@
 # Status
-A5: hub hardening and multi-client routing implemented.
-Sessions keyed by (ext_sid, tab, frame); peer.status broadcast to desk.
-video.detach forwarded on ext disconnect; cue.request cached replay.
-Tests: backend link suite 51 passed; E2E e08, e12, e13 GREEN.
+A6: in-page anime subtitle HUD implemented.
+Closed shadow DOM host with track switcher, offset & display controls.
+Fullscreen reparenting, no-subs chip, and cmd.subs handling wired.
+Tests: extension unit tests 16 passed; E2E e10, e11 GREEN.

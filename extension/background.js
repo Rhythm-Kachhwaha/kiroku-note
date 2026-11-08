@@ -33,6 +33,7 @@ const VIDEO_MINING_SCRIPTS = [
   "lib/jimaku-provider.js",
   "lib/image-cropper.js",
   "link/clip.js",
+  "content/anime-hud.js",
   "content/video-mining.js",
   "content/link-bridge.js"
 ];

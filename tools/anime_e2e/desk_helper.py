@@ -11,6 +11,9 @@ class DesktopClient:
         self.ws_url = f"ws://127.0.0.1:{port}/api/link/ws"
         self.messages = []
         self.session = None
+        self.cues = []
+        self.last_sub_status = None
+        self.peer_status = None
         self.connected = False
         self._loop = None
         self._thread = None
@@ -52,6 +55,13 @@ class DesktopClient:
                             self.session = msg.get("payload") or msg.get("session")
                         elif mtype == "video.detach":
                             self.session = None
+                        elif mtype == "cue.list":
+                            cues = msg.get("payload", {}).get("cues", [])
+                            self.cues.extend(cues)
+                        elif mtype == "sub.status":
+                            self.last_sub_status = msg.get("payload")
+                        elif mtype == "peer.status":
+                            self.peer_status = msg.get("payload")
                     except Exception:
                         pass
         except Exception:

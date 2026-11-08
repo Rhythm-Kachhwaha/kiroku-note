@@ -493,6 +493,26 @@
           break;
         }
 
+        case "cmd.subs": {
+          const action = payload.action;
+          const hud = (typeof window !== "undefined" && window.__kirokuAnimeHud) ? window.__kirokuAnimeHud : null;
+          if (action === "open_menu") {
+            if (hud && typeof hud.openMenu === "function") {
+              hud.openMenu();
+              return true;
+            }
+          } else if (action === "clear") {
+            if (poc?.syncEngine?.setCues) {
+              poc.syncEngine.setCues([]);
+            }
+            if (hud && typeof hud.setSubStatus === "function") {
+              hud.setSubStatus({ source: "none", name: "No subtitles loaded", count: 0, offsetMs: 0 });
+            }
+            return true;
+          }
+          break;
+        }
+
         default:
           break;
       }
