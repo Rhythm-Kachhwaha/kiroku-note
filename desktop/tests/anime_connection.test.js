@@ -104,3 +104,4 @@ test('AnimeView: renderConnectionStepper renders 4 steps and updates with connec
   assert.ok(html.includes('anime-reject-banner'));
   assert.ok(html.includes('Extension Connection Rejected (invalid_token)'));
 });
+

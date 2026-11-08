@@ -18,3 +18,4 @@ This report lists differences between split modules and runtime canonical files 
 
 ## Summary
 Per Decision D1, runtime files `sidepanel.js` and `content/video-mining.js` are canonical for execution. Split copies are retained untouched per project architecture rules.
+

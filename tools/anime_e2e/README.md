@@ -10,3 +10,4 @@ Or directly:
 
 To run all scenarios:
 `python tools/anime_e2e/run_e2e.py all`
+

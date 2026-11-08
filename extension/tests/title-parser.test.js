@@ -120,3 +120,4 @@ test("TitleParser generates reproducible site-scoped cache keys", () => {
   assert.notEqual(k1, k3, "Different sites should produce different cache keys");
   assert.ok(k1.startsWith("kiroku.sub_choice.hianimeto."), `Key should follow format: ${k1}`);
 });
+

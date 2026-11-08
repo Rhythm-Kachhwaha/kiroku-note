@@ -140,3 +140,4 @@ class FixtureServer:
         if self.server:
             self.server.shutdown()
             self.server.server_close()
+

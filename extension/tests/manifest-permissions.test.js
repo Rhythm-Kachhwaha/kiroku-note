@@ -61,3 +61,4 @@ test("T8: Manifest permissions contract covers all chrome.<api> calls in runtime
     `chrome.alarms is needed for background link keep-alive alarms but missing in manifest.json permissions`
   );
 });
+
