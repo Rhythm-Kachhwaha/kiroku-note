@@ -145,7 +145,8 @@ body {
 }
 
 ::view-transition {
-  background-color: var(--pure-black);
+  background-color: transparent;
+  pointer-events: none;
 }
 
 ::view-transition-image-pair(view-content) {
@@ -154,6 +155,12 @@ body {
 
 ::view-transition-group(view-content) {
   animation-duration: 0.25s;
+  clip-path: inset(
+    var(--chrome-top-height, 48px)
+    0
+    max(0px, calc(100% - 100vh + var(--content-padding-bottom, 96px)))
+    0
+  );
 }
 
 ::view-transition-old(view-content),
