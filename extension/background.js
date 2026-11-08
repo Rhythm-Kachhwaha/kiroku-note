@@ -29,6 +29,7 @@ async function ensureOcrContentScript(tabId) {
 
 const VIDEO_MINING_SCRIPTS = [
   "lib/subtitle-parser.js",
+  "lib/title-parser.js",
   "lib/subtitle-provider.js",
   "lib/jimaku-provider.js",
   "lib/image-cropper.js",

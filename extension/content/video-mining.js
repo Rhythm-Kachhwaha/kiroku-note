@@ -1556,6 +1556,66 @@
     };
   }
 
+  function isJapaneseTextTrack(track) {
+    if (!track) return false;
+    const lang = (track.language || "").toLowerCase();
+    const label = (track.label || "").toLowerCase();
+    if (lang.startsWith("ja") || lang === "jpn") return true;
+    if (/japanese|nihongo|日本語/i.test(label)) return true;
+    return false;
+  }
+
+  function findBestJapaneseTrack(video) {
+    if (!video || !video.textTracks) return null;
+    const tracks = Array.from(video.textTracks);
+    let best = null;
+    let bestScore = -1;
+
+    for (const t of tracks) {
+      if (!isJapaneseTextTrack(t)) continue;
+      let score = 10;
+      const lang = (t.language || "").toLowerCase();
+      const label = (t.label || "").toLowerCase();
+      if (lang === "ja" || lang === "jpn") score += 5;
+      if (/japanese|日本語/i.test(label)) score += 5;
+      if (t.default) score += 3;
+      if (t.mode === "showing") score += 2;
+      try {
+        if (t.cues && t.cues.length > 0) score += 10;
+      } catch (_) {}
+
+      if (score > bestScore) {
+        bestScore = score;
+        best = t;
+      }
+    }
+    return best;
+  }
+
+  function extractCuesFromTextTrack(track) {
+    if (!track) return [];
+    try {
+      if (track.mode === "disabled") {
+        track.mode = "hidden";
+      }
+      if (!track.cues || track.cues.length === 0) return [];
+      const cues = [];
+      for (let i = 0; i < track.cues.length; i++) {
+        const c = track.cues[i];
+        if (!c) continue;
+        cues.push({
+          id: i,
+          startTime: typeof c.startTime === "number" ? c.startTime : 0.0,
+          endTime: typeof c.endTime === "number" ? c.endTime : 0.0,
+          text: c.text || ""
+        });
+      }
+      return cues;
+    } catch (_) {
+      return [];
+    }
+  }
+
   // -------------------------------------------------------------
   // Step 4.5: Subtitle Navigation Hotkeys Controller
   // -------------------------------------------------------------
@@ -2941,6 +3001,28 @@
         }
         this.autoPauseController.attachOverlay(this.renderer.subtitleEl);
         this.syncEngine.attach(video);
+
+        // Auto-select embedded Japanese text tracks if no cues loaded
+        if (this.syncEngine.cues.length === 0) {
+          const best = findBestJapaneseTrack(video);
+          if (best) {
+            const cues = extractCuesFromTextTrack(best);
+            if (cues.length > 0) {
+              this.syncEngine.setCues(cues);
+              if (this.hud) {
+                this.hud.setSubStatus({
+                  source: "embedded",
+                  name: best.label || "Japanese (Embedded)",
+                  count: cues.length,
+                  offsetMs: 0
+                });
+              }
+              if (typeof window !== "undefined" && window.__kirokuLinkBridge) {
+                window.__kirokuLinkBridge._emitCueList?.();
+              }
+            }
+          }
+        }
       } else {
         console.log("[AnkiMiner Video POC] No active video present.");
         if (this.hud) {

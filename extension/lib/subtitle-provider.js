@@ -302,7 +302,8 @@
     LocalFileSubtitleProvider,
     YouTubeSubtitleProvider,
     NetflixSubtitleProvider,
-    SubtitleProviderRegistry
+    SubtitleProviderRegistry,
+    TitleParser: typeof TitleParser !== "undefined" ? TitleParser : (typeof globalThis !== "undefined" ? globalThis.TitleParser : null)
   };
 
   if (typeof module !== "undefined" && module.exports) {

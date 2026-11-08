@@ -1,5 +1,5 @@
 # Status
-A6: in-page anime subtitle HUD implemented.
-Closed shadow DOM host with track switcher, offset & display controls.
-Fullscreen reparenting, no-subs chip, and cmd.subs handling wired.
-Tests: extension unit tests 16 passed; E2E e10, e11 GREEN.
+A7: automatic subtitle sourcing and jimaku matching implemented.
+TitleParser extracts canonical title and episode across 16 anime site conventions.
+Japanese embedded text track auto-detection and series choice caching added.
+Tests: extension unit tests 18 passed; title-parser table test GREEN.
