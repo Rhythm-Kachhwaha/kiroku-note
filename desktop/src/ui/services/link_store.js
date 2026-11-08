@@ -22,6 +22,9 @@ export class LinkStore {
     this.cueHash = null;
     this.activeCueIndex = null;
     this.activeCue = null;
+    this.peerCounts = { ext: 0, desk: 0 };
+    this.subStatus = null;
+    this.pendingCueChunks = new Map(); // hash -> { parts, received: Map(part -> cues) }
     this.listeners = new Map(); // event -> Set<function>
 
     if (this.client) {
@@ -58,6 +61,49 @@ export class LinkStore {
       this.emit('change');
     });
 
+    this.client.on('video.detach', (payload) => {
+      const tabId = payload?.tab || 0;
+      this.sessions.delete(tabId);
+      if (this.activeTabId === tabId || this.sessions.size === 0) {
+        if (this.sessions.size > 0) {
+          const nextTab = this.sessions.keys().next().value;
+          this.activeTabId = nextTab;
+          this.activeSession = this.sessions.get(nextTab);
+        } else {
+          this.activeTabId = null;
+          this.activeSession = null;
+          this.cues = [];
+          this.cueHash = null;
+          this.activeCue = null;
+          this.activeCueIndex = null;
+        }
+      }
+      this.emit('video:detach', payload);
+      this.emit('session', this.activeSession, null);
+      this.emit('change');
+    });
+
+    this.client.on('peer.status', (payload) => {
+      if (!payload || typeof payload !== 'object') return;
+      this.peerCounts = {
+        ext: typeof payload.ext === 'number' ? payload.ext : this.peerCounts.ext,
+        desk: typeof payload.desk === 'number' ? payload.desk : this.peerCounts.desk
+      };
+      this.emit('peer:status', this.peerCounts);
+      this.emit('change');
+    });
+
+    this.client.on('sub.status', (payload) => {
+      if (!payload || typeof payload !== 'object') return;
+      this.subStatus = payload;
+      this.emit('sub:status', payload);
+      this.emit('change');
+    });
+
+    this.client.on('ack', (payload) => {
+      this.emit('ack', payload);
+    });
+
     this.client.on('video.state', (payload) => {
       if (!payload || typeof payload !== 'object') return;
       this.videoState = {
@@ -76,8 +122,37 @@ export class LinkStore {
 
     this.client.on('cue.list', (payload) => {
       if (!payload || typeof payload !== 'object') return;
+      const parts = payload.parts || 1;
+      const part = payload.part || 1;
+      const hash = payload.hash || null;
+
+      if (parts > 1 && hash) {
+        let chunkGroup = this.pendingCueChunks.get(hash);
+        if (!chunkGroup || chunkGroup.parts !== parts) {
+          chunkGroup = { parts, received: new Map() };
+          this.pendingCueChunks.set(hash, chunkGroup);
+        }
+        chunkGroup.received.set(part, Array.isArray(payload.cues) ? payload.cues : []);
+        if (chunkGroup.received.size === parts) {
+          let assembled = [];
+          for (let p = 1; p <= parts; p++) {
+            const piece = chunkGroup.received.get(p) || [];
+            assembled = assembled.concat(piece);
+          }
+          this.pendingCueChunks.delete(hash);
+          this.cues = assembled;
+          this.cueHash = hash;
+          if (typeof this.videoState?.t === 'number') {
+            this._updateActiveCueFromTime(this.videoState.t);
+          }
+          this.emit('cues', this.cues, this.cueHash);
+          this.emit('change');
+        }
+        return;
+      }
+
       this.cues = Array.isArray(payload.cues) ? payload.cues : [];
-      this.cueHash = payload.hash || null;
+      this.cueHash = hash;
       if (typeof this.videoState?.t === 'number') {
         this._updateActiveCueFromTime(this.videoState.t);
       }
@@ -201,6 +276,8 @@ export class LinkStore {
     return {
       connected: this.status === 'connected',
       status: this.status,
+      peerCounts: this.peerCounts,
+      subStatus: this.subStatus,
       sessionsCount: this.sessions.size,
       activeSession: this.activeSession,
       videoState: this.videoState,

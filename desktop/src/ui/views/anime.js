@@ -114,6 +114,10 @@ export class AnimeView {
 
     // Shadowing Mode
     this.shadowingRecorder = new ShadowingRecorder();
+
+    // Link reject state from Hub
+    this.lastReject = null;
+    this._hasCheckedReject = false;
   }
 
   async mount(container) {
@@ -894,12 +898,19 @@ export class AnimeView {
     this._stateListener = () => this.updateFromStore();
     this._cueListener = () => this.updateFromStore();
     this._activeCueListener = () => this.updateFromStore();
+    this._peerStatusListener = () => {
+      this._checkHubReject();
+      this.updateFromStore();
+    };
+    this._subStatusListener = () => this.updateFromStore();
 
     this.linkStore.on('status', this._statusListener);
     this.linkStore.on('session', this._sessionListener);
     this.linkStore.on('video:state', this._stateListener);
     this.linkStore.on('cues', this._cueListener);
     this.linkStore.on('cue:active', this._activeCueListener);
+    this.linkStore.on('peer:status', this._peerStatusListener);
+    this.linkStore.on('sub:status', this._subStatusListener);
   }
 
   _detachStoreListeners() {
@@ -923,6 +934,14 @@ export class AnimeView {
     if (this._activeCueListener) {
       this.linkStore.off('cue:active', this._activeCueListener);
       this._activeCueListener = null;
+    }
+    if (this._peerStatusListener) {
+      this.linkStore.off('peer:status', this._peerStatusListener);
+      this._peerStatusListener = null;
+    }
+    if (this._subStatusListener) {
+      this.linkStore.off('sub:status', this._subStatusListener);
+      this._subStatusListener = null;
     }
   }
 
@@ -1286,7 +1305,7 @@ export class AnimeView {
       } else if (summary.activeSession) {
         cueTextEl.innerHTML = `<span class="anime-live-cue-empty">Listening for dialogue subtitles...</span>`;
       } else {
-        cueTextEl.innerHTML = `<span class="anime-live-cue-empty">Start playback in browser with Kiroku Extension to mine Japanese dialogue</span>`;
+        cueTextEl.innerHTML = this.renderConnectionStepper(summary);
       }
       cueTextEl.classList.toggle('is-blurred', this.blurSubtitlesEnabled);
     }
@@ -1362,6 +1381,91 @@ export class AnimeView {
         }
       }
     }
+  }
+
+  async _checkHubReject() {
+    if (!this.apiClient) return;
+    try {
+      const res = await this.apiClient.request('/api/link/status');
+      if (res && res.last_reject) {
+        this.lastReject = res.last_reject;
+      } else {
+        this.lastReject = null;
+      }
+      this._hasCheckedReject = true;
+    } catch (_) {
+      // Hub status probe failure is non-fatal
+    }
+  }
+
+  renderConnectionStepper(summary) {
+    const isHubConnected = summary.status === 'connected';
+    const extCount = summary.peerCounts?.ext || 0;
+    const isExtConnected = isHubConnected && extCount > 0;
+    const isVideoDetected = Boolean(summary.activeSession);
+    const hasSubs = (summary.cueCount > 0) || Boolean(summary.subStatus && summary.subStatus.count > 0);
+
+    const checkIcon = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+    const pendingIcon = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>`;
+
+    const rejectBanner = this.lastReject ? `
+      <div class="anime-reject-banner" role="alert">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        <div class="anime-reject-content">
+          <div class="anime-reject-title">Extension Connection Rejected (${escapeHtml(this.lastReject.reason || 'unauthorized')})</div>
+          <div class="anime-reject-sub">Please re-pair the browser extension in Settings with a fresh code.</div>
+        </div>
+      </div>
+    ` : '';
+
+    return `
+      <div class="anime-connection-stepper-card">
+        ${rejectBanner}
+        <div class="anime-stepper-header">
+          <div class="anime-stepper-title">Quick Connect Onboarding</div>
+          <div class="anime-stepper-subtitle">Follow these 4 steps to sync video dialogue with Kiroku</div>
+        </div>
+        <div class="anime-stepper-list">
+          <div class="anime-step-item ${isHubConnected ? 'is-complete' : 'is-active'}">
+            <div class="anime-step-badge">${isHubConnected ? checkIcon : '1'}</div>
+            <div class="anime-step-body">
+              <div class="anime-step-label">Step 1: Link Hub Backend</div>
+              <div class="anime-step-desc">${isHubConnected ? 'Running on 127.0.0.1:21828' : 'Connecting to local Link Hub...'}</div>
+            </div>
+          </div>
+
+          <div class="anime-step-item ${isExtConnected ? 'is-complete' : (isHubConnected ? 'is-active' : 'is-pending')}">
+            <div class="anime-step-badge">${isExtConnected ? checkIcon : '2'}</div>
+            <div class="anime-step-body">
+              <div class="anime-step-label">Step 2: Extension Online</div>
+              <div class="anime-step-desc">
+                ${isExtConnected ? 'Browser extension connected' : 'Extension not connected — make sure Kiroku extension is installed and paired'}
+              </div>
+            </div>
+          </div>
+
+          <div class="anime-step-item ${isVideoDetected ? 'is-complete' : (isExtConnected ? 'is-active' : 'is-pending')}">
+            <div class="anime-step-badge">${isVideoDetected ? checkIcon : '3'}</div>
+            <div class="anime-step-body">
+              <div class="anime-step-label">Step 3: Video Detected</div>
+              <div class="anime-step-desc">
+                ${isVideoDetected ? escapeHtml(summary.activeSession.title) : 'Open any video stream on Crunchyroll, YouTube, or HiAnime'}
+              </div>
+            </div>
+          </div>
+
+          <div class="anime-step-item ${hasSubs ? 'is-complete' : (isVideoDetected ? 'is-active' : 'is-pending')}">
+            <div class="anime-step-badge">${hasSubs ? checkIcon : '4'}</div>
+            <div class="anime-step-body">
+              <div class="anime-step-label">Step 4: Subtitles Loaded</div>
+              <div class="anime-step-desc">
+                ${hasSubs ? `${summary.cueCount} cues ready` : 'Load Japanese subtitle track or drag-and-drop .srt/.vtt/.ass'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   async checkResumePosition(hash) {

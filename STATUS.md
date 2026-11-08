@@ -1,5 +1,5 @@
 # Status
-A8 & A13: anime view shell redesign and cleanup implemented.
-Two-pane layout with Live Cue hero, seekable progress bar, and tabbed deck.
-Bottom session disclosure, leak-free test DB isolation, filler boxes removed.
-Tests: desktop anime suite 14 passed; final_lock 4 passed; E2E e14 GREEN.
+A9: desktop link connection states, stepper and onboarding implemented.
+LinkStore handles video.detach, peer.status, sub.status, ack, chunked cues.
+AnimeView renders 4-step quick connect stepper and reject error banner.
+Tests: desktop anime connection suite 13 passed; E2E e02, e13, e14 GREEN.

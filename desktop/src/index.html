@@ -73,9 +73,17 @@
     import { TopChrome } from './ui/shell/top_chrome.js';
     import { BottomDock } from './ui/shell/bottom_dock.js';
     import { AppRouter } from './ui/router.js';
+    import { getSharedLink } from './ui/views/anime.js';
 
     function bootstrap() {
       let router = null;
+
+      // Eagerly connect LinkClient companion WebSocket in background
+      try {
+        getSharedLink();
+      } catch (err) {
+        console.warn('[Bootstrap] Link initialization error:', err);
+      }
 
       // 1. Initialize Floating Bottom Dock
       const bottomDock = new BottomDock({
