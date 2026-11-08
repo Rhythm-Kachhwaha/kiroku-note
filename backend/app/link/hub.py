@@ -198,6 +198,17 @@ class LinkHub:
         client = self.clients.pop(ws, None)
         return client
 
+    async def disconnect_ext_clients(self, reason: str = "Pairings revoked") -> int:
+        """Terminates active WebSocket connections for all paired extension clients."""
+        count = 0
+        for client in list(self.ext_clients):
+            try:
+                await client.ws.close(code=4401, reason=reason)
+                count += 1
+            except Exception:
+                pass
+        return count
+
     def get_status(self) -> Dict[str, Any]:
         return {
             "connected_ext": len(self.ext_clients),
@@ -240,7 +251,7 @@ class LinkHub:
             await client.send_envelope(attach_msg)
 
             # 2. Cues
-            if session.last_cue_list:
+            for cue_payload in session.get_all_cue_payloads():
                 cue_msg = {
                     "v": LINK_PROTOCOL_VERSION,
                     "id": f"replay-{uuid.uuid4().hex[:8]}",
@@ -249,7 +260,7 @@ class LinkHub:
                     "src": "hub",
                     "sid": client.sid,
                     "seq": self._next_seq(),
-                    "payload": session.last_cue_list,
+                    "payload": cue_payload,
                 }
                 await client.send_envelope(cue_msg)
 
@@ -424,24 +435,39 @@ class LinkHub:
             # Desk requests cues for hash
             req_hash = envelope.payload.get("hash", "")
             for sess in self.sessions.values():
-                if sess.last_cue_list and sess.last_cue_list.get("hash") == req_hash:
-                    await sender.send_envelope({
-                        "v": LINK_PROTOCOL_VERSION,
-                        "id": f"cue-res-{uuid.uuid4().hex[:8]}",
-                        "ts": int(time.time() * 1000),
-                        "type": "cue.list",
-                        "src": "hub",
-                        "sid": sender.sid,
-                        "seq": self._next_seq(),
-                        "payload": sess.last_cue_list,
-                    })
+                cues_to_send = [c for c in sess.get_all_cue_payloads() if c.get("hash") == req_hash]
+                if cues_to_send:
+                    for cue_payload in cues_to_send:
+                        await sender.send_envelope({
+                            "v": LINK_PROTOCOL_VERSION,
+                            "id": f"cue-res-{uuid.uuid4().hex[:8]}",
+                            "ts": int(time.time() * 1000),
+                            "type": "cue.list",
+                            "src": "hub",
+                            "sid": sender.sid,
+                            "seq": self._next_seq(),
+                            "payload": cue_payload,
+                        })
                     break
 
         elif envelope.type == "bye":
-            # If extension closes, clean up associated sessions
-            for k in list(self.sessions.keys()):
-                if k[0] == sender.sid:
-                    self.sessions.pop(k, None)
+            # If extension closes, clean up associated sessions and notify desk
+            if sender.role == "ext":
+                stale_keys = [k for k in list(self.sessions.keys()) if k[0] == sender.sid]
+                for k in stale_keys:
+                    sess = self.sessions.pop(k, None)
+                    if sess:
+                        detach_msg = {
+                            "v": LINK_PROTOCOL_VERSION,
+                            "id": f"detach-{uuid.uuid4().hex[:8]}",
+                            "ts": int(time.time() * 1000),
+                            "type": "video.detach",
+                            "src": "hub",
+                            "seq": self._next_seq(),
+                            "payload": {"tab": sess.tab, "frame": sess.frame},
+                        }
+                        for desk in self.desk_clients:
+                            await desk.send_envelope(detach_msg)
 
         # Route message
         if sender.role == "ext":

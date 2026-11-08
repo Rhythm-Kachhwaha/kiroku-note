@@ -196,6 +196,14 @@ class CmdSubsPayload(CmdBasePayload):
     action: Literal["open_menu", "clear"]
 
 
+class CmdReplayPayload(CmdBasePayload):
+    pass
+
+
+class CmdSubTogglePayload(CmdBasePayload):
+    enabled: Optional[bool] = None
+
+
 TYPE_PAYLOAD_MAP: Dict[str, type] = {
     "hello": HelloPayload,
     "hello.ok": HelloOkPayload,
@@ -222,6 +230,8 @@ TYPE_PAYLOAD_MAP: Dict[str, type] = {
     "cmd.clip": CmdClipPayload,
     "cmd.next_episode": CmdNextEpisodePayload,
     "cmd.subs": CmdSubsPayload,
+    "cmd.replay": CmdReplayPayload,
+    "cmd.sub_toggle": CmdSubTogglePayload,
 }
 
 

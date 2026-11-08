@@ -479,7 +479,13 @@ async def redeem_extension_pairing(request: Request) -> dict[str, object]:
 async def revoke_extension_pairings(request: Request) -> dict[str, object]:
     """Let the desktop revoke every current-launch extension token."""
     _require_desktop_control(request)
-    return {"revoked": legacy_api_auth.revoke_all_extension_tokens()}
+    revoked = legacy_api_auth.revoke_all_extension_tokens()
+    try:
+        from app.link.hub import link_hub
+        await link_hub.disconnect_ext_clients(reason="Extension pairings revoked by desktop")
+    except Exception:
+        pass
+    return {"revoked": revoked}
 
 
 @router.get("/api/auth/extension-pairings/status")

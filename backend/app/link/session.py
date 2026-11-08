@@ -153,6 +153,7 @@ class LinkVideoSession:
         self.ext_sid = ext_sid
         self.last_state: Optional[Dict[str, Any]] = None
         self.last_cue_list: Optional[Dict[str, Any]] = None
+        self.cue_chunks: Dict[str, Dict[int, Dict[str, Any]]] = {}
         self.last_active_cue: Optional[Dict[str, Any]] = None
         self.last_sub_status: Optional[Dict[str, Any]] = None
         self.created_at = time.time()
@@ -175,7 +176,22 @@ class LinkVideoSession:
 
     def update_cues(self, cue_list: Dict[str, Any]) -> None:
         self.last_cue_list = cue_list
+        hash_val = cue_list.get("hash", "")
+        parts = cue_list.get("parts")
+        part = cue_list.get("part")
+        if hash_val and parts and parts > 1 and part:
+            self.cue_chunks.setdefault(hash_val, {})[part] = cue_list
         self.updated_at = time.time()
+
+    def get_all_cue_payloads(self) -> List[Dict[str, Any]]:
+        """Returns all cue list payloads for the active cue hash, in chunk order."""
+        if not self.last_cue_list:
+            return []
+        hash_val = self.last_cue_list.get("hash", "")
+        if hash_val and hash_val in self.cue_chunks:
+            chunks = self.cue_chunks[hash_val]
+            return [chunks[p] for p in sorted(chunks.keys())]
+        return [self.last_cue_list]
 
     def update_active_cue(self, cue: Dict[str, Any]) -> None:
         self.last_active_cue = cue

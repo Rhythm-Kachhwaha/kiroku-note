@@ -288,6 +288,103 @@ def test_ws_session_state_replay():
             assert peer_msg["type"] == "peer.status"
 
 
+def test_ws_chunked_cue_replay():
+    client = TestClient(app)
+    with client.websocket_connect("/api/link/ws", headers={"origin": "chrome-extension://allowed"}) as ws_ext:
+        ws_ext.send_text(json.dumps({
+            "v": 1,
+            "id": "ext-1",
+            "ts": int(time.time() * 1000),
+            "type": "hello",
+            "src": "ext",
+            "payload": {
+                "role": "ext",
+                "token": _mint_test_ext_token(),
+                "client": "ext-1"
+            }
+        }))
+        assert json.loads(ws_ext.receive_text())["type"] == "hello.ok"
+
+        # Attach video
+        ws_ext.send_text(json.dumps({
+            "v": 1,
+            "id": "att-1",
+            "ts": int(time.time() * 1000),
+            "type": "video.attach",
+            "src": "ext",
+            "payload": {
+                "tab": 303,
+                "site": "crunchyroll.com",
+                "title": "Anime Show",
+                "duration": 1400.0,
+                "drm": False
+            }
+        }))
+
+        # Send chunk 1
+        ws_ext.send_text(json.dumps({
+            "v": 1,
+            "id": "cues-p1",
+            "ts": int(time.time() * 1000),
+            "type": "cue.list",
+            "src": "ext",
+            "payload": {
+                "tab": 303,
+                "frame": 0,
+                "hash": "testchunkhash",
+                "part": 1,
+                "parts": 2,
+                "cues": [{"i": 0, "s": 0.0, "e": 2.0, "text": "Part 1 line"}]
+            }
+        }))
+
+        # Send chunk 2
+        ws_ext.send_text(json.dumps({
+            "v": 1,
+            "id": "cues-p2",
+            "ts": int(time.time() * 1000),
+            "type": "cue.list",
+            "src": "ext",
+            "payload": {
+                "tab": 303,
+                "frame": 0,
+                "hash": "testchunkhash",
+                "part": 2,
+                "parts": 2,
+                "cues": [{"i": 1, "s": 2.5, "e": 4.0, "text": "Part 2 line"}]
+            }
+        }))
+
+        # Now desk connects -> must receive BOTH chunk 1 and chunk 2 in order
+        with client.websocket_connect("/api/link/ws", headers={"origin": "file://"}) as ws_desk:
+            ws_desk.send_text(json.dumps({
+                "v": 1,
+                "id": "desk-1",
+                "ts": int(time.time() * 1000),
+                "type": "hello",
+                "src": "desk",
+                "payload": {
+                    "role": "desk",
+                    "token": "test-desktop-control-token",
+                    "client": "desk-1"
+                }
+            }))
+            assert json.loads(ws_desk.receive_text())["type"] == "hello.ok"
+            assert json.loads(ws_desk.receive_text())["type"] == "video.attach"
+
+            part1_msg = json.loads(ws_desk.receive_text())
+            assert part1_msg["type"] == "cue.list"
+            assert part1_msg["payload"]["part"] == 1
+            assert part1_msg["payload"]["parts"] == 2
+            assert part1_msg["payload"]["cues"][0]["text"] == "Part 1 line"
+
+            part2_msg = json.loads(ws_desk.receive_text())
+            assert part2_msg["type"] == "cue.list"
+            assert part2_msg["payload"]["part"] == 2
+            assert part2_msg["payload"]["parts"] == 2
+            assert part2_msg["payload"]["cues"][0]["text"] == "Part 2 line"
+
+
 def test_ws_rate_limiting():
     client = TestClient(app)
     with client.websocket_connect("/api/link/ws", headers={"origin": "file://"}) as ws:
