@@ -41,37 +41,11 @@ async function ensureVideoMiningScript(tabId, targetFrameId = null) {
   if (!tabId || tabId < 0) return;
   try {
     if (typeof targetFrameId === "number" && targetFrameId !== 0) {
-      const ping = await chrome.tabs.sendMessage(tabId, { type: "PING_VIDEO_MINING" }, { frameId: targetFrameId }).catch(() => null);
-      if (ping?.ok) return;
       await chrome.scripting.executeScript({
         target: { tabId, frameIds: [targetFrameId] },
         files: VIDEO_MINING_SCRIPTS
       });
       return;
-    }
-
-    if (chrome.webNavigation?.getAllFrames) {
-      const frames = await chrome.webNavigation.getAllFrames({ tabId }).catch(() => []);
-      if (frames && frames.length > 0) {
-        let allOk = true;
-        for (const frame of frames) {
-          const res = await chrome.tabs.sendMessage(tabId, { type: "PING_VIDEO_MINING" }, { frameId: frame.frameId }).catch(() => null);
-          if (!res?.ok) {
-            allOk = false;
-            break;
-          }
-        }
-        if (allOk) return;
-      }
-    } else {
-      const ping = await chrome.tabs.sendMessage(tabId, { type: "PING_VIDEO_MINING" }).catch(() => null);
-      if (!ping?.ok) {
-        await chrome.scripting.executeScript({
-          target: { tabId, allFrames: true },
-          files: VIDEO_MINING_SCRIPTS
-        });
-        return;
-      }
     }
 
     await chrome.scripting.executeScript({
@@ -511,7 +485,6 @@ chrome.tabs.onUpdated?.addListener?.((tabId, changeInfo, tab) => {
         chrome.tabs.sendMessage(tabId, {type: "MINING_MODE_CHANGED", enabled: true}).catch(() => {});
       }).catch(() => {});
     }
-    ensureVideoMiningScript(tabId);
   }
 });
 

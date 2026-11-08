@@ -1,6 +1,6 @@
 # Status
-A2: protocol contract schemas and documentation updated.
-Added frame:int to events, video.detach, peer.status, session.snapshot, sub.status, cmd.subs, cue.request.
-Chunked cue.list part/parts and optional tab/frame on cmd.* validated.
-Tests: test_link_schemas (31 tests) GREEN, fixture parity verified.
+A3: detection and injection hardened for all frame/DOM contexts.
+Persistent video detector pierces shadow roots; WeakSet prevents redundant notifications.
+Idempotent injection guard added to video-mining.js and link-bridge.js; SPA swaps handled.
+Tests: video-detect-frames.test.js GREEN; e03-e07 all PASS in real Chrome.
 Mutation ok.

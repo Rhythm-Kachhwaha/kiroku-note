@@ -11,9 +11,10 @@
 
 (() => {
   // Prevent duplicate initialization in the same frame
-  if (window.__KIROKU_VIDEO_POC__ || window.__ANKIMINER_VIDEO_POC__) {
+  if (window.__kirokuVideoMiningLoaded || window.__KIROKU_VIDEO_POC__ || window.__ANKIMINER_VIDEO_POC__) {
     return;
   }
+  window.__kirokuVideoMiningLoaded = true;
 
   // -------------------------------------------------------------
   // Step 1: Video Detector
@@ -62,7 +63,22 @@
     }
 
     findAllVideos() {
-      return Array.from(document.querySelectorAll("video"));
+      const results = [];
+      function walk(node) {
+        if (!node) return;
+        if (node.querySelectorAll) {
+          node.querySelectorAll("video").forEach((v) => results.push(v));
+        }
+        if (node.querySelectorAll) {
+          node.querySelectorAll("*").forEach((el) => {
+            if (el.shadowRoot) {
+              walk(el.shadowRoot);
+            }
+          });
+        }
+      }
+      walk(document);
+      return results;
     }
 
     handleMutations(mutations) {
@@ -119,7 +135,28 @@
     }
 
     checkVideos() {
-      if (this.activeVideo && this.activeVideo.isConnected && !this.activeVideo.paused && this.activeVideo.readyState > 2) {
+      if (
+        this.activeVideo &&
+        this.activeVideo.isConnected &&
+        !this.activeVideo.paused &&
+        !this.activeVideo.ended &&
+        this.activeVideo.readyState > 2
+      ) {
+        // Still verify if activeVideo has ended or disconnected or source cleared
+        const primary = this.findPrimaryVideo();
+        if (primary && primary !== this.activeVideo) {
+          const actRect = typeof this.activeVideo.getBoundingClientRect === "function" ? this.activeVideo.getBoundingClientRect() : null;
+          const priRect = typeof primary.getBoundingClientRect === "function" ? primary.getBoundingClientRect() : null;
+          const actArea = actRect ? actRect.width * actRect.height : 0;
+          const priArea = priRect ? priRect.width * priRect.height : 0;
+          // If another playing video is significantly larger or active ended, swap
+          if (!primary.paused && priArea > actArea) {
+            this.activeVideo = primary;
+            if (typeof this.onVideoChanged === "function") {
+              this.onVideoChanged(this.activeVideo);
+            }
+          }
+        }
         return;
       }
       const primary = this.findPrimaryVideo();

@@ -9,6 +9,12 @@
  */
 
 (function (root, factory) {
+  if (typeof window !== "undefined" && window.__kirokuLinkBridgeLoaded) {
+    return;
+  }
+  if (typeof window !== "undefined") {
+    window.__kirokuLinkBridgeLoaded = true;
+  }
   if (typeof module !== "undefined" && module.exports) {
     module.exports = factory();
   } else {
@@ -126,7 +132,10 @@
 
     _checkVideo() {
       const vid = this.getVideoHelper();
-      if (vid && !this.attached) {
+      if (vid && (!this.attached || this.activeVideo !== vid)) {
+        if (this.attached && this.activeVideo !== vid) {
+          this._detach();
+        }
         this._attach(vid);
       } else if (!vid && this.attached) {
         this._detach();

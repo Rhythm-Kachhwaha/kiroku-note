@@ -105,55 +105,82 @@
     }, true);
   }
 
-  // Lightweight Video Detection (Slice 34)
+  // Lightweight Video Detection (Slice A3)
   function initVideoDetector() {
-    let videoNotified = false;
-    function notifyVideo() {
-      if (videoNotified) return;
-      if (typeof window !== "undefined" && (window.__KIROKU_VIDEO_POC__ || window.__ANKIMINER_VIDEO_POC__)) {
-        videoNotified = true;
-        return;
+    const detectedVideos = typeof WeakSet !== "undefined" ? new WeakSet() : new Set();
+    let pollInterval = null;
+    let pollCount = 0;
+
+    function walkElements(root, tag, fn) {
+      if (!root) return;
+      if (root.querySelectorAll) {
+        root.querySelectorAll(tag).forEach(fn);
       }
-      const hasVideo = typeof document !== "undefined" && typeof document.querySelector === "function" && document.querySelector("video");
-      if (hasVideo) {
-        videoNotified = true;
-        try {
-          chrome.runtime.sendMessage({ type: "VIDEO_DETECTED" }).catch(() => {});
-        } catch (_) {}
+      if (root.querySelectorAll) {
+        root.querySelectorAll("*").forEach((el) => {
+          if (el.shadowRoot) {
+            walkElements(el.shadowRoot, tag, fn);
+          }
+        });
       }
     }
 
-    notifyVideo();
+    function checkAndNotify(video) {
+      if (!video) return;
+      if (detectedVideos.has(video)) return;
+      detectedVideos.add(video);
 
-    if (!videoNotified && typeof document !== "undefined") {
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", notifyVideo, { once: true });
-      }
-      if (typeof MutationObserver !== "undefined") {
-        const obs = new MutationObserver((mutations) => {
-          if (videoNotified) {
-            obs.disconnect();
-            return;
-          }
-          for (const m of mutations) {
-            for (const n of (m.addedNodes || [])) {
-              if (n && n.nodeType === 1 && ((n.tagName || "").toLowerCase() === "video" || (typeof n.querySelector === "function" && n.querySelector("video")))) {
-                notifyVideo();
-                obs.disconnect();
-                return;
+      try {
+        chrome.runtime.sendMessage({ type: "VIDEO_DETECTED" }).catch(() => {});
+      } catch (_) {}
+    }
+
+    function scanAll() {
+      walkElements(document, "video", checkAndNotify);
+    }
+
+    // 1. Initial scan
+    scanAll();
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", scanAll, { once: true });
+    }
+
+    // 2. MutationObserver never disconnects; watches additions and open shadow roots
+    if (typeof MutationObserver !== "undefined") {
+      const obs = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+          for (const n of (m.addedNodes || [])) {
+            if (n && n.nodeType === 1) {
+              if ((n.tagName || "").toLowerCase() === "video") {
+                checkAndNotify(n);
+              } else {
+                walkElements(n, "video", checkAndNotify);
               }
             }
           }
-        });
-        const target = document.body || document.documentElement;
-        if (target) {
-          obs.observe(target, { childList: true, subtree: true });
         }
+      });
+      const target = document.body || document.documentElement;
+      if (target) {
+        obs.observe(target, { childList: true, subtree: true });
       }
-      document.addEventListener("play", notifyVideo, true);
-      document.addEventListener("playing", notifyVideo, true);
-      document.addEventListener("loadeddata", notifyVideo, true);
     }
+
+    // 3. Capture video playback lifecycle events
+    document.addEventListener("play", (e) => { if (e.target?.tagName?.toLowerCase() === "video") checkAndNotify(e.target); }, true);
+    document.addEventListener("playing", (e) => { if (e.target?.tagName?.toLowerCase() === "video") checkAndNotify(e.target); }, true);
+    document.addEventListener("loadeddata", (e) => { if (e.target?.tagName?.toLowerCase() === "video") checkAndNotify(e.target); }, true);
+
+    // 4. Poll 1s for 30s to catch late loads or shadow DOM attachment
+    pollInterval = setInterval(() => {
+      pollCount++;
+      scanAll();
+      if (pollCount >= 30 && pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    }, 1000);
   }
 
   try {
