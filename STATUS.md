@@ -1,5 +1,5 @@
 # Status
-A16: Slice 4 Desktop stepper, mining batching, and chunk eviction.
-Render stepper up to Step 4 when 0 cues loaded; await hub reject.
-Mine-all media clip reuse per cue timestamp; chunk map eviction.
-All desktop anime and final_lock tests passing.
+A17: Anime companion & video mining fully verified.
+All 4 vertical slices committed on main; e01-e15 passing.
+Backend (61/61), Desktop (47/47), Ext (14/14) tests passing.
+FINAL locks intact; zero token/font regressions.
