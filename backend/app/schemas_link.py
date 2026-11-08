@@ -38,6 +38,7 @@ class AckPayload(BaseModel):
 
 class VideoAttachPayload(BaseModel):
     tab: int
+    frame: int = Field(default=0, ge=0)
     site: str = Field(min_length=1)
     title: str = Field(default="")
     duration: float = Field(ge=0.0)
@@ -45,13 +46,38 @@ class VideoAttachPayload(BaseModel):
     hasNextEpisode: bool = False
 
 
+class VideoDetachPayload(BaseModel):
+    tab: int
+    frame: int = Field(default=0, ge=0)
+
+
 class VideoStatePayload(BaseModel):
+    tab: Optional[int] = None
+    frame: int = Field(default=0, ge=0)
     t: float = Field(ge=0.0)
     paused: bool
     rate: float = Field(default=1.0, gt=0.0)
     vol: float = Field(default=1.0, ge=0.0, le=1.0)
     muted: bool = False
     hasNextEpisode: bool = False
+
+
+class PeerStatusPayload(BaseModel):
+    ext: int = Field(ge=0)
+    desk: int = Field(ge=0)
+
+
+class SessionSnapshotPayload(BaseModel):
+    sessions: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class SubStatusPayload(BaseModel):
+    tab: Optional[int] = None
+    frame: int = Field(default=0, ge=0)
+    source: Literal["none", "embedded", "youtube", "jimaku", "file"] = "none"
+    name: str = ""
+    count: int = Field(default=0, ge=0)
+    offsetMs: int = 0
 
 
 class CueItem(BaseModel):
@@ -70,11 +96,21 @@ class CueItem(BaseModel):
 
 
 class CueListPayload(BaseModel):
+    tab: Optional[int] = None
+    frame: int = Field(default=0, ge=0)
     hash: str = Field(min_length=1)
+    part: Optional[int] = Field(default=None, ge=1)
+    parts: Optional[int] = Field(default=None, ge=1)
     cues: List[CueItem] = Field(default_factory=list, max_length=500)
 
 
+class CueRequestPayload(BaseModel):
+    hash: str = Field(min_length=1)
+
+
 class CueActivePayload(BaseModel):
+    tab: Optional[int] = None
+    frame: int = Field(default=0, ge=0)
     i: Optional[int] = Field(default=None, ge=0)
     secondary_text: Optional[str] = None
 
@@ -85,19 +121,24 @@ class ClipResultPayload(BaseModel):
     audio_b64: Optional[str] = None
 
 
-class CmdPlayPayload(BaseModel):
+class CmdBasePayload(BaseModel):
+    tab: Optional[int] = None
+    frame: Optional[int] = None
+
+
+class CmdPlayPayload(CmdBasePayload):
     pass
 
 
-class CmdPausePayload(BaseModel):
+class CmdPausePayload(CmdBasePayload):
     pass
 
 
-class CmdTogglePayload(BaseModel):
+class CmdTogglePayload(CmdBasePayload):
     pass
 
 
-class CmdSeekPayload(BaseModel):
+class CmdSeekPayload(CmdBasePayload):
     t: Optional[float] = None
     delta: Optional[float] = None
 
@@ -108,7 +149,7 @@ class CmdSeekPayload(BaseModel):
         return self
 
 
-class CmdCuePayload(BaseModel):
+class CmdCuePayload(CmdBasePayload):
     delta: Optional[int] = None
     i: Optional[int] = None
 
@@ -119,7 +160,7 @@ class CmdCuePayload(BaseModel):
         return self
 
 
-class CmdLoopPayload(BaseModel):
+class CmdLoopPayload(CmdBasePayload):
     s: float = Field(ge=0.0)
     e: float = Field(ge=0.0)
     count: int = Field(default=1, ge=1)
@@ -132,23 +173,27 @@ class CmdLoopPayload(BaseModel):
         return v
 
 
-class CmdRatePayload(BaseModel):
+class CmdRatePayload(CmdBasePayload):
     v: float = Field(gt=0.0, le=16.0)
 
 
-class CmdOffsetPayload(BaseModel):
+class CmdOffsetPayload(CmdBasePayload):
     ms: int
 
 
-class CmdClipPayload(BaseModel):
+class CmdClipPayload(CmdBasePayload):
     reqId: str = Field(min_length=1)
     s: float = Field(ge=0.0)
     e: float = Field(ge=0.0)
     want: List[Literal["image", "audio"]] = Field(min_length=1)
 
 
-class CmdNextEpisodePayload(BaseModel):
+class CmdNextEpisodePayload(CmdBasePayload):
     pass
+
+
+class CmdSubsPayload(CmdBasePayload):
+    action: Literal["open_menu", "clear"]
 
 
 TYPE_PAYLOAD_MAP: Dict[str, type] = {
@@ -157,8 +202,13 @@ TYPE_PAYLOAD_MAP: Dict[str, type] = {
     "bye": ByePayload,
     "ack": AckPayload,
     "video.attach": VideoAttachPayload,
+    "video.detach": VideoDetachPayload,
     "video.state": VideoStatePayload,
+    "peer.status": PeerStatusPayload,
+    "session.snapshot": SessionSnapshotPayload,
+    "sub.status": SubStatusPayload,
     "cue.list": CueListPayload,
+    "cue.request": CueRequestPayload,
     "cue.active": CueActivePayload,
     "clip.result": ClipResultPayload,
     "cmd.play": CmdPlayPayload,
@@ -171,6 +221,7 @@ TYPE_PAYLOAD_MAP: Dict[str, type] = {
     "cmd.offset": CmdOffsetPayload,
     "cmd.clip": CmdClipPayload,
     "cmd.next_episode": CmdNextEpisodePayload,
+    "cmd.subs": CmdSubsPayload,
 }
 
 
@@ -179,6 +230,7 @@ TYPE_PAYLOAD_MAP: Dict[str, type] = {
 # ---------------------------------------------------------------------------
 
 class LinkEnvelope(BaseModel):
+    model_config = {"extra": "ignore"}
     v: int = Field(default=1)
     id: str = Field(min_length=1)
     ts: int = Field(gt=0)

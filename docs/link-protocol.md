@@ -24,25 +24,33 @@ Every message over WebSocket is a JSON object with the fixed schema:
 - Errors during handshake close the socket with code `4401`.
 
 ## 3. Extension -> Desktop Messages (`ext -> desk`)
-- `video.attach`: `{ tab: int, site: str, title: str, duration: float, drm: bool }`.
-- `video.state`: `{ t: float, paused: bool, rate: float, vol: float, muted: bool }`.
+- `video.attach`: `{ tab: int, frame?: int, site: str, title: str, duration: float, drm: bool, hasNextEpisode?: bool }`.
+- `video.detach`: `{ tab: int, frame?: int }`.
+- `video.state`: `{ tab?: int, frame?: int, t: float, paused: bool, rate: float, vol: float, muted: bool, hasNextEpisode?: bool }`.
   Emitted at <= 4Hz while playing, and immediately upon state change (pause/play/seek).
-- `cue.list`: `{ hash: str, cues: [{ i: int, s: float, e: float, text: str }] }`.
+- `peer.status`: `{ ext: int, desk: int }` (broadcast by hub).
+- `session.snapshot`: `{ sessions: [...] }` (optional full snapshot).
+- `sub.status`: `{ tab?: int, frame?: int, source: "none"|"embedded"|"youtube"|"jimaku"|"file", name: str, count: int, offsetMs: int }`.
+- `cue.list`: `{ tab?: int, frame?: int, hash: str, part?: int, parts?: int, cues: [{ i: int, s: float, e: float, text: str }] }`.
   Chunk size <= 500 cues; total payload <= 1MB.
-- `cue.active`: `{ i: int | null }`.
+- `cue.active`: `{ tab?: int, frame?: int, i: int | null, secondary_text?: str }`.
 - `clip.result`: `{ reqId: str, image_b64?: str, audio_b64?: str }`.
 
 ## 4. Desktop -> Extension Commands (`desk -> ext`)
 Only `desk` may originate `cmd.*` messages. Hub rejects any `cmd.*` from `ext`.
-- `cmd.play`: `{}`
-- `cmd.pause`: `{}`
-- `cmd.toggle`: `{}`
-- `cmd.seek`: `{ t?: float, delta?: float }` (at least one required).
-- `cmd.cue`: `{ delta?: int, i?: int }` (at least one required).
-- `cmd.loop`: `{ s: float, e: float, count: int }`.
-- `cmd.rate`: `{ v: float }`.
-- `cmd.offset`: `{ ms: int }`.
-- `cmd.clip`: `{ reqId: str, s: float, e: float, want: ["image"|"audio"] }`.
+All commands accept optional `tab: int` and `frame: int`.
+- `cmd.play`: `{ tab?: int, frame?: int }`
+- `cmd.pause`: `{ tab?: int, frame?: int }`
+- `cmd.toggle`: `{ tab?: int, frame?: int }`
+- `cmd.seek`: `{ tab?: int, frame?: int, t?: float, delta?: float }` (at least one of t/delta required).
+- `cmd.cue`: `{ tab?: int, frame?: int, delta?: int, i?: int }` (at least one of delta/i required).
+- `cmd.loop`: `{ tab?: int, frame?: int, s: float, e: float, count: int }`.
+- `cmd.rate`: `{ tab?: int, frame?: int, v: float }`.
+- `cmd.offset`: `{ tab?: int, frame?: int, ms: int }`.
+- `cmd.clip`: `{ tab?: int, frame?: int, reqId: str, s: float, e: float, want: ["image"|"audio"] }`.
+- `cmd.subs`: `{ tab?: int, frame?: int, action: "open_menu"|"clear" }`.
+- `cmd.next_episode`: `{ tab?: int, frame?: int }`.
+- `cue.request`: `{ hash: str }`.
 
 ## 5. Acknowledgment & Error Reporting
 - `ack`: `{ id: str, ok: bool, err?: str }`.

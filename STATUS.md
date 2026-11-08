@@ -1,6 +1,6 @@
 # Status
-A1: permissions, auth, status reasons implemented and verified.
-Manifest storage/alarms added; bypass token removed; scopes legacy:write|link:rw supported.
-Hub last_reject diagnostics added; LinkClient status states surfaced.
-Tests: manifest test GREEN, test_link_live_pairing GREEN, e01 GREEN, e02 GREEN.
+A2: protocol contract schemas and documentation updated.
+Added frame:int to events, video.detach, peer.status, session.snapshot, sub.status, cmd.subs, cue.request.
+Chunked cue.list part/parts and optional tab/frame on cmd.* validated.
+Tests: test_link_schemas (31 tests) GREEN, fixture parity verified.
 Mutation ok.
