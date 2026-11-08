@@ -224,6 +224,20 @@ test("LinkBridge: executes commands (cmd.play, cmd.pause, cmd.seek, cmd.jump)", 
   const jumpRes = bridge.executeCommand("cmd.jump", { delta: -10 });
   assert.equal(jumpRes, true);
   assert.equal(mockVideo.currentTime, 78.5);
+
+  // cmd.toggle
+  mockVideo.paused = true;
+  const toggleRes1 = bridge.executeCommand("cmd.toggle");
+  assert.equal(toggleRes1, true);
+  assert.equal(mockVideo.paused, false);
+  const toggleRes2 = bridge.executeCommand("cmd.toggle");
+  assert.equal(toggleRes2, true);
+  assert.equal(mockVideo.paused, true);
+
+  // cmd.rate
+  const rateRes = bridge.executeCommand("cmd.rate", { v: 1.5 });
+  assert.equal(rateRes, true);
+  assert.equal(mockVideo.playbackRate, 1.5);
 });
 
 test("LinkBridge: cmd.seek supports relative delta seek (E5)", () => {

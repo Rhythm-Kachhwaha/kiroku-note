@@ -1,5 +1,5 @@
 # Status
-A13: Slice 1 Hub chunked cues replay and protocol alignment.
-Replay chunked cues in order; broadcast detach on ext bye.
-Disconnect active extension WebSockets on pairing revocation.
-All 61 backend link tests passing.
+A14: Slice 2 Clip canvas fallback and link bridge commands.
+Fallback to background visible tab capture on CORS canvas.
+Implemented cmd.toggle, cmd.rate, cmd.offset, cmd.cue in bridge.
+All extension bridge tests passing.

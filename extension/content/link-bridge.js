@@ -414,6 +414,95 @@
           }
           break;
 
+        case "cmd.toggle": {
+          if (vid) {
+            if (vid.paused) {
+              const res = vid.play();
+              if (res && typeof res.catch === "function") res.catch(() => {});
+            } else {
+              vid.pause();
+            }
+            this._emitVideoState();
+            return true;
+          }
+          break;
+        }
+
+        case "cmd.rate": {
+          const v = typeof payload.v === "number" ? payload.v : (!isNaN(Number(payload.v)) ? Number(payload.v) : 1.0);
+          if (vid && v > 0) {
+            vid.playbackRate = v;
+            this._emitVideoState();
+            return true;
+          }
+          break;
+        }
+
+        case "cmd.offset": {
+          const ms = typeof payload.ms === "number" ? payload.ms : (!isNaN(Number(payload.ms)) ? Number(payload.ms) : 0);
+          if (poc?.syncEngine?.setOffsetMs) {
+            poc.syncEngine.setOffsetMs(ms);
+          }
+          const hud = (typeof window !== "undefined" && window.__kirokuAnimeHud) ? window.__kirokuAnimeHud : null;
+          if (hud && typeof hud.setSubStatus === "function") {
+            hud.setSubStatus({ offsetMs: ms });
+          }
+          this._emitSubStatus();
+          return true;
+        }
+
+        case "cmd.cue": {
+          const delta = typeof payload.delta === "number" ? payload.delta : (!isNaN(Number(payload.delta)) ? Number(payload.delta) : 0);
+          const targetIdx = typeof payload.i === "number" ? payload.i : null;
+          const cues = poc?.syncEngine?.cues;
+          if (vid && Array.isArray(cues) && cues.length > 0) {
+            let targetCue = null;
+            if (targetIdx !== null) {
+              targetCue = cues.find(c => (c.id === targetIdx || c.i === targetIdx));
+            } else if (delta !== 0) {
+              const curTime = vid.currentTime || 0;
+              const curIdx = cues.findIndex(c => {
+                const s = typeof c.startTime === "number" ? c.startTime : (c.startMs ? c.startMs / 1000 : 0);
+                const e = typeof c.endTime === "number" ? c.endTime : (c.endMs ? c.endMs / 1000 : 0);
+                return curTime >= s && curTime <= e;
+              });
+              const nextIdx = Math.max(0, Math.min(cues.length - 1, (curIdx >= 0 ? curIdx : 0) + delta));
+              targetCue = cues[nextIdx];
+            }
+            if (targetCue) {
+              const s = typeof targetCue.startTime === "number" ? targetCue.startTime : (targetCue.startMs ? targetCue.startMs / 1000 : 0);
+              vid.currentTime = Math.max(0, s);
+              if (poc?.syncEngine?.sync) poc.syncEngine.sync(true);
+              this._emitVideoState();
+              return true;
+            }
+          }
+          break;
+        }
+
+        case "cmd.loop": {
+          const s = typeof payload.s === "number" ? payload.s : 0;
+          const e = typeof payload.e === "number" ? payload.e : s + 3;
+          if (vid) {
+            vid.currentTime = s;
+            const onLoopCheck = () => {
+              if (vid.currentTime >= e) {
+                vid.currentTime = s;
+              }
+            };
+            vid.addEventListener("timeupdate", onLoopCheck);
+            vid.addEventListener("pause", () => {
+              vid.removeEventListener("timeupdate", onLoopCheck);
+            }, { once: true });
+            if (vid.paused) {
+              vid.play()?.catch?.(() => {});
+            }
+            this._emitVideoState();
+            return true;
+          }
+          break;
+        }
+
         case "cmd.seek": {
           if (vid) {
             if (payload.delta !== undefined && !isNaN(Number(payload.delta))) {
@@ -522,7 +611,21 @@
                     ? (typeof window.LinkClipHandler === "function" ? window.LinkClipHandler : window.LinkClipHandler.LinkClipHandler)
                     : null));
           const handler = ClipHandlerClass ? new ClipHandlerClass({
-            getVideoElement: () => vid
+            getVideoElement: () => vid,
+            captureVisibleTab: async () => {
+              if (this.chromeRuntime?.sendMessage) {
+                const resp = await new Promise((resolve) => {
+                  this.chromeRuntime.sendMessage(
+                    { type: "CAPTURE_VIDEO_FRAME", format: "jpeg", quality: 85 },
+                    (res) => resolve(res)
+                  );
+                });
+                if (resp && resp.ok && resp.dataUrl) {
+                  return resp.dataUrl;
+                }
+              }
+              return null;
+            }
           }) : null;
           if (handler) {
             handler.handleClipCommand(payload).then((clipRes) => {

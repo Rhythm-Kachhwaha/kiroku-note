@@ -93,9 +93,22 @@
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         return canvas.toDataURL("image/jpeg", 0.85);
       } catch (err) {
-        // May fail if canvas is tainted by cross-origin video
+        // Fallback if canvas is tainted by cross-origin video or DRM
         if (this.captureVisibleTab) {
           return await this.captureVisibleTab();
+        }
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          try {
+            const resp = await new Promise((resolve) => {
+              chrome.runtime.sendMessage(
+                { type: "CAPTURE_VIDEO_FRAME", format: "jpeg", quality: 85 },
+                (res) => resolve(res)
+              );
+            });
+            if (resp && resp.ok && resp.dataUrl) {
+              return resp.dataUrl;
+            }
+          } catch (_) {}
         }
         return null;
       }
