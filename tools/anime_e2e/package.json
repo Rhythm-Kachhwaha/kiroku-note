@@ -1,0 +1,9 @@
+{
+  "name": "anime-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Anime mode real-browser E2E test harness",
+  "scripts": {
+    "e2e": "python run_e2e.py"
+  }
+}
