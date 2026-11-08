@@ -1,5 +1,5 @@
 # Status
-A15: Slice 3 HUD fullscreen reattach and title parser fixes.
-HUD reattaches fullscreenchange listener on video re-attach.
-TitleParser supports Japanese episode markers and clean dubs.
-All extension title and HUD tests passing.
+A16: Slice 4 Desktop stepper, mining batching, and chunk eviction.
+Render stepper up to Step 4 when 0 cues loaded; await hub reject.
+Mine-all media clip reuse per cue timestamp; chunk map eviction.
+All desktop anime and final_lock tests passing.

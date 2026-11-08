@@ -898,8 +898,8 @@ export class AnimeView {
     this._stateListener = () => this.updateFromStore();
     this._cueListener = () => this.updateFromStore();
     this._activeCueListener = () => this.updateFromStore();
-    this._peerStatusListener = () => {
-      this._checkHubReject();
+    this._peerStatusListener = async () => {
+      await this._checkHubReject();
       this.updateFromStore();
     };
     this._subStatusListener = () => this.updateFromStore();
@@ -1078,13 +1078,23 @@ export class AnimeView {
     this.isMiningAll = true;
     const summary = this.linkStore?.getStatusSummary() || {};
     const toMine = [...this.gapWordsQueue];
+    const mediaCache = new Map();
 
     for (const item of toMine) {
       try {
+        const cueKey = item.cue ? `${item.cue.s}:${item.cue.e}` : 'default';
+        let media = mediaCache.get(cueKey);
+        if (!media && item.cue && this.linkMineService.requestMediaClip) {
+          const s = typeof item.cue.s === 'number' ? item.cue.s : 0;
+          const e = typeof item.cue.e === 'number' ? item.cue.e : s + 3;
+          media = await this.linkMineService.requestMediaClip(s, e);
+          mediaCache.set(cueKey, media);
+        }
         const res = await this.linkMineService.mineWord({
           cue: item.cue,
           session: summary.activeSession,
-          expression: item.word
+          expression: item.word,
+          media
         });
         if (res && res.ok && !res.isDuplicate) {
           this.sessionMinedCount++;
@@ -1302,7 +1312,7 @@ export class AnimeView {
         } else {
           cueTextEl.innerHTML = `<span class="anime-cue-plain">${escapeHtml(summary.activeCue.text)}</span>`;
         }
-      } else if (summary.activeSession) {
+      } else if (summary.activeSession && summary.cueCount > 0) {
         cueTextEl.innerHTML = `<span class="anime-live-cue-empty">Listening for dialogue subtitles...</span>`;
       } else {
         cueTextEl.innerHTML = this.renderConnectionStepper(summary);

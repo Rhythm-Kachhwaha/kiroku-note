@@ -76,6 +76,7 @@ export class LinkStore {
           this.cueHash = null;
           this.activeCue = null;
           this.activeCueIndex = null;
+          this.pendingCueChunks.clear();
         }
       }
       this.emit('video:detach', payload);

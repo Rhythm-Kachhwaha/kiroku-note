@@ -90,7 +90,7 @@ export class LinkMineService {
     // 1. Attempt media capture
     const s = typeof cue?.s === 'number' ? cue.s : 0;
     const e = typeof cue?.e === 'number' ? cue.e : s + 3;
-    const media = await this.requestMediaClip(s, e, want);
+    const media = params.media || await this.requestMediaClip(s, e, want);
 
     // 2. Prepare card payload matching backend schema
     const cardData = {
