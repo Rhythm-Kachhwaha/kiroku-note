@@ -1,6 +1,5 @@
 # Status
-A4: link lifecycle in extension implemented.
-Storage onChanged & alarm keepalive wired; LINK_RESYNC on hello.ok implemented.
-video.detach on pagehide/tab close; FNV-1a chunked cue.list; ack command routing.
-Tests: extension/tests/link_client.test.js GREEN; e02, e08, e09, e12 GREEN.
-Mutation ok.
+A5: hub hardening and multi-client routing implemented.
+Sessions keyed by (ext_sid, tab, frame); peer.status broadcast to desk.
+video.detach forwarded on ext disconnect; cue.request cached replay.
+Tests: backend link suite 51 passed; E2E e08, e12, e13 GREEN.

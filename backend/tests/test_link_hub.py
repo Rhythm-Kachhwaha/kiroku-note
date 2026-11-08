@@ -150,6 +150,10 @@ def test_ws_routing_and_role_enforcement():
             }))
             hello_desk = json.loads(ws_desk.receive_text())
             assert hello_desk["type"] == "hello.ok"
+            peer_desk = json.loads(ws_desk.receive_text())
+            assert peer_desk["type"] == "peer.status"
+            assert peer_desk["payload"]["desk"] == 1
+            assert peer_desk["payload"]["ext"] == 1
 
             # 1. Ext sends video.attach
             ws_ext.send_text(json.dumps({
@@ -279,6 +283,9 @@ def test_ws_session_state_replay():
             replayed_state = json.loads(ws_desk.receive_text())
             assert replayed_state["type"] == "video.state"
             assert replayed_state["payload"]["t"] == 45.0
+            # Peer status broadcast
+            peer_msg = json.loads(ws_desk.receive_text())
+            assert peer_msg["type"] == "peer.status"
 
 
 def test_ws_rate_limiting():
@@ -385,6 +392,8 @@ def test_ws_video_attach_empty_title_fallback_to_site():
                 }
             }))
             assert json.loads(ws_desk.receive_text())["type"] == "hello.ok"
+            peer_msg = json.loads(ws_desk.receive_text())
+            assert peer_msg["type"] == "peer.status"
 
             # Ext sends video.attach with empty title (e.g. HiAnime player iframe)
             ws_ext.send_text(json.dumps({

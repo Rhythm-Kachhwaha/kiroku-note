@@ -142,8 +142,10 @@ class LinkVideoSession:
         duration: float,
         drm: bool = False,
         ext_sid: str = "",
+        frame: int = 0,
     ):
         self.tab = tab
+        self.frame = frame
         self.site = site
         self.title = title
         self.duration = duration
@@ -152,6 +154,7 @@ class LinkVideoSession:
         self.last_state: Optional[Dict[str, Any]] = None
         self.last_cue_list: Optional[Dict[str, Any]] = None
         self.last_active_cue: Optional[Dict[str, Any]] = None
+        self.last_sub_status: Optional[Dict[str, Any]] = None
         self.created_at = time.time()
         self.updated_at = time.time()
 
@@ -178,9 +181,14 @@ class LinkVideoSession:
         self.last_active_cue = cue
         self.updated_at = time.time()
 
+    def update_sub_status(self, status: Dict[str, Any]) -> None:
+        self.last_sub_status = status
+        self.updated_at = time.time()
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "tab": self.tab,
+            "frame": self.frame,
             "site": self.site,
             "title": self.title,
             "duration": self.duration,

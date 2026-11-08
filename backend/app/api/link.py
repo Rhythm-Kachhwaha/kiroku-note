@@ -96,9 +96,14 @@ async def link_websocket_endpoint(websocket: WebSocket) -> None:
             await websocket.close(code=1009, reason="Oversize handshake frame")
             return
         first_msg = json.loads(first_raw)
+    except WebSocketDisconnect:
+        return
     except Exception:
         link_hub.record_reject(role="unknown", reason="Handshake timeout or invalid payload", origin=origin)
-        await websocket.close(code=4401, reason="Handshake timeout or invalid payload")
+        try:
+            await websocket.close(code=4401, reason="Handshake timeout or invalid payload")
+        except Exception:
+            pass
         return
 
     if not isinstance(first_msg, dict) or first_msg.get("type") != "hello":
@@ -139,6 +144,8 @@ async def link_websocket_endpoint(websocket: WebSocket) -> None:
     if role == "desk":
         await link_hub.replay_to_desk(client)
 
+    await link_hub.broadcast_peer_status()
+
     # 6. Message reception loop with oversize frame protection
     try:
         while True:
@@ -157,9 +164,23 @@ async def link_websocket_endpoint(websocket: WebSocket) -> None:
         link_hub.unregister_client(websocket)
         if role == "ext":
             # Remove all sessions that were attached by this extension client (by sid)
-            stale = [tab for tab, s in link_hub.sessions.items() if getattr(s, "ext_sid", "") == client.sid]
-            for tab in stale:
-                link_hub.sessions.pop(tab, None)
+            # and notify desk clients with video.detach
+            stale_keys = [k for k, s in link_hub.sessions.items() if k[0] == client.sid]
+            for k in stale_keys:
+                sess = link_hub.sessions.pop(k, None)
+                if sess:
+                    detach_msg = {
+                        "v": LINK_PROTOCOL_VERSION,
+                        "id": f"detach-{uuid.uuid4().hex[:8]}",
+                        "ts": int(time.time() * 1000),
+                        "type": "video.detach",
+                        "src": "hub",
+                        "seq": link_hub._next_seq(),
+                        "payload": {"tab": sess.tab, "frame": sess.frame},
+                    }
+                    for desk in link_hub.desk_clients:
+                        await desk.send_envelope(detach_msg)
+        await link_hub.broadcast_peer_status()
 
 
 class CondensedAudioRequest(BaseModel):

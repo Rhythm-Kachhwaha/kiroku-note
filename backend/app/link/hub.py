@@ -122,12 +122,48 @@ class LinkClient:
             return False
 
 
+class SessionDict(dict):
+    """
+    Session storage mapping (ext_sid, tab, frame) -> LinkVideoSession,
+    while supporting integer tab lookup/containment for backwards compatibility with tests.
+    """
+    def __contains__(self, key: Any) -> bool:
+        if super().__contains__(key):
+            return True
+        if isinstance(key, int):
+            return any(isinstance(k, tuple) and len(k) == 3 and k[1] == key for k in self.keys())
+        return False
+
+    def __getitem__(self, key: Any) -> Any:
+        if super().__contains__(key):
+            return super().__getitem__(key)
+        if isinstance(key, int):
+            for k, v in self.items():
+                if isinstance(k, tuple) and len(k) == 3 and k[1] == key:
+                    return v
+        raise KeyError(key)
+
+    def pop(self, key: Any, default: Any = None) -> Any:
+        if super().__contains__(key):
+            return super().pop(key, default)
+        if isinstance(key, int):
+            found_key = None
+            for k in list(self.keys()):
+                if isinstance(k, tuple) and len(k) == 3 and k[1] == key:
+                    found_key = k
+                    break
+            if found_key is not None:
+                return super().pop(found_key, default)
+        return default
+
+
 class LinkHub:
     """In-memory coordinator routing messages between extension and desktop clients."""
 
     def __init__(self):
         self.clients: Dict[WebSocket, LinkClient] = {}
-        self.sessions: Dict[int, LinkVideoSession] = {}  # tab_id -> session
+        # Keyed by (ext_sid, tab, frame), supports integer tab compatibility via SessionDict
+        self.sessions: SessionDict = SessionDict()
         self._seq = 0
         self.last_reject: Optional[Dict[str, Any]] = None
 
@@ -169,6 +205,23 @@ class LinkHub:
             "sessions": [s.to_dict() for s in self.sessions.values()],
             "last_reject": self.last_reject,
         }
+
+    async def broadcast_peer_status(self) -> None:
+        """Broadcasts current peer counts to all connected desk clients."""
+        peer_msg = {
+            "v": LINK_PROTOCOL_VERSION,
+            "id": f"peer-{uuid.uuid4().hex[:8]}",
+            "ts": int(time.time() * 1000),
+            "type": "peer.status",
+            "src": "hub",
+            "seq": self._next_seq(),
+            "payload": {
+                "ext": len(self.ext_clients),
+                "desk": len(self.desk_clients),
+            },
+        }
+        for c in list(self.desk_clients):
+            await c.send_envelope(peer_msg)
 
     async def replay_to_desk(self, client: LinkClient) -> None:
         """Replays all current video sessions and latest states to a newly connected desk client."""
@@ -227,6 +280,20 @@ class LinkHub:
                     "payload": session.last_active_cue,
                 }
                 await client.send_envelope(active_msg)
+
+            # 5. Sub Status
+            if session.last_sub_status:
+                sub_msg = {
+                    "v": LINK_PROTOCOL_VERSION,
+                    "id": f"replay-{uuid.uuid4().hex[:8]}",
+                    "ts": int(time.time() * 1000),
+                    "type": "sub.status",
+                    "src": "hub",
+                    "sid": client.sid,
+                    "seq": self._next_seq(),
+                    "payload": session.last_sub_status,
+                }
+                await client.send_envelope(sub_msg)
 
     async def handle_message(self, sender: LinkClient, raw_data: Any) -> None:
         """Validates, tracks state, and routes incoming Link envelope per protocol rules."""
@@ -292,13 +359,16 @@ class LinkHub:
         if envelope.type == "video.attach":
             p = envelope.payload
             tab = int(p.get("tab", 0))
+            frame = int(p.get("frame", 0))
             raw_title = p.get("title", "")
             fallback_title = p.get("site", "") or "Video"
             title = raw_title.strip() if isinstance(raw_title, str) and raw_title.strip() else fallback_title
             if not p.get("title"):
                 msg_dict["payload"]["title"] = title
-            if tab in self.sessions:
-                self.sessions[tab].update_attach(
+            
+            sess_key = (sender.sid, tab, frame)
+            if sess_key in self.sessions:
+                self.sessions[sess_key].update_attach(
                     p.get("site", ""),
                     title,
                     float(p.get("duration", 0.0)),
@@ -306,8 +376,9 @@ class LinkHub:
                     ext_sid=sender.sid,
                 )
             else:
-                self.sessions[tab] = LinkVideoSession(
+                self.sessions[sess_key] = LinkVideoSession(
                     tab=tab,
+                    frame=frame,
                     site=p.get("site", ""),
                     title=title,
                     duration=float(p.get("duration", 0.0)),
@@ -315,30 +386,66 @@ class LinkHub:
                     ext_sid=sender.sid,
                 )
 
+        elif envelope.type == "video.detach":
+            tab = int(envelope.payload.get("tab", 0))
+            frame = int(envelope.payload.get("frame", 0))
+            sess_key = (sender.sid, tab, frame)
+            self.sessions.pop(sess_key, None)
+
         elif envelope.type == "video.state":
-            tab = int(envelope.payload.get("tab", 0)) if "tab" in envelope.payload else next(iter(self.sessions), None)
-            if tab and tab in self.sessions:
-                self.sessions[tab].update_state(envelope.payload)
+            tab = int(envelope.payload.get("tab", 0))
+            frame = int(envelope.payload.get("frame", 0))
+            sess_key = (sender.sid, tab, frame)
+            if sess_key in self.sessions:
+                self.sessions[sess_key].update_state(envelope.payload)
+
+        elif envelope.type == "sub.status":
+            tab = int(envelope.payload.get("tab", 0))
+            frame = int(envelope.payload.get("frame", 0))
+            sess_key = (sender.sid, tab, frame)
+            if sess_key in self.sessions:
+                self.sessions[sess_key].update_sub_status(envelope.payload)
 
         elif envelope.type == "cue.list":
-            tab = int(envelope.payload.get("tab", 0)) if "tab" in envelope.payload else next(iter(self.sessions), None)
-            if tab and tab in self.sessions:
-                self.sessions[tab].update_cues(envelope.payload)
+            tab = int(envelope.payload.get("tab", 0))
+            frame = int(envelope.payload.get("frame", 0))
+            sess_key = (sender.sid, tab, frame)
+            if sess_key in self.sessions:
+                self.sessions[sess_key].update_cues(envelope.payload)
 
         elif envelope.type == "cue.active":
-            tab = int(envelope.payload.get("tab", 0)) if "tab" in envelope.payload else next(iter(self.sessions), None)
-            if tab and tab in self.sessions:
-                self.sessions[tab].update_active_cue(envelope.payload)
+            tab = int(envelope.payload.get("tab", 0))
+            frame = int(envelope.payload.get("frame", 0))
+            sess_key = (sender.sid, tab, frame)
+            if sess_key in self.sessions:
+                self.sessions[sess_key].update_active_cue(envelope.payload)
+
+        elif envelope.type == "cue.request":
+            # Desk requests cues for hash
+            req_hash = envelope.payload.get("hash", "")
+            for sess in self.sessions.values():
+                if sess.last_cue_list and sess.last_cue_list.get("hash") == req_hash:
+                    await sender.send_envelope({
+                        "v": LINK_PROTOCOL_VERSION,
+                        "id": f"cue-res-{uuid.uuid4().hex[:8]}",
+                        "ts": int(time.time() * 1000),
+                        "type": "cue.list",
+                        "src": "hub",
+                        "sid": sender.sid,
+                        "seq": self._next_seq(),
+                        "payload": sess.last_cue_list,
+                    })
+                    break
 
         elif envelope.type == "bye":
-            # If extension closes, clean up associated tab if supplied
-            tab = envelope.payload.get("tab")
-            if tab and tab in self.sessions:
-                self.sessions.pop(tab, None)
+            # If extension closes, clean up associated sessions
+            for k in list(self.sessions.keys()):
+                if k[0] == sender.sid:
+                    self.sessions.pop(k, None)
 
         # Route message
         if sender.role == "ext":
-            # Forward ext events to all desk clients
+            # Forward ext events and acks to all desk clients
             for desk_client in self.desk_clients:
                 # Backpressure: if video.state, skip if client received a newer state
                 if envelope.type == "video.state":
@@ -352,9 +459,20 @@ class LinkHub:
                 await desk_client.send_envelope(msg_dict)
 
         elif sender.role == "desk":
-            # Forward desk commands/messages to extension clients
-            for ext_client in self.ext_clients:
-                await ext_client.send_envelope(msg_dict)
+            # Forward desk commands/messages to target extension client
+            target_tab = envelope.payload.get("tab")
+            target_ext = None
+            if target_tab is not None:
+                for (ext_sid, tab, frame), sess in self.sessions.items():
+                    if tab == target_tab:
+                        target_ext = next((c for c in self.ext_clients if c.sid == ext_sid), None)
+                        if target_ext:
+                            break
+            if target_ext:
+                await target_ext.send_envelope(msg_dict)
+            else:
+                for ext_client in self.ext_clients:
+                    await ext_client.send_envelope(msg_dict)
 
 
 # Global singleton hub
