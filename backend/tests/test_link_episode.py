@@ -20,7 +20,8 @@ from app.main import app
 def test_db(tmp_path, monkeypatch):
     """Isolated temporary SQLite database for testing."""
     db_file = tmp_path / "test_episode.sqlite"
-    monkeypatch.setenv("ANKI_MINER_DB_PATH", str(db_file))
+    monkeypatch.setenv("KIROKU_DB_PATH", str(db_file))
+    monkeypatch.setenv("ANKIMINER_DB_PATH", str(db_file))
     conn = sqlite3.connect(str(db_file))
     init_link_episode_db(conn)
     conn.close()

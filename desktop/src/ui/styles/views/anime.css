@@ -25,39 +25,127 @@
 
 .anime-layout-grid {
   display: grid;
-  grid-template-columns: 1fr 320px;
-  grid-template-rows: auto auto;
-  gap: 1.25rem;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 1.5rem;
   align-items: start;
 }
-.anime-player-card        { grid-column: 1; grid-row: 1; }
-.anime-history-card       { grid-column: 1; grid-row: 2; }
-.anime-sidebar-card       { grid-column: 2; grid-row: 1; }
-.anime-smart-pause-card   { grid-column: 2; grid-row: 2; }
-.anime-inspector-panel    { display: none; }
 
-.anime-layout-grid.has-inspector {
-  grid-template-columns: 1fr 280px 300px;
-}
-.anime-layout-grid.has-inspector .anime-inspector-panel {
-  display: flex;
-  grid-column: 3;
-  grid-row: 1 / span 2;
-}
-
-@media (max-width: 1100px) {
-  .anime-layout-grid.has-inspector {
-    grid-template-columns: 1fr 280px;
-  }
-  .anime-layout-grid.has-inspector .anime-inspector-panel { display: none !important; }
-}
-@media (max-width: 860px) {
-  .anime-layout-grid,
-  .anime-layout-grid.has-inspector {
+@media (max-width: 1024px) {
+  .anime-layout-grid {
     grid-template-columns: 1fr;
   }
-  .anime-player-card, .anime-history-card,
-  .anime-sidebar-card, .anime-smart-pause-card { grid-column: 1; grid-row: auto; }
+}
+
+.anime-hero-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.anime-deck-container {
+  background-color: var(--surface-elevated);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 480px;
+}
+
+.anime-deck-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1.5px solid var(--tactile-stroke);
+  padding-bottom: 0.5rem;
+}
+
+.anime-deck-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
+}
+
+.anime-deck-tab:hover {
+  color: var(--architectural-cream);
+  background: var(--surface);
+}
+
+.anime-deck-tab.active {
+  color: var(--architectural-cream);
+  border-bottom: 2px solid var(--rust-signal);
+  background: var(--surface);
+}
+
+.anime-deck-pane {
+  display: none;
+}
+
+.anime-deck-pane.active {
+  display: block;
+}
+
+/* Seekable Progress Bar */
+.anime-progress-bar-container {
+  width: 100%;
+  padding: 0.25rem 0;
+  cursor: pointer;
+}
+
+.anime-progress-track {
+  width: 100%;
+  height: 6px;
+  background: var(--pure-black);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.anime-progress-fill {
+  height: 100%;
+  background: var(--rust-signal);
+  transition: width 0.1s var(--ease-out);
+}
+
+/* History Disclosure */
+.anime-history-disclosure {
+  margin-top: 1.5rem;
+  background-color: var(--surface-elevated);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 0.75rem 1.25rem;
+}
+
+.anime-history-summary {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.anime-history-summary:hover {
+  color: var(--architectural-cream);
+}
+
+.anime-history-disclosure-content {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
 .anime-player-card {

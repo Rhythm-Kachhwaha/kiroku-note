@@ -175,42 +175,285 @@ export class AnimeView {
             </div>
           </div>
 
-          <!-- Main Companion Grid -->
-          <div class="anime-layout-grid ${this.inspectorOpen ? 'has-inspector' : ''}" id="anime-layout-grid">
-            <!-- Left: Live Subtitle Box & Remote Controls -->
-            <div class="anime-player-card">
-              <div class="anime-session-strip">
-                <div class="anime-session-title">
-                  <span id="anime-active-title">No active video stream</span>
+          <!-- Main Companion Two-Pane Layout -->
+          <div class="anime-layout-grid" id="anime-layout-grid">
+            <!-- Left Pane: Live Cue Hero & Remote Controls -->
+            <div class="anime-hero-pane">
+              <div class="anime-player-card">
+                <div class="anime-session-strip">
+                  <div class="anime-session-title">
+                    <span id="anime-active-title">No active video stream</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="badge-1t anime-cue-1t-badge" id="anime-cue-1t-badge" style="display: none;" title="1-Target sentence (i+1)">1T</span>
+                    <span class="anime-mined-counter" id="anime-mined-counter">0 mined</span>
+                    <div class="anime-time-indicator" id="anime-time-indicator">00:00 / 00:00</div>
+                  </div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <span class="badge-1t anime-cue-1t-badge" id="anime-cue-1t-badge" style="display: none;" title="1-Target sentence (i+1)">1T</span>
-                  <span class="anime-mined-counter" id="anime-mined-counter">0 mined</span>
-                  <div class="anime-time-indicator" id="anime-time-indicator">00:00 / 00:00</div>
+
+                <!-- Resume Prompt Banner (Slice 28) -->
+                <div class="anime-resume-banner" id="anime-resume-banner" style="display: none;">
+                  <span class="anime-resume-text" id="anime-resume-text">Resume playback?</span>
+                  <div class="flex items-center gap-2">
+                    <button type="button" class="anime-control-btn btn-primary anime-resume-btn" id="btn-anime-resume">
+                      Resume
+                    </button>
+                    <button type="button" class="anime-control-btn anime-resume-btn" id="btn-anime-dismiss-resume">
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Live Japanese Subtitle Cue Display -->
+                <div class="anime-live-cue-box" id="anime-cue-box">
+                  <div class="anime-live-cue-japanese anime-live-cue-text ${this.blurSubtitlesEnabled ? 'is-blurred' : ''}" id="anime-cue-text">
+                    <span class="anime-live-cue-empty">Start playback in browser with Kiroku Extension to mine Japanese dialogue</span>
+                  </div>
+                  <div class="anime-secondary-cue-text" id="anime-secondary-cue-text"></div>
+                </div>
+
+                <!-- Seekable Playhead Progress Bar -->
+                <div class="anime-progress-bar-container" id="anime-progress-container" aria-label="Seek progress">
+                  <div class="anime-progress-track" id="anime-progress-track">
+                    <div class="anime-progress-fill" id="anime-progress-fill" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <!-- Controls Bar -->
+                <div class="anime-controls-bar">
+                  <div class="anime-controls-subrow">
+                    <div class="flex items-center gap-2">
+                      <button type="button" class="anime-control-btn btn-primary" id="btn-anime-toggle" aria-label="Play or Pause">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        <span id="anime-btn-play-label">Play</span>
+                      </button>
+                      <button type="button" class="anime-control-btn" id="btn-anime-seek-back" aria-label="Rewind 5 seconds">
+                        -5s
+                      </button>
+                      <button type="button" class="anime-control-btn" id="btn-anime-seek-fwd" aria-label="Fast forward 5 seconds">
+                        +5s
+                      </button>
+                      <button type="button" class="anime-control-btn" id="btn-anime-prev-cue" aria-label="Previous line">
+                        Prev Line
+                      </button>
+                      <button type="button" class="anime-control-btn" id="btn-anime-next-cue" aria-label="Next line">
+                        Next Line
+                      </button>
+                      <button type="button" class="anime-control-btn" id="btn-anime-next-ep" aria-label="Next episode in browser" title="Next Episode" disabled>
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                        <span>Next Ep</span>
+                      </button>
+                      <button type="button" class="anime-control-btn" id="btn-anime-replay-cue" aria-label="Replay current line">
+                        Replay
+                      </button>
+                      <button type="button" class="anime-control-btn" id="btn-anime-loop" aria-label="Loop current line">
+                        <span id="anime-btn-loop-label">Loop</span>
+                      </button>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <button type="button" class="anime-control-btn" id="btn-anime-export-condensed" aria-label="Export Condensed Audio">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                        <span>Condensed Audio</span>
+                      </button>
+                      <button type="button" class="anime-control-btn" id="btn-anime-queue-gaps" aria-label="Queue gap words">
+                        Queue Gaps
+                      </button>
+                      <button type="button" class="anime-control-btn btn-primary" id="btn-anime-clip" aria-label="Clip Dialogue">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+                        <span>Mine Line</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="anime-controls-subrow pt-1">
+                    <!-- Speed Selector -->
+                    <div class="anime-control-group" aria-label="Playback Speed">
+                      <span class="text-xs text-muted" style="padding: 0 0.25rem;">Speed</span>
+                      <button type="button" class="anime-control-btn anime-rate-btn" data-rate="0.75">0.75x</button>
+                      <button type="button" class="anime-control-btn anime-rate-btn active" data-rate="1">1x</button>
+                      <button type="button" class="anime-control-btn anime-rate-btn" data-rate="1.25">1.25x</button>
+                      <button type="button" class="anime-control-btn anime-rate-btn" data-rate="1.5">1.5x</button>
+                    </div>
+
+                    <!-- Subtitle Offset -->
+                    <div class="anime-control-group" aria-label="Subtitle Offset">
+                      <span class="text-xs text-muted" style="padding: 0 0.25rem;">Offset</span>
+                      <button type="button" class="anime-control-btn" id="btn-anime-offset-minus" aria-label="Minus 100ms">-100ms</button>
+                      <button type="button" class="anime-control-btn" id="btn-anime-offset-zero" aria-label="Reset 0ms">0</button>
+                      <button type="button" class="anime-control-btn" id="btn-anime-offset-plus" aria-label="Plus 100ms">+100ms</button>
+                      <span class="anime-offset-badge" id="anime-offset-badge">0ms</span>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <!-- Resume Prompt Banner (Slice 28) -->
-              <div class="anime-resume-banner" id="anime-resume-banner" style="display: none;">
-                <span class="anime-resume-text" id="anime-resume-text">Resume playback?</span>
-                <div class="flex items-center gap-2">
-                  <button type="button" class="anime-control-btn btn-primary anime-resume-btn" id="btn-anime-resume">
-                    Resume
-                  </button>
-                  <button type="button" class="anime-control-btn anime-resume-btn" id="btn-anime-dismiss-resume">
-                    Dismiss
-                  </button>
-                </div>
+            <!-- Right Pane: Tabbed Deck (Transcript | Inspector | Queue & Stats) -->
+            <div class="anime-deck-container">
+              <div class="anime-deck-tabs" role="tablist">
+                <button type="button" class="anime-deck-tab active" id="tab-btn-transcript" role="tab" aria-selected="true" data-tab="transcript">Transcript</button>
+                <button type="button" class="anime-deck-tab" id="tab-btn-inspector" role="tab" aria-selected="false" data-tab="inspector">Inspector</button>
+                <button type="button" class="anime-deck-tab" id="tab-btn-queue" role="tab" aria-selected="false" data-tab="queue">Queue & Stats</button>
               </div>
 
-              <!-- Live Japanese Subtitle Cue Display -->
-              <div class="anime-live-cue-box" id="anime-cue-box">
-                <div class="anime-live-cue-japanese anime-live-cue-text ${this.blurSubtitlesEnabled ? 'is-blurred' : ''}" id="anime-cue-text">
-                  <span class="anime-live-cue-empty">Start playback in browser with Kiroku Extension to mine Japanese dialogue</span>
-                </div>
-                <div class="anime-secondary-cue-text" id="anime-secondary-cue-text"></div>
-              </div>
+              <div class="anime-deck-content">
+                <!-- Tab 1: Transcript Strip -->
+                <div class="anime-deck-pane active" id="pane-transcript" role="tabpanel">
+                  <div class="anime-transcript-container" id="anime-transcript-container">
+                    <div class="anime-transcript-header">
+                      <div class="flex items-center gap-2">
+                        <span class="anime-transcript-title">Transcript Strip</span>
+                        <span class="anime-cues-badge" id="anime-cues-badge">0 cues</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <select class="anime-transcript-filter" id="anime-transcript-filter" aria-label="Filter transcript">
+                          <option value="all">All lines</option>
+                          <option value="gap">Unknown words only</option>
+                          <option value="max1gap">Lines with &le; 1 unknown</option>
+                          <option value="only-1t">1-Target (i+1) sentences</option>
+                          <option value="grammar-above">Grammar above my level</option>
+                        </select>
+                        <button type="button" class="anime-control-btn btn-sm" id="btn-anime-toggle-coloring" aria-label="Toggle token coloring">
+                          <span id="anime-coloring-label">Colors: On</span>
+                        </button>
+                        <button type="button" class="anime-control-btn btn-sm" id="btn-anime-toggle-furigana" aria-label="Toggle selective furigana">
+                          <span id="anime-furigana-label">Furigana: On</span>
+                        </button>
+                      </div>
+                    </div>
 
+                    <div class="anime-transcript-list" id="anime-transcript-list" tabindex="0" role="region" aria-label="Dialogue transcript">
+                      <div class="anime-transcript-empty" id="anime-transcript-empty">
+                        No dialogue cues loaded yet
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Tab 2: Inspector Panel -->
+                <div class="anime-deck-pane" id="pane-inspector" role="tabpanel" style="display: none;">
+                  <div class="anime-inspector-panel" id="anime-inspector-panel">
+                    <div class="anime-inspector-header">
+                      <div class="flex items-center gap-2">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                        <span class="font-bold">Inspector</span>
+                      </div>
+                      <button type="button" class="anime-inspector-close-btn" id="btn-anime-close-inspector" aria-label="Collapse inspector">&times;</button>
+                    </div>
+
+                    <!-- Dedicated Vocab Card -->
+                    <div class="anime-inspector-vocab tactile-card" id="anime-inspector-vocab">
+                      <div class="anime-inspector-card-header mb-2">
+                        <span class="text-xs font-mono text-gold">Vocabulary Target</span>
+                      </div>
+                      <div id="anime-inspector-vocab-content">
+                        <p class="text-xs text-muted">Click any subtitle word to inspect definitions and capture audio.</p>
+                      </div>
+                    </div>
+
+                    <!-- Sentence Grammar Breakdown -->
+                    <div class="anime-inspector-grammar tactile-card" id="anime-inspector-grammar">
+                      <div class="anime-inspector-card-header mb-2">
+                        <span class="text-xs font-mono text-gold">Sentence Grammar Breakdown</span>
+                      </div>
+                      <div class="anime-inspector-grammar-list" id="anime-inspector-grammar-list">
+                        <p class="text-xs text-muted">Pause playback or select dialogue lines to examine grammar points.</p>
+                      </div>
+                    </div>
+
+                    <!-- Shadowing Practice Card -->
+                    <div class="anime-inspector-shadowing tactile-card" id="anime-inspector-shadowing">
+                      <div class="anime-inspector-card-header mb-2 flex items-center justify-between">
+                        <span class="text-xs font-mono text-gold">Shadowing & Pronunciation</span>
+                        <span class="text-xs text-muted" id="anime-shadow-status">Ready</span>
+                      </div>
+                      <div class="anime-shadow-controls flex items-center gap-2">
+                        <button type="button" class="anime-control-btn btn-sm" id="btn-anime-shadow-record" aria-label="Record Voice (Hotkey S)">
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+                          <span id="anime-shadow-record-label">Record</span>
+                        </button>
+                        <button type="button" class="anime-control-btn btn-sm" id="btn-anime-shadow-compare" aria-label="Compare Audio Playback" disabled>
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                          <span>Play Mic</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Tab 3: Queue & Stats -->
+                <div class="anime-deck-pane" id="pane-queue" role="tabpanel" style="display: none;">
+                  <!-- Review Queue Card (Slice 29) -->
+                  <div class="anime-queue-card" id="anime-queue-card">
+                    <div class="anime-queue-header">
+                      <div class="anime-queue-title">
+                        <span>Review Gap Words Queue</span>
+                        <span class="anime-queue-badge" id="anime-queue-count">0</span>
+                      </div>
+                      <div class="anime-queue-actions">
+                        <button type="button" class="anime-control-btn btn-sm" id="btn-queue-undo">Undo</button>
+                        <button type="button" class="anime-control-btn btn-primary btn-sm" id="btn-queue-mine-all">Mine All</button>
+                        <button type="button" class="anime-control-btn btn-sm" id="btn-queue-clear">Clear</button>
+                      </div>
+                    </div>
+                    <div class="anime-queue-chips" id="anime-queue-chips"></div>
+                  </div>
+
+                  <!-- Smart Pause & Study Mode (Slice 30) -->
+                  <div class="anime-smart-pause-card mt-3" id="anime-smart-pause-card">
+                    <div class="anime-sidebar-title">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                      Smart Pause
+                    </div>
+                    <div class="anime-status-row">
+                      <label for="anime-smart-pause-toggle" style="cursor: pointer;">Auto-pause on unknown</label>
+                      <input type="checkbox" id="anime-smart-pause-toggle" ${this.smartPauseEnabled ? 'checked' : ''} />
+                    </div>
+                    <div class="anime-status-row" id="anime-smart-pause-threshold-row">
+                      <span>Gap word threshold</span>
+                      <input type="number" id="anime-smart-pause-threshold" min="1" max="10" value="${this.smartPauseThreshold}" style="width: 48px; text-align: center; background: var(--surface); color: var(--text-primary); border: 1px solid var(--tactile-stroke); border-radius: var(--radius-sm);" />
+                    </div>
+                    <div class="anime-status-row">
+                      <label for="anime-smart-auto-replay" style="cursor: pointer;">Auto-replay line once</label>
+                      <input type="checkbox" id="anime-smart-auto-replay" ${this.smartAutoReplay ? 'checked' : ''} />
+                    </div>
+                  </div>
+
+                  <!-- Companion Status Card -->
+                  <div class="anime-sidebar-card mt-3" id="anime-sidebar-card">
+                    <div class="anime-sidebar-title">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+                      Companion Status
+                    </div>
+                    <div class="anime-status-row">
+                      <span>Link Hub</span>
+                      <span class="anime-status-val" id="anime-hub-status">127.0.0.1:21828</span>
+                    </div>
+                    <div class="anime-status-row">
+                      <span>Active Source</span>
+                      <span class="anime-status-val" id="anime-source-name">—</span>
+                    </div>
+                    <div class="anime-status-row">
+                      <span>Cues Loaded</span>
+                      <span class="anime-status-val" id="anime-cues-count">0</span>
+                    </div>
+                    <div class="anime-status-row">
+                      <span>DRM Mode</span>
+                      <span class="anime-status-val" id="anime-drm-status">Companion</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Session Disclosure: Density Sparkline & Watch History -->
+          <details class="anime-history-disclosure" id="anime-history-disclosure">
+            <summary class="anime-history-summary">
+              <span>Dialogue Density Sparkline & Watch History</span>
+            </summary>
+            <div class="anime-history-disclosure-content">
               <!-- Unknown-density sparkline (Slice 28) -->
               <div class="anime-sparkline-card" id="anime-sparkline-card">
                 <div class="anime-sparkline-header">
@@ -226,238 +469,21 @@ export class AnimeView {
                     </div>
                   </div>
                 </div>
-                <div class="anime-sparkline-track" id="anime-sparkline-track" aria-label="Unknown density timeline sparkline">
+                <div class="anime-sparkline-track" id="anime-sparkline-track" aria-label="Unknown density timeline sparkline"></div>
+              </div>
+
+              <!-- Watch History & Series Grouping (Slice 28) -->
+              <div class="anime-history-card" id="anime-history-card">
+                <div class="anime-sidebar-title">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                  Watch History
                 </div>
-              </div>
-
-              <!-- Controls Bar -->
-              <div class="anime-controls-bar">
-                <div class="anime-controls-subrow">
-                  <div class="flex items-center gap-2">
-                    <button type="button" class="anime-control-btn btn-primary" id="btn-anime-toggle" aria-label="Play or Pause">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                      <span id="anime-btn-play-label">Play</span>
-                    </button>
-                    <button type="button" class="anime-control-btn" id="btn-anime-seek-back" aria-label="Rewind 5 seconds">
-                      -5s
-                    </button>
-                    <button type="button" class="anime-control-btn" id="btn-anime-seek-fwd" aria-label="Fast forward 5 seconds">
-                      +5s
-                    </button>
-                    <button type="button" class="anime-control-btn" id="btn-anime-prev-cue" aria-label="Previous line">
-                      Prev Line
-                    </button>
-                    <button type="button" class="anime-control-btn" id="btn-anime-next-cue" aria-label="Next line">
-                      Next Line
-                    </button>
-                    <button type="button" class="anime-control-btn" id="btn-anime-next-ep" aria-label="Next episode in browser" title="Next Episode" disabled>
-                      <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-                      <span>Next Ep</span>
-                    </button>
-                    <button type="button" class="anime-control-btn" id="btn-anime-replay-cue" aria-label="Replay current line">
-                      Replay
-                    </button>
-                    <button type="button" class="anime-control-btn" id="btn-anime-loop" aria-label="Loop current line">
-                      <span id="anime-btn-loop-label">Loop</span>
-                    </button>
-                  </div>
-
-                  <div class="flex items-center gap-2">
-                    <button type="button" class="anime-control-btn" id="btn-anime-export-condensed" aria-label="Export Condensed Audio">
-                      <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-                      <span>Condensed Audio</span>
-                    </button>
-                    <button type="button" class="anime-control-btn" id="btn-anime-queue-gaps" aria-label="Queue gap words">
-                      Queue Gaps
-                    </button>
-                    <button type="button" class="anime-control-btn btn-primary" id="btn-anime-clip" aria-label="Clip Dialogue">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
-                      <span>Mine Line</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="anime-controls-subrow pt-1">
-                  <!-- Speed Selector -->
-                  <div class="anime-control-group" aria-label="Playback Speed">
-                    <span class="text-xs text-muted" style="padding: 0 0.25rem;">Speed</span>
-                    <button type="button" class="anime-control-btn anime-rate-btn" data-rate="0.75">0.75x</button>
-                    <button type="button" class="anime-control-btn anime-rate-btn active" data-rate="1">1x</button>
-                    <button type="button" class="anime-control-btn anime-rate-btn" data-rate="1.25">1.25x</button>
-                    <button type="button" class="anime-control-btn anime-rate-btn" data-rate="1.5">1.5x</button>
-                  </div>
-
-                  <!-- Subtitle Offset -->
-                  <div class="anime-control-group" aria-label="Subtitle Offset">
-                    <span class="text-xs text-muted" style="padding: 0 0.25rem;">Offset</span>
-                    <button type="button" class="anime-control-btn" id="btn-anime-offset-minus" aria-label="Minus 100ms">-100ms</button>
-                    <button type="button" class="anime-control-btn" id="btn-anime-offset-zero" aria-label="Reset 0ms">0</button>
-                    <button type="button" class="anime-control-btn" id="btn-anime-offset-plus" aria-label="Plus 100ms">+100ms</button>
-                    <span class="anime-offset-badge" id="anime-offset-badge">0ms</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Transcript Strip Section (Slice 27) -->
-              <div class="anime-transcript-container" id="anime-transcript-container">
-                <div class="anime-transcript-header">
-                  <div class="flex items-center gap-2">
-                    <span class="anime-transcript-title">Transcript Strip</span>
-                    <span class="anime-cues-badge" id="anime-cues-badge">0 cues</span>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <select class="anime-transcript-filter" id="anime-transcript-filter" aria-label="Filter transcript">
-                      <option value="all">All lines</option>
-                      <option value="gap">Unknown words only</option>
-                      <option value="max1gap">Lines with &le; 1 unknown</option>
-                      <option value="only-1t">1-Target (i+1) sentences</option>
-                      <option value="grammar-above">Grammar above my level</option>
-                    </select>
-                    <button type="button" class="anime-control-btn btn-sm" id="btn-anime-toggle-coloring" aria-label="Toggle token coloring">
-                      <span id="anime-coloring-label">Colors: On</span>
-                    </button>
-                    <button type="button" class="anime-control-btn btn-sm" id="btn-anime-toggle-furigana" aria-label="Toggle selective furigana">
-                      <span id="anime-furigana-label">Furigana: On</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="anime-transcript-list" id="anime-transcript-list" tabindex="0" role="region" aria-label="Dialogue transcript">
-                  <div class="anime-transcript-empty" id="anime-transcript-empty">
-                    No dialogue cues loaded yet
-                  </div>
-                </div>
-              </div>
-
-              <!-- Review Queue Card (Slice 29) -->
-              <div class="anime-queue-card" id="anime-queue-card" style="display: none;">
-                <div class="anime-queue-header">
-                  <div class="anime-queue-title">
-                    <span>Review Gap Words Queue</span>
-                    <span class="anime-queue-badge" id="anime-queue-count">0</span>
-                  </div>
-                  <div class="anime-queue-actions">
-                    <button type="button" class="anime-control-btn btn-sm" id="btn-queue-undo">Undo</button>
-                    <button type="button" class="anime-control-btn btn-primary btn-sm" id="btn-queue-mine-all">Mine All</button>
-                    <button type="button" class="anime-control-btn btn-sm" id="btn-queue-clear">Clear</button>
-                  </div>
-                </div>
-                <div class="anime-queue-chips" id="anime-queue-chips"></div>
-              </div>
-            </div>
-
-            <!-- Right Sidebar: Hub & Stream Diagnostics -->
-            <div class="anime-sidebar-card">
-              <div class="anime-sidebar-title">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
-                Companion Status
-              </div>
-
-              <div class="anime-status-row">
-                <span>Link Hub</span>
-                <span class="anime-status-val" id="anime-hub-status">127.0.0.1:21828</span>
-              </div>
-              <div class="anime-status-row">
-                <span>Active Source</span>
-                <span class="anime-status-val" id="anime-source-name">—</span>
-              </div>
-              <div class="anime-status-row">
-                <span>Cues Loaded</span>
-                <span class="anime-status-val" id="anime-cues-count">0</span>
-              </div>
-              <div class="anime-status-row">
-                <span>DRM Mode</span>
-                <span class="anime-status-val" id="anime-drm-status">Companion</span>
-              </div>
-
-              <div class="pt-2">
-                <p class="text-xs text-muted" style="line-height: 1.4;">
-                  Supported video sites: YouTube, Netflix, Crunchyroll, and local videos.
-                  Dialogue cues synchronize automatically when active.
-                </p>
-              </div>
-            </div>
-
-            <!-- Smart Pause & Study Mode (Slice 30) -->
-            <div class="anime-smart-pause-card" id="anime-smart-pause-card">
-              <div class="anime-sidebar-title">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                Smart Pause
-              </div>
-              <div class="anime-status-row">
-                <label for="anime-smart-pause-toggle" style="cursor: pointer;">Auto-pause on unknown</label>
-                <input type="checkbox" id="anime-smart-pause-toggle" ${this.smartPauseEnabled ? 'checked' : ''} />
-              </div>
-              <div class="anime-status-row" id="anime-smart-pause-threshold-row">
-                <span>Gap word threshold</span>
-                <input type="number" id="anime-smart-pause-threshold" min="1" max="10" value="${this.smartPauseThreshold}" style="width: 48px; text-align: center; background: var(--surface); color: var(--text-primary); border: 1px solid var(--tactile-stroke); border-radius: var(--radius-sm);" />
-              </div>
-              <div class="anime-status-row">
-                <label for="anime-smart-auto-replay" style="cursor: pointer;">Auto-replay line once</label>
-                <input type="checkbox" id="anime-smart-auto-replay" ${this.smartAutoReplay ? 'checked' : ''} />
-              </div>
-            </div>
-
-            <!-- Watch History & Series Grouping (Slice 28) -->
-            <div class="anime-history-card" id="anime-history-card">
-              <div class="anime-sidebar-title">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
-                Watch History
-              </div>
-              <div class="anime-history-list" id="anime-history-list">
-                <span class="text-xs text-muted" style="text-align: center; padding: 1rem 0;">No watch history yet</span>
-              </div>
-            </div>
-
-            <!-- Collapsible Migaku-Style Inspector Panel (Vocab Top + Grammar Below) -->
-            <div class="anime-inspector-panel" id="anime-inspector-panel" style="${this.inspectorOpen ? '' : 'display: none;'}">
-              <div class="anime-inspector-header">
-                <div class="flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-                  <span class="font-bold">Inspector</span>
-                </div>
-                <button type="button" class="anime-inspector-close-btn" id="btn-anime-close-inspector" aria-label="Collapse inspector">&times;</button>
-              </div>
-
-              <!-- Top: Dedicated Vocab Card -->
-              <div class="anime-inspector-vocab tactile-card" id="anime-inspector-vocab">
-                <div class="anime-inspector-card-header mb-2">
-                  <span class="text-xs font-mono text-gold">Vocabulary Target</span>
-                </div>
-                <div id="anime-inspector-vocab-content">
-                  <p class="text-xs text-muted">Click any subtitle word to inspect definitions and capture audio.</p>
-                </div>
-              </div>
-
-              <!-- Bottom: Sentence Grammar Breakdown -->
-              <div class="anime-inspector-grammar tactile-card" id="anime-inspector-grammar">
-                <div class="anime-inspector-card-header mb-2">
-                  <span class="text-xs font-mono text-gold">Sentence Grammar Breakdown</span>
-                </div>
-                <div class="anime-inspector-grammar-list" id="anime-inspector-grammar-list">
-                  <p class="text-xs text-muted">Pause playback or select dialogue lines to examine grammar points.</p>
-                </div>
-              </div>
-
-              <!-- Shadowing Practice Card -->
-              <div class="anime-inspector-shadowing tactile-card" id="anime-inspector-shadowing">
-                <div class="anime-inspector-card-header mb-2 flex items-center justify-between">
-                  <span class="text-xs font-mono text-gold">Shadowing & Pronunciation</span>
-                  <span class="text-xs text-muted" id="anime-shadow-status">Ready</span>
-                </div>
-                <div class="anime-shadow-controls flex items-center gap-2">
-                  <button type="button" class="anime-control-btn btn-sm" id="btn-anime-shadow-record" aria-label="Record Voice (Hotkey S)">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
-                    <span id="anime-shadow-record-label">Record</span>
-                  </button>
-                  <button type="button" class="anime-control-btn btn-sm" id="btn-anime-shadow-compare" aria-label="Compare Audio Playback" disabled>
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                    <span>Play Mic</span>
-                  </button>
+                <div class="anime-history-list" id="anime-history-list">
+                  <span class="text-xs text-muted" style="text-align: center; padding: 1rem 0;">No watch history yet</span>
                 </div>
               </div>
             </div>
-          </div>
+          </details>
         </div>
       </div>
     `;
@@ -524,6 +550,27 @@ export class AnimeView {
     const btnQueueGaps = this.container.querySelector('#btn-anime-queue-gaps');
     btnQueueGaps?.addEventListener('click', () => {
       this.queueGapWords();
+      this.switchDeckTab('queue');
+    });
+
+    // Deck Tab Switching
+    const deckTabs = this.container.querySelectorAll('.anime-deck-tab');
+    deckTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const target = tab.getAttribute('data-tab');
+        if (target) this.switchDeckTab(target);
+      });
+    });
+
+    // Seekable progress bar track click
+    const progressTrack = this.container.querySelector('#anime-progress-track');
+    progressTrack?.addEventListener('click', (e) => {
+      const rect = progressTrack.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const dur = this.linkStore?.duration || 0;
+      if (dur > 0) {
+        this.linkStore?.seek(ratio * dur);
+      }
     });
 
     const btnQueueMineAll = this.container.querySelector('#btn-queue-mine-all');
@@ -1194,12 +1241,20 @@ export class AnimeView {
       cuesCountEl.textContent = String(summary.cueCount);
     }
 
-    // Time indicator
+    // Time indicator & progress bar
     const timeEl = this.container.querySelector('#anime-time-indicator');
     if (timeEl && summary.videoState) {
       const cur = this._formatTime(summary.videoState.t || 0);
       const dur = this._formatTime(summary.activeSession?.duration || 0);
       timeEl.textContent = `${cur} / ${dur}`;
+    }
+
+    const progressFill = this.container.querySelector('#anime-progress-fill');
+    if (progressFill && summary.videoState) {
+      const dur = summary.activeSession?.duration || 0;
+      const cur = summary.videoState.t || 0;
+      const pct = dur > 0 ? Math.max(0, Math.min(100, (cur / dur) * 100)) : 0;
+      progressFill.style.width = `${pct}%`;
     }
 
     // Play/Pause button label
@@ -1921,6 +1976,37 @@ export class AnimeView {
     }
     if (grid) {
       grid.classList.toggle('has-inspector', this.inspectorOpen);
+    }
+    if (this.inspectorOpen) {
+      this.switchDeckTab('inspector');
+    } else {
+      this.switchDeckTab('transcript');
+    }
+  }
+
+  switchDeckTab(tabName) {
+    if (!this.container) return;
+    const tabBtns = this.container.querySelectorAll('.anime-deck-tab');
+    const panes = this.container.querySelectorAll('.anime-deck-pane');
+
+    tabBtns.forEach((btn) => {
+      const matches = btn.getAttribute('data-tab') === tabName;
+      btn.classList.toggle('active', matches);
+      btn.setAttribute('aria-selected', String(matches));
+    });
+
+    panes.forEach((pane) => {
+      const matches = pane.id === `pane-${tabName}`;
+      pane.classList.toggle('active', matches);
+      pane.style.display = matches ? 'block' : 'none';
+    });
+
+    if (tabName === 'inspector') {
+      this.inspectorOpen = true;
+      const panel = this.container.querySelector('#anime-inspector-panel');
+      if (panel) panel.style.display = 'flex';
+      const grid = this.container.querySelector('#anime-layout-grid');
+      if (grid) grid.classList.add('has-inspector');
     }
   }
 

@@ -1,5 +1,5 @@
 # Status
-A7: automatic subtitle sourcing and jimaku matching implemented.
-TitleParser extracts canonical title and episode across 16 anime site conventions.
-Japanese embedded text track auto-detection and series choice caching added.
-Tests: extension unit tests 18 passed; title-parser table test GREEN.
+A8 & A13: anime view shell redesign and cleanup implemented.
+Two-pane layout with Live Cue hero, seekable progress bar, and tabbed deck.
+Bottom session disclosure, leak-free test DB isolation, filler boxes removed.
+Tests: desktop anime suite 14 passed; final_lock 4 passed; E2E e14 GREEN.
