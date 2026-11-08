@@ -186,6 +186,18 @@ try {
 
 let linkClient = null;
 
+let lastAttachedTabId = null;
+
+function broadcastResync() {
+  chrome.tabs.query({}, (tabs) => {
+    for (const tab of tabs) {
+      if (tab?.id && tab?.url && !tab.url.startsWith("chrome://")) {
+        chrome.tabs.sendMessage(tab.id, { type: "LINK_RESYNC" }).catch(() => {});
+      }
+    }
+  });
+}
+
 function initLinkClient() {
   let ClientClass = null;
   if (typeof LinkClient === 'function') {
@@ -200,18 +212,46 @@ function initLinkClient() {
     try {
       linkClient = new ClientClass();
       linkClient.onMessage((msg) => {
+        if (msg?.type === "hello.ok") {
+          broadcastResync();
+          return;
+        }
         if (msg?.type && msg.type.startsWith('cmd.')) {
-          chrome.tabs.query({ active: true }, (tabs) => {
-            for (const tab of tabs) {
-              if (tab.id) {
-                chrome.tabs.sendMessage(tab.id, {
-                  type: 'LINK_CMD',
-                  cmdType: msg.type,
-                  payload: msg.payload
-                }).catch(() => {});
+          const targetTabId = msg.payload?.tab || lastAttachedTabId;
+          const targetFrameId = msg.payload?.frame;
+          const opts = typeof targetFrameId === "number" ? { frameId: targetFrameId } : undefined;
+
+          if (targetTabId) {
+            chrome.tabs.sendMessage(targetTabId, {
+              type: 'LINK_CMD',
+              id: msg.id,
+              cmdType: msg.type,
+              payload: msg.payload
+            }, opts, (res) => {
+              if (linkClient && msg.id) {
+                const ok = res?.ok !== false;
+                const err = res?.err || (res?.ok === false ? "Command execution failed" : undefined);
+                linkClient.send("ack", { id: msg.id, ok, err });
               }
-            }
-          });
+            });
+          } else {
+            chrome.tabs.query({ active: true }, (tabs) => {
+              for (const tab of tabs) {
+                if (tab.id) {
+                  chrome.tabs.sendMessage(tab.id, {
+                    type: 'LINK_CMD',
+                    id: msg.id,
+                    cmdType: msg.type,
+                    payload: msg.payload
+                  }, (res) => {
+                    if (linkClient && msg.id) {
+                      linkClient.send("ack", { id: msg.id, ok: res?.ok !== false, err: res?.err });
+                    }
+                  });
+                }
+              }
+            });
+          }
         }
       });
       linkClient.start().catch(() => {});
@@ -224,6 +264,21 @@ function initLinkClient() {
 if (typeof chrome !== 'undefined') {
   try {
     initLinkClient();
+    if (chrome.alarms) {
+      chrome.alarms.create("link_keepalive", { periodInMinutes: 0.4 });
+      chrome.alarms.onAlarm.addListener((alarm) => {
+        if (alarm.name === "link_keepalive" && linkClient && !linkClient.connected && !linkClient.stopped) {
+          linkClient.start().catch(() => {});
+        }
+      });
+    }
+    if (chrome.tabs?.onRemoved) {
+      chrome.tabs.onRemoved.addListener((tabId) => {
+        if (linkClient && linkClient.connected) {
+          linkClient.send("video.detach", { tab: tabId, frame: 0 });
+        }
+      });
+    }
   } catch (err) {
     console.warn('[Background] initLinkClient top-level caught:', err);
   }
@@ -454,6 +509,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const payload = Object.assign({}, message.payload || {});
       if (sender?.tab?.id) {
         payload.tab = sender.tab.id;
+        lastAttachedTabId = sender.tab.id;
+      }
+      if (typeof sender?.frameId === "number") {
+        payload.frame = sender.frameId;
       }
       linkClient.send(message.linkType, payload);
     }

@@ -1,6 +1,6 @@
 # Status
-A3: detection and injection hardened for all frame/DOM contexts.
-Persistent video detector pierces shadow roots; WeakSet prevents redundant notifications.
-Idempotent injection guard added to video-mining.js and link-bridge.js; SPA swaps handled.
-Tests: video-detect-frames.test.js GREEN; e03-e07 all PASS in real Chrome.
+A4: link lifecycle in extension implemented.
+Storage onChanged & alarm keepalive wired; LINK_RESYNC on hello.ok implemented.
+video.detach on pagehide/tab close; FNV-1a chunked cue.list; ack command routing.
+Tests: extension/tests/link_client.test.js GREEN; e02, e08, e09, e12 GREEN.
 Mutation ok.

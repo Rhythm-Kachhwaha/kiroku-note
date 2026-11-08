@@ -49,7 +49,7 @@ class DesktopClient:
                         self.messages.append(msg)
                         mtype = msg.get("type")
                         if mtype == "video.attach":
-                            self.session = msg.get("session")
+                            self.session = msg.get("payload") or msg.get("session")
                         elif mtype == "video.detach":
                             self.session = None
                     except Exception:

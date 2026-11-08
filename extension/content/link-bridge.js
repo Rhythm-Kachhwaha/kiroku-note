@@ -153,29 +153,49 @@
         video.addEventListener("timeupdate", this._boundOnTimeUpdate);
         video.addEventListener("ratechange", this._boundOnRateChange);
         video.addEventListener("ended", this._boundOnEnded);
+        window.addEventListener("pagehide", () => this._detach(), { once: true });
       } catch (_) {}
 
-      // Emit video.attach
+      this._emitVideoAttach();
+      this._emitVideoState();
+      this._emitCueList();
+    }
+
+    _emitVideoAttach() {
+      if (!this.activeVideo) return;
       const title = this._getVideoTitle();
       const site = (typeof location !== "undefined" && location.hostname) ? location.hostname : "unknown";
-      const duration = typeof video.duration === "number" && !isNaN(video.duration) ? video.duration : 0.0;
+      const duration = typeof this.activeVideo.duration === "number" && !isNaN(this.activeVideo.duration) ? this.activeVideo.duration : 0.0;
       const drm = this.isDrmSite();
       const hasNextEpisode = Boolean(this.nextEpisodeDetector?.hasNextEpisode?.());
 
       this.emitToBackground("video.attach", {
         tab: this.attachedTabId || 0,
+        frame: 0,
         site,
         title,
         duration,
         drm,
         hasNextEpisode
       });
+    }
 
-      // Emit initial state
-      this._emitVideoState();
+    _emitSubStatus() {
+      const poc = this.getPocInstance();
+      const cues = poc?.syncEngine?.cues;
+      const count = Array.isArray(cues) ? cues.length : 0;
+      const name = poc?.activeFilename || (count > 0 ? "subtitles" : "");
+      const source = poc?.activeFilename ? "file" : (count > 0 ? "embedded" : "none");
+      const offsetMs = poc?.syncEngine?.offsetMs || 0;
 
-      // Emit initial cue.list if available
-      this._emitCueList();
+      this.emitToBackground("sub.status", {
+        tab: this.attachedTabId || 0,
+        frame: 0,
+        source,
+        name,
+        count,
+        offsetMs
+      });
     }
 
     _detach() {
@@ -192,7 +212,8 @@
       this.attached = false;
 
       this.emitToBackground("video.detach", {
-        tab: this.attachedTabId || 0
+        tab: this.attachedTabId || 0,
+        frame: 0
       });
     }
 
@@ -239,6 +260,22 @@
       });
     }
 
+    _calculateCueHash(cues) {
+      if (!Array.isArray(cues) || cues.length === 0) return "empty";
+      const first = cues[0];
+      const last = cues[cues.length - 1];
+      const joined = cues.map(c => c.text).join("");
+      const key = `${cues.length}|${first.s}|${last.e}|${joined}`;
+
+      // FNV-1a 32-bit hash
+      let h = 0x811c9dc5;
+      for (let i = 0; i < key.length; i++) {
+        h = (h ^ key.charCodeAt(i)) * 0x01000193;
+        h = h >>> 0;
+      }
+      return h.toString(16).padStart(8, "0");
+    }
+
     _emitCueList() {
       const poc = this.getPocInstance();
       if (poc?.syncEngine?.cues && Array.isArray(poc.syncEngine.cues) && poc.syncEngine.cues.length > 0) {
@@ -255,25 +292,21 @@
           };
         });
 
-        const title = this._getVideoTitle();
-        let hash = "";
-        try {
-          const raw = encodeURIComponent(String(title || "")) + String(cues.length);
-          if (typeof btoa === "function") {
-            hash = btoa(raw).slice(0, 16);
-          } else if (typeof Buffer !== "undefined") {
-            hash = Buffer.from(raw).toString("base64").slice(0, 16);
-          }
-        } catch (_) {}
-        if (!hash) {
-          hash = `hash-${Date.now()}-${cues.length}`;
-        }
+        const hash = this._calculateCueHash(cues);
+        const CHUNK_SIZE = 500;
+        const parts = Math.ceil(cues.length / CHUNK_SIZE);
 
-        this.emitToBackground("cue.list", {
-          tab: this.attachedTabId || 0,
-          hash,
-          cues
-        });
+        for (let p = 0; p < parts; p++) {
+          const chunk = cues.slice(p * CHUNK_SIZE, (p + 1) * CHUNK_SIZE);
+          this.emitToBackground("cue.list", {
+            tab: this.attachedTabId || 0,
+            frame: 0,
+            hash,
+            part: p + 1,
+            parts,
+            cues: chunk
+          });
+        }
       }
     }
 
@@ -314,6 +347,17 @@
     }
 
     _handleRuntimeMessage(message, _sender, sendResponse) {
+      if (message?.type === "LINK_RESYNC") {
+        if (this.attached && this.activeVideo) {
+          this._emitVideoAttach();
+          this._emitVideoState();
+          this._emitCueList();
+          this._emitSubStatus();
+        }
+        if (sendResponse) sendResponse({ ok: true });
+        return true;
+      }
+
       if (message?.type === "LINK_CMD") {
         const cmdType = message.cmdType;
         const payload = message.payload || {};
@@ -325,9 +369,13 @@
           }
           return true;
         }
-        const handled = this.executeCommand(cmdType, payload);
+        const result = this.executeCommand(cmdType, payload);
         if (sendResponse) {
-          sendResponse({ ok: handled });
+          if (typeof result === "object" && result !== null) {
+            sendResponse(result);
+          } else {
+            sendResponse({ ok: Boolean(result) });
+          }
         }
         return true;
       }
@@ -347,11 +395,16 @@
       switch (cmdType) {
         case "cmd.play":
           if (vid && typeof vid.play === "function") {
-            vid.play().catch?.(() => {});
+            try {
+              const res = vid.play();
+              if (res && typeof res.catch === "function") {
+                res.catch(() => {});
+              }
+            } catch (_) {}
             this._emitVideoState();
             return true;
           }
-          break;
+          return false;
 
         case "cmd.pause":
           if (vid && typeof vid.pause === "function") {

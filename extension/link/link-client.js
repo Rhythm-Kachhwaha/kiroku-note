@@ -54,6 +54,16 @@
       this._boundOnMessage = this._onMessage.bind(this);
       this._boundOnError = this._onError.bind(this);
       this._boundOnClose = this._onClose.bind(this);
+
+      // Listen to chrome.storage.onChanged to auto-restart on new pairing token
+      if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+        chrome.storage.onChanged.addListener((changes, areaName) => {
+          if (changes[EXTENSION_AUTH_STORAGE_KEY] || changes[EXTENSION_AUTH_PERSISTENT_STORAGE_KEY]) {
+            this.token = null;
+            this.start().catch(() => {});
+          }
+        });
+      }
     }
 
     async resolveToken() {
