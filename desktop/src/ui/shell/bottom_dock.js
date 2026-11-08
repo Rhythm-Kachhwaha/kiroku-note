@@ -10,23 +10,26 @@ function springValue(t, omega, zeta) {
     (Math.cos(wd * t) + (zeta * omega / wd) * Math.sin(wd * t));
 }
 
-function buildPillKeyframes(from, to, duration = 650, steps = 36) {
+function buildPillKeyframes(from, to, duration = 240) {
   const movingRight = to.left >= from.left;
-  const lead  = { omega: 20, zeta: 0.72 };
-  const trail = { omega: 13, zeta: 0.88 };
+  const lead  = { omega: 32, zeta: 0.68 };
+  const trail = { omega: 26, zeta: 0.74 };
   const L = movingRight ? trail : lead;
   const R = movingRight ? lead  : trail;
   const fromR = from.left + from.width;
   const toR = to.left + to.width;
+  const targetW = to.width;
+  const steps = Math.max(36, Math.ceil(duration / (1000 / 120)));
   const frames = [];
   for (let i = 0; i <= steps; i++) {
     const t = (i / steps) * (duration / 1000);
     const last = i === steps;
     const left  = last ? to.left : from.left + (to.left - from.left) * springValue(t, L.omega, L.zeta);
     const right = last ? toR     : fromR + (toR - fromR) * springValue(t, R.omega, R.zeta);
+    const apparentWidth = Math.max(24, right - left);
+    const scaleX = targetW > 0 ? apparentWidth / targetW : 1;
     frames.push({
-      transform: `translateX(${left}px)`,
-      width: `${Math.max(24, right - left)}px`,
+      transform: `translate3d(${left}px, 0, 0) scaleX(${scaleX})`,
       offset: i / steps
     });
   }
@@ -274,85 +277,15 @@ export class BottomDock {
     const targetW = element.offsetWidth;
     if (targetW === 0) return;
 
-    let fromX = this._pillX !== null ? this._pillX : targetX;
-    let fromW = this._pillW !== null ? this._pillW : targetW;
-
-    if (this._currentAnimation) {
-      try {
-        const computedStyle = window.getComputedStyle(pill);
-        const transformStr = computedStyle.transform;
-        if (transformStr && transformStr !== 'none') {
-          if (typeof DOMMatrixReadOnly === 'function') {
-            const matrix = new DOMMatrixReadOnly(transformStr);
-            if (!isNaN(matrix.m41)) {
-              fromX = matrix.m41;
-            }
-          } else {
-            const match = transformStr.match(/matrix\([^,]+,[^,]+,[^,]+,[^,]+,\s*([^,]+),/);
-            if (match) {
-              const parsed = parseFloat(match[1]);
-              if (!isNaN(parsed)) fromX = parsed;
-            }
-          }
-        }
-        const computedWidth = parseFloat(computedStyle.width);
-        if (!isNaN(computedWidth) && computedWidth > 0) {
-          fromW = computedWidth;
-        }
-      } catch (err) {
-        console.debug('[BottomDock] Error reading computed style during cancel:', err);
-      }
-      this._currentAnimation.cancel();
-      this._currentAnimation = null;
-      this._pillAnim = null;
-    }
-
-    // Write final values to inline styles
-    pill.style.transform = `translateX(${targetX}px)`;
-    pill.style.width = `${targetW}px`;
-
-    const hasChanged = Math.abs(fromX - targetX) > 0.5 || Math.abs(fromW - targetW) > 0.5;
-
-    if (animated && hasChanged && typeof pill.animate === 'function') {
-      const prefersReduced = Boolean(
-        typeof window !== 'undefined' &&
-        window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
-      );
-
-      let animation;
-      if (prefersReduced) {
-        const duration = 220;
-        const easing = 'ease-out';
-        animation = pill.animate(
-          [
-            { transform: `translateX(${fromX}px)`, width: `${fromW}px` },
-            { transform: `translateX(${targetX}px)`, width: `${targetW}px` }
-          ],
-          {
-            duration: duration,
-            easing: easing
-          }
-        );
-      } else {
-        const from = { left: fromX, width: fromW };
-        const to = { left: targetX, width: targetW };
-        const duration = Math.round(450 + Math.min(300, Math.abs(targetX - fromX) * 0.4));
-        const keyframes = buildPillKeyframes(from, to, duration);
-        animation = pill.animate(keyframes, {
-          duration: duration,
-          easing: 'linear',
-          fill: 'none'
-        });
-      }
-
-      this._currentAnimation = animation;
-      this._pillAnim = animation;
-      animation.onfinish = () => {
-        if (this._currentAnimation === animation) {
-          this._currentAnimation = null;
-          this._pillAnim = null;
-        }
-      };
+    if (!animated) {
+      pill.style.transition = 'none';
+      pill.style.transform = `translate3d(${targetX}px, 0, 0)`;
+      pill.style.width = `${targetW}px`;
+      void pill.offsetWidth;
+      pill.style.transition = '';
+    } else {
+      pill.style.transform = `translate3d(${targetX}px, 0, 0)`;
+      pill.style.width = `${targetW}px`;
     }
 
     this._pillX = targetX;
