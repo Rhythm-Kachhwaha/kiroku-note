@@ -584,6 +584,14 @@
 
       this.video.addEventListener("play", this._boundPlay);
 
+      // Re-attach fullscreen listeners if detached previously
+      if (typeof document !== "undefined") {
+        document.removeEventListener("fullscreenchange", this._boundFullscreen);
+        document.removeEventListener("webkitfullscreenchange", this._boundFullscreen);
+        document.addEventListener("fullscreenchange", this._boundFullscreen);
+        document.addEventListener("webkitfullscreenchange", this._boundFullscreen);
+      }
+
       // Check current subtitle state
       if (this.subStatus.count === 0 && !this.video.paused) {
         this.showNoSubsChip();

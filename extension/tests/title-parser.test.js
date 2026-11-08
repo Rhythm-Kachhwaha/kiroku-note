@@ -100,6 +100,24 @@ const TEST_CASES = [
     url: "",
     expectedTitle: "Dungeon Meshi",
     expectedEp: 2
+  },
+  {
+    raw: "【推しの子】 第11話「アイドル」",
+    url: "",
+    expectedTitle: "【推しの子】",
+    expectedEp: 11
+  },
+  {
+    raw: "チェンソーマン #12",
+    url: "",
+    expectedTitle: "チェンソーマン",
+    expectedEp: 12
+  },
+  {
+    raw: "Spy x Family Part 2 - 25 (English Dub)",
+    url: "",
+    expectedTitle: "Spy x Family Part 2",
+    expectedEp: 25
   }
 ];
 
