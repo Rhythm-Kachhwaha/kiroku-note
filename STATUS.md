@@ -1,5 +1,5 @@
 # Status
-N8: Fix undefined file and cues references in video-mining.
-Add safe setInterval/clearInterval guards in LinkBridge.
-All extension tests passing (287/287).
+N9: Prevent client handshake timeout from halting reconnect.
+Ensure LinkClient schedules auto-reconnect on backend start.
+Directly affected desktop anime tests pass (41/41).
 Branch: main.

@@ -133,7 +133,7 @@ export class LinkClient {
       if (!this.authenticated) {
         if (this.ws) {
           try {
-            this.ws.close(4401, 'Handshake timeout');
+            this.ws.close(4008, 'Handshake timeout');
           } catch (err) {
             console.debug('[LinkClient] Handshake timeout close error:', err);
           }
@@ -211,7 +211,7 @@ export class LinkClient {
 
     this.emit('disconnected', { code: event?.code, reason: event?.reason, wasAuthenticated: wasAuth });
 
-    if (!this.stopped && event?.code !== 4401) {
+    if (!this.stopped) {
       this._scheduleReconnect();
     }
   }
