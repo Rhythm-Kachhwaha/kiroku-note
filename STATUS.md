@@ -1,5 +1,5 @@
 # Status
-N10: Fix HUD container selection and auto sync to Link Hub.
-Sync cues and sub status on setCues; support time overrides.
-Full e2e Playwright verification passing with non-black frames.
-Branch: main.
+N11: Health-check Link Hub before WebSocket connect.
+Prevent net::ERR_CONNECTION_REFUSED in extension error log.
+Clean up existing sockets, timers, and error bubbling.
+All extension tests pass (287/287). Branch: main.

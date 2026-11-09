@@ -149,15 +149,53 @@
     stop() {
       this.stopped = true;
       this._clearTimers();
+      this._clearSocket();
+      this.connected = false;
+      this.authenticated = false;
+      this._notifyStateChange();
+    }
+
+    _clearSocket() {
       if (this.ws) {
         try {
+          if (typeof this.ws.removeEventListener === "function") {
+            this.ws.removeEventListener("open", this._boundOnOpen);
+            this.ws.removeEventListener("message", this._boundOnMessage);
+            this.ws.removeEventListener("error", this._boundOnError);
+            this.ws.removeEventListener("close", this._boundOnClose);
+          }
+          this.ws.onopen = null;
+          this.ws.onmessage = null;
+          this.ws.onerror = null;
+          this.ws.onclose = null;
           this.ws.close();
         } catch (_) {}
         this.ws = null;
       }
-      this.connected = false;
-      this.authenticated = false;
-      this._notifyStateChange();
+    }
+
+    async _checkBackendOnline() {
+      if (typeof fetch === "undefined" || this.WebSocketClass !== (typeof WebSocket !== "undefined" ? WebSocket : null)) {
+        return true;
+      }
+      try {
+        const httpUrl = this.wsUrl
+          .replace(/^ws:\/\//i, "http://")
+          .replace(/^wss:\/\//i, "https://")
+          .replace(/\/api\/link\/ws.*$/i, "/api/health");
+        const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+        const tid = ctrl ? setTimeout(() => ctrl.abort(), 1200) : null;
+        try {
+          const resp = await fetch(httpUrl, { signal: ctrl?.signal, method: "GET" });
+          if (tid) clearTimeout(tid);
+          return resp && resp.status === 200;
+        } catch (_) {
+          if (tid) clearTimeout(tid);
+          return false;
+        }
+      } catch (_) {
+        return true;
+      }
     }
 
     _clearTimers() {
@@ -171,9 +209,20 @@
       }
     }
 
-    _connect() {
+    async _connect() {
       if (this.stopped || !this.WebSocketClass) return;
       this._clearTimers();
+      this._clearSocket();
+
+      // Guard against ERR_CONNECTION_REFUSED in Chrome extension errors log by checking backend health
+      const isOnline = await this._checkBackendOnline();
+      if (!isOnline) {
+        this._updateStatusChip("unreachable", "Backend offline");
+        this._scheduleReconnect();
+        return;
+      }
+
+      if (this.stopped) return;
 
       try {
         this.ws = new this.WebSocketClass(this.wsUrl);
@@ -249,7 +298,10 @@
       } catch (_) {}
     }
 
-    _onError() {
+    _onError(err) {
+      if (err && typeof err.preventDefault === "function") {
+        try { err.preventDefault(); } catch (_) {}
+      }
       // Handled by onclose
     }
 
@@ -285,6 +337,10 @@
 
     _scheduleReconnect() {
       if (this.stopped) return;
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
       const delay = Math.min(
         this.minReconnectMs * Math.pow(1.5, this.reconnectAttempts),
         this.maxReconnectMs
@@ -292,7 +348,7 @@
       this.reconnectAttempts++;
       this.reconnectTimer = setTimeout(() => {
         if (!this.stopped) {
-          this._connect();
+          this._connect().catch(() => {});
         }
       }, delay);
     }
