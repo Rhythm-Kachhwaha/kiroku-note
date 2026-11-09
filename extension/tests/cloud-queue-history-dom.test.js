@@ -1,3 +1,4 @@
+const { getSidepanelSource } = require("./helpers/source.js");
 const fs = require('fs');
 const test = require('node:test');
 const assert = require('node:assert');
@@ -23,7 +24,7 @@ test('Sidepanel HTML: sync-progress-modal must be closed before history-source-s
 });
 
 test('Sidepanel JS: setHistorySourceFilter calls loadHistory and exports functions correctly', () => {
-  const js = fs.readFileSync('extension/sidepanel/sidepanel.js', 'utf8');
+  const js = getSidepanelSource();
   assert.ok(!js.includes('loadHistoryCards()'), 'No undefined loadHistoryCards calls in sidepanel.js');
   assert.ok(js.includes('loadHistory()'), 'loadHistory is used');
   assert.ok(js.includes('currentHistorySource'), 'currentHistorySource is defined');
@@ -35,7 +36,7 @@ test('Sidepanel UI: Cloud subnav and card badges use vector SVG icons rather tha
   assert.ok(!html.includes('☁️ Cloud'), 'No raw cloud emoji in subnav HTML');
   assert.ok(html.includes('icon-cloud'), 'Cloud subnav has SVG icon with icon-cloud class');
 
-  const js = fs.readFileSync('extension/sidepanel/sidepanel.js', 'utf8');
+  const js = getSidepanelSource();
   assert.ok(!js.includes('icon = "☁️"'), 'No raw cloud emoji in history card source badges');
   assert.ok(!js.includes('icon = "⚡"'), 'No raw lightning emoji in history card source badges');
 });
@@ -47,7 +48,7 @@ test('Sidepanel UI: Cloud queue refresh button uses vector SVG icon and connects
   assert.ok(html.includes('class="icon-refresh"'), 'Refresh button uses SVG icon with icon-refresh class');
   assert.ok(!html.includes('🔄'), 'No raw reload emoji used');
 
-  const js = fs.readFileSync('extension/sidepanel/sidepanel.js', 'utf8');
+  const js = getSidepanelSource();
   assert.ok(js.includes('btnRefreshCloudQueue'), 'btnRefreshCloudQueue element is queried in JS');
   assert.ok(js.includes('/api/cloud/pull'), 'Calls /api/cloud/pull endpoint');
 });
@@ -62,7 +63,7 @@ test('Sidepanel UI: Settings Cards section exposes cloud pull, sync all, and cou
   assert.ok(html.includes('id="settings-cards-synced"'), 'settings-cards-synced exists');
   assert.ok(!html.includes('☁️'), 'Zero cloud emojis in HTML');
 
-  const js = fs.readFileSync('extension/sidepanel/sidepanel.js', 'utf8');
+  const js = getSidepanelSource();
   assert.ok(js.includes('btnSettingsSyncAll'), 'btnSettingsSyncAll queried in JS');
   assert.ok(js.includes('btnSettingsPullCloud'), 'btnSettingsPullCloud queried in JS');
   assert.ok(js.includes('settingsCloudCountBadge'), 'settingsCloudCountBadge queried in JS');

@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -49,7 +50,7 @@ console.log("PASS 1: HTML DOM structure and elements for all 5 fixes verified.")
 // 2. Verify CSS Styles for Real-World UX Fixes
 // ==========================================================================
 const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
-const css = fs.readFileSync(cssPath, "utf8");
+const css = getSidepanelCss();
 
 // Meaning visual hierarchy
 assert.ok(css.includes(".meaning-form-group"), "CSS must style .meaning-form-group");
@@ -80,7 +81,7 @@ console.log("PASS 2: CSS styling and zero-height layout reclamation verified.");
 // 3. Verify JavaScript Logic & Unit Contracts
 // ==========================================================================
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const rawJs = fs.readFileSync(jsPath, "utf8");
+const rawJs = getSidepanelSource();
 const js = rawJs.replace(/\r\n/g, "\n");
 
 // Default card section order: fields first

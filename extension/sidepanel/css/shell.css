@@ -1,0 +1,576 @@
+/* ==========================================================================
+   1. Header & Connectivity Indicators
+   ========================================================================== */
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.eyebrow {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.connection-indicators {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.indicator-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  user-select: none;
+  transition: color var(--transition-normal);
+}
+
+.indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6c6a64;
+  transition: background-color var(--transition-normal);
+}
+
+.indicator-pill.connected {
+  color: var(--text-secondary);
+}
+
+.indicator-pill.connected .indicator-dot {
+  background: var(--accent-success);
+}
+
+.indicator-pill.checking {
+  color: var(--accent-warning);
+}
+
+.indicator-pill.checking .indicator-dot {
+  background: var(--accent-warning);
+}
+
+.indicator-pill.unavailable {
+  color: var(--text-muted);
+}
+
+.indicator-pill.unavailable .indicator-dot {
+  background: #6c6a64;
+}
+
+.indicator-pill.error {
+  color: var(--accent-error);
+}
+
+.indicator-pill.error .indicator-dot {
+  background: var(--accent-error);
+}
+
+.btn-layout-settings {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 2px 6px;
+  cursor: pointer;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btn-layout-settings:hover {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+/* ==========================================================================
+   2. Mode Navigation Tabs & Mining Bar
+   ========================================================================== */
+
+.mining-nav-tabs {
+  display: flex;
+  background: transparent;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-2);
+  gap: 16px;
+}
+
+.tab-btn {
+  flex: initial;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  padding: 6px 2px;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+  text-align: left;
+  border-radius: 0;
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.tab-btn.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-primary);
+  background: transparent;
+  font-weight: 600;
+}
+
+.mining-tab-view[hidden] {
+  display: none !important;
+}
+
+/* Quick Add Mining View
+   ========================================================================== */
+
+.quickadd-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+
+.quickadd-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.quickadd-help-text {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.quickadd-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: 6px;
+  padding-bottom: var(--space-2);
+  position: relative;
+}
+
+.quickadd-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.quickadd-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.quickadd-kana-mode-group {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 1px;
+  height: 28px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  gap: 1px;
+}
+
+.quickadd-mode-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-ja);
+  font-size: 12px;
+  font-weight: 500;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border-radius: calc(var(--radius-sm) - 1px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.quickadd-mode-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-2);
+}
+
+.quickadd-mode-btn.active {
+  color: var(--accent-reading);
+  background: #351f1a;
+  border: 1px solid #59251c;
+  font-weight: 600;
+}
+
+.quickadd-input {
+  width: 100%;
+  height: 36px;
+  padding: 6px 30px 6px 10px;
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-ja), var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.quickadd-input::placeholder {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-family: var(--font-sans);
+}
+
+.quickadd-input:focus {
+  border-color: var(--accent-primary);
+  background: var(--bg-surface-2);
+}
+
+.quickadd-input.confirm-replace {
+  border-color: var(--accent-warning, #e08c45);
+}
+
+.quickadd-clear-btn {
+  position: absolute;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.quickadd-clear-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-3);
+}
+
+.quickadd-clear-btn[hidden] {
+  display: none !important;
+}
+
+.quickadd-suggestions-container {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  max-height: 240px;
+  overflow-y: auto;
+  margin-top: 4px;
+  padding: 6px 6px;
+}
+
+.quickadd-suggestions-header {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin: 2px 6px 6px;
+}
+
+.quickadd-footer-hint {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 6px;
+  padding-top: 4px;
+}
+
+.quickadd-suggestions-container[hidden] {
+  display: none !important;
+}
+
+.quickadd-suggestions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.quickadd-candidate-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  position: relative;
+}
+
+.quickadd-candidate-item:hover,
+.quickadd-candidate-item.highlighted {
+  background: var(--bg-surface-2);
+}
+
+.quickadd-candidate-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.quickadd-candidate-expression {
+  font-family: var(--font-ja);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.quickadd-candidate-reading {
+  font-family: var(--font-ja);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--accent-reading);
+}
+
+.quickadd-candidate-gloss {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+  text-align: right;
+  max-width: 50%;
+}
+
+.quickadd-candidate-item.confirm-replace {
+  background: rgba(224, 140, 69, 0.15) !important;
+  border-left: 3px solid var(--accent-warning, #e08c45);
+}
+
+.quickadd-confirm-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-warning, #e08c45);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.quickadd-candidate-saved-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm, 3px);
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.quickadd-candidate-jlpt-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: var(--radius-sm, 3px);
+  background-color: rgba(96, 165, 250, 0.15);
+  color: var(--accent-primary, #60a5fa);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+}
+
+.mining-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 6px;
+  padding-bottom: var(--space-2);
+  flex-wrap: nowrap;
+}
+
+.mining-bar .status-mode {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mining-bar .session-counter {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Legacy .mining-controls — keeps any JS references working */
+.mining-controls {
+  display: contents;
+}
+
+.btn-mining {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent-primary);
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 28px;
+  padding: 4px 12px;
+  transition: background-color var(--transition-fast);
+}
+
+.btn-mining:hover {
+  background: var(--accent-primary-hover);
+}
+
+.btn-mining[aria-pressed="true"] {
+  background: var(--accent-primary);
+}
+
+.btn-mining:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.btn-ocr {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  min-height: 28px;
+  padding: 4px 10px;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-ocr:hover:not(:disabled) {
+  background: var(--bg-surface-3);
+  border-color: var(--border-strong);
+}
+
+.btn-ocr:active:not(:disabled) {
+  background: var(--bg-surface-active);
+}
+
+.btn-ocr:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.btn-ocr:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status-mode {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin: 0;
+}
+
+.session-counter {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 400;
+  background: transparent;
+  border: none;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.status {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.status[hidden] {
+  display: none !important;
+}
+
+.status.error {
+  color: var(--accent-warning);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  line-height: 1;
+  padding: 3px 8px;
+  text-transform: uppercase;
+}
+
+.badge[hidden] {
+  display: none;
+}
+
+.badge.saved {
+  background: var(--accent-success-dim);
+  color: var(--accent-success);
+  border: 1px solid var(--accent-success-border);
+}
+
+.badge.already-saved {
+  background: var(--accent-warning-dim);
+  color: var(--accent-warning);
+  border: 1px solid var(--accent-warning-border);
+}
+

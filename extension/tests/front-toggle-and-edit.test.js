@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -24,7 +25,7 @@ console.log("PASS 1: HTML DOM structure and unhidden card-fields-section verifie
 
 // 2. CSS Rules Checks
 const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
-const css = fs.readFileSync(cssPath, "utf8");
+const css = getSidepanelCss();
 
 assert.ok(css.includes(".front-toggle-row"), ".front-toggle-row rule must exist in sidepanel.css");
 assert.ok(css.includes(".btn-front-toggle"), ".btn-front-toggle rule must exist in sidepanel.css");
@@ -125,7 +126,7 @@ const sandbox = {
 };
 
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const jsContent = fs.readFileSync(jsPath, "utf8");
+const jsContent = getSidepanelSource();
 
 // Slice the helper functions & front toggle logic to test in VM
 const codeSlice = jsContent.slice(

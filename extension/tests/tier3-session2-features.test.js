@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 /**
  * Test Suite for Tier 3 Session 2 Features:
  * - T3-E: Example Sentence Stepper (◀ 1/3 ▶)
@@ -16,8 +17,8 @@ const cssPath = path.join(__dirname, "../sidepanel/sidepanel.css");
 const jsPath = path.join(__dirname, "../sidepanel/sidepanel.js");
 
 const htmlContent = fs.readFileSync(htmlPath, "utf-8");
-const cssContent = fs.readFileSync(cssPath, "utf-8");
-const jsContent = fs.readFileSync(jsPath, "utf-8");
+const cssContent = getSidepanelCss();
+const jsContent = getSidepanelSource();
 
 test("Tier 3 Session 2: HTML & CSS Structure Verification", () => {
   // T3-H: Furigana density dropdown

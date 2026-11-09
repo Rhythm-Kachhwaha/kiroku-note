@@ -5,11 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Kiroku Note</title>
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' http://127.0.0.1:21828 data: blob:; media-src 'self' http://127.0.0.1:21828 data: blob:; connect-src http://127.0.0.1:21828; script-src 'self';">
-  <link rel="stylesheet" href="sidepanel.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/shell.css">
+  <link rel="stylesheet" href="css/video.css">
+  <link rel="stylesheet" href="css/text-card.css">
+  <link rel="stylesheet" href="css/dictionaries.css">
+  <link rel="stylesheet" href="css/misc.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/ask.css">
 </head>
 <body>
   <main class="panel sidepanel-container" role="region" aria-label="Kiroku Unified Side Panel">
     
+    <!-- REGION: Header & Navigation -->
     <!-- Concept 6 Header: Wordmark + SVG OCR + Mode Tabs + JP Toggle + Settings Gear + Collapse Arrow -->
     <header class="panel-header" id="panel-header">
       <div class="brand-section">
@@ -116,7 +124,8 @@
           TAB 2: VIDEO MINING VIEW
           ========================================================= -->
     <div id="video-mining-view" class="mining-tab-view" role="tabpanel" aria-labelledby="tab-btn-video" hidden>
-      <section id="video-mining-section" class="video-mining-panel" aria-label="Video Mining Controls">
+    <!-- REGION: Video Mining Section -->
+    <section id="video-mining-section" class="video-mining-panel" aria-label="Video Mining Controls">
         <!-- Subtitle view: searchable playback with the active cue above dimmed recent cues -->
         <div id="unified-subtitles-stream" class="unified-subtitles-stream" aria-label="Subtitle view">
           <div id="subtitle-search-section" class="video-search-section subtitle-search-section">
@@ -323,6 +332,7 @@
          CARD WORKSPACE: HERO + CARD EDITOR + PREVIEW + DICTIONARY
          ========================================================= -->
 
+    <!-- REGION: Card Editor Section -->
     <section id="card-editor-section" class="card-editor-section" aria-label="Card Editor">
       <!-- 1-line collapsed chip for Video tab auto-collapse -->
       <div id="video-collapsed-card-chip" class="video-collapsed-card-chip" style="display:none;" role="button" tabindex="0" aria-label="Expand Card Editor">
@@ -579,6 +589,7 @@
     <!-- =========================================================
          TAB 4: HISTORY VIEW (Dedicated Top Tab)
          ========================================================= -->
+    <!-- REGION: History Section -->
     <section id="history-section" class="mining-tab-view history-section" role="tabpanel" aria-labelledby="tab-btn-history" hidden aria-label="Mining History &amp; Card Library">
       <div class="section-header history-header">
         <div class="history-header-left">
@@ -718,6 +729,7 @@
     <!-- =========================================================
          TAB 5: SETTINGS VIEW (Orange Headings + Full Features, No "Done" Button)
          ========================================================= -->
+    <!-- REGION: Settings Popover -->
     <div id="layout-settings-popover" class="mining-tab-view layout-settings-popover" role="tabpanel" aria-labelledby="tab-btn-settings" hidden>
       <div class="card-settings-header layout-settings-header">
         <div class="card-settings-title-row layout-settings-title-row">
@@ -1169,6 +1181,7 @@
     </div>
 
     <!-- Shared modal stays outside tab panels so it can open from Settings. -->
+    <!-- REGION: Jimaku Search Modal -->
     <div id="jimaku-search-modal" class="jimaku-modal" role="dialog" aria-modal="true" aria-label="Search Japanese Subtitles" hidden>
       <div class="jimaku-modal-header">
         <div class="jimaku-modal-title-row">
@@ -1233,6 +1246,22 @@
   <script src="../lib/ocr-cropper.js"></script>
   <script src="../lib/wanakana.js"></script>
   <script src="../lib/yomitan-reference-renderer.js"></script>
+  <script src="modules/core.js"></script>
+  <script src="modules/dictionaries.js"></script>
+  <script src="modules/card-preview.js"></script>
+  <script src="modules/card-editor.js"></script>
+  <script src="modules/text-mining.js"></script>
+  <script src="modules/history.js"></script>
+  <script src="modules/video-messaging.js"></script>
+  <script src="modules/subtitle-source.js"></script>
+  <script src="modules/jimaku.js"></script>
+  <script src="modules/annotation.js"></script>
+  <script src="modules/missed-words.js"></script>
+  <script src="modules/cue-search.js"></script>
+  <script src="modules/video-hero.js"></script>
+  <script src="modules/messaging.js"></script>
+  <script src="modules/layout.js"></script>
+  <script src="modules/ask.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

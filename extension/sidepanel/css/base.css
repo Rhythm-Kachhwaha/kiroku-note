@@ -1,0 +1,197 @@
+/* Local Japanese Typography Fallback & Bundling Declarations (Stage 7.5 CSP Hardening) */
+@font-face {
+  font-family: "Noto Sans JP";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Noto Sans JP"), local("Noto Sans CJK JP Regular"), local("Noto Sans CJK JP"), local("Hiragino Sans"), local("Yu Gothic"), local("Meiryo");
+}
+
+@font-face {
+  font-family: "Noto Sans JP";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local("Noto Sans JP Medium"), local("Noto Sans JP"), local("Noto Sans CJK JP Medium"), local("Hiragino Sans"), local("Yu Gothic Medium"), local("Yu Gothic");
+}
+
+@font-face {
+  font-family: "Noto Sans JP";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local("Noto Sans JP Bold"), local("Noto Sans JP"), local("Noto Sans CJK JP Bold"), local("Hiragino Sans"), local("Yu Gothic Bold"), local("Yu Gothic");
+}
+
+@font-face {
+  font-family: "Noto Serif JP";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Noto Serif JP"), local("Noto Serif CJK JP"), local("Hiragino Mincho ProN"), local("Yu Mincho");
+}
+
+@font-face {
+  font-family: "Noto Serif JP";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local("Noto Serif JP SemiBold"), local("Noto Serif JP"), local("Noto Serif CJK JP SemiBold"), local("Hiragino Mincho ProN"), local("Yu Mincho");
+}
+
+:root {
+  /* Color Scheme */
+  color-scheme: dark;
+
+  /* Surface Elevation Hierarchy (Obsidian -> Graphite -> Coal) */
+  --bg-canvas: #121110;          /* Deep obsidian base canvas */
+  --bg-surface-1: #191816;        /* Primary section containers & cards */
+  --bg-surface-2: #211e1b;        /* Form inputs, nested cards, list rows */
+  --bg-surface-3: #2a2622;        /* Hovered elements, elevated controls */
+  --bg-surface-active: #332d28;   /* Pressed states, selected cards */
+  --bg-surface: #181715;          /* Concept 6 base surface */
+  --bg-surface-elevated: #211e1b; /* Concept 6 elevated surface */
+  --bg-surface-hover: #27231f;    /* Concept 6 hover surface */
+  --bg-input: #151413;            /* Concept 6 input background */
+
+  /* Border Tokens */
+  --border-subtle: #25211e;       /* Hairline structural dividers */
+  --border-default: #312b26;      /* Default container & input borders */
+  --border-strong: #443c35;       /* Emphasized boundaries & hover borders */
+  --border-focus: #b84632;        /* Keyboard focus ring */
+
+  /* Typography Colors */
+  --text-primary: #ede8e1;        /* Warm off-white primary Japanese & text */
+  --text-secondary: #9e948a;      /* Clean secondary labels & translations */
+  --text-muted: #8e8a81;          /* Quiet meta, hints, timestamps */
+  --text-disabled: #4e4842;       /* Disabled elements */
+  --text-faint: #48433d;          /* Faint hints and counters */
+
+  /* Brand & Semantic Accents */
+  --accent-primary: #b84632;      /* Warm terracotta/rust (Actions, CTA) */
+  --accent-primary-hover: #c8503a;
+  --accent-primary-active: #a53b28;
+  --accent-primary-dim: rgba(184, 70, 50, 0.15);
+
+  --accent-reading: #d4884f;      /* Warm amber for kana readings */
+  --accent-reading-dim: rgba(212, 136, 79, 0.15);
+
+  --accent-success: #5ea36a;      /* Mint green for Saved / Synced */
+  --accent-success-dim: rgba(94, 163, 106, 0.15);
+  --accent-success-border: #2a4730;
+
+  --accent-warning: #d4954f;      /* Amber for Already Saved / Checking */
+  --accent-warning-dim: rgba(212, 149, 79, 0.15);
+  --accent-warning-border: #4d381d;
+
+  --accent-error: #cc4f4f;        /* Crimson for Sync Failed / Disconnected */
+  --accent-error-dim: rgba(204, 79, 79, 0.15);
+  --accent-error-border: #4a2020;
+
+  --accent-jlpt: #cc5a42;          /* Restrained warm rust for JLPT tags */
+  --accent-jlpt-dim: #351f1a;
+  --accent-jlpt-border: #4a2820;
+
+  /* Typography Font Stacks */
+  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-noto-sans: "Noto Sans JP", "Noto Sans Japanese", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  --font-noto-serif: "Noto Serif JP", "Noto Serif Japanese", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-system: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --font-japanese: var(--font-noto-sans);
+  --japanese-font: var(--font-japanese); /* Backward compatibility for sidepanel.js setProperty */
+  --font-mono: "JetBrains Mono", "SF Mono", "Consolas", monospace;
+
+  /* Spacing Scale (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* Border Radii */
+  --radius-sm: 3px;              /* Tags, badges, input controls */
+  --radius-md: 4px;              /* Buttons, inner cards, preview cards */
+  --radius-lg: 6px;              /* Section panels, modals */
+  --radius-pill: 9999px;         /* Status dots, compact pills */
+
+  /* Shadows (Minimal & Sharp) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+
+  /* Transitions */
+  --transition-fast: 100ms ease-out;
+  --transition-normal: 150ms ease-out;
+}
+
+.grammar-breakdown-section {
+  margin: 8px 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-1);
+}
+.grammar-section-toggle {
+  width: 100%; padding: 8px 10px; display: flex; justify-content: space-between;
+  border: 0; background: transparent; color: var(--text-secondary); text-align: left;
+}
+.grammar-breakdown-content { padding: 0 10px 10px; }
+.grammar-sentence { padding: 8px 0; color: var(--text-primary); font-family: var(--font-japanese); }
+.grammar-conjugation-chain { color: var(--accent-reading); font-size: 11px; padding-top: 8px; }
+.grammar-point-card { border-top: 1px solid var(--border-subtle); padding: 7px 0; }
+.grammar-point-title, .grammar-session-item, .grammar-chip { border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-surface-2); color: var(--text-primary); padding: 5px 8px; cursor: pointer; }
+.grammar-point-detail { white-space: pre-line; color: var(--text-secondary); font-size: 12px; padding: 7px 4px; }
+.active-sub-grammar-slot { min-height: 24px; display: flex; gap: 5px; align-items: center; overflow-x: auto; }
+.grammar-chip { font-size: 11px; white-space: nowrap; color: var(--text-secondary); }
+.grammar-chip-detail { font-size: 12px; color: var(--text-secondary); padding: 5px; }
+.grammar-session-drawer { margin-top: 4px; }
+.grammar-session-item { display: block; width: 100%; margin: 3px 0; text-align: left; font-size: 12px; }
+.grammar-setup-status[data-status="ok"] { color: var(--accent-success); }
+.grammar-setup-status[data-status="error"] { color: var(--accent-error); }
+
+* {
+  box-sizing: border-box;
+}
+
+/* Custom sleek Japanese minimalist scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  max-width: 100vw;
+  overflow-x: hidden;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.panel {
+  position: relative;
+  min-height: 100vh;
+  max-width: 560px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+}
+

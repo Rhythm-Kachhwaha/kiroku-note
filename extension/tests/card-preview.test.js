@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -29,7 +30,7 @@ console.log("PASS 1: HTML DOM structure and section ordering verified.");
 
 // 2. Verify CSS rules
 const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
-const css = fs.readFileSync(cssPath, "utf8");
+const css = getSidepanelCss();
 
 assert.ok(css.includes(".card-preview-section"), "CSS must define .card-preview-section");
 assert.ok(css.includes(".preview-tabs"), "CSS must define .preview-tabs");
@@ -194,7 +195,7 @@ function findAll(el, predicate) {
 
 // 4. Set up VM context to test preview rendering
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const jsContent = fs.readFileSync(jsPath, "utf8");
+const jsContent = getSidepanelSource();
 
 const mockDoc = {
   createElement: createMockElement,

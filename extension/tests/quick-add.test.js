@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -56,7 +57,7 @@ console.log("PASS 1: HTML DOM structure, role/aria attributes, and script loadin
 // 2. Verify CSS Styling for Quick Add & JLPT Card Preview
 // ==========================================================================
 const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
-const css = fs.readFileSync(cssPath, "utf8");
+const css = getSidepanelCss();
 
 assert.ok(css.includes(".quickadd-container"), "CSS must define .quickadd-container");
 assert.ok(css.includes(".quickadd-input-row"), "CSS must define .quickadd-input-row");
@@ -200,7 +201,7 @@ function createMockElement(tagName, id = "") {
 // 4. Test Tab Switching Generalization (text, video, quickadd)
 // ==========================================================================
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const jsContent = fs.readFileSync(jsPath, "utf8");
+const jsContent = getSidepanelSource();
 
 const mockTabBtnText = createMockElement("button", "tab-btn-text");
 mockTabBtnText.classList.add("active");

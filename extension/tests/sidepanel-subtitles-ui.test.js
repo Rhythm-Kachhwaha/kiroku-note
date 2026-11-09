@@ -1,3 +1,4 @@
+const { getSidepanelCss } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -6,7 +7,7 @@ const path = require("node:path");
 const htmlPath = path.join(__dirname, "../sidepanel/sidepanel.html");
 const cssPath = path.join(__dirname, "../sidepanel/sidepanel.css");
 const sidepanelHtml = fs.readFileSync(htmlPath, "utf-8");
-const sidepanelCss = fs.readFileSync(cssPath, "utf-8");
+const sidepanelCss = getSidepanelCss();
 
 test("Sidepanel UI - includes subtitle providers scripts and updated file input", () => {
   // Scripts must be present

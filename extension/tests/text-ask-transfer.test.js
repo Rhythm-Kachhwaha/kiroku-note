@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -6,8 +7,8 @@ const vm = require("node:vm");
 
 const root = path.resolve(__dirname, "..");
 const html = fs.readFileSync(path.join(root, "sidepanel/sidepanel.html"), "utf8");
-const css = fs.readFileSync(path.join(root, "sidepanel/sidepanel.css"), "utf8");
-const js = fs.readFileSync(path.join(root, "sidepanel/sidepanel.js"), "utf8");
+const css = getSidepanelCss();
+const js = getSidepanelSource();
 
 test("Text action row exposes compact Save, Send to Anki, and Ask actions", () => {
   const actionRow = html.match(/<div class="primary-actions-row editor-actions-bottom">([\s\S]*?)<\/div>/)?.[1] || "";

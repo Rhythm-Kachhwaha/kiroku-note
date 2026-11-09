@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 /**
  * Test Suite for Tier 4 Session 2 Features:
  * - T4-B: Subtitle In-Track Search / Jump
@@ -16,8 +17,8 @@ const cssPath = path.join(__dirname, "../sidepanel/sidepanel.css");
 const jsPath = path.join(__dirname, "../sidepanel/sidepanel.js");
 
 const htmlContent = fs.readFileSync(htmlPath, "utf-8");
-const cssContent = fs.readFileSync(cssPath, "utf-8");
-const jsContent = fs.readFileSync(jsPath, "utf-8");
+const cssContent = getSidepanelCss();
+const jsContent = getSidepanelSource();
 
 test("Tier 4 Session 2: HTML & CSS Structure Verification", () => {
   // T4-B: Subtitle in-track search elements

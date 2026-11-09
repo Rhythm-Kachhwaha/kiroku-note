@@ -1,4 +1,9 @@
 // ==========================================================================
+// Module: dictionaries.js
+// Yomitan dictionary management, search, rendering, and OCR processing
+// ==========================================================================
+
+// ==========================================================================
 // Yomitan Reference Dictionaries Management
 // ==========================================================================
 
@@ -875,16 +880,80 @@ async function checkOcrStatus() {
   }
 }
 
+let indicatorYomitanSecondary = document.querySelector("#indicator-yomitan-secondary");
+function ensureSecondaryYomitanIndicator() {
+  if (!indicatorYomitanSecondary && indicatorYomitan && indicatorYomitan.parentNode) {
+    indicatorYomitanSecondary = document.createElement("span");
+    indicatorYomitanSecondary.id = "indicator-yomitan-secondary";
+    indicatorYomitanSecondary.className = "indicator-pill unavailable";
+    if (typeof indicatorYomitanSecondary.setAttribute === "function") {
+      indicatorYomitanSecondary.setAttribute("aria-label", "Yomitan secondary status");
+    }
+    indicatorYomitanSecondary.title = "Yomitan: Offline";
+    indicatorYomitanSecondary.style.display = "none";
+    const dot = document.createElement("span");
+    dot.className = "indicator-dot";
+    indicatorYomitanSecondary.appendChild(dot);
+    indicatorYomitan.parentNode.insertBefore(indicatorYomitanSecondary, indicatorYomitan.nextSibling);
+  }
+  return indicatorYomitanSecondary;
+}
+
+async function checkSetupChecklist() {
+  try {
+    const res = await fetch(API_SETUP_CHECKLIST_URL);
+    if (!res.ok) return null;
+    const items = await res.json().catch(() => []);
+    if (!Array.isArray(items)) return null;
+    const failedRequired = items.filter((item) => item && item.required && !item.ok);
+    if (failedRequired.length > 0) {
+      const first = failedRequired[0];
+      showBackendBanner(
+        "setup-failure",
+        `Setup issue: ${first.detail || first.id}`,
+        "Settings",
+        () => {
+          if (typeof switchMiningTab === "function") switchMiningTab("settings");
+        }
+      );
+      return items;
+    }
+    const banner = typeof document !== "undefined" ? document.querySelector("#backend-error-banner") : null;
+    if (banner && banner.classList && banner.classList.contains("setup-failure")) {
+      hideBackendBanner();
+    }
+    return items;
+  } catch (err) {
+    return null;
+  }
+}
+
 async function checkHealthStatus() {
   try {
     const res = await fetch(API_HEALTH_URL);
     if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
     const data = await res.json().catch(() => ({}));
 
-    if (data.yomitan) {
-      setIndicatorStatus(indicatorYomitan, "connected", "Yomitan: Connected");
+    const dictHealth = data.dictionary || {};
+    const isDictReady = dictHealth.db_present !== undefined ? Boolean(dictHealth.db_present) : Boolean(data.db || data.yomitan);
+    if (isDictReady) {
+      setIndicatorStatus(indicatorYomitan, "connected", "Dictionary: Ready");
     } else {
-      setIndicatorStatus(indicatorYomitan, "unavailable", "Yomitan: Offline");
+      setIndicatorStatus(indicatorYomitan, "unavailable", "Dictionary: Offline");
+    }
+
+    const secIndicator = ensureSecondaryYomitanIndicator();
+    if (secIndicator) {
+      if (dictHealth.yomitan_secondary) {
+        secIndicator.style.display = "";
+        if (dictHealth.yomitan_reachable) {
+          setIndicatorStatus(secIndicator, "connected", "Yomitan (Secondary): Connected");
+        } else {
+          setIndicatorStatus(secIndicator, "unavailable", "Yomitan (Secondary): Offline");
+        }
+      } else {
+        secIndicator.style.display = "none";
+      }
     }
 
     const isAnkiConnected = Boolean(data.ankiconnect);
@@ -906,9 +975,15 @@ async function checkHealthStatus() {
       setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Offline");
     }
 
+    await checkSetupChecklist();
+
     return data;
   } catch (_) {
-    setIndicatorStatus(indicatorYomitan, "unavailable", "Yomitan: Offline");
+    setIndicatorStatus(indicatorYomitan, "unavailable", "Dictionary: Offline");
+    const secIndicator = ensureSecondaryYomitanIndicator();
+    if (secIndicator) {
+      secIndicator.style.display = "none";
+    }
     setIndicatorStatus(indicatorAnki, "unavailable", "Anki: Not connected");
     setIndicatorStatus(indicatorOcr, "unavailable", "OCR: Offline");
     return { status: "error", yomitan: false, ankiconnect: false, ocr: false, db: false };
@@ -1397,4 +1472,4 @@ function updateHeroBadges(body) {
     }
   }
 }
-
+

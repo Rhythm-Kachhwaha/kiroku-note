@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 /**
  * Test Suite for Tier 4 Session 1 Features:
  * - T4-A: History Multi-Select & Bulk Operations
@@ -21,8 +22,8 @@ const cssPath = path.join(__dirname, "../sidepanel/sidepanel.css");
 const jsPath = path.join(__dirname, "../sidepanel/sidepanel.js");
 
 const htmlContent = fs.readFileSync(htmlPath, "utf-8");
-const cssContent = fs.readFileSync(cssPath, "utf-8");
-const jsContent = fs.readFileSync(jsPath, "utf-8");
+const cssContent = getSidepanelCss();
+const jsContent = getSidepanelSource();
 
 test("Tier 4 Session 1: HTML & CSS Structure Verification", () => {
   // Bulk Action Bar & elements in HTML

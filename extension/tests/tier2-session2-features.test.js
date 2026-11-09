@@ -1,3 +1,4 @@
+const { getSidepanelCss, getSidepanelSource } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -9,7 +10,7 @@ const CSS_PATH = path.join(ROOT_DIR, "extension", "sidepanel", "sidepanel.css");
 const JS_PATH = path.join(ROOT_DIR, "extension", "sidepanel", "sidepanel.js");
 
 test("Tier 2 Session 2: T2-G Unified health check endpoint and handler", () => {
-  const js = fs.readFileSync(JS_PATH, "utf8");
+  const js = getSidepanelSource();
 
   assert.ok(js.includes('API_HEALTH_URL'), "sidepanel.js must define API_HEALTH_URL");
   assert.ok(js.includes('/api/health'), "sidepanel.js must point to /api/health");
@@ -19,8 +20,8 @@ test("Tier 2 Session 2: T2-G Unified health check endpoint and handler", () => {
 
 test("Tier 2 Session 2: T2-F History CSV Export button and handler", () => {
   const html = fs.readFileSync(HTML_PATH, "utf8");
-  const css = fs.readFileSync(CSS_PATH, "utf8");
-  const js = fs.readFileSync(JS_PATH, "utf8");
+  const css = getSidepanelCss();
+  const js = getSidepanelSource();
 
   assert.ok(html.includes('id="btn-export-cards"'), "sidepanel.html must include #btn-export-cards");
   assert.ok(html.includes('Export CSV'), "sidepanel.html must have Export CSV label");
@@ -32,7 +33,7 @@ test("Tier 2 Session 2: T2-F History CSV Export button and handler", () => {
 
 test("Tier 2 Session 2: T2-C Verb metadata toggle & Anki Back preview", () => {
   const html = fs.readFileSync(HTML_PATH, "utf8");
-  const js = fs.readFileSync(JS_PATH, "utf8");
+  const js = getSidepanelSource();
 
   assert.ok(html.includes('id="setting-show-verb-type"'), "sidepanel.html must include #setting-show-verb-type toggle");
   assert.ok(html.includes('Show Verb Type'), "sidepanel.html must have 'Show Verb Type' label");
@@ -44,8 +45,8 @@ test("Tier 2 Session 2: T2-C Verb metadata toggle & Anki Back preview", () => {
 });
 
 test("Tier 2 Session 2: T2-K POS tag priority and dictionary view declutter classes", () => {
-  const css = fs.readFileSync(CSS_PATH, "utf8");
-  const js = fs.readFileSync(JS_PATH, "utf8");
+  const css = getSidepanelCss();
+  const js = getSidepanelSource();
 
   // CSS Declutter rules
   assert.ok(css.includes('.dict-sense-tags .kn-pos'), "sidepanel.css must style .dict-sense-tags .kn-pos");

@@ -1,3 +1,4 @@
+const { getSidepanelSource } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -39,7 +40,7 @@ function createMockElement(id, tagName = "div") {
 
 test("Hero View - reading, meanings summary, and badges format matching screenshot", (t) => {
   // Read sidepanel.js to extract tested functions
-  const sidepanelJs = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.js"), "utf8");
+  const sidepanelJs = getSidepanelSource();
 
   // Setup DOM elements
   const mockReading = createMockElement("reading");

@@ -1,0 +1,1522 @@
+/* ==========================================================================
+   8. History & Card Library Section
+   ========================================================================== */
+
+.history-section {
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.history-header-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.history-collapse-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 2px 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  transition: color var(--transition-fast);
+}
+
+.history-collapse-btn:hover {
+  color: var(--text-primary);
+}
+
+.history-collapse-arrow {
+  font-size: 9px;
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+  display: inline-block;
+}
+
+.history-collapse-btn[aria-expanded="true"] .history-collapse-arrow {
+  transform: rotate(90deg);
+}
+
+.history-title {
+  margin: 0;
+}
+
+.history-content-container[hidden] {
+  display: none !important;
+}
+
+#history-section[hidden],
+.history-section[hidden] {
+  display: none !important;
+}
+
+.history-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.btn-sync-all {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  height: 26px;
+  min-width: 72px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 1;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-export-cards {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 7px;
+  height: 22px;
+  min-width: auto;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 1;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.btn-sync-all:hover:not(:disabled),
+.btn-export-cards:hover:not(:disabled) {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+
+.btn-sync-all:focus-visible,
+.btn-export-cards:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.btn-sync-all:disabled,
+.btn-export-cards:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--border-subtle);
+  color: var(--text-disabled);
+}
+
+.btn-sync-all.syncing {
+  background: var(--accent-primary-dim);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  cursor: wait;
+}
+
+.sync-all-status {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sync-all-status[hidden] {
+  display: none !important;
+}
+
+.sync-all-status.success {
+  background: var(--accent-success-dim);
+  border-color: var(--accent-success-border);
+  color: var(--accent-success);
+}
+
+.sync-all-status.partial {
+  background: var(--accent-warning-dim);
+  border-color: var(--accent-warning-border);
+  color: var(--accent-warning);
+}
+
+.sync-all-status.failed {
+  background: var(--accent-error-dim);
+  border-color: var(--accent-error-border);
+  color: var(--accent-error);
+}
+
+
+.history-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.history-search-input {
+  width: 100%;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 6px 10px;
+  transition: border-color var(--transition-fast);
+}
+
+.history-search-input:focus {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+  border-color: var(--border-focus);
+}
+
+.history-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.history-filter-row {
+  display: flex;
+  gap: 8px;
+}
+
+.history-filter-select {
+  flex: 1;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.history-filter-select:focus {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+  border-color: var(--border-focus);
+}
+
+/* Bulk Operations Toolbar & Floating Action Bar (T4-A) */
+.bulk-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bg-surface-2, #1c1c1f);
+  border: 1px solid var(--accent-primary, #e05a47);
+  border-radius: var(--radius-sm, 4px);
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.bulk-action-bar[hidden] {
+  display: none !important;
+}
+
+.bulk-action-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bulk-select-all-cb,
+.history-select-cb {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--accent-primary, #e05a47);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.bulk-selected-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.bulk-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.btn-bulk-action {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm, 3px);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.btn-bulk-sync {
+  background: var(--accent-anki, #68b723);
+  color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.btn-bulk-sync:hover {
+  filter: brightness(1.1);
+}
+
+.bulk-deck-select {
+  font-size: 11px;
+  padding: 3px 6px;
+  max-width: 110px;
+  background: var(--bg-surface-1);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm, 3px);
+}
+
+.btn-bulk-delete {
+  background: transparent;
+  color: var(--accent-danger, #e05a47);
+  border: 1px solid var(--accent-danger, #e05a47);
+}
+
+.btn-bulk-delete:hover {
+  background: rgba(224, 90, 71, 0.12);
+}
+
+.btn-bulk-delete.confirm-delete {
+  background: var(--accent-danger, #e05a47);
+  color: #ffffff;
+}
+
+.btn-bulk-cancel {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  font-size: 14px;
+  padding: 2px 6px;
+  line-height: 1;
+}
+
+.btn-bulk-cancel:hover {
+  color: var(--text-primary);
+}
+
+.history-item.bulk-selected {
+  border-color: var(--accent-primary, #e05a47);
+  background: rgba(224, 90, 71, 0.08);
+}
+
+.history-list-container {
+  min-height: 60px;
+}
+
+.history-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+  padding: 16px 8px;
+}
+
+.history-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.history-card-item,
+.history-item {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.history-card-item:hover,
+.history-item:hover {
+  background: var(--bg-surface-2);
+  border-color: var(--border-default);
+}
+
+.history-card-item.selected,
+.history-item.selected {
+  border-color: var(--accent-primary);
+  background: var(--bg-surface-2);
+}
+
+.history-item-card-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  display: block;
+  border-radius: var(--radius-sm);
+}
+
+.history-item-card-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.history-item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.history-item-expression,
+.history-item-term {
+  font-family: var(--japanese-font);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item-reading {
+  font-size: 11px;
+  color: var(--accent-reading);
+  font-weight: normal;
+}
+
+.history-item-meaning {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 2px 0 0 0;
+}
+
+.history-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.history-item-deck {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  padding: 1px 5px;
+  border-radius: 3px;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-item-jlpt,
+.pill-jlpt {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-jlpt, #e06c75);
+  background: rgba(224, 108, 117, 0.12);
+  border: 1px solid rgba(224, 108, 117, 0.3);
+  padding: 1px 5px;
+  border-radius: 3px;
+  line-height: 1.3;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* T3-I: Provenance source badge */
+.history-item-source {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  padding: 1px 5px;
+  line-height: 1.3;
+  display: inline-flex;
+  align-items: center;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.history-badge.sync-synced {
+  background: var(--accent-success-dim);
+  color: var(--accent-success);
+  border: 1px solid var(--accent-success-border);
+}
+
+.history-badge.sync-pending {
+  background: var(--accent-warning-dim);
+  color: var(--accent-warning);
+  border: 1px solid var(--accent-warning-border);
+}
+
+.history-badge.sync-syncing {
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+}
+
+.history-badge.sync-failed {
+  background: var(--accent-error-dim);
+  color: var(--accent-error);
+  border: 1px solid var(--accent-error-border);
+}
+
+.history-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-history-retry {
+  background: var(--accent-warning-dim);
+  border: 1px solid var(--accent-warning-border);
+  color: var(--accent-warning);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.btn-history-retry:hover {
+  background: rgba(232, 165, 90, 0.25);
+}
+
+.btn-history-retry:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+  border-color: var(--border-focus);
+}
+
+.btn-history-retry.btn-history-resync {
+  background: var(--accent-success-dim, rgba(126, 178, 126, 0.15));
+  border: 1px solid var(--accent-success-border, rgba(126, 178, 126, 0.35));
+  color: var(--accent-success, #7eb27e);
+}
+
+.btn-history-retry.btn-history-resync:hover {
+  background: rgba(126, 178, 126, 0.25);
+}
+
+.btn-history-delete {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.btn-history-delete:hover {
+  color: var(--accent-error);
+  border-color: var(--accent-error-border);
+  background: var(--accent-error-dim);
+}
+
+.btn-history-delete.confirm-delete {
+  color: #ffffff;
+  border-color: var(--accent-error);
+  background: var(--accent-error);
+  font-weight: 700;
+}
+
+.btn-history-delete:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+  border-color: var(--border-focus);
+}
+
+/* ==========================================================================
+   9. Responsive Breakpoints & Narrow Width Protection (320px–600px)
+   ========================================================================== */
+
+@media (max-width: 340px) {
+  .panel {
+    padding: 6px 8px 12px;
+  }
+
+  .panel .layout-settings-popover {
+    left: 8px;
+    right: 8px;
+  }
+
+  .form-row-compact {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .media-preview-container {
+    grid-template-columns: 1fr;
+  }
+
+  .mining-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .session-counter {
+    align-self: flex-start;
+  }
+}
+
+@media (min-width: 481px) {
+  .panel {
+    padding: 12px 16px 24px;
+  }
+
+  .panel .layout-settings-popover {
+    left: 16px;
+    right: 16px;
+  }
+}
+
+/* ==========================================================================
+   10. Card Preview Section & .kn-card Styles (Stage 5.4)
+   ========================================================================== */
+
+/* ==========================================================================
+   10. Card Preview Section & .kn-card Styles (Stage 5.4)
+   ========================================================================== */
+
+.card-preview-section {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 4px;
+}
+
+.preview-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.preview-tabs {
+  display: inline-flex;
+  background: transparent;
+  border: none;
+  padding: 0;
+  gap: 4px;
+}
+
+.preview-tab-btn {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.preview-tab-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.preview-tab-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.preview-tab-btn.active {
+  background: #351f1a;
+  border-color: #59251c;
+  color: var(--accent-reading);
+  font-weight: 600;
+}
+
+.card-preview-container {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  min-height: 44px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.card-preview-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--space-2) 0;
+  font-style: italic;
+}
+
+/* Scoped .kn-card styles inside Side Panel Preview */
+.card-preview-card.kn-card,
+.kn-card {
+  --kn-bg: #191816;
+  --kn-text: #ede8e1;
+  --kn-muted: #7a746e;
+  --kn-border: #25211e;
+  --kn-surface: #121110;
+  --kn-surface-border: #25211e;
+  --kn-badge-bg: #211e1b;
+  --kn-badge-text: #9e948a;
+  --kn-pitch-bg: #211e1b;
+  --kn-pitch-text: #a0988e;
+  --kn-pitch-border: #312b26;
+  --kn-ruby: #7a746e;
+  font-family: var(--japanese-font, var(--font-noto-sans));
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--kn-text);
+  text-align: left;
+  max-width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.kn-card *, .kn-card *::before, .kn-card *::after {
+  box-sizing: border-box;
+}
+
+.kn-card .kn-front-expression {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: left;
+  margin: 2px 0 6px 0;
+  word-break: break-word;
+  letter-spacing: 0.02em;
+}
+
+.kn-card .kn-front-reading {
+  font-size: 1.05em;
+  color: var(--accent-reading);
+  text-align: left;
+  margin: 2px 0 6px 0;
+  font-weight: 500;
+}
+
+.kn-card .kn-front-kanji-reading {
+  font-size: 0.82em;
+  color: var(--kn-muted);
+  text-align: left;
+  margin: 2px 0 6px 0;
+  line-height: 1.4;
+}
+
+.kn-card .kn-front-meaning {
+  font-size: 0.9em;
+  text-align: left;
+  margin-top: 8px;
+  border-top: 1px dashed var(--kn-border);
+  padding-top: 6px;
+}
+
+.kn-card .kn-reading {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.kn-card .kn-kana {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent-reading);
+  letter-spacing: 0.02em;
+}
+
+.kn-card .kn-pitch {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.kn-card .kn-divider {
+  border: 0;
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 8px 0 10px 0;
+}
+
+.kn-card .kn-meaning,
+.kn-meaning {
+  margin: 4px 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.kn-card .kn-meanings,
+.kn-meanings {
+  margin: 4px 0 8px 0;
+  padding-left: 18px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.kn-card .kn-meanings li,
+.kn-meanings li {
+  margin-bottom: 3px;
+}
+
+.kn-card .kn-pos,
+.kn-pos {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-right: 6px;
+  vertical-align: baseline;
+}
+
+.kn-card .kn-tag,
+.kn-tag {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 1px 6px;
+  margin-right: 4px;
+  border-radius: 3px;
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.kn-card .kn-tag.kn-jlpt,
+.kn-tag.kn-jlpt {
+  background: #351f1a;
+  border: 1px solid #59251c;
+  color: #cc5a42;
+  font-weight: 700;
+}
+
+.kn-card .kn-example-block,
+.kn-example-block {
+  margin: 10px 0 0 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.kn-card .kn-example-ja,
+.kn-example-ja {
+  margin: 0 0 2px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text-primary);
+}
+
+.kn-card .kn-example-ja ruby rt,
+.kn-example-ja ruby rt {
+  font-size: 0.58em;
+  color: var(--kn-ruby);
+  font-weight: normal;
+}
+
+.kn-card .kn-example-en,
+.kn-example-en {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.kn-card .kn-hint,
+.kn-card .kn-notes {
+  margin: 4px 0;
+  font-size: 0.82em;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.kn-card .kn-media {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.kn-card .kn-image,
+.kn-image {
+  max-width: 100%;
+  max-height: 180px;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  display: block;
+  margin: 4px auto;
+  box-shadow: var(--shadow-sm);
+}
+
+.kn-card .kn-audio-preview {
+  width: 100%;
+  max-height: 32px;
+  margin-top: 4px;
+}
+
+.kn-card .kn-tag.kn-jlpt,
+.kn-tag.kn-jlpt {
+  background: var(--accent-jlpt-dim);
+  color: var(--accent-jlpt);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--accent-jlpt-border);
+  letter-spacing: 0.04em;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.kn-front-tags {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.kn-card .kn-kanji-card,
+.kn-kanji-card {
+  margin: 8px 0;
+  padding: 8px 10px;
+  background: var(--kn-surface);
+  border: 1px solid var(--kn-surface-border);
+  border-radius: var(--radius-md);
+}
+
+.kn-card .kn-kanji-header,
+.kn-kanji-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--kn-surface-border);
+  padding-bottom: 6px;
+}
+
+.kn-card .kn-kanji-char,
+.kn-kanji-char {
+  font-family: var(--font-japanese);
+  font-size: 1.25em;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-right: 4px;
+}
+
+.kn-card .kn-kanji-readings,
+.kn-kanji-readings {
+  margin: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.88em;
+}
+
+.kn-card .kn-kanji-reading-row,
+.kn-kanji-reading-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.kn-card .kn-reading-lbl,
+.kn-reading-lbl {
+  font-size: 0.75em;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  min-width: 55px;
+}
+
+.kn-card .kn-onyomi,
+.kn-onyomi {
+  font-family: var(--font-japanese);
+  color: var(--accent-reading);
+  font-weight: 500;
+}
+
+.kn-card .kn-kunyomi,
+.kn-kunyomi {
+  font-family: var(--font-japanese);
+  color: #9ab8ff;
+  font-weight: 500;
+}
+
+.kn-card .kn-nanori,
+.kn-nanori {
+  font-family: var(--font-japanese);
+  color: var(--text-secondary);
+}
+
+.kn-card .kn-kanji-meanings,
+.kn-kanji-meanings {
+  margin-top: 6px;
+  font-size: 0.9em;
+  line-height: 1.4;
+  color: var(--text-primary);
+  border-top: 1px solid var(--kn-surface-border);
+  padding-top: 6px;
+}
+
+/* ==========================================================================
+   9.5. Structured Kanji Cards & Readings (Kanji-Bank / Multi-Dictionary)
+   ========================================================================== */
+
+.study-kanji-card {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.study-kanji-card.prominent {
+  background: var(--bg-surface-2);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.study-kanji-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-2);
+}
+
+.study-kanji-char-badge {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.study-kanji-character {
+  font-family: var(--font-japanese);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.study-kanji-dict {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-surface-3);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.kanji-stats-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.kanji-stat-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface-3);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.kanji-stat-badge.badge-jlpt {
+  background: var(--accent-jlpt-dim);
+  color: var(--accent-jlpt);
+  border-color: var(--accent-jlpt-border);
+}
+
+.kanji-reading-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kanji-reading-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: 12px;
+}
+
+.kanji-reading-label {
+  min-width: 58px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-top: 2px;
+}
+
+.kanji-reading-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.pill-reading {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  font-family: var(--font-japanese);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 6px;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.pill-reading:hover {
+  border-color: var(--accent-reading);
+  background: var(--accent-reading-dim);
+  color: var(--text-primary);
+}
+
+.pill-reading:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.pill-onyomi {
+  border-color: rgba(220, 165, 102, 0.3);
+  color: var(--accent-reading);
+}
+
+.pill-onyomi:hover {
+  background: var(--accent-reading-dim);
+  border-color: var(--accent-reading);
+}
+
+.pill-kunyomi {
+  border-color: rgba(122, 162, 247, 0.3);
+  color: #9ab8ff;
+}
+
+.pill-kunyomi:hover {
+  background: var(--accent-jlpt-dim);
+  border-color: var(--accent-jlpt);
+}
+
+.pill-nanori {
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.kanji-meanings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+}
+
+.kanji-meanings-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kanji-glosses {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.kanji-meanings-list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.kanji-meanings-list li {
+  margin-bottom: 2px;
+}
+
+.kanji-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+}
+
+.btn-kanji-insert {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-kanji-insert:hover {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.study-kanji-accordion {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-1);
+  margin-bottom: var(--space-3);
+  overflow: hidden;
+}
+
+.study-kanji-summary {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  user-select: none;
+  background: var(--bg-surface-2);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.study-kanji-summary:hover {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+}
+
+.study-kanji-list {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.raw-kanji-entry {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.raw-kanji-char {
+  font-family: var(--font-japanese);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.raw-kanji-reading {
+  color: var(--accent-reading);
+  font-family: var(--font-japanese);
+}
+
+.raw-kanji-meanings {
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   9.6. Kanji Stroke Order Diagrams (KanjiVG)
+   ========================================================================== */
+
+.study-kanji-strokes-accordion {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  margin-top: var(--space-2);
+  overflow: hidden;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.study-kanji-strokes-accordion[open] {
+  border-color: var(--border-strong);
+  background: var(--bg-surface-1);
+}
+
+.study-kanji-strokes-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-2);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.study-kanji-strokes-summary:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-3);
+}
+
+.study-kanji-strokes-summary .stroke-summary-icon {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.study-kanji-strokes-panel {
+  padding: var(--space-2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface-1);
+  min-height: 72px;
+}
+
+.stroke-order-svg {
+  width: 64px;
+  height: 64px;
+  max-width: 100%;
+  display: block;
+}
+
+.stroke-order-svg path {
+  stroke: var(--accent-reading, #5c7cfa);
+  fill: none;
+  transition: stroke var(--transition-fast);
+}
+
+.stroke-order-svg text {
+  font-size: 8px;
+  font-family: var(--font-mono, monospace);
+  fill: var(--text-muted, #8e8a81);
+}
+
+.study-kanji-strokes-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.kanji-stat-badge.kanji-stroke-toggle-btn {
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  font-family: inherit;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.kanji-stat-badge.kanji-stroke-toggle-btn:hover {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+/* Anki Card Preview Stroke Order */
+.kn-kanji-body-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 6px 0;
+}
+
+.kn-kanji-stroke-col {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kn-kanji-details-col {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+/* ==========================================================================
+   10. First-Run Quick Setup Guide
+   ========================================================================== */
+
+.first-run-guide {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.first-run-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.first-run-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.btn-dismiss-first-run {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.btn-dismiss-first-run:hover {
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+  background: var(--bg-hover);
+}
+
+.btn-dismiss-first-run:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.first-run-steps {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.first-run-steps li {
+  margin-bottom: 4px;
+}
+
+.first-run-steps li strong {
+  color: var(--text-primary);
+}
+
+.first-run-steps li code {
+  background: var(--bg-input);
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+}
+

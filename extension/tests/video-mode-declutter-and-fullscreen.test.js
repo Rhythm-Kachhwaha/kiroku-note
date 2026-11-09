@@ -106,7 +106,7 @@ test("Subtitle view: sidepanel.html contains unified playback controls without a
 });
 
 test("Subtitle view: CSS makes recent cues readable and the active cue prominent", () => {
-  const css = fs.readFileSync(cssPath, "utf8");
+  const css = getSidepanelCss();
 
   // Recent cues: huge font (~19px) and dimmed opacity (~0.62)
   assert.ok(css.includes(".recent-cue-item"), "Must have .recent-cue-item styles");
@@ -121,7 +121,7 @@ test("Subtitle view: CSS makes recent cues readable and the active cue prominent
 });
 
 test("Video capture carries its cue sentence and subtitle cards prioritize it on the back", () => {
-  const js = fs.readFileSync(jsPath, "utf8");
+  const js = getSidepanelSource();
   const optionsCode = js.match(/function getVideoCaptureContextOptions[\s\S]*?\n\}/)?.[0];
   const orderCode = js.match(/function prioritizeSubtitleContextOnBack[\s\S]*?\n\}/)?.[0];
   assert.ok(optionsCode && orderCode, "Video context and back-order helpers must exist");
@@ -199,7 +199,7 @@ test("Subtitle view: renderRecentCuesList respects the recent-cue setting", () =
   };
   vm.createContext(sandbox);
 
-  const jsContent = fs.readFileSync(jsPath, "utf8");
+  const jsContent = getSidepanelSource();
   const renderCode = jsContent.match(/function renderRecentCuesList[\s\S]*?\n\}/)?.[0];
   assert.ok(renderCode, "renderRecentCuesList function must exist");
   vm.runInContext(renderCode, sandbox);

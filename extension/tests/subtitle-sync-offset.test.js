@@ -11,9 +11,10 @@ const captureUtilsSrc = fs.readFileSync(path.resolve(__dirname, "../content/capt
 const contentScriptSrc = fs.readFileSync(path.resolve(__dirname, "../content/content.js"), "utf8");
 const youtubeAdapterSrc = fs.readFileSync(path.resolve(__dirname, "../content/adapters/youtube-adapter.js"), "utf8");
 const netflixAdapterSrc = fs.readFileSync(path.resolve(__dirname, "../content/adapters/netflix-adapter.js"), "utf8");
-const videoMiningSrc = require("./helpers/source.js").getVideoMiningSource();
+const { getSidepanelSource, getVideoMiningSource } = require("./helpers/source.js");
+const videoMiningSrc = getVideoMiningSource();
 const sidepanelHtml = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.html"), "utf8");
-const sidepanelJs = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.js"), "utf8");
+const sidepanelJs = getSidepanelSource();
 
 function createMockEnvironment({ isYouTube = false, isNetflix = false, isHiAnime = false } = {}) {
   const sentMessages = [];

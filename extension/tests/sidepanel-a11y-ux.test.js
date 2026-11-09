@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -11,12 +12,12 @@ const html = fs.readFileSync(htmlPath, "utf8");
 const cssPath = fs.existsSync("extension/sidepanel/sidepanel.css")
   ? "extension/sidepanel/sidepanel.css"
   : path.resolve(__dirname, "../sidepanel/sidepanel.css");
-const css = fs.readFileSync(cssPath, "utf8");
+const css = getSidepanelCss();
 
 const jsPath = fs.existsSync("extension/sidepanel/sidepanel.js")
   ? "extension/sidepanel/sidepanel.js"
   : path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const jsContent = fs.readFileSync(jsPath, "utf8");
+const jsContent = getSidepanelSource();
 
 // ==========================================================================
 // 1. Semantic Headings

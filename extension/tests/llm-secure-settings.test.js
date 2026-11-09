@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 /**
  * Test Suite: LLM Secure Settings & API Key Configuration
  * Verifies DOM structure, password masking, absence of "show key" button,
@@ -14,8 +15,8 @@ const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
 
 const html = fs.readFileSync(htmlPath, "utf8");
-const css = fs.readFileSync(cssPath, "utf8");
-const js = fs.readFileSync(jsPath, "utf8");
+const css = getSidepanelCss();
+const js = getSidepanelSource();
 
 test("LLM Secure Settings: DOM Structure - Required Configuration Elements", () => {
   assert.ok(

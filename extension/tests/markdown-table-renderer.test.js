@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 /**
  * Test Suite: Markdown Table & AI Response Renderer
  * Verifies table parsing, horizontally scrollable container, XSS safety, code blocks, lists, and formatting.
@@ -12,8 +13,8 @@ const vm = require("node:vm");
 const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
 
-const css = fs.readFileSync(cssPath, "utf8");
-const js = fs.readFileSync(jsPath, "utf8");
+const css = getSidepanelCss();
+const js = getSidepanelSource();
 
 // Setup minimal mock environment to execute sidepanel.js
 function createMockSidepanel() {

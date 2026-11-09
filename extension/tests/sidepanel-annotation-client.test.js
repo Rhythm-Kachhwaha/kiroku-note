@@ -1,3 +1,4 @@
+const { getSidepanelSource } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -346,7 +347,7 @@ function createSidepanelSandbox(customFetch) {
 
   vm.createContext(sandbox);
   const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
-  const jsContent = fs.readFileSync(jsPath, "utf8");
+  const jsContent = getSidepanelSource();
   vm.runInContext(jsContent, sandbox);
 
   return { sandbox, domElements, previewEl, sizeControls, mockStorage, identifiedCalls };

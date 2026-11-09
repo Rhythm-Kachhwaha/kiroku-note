@@ -1,10 +1,11 @@
+const { getSidepanelSource } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
 test("Quick Add Tab Persistence: selectQuickAddCandidate does NOT call switchMiningTab('text')", () => {
-  const js = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.js"), "utf8");
+  const js = getSidepanelSource();
   
   // Find selectQuickAddCandidate function
   const fnStart = js.indexOf("function selectQuickAddCandidate(");

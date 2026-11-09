@@ -19,7 +19,7 @@ const hookCode = fs.readFileSync(hookPath, "utf8");
 const sidepanelHtmlPath = path.resolve(__dirname, "../sidepanel/sidepanel.html");
 const sidepanelHtml = fs.readFileSync(sidepanelHtmlPath, "utf8");
 const sidepanelJsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const sidepanelJs = fs.readFileSync(sidepanelJsPath, "utf8");
+const sidepanelJs = getSidepanelSource();
 const pocPath = require("./helpers/source.js").videoMiningPath;
 
 // ---------------------------------------------------------------------------
@@ -336,7 +336,7 @@ test("Subtitle History: Groups compound words and attaches verb inflections into
 
   vm.createContext(sandbox);
 
-  const jsContent = fs.readFileSync(sidepanelJsPath, "utf8");
+  const jsContent = getSidepanelSource();
   const renderCode = jsContent.match(/function renderRecentCuesList[\s\S]*?\n\}/)?.[0];
   assert.ok(renderCode, "renderRecentCuesList function must exist in sidepanel.js");
 
@@ -448,7 +448,7 @@ test("Subtitle History: Mouse selection in recent cue triggers mining of custom 
 
   vm.createContext(sandbox);
 
-  const jsContent = fs.readFileSync(sidepanelJsPath, "utf8");
+  const jsContent = getSidepanelSource();
   const renderCode = jsContent.match(/function renderRecentCuesList[\s\S]*?\n\}/)?.[0];
   vm.runInContext(renderCode, sandbox);
   sandbox.renderRecentCuesList();

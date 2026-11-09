@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -49,7 +50,7 @@ console.log("PASS: Side Panel HTML media preview DOM contracts verified.");
 const cssPath = fs.existsSync("extension/sidepanel/sidepanel.css")
   ? "extension/sidepanel/sidepanel.css"
   : path.resolve(__dirname, "../sidepanel/sidepanel.css");
-const css = fs.readFileSync(cssPath, "utf8");
+const css = getSidepanelCss();
 
 assert.ok(css.includes(".media-preview-container"), "CSS includes .media-preview-container");
 assert.ok(css.includes(".media-preview-card"), "CSS includes .media-preview-card");
@@ -67,7 +68,7 @@ console.log("PASS: Side Panel CSS media preview styles verified.");
 const jsPath = fs.existsSync("extension/sidepanel/sidepanel.js")
   ? "extension/sidepanel/sidepanel.js"
   : path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const jsContent = fs.readFileSync(jsPath, "utf8");
+const jsContent = getSidepanelSource();
 
 // Mock DOM elements
 function createMockElement(tag, id = "") {

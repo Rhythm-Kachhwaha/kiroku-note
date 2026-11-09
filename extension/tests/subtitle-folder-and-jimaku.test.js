@@ -1,3 +1,4 @@
+const { getSidepanelCss } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -7,7 +8,7 @@ const backgroundPath = path.join(__dirname, "../background.js");
 const htmlPath = path.join(__dirname, "../sidepanel/sidepanel.html");
 const cssPath = path.join(__dirname, "../sidepanel/sidepanel.css");
 const sidepanelHtml = fs.readFileSync(htmlPath, "utf-8");
-const sidepanelCss = fs.readFileSync(cssPath, "utf-8");
+const sidepanelCss = getSidepanelCss();
 const backgroundJs = fs.readFileSync(backgroundPath, "utf-8");
 
 const vm = require("node:vm");

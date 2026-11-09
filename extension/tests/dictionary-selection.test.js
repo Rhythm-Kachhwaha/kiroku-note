@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -25,7 +26,7 @@ console.log("PASS 1: HTML markup for Dictionary Selection Settings verified.");
 // 2. Verify CSS Styling for Dictionary Selection & Notices
 // =========================================================================
 const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
-const css = fs.readFileSync(cssPath, "utf8");
+const css = getSidepanelCss();
 
 assert.ok(css.includes(".dict-settings-group"), "CSS must style .dict-settings-group");
 assert.ok(css.includes(".btn-refresh-dict-list"), "CSS must style .btn-refresh-dict-list");
@@ -46,7 +47,7 @@ console.log("PASS 2: CSS rules for Dictionary Selection and Empty Notice verifie
 // 3. Verify sidepanel.js storage keys and constants
 // =========================================================================
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const jsContent = fs.readFileSync(jsPath, "utf8");
+const jsContent = getSidepanelSource();
 
 assert.ok(jsContent.includes("API_YOMITAN_DICTIONARIES_URL"), "API_YOMITAN_DICTIONARIES_URL constant must exist");
 assert.ok(jsContent.includes("STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION"), "STORAGE_KEY_REFERENCE_DICTIONARY_SELECTION constant must exist");

@@ -1,3 +1,8 @@
+// ==========================================================================
+// Module: layout.js
+// Customizable card section layout reordering
+// ==========================================================================
+
 /* ==========================================================================
    Layout Settings & Customizable Card Section Reordering
    ========================================================================== */
@@ -368,4 +373,4 @@ document.addEventListener("click", (e) => {
 if (btnDismissFirstRun) {
   btnDismissFirstRun.addEventListener("click", () => dismissFirstRunGuide());
 }
-
+

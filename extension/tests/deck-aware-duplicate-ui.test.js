@@ -1,3 +1,4 @@
+const { getSidepanelSource } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -6,7 +7,7 @@ const vm = require("node:vm");
 const jsPath = fs.existsSync("extension/sidepanel/sidepanel.js")
   ? "extension/sidepanel/sidepanel.js"
   : path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const jsContent = fs.readFileSync(jsPath, "utf8");
+const jsContent = getSidepanelSource();
 
 function createMockElement(tagName, id = "") {
   const el = {

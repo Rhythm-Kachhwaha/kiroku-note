@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -36,8 +37,8 @@ console.log("PASS 1: HTML markup and data-layout-section attributes verified.");
 
 // 2. Load and verify sidepanel.js layout functions
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const jsContent = fs.readFileSync(jsPath, "utf8");
-const css = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.css"), "utf8");
+const jsContent = getSidepanelSource();
+const css = getSidepanelCss();
 
 assert.ok(jsContent.includes("STORAGE_KEY_LAYOUT_CARD_SECTION_ORDER"), "Storage key constant must exist in sidepanel.js");
 assert.ok(jsContent.includes("DEFAULT_CARD_SECTION_ORDER"), "DEFAULT_CARD_SECTION_ORDER constant must exist in sidepanel.js");

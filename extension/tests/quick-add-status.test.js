@@ -1,3 +1,4 @@
+const { getSidepanelCss } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -11,7 +12,7 @@ test("Quick Add Status: Elements exist in sidepanel.html", () => {
 });
 
 test("Quick Add Status: CSS styles exist for pills and badges", () => {
-  const css = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.css"), "utf8");
+  const css = getSidepanelCss();
   assert.ok(css.includes(".quickadd-candidate-saved-pill"), "quickadd-candidate-saved-pill CSS must exist");
   assert.ok(css.includes(".quickadd-candidate-jlpt-pill"), "quickadd-candidate-jlpt-pill CSS must exist");
   assert.ok(css.includes(".quickadd-header-left"), "quickadd-header-left CSS must exist");

@@ -1,3 +1,4 @@
+const { getSidepanelSource } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -10,7 +11,7 @@ test("Quick Add English Mode: HTML contains English mode button", () => {
 });
 
 test("Quick Add English Mode: JS binds English mode and updates search mode", () => {
-  const js = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.js"), "utf8");
+  const js = getSidepanelSource();
   assert.ok(js.includes('quickAddModeEnglish'), "quickAddModeEnglish must be queried in sidepanel.js");
   assert.ok(js.includes('setQuickAddSearchMode("english")'), "setQuickAddSearchMode('english') must be called on click");
   assert.ok(js.includes('/api/dictionary/search-english'), "Must call /api/dictionary/search-english when in english mode");

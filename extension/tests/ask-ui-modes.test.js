@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 /**
  * Test Suite: Ask Tab @ Mode Picker & Short/Detailed Response Controls
  * Verifies the compact picker, Short/Detailed toggle, and zero emojis.
@@ -13,8 +14,8 @@ const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
 
 const html = fs.readFileSync(htmlPath, "utf8");
-const css = fs.readFileSync(cssPath, "utf8");
-const js = fs.readFileSync(jsPath, "utf8");
+const css = getSidepanelCss();
+const js = getSidepanelSource();
 
 test("Ask UI: DOM Structure - @ Picker & 6 Modes", () => {
   assert.ok(html.includes('id="ask-mode-toolbar"'), "HTML must define #ask-mode-toolbar");

@@ -1,3 +1,4 @@
+const { getSidepanelSource } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -19,7 +20,7 @@ console.log("PASS 1: HTML elements and script inclusions verified.");
 // 2. Static JS Contract Checks
 // --------------------------------------------------------------------------
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const jsCode = fs.readFileSync(jsPath, "utf8");
+const jsCode = getSidepanelSource();
 
 assert.ok(jsCode.includes("API_OCR_STATUS_URL"), "API_OCR_STATUS_URL constant must exist in sidepanel.js");
 assert.ok(jsCode.includes("API_OCR_RECOGNIZE_URL"), "API_OCR_RECOGNIZE_URL constant must exist in sidepanel.js");

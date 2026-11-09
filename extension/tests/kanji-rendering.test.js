@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -5,7 +6,7 @@ const vm = require("node:vm");
 
 // 1. Verify CSS rules in sidepanel.css
 const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
-const css = fs.readFileSync(cssPath, "utf8");
+const css = getSidepanelCss();
 
 assert.ok(css.includes(".study-kanji-card"), "study-kanji-card class must exist in sidepanel.css");
 assert.ok(css.includes(".pill-onyomi"), "pill-onyomi class must exist in sidepanel.css");
@@ -233,7 +234,7 @@ const context = vm.createContext({
   },
 });
 
-const sidepanelCode = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.js"), "utf8");
+const sidepanelCode = getSidepanelSource();
 vm.runInContext(sidepanelCode, context);
 
 console.log("PASS: sidepanel.js loaded in test context.");

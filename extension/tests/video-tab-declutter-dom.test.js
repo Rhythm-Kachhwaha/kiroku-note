@@ -1,3 +1,4 @@
+const { getSidepanelCss } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -7,7 +8,7 @@ const htmlPath = path.join(__dirname, "../sidepanel/sidepanel.html");
 const cssPath = path.join(__dirname, "../sidepanel/sidepanel.css");
 
 const sidepanelHtml = fs.readFileSync(htmlPath, "utf-8");
-const sidepanelCss = fs.readFileSync(cssPath, "utf-8");
+const sidepanelCss = getSidepanelCss();
 
 // Emoji regex covering standard Unicode emoji presentation sequences
 const EMOJI_REGEX = /[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;

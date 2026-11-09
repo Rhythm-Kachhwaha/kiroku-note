@@ -1,6 +1,5 @@
 # Status
-G1 complete on animeoverhaul.
-Removed pairing workflow and live Link WebSocket relay cleanly.
-Deleted dead video-mining split files and obsolete tests.
-Preserved loopback Host/Origin security, Study token, and Link HTTP APIs.
-Targeted backend, desktop, and extension tests passing.
+G2 sidepanel full split complete on animeoverhaul.
+Extracted 16 modular scripts (<2500 lines each) and bootstrap sidepanel.js (<400 lines).
+Split sidepanel.css into 8 cascade stylesheets; updated tests and packaging.
+All 68 targeted extension regression tests passing with zero ReferenceErrors.

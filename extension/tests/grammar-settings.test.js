@@ -1,9 +1,10 @@
+const { getSidepanelSource } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const html = fs.readFileSync(path.join(__dirname, "../sidepanel/sidepanel.html"), "utf8");
-const js = fs.readFileSync(path.join(__dirname, "../sidepanel/sidepanel.js"), "utf8");
+const js = getSidepanelSource();
 test("grammar settings expose persisted particle and card style controls", () => {
   assert.match(html, /id="grammar-settings-group"/);
   assert.match(html, /id="setting-grammar-particles"/);

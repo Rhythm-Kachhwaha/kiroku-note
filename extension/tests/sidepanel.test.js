@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -9,7 +10,7 @@ const sidepanelCssPath = fs.existsSync("extension/sidepanel/sidepanel.css")
   ? "extension/sidepanel/sidepanel.css"
   : path.resolve(__dirname, "../sidepanel/sidepanel.css");
 const html = fs.readFileSync(htmlPath, "utf8");
-const sidepanelCss = fs.readFileSync(sidepanelCssPath, "utf8");
+const sidepanelCss = getSidepanelCss();
 
 // Verify required Phase 4 & 5 elements exist in the DOM
 assert.ok(html.includes('id="field-deck-select"'), "Deck selector select must exist");
@@ -115,7 +116,7 @@ const vm = require("node:vm");
 const jsPath = fs.existsSync("extension/sidepanel/sidepanel.js")
   ? "extension/sidepanel/sidepanel.js"
   : path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const jsContent = fs.readFileSync(jsPath, "utf8");
+const jsContent = getSidepanelSource();
 
 const mockBtn = { disabled: true, textContent: "" };
 const mockStatus = { title: "", textContent: "", className: "" };
@@ -272,7 +273,7 @@ assert.ok(html.includes('id="toggle-optional" class="btn-toggle-optional" aria-e
 const cssPath = fs.existsSync("extension/sidepanel/sidepanel.css")
   ? "extension/sidepanel/sidepanel.css"
   : path.resolve(__dirname, "../sidepanel/sidepanel.css");
-const cssContent = fs.readFileSync(cssPath, "utf8");
+const cssContent = getSidepanelCss();
 assert.ok(!cssContent.includes('.optional-summary::before {\n  content: "+";'), "CSS must not inject + via optional-summary::before");
 assert.ok(!cssContent.includes('content: "+" !important;'), "CSS must not force + !important on optional-summary::before");
 

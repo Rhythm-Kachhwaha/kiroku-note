@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 /**
  * Tier 5 Session 2 Test Suite: "Ask" AI Assistant Tab & UI Integration
  * Verifies DOM structure, absence of emojis, tab switching, and LLM assistant wiring.
@@ -13,8 +14,8 @@ const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
 
 const html = fs.readFileSync(htmlPath, "utf8");
-const css = fs.readFileSync(cssPath, "utf8");
-const js = fs.readFileSync(jsPath, "utf8");
+const css = getSidepanelCss();
+const js = getSidepanelSource();
 
 test("Tier 5 Session 2: DOM Structure - Ask Tab Navigation Button", () => {
   assert.ok(

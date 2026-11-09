@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -247,7 +248,7 @@ mockWindow.YomitanReferenceRenderer = sandbox.YomitanReferenceRenderer;
 
 // Load dictionary logic functions from sidepanel.js
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
-const jsContent = fs.readFileSync(jsPath, "utf8");
+const jsContent = getSidepanelSource();
 
 const dictCodeSlice = jsContent.slice(
   jsContent.indexOf("function add(parent"),
@@ -841,7 +842,7 @@ console.log("PASS: Multi-dictionary separate display, ordering & POS labels veri
 // 13. Independent Scrolling Verification in CSS
 console.log("Testing Independent Scrolling CSS tokens...");
 const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
-const cssContent = fs.readFileSync(cssPath, "utf8");
+const cssContent = getSidepanelCss();
 
 assert.ok(cssContent.includes(".dict-study-view {"), ".dict-study-view rule exists in sidepanel.css");
 assert.ok(cssContent.includes("max-height: 440px;"), "max-height set for dictionary view");

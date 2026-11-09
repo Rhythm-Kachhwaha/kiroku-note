@@ -1,3 +1,4 @@
+const { getSidepanelCss, getSidepanelSource } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -38,8 +39,8 @@ test("Tier 2 Session 1: T2-B Manifest commands & permissions", () => {
 
 test("Tier 2 Session 1: T2-D Speaker TTS button markup & styling", () => {
   const html = fs.readFileSync(HTML_PATH, "utf8");
-  const css = fs.readFileSync(CSS_PATH, "utf8");
-  const js = fs.readFileSync(JS_PATH, "utf8");
+  const css = getSidepanelCss();
+  const js = getSidepanelSource();
 
   assert.ok(html.includes('id="btn-tts-play"'), "sidepanel.html must include #btn-tts-play");
   assert.ok(html.includes('hero-expression-row'), "sidepanel.html must include hero-expression-row");
@@ -51,8 +52,8 @@ test("Tier 2 Session 1: T2-D Speaker TTS button markup & styling", () => {
 
 test("Tier 2 Session 1: T2-H Clipboard auto-detection markup & logic", () => {
   const html = fs.readFileSync(HTML_PATH, "utf8");
-  const css = fs.readFileSync(CSS_PATH, "utf8");
-  const js = fs.readFileSync(JS_PATH, "utf8");
+  const css = getSidepanelCss();
+  const js = getSidepanelSource();
 
   assert.ok(html.includes('id="clipboard-suggestion-bar"'), "sidepanel.html must include #clipboard-suggestion-bar");
   assert.ok(html.includes('id="clipboard-suggestion-text"'), "sidepanel.html must include #clipboard-suggestion-text");
@@ -70,8 +71,8 @@ test("Tier 2 Session 1: T2-H Clipboard auto-detection markup & logic", () => {
 });
 
 test("Tier 2 Session 1: T2-A JLPT level pill in history rows", () => {
-  const css = fs.readFileSync(CSS_PATH, "utf8");
-  const js = fs.readFileSync(JS_PATH, "utf8");
+  const css = getSidepanelCss();
+  const js = getSidepanelSource();
 
   assert.ok(css.includes('.pill-jlpt'), "sidepanel.css must style .pill-jlpt");
   assert.ok(js.includes('history-item-jlpt'), "sidepanel.js must create .history-item-jlpt element");
@@ -80,7 +81,7 @@ test("Tier 2 Session 1: T2-A JLPT level pill in history rows", () => {
 
 test("Tier 2 Session 1: T2-J History sort dropdown & comparator logic", () => {
   const html = fs.readFileSync(HTML_PATH, "utf8");
-  const js = fs.readFileSync(JS_PATH, "utf8");
+  const js = getSidepanelSource();
 
   assert.ok(html.includes('id="history-sort-select"'), "sidepanel.html must include #history-sort-select");
   assert.ok(html.includes('value="date-desc"'), "sidepanel.html must include date-desc sort option");
@@ -154,7 +155,7 @@ test("Tier 2 Session 1: T2-J History sort dropdown & comparator logic", () => {
 });
 
 test("Tier 2 Session 1: T2-I Silent auto-sync on Anki reconnect", () => {
-  const js = fs.readFileSync(JS_PATH, "utf8");
+  const js = getSidepanelSource();
 
   assert.ok(js.includes('checkAndAutoSyncPendingCards'), "sidepanel.js must define checkAndAutoSyncPendingCards");
   assert.ok(js.includes('prevAnkiStatus === false'), "sidepanel.js must check transition from false to true");

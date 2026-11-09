@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 /**
  * Test Suite for Tier 4 Session 3 Features:
  * - T4-E: Stroke Order SVG diagram inside existing kanji breakdown cards (KanjiVG)
@@ -15,8 +16,8 @@ const path = require("node:path");
 const cssPath = path.join(__dirname, "../sidepanel/sidepanel.css");
 const jsPath = path.join(__dirname, "../sidepanel/sidepanel.js");
 
-const cssContent = fs.readFileSync(cssPath, "utf-8");
-const jsContent = fs.readFileSync(jsPath, "utf-8");
+const cssContent = getSidepanelCss();
+const jsContent = getSidepanelSource();
 
 test("Tier 4 Session 3: CSS Structure for Stroke Order Diagrams", () => {
   assert.ok(

@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -9,8 +10,8 @@ const cssPath = path.join(__dirname, "../sidepanel/sidepanel.css");
 const jsPath = path.join(__dirname, "../sidepanel/sidepanel.js");
 
 const html = fs.readFileSync(htmlPath, "utf-8");
-const css = fs.readFileSync(cssPath, "utf-8");
-const js = fs.readFileSync(jsPath, "utf-8");
+const css = getSidepanelCss();
+const js = getSidepanelSource();
 
 test("History sync label uses data.synced_total to reflect all synced cards across pagination", () => {
   // Verify that loadHistoryCards uses data.synced_total

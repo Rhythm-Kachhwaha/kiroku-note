@@ -78,6 +78,40 @@ function getVideoMiningSource() {
   return sources.join("\n;\n");
 }
 
+/**
+ * Returns the concatenated source of sidepanel stylesheets as declared
+ * in sidepanel.html (<link rel="stylesheet" href="..."> tags).
+ */
+function getSidepanelCss() {
+  const htmlPath = path.join(ROOT_DIR, "extension", "sidepanel", "sidepanel.html");
+  const html = fs.readFileSync(htmlPath, "utf8");
+  const linkRegex = /<link\s+[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>/gi;
+  const linkRegexAlt = /<link\s+[^>]*href=["']([^"']+)["'][^>]*rel=["']stylesheet["'][^>]*>/gi;
+  const hrefs = [];
+  let match;
+  while ((match = linkRegex.exec(html)) !== null) {
+    hrefs.push(match[1]);
+  }
+  while ((match = linkRegexAlt.exec(html)) !== null) {
+    if (!hrefs.includes(match[1])) hrefs.push(match[1]);
+  }
+  const sources = [];
+  for (const rel of hrefs) {
+    const cssPath = path.resolve(path.dirname(htmlPath), rel);
+    if (fs.existsSync(cssPath)) {
+      sources.push(fs.readFileSync(cssPath, "utf8"));
+    }
+  }
+  if (sources.length > 0) {
+    return sources.join("\n\n");
+  }
+  const mainCss = path.join(ROOT_DIR, "extension", "sidepanel", "sidepanel.css");
+  if (fs.existsSync(mainCss)) {
+    return fs.readFileSync(mainCss, "utf8");
+  }
+  return "";
+}
+
 function resolveVideoMiningPath() {
   const vmNew = path.join(ROOT_DIR, "extension", "content", "video-mining.js");
   if (fs.existsSync(vmNew)) return vmNew;
@@ -86,6 +120,7 @@ function resolveVideoMiningPath() {
 
 module.exports = {
   getSidepanelSource,
+  getSidepanelCss,
   getVideoMiningSource,
   sidepanelPath: path.join(ROOT_DIR, "extension", "sidepanel", "sidepanel.js"),
   videoMiningPath: resolveVideoMiningPath()

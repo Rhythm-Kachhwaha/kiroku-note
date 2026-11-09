@@ -1,3 +1,4 @@
+const { getSidepanelSource } = require("./helpers/source.js");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -251,7 +252,7 @@ console.log("✓ Initial state: Popover hidden, card editor hidden waiting for c
 
 // 2. User captures/looks up a word (e.g. '猫')
 // Simulate renderDetails with Jitendex & JMdict
-const jsContent = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.js"), "utf8");
+const jsContent = getSidepanelSource();
 const sandbox = {
   document: {
     querySelector: (sel) => {

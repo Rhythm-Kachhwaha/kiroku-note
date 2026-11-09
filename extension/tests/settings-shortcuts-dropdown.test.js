@@ -1,10 +1,11 @@
+const { getSidepanelCss } = require("./helpers/source.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
 const html = fs.readFileSync(path.join(__dirname, "../sidepanel/sidepanel.html"), "utf8");
-const css = fs.readFileSync(path.join(__dirname, "../sidepanel/sidepanel.css"), "utf8");
+const css = getSidepanelCss();
 
 test("Keyboard shortcuts reference dropdown exists in Settings", () => {
   assert.ok(html.includes('id="shortcuts-settings-group"'), "#shortcuts-settings-group must exist in sidepanel.html");

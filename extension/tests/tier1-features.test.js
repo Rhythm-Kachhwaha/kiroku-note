@@ -1,3 +1,4 @@
+const { getSidepanelSource, getSidepanelCss } = require("./helpers/source.js");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -8,8 +9,8 @@ const cssPath = path.resolve(__dirname, "../sidepanel/sidepanel.css");
 const jsPath = path.resolve(__dirname, "../sidepanel/sidepanel.js");
 
 const html = fs.readFileSync(htmlPath, "utf-8");
-const css = fs.readFileSync(cssPath, "utf-8");
-const js = fs.readFileSync(jsPath, "utf-8");
+const css = getSidepanelCss();
+const js = getSidepanelSource();
 
 test("Tier 1 - T1-A: Status Dot Hover Tooltips", () => {
   // Check markup has initial tooltips

@@ -108,7 +108,31 @@ $RuntimeItems = @(
     "lib\yomitan-reference-renderer.js",
     "sidepanel\sidepanel.css",
     "sidepanel\sidepanel.html",
-    "sidepanel\sidepanel.js"
+    "sidepanel\sidepanel.js",
+    "sidepanel\modules\core.js",
+    "sidepanel\modules\dictionaries.js",
+    "sidepanel\modules\card-preview.js",
+    "sidepanel\modules\card-editor.js",
+    "sidepanel\modules\text-mining.js",
+    "sidepanel\modules\history.js",
+    "sidepanel\modules\video-messaging.js",
+    "sidepanel\modules\subtitle-source.js",
+    "sidepanel\modules\jimaku.js",
+    "sidepanel\modules\annotation.js",
+    "sidepanel\modules\missed-words.js",
+    "sidepanel\modules\cue-search.js",
+    "sidepanel\modules\video-hero.js",
+    "sidepanel\modules\messaging.js",
+    "sidepanel\modules\layout.js",
+    "sidepanel\modules\ask.js",
+    "sidepanel\css\base.css",
+    "sidepanel\css\shell.css",
+    "sidepanel\css\video.css",
+    "sidepanel\css\text-card.css",
+    "sidepanel\css\dictionaries.css",
+    "sidepanel\css\misc.css",
+    "sidepanel\css\layout.css",
+    "sidepanel\css\ask.css"
 )
 
 foreach ($item in $RuntimeItems) {

@@ -396,7 +396,7 @@ async function testVideoMiningPocAndPlaybackInvariant() {
 function testSidePanelIsolation() {
   console.log("--- 5. Testing Side Panel Stale Capture & DRM Isolation ---");
 
-  const sidepanelSrc = fs.readFileSync(path.resolve(__dirname, "../sidepanel/sidepanel.js"), "utf8");
+  const sidepanelSrc = getSidepanelSource();
 
   // Simple Mock DOM
   function createMockElement(tag = "div") {
