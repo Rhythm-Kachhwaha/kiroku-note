@@ -107,3 +107,4 @@ test("AnimeSessionLogger - saves episode position to backend", async () => {
   global.fetch = originalFetch;
   logger.destroy();
 });
+

@@ -134,3 +134,4 @@ test("AnimeEpisodeMap - renders data correctly into DOM components", () => {
   assert.equal(container._gapChips.children[0].textContent, "葬送 (3)");
   assert.equal(container._grammarList.children.length, 1);
 });
+

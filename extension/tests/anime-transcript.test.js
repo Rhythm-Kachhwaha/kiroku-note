@@ -157,3 +157,4 @@ test("AnimeTranscript - respects seek capability (disabled on Netflix)", () => {
   transcript.handleSeekClick(transcript.cues[0], 10.0);
   assert.equal(seekCalls, 1, "Seek must be triggered when seek capability is true");
 });
+
