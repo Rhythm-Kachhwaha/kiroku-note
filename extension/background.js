@@ -519,6 +519,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+  if (message?.type === "SESSION_LOG_COUNTERS") {
+    (async () => {
+      try {
+        const payload = message.payload || {};
+        const url = "http://127.0.0.1:21828/api/link/sessions";
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          sendResponse({ ok: false, error: `HTTP ${res.status}` });
+          return;
+        }
+        const data = await res.json();
+        sendResponse({ ok: true, data });
+      } catch (err) {
+        sendResponse({ ok: false, error: "Backend unavailable" });
+      }
+    })();
+    return true;
+  }
 });
 
 chrome.tabs.onActivated?.addListener?.(activeInfo => {
@@ -554,6 +576,25 @@ if (typeof chrome !== "undefined") {
     chrome.runtime.onStartup.addListener(() => {
       chrome.storage?.local?.remove?.(["kiroku.extension.session_token", "kiroku.extension.remembered_token", "kiroku.extension.auth_token", "kiroku.extension.pairing_code", "link_token"]).catch?.(() => {});
       chrome.storage?.session?.remove?.(["kiroku.extension.session_token", "kiroku.extension.remembered_token", "kiroku.extension.auth_token", "kiroku.extension.pairing_code"]).catch?.(() => {});
+    });
+  }
+
+  // 60-second heartbeat alarm for session logging & retries
+  if (chrome.alarms?.create) {
+    try {
+      chrome.alarms.create("kiroku_session_heartbeat", { periodInMinutes: 1 });
+      chrome.alarms.onAlarm.addListener((alarm) => {
+        if (alarm.name === "kiroku_session_heartbeat") {
+          chrome.runtime.sendMessage({ type: "SESSION_HEARTBEAT_ALARM" }).catch(() => {});
+        }
+      });
+    } catch (_) {}
+  }
+
+  // Flush sessions on tab close
+  if (chrome.tabs?.onRemoved) {
+    chrome.tabs.onRemoved.addListener((tabId) => {
+      chrome.runtime.sendMessage({ type: "TAB_CLOSED", tabId }).catch(() => {});
     });
   }
 }

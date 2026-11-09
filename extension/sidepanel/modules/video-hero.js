@@ -83,6 +83,12 @@ function handleVideoCueChanged(cue) {
   if (cue && typeof harvestMissedWords === "function") {
     harvestMissedWords(cue);
   }
+  if (cue && typeof animeTranscriptInstance !== "undefined" && animeTranscriptInstance) {
+    animeTranscriptInstance.setActiveCue(cue);
+  }
+  if (cue && typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance) {
+    animeSessionLoggerInstance.recordCueSeen(cue);
+  }
   if (currentMiningTab === "video" && videoWorkspaceCollapseMode === "auto_collapse" && lastVideoCapturedCard) {
     if (isCardEditorFocused()) {
       return;

@@ -167,6 +167,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse?.({ok: true});
     return true;
   }
+  if (message?.type === "SESSION_HEARTBEAT_ALARM") {
+    if (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance) {
+      animeSessionLoggerInstance.onHeartbeat().catch(() => {});
+    }
+    sendResponse?.({ok: true});
+    return true;
+  }
+  if (message?.type === "TAB_CLOSED") {
+    if (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance) {
+      animeSessionLoggerInstance.flushSession("tab_closed").catch(() => {});
+    }
+    sendResponse?.({ok: true});
+    return true;
+  }
+  if (message?.type === "SP_SCROLL_TRANSCRIPT") {
+    if (typeof animeTranscriptInstance !== "undefined" && animeTranscriptInstance) {
+      animeTranscriptInstance.scrollToActiveCue();
+    }
+    sendResponse?.({ok: true});
+    return true;
+  }
 });
 
 if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {

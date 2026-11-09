@@ -82,12 +82,15 @@ class EpisodeRecord(BaseModel):
     ts: str
     last_position_ms: int = 0
     series: str = ""
+    episode_key: Optional[str] = None
 
 
 class UpdatePositionRequest(BaseModel):
     last_position_ms: int = Field(ge=0)
     title: str = ""
     site: str = ""
+    series: Optional[str] = None
+    episode_key: Optional[str] = None
 
 
 class SeriesGroup(BaseModel):

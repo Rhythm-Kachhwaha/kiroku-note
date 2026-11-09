@@ -74,6 +74,8 @@ def post_episode_position(cue_hash: str, request: UpdatePositionRequest) -> Epis
         last_position_ms=request.last_position_ms,
         title=request.title,
         site=request.site,
+        series=request.series,
+        episode_key=request.episode_key,
     )
     return EpisodeRecord(**rec)
 

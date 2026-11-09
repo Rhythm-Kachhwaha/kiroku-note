@@ -47,7 +47,9 @@ CREATE TABLE IF NOT EXISTS link_episode (
     mined INTEGER NOT NULL DEFAULT 0,
     minutes REAL NOT NULL DEFAULT 0.0,
     ts TEXT NOT NULL,
-    last_position_ms INTEGER NOT NULL DEFAULT 0
+    last_position_ms INTEGER NOT NULL DEFAULT 0,
+    series TEXT,
+    episode_key TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_link_episode_ts ON link_episode (ts DESC);
 """
@@ -73,12 +75,16 @@ def init_link_episode_db(conn: Optional[sqlite3.Connection] = None) -> None:
         close_after = True
     try:
         conn.executescript(EPISODE_SCHEMA_SQL)
-        # Migrate table if last_position_ms is missing
+        # Migrate table if last_position_ms, series, or episode_key is missing
         cur = conn.cursor()
         cur.execute("PRAGMA table_info(link_episode)")
         cols = [r[1] for r in cur.fetchall()]
         if "last_position_ms" not in cols:
             conn.execute("ALTER TABLE link_episode ADD COLUMN last_position_ms INTEGER NOT NULL DEFAULT 0")
+        if "series" not in cols:
+            conn.execute("ALTER TABLE link_episode ADD COLUMN series TEXT")
+        if "episode_key" not in cols:
+            conn.execute("ALTER TABLE link_episode ADD COLUMN episode_key TEXT")
         conn.commit()
     finally:
         if close_after:
@@ -94,6 +100,8 @@ def save_episode_record(
     minutes: float,
     ts: Optional[str] = None,
     last_position_ms: int = 0,
+    series: Optional[str] = None,
+    episode_key: Optional[str] = None,
     conn: Optional[sqlite3.Connection] = None,
 ) -> Dict[str, Any]:
     """Upsert an episode record in SQLite."""
@@ -104,13 +112,14 @@ def save_episode_record(
 
     now_ts = ts or datetime.now(timezone.utc).isoformat()
     init_link_episode_db(conn)
+    resolved_series = series if series is not None else extract_series_title(title)
 
     try:
         with conn:
             conn.execute(
                 """
-                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(hash) DO UPDATE SET
                     title = excluded.title,
                     site = excluded.site,
@@ -118,9 +127,11 @@ def save_episode_record(
                     mined = excluded.mined,
                     minutes = excluded.minutes,
                     ts = excluded.ts,
-                    last_position_ms = CASE WHEN excluded.last_position_ms > 0 THEN excluded.last_position_ms ELSE link_episode.last_position_ms END
+                    last_position_ms = CASE WHEN excluded.last_position_ms > 0 THEN excluded.last_position_ms ELSE link_episode.last_position_ms END,
+                    series = CASE WHEN excluded.series IS NOT NULL THEN excluded.series ELSE link_episode.series END,
+                    episode_key = CASE WHEN excluded.episode_key IS NOT NULL THEN excluded.episode_key ELSE link_episode.episode_key END
                 """,
-                (hash_val, title, site, round(known_pct, 1), mined, round(minutes, 1), now_ts, max(0, last_position_ms)),
+                (hash_val, title, site, round(known_pct, 1), mined, round(minutes, 1), now_ts, max(0, last_position_ms), resolved_series, episode_key),
             )
         return {
             "hash": hash_val,
@@ -131,7 +142,8 @@ def save_episode_record(
             "minutes": round(minutes, 1),
             "ts": now_ts,
             "last_position_ms": max(0, last_position_ms),
-            "series": extract_series_title(title),
+            "series": resolved_series,
+            "episode_key": episode_key,
         }
     finally:
         if close_after:
@@ -143,6 +155,8 @@ def save_episode_position(
     last_position_ms: int,
     title: str = "",
     site: str = "",
+    series: Optional[str] = None,
+    episode_key: Optional[str] = None,
     conn: Optional[sqlite3.Connection] = None,
 ) -> Dict[str, Any]:
     """Updates last watched position in milliseconds for an episode."""
@@ -153,19 +167,22 @@ def save_episode_position(
 
     init_link_episode_db(conn)
     now_ts = datetime.now(timezone.utc).isoformat()
+    resolved_series = series if series is not None else (extract_series_title(title) if title else None)
     try:
         with conn:
             conn.execute(
                 """
-                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms)
-                VALUES (?, ?, ?, 0.0, 0, 0.0, ?, ?)
+                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key)
+                VALUES (?, ?, ?, 0.0, 0, 0.0, ?, ?, ?, ?)
                 ON CONFLICT(hash) DO UPDATE SET
                     last_position_ms = excluded.last_position_ms,
                     title = CASE WHEN excluded.title != '' THEN excluded.title ELSE link_episode.title END,
                     site = CASE WHEN excluded.site != '' THEN excluded.site ELSE link_episode.site END,
-                    ts = excluded.ts
+                    ts = excluded.ts,
+                    series = CASE WHEN excluded.series IS NOT NULL THEN excluded.series ELSE link_episode.series END,
+                    episode_key = CASE WHEN excluded.episode_key IS NOT NULL THEN excluded.episode_key ELSE link_episode.episode_key END
                 """,
-                (hash_val, title, site, now_ts, max(0, last_position_ms)),
+                (hash_val, title, site, now_ts, max(0, last_position_ms), resolved_series, episode_key),
             )
         rec = get_episode_record(hash_val, conn=conn)
         return rec or {
@@ -177,7 +194,8 @@ def save_episode_position(
             "minutes": 0.0,
             "ts": now_ts,
             "last_position_ms": max(0, last_position_ms),
-            "series": extract_series_title(title),
+            "series": resolved_series or extract_series_title(title),
+            "episode_key": episode_key,
         }
     finally:
         if close_after:
@@ -195,13 +213,14 @@ def get_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None)
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms FROM link_episode WHERE hash = ?",
+            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key FROM link_episode WHERE hash = ?",
             (hash_val,),
         )
         row = cur.fetchone()
         if not row:
             return None
         title = row[1] or ""
+        series_val = row[8] or extract_series_title(title)
         return {
             "hash": row[0],
             "title": title,
@@ -211,7 +230,8 @@ def get_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None)
             "minutes": row[5] or 0.0,
             "ts": row[6] or "",
             "last_position_ms": row[7] or 0,
-            "series": extract_series_title(title),
+            "series": series_val,
+            "episode_key": row[9] if len(row) > 9 else None,
         }
     finally:
         if close_after:
@@ -229,7 +249,7 @@ def list_episode_records(limit: int = 50, conn: Optional[sqlite3.Connection] = N
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms FROM link_episode ORDER BY ts DESC LIMIT ?",
+            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key FROM link_episode ORDER BY ts DESC LIMIT ?",
             (limit,),
         )
         rows = cur.fetchall()
@@ -243,7 +263,8 @@ def list_episode_records(limit: int = 50, conn: Optional[sqlite3.Connection] = N
                 "minutes": r[5] or 0.0,
                 "ts": r[6] or "",
                 "last_position_ms": r[7] or 0,
-                "series": extract_series_title(r[1] or ""),
+                "series": r[8] or extract_series_title(r[1] or ""),
+                "episode_key": r[9] if len(r) > 9 else None,
             }
             for r in rows
         ]

@@ -405,7 +405,12 @@ if (typeof window !== "undefined") {
   window.renderRecentCuesList = renderRecentCuesList;
   window.mineSubtitleCueWord = mineSubtitleCueWord;
   window.handleMineFullSentence = handleMineFullSentence;
-  window.setLoadedSubtitleCues = (cues) => { loadedSubtitleCues = cues; };
+  window.setLoadedSubtitleCues = (cues) => {
+    loadedSubtitleCues = cues;
+    if (typeof animeTranscriptInstance !== "undefined" && animeTranscriptInstance) {
+      animeTranscriptInstance.setCues(cues);
+    }
+  };
   window.setRecentSubtitleCues = (cues) => { recentSubtitleCues = cues; };
   window.setRecentSubsEnabled = (enabled) => { isRecentSubsEnabled = enabled; };
   window.loadRecentSubsPreferences = loadRecentSubsPreferences;

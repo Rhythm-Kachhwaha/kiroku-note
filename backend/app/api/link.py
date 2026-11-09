@@ -3,7 +3,7 @@ Link HTTP Status and Session API endpoints.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
@@ -22,6 +22,8 @@ class SessionStatCreate(BaseModel):
     lines_seen: int = 0
     words_mined: int = 0
     gap_words_seen: int = 0
+    series: Optional[str] = None
+    episode_key: Optional[str] = None
 
 
 @router.get("/status")
@@ -53,6 +55,8 @@ def create_session_stat(stat: SessionStatCreate) -> Dict[str, Any]:
         lines_seen=stat.lines_seen,
         words_mined=stat.words_mined,
         gap_words_seen=stat.gap_words_seen,
+        series=stat.series,
+        episode_key=stat.episode_key,
     )
 
 

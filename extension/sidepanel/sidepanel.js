@@ -27,6 +27,51 @@ loadStoredSectionOrder().then(order => {
 if (typeof updateCardPreview === "function") updateCardPreview();
 initQuickAdd();
 
+// Group 5: Initialize Anime Transcript, Episode Map, and Session Logger
+let animeTranscriptInstance = null;
+let animeEpisodeMapInstance = null;
+let animeSessionLoggerInstance = null;
+
+try {
+  const transcriptHost = document.querySelector("#anime-transcript-container");
+  if (transcriptHost && typeof AnimeTranscript !== "undefined") {
+    animeTranscriptInstance = new AnimeTranscript({
+      container: transcriptHost,
+      cues: typeof loadedSubtitleCues !== "undefined" ? loadedSubtitleCues : [],
+      onSeek: (cue, ms) => {
+        if (typeof seekToSubtitleCue === "function") {
+          seekToSubtitleCue(cue);
+        } else if (typeof broadcastToActiveVideo === "function") {
+          broadcastToActiveVideo({ type: "SEEK_TO", ms });
+        }
+      }
+    });
+  }
+
+  const episodeMapHost = document.querySelector("#anime-episode-map-container");
+  if (episodeMapHost && typeof AnimeEpisodeMap !== "undefined") {
+    animeEpisodeMapInstance = new AnimeEpisodeMap({
+      container: episodeMapHost,
+      onWordClick: (word) => {
+        if (typeof identify === "function") {
+          identify(word);
+        }
+      },
+      onSeek: (ms) => {
+        if (typeof broadcastToActiveVideo === "function") {
+          broadcastToActiveVideo({ type: "SEEK_TO", ms });
+        }
+      }
+    });
+  }
+
+  if (typeof AnimeSessionLogger !== "undefined") {
+    animeSessionLoggerInstance = new AnimeSessionLogger({
+      site: typeof lastCaptureSource !== "undefined" && lastCaptureSource?.site ? lastCaptureSource.site : "generic"
+    });
+  }
+} catch (_) {}
+
 if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
   chrome.runtime.sendMessage({type: "GET_MINING_MODE"}).then(res => {
     if (res?.enabled) updateMiningUI(true);
@@ -157,5 +202,8 @@ if (typeof module !== "undefined" && module.exports) {
     fetchKnownWords,
     API_KNOWN_WORDS_URL,
     API_KNOWN_WORDS_MARK_URL,
+    getAnimeTranscript: () => animeTranscriptInstance,
+    getAnimeEpisodeMap: () => animeEpisodeMapInstance,
+    getAnimeSessionLogger: () => animeSessionLoggerInstance,
   };
 }

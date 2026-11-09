@@ -21,19 +21,28 @@ CREATE TABLE IF NOT EXISTS link_session_stat (
     lines_seen INTEGER NOT NULL DEFAULT 0,
     words_mined INTEGER NOT NULL DEFAULT 0,
     gap_words_seen INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    series TEXT,
+    episode_key TEXT
 );
 """
 
 
 def init_session_stat_db(conn: Optional[sqlite3.Connection] = None) -> None:
-    """Ensure the link_session_stat table exists."""
+    """Ensure the link_session_stat table exists and has additive columns."""
     close_after = False
     if conn is None:
         conn = get_db_connection()
         close_after = True
     try:
         conn.executescript(SESSION_STAT_SCHEMA_SQL)
+        cur = conn.cursor()
+        cur.execute("PRAGMA table_info(link_session_stat)")
+        cols = [r[1] for r in cur.fetchall()]
+        if "series" not in cols:
+            conn.execute("ALTER TABLE link_session_stat ADD COLUMN series TEXT")
+        if "episode_key" not in cols:
+            conn.execute("ALTER TABLE link_session_stat ADD COLUMN episode_key TEXT")
         conn.commit()
     finally:
         if close_after:
@@ -49,6 +58,8 @@ def save_session_stat(
     words_mined: int = 0,
     gap_words_seen: int = 0,
     created_at: Optional[str] = None,
+    series: Optional[str] = None,
+    episode_key: Optional[str] = None,
     conn: Optional[sqlite3.Connection] = None,
 ) -> Dict[str, Any]:
     """Persist session stat to link_session_stat."""
@@ -62,8 +73,8 @@ def save_session_stat(
         cur = conn.execute(
             """
             INSERT INTO link_session_stat (
-                session_id, site, title, watch_seconds, lines_seen, words_mined, gap_words_seen, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                session_id, site, title, watch_seconds, lines_seen, words_mined, gap_words_seen, created_at, series, episode_key
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 str(session_id),
@@ -74,6 +85,8 @@ def save_session_stat(
                 int(words_mined),
                 int(gap_words_seen),
                 ts,
+                str(series) if series is not None else None,
+                str(episode_key) if episode_key is not None else None,
             ),
         )
         conn.commit()
@@ -88,6 +101,8 @@ def save_session_stat(
             "words_mined": int(words_mined),
             "gap_words_seen": int(gap_words_seen),
             "created_at": ts,
+            "series": series,
+            "episode_key": episode_key,
         }
     finally:
         if close_after:
@@ -104,7 +119,7 @@ def list_session_stats(limit: int = 50, conn: Optional[sqlite3.Connection] = Non
         init_session_stat_db(conn)
         cur = conn.execute(
             """
-            SELECT id, session_id, site, title, watch_seconds, lines_seen, words_mined, gap_words_seen, created_at
+            SELECT id, session_id, site, title, watch_seconds, lines_seen, words_mined, gap_words_seen, created_at, series, episode_key
             FROM link_session_stat
             ORDER BY id DESC
             LIMIT ?
@@ -123,6 +138,8 @@ def list_session_stats(limit: int = 50, conn: Optional[sqlite3.Connection] = Non
                 "words_mined": row["words_mined"] if isinstance(row, sqlite3.Row) else row[6],
                 "gap_words_seen": row["gap_words_seen"] if isinstance(row, sqlite3.Row) else row[7],
                 "created_at": row["created_at"] if isinstance(row, sqlite3.Row) else row[8],
+                "series": row["series"] if isinstance(row, sqlite3.Row) else (row[9] if len(row) > 9 else None),
+                "episode_key": row["episode_key"] if isinstance(row, sqlite3.Row) else (row[10] if len(row) > 10 else None),
             }
             for row in rows
         ]
