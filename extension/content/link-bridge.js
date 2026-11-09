@@ -204,6 +204,7 @@
 
       this._emitVideoAttach();
       this._emitVideoState();
+      this._emitSubStatus();
       this._emitCueList();
     }
 
@@ -296,7 +297,10 @@
 
     _emitVideoState() {
       if (!this.attached || !this.activeVideo) return;
-      const t = typeof this.activeVideo.currentTime === "number" ? this.activeVideo.currentTime : 0.0;
+      const rawOverride = (typeof this.activeVideo.getAttribute === "function" ? this.activeVideo.getAttribute("data-current-time") : null) || this.activeVideo.dataset?.currentTime;
+      const t = (rawOverride && !isNaN(parseFloat(rawOverride)))
+        ? parseFloat(rawOverride)
+        : (typeof this.activeVideo.currentTime === "number" ? this.activeVideo.currentTime : 0.0);
       const paused = Boolean(this.activeVideo.paused);
       const rate = typeof this.activeVideo.playbackRate === "number" ? this.activeVideo.playbackRate : 1.0;
       const vol = typeof this.activeVideo.volume === "number" ? this.activeVideo.volume : 1.0;

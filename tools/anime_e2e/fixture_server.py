@@ -82,6 +82,72 @@ HTML_PAGES = {
     });
   </script>
 </body>
+</html>""",
+
+    "/anime.html": """<!DOCTYPE html>
+<html>
+<head>
+  <title>Watch K-ON! Episode 1 Online Free - HiAnime</title>
+  <style>
+    body { margin: 0; background: #0e0e10; font-family: sans-serif; color: #fff; }
+    .player-section { display: flex; flex-direction: column; align-items: center; padding: 20px; }
+    .jwplayer { position: relative; width: 640px; height: 360px; background: #000; border-radius: 8px; overflow: hidden; }
+    .jw-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .jw-media { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    video { width: 100%; height: 100%; object-fit: contain; }
+  </style>
+</head>
+<body>
+  <div class="player-section">
+    <h1 id="anime-title">K-ON! - Ep 1: Disband the Club!</h1>
+    <div class="jwplayer jw-reset" id="player">
+      <div class="jw-wrapper jw-reset">
+        <div class="jw-media jw-reset">
+          <video id="player-video" controls width="640" height="360" playsinline autoplay muted src="/test.webm" crossorigin="anonymous" loop></video>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 360;
+    const ctx = canvas.getContext('2d');
+    let frame = 0;
+
+    function draw() {
+      frame++;
+      const hue = (frame * 2) % 360;
+      const grad = ctx.createLinearGradient(0, 0, 640, 360);
+      grad.addColorStop(0, 'hsl(' + hue + ', 80%, 45%)');
+      grad.addColorStop(1, 'hsl(' + ((hue + 60) % 360) + ', 85%, 25%)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 640, 360);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(320 + Math.sin(frame * 0.05) * 50, 180 + Math.cos(frame * 0.05) * 30, 60, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#fef08a';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillText('けいおん! Episode 01', 50, 60);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '20px sans-serif';
+      const curT = vid ? vid.currentTime : 0;
+      ctx.fillText('Time: ' + curT.toFixed(2) + 's', 50, 320);
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+
+    const vid = document.getElementById('player-video');
+    const stream = canvas.captureStream(30);
+    vid.srcObject = stream;
+    vid.play().catch(() => {});
+  </script>
+</body>
 </html>"""
 }
 
@@ -102,6 +168,7 @@ class FixtureHandler(http.server.SimpleHTTPRequestHandler):
                 data = filepath.read_bytes()
                 self.send_response(200)
                 self.send_header("Content-Type", "video/webm")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)

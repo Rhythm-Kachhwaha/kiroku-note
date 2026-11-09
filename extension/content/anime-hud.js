@@ -589,7 +589,20 @@
 
       // Find appropriate container (player container or parent)
       const selector = ".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video, .player-container, [id*='player']";
-      const container = (typeof video.closest === "function" && video.closest(selector)) || video.parentElement || (typeof document !== "undefined" ? document.body : null);
+      const parent = video.parentElement;
+      let container = (parent && typeof parent.closest === "function" && parent.closest(selector));
+      if (!container && typeof video.closest === "function") {
+        const found = video.closest(selector);
+        if (found && found.tagName !== "VIDEO") {
+          container = found;
+        }
+      }
+      if (!container) {
+        container = parent || (typeof document !== "undefined" ? document.body : null);
+      }
+      if (container && container.tagName === "VIDEO") {
+        container = container.parentElement || (typeof document !== "undefined" ? document.body : null);
+      }
       if (container && this.host && this.host.parentElement !== container) {
         this.originalParent = container;
         const compPos = (typeof getComputedStyle === "function") ? getComputedStyle(container)?.position : container.style?.position;

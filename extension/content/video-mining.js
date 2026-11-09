@@ -199,6 +199,10 @@
       this.cues = Array.isArray(newCues) ? newCues : [];
       this.currentCue = null;
       this.sync(true);
+      if (typeof window !== "undefined" && window.__kirokuLinkBridge) {
+        window.__kirokuLinkBridge._emitSubStatus?.();
+        window.__kirokuLinkBridge._emitCueList?.();
+      }
     }
 
     setOffset(offsetSeconds) {
@@ -276,7 +280,10 @@
         this._updateCue(null, force);
         return;
       }
-      const time = this.video.currentTime;
+      const rawOverride = (typeof this.video.getAttribute === "function" ? this.video.getAttribute("data-current-time") : null) || this.video.dataset?.currentTime;
+      const time = (rawOverride && !isNaN(parseFloat(rawOverride)))
+        ? parseFloat(rawOverride)
+        : (this.video.currentTime || 0);
       const matched = this.findCueAtTime(time);
       this._updateCue(matched, force);
     }

@@ -1,5 +1,5 @@
 # Status
-N9: Prevent client handshake timeout from halting reconnect.
-Ensure LinkClient schedules auto-reconnect on backend start.
-Directly affected desktop anime tests pass (41/41).
+N10: Fix HUD container selection and auto sync to Link Hub.
+Sync cues and sub status on setCues; support time overrides.
+Full e2e Playwright verification passing with non-black frames.
 Branch: main.
