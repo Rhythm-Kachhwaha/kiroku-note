@@ -49,8 +49,8 @@
         if (hashEpMatch[2]) episodeTitle = hashEpMatch[2].trim();
         text = text.substring(0, hashEpMatch.index).trim();
       } else {
-        // Pattern C: "Episode 1085", "Ep. 2", "Ep 11", "E05", "E2"
-        const epWordMatch = text.match(/\b(?:Episode|Ep\.?|E)\s*(\d+)(?:\s*[-–—:]\s*(.*))?$/i);
+        // Pattern C: "Episode 1085", "Ep. 2", "Ep 11", "E05", "E2", "S02E05", "S2E5"
+        const epWordMatch = text.match(/(?:\b(?:Episode|Ep\.?)|(?:^|[\s\-_]|S\d+)E)\s*(\d+)(?:\s*[-–—:]\s*(.*))?$/i);
         if (epWordMatch) {
           episode = parseInt(epWordMatch[1], 10);
           if (epWordMatch[2]) {
