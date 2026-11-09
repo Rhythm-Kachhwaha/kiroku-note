@@ -1,5 +1,5 @@
 # Status
-N5: Added chunk assembly retry timeout and pending cleanup in LinkStore.
-Prevents permanent cue stalls on dropped chunked packets.
-Directly affected anime_connection & link_client tests pass (6/6).
+N6: Replaced raw hex with tokens in theater.css & watch_primer.js.
+check_tokens: PASSED (zero raw hex outside tokens.css & FINAL).
+All design token and final lock tests pass (11/11).
 Branch: main.
