@@ -3,7 +3,7 @@
  *
  * Runs inside WebContentsView for non-DRM streaming sites.
  * Sandbox: true, contextIsolation: true, nodeIntegration: false.
- * Exposes ONLY the link-bridge logic so the browser extension is not needed inside Kiroku.
+ * Exposes theater bridge logic so the browser extension is not needed inside Kiroku.
  * Intercepts EME and encrypted events for non-DRM enforcement.
  */
 
@@ -178,7 +178,7 @@ const { contextBridge, ipcRenderer } = require('electron');
   }
 })();
 
-// Expose safe link-bridge marker to isolated world
+// Expose safe theater bridge marker to isolated world
 contextBridge.exposeInMainWorld('__kirokuTheaterBridge', {
   version: '1.0.0',
   isTheaterView: true

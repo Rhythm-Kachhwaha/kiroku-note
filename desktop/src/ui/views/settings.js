@@ -143,7 +143,7 @@ export class SettingsView {
                     <div class="card-header-row">
                       <div>
                         <h3 class="card-title">System Setup &amp; Dependencies</h3>
-                        <p class="card-desc">Verify local database, services, extension pairing, and dependencies.</p>
+                        <p class="card-desc">Verify local database, services, extension connection, and dependencies.</p>
                       </div>
                       <button type="button" class="tactile-btn text-xs" id="btn-refresh-checklist">Refresh Checklist</button>
                     </div>
@@ -325,15 +325,7 @@ export class SettingsView {
                         <span class="card-desc" id="settings-link-status-text">Not Connected</span>
                       </div>
                     </div>
-                    <p class="card-desc">Bi-directional companion bridge for anime subtitle mining.</p>
-                    <div class="form-row-pair mt-3">
-                      <label class="card-desc font-mono">Pairing Code</label>
-                      <div class="flex gap-2">
-                        <input id="settings-link-code-input" class="tactile-input font-mono text-sm"
-                               placeholder="Paste code from extension" autocomplete="off" />
-                        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-settings-link-pair">Pair</button>
-                      </div>
-                    </div>
+                    <p class="card-desc">HTTP companion status for anime subtitle mining.</p>
                     <div id="settings-link-feedback" class="card-desc mt-2" style="display:none"></div>
                   </div>
 
@@ -613,68 +605,6 @@ export class SettingsView {
       });
     });
 
-    // Browser Link Companion Pairing
-    const btnLinkPair = document.getElementById('btn-settings-link-pair');
-    const inputLinkCode = document.getElementById('settings-link-code-input');
-    const feedbackLink = document.getElementById('settings-link-feedback');
-
-    if (btnLinkPair) {
-      btnLinkPair.addEventListener('click', async () => {
-        const code = inputLinkCode?.value?.trim();
-        if (!code) {
-          if (feedbackLink) {
-            feedbackLink.textContent = 'Please enter a pairing code.';
-            feedbackLink.style.display = 'block';
-            feedbackLink.style.color = 'var(--rust-signal)';
-          }
-          return;
-        }
-
-        btnLinkPair.disabled = true;
-        btnLinkPair.textContent = 'Pairing...';
-        if (feedbackLink) feedbackLink.style.display = 'none';
-
-        try {
-          if (window.desktopAPI?.storeLinkToken) {
-            await window.desktopAPI.storeLinkToken(code);
-          } else if (window.chrome?.storage?.local?.set) {
-            await window.chrome.storage.local.set({ link_token: code });
-          } else if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.setItem('kiroku.link.token', code);
-          }
-
-          try {
-            await apiClient.request('/api/auth/extension-pairings/register', {
-              method: 'POST',
-              body: JSON.stringify({ code, scopes: ['legacy:write', 'link:rw'] }),
-              headers: { 'Content-Type': 'application/json' },
-            });
-          } catch {
-            // Optional backend pairing registration
-          }
-
-          if (feedbackLink) {
-            feedbackLink.textContent = 'Pairing code saved.';
-            feedbackLink.style.display = 'block';
-            feedbackLink.style.color = 'var(--jade)';
-          }
-          if (inputLinkCode) inputLinkCode.value = '';
-
-          await this.checkLinkStatus();
-        } catch (err) {
-          console.warn('[Settings] Failed pairing link companion:', err);
-          if (feedbackLink) {
-            feedbackLink.textContent = 'Failed to pair: ' + (err.message || 'Error');
-            feedbackLink.style.display = 'block';
-            feedbackLink.style.color = 'var(--rust-signal)';
-          }
-        } finally {
-          btnLinkPair.disabled = false;
-          btnLinkPair.textContent = 'Pair';
-        }
-      });
-    }
-
     // Tokenizer Mode Selector
     const selectTokMode = document.getElementById('select-tokenizer-mode');
     if (selectTokMode) {
@@ -768,7 +698,7 @@ export class SettingsView {
       });
     }
 
-    // Setup Checklist action delegation (Provision dictionary, copy pairing code)
+    // Setup Checklist action delegation (Provision dictionary)
     const checklistContainer = document.getElementById('setup-checklist-items');
     if (checklistContainer) {
       checklistContainer.addEventListener('click', async (e) => {
@@ -783,8 +713,6 @@ export class SettingsView {
             await apiClient.request('/api/dictionary/provision', { method: 'POST' });
             await this.loadSetupChecklist();
           }
-        } else if (action === 'copy_pairing_code') {
-          await this.handleCopyPairingCode(btn);
         }
       });
     }
@@ -1191,45 +1119,6 @@ export class SettingsView {
     }
   }
 
-  async handleCopyPairingCode(btn) {
-    try {
-      let code = null;
-      if (typeof window !== 'undefined' && window.electronAPI?.extensionPairing?.create) {
-        const res = await window.electronAPI.extensionPairing.create();
-        code = res?.code;
-      } else {
-        const generatedCode = 'KP-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-        try {
-          await apiClient.request('/api/auth/extension-pairings/register', {
-            method: 'POST',
-            body: JSON.stringify({ code: generatedCode, scopes: ['legacy:write', 'link:rw'], label: 'Desktop Settings' }),
-            headers: { 'Content-Type': 'application/json' },
-          });
-          code = generatedCode;
-        } catch {
-          code = generatedCode;
-        }
-      }
-
-      if (code && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(code);
-      }
-
-      if (btn) {
-        const origText = btn.textContent;
-        btn.textContent = 'Code Copied!';
-        btn.disabled = true;
-        setTimeout(() => {
-          btn.textContent = origText;
-          btn.disabled = false;
-        }, 3000);
-      }
-    } catch (err) {
-      console.warn('[Settings] Failed copying pairing code:', err);
-      this.showError('Failed to copy pairing code: ' + (err.message || 'Unknown error'));
-    }
-  }
-
   async loadSetupChecklist() {
     const container = document.getElementById('setup-checklist-items');
     if (!container) return;
@@ -1241,7 +1130,7 @@ export class SettingsView {
       const titles = {
         dictionary_db: 'Dictionary Database',
         tokenizer_dict: 'Tokenizer Dictionary',
-        extension_pairing: 'Extension Origin & Pairing',
+        extension_pairing: 'Extension Origin Allowlist',
         anki: 'AnkiConnect Reachability',
         pdf_dependency: 'PDF Reader Dependency',
         data_dir_writable: 'Data Directory Permissions',
@@ -1266,8 +1155,6 @@ export class SettingsView {
         let actionBtnHtml = '';
         if (!item.ok && item.fix_action === 'provision_dictionary') {
           actionBtnHtml = '<button type="button" class="tactile-btn tactile-btn-primary text-xs btn-checklist-action" data-action="provision_dictionary">Provision Dictionary</button>';
-        } else if (item.fix_action === 'copy_pairing_code' || item.id === 'extension_pairing') {
-          actionBtnHtml = '<button type="button" class="tactile-btn text-xs btn-checklist-action" data-action="copy_pairing_code">Copy Pairing Code</button>';
         }
 
         return `

@@ -29,11 +29,6 @@ const API_KNOWN_WORDS_MARK_URL = `${BACKEND_BASE_URL}/api/known-words/mark`;
 const API_GRAMMAR_ANALYZE_URL = `${BACKEND_BASE_URL}/api/grammar/analyze`;
 const API_GRAMMAR_SETUP_URL = `${BACKEND_BASE_URL}/api/grammar/setup-check`;
 
-// The paired extension token is session-only by default, but can be
-// remembered persistently in local storage if chosen by the user.
-const EXTENSION_AUTH_STORAGE_KEY = "kiroku.extension.session_token";
-const EXTENSION_AUTH_REMEMBERED_KEY = "kiroku.extension.remembered_token";
-let extensionAuthToken = null;
 let lastBannerTime = 0;
 const nativeFetch = typeof globalThis.fetch === "function" ? globalThis.fetch.bind(globalThis) : null;
 
@@ -70,38 +65,6 @@ function hideBackendBanner() {
   if (banner) banner.hidden = true;
 }
 
-function updatePairingUIState() {
-  if (typeof document === "undefined") return;
-  const forgetBtn = document.querySelector("#extension-pairing-forget");
-  const status = document.querySelector("#extension-pairing-status");
-  if (extensionAuthToken) {
-    if (forgetBtn) forgetBtn.style.display = "";
-    if (status) status.textContent = "Paired with desktop.";
-  } else {
-    if (forgetBtn) forgetBtn.style.display = "none";
-    if (status) status.textContent = "";
-  }
-}
-
-if (globalThis.chrome?.storage) {
-  if (chrome.storage.session) {
-    chrome.storage.session.get(EXTENSION_AUTH_STORAGE_KEY).then((stored) => {
-      if (stored?.[EXTENSION_AUTH_STORAGE_KEY]) {
-        extensionAuthToken = stored[EXTENSION_AUTH_STORAGE_KEY];
-        updatePairingUIState();
-      }
-    }).catch(() => {});
-  }
-  if (chrome.storage.local) {
-    chrome.storage.local.get(EXTENSION_AUTH_REMEMBERED_KEY).then((stored) => {
-      if (stored?.[EXTENSION_AUTH_REMEMBERED_KEY] && !extensionAuthToken) {
-        extensionAuthToken = stored[EXTENSION_AUTH_REMEMBERED_KEY];
-        updatePairingUIState();
-      }
-    }).catch(() => {});
-  }
-}
-
 function isLocalKirokuApi(input) {
   const url = typeof input === "string" ? input : input?.url;
   return typeof url === "string" && url.startsWith(`${BACKEND_BASE_URL}/api/`);
@@ -110,20 +73,10 @@ function isLocalKirokuApi(input) {
 if (nativeFetch) {
   globalThis.fetch = async (input, init = {}) => {
     const isLocal = isLocalKirokuApi(input);
-    let finalInit = init;
-    if (extensionAuthToken && isLocal) {
-      const headers = new Headers(init.headers || (typeof input === "object" ? input.headers : undefined));
-      headers.set("Authorization", `Bearer ${extensionAuthToken}`);
-      finalInit = { ...init, headers };
-    }
     try {
-      const response = await nativeFetch(input, finalInit);
+      const response = await nativeFetch(input, init);
       if (isLocal) {
-        if (response.status === 401) {
-          showBackendBanner("unauthorized", "Desktop pairing required.", "Pair", () => {
-            if (typeof switchMiningTab === "function") switchMiningTab("settings");
-          });
-        } else if (response.status === 403) {
+        if (response.status === 403) {
           showBackendBanner("forbidden", "Untrusted origin: extension ID not accepted by backend.", "Settings", () => {
             if (typeof switchMiningTab === "function") switchMiningTab("settings");
           });
@@ -140,82 +93,6 @@ if (nativeFetch) {
     }
   };
 }
-
-async function redeemExtensionPairing(code, remember = true) {
-  if (!nativeFetch) throw new Error("Fetch is unavailable.");
-  const response = await nativeFetch(`${BACKEND_BASE_URL}/api/auth/extension-pairings/redeem`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code: String(code || "").trim() })
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload.token) throw new Error(payload.detail || "Pairing failed.");
-  extensionAuthToken = payload.token;
-
-  if (remember) {
-    if (globalThis.chrome?.storage?.local) {
-      await chrome.storage.local.set({ [EXTENSION_AUTH_REMEMBERED_KEY]: extensionAuthToken });
-    }
-    if (globalThis.chrome?.storage?.session) {
-      await chrome.storage.session.remove(EXTENSION_AUTH_STORAGE_KEY).catch(() => {});
-    }
-  } else {
-    if (globalThis.chrome?.storage?.session) {
-      await chrome.storage.session.set({ [EXTENSION_AUTH_STORAGE_KEY]: extensionAuthToken });
-    }
-    if (globalThis.chrome?.storage?.local) {
-      await chrome.storage.local.remove(EXTENSION_AUTH_REMEMBERED_KEY).catch(() => {});
-    }
-  }
-  hideBackendBanner();
-  updatePairingUIState();
-  return extensionAuthToken;
-}
-
-async function forgetExtensionPairing() {
-  extensionAuthToken = null;
-  if (globalThis.chrome?.storage?.session) {
-    await chrome.storage.session.remove(EXTENSION_AUTH_STORAGE_KEY).catch(() => {});
-  }
-  if (globalThis.chrome?.storage?.local) {
-    await chrome.storage.local.remove(EXTENSION_AUTH_REMEMBERED_KEY).catch(() => {});
-  }
-  updatePairingUIState();
-}
-
-if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", () => {
-  const codeInput = document.querySelector("#extension-pairing-code");
-  const rememberCheckbox = document.querySelector("#extension-pairing-remember");
-  const submit = document.querySelector("#extension-pairing-submit");
-  const forget = document.querySelector("#extension-pairing-forget");
-  const status = document.querySelector("#extension-pairing-status");
-
-  updatePairingUIState();
-
-  if (submit) {
-    submit.addEventListener("click", async () => {
-      if (!codeInput || !submit) return;
-      submit.disabled = true;
-      try {
-        const remember = Boolean(rememberCheckbox?.checked);
-        await redeemExtensionPairing(codeInput.value, remember);
-        codeInput.value = "";
-        if (status) status.textContent = remember ? "Paired & remembered on this browser." : "Paired for this browser session.";
-      } catch (error) {
-        if (status) status.textContent = error?.message || "Pairing failed.";
-      } finally {
-        submit.disabled = false;
-      }
-    });
-  }
-
-  if (forget) {
-    forget.addEventListener("click", async () => {
-      await forgetExtensionPairing();
-      if (status) status.textContent = "Pairing removed.";
-    });
-  }
-});
 
 const kanjiStrokesCache = new Map();
 const annotatedCuesCache = new Map();
@@ -10691,38 +10568,6 @@ if (ocrCaptureBtn) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message?.type === "LINK_STATUS") {
-    const chip = document.querySelector("#indicator-link");
-    if (chip) {
-      const val = chip.querySelector(".system-status-value");
-      chip.classList.remove("ok", "error", "checking", "warning", "unpaired");
-      const status = message.status;
-      const reason = message.reason || "";
-      if (status === "connected" || status === "ok") {
-        chip.classList.add("ok");
-        if (val) val.textContent = "Connected";
-        chip.title = "Link: Connected to Desktop";
-      } else if (status === "no_token" || status === "needs_pairing") {
-        chip.classList.add("warning");
-        if (val) val.textContent = "Needs Pairing";
-        chip.title = `Link: Desktop pairing required${reason ? ` (${reason})` : ""}`;
-      } else if (status === "connecting") {
-        chip.classList.add("checking");
-        if (val) val.textContent = "Connecting…";
-        chip.title = "Link: Connecting…";
-      } else if (status === "unauthorized") {
-        chip.classList.add("error");
-        if (val) val.textContent = "Unauthorized";
-        chip.title = `Link: Unauthorized (4401)${reason ? ` - ${reason}` : ""}`;
-      } else {
-        chip.classList.add("error");
-        if (val) val.textContent = "Unreachable";
-        chip.title = `Link: Unreachable${reason ? ` - ${reason}` : ""}`;
-      }
-    }
-    sendResponse?.({ ok: true });
-    return true;
-  }
   if (message?.type === "ANALYZE_GRAMMAR_SELECTION") {
     const sentence = String(message.sentence || message.selection || "").trim();
     renderTextGrammar(sentence);

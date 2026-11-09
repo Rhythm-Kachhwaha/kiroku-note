@@ -226,5 +226,6 @@ def init_db(db_path: Path | str | None = None) -> None:
 
         # Recover cards left stuck in 'syncing' state from a previously interrupted process
         conn.execute("UPDATE cards SET sync_status = 'pending' WHERE sync_status = 'syncing'")
+        conn.execute("DROP TABLE IF EXISTS extension_token")
         migrate_canonical_grammar_keys(conn)
         conn.commit()

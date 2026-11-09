@@ -1,5 +1,6 @@
 # Status
-N17: Fixed CSP WebSocket restriction, link-client race & HUD sync.
-Subtitles auto-display, 397 cues sync across extension and Desktop.
-Desktop stepper and dialogue tracker fully functional and verified.
-All link test suites pass (backend, extension, desktop, E2E). Branch: main.
+G1 complete on animeoverhaul.
+Removed pairing workflow and live Link WebSocket relay cleanly.
+Deleted dead video-mining split files and obsolete tests.
+Preserved loopback Host/Origin security, Study token, and Link HTTP APIs.
+Targeted backend, desktop, and extension tests passing.

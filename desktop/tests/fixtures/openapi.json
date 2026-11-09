@@ -4710,7 +4710,7 @@
           "link"
         ],
         "summary": "Get Link Status",
-        "description": "Returns connected extension count, desktop clients, and active video sessions.",
+        "description": "Returns link status. Live WebSocket removed in v2.1; HTTP-only.",
         "operationId": "get_link_status_api_link_status_get",
         "responses": {
           "200": {
@@ -5512,101 +5512,6 @@
                   },
                   "type": "array",
                   "title": "Response Get Setup Checklist Api Setup Checklist Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/extension-pairings/register": {
-      "post": {
-        "tags": [
-          "system"
-        ],
-        "summary": "Register Extension Pairing",
-        "description": "Register a desktop-generated pairing code as a short-lived hash.",
-        "operationId": "register_extension_pairing_api_auth_extension_pairings_register_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Register Extension Pairing Api Auth Extension Pairings Register Post"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/extension-pairings/redeem": {
-      "post": {
-        "tags": [
-          "system"
-        ],
-        "summary": "Redeem Extension Pairing",
-        "description": "Redeem one allowed-origin pairing code for a separate extension token.",
-        "operationId": "redeem_extension_pairing_api_auth_extension_pairings_redeem_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Redeem Extension Pairing Api Auth Extension Pairings Redeem Post"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/extension-pairings/revoke-all": {
-      "post": {
-        "tags": [
-          "system"
-        ],
-        "summary": "Revoke Extension Pairings",
-        "description": "Let the desktop revoke every current-launch extension token.",
-        "operationId": "revoke_extension_pairings_api_auth_extension_pairings_revoke_all_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Revoke Extension Pairings Api Auth Extension Pairings Revoke All Post"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/extension-pairings/status": {
-      "get": {
-        "tags": [
-          "system"
-        ],
-        "summary": "Extension Pairing Status",
-        "operationId": "extension_pairing_status_api_auth_extension_pairings_status_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Extension Pairing Status Api Auth Extension Pairings Status Get"
                 }
               }
             }

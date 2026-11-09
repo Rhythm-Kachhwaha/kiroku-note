@@ -80,12 +80,12 @@ def test_setup_checklist_missing_dict_reports_action(client: TestClient) -> None
 
 
 def test_setup_checklist_unpaired_extension_reports_action(client: TestClient) -> None:
-    """When extension pairing is disabled, item reports copy_pairing_code action."""
-    with patch("app.api.system.is_extension_pairing_enabled", return_value=False):
+    """When extension IDs list is empty, item reports ok=False."""
+    with patch("app.api.system.get_allowed_extension_ids", return_value=[]):
         response = client.get("/api/setup/checklist")
         assert response.status_code == 200
         data = {item["id"]: item for item in response.json()}
         ext_item = data["extension_pairing"]
         assert ext_item["ok"] is False
-        assert ext_item["fix_action"] == "copy_pairing_code"
+        assert ext_item["fix_action"] is None
 

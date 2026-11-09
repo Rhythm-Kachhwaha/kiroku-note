@@ -36,8 +36,7 @@ const VIDEO_MINING_SCRIPTS = [
   "link/clip.js",
   "content/anime-hud.js",
   "content/video-mining/controller.js",
-  "content/video-mining.js",
-  "content/link-bridge.js"
+  "content/video-mining.js"
 ];
 
 async function ensureVideoMiningScript(tabId, targetFrameId = null) {
@@ -55,7 +54,19 @@ async function ensureVideoMiningScript(tabId, targetFrameId = null) {
       target: { tabId, allFrames: true },
       files: VIDEO_MINING_SCRIPTS
     });
-  } catch (_) {}
+  } catch (err) {
+    console.warn("[Background] ensureVideoMiningScript injection failed:", err);
+    if (typeof chrome !== "undefined" && chrome.storage?.session) {
+      chrome.storage.session.set({
+        kiroku_inject_error: {
+          tabId,
+          targetFrameId,
+          message: err?.message || String(err),
+          timestamp: Date.now()
+        }
+      }).catch(() => {});
+    }
+  }
 }
 
 async function handleUserInitiatedCapture(tab) {
@@ -180,113 +191,7 @@ function isAllowedJimakuUrl(url) {
   return true;
 }
 
-// --- Slice 37: Link Client & Content Relay ---
-try {
-  if (typeof importScripts === 'function') {
-    importScripts('link/link-client.js');
-  }
-} catch (_) {}
-
-let linkClient = null;
-
-let lastAttachedTabId = null;
-
-function broadcastResync() {
-  chrome.tabs.query({}, (tabs) => {
-    for (const tab of tabs) {
-      if (tab?.id && tab?.url && !tab.url.startsWith("chrome://")) {
-        chrome.tabs.sendMessage(tab.id, { type: "LINK_RESYNC" }).catch(() => {});
-      }
-    }
-  });
-}
-
-function initLinkClient() {
-  let ClientClass = null;
-  if (typeof LinkClient === 'function') {
-    ClientClass = LinkClient;
-  } else if (typeof LinkClient === 'object' && LinkClient && typeof LinkClient.LinkClient === 'function') {
-    ClientClass = LinkClient.LinkClient;
-  } else if (typeof globalThis !== 'undefined' && globalThis.LinkClient) {
-    ClientClass = typeof globalThis.LinkClient === 'function' ? globalThis.LinkClient : globalThis.LinkClient.LinkClient;
-  }
-
-  if (ClientClass && !linkClient) {
-    try {
-      linkClient = new ClientClass();
-      linkClient.onMessage((msg) => {
-        if (msg?.type === "hello.ok") {
-          broadcastResync();
-          return;
-        }
-        if (msg?.type && msg.type.startsWith('cmd.')) {
-          const targetTabId = msg.payload?.tab || lastAttachedTabId;
-          const targetFrameId = msg.payload?.frame;
-          const opts = typeof targetFrameId === "number" ? { frameId: targetFrameId } : undefined;
-
-          if (targetTabId) {
-            chrome.tabs.sendMessage(targetTabId, {
-              type: 'LINK_CMD',
-              id: msg.id,
-              cmdType: msg.type,
-              payload: msg.payload
-            }, opts, (res) => {
-              if (linkClient && msg.id) {
-                const ok = res?.ok !== false;
-                const err = res?.err || (res?.ok === false ? "Command execution failed" : undefined);
-                linkClient.send("ack", { id: msg.id, ok, err });
-              }
-            });
-          } else {
-            chrome.tabs.query({ active: true }, (tabs) => {
-              for (const tab of tabs) {
-                if (tab.id) {
-                  chrome.tabs.sendMessage(tab.id, {
-                    type: 'LINK_CMD',
-                    id: msg.id,
-                    cmdType: msg.type,
-                    payload: msg.payload
-                  }, (res) => {
-                    if (linkClient && msg.id) {
-                      linkClient.send("ack", { id: msg.id, ok: res?.ok !== false, err: res?.err });
-                    }
-                  });
-                }
-              }
-            });
-          }
-        }
-      });
-      linkClient.start().catch(() => {});
-    } catch (err) {
-      console.warn('[Background] LinkClient initialization skipped or failed:', err);
-    }
-  }
-}
-
-if (typeof chrome !== 'undefined') {
-  try {
-    initLinkClient();
-    if (chrome.alarms) {
-      chrome.alarms.create("link_keepalive", { periodInMinutes: 0.4 });
-      chrome.alarms.onAlarm.addListener((alarm) => {
-        if (alarm.name === "link_keepalive" && linkClient && !linkClient.connected && !linkClient.stopped) {
-          linkClient.start().catch(() => {});
-        }
-      });
-    }
-    if (chrome.tabs?.onRemoved) {
-      chrome.tabs.onRemoved.addListener((tabId) => {
-        if (linkClient && linkClient.connected) {
-          linkClient.send("video.detach", { tab: tabId, frame: 0 });
-        }
-      });
-    }
-  } catch (err) {
-    console.warn('[Background] initLinkClient top-level caught:', err);
-  }
-}
-
+// --- Chrome runtime listeners ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "SET_MINING_MODE") {
     isMiningModeEnabled = Boolean(message.enabled);
@@ -390,18 +295,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message?.type === "SUBTITLE_CUE_CHANGED") {
-    if (sender?.tab?.id) {
-      chrome.tabs.sendMessage(sender.tab.id, {
-        type: "LINK_CMD",
-        cmdType: "SUBTITLE_CUE_CHANGED",
-        payload: message
-      }).catch(() => {});
-    }
-    sendResponse({ ok: true });
-    return true;
-  }
-
   if (message?.type === "VIDEO_DETECTED") {
     const tabId = sender?.tab?.id;
     if (tabId) {
@@ -409,12 +302,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     sendResponse({ ok: true });
     return true;
-  }
-
-  if (message?.type === "LINK_STATUS") {
-    // Relay status update to sidepanel / other extension views
-    chrome.runtime.sendMessage(message).catch(() => {});
-    return false;
   }
 
   if (message?.type === "ENSURE_VIDEO_MINING") {
@@ -504,24 +391,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     return true;
   }
-  if (message?.type === 'LINK_RELAY_OUT') {
-    if (!linkClient) {
-      initLinkClient();
-    }
-    if (linkClient && message.linkType) {
-      const payload = Object.assign({}, message.payload || {});
-      if (sender?.tab?.id) {
-        payload.tab = sender.tab.id;
-        lastAttachedTabId = sender.tab.id;
-      }
-      if (typeof sender?.frameId === "number") {
-        payload.frame = sender.frameId;
-      }
-      linkClient.send(message.linkType, payload);
-    }
-    sendResponse({ ok: true });
-    return true;
-  }
   if (message?.type === "OCR_SELECTION_CANCELLED") {
     chrome.runtime.sendMessage({
       type: "OCR_SELECTION_CANCELLED",
@@ -557,6 +426,14 @@ if (typeof chrome !== "undefined") {
   if (chrome.runtime?.onInstalled) {
     chrome.runtime.onInstalled.addListener(() => {
       chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true }).catch(() => {});
+      chrome.storage?.local?.remove?.(["kiroku.extension.session_token", "kiroku.extension.remembered_token", "kiroku.extension.auth_token", "kiroku.extension.pairing_code", "link_token"]).catch?.(() => {});
+      chrome.storage?.session?.remove?.(["kiroku.extension.session_token", "kiroku.extension.remembered_token", "kiroku.extension.auth_token", "kiroku.extension.pairing_code"]).catch?.(() => {});
+    });
+  }
+  if (chrome.runtime?.onStartup) {
+    chrome.runtime.onStartup.addListener(() => {
+      chrome.storage?.local?.remove?.(["kiroku.extension.session_token", "kiroku.extension.remembered_token", "kiroku.extension.auth_token", "kiroku.extension.pairing_code", "link_token"]).catch?.(() => {});
+      chrome.storage?.session?.remove?.(["kiroku.extension.session_token", "kiroku.extension.remembered_token", "kiroku.extension.auth_token", "kiroku.extension.pairing_code"]).catch?.(() => {});
     });
   }
 }

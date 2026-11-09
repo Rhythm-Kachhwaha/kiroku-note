@@ -27,8 +27,6 @@ test("T8: Manifest permissions contract covers all chrome.<api> calls in runtime
     "extension/sidepanel/sidepanel.js",
     "extension/content/content.js",
     "extension/content/video-mining.js",
-    "extension/content/link-bridge.js",
-    "extension/link/link-client.js",
     "extension/link/clip.js"
   ];
 

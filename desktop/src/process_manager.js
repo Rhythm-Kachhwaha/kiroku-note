@@ -67,8 +67,7 @@ class ProcessManager {
       PYTHONUNBUFFERED: '1',
       KIROKU_HOST: this.host,
       KIROKU_PORT: String(this.port),
-      KIROKU_STUDY_API_TOKEN: this.apiToken,
-      KIROKU_EXTENSION_PAIRING_ENABLED: process.env.KIROKU_EXTENSION_PAIRING_ENABLED ?? '1'
+      KIROKU_STUDY_API_TOKEN: this.apiToken
     };
 
     if (this.kirokuDictSqlite) {

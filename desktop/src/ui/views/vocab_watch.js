@@ -4,7 +4,6 @@
  * controls bar, grammar accordion, and keyboard shortcuts.
  */
 
-import { LinkClient } from '../services/link_client.js';
 import { LinkStore } from '../services/link_store.js';
 import { LinkMineService } from '../services/link_mine.js';
 import { apiClient } from '../services/api_client.js';
@@ -78,14 +77,6 @@ export class VocabWatchView {
 
   _initStore() {
     if (!this.linkStore) {
-      if (!this.linkClient && typeof window !== 'undefined') {
-        this.linkClient = window.kirokuLinkClient || new LinkClient();
-        if (!window.kirokuLinkClient) {
-          this.linkClient.start().catch((err) => {
-            console.debug('[VocabWatch] LinkClient start error:', err);
-          });
-        }
-      }
       if (this.linkClient) {
         this.linkStore = window.kirokuLinkStore || new LinkStore(this.linkClient);
       }
@@ -152,16 +143,16 @@ export class VocabWatchView {
           <div class="watch-state-card tactile-card">
             <h2 class="text-xl font-bold font-display text-warm-paper mb-1">Watch (Not Connected)</h2>
             <p class="text-secondary font-sans mb-3">Kiroku Link is not connected to any browser session.</p>
-            <div class="watch-pairing-steps">
-              <div class="watch-pairing-step">
+            <div class="watch-steps">
+              <div class="watch-step">
                 <span class="watch-step-num">1</span>
                 <span>Open Google Chrome or Chromium with the Kiroku Note Extension installed.</span>
               </div>
-              <div class="watch-pairing-step">
+              <div class="watch-step">
                 <span class="watch-step-num">2</span>
                 <span>Ensure the Kiroku Link server is running on local port 21828.</span>
               </div>
-              <div class="watch-pairing-step">
+              <div class="watch-step">
                 <span class="watch-step-num">3</span>
                 <span>Open YouTube, Netflix, or anime streaming in Chrome with Japanese subtitles enabled.</span>
               </div>

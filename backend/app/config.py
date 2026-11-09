@@ -57,17 +57,6 @@ def is_legacy_extension_origin_rollback_enabled(env: dict[str, str] | None = Non
     )
 
 
-def get_legacy_token_mode(env: dict[str, str] | None = None) -> str:
-    """Return the legacy mutation token rollout mode; enforcement is opt-in."""
-    value = (os.environ if env is None else env).get("KIROKU_LEGACY_TOKEN_MODE", "off").strip().lower()
-    return value if value in {"off", "warn", "enforce"} else "off"
-
-
-def is_extension_pairing_enabled(env: dict[str, str] | None = None) -> bool:
-    value = (os.environ if env is None else env).get("KIROKU_EXTENSION_PAIRING_ENABLED", "1").strip().lower()
-    return value in {"1", "true", "yes", "on"}
-
-
 def get_allowed_origin_regex(env: dict[str, str] | None = None) -> str:
     """
     Resolve regex pattern for trusted CORS origins.

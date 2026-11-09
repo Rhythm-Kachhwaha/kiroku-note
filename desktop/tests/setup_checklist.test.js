@@ -40,16 +40,8 @@ test('Settings View: Wires /api/setup/checklist fetching and action buttons', ()
     'SettingsView must implement loadSetupChecklist method'
   );
   assert.ok(
-    content.includes('handleCopyPairingCode('),
-    'SettingsView must implement handleCopyPairingCode method'
-  );
-  assert.ok(
     content.includes('provision_dictionary'),
     'SettingsView must handle provision_dictionary fix action'
-  );
-  assert.ok(
-    content.includes('copy_pairing_code'),
-    'SettingsView must handle copy_pairing_code fix action'
   );
 });
 

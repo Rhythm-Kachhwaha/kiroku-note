@@ -3,10 +3,9 @@
 This report lists differences between split modules and runtime canonical files for link, subtitle, and video domains.
 
 ## Video Mining
-- Runtime canonical: `extension/content/video-mining.js` (3090 lines)
-- Split source files: `extension/content/video-mining/{controller,controls,detector,main,overlay,sync}.js` (sum: 3044 lines)
-- Comparison: Features [A3], [A6], and [A7] added HUD and auto subtitle detection to `video-mining.js`.
-- Runtime injection: `background.js` `VIDEO_MINING_SCRIPTS` injects `video-mining.js` directly along with `link-bridge.js` and lib helpers. The split files are not loaded by the extension at runtime.
+- Runtime canonical: `extension/content/video-mining.js`
+- Controller: `extension/content/video-mining/controller.js` (live NextEpisodeDetector)
+- Split dead files (`detector.js`, `sync.js`, `overlay.js`, `controls.js`, `main.js`) deleted in G1.
 
 ## Side Panel
 - Runtime canonical: `extension/sidepanel/sidepanel.js` (12449 lines), loaded directly via `<script src="sidepanel.js">` in `sidepanel.html`.

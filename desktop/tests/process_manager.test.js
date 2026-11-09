@@ -187,34 +187,30 @@ test('ProcessManager: stops managed process cleanly without orphans', async () =
   assert.equal(pm.childProcess, null);
 });
 
-test('ProcessManager: getBackendEnv passes KIROKU_DICT_SQLITE, unsets DICTIONARY_BACKEND, and sets KIROKU_EXTENSION_PAIRING_ENABLED=1', () => {
+test('ProcessManager: getBackendEnv passes KIROKU_DICT_SQLITE and unsets DICTIONARY_BACKEND', () => {
   const originalEnv = { ...process.env };
   try {
     process.env.DICTIONARY_BACKEND = 'yomitan';
     process.env.KIROKU_DICT_SQLITE = 'C:\\custom\\kiroku_dict.sqlite';
-    delete process.env.KIROKU_EXTENSION_PAIRING_ENABLED;
 
     const pm = new ProcessManager();
     const env = pm.getBackendEnv();
 
     assert.equal(env.KIROKU_DICT_SQLITE, 'C:\\custom\\kiroku_dict.sqlite');
     assert.equal(env.DICTIONARY_BACKEND, undefined, 'DICTIONARY_BACKEND must be unset');
-    assert.equal(env.KIROKU_EXTENSION_PAIRING_ENABLED, '1');
     assert.equal(env.KIROKU_STUDY_API_TOKEN, pm.getApiToken());
   } finally {
     process.env = originalEnv;
   }
 });
 
-test('ProcessManager: getBackendEnv supports constructor kirokuDictSqlite override and respects custom pairing env', () => {
+test('ProcessManager: getBackendEnv supports constructor kirokuDictSqlite override', () => {
   const originalEnv = { ...process.env };
   try {
-    process.env.KIROKU_EXTENSION_PAIRING_ENABLED = '0';
     const pm = new ProcessManager({ kirokuDictSqlite: '/opt/dict.sqlite' });
     const env = pm.getBackendEnv();
 
     assert.equal(env.KIROKU_DICT_SQLITE, '/opt/dict.sqlite');
-    assert.equal(env.KIROKU_EXTENSION_PAIRING_ENABLED, '0');
     assert.equal(env.DICTIONARY_BACKEND, undefined);
   } finally {
     process.env = originalEnv;

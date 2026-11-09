@@ -73,23 +73,6 @@ async function desktopControlRequest(pathname, body = {}) {
   return data;
 }
 
-function createPairingCode() {
-  return crypto.randomBytes(8).toString('hex').toUpperCase().match(/.{1,4}/g).join('-');
-}
-
-async function generateAndRegisterPairingCode() {
-  const code = createPairingCode();
-  const result = await desktopControlRequest('/api/auth/extension-pairings/register', {
-    code,
-    scopes: ['legacy:write', 'link:rw']
-  });
-  return { code, expiresInSeconds: result.expires_in_seconds };
-}
-
-async function revokeAllExtensionPairings() {
-  return desktopControlRequest('/api/auth/extension-pairings/revoke-all');
-}
-
 // GPU acceleration configuration: enable hardware rasterization for high frame rates
 // and responsive UI interaction, with stability flags to prevent crashes.
 // Users can toggle hardware_acceleration off in Settings when encountering DRM capture issues.
@@ -254,44 +237,6 @@ function updateSystemTrayMenu() {
     { label: `  AnkiConnect: ${ankiText}`, enabled: false },
     { label: ocrLabel, enabled: false }
   ];
-
-  menuTemplate.push({
-    label: 'Generate Extension Pairing Code',
-    enabled: processManager.status === 'running',
-    click: async () => {
-      try {
-        const pairing = await generateAndRegisterPairingCode();
-        await dialog.showMessageBox(mainWindow || undefined, {
-          type: 'info',
-          title: 'Extension Pairing Code',
-          message: pairing.code,
-          detail: `Enter this code in the Kiroku extension within ${pairing.expiresInSeconds / 60} minutes.`
-        });
-      } catch (error) {
-        await dialog.showMessageBox(mainWindow || undefined, {
-          type: 'error',
-          title: 'Extension Pairing Unavailable',
-          message: error.message
-        });
-      }
-    }
-  });
-  menuTemplate.push({
-    label: 'Revoke Extension Access',
-    enabled: processManager.status === 'running',
-    click: async () => {
-      try {
-        const result = await revokeAllExtensionPairings();
-        await dialog.showMessageBox(mainWindow || undefined, {
-          type: 'info', title: 'Extension Access Revoked', message: `${result.revoked} extension session(s) revoked.`
-        });
-      } catch (error) {
-        await dialog.showMessageBox(mainWindow || undefined, {
-          type: 'error', title: 'Extension Revocation Unavailable', message: error.message
-        });
-      }
-    }
-  });
 
   if (trayServicesStatus.ocrInstalled) {
     menuTemplate.push({
@@ -927,25 +872,6 @@ function setupIpcHandlers() {
     }
   });
 
-  // The pairing code is generated in the main process and only its hash is
-  // registered with the backend. The extension receives a separate token.
-  ipcMain.handle('extension:pairing:create', async () => {
-    return generateAndRegisterPairingCode();
-  });
-
-  ipcMain.handle('extension:pairing:revoke-all', async () => {
-    return revokeAllExtensionPairings();
-  });
-
-  ipcMain.handle('extension:pairing:status', async () => {
-    const response = await fetch(`http://${processManager.host || '127.0.0.1'}:${processManager.port || 21828}/api/auth/extension-pairings/status`, {
-      headers: { 'Authorization': `Bearer ${processManager.getApiToken()}` }
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
-    return data;
-  });
-
   // Secure Study API bridge handler
   ipcMain.handle('study:request', async (event, req = {}) => {
     try {
@@ -1008,19 +934,6 @@ function setupIpcHandlers() {
         }
       };
     }
-  });
-
-  // Slice 38: Return Link WebSocket URL + Desktop Bearer Token
-  ipcMain.handle('desktop:link:endpoint', async () => {
-    const host = processManager.host || '127.0.0.1';
-    const port = processManager.port || 21828;
-    const token = processManager.getApiToken();
-    return {
-      wsUrl: `ws://${host}:${port}/api/link/ws`,
-      token: token || '',
-      host,
-      port
-    };
   });
 
   // Desktop storage shim for chrome.storage.local

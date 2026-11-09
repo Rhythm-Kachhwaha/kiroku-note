@@ -36,8 +36,8 @@ function parseVideoMiningScriptsFromBackground() {
       "lib/jimaku-provider.js",
       "lib/image-cropper.js",
       "link/clip.js",
-      "content/video-mining.js",
-      "content/link-bridge.js"
+      "content/video-mining/controller.js",
+      "content/video-mining.js"
     ];
   }
   const code = fs.readFileSync(bgPath, "utf8");
@@ -57,8 +57,8 @@ function parseVideoMiningScriptsFromBackground() {
     "lib/jimaku-provider.js",
     "lib/image-cropper.js",
     "link/clip.js",
-    "content/video-mining.js",
-    "content/link-bridge.js"
+    "content/video-mining/controller.js",
+    "content/video-mining.js"
   ];
 }
 

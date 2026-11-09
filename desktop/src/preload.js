@@ -106,13 +106,7 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   },
   getRiveAssetUrl: (assetName) => ipcRenderer.invoke('runtime:get-rive-asset-url', assetName),
   getServicesStatus: () => ipcRenderer.invoke('backend:services-status'),
-  extensionPairing: {
-    create: () => ipcRenderer.invoke('extension:pairing:create'),
-    revokeAll: () => ipcRenderer.invoke('extension:pairing:revoke-all'),
-    status: () => ipcRenderer.invoke('extension:pairing:status')
-  },
   toggleOcr: () => ipcRenderer.invoke('ocr:toggle'),
-  getLinkEndpoint: () => ipcRenderer.invoke('desktop:link:endpoint'),
   journeyApi: {
     request: (options = {}) => {
       const p = typeof options.path === 'string' ? options.path : '';

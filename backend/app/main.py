@@ -70,8 +70,6 @@ from app.config import (
     get_allowed_extension_ids,
     get_extension_origin_policy,
     is_legacy_extension_origin_rollback_enabled,
-    get_legacy_token_mode,
-    is_extension_pairing_enabled,
     get_llm_api_key,
     get_llm_jlpt_level,
     get_llm_key_name,
@@ -113,7 +111,6 @@ from app.services.yomitan import (
     reset_dictionary_service,
 )
 from app.api.study.auth import get_study_api_token
-from app.services.legacy_api_auth import legacy_api_auth
 
 # Debug mode: set KIROKU_DEBUG=1 to enable /docs, /redoc, and hot-reload.
 # Off by default so production/distributed builds do not expose developer APIs.
@@ -326,15 +323,6 @@ def _is_desktop_request(request: Request) -> bool:
     return bool(configured and token and secrets.compare_digest(token, configured))
 
 
-def _is_legacy_mutation(request: Request) -> bool:
-    return (
-        request.method in {"POST", "PUT", "PATCH", "DELETE"}
-        and request.url.path.startswith("/api/")
-        and not request.url.path.startswith("/api/study/")
-        and not request.url.path.startswith("/api/auth/")
-    )
-
-
 @app.middleware("http")
 async def validate_request_security(request: Request, call_next):
     # 1. Host header validation (prevent DNS rebinding)
@@ -352,21 +340,6 @@ async def validate_request_security(request: Request, call_next):
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
                 content={"detail": "Forbidden: Untrusted Origin."},
-            )
-
-    # Stage 2/3: all legacy state changes flow through this one policy. Study
-    # routes retain their existing router-level bearer dependency.
-    if _is_legacy_mutation(request):
-        mode = get_legacy_token_mode()
-        token = _bearer_token(request)
-        authorized = _is_desktop_request(request) or legacy_api_auth.has_extension_token(token)
-        if mode == "warn" and not authorized:
-            legacy_api_auth.missing_token_counts[request.url.path] += 1
-            log.warning("Legacy API mutation missing a recognized token: route=%s", request.url.path)
-        elif mode == "enforce" and not authorized:
-            return JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"detail": "Unauthorized: a desktop or paired extension token is required."},
             )
 
     return await call_next(request)

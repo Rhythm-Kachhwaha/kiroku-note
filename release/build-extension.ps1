@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # Kiroku Note — Chromium MV3 Extension Packager (Windows)
 # ==============================================================================
 # Usage: powershell -ExecutionPolicy Bypass -File release/build-extension.ps1
@@ -94,11 +94,7 @@ $RuntimeItems = @(
     "content\capture-utils.js",
     "content\content.js",
     "content\fullscreen-hook.js",
-    "content\video-mining\detector.js",
-    "content\video-mining\sync.js",
-    "content\video-mining\overlay.js",
-    "content\video-mining\controls.js",
-    "content\video-mining\main.js",
+    "content\video-mining\controller.js",
     "content\ocr-selection.js",
     "content\adapters\netflix-adapter.js",
     "content\adapters\youtube-adapter.js",

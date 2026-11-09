@@ -1,4 +1,4 @@
-"""System API routes (health, extension pairing, diagnostics)."""
+"""System API routes (health, extension origin check, diagnostics)."""
 from __future__ import annotations
 
 import logging
@@ -11,14 +11,11 @@ from app.config import (
     APP_VERSION,
     get_allowed_extension_ids,
     get_extension_origin_policy,
-    get_legacy_token_mode,
-    is_extension_pairing_enabled,
     is_legacy_extension_origin_rollback_enabled,
 )
 from app.db.connection import db_session
 from app.schemas import HealthResponse
 from app.services.dictionary_provider import get_dictionary_db_info, YomitanHttpProvider
-from app.services.legacy_api_auth import legacy_api_auth
 from app.services.ocr_service import OcrService
 from app.services.operational_diagnostics import record_operational_failure
 from app.services.subtitle_annotator import get_tokenizer_status
@@ -251,30 +248,27 @@ def get_setup_checklist() -> list[SetupChecklistItem]:
         )
     )
 
-    # 3. Extension origin / pairing
+    # 3. Extension origin allowlist
     ext_ok = False
-    ext_detail = "Extension pairing disabled or no extension IDs allowlisted."
+    ext_detail = "No extension IDs allowlisted."
     try:
-        pairing_enabled = is_extension_pairing_enabled()
         allowed_ids = get_allowed_extension_ids()
-        ext_ok = bool(pairing_enabled and len(allowed_ids) > 0)
+        ext_ok = bool(len(allowed_ids) > 0)
         if ext_ok:
-            ext_detail = f"Extension pairing enabled with {len(allowed_ids)} allowlisted extension ID(s)."
-        elif not pairing_enabled:
-            ext_detail = "Extension pairing is disabled in backend configuration."
+            ext_detail = f"Extension origin allowlisted with {len(allowed_ids)} extension ID(s)."
         else:
             ext_detail = "No extension IDs are allowlisted; browser extension requests will be rejected."
     except Exception as exc:
         record_operational_failure("setup.checklist.extension", exc)
         ext_ok = False
-        ext_detail = f"Error checking extension pairing status: {exc}"
+        ext_detail = f"Error checking extension allowlist status: {exc}"
 
     items.append(
         SetupChecklistItem(
             id="extension_pairing",
             ok=ext_ok,
             detail=ext_detail,
-            fix_action=None if ext_ok else "copy_pairing_code",
+            fix_action=None,
             required=True,
             informational=False,
         )
@@ -418,83 +412,3 @@ def get_setup_checklist() -> list[SetupChecklistItem]:
     )
 
     return items
-
-
-# ---------------------------------------------------------------------------
-# Extension pairing
-# ---------------------------------------------------------------------------
-
-def _require_desktop_control(request: Request) -> None:
-    """Guard pairing mutations to the desktop control token."""
-    from app.main import _is_desktop_request
-
-    if not _is_desktop_request(request):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized: desktop control token is required.",
-        )
-
-
-@router.post("/api/auth/extension-pairings/register")
-async def register_extension_pairing(request: Request) -> dict[str, object]:
-    """Register a desktop-generated pairing code as a short-lived hash."""
-    _require_desktop_control(request)
-    if not is_extension_pairing_enabled():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Extension pairing is disabled.")
-    body = await request.json()
-    code = str(body.get("code", "")).strip() if isinstance(body, dict) else ""
-    if len(code) < 8 or len(code) > 64:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid pairing code.")
-    scopes = body.get("scopes") or body.get("scope") if isinstance(body, dict) else None
-    label = str(body.get("label", "")).strip() if isinstance(body, dict) else ""
-    return {"ok": True, "expires_in_seconds": legacy_api_auth.create_pairing(code, scopes=scopes, label=label)}
-
-
-@router.post("/api/auth/extension-pairings/redeem")
-async def redeem_extension_pairing(request: Request) -> dict[str, object]:
-    """Redeem one allowed-origin pairing code for a separate extension token."""
-    if not is_extension_pairing_enabled():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Extension pairing is disabled.")
-    origin = request.headers.get("origin", "")
-    if not origin or origin not in {f"chrome-extension://{item}" for item in get_allowed_extension_ids()}:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden: unpaired extension origin.")
-    body = await request.json()
-    code = str(body.get("code", "")).strip() if isinstance(body, dict) else ""
-    scopes = body.get("scopes") or body.get("scope") if isinstance(body, dict) else None
-    label = str(body.get("label", "")).strip() if isinstance(body, dict) else ""
-    try:
-        token = legacy_api_auth.redeem_pairing(code, origin, scopes=scopes, label=label)
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
-    if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired pairing code.")
-    granted_scopes = legacy_api_auth.get_token_scopes(token)
-    primary_scope = "link:rw" if "link:rw" in granted_scopes and "legacy:write" not in granted_scopes else (
-        "legacy:write" if "legacy:write" in granted_scopes else next(iter(granted_scopes), "legacy:write")
-    )
-    return {"token": str(token), "scope": primary_scope, "scopes": sorted(granted_scopes)}
-
-
-@router.post("/api/auth/extension-pairings/revoke-all")
-async def revoke_extension_pairings(request: Request) -> dict[str, object]:
-    """Let the desktop revoke every current-launch extension token."""
-    _require_desktop_control(request)
-    revoked = legacy_api_auth.revoke_all_extension_tokens()
-    try:
-        from app.link.hub import link_hub
-        await link_hub.disconnect_ext_clients(reason="Extension pairings revoked by desktop")
-    except Exception:
-        pass
-    return {"revoked": revoked}
-
-
-@router.get("/api/auth/extension-pairings/status")
-async def extension_pairing_status(request: Request) -> dict[str, object]:
-    _require_desktop_control(request)
-    return {
-        "origin_policy": get_extension_origin_policy(),
-        "legacy_origin_rollback_active": is_legacy_extension_origin_rollback_enabled(),
-        "token_mode": get_legacy_token_mode(),
-        "pairing_enabled": is_extension_pairing_enabled(),
-        **legacy_api_auth.status(),
-    }

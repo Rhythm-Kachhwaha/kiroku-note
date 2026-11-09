@@ -4,7 +4,6 @@
  * Mimics standard tab header with uplifting wordmark letters, live cue box, and playback controls.
  */
 
-import { LinkClient } from '../services/link_client.js';
 import { LinkStore } from '../services/link_store.js';
 import { LinkMineService } from '../services/link_mine.js';
 import { escapeHtml } from '../utils/sanitizer.js';
@@ -38,11 +37,8 @@ let _sharedLinkMineService = null;
 
 export function getSharedLink(options = {}) {
   if (!_sharedLinkClient) {
-    _sharedLinkClient = options.linkClient || new LinkClient();
+    _sharedLinkClient = options.linkClient || null;
     _sharedLinkStore = options.linkStore || new LinkStore(_sharedLinkClient);
-    _sharedLinkClient.start().catch((err) => {
-      console.warn('[AnimeView] LinkClient failed to start:', err);
-    });
   }
   if (!_sharedLinkMineService) {
     _sharedLinkMineService = options.linkMineService || new LinkMineService({
@@ -1423,7 +1419,7 @@ export class AnimeView {
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
         <div class="anime-reject-content">
           <div class="anime-reject-title">Extension Connection Rejected (${escapeHtml(this.lastReject.reason || 'unauthorized')})</div>
-          <div class="anime-reject-sub">Please re-pair the browser extension in Settings with a fresh code.</div>
+          <div class="anime-reject-sub">Browser extension connection check.</div>
         </div>
       </div>
     ` : '';
@@ -1449,7 +1445,7 @@ export class AnimeView {
             <div class="anime-step-body">
               <div class="anime-step-label">Step 2: Extension Online</div>
               <div class="anime-step-desc">
-                ${isExtConnected ? 'Browser extension connected' : 'Extension not connected — make sure Kiroku extension is installed and paired'}
+                ${isExtConnected ? 'Browser extension connected' : 'Extension not connected — make sure Kiroku extension is installed and running'}
               </div>
             </div>
           </div>
