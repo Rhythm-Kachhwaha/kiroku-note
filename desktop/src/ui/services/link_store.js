@@ -76,6 +76,9 @@ export class LinkStore {
           this.cueHash = null;
           this.activeCue = null;
           this.activeCueIndex = null;
+          for (const group of this.pendingCueChunks.values()) {
+            if (group?.timer) clearTimeout(group.timer);
+          }
           this.pendingCueChunks.clear();
         }
       }
@@ -128,13 +131,24 @@ export class LinkStore {
       const hash = payload.hash || null;
 
       if (parts > 1 && hash) {
+        // Prune oldest pending chunk groups if too many accumulate
+        if (this.pendingCueChunks.size > 5 && !this.pendingCueChunks.has(hash)) {
+          const oldest = this.pendingCueChunks.keys().next().value;
+          const oldGroup = this.pendingCueChunks.get(oldest);
+          if (oldGroup?.timer) clearTimeout(oldGroup.timer);
+          this.pendingCueChunks.delete(oldest);
+        }
+
         let chunkGroup = this.pendingCueChunks.get(hash);
         if (!chunkGroup || chunkGroup.parts !== parts) {
-          chunkGroup = { parts, received: new Map() };
+          if (chunkGroup?.timer) clearTimeout(chunkGroup.timer);
+          chunkGroup = { parts, received: new Map(), timer: null };
           this.pendingCueChunks.set(hash, chunkGroup);
         }
         chunkGroup.received.set(part, Array.isArray(payload.cues) ? payload.cues : []);
+
         if (chunkGroup.received.size === parts) {
+          if (chunkGroup.timer) clearTimeout(chunkGroup.timer);
           let assembled = [];
           for (let p = 1; p <= parts; p++) {
             const piece = chunkGroup.received.get(p) || [];
@@ -148,6 +162,17 @@ export class LinkStore {
           }
           this.emit('cues', this.cues, this.cueHash);
           this.emit('change');
+        } else if (!chunkGroup.timer && typeof setTimeout === 'function') {
+          // If not all parts arrived within 2500ms, request retry for hash
+          chunkGroup.timer = setTimeout(() => {
+            if (this.pendingCueChunks.has(hash)) {
+              if (this.client && typeof this.client.sendCommand === 'function') {
+                try {
+                  this.client.sendCommand('cue.request', { hash });
+                } catch (_) {}
+              }
+            }
+          }, 2500);
         }
         return;
       }

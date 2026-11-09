@@ -1,5 +1,5 @@
 # Status
-N4: Isolated multi-frame (tab, frame) state timestamps in hub.
-Bounded cue_chunks in LinkVideoSession to prevent memory leaks.
-Directly affected test_link_hub & schemas tests pass (43/43).
+N5: Added chunk assembly retry timeout and pending cleanup in LinkStore.
+Prevents permanent cue stalls on dropped chunked packets.
+Directly affected anime_connection & link_client tests pass (6/6).
 Branch: main.
