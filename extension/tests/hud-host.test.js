@@ -99,3 +99,4 @@ test("HudHost registers cleanups and runs them on destroy", () => {
   assert.equal(host.video, null);
   assert.equal(host.hostEl, null);
 });
+

@@ -89,3 +89,4 @@ test("HudSentence shows when cue has text and handles actions", async () => {
   hudSentence.destroy();
   assert.equal(hudSentence.toolbarEl, null);
 });
+

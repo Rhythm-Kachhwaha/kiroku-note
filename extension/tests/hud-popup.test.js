@@ -134,3 +134,4 @@ test("HudPopup mineCurrentWord sends HUD_MINE and turns token orange", async () 
   assert.ok(span.classList.contains("mined"));
   assert.equal(span.style.color, "#d4884f");
 });
+

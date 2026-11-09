@@ -88,3 +88,4 @@ test("PlayerAdapterRegistry resolves correct adapters", () => {
   assert.ok(netflixAdapter instanceof NetflixPlayerAdapter);
   assert.equal(netflixAdapter.getCapabilities().seek, false, "Netflix seek capability must be false until proven");
 });
+
