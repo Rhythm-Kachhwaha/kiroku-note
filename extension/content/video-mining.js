@@ -2230,9 +2230,9 @@
           this.broadcastActiveCue(this.syncEngine.currentCue);
           if (this.hud) {
             this.hud.setSubStatus({
-              source: "file",
-              name: file.name,
-              count: cues.length,
+              source: this.activeFilename ? "file" : "embedded",
+              name: this.activeFilename || "subtitles",
+              count: this.syncEngine.cues.length,
               offsetMs: this.syncEngine.offsetMs || 0
             });
           }
@@ -2643,9 +2643,9 @@
           this.broadcastActiveCue(this.syncEngine.currentCue);
           if (this.hud) {
             this.hud.setSubStatus({
-              source: "file",
-              name: file.name,
-              count: cues.length,
+              source: this.activeFilename ? "file" : "embedded",
+              name: this.activeFilename || "subtitles",
+              count: this.syncEngine.cues.length,
               offsetMs: this.syncEngine.offsetMs || 0
             });
           }
@@ -2776,14 +2776,14 @@
               this.syncEngine.setCues(result.active_subtitle_cues);
               if (result.active_subtitle_filename) this.activeFilename = result.active_subtitle_filename;
               this.broadcastActiveCue(this.syncEngine.currentCue);
-          if (this.hud) {
-            this.hud.setSubStatus({
-              source: "file",
-              name: file.name,
-              count: cues.length,
-              offsetMs: this.syncEngine.offsetMs || 0
-            });
-          }
+              if (this.hud) {
+                this.hud.setSubStatus({
+                  source: "file",
+                  name: result.active_subtitle_filename || "subtitles",
+                  count: result.active_subtitle_cues.length,
+                  offsetMs: this.syncEngine.offsetMs || 0
+                });
+              }
             }
           });
           if (chrome.storage?.onChanged) {
@@ -2801,14 +2801,14 @@
                 this.renderer.ensureMounted();
                 this.renderer.updatePosition();
                 this.broadcastActiveCue(this.syncEngine.currentCue);
-          if (this.hud) {
-            this.hud.setSubStatus({
-              source: "file",
-              name: file.name,
-              count: cues.length,
-              offsetMs: this.syncEngine.offsetMs || 0
-            });
-          }
+                if (this.hud) {
+                  this.hud.setSubStatus({
+                    source: "file",
+                    name: this.activeFilename || "subtitles",
+                    count: newCues.length,
+                    offsetMs: this.syncEngine.offsetMs || 0
+                  });
+                }
               }
             });
           }
@@ -2946,9 +2946,9 @@
             this.broadcastActiveCue(this.syncEngine.currentCue);
           if (this.hud) {
             this.hud.setSubStatus({
-              source: "file",
-              name: file.name,
-              count: cues.length,
+              source: this.activeFilename ? "file" : "embedded",
+              name: this.activeFilename || "subtitles",
+              count: this.syncEngine.cues.length,
               offsetMs: this.syncEngine.offsetMs || 0
             });
           }

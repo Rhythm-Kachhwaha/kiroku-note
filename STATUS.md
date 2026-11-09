@@ -1,5 +1,5 @@
 # Status
-N7: Target outer player in AnimeHud & guard container styles.
-Prevents player container collapse & black screen in browser.
-Directly affected anime-hud-dom tests passing (4/4).
+N8: Fix undefined file and cues references in video-mining.
+Add safe setInterval/clearInterval guards in LinkBridge.
+All extension tests passing (287/287).
 Branch: main.

@@ -71,7 +71,9 @@
       this.host.style.pointerEvents = "none";
       this.host.style.zIndex = "2147483646";
 
-      this.shadow = this.host.attachShadow({ mode: "closed" });
+      this.shadow = (typeof this.host.attachShadow === "function")
+        ? this.host.attachShadow({ mode: "closed" })
+        : this.host;
 
       const style = document.createElement("style");
       style.textContent = `
@@ -447,8 +449,19 @@
       this._attachListeners();
     }
 
+    _getShadowEl(id) {
+      if (!this.shadow) return null;
+      if (typeof this.shadow.getElementById === "function") {
+        return this.shadow.getElementById(id);
+      }
+      if (typeof this.shadow.querySelector === "function") {
+        return this.shadow.querySelector(`#${id}`);
+      }
+      return null;
+    }
+
     _attachListeners() {
-      const getEl = (id) => this.shadow.getElementById(id);
+      const getEl = (id) => this._getShadowEl(id);
 
       // Toggle menu button
       getEl("hud-toggle-btn")?.addEventListener("click", (e) => {
@@ -577,13 +590,16 @@
       // Find appropriate container (player container or parent)
       const selector = ".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video, .player-container, [id*='player']";
       const container = (typeof video.closest === "function" && video.closest(selector)) || video.parentElement || (typeof document !== "undefined" ? document.body : null);
-      if (container && this.host.parentElement !== container) {
+      if (container && this.host && this.host.parentElement !== container) {
         this.originalParent = container;
         const compPos = (typeof getComputedStyle === "function") ? getComputedStyle(container)?.position : container.style?.position;
         if (!compPos || compPos === "static") {
+          if (!container.style) container.style = {};
           container.style.position = "relative";
         }
-        container.appendChild(this.host);
+        if (typeof container.appendChild === "function") {
+          container.appendChild(this.host);
+        }
       }
 
       this.video.addEventListener("play", this._boundPlay);
@@ -658,12 +674,12 @@
 
     openMenu() {
       this.isOpen = true;
-      this.shadow?.getElementById("hud-menu-panel")?.classList.remove("hidden");
+      this._getShadowEl("hud-menu-panel")?.classList.remove("hidden");
     }
 
     closeMenu() {
       this.isOpen = false;
-      this.shadow?.getElementById("hud-menu-panel")?.classList.add("hidden");
+      this._getShadowEl("hud-menu-panel")?.classList.add("hidden");
     }
 
     toggleMenu() {
@@ -676,7 +692,7 @@
 
     showNoSubsChip() {
       if (this._noSubsDismissed || this.subStatus.count > 0) return;
-      const chip = this.shadow?.getElementById("hud-no-subs-chip");
+      const chip = this._getShadowEl("hud-no-subs-chip");
       if (chip) {
         chip.classList.remove("hidden");
         clearTimeout(this._noSubsTimer);
@@ -688,7 +704,7 @@
 
     hideNoSubsChip() {
       clearTimeout(this._noSubsTimer);
-      this.shadow?.getElementById("hud-no-subs-chip")?.classList.add("hidden");
+      this._getShadowEl("hud-no-subs-chip")?.classList.add("hidden");
     }
 
     setSubStatus(status = {}) {
@@ -701,10 +717,10 @@
 
       if (!this.shadow) return;
 
-      const trackNameEl = this.shadow.getElementById("hud-track-name");
-      const badgeEl = this.shadow.getElementById("hud-source-badge");
-      const statsEl = this.shadow.getElementById("hud-track-stats");
-      const offsetValEl = this.shadow.getElementById("hud-offset-val");
+      const trackNameEl = this._getShadowEl("hud-track-name");
+      const badgeEl = this._getShadowEl("hud-source-badge");
+      const statsEl = this._getShadowEl("hud-track-stats");
+      const offsetValEl = this._getShadowEl("hud-offset-val");
 
       if (trackNameEl) trackNameEl.textContent = this.subStatus.name;
       if (badgeEl) badgeEl.textContent = this.subStatus.source;
@@ -724,8 +740,8 @@
     setLinkStatus(status) {
       this.linkStatus = status;
       if (!this.shadow) return;
-      const dot = this.shadow.getElementById("hud-link-dot");
-      const txt = this.shadow.getElementById("hud-link-text");
+      const dot = this._getShadowEl("hud-link-dot");
+      const txt = this._getShadowEl("hud-link-text");
       if (!dot || !txt) return;
 
       dot.className = "hud-link-dot";
@@ -747,8 +763,8 @@
       this.tracks = Array.isArray(tracks) ? tracks : [];
       if (!this.shadow) return;
 
-      const section = this.shadow.getElementById("hud-tracks-section");
-      const list = this.shadow.getElementById("hud-tracks-list");
+      const section = this._getShadowEl("hud-tracks-section");
+      const list = this._getShadowEl("hud-tracks-list");
       if (!section || !list) return;
 
       if (this.tracks.length === 0) {

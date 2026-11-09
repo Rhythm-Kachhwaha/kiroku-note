@@ -143,16 +143,24 @@
     }
 
     _startPolling() {
-      if (this.pollTimer) clearInterval(this.pollTimer);
-      this.pollTimer = setInterval(() => {
-        this._checkVideo();
-      }, 1000);
+      const setInt = (typeof setInterval === "function")
+        ? setInterval
+        : (typeof globalThis !== "undefined" && typeof globalThis.setInterval === "function" ? globalThis.setInterval : null);
+      if (this.pollTimer) this._stopPolling();
+      if (typeof setInt === "function") {
+        this.pollTimer = setInt(() => {
+          this._checkVideo();
+        }, 1000);
+      }
       this._checkVideo();
     }
 
     _stopPolling() {
-      if (this.pollTimer) {
-        clearInterval(this.pollTimer);
+      const clearInt = (typeof clearInterval === "function")
+        ? clearInterval
+        : (typeof globalThis !== "undefined" && typeof globalThis.clearInterval === "function" ? globalThis.clearInterval : null);
+      if (this.pollTimer && typeof clearInt === "function") {
+        clearInt(this.pollTimer);
         this.pollTimer = null;
       }
     }
