@@ -50,6 +50,15 @@
       this._boundFullscreen = this._onFullscreenChange.bind(this);
       this._boundPlay = this._onVideoPlay.bind(this);
 
+      // Listen to runtime messages for Link connection status
+      if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+        chrome.runtime.onMessage.addListener((msg) => {
+          if (msg?.type === "LINK_STATUS" && msg.status) {
+            this.setLinkStatus(msg.status === "ok" || msg.status === "connected" ? "connected" : msg.status);
+          }
+        });
+      }
+
       if (typeof document !== "undefined") {
         this._buildDom();
         if (this.video) {
@@ -434,6 +443,7 @@
           <div style="display: flex; flex-direction: column; gap: 4px;">
             <span class="hud-label">Display Controls</span>
             <div class="hud-toggle-grid">
+              <button id="hud-toggle-visibility" class="hud-mini-btn" style="grid-column: span 2;">Subtitles: Visible</button>
               <button id="hud-toggle-pos" class="hud-mini-btn">Position: Bottom</button>
               <button id="hud-toggle-size" class="hud-mini-btn">Font Size: 24px</button>
               <button id="hud-toggle-blur" class="hud-mini-btn">Blur: On</button>
@@ -542,6 +552,17 @@
       getEl("hud-off-reset")?.addEventListener("click", () => adjustOffset(0));
 
       // Display Toggles
+      getEl("hud-toggle-visibility")?.addEventListener("click", () => {
+        const isCurrentlyVisible = this.coordinator?.renderer?.displayEnabled !== false;
+        const next = !isCurrentlyVisible;
+        if (this.coordinator?.setSubtitlesDisplay) {
+          this.coordinator.setSubtitlesDisplay(next);
+        } else if (this.coordinator?.renderer?.setDisplayEnabled) {
+          this.coordinator.renderer.setDisplayEnabled(next);
+        }
+        getEl("hud-toggle-visibility").textContent = `Subtitles: ${next ? "Visible" : "Hidden"}`;
+      });
+
       getEl("hud-toggle-pos")?.addEventListener("click", () => {
         this.displayPrefs.position = this.displayPrefs.position === "bottom" ? "top" : "bottom";
         getEl("hud-toggle-pos").textContent = `Position: ${this.displayPrefs.position === "bottom" ? "Bottom" : "Top"}`;
@@ -836,6 +857,11 @@
               this.coordinator.renderer.ensureMounted();
               this.coordinator.renderer.updatePosition();
             }
+          }
+          if (this.coordinator?.setSubtitlesDisplay) {
+            this.coordinator.setSubtitlesDisplay(true);
+          } else if (this.coordinator?.renderer?.setDisplayEnabled) {
+            this.coordinator.renderer.setDisplayEnabled(true);
           }
 
           this.setSubStatus({
