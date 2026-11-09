@@ -105,7 +105,7 @@
       this.status = "connecting";
       this.statusReason = "";
       this._updateStatusChip("connecting");
-      this._connect();
+      this._connect().catch(() => {});
     }
 
     _updateStatusChip(status, reason = "") {
@@ -182,13 +182,13 @@
         const httpUrl = this.wsUrl
           .replace(/^ws:\/\//i, "http://")
           .replace(/^wss:\/\//i, "https://")
-          .replace(/\/api\/link\/ws.*$/i, "/api/health");
+          .replace(/\/api\/link\/ws.*$/i, "/api/link/status");
         const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
-        const tid = ctrl ? setTimeout(() => ctrl.abort(), 1200) : null;
+        const tid = ctrl ? setTimeout(() => ctrl.abort(), 2000) : null;
         try {
           const resp = await fetch(httpUrl, { signal: ctrl?.signal, method: "GET" });
           if (tid) clearTimeout(tid);
-          return resp && resp.status === 200;
+          return Boolean(resp && (resp.status === 200 || resp.status === 401 || resp.status === 403));
         } catch (_) {
           if (tid) clearTimeout(tid);
           return false;
