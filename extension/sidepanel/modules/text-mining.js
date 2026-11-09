@@ -53,7 +53,7 @@ async function saveCard() {
     example_translation: (typeof fieldExampleTranslation !== "undefined" && fieldExampleTranslation) ? fieldExampleTranslation.value.trim() : "",
     image: (typeof fieldImage !== "undefined" && fieldImage) ? fieldImage.value.trim() : "",
     audio: (typeof fieldAudio !== "undefined" && fieldAudio) ? fieldAudio.value.trim() : "",
-    image_data: (typeof currentDraftMedia !== "undefined" && currentDraftMedia.imageBase64) || null,
+    image_data: ((typeof currentDraftMedia !== "undefined" && typeof currentDraftMedia.imageBase64 === "string" && currentDraftMedia.imageBase64.startsWith("data:image/") && currentDraftMedia.imageBase64.length > 50) ? currentDraftMedia.imageBase64 : null),
     audio_data: (typeof currentDraftMedia !== "undefined" && currentDraftMedia.audioBase64) || null,
     media_mime_type: (typeof currentDraftMedia !== "undefined" && currentDraftMedia.mimeType) || null,
     tags: (typeof fieldTags !== "undefined" && fieldTags) ? fieldTags.value.trim() : "",

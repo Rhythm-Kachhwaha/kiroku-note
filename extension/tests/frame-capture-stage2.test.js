@@ -5,6 +5,7 @@ const vm = require("node:vm");
 
 // Load ImageCropper
 const ImageCropper = require("../lib/image-cropper.js");
+const { getSidepanelSource } = require("./helpers/source.js");
 
 console.log("Starting Frame Capture — Stage 2: Reliability, Timing & Coordinate Hardening Tests...\n");
 

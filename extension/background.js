@@ -39,6 +39,7 @@ const VIDEO_MINING_SCRIPTS = [
   "content/hud/hud-sentence.js",
   "lib/subtitle-parser.js",
   "lib/title-parser.js",
+  "lib/episode-store.js",
   "lib/subtitle-provider.js",
   "lib/jimaku-provider.js",
   "lib/image-cropper.js",
@@ -272,6 +273,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const text = await res.text();
           return { ok: true, text, isJson: false };
         }
+      })
+      .then(data => sendResponse(data))
+      .catch(err => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+
+  if (message?.type === "JIMAKU_SEARCH") {
+    const query = typeof message.query === "string" ? message.query.trim() : "";
+    if (!query) {
+      sendResponse({ ok: false, error: "MISSING_QUERY", message: "Search query is required" });
+      return true;
+    }
+    const searchUrl = `/api/entries/search?query=${encodeURIComponent(query)}`;
+    if (!isAllowedJimakuUrl(searchUrl)) {
+      sendResponse({ ok: false, error: "INVALID_URL", message: "Search URL not allowed" });
+      return true;
+    }
+    const targetUrl = new URL(searchUrl, "https://jimaku.cc").toString();
+    const headers = {
+      "Accept": "application/json"
+    };
+    if (message.apiKey) {
+      headers["Authorization"] = message.apiKey;
+    }
+    fetch(targetUrl, { method: "GET", headers })
+      .then(async (res) => {
+        if (!res.ok) {
+          const status = res.status;
+          if (status === 401) throw new Error("UNAUTHORIZED: Invalid Jimaku API key");
+          if (status === 429) throw new Error("RATE_LIMITED: Jimaku API rate limit reached");
+          throw new Error(`HTTP ${status}: ${res.statusText}`);
+        }
+        const json = await res.json();
+        return { ok: true, entries: Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []) };
       })
       .then(data => sendResponse(data))
       .catch(err => sendResponse({ ok: false, error: err.message }));

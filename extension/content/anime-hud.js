@@ -534,15 +534,21 @@
       getEl("hud-btn-jimaku")?.addEventListener("click", () => {
         if (this.coordinator?.triggerJimakuSearch) {
           this.coordinator.triggerJimakuSearch();
+        } else {
+          this.triggerJimakuSearch();
         }
       });
 
       // Offset Controls
+      let offsetDebounceTimer = null;
       const adjustOffset = (deltaMs) => {
         let current = this.subStatus.offsetMs || 0;
         let next = deltaMs === 0 ? 0 : current + deltaMs;
         this.subStatus.offsetMs = next;
-        getEl("hud-offset-val").textContent = `${next >= 0 ? "+" : ""}${next}ms`;
+        const offsetValEl = getEl("hud-offset-val");
+        if (offsetValEl) {
+          offsetValEl.textContent = `${next >= 0 ? "+" : ""}${next}ms`;
+        }
 
         if (this.coordinator?.syncEngine?.setOffsetMs) {
           this.coordinator.syncEngine.setOffsetMs(next);
@@ -550,6 +556,13 @@
         if (this.coordinator?.persistOffset) {
           this.coordinator.persistOffset(next);
         }
+
+        // Debounced persistent save to EpisodeStore
+        clearTimeout(offsetDebounceTimer);
+        offsetDebounceTimer = setTimeout(() => {
+          this.saveEpisodeState({ offsetMs: next });
+        }, 300);
+
         this._notifySubStatus();
       };
 
@@ -679,6 +692,107 @@
       if (this.subStatus.count === 0 && !this.video.paused) {
         this.showNoSubsChip();
       }
+
+      // Restore track + offset from episode-store on mount
+      this.restoreEpisodeState();
+    }
+
+    async getEpisodeKey() {
+      const url = typeof location !== "undefined" ? location.href : "";
+      const title = typeof document !== "undefined" ? document.title : "";
+      const parser = typeof TitleParser !== "undefined" ? TitleParser : (globalThis.TitleParser || null);
+      if (parser && typeof parser.parseEpisodeKey === "function") {
+        return parser.parseEpisodeKey(url, title);
+      }
+      return "generic/unknown/unknown";
+    }
+
+    async restoreEpisodeState() {
+      try {
+        const episodeKey = await this.getEpisodeKey();
+        const store = typeof defaultEpisodeStore !== "undefined"
+          ? defaultEpisodeStore
+          : (typeof EpisodeStore !== "undefined" ? new EpisodeStore() : (globalThis.defaultEpisodeStore || null));
+        if (!store) return;
+
+        const ep = await store.getEpisode(episodeKey);
+        if (!ep) return;
+
+        if (typeof ep.offsetMs === "number" && !isNaN(ep.offsetMs)) {
+          this.subStatus.offsetMs = ep.offsetMs;
+          const offsetValEl = this._getShadowEl("hud-offset-val");
+          if (offsetValEl) {
+            offsetValEl.textContent = `${ep.offsetMs >= 0 ? "+" : ""}${ep.offsetMs}ms`;
+          }
+          if (this.coordinator?.syncEngine?.setOffsetMs) {
+            this.coordinator.syncEngine.setOffsetMs(ep.offsetMs);
+          }
+          if (this.coordinator?.persistOffset) {
+            this.coordinator.persistOffset(ep.offsetMs);
+          }
+        }
+
+        if (ep.sourceId && this.tracks && this.tracks.length > 0) {
+          const matchTrack = this.tracks.find(t => t.id === ep.sourceId || t.name === ep.sourceId);
+          if (matchTrack && this.coordinator?.selectTrack) {
+            this.coordinator.selectTrack(matchTrack);
+          }
+        }
+      } catch (_) {}
+    }
+
+    async saveEpisodeState(partial = {}) {
+      try {
+        const episodeKey = await this.getEpisodeKey();
+        const store = typeof defaultEpisodeStore !== "undefined"
+          ? defaultEpisodeStore
+          : (typeof EpisodeStore !== "undefined" ? new EpisodeStore() : (globalThis.defaultEpisodeStore || null));
+        if (!store) return;
+        await store.setEpisode(episodeKey, partial);
+      } catch (_) {}
+    }
+
+    async triggerJimakuSearch(customQuery = "") {
+      try {
+        let query = customQuery;
+        if (!query) {
+          const rawTitle = typeof document !== "undefined" ? document.title : "";
+          const url = typeof location !== "undefined" ? location.href : "";
+          const titleParser = typeof TitleParser !== "undefined" ? TitleParser : (globalThis.TitleParser || null);
+          if (titleParser?.cleanAnimeTitle) {
+            const parsed = titleParser.cleanAnimeTitle(rawTitle, url);
+            query = parsed.title || rawTitle;
+          } else {
+            query = rawTitle;
+          }
+        }
+        if (!query) return;
+
+        let apiKey = "";
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          const stored = await chrome.storage.local.get("jimaku_api_key");
+          apiKey = stored?.jimaku_api_key || "";
+        }
+
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          const res = await chrome.runtime.sendMessage({
+            type: "JIMAKU_SEARCH",
+            query,
+            apiKey
+          });
+          if (res?.ok && Array.isArray(res.entries)) {
+            const mappedTracks = res.entries.map((entry, idx) => ({
+              id: `jimaku-${entry.id || idx}`,
+              name: entry.name || entry.title || `Jimaku Track ${idx + 1}`,
+              source: "jimaku",
+              entry
+            }));
+            this.setTracks(mappedTracks);
+            const section = this._getShadowEl("hud-tracks-section");
+            if (section) section.style.display = "flex";
+          }
+        }
+      } catch (_) {}
     }
 
     detach() {

@@ -89,9 +89,9 @@
     }
 
     _wireEvents() {
-      const mineBtn = this.toolbarEl.querySelector(".btn-mine-sentence");
-      const grammarBtn = this.toolbarEl.querySelector(".btn-grammar");
-      const transcriptBtn = this.toolbarEl.querySelector(".btn-transcript");
+      const mineBtn = this.toolbarEl?.querySelector ? this.toolbarEl.querySelector(".btn-mine-sentence") : null;
+      const grammarBtn = this.toolbarEl?.querySelector ? this.toolbarEl.querySelector(".btn-grammar") : null;
+      const transcriptBtn = this.toolbarEl?.querySelector ? this.toolbarEl.querySelector(".btn-transcript") : null;
 
       if (mineBtn) {
         mineBtn.addEventListener("click", () => this.mineSentence());

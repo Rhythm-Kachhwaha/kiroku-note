@@ -1,10 +1,9 @@
 /**
- * Kiroku Note - Extension Clip Capture Handler (Slice 41)
+ * Kiroku Note - Extension Clip Capture Handler (G4 update)
  *
- * Handles `cmd.clip` command from desktop Link client.
- * Captures video snapshot (image) and audio range from the active HTMLVideoElement
- * or active tab using existing capture utilities.
- * Returns `clip.result` envelope.
+ * Captures video snapshot (image) and audio range from HTMLVideoElement / active tab.
+ * Never reports success without non-empty dataUrl.
+ * captureAudio returns { ok: false, reason: "NOT_SUPPORTED" }.
  */
 
 (function (root, factory) {
@@ -30,9 +29,9 @@
     }
 
     /**
-     * Process `cmd.clip` payload and extract requested media.
+     * Process clip payload and extract requested media.
      * @param {Object} payload - { reqId, s, e, want: ['image', 'audio'] }
-     * @returns {Promise<Object>} - { reqId, image_b64, audio_b64, ok }
+     * @returns {Promise<Object>} - { reqId, image_b64, audio_b64, ok, error }
      */
     async handleClipCommand(payload = {}) {
       const reqId = payload.reqId || `clip-${Date.now()}`;
@@ -42,61 +41,95 @@
 
       let image_b64 = null;
       let audio_b64 = null;
+      let captureError = null;
 
       // 1. Capture Image if requested
       if (want.includes("image")) {
-        try {
-          image_b64 = await this.captureFrame(s);
-        } catch (err) {
-          console.debug("[LinkClip] Frame capture fallback failed:", err);
+        const frameRes = await this.captureFrame(s);
+        if (frameRes.ok && frameRes.dataUrl) {
+          image_b64 = frameRes.dataUrl;
+        } else {
+          captureError = frameRes.reason || "FRAME_CAPTURE_FAILED";
         }
       }
 
       // 2. Capture Audio if requested
       if (want.includes("audio")) {
-        try {
-          audio_b64 = await this.captureAudio(s, e);
-        } catch (err) {
-          console.debug("[LinkClip] Audio capture fallback failed:", err);
+        const audioRes = await this.captureAudio(s, e);
+        if (audioRes.ok && audioRes.dataUrl) {
+          audio_b64 = audioRes.dataUrl;
         }
       }
+
+      const isOk = want.includes("image") ? Boolean(image_b64) : true;
 
       return {
         reqId,
         image_b64: image_b64 || null,
         audio_b64: audio_b64 || null,
-        ok: true
+        ok: isOk,
+        ...(captureError && !isOk ? { error: captureError } : {})
       };
     }
 
     /**
      * Capture frame snapshot from HTMLVideoElement via canvas.
+     * Guaranteed contract: { ok: boolean, dataUrl?: string, reason?: string }
      */
     async captureFrame(timeSeconds) {
       const video = this.getVideoElement();
       if (!video) {
         if (this.captureVisibleTab) {
-          return await this.captureVisibleTab();
+          try {
+            const dataUrl = await this.captureVisibleTab();
+            if (dataUrl && typeof dataUrl === "string" && dataUrl.startsWith("data:image/")) {
+              return { ok: true, dataUrl };
+            }
+            return { ok: false, reason: "EMPTY_CAPTURE_RESULT" };
+          } catch (err) {
+            return { ok: false, reason: err?.message || "CAPTURE_VISIBLE_TAB_FAILED" };
+          }
         }
-        return null;
+        return { ok: false, reason: "NO_VIDEO_ELEMENT" };
       }
 
-      if (typeof document === "undefined") return null;
+      if (typeof document === "undefined") {
+        return { ok: false, reason: "NO_DOCUMENT_ENVIRONMENT" };
+      }
 
       try {
         const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 360;
+        const width = video.videoWidth || 640;
+        const height = video.videoHeight || 360;
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext("2d");
-        if (!ctx) return null;
+        if (!ctx) {
+          return { ok: false, reason: "CANVAS_CONTEXT_UNAVAILABLE" };
+        }
 
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        return canvas.toDataURL("image/jpeg", 0.85);
+        ctx.drawImage(video, 0, 0, width, height);
+
+        // Security check for tainted canvas
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+        if (dataUrl && typeof dataUrl === "string" && dataUrl.length > 30) {
+          return { ok: true, dataUrl };
+        }
+        return { ok: false, reason: "EMPTY_DATA_URL" };
       } catch (err) {
         // Fallback if canvas is tainted by cross-origin video or DRM
         if (this.captureVisibleTab) {
-          return await this.captureVisibleTab();
+          try {
+            const dataUrl = await this.captureVisibleTab();
+            if (dataUrl && typeof dataUrl === "string" && dataUrl.startsWith("data:image/")) {
+              return { ok: true, dataUrl };
+            }
+            return { ok: false, reason: "EMPTY_CAPTURE_RESULT" };
+          } catch (fallbackErr) {
+            return { ok: false, reason: fallbackErr?.message || "CANVAS_TAINTED_AND_FALLBACK_FAILED" };
+          }
         }
+
         if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
           try {
             const resp = await new Promise((resolve) => {
@@ -106,21 +139,28 @@
               );
             });
             if (resp && resp.ok && resp.dataUrl) {
-              return resp.dataUrl;
+              return { ok: true, dataUrl: resp.dataUrl };
             }
-          } catch (_) {}
+            return { ok: false, reason: resp?.error || "BACKGROUND_CAPTURE_FAILED" };
+          } catch (bgErr) {
+            return { ok: false, reason: bgErr?.message || "BACKGROUND_MESSAGE_FAILED" };
+          }
         }
-        return null;
+
+        return { ok: false, reason: err?.message || "CANVAS_TAINTED" };
       }
     }
 
     /**
      * Capture audio segment between start and end timestamps.
+     * Guaranteed contract: { ok: false, reason: string }
      */
     async captureAudio(startSec, endSec) {
-      // In browser extension context, audio is sliced via background capture or WebAudio
-      // If direct audio slicing unavailable, returns null (graceful media degradation)
-      return null;
+      // Audio capture is explicitly not supported in this release
+      return {
+        ok: false,
+        reason: "AUDIO_CAPTURE_NOT_SUPPORTED"
+      };
     }
 
     /**
@@ -138,7 +178,8 @@
         payload: {
           reqId: resultData.reqId,
           image_b64: resultData.image_b64 || null,
-          audio_b64: resultData.audio_b64 || null
+          audio_b64: resultData.audio_b64 || null,
+          ok: Boolean(resultData.ok)
         }
       };
     }

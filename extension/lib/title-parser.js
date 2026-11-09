@@ -103,10 +103,146 @@
     return `kiroku.sub_choice.${cleanSite}.${hashStr}`;
   }
 
+  function slugify(text) {
+    if (!text || typeof text !== "string") return "";
+    return text
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "") // strip diacritics
+      .replace(/['"’‘`]/g, "") // strip apostrophes and quotes
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  /**
+   * Episode identity contract (Section B):
+   * Format: {providerSlug}/{seriesId}/{episodeId}
+   * providerSlug: crunchyroll | netflix | youtube | hidive | amazon | generic
+   */
+  function parseEpisodeKey(url = "", titleText = "") {
+    const rawUrl = typeof url === "string" ? url.trim() : "";
+    const rawTitle = typeof titleText === "string" ? titleText.trim() : "";
+
+    let providerSlug = "generic";
+    let seriesId = "";
+    let episodeId = "";
+
+    let parsedUrl = null;
+    try {
+      if (rawUrl) {
+        parsedUrl = new URL(rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`);
+      }
+    } catch (_) {
+      parsedUrl = null;
+    }
+
+    const host = (parsedUrl?.hostname || "").toLowerCase();
+    const pathname = parsedUrl?.pathname || "";
+    const searchParams = parsedUrl?.searchParams;
+
+    // 1. Identify provider
+    if (host.includes("crunchyroll.com")) {
+      providerSlug = "crunchyroll";
+    } else if (host.includes("netflix.com")) {
+      providerSlug = "netflix";
+    } else if (host.includes("youtube.com") || host.includes("youtu.be")) {
+      providerSlug = "youtube";
+    } else if (host.includes("hidive.com")) {
+      providerSlug = "hidive";
+    } else if (host.includes("amazon.") || host.includes("primevideo.com")) {
+      providerSlug = "amazon";
+    } else {
+      providerSlug = "generic";
+    }
+
+    // 2. Provider-specific extraction
+    if (providerSlug === "crunchyroll") {
+      // crunchyroll.com/watch/{episodeId}/{title-slug} or /series/{seriesId}/...
+      const watchMatch = pathname.match(/\/watch\/([a-zA-Z0-9]+)(?:\/([^\/?#]+))?/i);
+      const seriesMatch = pathname.match(/\/series\/([a-zA-Z0-9]+)/i);
+      if (watchMatch) {
+        episodeId = watchMatch[1];
+        if (watchMatch[2]) {
+          seriesId = slugify(watchMatch[2]);
+        }
+      } else if (seriesMatch) {
+        seriesId = seriesMatch[1];
+      }
+    } else if (providerSlug === "netflix") {
+      // netflix.com/watch/{episodeId}?trackId=...
+      const netflixMatch = pathname.match(/\/watch\/(\d+)/i);
+      if (netflixMatch) {
+        episodeId = netflixMatch[1];
+      }
+      const titleMatch = pathname.match(/\/title\/(\d+)/i);
+      if (titleMatch) {
+        seriesId = titleMatch[1];
+      }
+    } else if (providerSlug === "youtube") {
+      // youtube.com/watch?v={id} or youtu.be/{id}
+      let v = searchParams?.get("v");
+      if (!v && host.includes("youtu.be")) {
+        v = pathname.replace(/^\/+/, "").split("/")[0];
+      }
+      if (v) {
+        seriesId = v;
+        episodeId = "unknown";
+      }
+    } else if (providerSlug === "hidive") {
+      // hidive.com/stream/{series-name}/s{season}e{episode} or /stream/{series-id}/{ep-id}
+      const streamMatch = pathname.match(/\/stream\/([^\/?#]+)\/([^\/?#]+)/i);
+      if (streamMatch) {
+        seriesId = slugify(streamMatch[1]);
+        episodeId = slugify(streamMatch[2]);
+      }
+    } else if (providerSlug === "amazon") {
+      // primevideo.com/detail/{titleId} or /gp/video/detail/{titleId}
+      const amzMatch = pathname.match(/\/(?:gp\/video\/detail|detail)\/([a-zA-Z0-9]+)/i);
+      if (amzMatch) {
+        seriesId = amzMatch[1];
+      }
+    }
+
+    // Fallbacks using cleanAnimeTitle
+    const cleaned = cleanAnimeTitle(rawTitle, rawUrl);
+    if (!seriesId && cleaned.title) {
+      seriesId = slugify(cleaned.title);
+    }
+
+    if (!episodeId) {
+      if (typeof cleaned.episode === "number" && !isNaN(cleaned.episode)) {
+        episodeId = `ep${cleaned.episode}`;
+      } else {
+        // Try to match s1e3 or ep12 in URL if any
+        const epUrlMatch = pathname.match(/(?:s(\d+)e(\d+)|(?:ep|episode)[-_]?(\d+))/i);
+        if (epUrlMatch) {
+          if (epUrlMatch[1] && epUrlMatch[2]) {
+            episodeId = `s${parseInt(epUrlMatch[1], 10)}e${parseInt(epUrlMatch[2], 10)}`;
+          } else if (epUrlMatch[3]) {
+            episodeId = `ep${parseInt(epUrlMatch[3], 10)}`;
+          }
+        }
+      }
+    }
+
+    // Final fallback checks per contract
+    if (!seriesId) seriesId = "unknown";
+    if (!episodeId) episodeId = "unknown";
+
+    if (seriesId === "unknown" && episodeId === "unknown" && providerSlug === "generic") {
+      console.warn?.("[TitleParser] Could not compute episodeKey, falling back to generic/unknown/unknown");
+      return "generic/unknown/unknown";
+    }
+
+    return `${providerSlug}/${seriesId}/${episodeId}`;
+  }
+
   const TitleParser = {
     cleanAnimeTitle,
     parseAnimeTitleAndEpisode: cleanAnimeTitle,
-    hashTitleKey
+    hashTitleKey,
+    parseEpisodeKey,
+    slugify
   };
 
   if (typeof module !== "undefined" && module.exports) {
