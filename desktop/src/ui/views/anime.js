@@ -1199,15 +1199,7 @@ export class AnimeView {
       chip.classList.remove('is-connected', 'is-connecting', 'is-disconnected');
       if (summary.status === 'connected') {
         chip.classList.add('is-connected');
-        let hostname = summary.activeSession?.site;
-        if (!hostname && this.linkClient?.wsUrl) {
-          try {
-            hostname = new URL(this.linkClient.wsUrl).host;
-          } catch (_) {
-            hostname = '127.0.0.1';
-          }
-        }
-        if (!hostname) hostname = 'Companion';
+        let hostname = summary.activeSession?.site || 'Companion';
         chip.innerHTML = `${dotSvg}<span class="anime-connection-text">Connected to ${escapeHtml(hostname)}</span>`;
       } else if (summary.status === 'connecting') {
         chip.classList.add('is-connecting');
@@ -1568,9 +1560,43 @@ export class AnimeView {
     if (!listEl || !this.apiClient || this._fetchingHistory) return;
     this._fetchingHistory = true;
     try {
-      const groups = await this.apiClient.request('/api/link/series');
+      const [groups, sessions] = await Promise.all([
+        this.apiClient.request('/api/link/series').catch(() => []),
+        this.apiClient.request('/api/link/sessions?limit=20').catch(() => [])
+      ]);
+
+      let html = '';
+
+      // Continue-Watching Card / Section
+      const allEpisodes = [];
+      if (Array.isArray(groups)) {
+        for (const g of groups) {
+          for (const ep of (g.episodes || [])) {
+            allEpisodes.push({ ...ep, series: g.series || 'Series' });
+          }
+        }
+      }
+
+      const inProgress = allEpisodes.filter(ep => (ep.last_position_ms || 0) > 0);
+      if (inProgress.length > 0) {
+        html += `<div class="anime-status-row" style="font-weight: 700; color: var(--heat-marker); border: none; padding-top: 0.5rem;">Continue Watching</div>`;
+        for (const ep of inProgress.slice(0, 5)) {
+          const epTitle = escapeHtml(ep.title || 'Episode');
+          const posStr = this._formatTime(ep.last_position_ms / 1000);
+          html += `
+            <div class="anime-history-item anime-continue-watching-item" data-hash="${escapeHtml(ep.hash)}" data-pos="${ep.last_position_ms}">
+              <span class="anime-history-item-title">${epTitle}</span>
+              <div class="anime-history-item-meta">
+                <span class="anime-history-known">${ep.known_pct || 0}% known</span>
+                <span>Resume at ${posStr}</span>
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      // Series & Episodes Library
       if (Array.isArray(groups) && groups.length > 0) {
-        let html = '';
         for (const group of groups) {
           const seriesTitle = escapeHtml(group.series || 'Series');
           html += `<div class="anime-status-row" style="font-weight: 700; color: var(--industrial-aqua); border: none; padding-top: 0.5rem;">${seriesTitle}</div>`;
@@ -1589,7 +1615,32 @@ export class AnimeView {
             `;
           }
         }
+      }
+
+      // Recent Immersion Sessions
+      if (Array.isArray(sessions) && sessions.length > 0) {
+        html += `<div class="anime-status-row" style="font-weight: 700; color: var(--rust-signal); border: none; padding-top: 0.5rem;">Recent Immersion Sessions</div>`;
+        for (const sess of sessions.slice(0, 10)) {
+          const sessTitle = escapeHtml(sess.title || sess.series || 'Immersion Session');
+          const watchMin = Math.round((sess.watch_seconds || 0) / 60 * 10) / 10;
+          const lines = sess.lines_seen || 0;
+          const mined = sess.words_mined || 0;
+          html += `
+            <div class="anime-history-item anime-session-item" data-session-id="${escapeHtml(String(sess.id || ''))}">
+              <span class="anime-history-item-title">${sessTitle}</span>
+              <div class="anime-history-item-meta">
+                <span>${watchMin} min (${lines} lines)</span>
+                <span>${mined} mined</span>
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      if (html) {
         listEl.innerHTML = html;
+      } else {
+        listEl.innerHTML = '<span class="text-xs text-muted" style="text-align: center; padding: 1rem 0;">No watch history yet</span>';
       }
     } catch (err) {
       console.debug('[AnimeView] fetchHistory error:', err);

@@ -1,5 +1,5 @@
 # Status
-G5 sidepanel anime workspace + session logging complete on animeoverhaul.
-Added virtualized transcript, episode map, and resilient session logger.
-Additive series and episode_key schema migrated for session and episode tables.
-All 11 extension tests and 12 backend link tests passing.
+G6 desktop anime library + immersion dashboard complete on animeoverhaul.
+Added continue-watching cards, series groupings, and immersion session cards.
+Eliminated leftover WebSocket/pairing artifacts from desktop anime/watch views.
+Added desktop/tests/anime_library.test.js; all 44 targeted desktop tests passing.

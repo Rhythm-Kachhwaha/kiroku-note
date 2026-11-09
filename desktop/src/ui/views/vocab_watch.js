@@ -169,7 +169,7 @@ export class VocabWatchView {
           <div class="watch-state-card tactile-card">
             <h2 class="text-xl font-bold font-display text-warm-paper mb-1">Connected — Waiting for Video</h2>
             <p class="text-secondary font-sans mb-2">Connected to browser extension, but no video tab is currently active.</p>
-            <p class="text-xs text-muted font-sans">Start playing a video with subtitles in your paired browser tab.</p>
+            <p class="text-xs text-muted font-sans">Start playing a video with subtitles in your browser tab.</p>
           </div>
         </div>
       `;
