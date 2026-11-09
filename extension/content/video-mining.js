@@ -652,12 +652,23 @@
         const clientX = typeof e?.clientX === "number" ? e.clientX : 0;
         const clientY = typeof e?.clientY === "number" ? e.clientY : 0;
         let word = null;
+        let tokenObj = null;
         if (e?.target && typeof e.target.getAttribute === "function" && e.target.getAttribute("data-surface")) {
           word = e.target.getAttribute("data-surface");
+          tokenObj = {
+            surface: word,
+            lemma: e.target.getAttribute("data-lemma") || word,
+            reading: e.target.getAttribute("data-reading") || "",
+            status: e.target.getAttribute("data-status") || "unstyled",
+            jlpt_level: e.target.getAttribute("data-jlpt-level") || ""
+          };
         } else if (extractWordFn) {
           word = extractWordFn(this.subtitleEl, clientX, clientY);
         } else if (e?.target && e.target !== this.subtitleEl && e.target !== this.boxEl && e.target.textContent) {
           word = e.target.textContent.trim();
+        }
+        if (tokenObj && typeof window !== "undefined" && window.__kirokuVideoMiningPoc?.hudPopup) {
+          window.__kirokuVideoMiningPoc.hudPopup.showForToken(tokenObj, e.target, this.currentCue);
         }
         if (word) {
           this.activeHighlightTerm = word;
@@ -2250,6 +2261,9 @@
     }
 
     broadcastActiveCue(cue) {
+      if (this.hudSentence && typeof this.hudSentence.setCue === "function") {
+        this.hudSentence.setCue(cue);
+      }
       try {
         if (cue && cue.text) {
           const isSameAsLatest = this.recentCues.length > 0 &&
@@ -3007,6 +3021,15 @@
           console.log("[AnkiMiner Video POC] Native TextTracks report:", trackReport);
         } catch {}
         this.renderer.mount(video);
+        if (typeof getHudHostForVideo === "function") {
+          this.hudHost = getHudHostForVideo(video);
+          if (this.hudHost && !this.hudPopup && typeof HudPopup === "function") {
+            this.hudPopup = new HudPopup(this.hudHost);
+          }
+          if (this.hudHost && !this.hudSentence && typeof HudSentence === "function") {
+            this.hudSentence = new HudSentence(this.hudHost, typeof defaultHudState !== "undefined" ? defaultHudState : null);
+          }
+        }
         if (this.hud) {
           this.hud.attach(video);
         }
@@ -3094,6 +3117,7 @@
 
   window.__KIROKU_VIDEO_POC__ = pocExport;
   window.__ANKIMINER_VIDEO_POC__ = pocExport;
+  window.__kirokuVideoMiningPoc = pocInstance;
   window.__kirokuVideo = {
     getVideo: () => pocInstance.activeVideo || null,
     getInstance: () => pocInstance

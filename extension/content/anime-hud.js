@@ -42,13 +42,18 @@
         fontSize: 24,
         position: "bottom", // 'bottom' | 'top'
         blur: true,
-        furigana: true
+        furigana: true,
+        showJa: true,
+        showNative: false,
+        learningMode: false
       };
 
       this._noSubsDismissed = false;
       this._noSubsTimer = null;
       this._boundFullscreen = this._onFullscreenChange.bind(this);
       this._boundPlay = this._onVideoPlay.bind(this);
+
+      this._loadStoredPrefs();
 
       // Listen to runtime messages for Link connection status
       if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
@@ -448,6 +453,9 @@
               <button id="hud-toggle-size" class="hud-mini-btn">Font Size: 24px</button>
               <button id="hud-toggle-blur" class="hud-mini-btn">Blur: On</button>
               <button id="hud-toggle-furigana" class="hud-mini-btn">Furigana: On</button>
+              <button id="hud-toggle-native" class="hud-mini-btn">Native Subs: Off</button>
+              <button id="hud-toggle-learning" class="hud-mini-btn">Learning Mode: Off</button>
+              <button id="hud-btn-open-panel" class="hud-mini-btn" style="grid-column: span 2; background: rgba(212,136,79,0.2); color: #d4884f;">Open Kiroku Panel</button>
             </div>
           </div>
         </div>
@@ -595,6 +603,27 @@
       getEl("hud-toggle-furigana")?.addEventListener("click", () => {
         this.displayPrefs.furigana = !this.displayPrefs.furigana;
         getEl("hud-toggle-furigana").textContent = `Furigana: ${this.displayPrefs.furigana ? "On" : "Off"}`;
+        this._saveStoredPrefs();
+      });
+
+      getEl("hud-toggle-native")?.addEventListener("click", () => {
+        this.displayPrefs.showNative = !this.displayPrefs.showNative;
+        getEl("hud-toggle-native").textContent = `Native Subs: ${this.displayPrefs.showNative ? "On" : "Off"}`;
+        this._saveStoredPrefs();
+      });
+
+      getEl("hud-toggle-learning")?.addEventListener("click", () => {
+        this.displayPrefs.learningMode = !this.displayPrefs.learningMode;
+        getEl("hud-toggle-learning").textContent = `Learning Mode: ${this.displayPrefs.learningMode ? "On" : "Off"}`;
+        this._saveStoredPrefs();
+      });
+
+      getEl("hud-btn-open-panel")?.addEventListener("click", () => {
+        try {
+          if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+            chrome.runtime.sendMessage({ type: "SP_OPEN_GRAMMAR" }).catch(() => {});
+          }
+        } catch (_) {}
       });
 
       // Fullscreen changes
@@ -881,6 +910,42 @@
         }
       } catch (err) {
         console.error("[AnimeHud] Error loading file:", err);
+      }
+    }
+
+    async _loadStoredPrefs() {
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          const res = await chrome.storage.local.get("kiroku.hud.prefs");
+          if (res && res["kiroku.hud.prefs"]) {
+            this.displayPrefs = { ...this.displayPrefs, ...res["kiroku.hud.prefs"] };
+            this._applyStoredPrefs();
+          }
+        }
+      } catch (_) {}
+    }
+
+    async _saveStoredPrefs() {
+      try {
+        if (typeof chrome !== "undefined" && chrome.storage?.local) {
+          await chrome.storage.local.set({ "kiroku.hud.prefs": this.displayPrefs });
+        }
+      } catch (_) {}
+    }
+
+    _applyStoredPrefs() {
+      const getEl = (id) => this._getShadowEl(id);
+      if (this.displayPrefs.fontSize) {
+        const el = getEl("hud-toggle-size");
+        if (el) el.textContent = `Font Size: ${this.displayPrefs.fontSize}px`;
+      }
+      if (this.displayPrefs.furigana !== undefined) {
+        const el = getEl("hud-toggle-furigana");
+        if (el) el.textContent = `Furigana: ${this.displayPrefs.furigana ? "On" : "Off"}`;
+      }
+      if (this.displayPrefs.blur !== undefined) {
+        const el = getEl("hud-toggle-blur");
+        if (el) el.textContent = `Blur: ${this.displayPrefs.blur ? "On" : "Off"}`;
       }
     }
 

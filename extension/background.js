@@ -28,6 +28,15 @@ async function ensureOcrContentScript(tabId) {
 }
 
 const VIDEO_MINING_SCRIPTS = [
+  "lib/kiroku-api.js",
+  "content/player/player-adapter.js",
+  "content/player/html5-adapter.js",
+  "content/player/youtube-player.js",
+  "content/player/netflix-player.js",
+  "content/hud/hud-state.js",
+  "content/hud/hud-host.js",
+  "content/hud/hud-popup.js",
+  "content/hud/hud-sentence.js",
   "lib/subtitle-parser.js",
   "lib/title-parser.js",
   "lib/subtitle-provider.js",
@@ -397,6 +406,82 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       reason: message.reason || "user"
     }).catch(() => {});
     sendResponse({ ok: true });
+    return true;
+  }
+  if (message?.type === "HUD_LOOKUP") {
+    (async () => {
+      try {
+        const text = String(message.text || "").trim();
+        if (!text) {
+          sendResponse({ ok: false, error: "Empty lookup term" });
+          return;
+        }
+        const resp = await fetch("http://127.0.0.1:21828/api/capture", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, deck_name: "Default", auto_save: false })
+        });
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          sendResponse({ ok: false, error: body.detail || `Lookup failed (${resp.status})` });
+          return;
+        }
+        const data = await resp.json();
+        sendResponse({ ok: true, data });
+      } catch (err) {
+        sendResponse({ ok: false, error: "Kiroku backend offline" });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "HUD_MINE") {
+    (async () => {
+      try {
+        const card = message.card || {};
+        if (!card.expression) {
+          sendResponse({ ok: false, error: "Expression is required" });
+          return;
+        }
+        const payload = {
+          expression: card.expression,
+          reading: card.reading || "",
+          meaning: card.meaning || "",
+          deck_name: card.deck_name || "Default",
+          model_name: card.model_name || "",
+          example_sentence: card.example_sentence || "",
+          source_type: card.source_type || "video"
+        };
+        const resp = await fetch("http://127.0.0.1:21828/api/cards/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          sendResponse({ ok: false, error: body.detail || `Mine failed (${resp.status})` });
+          return;
+        }
+        const data = await resp.json();
+        sendResponse({ ok: true, data });
+      } catch (err) {
+        sendResponse({ ok: false, error: "Kiroku backend offline" });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "SP_OPEN_GRAMMAR" || message?.type === "SP_SCROLL_TRANSCRIPT") {
+    (async () => {
+      try {
+        const windowId = sender?.tab?.windowId;
+        if (windowId && chrome.sidePanel?.open) {
+          await chrome.sidePanel.open({ windowId }).catch(() => {});
+        }
+        chrome.runtime.sendMessage(message).catch(() => {});
+        sendResponse({ ok: true });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message });
+      }
+    })();
     return true;
   }
 });
