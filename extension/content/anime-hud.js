@@ -575,10 +575,14 @@
       this.video = video;
 
       // Find appropriate container (player container or parent)
-      const container = video.parentElement || document.body;
-      if (this.host.parentElement !== container) {
+      const selector = ".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video, .player-container, [id*='player']";
+      const container = (typeof video.closest === "function" && video.closest(selector)) || video.parentElement || (typeof document !== "undefined" ? document.body : null);
+      if (container && this.host.parentElement !== container) {
         this.originalParent = container;
-        container.style.position = container.style.position || "relative";
+        const compPos = (typeof getComputedStyle === "function") ? getComputedStyle(container)?.position : container.style?.position;
+        if (!compPos || compPos === "static") {
+          container.style.position = "relative";
+        }
         container.appendChild(this.host);
       }
 
@@ -627,9 +631,12 @@
       const fsEl = shadowFs || docFs;
 
       if (fsEl) {
-        // If the video itself is the fullscreen element, reparent to its container
+        // If the video itself is the fullscreen element, reparent to player container or parent
         // because HTML5 <video> elements cannot visibly render child DOM nodes
-        const targetParent = (fsEl.tagName === "VIDEO" && fsEl.parentElement) ? fsEl.parentElement : fsEl;
+        const selector = ".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video, .player-container, [id*='player']";
+        const targetParent = (fsEl.tagName === "VIDEO")
+          ? ((typeof fsEl.closest === "function" && fsEl.closest(selector)) || fsEl.parentElement || fsEl)
+          : fsEl;
         if (this.host.parentElement !== targetParent) {
           if (!this.originalParent) {
             this.originalParent = this.host.parentElement;
@@ -639,8 +646,12 @@
       } else {
         if (this.originalParent && this.host.parentElement !== this.originalParent) {
           this.originalParent.appendChild(this.host);
-        } else if (this.video?.parentElement && this.host.parentElement !== this.video.parentElement) {
-          this.video.parentElement.appendChild(this.host);
+        } else if (this.video) {
+          const selector = ".jwplayer, #player, .video-js, [class*='player'], .art-video-player, #megacloud-player, .html5-video-player, .watch-video, .player-container, [id*='player']";
+          const fallbackParent = (typeof this.video.closest === "function" && this.video.closest(selector)) || this.video.parentElement;
+          if (fallbackParent && this.host.parentElement !== fallbackParent) {
+            fallbackParent.appendChild(this.host);
+          }
         }
       }
     }

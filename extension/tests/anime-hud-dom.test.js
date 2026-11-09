@@ -224,3 +224,28 @@ test("AnimeHud reparents into fullscreenElement on fullscreenchange", () => {
   document.dispatchEvent({ type: "fullscreenchange" });
   assert.equal(hud.host.parentElement, container, "Host should reparent to video parent instead of inside video element");
 });
+
+test("AnimeHud targets playerWrapper and preserves existing container position", () => {
+  const { document, MockElement, AnimeHud } = setupDomEnvironment();
+  const playerWrapper = new MockElement("div");
+  playerWrapper.className = "jwplayer jw-reset";
+  playerWrapper.style.position = "absolute";
+
+  const videoTrackLayer = new MockElement("div");
+  videoTrackLayer.className = "jw-media jw-reset";
+  videoTrackLayer.style.position = "absolute";
+  playerWrapper.appendChild(videoTrackLayer);
+
+  const video = new MockElement("video");
+  videoTrackLayer.appendChild(video);
+
+  // Mock closest() on video
+  video.closest = (selector) => {
+    if (selector.includes(".jwplayer")) return playerWrapper;
+    return null;
+  };
+
+  const hud = new AnimeHud(video);
+  assert.equal(hud.host.parentElement, playerWrapper, "Must attach to outer player wrapper, not internal video track layer");
+  assert.equal(playerWrapper.style.position, "absolute", "Must preserve existing absolute position on player container");
+});

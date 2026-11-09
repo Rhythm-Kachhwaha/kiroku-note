@@ -1,5 +1,5 @@
 # Status
-N6: Replaced raw hex with tokens in theater.css & watch_primer.js.
-check_tokens: PASSED (zero raw hex outside tokens.css & FINAL).
-All design token and final lock tests pass (11/11).
+N7: Target outer player in AnimeHud & guard container styles.
+Prevents player container collapse & black screen in browser.
+Directly affected anime-hud-dom tests passing (4/4).
 Branch: main.
