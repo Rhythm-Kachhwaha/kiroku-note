@@ -45,7 +45,11 @@
         ? (() => {
             try { return require("./video-mining/controller.js"); } catch (_) { return null; }
           })()
-        : (typeof root !== "undefined" && root.KirokuVideoController ? root.KirokuVideoController : null);
+        : (typeof globalThis !== "undefined" && globalThis.KirokuVideoController
+            ? globalThis.KirokuVideoController
+            : (typeof window !== "undefined" && window.KirokuVideoController
+                ? window.KirokuVideoController
+                : null));
 
       const DetectorClass = options.NextEpisodeDetector || Controller?.NextEpisodeDetector;
       this.nextEpisodeDetector = DetectorClass ? new DetectorClass() : {
@@ -95,6 +99,26 @@
           title = titleEl.textContent.trim();
         }
       }
+      const rawUrl = (typeof location !== "undefined" && location.href) ? location.href : "";
+      const parser = (typeof TitleParser !== "undefined")
+        ? TitleParser
+        : (typeof globalThis !== "undefined" && globalThis.TitleParser
+            ? globalThis.TitleParser
+            : (typeof window !== "undefined" && window.TitleParser
+                ? window.TitleParser
+                : (typeof require === "function" ? (() => { try { return require("../lib/title-parser.js"); } catch (_) { return null; } })() : null)));
+
+      if (title && parser && typeof parser.cleanAnimeTitle === "function") {
+        const parsed = parser.cleanAnimeTitle(title, rawUrl);
+        if (parsed?.title) {
+          if (typeof parsed.episode === "number" && !isNaN(parsed.episode)) {
+            title = `${parsed.title} - Ep ${parsed.episode}`;
+          } else {
+            title = parsed.title;
+          }
+        }
+      }
+
       if (!title && typeof location !== "undefined" && location.hostname) {
         title = location.hostname;
       }

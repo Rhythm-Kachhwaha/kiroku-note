@@ -26,6 +26,7 @@
     text = text.replace(/\s*[-|–—:]\s*(?:Watch\s+on\s+)?(?:Crunchyroll|Bilibili|Netflix|HiAnime|YouTube).*$/i, "");
     text = text.replace(/\s*\|\s*.*$/, ""); // trailing pipes like "| Crunchyroll"
     text = text.replace(/\s*[\(\[]?\s*(?:English\s+Sub(?:\/Dub)?|English\s+Dub|Eng\s+Sub|Sub\/Dub|Dual\s+Audio|Dub|Sub)\s*[\)\]]?/gi, "");
+    text = text.replace(/\s*(?:online\s+free|watch\s+online|free\s+online|online)(?:\s*[-|–—:]|\s*$)/gi, "");
     text = text.replace(/\s*\[(?:1080p|720p|480p|Web-DL|WEBRip|Bluray|BD|Netflix|Crunchyroll)[^\]]*\]/gi, "");
     text = text.replace(/\s*\((?:1080p|720p|480p|Web-DL|WEBRip|Bluray|BD|TV)\)/gi, "");
     text = text.replace(/\s*\[[0-9a-fA-F]{8}\]/g, ""); // CRC32 hashes like [ABCD1234]

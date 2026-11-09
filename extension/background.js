@@ -35,6 +35,7 @@ const VIDEO_MINING_SCRIPTS = [
   "lib/image-cropper.js",
   "link/clip.js",
   "content/anime-hud.js",
+  "content/video-mining/controller.js",
   "content/video-mining.js",
   "content/link-bridge.js"
 ];

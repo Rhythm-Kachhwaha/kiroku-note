@@ -1,5 +1,5 @@
 # Status
-N1: Throttled video.state to 4Hz & resolved cmd.loop listener leak.
-Added vol/muted fields and secondary_text to LinkBridge payloads.
-Directly affected link_client tests passing (11/11).
+N2: Bundled next episode detector into VIDEO_MINING_SCRIPTS.
+Integrated TitleParser in LinkBridge for clean episode titles.
+Directly affected next_episode & title_parser tests pass (6/6).
 Branch: main.
