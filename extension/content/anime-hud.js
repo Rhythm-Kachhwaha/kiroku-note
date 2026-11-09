@@ -620,13 +620,21 @@
 
     _onFullscreenChange() {
       if (!this.host) return;
-      const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+      const docFs = (typeof document !== "undefined")
+        ? (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement)
+        : null;
+      const shadowFs = docFs?.shadowRoot?.fullscreenElement;
+      const fsEl = shadowFs || docFs;
+
       if (fsEl) {
-        if (this.host.parentElement !== fsEl) {
+        // If the video itself is the fullscreen element, reparent to its container
+        // because HTML5 <video> elements cannot visibly render child DOM nodes
+        const targetParent = (fsEl.tagName === "VIDEO" && fsEl.parentElement) ? fsEl.parentElement : fsEl;
+        if (this.host.parentElement !== targetParent) {
           if (!this.originalParent) {
             this.originalParent = this.host.parentElement;
           }
-          fsEl.appendChild(this.host);
+          targetParent.appendChild(this.host);
         }
       } else {
         if (this.originalParent && this.host.parentElement !== this.originalParent) {

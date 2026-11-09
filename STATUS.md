@@ -1,5 +1,5 @@
 # Status
-N2: Bundled next episode detector into VIDEO_MINING_SCRIPTS.
-Integrated TitleParser in LinkBridge for clean episode titles.
-Directly affected next_episode & title_parser tests pass (6/6).
+N3: AnimeHud safely targets video.parentElement in fullscreen.
+Added vendor prefix and shadow root fullscreen support.
+Directly affected anime-hud-dom tests passing (3/3).
 Branch: main.

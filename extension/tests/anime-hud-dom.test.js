@@ -218,4 +218,9 @@ test("AnimeHud reparents into fullscreenElement on fullscreenchange", () => {
   document.dispatchEvent({ type: "fullscreenchange" });
 
   assert.equal(hud.host.parentElement, container, "Host should restore to original container");
+
+  // Fullscreen directly on video element: must reparent to video.parentElement
+  document.fullscreenElement = video;
+  document.dispatchEvent({ type: "fullscreenchange" });
+  assert.equal(hud.host.parentElement, container, "Host should reparent to video parent instead of inside video element");
 });
