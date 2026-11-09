@@ -140,7 +140,7 @@ if (nativeFetch) {
   };
 }
 
-async function redeemExtensionPairing(code, remember = false) {
+async function redeemExtensionPairing(code, remember = true) {
   if (!nativeFetch) throw new Error("Fetch is unavailable.");
   const response = await nativeFetch(`${BACKEND_BASE_URL}/api/auth/extension-pairings/redeem`, {
     method: "POST",
