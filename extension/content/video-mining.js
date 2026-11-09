@@ -2594,6 +2594,7 @@
         this.syncEngine.setCues(message.cues);
         if (message.filename) this.activeFilename = message.filename;
         this.recentCues = [];
+        this.setSubtitlesDisplay(true);
         this.renderer.ensureMounted();
         this.renderer.updatePosition();
         try {
