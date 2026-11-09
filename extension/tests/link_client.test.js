@@ -238,6 +238,22 @@ test("LinkBridge: executes commands (cmd.play, cmd.pause, cmd.seek, cmd.jump)", 
   const rateRes = bridge.executeCommand("cmd.rate", { v: 1.5 });
   assert.equal(rateRes, true);
   assert.equal(mockVideo.playbackRate, 1.5);
+
+  // cmd.loop cleanly manages timeupdate listener
+  const listeners = [];
+  mockVideo.addEventListener = (ev, fn) => listeners.push({ ev, fn });
+  mockVideo.removeEventListener = (ev, fn) => {
+    const idx = listeners.findIndex(l => l.ev === ev && l.fn === fn);
+    if (idx !== -1) listeners.splice(idx, 1);
+  };
+  bridge.executeCommand("cmd.loop", { s: 10, e: 15 });
+  assert.equal(listeners.filter(l => l.ev === "timeupdate").length, 1);
+  // Re-looping must clear previous listener before attaching new one
+  bridge.executeCommand("cmd.loop", { s: 20, e: 25 });
+  assert.equal(listeners.filter(l => l.ev === "timeupdate").length, 1);
+  // Pausing must remove loop listener
+  bridge.executeCommand("cmd.pause");
+  assert.equal(listeners.filter(l => l.ev === "timeupdate").length, 0);
 });
 
 test("LinkBridge: cmd.seek supports relative delta seek (E5)", () => {

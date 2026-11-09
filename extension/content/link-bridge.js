@@ -58,12 +58,15 @@
       this.attachedTabId = null;
       this.pollTimer = null;
       this.lastStateEmit = 0;
-      this.minStateIntervalMs = 100; // 10Hz throttle
+      this.minStateIntervalMs = 250; // 4Hz throttle per protocol spec
+      this._activeLoopHandler = null;
+      this._activeLoopVideo = null;
 
       this._boundOnPlay = this._onPlay.bind(this);
       this._boundOnPause = this._onPause.bind(this);
       this._boundOnTimeUpdate = this._onTimeUpdate.bind(this);
       this._boundOnRateChange = this._onRateChange.bind(this);
+      this._boundOnVolumeChange = this._onVolumeChange.bind(this);
       this._boundOnEnded = this._onEnded.bind(this);
       this._boundRuntimeMessage = this._handleRuntimeMessage.bind(this);
     }
@@ -142,6 +145,16 @@
       }
     }
 
+    _clearActiveLoop() {
+      if (this._activeLoopVideo && this._activeLoopHandler) {
+        try {
+          this._activeLoopVideo.removeEventListener("timeupdate", this._activeLoopHandler);
+        } catch (_) {}
+      }
+      this._activeLoopHandler = null;
+      this._activeLoopVideo = null;
+    }
+
     _attach(video) {
       if (!video) return;
       this.activeVideo = video;
@@ -152,6 +165,7 @@
         video.addEventListener("pause", this._boundOnPause);
         video.addEventListener("timeupdate", this._boundOnTimeUpdate);
         video.addEventListener("ratechange", this._boundOnRateChange);
+        video.addEventListener("volumechange", this._boundOnVolumeChange);
         video.addEventListener("ended", this._boundOnEnded);
         window.addEventListener("pagehide", () => this._detach(), { once: true });
       } catch (_) {}
@@ -199,12 +213,14 @@
     }
 
     _detach() {
+      this._clearActiveLoop();
       if (this.activeVideo) {
         try {
           this.activeVideo.removeEventListener("play", this._boundOnPlay);
           this.activeVideo.removeEventListener("pause", this._boundOnPause);
           this.activeVideo.removeEventListener("timeupdate", this._boundOnTimeUpdate);
           this.activeVideo.removeEventListener("ratechange", this._boundOnRateChange);
+          this.activeVideo.removeEventListener("volumechange", this._boundOnVolumeChange);
           this.activeVideo.removeEventListener("ended", this._boundOnEnded);
         } catch (_) {}
       }
@@ -229,6 +245,10 @@
       this._emitVideoState();
     }
 
+    _onVolumeChange() {
+      this._emitVideoState();
+    }
+
     _onEnded() {
       this._emitVideoState();
     }
@@ -247,6 +267,8 @@
       const t = typeof this.activeVideo.currentTime === "number" ? this.activeVideo.currentTime : 0.0;
       const paused = Boolean(this.activeVideo.paused);
       const rate = typeof this.activeVideo.playbackRate === "number" ? this.activeVideo.playbackRate : 1.0;
+      const vol = typeof this.activeVideo.volume === "number" ? this.activeVideo.volume : 1.0;
+      const muted = Boolean(this.activeVideo.muted);
       const duration = typeof this.activeVideo.duration === "number" && !isNaN(this.activeVideo.duration) ? this.activeVideo.duration : 0.0;
       const hasNextEpisode = Boolean(this.nextEpisodeDetector?.hasNextEpisode?.());
 
@@ -255,6 +277,8 @@
         t,
         paused,
         rate,
+        vol,
+        muted,
         duration,
         hasNextEpisode
       });
@@ -284,12 +308,19 @@
           const s = typeof c.startTime === "number" ? c.startTime : (c.startMs ? c.startMs / 1000 : 0.0);
           const rawEnd = typeof c.endTime === "number" ? c.endTime : (c.endMs ? c.endMs / 1000 : 0.0);
           const e = Math.max(s, rawEnd);
-          return {
+          const secondary = typeof c.secondary_text === "string"
+            ? c.secondary_text
+            : (typeof c.secondaryText === "string" ? c.secondaryText : undefined);
+          const item = {
             i: typeof c.id === "number" ? c.id : idx,
             s,
             e,
             text: c.text || c.rawText || ""
           };
+          if (secondary) {
+            item.secondary_text = secondary;
+          }
+          return item;
         });
 
         const hash = this._calculateCueHash(cues);
@@ -407,6 +438,7 @@
           return false;
 
         case "cmd.pause":
+          this._clearActiveLoop();
           if (vid && typeof vid.pause === "function") {
             vid.pause();
             this._emitVideoState();
@@ -484,15 +516,18 @@
           const s = typeof payload.s === "number" ? payload.s : 0;
           const e = typeof payload.e === "number" ? payload.e : s + 3;
           if (vid) {
+            this._clearActiveLoop();
             vid.currentTime = s;
             const onLoopCheck = () => {
               if (vid.currentTime >= e) {
                 vid.currentTime = s;
               }
             };
+            this._activeLoopHandler = onLoopCheck;
+            this._activeLoopVideo = vid;
             vid.addEventListener("timeupdate", onLoopCheck);
             vid.addEventListener("pause", () => {
-              vid.removeEventListener("timeupdate", onLoopCheck);
+              this._clearActiveLoop();
             }, { once: true });
             if (vid.paused) {
               vid.play()?.catch?.(() => {});
@@ -504,6 +539,7 @@
         }
 
         case "cmd.seek": {
+          this._clearActiveLoop();
           if (vid) {
             if (payload.delta !== undefined && !isNaN(Number(payload.delta))) {
               const delta = Number(payload.delta);

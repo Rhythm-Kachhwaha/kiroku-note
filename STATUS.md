@@ -1,5 +1,5 @@
 # Status
-A17: Anime companion & video mining fully verified.
-All 4 vertical slices committed on main; e01-e15 passing.
-Backend (61/61), Desktop (47/47), Ext (14/14) tests passing.
-FINAL locks intact; zero token/font regressions.
+N1: Throttled video.state to 4Hz & resolved cmd.loop listener leak.
+Added vol/muted fields and secondary_text to LinkBridge payloads.
+Directly affected link_client tests passing (11/11).
+Branch: main.
