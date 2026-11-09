@@ -1,5 +1,5 @@
 # Status
-N11: Health-check Link Hub before WebSocket connect.
-Prevent net::ERR_CONNECTION_REFUSED in extension error log.
-Clean up existing sockets, timers, and error bubbling.
-All extension tests pass (287/287). Branch: main.
+N17: Fixed CSP WebSocket restriction, link-client race & HUD sync.
+Subtitles auto-display, 397 cues sync across extension and Desktop.
+Desktop stepper and dialogue tracker fully functional and verified.
+All link test suites pass (backend, extension, desktop, E2E). Branch: main.
