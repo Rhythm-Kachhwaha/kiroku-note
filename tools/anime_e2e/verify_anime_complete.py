@@ -178,32 +178,37 @@ def run_verification():
         print("[8] Desktop session received:", desk_client.session)
         assert "K-ON!" in desk_client.session.get("title", "")
 
-        # 9. Load user's K-ON ASS Subtitle file via extension
+        # 9. Load user's K-ON ASS Subtitle file via extension HUD handleDroppedFile
         print(f"[9] Loading user's subtitle file: {SUB_PATH}")
         assert SUB_PATH.exists(), f"Subtitle file not found at {SUB_PATH}"
         sub_content = SUB_PATH.read_text(encoding="utf-8")
-        parser_code = (ROOT_DIR / "extension" / "lib" / "subtitle-parser.js").read_text(encoding="utf-8")
 
-        load_res = sw.evaluate("""async ([parserJs, assText, filename]) => {
-            if (typeof SubtitleParser === 'undefined') {
-                const evalFn = new Function(parserJs);
-                evalFn();
-            }
-            const parser = typeof SubtitleParser !== 'undefined' ? SubtitleParser : self.SubtitleParser;
-            const raw = parser.parseSubtitles(assText, filename);
-            const cues = parser.normalizeCues(raw);
-            await chrome.storage.local.set({
-                active_subtitle_cues: cues,
-                active_subtitle_filename: filename
-            });
-            return {
-                ok: true,
-                count: cues.length,
-                name: filename
-            };
-        }""", [parser_code, sub_content, SUB_PATH.name])
-        print("  Subtitle load result in extension:", load_res)
-        assert load_res.get("count") == 397, f"Expected 397 cues, got {load_res.get('count')}"
+        load_res = sw.evaluate(f"""async () => {{
+            const [tab] = await chrome.tabs.query({{ active: true }});
+            if (!tab) return {{ error: "No active tab" }};
+            const results = await chrome.scripting.executeScript({{
+                target: {{ tabId: tab.id }},
+                func: async (assText, filename) => {{
+                    const hasHud = Boolean(window.__kirokuAnimeHud);
+                    let count = 0;
+                    let err = null;
+                    if (window.__kirokuAnimeHud) {{
+                        try {{
+                            const file = new File([assText], filename, {{ type: "text/plain" }});
+                            await window.__kirokuAnimeHud.handleDroppedFile(file);
+                            count = window.__kirokuAnimeHud.subStatus.count;
+                        }} catch (e) {{
+                            err = String(e);
+                        }}
+                    }}
+                    return {{ hasHud, count, err, name: filename }};
+                }},
+                args: [{json.dumps(sub_content)}, {json.dumps(SUB_PATH.name)}]
+            }});
+            return results?.[0]?.result;
+        }}""")
+        print("  Subtitle load result in extension HUD:", load_res)
+        assert load_res and load_res.get("count") == 397, f"Expected 397 cues, got {load_res}"
 
         # Verify Desk receives cues and sub.status
         start = time.time()

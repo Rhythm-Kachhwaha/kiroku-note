@@ -117,7 +117,7 @@ export class LinkStore {
         vol: typeof payload.vol === 'number' ? payload.vol : this.videoState.vol,
         muted: typeof payload.muted === 'boolean' ? payload.muted : this.videoState.muted
       };
-      if (this.cues.length > 0 && this.activeCueIndex === null) {
+      if (this.cues.length > 0) {
         this._updateActiveCueFromTime(this.videoState.t);
       }
       this.emit('video:state', this.videoState);

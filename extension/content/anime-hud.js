@@ -849,7 +849,9 @@
         const cues = typeof parser.normalizeCues === "function" ? parser.normalizeCues(parsed) : parsed;
 
         if (cues && cues.length > 0) {
-          if (this.coordinator?.handleCuesLoaded) {
+          if (this.coordinator?.handleDroppedFile) {
+            await this.coordinator.handleDroppedFile(file);
+          } else if (this.coordinator?.handleCuesLoaded) {
             this.coordinator.handleCuesLoaded(cues, file.name);
           } else if (this.coordinator?.syncEngine) {
             this.coordinator.syncEngine.setCues(cues);
@@ -871,8 +873,9 @@
             offsetMs: this.coordinator?.syncEngine?.offsetMs || 0
           });
 
-          // Also notify link bridge directly to ensure cue.list is sent
+          // Also notify link bridge directly to ensure sub.status and cue.list are sent to Desktop
           if (typeof window !== "undefined" && window.__kirokuLinkBridge) {
+            this._notifySubStatus();
             window.__kirokuLinkBridge._emitCueList?.();
           }
         }

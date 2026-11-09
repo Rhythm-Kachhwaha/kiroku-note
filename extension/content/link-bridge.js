@@ -69,6 +69,7 @@
       this._boundOnPlay = this._onPlay.bind(this);
       this._boundOnPause = this._onPause.bind(this);
       this._boundOnTimeUpdate = this._onTimeUpdate.bind(this);
+      this._boundOnSeeked = () => this._emitVideoState();
       this._boundOnRateChange = this._onRateChange.bind(this);
       this._boundOnVolumeChange = this._onVolumeChange.bind(this);
       this._boundOnEnded = this._onEnded.bind(this);
@@ -196,6 +197,7 @@
         video.addEventListener("play", this._boundOnPlay);
         video.addEventListener("pause", this._boundOnPause);
         video.addEventListener("timeupdate", this._boundOnTimeUpdate);
+        video.addEventListener("seeked", this._boundOnSeeked);
         video.addEventListener("ratechange", this._boundOnRateChange);
         video.addEventListener("volumechange", this._boundOnVolumeChange);
         video.addEventListener("ended", this._boundOnEnded);
@@ -252,6 +254,7 @@
           this.activeVideo.removeEventListener("play", this._boundOnPlay);
           this.activeVideo.removeEventListener("pause", this._boundOnPause);
           this.activeVideo.removeEventListener("timeupdate", this._boundOnTimeUpdate);
+          this.activeVideo.removeEventListener("seeked", this._boundOnSeeked);
           this.activeVideo.removeEventListener("ratechange", this._boundOnRateChange);
           this.activeVideo.removeEventListener("volumechange", this._boundOnVolumeChange);
           this.activeVideo.removeEventListener("ended", this._boundOnEnded);

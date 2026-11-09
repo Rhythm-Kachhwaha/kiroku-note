@@ -44,6 +44,7 @@
       this.connected = false;
       this.authenticated = false;
       this.stopped = false;
+      this._connecting = false;
       this.reconnectAttempts = 0;
       this.reconnectTimer = null;
       this.heartbeatTimer = null;
@@ -184,9 +185,12 @@
           .replace(/^wss:\/\//i, "https://")
           .replace(/\/api\/link\/ws.*$/i, "/api/link/status");
         const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
-        const tid = ctrl ? setTimeout(() => ctrl.abort(), 2000) : null;
+        let tid = null;
         try {
-          const resp = await fetch(httpUrl, { signal: ctrl?.signal, method: "GET" });
+          tid = ctrl ? setTimeout(() => {
+            try { ctrl.abort(); } catch (_) {}
+          }, 2000) : null;
+          const resp = await fetch(httpUrl, { signal: ctrl?.signal, method: "GET" }).catch(() => null);
           if (tid) clearTimeout(tid);
           return Boolean(resp && (resp.status === 200 || resp.status === 401 || resp.status === 403));
         } catch (_) {
@@ -211,44 +215,69 @@
 
     async _connect() {
       if (this.stopped || !this.WebSocketClass) return;
-      this._clearTimers();
-      this._clearSocket();
-
-      // Guard against ERR_CONNECTION_REFUSED in Chrome extension errors log by checking backend health
-      const isOnline = await this._checkBackendOnline();
-      if (!isOnline) {
-        this._updateStatusChip("unreachable", "Backend offline");
-        this._scheduleReconnect();
-        return;
-      }
-
-      if (this.stopped) return;
+      if (this._connecting) return;
+      if (this.connected && this.authenticated && this.ws && this.ws.readyState === 1) return;
+      this._connecting = true;
 
       try {
-        this.ws = new this.WebSocketClass(this.wsUrl);
-        if (typeof this.ws.addEventListener === "function") {
-          this.ws.addEventListener("open", this._boundOnOpen);
-          this.ws.addEventListener("message", this._boundOnMessage);
-          this.ws.addEventListener("error", this._boundOnError);
-          this.ws.addEventListener("close", this._boundOnClose);
+        this._clearTimers();
+        this._clearSocket();
+
+        // Guard against ERR_CONNECTION_REFUSED in Chrome extension errors log by checking backend health
+        const isOnline = await this._checkBackendOnline();
+        if (!isOnline) {
+          this._updateStatusChip("unreachable", "Backend offline");
+          this._scheduleReconnect();
+          return;
+        }
+
+        if (this.stopped) return;
+
+        const socket = new this.WebSocketClass(this.wsUrl);
+        this.ws = socket;
+
+        const onOpen = () => {
+          if (this.ws !== socket) return;
+          this._onOpen(socket);
+        };
+        const onMessage = (ev) => {
+          if (this.ws !== socket) return;
+          this._onMessage(ev);
+        };
+        const onError = (ev) => {
+          if (this.ws !== socket) return;
+          this._onError(ev);
+        };
+        const onClose = (ev) => {
+          if (this.ws !== socket) return;
+          this._onClose(ev);
+        };
+
+        if (typeof socket.addEventListener === "function") {
+          socket.addEventListener("open", onOpen);
+          socket.addEventListener("message", onMessage);
+          socket.addEventListener("error", onError);
+          socket.addEventListener("close", onClose);
         } else {
-          this.ws.onopen = this._boundOnOpen;
-          this.ws.onmessage = this._boundOnMessage;
-          this.ws.onerror = this._boundOnError;
-          this.ws.onclose = this._boundOnClose;
+          socket.onopen = onOpen;
+          socket.onmessage = onMessage;
+          socket.onerror = onError;
+          socket.onclose = onClose;
         }
       } catch (_) {
         this._scheduleReconnect();
+      } finally {
+        this._connecting = false;
       }
     }
 
-    _onOpen() {
+    _onOpen(socket = this.ws) {
       this.connected = true;
       this.reconnectAttempts = 0;
-      this._sendHello();
+      this._sendHello(socket);
     }
 
-    _sendHello() {
+    _sendHello(socket = this.ws) {
       const helloEnvelope = {
         v: 1,
         id: `hello-${Date.now()}`,
@@ -261,7 +290,7 @@
           client: this.clientId
         }
       };
-      this._sendRaw(helloEnvelope);
+      this._sendRaw(helloEnvelope, socket);
     }
 
     _onMessage(event) {
@@ -310,7 +339,8 @@
       this.authenticated = false;
       const code = event?.code;
       const reason = event?.reason || "";
-      if (code === 4401) {
+      const isTransient = reason && reason.toLowerCase().includes("timeout");
+      if (code === 4401 && !isTransient) {
         this.needsPairing = true;
         this._updateStatusChip("unauthorized", reason || "Invalid pairing token (4401)");
       } else if (!this.token) {
@@ -321,7 +351,7 @@
       }
       this._clearTimers();
       this._notifyStateChange();
-      if (!this.stopped && code !== 4401) {
+      if (!this.stopped && (code !== 4401 || isTransient)) {
         this._scheduleReconnect();
       }
     }
@@ -368,11 +398,12 @@
       return this._sendRaw(envelope);
     }
 
-    _sendRaw(envelope) {
+    _sendRaw(envelope, socket = this.ws) {
       try {
-        if (this.ws && (this.ws.readyState === 1 || this.ws.readyState === undefined)) {
+        const target = socket || this.ws;
+        if (target && (target.readyState === 1 || target.readyState === undefined)) {
           const str = JSON.stringify(envelope);
-          this.ws.send(str);
+          target.send(str);
           return true;
         }
       } catch (_) {}

@@ -2285,6 +2285,9 @@
             offsetMs: this.syncEngine.offsetMs
           }).catch(() => {});
         }
+        if (typeof window !== "undefined" && window.__kirokuLinkBridge) {
+          window.__kirokuLinkBridge.emitActiveCue?.(cue);
+        }
       } catch (_) {}
     }
 
