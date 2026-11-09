@@ -102,7 +102,7 @@ class LinkClient:
         self.client_name = client_name
         self.message_times: List[float] = []
         self._send_lock = asyncio.Lock()
-        self.last_sent_state_times: Dict[int, float] = {}  # tab_id -> timestamp
+        self.last_sent_state_times: Dict[Any, float] = {}  # (tab, frame) -> timestamp
 
     def is_rate_limited(self, limit: int = 30) -> bool:
         """Sliding window rate limit check (default 30 messages/sec)."""
@@ -475,7 +475,7 @@ class LinkHub:
             for desk_client in self.desk_clients:
                 # Backpressure: if video.state, skip if client received a newer state
                 if envelope.type == "video.state":
-                    tab_key = int(envelope.payload.get("tab", 0))
+                    tab_key = (int(envelope.payload.get("tab", 0)), int(envelope.payload.get("frame", 0)))
                     msg_ts = envelope.ts
                     last_ts = desk_client.last_sent_state_times.get(tab_key, 0)
                     if msg_ts < last_ts:

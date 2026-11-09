@@ -180,6 +180,9 @@ class LinkVideoSession:
         parts = cue_list.get("parts")
         part = cue_list.get("part")
         if hash_val and parts and parts > 1 and part:
+            if len(self.cue_chunks) >= 5 and hash_val not in self.cue_chunks:
+                oldest_hash = next(iter(self.cue_chunks))
+                self.cue_chunks.pop(oldest_hash, None)
             self.cue_chunks.setdefault(hash_val, {})[part] = cue_list
         self.updated_at = time.time()
 
