@@ -26,6 +26,17 @@ test("TitleParser.parseEpisodeKey - YouTube formats", () => {
 
   const k2 = TitleParser.parseEpisodeKey("https://youtu.be/abcdef12345", "Anime PV Official");
   assert.equal(k2, "youtube/abcdef12345/unknown");
+
+  const k3 = TitleParser.parseEpisodeKey("https://www.youtube.com/shorts/shortId123", "Short Anime Clip");
+  assert.equal(k3, "youtube/shortId123/unknown");
+});
+
+test("TitleParser.parseEpisodeKey - Japanese Unicode show titles preserved", () => {
+  const k1 = TitleParser.parseEpisodeKey("https://crunchyroll.com/watch/G69V793P6", "葬送のフリーレン 第1話");
+  assert.equal(k1, "crunchyroll/葬送のフリーレン/G69V793P6");
+
+  const k2 = TitleParser.parseEpisodeKey("https://example.com/stream", "チェンソーマン #12");
+  assert.equal(k2, "generic/チェンソーマン/ep12");
 });
 
 test("TitleParser.parseEpisodeKey - HiDive and generic formats", () => {
@@ -84,6 +95,11 @@ test("EpisodeStore - sets, gets, updates, and clears episode state", async () =>
   const epUpdated = await store.getEpisode(epKey);
   assert.equal(epUpdated.sourceId, "track-jp-embedded"); // preserved
   assert.equal(epUpdated.offsetMs, -100);
+
+  // NaN/Infinity update must not overwrite valid existing numbers
+  await store.setEpisode(epKey, { offsetMs: NaN, lastPos: Infinity });
+  const epGuarded = await store.getEpisode(epKey);
+  assert.equal(epGuarded.offsetMs, -100);
 
   // Clear
   await store.clear();

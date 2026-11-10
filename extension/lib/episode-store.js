@@ -83,9 +83,9 @@
      * @returns {Promise<{sourceId: string|null, jimakuId: string|number|null, offsetMs: number, lastPos: number, lastUpdated: number}|null>}
      */
     async getEpisode(episodeKey) {
-      if (!episodeKey) return null;
+      if (!episodeKey || typeof episodeKey !== "string") return null;
       await this.init();
-      const ep = this._cache[episodeKey];
+      const ep = this._cache[episodeKey.trim()];
       return ep ? { ...ep } : null;
     }
 
@@ -95,10 +95,11 @@
      * @param {Object} partial - { sourceId, jimakuId, offsetMs, lastPos }
      */
     async setEpisode(episodeKey, partial = {}) {
-      if (!episodeKey) return null;
+      if (!episodeKey || typeof episodeKey !== "string") return null;
+      const cleanKey = episodeKey.trim();
       await this.init();
 
-      const existing = this._cache[episodeKey] || {
+      const existing = this._cache[cleanKey] || {
         sourceId: null,
         jimakuId: null,
         offsetMs: 0,
@@ -109,12 +110,16 @@
       const updated = {
         sourceId: partial.sourceId !== undefined ? partial.sourceId : existing.sourceId,
         jimakuId: partial.jimakuId !== undefined ? partial.jimakuId : existing.jimakuId,
-        offsetMs: typeof partial.offsetMs === "number" && !isNaN(partial.offsetMs) ? partial.offsetMs : existing.offsetMs,
-        lastPos: typeof partial.lastPos === "number" && !isNaN(partial.lastPos) ? partial.lastPos : existing.lastPos,
+        offsetMs: typeof partial.offsetMs === "number" && !isNaN(partial.offsetMs) && isFinite(partial.offsetMs)
+          ? Math.round(partial.offsetMs)
+          : existing.offsetMs,
+        lastPos: typeof partial.lastPos === "number" && !isNaN(partial.lastPos) && isFinite(partial.lastPos)
+          ? Math.max(0, Math.round(partial.lastPos))
+          : existing.lastPos,
         lastUpdated: Date.now()
       };
 
-      this._cache[episodeKey] = updated;
+      this._cache[cleanKey] = updated;
       await this.storageAdapter.set(STORAGE_KEY, this._cache);
       return { ...updated };
     }

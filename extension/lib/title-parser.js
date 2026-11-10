@@ -110,17 +110,19 @@
       .replace(/[\u0300-\u036f]/g, "") // strip diacritics
       .replace(/['"’‘`]/g, "") // strip apostrophes and quotes
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/[^\p{L}\p{N}]+/gu, "-")
       .replace(/^-+|-+$/g, "");
   }
 
   /**
    * Episode identity contract (Section B):
    * Format: {providerSlug}/{seriesId}/{episodeId}
-   * providerSlug: crunchyroll | netflix | youtube | hidive | amazon | generic
+   * providerSlug: crunchyroll | netflix | youtube | hidive | amazon | hianime | bilibili | generic
    */
   function parseEpisodeKey(url = "", titleText = "") {
-    const rawUrl = typeof url === "string" ? url.trim() : "";
+    const rawUrl = url && typeof url === "object" && typeof url.toString === "function"
+      ? url.toString().trim()
+      : (typeof url === "string" ? url.trim() : "");
     const rawTitle = typeof titleText === "string" ? titleText.trim() : "";
 
     let providerSlug = "generic";
@@ -151,6 +153,10 @@
       providerSlug = "hidive";
     } else if (host.includes("amazon.") || host.includes("primevideo.com")) {
       providerSlug = "amazon";
+    } else if (host.includes("hianime.")) {
+      providerSlug = "hianime";
+    } else if (host.includes("bilibili.")) {
+      providerSlug = "bilibili";
     } else {
       providerSlug = "generic";
     }
@@ -159,14 +165,14 @@
     if (providerSlug === "crunchyroll") {
       // crunchyroll.com/watch/{episodeId}/{title-slug} or /series/{seriesId}/...
       const watchMatch = pathname.match(/\/watch\/([a-zA-Z0-9]+)(?:\/([^\/?#]+))?/i);
-      const seriesMatch = pathname.match(/\/series\/([a-zA-Z0-9]+)/i);
+      const seriesMatch = pathname.match(/\/series\/([a-zA-Z0-9]+)(?:\/([^\/?#]+))?/i);
       if (watchMatch) {
         episodeId = watchMatch[1];
         if (watchMatch[2]) {
           seriesId = slugify(watchMatch[2]);
         }
       } else if (seriesMatch) {
-        seriesId = seriesMatch[1];
+        seriesId = seriesMatch[2] ? slugify(seriesMatch[2]) : seriesMatch[1];
       }
     } else if (providerSlug === "netflix") {
       // netflix.com/watch/{episodeId}?trackId=...
@@ -179,10 +185,16 @@
         seriesId = titleMatch[1];
       }
     } else if (providerSlug === "youtube") {
-      // youtube.com/watch?v={id} or youtu.be/{id}
+      // youtube.com/watch?v={id} or youtu.be/{id} or /shorts/{id} or /embed/{id}
       let v = searchParams?.get("v");
       if (!v && host.includes("youtu.be")) {
         v = pathname.replace(/^\/+/, "").split("/")[0];
+      }
+      if (!v) {
+        const specialMatch = pathname.match(/\/(?:shorts|embed|live|v)\/([a-zA-Z0-9_-]+)/i);
+        if (specialMatch) {
+          v = specialMatch[1];
+        }
       }
       if (v) {
         seriesId = v;
@@ -200,6 +212,23 @@
       const amzMatch = pathname.match(/\/(?:gp\/video\/detail|detail)\/([a-zA-Z0-9]+)/i);
       if (amzMatch) {
         seriesId = amzMatch[1];
+      }
+    } else if (providerSlug === "hianime") {
+      const watchMatch = pathname.match(/\/watch\/([^\/?#]+)/i);
+      if (watchMatch) {
+        seriesId = slugify(watchMatch[1]);
+        const epParam = searchParams?.get("ep");
+        if (epParam) {
+          episodeId = `ep${parseInt(epParam, 10)}`;
+        }
+      }
+    } else if (providerSlug === "bilibili") {
+      const biliMatch = pathname.match(/\/(?:play|video)\/([^\/?#]+)(?:\/([^\/?#]+))?/i);
+      if (biliMatch) {
+        seriesId = slugify(biliMatch[1]);
+        if (biliMatch[2]) {
+          episodeId = slugify(biliMatch[2]);
+        }
       }
     }
 

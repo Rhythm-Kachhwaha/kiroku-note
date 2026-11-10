@@ -47,8 +47,9 @@
   const lookupCache = new SimpleLRU(200);
 
   class HudPopup {
-    constructor(hudHost) {
+    constructor(hudHost, hudState = null) {
       this.hudHost = hudHost;
+      this.hudState = hudState;
       this.popupEl = null;
       this.currentTargetToken = null;
       this.currentTargetSpan = null;
@@ -107,9 +108,24 @@
       document.addEventListener("pointerdown", this._boundDocClick, true);
       window.addEventListener("resize", this._boundReposition);
 
+      if (this.hudState && typeof this.hudState.subscribe === "function") {
+        this._unsubState = this.hudState.subscribe((state) => {
+          if (this.isOpen && this.activeCue && state.activeCue && state.activeCue !== this.activeCue) {
+            this.close();
+          }
+        });
+      }
+
       if (this.hudHost) {
         this.hudHost.registerCleanup(() => this.destroy());
       }
+    }
+
+    setCue(cue) {
+      if (this.isOpen && this.activeCue && cue && (cue !== this.activeCue && cue.text !== this.activeCue.text)) {
+        this.close();
+      }
+      this.activeCue = cue;
     }
 
     _onDocKeyDown(e) {
@@ -118,6 +134,7 @@
         e.stopPropagation();
         this.close();
       }
+      // Never stopPropagation or preventDefault on native player keys: Space, arrows, F, M
     }
 
     _onDocClick(e) {
@@ -153,7 +170,7 @@
           Looking up…
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-          <button class="hud-popup-mine-btn" style="
+          <button type="button" tabindex="-1" class="hud-popup-mine-btn" style="
             display:inline-flex; align-items:center; gap:6px;
             padding:5px 12px; background:#d4884f; color:#18181b;
             border:none; border-radius:6px; font-size:12px; font-weight:600;
@@ -175,7 +192,10 @@
           mineBtn.style.opacity = "0.7";
           mineBtn.style.cursor = "default";
         } else {
-          mineBtn.addEventListener("click", () => this.mineCurrentWord());
+          mineBtn.addEventListener("click", (e) => {
+            if (e?.target?.blur) e.target.blur();
+            this.mineCurrentWord();
+          });
         }
       }
 
@@ -235,6 +255,8 @@
       const lemma = this.currentTargetToken.lemma || surface;
       const reading = this.currentTargetToken.reading || "";
       const sentence = this.activeCue?.text || "";
+      const rawMeaning = (this.popupEl?.querySelector(".hud-popup-meaning")?.textContent || "").trim();
+      const meaning = rawMeaning.startsWith("Looking up") || rawMeaning.startsWith("No definition") ? "" : rawMeaning;
 
       try {
         let resp = null;
@@ -244,6 +266,7 @@
             card: {
               expression: lemma || surface,
               reading: reading,
+              meaning: meaning,
               example_sentence: sentence,
               source_type: "video"
             }
@@ -331,6 +354,10 @@
 
     destroy() {
       this.close();
+      if (this._unsubState) {
+        try { this._unsubState(); } catch (_) {}
+        this._unsubState = null;
+      }
       if (typeof document !== "undefined") {
         document.removeEventListener("keydown", this._boundDocKeyDown, true);
         document.removeEventListener("pointerdown", this._boundDocClick, true);

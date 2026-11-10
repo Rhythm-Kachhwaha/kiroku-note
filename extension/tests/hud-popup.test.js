@@ -135,3 +135,39 @@ test("HudPopup mineCurrentWord sends HUD_MINE and turns token orange", async () 
   assert.equal(span.style.color, "#d4884f");
 });
 
+test("HudPopup closes on cue change and preserves native keybindings", async () => {
+  const mockHudHost = {
+    contentContainer: createMockElement("div"),
+    hostEl: createMockElement("div"),
+    registerCleanup: () => {}
+  };
+  const popup = new HudPopup(mockHudHost);
+
+  const token = { surface: "見る", lemma: "見る" };
+  const span = createMockElement("span");
+  await popup.showForToken(token, span, { text: "テレビを見る" });
+  assert.equal(popup.isOpen, true);
+
+  // Cue advances -> popup closes
+  popup.setCue({ text: "本を読む" });
+  assert.equal(popup.isOpen, false, "Popup must close when active cue advances");
+
+  // Re-open
+  await popup.showForToken(token, span, { text: "テレビを見る" });
+  assert.equal(popup.isOpen, true);
+
+  // Native keys (Space, ArrowLeft, f, m) must NOT have stopPropagation called
+  let stopped = false;
+  popup._onDocKeyDown({ key: " ", stopPropagation: () => { stopped = true; } });
+  assert.equal(stopped, false, "Space must not be stopped");
+  popup._onDocKeyDown({ key: "ArrowLeft", stopPropagation: () => { stopped = true; } });
+  assert.equal(stopped, false, "ArrowLeft must not be stopped");
+  popup._onDocKeyDown({ key: "f", stopPropagation: () => { stopped = true; } });
+  assert.equal(stopped, false, "f must not be stopped");
+
+  // Escape closes popup
+  popup._onDocKeyDown({ key: "Escape", stopPropagation: () => { stopped = true; } });
+  assert.equal(stopped, true, "Escape must stop propagation");
+  assert.equal(popup.isOpen, false, "Escape must close popup");
+});
+

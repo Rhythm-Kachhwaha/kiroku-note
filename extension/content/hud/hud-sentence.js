@@ -63,15 +63,15 @@
       this.toolbarEl.addEventListener("click", stopEvent);
 
       this.toolbarEl.innerHTML = `
-        <button class="hud-sent-btn btn-mine-sentence" title="Mine whole sentence" style="
+        <button type="button" tabindex="-1" class="hud-sent-btn btn-mine-sentence" title="Mine whole sentence" style="
           padding: 4px 8px; font-size: 11px; font-weight: 500; border: none; border-radius: 4px;
           background: #d4884f; color: #18181b; cursor: pointer;
         ">Mine Sentence</button>
-        <button class="hud-sent-btn btn-grammar" title="Look up sentence grammar" style="
+        <button type="button" tabindex="-1" class="hud-sent-btn btn-grammar" title="Look up sentence grammar" style="
           padding: 4px 8px; font-size: 11px; font-weight: 500; border: none; border-radius: 4px;
           background: rgba(255,255,255,0.12); color: #f4f4f5; cursor: pointer;
         ">Grammar</button>
-        <button class="hud-sent-btn btn-transcript" title="Jump to transcript" style="
+        <button type="button" tabindex="-1" class="hud-sent-btn btn-transcript" title="Jump to transcript" style="
           padding: 4px 8px; font-size: 11px; font-weight: 500; border: none; border-radius: 4px;
           background: rgba(255,255,255,0.12); color: #f4f4f5; cursor: pointer;
         ">Transcript</button>
@@ -82,6 +82,12 @@
       }
 
       this._wireEvents();
+
+      if (this.hudState && typeof this.hudState.subscribe === "function") {
+        this._unsubState = this.hudState.subscribe((state) => {
+          this.setCue(state.activeCue);
+        });
+      }
 
       if (this.hudHost) {
         this.hudHost.registerCleanup(() => this.destroy());
@@ -94,13 +100,22 @@
       const transcriptBtn = this.toolbarEl?.querySelector ? this.toolbarEl.querySelector(".btn-transcript") : null;
 
       if (mineBtn) {
-        mineBtn.addEventListener("click", () => this.mineSentence());
+        mineBtn.addEventListener("click", (e) => {
+          if (e?.target?.blur) e.target.blur();
+          this.mineSentence();
+        });
       }
       if (grammarBtn) {
-        grammarBtn.addEventListener("click", () => this.openGrammar());
+        grammarBtn.addEventListener("click", (e) => {
+          if (e?.target?.blur) e.target.blur();
+          this.openGrammar();
+        });
       }
       if (transcriptBtn) {
-        transcriptBtn.addEventListener("click", () => this.jumpToTranscript());
+        transcriptBtn.addEventListener("click", (e) => {
+          if (e?.target?.blur) e.target.blur();
+          this.jumpToTranscript();
+        });
       }
     }
 
@@ -176,6 +191,10 @@
     }
 
     destroy() {
+      if (this._unsubState) {
+        try { this._unsubState(); } catch (_) {}
+        this._unsubState = null;
+      }
       if (this.toolbarEl && this.toolbarEl.parentElement) {
         this.toolbarEl.parentElement.removeChild(this.toolbarEl);
       }

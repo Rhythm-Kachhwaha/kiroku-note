@@ -204,29 +204,31 @@ function isAllowedJimakuUrl(url) {
 // --- Chrome runtime listeners ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "SET_MINING_MODE") {
-    isMiningModeEnabled = Boolean(message.enabled);
-    chrome.tabs.query({}).then(tabs => {
-      for (const tab of tabs) {
-        if (tab?.id && tab?.url && !tab.url.startsWith("chrome://")) {
-          chrome.tabs.sendMessage(tab.id, {type: "MINING_MODE_CHANGED", enabled: isMiningModeEnabled}).catch(() => {});
+    (async () => {
+      try {
+        isMiningModeEnabled = Boolean(message.enabled);
+        const tabs = await chrome.tabs.query({}).catch(() => []);
+        for (const tab of tabs) {
+          if (tab?.id && tab?.url && !tab.url.startsWith("chrome://")) {
+            chrome.tabs.sendMessage(tab.id, { type: "MINING_MODE_CHANGED", enabled: isMiningModeEnabled }).catch(() => {});
+          }
         }
+
+        const tab = await activeTab().catch(() => null);
+        if (tab?.id) {
+          await ensureContentScript(tab.id);
+          await chrome.tabs.sendMessage(tab.id, { type: "MINING_MODE_CHANGED", enabled: isMiningModeEnabled }).catch(() => {});
+        }
+        sendResponse({ ok: true, stage: "content-script" });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message || String(err) });
       }
-    }).catch(() => {});
-
-    activeTab().then(async tab => {
-      if (tab?.id) {
-        await ensureContentScript(tab.id);
-        await chrome.tabs.sendMessage(tab.id, {type: "MINING_MODE_CHANGED", enabled: isMiningModeEnabled}).catch(() => {});
-
-      }
-    }).catch(() => {});
-
-    sendResponse({ok: true, stage: "content-script"});
+    })();
     return true;
   }
   if (message?.type === "GET_MINING_MODE") {
-    sendResponse({ok: true, enabled: isMiningModeEnabled});
-    return true;
+    sendResponse({ ok: true, enabled: isMiningModeEnabled });
+    return;
   }
   if (message?.type === "FETCH_YOUTUBE_TIMEDTEXT") {
     if (!isAllowedTimedtextUrl(message.url)) {
@@ -336,7 +338,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.runtime.sendMessage({ ...message, __forwarded: true }).catch(() => {});
     }
     sendResponse({ ok: true });
-    return true;
+    return;
   }
 
   if (message?.type === "VIDEO_DETECTED") {
@@ -345,45 +347,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       ensureVideoMiningScript(tabId, sender?.frameId);
     }
     sendResponse({ ok: true });
-    return true;
+    return;
   }
 
   if (message?.type === "ENSURE_VIDEO_MINING") {
-    activeTab().then(tab => {
-      if (tab?.id) {
-        ensureVideoMiningScript(tab.id);
+    (async () => {
+      try {
+        const tab = await activeTab();
+        if (tab?.id) {
+          await ensureVideoMiningScript(tab.id);
+        }
+        sendResponse({ ok: true });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message || String(err) });
       }
-    }).catch(() => {});
-    sendResponse({ ok: true });
+    })();
     return true;
   }
 
   if (message?.type === "LOAD_SUBTITLE_CUES" || message?.type === "CLEAR_SUBTITLES" || message?.type === "SET_SUBTITLE_OFFSET" || message?.type === "SELECT_YOUTUBE_TRACK" || message?.type === "UPDATE_ANNOTATED_CUES") {
-    if (message?.type === "LOAD_SUBTITLE_CUES" && Array.isArray(message.cues)) {
+    (async () => {
       try {
-        chrome.storage.local.set({
-          active_subtitle_cues: message.cues,
-          active_subtitle_filename: message.filename || ""
-        });
-      } catch (_) {}
-    } else if (message?.type === "UPDATE_ANNOTATED_CUES" && Array.isArray(message.cues)) {
-      try {
-        chrome.storage.local.set({
-          active_subtitle_cues: message.cues
-        });
-      } catch (_) {}
-    } else if (message?.type === "CLEAR_SUBTITLES") {
-      try {
-        chrome.storage.local.remove(["active_subtitle_cues", "active_subtitle_filename"]);
-      } catch (_) {}
-    }
-    activeTab().then(async tab => {
-      if (tab?.id) {
-        await ensureVideoMiningScript(tab.id);
-        chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+        if (message?.type === "LOAD_SUBTITLE_CUES" && Array.isArray(message.cues)) {
+          await chrome.storage.local.set({
+            active_subtitle_cues: message.cues,
+            active_subtitle_filename: message.filename || ""
+          }).catch(() => {});
+        } else if (message?.type === "UPDATE_ANNOTATED_CUES" && Array.isArray(message.cues)) {
+          await chrome.storage.local.set({
+            active_subtitle_cues: message.cues
+          }).catch(() => {});
+        } else if (message?.type === "CLEAR_SUBTITLES") {
+          await chrome.storage.local.remove(["active_subtitle_cues", "active_subtitle_filename"]).catch(() => {});
+        }
+        const tab = await activeTab();
+        if (tab?.id) {
+          await ensureVideoMiningScript(tab.id);
+          await chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+        }
+        sendResponse({ ok: true });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message || String(err) });
       }
-    }).catch(() => {});
-    sendResponse({ok: true});
+    })();
     return true;
   }
   if (message?.type === "START_OCR_CAPTURE") {
@@ -441,7 +447,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       reason: message.reason || "user"
     }).catch(() => {});
     sendResponse({ ok: true });
-    return true;
+    return;
   }
   if (message?.type === "HUD_LOOKUP") {
     (async () => {
@@ -541,6 +547,86 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+  if (message?.type === "SEEK_TO") {
+    (async () => {
+      try {
+        const tab = await activeTab();
+        if (tab?.id) {
+          await chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+        }
+        sendResponse({ ok: true });
+      } catch (err) {
+        sendResponse({ ok: false, error: err?.message || String(err) });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "EPISODE_SAVE_POSITION") {
+    (async () => {
+      try {
+        const cueHash = message.cueHash;
+        if (!cueHash) {
+          sendResponse({ ok: false, error: "Missing cueHash" });
+          return;
+        }
+        const url = `http://127.0.0.1:21828/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(message.payload || {})
+        });
+        if (!res.ok) {
+          sendResponse({ ok: false, error: `HTTP ${res.status}` });
+          return;
+        }
+        const data = await res.json();
+        sendResponse({ ok: true, data });
+      } catch (err) {
+        sendResponse({ ok: false, error: "Kiroku backend offline" });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "EPISODE_GET_STATUS") {
+    (async () => {
+      try {
+        const cueHash = message.cueHash;
+        if (!cueHash) {
+          sendResponse({ ok: false, error: "Missing cueHash" });
+          return;
+        }
+        const url = `http://127.0.0.1:21828/api/link/episodes/${encodeURIComponent(cueHash)}`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          sendResponse({ ok: false, error: `HTTP ${res.status}` });
+          return;
+        }
+        const data = await res.json();
+        sendResponse({ ok: true, data });
+      } catch (err) {
+        sendResponse({ ok: false, error: "Kiroku backend offline" });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "SESSION_GET_RECENT") {
+    (async () => {
+      try {
+        const limit = message.limit || 10;
+        const url = `http://127.0.0.1:21828/api/link/sessions?limit=${limit}`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          sendResponse({ ok: false, error: `HTTP ${res.status}` });
+          return;
+        }
+        const data = await res.json();
+        sendResponse({ ok: true, data });
+      } catch (err) {
+        sendResponse({ ok: false, error: "Kiroku backend offline" });
+      }
+    })();
+    return true;
+  }
 });
 
 chrome.tabs.onActivated?.addListener?.(activeInfo => {
@@ -586,6 +672,13 @@ if (typeof chrome !== "undefined") {
       chrome.alarms.onAlarm.addListener((alarm) => {
         if (alarm.name === "kiroku_session_heartbeat") {
           chrome.runtime.sendMessage({ type: "SESSION_HEARTBEAT_ALARM" }).catch(() => {});
+          chrome.tabs.query({}).then(tabs => {
+            for (const tab of tabs) {
+              if (tab?.id && tab?.url && !tab.url.startsWith("chrome://")) {
+                chrome.tabs.sendMessage(tab.id, { type: "SESSION_HEARTBEAT_ALARM" }).catch(() => {});
+              }
+            }
+          }).catch(() => {});
         }
       });
     } catch (_) {}

@@ -67,6 +67,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     if (contextOptions.contextSentence) insertExampleToCard(contextOptions.contextSentence, "");
     identify(message.text, contextOptions);
+    if (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance && message.text) {
+      animeSessionLoggerInstance.recordWordMined(message.text);
+    }
     sendResponse?.({ok: true});
     return true;
   }
@@ -111,6 +114,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     renderRecentCuesList();
     if (typeof handleVideoCueChanged === "function") {
       handleVideoCueChanged(message.cue);
+    }
+    if (typeof animeTranscriptInstance !== "undefined" && animeTranscriptInstance) {
+      animeTranscriptInstance.setActiveCue(message.cue);
+    }
+    if (typeof animeSessionLoggerInstance !== "undefined" && animeSessionLoggerInstance) {
+      if (message.cue) animeSessionLoggerInstance.recordCueSeen(message.cue);
+      if (typeof message.currentTime === "number") {
+        animeSessionLoggerInstance.onTimeUpdate(message.currentTime);
+      }
     }
     renderVideoGrammar(message.cue).catch(() => {});
     if (message.cue?.text && typeof setAskContext === "function" && (!activeAskContext || !activeAskContext.text || currentMiningTab === "ask")) {
@@ -188,6 +200,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse?.({ok: true});
     return true;
   }
+  if (message?.type === "SP_OPEN_GRAMMAR") {
+    const sentence = String(message.text || "").trim();
+    if (sentence && typeof renderTextGrammar === "function") {
+      if (typeof switchMiningTab === "function") {
+        switchMiningTab("text");
+      }
+      renderTextGrammar(sentence);
+    }
+    sendResponse?.({ok: true});
+    return true;
+  }
 });
 
 if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
@@ -203,6 +226,9 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
       loadedSubtitleCues = Array.isArray(changes.active_subtitle_cues.newValue)
         ? changes.active_subtitle_cues.newValue
         : [];
+      if (typeof animeTranscriptInstance !== "undefined" && animeTranscriptInstance) {
+        animeTranscriptInstance.setCues(loadedSubtitleCues);
+      }
       if (loadedSubtitleCues.length > 0) {
         annotateLoadedSubtitles(loadedSubtitleCues).catch(() => {});
       }

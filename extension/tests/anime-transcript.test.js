@@ -158,3 +158,54 @@ test("AnimeTranscript - respects seek capability (disabled on Netflix)", () => {
   assert.equal(seekCalls, 1, "Seek must be triggered when seek capability is true");
 });
 
+test("AnimeTranscript - filter resets scroll position and renders rows without blank view", () => {
+  const container = createMockDom();
+  const transcript = new AnimeTranscript({ container });
+
+  const cues = [];
+  for (let i = 0; i < 200; i++) {
+    cues.push({ i, text: i === 199 ? "唯一の一致" : `通常セリフ #${i}`, startTime: i * 2.0 });
+  }
+  transcript.setCues(cues);
+
+  // User scrolled far down
+  container._viewport.scrollTop = 5000;
+  transcript.scrollTop = 5000;
+
+  // Now user searches for "唯一" (only 1 match)
+  transcript.filter("唯一");
+
+  assert.equal(container._viewport.scrollTop, 0, "Filter must reset scroll to top");
+  assert.equal(transcript.scrollTop, 0);
+  assert.equal(container._itemsHost.children.length, 1, "Matching row must be rendered");
+  assert.equal(container._itemsHost.children[0].children[1].textContent, "唯一の一致");
+});
+
+test("AnimeTranscript - defaultSeek dispatches seek message to video", () => {
+  const container = createMockDom();
+  const transcript = new AnimeTranscript({ container });
+
+  let broadcastMsg = null;
+  global.broadcastToActiveVideo = (msg) => { broadcastMsg = msg; };
+
+  let runtimeMsg = null;
+  global.chrome = {
+    runtime: {
+      sendMessage: (msg) => { runtimeMsg = msg; return Promise.resolve({ ok: true }); }
+    }
+  };
+
+  transcript.defaultSeek(15400);
+
+  assert.ok(broadcastMsg);
+  assert.equal(broadcastMsg.type, "SEEK_TO");
+  assert.equal(broadcastMsg.ms, 15400);
+
+  assert.ok(runtimeMsg);
+  assert.equal(runtimeMsg.type, "SEEK_TO");
+  assert.equal(runtimeMsg.ms, 15400);
+
+  delete global.broadcastToActiveVideo;
+  delete global.chrome;
+});
+

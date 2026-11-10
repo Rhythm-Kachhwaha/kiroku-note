@@ -39,6 +39,11 @@
       // Netflix uses custom streaming engine; direct video.currentTime mutation usually desyncs or fails
       // Keep disabled as per capability spec
     }
+
+    setPlaybackRate(rate) {
+      // Netflix controls playback rate via internal player UI; direct rate changes desync audio
+      // Keep disabled as per capability spec
+    }
   }
 
   if (base.defaultPlayerRegistry) {

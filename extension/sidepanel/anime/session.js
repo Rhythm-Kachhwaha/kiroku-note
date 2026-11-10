@@ -226,6 +226,18 @@
         }
         return await res.json();
       } catch (err) {
+        // Try background message bridge if running inside content script or direct fetch failed
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          try {
+            const bgRes = await chrome.runtime.sendMessage({
+              type: "SESSION_LOG_COUNTERS",
+              payload
+            });
+            if (bgRes && bgRes.ok) {
+              return bgRes.data;
+            }
+          } catch (_) {}
+        }
         // Backend unavailable -> queue locally
         this.enqueueSession(payload);
         return null;
@@ -269,24 +281,37 @@
     async saveEpisodePosition(cueHash, lastPositionMs) {
       if (!cueHash || typeof lastPositionMs !== "number") return;
       const url = `${this.backendUrl}/api/link/episodes/${encodeURIComponent(cueHash)}/position`;
+      const posPayload = {
+        last_position_ms: Math.max(0, lastPositionMs),
+        title: this.title,
+        site: this.site,
+        series: this.series,
+        episode_key: this.episodeKey
+      };
       try {
         const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            last_position_ms: Math.max(0, lastPositionMs),
-            title: this.title,
-            site: this.site,
-            series: this.series,
-            episode_key: this.episodeKey
-          })
+          body: JSON.stringify(posPayload)
         });
         if (!res.ok) {
           // Retried silently; do not swallow when queried directly
-          return null;
+          throw new Error(`HTTP ${res.status}`);
         }
         return await res.json();
       } catch (_) {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          try {
+            const bgRes = await chrome.runtime.sendMessage({
+              type: "EPISODE_SAVE_POSITION",
+              cueHash,
+              payload: posPayload
+            });
+            if (bgRes && bgRes.ok) {
+              return bgRes.data;
+            }
+          } catch (_) {}
+        }
         return null;
       }
     }

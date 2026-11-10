@@ -98,11 +98,18 @@
     }
 
     setCues(cues = []) {
-      this.cues = Array.isArray(cues) ? cues : [];
+      this.cues = Array.isArray(cues) ? cues.map(c => {
+        if (!c) return { text: "" };
+        if (c._searchText === undefined) {
+          c._searchText = (c.text || "").toLowerCase();
+        }
+        return c;
+      }) : [];
       this.filter(this.searchQuery);
     }
 
     filter(query = "") {
+      const prevQuery = this.searchQuery;
       this.searchQuery = String(query || "").trim().toLowerCase();
       if (this.elements.searchClearBtn) {
         this.elements.searchClearBtn.hidden = !this.searchQuery;
@@ -113,9 +120,18 @@
       } else {
         const q = this.searchQuery;
         this.filteredCues = this.cues.filter(c => {
-          const text = (c?.text || "").toLowerCase();
+          const text = c._searchText !== undefined ? c._searchText : (c?.text || "").toLowerCase();
           return text.includes(q);
         });
+      }
+
+      // Reset scroll position if query changed or if current scroll is beyond content bounds
+      if (prevQuery !== this.searchQuery && this.elements.viewport) {
+        this.elements.viewport.scrollTop = 0;
+        this.scrollTop = 0;
+      } else if (this.elements.viewport && this.scrollTop > (this.filteredCues.length * ROW_HEIGHT)) {
+        this.elements.viewport.scrollTop = 0;
+        this.scrollTop = 0;
       }
 
       if (this.elements.countBadge) {
@@ -188,8 +204,8 @@
         return;
       }
 
-      const startIndex = Math.max(0, Math.floor(this.scrollTop / ROW_HEIGHT) - BUFFER_COUNT);
-      const endIndex = Math.min(count, Math.ceil((this.scrollTop + this.viewportHeight) / ROW_HEIGHT) + BUFFER_COUNT);
+      const startIndex = Math.max(0, Math.min(count - 1, Math.floor(this.scrollTop / ROW_HEIGHT) - BUFFER_COUNT));
+      const endIndex = Math.min(count, Math.max(startIndex + 1, Math.ceil((this.scrollTop + this.viewportHeight) / ROW_HEIGHT) + BUFFER_COUNT));
 
       this.elements.itemsHost.style.transform = `translateY(${startIndex * ROW_HEIGHT}px)`;
 
@@ -260,6 +276,9 @@
     }
 
     defaultSeek(ms) {
+      if (typeof broadcastToActiveVideo === "function") {
+        broadcastToActiveVideo({ type: "SEEK_TO", ms });
+      }
       if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
         chrome.runtime.sendMessage({ type: "SEEK_TO", ms }).catch(() => {});
       }

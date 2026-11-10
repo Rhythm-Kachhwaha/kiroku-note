@@ -39,6 +39,7 @@
       this._boundReposition = this.updatePosition.bind(this);
       this._boundFullscreenChange = this.handleFullscreenChange.bind(this);
       this._boundPageHide = this.destroy.bind(this);
+      this._boundSpaNavigation = this.handleSpaNavigation.bind(this);
 
       this.init();
     }
@@ -109,10 +110,11 @@
         this.intersectionObserver.observe(this.video);
       }
 
-      // DOM MutationObserver to detect video removal
+      // DOM MutationObserver to detect video removal (supports shadow roots and standard DOM)
       if (typeof MutationObserver === "function" && document.body) {
         this.mutationObserver = new MutationObserver(() => {
-          if (!document.body.contains(this.video)) {
+          const isConnected = this.video?.isConnected ?? (document.body ? document.body.contains(this.video) : false);
+          if (!isConnected) {
             this.destroy();
           }
         });
@@ -124,10 +126,25 @@
       window.addEventListener("pagehide", this._boundPageHide);
       window.addEventListener("resize", this._boundReposition);
 
+      // Listen to SPA navigation events (YouTube yt-navigate-finish, popstate, hashchange)
+      window.addEventListener("yt-navigate-finish", this._boundSpaNavigation);
+      window.addEventListener("popstate", this._boundSpaNavigation);
+      window.addEventListener("hashchange", this._boundSpaNavigation);
+
       this.updatePosition();
       hudHosts.set(this.video, this);
       if (typeof window !== "undefined") {
         window.__kirokuHud = this;
+      }
+    }
+
+    handleSpaNavigation() {
+      const isConnected = this.video?.isConnected ?? (document.body ? document.body.contains(this.video) : false);
+      if (!isConnected) {
+        this.destroy();
+      } else {
+        this.mountToParent();
+        this.updatePosition();
       }
     }
 
@@ -155,8 +172,11 @@
       if (typeof document === "undefined") return;
       const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
       if (fsEl && this.hostEl) {
-        if (fsEl.contains(this.video) || fsEl === this.video) {
+        // Video element itself cannot render child HTML elements; mount to parent if fsEl is the video
+        if (fsEl !== this.video && fsEl.contains(this.video)) {
           fsEl.appendChild(this.hostEl);
+        } else {
+          this.mountToParent();
         }
       } else {
         this.mountToParent();
@@ -220,6 +240,9 @@
       if (typeof window !== "undefined") {
         window.removeEventListener("pagehide", this._boundPageHide);
         window.removeEventListener("resize", this._boundReposition);
+        window.removeEventListener("yt-navigate-finish", this._boundSpaNavigation);
+        window.removeEventListener("popstate", this._boundSpaNavigation);
+        window.removeEventListener("hashchange", this._boundSpaNavigation);
         if (window.__kirokuHud === this) {
           window.__kirokuHud = null;
         }

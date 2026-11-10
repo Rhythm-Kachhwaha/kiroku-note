@@ -23,6 +23,46 @@
     constructor(video) {
       this.video = video || null;
       this._destroyed = false;
+      this._listeners = new Map();
+
+      this._boundVideoPlay = () => this._emit("play");
+      this._boundVideoPause = () => this._emit("pause");
+      this._boundVideoTimeUpdate = () => this._emit("timeupdate", this.getCurrentTime());
+      this._boundVideoSeeked = () => this._emit("seeked", this.getCurrentTime());
+      this._boundVideoRateChange = () => this._emit("ratechange", this.video?.playbackRate);
+
+      if (this.video && typeof this.video.addEventListener === "function") {
+        this.video.addEventListener("play", this._boundVideoPlay);
+        this.video.addEventListener("pause", this._boundVideoPause);
+        this.video.addEventListener("timeupdate", this._boundVideoTimeUpdate);
+        this.video.addEventListener("seeked", this._boundVideoSeeked);
+        this.video.addEventListener("ratechange", this._boundVideoRateChange);
+      }
+    }
+
+    on(event, handler) {
+      if (typeof handler !== "function") return () => {};
+      if (!this._listeners.has(event)) {
+        this._listeners.set(event, new Set());
+      }
+      this._listeners.get(event).add(handler);
+      return () => this.off(event, handler);
+    }
+
+    off(event, handler) {
+      if (this._listeners.has(event)) {
+        this._listeners.get(event).delete(handler);
+      }
+    }
+
+    _emit(event, ...args) {
+      if (this._destroyed) return;
+      const handlers = this._listeners.get(event);
+      if (handlers) {
+        for (const fn of handlers) {
+          try { fn(...args); } catch (_) {}
+        }
+      }
     }
 
     static detect(video) {
@@ -31,14 +71,14 @@
 
     getCurrentTime() {
       if (!this.video) return 0;
-      return typeof this.video.currentTime === "number" ? this.video.currentTime : 0;
+      const t = this.video.currentTime;
+      return typeof t === "number" && !isNaN(t) && isFinite(t) ? Math.max(0, t) : 0;
     }
 
     getDuration() {
       if (!this.video) return 0;
-      return typeof this.video.duration === "number" && !isNaN(this.video.duration)
-        ? this.video.duration
-        : 0;
+      const d = this.video.duration;
+      return typeof d === "number" && !isNaN(d) && isFinite(d) ? Math.max(0, d) : 0;
     }
 
     isPaused() {
@@ -65,7 +105,7 @@
 
     seek(timeSeconds) {
       if (!this.video) return;
-      if (typeof timeSeconds !== "number" || isNaN(timeSeconds)) return;
+      if (typeof timeSeconds !== "number" || isNaN(timeSeconds) || !isFinite(timeSeconds)) return;
       try {
         this.video.currentTime = Math.max(0, timeSeconds);
       } catch (_) {}
@@ -73,7 +113,7 @@
 
     setPlaybackRate(rate) {
       if (!this.video) return;
-      if (typeof rate !== "number" || rate <= 0) return;
+      if (typeof rate !== "number" || isNaN(rate) || !isFinite(rate) || rate <= 0) return;
       try {
         this.video.playbackRate = rate;
       } catch (_) {}
@@ -112,6 +152,14 @@
 
     destroy() {
       this._destroyed = true;
+      if (this.video && typeof this.video.removeEventListener === "function") {
+        this.video.removeEventListener("play", this._boundVideoPlay);
+        this.video.removeEventListener("pause", this._boundVideoPause);
+        this.video.removeEventListener("timeupdate", this._boundVideoTimeUpdate);
+        this.video.removeEventListener("seeked", this._boundVideoSeeked);
+        this.video.removeEventListener("ratechange", this._boundVideoRateChange);
+      }
+      this._listeners.clear();
       this.video = null;
     }
   }

@@ -89,3 +89,43 @@ test("PlayerAdapterRegistry resolves correct adapters", () => {
   assert.equal(netflixAdapter.getCapabilities().seek, false, "Netflix seek capability must be false until proven");
 });
 
+test("PlayerAdapter event bridging and safe bounds", () => {
+  const listeners = {};
+  const mockVideo = {
+    currentTime: 10,
+    duration: 100,
+    paused: true,
+    addEventListener(evt, fn) {
+      listeners[evt] = fn;
+    },
+    removeEventListener(evt, fn) {
+      delete listeners[evt];
+    }
+  };
+
+  const adapter = new PlayerAdapter(mockVideo);
+  let playEmitted = false;
+  let timeEmitted = null;
+
+  adapter.on("play", () => { playEmitted = true; });
+  adapter.on("timeupdate", (t) => { timeEmitted = t; });
+
+  assert.ok(listeners.play);
+  assert.ok(listeners.timeupdate);
+
+  listeners.play();
+  assert.equal(playEmitted, true);
+
+  listeners.timeupdate();
+  assert.equal(timeEmitted, 10);
+
+  // Bounds checks
+  adapter.seek(-50);
+  assert.equal(mockVideo.currentTime, 0);
+  adapter.seek(NaN);
+  assert.equal(mockVideo.currentTime, 0);
+
+  adapter.destroy();
+  assert.equal(Object.keys(listeners).length, 0, "Listeners must be cleaned up on destroy");
+});
+

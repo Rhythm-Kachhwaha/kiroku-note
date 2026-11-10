@@ -100,3 +100,29 @@ test("HudHost registers cleanups and runs them on destroy", () => {
   assert.equal(host.hostEl, null);
 });
 
+test("HudHost handleSpaNavigation destroys host when video is disconnected", () => {
+  const video = createMockElement("video");
+  video.isConnected = false;
+  const host = new HudHost(video);
+
+  assert.ok(host.hostEl);
+  host.handleSpaNavigation();
+  assert.equal(host.video, null, "Disconnected video must destroy host on SPA navigation");
+  assert.equal(host.hostEl, null);
+});
+
+test("HudHost handleFullscreenChange does not append inside video element", () => {
+  const parent = createMockElement("div");
+  const video = createMockElement("video");
+  parent.appendChild(video);
+  global.document.body.appendChild(parent);
+
+  const host = new HudHost(video);
+  global.document.fullscreenElement = video; // Video element itself is fullscreen
+  host.handleFullscreenChange();
+
+  assert.equal(video.children.includes(host.hostEl), false, "Must not append hostEl directly inside video element");
+  assert.ok(parent.children.includes(host.hostEl) || global.document.body.children.includes(host.hostEl));
+  host.destroy();
+});
+
