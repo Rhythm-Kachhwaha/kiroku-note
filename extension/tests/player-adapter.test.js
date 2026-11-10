@@ -122,8 +122,10 @@ test("PlayerAdapter event bridging and safe bounds", () => {
   // Bounds checks
   adapter.seek(-50);
   assert.equal(mockVideo.currentTime, 0);
+  adapter.seek(500);
+  assert.equal(mockVideo.currentTime, 100, "Seek past duration must be clamped to duration");
   adapter.seek(NaN);
-  assert.equal(mockVideo.currentTime, 0);
+  assert.equal(mockVideo.currentTime, 100);
 
   adapter.destroy();
   assert.equal(Object.keys(listeners).length, 0, "Listeners must be cleaned up on destroy");

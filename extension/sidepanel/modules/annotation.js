@@ -79,6 +79,44 @@ if (activeSubSizeControls) {
   });
 }
 
+const selectSubFurigana = document.querySelector("#select-sub-furigana");
+if (selectSubFurigana) {
+  if (typeof chrome !== "undefined" && chrome.storage?.local) {
+    chrome.storage.local.get("kiroku.anime.prefs.furigana", (res) => {
+      if (res && res["kiroku.anime.prefs.furigana"]) {
+        selectSubFurigana.value = res["kiroku.anime.prefs.furigana"];
+      }
+    });
+  }
+  selectSubFurigana.addEventListener("change", (e) => {
+    const mode = e.target.value;
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ "kiroku.anime.prefs.furigana": mode });
+    }
+    if (typeof chrome !== "undefined") {
+      if (chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({
+          type: "KIROKU_FURIGANA_MODE_CHANGED",
+          mode: mode
+        }).catch(() => {});
+      }
+      if (chrome.tabs?.query) {
+        chrome.tabs.query({}, (tabs) => {
+          if (!Array.isArray(tabs)) return;
+          for (const tab of tabs) {
+            if (tab?.id) {
+              chrome.tabs.sendMessage(tab.id, {
+                type: "KIROKU_FURIGANA_MODE_CHANGED",
+                mode: mode
+              }).catch(() => {});
+            }
+          }
+        });
+      }
+    }
+  });
+}
+
 async function annotateLoadedSubtitles(cues) {
   const cueList = Array.isArray(cues) ? cues : loadedSubtitleCues;
   if (!Array.isArray(cueList) || cueList.length === 0) return;

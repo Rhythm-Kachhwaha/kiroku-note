@@ -67,3 +67,15 @@ def test_grammar_update_point_status_upsert(tmp_path, monkeypatch):
     data = response.json()
     assert data["pattern_key"] == "hou-ga-ii"
     assert data["status"] == "learning"
+
+
+def test_grammar_explain_route(monkeypatch, tmp_path):
+    from app.services.grammar_service import GrammarService
+    monkeypatch.setattr(grammar, "_service", GrammarService(provider=Provider(), db_path=tmp_path / "db.sqlite"))
+    response = TestClient(app).post("/api/grammar/explain", json={"text": "宿題を忘れてしまった。"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["text"] == "宿題を忘れてしまった。"
+    assert "points" in data
+    assert "analysis" in data
+

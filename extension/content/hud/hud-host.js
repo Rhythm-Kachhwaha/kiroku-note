@@ -36,10 +36,26 @@
       this.intersectionObserver = null;
       this.mutationObserver = null;
       this.isVisible = true;
+
+      this.adapter = null;
+      this.cues = [];
+      this.secondaryCues = [];
+      this.offsetMs = 0;
+      this.episodeKey = "";
+      this.furiganaMode = "hover";
+      this.dualSubsEnabled = false;
+      this.dualSubsBlur = true;
+      this.syncBadgeEl = null;
+      this.secondaryCueEl = null;
+      this.activeSecondaryCue = null;
+      this._syncBadgeTimer = null;
+
       this._boundReposition = this.updatePosition.bind(this);
       this._boundFullscreenChange = this.handleFullscreenChange.bind(this);
       this._boundPageHide = this.destroy.bind(this);
       this._boundSpaNavigation = this.handleSpaNavigation.bind(this);
+      this._boundKeyDown = this._handleKeyDown.bind(this);
+      this._boundRuntimeMessage = this._handleRuntimeMessage.bind(this);
 
       this.init();
     }
@@ -82,12 +98,107 @@
           height: 100%;
           pointer-events: none;
         }
+        /* Furigana Mode Styles */
+        .hud-furigana-hover ruby rt {
+          opacity: 0;
+          transition: opacity 0.15s ease;
+        }
+        .hud-furigana-hover ruby:hover rt,
+        .hud-furigana-hover ruby rt:hover {
+          opacity: 1;
+        }
+        .hud-furigana-always ruby rt {
+          opacity: 1;
+        }
+        .hud-furigana-hidden ruby rt {
+          display: none !important;
+        }
+        /* Floating Sync Badge */
+        .hud-sync-badge {
+          position: absolute;
+          top: 24px;
+          right: 24px;
+          background: rgba(24, 24, 27, 0.9);
+          color: #f4f4f5;
+          font-size: 13px;
+          font-weight: 500;
+          padding: 6px 12px;
+          border-radius: 6px;
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+          pointer-events: none;
+          opacity: 0;
+          transform: translateY(-4px);
+          transition: opacity 0.2s ease, transform 0.2s ease;
+          z-index: 2147483647;
+        }
+        .hud-sync-badge.is-visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        /* Secondary Subtitle Cue */
+        .hud-secondary-cue {
+          display: none;
+          position: absolute;
+          bottom: 42px;
+          left: 50%;
+          transform: translateX(-50%);
+          max-width: 85%;
+          font-size: 15px;
+          line-height: 1.4;
+          color: #e4e4e7;
+          text-align: center;
+          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.6);
+          pointer-events: auto;
+          user-select: text;
+          z-index: 2147483645;
+        }
+        .hud-secondary-cue.is-blurred {
+          filter: blur(5px);
+          opacity: 0.6;
+          transition: filter 0.2s ease, opacity 0.2s ease;
+        }
+        .hud-secondary-cue.is-blurred:hover {
+          filter: none;
+          opacity: 1;
+        }
       `;
       this.shadowRoot.appendChild(style);
 
       this.contentContainer = document.createElement("div");
-      this.contentContainer.className = "hud-content-container";
+      this.contentContainer.className = "hud-content-container hud-furigana-hover";
       this.shadowRoot.appendChild(this.contentContainer);
+
+      this.syncBadgeEl = document.createElement("div");
+      this.syncBadgeEl.className = "hud-sync-badge";
+      this.contentContainer.appendChild(this.syncBadgeEl);
+
+      this.secondaryCueEl = document.createElement("div");
+      this.secondaryCueEl.className = "hud-secondary-cue is-blurred";
+      this.contentContainer.appendChild(this.secondaryCueEl);
+
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+        chrome.storage.local.get(["kiroku.anime.prefs.furigana", "kiroku.anime.prefs.dualSubsEnabled", "kiroku.anime.prefs.dualSubsBlur"], (res) => {
+          if (res) {
+            if (res["kiroku.anime.prefs.furigana"]) {
+              this.setFuriganaMode(res["kiroku.anime.prefs.furigana"]);
+            }
+            if (res["kiroku.anime.prefs.dualSubsEnabled"] !== undefined) {
+              this.dualSubsEnabled = Boolean(res["kiroku.anime.prefs.dualSubsEnabled"]);
+            }
+            if (res["kiroku.anime.prefs.dualSubsBlur"] !== undefined) {
+              this.dualSubsBlur = Boolean(res["kiroku.anime.prefs.dualSubsBlur"]);
+              if (this.secondaryCueEl) {
+                if (this.dualSubsBlur) {
+                  this.secondaryCueEl.classList?.add("is-blurred");
+                } else {
+                  this.secondaryCueEl.classList?.remove("is-blurred");
+                }
+              }
+            }
+          }
+        });
+      }
 
       this.mountToParent();
 
@@ -130,6 +241,14 @@
       window.addEventListener("yt-navigate-finish", this._boundSpaNavigation);
       window.addEventListener("popstate", this._boundSpaNavigation);
       window.addEventListener("hashchange", this._boundSpaNavigation);
+
+      // Keyboard navigation & timing offset hotkeys
+      window.addEventListener("keydown", this._boundKeyDown);
+
+      // Runtime message listener for furigana and dual subtitles
+      if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+        chrome.runtime.onMessage.addListener(this._boundRuntimeMessage);
+      }
 
       this.updatePosition();
       hudHosts.set(this.video, this);
@@ -208,6 +327,221 @@
       } catch (_) {}
     }
 
+    setAdapter(adapter) {
+      this.adapter = adapter || null;
+    }
+
+    setCues(cues) {
+      this.cues = Array.isArray(cues) ? cues : [];
+    }
+
+    setSecondaryCues(cues) {
+      this.secondaryCues = Array.isArray(cues) ? cues : [];
+    }
+
+    setOffsetMs(ms) {
+      this.offsetMs = Number(ms) || 0;
+    }
+
+    setEpisodeKey(key) {
+      this.episodeKey = String(key || "");
+    }
+
+    showSyncBadge(deltaOrText) {
+      if (!this.syncBadgeEl) return;
+      let text = "";
+      if (typeof deltaOrText === "number") {
+        text = `Sync: ${deltaOrText > 0 ? "+" : ""}${deltaOrText}ms`;
+      } else {
+        text = String(deltaOrText || "");
+      }
+      this.syncBadgeEl.textContent = text;
+      if (this.syncBadgeEl.classList) {
+        this.syncBadgeEl.classList.add("is-visible");
+      }
+      this.syncBadgeEl.style.opacity = "1";
+      this.syncBadgeEl.style.transform = "translateY(0)";
+
+      if (this._syncBadgeTimer) clearTimeout(this._syncBadgeTimer);
+      this._syncBadgeTimer = setTimeout(() => {
+        if (this.syncBadgeEl) {
+          if (this.syncBadgeEl.classList) {
+            this.syncBadgeEl.classList.remove("is-visible");
+          }
+          this.syncBadgeEl.style.opacity = "0";
+          this.syncBadgeEl.style.transform = "translateY(-4px)";
+        }
+      }, 1200);
+    }
+
+    adjustOffset(deltaMs) {
+      if (typeof deltaMs !== "number" || isNaN(deltaMs)) return;
+      this.offsetMs = (this.offsetMs || 0) + deltaMs;
+      this.showSyncBadge(deltaMs);
+
+      if (this.episodeKey) {
+        try {
+          const Store = typeof EpisodeStore !== "undefined"
+            ? EpisodeStore
+            : (typeof defaultEpisodeStore !== "undefined" ? defaultEpisodeStore : null);
+          if (Store && typeof Store.updateEpisodeState === "function") {
+            Store.updateEpisodeState(this.episodeKey, { offsetMs: this.offsetMs });
+          }
+        } catch (_) {}
+      }
+
+      try {
+        if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+          chrome.runtime.sendMessage({
+            type: "KIROKU_OFFSET_UPDATED",
+            offsetMs: this.offsetMs,
+            episodeKey: this.episodeKey
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
+
+    seekRelativeCue(direction) {
+      if (!this.adapter) return;
+      const caps = typeof this.adapter.getCapabilities === "function" ? this.adapter.getCapabilities() : null;
+      if (caps && caps.seek === false) return;
+      if (!Array.isArray(this.cues) || this.cues.length === 0) return;
+
+      const currentSec = typeof this.adapter.getCurrentTime === "function"
+        ? this.adapter.getCurrentTime()
+        : (this.video?.currentTime || 0);
+      const offsetSec = (this.offsetMs || 0) / 1000;
+
+      const getCueStart = (c) => {
+        if (!c) return 0;
+        if (typeof c.startTime === "number") return c.startTime;
+        if (typeof c.start === "number") return c.start > 10000 ? c.start / 1000 : c.start;
+        if (typeof c.startMs === "number") return c.startMs / 1000;
+        if (typeof c.s === "number") return c.s;
+        return 0;
+      };
+
+      if (direction < 0) {
+        let targetCue = null;
+        for (let i = this.cues.length - 1; i >= 0; i--) {
+          const cue = this.cues[i];
+          const cueStart = getCueStart(cue) + offsetSec;
+          if (cueStart < currentSec - 0.5) {
+            targetCue = cue;
+            break;
+          }
+        }
+        if (!targetCue && this.cues.length > 0) {
+          targetCue = this.cues[0];
+        }
+        if (targetCue && typeof this.adapter.seek === "function") {
+          const targetTime = Math.max(0, getCueStart(targetCue) + offsetSec);
+          this.adapter.seek(targetTime);
+        }
+      } else if (direction > 0) {
+        let targetCue = null;
+        for (let i = 0; i < this.cues.length; i++) {
+          const cue = this.cues[i];
+          const cueStart = getCueStart(cue) + offsetSec;
+          if (cueStart > currentSec + 0.1) {
+            targetCue = cue;
+            break;
+          }
+        }
+        if (targetCue && typeof this.adapter.seek === "function") {
+          const targetTime = Math.max(0, getCueStart(targetCue) + offsetSec);
+          this.adapter.seek(targetTime);
+        }
+      }
+    }
+
+    _handleKeyDown(e) {
+      if (!e || e.defaultPrevented) return;
+      const target = e.target;
+      if (target) {
+        const tag = (target.tagName || "").toUpperCase();
+        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
+        if (target.getAttribute && target.getAttribute("contenteditable") === "true") return;
+      }
+      if (typeof document !== "undefined") {
+        const modal = document.querySelector?.(".modal, .dialog, [role='dialog']:not([hidden]), dialog[open]");
+        if (modal && (!modal.hasAttribute || !modal.hasAttribute("hidden"))) {
+          return;
+        }
+      }
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+      const key = e.key;
+      if (key === "[" || key === "z" || key === "Z") {
+        if (typeof e.preventDefault === "function") e.preventDefault();
+        this.adjustOffset(-100);
+      } else if (key === "]" || key === "x" || key === "X") {
+        if (typeof e.preventDefault === "function") e.preventDefault();
+        this.adjustOffset(100);
+      } else if (key === "a" || key === "A") {
+        if (typeof e.preventDefault === "function") e.preventDefault();
+        this.seekRelativeCue(-1);
+      } else if (key === "d" || key === "D") {
+        if (typeof e.preventDefault === "function") e.preventDefault();
+        this.seekRelativeCue(1);
+      }
+    }
+
+    setFuriganaMode(mode) {
+      const valid = mode === "always" || mode === "hidden" ? mode : "hover";
+      this.furiganaMode = valid;
+      const target = this.contentContainer || this.hostEl;
+      if (target) {
+        if (target.classList) {
+          target.classList.remove("hud-furigana-hover", "hud-furigana-always", "hud-furigana-hidden");
+          target.classList.add(`hud-furigana-${valid}`);
+        } else {
+          target.className = `${(target.className || "").replace(/hud-furigana-\w+/g, "")} hud-furigana-${valid}`.trim();
+        }
+      }
+    }
+
+    setDualSubsConfig({ enabled, blur } = {}) {
+      if (enabled !== undefined) this.dualSubsEnabled = Boolean(enabled);
+      if (blur !== undefined) this.dualSubsBlur = Boolean(blur);
+      if (this.secondaryCueEl) {
+        if (this.dualSubsBlur) {
+          if (this.secondaryCueEl.classList) this.secondaryCueEl.classList.add("is-blurred");
+        } else {
+          if (this.secondaryCueEl.classList) this.secondaryCueEl.classList.remove("is-blurred");
+        }
+      }
+      if (this.activeSecondaryCue) {
+        this.renderSecondaryCue(this.activeSecondaryCue);
+      }
+    }
+
+    renderSecondaryCue(cue) {
+      this.activeSecondaryCue = cue || null;
+      if (!this.secondaryCueEl) return;
+      if (!this.dualSubsEnabled || !cue || !cue.text || !cue.text.trim()) {
+        this.secondaryCueEl.style.display = "none";
+        this.secondaryCueEl.textContent = "";
+        return;
+      }
+      this.secondaryCueEl.textContent = cue.text.trim();
+      this.secondaryCueEl.style.display = "block";
+      if (this.dualSubsBlur) {
+        if (this.secondaryCueEl.classList) this.secondaryCueEl.classList.add("is-blurred");
+      } else {
+        if (this.secondaryCueEl.classList) this.secondaryCueEl.classList.remove("is-blurred");
+      }
+    }
+
+    _handleRuntimeMessage(msg) {
+      if (!msg) return;
+      if (msg.type === "KIROKU_FURIGANA_MODE_CHANGED" && msg.mode) {
+        this.setFuriganaMode(msg.mode);
+      } else if (msg.type === "KIROKU_DUAL_SUBS_CONFIG" || msg.type === "KIROKU_DUAL_SUBS_PREFS_CHANGED") {
+        this.setDualSubsConfig({ enabled: msg.enabled, blur: msg.blur });
+      }
+    }
+
     registerCleanup(fn) {
       if (typeof fn === "function") {
         this.cleanups.push(fn);
@@ -219,6 +553,11 @@
         try { fn(); } catch (_) {}
       }
       this.cleanups = [];
+
+      if (this._syncBadgeTimer) {
+        clearTimeout(this._syncBadgeTimer);
+        this._syncBadgeTimer = null;
+      }
 
       if (this.resizeObserver) {
         this.resizeObserver.disconnect();
@@ -243,9 +582,16 @@
         window.removeEventListener("yt-navigate-finish", this._boundSpaNavigation);
         window.removeEventListener("popstate", this._boundSpaNavigation);
         window.removeEventListener("hashchange", this._boundSpaNavigation);
+        window.removeEventListener("keydown", this._boundKeyDown);
         if (window.__kirokuHud === this) {
           window.__kirokuHud = null;
         }
+      }
+
+      if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+        try {
+          chrome.runtime.onMessage.removeListener(this._boundRuntimeMessage);
+        } catch (_) {}
       }
 
       if (this.hostEl && this.hostEl.parentElement) {
@@ -254,6 +600,12 @@
       this.hostEl = null;
       this.shadowRoot = null;
       this.contentContainer = null;
+      this.syncBadgeEl = null;
+      this.secondaryCueEl = null;
+      this.activeSecondaryCue = null;
+      this.cues = [];
+      this.secondaryCues = [];
+      this.adapter = null;
       if (this.video) {
         hudHosts.delete(this.video);
         this.video = null;

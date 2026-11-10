@@ -209,3 +209,71 @@ test("AnimeTranscript - defaultSeek dispatches seek message to video", () => {
   delete global.chrome;
 });
 
+test("AnimeTranscript - filters cues with 1T Only filter chip", () => {
+  const container = createMockDom();
+  const transcript = new AnimeTranscript({ container });
+
+  const cues = [
+    { i: 0, text: "こんにちは", tokens: [{ status: "known" }] }, // 0 unknown
+    { i: 1, text: "猫を飼う", tokens: [{ status: "known" }, { status: "unseen" }] }, // 1 unknown (1T)
+    { i: 2, text: "宇宙論を研究する", tokens: [{ status: "unseen" }, { status: "unseen" }] } // 2 unknown
+  ];
+
+  transcript.setCues(cues);
+  assert.equal(container._countBadge.textContent, "3 cues");
+
+  // Activate 1T filter
+  transcript.setFilter("1t");
+  assert.equal(transcript.filteredCues.length, 1);
+  assert.equal(transcript.filteredCues[0].text, "猫を飼う");
+  assert.equal(container._countBadge.textContent, "1 / 3");
+
+  // Reset to all
+  transcript.setFilter("all");
+  assert.equal(transcript.filteredCues.length, 3);
+});
+
+test("AnimeTranscript - merges adjacent subtitle cues", () => {
+  const container = createMockDom();
+  const transcript = new AnimeTranscript({ container });
+
+  const cues = [
+    { i: 0, text: "前編のセリフです", startTime: 1.0, endTime: 2.5 },
+    { i: 1, text: "後編に続きます", startTime: 2.8, endTime: 4.5 },
+    { i: 2, text: "別の話題です", startTime: 5.0, endTime: 6.0 }
+  ];
+
+  transcript.setCues(cues);
+  assert.equal(transcript.cues.length, 3);
+
+  // Merge cue 0 with cue 1
+  transcript.mergeWithNext(0);
+  assert.equal(transcript.cues.length, 2);
+  assert.equal(transcript.cues[0].text, "前編のセリフです 後編に続きます");
+  assert.equal(transcript.cues[0].startTime, 1.0);
+  assert.equal(transcript.cues[0].endTime, 4.5);
+});
+
+test("AnimeTranscript - triggers grammar explain action", async () => {
+  const container = createMockDom();
+  const transcript = new AnimeTranscript({ container });
+
+  let sentMsg = null;
+  global.chrome = {
+    runtime: {
+      sendMessage: async (msg) => {
+        sentMsg = msg;
+        return { ok: true };
+      }
+    }
+  };
+
+  await transcript.explainGrammar({ text: "雨が降るかもしれない" });
+  assert.ok(sentMsg);
+  assert.equal(sentMsg.type, "SP_OPEN_GRAMMAR");
+  assert.equal(sentMsg.text, "雨が降るかもしれない");
+
+  delete global.chrome;
+});
+
+

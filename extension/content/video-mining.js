@@ -2226,6 +2226,15 @@
           : parsedCues;
         if (cues && cues.length > 0) {
           this.syncEngine.setCues(cues);
+          if (this.hudHost && typeof this.hudHost.setCues === "function") {
+            this.hudHost.setCues(cues);
+          }
+          if (this.hudHost && typeof this.hudHost.setEpisodeKey === "function") {
+            this.hudHost.setEpisodeKey(file.name);
+          }
+          if (this.hudSentence && typeof this.hudSentence.setCues === "function") {
+            this.hudSentence.setCues(cues);
+          }
           this.activeFilename = file.name;
           this.renderer.ensureMounted();
           this.renderer.updatePosition();
@@ -2717,6 +2726,13 @@
         sendResponse?.({ ok: true });
         return true;
       }
+      if (message?.type === "KIROKU_OFFSET_UPDATED" && typeof message.offsetMs === "number") {
+        this.syncEngine.setOffsetMs(message.offsetMs);
+        this.persistOffset(message.offsetMs);
+        this.broadcastOffset(message.offsetMs);
+        sendResponse?.({ ok: true, offsetMs: message.offsetMs });
+        return true;
+      }
       if (message?.type === "SET_SUBTITLE_OFFSET") {
         let offsetMs = 0;
         if (typeof message.offsetMs === "number" && !isNaN(message.offsetMs)) {
@@ -2729,6 +2745,9 @@
           }
         }
         this.syncEngine.setOffsetMs(offsetMs);
+        if (this.hudHost && typeof this.hudHost.setOffsetMs === "function") {
+          this.hudHost.setOffsetMs(offsetMs);
+        }
         this.persistOffset(offsetMs);
         this.broadcastOffset(offsetMs);
         sendResponse?.({ ok: true, offset: offsetMs / 1000, offsetMs });
@@ -3023,11 +3042,31 @@
         this.renderer.mount(video);
         if (typeof getHudHostForVideo === "function") {
           this.hudHost = getHudHostForVideo(video);
+          if (this.hudHost) {
+            const resolvedAdapter = typeof defaultPlayerRegistry !== "undefined"
+              ? defaultPlayerRegistry.resolve(video)
+              : (typeof PlayerAdapter !== "undefined" ? new PlayerAdapter(video) : null);
+            if (typeof this.hudHost.setAdapter === "function") {
+              this.hudHost.setAdapter(resolvedAdapter);
+            }
+            if (typeof this.hudHost.setCues === "function" && this.syncEngine?.cues) {
+              this.hudHost.setCues(this.syncEngine.cues);
+            }
+            if (typeof this.hudHost.setOffsetMs === "function") {
+              this.hudHost.setOffsetMs(this.syncEngine?.offsetMs || 0);
+            }
+            if (typeof this.hudHost.setEpisodeKey === "function") {
+              this.hudHost.setEpisodeKey(this.activeFilename || (typeof location !== "undefined" ? location.href : ""));
+            }
+          }
           if (this.hudHost && !this.hudPopup && typeof HudPopup === "function") {
             this.hudPopup = new HudPopup(this.hudHost);
           }
           if (this.hudHost && !this.hudSentence && typeof HudSentence === "function") {
             this.hudSentence = new HudSentence(this.hudHost, typeof defaultHudState !== "undefined" ? defaultHudState : null);
+            if (this.syncEngine?.cues && typeof this.hudSentence.setCues === "function") {
+              this.hudSentence.setCues(this.syncEngine.cues);
+            }
           }
         }
         if (this.hud) {

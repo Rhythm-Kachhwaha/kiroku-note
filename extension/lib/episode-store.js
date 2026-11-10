@@ -125,6 +125,19 @@
     }
 
     /**
+     * Update episode state for a given episodeKey (alias for setEpisode)
+     * @param {string} episodeKey
+     * @param {Object} partial - { sourceId, jimakuId, offsetMs, lastPos }
+     */
+    async updateEpisodeState(episodeKey, partial = {}) {
+      return this.setEpisode(episodeKey, partial);
+    }
+
+    static async updateEpisodeState(episodeKey, partial = {}) {
+      return defaultStore.setEpisode(episodeKey, partial);
+    }
+
+    /**
      * Clear all episode data (used for testing or reset)
      */
     async clear() {

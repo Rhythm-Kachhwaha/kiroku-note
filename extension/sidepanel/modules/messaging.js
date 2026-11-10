@@ -193,6 +193,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse?.({ok: true});
     return true;
   }
+  if (message?.type === "KIROKU_OFFSET_UPDATED") {
+    if (typeof message.offsetMs === "number" && typeof updateOffsetDisplay === "function") {
+      updateOffsetDisplay(message.offsetMs);
+    }
+    sendResponse?.({ok: true});
+    return true;
+  }
   if (message?.type === "SP_SCROLL_TRANSCRIPT") {
     if (typeof animeTranscriptInstance !== "undefined" && animeTranscriptInstance) {
       animeTranscriptInstance.scrollToActiveCue();

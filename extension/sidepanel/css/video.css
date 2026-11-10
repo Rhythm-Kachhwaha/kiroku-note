@@ -594,6 +594,24 @@
   margin-bottom: 2px;
 }
 
+.sub-furigana-select {
+  background: var(--bg-surface-1, #16161a);
+  color: var(--text-muted, #a1a1aa);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 4px);
+  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+  margin-left: 6px;
+}
+
+.sub-furigana-select:focus {
+  outline: none;
+  border-color: var(--border-focus, #d4884f);
+  color: var(--text-primary, #f4f4f5);
+}
+
 .active-sub-size-controls {
   display: inline-flex;
   align-items: center;
@@ -1192,6 +1210,66 @@
   text-align: center;
   color: var(--text-muted, #a0a0a0);
   font-size: 12px;
+}
+
+.anime-transcript-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 6px 8px;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
+}
+
+.anime-filter-chip {
+  background: var(--bg-surface-1, #16161a);
+  color: var(--text-muted, #a0a0a0);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.anime-filter-chip:hover {
+  background: var(--bg-surface-3, #282830);
+  color: var(--text-primary, #ede8e1);
+}
+
+.anime-filter-chip.is-active {
+  background: rgba(217, 119, 87, 0.2);
+  color: var(--accent-primary, #d97757);
+  border-color: var(--accent-primary, #d97757);
+}
+
+.anime-transcript-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--transition-fast, 0.15s ease);
+  flex-shrink: 0;
+}
+
+.anime-transcript-row:hover .anime-transcript-row-actions {
+  opacity: 1;
+}
+
+.anime-row-action-btn {
+  background: var(--bg-surface-1, #16161a);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.12));
+  color: var(--text-muted, #a0a0a0);
+  border-radius: 3px;
+  padding: 2px 5px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.anime-row-action-btn:hover {
+  background: var(--bg-surface-3, #282830);
+  color: var(--text-primary, #ede8e1);
+  border-color: var(--accent-primary, #d97757);
 }
 
 /* Episode Map styles */

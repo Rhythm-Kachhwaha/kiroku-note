@@ -14,11 +14,13 @@
   "use strict";
 
   const STORAGE_KEY = "kiroku.hud.prefs";
+  const FURIGANA_STORAGE_KEY = "kiroku.anime.prefs.furigana";
 
   const DEFAULT_PREFS = {
     fontSize: 24,
     position: { relX: 0.5, relY: 0.78 },
     furigana: true,
+    furiganaMode: "hover", // 'hover' (default) | 'always' | 'hidden'
     showJa: true,
     showNative: false,
     blur: false,
@@ -37,9 +39,14 @@
     async loadPrefs() {
       try {
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
-          const res = await chrome.storage.local.get(STORAGE_KEY);
-          if (res && res[STORAGE_KEY]) {
-            this.prefs = { ...this.prefs, ...res[STORAGE_KEY] };
+          const res = await chrome.storage.local.get([STORAGE_KEY, FURIGANA_STORAGE_KEY]);
+          if (res) {
+            if (res[STORAGE_KEY]) {
+              this.prefs = { ...this.prefs, ...res[STORAGE_KEY] };
+            }
+            if (res[FURIGANA_STORAGE_KEY]) {
+              this.prefs.furiganaMode = res[FURIGANA_STORAGE_KEY];
+            }
             this.notify();
           }
         }
@@ -51,9 +58,18 @@
       this.notify();
       try {
         if (typeof chrome !== "undefined" && chrome.storage?.local) {
-          await chrome.storage.local.set({ [STORAGE_KEY]: this.prefs });
+          const toSet = { [STORAGE_KEY]: this.prefs };
+          if (newPrefs.furiganaMode !== undefined) {
+            toSet[FURIGANA_STORAGE_KEY] = newPrefs.furiganaMode;
+          }
+          await chrome.storage.local.set(toSet);
         }
       } catch (_) {}
+    }
+
+    async setFuriganaMode(mode) {
+      const valid = mode === "always" || mode === "hidden" ? mode : "hover";
+      return this.savePrefs({ furiganaMode: valid });
     }
 
     setActiveCue(cue) {

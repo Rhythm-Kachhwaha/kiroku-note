@@ -3,6 +3,10 @@
  *
  * Virtualized full cue list, search filtering (< 100ms), and click-to-seek.
  * Respects player capabilities: seek button / jump is hidden when seek capability is false.
+ * Features:
+ * - 1T (1-Target / i+1) Sentence Intelligence & filter chips (All Cues | 1T Only | Unseen Words)
+ * - Sentence Merging for multi-line dialogue cues
+ * - Subtle Grammar breakdown triggers per row
  */
 
 (function (root, factory) {
@@ -25,9 +29,15 @@
       this.cues = [];
       this.filteredCues = [];
       this.searchQuery = "";
+      this.activeFilter = options.activeFilter || "all"; // 'all' | '1t' | 'unseen'
+      this.knownWords = options.knownWords instanceof Set
+        ? options.knownWords
+        : new Set(Array.isArray(options.knownWords) ? options.knownWords : []);
       this.capabilities = { seek: true, ...(options.capabilities || {}) };
       this.onSeek = options.onSeek || null;
       this.onMineWord = options.onMineWord || null;
+      this.onCuesUpdated = options.onCuesUpdated || null;
+      this.backendUrl = options.backendUrl || "http://127.0.0.1:21828";
       this.activeCueIndex = -1;
 
       this.scrollTop = 0;
@@ -38,6 +48,7 @@
         wrap: null,
         searchInput: null,
         searchClearBtn: null,
+        filterChips: [],
         viewport: null,
         scrollSpacer: null,
         itemsHost: null,
@@ -63,6 +74,11 @@
             </div>
             <span class="anime-transcript-count">0 cues</span>
           </div>
+          <div class="anime-transcript-filters" role="group" aria-label="Transcript filters">
+            <button type="button" class="anime-filter-chip is-active" data-filter="all">All Cues</button>
+            <button type="button" class="anime-filter-chip" data-filter="1t">1T Only</button>
+            <button type="button" class="anime-filter-chip" data-filter="unseen">Unseen Words</button>
+          </div>
           <div class="anime-transcript-viewport" tabindex="0" role="region" aria-label="Subtitle Transcript">
             <div class="anime-transcript-spacer"></div>
             <div class="anime-transcript-items"></div>
@@ -70,25 +86,48 @@
         </div>
       `;
 
-      this.elements.wrap = this.container.querySelector(".anime-transcript-wrap");
-      this.elements.searchInput = this.container.querySelector(".anime-transcript-search-input");
-      this.elements.searchClearBtn = this.container.querySelector(".anime-search-clear-btn");
-      this.elements.viewport = this.container.querySelector(".anime-transcript-viewport");
-      this.elements.scrollSpacer = this.container.querySelector(".anime-transcript-spacer");
-      this.elements.itemsHost = this.container.querySelector(".anime-transcript-items");
-      this.elements.countBadge = this.container.querySelector(".anime-transcript-count");
+      this.elements.wrap = this.container.querySelector ? this.container.querySelector(".anime-transcript-wrap") : null;
+      this.elements.searchInput = this.container.querySelector ? this.container.querySelector(".anime-transcript-search-input") : null;
+      this.elements.searchClearBtn = this.container.querySelector ? this.container.querySelector(".anime-search-clear-btn") : null;
+      this.elements.viewport = this.container.querySelector ? this.container.querySelector(".anime-transcript-viewport") : null;
+      this.elements.scrollSpacer = this.container.querySelector ? this.container.querySelector(".anime-transcript-spacer") : null;
+      this.elements.itemsHost = this.container.querySelector ? this.container.querySelector(".anime-transcript-items") : null;
+      this.elements.countBadge = this.container.querySelector ? this.container.querySelector(".anime-transcript-count") : null;
 
-      this.elements.searchInput.addEventListener("input", (e) => {
-        this.filter(e.target.value);
-      });
+      if (this.container.querySelectorAll) {
+        this.elements.filterChips = Array.from(this.container.querySelectorAll(".anime-filter-chip"));
+      }
 
-      this.elements.searchClearBtn.addEventListener("click", () => {
-        this.elements.searchInput.value = "";
-        this.filter("");
-        this.elements.searchInput.focus();
-      });
+      if (this.elements.searchInput) {
+        this.elements.searchInput.addEventListener("input", (e) => {
+          this.filter(e.target.value);
+        });
+      }
 
-      this.elements.viewport.addEventListener("scroll", this._boundScroll, { passive: true });
+      if (this.elements.searchClearBtn) {
+        this.elements.searchClearBtn.addEventListener("click", () => {
+          if (this.elements.searchInput) {
+            this.elements.searchInput.value = "";
+          }
+          this.filter("");
+          if (this.elements.searchInput?.focus) {
+            this.elements.searchInput.focus();
+          }
+        });
+      }
+
+      if (this.elements.filterChips && this.elements.filterChips.length > 0) {
+        this.elements.filterChips.forEach(chip => {
+          chip.addEventListener("click", () => {
+            const mode = chip.dataset?.filter || chip.getAttribute?.("data-filter") || "all";
+            this.setFilter(mode);
+          });
+        });
+      }
+
+      if (this.elements.viewport) {
+        this.elements.viewport.addEventListener("scroll", this._boundScroll, { passive: true });
+      }
       this.render();
     }
 
@@ -97,12 +136,76 @@
       this.render();
     }
 
+    setKnownWords(words) {
+      this.knownWords = words instanceof Set
+        ? words
+        : new Set(Array.isArray(words) ? words : []);
+      for (const c of this.cues) {
+        delete c._computedUnknownCount;
+      }
+      if (this.activeFilter !== "all") {
+        this.filter(this.searchQuery);
+      }
+    }
+
+    setFilter(filterMode = "all") {
+      this.activeFilter = filterMode;
+      if (this.elements.filterChips && this.elements.filterChips.length > 0) {
+        this.elements.filterChips.forEach(chip => {
+          const mode = chip.dataset?.filter || chip.getAttribute?.("data-filter");
+          if (mode === filterMode) {
+            chip.classList?.add("is-active");
+          } else {
+            chip.classList?.remove("is-active");
+          }
+        });
+      }
+      this.filter(this.searchQuery);
+    }
+
+    _getUnknownCount(cue) {
+      if (!cue) return 0;
+      if (typeof cue.unknownCount === "number") return cue.unknownCount;
+      if (cue._computedUnknownCount !== undefined) return cue._computedUnknownCount;
+
+      let count = 0;
+      if (Array.isArray(cue.tokens) && cue.tokens.length > 0) {
+        count = cue.tokens.filter(t => {
+          if (!t) return false;
+          const status = t.status || "unstyled";
+          if (status === "known" || status === "mined" || status === "mastered" || status === "should-know" || status === "should_know") {
+            return false;
+          }
+          if (this.knownWords.size > 0) {
+            const surface = t.surface || t.text || "";
+            const lemma = t.lemma || "";
+            if (this.knownWords.has(surface) || this.knownWords.has(lemma)) return false;
+          }
+          return status === "unseen" || status === "new" || status === "unknown" || !status || status === "unstyled";
+        }).length;
+      } else {
+        const text = cue.text || "";
+        const words = text.match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+/g) || [];
+        if (this.knownWords.size > 0) {
+          count = words.filter(w => !this.knownWords.has(w)).length;
+        } else {
+          count = words.filter(w => /[\u4e00-\u9faf]/.test(w)).length;
+        }
+      }
+      cue._computedUnknownCount = count;
+      return count;
+    }
+
     setCues(cues = []) {
-      this.cues = Array.isArray(cues) ? cues.map(c => {
-        if (!c) return { text: "" };
+      this.cues = Array.isArray(cues) ? cues.map((c, idx) => {
+        if (!c) return { i: idx, text: "" };
+        if (c.i === undefined) {
+          c.i = idx;
+        }
         if (c._searchText === undefined) {
           c._searchText = (c.text || "").toLowerCase();
         }
+        delete c._computedUnknownCount;
         return c;
       }) : [];
       this.filter(this.searchQuery);
@@ -115,15 +218,22 @@
         this.elements.searchClearBtn.hidden = !this.searchQuery;
       }
 
-      if (!this.searchQuery) {
-        this.filteredCues = [...this.cues];
-      } else {
+      let matching = this.cues;
+      if (this.searchQuery) {
         const q = this.searchQuery;
-        this.filteredCues = this.cues.filter(c => {
+        matching = matching.filter(c => {
           const text = c._searchText !== undefined ? c._searchText : (c?.text || "").toLowerCase();
           return text.includes(q);
         });
       }
+
+      if (this.activeFilter === "1t") {
+        matching = matching.filter(c => this._getUnknownCount(c) === 1);
+      } else if (this.activeFilter === "unseen") {
+        matching = matching.filter(c => this._getUnknownCount(c) > 0);
+      }
+
+      this.filteredCues = matching;
 
       // Reset scroll position if query changed or if current scroll is beyond content bounds
       if (prevQuery !== this.searchQuery && this.elements.viewport) {
@@ -136,9 +246,9 @@
 
       if (this.elements.countBadge) {
         const total = this.cues.length;
-        const matching = this.filteredCues.length;
-        this.elements.countBadge.textContent = this.searchQuery
-          ? `${matching} / ${total}`
+        const count = this.filteredCues.length;
+        this.elements.countBadge.textContent = (this.searchQuery || this.activeFilter !== "all")
+          ? `${count} / ${total}`
           : `${total} cues`;
       }
 
@@ -226,7 +336,7 @@
           : (typeof cue.s === "number" ? cue.s : (cue.startMs ? cue.startMs / 1000 : 0));
         const timeStr = this.formatTime(startSec);
 
-        // Time / Seek button
+        // 1. Time / Seek button
         const canSeek = Boolean(this.capabilities.seek !== false);
         const timeBtn = document.createElement("button");
         timeBtn.type = "button";
@@ -239,18 +349,48 @@
         } else {
           timeBtn.title = `Jump to ${timeStr}`;
           timeBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
+            if (e?.stopPropagation) e.stopPropagation();
             this.handleSeekClick(cue, startSec);
           });
         }
         row.appendChild(timeBtn);
 
-        // Text
+        // 2. Text Span
         const textSpan = document.createElement("span");
         textSpan.className = "anime-transcript-text";
         textSpan.textContent = cue.text || "";
         textSpan.title = cue.text || "";
         row.appendChild(textSpan);
+
+        // 3. Row Actions (Merge with next cue & Explain grammar)
+        const actionsWrap = document.createElement("div");
+        actionsWrap.className = "anime-transcript-row-actions";
+
+        const mergeBtn = document.createElement("button");
+        mergeBtn.type = "button";
+        mergeBtn.className = "anime-row-action-btn btn-merge-next";
+        mergeBtn.textContent = "+";
+        mergeBtn.title = "Merge with next cue";
+        if (mergeBtn.setAttribute) mergeBtn.setAttribute("aria-label", "Merge with next cue");
+        mergeBtn.addEventListener("click", (e) => {
+          if (e?.stopPropagation) e.stopPropagation();
+          this.mergeWithNext(originalIdx);
+        });
+        actionsWrap.appendChild(mergeBtn);
+
+        const grammarBtn = document.createElement("button");
+        grammarBtn.type = "button";
+        grammarBtn.className = "anime-row-action-btn btn-explain-grammar";
+        grammarBtn.textContent = "Grammar";
+        grammarBtn.title = "Explain sentence grammar";
+        if (grammarBtn.setAttribute) grammarBtn.setAttribute("aria-label", "Explain sentence grammar");
+        grammarBtn.addEventListener("click", (e) => {
+          if (e?.stopPropagation) e.stopPropagation();
+          this.explainGrammar(cue);
+        });
+        actionsWrap.appendChild(grammarBtn);
+
+        row.appendChild(actionsWrap);
 
         if (canSeek) {
           row.style.cursor = "pointer";
@@ -263,6 +403,74 @@
       }
 
       this.elements.itemsHost.replaceChildren(fragment);
+    }
+
+    mergeWithNext(originalIndex) {
+      if (originalIndex < 0 || originalIndex >= this.cues.length - 1) return;
+      const cueA = this.cues[originalIndex];
+      const cueB = this.cues[originalIndex + 1];
+      if (!cueA || !cueB) return;
+
+      const getCueStart = (c) => typeof c.startTime === "number" ? c.startTime : (typeof c.startMs === "number" ? c.startMs / 1000 : (typeof c.s === "number" ? c.s : (c.start || 0)));
+      const getCueEnd = (c) => typeof c.endTime === "number" ? c.endTime : (typeof c.endMs === "number" ? c.endMs / 1000 : (typeof c.e === "number" ? c.e : (c.end || (getCueStart(c) + 2))));
+
+      const start = Math.min(getCueStart(cueA), getCueStart(cueB));
+      const end = Math.max(getCueEnd(cueA), getCueEnd(cueB));
+      const combinedText = `${cueA.text || ""} ${cueB.text || ""}`.trim();
+
+      const mergedCue = {
+        ...cueA,
+        text: combinedText,
+        _searchText: combinedText.toLowerCase(),
+        startTime: start,
+        endTime: end,
+        startMs: Math.round(start * 1000),
+        endMs: Math.round(end * 1000),
+        tokens: [...(cueA.tokens || []), ...(cueB.tokens || [])],
+        _merged: true
+      };
+      delete mergedCue._computedUnknownCount;
+
+      this.cues.splice(originalIndex, 2, mergedCue);
+      this.cues.forEach((c, idx) => { c.i = idx; });
+
+      this.filter(this.searchQuery);
+
+      if (typeof this.onCuesUpdated === "function") {
+        this.onCuesUpdated(this.cues);
+      }
+    }
+
+    async explainGrammar(cue) {
+      if (!cue || !cue.text) return;
+      const sentence = cue.text.trim();
+      const backendUrl = (this.backendUrl || "http://127.0.0.1:21828").replace(/\/+$/, "");
+
+      try {
+        if (typeof fetch === "function") {
+          const res = await fetch(`${backendUrl}/api/grammar/explain`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: sentence })
+          });
+          const data = res.ok ? await res.json() : null;
+          if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+            chrome.runtime.sendMessage({
+              type: "SP_OPEN_GRAMMAR",
+              text: sentence,
+              explanation: data
+            }).catch(() => {});
+          }
+          return;
+        }
+      } catch (_) {}
+
+      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({
+          type: "SP_OPEN_GRAMMAR",
+          text: sentence
+        }).catch(() => {});
+      }
     }
 
     handleSeekClick(cue, startSec) {
@@ -310,4 +518,3 @@
 
   return { AnimeTranscript };
 });
-

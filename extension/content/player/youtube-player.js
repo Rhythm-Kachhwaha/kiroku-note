@@ -90,7 +90,11 @@
 
     seek(timeSeconds) {
       if (typeof timeSeconds !== "number" || isNaN(timeSeconds) || !isFinite(timeSeconds)) return;
-      const safeTime = Math.max(0, timeSeconds);
+      let safeTime = Math.max(0, timeSeconds);
+      const duration = this.getDuration();
+      if (duration > 0 && safeTime > duration) {
+        safeTime = duration;
+      }
       const yt = this._getYtPlayer();
       if (yt && typeof yt.seekTo === "function") {
         try {

@@ -13,6 +13,12 @@ _service = GrammarService()
 _tracker = GrammarTrackerService()
 
 
+class GrammarExplainRequest(BaseModel):
+    text: str = ""
+    sentence: str | None = None
+    level: str | None = None
+
+
 class EncounterRequest(BaseModel):
     pattern_key: str
     display: str = ""
@@ -26,6 +32,30 @@ class EncounterRequest(BaseModel):
 
 class PointStatusRequest(BaseModel):
     status: str
+
+
+@grammar_router.post("/explain")
+def explain_grammar(request: GrammarExplainRequest):
+    sent = request.sentence or request.text or ""
+    analysis = _service.analyze(
+        sent,
+        learner_level=request.level or "N5",
+    )
+    if isinstance(analysis, dict):
+        points = analysis.get("points", [])
+        analysis_data = analysis
+    elif hasattr(analysis, "points"):
+        points = [p.model_dump() if hasattr(p, "model_dump") else p for p in analysis.points]
+        analysis_data = analysis.model_dump() if hasattr(analysis, "model_dump") else analysis
+    else:
+        points = []
+        analysis_data = analysis
+
+    return {
+        "text": sent,
+        "points": points,
+        "analysis": analysis_data,
+    }
 
 
 @grammar_router.post("/analyze", response_model=GrammarAnalyzeResponse)

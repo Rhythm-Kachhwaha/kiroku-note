@@ -107,7 +107,12 @@
       if (!this.video) return;
       if (typeof timeSeconds !== "number" || isNaN(timeSeconds) || !isFinite(timeSeconds)) return;
       try {
-        this.video.currentTime = Math.max(0, timeSeconds);
+        let safeTime = Math.max(0, timeSeconds);
+        const duration = this.getDuration();
+        if (duration > 0 && safeTime > duration) {
+          safeTime = duration;
+        }
+        this.video.currentTime = safeTime;
       } catch (_) {}
     }
 
