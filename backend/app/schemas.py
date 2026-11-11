@@ -645,6 +645,8 @@ class SubtitleAnnotateRequest(BaseModel):
     cues: list[SubtitleCueInput] = Field(default_factory=list)
     learner_level: Optional[str] = None
     ignore_function_words: Optional[bool] = None
+    record_encounters: bool = False
+    source_media: str = ""
 
 
 class AnnotatedTokenResponse(BaseModel):

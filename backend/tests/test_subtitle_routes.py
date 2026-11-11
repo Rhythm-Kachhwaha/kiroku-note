@@ -353,3 +353,29 @@ def test_delete_known_word_url_encoded(client: TestClient, test_db: Path):
     assert resp.status_code == 200
     assert resp.json() == {"ok": True, "word": "飲む"}
     assert "飲む" not in client.get("/api/known-words").json()["marked_known"]
+
+
+def test_post_subtitle_annotate_records_encounters_and_updates_word_state(client: TestClient, test_db: Path):
+    """POST /api/subtitle/annotate with record_encounters=True logs encounters and transitions unseen -> seen."""
+    payload = {
+        "cues": [
+            {"id": "1", "text": "本を読む"}
+        ],
+        "learner_level": "N4",
+        "ignore_function_words": True,
+        "record_encounters": True,
+        "source_media": "episode_01.mkv",
+    }
+    resp = client.post("/api/subtitle/annotate", json=payload)
+    assert resp.status_code == 200
+    tokens = resp.json()["cues"][0]["tokens"]
+    hon_tok = next(t for t in tokens if t["surface"] == "本")
+    assert hon_tok["word_state"] == "seen"
+
+    enc_resp = client.get("/api/word-states/encounters", params={"expression": "本"})
+    assert enc_resp.status_code == 200
+    body = enc_resp.json()
+    assert body["total_encounters"] >= 1
+    assert body["episode_count"] == 1
+    assert body["recent_sentences"][0]["source_media"] == "episode_01.mkv"
+    assert body["recent_sentences"][0]["sentence"] == "本を読む"

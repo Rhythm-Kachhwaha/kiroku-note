@@ -98,6 +98,45 @@ CREATE INDEX IF NOT EXISTS idx_unresolved_tokens_created
     ON unresolved_tokens(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_unresolved_tokens_surface
     ON unresolved_tokens(surface, proposed_lemma);
+CREATE TABLE IF NOT EXISTS word_states (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id INTEGER DEFAULT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    expression TEXT NOT NULL DEFAULT '',
+    state TEXT NOT NULL DEFAULT 'unseen'
+        CHECK (state IN ('unseen', 'seen', 'tracking', 'learning', 'known', 'ignored', 'blacklisted')),
+    first_seen_at TEXT DEFAULT NULL,
+    last_seen_at TEXT DEFAULT NULL,
+    anki_interval INTEGER DEFAULT NULL,
+    anki_lapses INTEGER DEFAULT NULL,
+    anki_status TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_word_states_seq_reading
+    ON word_states (sequence_id, reading)
+    WHERE sequence_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_word_states_expr_reading
+    ON word_states (expression, reading)
+    WHERE sequence_id IS NULL;
+CREATE INDEX IF NOT EXISTS idx_word_states_state
+    ON word_states (state);
+CREATE INDEX IF NOT EXISTS idx_word_states_expr_lookup
+    ON word_states (expression, reading);
+CREATE TABLE IF NOT EXISTS word_encounters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id INTEGER DEFAULT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    expression TEXT NOT NULL DEFAULT '',
+    sentence TEXT NOT NULL DEFAULT '',
+    source_media TEXT NOT NULL DEFAULT '',
+    timestamp TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_word_encounters_seq_reading
+    ON word_encounters (sequence_id, reading, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_word_encounters_expr_reading
+    ON word_encounters (expression, reading, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_word_encounters_source
+    ON word_encounters (source_media);
 """
 
 
@@ -261,12 +300,113 @@ CREATE INDEX IF NOT EXISTS idx_unresolved_tokens_created
     ON unresolved_tokens(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_unresolved_tokens_surface
     ON unresolved_tokens(surface, proposed_lemma);
+CREATE TABLE IF NOT EXISTS word_states (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id INTEGER DEFAULT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    expression TEXT NOT NULL DEFAULT '',
+    state TEXT NOT NULL DEFAULT 'unseen'
+        CHECK (state IN ('unseen', 'seen', 'tracking', 'learning', 'known', 'ignored', 'blacklisted')),
+    first_seen_at TEXT DEFAULT NULL,
+    last_seen_at TEXT DEFAULT NULL,
+    anki_interval INTEGER DEFAULT NULL,
+    anki_lapses INTEGER DEFAULT NULL,
+    anki_status TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_word_states_seq_reading
+    ON word_states (sequence_id, reading)
+    WHERE sequence_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_word_states_expr_reading
+    ON word_states (expression, reading)
+    WHERE sequence_id IS NULL;
+CREATE INDEX IF NOT EXISTS idx_word_states_state
+    ON word_states (state);
+CREATE INDEX IF NOT EXISTS idx_word_states_expr_lookup
+    ON word_states (expression, reading);
+CREATE TABLE IF NOT EXISTS word_encounters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id INTEGER DEFAULT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    expression TEXT NOT NULL DEFAULT '',
+    sentence TEXT NOT NULL DEFAULT '',
+    source_media TEXT NOT NULL DEFAULT '',
+    timestamp TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_word_encounters_seq_reading
+    ON word_encounters (sequence_id, reading, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_word_encounters_expr_reading
+    ON word_encounters (expression, reading, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_word_encounters_source
+    ON word_encounters (source_media);
 """
 
 
 def ensure_unresolved_tokens_table(conn: sqlite3.Connection) -> None:
     """Safely ensure the unresolved_tokens table exists on an open connection."""
     conn.executescript(_UNRESOLVED_TOKENS_DDL)
+
+
+_WORD_STATES_DDL = """
+CREATE TABLE IF NOT EXISTS word_states (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id INTEGER DEFAULT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    expression TEXT NOT NULL DEFAULT '',
+    state TEXT NOT NULL DEFAULT 'unseen'
+        CHECK (state IN ('unseen', 'seen', 'tracking', 'learning', 'known', 'ignored', 'blacklisted')),
+    first_seen_at TEXT DEFAULT NULL,
+    last_seen_at TEXT DEFAULT NULL,
+    anki_interval INTEGER DEFAULT NULL,
+    anki_lapses INTEGER DEFAULT NULL,
+    anki_status TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_word_states_seq_reading
+    ON word_states (sequence_id, reading)
+    WHERE sequence_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_word_states_expr_reading
+    ON word_states (expression, reading)
+    WHERE sequence_id IS NULL;
+CREATE INDEX IF NOT EXISTS idx_word_states_state
+    ON word_states (state);
+CREATE INDEX IF NOT EXISTS idx_word_states_expr_lookup
+    ON word_states (expression, reading);
+"""
+
+_WORD_ENCOUNTERS_DDL = """
+CREATE TABLE IF NOT EXISTS word_encounters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id INTEGER DEFAULT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    expression TEXT NOT NULL DEFAULT '',
+    sentence TEXT NOT NULL DEFAULT '',
+    source_media TEXT NOT NULL DEFAULT '',
+    timestamp TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_word_encounters_seq_reading
+    ON word_encounters (sequence_id, reading, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_word_encounters_expr_reading
+    ON word_encounters (expression, reading, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_word_encounters_source
+    ON word_encounters (source_media);
+"""
+
+
+def ensure_word_states_table(conn: sqlite3.Connection) -> None:
+    """Safely ensure the word_states table and partial unique indexes exist on an open connection."""
+    conn.executescript(_WORD_STATES_DDL)
+
+
+def ensure_word_encounters_table(conn: sqlite3.Connection) -> None:
+    """Safely ensure the word_encounters table and lookup indexes exist on an open connection."""
+    conn.executescript(_WORD_ENCOUNTERS_DDL)
+
+
+def ensure_vocab_state_tables(conn: sqlite3.Connection) -> None:
+    """Safely ensure both word_states and word_encounters tables exist on an open connection."""
+    ensure_word_states_table(conn)
+    ensure_word_encounters_table(conn)
 
 
 def record_unresolved_token(

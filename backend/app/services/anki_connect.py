@@ -40,6 +40,37 @@ def _get_field(obj: Any, field_name: str) -> Any:
     return getattr(obj, field_name, None)
 
 
+def _extract_raw_expression_and_reading(fields: dict[str, Any]) -> tuple[str, str]:
+    """Extract raw cleaned expression and reading text from an AnkiConnect fields dict."""
+    if not isinstance(fields, dict):
+        return "", ""
+    found_expr = ""
+    found_read = ""
+    for field_name, field_dict in fields.items():
+        raw_val = field_dict.get("value", "") if isinstance(field_dict, dict) else str(field_dict)
+        val = _clean_field_text(raw_val)
+        lower_name = field_name.lower().replace(" ", "").replace("_", "")
+        if lower_name in ("expression", "japanese", "word", "front", "kanji"):
+            if not found_expr or lower_name in ("expression", "japanese", "word"):
+                found_expr = val
+        elif lower_name in ("reading", "furigana", "kana"):
+            found_read = val
+    return found_expr, found_read
+
+
+def _parse_clean_expression_and_reading(fields: dict[str, Any]) -> tuple[str, str]:
+    """Extract clean base expression and reading (including bracketed furigana) from Anki fields."""
+    found_expr, found_read = _extract_raw_expression_and_reading(fields)
+    if not found_expr:
+        return "", found_read
+    base_expr = re.sub(r"\[[^\]]+\]", "", found_expr).strip()
+    if found_read:
+        return base_expr or found_expr, found_read
+    brackets = re.findall(r"\[([^\]]+)\]", found_expr)
+    extracted_reading = "".join(brackets).strip()
+    return base_expr or found_expr, extracted_reading
+
+
 class AnkiError(Exception):
     """Base exception for AnkiConnect operations."""
     pass
@@ -248,18 +279,7 @@ class AnkiConnectService:
                     continue
 
             fields = note.get("fields", {})
-            # Look for expression and reading in field values
-            found_expr = ""
-            found_read = ""
-            for field_name, field_dict in fields.items():
-                raw_val = field_dict.get("value", "") if isinstance(field_dict, dict) else str(field_dict)
-                val = _clean_field_text(raw_val)
-                lower_name = field_name.lower().replace(" ", "").replace("_", "")
-                if lower_name in ("expression", "japanese", "word", "front", "kanji"):
-                    if not found_expr or lower_name in ("expression", "japanese", "word"):
-                        found_expr = val
-                elif lower_name in ("reading", "furigana", "kana"):
-                    found_read = val
+            found_expr, found_read = _extract_raw_expression_and_reading(fields)
 
             if not found_expr:
                 continue
@@ -310,17 +330,7 @@ class AnkiConnectService:
         # or local card was assigned 'Default', the note identity still matches.
 
         fields = note.get("fields", {})
-        found_expr = ""
-        found_read = ""
-        for field_name, field_dict in fields.items():
-            raw_val = field_dict.get("value", "") if isinstance(field_dict, dict) else str(field_dict)
-            val = _clean_field_text(raw_val)
-            lower_name = field_name.lower().replace(" ", "").replace("_", "")
-            if lower_name in ("expression", "japanese", "word", "front", "kanji"):
-                if not found_expr or lower_name in ("expression", "japanese", "word"):
-                    found_expr = val
-            elif lower_name in ("reading", "furigana", "kana"):
-                found_read = val
+        found_expr, found_read = _extract_raw_expression_and_reading(fields)
 
         if not found_expr:
             return False
@@ -361,6 +371,140 @@ class AnkiConnectService:
         if not fields:
             return
         self._invoke("updateNoteFields", note={"id": int(note_id), "fields": fields})
+
+    def find_cards(self, query: str = "nid:>0") -> list[int]:
+        """Return Anki card IDs matching an Anki search query."""
+        result = self._invoke("findCards", query=query)
+        if not isinstance(result, list):
+            raise AnkiResponseError(f"Expected list of card IDs, got {type(result).__name__}")
+        return [int(cid) for cid in result if cid is not None]
+
+    def get_notes_info(self, note_ids: list[int]) -> list[dict[str, Any]]:
+        """Retrieve note metadata for note IDs via AnkiConnect notesInfo."""
+        clean_ids = [int(nid) for nid in note_ids if nid is not None]
+        if not clean_ids:
+            return []
+        notes: list[dict[str, Any]] = []
+        for idx in range(0, len(clean_ids), 100):
+            chunk = clean_ids[idx : idx + 100]
+            result = self._invoke("notesInfo", notes=chunk)
+            if not isinstance(result, list):
+                raise AnkiResponseError(f"Expected list from notesInfo, got {type(result).__name__}")
+            for item in result:
+                if isinstance(item, dict) and item.get("noteId") is not None:
+                    notes.append(item)
+        return notes
+
+    def get_cards_info(self, card_ids: list[int]) -> list[dict[str, Any]]:
+        """Retrieve per-card FSRS/SM-2 review metrics via AnkiConnect cardsInfo."""
+        clean_ids = [int(cid) for cid in card_ids if cid is not None]
+        if not clean_ids:
+            return []
+
+        cards: list[dict[str, Any]] = []
+        for idx in range(0, len(clean_ids), 100):
+            chunk = clean_ids[idx : idx + 100]
+            result = self._invoke("cardsInfo", cards=chunk)
+            if not isinstance(result, list):
+                raise AnkiResponseError(f"Expected list from cardsInfo, got {type(result).__name__}")
+            for raw in result:
+                if not isinstance(raw, dict):
+                    continue
+                queue_val = int(raw.get("queue") or 0)
+                note_raw = raw.get("note") if raw.get("note") is not None else raw.get("noteId")
+                fields = raw.get("fields") if isinstance(raw.get("fields"), dict) else {}
+                expr, reading = _parse_clean_expression_and_reading(fields) if fields else ("", "")
+                cards.append(
+                    {
+                        "card_id": int(raw.get("cardId") or 0),
+                        "note_id": int(note_raw) if note_raw is not None else None,
+                        "deck_name": str(raw.get("deckName") or ""),
+                        "interval": int(raw.get("interval") or 0),
+                        "lapses": int(raw.get("lapses") or 0),
+                        "queue": queue_val,
+                        "reps": int(raw.get("reps") or 0),
+                        "type": int(raw.get("type") or 0),
+                        "flags": int(raw.get("flags") or 0),
+                        "due": int(raw.get("due") or 0),
+                        "suspended": queue_val == -1,
+                        "expression": expr,
+                        "reading": reading,
+                        "fields": fields,
+                    }
+                )
+        return cards
+
+    def get_card_metrics(
+        self,
+        *,
+        query: str | None = None,
+        deck_name: str | None = None,
+        note_ids: list[int] | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Retrieve normalized card review metrics plus expression/reading from AnkiConnect.
+
+        When note_ids is supplied, fetches those specific notes' cards; otherwise runs findCards.
+        """
+        note_meta: dict[int, tuple[str, str, str]] = {}
+        card_ids: list[int] = []
+
+        if note_ids is not None:
+            clean_note_ids = [int(nid) for nid in note_ids if nid is not None]
+            if not clean_note_ids:
+                return []
+            notes = self.get_notes_info(clean_note_ids)
+            found_note_ids: set[int] = set()
+            for note in notes:
+                nid = int(note["noteId"])
+                found_note_ids.add(nid)
+                expr, reading = _parse_clean_expression_and_reading(note.get("fields", {}))
+                note_meta[nid] = (expr, reading, str(note.get("deckName") or ""))
+                for cid in note.get("cards") or []:
+                    if cid is not None:
+                        card_ids.append(int(cid))
+            if not card_ids and found_note_ids:
+                nid_query = " OR ".join(f"nid:{nid}" for nid in sorted(found_note_ids))
+                card_ids = self.find_cards(nid_query)
+        else:
+            if query and query.strip():
+                effective_query = query.strip()
+            elif deck_name and deck_name.strip():
+                safe_deck = deck_name.strip().replace('"', '\\"')
+                effective_query = f'deck:"{safe_deck}"'
+            else:
+                effective_query = "nid:>0"
+            card_ids = self.find_cards(effective_query)
+
+        if not card_ids:
+            return []
+
+        cards = self.get_cards_info(card_ids)
+        missing_note_ids = sorted(
+            {
+                int(c["note_id"])
+                for c in cards
+                if c.get("note_id") is not None and not c.get("expression") and int(c["note_id"]) not in note_meta
+            }
+        )
+        if missing_note_ids:
+            for note in self.get_notes_info(missing_note_ids):
+                nid = int(note["noteId"])
+                expr, reading = _parse_clean_expression_and_reading(note.get("fields", {}))
+                note_meta[nid] = (expr, reading, str(note.get("deckName") or ""))
+
+        for card in cards:
+            nid = card.get("note_id")
+            if nid is not None and nid in note_meta:
+                meta_expr, meta_read, meta_deck = note_meta[nid]
+                if not card["expression"]:
+                    card["expression"] = meta_expr
+                if not card["reading"]:
+                    card["reading"] = meta_read
+                if not card["deck_name"]:
+                    card["deck_name"] = meta_deck
+
+        return cards
 
     def _model_supports_card(self, field_names: list[str]) -> bool:
         """Check if model fields contain at least one prompt field and one answer field."""

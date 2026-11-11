@@ -540,3 +540,193 @@ def test_annotated_token_gloss_and_compound_segmentation(test_db: Path):
     assert anata.get("gloss") != ""
     assert "you" in anata["gloss"].lower()
 
+
+def _create_phase2_homograph_dict(db_path: Path) -> Path:
+    from kiroku_dictionary.schema import compress_content, create_indexes, create_schema, normalize_text
+
+    conn = sqlite3.connect(str(db_path))
+    create_schema(conn)
+    conn.execute("INSERT INTO meta (key, value) VALUES ('jitendex_title', 'Jitendex Synthetic')")
+    blob = compress_content([{"type": "structured-content", "content": []}])
+
+    entries = [
+        ("生", "なま", "", "★", 200.0, 1378450, "", "Jitendex", blob),
+        ("生", "せい", "", "", 10.0, 2088240, "", "Jitendex", blob),
+        ("日", "ひ", "", "★", 200.0, 1463770, "", "Jitendex", blob),
+        ("日", "にち", "", "★", 190.0, 2083100, "", "Jitendex", blob),
+        ("行く", "いく", "v5", "★ priority", 200.0, 1578850, "", "Jitendex", blob),
+        ("行う", "おこなう", "v5", "★ priority", 200.0, 1589060, "", "Jitendex", blob),
+        ("駅", "えき", "", "★", 200.0, 1173930, "", "Jitendex", blob),
+        ("式", "しき", "", "★", 200.0, 1317940, "", "Jitendex", blob),
+        ("食べる", "たべる", "v1", "★", 200.0, 1358280, "", "Jitendex", blob),
+        ("飲む", "のむ", "v5", "★", 200.0, 1168900, "", "Jitendex", blob),
+    ]
+    for term, reading, rules, def_tags, score, seq, term_tags, dict_name, content_blob in entries:
+        conn.execute(
+            """
+            INSERT INTO terms (
+                term, reading, norm_term, norm_reading, rules, def_tags, score,
+                sequence, term_tags, dictionary, content_blob
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                term,
+                reading,
+                normalize_text(term),
+                normalize_text(reading),
+                rules,
+                def_tags,
+                score,
+                seq,
+                term_tags,
+                dict_name,
+                content_blob,
+            ),
+        )
+    create_indexes(conn)
+    conn.commit()
+    conn.close()
+    return db_path
+
+
+def test_homograph_collision_prevention_with_word_states(test_db: Path, tmp_path: Path):
+    """word_states resolution prevents A1 homograph collisions for 行った, 生, and 日."""
+    from unittest.mock import patch
+
+    from kiroku_dictionary import DictionaryEngine
+    from app.services.sentence_analysis import SentenceAnalysis, resolve_morphemes
+    from app.services.tokenizers.base import Morpheme
+    from app.services.word_state_service import WordStateService
+
+    dict_db = _create_phase2_homograph_dict(tmp_path / "phase2_homographs.sqlite")
+    engine = DictionaryEngine(str(dict_db))
+    ws_service = WordStateService(db_path=test_db, dict_engine=engine)
+
+    try:
+        # Mark only 行く (1578850, いく), 生 (1378450, なま), and 日 (1463770, ひ) as known.
+        ws_service.set_user_word_state(
+            sequence_id=1578850, reading="いく", expression="行く", state="known"
+        )
+        ws_service.set_user_word_state(
+            sequence_id=1378450, reading="なま", expression="生", state="known"
+        )
+        ws_service.set_user_word_state(
+            sequence_id=1463770, reading="ひ", expression="日", state="known"
+        )
+        # Put 生 (2088240, せい) into learning to prove separate state per sequence_id/reading.
+        ws_service.set_user_word_state(
+            sequence_id=2088240, reading="せい", expression="生", state="learning"
+        )
+
+        annotator = SubtitleAnnotatorService(
+            db_path=test_db, learner_level="N4", dict_engine=engine
+        )
+
+        # 1. Real Sudachi disambiguates 駅へ行った (行く) vs 式を行った (行う)
+        toks_iku = annotator.annotate_text("駅へ行った")
+        tok_itta_go = next(t for t in toks_iku if t.surface == "行った")
+        assert tok_itta_go.lemma == "行く"
+        assert tok_itta_go.sequence_id == 1578850
+        assert tok_itta_go.word_state == "known"
+        assert tok_itta_go.known is True
+
+        toks_okonau = annotator.annotate_text("式を行った")
+        tok_itta_do = next(t for t in toks_okonau if t.surface == "行った")
+        assert tok_itta_do.lemma == "行う"
+        assert tok_itta_do.sequence_id == 1589060
+        assert tok_itta_do.word_state == "unseen"
+        assert tok_itta_do.known is False
+
+        # 2. 生 (なま vs せい) and 日 (ひ vs にち) resolve distinct word states by (sequence_id, reading)
+        def _fake_analyze(text, **kwargs):
+            mapping = {
+                "生_nama": [Morpheme("生", "生", "ナマ", ("名詞", "普通名詞"), 0, 1, "生")],
+                "生_sei": [Morpheme("生", "生", "セイ", ("名詞", "普通名詞"), 0, 1, "生")],
+                "日_hi": [Morpheme("日", "日", "ヒ", ("名詞", "普通名詞"), 0, 1, "日")],
+                "日_nichi": [Morpheme("日", "日", "ニチ", ("名詞", "普通名詞"), 0, 1, "日")],
+            }
+            morphemes = mapping[text]
+            resolved = resolve_morphemes(morphemes, dict_lookup=engine)
+            return SentenceAnalysis(morphemes=morphemes, merged=resolved)
+
+        with patch("app.services.subtitle_annotator.analyze", side_effect=_fake_analyze):
+            t_nama = annotator.annotate_text("生_nama")[0]
+            t_sei = annotator.annotate_text("生_sei")[0]
+            t_hi = annotator.annotate_text("日_hi")[0]
+            t_nichi = annotator.annotate_text("日_nichi")[0]
+
+        assert t_nama.sequence_id == 1378450
+        assert t_nama.word_state == "known"
+        assert t_nama.known is True
+
+        assert t_sei.sequence_id == 2088240
+        assert t_sei.word_state == "learning"
+        assert t_sei.known is False
+
+        assert t_hi.sequence_id == 1463770
+        assert t_hi.word_state == "known"
+        assert t_hi.known is True
+
+        assert t_nichi.sequence_id == 2083100
+        assert t_nichi.word_state == "unseen"
+        assert t_nichi.known is False
+    finally:
+        engine.close()
+
+
+def test_word_states_token_status_known_words_compat_and_encounter_recording(
+    test_db: Path, tmp_path: Path
+):
+    """word_state integrates with ignored/blacklisted styling, known_words compatibility, and opt-in encounters."""
+    from kiroku_dictionary import DictionaryEngine
+    from app.services.word_state_service import WordStateService
+
+    dict_db = _create_phase2_homograph_dict(tmp_path / "phase2_compat.sqlite")
+    engine = DictionaryEngine(str(dict_db))
+    ws_service = WordStateService(db_path=test_db, dict_engine=engine)
+
+    try:
+        ws_service.set_user_word_state(
+            sequence_id=1173930, reading="えき", expression="駅", state="ignored"
+        )
+        ws_service.set_user_word_state(
+            sequence_id=1317940, reading="しき", expression="式", state="blacklisted"
+        )
+
+        annotator = SubtitleAnnotatorService(
+            db_path=test_db, learner_level="N5", dict_engine=engine
+        )
+
+        # Ignored / blacklisted words stay unstyled and known=False
+        toks_ignored = annotator.annotate_text("駅に行く")
+        tok_eki = next(t for t in toks_ignored if t.surface == "駅")
+        assert tok_eki.word_state == "ignored"
+        assert tok_eki.known is False
+        assert tok_eki.status == "unstyled"
+
+        toks_black = annotator.annotate_text("式を行う")
+        tok_shiki = next(t for t in toks_black if t.surface == "式")
+        assert tok_shiki.word_state == "blacklisted"
+        assert tok_shiki.known is False
+        assert tok_shiki.status == "unstyled"
+
+        # Caller-passed known_words still sets known=True and word_state='known'
+        toks_compat = annotator.annotate_text("飲む", known_words={"飲む"})
+        tok_nomu = next(t for t in toks_compat if t.surface == "飲む")
+        assert tok_nomu.known is True
+        assert tok_nomu.word_state == "known"
+
+        # Opt-in encounter recording advances unseen -> seen in word_states
+        annotator.annotate_cues(
+            [{"id": "c1", "start": 0.0, "end": 2.0, "text": "食べる"}],
+            record_encounters=True,
+            source_media="ep07.mkv",
+        )
+        summary = ws_service.get_encounter_summary(sequence_id=1358280, reading="たべる")
+        assert summary["total_encounters"] == 1
+        assert summary["episode_count"] == 1
+        assert ws_service.get_word_state(sequence_id=1358280, reading="たべる").state == "seen"
+    finally:
+        engine.close()
+
+

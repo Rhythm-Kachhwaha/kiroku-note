@@ -1300,4 +1300,198 @@ class TestStage5MediaAndPreviewPresentationCompatibility:
         assert "I can tell you" not in fields["Back"]
         assert "express (train)" in fields["Back"]
 
+    def test_find_cards_and_get_cards_info_parsing(self):
+        service = AnkiConnectService()
+
+        def _fake_invoke(action, **params):
+            if action == "findCards":
+                assert params["query"] == 'deck:"Japanese"'
+                return [101, 102]
+            if action == "cardsInfo":
+                assert params["cards"] == [101, 102]
+                return [
+                    {
+                        "cardId": 101,
+                        "note": 501,
+                        "deckName": "Japanese",
+                        "interval": 28,
+                        "lapses": 1,
+                        "queue": 2,
+                        "reps": 9,
+                        "type": 2,
+                        "flags": 0,
+                        "due": 1234,
+                        "fields": {
+                            "Expression": {"value": "食べる"},
+                            "Reading": {"value": "たべる"},
+                        },
+                    },
+                    {
+                        "cardId": 102,
+                        "note": 502,
+                        "deckName": "Japanese",
+                        "interval": 10,
+                        "lapses": 6,
+                        "queue": -1,
+                        "reps": 14,
+                        "type": 2,
+                        "flags": 1,
+                        "due": 0,
+                    },
+                ]
+            if action == "notesInfo":
+                assert params["notes"] == [502]
+                return [
+                    {
+                        "noteId": 502,
+                        "deckName": "Japanese",
+                        "fields": {
+                            "Front": {"value": "飲む[のむ]"},
+                            "Back": {"value": "to drink"},
+                        },
+                    }
+                ]
+            raise AssertionError(f"Unexpected action: {action}")
+
+        with patch.object(service, "_invoke", side_effect=_fake_invoke):
+            metrics = service.get_card_metrics(deck_name="Japanese")
+
+        assert len(metrics) == 2
+        c1, c2 = metrics
+        assert c1["card_id"] == 101
+        assert c1["note_id"] == 501
+        assert c1["interval"] == 28
+        assert c1["lapses"] == 1
+        assert c1["queue"] == 2
+        assert c1["reps"] == 9
+        assert c1["type"] == 2
+        assert c1["flags"] == 0
+        assert c1["due"] == 1234
+        assert c1["suspended"] is False
+        assert c1["expression"] == "食べる"
+        assert c1["reading"] == "たべる"
+
+        assert c2["card_id"] == 102
+        assert c2["suspended"] is True
+        assert c2["flags"] == 1
+        assert c2["expression"] == "飲む"
+        assert c2["reading"] == "のむ"
+
+    def test_sync_from_anki_hydrates_and_demotes_word_states(self, tmp_path):
+        from app.db.connection import init_db
+        from app.services.word_state_service import WordStateService
+
+        db_path = tmp_path / "anki_sync_test.db"
+        init_db(db_path)
+        ws_service = WordStateService(db_path=db_path)
+
+        service = AnkiConnectService()
+
+        # First sync: one mature known word, one active learning word, one high-lapse learning word
+        with (
+            patch.object(service, "is_connected", return_value=(True, "")),
+            patch.object(
+                service,
+                "get_card_metrics",
+                return_value=[
+                    {
+                        "card_id": 1,
+                        "note_id": 11,
+                        "expression": "約束",
+                        "reading": "やくそく",
+                        "interval": 21,
+                        "lapses": 0,
+                        "queue": 2,
+                        "reps": 6,
+                        "flags": 0,
+                        "suspended": False,
+                    },
+                    {
+                        "card_id": 2,
+                        "note_id": 12,
+                        "expression": "準備",
+                        "reading": "じゅんび",
+                        "interval": 12,
+                        "lapses": 0,
+                        "queue": 2,
+                        "reps": 4,
+                        "flags": 0,
+                        "suspended": False,
+                    },
+                    {
+                        "card_id": 3,
+                        "note_id": 13,
+                        "expression": "覚悟",
+                        "reading": "かくご",
+                        "interval": 45,
+                        "lapses": 5,
+                        "queue": 2,
+                        "reps": 20,
+                        "flags": 0,
+                        "suspended": False,
+                    },
+                ],
+            ),
+        ):
+            res1 = ws_service.sync_from_anki(anki_service=service)
+
+        assert res1["connected"] is True
+        assert res1["known"] == 1
+        assert res1["learning"] == 2
+        assert ws_service.get_word_state(expression="約束", reading="やくそく").state == "known"
+        assert ws_service.get_word_state(expression="準備", reading="じゅんび").state == "learning"
+        assert ws_service.get_word_state(expression="覚悟", reading="かくご").state == "learning"
+
+        # Second sync: 約束 suspended, 準備 flagged, 覚悟 deleted from collection
+        with (
+            patch.object(service, "is_connected", return_value=(True, "")),
+            patch.object(
+                service,
+                "get_card_metrics",
+                return_value=[
+                    {
+                        "card_id": 1,
+                        "note_id": 11,
+                        "expression": "約束",
+                        "reading": "やくそく",
+                        "interval": 21,
+                        "lapses": 0,
+                        "queue": -1,
+                        "reps": 6,
+                        "flags": 0,
+                        "suspended": True,
+                    },
+                    {
+                        "card_id": 2,
+                        "note_id": 12,
+                        "expression": "準備",
+                        "reading": "じゅんび",
+                        "interval": 25,
+                        "lapses": 0,
+                        "queue": 2,
+                        "reps": 6,
+                        "flags": 3,
+                        "suspended": False,
+                    },
+                ],
+            ),
+        ):
+            res2 = ws_service.sync_from_anki(anki_service=service)
+
+        assert res2["suspended"] == 1
+        assert res2["flagged"] == 1
+        assert res2["deleted"] == 1
+        assert res2["demoted"] == 3
+
+        s_yakusoku = ws_service.get_word_state(expression="約束", reading="やくそく")
+        s_junbi = ws_service.get_word_state(expression="準備", reading="じゅんび")
+        s_kakugo = ws_service.get_word_state(expression="覚悟", reading="かくご")
+        assert s_yakusoku.state == "learning"
+        assert s_yakusoku.anki_status == "suspended"
+        assert s_junbi.state == "learning"
+        assert s_junbi.anki_status == "flagged"
+        assert s_kakugo.state == "seen"
+        assert s_kakugo.anki_status == "deleted"
+
+
 

@@ -11,13 +11,19 @@ import logging
 from pathlib import Path
 import sqlite3
 import unicodedata
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from app.config import (
     get_db_path,
     get_learner_jlpt_level,
     get_sudachi_dictionary_variant,
     get_tokenizer_mode,
+)
+from app.repositories.word_state_repository import (
+    WordStateRepository,
+    WordStatesIndex,
+    normalize_word_expression,
+    normalize_word_reading,
 )
 from app.services.jlpt_reference import JlptReferenceService
 from app.services.sentence_analysis import analyze
@@ -164,6 +170,7 @@ class AnnotatedToken(dict):
         canonical_reading: str | None = None,
         unresolved: bool = False,
         resolution_status: str = "unvalidated",
+        word_state: str = "unseen",
     ) -> None:
         super().__init__(
             surface=surface,
@@ -184,6 +191,7 @@ class AnnotatedToken(dict):
             canonical_reading=canonical_reading,
             unresolved=unresolved,
             resolution_status=resolution_status,
+            word_state=word_state,
         )
 
     @property
@@ -265,6 +273,10 @@ class AnnotatedToken(dict):
     def resolution_status(self) -> str:
         return self.get("resolution_status", "unvalidated")
 
+    @property
+    def word_state(self) -> str:
+        return self.get("word_state", "unseen")
+
 
 class AnnotatedCue(dict):
     """Subtitle cue containing a list of AnnotatedToken objects."""
@@ -317,6 +329,7 @@ class SubtitleAnnotatorService:
         learner_level: str | None = None,
         ignore_function_words: bool = True,
         dict_engine: Any = None,
+        known_words: Iterable[str] | None = None,
     ) -> None:
         self._db_path = Path(db_path) if db_path is not None else get_db_path()
         self._jlpt_service = jlpt_service or JlptReferenceService()
@@ -338,7 +351,15 @@ class SubtitleAnnotatorService:
                 self._tokenizer = LegacyTokenizer()
 
         self._mined_words: set[str] = set()
+        self._mined_words_no_reading: set[str] = set()
+        self._mined_card_pairs: set[tuple[str, str]] = set()
         self._mined_readings: dict[str, str] = {}
+        self._known_words_table: set[str] = set()
+        self._explicit_known_words: set[str] = {
+            str(w).strip() for w in (known_words or ()) if str(w).strip()
+        }
+        self._combined_known_words: set[str] = set(self._explicit_known_words)
+        self._word_states_index: WordStatesIndex = WordStatesIndex()
         self._vocab_gloss_cache: dict[str, str] = {}
         self.reload_mined_words()
 
@@ -470,9 +491,14 @@ class SubtitleAnnotatorService:
         self._vocab_gloss_cache = vocab_gloss_dict
 
     def reload_mined_words(self) -> None:
-        """Query and cache mined cards and known words from the authoritative database."""
+        """Query and cache mined cards, known words, and canonical word_states from SQLite."""
         self._mined_words.clear()
+        self._mined_words_no_reading.clear()
+        self._mined_card_pairs.clear()
         self._mined_readings.clear()
+        self._known_words_table.clear()
+        self._word_states_index = WordStatesIndex()
+        self._combined_known_words = set(self._explicit_known_words)
 
         if not self._db_path.exists() and str(self._db_path) != ":memory:":
             return
@@ -488,16 +514,25 @@ class SubtitleAnnotatorService:
                         "SELECT expression, reading, normalized_expression FROM cards"
                     ).fetchall()
                     for r in rows:
+                        raw_reading = str(r["reading"] or "").strip()
+                        norm_reading = normalize_word_reading(raw_reading)
                         if r["normalized_expression"]:
                             norm = str(r["normalized_expression"]).strip()
                             self._mined_words.add(norm)
-                            if r["reading"]:
-                                self._mined_readings[norm] = str(r["reading"]).strip()
+                            if raw_reading:
+                                self._mined_readings[norm] = raw_reading
+                                self._mined_card_pairs.add((norm, norm_reading))
+                            else:
+                                self._mined_words_no_reading.add(norm)
                         if r["expression"]:
                             expr = str(r["expression"]).strip()
                             self._mined_words.add(expr)
-                            if r["reading"] and expr not in self._mined_readings:
-                                self._mined_readings[expr] = str(r["reading"]).strip()
+                            if raw_reading:
+                                if expr not in self._mined_readings:
+                                    self._mined_readings[expr] = raw_reading
+                                self._mined_card_pairs.add((expr, norm_reading))
+                            else:
+                                self._mined_words_no_reading.add(expr)
                 except sqlite3.OperationalError:
                     pass
 
@@ -506,19 +541,63 @@ class SubtitleAnnotatorService:
                     rows = cursor.execute("SELECT word FROM known_words").fetchall()
                     for r in rows:
                         if r["word"]:
-                            self._mined_words.add(str(r["word"]).strip())
+                            w = str(r["word"]).strip()
+                            self._mined_words.add(w)
+                            self._known_words_table.add(w)
+                except sqlite3.OperationalError:
+                    pass
+
+                # 3. Canonical word_states table
+                try:
+                    has_ws = cursor.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='word_states'"
+                    ).fetchone()
+                    if has_ws:
+                        self._word_states_index = WordStateRepository(
+                            self._db_path, initialize=False
+                        ).get_word_states_index()
                 except sqlite3.OperationalError:
                     pass
         except Exception as err:
             logger.debug("Failed to load mined cards from %s: %s", self._db_path, err)
 
+        self._combined_known_words = self._known_words_table | self._explicit_known_words
+
     def add_mined_word(self, word: str, reading: str = "") -> None:
-        """Dynamically add a word to the active in-memory mined set."""
+        """Dynamically add a word to the active in-memory mined and known caches."""
         w = str(word).strip()
-        if w:
-            self._mined_words.add(w)
-            if reading:
-                self._mined_readings[w] = str(reading).strip()
+        if not w:
+            return
+        self._mined_words.add(w)
+        norm_expr = normalize_word_expression(w)
+        if reading:
+            clean_read = str(reading).strip()
+            norm_read = normalize_word_reading(clean_read)
+            self._mined_readings[w] = clean_read
+            self._mined_card_pairs.add((w, norm_read))
+            self._word_states_index.by_fallback_expr_reading.setdefault(
+                (norm_expr, norm_read),
+                None,  # replaced below if absent
+            )
+            from app.repositories.word_state_repository import WordStateRecord
+            self._word_states_index.by_fallback_expr_reading[(norm_expr, norm_read)] = WordStateRecord(
+                id=0,
+                sequence_id=None,
+                reading=norm_read,
+                expression=norm_expr,
+                state="known",
+            )
+        else:
+            self._known_words_table.add(w)
+            self._combined_known_words.add(w)
+            from app.repositories.word_state_repository import WordStateRecord
+            self._word_states_index.by_fallback_expr[norm_expr] = WordStateRecord(
+                id=0,
+                sequence_id=None,
+                reading="",
+                expression=norm_expr,
+                state="known",
+            )
 
     def _extract_cue_fields(self, cue: Any) -> tuple[float, float, str]:
         """Extract start, end, and text from dictionary or object cue representations."""
@@ -538,11 +617,173 @@ class SubtitleAnnotatorService:
             text = str(getattr(cue, "text", getattr(cue, "surface", "")) or "")
         return start, end, text
 
+    def _build_effective_known_words(
+        self, known_words: Iterable[str] | None = None
+    ) -> set[str]:
+        if known_words is None:
+            return self._combined_known_words
+        extra = {str(w).strip() for w in known_words if str(w).strip()}
+        return self._combined_known_words | extra
+
+    def _resolve_token_word_state(
+        self,
+        *,
+        seq_id: int | None,
+        canon_rdg: str | None,
+        resolved_lemma: str,
+        lemma: str,
+        normalized: str,
+        surface: str,
+        token_reading: str,
+        effective_known_words: set[str],
+        allow_deinflect_fallback: bool = True,
+    ) -> tuple[str, bool, bool, str]:
+        """
+        Resolve (word_state, known, is_mined, resolved_lemma) for a token.
+
+        Precedence:
+        1. Canonical word_states by (sequence_id, reading) when sequence_id is resolved,
+           falling back only to sequence_id IS NULL entries (never across sequence_ids).
+        2. Explicit known_words (caller-supplied set/list or known_words table).
+        3. Mined cards table (reading-matched when card reading exists).
+        """
+        # 1. word_states table
+        ws_rec = self._word_states_index.resolve(
+            sequence_id=seq_id,
+            canonical_reading=canon_rdg,
+            reading=token_reading,
+            expression=resolved_lemma,
+            surface=surface,
+        )
+        if ws_rec is None and lemma and lemma != resolved_lemma:
+            ws_rec = self._word_states_index.resolve(
+                sequence_id=seq_id,
+                canonical_reading=canon_rdg,
+                reading=token_reading,
+                expression=lemma,
+                surface=surface,
+            )
+        if ws_rec is None and normalized and normalized not in (resolved_lemma, lemma):
+            ws_rec = self._word_states_index.resolve(
+                sequence_id=seq_id,
+                canonical_reading=canon_rdg,
+                reading=token_reading,
+                expression=normalized,
+                surface=surface,
+            )
+        if ws_rec is None and seq_id is None and allow_deinflect_fallback and surface:
+            for deinf_cand in deinflect(surface):
+                if deinf_cand.term in (resolved_lemma, lemma, surface):
+                    continue
+                ws_rec = self._word_states_index.resolve(
+                    sequence_id=None,
+                    canonical_reading=None,
+                    reading=token_reading,
+                    expression=deinf_cand.term,
+                    surface="",
+                )
+                if ws_rec is not None:
+                    resolved_lemma = deinf_cand.term
+                    break
+
+        if ws_rec is not None:
+            ws_state = ws_rec.state
+            return ws_state, (ws_state == "known"), (ws_state in ("known", "learning", "tracking")), resolved_lemma
+
+        # 2. Explicit known_words (caller param + known_words table)
+        for cand in (resolved_lemma, lemma, surface, normalized):
+            if cand and cand in effective_known_words:
+                return "known", True, True, resolved_lemma
+        if allow_deinflect_fallback and surface:
+            for deinf_cand in deinflect(surface):
+                if deinf_cand.term in effective_known_words:
+                    return "known", True, True, deinf_cand.term
+
+        # 3. Mined cards table (reading-aware to avoid homograph collisions)
+        norm_tok_read = normalize_word_reading(canon_rdg or token_reading)
+        for cand in (resolved_lemma, lemma, surface, normalized):
+            if not cand:
+                continue
+            if cand in self._mined_words_no_reading:
+                return "learning", False, True, resolved_lemma
+            if norm_tok_read and (cand, norm_tok_read) in self._mined_card_pairs:
+                return "learning", False, True, resolved_lemma
+            if not norm_tok_read and cand in self._mined_words:
+                return "learning", False, True, resolved_lemma
+        if allow_deinflect_fallback and surface:
+            for deinf_cand in deinflect(surface):
+                if deinf_cand.term in self._mined_words_no_reading or (
+                    norm_tok_read and (deinf_cand.term, norm_tok_read) in self._mined_card_pairs
+                ):
+                    return "learning", False, True, deinf_cand.term
+
+        return "unseen", False, False, resolved_lemma
+
+    @staticmethod
+    def _is_encounter_skippable(token: AnnotatedToken) -> bool:
+        surface = token.surface
+        if not surface or surface.isspace():
+            return True
+        pos = token.pos
+        if pos in ("補助記号", "記号", "空白"):
+            return True
+        if all(unicodedata.category(ch).startswith(("P", "Z", "C")) for ch in surface):
+            return True
+        return False
+
+    def _record_encounters_for_tokens(
+        self,
+        cue_token_pairs: list[tuple[str, list[AnnotatedToken]]],
+        *,
+        source_media: str = "",
+    ) -> int:
+        encounters: list[dict[str, Any]] = []
+        for sentence_text, tokens in cue_token_pairs:
+            for tok in tokens:
+                if self._is_encounter_skippable(tok):
+                    continue
+                encounters.append(
+                    {
+                        "sequence_id": tok.sequence_id,
+                        "canonical_reading": tok.canonical_reading or tok.reading,
+                        "reading": tok.reading,
+                        "expression": tok.lemma or tok.surface,
+                        "sentence": sentence_text,
+                        "source_media": source_media,
+                    }
+                )
+        if not encounters:
+            return 0
+        repo = WordStateRepository(self._db_path, initialize=True)
+        count = repo.log_encounters(encounters, default_source_media=source_media)
+        self._word_states_index = repo.get_word_states_index()
+        return count
+
+    def log_encounters_from_cues(
+        self,
+        cues: list[Any],
+        *,
+        source_media: str = "",
+        learner_level: str | None = None,
+        ignore_function_words: bool | None = None,
+    ) -> list[AnnotatedCue]:
+        """Annotate cues and persist encounters for every content token in one batch."""
+        return self.annotate_cues(
+            cues,
+            learner_level=learner_level,
+            ignore_function_words=ignore_function_words,
+            record_encounters=True,
+            source_media=source_media,
+        )
+
     def annotate_cue(
         self,
         cue: Any,
         learner_level: str | None = None,
         ignore_function_words: bool | None = None,
+        known_words: Iterable[str] | None = None,
+        record_encounters: bool = False,
+        source_media: str = "",
     ) -> AnnotatedCue:
         """Annotate a single subtitle cue."""
         start, end, text = self._extract_cue_fields(cue)
@@ -552,6 +793,9 @@ class SubtitleAnnotatorService:
             ignore_function_words=ignore_function_words,
             start=start,
             end=end,
+            known_words=known_words,
+            record_encounters=record_encounters,
+            source_media=source_media,
         )
         return AnnotatedCue(start=start, end=end, text=text, tokens=tokens)
 
@@ -560,16 +804,33 @@ class SubtitleAnnotatorService:
         cues: list[Any],
         learner_level: str | None = None,
         ignore_function_words: bool | None = None,
+        known_words: Iterable[str] | None = None,
+        record_encounters: bool = False,
+        source_media: str = "",
     ) -> list[AnnotatedCue]:
         """Batch annotate a list of subtitle cues."""
-        return [
+        results = [
             self.annotate_cue(
                 c,
                 learner_level=learner_level,
                 ignore_function_words=ignore_function_words,
+                known_words=known_words,
+                record_encounters=False,
+                source_media=source_media,
             )
             for c in cues
         ]
+        if record_encounters and results:
+            self._record_encounters_for_tokens(
+                [(cue_res.text, cue_res.tokens) for cue_res in results],
+                source_media=source_media,
+            )
+            # Refresh token word_state/known after unseen -> seen transition
+            for cue_res in results:
+                for tok in cue_res.tokens:
+                    if tok.word_state == "unseen" and not self._is_encounter_skippable(tok):
+                        tok["word_state"] = "seen"
+        return results
 
     def _get_dict_engine(self) -> Any:
         if self._dict_engine is not None or self._dict_engine_checked:
@@ -631,6 +892,9 @@ class SubtitleAnnotatorService:
         ignore_function_words: bool | None = None,
         start: float = 0.0,
         end: float = 0.0,
+        known_words: Iterable[str] | None = None,
+        record_encounters: bool = False,
+        source_media: str = "",
     ) -> list[AnnotatedToken]:
         """Tokenize and annotate Japanese text using Sudachi-primary analysis with legacy fallback."""
         if not text:
@@ -646,23 +910,36 @@ class SubtitleAnnotatorService:
             if ignore_function_words is not None
             else self._default_ignore_function_words
         )
+        effective_known_words = self._build_effective_known_words(known_words)
 
         if self._tokenizer.name == "legacy":
-            return self._annotate_legacy(
+            tokens = self._annotate_legacy(
                 text=text,
                 learner_level=effective_level,
                 ignore_function_words=effective_ignore_fn,
                 start=start,
                 end=end,
+                effective_known_words=effective_known_words,
+            )
+        else:
+            tokens = self._annotate_sudachi(
+                text=text,
+                learner_level=effective_level,
+                ignore_function_words=effective_ignore_fn,
+                start=start,
+                end=end,
+                effective_known_words=effective_known_words,
             )
 
-        return self._annotate_sudachi(
-            text=text,
-            learner_level=effective_level,
-            ignore_function_words=effective_ignore_fn,
-            start=start,
-            end=end,
-        )
+        if record_encounters and tokens:
+            self._record_encounters_for_tokens(
+                [(text, tokens)],
+                source_media=source_media,
+            )
+            for tok in tokens:
+                if tok.word_state == "unseen" and not self._is_encounter_skippable(tok):
+                    tok["word_state"] = "seen"
+        return tokens
 
     def _annotate_sudachi(
         self,
@@ -671,17 +948,33 @@ class SubtitleAnnotatorService:
         ignore_function_words: bool,
         start: float,
         end: float,
+        effective_known_words: set[str] | None = None,
     ) -> list[AnnotatedToken]:
+        known_set = effective_known_words if effective_known_words is not None else self._combined_known_words
         if text in FUNCTION_WORDS:
             jlpt_lvl = self._vocab_cache.get(text, (None, ""))[0]
-            status = (
-                "should_know"
-                if not ignore_function_words and jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level)
-                else "unstyled"
-            )
             seq_id, canon_rdg, is_unres, res_status = self._resolve_canonical_for_token(
                 text, text, text, text, ("助詞",)
             )
+            word_state, known, is_mined, _ = self._resolve_token_word_state(
+                seq_id=seq_id,
+                canon_rdg=canon_rdg,
+                resolved_lemma=text,
+                lemma=text,
+                normalized=text,
+                surface=text,
+                token_reading=canon_rdg or text,
+                effective_known_words=known_set,
+                allow_deinflect_fallback=False,
+            )
+            if word_state in ("ignored", "blacklisted"):
+                status = "unstyled"
+            elif not ignore_function_words and jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level):
+                status = "should_know"
+            elif is_mined and not ignore_function_words:
+                status = "mined"
+            else:
+                status = "unstyled"
             return [
                 AnnotatedToken(
                     surface=text,
@@ -693,7 +986,7 @@ class SubtitleAnnotatorService:
                     end=end,
                     start_char=0,
                     end_char=len(text),
-                    known=False,
+                    known=known,
                     pos="助詞",
                     level_source="vocab" if jlpt_lvl else None,
                     est_level=None,
@@ -702,6 +995,7 @@ class SubtitleAnnotatorService:
                     canonical_reading=canon_rdg,
                     unresolved=is_unres,
                     resolution_status=res_status,
+                    word_state=word_state,
                 )
             ]
 
@@ -726,6 +1020,7 @@ class SubtitleAnnotatorService:
                         level_source=None,
                         est_level=None,
                         gloss="",
+                        word_state="unseen",
                     )
                 )
                 continue
@@ -738,6 +1033,7 @@ class SubtitleAnnotatorService:
                     ignore_function_words=ignore_function_words,
                     start=start,
                     end=end,
+                    effective_known_words=known_set,
                 )
                 for st in span_tokens:
                     st_pos = st.pos or (m.pos[0] if m.pos else "")
@@ -748,25 +1044,44 @@ class SubtitleAnnotatorService:
                         st.reading or m.reading,
                         st_pos,
                     )
+                    word_state, known, is_mined, resolved_st_lemma = self._resolve_token_word_state(
+                        seq_id=seq_id,
+                        canon_rdg=canon_rdg,
+                        resolved_lemma=st.lemma,
+                        lemma=st.lemma,
+                        normalized=m.normalized if len(span_tokens) == 1 else st.lemma,
+                        surface=st.surface,
+                        token_reading=canon_rdg or st.reading or _to_hiragana(m.reading),
+                        effective_known_words=known_set,
+                    )
+                    if word_state in ("ignored", "blacklisted"):
+                        tok_status = "unstyled"
+                    elif st.status == "should_know":
+                        tok_status = "should_know"
+                    elif is_mined:
+                        tok_status = "mined"
+                    else:
+                        tok_status = st.status
                     shifted = AnnotatedToken(
                         surface=st.surface,
-                        lemma=st.lemma,
-                        reading=st.reading,
-                        status=st.status,
+                        lemma=resolved_st_lemma,
+                        reading=canon_rdg or st.reading,
+                        status=tok_status,
                         jlpt_level=st.jlpt_level,
                         start=start,
                         end=end,
                         start_char=m.start + st.start_char,
                         end_char=m.start + st.end_char,
-                        known=st.known,
+                        known=known,
                         pos=st_pos,
                         level_source=st.level_source or ("vocab" if st.jlpt_level else None),
                         est_level=st.est_level,
-                        gloss=st.get("gloss") or self._lookup_gloss(st.lemma, st.surface),
+                        gloss=st.get("gloss") or self._lookup_gloss(resolved_st_lemma, st.surface),
                         sequence_id=seq_id,
                         canonical_reading=canon_rdg,
                         unresolved=is_unres,
                         resolution_status=res_status,
+                        word_state=word_state,
                     )
                     tokens.append(shifted)
                 continue
@@ -825,28 +1140,42 @@ class SubtitleAnnotatorService:
                         level_source = "kanji_est"
                         jlpt_lvl = None
 
-            is_mined = (
-                (resolved_lemma in self._mined_words)
-                or (m.lemma in self._mined_words)
-                or (m.surface in self._mined_words)
-                or (m.normalized in self._mined_words)
-            )
-            if not is_mined:
-                for deinf_cand in deinflect(m.surface):
-                    if deinf_cand.term in self._mined_words:
-                        is_mined = True
-                        resolved_lemma = deinf_cand.term
-                        break
-            known = is_mined
-            token_reading = (
-                self._mined_readings.get(resolved_lemma)
-                or self._mined_readings.get(m.lemma)
-                or self._mined_readings.get(m.surface)
-                or rdg
-                or _to_hiragana(m.reading or m.surface)
+            pos_str = m.pos[0] if m.pos else ""
+            seq_id, canon_rdg, is_unres, res_status = self._resolve_canonical_for_token(
+                m.lemma,
+                m.normalized,
+                m.surface,
+                m.reading or rdg or _to_hiragana(m.surface),
+                m.pos,
             )
 
-            if level_source == "vocab" and jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level):
+            if canon_rdg:
+                token_reading = canon_rdg
+            elif m.surface == m.lemma and m.reading:
+                token_reading = _to_hiragana(m.reading)
+            else:
+                token_reading = (
+                    rdg
+                    or self._mined_readings.get(resolved_lemma)
+                    or self._mined_readings.get(m.lemma)
+                    or self._mined_readings.get(m.surface)
+                    or _to_hiragana(m.reading or m.surface)
+                )
+
+            word_state, known, is_mined, resolved_lemma = self._resolve_token_word_state(
+                seq_id=seq_id,
+                canon_rdg=canon_rdg,
+                resolved_lemma=resolved_lemma,
+                lemma=m.lemma,
+                normalized=m.normalized,
+                surface=m.surface,
+                token_reading=token_reading,
+                effective_known_words=known_set,
+            )
+
+            if word_state in ("ignored", "blacklisted"):
+                status = "unstyled"
+            elif level_source == "vocab" and jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level):
                 if ignore_function_words and (m.surface in FUNCTION_WORDS or resolved_lemma in FUNCTION_WORDS):
                     status = "unstyled"
                 else:
@@ -856,14 +1185,6 @@ class SubtitleAnnotatorService:
             else:
                 status = "unstyled"
 
-            pos_str = m.pos[0] if m.pos else ""
-            seq_id, canon_rdg, is_unres, res_status = self._resolve_canonical_for_token(
-                m.lemma,
-                m.normalized,
-                m.surface,
-                m.reading or token_reading,
-                m.pos,
-            )
             tokens.append(
                 AnnotatedToken(
                     surface=m.surface,
@@ -884,6 +1205,7 @@ class SubtitleAnnotatorService:
                     canonical_reading=canon_rdg,
                     unresolved=is_unres,
                     resolution_status=res_status,
+                    word_state=word_state,
                 )
             )
 
@@ -896,8 +1218,10 @@ class SubtitleAnnotatorService:
         ignore_function_words: bool,
         start: float,
         end: float,
+        effective_known_words: set[str] | None = None,
     ) -> list[AnnotatedToken]:
         """Legacy greedy forward longest-match scanning path."""
+        known_set = effective_known_words if effective_known_words is not None else self._combined_known_words
         tokens: list[AnnotatedToken] = []
         n = len(text)
         i = 0
@@ -1136,7 +1460,7 @@ class SubtitleAnnotatorService:
             # 3. Standard longest match scan
             for length in range(min(n - i, max_scan_len), 0, -1):
                 sub = text[i : i + length]
-                if sub in self._vocab_cache or sub in self._mined_words:
+                if sub in self._vocab_cache or sub in self._mined_words or sub in known_set:
                     jlpt_lvl, rdg = self._vocab_cache.get(sub, (None, ""))
                     if not rdg and sub in self._mined_readings:
                         rdg = self._mined_readings[sub]
@@ -1158,7 +1482,7 @@ class SubtitleAnnotatorService:
                     candidates = deinflect(sub)
                     found = False
                     for c in candidates:
-                        if c.term in self._mined_words or c.term in self._vocab_cache:
+                        if c.term in self._mined_words or c.term in known_set or c.term in self._vocab_cache:
                             jlpt_lvl, rdg = self._vocab_cache.get(c.term, (None, ""))
                             if not rdg and c.term in self._mined_readings:
                                 rdg = self._mined_readings[c.term]
@@ -1221,6 +1545,28 @@ class SubtitleAnnotatorService:
                     )
                 )
                 i += 1
+
+        for tok in tokens:
+            if not tok.surface or tok.surface.isspace():
+                continue
+            word_state, known, is_mined, resolved_lemma = self._resolve_token_word_state(
+                seq_id=tok.sequence_id,
+                canon_rdg=tok.canonical_reading,
+                resolved_lemma=tok.lemma,
+                lemma=tok.lemma,
+                normalized=tok.lemma,
+                surface=tok.surface,
+                token_reading=tok.reading,
+                effective_known_words=known_set,
+            )
+            tok["lemma"] = resolved_lemma
+            tok["word_state"] = word_state
+            tok["known"] = known
+            if word_state in ("ignored", "blacklisted"):
+                tok["status"] = "unstyled"
+            elif tok.status == "unstyled" and is_mined:
+                if not (ignore_function_words and (tok.surface in FUNCTION_WORDS or resolved_lemma in FUNCTION_WORDS)):
+                    tok["status"] = "mined"
 
         return tokens
 

@@ -64,13 +64,25 @@ def annotate_subtitles(request: SubtitleAnnotateRequest) -> SubtitleAnnotateResp
     annotator = get_subtitle_annotator_service()
     formatted_cues: list[AnnotatedCueResponse] = []
 
-    for idx, cue in enumerate(request.cues):
-        annotated_cue = annotator.annotate_cue(
-            cue,
+    if request.record_encounters:
+        annotated_cues = annotator.annotate_cues(
+            request.cues,
             learner_level=effective_level,
             ignore_function_words=effective_ignore_fn,
+            record_encounters=True,
+            source_media=request.source_media,
         )
+    else:
+        annotated_cues = [
+            annotator.annotate_cue(
+                cue,
+                learner_level=effective_level,
+                ignore_function_words=effective_ignore_fn,
+            )
+            for cue in request.cues
+        ]
 
+    for idx, (cue, annotated_cue) in enumerate(zip(request.cues, annotated_cues)):
         formatted_tokens = [
             AnnotatedTokenResponse(
                 start=tok.get("start_char", 0),
@@ -81,6 +93,7 @@ def annotate_subtitles(request: SubtitleAnnotateRequest) -> SubtitleAnnotateResp
                 status=tok.get("status", "unstyled"),
                 jlpt_level=tok.get("jlpt_level"),
                 known=tok.get("known", False),
+                word_state=tok.get("word_state", "unseen"),
                 pos=tok.get("pos", ""),
                 level_source=tok.get("level_source"),
                 est_level=tok.get("est_level"),

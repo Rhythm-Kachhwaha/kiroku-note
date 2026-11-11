@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import asdict, is_dataclass
 import logging
 import os
+from pathlib import Path
 import re
 from typing import Any
 
@@ -619,6 +620,7 @@ class CardService:
                     mapped_fields = self.anki.map_card_to_fields(card_data, model_fields)
                     self.anki.update_note_fields(card.anki_note_id, mapped_fields)
                     updated = self.repository.mark_synced(card_id, card.anki_note_id)
+                    self._record_synced_word_state(card)
                     return SyncCardResponse(
                         id=card.id,
                         sync_status="synced",
@@ -674,6 +676,7 @@ class CardService:
                         logger.warning("Failed updating fields for existing note %s: %s", existing_note_id, err)
 
                 updated = self.repository.mark_synced(card_id, existing_note_id)
+                self._record_synced_word_state(card)
                 return SyncCardResponse(
                     id=card.id,
                     sync_status="synced",
@@ -701,6 +704,7 @@ class CardService:
             )
 
             updated = self.repository.mark_synced(card_id, new_note_id)
+            self._record_synced_word_state(card)
             return SyncCardResponse(
                 id=card.id,
                 sync_status="synced",
@@ -1071,3 +1075,62 @@ class CardService:
         """Retrieve aggregated mining and library statistics."""
         data = self.repository.get_stats()
         return CardStatsResponse(**data)
+
+    def _get_repository_db_path(self) -> Path | str | None:
+        raw = getattr(self.repository, "_db_path", None)
+        if raw is None:
+            raw = getattr(self.repository, "db_path", None)
+        return raw if isinstance(raw, (Path, str)) else None
+
+    def _record_synced_word_state(self, card) -> None:
+        """Best-effort promotion of a newly synced card into word_states."""
+        try:
+            if getattr(card, "card_kind", "vocab") == "grammar":
+                return
+            expression = (getattr(card, "expression", "") or "").strip()
+            if not expression:
+                return
+            reading = (getattr(card, "reading", "") or "").strip()
+            raw_db_attr = getattr(self.repository, "_db_path", getattr(self.repository, "db_path", None))
+            if raw_db_attr is not None and not isinstance(raw_db_attr, (Path, str)):
+                return
+            from app.services.word_state_service import WordStateService
+
+            service = WordStateService(db_path=self._get_repository_db_path())
+            existing = service.get_word_state(reading=reading, expression=expression)
+            if existing and existing.state in {"known", "ignored", "blacklisted"}:
+                return
+            resolved_seq, resolved_read, resolved_expr = service._resolve_identity(
+                expression=expression,
+                reading=reading,
+                sequence_id=existing.sequence_id if existing else None,
+            )
+            service.repository.upsert_word_state(
+                sequence_id=resolved_seq,
+                reading=resolved_read,
+                expression=resolved_expr,
+                state="learning",
+                anki_status="active",
+            )
+        except Exception:
+            logger.debug("Best-effort word_state update failed for synced card", exc_info=True)
+
+    def sync_word_states_from_anki(
+        self,
+        *,
+        deck_name: str | None = None,
+        known_min_interval: int | None = None,
+        max_lapses: int | None = None,
+        reconcile_deleted: bool | None = None,
+    ) -> dict[str, Any]:
+        """Hydrate word_states from AnkiConnect card review metrics."""
+        from app.services.word_state_service import WordStateService
+
+        service = WordStateService(db_path=self._get_repository_db_path())
+        return service.sync_from_anki(
+            anki_service=self.anki,
+            deck_name=deck_name,
+            known_min_interval=known_min_interval,
+            max_lapses=max_lapses,
+            reconcile_deleted=reconcile_deleted,
+        )

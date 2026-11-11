@@ -970,3 +970,55 @@ def is_within_learner_level(target_level: str | None, learner_level: str = "N4")
         norm_learner = DEFAULT_LEARNER_JLPT_LEVEL
 
     return _JLPT_DIFFICULTY[norm_target] <= _JLPT_DIFFICULTY[norm_learner]
+
+
+DEFAULT_ANKI_KNOWN_MIN_INTERVAL = 21
+DEFAULT_ANKI_MAX_LAPSES = 5
+
+
+def get_anki_known_min_interval(env: dict[str, str] | None = None) -> int:
+    """Resolve minimum Anki review interval (days) required to treat a word as 'known'."""
+    env_dict = os.environ if env is None else env
+    raw = env_dict.get("KIROKU_ANKI_KNOWN_INTERVAL")
+    if raw is not None:
+        try:
+            val = int(str(raw).strip())
+            if val >= 1:
+                return val
+        except ValueError:
+            pass
+
+    stored = load_stored_app_config(env_dict)
+    anki_cfg = stored.get("anki") if isinstance(stored.get("anki"), dict) else {}
+    if "known_min_interval" in anki_cfg:
+        try:
+            val = int(anki_cfg["known_min_interval"])
+            if val >= 1:
+                return val
+        except (TypeError, ValueError):
+            pass
+    return DEFAULT_ANKI_KNOWN_MIN_INTERVAL
+
+
+def get_anki_max_lapses(env: dict[str, str] | None = None) -> int:
+    """Resolve maximum Anki lapse count permitted while remaining 'known'."""
+    env_dict = os.environ if env is None else env
+    raw = env_dict.get("KIROKU_ANKI_MAX_LAPSES")
+    if raw is not None:
+        try:
+            val = int(str(raw).strip())
+            if val >= 1:
+                return val
+        except ValueError:
+            pass
+
+    stored = load_stored_app_config(env_dict)
+    anki_cfg = stored.get("anki") if isinstance(stored.get("anki"), dict) else {}
+    if "max_lapses" in anki_cfg:
+        try:
+            val = int(anki_cfg["max_lapses"])
+            if val >= 1:
+                return val
+        except (TypeError, ValueError):
+            pass
+    return DEFAULT_ANKI_MAX_LAPSES

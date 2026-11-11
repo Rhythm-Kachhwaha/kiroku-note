@@ -22,6 +22,7 @@ class AnnotatedTokenResponse(BaseModel):
     status: str = "unstyled"
     jlpt_level: Optional[str] = None
     known: bool = False
+    word_state: str = "unseen"
     pos: str = ""
     level_source: Optional[str] = None
     est_level: Optional[str] = None
