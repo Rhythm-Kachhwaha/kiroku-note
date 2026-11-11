@@ -10,6 +10,21 @@ import unicodedata
 from typing import Any
 
 
+CREATE_ENRICHMENT_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS grammar_enrichment (
+    concept_id TEXT PRIMARY KEY,
+    big_picture_concept TEXT,
+    formation_rules JSON,
+    common_pitfalls JSON,
+    nuance_contrasts JSON,
+    visual_anchor_svg TEXT,
+    source_url TEXT,
+    updated_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_grammar_enrichment_updated_at ON grammar_enrichment(updated_at);
+"""
+
+
 def _normalize_key(value: str) -> str:
     value = unicodedata.normalize("NFKC", value).strip()
     value = value.replace("〜", "").replace("~", "").replace("～", "")
@@ -59,6 +74,25 @@ class GrammarReferenceService:
         by_key: dict[str, list[dict[str, Any]]] = {}
         index: dict[str, dict[str, Any]] = {}
 
+        # Load enrichment data if table exists
+        enrichment_by_concept: dict[str, dict[str, Any]] = {}
+        try:
+            has_enrichment = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'grammar_enrichment'"
+            ).fetchone()
+            if has_enrichment:
+                for erow in connection.execute("SELECT * FROM grammar_enrichment"):
+                    edata = dict(erow)
+                    for jfield in ("formation_rules", "common_pitfalls", "nuance_contrasts"):
+                        if edata.get(jfield) is not None and isinstance(edata[jfield], str):
+                            try:
+                                edata[jfield] = json.loads(edata[jfield])
+                            except (json.JSONDecodeError, TypeError):
+                                pass
+                    enrichment_by_concept[edata["concept_id"]] = edata
+        except Exception:
+            pass
+
         for row in connection.execute("SELECT * FROM grammar_index ORDER BY id"):
             item = dict(row)
             for field in ("variants", "matcher", "guards", "examples", "sources"):
@@ -68,6 +102,7 @@ class GrammarReferenceService:
                     except (json.JSONDecodeError, TypeError):
                         pass
             cid = item.get("concept_id") or f"c_{item['id']}"
+            item["enrichment"] = enrichment_by_concept.get(cid)
             concepts_by_id[cid] = item
 
             raw_key = item["pattern_key"]
@@ -129,6 +164,13 @@ class GrammarReferenceService:
     def get_points(self) -> list[dict[str, Any]]:
         self._load()
         return list(self._loaded_data["concepts_by_id"].values())
+
+    def get_enrichment(self, concept_id: str) -> dict[str, Any] | None:
+        """Retrieve enrichment data for a concept if available."""
+        point = self.get_point_by_concept_id(concept_id)
+        if point:
+            return point.get("enrichment")
+        return None
 
     def close(self) -> None:
         if self._connection is not None:

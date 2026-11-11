@@ -321,6 +321,26 @@ def build(output: Path = DEFAULT_OUTPUT, source: Path = MASTER_DATASET_PATH) -> 
         """,
         rows_to_insert,
     )
+
+    from app.services.grammar_reference import CREATE_ENRICHMENT_TABLE_SQL
+    from app.study.acquisition.parsers.enrichment_seeds import CORE_ENRICHMENT_SEEDS
+    from app.study.acquisition.parsers.tofugu_parser import GrammarEnrichment
+
+    conn.executescript(CREATE_ENRICHMENT_TABLE_SQL)
+    enrichment_rows = [
+        GrammarEnrichment.model_validate(seed).to_db_row()
+        for seed in CORE_ENRICHMENT_SEEDS
+    ]
+    conn.executemany(
+        """
+        INSERT OR REPLACE INTO grammar_enrichment
+          (concept_id, big_picture_concept, formation_rules, common_pitfalls,
+           nuance_contrasts, visual_anchor_svg, source_url, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        enrichment_rows,
+    )
+
     conn.commit()
     conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     conn.close()
