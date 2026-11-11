@@ -68,7 +68,12 @@ CREATE TABLE IF NOT EXISTS grammar_points (
     seen_count INTEGER NOT NULL DEFAULT 1,
     first_seen_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL,
-    card_id INTEGER DEFAULT NULL
+    card_id INTEGER DEFAULT NULL,
+    mastery_score REAL NOT NULL DEFAULT 0.0,
+    drill_count INTEGER NOT NULL DEFAULT 0,
+    last_drilled_at TEXT DEFAULT NULL,
+    stability REAL NOT NULL DEFAULT 0.0,
+    difficulty REAL NOT NULL DEFAULT 5.0
 );
 CREATE INDEX IF NOT EXISTS idx_grammar_points_status_level
     ON grammar_points(status, level, seen_count DESC);
@@ -84,6 +89,23 @@ CREATE TABLE IF NOT EXISTS grammar_encounters (
 );
 CREATE INDEX IF NOT EXISTS idx_grammar_encounters_pattern
     ON grammar_encounters(pattern_key, created_at DESC);
+CREATE TABLE IF NOT EXISTS grammar_drill_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern_key TEXT NOT NULL,
+    modality TEXT NOT NULL,
+    is_correct INTEGER NOT NULL CHECK (is_correct IN (0, 1)),
+    user_answer TEXT NOT NULL DEFAULT '',
+    expected_answer TEXT NOT NULL DEFAULT '',
+    context_sentence TEXT NOT NULL DEFAULT '',
+    score_delta REAL NOT NULL DEFAULT 0.0,
+    new_mastery REAL NOT NULL DEFAULT 0.0,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(pattern_key) REFERENCES grammar_points(pattern_key) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_grammar_drill_results_pattern_modality
+    ON grammar_drill_results(pattern_key, modality, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_grammar_drill_results_created
+    ON grammar_drill_results(created_at DESC);
 CREATE TABLE IF NOT EXISTS unresolved_tokens (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     surface TEXT NOT NULL,
@@ -362,6 +384,19 @@ def init_db(db_path: Path | str | None = None) -> None:
         conn.execute("UPDATE cards SET sync_status = 'pending' WHERE sync_status = 'syncing'")
         conn.execute("DROP TABLE IF EXISTS extension_token")
         migrate_canonical_grammar_keys(conn)
+
+        gp_columns = [row["name"] for row in conn.execute("PRAGMA table_info(grammar_points)").fetchall()]
+        gp_new_cols = [
+            ("mastery_score", "REAL NOT NULL DEFAULT 0.0"),
+            ("drill_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("last_drilled_at", "TEXT DEFAULT NULL"),
+            ("stability", "REAL NOT NULL DEFAULT 0.0"),
+            ("difficulty", "REAL NOT NULL DEFAULT 5.0"),
+        ]
+        for col_name, col_def in gp_new_cols:
+            if col_name not in gp_columns:
+                conn.execute(f"ALTER TABLE grammar_points ADD COLUMN {col_name} {col_def}")
+
         conn.commit()
 
 

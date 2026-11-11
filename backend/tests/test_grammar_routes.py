@@ -79,3 +79,58 @@ def test_grammar_explain_route(monkeypatch, tmp_path):
     assert "points" in data
     assert "analysis" in data
 
+
+def test_grammar_drills_and_dual_track_routes(tmp_path, monkeypatch):
+    from app.services.grammar_tracker import GrammarTrackerService
+    fake_tracker = GrammarTrackerService(tmp_path / "user.sqlite")
+    monkeypatch.setattr(grammar, "_tracker", fake_tracker)
+
+    client = TestClient(app)
+
+    # 1. Record encounter
+    enc_res = client.post(
+        "/api/grammar/encounters",
+        json={
+            "pattern_key": "てしまう",
+            "display": "〜てしまう",
+            "sentence": "忘れてしまった。",
+            "source": "video",
+        },
+    )
+    assert enc_res.status_code == 200
+    assert enc_res.json()["pipeline_status"] == "encountered"
+
+    # 2. Record drill
+    drill_res = client.post(
+        "/api/grammar/drills",
+        json={
+            "pattern_key": "てしまう",
+            "modality": "conjugation_cloze",
+            "is_correct": True,
+            "user_answer": "忘れてしまった",
+            "expected_answer": "忘れてしまった",
+            "context_sentence": "宿題を[忘れてしまった]。",
+        },
+    )
+    assert drill_res.status_code == 200
+    assert drill_res.json()["pipeline_status"] == "practicing"
+    assert drill_res.json()["mastery_score"] > 0
+
+    # 3. Get single status
+    status_res = client.get("/api/grammar/points/てしまう/status")
+    assert status_res.status_code == 200
+    st_data = status_res.json()
+    assert st_data["pattern_key"] == "てしまう"
+    assert st_data["pipeline_status"] == "practicing"
+    assert len(st_data["exposure"]["encounters"]) == 1
+    assert len(st_data["mastery"]["drills"]) == 1
+
+    # 4. Batch status
+    batch_res = client.post("/api/grammar/batch-status", json={"pattern_keys": ["てしまう", "未知"]})
+    assert batch_res.status_code == 200
+    b_data = batch_res.json()["results"]
+    assert len(b_data) == 2
+    assert b_data[0]["pipeline_status"] == "practicing"
+    assert b_data[1]["pipeline_status"] == "unseen"
+
+

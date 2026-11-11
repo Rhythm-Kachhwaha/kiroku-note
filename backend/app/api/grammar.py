@@ -34,6 +34,19 @@ class PointStatusRequest(BaseModel):
     status: str
 
 
+class GrammarDrillResultRequest(BaseModel):
+    pattern_key: str
+    modality: str
+    is_correct: bool
+    user_answer: str = ""
+    expected_answer: str = ""
+    context_sentence: str = ""
+
+
+class BatchStatusRequest(BaseModel):
+    pattern_keys: list[str]
+
+
 @grammar_router.post("/explain")
 def explain_grammar(request: GrammarExplainRequest):
     sent = request.sentence or request.text or ""
@@ -122,4 +135,32 @@ def get_grammar_syllabus(
     offset: int = Query(default=0, ge=0),
 ):
     return _tracker.get_syllabus(level=level, search=search, limit=limit, offset=offset)
+
+
+@grammar_router.post("/drills")
+def record_grammar_drill(request: GrammarDrillResultRequest):
+    try:
+        return _tracker.record_drill_outcome(
+            pattern_key=request.pattern_key,
+            modality=request.modality,
+            is_correct=request.is_correct,
+            user_answer=request.user_answer,
+            expected_answer=request.expected_answer,
+            context_sentence=request.context_sentence,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@grammar_router.get("/points/{pattern_key}/status")
+def get_point_dual_track_status(pattern_key: str):
+    status = _tracker.get_dual_track_status(pattern_key)
+    if not status:
+        raise HTTPException(status_code=404, detail="Pattern key not found")
+    return status
+
+
+@grammar_router.post("/batch-status")
+def get_batch_dual_track_status(request: BatchStatusRequest):
+    return {"results": _tracker.get_batch_dual_track_status(request.pattern_keys)}
 
