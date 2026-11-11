@@ -137,6 +137,58 @@ CREATE INDEX IF NOT EXISTS idx_word_encounters_expr_reading
     ON word_encounters (expression, reading, timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_word_encounters_source
     ON word_encounters (source_media);
+CREATE TABLE IF NOT EXISTS word_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    subtype TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT 'jmdict',
+    updated_at TEXT NOT NULL,
+    UNIQUE(sequence_id, category, subtype)
+);
+CREATE INDEX IF NOT EXISTS idx_word_categories_cat
+    ON word_categories (category, subtype);
+CREATE INDEX IF NOT EXISTS idx_word_categories_seq
+    ON word_categories (sequence_id);
+CREATE TABLE IF NOT EXISTS vocab_practice_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id INTEGER NOT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    expression TEXT NOT NULL DEFAULT '',
+    question_type TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT '',
+    is_correct INTEGER NOT NULL CHECK (is_correct IN (0, 1)),
+    user_answer TEXT NOT NULL DEFAULT '',
+    expected_answer TEXT NOT NULL DEFAULT '',
+    response_time_ms INTEGER DEFAULT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_vocab_practice_results_word_type
+    ON vocab_practice_results (sequence_id, reading, question_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vocab_practice_results_created
+    ON vocab_practice_results (created_at DESC);
+CREATE TABLE IF NOT EXISTS word_sets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    set_type TEXT NOT NULL DEFAULT 'custom',
+    filter_category TEXT NOT NULL DEFAULT '',
+    filter_subtype TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS word_set_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    set_id INTEGER NOT NULL REFERENCES word_sets(id) ON DELETE CASCADE,
+    sequence_id INTEGER NOT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    expression TEXT NOT NULL DEFAULT '',
+    added_at TEXT NOT NULL,
+    UNIQUE(set_id, sequence_id, reading)
+);
+CREATE INDEX IF NOT EXISTS idx_word_set_items_set
+    ON word_set_items (set_id);
 """
 
 
@@ -392,6 +444,61 @@ CREATE INDEX IF NOT EXISTS idx_word_encounters_source
     ON word_encounters (source_media);
 """
 
+_VOCAB_PRACTICE_DDL = """
+CREATE TABLE IF NOT EXISTS word_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    subtype TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT 'jmdict',
+    updated_at TEXT NOT NULL,
+    UNIQUE(sequence_id, category, subtype)
+);
+CREATE INDEX IF NOT EXISTS idx_word_categories_cat
+    ON word_categories (category, subtype);
+CREATE INDEX IF NOT EXISTS idx_word_categories_seq
+    ON word_categories (sequence_id);
+CREATE TABLE IF NOT EXISTS vocab_practice_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id INTEGER NOT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    expression TEXT NOT NULL DEFAULT '',
+    question_type TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT '',
+    is_correct INTEGER NOT NULL CHECK (is_correct IN (0, 1)),
+    user_answer TEXT NOT NULL DEFAULT '',
+    expected_answer TEXT NOT NULL DEFAULT '',
+    response_time_ms INTEGER DEFAULT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_vocab_practice_results_word_type
+    ON vocab_practice_results (sequence_id, reading, question_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vocab_practice_results_created
+    ON vocab_practice_results (created_at DESC);
+CREATE TABLE IF NOT EXISTS word_sets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    set_type TEXT NOT NULL DEFAULT 'custom',
+    filter_category TEXT NOT NULL DEFAULT '',
+    filter_subtype TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS word_set_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    set_id INTEGER NOT NULL REFERENCES word_sets(id) ON DELETE CASCADE,
+    sequence_id INTEGER NOT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    expression TEXT NOT NULL DEFAULT '',
+    added_at TEXT NOT NULL,
+    UNIQUE(set_id, sequence_id, reading)
+);
+CREATE INDEX IF NOT EXISTS idx_word_set_items_set
+    ON word_set_items (set_id);
+"""
+
 
 def ensure_word_states_table(conn: sqlite3.Connection) -> None:
     """Safely ensure the word_states table and partial unique indexes exist on an open connection."""
@@ -401,6 +508,11 @@ def ensure_word_states_table(conn: sqlite3.Connection) -> None:
 def ensure_word_encounters_table(conn: sqlite3.Connection) -> None:
     """Safely ensure the word_encounters table and lookup indexes exist on an open connection."""
     conn.executescript(_WORD_ENCOUNTERS_DDL)
+
+
+def ensure_vocab_practice_tables(conn: sqlite3.Connection) -> None:
+    """Safely ensure word_categories, vocab_practice_results, word_sets, and word_set_items exist."""
+    conn.executescript(_VOCAB_PRACTICE_DDL)
 
 
 def ensure_vocab_state_tables(conn: sqlite3.Connection) -> None:
