@@ -237,17 +237,56 @@ export class GrammarView {
                     </div>
                   </div>
 
-                  <!-- Focused detail tabs: Meaning | Formation | Examples -->
+                  <!-- Focused detail tabs: Meaning | Formation | Contrasts | Pitfalls | Examples & Encounters -->
                   <div class="point-tabs" role="tablist" aria-label="Grammar point details">
                     <button type="button" class="point-tab is-active" data-tab="meaning" role="tab" aria-selected="true">Meaning</button>
-                    <button type="button" class="point-tab" data-tab="examples" role="tab" aria-selected="false" tabindex="-1">Examples</button>
                     <button type="button" class="point-tab" data-tab="formation" role="tab" aria-selected="false" tabindex="-1">Formation</button>
+                    <button type="button" class="point-tab" data-tab="contrasts" role="tab" aria-selected="false" tabindex="-1">Nuance Battle</button>
+                    <button type="button" class="point-tab" data-tab="pitfalls" role="tab" aria-selected="false" tabindex="-1">Pitfalls</button>
+                    <button type="button" class="point-tab" data-tab="examples" role="tab" aria-selected="false" tabindex="-1">Examples</button>
+                    <button type="button" class="point-tab" data-tab="cards" role="tab" aria-selected="false" tabindex="-1" style="display: none;">Seen in your cards</button>
                   </div>
 
+                  <!-- Meaning & Mental Model Tab -->
                   <div class="point-panel is-active" data-panel="meaning" role="tabpanel">
+                    <!-- Tofugu Big Picture Mental Model Banner -->
+                    <div class="tofugu-concept-banner" id="tofugu-concept-banner">
+                      <div class="concept-banner-header">
+                        <span class="concept-anchor-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                        </span>
+                        <span class="concept-banner-tag">Mental Model</span>
+                      </div>
+                      <p class="concept-banner-text font-serif" id="concept-banner-text">--</p>
+                    </div>
+
                     <div class="point-meaning-box">
+                      <div class="flex items-center justify-between mb-2">
+                        <h4 class="meaning-label">Explanation</h4>
+                        <span class="text-xs text-muted font-mono">Core Nuance</span>
+                      </div>
                       <p class="point-meaning" id="point-meaning">--</p>
                       <p class="point-meaning-secondary" id="point-meaning-secondary" hidden></p>
+                    </div>
+
+                    <!-- Duolingo-inspired Mastery Status Bar -->
+                    <div class="grammar-mastery-progress-card tactile-card" id="grammar-mastery-card">
+                      <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                          <span class="mastery-track-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                          </span>
+                          <span class="text-xs font-bold text-warm-paper uppercase tracking-wider font-mono">Dual-Track Mastery</span>
+                        </div>
+                        <span class="text-xs font-mono font-bold text-industrial-aqua" id="mastery-pct-label">0% Mastered</span>
+                      </div>
+                      <div class="mastery-bar-container">
+                        <div class="mastery-bar-fill" id="mastery-bar-fill" style="width: 0%;"></div>
+                      </div>
+                      <div class="mastery-badges-row mt-2 flex items-center justify-between text-xs text-muted">
+                        <span id="seen-track-badge" class="dual-track-badge"><span class="badge-dot"></span> Seen 0x in cards</span>
+                        <span id="drill-track-badge" class="dual-track-badge"><span class="badge-dot"></span> 0 drills verified</span>
+                      </div>
                     </div>
                   </div>
 
@@ -255,8 +294,8 @@ export class GrammarView {
                   <div class="point-panel" data-panel="formation" role="tabpanel" hidden>
                     <div class="point-formation-box">
                       <div class="flex items-center justify-between mb-2">
-                        <h4 class="formation-label">Formation</h4>
-                        <span class="text-xs text-muted font-mono">Structure</span>
+                        <h4 class="formation-label">Formation Rules</h4>
+                        <span class="text-xs text-muted font-mono">Interactive Formula</span>
                       </div>
                       <div class="formation-list" id="point-formations">
                         <span class="text-sm text-muted">No formation rules listed.</span>
@@ -264,27 +303,64 @@ export class GrammarView {
                     </div>
                   </div>
 
-                  <!-- Curated Example Sentences with Ruby/Furigana -->
+                  <!-- Nuance Battle / Contrasts (Tofugu style vs side-by-side) -->
+                  <div class="point-panel" data-panel="contrasts" role="tabpanel" hidden>
+                    <div class="point-contrasts-box">
+                      <div class="flex items-center justify-between mb-2">
+                        <h4 class="contrasts-label">Nuance Battle</h4>
+                        <span class="text-xs text-muted font-mono">Side-by-side versus</span>
+                      </div>
+                      <div class="contrasts-list" id="point-contrasts">
+                        <span class="text-sm text-muted">No nuance contrasts available for this pattern.</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Common Pitfalls & Traps -->
+                  <div class="point-panel" data-panel="pitfalls" role="tabpanel" hidden>
+                    <div class="point-pitfalls-box">
+                      <div class="flex items-center justify-between mb-2">
+                        <h4 class="pitfalls-label">Common Pitfalls & Traps</h4>
+                        <span class="text-xs text-muted font-mono">Misconceptions</span>
+                      </div>
+                      <div class="pitfalls-list" id="point-pitfalls">
+                        <span class="text-sm text-muted">No common pitfalls recorded for this pattern.</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Curated Example Sentences & Card Encounters -->
                   <div class="point-panel" data-panel="examples" role="tabpanel" hidden>
                     <div class="point-examples-section">
                       <div class="flex items-center justify-between mb-2">
-                        <h4 class="examples-label">Examples</h4>
-                        <span class="text-xs text-muted font-mono">Context</span>
+                        <h4 class="examples-label">Curated Examples</h4>
+                        <span class="text-xs text-muted font-mono">Context & Ruby</span>
                       </div>
                       <div class="examples-list" id="point-examples">
                         <span class="text-sm text-muted">No example sentences available.</span>
                       </div>
                     </div>
+
+                    <!-- Mined anime context & cards linking -->
+                    <div class="point-encounters-section mt-4">
+                      <div class="flex items-center justify-between mb-2">
+                        <h4 class="encounters-label">Seen in your cards & media</h4>
+                        <span class="text-xs text-muted font-mono" id="encounters-count-badge">0 recorded</span>
+                      </div>
+                      <div class="encounters-list" id="point-encounters">
+                        <span class="text-sm text-muted">Select a grammar point to inspect card encounters.</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <!-- Grammar Seen in the User's Cards -->
+                  <!-- Backwards-compatible cards panel -->
                   <div class="point-panel" data-panel="cards" role="tabpanel" hidden>
                     <div class="point-encounters-section">
                       <div class="flex items-center justify-between mb-2">
                         <h4 class="encounters-label">Seen in your cards</h4>
-                        <span class="text-xs text-muted font-mono" id="encounters-count-badge">0 recorded</span>
+                        <span class="text-xs text-muted font-mono" id="encounters-count-badge-legacy">0 recorded</span>
                       </div>
-                      <div class="encounters-list" id="point-encounters">
+                      <div class="encounters-list" id="point-encounters-legacy">
                         <span class="text-sm text-muted">Select a grammar point to inspect card encounters.</span>
                       </div>
                     </div>
@@ -761,10 +837,17 @@ export class GrammarView {
     const title = document.getElementById('point-title');
     const meaning = document.getElementById('point-meaning');
     const meaningSecondary = document.getElementById('point-meaning-secondary');
+    const conceptBannerText = document.getElementById('concept-banner-text');
     const formationsBox = document.getElementById('point-formations');
+    const contrastsBox = document.getElementById('point-contrasts');
+    const pitfallsBox = document.getElementById('point-pitfalls');
     const examplesBox = document.getElementById('point-examples');
     const encountersBox = document.getElementById('point-encounters');
     const encountersBadge = document.getElementById('encounters-count-badge');
+    const masteryPctLabel = document.getElementById('mastery-pct-label');
+    const masteryBarFill = document.getElementById('mastery-bar-fill');
+    const seenTrackBadge = document.getElementById('seen-track-badge');
+    const drillTrackBadge = document.getElementById('drill-track-badge');
 
     if (jlptTag) jlptTag.textContent = point.level ? `JLPT ${point.level}` : 'JLPT';
     const status = point.status || 'new';
@@ -783,6 +866,9 @@ export class GrammarView {
       meaningSecondary.textContent = showBreakdown ? breakdown : '';
       meaningSecondary.hidden = !showBreakdown;
     }
+    if (conceptBannerText) {
+      conceptBannerText.textContent = point.big_picture_banner || breakdown || shortMeaning || '--';
+    }
 
     this.selectDetailTab(this.activeDetailTab);
 
@@ -791,34 +877,146 @@ export class GrammarView {
       pill.classList.toggle('is-active', pill.dataset.status === status);
     });
 
-    // Formations
+    // Attempt to load rich Tofugu Point Mastery Card from API
+    let cardData = null;
+    try {
+      if (point.pattern_key) {
+        cardData = await apiClient.getGrammarPointCard(point.pattern_key);
+      }
+    } catch (err) {
+      console.debug('[Grammar] getGrammarPointCard error, fallback to point:', err);
+    }
+
+    const activePt = cardData || point;
+
+    // Mental Model Big Picture Banner
+    const mentalModel = cardData?.big_picture_banner || point.big_picture_banner || point.english_breakdown || point.meaning_short || '--';
+    if (conceptBannerText) {
+      conceptBannerText.textContent = mentalModel;
+    }
+
+    // Dual-track mastery progress bar (Duolingo style)
+    const statusBadges = cardData?.status_badges;
+    const masteryPct = statusBadges ? (statusBadges.mastery_pct ?? Math.round(statusBadges.mastery_score || 0)) : (point.status === 'known' ? 100 : (point.status === 'learning' ? 50 : 0));
+    const seenCount = statusBadges?.seen_count ?? (point.seen_count || 0);
+    const drillCount = statusBadges?.drill_count ?? 0;
+
+    if (masteryPctLabel) {
+      masteryPctLabel.textContent = `${masteryPct}% Mastered`;
+    }
+    if (masteryBarFill) {
+      masteryBarFill.style.width = `${Math.min(100, Math.max(0, masteryPct))}%`;
+    }
+    if (seenTrackBadge) {
+      seenTrackBadge.innerHTML = `<span class="badge-dot ${seenCount > 0 ? 'is-active' : ''}"></span> Seen ${seenCount}x in cards`;
+    }
+    if (drillTrackBadge) {
+      drillTrackBadge.innerHTML = `<span class="badge-dot ${drillCount > 0 ? 'is-active' : ''}"></span> ${drillCount} drill${drillCount === 1 ? '' : 's'} verified`;
+    }
+
+    // Formations (interactive pills / step formulas with structure + description)
     if (formationsBox) {
-      let formations = point.formation_rules || point.formations || point.formation || [];
+      let formations = activePt.formation_rules || point.formation_rules || point.formations || point.formation || [];
       if (typeof formations === 'string') {
         if (formations.includes('·')) {
-          formations = formations.split('·').map((s) => s.trim()).filter(Boolean);
+          formations = formations.split('·').map((s) => ({ structure: s.trim(), description: 'Structure' }));
         } else if (formations.includes('\n')) {
-          formations = formations.split('\n').map((s) => s.trim()).filter(Boolean);
+          formations = formations.split('\n').map((s) => ({ structure: s.trim(), description: 'Structure' }));
         } else {
-          formations = [formations.trim()];
+          formations = [{ structure: formations.trim(), description: 'Structure' }];
         }
       }
 
       if (Array.isArray(formations) && formations.length > 0) {
-        formationsBox.innerHTML = formations.map((f) => `
-          <div class="formation-item font-mono text-sm text-secondary">
-            <span class="formation-bullet"></span>
-            <span class="formation-text">${escapeHtml(f)}</span>
-          </div>
-        `).join('');
+        formationsBox.innerHTML = formations.map((f) => {
+          const struct = typeof f === 'object' ? (f.structure || f.rule || '') : String(f);
+          const desc = typeof f === 'object' ? (f.description || '') : '';
+          const ex = typeof f === 'object' ? (f.example || '') : '';
+          return `
+            <div class="formation-item tactile-card surface-pitch-black p-3 mb-2">
+              <div class="formation-structure-row flex items-center gap-2 mb-1">
+                <span class="formation-bullet"></span>
+                <span class="formation-text font-mono font-bold text-industrial-aqua">${escapeHtml(struct)}</span>
+              </div>
+              ${desc ? `<p class="formation-desc text-secondary text-xs mt-1 font-sans">${escapeHtml(desc)}</p>` : ''}
+              ${ex ? `<div class="formation-example-pill mt-2 font-japanese text-xs text-warm-paper">${escapeHtml(ex)}</div>` : ''}
+            </div>
+          `;
+        }).join('');
       } else {
         formationsBox.innerHTML = `<span class="text-sm text-muted">No formation rules listed.</span>`;
       }
     }
 
+    // Nuance Battle / Contrasts (side-by-side or versus cards)
+    if (contrastsBox) {
+      const contrasts = activePt.nuance_contrasts || [];
+      if (Array.isArray(contrasts) && contrasts.length > 0) {
+        contrastsBox.innerHTML = contrasts.map((c) => {
+          const vsPattern = c.target_pattern || 'Alternative';
+          const diff = c.difference || '';
+          const whenThis = c.when_to_use_this || '';
+          const whenTarget = c.when_to_use_target || '';
+
+          return `
+            <div class="contrast-battle-card tactile-card surface-pitch-black p-3 mb-3">
+              <div class="contrast-header-row flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="contrast-badge-this font-japanese font-bold text-warm-paper">${escapeHtml(point.pattern_display || point.pattern_key)}</span>
+                  <span class="contrast-vs-tag font-mono font-bold">VS</span>
+                  <span class="contrast-badge-target font-japanese font-bold text-industrial-aqua">${escapeHtml(vsPattern)}</span>
+                </div>
+              </div>
+              ${diff ? `<p class="contrast-diff-text text-sm text-warm-paper font-sans mb-3">${escapeHtml(diff)}</p>` : ''}
+              <div class="contrast-usage-grid">
+                <div class="usage-col usage-this">
+                  <span class="usage-col-label">When to use ${escapeHtml(point.pattern_display || point.pattern_key)}:</span>
+                  <p class="usage-col-text">${escapeHtml(whenThis || '--')}</p>
+                </div>
+                <div class="usage-col usage-target">
+                  <span class="usage-col-label">When to use ${escapeHtml(vsPattern)}:</span>
+                  <p class="usage-col-text">${escapeHtml(whenTarget || '--')}</p>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        contrastsBox.innerHTML = `<span class="text-sm text-muted">No nuance contrasts recorded for this pattern.</span>`;
+      }
+    }
+
+    // Common Pitfalls & Traps (misconception vs correction)
+    if (pitfallsBox) {
+      const pitfalls = activePt.common_pitfalls || [];
+      if (Array.isArray(pitfalls) && pitfalls.length > 0) {
+        pitfallsBox.innerHTML = pitfalls.map((p) => {
+          const misc = p.misconception || '';
+          const corr = p.correction || '';
+          const expl = p.explanation || '';
+
+          return `
+            <div class="pitfall-trap-card tactile-card surface-pitch-black p-3 mb-3">
+              <div class="pitfall-misconception-row flex items-start gap-2 mb-2">
+                <span class="pitfall-tag pitfall-tag-trap font-mono text-xs font-bold uppercase">Trap</span>
+                <p class="pitfall-text-trap text-sm text-warm-paper font-sans">${escapeHtml(misc)}</p>
+              </div>
+              <div class="pitfall-correction-row flex items-start gap-2 mb-2">
+                <span class="pitfall-tag pitfall-tag-fix font-mono text-xs font-bold uppercase">Fix</span>
+                <p class="pitfall-text-fix text-sm text-jade font-sans font-medium">${escapeHtml(corr)}</p>
+              </div>
+              ${expl ? `<p class="pitfall-explanation text-xs text-secondary font-sans mt-2">${escapeHtml(expl)}</p>` : ''}
+            </div>
+          `;
+        }).join('');
+      } else {
+        pitfallsBox.innerHTML = `<span class="text-sm text-muted">No common pitfalls recorded for this pattern.</span>`;
+      }
+    }
+
     // Curated Examples with furigana/ruby
     if (examplesBox) {
-      let examples = point.curated_examples || point.examples || [];
+      let examples = activePt.reference_examples || point.curated_examples || point.examples || [];
       if (typeof examples === 'string') {
         try {
           examples = JSON.parse(examples);
@@ -844,36 +1042,54 @@ export class GrammarView {
       }
     }
 
-    // Encounters (grammar seen in the user's cards)
+    // Encounters (grammar seen in user's cards & anime context)
     if (encountersBox) {
-      encountersBox.innerHTML = `<span class="text-sm text-muted">Loading card encounters...</span>`;
-      try {
-        const encRes = await apiClient.getGrammarEncounters(point.pattern_key);
-        if (this.activeGrammarPoint !== point) return;
-        const encounters = encRes?.encounters || point.encounters || [];
-        if (encountersBadge) {
-          encountersBadge.textContent = `${encounters.length} recorded`;
-        }
-        if (encounters.length > 0) {
-          encountersBox.innerHTML = encounters.map((enc) => `
-            <div class="encounter-item text-xs text-secondary py-1.5 border-b border-ink-border">
-              <span class="font-japanese text-warm-paper font-medium">${formatExampleJapanese(enc.sentence || enc)}</span>
-              ${enc.created_at ? `<span class="text-muted ml-2 font-mono">${escapeHtml(enc.created_at.slice(0, 10))}</span>` : ''}
+      const minedCards = cardData?.encounters?.mined_cards || [];
+      const trackerEncounters = cardData?.encounters?.tracker_encounters || [];
+      const totalEnc = minedCards.length + trackerEncounters.length;
+
+      if (encountersBadge) {
+        encountersBadge.textContent = `${totalEnc} recorded`;
+      }
+
+      const legacyBadge = document.getElementById('encounters-count-badge-legacy');
+      if (legacyBadge) {
+        legacyBadge.textContent = `${totalEnc} recorded`;
+      }
+
+      if (totalEnc > 0) {
+        const minedHtml = minedCards.map((c) => `
+          <div class="encounter-item text-xs text-secondary py-2 border-b border-ink-border">
+            <div class="flex items-center justify-between mb-1">
+              <span class="encounter-source-badge font-mono text-xs">${escapeHtml(c.source || 'card')}</span>
+              ${c.expression ? `<span class="font-japanese text-xs text-industrial-aqua font-bold">${escapeHtml(c.expression)}</span>` : ''}
             </div>
-          `).join('');
-        } else {
-          encountersBox.innerHTML = `<span class="text-sm text-muted">No card encounters recorded yet.</span>`;
-        }
-      } catch (err) {
-        console.debug('[Grammar] Load encounters error:', err);
-        if (this.activeGrammarPoint !== point) return;
+            <p class="font-japanese text-warm-paper font-medium">${formatExampleJapanese(c.sentence || '')}</p>
+            ${c.translation ? `<p class="text-muted text-xs mt-0.5">${escapeHtml(c.translation)}</p>` : ''}
+          </div>
+        `).join('');
+
+        const trackerHtml = trackerEncounters.map((enc) => `
+          <div class="encounter-item text-xs text-secondary py-1.5 border-b border-ink-border">
+            <span class="font-japanese text-warm-paper font-medium">${formatExampleJapanese(enc.sentence || enc)}</span>
+            ${enc.created_at ? `<span class="text-muted ml-2 font-mono">${escapeHtml(enc.created_at.slice(0, 10))}</span>` : ''}
+          </div>
+        `).join('');
+
+        const combinedHtml = minedHtml + trackerHtml;
+        encountersBox.innerHTML = combinedHtml;
+        const legacyBox = document.getElementById('point-encounters-legacy');
+        if (legacyBox) legacyBox.innerHTML = combinedHtml;
+      } else {
         encountersBox.innerHTML = `<span class="text-sm text-muted">No card encounters recorded yet.</span>`;
+        const legacyBox = document.getElementById('point-encounters-legacy');
+        if (legacyBox) legacyBox.innerHTML = `<span class="text-sm text-muted">No card encounters recorded yet.</span>`;
       }
     }
   }
 
   selectDetailTab(tab, options = {}) {
-    const tabs = ['meaning', 'examples', 'formation', 'cards'];
+    const tabs = ['meaning', 'formation', 'contrasts', 'pitfalls', 'examples', 'cards'];
     const nextTab = tabs.includes(tab) ? tab : 'meaning';
     this.activeDetailTab = nextTab;
 

@@ -258,6 +258,29 @@ export class ApiClient {
     return this.request(`/api/grammar/points/${encodeURIComponent(patternKey)}/encounters`);
   }
 
+  async getGrammarPointCard(patternKey) {
+    return this.request(`/api/grammar/points/${encodeURIComponent(patternKey)}/card`);
+  }
+
+  async getGrammarRoadmapFlow() {
+    return this.request('/api/grammar/roadmap/flow');
+  }
+
+  async getGrammarConceptualHubs() {
+    return this.request('/api/grammar/roadmap/hubs');
+  }
+
+  async getGrammarDrillSession(params = {}) {
+    return this.request('/api/grammar/drills/session', { query: params });
+  }
+
+  async verifyGrammarDrill(body) {
+    return this.request('/api/grammar/drills/verify', {
+      method: 'POST',
+      body
+    });
+  }
+
   // Kanji
   async getKanjiStrokes(character) {
     return this.request(`/api/kanji/strokes/${encodeURIComponent(character)}`);

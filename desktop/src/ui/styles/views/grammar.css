@@ -682,14 +682,281 @@
   color: var(--tactile-stroke);
 }
 
+/* Tofugu Big Picture Mental Model Banner */
+.tofugu-concept-banner {
+  background-color: var(--iron-core-black);
+  border: 1.5px solid var(--industrial-aqua);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.15rem;
+  margin-top: 1rem;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  position: relative;
+  overflow: hidden;
+}
+
+.tofugu-concept-banner::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background-color: var(--industrial-aqua);
+}
+
+.concept-banner-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.concept-anchor-icon {
+  color: var(--industrial-aqua);
+  display: flex;
+  align-items: center;
+}
+
+.concept-banner-tag {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--industrial-aqua);
+}
+
+.concept-banner-text {
+  font-family: var(--font-display, "Zen Old Mincho", serif);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--architectural-cream);
+  margin: 0;
+}
+
+/* Duolingo-inspired Mastery Progress Card */
+.grammar-mastery-progress-card {
+  background-color: var(--pure-black);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  margin-top: 1rem;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.mastery-track-icon {
+  color: var(--industrial-aqua);
+  display: flex;
+  align-items: center;
+}
+
+.mastery-bar-container {
+  width: 100%;
+  height: 8px;
+  background-color: var(--iron-core);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--tactile-stroke);
+  overflow: hidden;
+  position: relative;
+}
+
+.mastery-bar-fill {
+  height: 100%;
+  background-color: var(--jade);
+  border-radius: var(--radius-full);
+  transition: width 300ms var(--ease-slow, ease);
+}
+
+.dual-track-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--paper-muted);
+}
+
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--paper-muted);
+  display: inline-block;
+}
+
+.badge-dot.is-active {
+  background-color: var(--jade);
+}
+
+/* Interactive Formation Formula Pills */
 .point-formation-box,
-.point-examples-section,
-.point-encounters-section {
+.point-contrasts-box,
+.point-pitfalls-box {
   padding: 1rem 1.15rem;
   background-color: var(--pure-black);
   border-radius: var(--radius-md);
   border: 1.5px solid var(--iron-core);
   margin-top: 1rem;
+}
+
+.formation-desc {
+  line-height: 1.5;
+}
+
+.formation-example-pill {
+  padding: 0.35rem 0.65rem;
+  background-color: var(--iron-core);
+  border-radius: var(--radius-xs);
+  border-left: 2px solid var(--industrial-aqua);
+}
+
+/* Nuance Battle (Versus / Side-by-side cards) */
+.contrasts-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--industrial-aqua);
+  margin-bottom: 0.5rem;
+}
+
+.contrast-battle-card {
+  background-color: var(--iron-core-black);
+  border: 1.5px solid var(--iron-core);
+  border-radius: var(--radius-md);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.contrast-badge-this {
+  padding: 0.2rem 0.5rem;
+  background-color: var(--iron-core);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+}
+
+.contrast-vs-tag {
+  color: var(--vermilion);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.contrast-badge-target {
+  padding: 0.2rem 0.5rem;
+  background-color: var(--iron-core-dark);
+  border: 1px solid var(--industrial-aqua);
+  border-radius: var(--radius-xs);
+}
+
+.contrast-diff-text {
+  line-height: 1.55;
+  color: var(--architectural-cream);
+}
+
+.contrast-usage-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  margin-top: 0.5rem;
+}
+
+@media (min-width: 600px) {
+  .contrast-usage-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.usage-col {
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-xs);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.usage-this {
+  background-color: var(--iron-core);
+  border-left: 2.5px solid var(--architectural-cream);
+}
+
+.usage-target {
+  background-color: var(--iron-core-dark);
+  border-left: 2.5px solid var(--industrial-aqua);
+}
+
+.usage-col-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--paper-muted);
+  margin-bottom: 0.25rem;
+}
+
+.usage-col-text {
+  color: var(--architectural-cream);
+  margin: 0;
+  font-family: var(--font-sans);
+}
+
+/* Common Pitfalls & Traps (Misconception vs Fix) */
+.pitfalls-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--vermilion);
+  margin-bottom: 0.5rem;
+}
+
+.pitfall-trap-card {
+  background-color: var(--iron-core-black);
+  border: 1.5px solid var(--iron-core);
+  border-radius: var(--radius-md);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.pitfall-tag {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  letter-spacing: 0.05em;
+}
+
+.pitfall-tag-trap {
+  background-color: var(--vermilion);
+  color: var(--pure-white);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.pitfall-tag-fix {
+  background-color: var(--jade);
+  color: var(--tactile-stroke);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.pitfall-text-trap {
+  color: var(--architectural-cream);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.pitfall-text-fix {
+  line-height: 1.45;
+  margin: 0;
+}
+
+.pitfall-explanation {
+  line-height: 1.5;
+  border-top: 1px dashed rgba(226, 218, 194, 0.15);
+  padding-top: 0.5rem;
+}
+
+.encounter-source-badge {
+  color: var(--paper-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .formation-label,

@@ -260,3 +260,31 @@ test('Grammar View: Slice 20 segments (Analyze | Syllabus | Seen), practice butt
   // Aqua tokens
   assert.ok(content.includes('token-chip-particle') || content.includes('token-aqua-badge'), 'Must support aqua token chips');
 });
+
+test('Grammar View: Tofugu mental models, nuance battles, pitfalls, and dual-track mastery', () => {
+  const content = fs.readFileSync(grammarViewPath, 'utf8');
+  const bundleCssPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'styles', 'bundle.css');
+  const css = readBundleCss(bundleCssPath);
+
+  // Tofugu Big Picture Mental Model banner
+  assert.ok(content.includes('id="tofugu-concept-banner"'), 'Must render Tofugu mental model banner');
+  assert.ok(content.includes('id="concept-banner-text"'), 'Must render mental model text element');
+  assert.ok(content.includes('apiClient.getGrammarPointCard('), 'Must fetch point card from apiClient');
+
+  // Nuance battle and common pitfalls tabs
+  assert.ok(content.includes('data-tab="contrasts"'), 'Must include Nuance Battle tab');
+  assert.ok(content.includes('data-tab="pitfalls"'), 'Must include Common Pitfalls tab');
+  assert.ok(content.includes('id="point-contrasts"'), 'Must include Nuance Battle container');
+  assert.ok(content.includes('id="point-pitfalls"'), 'Must include Pitfalls container');
+
+  // Duolingo-style dual-track mastery progress
+  assert.ok(content.includes('id="grammar-mastery-card"'), 'Must render mastery progress card');
+  assert.ok(content.includes('id="mastery-bar-fill"'), 'Must render mastery progress bar fill');
+  assert.ok(content.includes('id="seen-track-badge"'), 'Must render seen encounters badge');
+  assert.ok(content.includes('id="drill-track-badge"'), 'Must render verified drills badge');
+
+  // CSS verification
+  for (const selector of ['.tofugu-concept-banner', '.contrast-battle-card', '.pitfall-trap-card', '.grammar-mastery-progress-card']) {
+    assert.ok(css.includes(selector), `bundle.css must style ${selector}`);
+  }
+});
