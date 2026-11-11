@@ -23,7 +23,14 @@ import urllib.parse
 
 import httpx
 
-from app.study.acquisition.media.audio_duration import extract_audio_duration_ms
+from app.study.acquisition.media.audio_duration import (
+    extract_audio_duration_ms,
+    is_audio_duration_plausible,
+)
+from app.study.acquisition.media.image_assets import (
+    extract_image_dimensions,
+    validate_image_magic_bytes,
+)
 from app.study.media import MediaStore
 
 logger = logging.getLogger(__name__)
@@ -32,6 +39,16 @@ logger = logging.getLogger(__name__)
 WHITELISTED_HOSTS = {
     "japanesetest4you.com",
     "www.japanesetest4you.com",
+    "jlpt.jp",
+    "www.jlpt.jp",
+    "cotoacademy.com",
+    "www.cotoacademy.com",
+    "gyanmirai.com",
+    "www.gyanmirai.com",
+    "nihongomaster.com",
+    "www.nihongomaster.com",
+    "nihongo-pro.com",
+    "www.nihongo-pro.com",
 }
 
 # MIME type mapping based on file extension
@@ -51,15 +68,19 @@ MIME_MAP = {
 }
 
 
-def _validate_media_url(url: str) -> urllib.parse.ParseResult:
+def _validate_media_url(
+    url: str,
+    allowed_hosts: set[str] | frozenset[str] | None = None,
+) -> urllib.parse.ParseResult:
     """Validate that the URL belongs to a whitelisted domain and is not an SSRF attempt."""
     if not url or not url.startswith(("http://", "https://")):
         raise ValueError(f"Invalid image URL: {url}")
 
     parsed = urllib.parse.urlparse(url)
     hostname = (parsed.hostname or "").lower()
+    permitted = allowed_hosts if allowed_hosts is not None else WHITELISTED_HOSTS
 
-    if hostname not in WHITELISTED_HOSTS:
+    if hostname not in permitted:
         raise PermissionError(f"Host '{hostname}' is not in the acquisition image whitelist.")
 
     # Prevent loopback or private IP resolution
@@ -108,9 +129,11 @@ class AssetDownloader:
         self,
         media_store: MediaStore,
         client: httpx.Client | None = None,
+        allowed_hosts: set[str] | frozenset[str] | None = None,
     ) -> None:
         self._media_store = media_store
         self._client = client
+        self._allowed_hosts = set(allowed_hosts) if allowed_hosts is not None else None
 
     def download_asset(
         self,
@@ -128,9 +151,9 @@ class AssetDownloader:
                 - "relative_path": storage path relative to media root
                 - "mime_type": media MIME type
                 - "byte_size": byte size of asset
-                - "kind": "diagram" or "audio"
+                - "kind": "diagram", "choice_image", "illustration", or "audio"
         """
-        parsed = _validate_media_url(asset_url)
+        parsed = _validate_media_url(asset_url, allowed_hosts=self._allowed_hosts)
 
         # Determine extension from path
         ext = Path(parsed.path).suffix.lower() or ".gif"
@@ -145,7 +168,7 @@ class AssetDownloader:
 
         headers = {
             "User-Agent": "KirokuStudyAssetFetcher/1.0",
-            "Referer": "https://japanesetest4you.com/",
+            "Referer": f"{parsed.scheme}://{parsed.netloc}/",
         }
 
         try:
@@ -156,25 +179,38 @@ class AssetDownloader:
             if not data:
                 raise ValueError(f"Downloaded asset from {asset_url} is empty.")
 
-            # Validate audio signatures if kind is audio
-            if inferred_kind == "audio" and not is_valid_audio_bytes(data, ext):
-                raise ValueError(f"Downloaded file from {asset_url} failed audio binary signature validation.")
+            pixel_width: int | None = None
+            pixel_height: int | None = None
+
+            # Validate binary signatures
+            if inferred_kind == "audio":
+                if not is_valid_audio_bytes(data, ext):
+                    raise ValueError(f"Downloaded file from {asset_url} failed audio binary signature validation.")
+            elif ext in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
+                detected_mime = validate_image_magic_bytes(data, expected_ext=ext)
+                mime_type = detected_mime
+                dims = extract_image_dimensions(data)
+                if dims is not None:
+                    pixel_width, pixel_height = dims
 
             # If content-type header returned, use it to refine mime type
             ct = resp.headers.get("content-type", "").split(";")[0].strip()
-            if ct in MIME_MAP.values():
+            if ct in MIME_MAP.values() and inferred_kind == "audio":
                 mime_type = ct
 
             sha = hashlib.sha256(data).hexdigest()
             byte_size = len(data)
 
             duration_ms: int | None = None
+            duration_plausible: bool | None = None
             if inferred_kind == "audio":
                 try:
                     duration_ms = extract_audio_duration_ms(data, ext)
+                    duration_plausible = is_audio_duration_plausible(duration_ms)
                 except Exception as exc:
                     logger.warning("Could not extract audio duration from %s: %s", asset_url, exc)
                     duration_ms = None
+                    duration_plausible = False
 
             if conn is not None:
                 row = self._media_store.register_bytes(
@@ -184,6 +220,8 @@ class AssetDownloader:
                     mime_type=mime_type,
                     conn=conn,
                     duration_ms=duration_ms,
+                    pixel_width=pixel_width,
+                    pixel_height=pixel_height,
                     original_url=asset_url,
                 )
                 return {
@@ -193,6 +231,9 @@ class AssetDownloader:
                     "byte_size": byte_size,
                     "kind": inferred_kind,
                     "duration_ms": duration_ms,
+                    "duration_plausible": duration_plausible,
+                    "pixel_width": pixel_width,
+                    "pixel_height": pixel_height,
                 }
             else:
                 # Content-addressed disk-only storage without DB writes
@@ -201,7 +242,8 @@ class AssetDownloader:
                 dest_dir.mkdir(parents=True, exist_ok=True)
                 filename = f"{sha}{ext}"
                 dest_file = dest_dir / filename
-                if not dest_file.exists():
+                deduplicated = dest_file.exists()
+                if not deduplicated:
                     dest_file.write_bytes(data)
 
                 return {
@@ -211,6 +253,10 @@ class AssetDownloader:
                     "byte_size": byte_size,
                     "kind": inferred_kind,
                     "duration_ms": duration_ms,
+                    "duration_plausible": duration_plausible,
+                    "pixel_width": pixel_width,
+                    "pixel_height": pixel_height,
+                    "deduplicated": deduplicated,
                 }
 
         finally:

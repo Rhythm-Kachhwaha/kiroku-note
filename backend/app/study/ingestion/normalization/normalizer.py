@@ -198,6 +198,16 @@ class ContractNormalizer:
         except Exception as exc:
             review_reasons.append(ReviewReasonCode.MANUAL_CORRECTION_REQUIRED)
 
+        if draft.is_quarantined or draft.quarantine_reasons:
+            conflict_codes = {"ANSWER_CONFLICT", "DUPLICATE_QUESTION_NUMBER", "ORPHAN_ANSWER_KEY"}
+            reason = (
+                ReviewReasonCode.CONFLICTING_SOURCE_ANSWER
+                if any(r in conflict_codes for r in draft.quarantine_reasons)
+                else ReviewReasonCode.MANUAL_CORRECTION_REQUIRED
+            )
+            if reason not in review_reasons:
+                review_reasons.append(reason)
+
         review_status = ReviewStatus.NEEDS_REVIEW if review_reasons else ReviewStatus.PENDING
 
         return CandidateQuestion(

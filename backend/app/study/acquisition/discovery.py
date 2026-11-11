@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Sequence
 from urllib.parse import urljoin
 
 from app.study.acquisition.models import DiscoveredExercise
@@ -80,9 +80,11 @@ class DiscoveryStrategyRunner:
         if not callable(search):
             raise ValueError(f"Provider '{provider.provider_name}' does not support search")
         candidates: list[DiscoveryCandidate] = []
+        seen_urls: set[str] = set()
         for item in search(query):
             url = normalize_source_url(str(item.get("url", "")))
-            if url and self.profile.accepts_url(url):
+            if url and url not in seen_urls and self.profile.accepts_url(url):
+                seen_urls.add(url)
                 candidates.append(
                     DiscoveryCandidate(
                         title=str(item.get("title", url)),
@@ -91,6 +93,23 @@ class DiscoveryStrategyRunner:
                         match_reason=str(item.get("match_reason", f"search: {query}")),
                     )
                 )
+        return candidates
+
+    def search_profile(
+        self,
+        provider: Any,
+        *,
+        levels: Sequence[str] | None = None,
+        sections: Sequence[str] | None = None,
+    ) -> list[DiscoveryCandidate]:
+        """Run targeted domain queries for this profile and deduplicate candidates."""
+        candidates: list[DiscoveryCandidate] = []
+        seen_urls: set[str] = set()
+        for query in build_domain_search_queries(self.profile, levels=levels, sections=sections):
+            for cand in self.search(provider, query):
+                if cand.url not in seen_urls:
+                    seen_urls.add(cand.url)
+                    candidates.append(cand)
         return candidates
 
     @staticmethod
@@ -106,3 +125,51 @@ class DiscoveryStrategyRunner:
                     )
                 )
         return approved
+
+
+def build_domain_search_queries(
+    profile: SourceProfile,
+    *,
+    levels: Sequence[str] | None = None,
+    sections: Sequence[str] | None = None,
+) -> list[str]:
+    """Build targeted ``site:<domain>`` search queries for a ``SourceProfile``."""
+    domains = [d.strip().lower().lstrip(".") for d in profile.allowed_domains if d.strip()]
+    primary_domain = next((d for d in domains if not d.startswith("www.")), domains[0] if domains else "")
+
+    queries: list[str] = []
+    seen: set[str] = set()
+
+    def _add(q: str) -> None:
+        cleaned = " ".join(q.split()).strip()
+        if cleaned and cleaned not in seen:
+            seen.add(cleaned)
+            queries.append(cleaned)
+
+    raw_templates = [q for q in (profile.search_queries or ()) if str(q).strip()]
+    if levels or sections:
+        lvl_list = [str(l).strip().upper() for l in (levels or ()) if str(l).strip()] or [""]
+        sec_list = [str(s).strip() for s in (sections or ()) if str(s).strip()] or [""]
+        for lvl in lvl_list:
+            for sec in sec_list:
+                parts = [f"site:{primary_domain}" if primary_domain else "", "JLPT", lvl, sec, "practice"]
+                _add(" ".join(p for p in parts if p))
+        for tmpl in raw_templates:
+            q = tmpl if "site:" in tmpl or not primary_domain else f"site:{primary_domain} {tmpl}"
+            _add(q)
+        return queries
+
+    for tmpl in raw_templates:
+        q = tmpl if "site:" in tmpl or not primary_domain else f"site:{primary_domain} {tmpl}"
+        _add(q)
+
+    if not queries and primary_domain:
+        levels_iter = (
+            tuple(dict.fromkeys(profile.level_category_mapping.values()))
+            if profile.level_category_mapping
+            else ("N5", "N4", "N3", "N2", "N1")
+        )
+        for lvl in levels_iter:
+            _add(f"site:{primary_domain} JLPT {lvl} quiz")
+
+    return queries

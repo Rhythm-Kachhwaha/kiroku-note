@@ -1,0 +1,20 @@
+{
+  "profile_version": 1,
+  "source_slug": "nihongo_pro",
+  "display_name": "Nihongo-Pro",
+  "tier": "B",
+  "allowed_domains": ["nihongo-pro.com", "www.nihongo-pro.com"],
+  "discovery_strategy": "search",
+  "include_url_rules": [
+    "nihongo-pro\\.com/.+(?:quiz|jlpt|kanji|vocab|grammar)"
+  ],
+  "exclude_url_rules": ["/(?:login|register|about)/"],
+  "pagination": {"max_pages": 30},
+  "level_category_mapping": {"n1": "N1", "n2": "N2", "n3": "N3", "n4": "N4", "n5": "N5"},
+  "search_queries": ["site:nihongo-pro.com JLPT quiz"],
+  "error_threshold": 0.25,
+  "parser_id": "nihongo_pro",
+  "polite_delay_seconds": 1.5,
+  "concurrency_limit": 1,
+  "license_or_permission": "Public educational JLPT quiz content; retain source citation."
+}

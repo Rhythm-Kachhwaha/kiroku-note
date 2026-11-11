@@ -30,10 +30,16 @@ from app.study.acquisition.job_service import AcquisitionJobService
 from app.study.acquisition.media.asset_downloader import AssetDownloader
 from app.study.acquisition.models import RawFetchResult
 from app.study.acquisition.parsers.base import BaseSourceParser
+from app.study.acquisition.parsers.invariants import (
+    apply_invariant_quarantine,
+    linear_scan_exercise,
+)
 from app.study.acquisition.parsers.japanesetest4you import JapaneseTest4YouParser
 from app.study.acquisition.parsers.models import ParsedExercise
+from app.study.acquisition.pilot import PilotReport, run_pilot as execute_pilot
 from app.study.acquisition.providers.base import BaseAcquisitionProvider
 from app.study.acquisition.providers.registry import get_acquisition_provider
+from app.study.acquisition.reliability import SourceReliabilityTracker
 from app.study.acquisition.source_profiles import SourceProfile, load_source_profile
 from app.study.acquisition.parsers.registry import get_source_parser
 from app.study.contracts.enums import JlptLevel
@@ -130,9 +136,11 @@ class AcquisitionOrchestrator:
                     error=f"Fetch failed: {exc}",
                 )
 
-        # 2. Parse Stage
+        # 2. Parse Stage & Invariant Quarantine Scan
         try:
             parsed = self._parser.parse(raw_fetch.raw_markdown, url=url, title=raw_fetch.title)
+            scan_report = linear_scan_exercise(parsed)
+            apply_invariant_quarantine(parsed, scan_report)
         except Exception as exc:
             logger.error("Failed to parse %s: %s", url, exc)
             return SingleAcquisitionResult(
@@ -161,6 +169,8 @@ class AcquisitionOrchestrator:
             except ValueError:
                 pass
 
+        effective_auto_approve = bool(auto_approve and not parsed.quarantined)
+
         ingest_input = IngestInput(
             adapter_kind=IngestAdapterKind.STRUCTURED_JSON,
             content=structured_payload,
@@ -170,8 +180,13 @@ class AcquisitionOrchestrator:
             citation=parsed.title,
             license_or_permission="Public educational web exercise",
             default_level=level_enum,
-            auto_approve=auto_approve,  # Default False: remains NEEDS_REVIEW
-            metadata={"cache_path": cache_path_str, "fidelity_flags": parsed.fidelity_flags},
+            auto_approve=effective_auto_approve,  # Quarantined exercises are NEVER auto-approved
+            metadata={
+                "cache_path": cache_path_str,
+                "fidelity_flags": parsed.fidelity_flags,
+                "quarantined": parsed.quarantined,
+                "invariant_violations": parsed.invariant_violations,
+            },
         )
 
         ingestion_res = self._pipeline.run(
@@ -370,4 +385,25 @@ class AcquisitionOrchestrator:
             total_acquired=progress.total_acquired if progress else 0,
             total_failed=progress.total_failed if progress else 0,
             exercise_results=exercise_results,
+        )
+
+    def run_pilot(
+        self,
+        urls: list[str],
+        *,
+        max_pages: int = 10,
+        dict_engine: Any | None = None,
+        error_threshold: float | None = None,
+        tracker: SourceReliabilityTracker | None = None,
+    ) -> PilotReport:
+        """Run a bounded pilot crawl against the active source profile before bulk ingestion."""
+        return execute_pilot(
+            urls=urls,
+            profile=self._profile,
+            provider=self._provider,
+            parser=self._parser,
+            dict_engine=dict_engine,
+            max_pages=max_pages,
+            error_threshold=error_threshold,
+            tracker=tracker,
         )

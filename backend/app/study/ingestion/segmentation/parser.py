@@ -145,6 +145,12 @@ class TextSegmenter:
             )
 
         # Parse raw questions
+        json_payload = doc.metadata.get("json_payload") or {}
+        doc_meta = json_payload.get("metadata") if isinstance(json_payload, dict) else {}
+        if not isinstance(doc_meta, dict):
+            doc_meta = {}
+        doc_has_warnings = bool(doc_meta.get("raw_warnings") or doc_meta.get("invariant_violations") or doc_meta.get("quarantined"))
+
         raw_questions = doc.metadata.get("raw_questions", [])
         for q_idx, q_dict in enumerate(raw_questions, start=1):
             stem = q_dict.get("prompt_markup") or q_dict.get("stem_markup") or q_dict.get("stem") or ""
@@ -169,6 +175,7 @@ class TextSegmenter:
                             text=c_item.get("text_markup") or c_item.get("text") or "",
                             mode=mode_val,
                             asset_id=c_item.get("asset_id"),
+                            asset_sha256=c_item.get("asset_sha256"),
                         )
                     )
                 elif isinstance(c_item, str):
@@ -185,9 +192,11 @@ class TextSegmenter:
             ans_val = q_dict.get("answer")
             ans_key: str | int | None = None
             ans_rationale = ""
+            ans_conflicted = False
             if isinstance(ans_val, dict):
                 ans_key = ans_val.get("choice_key") or ans_val.get("choice_id") or ans_val.get("ordinal")
                 ans_rationale = ans_val.get("rationale", "")
+                ans_conflicted = bool(ans_val.get("is_conflicted", False))
             elif isinstance(ans_val, (str, int)):
                 ans_key = ans_val
 
@@ -198,6 +207,14 @@ class TextSegmenter:
                         ans_key = c_item.get("ordinal") or c_item.get("label") or c_item.get("choice_key")
                         ans_rationale = c_item.get("rationale", "")
                         break
+
+            q_meta = q_dict.get("metadata") if isinstance(q_dict.get("metadata"), dict) else {}
+            q_reasons = list(q_meta.get("quarantine_reasons") or [])
+            if ans_conflicted and "ANSWER_CONFLICT" not in q_reasons:
+                q_reasons.append("ANSWER_CONFLICT")
+            if doc_has_warnings and "PARSER_WARNING" not in q_reasons:
+                q_reasons.append("PARSER_WARNING")
+            q_quarantined = bool(q_meta.get("is_quarantined") or ans_conflicted or doc_has_warnings)
 
             q_id = q_dict.get("id") or q_dict.get("external_id") or f"q_{q_idx}"
             questions.append(
@@ -215,6 +232,8 @@ class TextSegmenter:
                     page_number=q_dict.get("page_number"),
                     raw_source_text=str(q_dict),
                     attached_assets=q_dict.get("attached_assets", []),
+                    is_quarantined=q_quarantined,
+                    quarantine_reasons=q_reasons,
                 )
             )
 

@@ -207,6 +207,74 @@ class KeenableProvider(BaseAcquisitionProvider):
             if should_close_client:
                 client.close()
 
+    def search(
+        self,
+        query: str,
+        *,
+        limit: int = 10,
+        options: FetchOptions | None = None,
+    ) -> list[dict[str, Any]]:
+        """Execute a Keenable search query and return normalized candidate items."""
+        cleaned_query = (query or "").strip()
+        if not cleaned_query:
+            return []
+
+        opts = options or FetchOptions()
+        api_key = self._resolve_api_key()
+        endpoint = f"{self._base_url}/v1/search" if api_key else f"{self._base_url}/v1/search/public"
+        headers = {
+            "User-Agent": "KirokuStudyAcquisition/1.0",
+            "X-Keenable-Title": KEENABLE_TITLE,
+            "Accept": "application/json",
+        }
+        if api_key:
+            headers["X-API-Key"] = api_key
+
+        params: dict[str, Any] = {
+            "q": cleaned_query,
+            "query": cleaned_query,
+            "limit": max(1, min(int(limit), 50)),
+        }
+
+        client = self._client or httpx.Client(timeout=opts.timeout_seconds)
+        should_close_client = self._client is None
+        try:
+            response = client.get(endpoint, params=params, headers=headers)
+            if response.status_code == 403:
+                raise PermissionError("Keenable search API access forbidden (HTTP 403).")
+            response.raise_for_status()
+            payload = response.json()
+            raw_items = (
+                payload.get("results")
+                or payload.get("items")
+                or payload.get("data")
+                or []
+            )
+            results: list[dict[str, Any]] = []
+            for item in raw_items:
+                if not isinstance(item, dict):
+                    continue
+                url = str(item.get("url") or item.get("link") or "").strip()
+                if not url:
+                    continue
+                results.append(
+                    {
+                        "url": url,
+                        "title": str(item.get("title") or url).strip(),
+                        "snippet": str(item.get("snippet") or item.get("description") or "").strip(),
+                        "match_reason": str(item.get("match_reason") or f"keenable: {cleaned_query}"),
+                    }
+                )
+            return results
+        except PermissionError:
+            raise
+        except Exception as exc:
+            logger.warning("Keenable search failed for query '%s': %s", cleaned_query, exc)
+            return []
+        finally:
+            if should_close_client:
+                client.close()
+
 
 def _retry_after_seconds(value: str | None, maximum: float) -> float | None:
     """Parse a bounded numeric Retry-After value without exposing request data."""

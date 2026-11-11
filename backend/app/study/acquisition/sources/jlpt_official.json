@@ -1,0 +1,21 @@
+{
+  "profile_version": 1,
+  "source_slug": "jlpt_official",
+  "display_name": "JLPT Official",
+  "tier": "A",
+  "allowed_domains": ["jlpt.jp", "www.jlpt.jp"],
+  "discovery_strategy": "pdf_links",
+  "include_url_rules": [
+    "jlpt\\.jp/(?:e/)?samples/(?:sample09|sample2012|n[1-5])",
+    "jlpt\\.jp/.+\\.(?:pdf|mp3|html)$"
+  ],
+  "exclude_url_rules": ["/(?:contact|privacy|sitemap)"],
+  "pagination": {"max_pages": 20},
+  "level_category_mapping": {"n1": "N1", "n2": "N2", "n3": "N3", "n4": "N4", "n5": "N5"},
+  "search_queries": ["site:jlpt.jp sample questions N5 N4 N3 N2 N1"],
+  "error_threshold": 0.15,
+  "parser_id": "jlpt_official",
+  "polite_delay_seconds": 2.0,
+  "concurrency_limit": 1,
+  "license_or_permission": "Official JLPT sample workbooks and audio; retain official attribution and link back to jlpt.jp."
+}

@@ -134,6 +134,8 @@ class QuestionDraft(BaseModel):
     line_number: int | None = None
     raw_source_text: str = ""
     attached_assets: list[dict[str, Any]] = Field(default_factory=list)
+    is_quarantined: bool = False
+    quarantine_reasons: list[str] = Field(default_factory=list)
 
 
 class GroupDraft(BaseModel):
@@ -147,6 +149,8 @@ class GroupDraft(BaseModel):
     page_number: int | None = None
     raw_source_text: str = ""
     attached_assets: list[dict[str, Any]] = Field(default_factory=list)
+    is_quarantined: bool = False
+    quarantine_reasons: list[str] = Field(default_factory=list)
 
 
 class CandidateClassification(BaseModel):

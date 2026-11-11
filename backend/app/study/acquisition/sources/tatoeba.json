@@ -1,0 +1,18 @@
+{
+  "profile_version": 1,
+  "source_slug": "tatoeba",
+  "display_name": "Tatoeba Sentence Corpus",
+  "tier": "corpus",
+  "allowed_domains": ["tatoeba.org", "downloads.tatoeba.org"],
+  "discovery_strategy": "manual_urls",
+  "include_url_rules": ["tatoeba\\.org/.+"],
+  "exclude_url_rules": [],
+  "pagination": {},
+  "level_category_mapping": {"n1": "N1", "n2": "N2", "n3": "N3", "n4": "N4", "n5": "N5"},
+  "search_queries": [],
+  "error_threshold": 0.2,
+  "parser_id": "tatoeba",
+  "polite_delay_seconds": 2.0,
+  "concurrency_limit": 1,
+  "license_or_permission": "CC-BY 2.0 FR Tatoeba sentence corpus; retain attribution."
+}

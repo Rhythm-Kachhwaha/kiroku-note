@@ -65,12 +65,12 @@ class ReviewService:
         return candidate
 
     def approve_all_valid(self, candidates: list[CandidateQuestion]) -> int:
-        """Approve all structurally valid candidates in a batch."""
+        """Approve all structurally valid candidates without quarantine or review reasons."""
         count = 0
         for c in candidates:
             # Revalidate
             report = self._validator.validate_question(c)
-            if report.is_valid:
+            if report.is_valid and not c.review_reasons and not c.draft.is_quarantined:
                 c.review_status = ReviewStatus.APPROVED
                 c.review_reasons = []
                 count += 1

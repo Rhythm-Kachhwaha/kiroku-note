@@ -1,0 +1,20 @@
+{
+  "profile_version": 1,
+  "source_slug": "cotoacademy",
+  "display_name": "Coto Academy",
+  "tier": "B",
+  "allowed_domains": ["cotoacademy.com", "www.cotoacademy.com"],
+  "discovery_strategy": "search",
+  "include_url_rules": [
+    "cotoacademy\\.com/.+(?:jlpt|quiz|practice|grammar|vocabulary|kanji)"
+  ],
+  "exclude_url_rules": ["/(?:tag|author|wp-admin|cart|checkout)/"],
+  "pagination": {"max_pages": 30},
+  "level_category_mapping": {"n1": "N1", "n2": "N2", "n3": "N3", "n4": "N4", "n5": "N5"},
+  "search_queries": ["site:cotoacademy.com JLPT practice quiz"],
+  "error_threshold": 0.25,
+  "parser_id": "cotoacademy",
+  "polite_delay_seconds": 1.5,
+  "concurrency_limit": 1,
+  "license_or_permission": "Public educational JLPT quiz content; retain source citation."
+}

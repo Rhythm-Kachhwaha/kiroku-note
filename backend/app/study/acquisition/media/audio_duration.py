@@ -374,3 +374,35 @@ def extract_audio_duration_ms(data: bytes, ext: str = ".mp3") -> int | None:
         return None
 
     return None
+
+
+def is_audio_duration_plausible(
+    duration_ms: int | None,
+    *,
+    min_ms: int = 200,
+    max_ms: int = 3_600_000,
+) -> bool:
+    """Return True if duration_ms is present and within plausible bounds."""
+    if duration_ms is None:
+        return False
+    return min_ms <= duration_ms <= max_ms
+
+
+def validate_audio_plausibility(
+    duration_ms: int | None,
+    *,
+    question_count: int = 1,
+    min_per_question_ms: int = 200,
+    max_ms: int = 3_600_000,
+) -> tuple[bool, str | None]:
+    """Validate audio duration plausibility against expected question count."""
+    if duration_ms is None:
+        return False, "Audio duration could not be determined."
+    if duration_ms <= 0:
+        return False, f"Audio duration must be positive, got {duration_ms}ms."
+    expected_min = max(min_per_question_ms, question_count * min_per_question_ms)
+    if duration_ms < expected_min:
+        return False, f"Audio duration {duration_ms}ms is implausibly short for {question_count} question(s)."
+    if duration_ms > max_ms:
+        return False, f"Audio duration {duration_ms}ms exceeds maximum bound {max_ms}ms."
+    return True, None

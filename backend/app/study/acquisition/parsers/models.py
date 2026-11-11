@@ -54,6 +54,10 @@ class ParsedChoice(BaseModel):
     ordinal: int
     label: str
     text: str
+    image_url: str | None = None
+    image_sha256: str | None = None
+    pixel_width: int | None = None
+    pixel_height: int | None = None
 
 
 class ParsedAnswerClaim(BaseModel):
@@ -78,6 +82,10 @@ class ParsedQuestion(BaseModel):
     audio_urls: list[str] = Field(default_factory=list)
     star_arrangement: StarArrangementMetadata | None = None
     format_code: str | None = None
+    transcript: str | None = None
+    transcript_hidden_until_submit: bool = False
+    is_quarantined: bool = False
+    quarantine_reasons: list[str] = Field(default_factory=list)
 
 
 class ParsedPassage(BaseModel):
@@ -113,8 +121,12 @@ def _derive_format_code(level: str, section: str, q: ParsedQuestion) -> str | No
     if has_audio:
         if len(q.choices) == 3:
             return "quick_response"
-        # Check if choices are unprinted/diagrammatic labels (e.g. ['1', '2', '3', '4'])
-        is_diagrammatic = all(c.text.strip().isdigit() for c in q.choices) if q.choices else True
+        # Check if choices are unprinted/diagrammatic labels (e.g. ['1', '2', '3', '4'] or choice images)
+        is_diagrammatic = (
+            all(c.text.strip().isdigit() or bool(c.image_url) for c in q.choices)
+            if q.choices
+            else True
+        )
         if is_diagrammatic:
             return "task_based_listening"
         return "key_points_listening"
@@ -160,6 +172,7 @@ class ParsedExercise(BaseModel):
     url: str
     jlpt_level: str
     section: str
+    source_name: str = "JapaneseTest4You"
     passages: list[ParsedPassage] = Field(default_factory=list)
     questions: list[ParsedQuestion] = Field(default_factory=list)
     answer_claims: dict[int, ParsedAnswerClaim] = Field(default_factory=dict)
@@ -167,6 +180,8 @@ class ParsedExercise(BaseModel):
     audio_urls: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     fidelity_flags: list[str] = Field(default_factory=list)
+    invariant_violations: list[dict[str, Any]] = Field(default_factory=list)
+    quarantined: bool = False
 
     def to_m3_structured_payload(self) -> dict[str, Any]:
         """
@@ -209,26 +224,42 @@ class ParsedExercise(BaseModel):
         questions_payload: list[dict[str, Any]] = []
 
         for q in self.questions:
-            choices_data = [
-                {
+            choices_data = []
+            for c in q.choices:
+                c_entry: dict[str, Any] = {
                     "ordinal": c.ordinal,
                     "label": c.label,
                     "text": c.text,
                 }
-                for c in q.choices
-            ]
+                if c.image_url:
+                    c_entry["mode"] = "image"
+                    c_entry["image_url"] = c.image_url
+                if c.image_sha256:
+                    c_entry["asset_sha256"] = c.image_sha256
+                choices_data.append(c_entry)
 
             ans_payload = None
             if q.answer:
                 ans_payload = {
                     "ordinal": q.answer.claimed_ordinal,
                     "rationale": q.answer.rationale,
+                    "is_conflicted": q.answer.is_conflicted,
                 }
 
             derived_code = _derive_format_code(self.jlpt_level, self.section, q)
             format_code = f"{self.jlpt_level}_{self.section.upper()}_CHOICE"
 
             q_assets: list[dict[str, Any]] = [{"kind": "diagram", "url": u} for u in q.image_urls]
+            for c in q.choices:
+                if c.image_url:
+                    q_assets.append({
+                        "kind": "choice_image",
+                        "url": c.image_url,
+                        "choice_ordinal": c.ordinal,
+                        "sha256": c.image_sha256,
+                        "pixel_width": c.pixel_width,
+                        "pixel_height": c.pixel_height,
+                    })
             if q.audio:
                 q_assets.append({
                     "kind": "audio",
@@ -260,12 +291,18 @@ class ParsedExercise(BaseModel):
                 q_meta["star_arrangement"] = q.star_arrangement.model_dump()
             if not derived_code:
                 q_meta["is_ambiguous_format"] = True
+            if q.transcript is not None:
+                q_meta["transcript_hidden_until_submit"] = q.transcript_hidden_until_submit
+                q_meta["reveal_transcript_on_submit"] = q.transcript_hidden_until_submit
+            if q.is_quarantined or self.quarantined:
+                q_meta["is_quarantined"] = True
+                q_meta["quarantine_reasons"] = list(q.quarantine_reasons)
 
             effective_audio_urls = list(q.audio_urls)
             if q.audio and q.audio.track_url not in effective_audio_urls:
                 effective_audio_urls.append(q.audio.track_url)
 
-            questions_payload.append({
+            q_entry: dict[str, Any] = {
                 "external_id": q.external_id,
                 "format_code": format_code,
                 "stem": q.stem,
@@ -278,11 +315,14 @@ class ParsedExercise(BaseModel):
                 "audio_urls": effective_audio_urls,
                 "attached_assets": q_assets,
                 "metadata": q_meta,
-            })
+            }
+            if q.transcript is not None:
+                q_entry["transcript_markup"] = q.transcript
+            questions_payload.append(q_entry)
 
         return {
             "source": {
-                "name": "JapaneseTest4You",
+                "name": self.source_name,
                 "source_type": "web_capture",
                 "url": self.url,
                 "citation": self.title,
@@ -293,6 +333,8 @@ class ParsedExercise(BaseModel):
             "questions": questions_payload,
             "metadata": {
                 "raw_warnings": self.warnings,
+                "invariant_violations": self.invariant_violations,
+                "quarantined": self.quarantined,
                 "total_questions": len(self.questions),
                 "total_passages": len(self.passages),
                 "total_audio_tracks": len(self.audio_tracks),

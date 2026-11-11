@@ -1,0 +1,20 @@
+{
+  "profile_version": 1,
+  "source_slug": "gyanmirai",
+  "display_name": "GyanMirai",
+  "tier": "B",
+  "allowed_domains": ["gyanmirai.com", "www.gyanmirai.com"],
+  "discovery_strategy": "search",
+  "include_url_rules": [
+    "gyanmirai\\.com/.+(?:jlpt|listening|choukai|vocabulary|grammar|kanji|mock|paper|quiz)"
+  ],
+  "exclude_url_rules": ["/(?:tag|author|privacy|contact)/"],
+  "pagination": {"max_pages": 30},
+  "level_category_mapping": {"n1": "N1", "n2": "N2", "n3": "N3", "n4": "N4", "n5": "N5"},
+  "search_queries": ["site:gyanmirai.com JLPT listening practice"],
+  "error_threshold": 0.25,
+  "parser_id": "gyanmirai",
+  "polite_delay_seconds": 1.5,
+  "concurrency_limit": 1,
+  "license_or_permission": "Public educational JLPT practice and listening exercises; retain source citation."
+}

@@ -18,18 +18,24 @@ DiscoveryStrategy = Literal[
 ]
 
 
+SourceTier = Literal["A", "B", "C", "corpus"]
+
+
 class SourceProfile(BaseModel):
     """Configuration selecting discovery and parsing behavior for a source."""
 
     profile_version: int = 1
     source_slug: str = Field(min_length=1, pattern=r"^[a-z0-9][a-z0-9_-]*$")
     display_name: str = Field(min_length=1)
+    tier: SourceTier = "B"
     allowed_domains: list[str] = Field(min_length=1)
     discovery_strategy: DiscoveryStrategy
     include_url_rules: list[str] = Field(default_factory=list)
     exclude_url_rules: list[str] = Field(default_factory=list)
     pagination: dict[str, Any] = Field(default_factory=dict)
     level_category_mapping: dict[str, str] = Field(default_factory=dict)
+    search_queries: list[str] = Field(default_factory=list)
+    error_threshold: float = Field(default=0.25, ge=0.0, le=1.0)
     parser_id: str = Field(min_length=1)
     polite_delay_seconds: float = Field(default=1.5, ge=0)
     concurrency_limit: int = Field(default=1, ge=1, le=8)

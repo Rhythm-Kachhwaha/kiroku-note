@@ -25,6 +25,10 @@ from typing import Any
 from app.study.acquisition.crawler.url_filter import extract_level_and_section
 from app.study.acquisition.media.asset_downloader import AssetDownloader
 from app.study.acquisition.parsers.base import BaseSourceParser
+from app.study.acquisition.parsers.invariants import (
+    apply_invariant_quarantine,
+    linear_scan_exercise,
+)
 from app.study.acquisition.parsers.models import (
     AudioAssociation,
     ParsedAnswerClaim,
@@ -224,6 +228,7 @@ class JapaneseTest4YouParser(BaseSourceParser):
 
         # 2. Extract and parse Answer Key separately
         answer_claims: dict[int, ParsedAnswerClaim] = {}
+        duplicate_answer_nums: set[int] = set()
         content_lines: list[str] = []
         in_answer_key = False
 
@@ -251,11 +256,17 @@ class JapaneseTest4YouParser(BaseSourceParser):
                     claimed_ord = int(claimed_ord_raw)
                     rationale = (ak_match.group(3) or ak_match.group(4) or "").strip()
 
-                    answer_claims[q_num] = ParsedAnswerClaim(
-                        question_number=q_num,
-                        claimed_ordinal=claimed_ord,
-                        rationale=rationale,
-                    )
+                    if q_num in answer_claims:
+                        duplicate_answer_nums.add(q_num)
+                        answer_claims[q_num].is_conflicted = True
+                        warnings.append(f"Duplicate answer key entry for Question {q_num}.")
+                        fidelity_flags.add("duplicate_answer_key")
+                    else:
+                        answer_claims[q_num] = ParsedAnswerClaim(
+                            question_number=q_num,
+                            claimed_ordinal=claimed_ord,
+                            rationale=rationale,
+                        )
             else:
                 if any(dh.search(line_str) or dh.search(unwrapped_line) for dh in DISCARD_HEADERS):
                     break
@@ -577,11 +588,12 @@ class JapaneseTest4YouParser(BaseSourceParser):
         for flag in sorted(fidelity_flags):
             warnings.append(f"Fidelity warning: {flag}.")
 
-        return ParsedExercise(
+        exercise = ParsedExercise(
             title=resolved_title,
             url=url,
             jlpt_level=level,
             section=section,
+            source_name=self.source_name,
             passages=passages,
             questions=questions,
             answer_claims=answer_claims,
@@ -590,6 +602,9 @@ class JapaneseTest4YouParser(BaseSourceParser):
             warnings=warnings,
             fidelity_flags=sorted(fidelity_flags),
         )
+        scan_report = linear_scan_exercise(exercise)
+        apply_invariant_quarantine(exercise, scan_report)
+        return exercise
 
     def _build_question(
         self,
@@ -606,12 +621,12 @@ class JapaneseTest4YouParser(BaseSourceParser):
         section: str,
     ) -> ParsedQuestion:
         """Construct a validated ParsedQuestion instance with format & star derivation."""
-        # Detect target word in Kanji tests when 5 lines follow question stem
+        # Detect target word ONLY in Kanji tests when 5 lines follow question stem and line 0 is in stem
         actual_choice_lines = choice_lines
         extracted_target = ""
-        if len(choice_lines) == 5:
+        if len(choice_lines) == 5 and section == "kanji":
             first_line = choice_lines[0].strip()
-            if len(first_line) <= 12 and not first_line.isdigit():
+            if len(first_line) <= 12 and not first_line.isdigit() and first_line in raw_stem:
                 extracted_target = first_line
                 actual_choice_lines = choice_lines[1:]
 
@@ -658,7 +673,8 @@ class JapaneseTest4YouParser(BaseSourceParser):
                 f"Question {q_num}: Expected 4 choices, found {len(choices)}."
             )
 
-        answer_claim = answer_claims.get(q_num)
+        raw_claim = answer_claims.get(q_num)
+        answer_claim = raw_claim.model_copy(deep=True) if raw_claim is not None else None
         if not answer_claim:
             warnings.append(f"Question {q_num}: No matching answer key found in source page.")
 

@@ -27,6 +27,10 @@ from app.study.connection import StudyDatabaseManager
 from app.study.doctor import run_doctor
 from app.study.eligibility import evaluate_eligibility
 from app.study.media import MediaStore
+from app.study.verification.deterministic import (
+    DeterministicAnswerValidator,
+    DeterministicValidationResult,
+)
 from app.study.verification.enums import ComparisonScenario, VerificationStatus
 from app.study.verification.models import VerificationRunRecord
 from app.study.verification.service import VerificationService
@@ -64,13 +68,19 @@ class M5BVerifier:
         study_dir: Path | None = None,
         service: VerificationService | None = None,
         media_store: MediaStore | None = None,
+        deterministic_validator: DeterministicAnswerValidator | None = None,
     ) -> None:
         load_dotenv()
         self.study_dir = study_dir or get_study_dir()
         self.db_path = self.study_dir / "study.db"
         self.media_store = media_store or MediaStore(self.study_dir / "media")
         self.db_manager = StudyDatabaseManager(self.db_path)
-        self.service = service or VerificationService(skip_source_verify=True, skip_explanations=True)
+        self.deterministic_validator = deterministic_validator
+        self.service = service or VerificationService(
+            skip_source_verify=True,
+            skip_explanations=True,
+            deterministic_validator=deterministic_validator,
+        )
 
     def identify_questions(self, conn: sqlite3.Connection) -> tuple[list[sqlite3.Row], list[sqlite3.Row]]:
         """
@@ -167,12 +177,18 @@ class M5BVerifier:
                             stats.model_b_tokens["completion"] += tokens.get("completion_tokens", 0)
                             stats.model_b_tokens["total"] += tokens.get("total_tokens", 0)
 
+                det_disagreement = False
+                if self.deterministic_validator is not None:
+                    det_res = self._evaluate_deterministic(conn, q_row, rev_id)
+                    if det_res is not None and det_res.review_required:
+                        det_disagreement = True
+
                 # Evaluate Scenario
                 scenario = record.comparison.scenario if record.comparison else ComparisonScenario.SCENARIO_H_MODEL_FAILURE
                 scenario_key = scenario.value if hasattr(scenario, "value") else str(scenario)
                 stats.scenario_counts[scenario_key] = stats.scenario_counts.get(scenario_key, 0) + 1
 
-                if scenario == ComparisonScenario.SCENARIO_A_AGREEMENT:
+                if scenario == ComparisonScenario.SCENARIO_A_AGREEMENT and not det_disagreement:
                     # Approved: activate question
                     conn.execute(
                         "UPDATE question SET status = 'active', updated_at = ? WHERE id = ?;",
@@ -186,7 +202,8 @@ class M5BVerifier:
                         (now_iso, q_id),
                     )
                     stats.quarantined_count += 1
-                    stats.quarantine_reasons[scenario_key] = stats.quarantine_reasons.get(scenario_key, 0) + 1
+                    reason_key = "DETERMINISTIC_ANSWER_DISAGREEMENT" if det_disagreement else scenario_key
+                    stats.quarantine_reasons[reason_key] = stats.quarantine_reasons.get(reason_key, 0) + 1
 
             # Log progress every 5 questions
             if stats.processed_count % 5 == 0 or stats.processed_count == stats.target_text_questions:
@@ -219,4 +236,66 @@ class M5BVerifier:
             stats.doctor_warnings = sum(1 for f in findings if f.severity == "WARNING")
 
         return stats
+
+    def _evaluate_deterministic(
+        self,
+        conn: sqlite3.Connection,
+        q_row: sqlite3.Row,
+        rev_id: int,
+    ) -> DeterministicValidationResult | None:
+        """Run deterministic dictionary/tokenizer answer check on a persisted revision."""
+        if self.deterministic_validator is None:
+            return None
+        rev_row = conn.execute(
+            "SELECT stem_markup FROM question_revision WHERE id = ?;",
+            (rev_id,),
+        ).fetchone()
+        if not rev_row:
+            return None
+        choice_rows = conn.execute(
+            "SELECT ordinal, choice_key, label, text_markup FROM revision_choice WHERE question_revision_id = ? ORDER BY ordinal ASC;",
+            (rev_id,),
+        ).fetchall()
+        claim_row = conn.execute(
+            """
+            SELECT sac.source_label, sac.rationale, rc.ordinal AS choice_ordinal
+            FROM source_answer_claim sac
+            LEFT JOIN revision_choice rc ON sac.choice_id = rc.id
+            WHERE sac.question_revision_id = ?
+            ORDER BY sac.id ASC
+            LIMIT 1;
+            """,
+            (rev_id,),
+        ).fetchone()
+
+        from app.study.markup.parser import parse_markup
+        from app.study.markup.serializer import to_plain_text
+
+        def _plain(m: str) -> str:
+            try:
+                return to_plain_text(parse_markup(m))
+            except Exception:
+                return m
+
+        choices = [
+            (int(r["ordinal"]), _plain(r["text_markup"] or "") or str(r["label"] or r["choice_key"]))
+            for r in choice_rows
+        ]
+        scraped_ordinal: int | None = None
+        rationale = ""
+        if claim_row is not None:
+            rationale = claim_row["rationale"] or ""
+            if claim_row["choice_ordinal"] is not None:
+                scraped_ordinal = int(claim_row["choice_ordinal"])
+            elif claim_row["source_label"] and str(claim_row["source_label"]).strip().isdigit():
+                scraped_ordinal = int(str(claim_row["source_label"]).strip())
+
+        return self.deterministic_validator.validate_question_fields(
+            external_id=str(q_row["id"]),
+            format_code=str(q_row["format_code"] or ""),
+            stem=rev_row["stem_markup"] or "",
+            choices=choices,
+            scraped_ordinal=scraped_ordinal,
+            rationale=rationale,
+        )
 

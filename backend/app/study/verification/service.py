@@ -26,6 +26,11 @@ from app.study.verification.config import (
     AIVerificationConfig,
     load_verification_config_from_env,
 )
+from app.study.verification.deterministic import (
+    DeterministicAnswerValidator,
+    DeterministicValidationResult,
+    is_llm_explanation_allowed,
+)
 from app.study.verification.enums import (
     ComparisonScenario,
     ConfidenceLevel,
@@ -82,12 +87,14 @@ class VerificationService:
         persistence: VerificationPersistenceService | None = None,
         skip_source_verify: bool = False,
         skip_explanations: bool = False,
+        deterministic_validator: DeterministicAnswerValidator | None = None,
     ) -> None:
         self.config = config or load_verification_config_from_env()
         self.comparator = comparator or DeterministicComparator()
         self.persistence = persistence or VerificationPersistenceService()
         self.skip_source_verify = skip_source_verify
         self.skip_explanations = skip_explanations
+        self._deterministic_validator = deterministic_validator
 
         # Initialize providers from explicit arguments or configuration
         if provider_a is not _UNSET:
@@ -204,6 +211,7 @@ class VerificationService:
         question_id: int | None = None,
         question_revision_id: int | None = None,
         attempt_number: int = 1,
+        deterministic_result: DeterministicValidationResult | None = None,
     ) -> VerificationRunRecord:
         """
         Execute independent two-model verification on an AISolveRequest.
@@ -412,20 +420,38 @@ class VerificationService:
         explanation_record: ExplanationRecord | None = None
         target_choice: str | None = None
 
-        if (
-            comparison.status in (
-                VerificationStatus.AGREEMENT,
-                VerificationStatus.AI_AGREEMENT_UNCONFIRMED,
+        if deterministic_result is None and self._deterministic_validator is not None:
+            scraped_ordinal: int | None = None
+            if source_claims:
+                claim_key = str(source_claims[0].claimed_choice_key or "").strip()
+                if claim_key.isdigit():
+                    scraped_ordinal = int(claim_key)
+                else:
+                    for idx, ch in enumerate(req.choices, start=1):
+                        if str(ch.choice_key).strip() == claim_key:
+                            scraped_ordinal = idx
+                            break
+            choice_pairs = [
+                (idx, c.text or c.label or str(c.choice_key))
+                for idx, c in enumerate(req.choices, start=1)
+            ]
+            deterministic_result = self._deterministic_validator.validate_question_fields(
+                external_id=str(req.question_id),
+                format_code=str(req.format_code or ""),
+                stem=req.stem_markup or req.stem_plain or "",
+                choices=choice_pairs,
+                scraped_ordinal=scraped_ordinal,
+                rationale=source_claims[0].claimed_rationale if source_claims else "",
             )
-            and comparison.agreed_choice
-        ):
-            target_choice = comparison.agreed_choice
-        elif (
-            comparison.status == VerificationStatus.SOURCE_ANSWER_CONFLICT
-            and comparison.agreed_choice
-            and model_a_resp is not None
-            and model_b_resp is not None
-            and model_a_resp.selected_choice_key == model_b_resp.selected_choice_key
+
+        # Enforce zero LLM answer overwrites: explanations are allowed ONLY when
+        # comparison status is AGREEMENT, a source claim backs the agreed choice,
+        # and deterministic validation did not flag a review/disagreement.
+        if is_llm_explanation_allowed(
+            comparison.status,
+            source_claims,
+            comparison.agreed_choice,
+            deterministic_result=deterministic_result,
         ):
             target_choice = comparison.agreed_choice
 
@@ -665,11 +691,17 @@ class VerificationService:
     ) -> VerificationRunRecord:
         """Verify an individual CandidateQuestion directly."""
         req, source_claims = self.build_solve_request_from_candidate(candidate, context_text=context_text)
+        det_res = (
+            self._deterministic_validator.validate_candidate(candidate)
+            if self._deterministic_validator is not None
+            else None
+        )
         return self.verify_solve_request(
             req=req,
             source_claims=source_claims,
             question_id=candidate.persisted_question_id,
             question_revision_id=candidate.persisted_revision_id,
+            deterministic_result=det_res,
         )
 
     # -------------------------------------------------------------------------
@@ -687,11 +719,17 @@ class VerificationService:
         for cand in candidates:
             try:
                 req, source_claims = self.build_solve_request_from_candidate(cand)
+                det_res = (
+                    self._deterministic_validator.validate_candidate(cand)
+                    if self._deterministic_validator is not None
+                    else None
+                )
                 record = self.verify_solve_request(
                     req=req,
                     source_claims=source_claims,
                     question_id=cand.persisted_question_id,
                     question_revision_id=cand.persisted_revision_id,
+                    deterministic_result=det_res,
                 )
 
                 if conn and persist and cand.persisted_revision_id:

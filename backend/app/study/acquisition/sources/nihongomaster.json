@@ -1,0 +1,20 @@
+{
+  "profile_version": 1,
+  "source_slug": "nihongomaster",
+  "display_name": "Nihongo Master",
+  "tier": "B",
+  "allowed_domains": ["nihongomaster.com", "www.nihongomaster.com"],
+  "discovery_strategy": "search",
+  "include_url_rules": [
+    "nihongomaster\\.com/.+(?:jlpt|quiz|practice|study|drill)"
+  ],
+  "exclude_url_rules": ["/(?:login|signup|pricing|account)/"],
+  "pagination": {"max_pages": 30},
+  "level_category_mapping": {"n1": "N1", "n2": "N2", "n3": "N3", "n4": "N4", "n5": "N5"},
+  "search_queries": ["site:nihongomaster.com JLPT practice"],
+  "error_threshold": 0.25,
+  "parser_id": "nihongomaster",
+  "polite_delay_seconds": 1.5,
+  "concurrency_limit": 1,
+  "license_or_permission": "Public educational JLPT practice content; retain source citation."
+}

@@ -223,11 +223,26 @@ class DeterministicValidator:
         is_valid = len(errors) == 0
 
         # Sync review status
+        if candidate.draft.is_quarantined or candidate.draft.quarantine_reasons:
+            if ReviewReasonCode.MANUAL_CORRECTION_REQUIRED not in candidate.review_reasons and not candidate.review_reasons:
+                candidate.review_reasons.append(ReviewReasonCode.MANUAL_CORRECTION_REQUIRED)
+            warnings.append(
+                ValidationIssue(
+                    field="draft",
+                    code="QUARANTINED_BY_INVARIANT",
+                    message=(
+                        "Question quarantined due to parser warnings or invariant violations: "
+                        + ", ".join(candidate.draft.quarantine_reasons or ["parser_warning"])
+                    ),
+                    severity="warning",
+                )
+            )
+
         if not is_valid:
             candidate.review_status = ReviewStatus.NEEDS_REVIEW
             if REASON_VALIDATION_FAILED not in eligibility_codes:
                 eligibility_codes.append(REASON_VALIDATION_FAILED)
-        elif candidate.review_reasons:
+        elif candidate.review_reasons or candidate.draft.is_quarantined:
             candidate.review_status = ReviewStatus.NEEDS_REVIEW
         else:
             candidate.review_status = ReviewStatus.APPROVED
