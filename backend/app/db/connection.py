@@ -189,6 +189,34 @@ CREATE TABLE IF NOT EXISTS word_set_items (
 );
 CREATE INDEX IF NOT EXISTS idx_word_set_items_set
     ON word_set_items (set_id);
+CREATE TABLE IF NOT EXISTS study_burst_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mode TEXT NOT NULL CHECK (mode IN ('sentence_scramble', 'audio_shadowing')),
+    target_count INTEGER NOT NULL CHECK (target_count IN (5, 10)),
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'abandoned')),
+    correct_count INTEGER NOT NULL DEFAULT 0,
+    total_count INTEGER NOT NULL DEFAULT 0,
+    items_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    completed_at TEXT DEFAULT NULL
+);
+CREATE TABLE IF NOT EXISTS study_burst_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL REFERENCES study_burst_sessions(id) ON DELETE CASCADE,
+    item_index INTEGER NOT NULL,
+    source_card_id INTEGER DEFAULT NULL,
+    prompt_text TEXT NOT NULL DEFAULT '',
+    expected_answer TEXT NOT NULL DEFAULT '',
+    user_answer TEXT NOT NULL DEFAULT '',
+    is_correct INTEGER NOT NULL CHECK (is_correct IN (0, 1)),
+    answered_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_study_burst_sessions_created
+    ON study_burst_sessions (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_study_burst_sessions_completed
+    ON study_burst_sessions (status, completed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_study_burst_attempts_session
+    ON study_burst_attempts (session_id, item_index ASC);
 """
 
 
@@ -497,6 +525,34 @@ CREATE TABLE IF NOT EXISTS word_set_items (
 );
 CREATE INDEX IF NOT EXISTS idx_word_set_items_set
     ON word_set_items (set_id);
+CREATE TABLE IF NOT EXISTS study_burst_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mode TEXT NOT NULL CHECK (mode IN ('sentence_scramble', 'audio_shadowing')),
+    target_count INTEGER NOT NULL CHECK (target_count IN (5, 10)),
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'abandoned')),
+    correct_count INTEGER NOT NULL DEFAULT 0,
+    total_count INTEGER NOT NULL DEFAULT 0,
+    items_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    completed_at TEXT DEFAULT NULL
+);
+CREATE TABLE IF NOT EXISTS study_burst_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL REFERENCES study_burst_sessions(id) ON DELETE CASCADE,
+    item_index INTEGER NOT NULL,
+    source_card_id INTEGER DEFAULT NULL,
+    prompt_text TEXT NOT NULL DEFAULT '',
+    expected_answer TEXT NOT NULL DEFAULT '',
+    user_answer TEXT NOT NULL DEFAULT '',
+    is_correct INTEGER NOT NULL CHECK (is_correct IN (0, 1)),
+    answered_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_study_burst_sessions_created
+    ON study_burst_sessions (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_study_burst_sessions_completed
+    ON study_burst_sessions (status, completed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_study_burst_attempts_session
+    ON study_burst_attempts (session_id, item_index ASC);
 """
 
 
@@ -513,6 +569,46 @@ def ensure_word_encounters_table(conn: sqlite3.Connection) -> None:
 def ensure_vocab_practice_tables(conn: sqlite3.Connection) -> None:
     """Safely ensure word_categories, vocab_practice_results, word_sets, and word_set_items exist."""
     conn.executescript(_VOCAB_PRACTICE_DDL)
+
+
+_STUDY_MODES_DDL = """
+CREATE TABLE IF NOT EXISTS study_burst_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mode TEXT NOT NULL CHECK (mode IN ('sentence_scramble', 'audio_shadowing')),
+    target_count INTEGER NOT NULL CHECK (target_count IN (5, 10)),
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'abandoned')),
+    correct_count INTEGER NOT NULL DEFAULT 0,
+    total_count INTEGER NOT NULL DEFAULT 0,
+    items_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    completed_at TEXT DEFAULT NULL
+);
+CREATE TABLE IF NOT EXISTS study_burst_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL REFERENCES study_burst_sessions(id) ON DELETE CASCADE,
+    item_index INTEGER NOT NULL,
+    source_card_id INTEGER DEFAULT NULL,
+    prompt_text TEXT NOT NULL DEFAULT '',
+    expected_answer TEXT NOT NULL DEFAULT '',
+    user_answer TEXT NOT NULL DEFAULT '',
+    is_correct INTEGER NOT NULL CHECK (is_correct IN (0, 1)),
+    answered_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_study_burst_sessions_created
+    ON study_burst_sessions (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_study_burst_sessions_completed
+    ON study_burst_sessions (status, completed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_study_burst_attempts_session
+    ON study_burst_attempts (session_id, item_index ASC);
+"""
+
+
+def ensure_study_modes_tables(conn: sqlite3.Connection) -> None:
+    """Safely ensure study_burst_sessions and study_burst_attempts exist on an open connection."""
+    conn.executescript(_STUDY_MODES_DDL)
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(study_burst_sessions)").fetchall()}
+    if "items_json" not in cols:
+        conn.execute("ALTER TABLE study_burst_sessions ADD COLUMN items_json TEXT NOT NULL DEFAULT '[]'")
 
 
 def ensure_vocab_state_tables(conn: sqlite3.Connection) -> None:

@@ -6,8 +6,19 @@
  * setup chooser with live question bank count, and honest diagnostic reports.
  */
 
+import { apiClient } from '../services/api_client.js';
 import { studyClient } from '../services/study_client.js';
 import { renderStudyImport } from './study_import.js';
+import {
+  renderBurstCompleteState,
+  renderBurstEmptyState,
+  renderScrambleDrill,
+  renderShadowingDrill,
+  renderShadowingRevealSection,
+  renderStudyModeCards,
+  renderWeeklyConsistencyBar,
+  resolveBurstMediaUrl
+} from './study_bursts.js';
 import { escapeHtml, renderStudyText, sanitizePromptMarkup } from '../utils/sanitizer.js';
 import { renderAssetSlot } from '../assets_map.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
@@ -103,6 +114,11 @@ export class StudyView {
     this.mistakesFilters = { level: '', format_code: '' };
     this.bookmarkedOnly = false;
     this.reportQuestionId = null;
+    this.burstSizes = { sentence_scramble: 5, audio_shadowing: 5 };
+    this.showJlptSetup = false;
+    this.cachedConsistency = null;
+    this.backendInfo = null;
+    this.activeBurst = null;
     this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
@@ -114,6 +130,9 @@ export class StudyView {
   switchSegment(segment) {
     const target = STUDY_SEGMENTS.some((entry) => entry.id === segment) ? segment : 'practice';
     if (target === this.activeSegment && this.segmentMounted[target]) return;
+    if (target !== 'practice') {
+      this.stopBurstAudio();
+    }
     this.activeSegment = target;
 
     this.container?.querySelectorAll('.study-segment-tab').forEach((tab) => {
@@ -188,6 +207,7 @@ export class StudyView {
 
   onHide() {
     window.removeEventListener('keydown', this.handleKeyDown);
+    this.stopBurstAudio();
     this.stopActiveTimer();
     this.activeListenerCount = 0;
   }
@@ -314,20 +334,36 @@ export class StudyView {
   renderSetupChooser() {
     this.clearError();
     this.stopActiveTimer();
+    this.activeBurst = null;
     const area = this.segmentArea('practice');
     if (!area) return;
 
     area.innerHTML = `
-      <div class="study-setup-card tactile-card">
-        <div class="setup-header-row mb-4">
-          <div>
-            <span class="font-mono text-xs text-gold uppercase tracking-wider">Practice Hub</span>
-            <h2 class="text-xl font-bold text-warm-paper mt-1">Adaptive Drill Setup</h2>
-            <p class="text-secondary text-sm">
-              Custom targeted drills with objective grading, spaced repetition ratings, and pedagogical explanations.
-            </p>
+      <div id="study-consistency-slot" class="mb-4">
+        ${renderWeeklyConsistencyBar(this.cachedConsistency)}
+      </div>
+
+      <div id="study-modes-slot" class="mb-4">
+        ${renderStudyModeCards({
+          scrambleSize: this.burstSizes.sentence_scramble,
+          shadowingSize: this.burstSizes.audio_shadowing,
+          showJlptPanel: this.showJlptSetup,
+          bankSummary: this.cachedBankSummary,
+          activeLevel: this.activeLevel
+        })}
+      </div>
+
+      <div id="jlpt-drill-setup-panel" ${this.showJlptSetup ? '' : 'hidden'}>
+        <div class="study-setup-card tactile-card">
+          <div class="setup-header-row mb-4">
+            <div>
+              <span class="font-mono text-xs text-gold uppercase tracking-wider">Practice Hub</span>
+              <h2 class="text-xl font-bold text-warm-paper mt-1">Adaptive Drill Setup</h2>
+              <p class="text-secondary text-sm">
+                Custom targeted drills with objective grading, spaced repetition ratings, and pedagogical explanations.
+              </p>
+            </div>
           </div>
-        </div>
 
         <!-- Question Bank Live Status -->
         <div class="study-bank-info tactile-card surface-pitch-black p-3 mb-5">
@@ -423,7 +459,12 @@ export class StudyView {
           </button>
         </div>
       </div>
+      </div>
     `;
+
+    this.wireModeCards();
+
+    this.refreshWeeklyConsistency();
 
     // Query live bank count
     this.updateBankSummaryDisplay();
@@ -1537,6 +1578,488 @@ export class StudyView {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   }
 
+  wireModeCards() {
+    const area = this.segmentArea('practice');
+    if (!area) return;
+
+    area.querySelectorAll('.burst-size-pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.burstMode;
+        const size = parseInt(btn.dataset.burstSize, 10) === 10 ? 10 : 5;
+        if (mode) {
+          this.burstSizes[mode] = size;
+          const slot = document.getElementById('study-modes-slot');
+          if (slot) {
+            slot.innerHTML = renderStudyModeCards({
+              scrambleSize: this.burstSizes.sentence_scramble,
+              shadowingSize: this.burstSizes.audio_shadowing,
+              showJlptPanel: this.showJlptSetup,
+              bankSummary: this.cachedBankSummary,
+              activeLevel: this.activeLevel
+            });
+            this.wireModeCards();
+          }
+        }
+      });
+    });
+
+    document.getElementById('btn-start-scramble-burst')?.addEventListener('click', () => {
+      this.startBurstSession('sentence_scramble', this.burstSizes.sentence_scramble);
+    });
+    document.getElementById('btn-start-shadowing-burst')?.addEventListener('click', () => {
+      this.startBurstSession('audio_shadowing', this.burstSizes.audio_shadowing);
+    });
+    document.getElementById('btn-open-jlpt-bank-mode')?.addEventListener('click', () => {
+      this.showJlptSetup = !this.showJlptSetup;
+      const panel = document.getElementById('jlpt-drill-setup-panel');
+      const toggleBtn = document.getElementById('btn-open-jlpt-bank-mode');
+      const bankCard = area.querySelector('[data-study-mode="jlpt_bank"]');
+      if (panel) panel.hidden = !this.showJlptSetup;
+      if (toggleBtn) {
+        toggleBtn.setAttribute('aria-expanded', String(this.showJlptSetup));
+        toggleBtn.textContent = this.showJlptSetup ? 'Hide JLPT Drill Setup' : 'Configure JLPT Drill';
+      }
+      if (bankCard) bankCard.classList.toggle('is-selected', this.showJlptSetup);
+    });
+  }
+
+  async refreshWeeklyConsistency() {
+    try {
+      const data = await apiClient.getStudyModesConsistency();
+      this.cachedConsistency = data;
+      const slot = document.getElementById('study-consistency-slot');
+      if (slot) {
+        slot.innerHTML = renderWeeklyConsistencyBar(data);
+      }
+    } catch (err) {
+      console.debug('[Study] Weekly consistency lookup failed:', err.message);
+      const slot = document.getElementById('study-consistency-slot');
+      if (slot && !this.cachedConsistency) {
+        slot.innerHTML = renderWeeklyConsistencyBar({
+          days: [],
+          active_days: 0,
+          window_days: 7,
+          total_bursts_7d: 0
+        });
+      }
+    }
+  }
+
+  stopBurstAudio() {
+    const audioEl = this.container?.querySelector('#shadowing-audio-el') || document.getElementById('shadowing-audio-el');
+    if (!audioEl) return;
+    const hasSrc = Boolean(audioEl.src || (typeof audioEl.getAttribute === 'function' && audioEl.getAttribute('src')));
+    if (!hasSrc) return;
+    try {
+      if (typeof audioEl.pause === 'function') {
+        audioEl.pause();
+      }
+      audioEl.currentTime = 0;
+      if (typeof audioEl.removeAttribute === 'function') {
+        audioEl.removeAttribute('src');
+      }
+      audioEl.src = '';
+      if (typeof audioEl.load === 'function') {
+        audioEl.load();
+      }
+    } catch (err) {
+      console.debug('[Study] Audio cleanup skipped:', err?.message || err);
+    }
+  }
+
+  async startBurstSession(mode, targetCount = 5) {
+    this.clearError();
+    this.stopActiveTimer();
+    this.stopBurstAudio();
+    const area = this.segmentArea('practice');
+    if (!area) return;
+
+    area.innerHTML = `
+      <div class="tactile-card text-center py-12 text-muted">
+        <span class="font-mono text-sm">Preparing ${targetCount}-item burst...</span>
+      </div>
+    `;
+
+    try {
+      if (!this.backendInfo) {
+        this.backendInfo = await apiClient.getBackendInfo();
+      }
+      const session = await apiClient.startStudyModeSession(mode, targetCount);
+      const items = Array.isArray(session?.items) ? session.items : [];
+      if (!session?.session_id || items.length === 0) {
+        this.activeBurst = null;
+        area.innerHTML = renderBurstEmptyState({ mode });
+        document.getElementById('btn-empty-back-to-study')?.addEventListener('click', () => {
+          this.exitBurstToStudy();
+        });
+        return;
+      }
+
+      this.activeBurst = {
+        sessionId: session.session_id,
+        mode,
+        targetCount,
+        items,
+        currentIndex: 0,
+        lastAutoPlayedIndex: -1,
+        selectedTileIds: [],
+        feedback: null,
+        revealedData: null,
+        isRevealing: false,
+        isSubmitting: false
+      };
+      this.renderActiveBurst();
+    } catch (err) {
+      console.error('[Study] Start burst session error:', err);
+      this.activeBurst = null;
+      this.renderSetupChooser();
+      this.showError('Burst session error: ' + (err.message || 'Unable to start burst'));
+    }
+  }
+
+  renderActiveBurst() {
+    const area = this.segmentArea('practice');
+    const burst = this.activeBurst;
+    if (!area || !burst) return;
+
+    this.stopBurstAudio();
+
+    const item = burst.items[burst.currentIndex];
+    if (!item) {
+      this.completeBurstSession();
+      return;
+    }
+
+    if (burst.mode === 'sentence_scramble') {
+      area.innerHTML = renderScrambleDrill({
+        item,
+        currentIndex: burst.currentIndex,
+        totalCount: burst.items.length,
+        selectedTileIds: burst.selectedTileIds,
+        feedback: burst.feedback,
+        isSubmitting: burst.isSubmitting
+      });
+      this.wireScrambleListeners();
+    } else {
+      const resolvedAudioUrl = resolveBurstMediaUrl(item.audio_url, this.backendInfo);
+      area.innerHTML = renderShadowingDrill({
+        item,
+        currentIndex: burst.currentIndex,
+        totalCount: burst.items.length,
+        revealedData: burst.revealedData,
+        resolvedAudioUrl,
+        isRevealing: burst.isRevealing,
+        isSubmitting: burst.isSubmitting
+      });
+      this.wireShadowingListeners(resolvedAudioUrl);
+    }
+
+    document.getElementById('btn-exit-burst')?.addEventListener('click', () => {
+      this.exitBurstToStudy();
+    });
+  }
+
+  wireScrambleListeners() {
+    const burst = this.activeBurst;
+    const area = this.segmentArea('practice');
+    if (!burst || !area) return;
+
+    area.querySelectorAll('.scramble-tile-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (burst.feedback || burst.isSubmitting) return;
+        const tid = btn.dataset.tileId;
+        if (tid && !burst.selectedTileIds.includes(tid)) {
+          burst.selectedTileIds.push(tid);
+          this.renderActiveBurst();
+        }
+      });
+    });
+
+    area.querySelectorAll('.scramble-placed-chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (burst.feedback || burst.isSubmitting) return;
+        const pos = parseInt(btn.dataset.placedPos, 10);
+        if (!Number.isNaN(pos) && pos >= 0 && pos < burst.selectedTileIds.length) {
+          burst.selectedTileIds.splice(pos, 1);
+          this.renderActiveBurst();
+        }
+      });
+    });
+
+    document.getElementById('btn-scramble-undo')?.addEventListener('click', () => {
+      if (burst.feedback || burst.selectedTileIds.length === 0) return;
+      burst.selectedTileIds.pop();
+      this.renderActiveBurst();
+    });
+
+    document.getElementById('btn-scramble-clear')?.addEventListener('click', () => {
+      if (burst.feedback || burst.selectedTileIds.length === 0) return;
+      burst.selectedTileIds = [];
+      this.renderActiveBurst();
+    });
+
+    document.getElementById('btn-submit-scramble')?.addEventListener('click', () => {
+      this.submitScrambleBurstAnswer();
+    });
+
+    document.getElementById('btn-next-burst-item')?.addEventListener('click', () => {
+      this.advanceBurstItem();
+    });
+  }
+
+  wireShadowingListeners(resolvedAudioUrl) {
+    const burst = this.activeBurst;
+    const audioEl = document.getElementById('shadowing-audio-el');
+    if (
+      audioEl &&
+      resolvedAudioUrl &&
+      burst &&
+      !burst.revealedData &&
+      burst.lastAutoPlayedIndex !== burst.currentIndex
+    ) {
+      burst.lastAutoPlayedIndex = burst.currentIndex;
+      if (typeof audioEl.play === 'function') {
+        const playResult = audioEl.play();
+        if (playResult && typeof playResult.catch === 'function') {
+          playResult.catch((err) => {
+            console.debug('[Study] Shadowing autoplay blocked:', err?.message || err);
+          });
+        }
+      }
+    }
+
+    document.getElementById('btn-replay-shadow-audio')?.addEventListener('click', () => {
+      const el = document.getElementById('shadowing-audio-el');
+      if (el && typeof el.play === 'function') {
+        try {
+          el.currentTime = 0;
+        } catch (err) {
+          console.debug('[Study] Audio reset skipped:', err?.message || err);
+        }
+        const res = el.play();
+        if (res && typeof res.catch === 'function') {
+          res.catch((err) => console.debug('[Study] Replay failed:', err?.message || err));
+        }
+      }
+    });
+
+    this.wireShadowingRevealListeners();
+  }
+
+  wireShadowingRevealListeners() {
+    document.getElementById('btn-reveal-shadowing')?.addEventListener('click', () => {
+      this.revealShadowingItem();
+    });
+
+    document.querySelectorAll('.btn-shadow-grade').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const grade = btn.dataset.grade;
+        if (grade) this.submitShadowingBurstAnswer(grade);
+      });
+    });
+  }
+
+  updateShadowingRevealSlot() {
+    const burst = this.activeBurst;
+    const slot = document.getElementById('shadowing-reveal-slot');
+    if (!burst || !slot) {
+      this.renderActiveBurst();
+      return;
+    }
+    slot.innerHTML = renderShadowingRevealSection({
+      revealedData: burst.revealedData,
+      isRevealing: burst.isRevealing,
+      isSubmitting: burst.isSubmitting
+    });
+    this.wireShadowingRevealListeners();
+  }
+
+  async revealShadowingItem() {
+    const burst = this.activeBurst;
+    if (!burst || burst.mode !== 'audio_shadowing' || burst.revealedData || burst.isRevealing) return;
+    burst.isRevealing = true;
+    this.updateShadowingRevealSlot();
+
+    try {
+      const item = burst.items[burst.currentIndex];
+      const revealed = await apiClient.revealStudyModeItem(burst.sessionId, item.item_index);
+      burst.revealedData = revealed;
+    } catch (err) {
+      console.error('[Study] Reveal shadowing item error:', err);
+      this.showError('Reveal failed: ' + (err.message || 'Unable to load transcript'));
+    } finally {
+      burst.isRevealing = false;
+      this.updateShadowingRevealSlot();
+    }
+  }
+
+  async submitScrambleBurstAnswer() {
+    const burst = this.activeBurst;
+    if (!burst || burst.mode !== 'sentence_scramble' || burst.feedback || burst.isSubmitting) return;
+    if (burst.selectedTileIds.length === 0) return;
+
+    burst.isSubmitting = true;
+    this.renderActiveBurst();
+
+    try {
+      const item = burst.items[burst.currentIndex];
+      const result = await apiClient.submitStudyModeAnswer(
+        burst.sessionId,
+        item.item_index,
+        burst.selectedTileIds
+      );
+      burst.feedback = result;
+    } catch (err) {
+      console.error('[Study] Submit scramble answer error:', err);
+      this.showError('Grading failed: ' + (err.message || 'Unable to submit order'));
+    } finally {
+      burst.isSubmitting = false;
+      this.renderActiveBurst();
+    }
+  }
+
+  async submitShadowingBurstAnswer(grade) {
+    const burst = this.activeBurst;
+    if (!burst || burst.mode !== 'audio_shadowing' || burst.isSubmitting) return;
+
+    burst.isSubmitting = true;
+    this.updateShadowingRevealSlot();
+
+    try {
+      const item = burst.items[burst.currentIndex];
+      await apiClient.submitStudyModeAnswer(burst.sessionId, item.item_index, grade);
+      burst.isSubmitting = false;
+      await this.advanceBurstItem();
+    } catch (err) {
+      console.error('[Study] Submit shadowing grade error:', err);
+      burst.isSubmitting = false;
+      this.showError('Save grade failed: ' + (err.message || 'Unable to record self-grade'));
+      this.updateShadowingRevealSlot();
+    }
+  }
+
+  async advanceBurstItem() {
+    const burst = this.activeBurst;
+    if (!burst) return;
+    this.stopBurstAudio();
+    burst.currentIndex += 1;
+    burst.selectedTileIds = [];
+    burst.feedback = null;
+    burst.revealedData = null;
+
+    if (burst.currentIndex >= burst.items.length) {
+      await this.completeBurstSession();
+    } else {
+      this.renderActiveBurst();
+    }
+  }
+
+  async completeBurstSession() {
+    const burst = this.activeBurst;
+    const area = this.segmentArea('practice');
+    if (!burst || !area) return;
+    this.stopBurstAudio();
+
+    try {
+      const summary = await apiClient.completeStudyModeSession(burst.sessionId);
+      if (summary?.consistency) {
+        this.cachedConsistency = summary.consistency;
+      }
+      const mode = burst.mode;
+      const targetCount = burst.targetCount;
+      this.activeBurst = null;
+      area.innerHTML = renderBurstCompleteState({ summary });
+      document.getElementById('btn-burst-back-to-study')?.addEventListener('click', () => {
+        this.renderSetupChooser();
+      });
+      document.getElementById('btn-burst-start-another')?.addEventListener('click', () => {
+        this.startBurstSession(mode, targetCount);
+      });
+    } catch (err) {
+      console.error('[Study] Complete burst session error:', err);
+      this.renderSetupChooser();
+      this.showError('Completion failed: ' + (err.message || 'Unable to finish burst'));
+    }
+  }
+
+  exitBurstToStudy() {
+    this.stopBurstAudio();
+    this.activeBurst = null;
+    this.renderSetupChooser();
+  }
+
+  handleBurstKeyDown(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return false;
+    const burst = this.activeBurst;
+    if (!burst || burst.isSubmitting || burst.isRevealing) return false;
+    const item = burst.items[burst.currentIndex];
+    if (!item) return false;
+
+    if (burst.mode === 'sentence_scramble') {
+      if (burst.feedback) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.advanceBurstItem();
+          return true;
+        }
+        return false;
+      }
+
+      if (/^[1-9]$/.test(e.key)) {
+        const slotIndex = parseInt(e.key, 10) - 1;
+        const tiles = Array.isArray(item.tiles) ? item.tiles : [];
+        if (slotIndex < tiles.length) {
+          e.preventDefault();
+          const tileId = String(tiles[slotIndex].tile_id);
+          if (!burst.selectedTileIds.includes(tileId)) {
+            burst.selectedTileIds.push(tileId);
+            this.renderActiveBurst();
+          }
+          return true;
+        }
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        if (burst.selectedTileIds.length > 0) {
+          burst.selectedTileIds.pop();
+          this.renderActiveBurst();
+        }
+        return true;
+      } else if (e.key === 'Enter' && burst.selectedTileIds.length > 0) {
+        e.preventDefault();
+        this.submitScrambleBurstAnswer();
+        return true;
+      }
+      return false;
+    }
+
+    if (burst.mode === 'audio_shadowing') {
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        document.getElementById('btn-replay-shadow-audio')?.click();
+        return true;
+      }
+      if (!burst.revealedData) {
+        if (e.code === 'Space' || e.key === ' ') {
+          e.preventDefault();
+          this.revealShadowingItem();
+          return true;
+        }
+      } else {
+        if (e.key === '1') {
+          e.preventDefault();
+          this.submitShadowingBurstAnswer('missed');
+          return true;
+        }
+        if (e.key === '2') {
+          e.preventDefault();
+          this.submitShadowingBurstAnswer('got_it');
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   handleKeyDown(e) {
     if (e.key === 'Escape') {
       const drawer = document.getElementById('study-report-drawer');
@@ -1546,8 +2069,13 @@ export class StudyView {
         return;
       }
     }
-    if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (this.activeSegment !== 'practice') return;
+    if (this.activeBurst) {
+      this.handleBurstKeyDown(e);
+      return;
+    }
     const item = this.practiceItems[this.currentQuestionIndex];
     if (!item) return;
 
@@ -1578,6 +2106,7 @@ export class StudyView {
   unmount() {
     this.onHide();
     this.stopActiveTimer();
+    this.activeBurst = null;
     this.closeReportDrawer();
     if (this.activeBlobUrls && this.activeBlobUrls.length > 0) {
       this.activeBlobUrls.forEach(url => studyClient.revokeMediaBlobUrl(url));

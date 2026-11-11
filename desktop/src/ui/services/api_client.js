@@ -341,6 +341,42 @@ export class ApiClient {
   async getSeenKanji() {
     return this.request('/api/kanji/seen');
   }
+
+  // Phase 5 Anti-Grind Study Modes (Sentence Scramble & Audio Shadowing)
+  async startStudyModeSession(mode, targetCount = 5) {
+    return this.request('/api/study-modes/sessions', {
+      method: 'POST',
+      body: { mode, target_count: targetCount }
+    });
+  }
+
+  async getStudyModeSession(sessionId) {
+    return this.request(`/api/study-modes/sessions/${encodeURIComponent(sessionId)}`);
+  }
+
+  async revealStudyModeItem(sessionId, itemIndex) {
+    return this.request(`/api/study-modes/sessions/${encodeURIComponent(sessionId)}/reveal`, {
+      method: 'POST',
+      body: { item_index: itemIndex }
+    });
+  }
+
+  async submitStudyModeAnswer(sessionId, itemIndex, userAnswer) {
+    return this.request(`/api/study-modes/sessions/${encodeURIComponent(sessionId)}/answer`, {
+      method: 'POST',
+      body: { item_index: itemIndex, user_answer: userAnswer }
+    });
+  }
+
+  async completeStudyModeSession(sessionId) {
+    return this.request(`/api/study-modes/sessions/${encodeURIComponent(sessionId)}/complete`, {
+      method: 'POST'
+    });
+  }
+
+  async getStudyModesConsistency() {
+    return this.request('/api/study-modes/consistency');
+  }
 }
 
 export const apiClient = new ApiClient();

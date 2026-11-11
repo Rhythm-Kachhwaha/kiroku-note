@@ -154,6 +154,45 @@
         }
       }
     },
+    "/api/grammar/explain": {
+      "post": {
+        "tags": [
+          "grammar"
+        ],
+        "summary": "Explain Grammar",
+        "operationId": "explain_grammar_api_grammar_explain_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrammarExplainRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/grammar/analyze": {
       "post": {
         "tags": [
@@ -4704,6 +4743,305 @@
         }
       }
     },
+    "/api/word-states": {
+      "get": {
+        "tags": [
+          "known-words",
+          "word-states"
+        ],
+        "summary": "List Word States",
+        "description": "List persisted word states with optional filters.",
+        "operationId": "list_word_states_api_word_states_get",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "name": "include_blacklisted",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Blacklisted"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WordStateListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/word-states/stats": {
+      "get": {
+        "tags": [
+          "known-words",
+          "word-states"
+        ],
+        "summary": "Get Word State Stats",
+        "description": "Return word state counts (excluding blacklisted from active totals).",
+        "operationId": "get_word_state_stats_api_word_states_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WordStateStatsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/word-states/set": {
+      "post": {
+        "tags": [
+          "known-words",
+          "word-states"
+        ],
+        "summary": "Set Word State",
+        "description": "Explicitly set a user word state (e.g. ignored, blacklisted, tracking, known).",
+        "operationId": "set_word_state_api_word_states_set_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetWordStateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WordStateItemResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/word-states/sync-anki": {
+      "post": {
+        "tags": [
+          "known-words",
+          "word-states"
+        ],
+        "summary": "Sync Word States From Anki",
+        "description": "Hydrate word states from live AnkiConnect FSRS/card review metrics.",
+        "operationId": "sync_word_states_from_anki_api_word_states_sync_anki_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SyncAnkiWordStatesRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncAnkiWordStatesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/word-states/encounters": {
+      "get": {
+        "tags": [
+          "known-words",
+          "word-states"
+        ],
+        "summary": "Get Word Encounter Summary",
+        "description": "Return encounter counts, distinct source media count, and recent sentences.",
+        "operationId": "get_word_encounter_summary_api_word_states_encounters_get",
+        "parameters": [
+          {
+            "name": "sequence_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sequence Id"
+            }
+          },
+          {
+            "name": "reading",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Reading"
+            }
+          },
+          {
+            "name": "expression",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Expression"
+            }
+          },
+          {
+            "name": "recent_limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 10,
+              "title": "Recent Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EncounterSummaryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/link/status": {
       "get": {
         "tags": [
@@ -5319,6 +5657,274 @@
         }
       }
     },
+    "/api/study-modes/sessions": {
+      "post": {
+        "tags": [
+          "study-modes"
+        ],
+        "summary": "Start Burst Session",
+        "description": "Start a 5- or 10-item sentence scramble or audio shadowing burst session.",
+        "operationId": "start_burst_session_api_study_modes_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartBurstSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Start Burst Session Api Study Modes Sessions Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/study-modes/consistency": {
+      "get": {
+        "tags": [
+          "study-modes"
+        ],
+        "summary": "Get Weekly Consistency",
+        "description": "Return rolling 7-day consistency without punitive daily streak resets.",
+        "operationId": "get_weekly_consistency_api_study_modes_consistency_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Weekly Consistency Api Study Modes Consistency Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/study-modes/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "study-modes"
+        ],
+        "summary": "Get Burst Session",
+        "description": "Fetch an existing burst session with items and recorded attempts.",
+        "operationId": "get_burst_session_api_study_modes_sessions__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Burst Session Api Study Modes Sessions  Session Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/study-modes/sessions/{session_id}/reveal": {
+      "post": {
+        "tags": [
+          "study-modes"
+        ],
+        "summary": "Reveal Burst Item",
+        "description": "Reveal concealed transcript, reading, gloss, and kanji breakdown for an item.",
+        "operationId": "reveal_burst_item_api_study_modes_sessions__session_id__reveal_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevealBurstItemRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Reveal Burst Item Api Study Modes Sessions  Session Id  Reveal Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/study-modes/sessions/{session_id}/answer": {
+      "post": {
+        "tags": [
+          "study-modes"
+        ],
+        "summary": "Submit Burst Answer",
+        "description": "Submit and grade an answer for a burst study item.",
+        "operationId": "submit_burst_answer_api_study_modes_sessions__session_id__answer_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitBurstAnswerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Submit Burst Answer Api Study Modes Sessions  Session Id  Answer Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/study-modes/sessions/{session_id}/complete": {
+      "post": {
+        "tags": [
+          "study-modes"
+        ],
+        "summary": "Complete Burst Session",
+        "description": "Complete a burst session and return accuracy plus updated weekly consistency.",
+        "operationId": "complete_burst_session_api_study_modes_sessions__session_id__complete_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Complete Burst Session Api Study Modes Sessions  Session Id  Complete Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/study/v1/bank/import/pdf/{import_id}/pages": {
       "get": {
         "summary": "Get Pdf Pages",
@@ -5512,6 +6118,563 @@
                   },
                   "type": "array",
                   "title": "Response Get Setup Checklist Api Setup Checklist Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocab-practice/categories": {
+      "get": {
+        "tags": [
+          "vocab-practice"
+        ],
+        "summary": "List Word Categories",
+        "description": "List persisted word_categories rows with optional filters.",
+        "operationId": "list_word_categories_api_vocab_practice_categories_get",
+        "parameters": [
+          {
+            "name": "sequence_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sequence Id"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "subtype",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subtype"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Word Categories Api Vocab Practice Categories Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocab-practice/categories/sync": {
+      "post": {
+        "tags": [
+          "vocab-practice"
+        ],
+        "summary": "Sync Word Categories",
+        "description": "Classify and persist word_categories for tracked word_states using local JMdict.",
+        "operationId": "sync_word_categories_api_vocab_practice_categories_sync_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Sync Word Categories Api Vocab Practice Categories Sync Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocab-practice/categories/classify": {
+      "post": {
+        "tags": [
+          "vocab-practice"
+        ],
+        "summary": "Classify Single Word",
+        "description": "Resolve a word in the dictionary, classify its JMdict tags, and optionally persist.",
+        "operationId": "classify_single_word_api_vocab_practice_categories_classify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassifyWordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Classify Single Word Api Vocab Practice Categories Classify Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocab-practice/word-sets": {
+      "get": {
+        "tags": [
+          "vocab-practice"
+        ],
+        "summary": "Get Word Sets",
+        "description": "List built-in tag-based word sets and custom word sets with coverage metrics.",
+        "operationId": "get_word_sets_api_vocab_practice_word_sets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Word Sets Api Vocab Practice Word Sets Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "vocab-practice"
+        ],
+        "summary": "Create Word Set",
+        "description": "Create a custom word set.",
+        "operationId": "create_word_set_api_vocab_practice_word_sets_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWordSetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Word Set Api Vocab Practice Word Sets Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocab-practice/word-sets/{slug_or_id}": {
+      "get": {
+        "tags": [
+          "vocab-practice"
+        ],
+        "summary": "Get Word Set",
+        "description": "Get word set details, constituent items, and coverage metrics.",
+        "operationId": "get_word_set_api_vocab_practice_word_sets__slug_or_id__get",
+        "parameters": [
+          {
+            "name": "slug_or_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug Or Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Word Set Api Vocab Practice Word Sets  Slug Or Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "vocab-practice"
+        ],
+        "summary": "Remove Word Set",
+        "description": "Delete a custom word set.",
+        "operationId": "remove_word_set_api_vocab_practice_word_sets__slug_or_id__delete",
+        "parameters": [
+          {
+            "name": "slug_or_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug Or Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Remove Word Set Api Vocab Practice Word Sets  Slug Or Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocab-practice/word-sets/{slug_or_id}/items": {
+      "post": {
+        "tags": [
+          "vocab-practice"
+        ],
+        "summary": "Add Items To Word Set",
+        "description": "Add canonical items to a custom word set.",
+        "operationId": "add_items_to_word_set_api_vocab_practice_word_sets__slug_or_id__items_post",
+        "parameters": [
+          {
+            "name": "slug_or_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug Or Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddWordSetItemsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Add Items To Word Set Api Vocab Practice Word Sets  Slug Or Id  Items Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocab-practice/generate": {
+      "post": {
+        "tags": [
+          "vocab-practice"
+        ],
+        "summary": "Generate Practice Question",
+        "description": "Deterministically generate a practice question or return explicit abstention reasons.",
+        "operationId": "generate_practice_question_api_vocab_practice_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeneratePracticeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Generate Practice Question Api Vocab Practice Generate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocab-practice/grade": {
+      "post": {
+        "tags": [
+          "vocab-practice"
+        ],
+        "summary": "Grade Practice Answer",
+        "description": "Grade an answer deterministically and optionally persist to vocab_practice_results.",
+        "operationId": "grade_practice_answer_api_vocab_practice_grade_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GradePracticeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Grade Practice Answer Api Vocab Practice Grade Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocab-practice/stats": {
+      "get": {
+        "tags": [
+          "vocab-practice"
+        ],
+        "summary": "Get Vocab Practice Stats",
+        "description": "Return practice accuracy stats and deterministic What-Next recommendations.",
+        "operationId": "get_vocab_practice_stats_api_vocab_practice_stats_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Vocab Practice Stats Api Vocab Practice Stats Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vocab-practice/usage-tags": {
+      "post": {
+        "tags": [
+          "vocab-practice"
+        ],
+        "summary": "Compute Sentence Usage Tags",
+        "description": "Compute per-sentence usage tags (e.g. na-adj + \u306b, mimetic + \u3068).",
+        "operationId": "compute_sentence_usage_tags_api_vocab_practice_usage_tags_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageTagsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Compute Sentence Usage Tags Api Vocab Practice Usage Tags Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -7260,6 +8423,19 @@
         ],
         "title": "AddBookmarkRequest"
       },
+      "AddWordSetItemsRequest": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WordSetItemInput"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "title": "AddWordSetItemsRequest"
+      },
       "AnkiDecksResponse": {
         "properties": {
           "decks": {
@@ -7477,6 +8653,11 @@
             "type": "boolean",
             "title": "Known",
             "default": false
+          },
+          "word_state": {
+            "type": "string",
+            "title": "Word State",
+            "default": "unseen"
           },
           "pos": {
             "type": "string",
@@ -8471,6 +9652,39 @@
         ],
         "title": "ChoiceDTO"
       },
+      "ClassifyWordRequest": {
+        "properties": {
+          "sequence_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence Id"
+          },
+          "expression": {
+            "type": "string",
+            "title": "Expression",
+            "default": ""
+          },
+          "reading": {
+            "type": "string",
+            "title": "Reading",
+            "default": ""
+          },
+          "persist": {
+            "type": "boolean",
+            "title": "Persist",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "ClassifyWordRequest"
+      },
       "CondensedAudioRequest": {
         "properties": {
           "cues": {
@@ -8731,6 +9945,44 @@
           "details"
         ],
         "title": "CreateQuestionReportRequest"
+      },
+      "CreateWordSetRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WordSetItemInput"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CreateWordSetRequest"
       },
       "CrossReference": {
         "properties": {
@@ -9140,6 +10392,78 @@
         ],
         "title": "EncounterRequest"
       },
+      "EncounterSummaryResponse": {
+        "properties": {
+          "sequence_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence Id"
+          },
+          "reading": {
+            "type": "string",
+            "title": "Reading",
+            "default": ""
+          },
+          "expression": {
+            "type": "string",
+            "title": "Expression",
+            "default": ""
+          },
+          "total_encounters": {
+            "type": "integer",
+            "title": "Total Encounters",
+            "default": 0
+          },
+          "episode_count": {
+            "type": "integer",
+            "title": "Episode Count",
+            "default": 0
+          },
+          "distinct_sources": {
+            "type": "integer",
+            "title": "Distinct Sources",
+            "default": 0
+          },
+          "first_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen At"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "recent_sentences": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Recent Sentences"
+          }
+        },
+        "type": "object",
+        "title": "EncounterSummaryResponse"
+      },
       "EpisodeRecord": {
         "properties": {
           "hash": {
@@ -9179,6 +10503,17 @@
             "type": "string",
             "title": "Series",
             "default": ""
+          },
+          "episode_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Key"
           }
         },
         "type": "object",
@@ -9709,6 +11044,77 @@
         ],
         "title": "GapWordItem"
       },
+      "GeneratePracticeRequest": {
+        "properties": {
+          "question_type": {
+            "type": "string",
+            "title": "Question Type",
+            "default": "typed_recall"
+          },
+          "sequence_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence Id"
+          },
+          "expression": {
+            "type": "string",
+            "title": "Expression",
+            "default": ""
+          },
+          "reading": {
+            "type": "string",
+            "title": "Reading",
+            "default": ""
+          },
+          "sentence": {
+            "type": "string",
+            "title": "Sentence",
+            "default": ""
+          },
+          "target_surface": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Surface"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "target_conjugation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Conjugation"
+          }
+        },
+        "type": "object",
+        "title": "GeneratePracticeRequest"
+      },
       "GenericStatusResponse": {
         "properties": {
           "status": {
@@ -9724,6 +11130,59 @@
         },
         "type": "object",
         "title": "GenericStatusResponse"
+      },
+      "GradePracticeRequest": {
+        "properties": {
+          "question_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "persist": {
+            "type": "boolean",
+            "title": "Persist",
+            "default": true
+          },
+          "response_time_ms": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Time Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "answer"
+        ],
+        "title": "GradePracticeRequest"
       },
       "GrammarAnalyzeRequest": {
         "properties": {
@@ -9836,6 +11295,39 @@
           "learner_level"
         ],
         "title": "GrammarAnalyzeResponse"
+      },
+      "GrammarExplainRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "sentence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentence"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          }
+        },
+        "type": "object",
+        "title": "GrammarExplainRequest"
       },
       "GrammarPointItem": {
         "properties": {
@@ -13091,6 +14583,20 @@
         ],
         "title": "RecapResponse"
       },
+      "RevealBurstItemRequest": {
+        "properties": {
+          "item_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Item Index"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_index"
+        ],
+        "title": "RevealBurstItemRequest"
+      },
       "SaveCardRequest": {
         "properties": {
           "id": {
@@ -13751,10 +15257,66 @@
             "type": "integer",
             "title": "Gap Words Seen",
             "default": 0
+          },
+          "series": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series"
+          },
+          "episode_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Key"
           }
         },
         "type": "object",
         "title": "SessionStatCreate"
+      },
+      "SetWordStateRequest": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "expression": {
+            "type": "string",
+            "title": "Expression",
+            "default": ""
+          },
+          "reading": {
+            "type": "string",
+            "title": "Reading",
+            "default": ""
+          },
+          "sequence_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "title": "SetWordStateRequest"
       },
       "SetupChecklistItem": {
         "properties": {
@@ -13860,6 +15422,24 @@
           "source_type"
         ],
         "title": "SourceProvenanceDTO"
+      },
+      "StartBurstSessionRequest": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "target_count": {
+            "type": "integer",
+            "title": "Target Count",
+            "default": 5
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "title": "StartBurstSessionRequest"
       },
       "StudySettingsDTO": {
         "properties": {
@@ -13989,6 +15569,24 @@
         ],
         "title": "SubmitAnswerResponse"
       },
+      "SubmitBurstAnswerRequest": {
+        "properties": {
+          "item_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Item Index"
+          },
+          "user_answer": {
+            "title": "User Answer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_index",
+          "user_answer"
+        ],
+        "title": "SubmitBurstAnswerRequest"
+      },
       "SubmitFeedbackRequest": {
         "properties": {
           "attempt_item_id": {
@@ -14050,6 +15648,16 @@
               }
             ],
             "title": "Ignore Function Words"
+          },
+          "record_encounters": {
+            "type": "boolean",
+            "title": "Record Encounters",
+            "default": false
+          },
+          "source_media": {
+            "type": "string",
+            "title": "Source Media",
+            "default": ""
           }
         },
         "type": "object",
@@ -14160,6 +15768,150 @@
         },
         "type": "object",
         "title": "SyncAllResponse"
+      },
+      "SyncAnkiWordStatesRequest": {
+        "properties": {
+          "deck_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deck Name"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "note_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Ids"
+          },
+          "known_min_interval": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Min Interval"
+          },
+          "max_lapses": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Lapses"
+          },
+          "reconcile_deleted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reconcile Deleted"
+          }
+        },
+        "type": "object",
+        "title": "SyncAnkiWordStatesRequest"
+      },
+      "SyncAnkiWordStatesResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "connected": {
+            "type": "boolean",
+            "title": "Connected",
+            "default": true
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "synced": {
+            "type": "integer",
+            "title": "Synced",
+            "default": 0
+          },
+          "known": {
+            "type": "integer",
+            "title": "Known",
+            "default": 0
+          },
+          "learning": {
+            "type": "integer",
+            "title": "Learning",
+            "default": 0
+          },
+          "demoted": {
+            "type": "integer",
+            "title": "Demoted",
+            "default": 0
+          },
+          "suspended": {
+            "type": "integer",
+            "title": "Suspended",
+            "default": 0
+          },
+          "flagged": {
+            "type": "integer",
+            "title": "Flagged",
+            "default": 0
+          },
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted",
+            "default": 0
+          },
+          "skipped_override": {
+            "type": "integer",
+            "title": "Skipped Override",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "SyncAnkiWordStatesResponse"
       },
       "SyncCardResponse": {
         "properties": {
@@ -14410,6 +16162,28 @@
             "type": "string",
             "title": "Site",
             "default": ""
+          },
+          "series": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series"
+          },
+          "episode_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Key"
           }
         },
         "type": "object",
@@ -14453,6 +16227,21 @@
           "status"
         ],
         "title": "UpdateQuestionReportRequest"
+      },
+      "UsageTagsRequest": {
+        "properties": {
+          "sentence": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Sentence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sentence"
+        ],
+        "title": "UsageTagsRequest"
       },
       "ValidationError": {
         "properties": {
@@ -14756,6 +16545,173 @@
           "accuracy"
         ],
         "title": "WeakAreaItem"
+      },
+      "WordSetItemInput": {
+        "properties": {
+          "sequence_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Sequence Id"
+          },
+          "reading": {
+            "type": "string",
+            "title": "Reading",
+            "default": ""
+          },
+          "expression": {
+            "type": "string",
+            "title": "Expression",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "sequence_id"
+        ],
+        "title": "WordSetItemInput"
+      },
+      "WordStateItemResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "sequence_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence Id"
+          },
+          "reading": {
+            "type": "string",
+            "title": "Reading"
+          },
+          "expression": {
+            "type": "string",
+            "title": "Expression"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "first_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen At"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "anki_interval": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anki Interval"
+          },
+          "anki_lapses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anki Lapses"
+          },
+          "anki_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anki Status"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "reading",
+          "expression",
+          "state",
+          "updated_at"
+        ],
+        "title": "WordStateItemResponse"
+      },
+      "WordStateListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WordStateItemResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "WordStateListResponse"
+      },
+      "WordStateStatsResponse": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "active_total": {
+            "type": "integer",
+            "title": "Active Total",
+            "default": 0
+          },
+          "blacklisted_excluded": {
+            "type": "integer",
+            "title": "Blacklisted Excluded",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "WordStateStatsResponse"
       },
       "YomitanDictionariesResponse": {
         "properties": {
