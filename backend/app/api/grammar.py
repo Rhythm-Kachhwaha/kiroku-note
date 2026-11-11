@@ -7,10 +7,14 @@ from app.schemas import (
 from app.schemas_grammar import GrammarAnalyzeResponse
 from app.services.grammar_service import GrammarService
 from app.services.grammar_tracker import GrammarTrackerService
+from app.study.grammar_drills import GrammarDrillService
+from app.study.grammar_roadmap import GrammarRoadmapService
 
 grammar_router = APIRouter(prefix="/api/grammar", tags=["grammar"])
 _service = GrammarService()
 _tracker = GrammarTrackerService()
+_drills = GrammarDrillService(tracker_service=_tracker)
+_roadmap = GrammarRoadmapService(tracker_service=_tracker)
 
 
 class GrammarExplainRequest(BaseModel):
@@ -45,6 +49,15 @@ class GrammarDrillResultRequest(BaseModel):
 
 class BatchStatusRequest(BaseModel):
     pattern_keys: list[str]
+
+
+class DrillVerifyRequest(BaseModel):
+    modality: str
+    pattern_key: str
+    user_answer: str
+    expected_answer: str | None = None
+    context_sentence: str = ""
+    drill_id: str | None = None
 
 
 @grammar_router.post("/explain")
@@ -163,4 +176,57 @@ def get_point_dual_track_status(pattern_key: str):
 @grammar_router.post("/batch-status")
 def get_batch_dual_track_status(request: BatchStatusRequest):
     return {"results": _tracker.get_batch_dual_track_status(request.pattern_keys)}
+
+
+@grammar_router.get("/drills/session")
+def get_grammar_drill_session(
+    modality: str | None = Query(default=None),
+    level: str | None = Query(default=None),
+    pattern_key: str | None = Query(default=None),
+    count: int = Query(default=10, ge=1, le=20),
+):
+    """Generate anti-grind micro-session drills across proof modalities."""
+    return _drills.generate_session(
+        modality=modality,
+        level=level,
+        pattern_key=pattern_key,
+        count=count,
+    )
+
+
+@grammar_router.post("/drills/verify")
+def verify_grammar_drill(request: DrillVerifyRequest):
+    """Verify learner answer, score inflection/nuance, and record dual-track mastery."""
+    try:
+        return _drills.verify_drill_answer(
+            modality=request.modality,
+            pattern_key=request.pattern_key,
+            user_answer=request.user_answer,
+            expected_answer=request.expected_answer,
+            context_sentence=request.context_sentence,
+            drill_id=request.drill_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@grammar_router.get("/roadmap/flow")
+def get_grammar_roadmap_flow():
+    """Progression Flow: Genki / Tae Kim sequence with dual-track badges."""
+    return _roadmap.get_roadmap_flow()
+
+
+@grammar_router.get("/roadmap/hubs")
+def get_grammar_roadmap_hubs():
+    """Conceptual Hubs: Particles, Conjugations, Giving/Receiving, Conjectures, Conditionals, Voice."""
+    return _roadmap.get_conceptual_hubs()
+
+
+@grammar_router.get("/points/{pattern_key}/card")
+def get_grammar_point_mastery_card(pattern_key: str):
+    """Point Mastery Card: big picture banner, formation block, nuance contrasts, mined anime/cards context."""
+    card = _roadmap.get_point_mastery_card(pattern_key)
+    if not card:
+        raise HTTPException(status_code=404, detail=f"Grammar point '{pattern_key}' not found in reference index")
+    return card
 
