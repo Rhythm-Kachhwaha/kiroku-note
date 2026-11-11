@@ -274,7 +274,7 @@ SPECIAL_MATCHERS: dict[str, dict[str, Any]] = {
     "おう / よう": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+[およ]う"},
     "え / ろ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+[えろ]"},
     "さ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+さ"},
-    "し": {"type": "regex", "regex": "[^、。！？\s]+(?:る|た|ない|い|だ|でした|だった|ます|ました)し、"},
+    "し": {"type": "regex", "regex": r"[^、。！？\s]+(?:る|た|ない|い|だ|でした|だった|ます|ました)し、"},
     "ということだ": {"type": "regex", "regex": "[ぁ-ゖァ-ヺ一-龯]+ということ(?:だ|です)"},
     "からにかけて": {
         "type": "discontinuous",

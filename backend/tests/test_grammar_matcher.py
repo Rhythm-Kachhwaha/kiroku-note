@@ -95,6 +95,17 @@ def test_basic_particles_can_be_explicitly_enabled():
     assert any(item.pattern_key == "に" for item in items)
 
 
+def test_basic_particles_pos_filtering_prevents_false_positives():
+    matcher = GrammarMatcher()
+    # In "はい、そうです。", "は" is part of the interjection "はい", not pos[0] == "助詞"
+    items = matcher.match_sentence(tokens("はい、そうです。"), "はい、そうです。", show_basic_particles=True)
+    assert not any(item.pattern_key == "は" and item.start == 0 for item in items)
+
+    # In "私は学生です。", "は" has pos[0] == "助詞" and should match when show_basic_particles=True
+    items_topic = matcher.match_sentence(tokens("私は学生です。"), "私は学生です。", show_basic_particles=True)
+    assert any(item.pattern_key == "は" for item in items_topic)
+
+
 def test_inflected_span_excludes_preceding_subject_context():
     sentence = "私は食べちゃった。"
     item = next(item for item in GrammarMatcher().match_sentence(tokens(sentence), sentence)

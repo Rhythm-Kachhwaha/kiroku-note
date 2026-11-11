@@ -629,9 +629,18 @@ class GrammarMatcher:
             candidates.extend(self._match_point(point, raw_text, token_spans, morpheme_spans))
 
         if show_basic_particles:
-            particle_tokens = active_tokens or [{"text": char} for char in raw_text]
-            for token, start, end, _ in self._tokens(particle_tokens, raw_text):
-                if token in _BARE_PARTICLES and token in by_key:
+            syntactic_spans = morpheme_spans if morpheme_spans else self._tokens(active_tokens or [{"text": char} for char in raw_text], raw_text)
+            for token, start, end, meta in syntactic_spans:
+                pos = meta.get("pos") if isinstance(meta, dict) else None
+                is_particle = False
+                if isinstance(pos, (list, tuple)) and len(pos) > 0:
+                    is_particle = pos[0] == "助詞"
+                elif isinstance(pos, str) and ("助詞" in pos or "particle" in pos):
+                    is_particle = True
+                elif not pos:
+                    is_particle = True  # fallback if tokenizer didn't supply POS tags
+
+                if is_particle and token in _BARE_PARTICLES and token in by_key:
                     candidates.append(self._candidate(by_key[token], raw_text, start, end))
 
         candidates = [
