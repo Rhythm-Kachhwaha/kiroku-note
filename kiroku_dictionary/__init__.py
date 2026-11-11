@@ -8,7 +8,13 @@ from __future__ import annotations
 
 import os
 
-from .lookup import DictionaryEngine, KanjiResult, TermDefinition, TermHeadwordGroup
+from .lookup import (
+    CanonicalResolution,
+    DictionaryEngine,
+    KanjiResult,
+    TermDefinition,
+    TermHeadwordGroup,
+)
 from .deinflect import DeinflectionCandidate, deinflect
 from .normalizer import (
     CrossReference,
@@ -52,6 +58,7 @@ def lookup_kanji(text: str, db_path: str | None = None) -> list[KanjiResult]:
 
 
 __all__ = [
+    "CanonicalResolution",
     "DictionaryEngine",
     "TermHeadwordGroup",
     "TermDefinition",

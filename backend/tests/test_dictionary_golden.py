@@ -108,6 +108,59 @@ def test_golden_no_hit_error_code(configured_dict_service: YomitanService):
     assert "could not identify a Japanese term" in str(exc_info.value)
 
 
+def test_golden_phase1_contractions_honorifics_and_shinasai(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Verify LocalDictionaryProvider handles しなさい, 歩いてたら, お願いします, and Sudachi priority."""
+    import json
+    import zipfile
+    from kiroku_dictionary.importer import build_database
+    from app.services.dictionary_provider import LocalDictionaryProvider
+    from tests.fixtures.dict.generate import create_synthetic_kanjidic_zip
+
+    zip_path = tmp_path / "phase1_jitendex.zip"
+    kanji_zip = create_synthetic_kanjidic_zip(tmp_path / "phase1_kanjidic.zip")
+    db_path = tmp_path / "phase1_dict.sqlite"
+    index_json = {
+        "title": "Jitendex Phase1 Test",
+        "format": 3,
+        "revision": "test.phase1.1",
+        "sequenced": True,
+        "author": "Kiroku Test Suite",
+    }
+    terms = [
+        ["する", "する", "", "vs", 200, ["to do"], 1157170, "vs"],
+        ["歩く", "あるく", "", "v5", 200, ["to walk"], 1514320, "v5"],
+        ["お願い", "おねがい", "", "", 200, ["request"], 2036870, "n"],
+        ["お", "お", "", "", 0, ["honorific prefix"], 2089690, "pref"],
+        ["待つ", "まつ", "", "v5", 200, ["to wait"], 1423310, "v5"],
+        ["待てる", "まてる", "", "v1", 10, ["potential wait"], 9999001, "v1"],
+    ]
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("index.json", json.dumps(index_json, ensure_ascii=False))
+        zf.writestr("term_bank_1.json", json.dumps(terms, ensure_ascii=False))
+    build_database(jitendex_path=str(zip_path), kanjidic_path=str(kanji_zip), output_db_path=str(db_path))
+
+    provider = LocalDictionaryProvider(db_path=db_path)
+    try:
+        shinasai = provider.identify("しなさい")
+        assert shinasai.expression == "する"
+        assert shinasai.reading == "する"
+
+        aruitetara = provider.identify("歩いてたら")
+        assert aruitetara.expression == "歩く"
+        assert aruitetara.reading == "あるく"
+
+        onegai = provider.identify("お願いします")
+        assert onegai.expression == "お願い"
+        assert onegai.reading == "おねがい"
+
+        # Sudachi lemma (待つ) outranks an alternative shorter-chain deinflector candidate (待てる)
+        matenai = provider.identify("待てない")
+        assert matenai.expression == "待つ"
+        assert matenai.reading == "まつ"
+    finally:
+        provider.close()
+
+
 def test_regression_get_dictionary_service_singleton(synthetic_dict_db_path: Path, monkeypatch: pytest.MonkeyPatch):
     """get_dictionary_service() must be constructed once and reused across invocations."""
     reset_dictionary_service()

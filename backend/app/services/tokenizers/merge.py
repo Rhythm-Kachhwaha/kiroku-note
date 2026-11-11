@@ -7,8 +7,18 @@ from typing import Optional
 from app.services.tokenizers.base import Morpheme
 from kiroku_dictionary.deinflect import deinflect
 
-_SEPARATE = frozenset({"やすい", "なさい", "よう", "ように"})
+_SEPARATE = frozenset({
+    "やすい",
+    "なさい",
+    "よう",
+    "ように",
+    "らしい",
+    "そう",
+    "みたい",
+})
 _AUXILIARY_VERBS = frozenset({"いる", "おく", "くる"})
+_CONTRACTION_LEMMAS = frozenset({"てる", "でる", "ちゃう", "じゃう", "とく", "どく"})
+_LIGHT_COMPOUND_BLOCKLIST = frozenset({"する", "いたす", "なさる", "くださる", "なる"})
 _PREFIXES = frozenset({"お", "ご", "御"})
 _SUFFIXES = frozenset({"さん", "ちゃん", "くん", "たち", "達", "的", "化", "中", "語", "さま", "様"})
 _PERSON_PLURAL_SUFFIXES = frozenset({"さん", "ちゃん", "くん", "たち", "達", "さま", "様"})
@@ -61,14 +71,72 @@ def _is_suffix(morpheme: Morpheme) -> bool:
     )
 
 
+def _is_separated(morpheme: Morpheme) -> bool:
+    return morpheme.surface in _SEPARATE or morpheme.lemma in _SEPARATE
+
+
+def _is_verb_renyoukei(morpheme: Morpheme) -> bool:
+    return (
+        bool(morpheme.pos)
+        and morpheme.pos[0] == "動詞"
+        and len(morpheme.pos) >= 6
+        and morpheme.pos[5].startswith("連用形")
+    )
+
+
+def _is_te_particle(morpheme: Morpheme) -> bool:
+    """Return True for conjunctive て/で particles, excluding てる/でる contractions."""
+    if morpheme.surface not in {"て", "で"}:
+        return False
+    if bool(morpheme.pos) and morpheme.pos[0] == "助動詞":
+        return False
+    return morpheme.lemma not in {"てる", "でる"}
+
+
 def _is_auxiliary(morpheme: Morpheme) -> bool:
-    if morpheme.surface in _SEPARATE or morpheme.lemma in _SEPARATE:
+    if _is_separated(morpheme):
         return False
     return (
         (bool(morpheme.pos) and morpheme.pos[0] == "助動詞")
         or morpheme.lemma in _AUXILIARY_VERBS
+        or morpheme.lemma in _CONTRACTION_LEMMAS
         or morpheme.lemma == "ない"
     )
+
+
+def _consume_auxiliary_tail(
+    morphemes: list[Morpheme],
+    start_index: int,
+    *,
+    allow_nagara: bool = True,
+) -> int:
+    """Advance past contiguous auxiliary/contraction morphemes without crossing grammar boundaries."""
+    end = start_index
+    while end < len(morphemes):
+        current = morphemes[end]
+        if _is_separated(current):
+            break
+        if allow_nagara and current.surface == "ながら":
+            end += 1
+            break
+        if _is_te_particle(current):
+            if end + 1 < len(morphemes) and morphemes[end + 1].lemma in _AUXILIARY_VERBS:
+                end += 2
+                continue
+            prev = morphemes[end - 1]
+            if (
+                end > start_index
+                and prev.lemma in _CONTRACTION_LEMMAS
+                and prev.surface.endswith("っ")
+            ):
+                end += 1
+                continue
+            break
+        if _is_auxiliary(current):
+            end += 1
+            continue
+        break
+    return end
 
 
 def _resolve_potential_lemma(lemma: str, vocab: set[str]) -> str:
@@ -122,36 +190,46 @@ def merge_morphemes(
     while index < len(morphemes):
         head = morphemes[index]
 
-        # 1. Prefix merge: 接頭辞 (お/ご/御) + following noun/adjective unit
+        # 1. Prefix merge: 接頭辞 (お/ご/御) + following noun/adjective/verb-stem unit
         if _is_prefix(head) and index + 1 < len(morphemes):
             next_m = morphemes[index + 1]
-            if _is_noun(next_m) or _is_adjective(next_m):
+            if not _is_separated(next_m) and (
+                _is_noun(next_m) or _is_adjective(next_m) or _is_verb_renyoukei(next_m)
+            ):
                 merged_surface = head.surface + next_m.surface
-                base_lemma = f"{head.surface}{next_m.lemma}"
                 merged_reading = head.reading + next_m.reading
-                merged_pos = next_m.pos
                 merged_end = next_m.end
-                merged_normalized = head.normalized + next_m.normalized
                 is_oov = head.is_oov or next_m.is_oov
 
-                end = index + 2
-                while end < len(morphemes) and _is_suffix(morphemes[end]):
-                    suf = morphemes[end]
-                    merged_surface += suf.surface
-                    merged_reading += suf.reading
-                    merged_end = suf.end
-                    merged_normalized += suf.normalized
-                    is_oov = is_oov or suf.is_oov
-                    end += 1
-
-                if merged_surface in vocab:
+                if _is_verb_renyoukei(next_m):
+                    # Honorific お/ご + verb stem (e.g. お + 願い -> お願い, never お願う / 願いする)
+                    merged_pos: tuple[str, ...] = ("名詞", "普通名詞", "サ変可能", "*", "*", "*")
+                    merged_normalized = merged_surface
                     lemma = merged_surface
-                elif base_lemma in vocab:
-                    lemma = base_lemma
-                elif next_m.lemma in vocab:
-                    lemma = next_m.lemma
+                    end = index + 2
                 else:
-                    lemma = base_lemma
+                    base_lemma = f"{head.surface}{next_m.lemma}"
+                    merged_pos = next_m.pos
+                    merged_normalized = head.normalized + next_m.normalized
+
+                    end = index + 2
+                    while end < len(morphemes) and _is_suffix(morphemes[end]):
+                        suf = morphemes[end]
+                        merged_surface += suf.surface
+                        merged_reading += suf.reading
+                        merged_end = suf.end
+                        merged_normalized += suf.normalized
+                        is_oov = is_oov or suf.is_oov
+                        end += 1
+
+                    if merged_surface in vocab:
+                        lemma = merged_surface
+                    elif base_lemma in vocab:
+                        lemma = base_lemma
+                    elif next_m.lemma in vocab:
+                        lemma = next_m.lemma
+                    else:
+                        lemma = base_lemma
                 result.append(
                     Morpheme(
                         surface=merged_surface,
@@ -205,7 +283,11 @@ def merge_morphemes(
                 continue
 
         # 3. Known compound expressions in vocab (e.g. これ + から -> これから)
-        if index + 1 < len(morphemes):
+        if (
+            index + 1 < len(morphemes)
+            and not _is_separated(head)
+            and not _is_separated(morphemes[index + 1])
+        ):
             cand_pair = head.surface + morphemes[index + 1].surface
             if cand_pair in vocab:
                 tail = [morphemes[index + 1]]
@@ -226,9 +308,13 @@ def merge_morphemes(
                 continue
 
         # 5. Consecutive noun merging (compound nouns like 地域社会, 高齢者, 情報共有, 個人情報)
-        if _is_noun(head):
+        if _is_noun(head) and not _is_separated(head):
             end = index + 1
-            while end < len(morphemes) and (_is_noun(morphemes[end]) or _is_suffix(morphemes[end])):
+            while (
+                end < len(morphemes)
+                and not _is_separated(morphemes[end])
+                and (_is_noun(morphemes[end]) or _is_suffix(morphemes[end]))
+            ):
                 end += 1
             if end > index + 1:
                 tail = morphemes[index + 1 : end]
@@ -254,7 +340,11 @@ def merge_morphemes(
                 continue
 
         # 7. Adjective stem + しい / い (e.g. 美味 + しい -> 美味しい)
-        if index + 1 < len(morphemes) and morphemes[index + 1].surface in {"しい", "い"}:
+        if (
+            index + 1 < len(morphemes)
+            and not _is_separated(head)
+            and morphemes[index + 1].surface in {"しい", "い"}
+        ):
             next_m = morphemes[index + 1]
             cand_surface = head.surface + next_m.surface
             if cand_surface in vocab:
@@ -270,15 +360,7 @@ def merge_morphemes(
                 )
                 head = merged_adj
                 index += 1
-                end = index + 1
-                while end < len(morphemes):
-                    current = morphemes[end]
-                    if current.surface in _SEPARATE or current.lemma in _SEPARATE:
-                        break
-                    if _is_auxiliary(current):
-                        end += 1
-                        continue
-                    break
+                end = _consume_auxiliary_tail(morphemes, index + 1, allow_nagara=False)
                 if end > index + 1:
                     result.append(_merged(head, morphemes[index + 1 : end]))
                     index = end
@@ -293,23 +375,7 @@ def merge_morphemes(
             and morphemes[index + 1].surface == "に"
             and morphemes[index + 2].lemma == "つく"
         ):
-            end = index + 3
-            while end < len(morphemes):
-                current = morphemes[end]
-                if current.surface in _SEPARATE:
-                    break
-                if current.surface in {"て", "で"}:
-                    if (
-                        end + 1 < len(morphemes)
-                        and morphemes[end + 1].lemma in _AUXILIARY_VERBS
-                    ):
-                        end += 2
-                        continue
-                    break
-                if _is_auxiliary(current):
-                    end += 1
-                    continue
-                break
+            end = _consume_auxiliary_tail(morphemes, index + 3, allow_nagara=False)
             if end > index + 3:
                 result.append(
                     _merged(
@@ -322,7 +388,7 @@ def merge_morphemes(
                 continue
 
         # 9. Non-predicates / separated words
-        if head.surface in _SEPARATE or head.lemma in _SEPARATE or not _is_predicate(head):
+        if _is_separated(head) or not _is_predicate(head):
             result.append(head)
             index += 1
             continue
@@ -342,45 +408,30 @@ def merge_morphemes(
             )
 
         # 11. Compound verbs (e.g. 見 + 間違えた -> 見間違えた, lemma 見間違える)
-        if (
-            index + 1 < len(morphemes)
-            and _is_predicate(morphemes[index + 1])
-            and (
-                (bool(head.pos) and len(head.pos) >= 6 and head.pos[5].startswith("連用形"))
-                or (head.surface + morphemes[index + 1].lemma in vocab)
-            )
-        ):
+        if index + 1 < len(morphemes):
             next_m = morphemes[index + 1]
-            cand_verb_lemma = head.surface + next_m.lemma
-            end = index + 2
-            while end < len(morphemes) and (_is_auxiliary(morphemes[end]) or morphemes[end].surface in {"て", "で"}):
-                end += 1
-            tail = morphemes[index + 1 : end]
-            result.append(_merged(head, tail, lemma=cand_verb_lemma))
-            index = end
-            continue
-
-        # 12. Merge auxiliary chains for predicates (including ながら)
-        end = index + 1
-        while end < len(morphemes):
-            current = morphemes[end]
-            if current.surface in _SEPARATE or current.lemma in _SEPARATE:
-                break
-            if current.surface == "ながら":
-                end += 1
-                break
-            if current.surface in {"て", "で"}:
-                if (
-                    end + 1 < len(morphemes)
-                    and morphemes[end + 1].lemma in _AUXILIARY_VERBS
-                ):
-                    end += 2
-                    continue
-                break
-            if _is_auxiliary(current):
-                end += 1
+            is_lexical_v2 = (
+                not _is_separated(next_m)
+                and bool(next_m.pos)
+                and next_m.pos[0] == "動詞"
+                and (
+                    next_m.lemma not in _LIGHT_COMPOUND_BLOCKLIST
+                    or (head.surface + next_m.lemma in vocab)
+                )
+            )
+            if is_lexical_v2 and (
+                (bool(head.pos) and len(head.pos) >= 6 and head.pos[5].startswith("連用形"))
+                or (head.surface + next_m.lemma in vocab)
+            ):
+                cand_verb_lemma = head.surface + next_m.lemma
+                end = _consume_auxiliary_tail(morphemes, index + 2)
+                tail = morphemes[index + 1 : end]
+                result.append(_merged(head, tail, lemma=cand_verb_lemma))
+                index = end
                 continue
-            break
+
+        # 12. Merge auxiliary chains for predicates (including contractions and ながら)
+        end = _consume_auxiliary_tail(morphemes, index + 1)
 
         if end > index + 1:
             result.append(_merged(head, morphemes[index + 1 : end]))

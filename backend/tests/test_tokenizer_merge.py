@@ -76,3 +76,93 @@ def test_potential_form_lemma_normalization(sudachi):
         merged = merge_morphemes(tokens)
         assert len(merged) == 1
         assert merged[0].lemma == expected_lemma
+
+
+def test_contraction_merges_including_inflected_forms(sudachi):
+    """てる/でる/ちゃう/じゃう contractions merge cleanly across inflections."""
+    cases = [
+        ("歩いてる", "歩いてる", "歩く"),
+        ("歩いてた", "歩いてた", "歩く"),
+        ("歩いてたら", "歩いてたら", "歩く"),
+        ("飲んでる", "飲んでる", "飲む"),
+        ("飲んでた", "飲んでた", "飲む"),
+        ("飲んでたら", "飲んでたら", "飲む"),
+        ("食べちゃう", "食べちゃう", "食べる"),
+        ("食べちゃった", "食べちゃった", "食べる"),
+        ("食べちゃって", "食べちゃって", "食べる"),
+        ("食べちゃったら", "食べちゃったら", "食べる"),
+        ("飲んじゃう", "飲んじゃう", "飲む"),
+        ("飲んじゃった", "飲んじゃった", "飲む"),
+        ("飲んじゃって", "飲んじゃって", "飲む"),
+        ("飲んじゃったら", "飲んじゃったら", "飲む"),
+    ]
+    for text, expected_surface, expected_lemma in cases:
+        merged = merge_morphemes(sudachi.tokenize(text))
+        assert len(merged) == 1, f"Expected 1 token for {text}, got {merged}"
+        assert merged[0].surface == expected_surface
+        assert merged[0].lemma == expected_lemma
+
+
+def test_honorific_prefixes_and_suru_nouns(sudachi):
+    """Honorific お/ご + suru-nouns never produce fake lemmas like 願いする or お願う."""
+    merged_onegaishimasu = merge_morphemes(sudachi.tokenize("お願いします"))
+    assert [(m.surface, m.lemma) for m in merged_onegaishimasu] == [
+        ("お願い", "お願い"),
+        ("します", "する"),
+    ]
+    assert all("願いする" not in m.lemma and "お願う" not in m.lemma for m in merged_onegaishimasu)
+
+    merged_itasu = merge_morphemes(sudachi.tokenize("お願いいたします"))
+    assert [(m.surface, m.lemma) for m in merged_itasu] == [
+        ("お願い", "お願い"),
+        ("いたします", "いたす"),
+    ]
+
+    merged_denwa = merge_morphemes(sudachi.tokenize("お電話します"))
+    assert [(m.surface, m.lemma) for m in merged_denwa] == [
+        ("お電話", "電話"),
+        ("します", "する"),
+    ]
+
+    merged_renraku = merge_morphemes(sudachi.tokenize("ご連絡します"))
+    assert [(m.surface, m.lemma) for m in merged_renraku] == [
+        ("ご連絡", "連絡"),
+        ("します", "する"),
+    ]
+
+
+def test_auxiliary_suffixes_stay_separable(sudachi):
+    """らしい, そう, みたい, なさい stay separable grammar tokens."""
+    merged_rashii = merge_morphemes(sudachi.tokenize("食べさせられたくなかったらしい"))
+    assert [(m.surface, m.lemma) for m in merged_rashii] == [
+        ("食べさせられたくなかった", "食べる"),
+        ("らしい", "らしい"),
+    ]
+
+    merged_sou = merge_morphemes(sudachi.tokenize("雨が降りそうだ"))
+    assert [(m.surface, m.lemma) for m in merged_sou] == [
+        ("雨", "雨"),
+        ("が", "が"),
+        ("降り", "降る"),
+        ("そう", "そう"),
+        ("だ", "だ"),
+    ]
+
+    merged_mitai = merge_morphemes(sudachi.tokenize("学生みたいだ"))
+    assert [(m.surface, m.lemma) for m in merged_mitai] == [
+        ("学生", "学生"),
+        ("みたい", "みたい"),
+        ("だ", "だ"),
+    ]
+
+    merged_genki_sou = merge_morphemes(sudachi.tokenize("元気そう"))
+    assert [(m.surface, m.lemma) for m in merged_genki_sou] == [
+        ("元気", "元気"),
+        ("そう", "そう"),
+    ]
+
+    merged_shinasai = merge_morphemes(sudachi.tokenize("しなさい"))
+    assert [(m.surface, m.lemma) for m in merged_shinasai] == [
+        ("し", "する"),
+        ("なさい", "なさる"),
+    ]

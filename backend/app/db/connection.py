@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
-from typing import Iterator
+from typing import Any, Iterator, Sequence
 
 from app.config import get_db_path
 
@@ -83,6 +84,20 @@ CREATE TABLE IF NOT EXISTS grammar_encounters (
 );
 CREATE INDEX IF NOT EXISTS idx_grammar_encounters_pattern
     ON grammar_encounters(pattern_key, created_at DESC);
+CREATE TABLE IF NOT EXISTS unresolved_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    surface TEXT NOT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    normalized_form TEXT NOT NULL DEFAULT '',
+    proposed_lemma TEXT NOT NULL DEFAULT '',
+    sentence TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_unresolved_tokens_created
+    ON unresolved_tokens(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_unresolved_tokens_surface
+    ON unresolved_tokens(surface, proposed_lemma);
 """
 
 
@@ -229,3 +244,149 @@ def init_db(db_path: Path | str | None = None) -> None:
         conn.execute("DROP TABLE IF EXISTS extension_token")
         migrate_canonical_grammar_keys(conn)
         conn.commit()
+
+
+_UNRESOLVED_TOKENS_DDL = """
+CREATE TABLE IF NOT EXISTS unresolved_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    surface TEXT NOT NULL,
+    reading TEXT NOT NULL DEFAULT '',
+    normalized_form TEXT NOT NULL DEFAULT '',
+    proposed_lemma TEXT NOT NULL DEFAULT '',
+    sentence TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_unresolved_tokens_created
+    ON unresolved_tokens(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_unresolved_tokens_surface
+    ON unresolved_tokens(surface, proposed_lemma);
+"""
+
+
+def ensure_unresolved_tokens_table(conn: sqlite3.Connection) -> None:
+    """Safely ensure the unresolved_tokens table exists on an open connection."""
+    conn.executescript(_UNRESOLVED_TOKENS_DDL)
+
+
+def record_unresolved_token(
+    surface: str,
+    *,
+    reading: str = "",
+    normalized_form: str = "",
+    proposed_lemma: str = "",
+    sentence: str = "",
+    source: str = "",
+    db_path: Path | str | None = None,
+    conn: sqlite3.Connection | None = None,
+) -> int | None:
+    """Persist a single OOV/unresolved token entry and return its row id."""
+    clean_surface = (surface or "").strip()
+    if not clean_surface:
+        return None
+    now_utc = datetime.now(timezone.utc).isoformat()
+    params = (
+        clean_surface,
+        str(reading or ""),
+        str(normalized_form or ""),
+        str(proposed_lemma or ""),
+        str(sentence or ""),
+        str(source or ""),
+        now_utc,
+    )
+    if conn is not None:
+        ensure_unresolved_tokens_table(conn)
+        cur = conn.execute(
+            """
+            INSERT INTO unresolved_tokens (
+                surface, reading, normalized_form, proposed_lemma, sentence, source, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            params,
+        )
+        conn.commit()
+        return cur.lastrowid
+
+    with db_session(db_path) as session_conn:
+        ensure_unresolved_tokens_table(session_conn)
+        cur = session_conn.execute(
+            """
+            INSERT INTO unresolved_tokens (
+                surface, reading, normalized_form, proposed_lemma, sentence, source, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            params,
+        )
+        session_conn.commit()
+        return cur.lastrowid
+
+
+def record_unresolved_tokens(
+    tokens: Sequence[Any],
+    *,
+    sentence: str = "",
+    source: str = "",
+    db_path: Path | str | None = None,
+    conn: sqlite3.Connection | None = None,
+) -> int:
+    """Batch-persist unresolved Morpheme or dict entries and return inserted count."""
+    now_utc = datetime.now(timezone.utc).isoformat()
+    rows: list[tuple[str, str, str, str, str, str, str]] = []
+    for tok in tokens:
+        if isinstance(tok, dict):
+            surface = str(tok.get("surface") or "").strip()
+            reading = str(tok.get("reading") or "")
+            normalized_form = str(tok.get("normalized_form") or tok.get("normalized") or "")
+            proposed_lemma = str(tok.get("proposed_lemma") or tok.get("lemma") or "")
+        else:
+            surface = str(getattr(tok, "surface", "") or "").strip()
+            reading = str(getattr(tok, "reading", "") or "")
+            normalized_form = str(getattr(tok, "normalized", "") or "")
+            proposed_lemma = str(getattr(tok, "lemma", "") or "")
+        if not surface:
+            continue
+        rows.append((surface, reading, normalized_form, proposed_lemma, str(sentence or ""), str(source or ""), now_utc))
+
+    if not rows:
+        return 0
+
+    sql = """
+        INSERT INTO unresolved_tokens (
+            surface, reading, normalized_form, proposed_lemma, sentence, source, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    """
+    if conn is not None:
+        ensure_unresolved_tokens_table(conn)
+        conn.executemany(sql, rows)
+        conn.commit()
+        return len(rows)
+
+    with db_session(db_path) as session_conn:
+        ensure_unresolved_tokens_table(session_conn)
+        session_conn.executemany(sql, rows)
+        session_conn.commit()
+        return len(rows)
+
+
+def list_unresolved_tokens(
+    *,
+    limit: int = 100,
+    db_path: Path | str | None = None,
+    conn: sqlite3.Connection | None = None,
+) -> list[dict[str, Any]]:
+    """Return recent unresolved_tokens entries ordered newest-first."""
+    sql = """
+        SELECT id, surface, reading, normalized_form, proposed_lemma, sentence, source, created_at
+        FROM unresolved_tokens
+        ORDER BY id DESC
+        LIMIT ?
+    """
+    if conn is not None:
+        ensure_unresolved_tokens_table(conn)
+        rows = conn.execute(sql, (limit,)).fetchall()
+        return [dict(row) for row in rows]
+
+    with db_session(db_path) as session_conn:
+        ensure_unresolved_tokens_table(session_conn)
+        rows = session_conn.execute(sql, (limit,)).fetchall()
+        return [dict(row) for row in rows]

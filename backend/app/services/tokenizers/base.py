@@ -17,6 +17,17 @@ class Morpheme:
     end: int
     normalized: str
     is_oov: bool = False
+    unresolved: bool = False
+    resolution_status: str = "unvalidated"
+    sequence_id: int | None = None
+    canonical_reading: str | None = None
+
+    @property
+    def canonical_id(self) -> tuple[int, str] | None:
+        """Return canonical (sequence_id, reading) key when resolved against dictionary."""
+        if self.sequence_id is None:
+            return None
+        return (self.sequence_id, self.canonical_reading or self.reading)
 
 
 class Tokenizer(Protocol):

@@ -160,6 +160,10 @@ class AnnotatedToken(dict):
         level_source: str | None = None,
         est_level: str | None = None,
         gloss: str = "",
+        sequence_id: int | None = None,
+        canonical_reading: str | None = None,
+        unresolved: bool = False,
+        resolution_status: str = "unvalidated",
     ) -> None:
         super().__init__(
             surface=surface,
@@ -176,6 +180,10 @@ class AnnotatedToken(dict):
             level_source=level_source,
             est_level=est_level,
             gloss=gloss,
+            sequence_id=sequence_id,
+            canonical_reading=canonical_reading,
+            unresolved=unresolved,
+            resolution_status=resolution_status,
         )
 
     @property
@@ -234,6 +242,29 @@ class AnnotatedToken(dict):
     def gloss(self) -> str:
         return self.get("gloss", "")
 
+    @property
+    def sequence_id(self) -> int | None:
+        return self.get("sequence_id")
+
+    @property
+    def canonical_reading(self) -> str | None:
+        return self.get("canonical_reading")
+
+    @property
+    def canonical_id(self) -> tuple[int, str] | None:
+        seq = self.get("sequence_id")
+        if seq is None:
+            return None
+        return (seq, self.get("canonical_reading") or self.get("reading", ""))
+
+    @property
+    def unresolved(self) -> bool:
+        return bool(self.get("unresolved", False))
+
+    @property
+    def resolution_status(self) -> str:
+        return self.get("resolution_status", "unvalidated")
+
 
 class AnnotatedCue(dict):
     """Subtitle cue containing a list of AnnotatedToken objects."""
@@ -285,11 +316,15 @@ class SubtitleAnnotatorService:
         jlpt_service: JlptReferenceService | None = None,
         learner_level: str | None = None,
         ignore_function_words: bool = True,
+        dict_engine: Any = None,
     ) -> None:
         self._db_path = Path(db_path) if db_path is not None else get_db_path()
         self._jlpt_service = jlpt_service or JlptReferenceService()
         self._default_learner_level = learner_level
         self._default_ignore_function_words = ignore_function_words
+        self._dict_engine = dict_engine
+        self._dict_engine_checked = dict_engine is not None
+        self._canonical_cache: dict[tuple[str, str, str, str, str], Any] = {}
         configured_mode = get_tokenizer_mode()
         dictionary_variant = get_sudachi_dictionary_variant()
         if configured_mode == "legacy":
@@ -536,6 +571,52 @@ class SubtitleAnnotatorService:
             for c in cues
         ]
 
+    def _get_dict_engine(self) -> Any:
+        if self._dict_engine is not None or self._dict_engine_checked:
+            return self._dict_engine
+        self._dict_engine_checked = True
+        try:
+            from app.services.dictionary_provider import resolve_dictionary_db_path
+            from kiroku_dictionary import DictionaryEngine
+
+            dict_path = resolve_dictionary_db_path()
+            if dict_path.is_file():
+                self._dict_engine = DictionaryEngine(str(dict_path))
+        except Exception as exc:
+            logger.debug("Optional DictionaryEngine init skipped in SubtitleAnnotatorService: %s", exc)
+            self._dict_engine = None
+        return self._dict_engine
+
+    def _resolve_canonical_for_token(
+        self,
+        lemma: str,
+        normalized: str,
+        surface: str,
+        reading: str,
+        pos: tuple[str, ...] | str,
+    ) -> tuple[int | None, str | None, bool, str]:
+        pos0 = pos[0] if isinstance(pos, tuple) and pos else (pos if isinstance(pos, str) else "")
+        if not surface or surface.isspace() or pos0 in ("補助記号", "記号", "空白"):
+            return (None, None, False, "skipped")
+
+        engine = self._get_dict_engine()
+        if engine is None:
+            return (None, None, False, "unvalidated")
+
+        key = (lemma, normalized, surface, reading, pos0)
+        if key not in self._canonical_cache:
+            self._canonical_cache[key] = engine.resolve_canonical(
+                lemma,
+                normalized_form=normalized,
+                surface=surface,
+                reading=reading,
+                pos=pos,
+            )
+        canon = self._canonical_cache[key]
+        if canon is None:
+            return (None, None, True, "unresolved")
+        return (canon.sequence_id, canon.reading, False, "resolved")
+
     def _lookup_gloss(self, lemma: str, surface: str = "") -> str:
         return (
             self._vocab_gloss_cache.get(lemma)
@@ -598,6 +679,9 @@ class SubtitleAnnotatorService:
                 if not ignore_function_words and jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level)
                 else "unstyled"
             )
+            seq_id, canon_rdg, is_unres, res_status = self._resolve_canonical_for_token(
+                text, text, text, text, ("助詞",)
+            )
             return [
                 AnnotatedToken(
                     surface=text,
@@ -614,6 +698,10 @@ class SubtitleAnnotatorService:
                     level_source="vocab" if jlpt_lvl else None,
                     est_level=None,
                     gloss=self._lookup_gloss(text, text),
+                    sequence_id=seq_id,
+                    canonical_reading=canon_rdg,
+                    unresolved=is_unres,
+                    resolution_status=res_status,
                 )
             ]
 
@@ -652,6 +740,14 @@ class SubtitleAnnotatorService:
                     end=end,
                 )
                 for st in span_tokens:
+                    st_pos = st.pos or (m.pos[0] if m.pos else "")
+                    seq_id, canon_rdg, is_unres, res_status = self._resolve_canonical_for_token(
+                        st.lemma,
+                        m.normalized if len(span_tokens) == 1 else st.lemma,
+                        st.surface,
+                        st.reading or m.reading,
+                        st_pos,
+                    )
                     shifted = AnnotatedToken(
                         surface=st.surface,
                         lemma=st.lemma,
@@ -663,10 +759,14 @@ class SubtitleAnnotatorService:
                         start_char=m.start + st.start_char,
                         end_char=m.start + st.end_char,
                         known=st.known,
-                        pos=st.pos or (m.pos[0] if m.pos else ""),
+                        pos=st_pos,
                         level_source=st.level_source or ("vocab" if st.jlpt_level else None),
                         est_level=st.est_level,
                         gloss=st.get("gloss") or self._lookup_gloss(st.lemma, st.surface),
+                        sequence_id=seq_id,
+                        canonical_reading=canon_rdg,
+                        unresolved=is_unres,
+                        resolution_status=res_status,
                     )
                     tokens.append(shifted)
                 continue
@@ -757,6 +857,13 @@ class SubtitleAnnotatorService:
                 status = "unstyled"
 
             pos_str = m.pos[0] if m.pos else ""
+            seq_id, canon_rdg, is_unres, res_status = self._resolve_canonical_for_token(
+                m.lemma,
+                m.normalized,
+                m.surface,
+                m.reading or token_reading,
+                m.pos,
+            )
             tokens.append(
                 AnnotatedToken(
                     surface=m.surface,
@@ -773,6 +880,10 @@ class SubtitleAnnotatorService:
                     level_source=level_source,
                     est_level=est_level,
                     gloss=self._lookup_gloss(resolved_lemma, m.surface),
+                    sequence_id=seq_id,
+                    canonical_reading=canon_rdg,
+                    unresolved=is_unres,
+                    resolution_status=res_status,
                 )
             )
 

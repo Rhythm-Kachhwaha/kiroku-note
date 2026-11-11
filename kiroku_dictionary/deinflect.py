@@ -322,6 +322,21 @@ _RULES: list[tuple[str, str, str, str, str]] = [
     ("こい", "くる", "any", "vk", "imperative"),
     ("来い", "来る", "any", "vk", "imperative"),
 
+    # Polite imperative (なさい)
+    ("なさい", "る", "any", "v1", "polite-imperative"),
+    ("きなさい", "く", "any", "v5", "polite-imperative"),
+    ("ぎなさい", "ぐ", "any", "v5", "polite-imperative"),
+    ("しなさい", "す", "any", "v5", "polite-imperative"),
+    ("ちなさい", "つ", "any", "v5", "polite-imperative"),
+    ("になさい", "ぬ", "any", "v5", "polite-imperative"),
+    ("びなさい", "ぶ", "any", "v5", "polite-imperative"),
+    ("みなさい", "む", "any", "v5", "polite-imperative"),
+    ("りなさい", "る", "any", "v5", "polite-imperative"),
+    ("いなさい", "う", "any", "v5", "polite-imperative"),
+    ("しなさい", "する", "any", "vs", "polite-imperative"),
+    ("きなさい", "くる", "any", "vk", "polite-imperative"),
+    ("来なさい", "来る", "any", "vk", "polite-imperative"),
+
     # =========================================================================
     # Desire / Tai (たい - inflects as adj-i)
     # =========================================================================

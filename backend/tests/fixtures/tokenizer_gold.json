@@ -2210,6 +2210,871 @@
         "grammar_ids": []
       },
       "provenance": "owner_reviewed"
+    },
+    {
+      "id": "phase1-001",
+      "source": "駅まで歩いてたら雨が降った。",
+      "jlpt": "N4",
+      "tags": [
+        "everyday_failure",
+        "inflection_chain",
+        "particle",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "駅",
+          "まで",
+          "歩いてたら",
+          "雨",
+          "が",
+          "降った",
+          "。"
+        ],
+        "lemmas": [
+          "駅",
+          "まで",
+          "歩く",
+          "雨",
+          "が",
+          "降る",
+          "。"
+        ],
+        "readings": [
+          "えき",
+          "まで",
+          "あるく",
+          "あめ",
+          "が",
+          "ふる",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N5",
+          "N5",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            3,
+            8
+          ],
+          [
+            8,
+            9
+          ],
+          [
+            9,
+            10
+          ],
+          [
+            10,
+            13
+          ],
+          [
+            13,
+            14
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
+    },
+    {
+      "id": "phase1-002",
+      "source": "コーヒーを飲んでた。",
+      "jlpt": "N5",
+      "tags": [
+        "everyday_failure",
+        "inflection_chain",
+        "loanword",
+        "particle",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "コーヒー",
+          "を",
+          "飲んでた",
+          "。"
+        ],
+        "lemmas": [
+          "コーヒー",
+          "を",
+          "飲む",
+          "。"
+        ],
+        "readings": [
+          "こーひー",
+          "を",
+          "のむ",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            9
+          ],
+          [
+            9,
+            10
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
+    },
+    {
+      "id": "phase1-003",
+      "source": "全部食べちゃった。",
+      "jlpt": "N4",
+      "tags": [
+        "everyday_failure",
+        "inflection_chain",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "全部",
+          "食べちゃった",
+          "。"
+        ],
+        "lemmas": [
+          "全部",
+          "食べる",
+          "。"
+        ],
+        "readings": [
+          "ぜんぶ",
+          "たべる",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            8
+          ],
+          [
+            8,
+            9
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
+    },
+    {
+      "id": "phase1-004",
+      "source": "水を飲んじゃった。",
+      "jlpt": "N4",
+      "tags": [
+        "everyday_failure",
+        "inflection_chain",
+        "particle",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "水",
+          "を",
+          "飲んじゃった",
+          "。"
+        ],
+        "lemmas": [
+          "水",
+          "を",
+          "飲む",
+          "。"
+        ],
+        "readings": [
+          "みず",
+          "を",
+          "のむ",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            8
+          ],
+          [
+            8,
+            9
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
+    },
+    {
+      "id": "phase1-005",
+      "source": "よろしくお願いします。",
+      "jlpt": "N4",
+      "tags": [
+        "everyday_failure",
+        "compound",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "よろしく",
+          "お願い",
+          "します",
+          "。"
+        ],
+        "lemmas": [
+          "よろしく",
+          "お願い",
+          "する",
+          "。"
+        ],
+        "readings": [
+          "（感）",
+          "おねがい",
+          "します",
+          "。"
+        ],
+        "pos": [
+          [
+            "副詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N3",
+          null,
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            4
+          ],
+          [
+            4,
+            7
+          ],
+          [
+            7,
+            10
+          ],
+          [
+            10,
+            11
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
+    },
+    {
+      "id": "phase1-006",
+      "source": "食べさせられたくなかったらしい。",
+      "jlpt": "N2",
+      "tags": [
+        "everyday_failure",
+        "inflection_chain",
+        "grammar_span",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "食べさせられたくなかった",
+          "らしい",
+          "。"
+        ],
+        "lemmas": [
+          "食べる",
+          "らしい",
+          "。"
+        ],
+        "readings": [
+          "たべる",
+          "らしい",
+          "。"
+        ],
+        "pos": [
+          [
+            "動詞"
+          ],
+          [
+            "助動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          null,
+          null
+        ],
+        "spans": [
+          [
+            0,
+            12
+          ],
+          [
+            12,
+            15
+          ],
+          [
+            15,
+            16
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
+    },
+    {
+      "id": "phase1-007",
+      "source": "明日は雨が降りそうだ。",
+      "jlpt": "N4",
+      "tags": [
+        "everyday_failure",
+        "grammar_span",
+        "particle",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "明日",
+          "は",
+          "雨",
+          "が",
+          "降り",
+          "そう",
+          "だ",
+          "。"
+        ],
+        "lemmas": [
+          "明日",
+          "歯",
+          "雨",
+          "が",
+          "降る",
+          "そう",
+          "だ",
+          "。"
+        ],
+        "readings": [
+          "あした",
+          "は",
+          "あめ",
+          "が",
+          "くだり",
+          "そう",
+          "だ",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "形状詞"
+          ],
+          [
+            "助動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          "N5",
+          "N5",
+          null,
+          "N5",
+          "N4",
+          null,
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            7
+          ],
+          [
+            7,
+            9
+          ],
+          [
+            9,
+            10
+          ],
+          [
+            10,
+            11
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
+    },
+    {
+      "id": "phase1-008",
+      "source": "彼は学生みたいだ。",
+      "jlpt": "N4",
+      "tags": [
+        "everyday_failure",
+        "grammar_span",
+        "particle",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "彼",
+          "は",
+          "学生",
+          "みたい",
+          "だ",
+          "。"
+        ],
+        "lemmas": [
+          "彼",
+          "歯",
+          "学生",
+          "みたい",
+          "だ",
+          "。"
+        ],
+        "readings": [
+          "かれ",
+          "は",
+          "がくせい",
+          "みたい",
+          "だ",
+          "。"
+        ],
+        "pos": [
+          [
+            "代名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "名詞"
+          ],
+          [
+            "形状詞"
+          ],
+          [
+            "助動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N4",
+          "N5",
+          "N5",
+          null,
+          null,
+          null
+        ],
+        "spans": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            4,
+            7
+          ],
+          [
+            7,
+            8
+          ],
+          [
+            8,
+            9
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
+    },
+    {
+      "id": "phase1-009",
+      "source": "学校に行った。",
+      "jlpt": "N5",
+      "tags": [
+        "everyday_failure",
+        "particle",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "学校",
+          "に",
+          "行った",
+          "。"
+        ],
+        "lemmas": [
+          "学校",
+          "二",
+          "行く",
+          "。"
+        ],
+        "readings": [
+          "がっこう",
+          "に",
+          "いく",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          "N5",
+          "N5",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            6
+          ],
+          [
+            6,
+            7
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
+    },
+    {
+      "id": "phase1-010",
+      "source": "会議を行った。",
+      "jlpt": "N3",
+      "tags": [
+        "everyday_failure",
+        "particle",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "会議",
+          "を",
+          "行った",
+          "。"
+        ],
+        "lemmas": [
+          "会議",
+          "を",
+          "行う",
+          "。"
+        ],
+        "readings": [
+          "かいぎ",
+          "を",
+          "おこなう",
+          "。"
+        ],
+        "pos": [
+          [
+            "名詞"
+          ],
+          [
+            "助詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N4",
+          null,
+          "N4",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            6
+          ],
+          [
+            6,
+            7
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
+    },
+    {
+      "id": "phase1-011",
+      "source": "早くしなさい。",
+      "jlpt": "N4",
+      "tags": [
+        "everyday_failure",
+        "grammar_span",
+        "punctuation"
+      ],
+      "expected": {
+        "surfaces": [
+          "早く",
+          "し",
+          "なさい",
+          "。"
+        ],
+        "lemmas": [
+          "早い",
+          "する",
+          "なさる",
+          "。"
+        ],
+        "readings": [
+          "はやく",
+          "し",
+          "なさい",
+          "。"
+        ],
+        "pos": [
+          [
+            "形容詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "動詞"
+          ],
+          [
+            "補助記号"
+          ]
+        ],
+        "levels": [
+          "N5",
+          "N5",
+          "N4",
+          null
+        ],
+        "spans": [
+          [
+            0,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            6
+          ],
+          [
+            6,
+            7
+          ]
+        ],
+        "inflections": [],
+        "grammar_ids": []
+      },
+      "provenance": "owner_reviewed"
     }
   ],
   "generated_draft_cases": {

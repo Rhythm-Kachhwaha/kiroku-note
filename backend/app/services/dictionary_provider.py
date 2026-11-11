@@ -105,6 +105,22 @@ class DictionaryProvider(ABC):
         """Return raw dictionary entries for a term."""
         ...
 
+    def term_exists(self, term: str) -> bool:
+        """Check whether a term exists in the dictionary backend."""
+        return bool(self.scan_term_entries(term))
+
+    def resolve_canonical(
+        self,
+        lemma: str,
+        *,
+        normalized_form: str = "",
+        surface: str = "",
+        reading: str = "",
+        pos: tuple[str, ...] | list[str] | str = (),
+    ) -> Any:
+        """Optional canonical JMdict entry resolution (implemented by LocalDictionaryProvider)."""
+        return None
+
 
 class YomitanHttpProvider(DictionaryProvider):
     """Existing HTTP client talking to Yomitan local server on port 19633."""
@@ -239,6 +255,30 @@ class LocalDictionaryProvider(DictionaryProvider):
                 pass
             self._engine = None
 
+    def term_exists(self, term: str) -> bool:
+        """Return True if term exists in the local dictionary terms table."""
+        engine = self._get_engine()
+        return engine.term_exists(term)
+
+    def resolve_canonical(
+        self,
+        lemma: str,
+        *,
+        normalized_form: str = "",
+        surface: str = "",
+        reading: str = "",
+        pos: tuple[str, ...] | list[str] | str = (),
+    ) -> Any:
+        """Resolve a token against local JMdict entries with reading/POS/tag disambiguation."""
+        engine = self._get_engine()
+        return engine.resolve_canonical(
+            lemma,
+            normalized_form=normalized_form,
+            surface=surface,
+            reading=reading,
+            pos=pos,
+        )
+
     def identify(self, text: str) -> IdentifiedTerm:
         clean = (text or "").strip()
         if not clean:
@@ -246,10 +286,27 @@ class LocalDictionaryProvider(DictionaryProvider):
 
         engine = self._get_engine()
 
-        # 1. Direct word lookup hits -> use it
-        results = engine.lookup_terms(clean, max_results=1, mode="word")
+        stripped = clean.strip(" \t\r\n　「」『』（）［］【】〈〉《》〔〕“”‘’\"'.,、。！？")
+        if not stripped:
+            stripped = clean
+
+        # 1. Direct word lookup hits -> disambiguate with Sudachi when multiple candidates match
+        results = engine.lookup_terms(clean, max_results=3, mode="word")
         if results:
             top = results[0]
+            if len(results) > 1:
+                try:
+                    from app.services.tokenizers.merge import merge_morphemes
+                    from app.services.tokenizers.sudachi import get_sudachi_tokenizer
+
+                    sudachi_tokens = merge_morphemes(get_sudachi_tokenizer().tokenize(stripped))
+                    if sudachi_tokens:
+                        pref_lemma = sudachi_tokens[0].lemma
+                        matched = [r for r in results if r.term == pref_lemma]
+                        if matched:
+                            top = matched[0]
+                except Exception as exc:
+                    logger.debug("Sudachi disambiguation skipped in identify: %s", exc)
             return IdentifiedTerm(
                 expression=top.term,
                 reading=top.reading,
@@ -257,16 +314,16 @@ class LocalDictionaryProvider(DictionaryProvider):
                 deinflected_text=top.term,
             )
 
-        stripped = clean.strip(" \t\r\n　「」『』（）［］【】〈〉《》〔〕“”‘’\"'.,、。！？")
-        if not stripped:
-            stripped = clean
-
-        # Tokenize with Sudachi (mode C) to inspect structure
+        # Tokenize with Sudachi (mode C) + product merge to inspect structure
         tokens = []
+        merged_tokens = []
         try:
+            from app.services.tokenizers.merge import merge_morphemes
             from app.services.tokenizers.sudachi import get_sudachi_tokenizer
+
             tok = get_sudachi_tokenizer()
             tokens = tok.tokenize(stripped)
+            merged_tokens = merge_morphemes(tokens)
         except Exception as exc:
             logger.debug("Sudachi tokenization skipped in identify: %s", exc)
 
@@ -276,6 +333,48 @@ class LocalDictionaryProvider(DictionaryProvider):
         if len(tokens) > 1 or any(p in clean for p in ("。", "！", "？", "\n", "、", " ", "　")):
             particles = {"の", "に", "を", "は", "が", "で", "と", "へ", "も", "か", "や", "ね", "よ", "から", "まで", "より"}
             scan_results = engine.lookup_terms(stripped, max_results=5, mode="scan")
+            first_merged_len = len(merged_tokens[0].surface) if merged_tokens else 0
+            if scan_results:
+                top = scan_results[0]
+                shorter_than_merged = first_merged_len > len(top.source)
+                if not shorter_than_merged and not (len(stripped) > len(top.source) and top.source in particles):
+                    return IdentifiedTerm(
+                        expression=top.term,
+                        reading=top.reading,
+                        source_text=top.source or stripped,
+                        deinflected_text=top.term,
+                    )
+
+            candidate_tokens = merged_tokens or tokens
+            if candidate_tokens:
+                chosen_token = None
+                for t in candidate_tokens:
+                    pos0 = t.pos[0] if t.pos else ""
+                    if pos0 not in ("助詞", "補助記号", "記号", "空白"):
+                        chosen_token = t
+                        break
+                if chosen_token is None:
+                    chosen_token = candidate_tokens[0]
+
+                for candidate_str in (chosen_token.lemma, chosen_token.normalized, chosen_token.surface):
+                    if not candidate_str:
+                        continue
+                    tok_hits = engine.lookup_terms(
+                        candidate_str,
+                        max_results=1,
+                        mode="word",
+                        preferred_lemma=chosen_token.lemma,
+                        preferred_reading=chosen_token.reading,
+                    )
+                    if tok_hits:
+                        top = tok_hits[0]
+                        return IdentifiedTerm(
+                            expression=top.term,
+                            reading=top.reading,
+                            source_text=chosen_token.surface or clean,
+                            deinflected_text=top.term,
+                        )
+
             if scan_results:
                 top = scan_results[0]
                 if not (len(stripped) > len(top.source) and top.source in particles):
@@ -285,29 +384,6 @@ class LocalDictionaryProvider(DictionaryProvider):
                         source_text=top.source or stripped,
                         deinflected_text=top.term,
                     )
-
-            if tokens:
-                chosen_token = None
-                for t in tokens:
-                    pos0 = t.pos[0] if t.pos else ""
-                    if pos0 not in ("助詞", "補助記号", "記号", "空白"):
-                        chosen_token = t
-                        break
-                if chosen_token is None:
-                    chosen_token = tokens[0]
-
-                for candidate_str in (chosen_token.lemma, chosen_token.surface):
-                    if not candidate_str:
-                        continue
-                    tok_hits = engine.lookup_terms(candidate_str, max_results=1, mode="word")
-                    if tok_hits:
-                        top = tok_hits[0]
-                        return IdentifiedTerm(
-                            expression=top.term,
-                            reading=top.reading,
-                            source_text=chosen_token.surface or clean,
-                            deinflected_text=top.term,
-                        )
 
         # 3. Single-token selection or no hit: fallback to raw text ONLY when selection is single kana word with no entry
         if is_kana_only(clean) and not any(ch in clean for ch in " \t\r\n　、。！？") and len(clean) <= 30:
