@@ -18,11 +18,12 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Any, Callable, Literal, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence
 
 from pydantic import BaseModel, Field
 
-from app.study.acquisition.parsers.models import ParsedExercise, ParsedQuestion
+if TYPE_CHECKING:
+    from app.study.acquisition.parsers.models import ParsedExercise, ParsedQuestion
 from app.study.ingestion.models import CandidateQuestion
 from app.study.verification.enums import VerificationStatus
 from app.study.verification.models import AISourceClaimInput

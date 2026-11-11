@@ -177,18 +177,19 @@ class PersistenceService:
         if existing_gs:
             return existing_gs["content_group_id"]
 
-        # 2. Check fingerprint deduplication WITHIN SAME SOURCE
+        # 2. Check fingerprint deduplication (global across content groups in study.db)
         cursor = conn.execute(
             """
             SELECT gr.group_id
             FROM group_revision gr
-            JOIN group_source gs ON gs.content_group_id = gr.group_id
-            WHERE gr.content_fingerprint = ? AND gs.source_id = ?;
+            WHERE gr.content_fingerprint = ?
+            LIMIT 1;
             """,
-            (rev_row["content_fingerprint"], source_id),
+            (rev_row["content_fingerprint"],),
         )
         existing = cursor.fetchone()
         if existing:
+            ProvenanceService.link_group_source(conn, existing["group_id"], source_id, external_group_ref=ext_group_ref)
             return existing["group_id"]
 
         # 1. Insert content_group
@@ -306,18 +307,20 @@ class PersistenceService:
             rev_id = existing_qs["current_revision_id"]
             return q_id, rev_id
 
-        # 2. Check fingerprint deduplication WITHIN SAME SOURCE
+        # 2. Check fingerprint deduplication (global across questions in study.db)
         cursor = conn.execute(
             """
             SELECT qr.question_id, qr.id as revision_id
             FROM question_revision qr
-            JOIN question_source qs ON qs.question_id = qr.question_id
-            WHERE qr.content_fingerprint = ? AND qs.source_id = ?;
+            WHERE qr.content_fingerprint = ?
+            LIMIT 1;
             """,
-            (rev_row["content_fingerprint"], source_id),
+            (rev_row["content_fingerprint"],),
         )
         existing_fp = cursor.fetchone()
         if existing_fp:
+            # Ensure question_source linkage is recorded even if question was previously ingested
+            ProvenanceService.link_question_source(conn, existing_fp["question_id"], source_id, external_question_ref=external_question_ref)
             return existing_fp["question_id"], existing_fp["revision_id"]
 
         # 3. Insert question

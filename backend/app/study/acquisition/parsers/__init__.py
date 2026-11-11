@@ -2,7 +2,6 @@
 Acquisition Source Parsers Package.
 """
 from app.study.acquisition.parsers.base import BaseSourceParser
-from app.study.acquisition.parsers.bunpro import BunproParser
 from app.study.acquisition.parsers.cotoacademy import CotoAcademyParser
 from app.study.acquisition.parsers.gyanmirai import GyanMiraiParser
 from app.study.acquisition.parsers.invariants import (

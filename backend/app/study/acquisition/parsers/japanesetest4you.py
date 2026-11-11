@@ -92,7 +92,6 @@ DISCARD_HEADERS = [
     re.compile(r"^\s*(?:<\w+[^>]*>)?(?:\*\*)?.*Kanji Lesson", re.IGNORECASE),
     re.compile(r"^\s*(?:<\w+[^>]*>)?(?:\*\*)?New words:", re.IGNORECASE),
     re.compile(r"^\s*(?:<\w+[^>]*>)?(?:\*\*)?Grammar points in this test:", re.IGNORECASE),
-    re.compile(r"Click here.*to download this test for offline viewing", re.IGNORECASE),
     re.compile(r"If you find any error in this post", re.IGNORECASE),
 ]
 
@@ -427,6 +426,22 @@ class JapaneseTest4YouParser(BaseSourceParser):
             if not is_radio_line:
                 q_match = QUESTION_START_RE.match(unwrapped) or QUESTION_START_RE.match(stripped)
 
+            # Lookahead disambiguation: If matched as a question number, but its stem looks like a full context sentence
+            # ending in '。' and the next non-empty line repeats the SAME number "N. ...", treat this line as a context sentence!
+            if q_match:
+                matched_num_str = q_match.group(1) or q_match.group(2) or q_match.group(3)
+                stem_cand = (q_match.group(4) or "").strip()
+                if (stem_cand.endswith("。") or len(stem_cand) > 15) and idx + 1 < len(content_lines):
+                    # Peek at next non-empty line
+                    for peek_i in range(idx + 1, min(idx + 5, len(content_lines))):
+                        peek_l = content_lines[peek_i].strip()
+                        if peek_l:
+                            peek_match = QUESTION_START_RE.match(peek_l)
+                            if peek_match and (peek_match.group(1) or peek_match.group(2) or peek_match.group(3)) == matched_num_str:
+                                last_context_sentence = stem_cand
+                                q_match = None
+                            break
+
             if q_match:
                 if current_question_num is not None:
                     q_obj = self._build_question(
@@ -485,11 +500,38 @@ class JapaneseTest4YouParser(BaseSourceParser):
                 idx += 1
                 continue
 
-            # F. Check for standalone context sentence before subquestions (e.g. in Kanji tests)
-            if current_question_num is None and current_passage is None and stripped.endswith("。"):
-                last_context_sentence = unwrapped or stripped
-                idx += 1
-                continue
+            # F. Check for standalone context sentence before subquestions (e.g. in Kanji tests without formal passage headers)
+            # Only applies when NOT inside a formal reading passage (current_passage is None)
+            if current_passage is None:
+                is_sentence_like = (
+                    stripped.endswith(("。", "？", "?", "！", "!"))
+                    or (len(stripped) >= 8 and any(punct in stripped for punct in ("、", "。", "「", "」", "は", "が", "を", "に", "で", "です", "ます")))
+                )
+                if is_sentence_like:
+                    if current_question_num is not None and len(current_choices) >= 4:
+                        q_obj = self._build_question(
+                            q_num=current_question_num,
+                            raw_stem=current_question_stem,
+                            choice_lines=current_choices,
+                            passage_id=current_passage.passage_id if current_passage else None,
+                            image_urls=current_question_images,
+                            audio_assoc=current_question_audio or shared_exercise_audio,
+                            answer_claims=answer_claims,
+                            context_sentence=last_context_sentence,
+                            warnings=warnings,
+                            level=level,
+                            section=section,
+                        )
+                        questions.append(q_obj)
+                        current_question_num = None
+                        current_choices = []
+                        current_question_images = []
+                        current_question_audio = None
+
+                    if current_question_num is None:
+                        last_context_sentence = unwrapped or stripped
+                        idx += 1
+                        continue
 
             # G. Accumulate Choices (if inside a question)
             if current_question_num is not None:
