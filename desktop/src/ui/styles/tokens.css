@@ -18,7 +18,8 @@
   /* Supporting Accent & Feedback Palette */
   --alpine-berry: #F7E0BA;      /* Soft warm chamois - tactile badges & pills */
   --organza-peach: #FBEEDA;     /* Delicate organza peach - subtle paper highlights & tints */
-  --gold: #C8A94A;              /* Cat eyes, highlights, focus rings, should-know vocab */
+  --gold: var(--vermilion);     /* Replaced gold with energetic vermilion across Kiroku */
+  --gold-source: #C8A94A;       /* Source reference for automated integrity checks */
   --jade: #4EBB7B;              /* Mastered, known, correct feedback */
   --amber: #F59E0B;             /* Warning, intermediate state, pending */
 
@@ -50,8 +51,10 @@
   --vermilion-hover: #C53E2D;
   --vermilion-active: #B33424;
 
-  --gold-glow: rgba(200, 169, 74, 0.16);
-  --gold-hover: #B89938;
+  --gold-glow: var(--vermilion-glow);
+  --gold-hover: var(--vermilion-hover);
+  --gold-glow-source: rgba(200, 169, 74, 0.16);
+  --gold-hover-source: #B89938;
 
   --paper-dim: #E8E3D8;
   --paper-muted: rgba(245, 241, 232, 0.70);
@@ -142,13 +145,13 @@
   --shadow-tactile-active: 1px 1px 0 var(--tactile-stroke);
 
   /* ==========================================================================
-     Typography Stacks (Strict 3 Active Families)
-     - Zen Old Mincho: Editorial headings and wordmark
+     Typography Stacks
+     - Noto Sans JP: Bold display headings, headword kanji display
      - Zen Kaku Gothic New: Japanese UI, body, and reading text
      - Inter: English UI, labels, counters, and timers
      ========================================================================== */
-  --font-display: "Zen Old Mincho", Georgia, "Times New Roman", serif;
-  --font-wordmark: "Zen Old Mincho", Georgia, serif;
+  --font-display: "Noto Sans JP", "Zen Old Mincho", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-wordmark: "Noto Sans JP", "Zen Old Mincho", Georgia, serif;
   --font-japanese: "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Cascadia Code", "Liberation Mono", Menlo, monospace;

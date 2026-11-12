@@ -55,18 +55,31 @@ export class TopChrome {
     if (!indicator) return;
 
     const sectionLabels = {
-      'home': 'Home',
-      'vocab': 'Vocabulary',
-      'vocab-history': 'History',
-      'grammar': 'Grammar',
-      'kanji': 'Kanji',
-      'test': 'Mock Exam',
-      'anime': 'Anime',
-      'manga': 'Manga',
-      'study': 'Study Drills',
-      'settings': 'Settings'
+      'home': { en: 'Home', ja: '' },
+      'vocab': { en: 'Vocab', ja: '単語' },
+      'vocab-history': { en: 'History', ja: '履歴' },
+      'grammar': { en: 'Grammar', ja: '文法' },
+      'kanji': { en: 'Kanji', ja: '漢字' },
+      'test': { en: 'Test', ja: 'テスト' },
+      'anime': { en: 'Anime', ja: 'アニメ' },
+      'manga': { en: 'Manga', ja: 'マンガ' },
+      'study': { en: 'Study', ja: '勉強' },
+      'settings': { en: 'Settings', ja: '設定' }
     };
-    indicator.textContent = sectionLabels[section] || section;
+    const meta = sectionLabels[section] || { en: section || 'Home', ja: '' };
+    indicator.textContent = meta.en;
+
+    let kanjiSpan = document.getElementById('top-chrome-section-kanji');
+    if (!kanjiSpan && indicator.parentNode) {
+      kanjiSpan = document.createElement('span');
+      kanjiSpan.id = 'top-chrome-section-kanji';
+      kanjiSpan.className = 'top-chrome-section-kanji';
+      indicator.parentNode.appendChild(kanjiSpan);
+    }
+    if (kanjiSpan) {
+      kanjiSpan.textContent = meta.ja;
+      kanjiSpan.style.display = meta.ja ? 'inline-block' : 'none';
+    }
   }
 
   async updateTelemetry() {

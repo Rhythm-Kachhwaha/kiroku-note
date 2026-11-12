@@ -76,10 +76,10 @@
 /* Section Indicator */
 .top-chrome-section-container {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.45rem;
   font-family: var(--font-sans);
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   color: var(--paper-muted, rgba(245, 241, 232, 0.70));
 }
 
@@ -89,9 +89,18 @@
 }
 
 .top-chrome-section-indicator {
-  font-weight: 600;
+  font-family: var(--font-display, "Zen Old Mincho", serif);
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--warm-paper);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.05em;
+}
+
+.top-chrome-section-kanji {
+  font-family: var(--font-japanese);
+  font-size: 0.85rem;
+  color: var(--rust-signal);
+  letter-spacing: 0.04em;
 }
 
 /* Right Section: Telemetry, Universal Level, Actions, Window Controls */

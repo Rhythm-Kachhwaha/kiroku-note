@@ -230,6 +230,12 @@ export class AppRouter {
       if (view.keepAlive) view.onShow?.();
       this.updateListenerDebugCounter();
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kiroku:section-changed', {
+          detail: { section: tabId, tab: tabId }
+        }));
+      }
+
       window.scrollTo(0, 0);
     };
 

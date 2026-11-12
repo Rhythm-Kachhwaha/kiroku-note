@@ -8,10 +8,19 @@
  */
 
 /* ==========================================================================
-   Active Font Families (Strict 3 Families with font-display: swap)
+   Active Font Families (Strict Families with font-display: swap)
    ========================================================================== */
 
-/* Zen Old Mincho (Yoshimichi Ohira) — Brand Wordmark & Editorial Headers */
+/* Noto Sans JP (Bold & Variable Offline) — Display & Kanji Headwords */
+@font-face {
+  font-family: "Noto Sans JP";
+  src: url("../assets/fonts/noto-sans-jp-vf.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Zen Old Mincho (Yoshimichi Ohira) — Brand Wordmark & Editorial Headers (Legacy Fallback) */
 @font-face {
   font-family: "Zen Old Mincho";
   src: url("../assets/fonts/zen-old-mincho-japanese-400-normal.woff2") format("woff2");

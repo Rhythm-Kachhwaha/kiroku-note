@@ -12,9 +12,9 @@ This document contains the locked, non-negotiable specifications for fonts and a
 All typography is strictly local, offline, and loaded from `desktop/src/ui/assets/fonts/` (zero external CDN dependencies).
 
 ### A. Core Active Families (tokens.css & fonts.css)
-1. **Zen Old Mincho** (`zen-old-mincho-japanese-400-normal.woff2`)
-   - **Role**: Brand wordmark, editorial headings, headword kanji display (`--font-display`, `--font-wordmark`).
-   - **CSS**: `font-family: "Zen Old Mincho", Georgia, "Times New Roman", serif;`
+1. **Noto Sans JP Bold** (`noto-sans-jp-vf.ttf`) / **Zen Old Mincho**
+   - **Role**: Brand wordmark, editorial headings, headword kanji display (`--font-display`, `--font-wordmark`). Replaced legacy serif kanji with bold Noto Sans Japanese (`"Noto Sans JP", "Noto Sans", sans-serif`).
+   - **CSS**: `font-family: "Noto Sans JP", "Noto Sans", -apple-system, sans-serif;`
 2. **Zen Kaku Gothic New** (`zen-kaku-gothic-new-japanese-400-normal.woff2`, `500-normal.woff2`)
    - **Role**: Japanese UI body, sentence reading, grammar visualizer, study cards, and practice text (`--font-japanese`).
    - **CSS**: `font-family: "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;`
