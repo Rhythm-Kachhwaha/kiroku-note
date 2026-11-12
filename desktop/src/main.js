@@ -15,6 +15,7 @@ const { DesktopStore } = require('./store');
 const { StudyApiClient } = require('./study_api_client');
 const { createLogger } = require('./logger');
 const { HotkeyManager } = require('./hotkeys');
+const { forwardApiRequest } = require('./api_proxy');
 
 // Enforce single-instance lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -38,6 +39,7 @@ let trayServicesStatus = {
   ocrInstalled: false,
   ocrAvailable: false
 };
+let backendStartupPromise = null;
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const processManager = new ProcessManager({
@@ -473,6 +475,35 @@ function showMainWindow() {
   mainWindow.focus();
 }
 
+async function ensureBackendReady(timeoutMs = 25000, options = {}) {
+  if (isQuitting) return false;
+
+  if (backendStartupPromise) {
+    return backendStartupPromise;
+  }
+
+  if (processManager.status === 'running' && !options.forceCheck) {
+    return true;
+  }
+
+  if (options.forceCheck && processManager.status === 'running') {
+    const healthy = await processManager.isBackendHealthy(800);
+    if (healthy) return true;
+  }
+
+  backendStartupPromise = (async () => {
+    await processManager.startBackend();
+    await processManager.waitForBackend(timeoutMs, 400);
+    return true;
+  })();
+
+  try {
+    return await backendStartupPromise;
+  } finally {
+    backendStartupPromise = null;
+  }
+}
+
 async function startBackendAndLoadUI() {
   try {
     const isSidepanelView = process.env.KIROKU_DESKTOP_VIEW === 'sidepanel';
@@ -487,8 +518,7 @@ async function startBackendAndLoadUI() {
       mainWindow.loadFile(path.join(__dirname, 'loading.html'));
     }
 
-    await processManager.startBackend();
-    await processManager.waitForBackend(25000, 400);
+    await ensureBackendReady(25000);
 
     // Refresh system tray status indicators with live backend responses
     refreshServicesStatus(true).catch(() => {});
@@ -724,152 +754,22 @@ function setupIpcHandlers() {
 
   // General FastAPI Backend IPC Proxy (eliminates direct browser fetch & CORS restrictions under file://)
   ipcMain.handle('kiroku:api:request', async (event, req = {}) => {
-    try {
-      if (!req || typeof req !== 'object') {
-        throw new Error('Invalid request payload');
-      }
-
-      const { method = 'GET', path: reqPath, query, body, headers = {}, timeoutMs = 15000 } = req;
-
-      if (typeof reqPath !== 'string' || !reqPath.startsWith('/api/')) {
-        throw new Error('Unauthorized or invalid API path: ' + reqPath);
-      }
-
-      if (reqPath.includes('..') || reqPath.includes('://')) {
-        throw new Error('Path traversal or arbitrary URL not allowed');
-      }
-
-      const allowedMethods = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
-      const upperMethod = String(method).toUpperCase();
-      if (!allowedMethods.includes(upperMethod)) {
-        throw new Error('Method ' + method + ' is not permitted');
-      }
-
-      const host = processManager.host || '127.0.0.1';
-      const port = processManager.port || 21828;
-
-      let fullPath = reqPath;
-      if (query && typeof query === 'object') {
-        const searchParams = new URLSearchParams();
-        for (const [k, v] of Object.entries(query)) {
-          if (v !== undefined && v !== null) {
-            searchParams.append(k, String(v));
-          }
+    return forwardApiRequest({
+      req,
+      host: processManager.host || '127.0.0.1',
+      port: processManager.port || 21828,
+      getToken: () => processManager.getApiToken(),
+      agent: apiHttpAgent,
+      ensureBackendReady: async (waitTimeoutMs, opts) => {
+        try {
+          return await ensureBackendReady(waitTimeoutMs, opts);
+        } catch (err) {
+          log.warn('[IPC Proxy] Backend readiness wait failed:', err.message);
+          return false;
         }
-        const qs = searchParams.toString();
-        if (qs) {
-          fullPath += (fullPath.includes('?') ? '&' : '?') + qs;
-        }
-      }
-
-      const requestHeaders = {
-        'Accept': 'application/json',
-        'Origin': `http://127.0.0.1:${port}`,
-        'Authorization': `Bearer ${processManager.getApiToken()}`,
-        ...headers
-      };
-
-      let requestPayload = null;
-      if (body !== undefined && body !== null) {
-        if (typeof body === 'object') {
-          requestPayload = JSON.stringify(body);
-          if (!requestHeaders['Content-Type']) {
-            requestHeaders['Content-Type'] = 'application/json';
-          }
-        } else {
-          requestPayload = String(body);
-        }
-        requestHeaders['Content-Length'] = Buffer.byteLength(requestPayload);
-      }
-
-      return await new Promise((resolve) => {
-        const requestOptions = {
-          hostname: host,
-          port: port,
-          path: fullPath,
-          method: upperMethod,
-          headers: requestHeaders,
-          timeout: timeoutMs,
-          agent: apiHttpAgent
-        };
-
-        const httpRequest = http.request(requestOptions, (httpResponse) => {
-          const chunks = [];
-          httpResponse.on('data', chunk => chunks.push(chunk));
-          httpResponse.on('end', () => {
-            const buffer = Buffer.concat(chunks);
-            let parsedData = null;
-            const contentType = httpResponse.headers['content-type'] || '';
-            if (contentType.includes('application/json')) {
-              try {
-                parsedData = JSON.parse(buffer.toString('utf8'));
-              } catch (_) {
-                parsedData = buffer.toString('utf8');
-              }
-            } else {
-              parsedData = buffer.toString('utf8');
-            }
-
-            const isSuccess = httpResponse.statusCode >= 200 && httpResponse.statusCode < 300;
-            if (isSuccess) {
-              resolve({
-                success: true,
-                status: httpResponse.statusCode,
-                headers: httpResponse.headers,
-                data: parsedData
-              });
-            } else {
-              resolve({
-                success: false,
-                status: httpResponse.statusCode,
-                headers: httpResponse.headers,
-                data: parsedData,
-                error: {
-                  statusCode: httpResponse.statusCode,
-                  message: (parsedData && (parsedData.detail || parsedData.message)) || ('HTTP ' + httpResponse.statusCode) 
-                }
-              });
-            }
-          });
-        });
-
-        httpRequest.on('timeout', () => {
-          httpRequest.destroy();
-          resolve({
-            success: false,
-            status: 0,
-            error: {
-              code: 'TIMEOUT',
-              message: 'Request to ' + reqPath + ' timed out after ' + timeoutMs + 'ms'
-            }
-          });
-        });
-
-        httpRequest.on('error', (err) => {
-          resolve({
-            success: false,
-            status: 0,
-            error: {
-              code: 'NETWORK_ERROR',
-              message: err.message
-            }
-          });
-        });
-
-        if (requestPayload) {
-          httpRequest.write(requestPayload);
-        }
-        httpRequest.end();
-      });
-    } catch (err) {
-      return {
-        success: false,
-        error: {
-          code: 'REQUEST_FAILED',
-          message: err.message
-        }
-      };
-    }
+      },
+      isQuitting: () => isQuitting
+    });
   });
 
   // Secure Study API bridge handler

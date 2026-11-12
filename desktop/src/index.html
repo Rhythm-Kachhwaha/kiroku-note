@@ -137,24 +137,46 @@
 
       async function monitorAppReadiness() {
         let isReady = false;
+        const hasDesktopBridge = Boolean(window.desktopAPI?.onBackendReady);
+        let backendReady = !hasDesktopBridge;
+        let uiReady = false;
+
         const markReady = () => {
           if (isReady) return;
           isReady = true;
           dismissSplash();
         };
 
-        if (window.desktopAPI?.onBackendReady) {
-          window.desktopAPI.onBackendReady(() => markReady());
+        const tryMarkReady = () => {
+          if (backendReady && uiReady) {
+            markReady();
+          }
+        };
+
+        if (hasDesktopBridge) {
+          window.desktopAPI.onBackendReady(() => {
+            backendReady = true;
+            tryMarkReady();
+          });
+
+          // Fast probe: check if backend is already listening
+          fetch('http://127.0.0.1:21828/api/health', {
+            headers: { 'Accept': 'application/json' }
+          }).then((res) => {
+            if (res && res.ok) {
+              backendReady = true;
+              tryMarkReady();
+            }
+          }).catch(() => {});
+
+          setTimeout(() => {
+            if (!isReady && !backendReady && statusText) {
+              statusText.textContent = 'Starting local backend...';
+            }
+          }, 900);
         }
 
-        // Fast probe: check if backend is already listening
-        fetch('http://127.0.0.1:21828/api/health', {
-          headers: { 'Accept': 'application/json' }
-        }).then((res) => {
-          if (res && res.ok) markReady();
-        }).catch(() => {});
-
-        // Drop the splash as soon as initial route finishes rendering and fonts settle
+        // Wait for initial route and fonts to settle
         try {
           if (document.fonts?.ready) {
             await document.fonts.ready;
@@ -163,12 +185,13 @@
 
         router.navigationQueue.then(() => {
           requestAnimationFrame(() => {
-            markReady();
+            uiReady = true;
+            tryMarkReady();
           });
         });
 
-        // Safety fallback: never hold the splash for more than 800ms
-        setTimeout(markReady, 800);
+        // Safety fallback: never hold the splash indefinitely
+        setTimeout(markReady, hasDesktopBridge ? 15000 : 800);
       }
 
       monitorAppReadiness();
