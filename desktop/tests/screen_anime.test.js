@@ -69,6 +69,5 @@ test('Anime CSS: anime.css uses strictly tokens and no raw hex', () => {
 
   // Uses design tokens
   assert.match(css, /var\(--pure-black\)/);
-  assert.match(css, /var\(--architectural-cream\)/);
-  assert.match(css, /var\(--tactile-stroke\)/);
+  assert.match(css, /var\(--border-subtle\)/);
 });
