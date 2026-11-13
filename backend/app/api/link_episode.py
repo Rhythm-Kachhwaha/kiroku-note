@@ -12,6 +12,7 @@ from app.link.episode import (
     group_episodes_by_series,
     list_episode_records,
     save_episode_position,
+    update_series_category,
 )
 from app.schemas_link_episode import (
     EpisodeRecord,
@@ -21,6 +22,7 @@ from app.schemas_link_episode import (
     RecapResponse,
     SeriesGroup,
     UpdatePositionRequest,
+    UpdateSeriesCategoryRequest,
 )
 
 router = APIRouter(prefix="/api/link", tags=["link-episode"])
@@ -81,10 +83,53 @@ def post_episode_position(cue_hash: str, request: UpdatePositionRequest) -> Epis
 
 
 @router.get("/series", response_model=List[SeriesGroup], summary="Get watch history grouped by series")
-def get_series() -> List[SeriesGroup]:
-    """Returns watch history grouped by series with known% per episode."""
-    groups = group_episodes_by_series()
-    return [SeriesGroup(series=g["series"], episodes=[EpisodeRecord(**ep) for ep in g["episodes"]]) for g in groups]
+def get_series(media_type: Optional[str] = Query(None, description="Optional media_type filter: anime, youtube, tv")) -> List[SeriesGroup]:
+    """Returns watch history grouped by series with known% per episode and media metadata."""
+    groups = group_episodes_by_series(media_type=media_type)
+    return [
+        SeriesGroup(
+            series=g["series"],
+            media_type=g.get("media_type", "anime"),
+            poster_url=g.get("poster_url", ""),
+            synopsis=g.get("synopsis", ""),
+            episodes=[EpisodeRecord(**ep) for ep in g["episodes"]]
+        )
+        for g in groups
+    ]
+
+
+@router.put("/series/{series_name}/category", summary="Override series category")
+def put_series_category(series_name: str, request: UpdateSeriesCategoryRequest) -> Dict[str, Any]:
+    """Update media_type classification for a series."""
+    success = update_series_category(series_name=series_name, media_type=request.media_type)
+    return {"series": series_name, "media_type": request.media_type, "updated": success}
+
+
+@router.get("/series/{series_name}/cards", summary="Get cards mined from a series")
+def get_series_cards(series_name: str) -> List[Dict[str, Any]]:
+    """Return vocabulary cards associated with this series by tag or source matching."""
+    from app.repositories.card_repository import list_cards
+    # Look for cards whose tags, notes, source_url or source_text match the series
+    cards = list_cards(limit=500)
+    matched = []
+    s_norm = series_name.strip().lower()
+    for c in cards:
+        tags = (c.tags or "").lower()
+        source_url = (c.source_url or "").lower()
+        notes = (c.notes or "").lower()
+        if s_norm in tags or s_norm in source_url or s_norm in notes:
+            matched.append({
+                "id": c.id,
+                "expression": c.expression,
+                "reading": c.reading,
+                "meaning": c.meaning,
+                "image": c.image,
+                "audio": c.audio,
+                "example_sentence": c.example_sentence,
+                "source_text": c.source_text,
+                "tags": c.tags,
+            })
+    return matched
 
 
 @router.get("/episodes", response_model=List[EpisodeRecord], summary="List persisted episode records")

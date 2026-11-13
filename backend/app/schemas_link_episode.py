@@ -83,6 +83,9 @@ class EpisodeRecord(BaseModel):
     last_position_ms: int = 0
     series: str = ""
     episode_key: Optional[str] = None
+    media_type: str = "anime"
+    poster_url: str = ""
+    synopsis: str = ""
 
 
 class UpdatePositionRequest(BaseModel):
@@ -91,9 +94,18 @@ class UpdatePositionRequest(BaseModel):
     site: str = ""
     series: Optional[str] = None
     episode_key: Optional[str] = None
+    media_type: Optional[str] = None
+    poster_url: Optional[str] = None
 
 
 class SeriesGroup(BaseModel):
     series: str
+    media_type: str = "anime"
+    poster_url: str = ""
+    synopsis: str = ""
     episodes: List[EpisodeRecord]
+
+
+class UpdateSeriesCategoryRequest(BaseModel):
+    media_type: str = Field(pattern="^(anime|youtube|tv)$")
 

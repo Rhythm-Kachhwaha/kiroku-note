@@ -49,7 +49,10 @@ CREATE TABLE IF NOT EXISTS link_episode (
     ts TEXT NOT NULL,
     last_position_ms INTEGER NOT NULL DEFAULT 0,
     series TEXT,
-    episode_key TEXT
+    episode_key TEXT,
+    media_type TEXT NOT NULL DEFAULT 'anime',
+    poster_url TEXT NOT NULL DEFAULT '',
+    synopsis TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_link_episode_ts ON link_episode (ts DESC);
 """
@@ -85,6 +88,12 @@ def init_link_episode_db(conn: Optional[sqlite3.Connection] = None) -> None:
             conn.execute("ALTER TABLE link_episode ADD COLUMN series TEXT")
         if "episode_key" not in cols:
             conn.execute("ALTER TABLE link_episode ADD COLUMN episode_key TEXT")
+        if "media_type" not in cols:
+            conn.execute("ALTER TABLE link_episode ADD COLUMN media_type TEXT NOT NULL DEFAULT 'anime'")
+        if "poster_url" not in cols:
+            conn.execute("ALTER TABLE link_episode ADD COLUMN poster_url TEXT NOT NULL DEFAULT ''")
+        if "synopsis" not in cols:
+            conn.execute("ALTER TABLE link_episode ADD COLUMN synopsis TEXT NOT NULL DEFAULT ''")
         conn.commit()
     finally:
         if close_after:
@@ -102,6 +111,9 @@ def save_episode_record(
     last_position_ms: int = 0,
     series: Optional[str] = None,
     episode_key: Optional[str] = None,
+    media_type: Optional[str] = None,
+    poster_url: Optional[str] = None,
+    synopsis: Optional[str] = None,
     conn: Optional[sqlite3.Connection] = None,
 ) -> Dict[str, Any]:
     """Upsert an episode record in SQLite."""
@@ -114,12 +126,24 @@ def save_episode_record(
     init_link_episode_db(conn)
     resolved_series = series if series is not None else extract_series_title(title)
 
+    # Classify media_type if not provided
+    from app.services.media_metadata import detect_media_type, get_series_metadata
+    resolved_type = media_type or detect_media_type(site=site, title=title)
+
+    # Auto-resolve metadata (poster/synopsis) if missing
+    resolved_poster = poster_url or ""
+    resolved_synopsis = synopsis or ""
+    if not resolved_poster or not resolved_synopsis:
+        meta = get_series_metadata(resolved_series, media_type=resolved_type, site=site, episode_key=episode_key)
+        resolved_poster = resolved_poster or meta.get("poster_url", "")
+        resolved_synopsis = resolved_synopsis or meta.get("synopsis", "")
+
     try:
         with conn:
             conn.execute(
                 """
-                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO link_episode (hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(hash) DO UPDATE SET
                     title = excluded.title,
                     site = excluded.site,
@@ -129,9 +153,12 @@ def save_episode_record(
                     ts = excluded.ts,
                     last_position_ms = CASE WHEN excluded.last_position_ms > 0 THEN excluded.last_position_ms ELSE link_episode.last_position_ms END,
                     series = CASE WHEN excluded.series IS NOT NULL THEN excluded.series ELSE link_episode.series END,
-                    episode_key = CASE WHEN excluded.episode_key IS NOT NULL THEN excluded.episode_key ELSE link_episode.episode_key END
+                    episode_key = CASE WHEN excluded.episode_key IS NOT NULL THEN excluded.episode_key ELSE link_episode.episode_key END,
+                    media_type = CASE WHEN excluded.media_type != '' THEN excluded.media_type ELSE link_episode.media_type END,
+                    poster_url = CASE WHEN excluded.poster_url != '' THEN excluded.poster_url ELSE link_episode.poster_url END,
+                    synopsis = CASE WHEN excluded.synopsis != '' THEN excluded.synopsis ELSE link_episode.synopsis END
                 """,
-                (hash_val, title, site, round(known_pct, 1), mined, round(minutes, 1), now_ts, max(0, last_position_ms), resolved_series, episode_key),
+                (hash_val, title, site, round(known_pct, 1), mined, round(minutes, 1), now_ts, max(0, last_position_ms), resolved_series, episode_key, resolved_type, resolved_poster, resolved_synopsis),
             )
         return {
             "hash": hash_val,
@@ -144,6 +171,9 @@ def save_episode_record(
             "last_position_ms": max(0, last_position_ms),
             "series": resolved_series,
             "episode_key": episode_key,
+            "media_type": resolved_type,
+            "poster_url": resolved_poster,
+            "synopsis": resolved_synopsis,
         }
     finally:
         if close_after:
@@ -213,7 +243,7 @@ def get_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None)
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key FROM link_episode WHERE hash = ?",
+            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis FROM link_episode WHERE hash = ?",
             (hash_val,),
         )
         row = cur.fetchone()
@@ -232,14 +262,17 @@ def get_episode_record(hash_val: str, conn: Optional[sqlite3.Connection] = None)
             "last_position_ms": row[7] or 0,
             "series": series_val,
             "episode_key": row[9] if len(row) > 9 else None,
+            "media_type": row[10] if len(row) > 10 and row[10] else "anime",
+            "poster_url": row[11] if len(row) > 11 and row[11] else "",
+            "synopsis": row[12] if len(row) > 12 and row[12] else "",
         }
     finally:
         if close_after:
             conn.close()
 
 
-def list_episode_records(limit: int = 50, conn: Optional[sqlite3.Connection] = None) -> List[Dict[str, Any]]:
-    """List recent episode records."""
+def list_episode_records(limit: int = 50, media_type: Optional[str] = None, conn: Optional[sqlite3.Connection] = None) -> List[Dict[str, Any]]:
+    """List recent episode records with optional media_type filter."""
     close_after = False
     if conn is None:
         conn = get_db_connection()
@@ -248,10 +281,16 @@ def list_episode_records(limit: int = 50, conn: Optional[sqlite3.Connection] = N
     init_link_episode_db(conn)
     try:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key FROM link_episode ORDER BY ts DESC LIMIT ?",
-            (limit,),
-        )
+        if media_type:
+            cur.execute(
+                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis FROM link_episode WHERE media_type = ? ORDER BY ts DESC LIMIT ?",
+                (media_type, limit),
+            )
+        else:
+            cur.execute(
+                "SELECT hash, title, site, known_pct, mined, minutes, ts, last_position_ms, series, episode_key, media_type, poster_url, synopsis FROM link_episode ORDER BY ts DESC LIMIT ?",
+                (limit,),
+            )
         rows = cur.fetchall()
         return [
             {
@@ -265,6 +304,9 @@ def list_episode_records(limit: int = 50, conn: Optional[sqlite3.Connection] = N
                 "last_position_ms": r[7] or 0,
                 "series": r[8] or extract_series_title(r[1] or ""),
                 "episode_key": r[9] if len(r) > 9 else None,
+                "media_type": r[10] if len(r) > 10 and r[10] else "anime",
+                "poster_url": r[11] if len(r) > 11 and r[11] else "",
+                "synopsis": r[12] if len(r) > 12 and r[12] else "",
             }
             for r in rows
         ]
@@ -273,15 +315,46 @@ def list_episode_records(limit: int = 50, conn: Optional[sqlite3.Connection] = N
             conn.close()
 
 
-def group_episodes_by_series(records: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
-    """Group episode records by extracted series title."""
-    recs = records if records is not None else list_episode_records(limit=100)
+def group_episodes_by_series(records: Optional[List[Dict[str, Any]]] = None, media_type: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Group episode records by extracted series title and include series metadata."""
+    recs = records if records is not None else list_episode_records(limit=200, media_type=media_type)
     grouped: Dict[str, List[Dict[str, Any]]] = {}
     for r in recs:
         series_name = r.get("series") or extract_series_title(r.get("title", ""))
         grouped.setdefault(series_name, []).append(r)
 
-    return [{"series": s, "episodes": eps} for s, eps in grouped.items()]
+    result = []
+    for s, eps in grouped.items():
+        primary = eps[0]
+        # Inherit poster & synopsis if available from any episode
+        poster = next((e.get("poster_url") for e in eps if e.get("poster_url")), "")
+        synopsis = next((e.get("synopsis") for e in eps if e.get("synopsis")), "")
+        m_type = next((e.get("media_type") for e in eps if e.get("media_type")), "anime")
+        result.append({
+            "series": s,
+            "media_type": m_type,
+            "poster_url": poster,
+            "synopsis": synopsis,
+            "episodes": eps,
+        })
+    return result
+
+
+def update_series_category(series_name: str, media_type: str, conn: Optional[sqlite3.Connection] = None) -> bool:
+    """Update media_type classification for all episodes belonging to a series."""
+    close_after = False
+    if conn is None:
+        conn = get_db_connection()
+        close_after = True
+
+    init_link_episode_db(conn)
+    try:
+        with conn:
+            conn.execute("UPDATE link_episode SET media_type = ? WHERE series = ?", (media_type, series_name))
+        return True
+    finally:
+        if close_after:
+            conn.close()
 
 
 class EpisodeService:

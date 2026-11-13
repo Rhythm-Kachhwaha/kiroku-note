@@ -95,6 +95,28 @@ export class ApiClient {
     return await response.json();
   }
 
+  // Link & Anime Media Endpoints
+  async getLinkSeries(mediaType = null) {
+    const query = mediaType ? { media_type: mediaType } : undefined;
+    return this.request('/api/link/series', { query });
+  }
+
+  async getSeriesCards(seriesName) {
+    return this.request(`/api/link/series/${encodeURIComponent(seriesName)}/cards`);
+  }
+
+  async updateSeriesCategory(seriesName, mediaType) {
+    return this.request(`/api/link/series/${encodeURIComponent(seriesName)}/category`, {
+      method: 'PUT',
+      body: { media_type: mediaType }
+    });
+  }
+
+  async getEpisodePrimer(cueHash, learnerLevel = null) {
+    const query = learnerLevel ? { learner_level: learnerLevel } : undefined;
+    return this.request(`/api/link/primer/${encodeURIComponent(cueHash)}`, { query });
+  }
+
   // System Health
   async getHealth() {
     return this.request('/api/health');

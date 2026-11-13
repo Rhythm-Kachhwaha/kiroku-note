@@ -38,7 +38,7 @@ def test_link_episode_persistence(test_db):
     rec = save_episode_record(
         hash_val="ep_001",
         title="Test Episode 1",
-        site="youtube",
+        site="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         known_pct=85.5,
         mined=4,
         minutes=12.0,
@@ -46,14 +46,16 @@ def test_link_episode_persistence(test_db):
     assert rec["hash"] == "ep_001"
     assert rec["known_pct"] == 85.5
     assert rec["mined"] == 4
+    assert rec["media_type"] == "youtube"
 
     fetched = get_episode_record("ep_001")
     assert fetched is not None
     assert fetched["title"] == "Test Episode 1"
-    assert fetched["site"] == "youtube"
+    assert fetched["site"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     assert fetched["known_pct"] == 85.5
     assert fetched["mined"] == 4
     assert fetched["minutes"] == 12.0
+    assert fetched["media_type"] == "youtube"
 
     # Upsert test
     save_episode_record(
