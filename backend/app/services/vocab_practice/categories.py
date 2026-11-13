@@ -202,11 +202,25 @@ def classify_pos_heuristic(expression: str, reading: str = "", meaning: str = ""
     if not expr:
         return CAT_NOUN
 
-    # 1. Canonical Adverbs (checked first to distinguish adverbs like だんだん)
-    if expr in CANONICAL_ADVERB_SET or read in CANONICAL_ADVERB_SET:
+    # 1. Definitive Verb check from English meaning ("to ...", "(v1)", etc.)
+    # Takes priority so homophone readings (e.g. 沿う [そう], 請う [こう]) are NEVER classified as adverbs
+    if mean.startswith(("to ", "to be ", "to have ", "to do ")) or " verb" in mean or "(v1)" in mean or "(v5" in mean or "(vi)" in mean or "(vt)" in mean:
+        return "verb"
+
+    # 2. Canonical Adverbs (checked by expression)
+    if expr in CANONICAL_ADVERB_SET:
         return CAT_ADVERB
 
-    # 2. Onomatopoeia / Mimetics (giongo, giseigo, gitaigo, emotion)
+    # 3. Definitive Noun check from English articles ("a ", "an ", "the ")
+    # Prevents kanji nouns (e.g. 一帯 [いったい], 同 [どう]) whose readings match kana adverbs from colliding
+    if mean.startswith(("a ", "an ", "the ")):
+        return CAT_NOUN
+
+    # 4. Canonical Adverbs by reading (for kana/kanji variants like 一番 -> いちばん)
+    if read in CANONICAL_ADVERB_SET and not mean.startswith("to"):
+        return CAT_ADVERB
+
+    # 3. Onomatopoeia / Mimetics (giongo, giseigo, gitaigo, emotion)
     # Checked before Katakana loanwords so expressions like ペラペラ and ドキドキ are classified correctly
     if expr in ON_MIM_SUBTYPES or read in ON_MIM_SUBTYPES:
         return CAT_ONOMATOPOEIA
@@ -215,11 +229,11 @@ def classify_pos_heuristic(expression: str, reading: str = "", meaning: str = ""
     if (len(expr) == 4 and expr[0:2] == expr[2:4]) or (len(read) == 4 and read[0:2] == read[2:4]):
         return CAT_ONOMATOPOEIA
 
-    # 3. Katakana loanword
+    # 4. Katakana loanword
     if re.fullmatch(r"^[ァ-ヴー・\s]+$", expr):
         return "katakana_loanword"
 
-    # 4. Gloss-based Adverbs
+    # 5. Gloss-based Adverbs
     if "adverb" in mean or "(adv" in mean or mean.startswith("adv"):
         return CAT_ADVERB
     if any(h in mean for h in _ADVERB_GLOSS_HINTS) and not mean.startswith(("to ", "to be", "to have", "to do", "a ", "the ")):
@@ -227,7 +241,7 @@ def classify_pos_heuristic(expression: str, reading: str = "", meaning: str = ""
     if expr.endswith("り") and len(expr) >= 3 and (expr[0] == expr[1] or "っ" in expr or "ん" in expr):
         return CAT_ADVERB
 
-    # 5. Adjectives (na and i)
+    # 6. Adjectives (na and i)
     if expr in CANONICAL_NA_ADJECTIVES or read in CANONICAL_NA_ADJECTIVES:
         return CAT_ADJECTIVE_NA
     if "adjective" in mean or "(adj" in mean:
@@ -236,10 +250,6 @@ def classify_pos_heuristic(expression: str, reading: str = "", meaning: str = ""
         return CAT_ADJECTIVE_I
     if expr.endswith("な") and len(expr) > 2:
         return CAT_ADJECTIVE_NA
-
-    # 6. Verbs
-    if mean.startswith(("to ", "to be ", "to have ", "to do ")) or " verb" in mean or "(v1)" in mean or "(v5" in mean or "(vi)" in mean or "(vt)" in mean:
-        return "verb"
 
     # 7. Verb inflection ending fallback (when not matching adverb or adjective)
     verb_endings = ("う", "く", "す", "つ", "ぬ", "ふ", "む", "る", "ぐ", "ず", "づ", "ぶ", "ぷ")

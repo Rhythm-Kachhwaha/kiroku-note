@@ -121,3 +121,4 @@ def test_gap_breakdown_categories_partition():
     total_items = sum(len(items) for items in categories.values())
     assert breakdown["total_gaps"] == total_items
     assert total_items > 0
+
