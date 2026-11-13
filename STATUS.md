@@ -1,5 +1,6 @@
 # Status
-Completed Vocab overhaul (Area 2 of Fix Report).
-Added cards jlpt_level index and /api/cards level/source filters.
-Added /api/vocab/inventory, bulk updates, and Mistake Notebook bridge.
-Removed redundant mined tab; docked Quick Add on right where triggered.
+Completed Grammar Roadmap overhaul (Area 3 of Fix Report).
+Normalized roadmap keys to canonical reference patterns; validated on backend.
+Added optimistic 1-click status cycling on chips with zero roadmap reloading.
+Built full-screen continuous Tofugu editorial breakdown reader with ESC return.
+Added Continue button in toolbar navigating to next unfinished point.

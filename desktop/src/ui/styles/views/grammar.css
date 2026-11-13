@@ -1552,11 +1552,24 @@
 }
 
 .roadmap-chip-dot {
-  width: 7px;
-  height: 7px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--slate-border);
+  border: 1.5px solid var(--tactile-stroke);
   flex-shrink: 0;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--spring-snappy),
+              background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+
+.roadmap-chip-dot:hover {
+  transform: scale(1.35);
+}
+
+.roadmap-chip-dot:active {
+  transform: scale(0.9);
 }
 
 .roadmap-point-chip.is-encountered .roadmap-chip-dot {
@@ -1577,6 +1590,34 @@
   box-shadow: 3px 3px 0 var(--tactile-stroke);
 }
 
+@keyframes chip-save-failed-pulse {
+  0%, 100% {
+    border-color: var(--vermilion);
+    box-shadow: 0 0 0 2px var(--vermilion);
+  }
+  50% {
+    border-color: var(--tactile-stroke);
+    box-shadow: 2px 2px 0 var(--tactile-stroke);
+  }
+}
+
+.roadmap-point-chip.is-save-failed {
+  animation: chip-save-failed-pulse 0.35s ease-in-out 3;
+}
+
+.roadmap-continue-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.38rem 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.roadmap-tagline {
+  margin-left: auto;
+}
+
 .roadmap-chip-label {
   font-weight: 600;
 }
@@ -1592,4 +1633,135 @@
 
 .roadmap-point-chip.is-encountered .roadmap-chip-meta {
   color: var(--industrial-aqua);
+}
+
+/* ==========================================================================
+   Full-Screen Continuous Tofugu Breakdown Reader
+   ========================================================================== */
+.grammar-full-breakdown-view {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--pure-black);
+  padding: 1.5rem 1rem 5rem 1rem;
+}
+
+.breakdown-reader-container {
+  max-width: 880px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2.25rem;
+}
+
+.breakdown-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  padding-bottom: 1rem;
+  border-bottom: 1.5px solid var(--tactile-stroke);
+  position: sticky;
+  top: 0;
+  background: var(--pure-black);
+  z-index: 25;
+}
+
+.breakdown-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.breakdown-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.breakdown-editorial-header {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--tactile-stroke);
+}
+
+.breakdown-pattern-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 2.35rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  letter-spacing: -0.01em;
+}
+
+.breakdown-pattern-meaning {
+  margin: 0.4rem 0 0 0;
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.breakdown-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.breakdown-section-heading {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.breakdown-heading-num {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--vermilion);
+  background: var(--iron-core);
+  padding: 0.18rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--tactile-stroke);
+  letter-spacing: 0.05em;
+}
+
+.breakdown-concept-banner {
+  background: var(--ink-surface);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: 8px;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 1.4rem;
+  font-family: var(--font-japanese);
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--warm-paper);
+}
+
+.breakdown-formations-list,
+.breakdown-contrasts-list,
+.breakdown-pitfalls-list,
+.breakdown-examples-list,
+.breakdown-encounters-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.breakdown-bottom-bar {
+  margin-top: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1.5px solid var(--tactile-stroke);
+  display: flex;
+  justify-content: flex-start;
 }

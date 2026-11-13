@@ -62,11 +62,15 @@ def test_grammar_update_point_status_upsert(tmp_path, monkeypatch):
     monkeypatch.setattr(grammar, "_tracker", fake_tracker)
 
     client = TestClient(app)
-    response = client.patch("/api/grammar/points/hou-ga-ii", json={"status": "learning"})
+    response = client.patch("/api/grammar/points/ほうがいい", json={"status": "learning"})
     assert response.status_code == 200
     data = response.json()
-    assert data["pattern_key"] == "hou-ga-ii"
+    assert data["pattern_key"] == "ほうがいい"
     assert data["status"] == "learning"
+
+    # Reject unrecognized pattern keys with 400
+    bad_res = client.patch("/api/grammar/points/non_existent_key_xyz", json={"status": "learning"})
+    assert bad_res.status_code == 400
 
 
 def test_grammar_explain_route(monkeypatch, tmp_path):

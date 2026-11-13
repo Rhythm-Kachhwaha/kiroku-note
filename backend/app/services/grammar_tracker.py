@@ -142,8 +142,10 @@ class GrammarTrackerService:
             if row:
                 conn.execute("UPDATE grammar_points SET status=? WHERE pattern_key=?", (status, pattern_key))
             else:
-                now = datetime.now(timezone.utc).isoformat()
                 ref = GrammarReferenceService().get_point_by_key(pattern_key)
+                if not ref:
+                    raise ValueError(f"Unknown grammar pattern key: {pattern_key}")
+                now = datetime.now(timezone.utc).isoformat()
                 display = (ref.get("pattern_display") or ref.get("display") if ref else pattern_key) or pattern_key
                 level = ref.get("level") if ref else None
                 conn.execute(

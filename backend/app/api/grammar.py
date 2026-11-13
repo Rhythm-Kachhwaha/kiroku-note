@@ -130,7 +130,7 @@ def update_grammar_point(pattern_key: str, request: PointStatusRequest):
     try:
         point = _tracker.update_point_status(pattern_key, request.status)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if point is None:
         raise HTTPException(status_code=404, detail="Grammar point not found")
     return point
@@ -162,7 +162,7 @@ def record_grammar_drill(request: GrammarDrillResultRequest):
             context_sentence=request.context_sentence,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @grammar_router.get("/points/{pattern_key}/status")
@@ -207,7 +207,7 @@ def verify_grammar_drill(request: DrillVerifyRequest):
             drill_id=request.drill_id,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @grammar_router.get("/roadmap/flow")

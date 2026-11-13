@@ -30,6 +30,10 @@ export class GrammarView {
     this.roadmapHubsData = null;
     this.roadmapLoading = false;
     this.activeRoadmapKey = null;
+    this.isBreakdownOpen = false;
+    this.lastRoadmapScrollY = 0;
+    this.activeBreakdownPoint = null;
+    this.escListener = null;
   }
 
   async mount(container) {
@@ -211,7 +215,11 @@ export class GrammarView {
                     <button type="button" class="roadmap-mode-pill is-active" data-roadmap-mode="flow" role="tab" aria-selected="true">Chapter Flow</button>
                     <button type="button" class="roadmap-mode-pill" data-roadmap-mode="hubs" role="tab" aria-selected="false">Conceptual Hubs</button>
                   </div>
-                  <span class="text-xs text-muted font-sans">Tofugu-enriched progression &amp; functional clusters</span>
+                  <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary roadmap-continue-btn font-sans" id="btn-roadmap-continue" title="Continue to next unfinished grammar point">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    <span>Continue next</span>
+                  </button>
+                  <span class="text-xs text-muted font-sans roadmap-tagline">Tofugu-enriched progression &amp; functional clusters</span>
                 </div>
                 <div class="roadmap-content" id="roadmap-content">
                   <div class="syllabus-empty-state text-sm text-muted py-6 text-center">Loading grammar roadmap...</div>
@@ -397,6 +405,106 @@ export class GrammarView {
 
             </div>
           </div>
+
+          <!-- Full-Screen Editorial Breakdown View (Continuous Tofugu Reader) -->
+          <div class="grammar-full-breakdown-view" id="grammar-full-breakdown-view" style="display: none;">
+            <div class="breakdown-reader-container">
+              <!-- Top Sticky / Header Bar -->
+              <div class="breakdown-nav-bar">
+                <button type="button" class="tactile-btn tactile-btn-secondary breakdown-back-btn" id="btn-breakdown-back" aria-label="Back to roadmap">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                  <span>Back to Roadmap</span>
+                </button>
+                <div class="breakdown-header-actions">
+                  <span class="tactile-pill tactile-pill-vermilion font-mono" id="breakdown-jlpt-badge">JLPT --</span>
+                  <span class="tactile-pill" id="breakdown-status-tag">NEW</span>
+                  <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-secondary" id="btn-breakdown-revise">Revise</button>
+                  <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-jade" id="btn-breakdown-mastered">Mastered</button>
+                  <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-breakdown-practice">Practice this</button>
+                </div>
+              </div>
+
+              <!-- Editorial Header: Pattern Display & Meaning -->
+              <header class="breakdown-editorial-header">
+                <h1 class="breakdown-pattern-title font-display" id="breakdown-pattern-title">--</h1>
+                <p class="breakdown-pattern-meaning font-sans" id="breakdown-pattern-meaning">--</p>
+              </header>
+
+              <!-- Section 1: Mental Model / Big Picture -->
+              <section class="breakdown-section breakdown-section-concept">
+                <h3 class="breakdown-section-heading font-sans">
+                  <span class="breakdown-heading-num font-mono">01</span>
+                  <span>The Big Picture Mental Model</span>
+                </h3>
+                <div class="breakdown-concept-banner tactile-card" id="breakdown-concept-content">
+                  <span class="text-sm text-muted">Loading mental model...</span>
+                </div>
+              </section>
+
+              <!-- Section 2: Formation Rules -->
+              <section class="breakdown-section breakdown-section-formation">
+                <h3 class="breakdown-section-heading font-sans">
+                  <span class="breakdown-heading-num font-mono">02</span>
+                  <span>Formation &amp; Structure Formulas</span>
+                </h3>
+                <div class="breakdown-formations-list" id="breakdown-formations-content">
+                  <span class="text-sm text-muted">Loading formation formulas...</span>
+                </div>
+              </section>
+
+              <!-- Section 3: Nuance Battles & Contrasts -->
+              <section class="breakdown-section breakdown-section-nuance" id="breakdown-section-nuance">
+                <h3 class="breakdown-section-heading font-sans">
+                  <span class="breakdown-heading-num font-mono">03</span>
+                  <span>Nuance Battles &amp; Contrasts</span>
+                </h3>
+                <div class="breakdown-contrasts-list" id="breakdown-contrasts-content">
+                  <span class="text-sm text-muted">No nuance contrasts recorded for this pattern.</span>
+                </div>
+              </section>
+
+              <!-- Section 4: Common Pitfalls & Traps -->
+              <section class="breakdown-section breakdown-section-pitfalls" id="breakdown-section-pitfalls">
+                <h3 class="breakdown-section-heading font-sans">
+                  <span class="breakdown-heading-num font-mono">04</span>
+                  <span>Common Traps &amp; Fixes</span>
+                </h3>
+                <div class="breakdown-pitfalls-list" id="breakdown-pitfalls-content">
+                  <span class="text-sm text-muted">No common pitfalls recorded for this pattern.</span>
+                </div>
+              </section>
+
+              <!-- Section 5: Natural Example Sentences -->
+              <section class="breakdown-section breakdown-section-examples">
+                <h3 class="breakdown-section-heading font-sans">
+                  <span class="breakdown-heading-num font-mono">05</span>
+                  <span>Natural Examples</span>
+                </h3>
+                <div class="breakdown-examples-list" id="breakdown-examples-content">
+                  <span class="text-sm text-muted">Loading example sentences...</span>
+                </div>
+              </section>
+
+              <!-- Section 6: Seen in your Cards / Encounters -->
+              <section class="breakdown-section breakdown-section-encounters">
+                <h3 class="breakdown-section-heading font-sans">
+                  <span class="breakdown-heading-num font-mono">06</span>
+                  <span>Seen in Your Cards &amp; Anime</span>
+                </h3>
+                <div class="breakdown-encounters-list" id="breakdown-encounters-content">
+                  <span class="text-sm text-muted">No card encounters recorded yet.</span>
+                </div>
+              </section>
+
+              <!-- Bottom return bar -->
+              <div class="breakdown-bottom-bar">
+                <button type="button" class="tactile-btn tactile-btn-secondary breakdown-back-btn" id="btn-breakdown-back-bottom">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                  <span>Back to Roadmap</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -536,11 +644,7 @@ export class GrammarView {
 
           masteryPills.forEach((p) => p.classList.toggle('is-active', p.dataset.status === newStatus));
           this.updateSyllabusItemStatus(this.activeGrammarPoint.pattern_key, newStatus);
-          this.roadmapFlowData = null;
-          this.roadmapHubsData = null;
-          if (this.activeSegment === 'roadmap') {
-            this.loadRoadmap(true);
-          }
+          this.updateRoadmapChipStatus(this.activeGrammarPoint.pattern_key, newStatus);
           this.loadInitialGrammarStats();
         } catch (err) {
           console.error('[Grammar] Update mastery failed:', err);
@@ -564,6 +668,51 @@ export class GrammarView {
         this.renderRoadmap();
       });
     });
+
+    // Continue next button in roadmap toolbar
+    const continueBtn = this.container.querySelector('#btn-roadmap-continue');
+    if (continueBtn) {
+      continueBtn.addEventListener('click', () => this.continueNextRoadmapPoint());
+    }
+
+    // Breakdown reader back buttons
+    const backBtns = this.container.querySelectorAll('.breakdown-back-btn');
+    backBtns.forEach((btn) => {
+      btn.addEventListener('click', () => this.closeFullBreakdown());
+    });
+
+    // Breakdown revise button
+    const reviseBtn = this.container.querySelector('#btn-breakdown-revise');
+    if (reviseBtn) {
+      reviseBtn.addEventListener('click', () => this.handleBreakdownStatusUpdate('learning'));
+    }
+
+    // Breakdown mastered button
+    const masteredBtn = this.container.querySelector('#btn-breakdown-mastered');
+    if (masteredBtn) {
+      masteredBtn.addEventListener('click', () => this.handleBreakdownStatusUpdate('known'));
+    }
+
+    // Breakdown practice button
+    const practiceBtn = this.container.querySelector('#btn-breakdown-practice');
+    if (practiceBtn) {
+      practiceBtn.addEventListener('click', () => {
+        if (this.activeBreakdownPoint?.pattern_key && this.router && typeof this.router.navigate === 'function') {
+          this.router.navigate(`study?grammar=${encodeURIComponent(this.activeBreakdownPoint.pattern_key)}`);
+        }
+      });
+    }
+
+    // ESC key listener for breakdown reader
+    if (this.escListener) {
+      window.removeEventListener('keydown', this.escListener);
+    }
+    this.escListener = (e) => {
+      if (e.key === 'Escape' && this.isBreakdownOpen) {
+        this.closeFullBreakdown();
+      }
+    };
+    window.addEventListener('keydown', this.escListener);
 
     // Syllabus level filter pills
     const levelPills = this.container.querySelectorAll('#syllabus-level-pills .syllabus-level-pill');
@@ -1276,7 +1425,7 @@ export class GrammarView {
     const summaryEl = document.getElementById('roadmap-summary-label');
     if (!contentEl) return;
 
-    if (!forceRefresh && this.roadmapFlowData && this.roadmapHubsData) {
+    if (!forceRefresh && (this.roadmapFlowData || this.roadmapHubsData)) {
       this.renderRoadmap();
       return;
     }
@@ -1286,12 +1435,23 @@ export class GrammarView {
     contentEl.innerHTML = '<div class="syllabus-empty-state text-sm text-muted py-6 text-center">Loading grammar roadmap...</div>';
 
     try {
-      const [flowData, hubsData] = await Promise.all([
+      const results = await Promise.allSettled([
         apiClient.getGrammarRoadmapFlow(),
         apiClient.getGrammarConceptualHubs()
       ]);
-      this.roadmapFlowData = flowData || { chapters: [] };
-      this.roadmapHubsData = hubsData || { hubs: [] };
+      const flowRes = results[0];
+      const hubsRes = results[1];
+
+      if (flowRes.status === 'fulfilled') {
+        this.roadmapFlowData = flowRes.value || { chapters: [] };
+      }
+      if (hubsRes.status === 'fulfilled') {
+        this.roadmapHubsData = hubsRes.value || { hubs: [] };
+      }
+
+      if (flowRes.status === 'rejected' && hubsRes.status === 'rejected') {
+        throw new Error('Failed to load roadmap data');
+      }
       this.renderRoadmap();
     } catch (err) {
       console.error('[Grammar] Load roadmap failed:', err);
@@ -1356,7 +1516,7 @@ export class GrammarView {
             data-pattern-key="${escapeHtml(pt.pattern_key)}"
             title="${escapeHtml(pt.meaning_short || pt.display || pt.pattern_key)}"
           >
-            <span class="roadmap-chip-dot" aria-hidden="true"></span>
+            <span class="roadmap-chip-dot" data-action="cycle-status" title="Click to cycle status" aria-label="Cycle status"></span>
             <span class="roadmap-chip-label font-japanese">${escapeHtml(pt.display || pt.pattern_key)}</span>
             ${metaText ? `<span class="roadmap-chip-meta font-mono">${escapeHtml(metaText)}</span>` : ''}
           </button>
@@ -1386,30 +1546,485 @@ export class GrammarView {
     contentEl.innerHTML = `<div class="roadmap-stages-list">${cardsHtml}</div>`;
 
     contentEl.querySelectorAll('.roadmap-point-chip').forEach((chip) => {
-      chip.addEventListener('click', () => {
-        const key = chip.dataset.patternKey;
-        const pt = pointMap.get(key);
-        if (!pt) return;
+      const key = chip.dataset.patternKey;
+      const pt = pointMap.get(key);
+      if (!pt) return;
 
+      const dot = chip.querySelector('.roadmap-chip-dot');
+      if (dot) {
+        dot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.cycleChipStatus(chip, pt);
+        });
+      }
+
+      chip.addEventListener('click', () => {
         this.activeRoadmapKey = key;
         contentEl.querySelectorAll('.roadmap-point-chip').forEach((c) => {
           c.classList.toggle('is-selected', c.dataset.patternKey === key);
         });
-
-        const mappedStatus = pt.pipeline_status === 'mastered'
-          ? 'known'
-          : ((pt.seen_count || 0) > 0 || (pt.drill_count || 0) > 0 ? 'learning' : 'new');
-
-        this.displayGrammarDetail({
-          pattern_key: pt.pattern_key,
-          pattern_display: pt.display || pt.pattern_key,
-          level: pt.level || 'N5',
-          meaning_short: pt.meaning_short || '',
-          seen_count: pt.seen_count || 0,
-          status: mappedStatus
-        });
+        this.openFullBreakdown(key, pt);
       });
     });
+  }
+
+  async cycleChipStatus(chipEl, pt) {
+    if (!chipEl || !pt) return;
+    const key = pt.pattern_key;
+
+    let currentStatus = 'new';
+    if (chipEl.classList.contains('is-mastered') || pt.pipeline_status === 'mastered') {
+      currentStatus = 'known';
+    } else if (chipEl.classList.contains('is-encountered') || (pt.seen_count || 0) > 0 || pt.status === 'learning') {
+      currentStatus = 'learning';
+    }
+
+    const nextStatus = currentStatus === 'new'
+      ? 'learning'
+      : (currentStatus === 'learning' ? 'known' : 'new');
+
+    const prevClass = chipEl.className;
+    const metaEl = chipEl.querySelector('.roadmap-chip-meta');
+    const prevMeta = metaEl ? metaEl.textContent : '';
+    const prevPtState = {
+      pipeline_status: pt.pipeline_status,
+      seen_count: pt.seen_count,
+      mastery_score: pt.mastery_score,
+      mastery_pct: pt.mastery_pct,
+      status: pt.status
+    };
+
+    this.applyStatusToChip(chipEl, pt, nextStatus);
+    const stageCard = chipEl.closest('.roadmap-stage-card');
+    if (stageCard) this.updateStageStatsInDom(stageCard);
+
+    try {
+      await apiClient.updateGrammarPoint(key, { status: nextStatus });
+      if (this.activeGrammarPoint && this.activeGrammarPoint.pattern_key === key) {
+        this.activeGrammarPoint.status = nextStatus;
+        const statusTag = document.getElementById('point-status-tag');
+        if (statusTag) {
+          statusTag.textContent = nextStatus.toUpperCase();
+          statusTag.className = `tactile-pill ${nextStatus === 'known' ? 'tactile-pill-jade' : (nextStatus === 'learning' ? 'tactile-pill-vermilion' : '')}`;
+        }
+        const masteryPills = this.container.querySelectorAll('#mastery-status-group .mastery-pill');
+        masteryPills.forEach((p) => p.classList.toggle('is-active', p.dataset.status === nextStatus));
+      }
+    } catch (err) {
+      console.error('[Grammar] cycleChipStatus network error:', err);
+      chipEl.className = prevClass;
+      if (metaEl) metaEl.textContent = prevMeta;
+      Object.assign(pt, prevPtState);
+      if (stageCard) this.updateStageStatsInDom(stageCard);
+
+      chipEl.classList.add('is-save-failed');
+      setTimeout(() => chipEl.classList.remove('is-save-failed'), 1200);
+
+      this.showError(`Failed to update '${key}': ${err.message || 'Network error'}`);
+    }
+  }
+
+  applyStatusToChip(chipEl, pt, status) {
+    const metaEl = chipEl.querySelector('.roadmap-chip-meta');
+    if (status === 'known') {
+      chipEl.classList.remove('is-encountered');
+      chipEl.classList.add('is-mastered');
+      pt.pipeline_status = 'mastered';
+      pt.status = 'known';
+      pt.seen_count = Math.max(1, pt.seen_count || 1);
+      pt.mastery_score = 100.0;
+      pt.mastery_pct = 100;
+      if (metaEl) metaEl.textContent = '100%';
+    } else if (status === 'learning') {
+      chipEl.classList.remove('is-mastered');
+      chipEl.classList.add('is-encountered');
+      pt.pipeline_status = 'encountered';
+      pt.status = 'learning';
+      pt.seen_count = Math.max(1, pt.seen_count || 1);
+      pt.mastery_score = 50.0;
+      pt.mastery_pct = 50;
+      if (metaEl) metaEl.textContent = `${pt.seen_count}x`;
+    } else {
+      chipEl.classList.remove('is-mastered', 'is-encountered');
+      pt.pipeline_status = 'unseen';
+      pt.status = 'new';
+      pt.seen_count = 0;
+      pt.mastery_score = 0.0;
+      pt.mastery_pct = 0;
+      if (metaEl) metaEl.textContent = pt.level || 'N5';
+    }
+  }
+
+  updateStageStatsInDom(stageCard) {
+    if (!stageCard) return;
+    const chips = stageCard.querySelectorAll('.roadmap-point-chip');
+    const total = chips.length;
+    let encountered = 0;
+    let mastered = 0;
+    let totalScore = 0;
+
+    chips.forEach((c) => {
+      if (c.classList.contains('is-mastered')) {
+        mastered++;
+        encountered++;
+        totalScore += 100;
+      } else if (c.classList.contains('is-encountered')) {
+        encountered++;
+        totalScore += 50;
+      }
+    });
+
+    const avgMastery = total > 0 ? Math.min(100, Math.max(0, Math.round(totalScore / total))) : 0;
+    const metricsEl = stageCard.querySelector('.roadmap-stage-metrics');
+    if (metricsEl) {
+      metricsEl.textContent = `${encountered}/${total} seen · ${mastered} mastered · ${avgMastery}%`;
+    }
+    const fillEl = stageCard.querySelector('.roadmap-progress-fill');
+    if (fillEl) {
+      fillEl.style.width = `${avgMastery}%`;
+    }
+    this.updateTotalSummaryInDom();
+  }
+
+  updateTotalSummaryInDom() {
+    const summaryEl = document.getElementById('roadmap-summary-label');
+    const stageCards = this.container.querySelectorAll('.roadmap-stage-card');
+    if (!summaryEl || stageCards.length === 0) return;
+
+    const isFlow = this.activeRoadmapMode === 'flow';
+    let totalPoints = 0;
+    let encounteredPoints = 0;
+    let masteredPoints = 0;
+
+    stageCards.forEach((sc) => {
+      const chips = sc.querySelectorAll('.roadmap-point-chip');
+      totalPoints += chips.length;
+      chips.forEach((c) => {
+        if (c.classList.contains('is-mastered')) {
+          masteredPoints++;
+          encounteredPoints++;
+        } else if (c.classList.contains('is-encountered')) {
+          encounteredPoints++;
+        }
+      });
+    });
+
+    summaryEl.textContent = `${stageCards.length} ${isFlow ? 'stages' : 'hubs'} · ${encounteredPoints}/${totalPoints} seen · ${masteredPoints} mastered`;
+  }
+
+  updateRoadmapChipStatus(patternKey, newStatus) {
+    if (!this.container) return;
+    const chips = this.container.querySelectorAll(`.roadmap-point-chip[data-pattern-key="${patternKey}"]`);
+    chips.forEach((chip) => {
+      let matchedPt = null;
+      const groups = (this.roadmapFlowData?.chapters || []).concat(this.roadmapHubsData?.hubs || []);
+      for (const g of groups) {
+        if (Array.isArray(g.points)) {
+          const found = g.points.find((p) => p.pattern_key === patternKey);
+          if (found) {
+            matchedPt = found;
+            break;
+          }
+        }
+      }
+      const ptObj = matchedPt || { pattern_key: patternKey };
+      this.applyStatusToChip(chip, ptObj, newStatus);
+      const stageCard = chip.closest('.roadmap-stage-card');
+      if (stageCard) {
+        this.updateStageStatsInDom(stageCard);
+      }
+    });
+  }
+
+  continueNextRoadmapPoint() {
+    const isFlow = this.activeRoadmapMode === 'flow';
+    const groups = isFlow
+      ? (this.roadmapFlowData?.chapters || [])
+      : (this.roadmapHubsData?.hubs || []);
+
+    const allPoints = [];
+    for (const g of groups) {
+      if (Array.isArray(g.points)) {
+        for (const pt of g.points) {
+          allPoints.push(pt);
+        }
+      }
+    }
+
+    if (allPoints.length === 0) return;
+
+    const inLearning = allPoints.find((p) => p.pipeline_status !== 'mastered' && (p.status === 'learning' || (p.seen_count || 0) > 0));
+    const nextUnfinished = inLearning || allPoints.find((p) => p.pipeline_status !== 'mastered' && p.status !== 'known') || allPoints[0];
+
+    if (nextUnfinished) {
+      const chipEl = this.container.querySelector(`.roadmap-point-chip[data-pattern-key="${nextUnfinished.pattern_key}"]`);
+      if (chipEl) {
+        chipEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      this.openFullBreakdown(nextUnfinished.pattern_key, nextUnfinished);
+    }
+  }
+
+  async openFullBreakdown(patternKey, initialPt = null) {
+    const layoutGrid = this.container.querySelector('.grammar-layout-grid');
+    const topControls = this.container.querySelector('.grammar-top-controls');
+    const breakdownView = this.container.querySelector('#grammar-full-breakdown-view');
+    if (!breakdownView) return;
+
+    this.lastRoadmapScrollY = window.scrollY || document.documentElement.scrollTop;
+    this.isBreakdownOpen = true;
+
+    if (layoutGrid) layoutGrid.style.display = 'none';
+    if (topControls) topControls.style.display = 'none';
+    breakdownView.style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
+    const titleEl = breakdownView.querySelector('#breakdown-pattern-title');
+    const meaningEl = breakdownView.querySelector('#breakdown-pattern-meaning');
+    const jlptBadge = breakdownView.querySelector('#breakdown-jlpt-badge');
+
+    const display = initialPt?.display || patternKey;
+    const level = initialPt?.level || 'N5';
+    const meaning = initialPt?.meaning_short || '';
+    const status = initialPt?.pipeline_status === 'mastered' ? 'known' : ((initialPt?.seen_count || 0) > 0 ? 'learning' : 'new');
+
+    if (titleEl) titleEl.textContent = display;
+    if (meaningEl) meaningEl.textContent = meaning || '--';
+    if (jlptBadge) jlptBadge.textContent = `JLPT ${level}`;
+    this.updateBreakdownStatusUi(status);
+
+    this.activeBreakdownPoint = { pattern_key: patternKey, level, display, status };
+
+    try {
+      const cardData = await apiClient.getGrammarPointCard(patternKey);
+      this.renderBreakdownContent(cardData || initialPt || { pattern_key: patternKey });
+    } catch (err) {
+      console.error('[Grammar] Load point mastery card error:', err);
+      this.renderBreakdownContent(initialPt || { pattern_key: patternKey });
+    }
+  }
+
+  closeFullBreakdown() {
+    const layoutGrid = this.container.querySelector('.grammar-layout-grid');
+    const topControls = this.container.querySelector('.grammar-top-controls');
+    const breakdownView = this.container.querySelector('#grammar-full-breakdown-view');
+    if (!breakdownView) return;
+
+    breakdownView.style.display = 'none';
+    if (layoutGrid) layoutGrid.style.display = 'grid';
+    if (topControls) topControls.style.display = 'block';
+    this.isBreakdownOpen = false;
+
+    if (typeof this.lastRoadmapScrollY === 'number') {
+      window.scrollTo({ top: this.lastRoadmapScrollY, behavior: 'instant' });
+    }
+  }
+
+  updateBreakdownStatusUi(status) {
+    const breakdownView = this.container.querySelector('#grammar-full-breakdown-view');
+    if (!breakdownView) return;
+
+    const statusTag = breakdownView.querySelector('#breakdown-status-tag');
+    if (statusTag) {
+      statusTag.textContent = status.toUpperCase();
+      statusTag.className = `tactile-pill ${status === 'known' ? 'tactile-pill-jade' : (status === 'learning' ? 'tactile-pill-vermilion' : '')}`;
+    }
+
+    const reviseBtn = breakdownView.querySelector('#btn-breakdown-revise');
+    const masteredBtn = breakdownView.querySelector('#btn-breakdown-mastered');
+    if (reviseBtn) {
+      reviseBtn.classList.toggle('is-active', status === 'learning');
+    }
+    if (masteredBtn) {
+      masteredBtn.classList.toggle('is-active', status === 'known');
+    }
+  }
+
+  async handleBreakdownStatusUpdate(newStatus) {
+    if (!this.activeBreakdownPoint?.pattern_key) return;
+    const key = this.activeBreakdownPoint.pattern_key;
+    try {
+      this.updateBreakdownStatusUi(newStatus);
+      await apiClient.updateGrammarPoint(key, { status: newStatus });
+      this.activeBreakdownPoint.status = newStatus;
+      this.updateRoadmapChipStatus(key, newStatus);
+    } catch (err) {
+      console.error('[Grammar] Breakdown status update error:', err);
+      this.showError(`Failed to update status: ${err.message || 'Network error'}`);
+    }
+  }
+
+  renderBreakdownContent(cardData) {
+    const breakdownView = this.container.querySelector('#grammar-full-breakdown-view');
+    if (!breakdownView || !cardData) return;
+
+    const titleEl = breakdownView.querySelector('#breakdown-pattern-title');
+    const meaningEl = breakdownView.querySelector('#breakdown-pattern-meaning');
+    const jlptBadge = breakdownView.querySelector('#breakdown-jlpt-badge');
+
+    if (titleEl && cardData.display) titleEl.textContent = cardData.display;
+    if (meaningEl && cardData.meaning_short) meaningEl.textContent = cardData.meaning_short;
+    if (jlptBadge && cardData.level) jlptBadge.textContent = `JLPT ${cardData.level}`;
+
+    // Section 1: Concept Banner
+    const conceptBox = breakdownView.querySelector('#breakdown-concept-content');
+    if (conceptBox) {
+      const bannerText = cardData.big_picture_banner || cardData.english_breakdown || cardData.meaning_short || 'Standard grammar pattern';
+      conceptBox.textContent = bannerText;
+    }
+
+    // Section 2: Formation Rules
+    const formationsBox = breakdownView.querySelector('#breakdown-formations-content');
+    if (formationsBox) {
+      let formations = cardData.formation_rules || cardData.formations || cardData.formation || [];
+      if (typeof formations === 'string') {
+        formations = [{ structure: formations.trim(), description: 'Structure' }];
+      }
+      if (Array.isArray(formations) && formations.length > 0) {
+        formationsBox.innerHTML = formations.map((f) => {
+          const struct = typeof f === 'object' ? (f.structure || f.rule || '') : String(f);
+          const desc = typeof f === 'object' ? (f.description || '') : '';
+          const ex = typeof f === 'object' ? (f.example || '') : '';
+          return `
+            <div class="formation-item tactile-card surface-pitch-black p-3 mb-2">
+              <div class="formation-structure-row flex items-center gap-2 mb-1">
+                <span class="formation-bullet"></span>
+                <span class="formation-text font-mono font-bold text-industrial-aqua">${escapeHtml(struct)}</span>
+              </div>
+              ${desc ? `<p class="formation-desc text-secondary text-xs mt-1 font-sans">${escapeHtml(desc)}</p>` : ''}
+              ${ex ? `<div class="formation-example-pill mt-2 font-japanese text-xs text-warm-paper">${escapeHtml(ex)}</div>` : ''}
+            </div>
+          `;
+        }).join('');
+      } else {
+        formationsBox.innerHTML = '<span class="text-sm text-muted">No formation rules listed.</span>';
+      }
+    }
+
+    // Section 3: Nuance Contrasts
+    const contrastsBox = breakdownView.querySelector('#breakdown-contrasts-content');
+    if (contrastsBox) {
+      const contrasts = cardData.nuance_contrasts || [];
+      if (Array.isArray(contrasts) && contrasts.length > 0) {
+        contrastsBox.innerHTML = contrasts.map((c) => {
+          const vsPattern = c.target_pattern || 'Alternative';
+          const diff = c.difference || '';
+          const whenThis = c.when_to_use_this || '';
+          const whenTarget = c.when_to_use_target || '';
+          return `
+            <div class="contrast-battle-card tactile-card surface-pitch-black p-3 mb-3">
+              <div class="contrast-header-row flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="contrast-badge-this font-japanese font-bold text-warm-paper">${escapeHtml(cardData.display || cardData.pattern_key)}</span>
+                  <span class="contrast-vs-tag font-mono font-bold">VS</span>
+                  <span class="contrast-badge-target font-japanese font-bold text-industrial-aqua">${escapeHtml(vsPattern)}</span>
+                </div>
+              </div>
+              ${diff ? `<p class="contrast-diff-text text-sm text-warm-paper font-sans mb-3">${escapeHtml(diff)}</p>` : ''}
+              <div class="contrast-usage-grid">
+                <div class="usage-col usage-this">
+                  <span class="usage-col-label">When to use ${escapeHtml(cardData.display || cardData.pattern_key)}:</span>
+                  <p class="usage-col-text">${escapeHtml(whenThis || '--')}</p>
+                </div>
+                <div class="usage-col usage-target">
+                  <span class="usage-col-label">When to use ${escapeHtml(vsPattern)}:</span>
+                  <p class="usage-col-text">${escapeHtml(whenTarget || '--')}</p>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        contrastsBox.innerHTML = '<span class="text-sm text-muted">No nuance contrasts recorded for this pattern.</span>';
+      }
+    }
+
+    // Section 4: Pitfalls
+    const pitfallsBox = breakdownView.querySelector('#breakdown-pitfalls-content');
+    if (pitfallsBox) {
+      const pitfalls = cardData.common_pitfalls || [];
+      if (Array.isArray(pitfalls) && pitfalls.length > 0) {
+        pitfallsBox.innerHTML = pitfalls.map((p) => {
+          const misc = p.misconception || '';
+          const corr = p.correction || '';
+          const expl = p.explanation || '';
+          return `
+            <div class="pitfall-trap-card tactile-card surface-pitch-black p-3 mb-3">
+              <div class="pitfall-misconception-row flex items-start gap-2 mb-2">
+                <span class="pitfall-tag pitfall-tag-trap font-mono text-xs font-bold uppercase">Trap</span>
+                <p class="pitfall-text-trap text-sm text-warm-paper font-sans">${escapeHtml(misc)}</p>
+              </div>
+              <div class="pitfall-correction-row flex items-start gap-2 mb-2">
+                <span class="pitfall-tag pitfall-tag-fix font-mono text-xs font-bold uppercase">Fix</span>
+                <p class="pitfall-text-fix text-sm text-jade font-sans font-medium">${escapeHtml(corr)}</p>
+              </div>
+              ${expl ? `<p class="pitfall-explanation text-xs text-secondary font-sans mt-2">${escapeHtml(expl)}</p>` : ''}
+            </div>
+          `;
+        }).join('');
+      } else {
+        pitfallsBox.innerHTML = '<span class="text-sm text-muted">No common pitfalls recorded for this pattern.</span>';
+      }
+    }
+
+    // Section 5: Examples
+    const examplesBox = breakdownView.querySelector('#breakdown-examples-content');
+    if (examplesBox) {
+      let examples = cardData.reference_examples || cardData.examples || [];
+      if (typeof examples === 'string') {
+        try {
+          examples = JSON.parse(examples);
+        } catch (e) {
+          examples = [{ ja: examples }];
+        }
+      }
+      if (Array.isArray(examples) && examples.length > 0) {
+        examplesBox.innerHTML = examples.map((ex) => {
+          const ja = ex.japanese || ex.ja || ex.sentence || (typeof ex === 'string' ? ex : '');
+          const en = ex.english || ex.en || ex.translation || '';
+          return `
+            <div class="example-item tactile-card surface-pitch-black p-3 mb-2">
+              <p class="example-ja font-japanese text-warm-paper font-semibold">${formatExampleJapanese(ja)}</p>
+              ${en ? `<p class="example-en text-secondary text-xs mt-1 font-sans">${escapeHtml(en)}</p>` : ''}
+            </div>
+          `;
+        }).join('');
+      } else {
+        examplesBox.innerHTML = '<span class="text-sm text-muted">No example sentences available.</span>';
+      }
+    }
+
+    // Section 6: Encounters
+    const encountersBox = breakdownView.querySelector('#breakdown-encounters-content');
+    if (encountersBox) {
+      const minedCards = cardData?.encounters?.mined_cards || [];
+      const trackerEncounters = cardData?.encounters?.tracker_encounters || [];
+      const totalEnc = minedCards.length + trackerEncounters.length;
+
+      if (totalEnc > 0) {
+        const minedHtml = minedCards.map((c) => `
+          <div class="encounter-item text-xs text-secondary py-2 border-b border-ink-border">
+            <div class="flex items-center justify-between mb-1">
+              <span class="encounter-source-badge font-mono text-xs">${escapeHtml(c.source || 'card')}</span>
+              ${c.expression ? `<span class="font-japanese text-xs text-industrial-aqua font-bold">${escapeHtml(c.expression)}</span>` : ''}
+            </div>
+            <p class="font-japanese text-warm-paper font-medium">${formatExampleJapanese(c.sentence || '')}</p>
+            ${c.translation ? `<p class="text-muted text-xs mt-0.5">${escapeHtml(c.translation)}</p>` : ''}
+          </div>
+        `).join('');
+
+        const trackerHtml = trackerEncounters.map((enc) => `
+          <div class="encounter-item text-xs text-secondary py-1.5 border-b border-ink-border">
+            <span class="font-japanese text-warm-paper font-medium">${formatExampleJapanese(enc.sentence || enc)}</span>
+            ${enc.created_at ? `<span class="text-muted ml-2 font-mono">${escapeHtml(enc.created_at.slice(0, 10))}</span>` : ''}
+          </div>
+        `).join('');
+
+        encountersBox.innerHTML = minedHtml + trackerHtml;
+      } else {
+        encountersBox.innerHTML = '<span class="text-sm text-muted">No card encounters recorded yet.</span>';
+      }
+    }
   }
 
   async loadInitialGrammarStats() {
@@ -1418,6 +2033,11 @@ export class GrammarView {
 
   unmount() {
     this.analyzedSpans = [];
+    if (this.escListener) {
+      window.removeEventListener('keydown', this.escListener);
+      this.escListener = null;
+    }
+    this.isBreakdownOpen = false;
     if (this.container) {
       this.container.innerHTML = '';
     }

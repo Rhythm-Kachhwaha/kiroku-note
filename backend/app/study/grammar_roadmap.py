@@ -21,7 +21,7 @@ ROADMAP_CHAPTERS: list[dict[str, Any]] = [
         "subtitle": "State-of-being, core particles, questions, and polite copula",
         "level_bracket": "N5",
         "order": 1,
-        "pattern_keys": ["だ / です", "は", "が", "を", "も", "か", "の"],
+        "pattern_keys": ["だ", "です", "は", "が", "を", "も", "か", "の"],
     },
     {
         "chapter_id": "ch2_daily_descriptions",
@@ -29,7 +29,7 @@ ROADMAP_CHAPTERS: list[dict[str, Any]] = [
         "subtitle": "Actions in time and space, I/Na-adjectives, negative & past forms",
         "level_bracket": "N5",
         "order": 2,
-        "pattern_keys": ["に", "で", "へ", "と", "から", "まで", "ない", "た", "たい", "たくない"],
+        "pattern_keys": ["に", "で", "へ", "と", "から", "まで", "ない", "た", "たい"],
     },
     {
         "chapter_id": "ch3_desires_connections",
@@ -37,7 +37,7 @@ ROADMAP_CHAPTERS: list[dict[str, Any]] = [
         "subtitle": "Te-form linking, ongoing states, giving/receiving favors, reasons",
         "level_bracket": "N5-N4",
         "order": 3,
-        "pattern_keys": ["て", "ている", "てある", "てみる", "あげる", "くれる", "もらう", "から / ので", "たり〜たり"],
+        "pattern_keys": ["て", "ている", "てある", "てみる", "あげる", "くれる", "もらう", "から", "ので", "たり〜たり"],
     },
     {
         "chapter_id": "ch4_potential_modality",
@@ -91,7 +91,7 @@ CONCEPTUAL_HUBS: list[dict[str, Any]] = [
         "title": "Verbal Inflections & Stems",
         "description": "Te-form chains, past, negative, volitional, and stem connectors.",
         "icon": "conjugation",
-        "pattern_keys": ["て", "た", "ない", "ず", "ずに", "ながら", "たり〜たり"],
+        "pattern_keys": ["て", "た", "ない", "ずに", "ながら", "たり〜たり"],
     },
     {
         "hub_id": "hub_giving_receiving",
@@ -105,7 +105,7 @@ CONCEPTUAL_HUBS: list[dict[str, Any]] = [
         "title": "Conjectures, Evidentials & Hearsay",
         "description": "Subjective appearance, rumors, deduction, and certainty judgements.",
         "icon": "conjecture",
-        "pattern_keys": ["そうだ(appearance)", "そうだ(hearsay)", "らしい", "ようだ", "みたい", "に違いない", "に決まっている", "はず"],
+        "pattern_keys": ["そうだ(appearance)", "そうだ(hearsay)", "らしい", "ようだ", "みたい", "に違いない", "に決まっている", "はずだ"],
     },
     {
         "hub_id": "hub_conditionals",
