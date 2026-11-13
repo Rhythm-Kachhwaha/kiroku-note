@@ -344,7 +344,7 @@
   border-width: 0 !important;
   box-shadow: none !important;
   opacity: 0 !important;
-  transform: translateX(-70px) scale(0.97) !important;
+  transform: translateX(70px) scale(0.97) !important;
   pointer-events: none !important;
 }
 
@@ -1212,10 +1212,6 @@
   display: none;
 }
 
-/* Quick Add is the first capture panel */
-.vocab-quick-add-dock {
-  order: -1;
-}
 
 /* Inventory gaps shelf mine action */
 .vocab-gaps-shelf.history-gaps-shelf {

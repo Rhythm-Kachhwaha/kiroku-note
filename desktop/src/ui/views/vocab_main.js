@@ -165,12 +165,11 @@ export class VocabMainView {
             <div class="candidate-dropdown" id="candidate-dropdown" style="display: none;" role="listbox"></div>
           </div>
 
-          <!-- Capture | Inventory | Mined Cards segments -->
+          <!-- Capture | Inventory segments -->
           <div class="vocab-top-controls">
             <div class="vocab-segments" role="tablist" aria-label="Vocabulary sections">
               <button type="button" class="vocab-segment-tab is-active" id="vocab-tab-capture" data-segment="capture" role="tab" aria-selected="true">Capture</button>
               <button type="button" class="vocab-segment-tab" id="vocab-tab-inventory" data-segment="inventory" role="tab" aria-selected="false">Inventory</button>
-              <button type="button" class="vocab-segment-tab" id="vocab-tab-mined" data-segment="mined" role="tab" aria-selected="false">Mined Cards</button>
             </div>
 
             <button type="button" class="vocab-quick-add-toggle-btn is-open" id="btn-toggle-quick-add" title="Toggle Quick Add side panel">
@@ -181,7 +180,7 @@ export class VocabMainView {
             </button>
           </div>
 
-          <!-- Two-Column Workspace Split: Quick Add first, then Word Desk -->
+          <!-- Two-Column Workspace Split: Word Desk on left, Quick Add dock on right -->
           <div class="vocab-workspace-split">
             <!-- Left Pane: Word Details and collapsed passage annotator -->
             <div class="vocab-main-pane">
@@ -613,15 +612,11 @@ export class VocabMainView {
     // Capture | Inventory | Mined Cards segments
     const tabCapture = document.getElementById('vocab-tab-capture');
     const tabInventory = document.getElementById('vocab-tab-inventory');
-    const tabMined = document.getElementById('vocab-tab-mined');
     if (tabCapture) {
       tabCapture.addEventListener('click', () => this.handleSegmentSelect('capture'));
     }
     if (tabInventory) {
       tabInventory.addEventListener('click', () => this.handleSegmentSelect('inventory'));
-    }
-    if (tabMined) {
-      tabMined.addEventListener('click', () => this.handleSegmentSelect('mined'));
     }
 
     // Quick Add side panel toggle
@@ -827,13 +822,8 @@ export class VocabMainView {
   }
 
   async handleSegmentSelect(segment) {
-    if (segment === 'mined') {
-      this.router.navigateToTab('vocab-history');
-      return;
-    }
     const tabCapture = document.getElementById('vocab-tab-capture');
     const tabInventory = document.getElementById('vocab-tab-inventory');
-    const tabMined = document.getElementById('vocab-tab-mined');
     const workspace = this.container?.querySelector('.vocab-workspace-split');
     const searchSection = this.container?.querySelector('.vocab-search-section');
     const invMount = document.getElementById('vocab-inventory-mount');
@@ -843,7 +833,6 @@ export class VocabMainView {
       this.activeSegment = 'inventory';
       if (tabCapture) { tabCapture.classList.remove('is-active'); tabCapture.setAttribute('aria-selected', 'false'); }
       if (tabInventory) { tabInventory.classList.add('is-active'); tabInventory.setAttribute('aria-selected', 'true'); }
-      if (tabMined) { tabMined.classList.remove('is-active'); tabMined.setAttribute('aria-selected', 'false'); }
       if (workspace) workspace.style.display = 'none';
       if (searchSection) searchSection.style.display = 'none';
       if (btnQuickAdd) btnQuickAdd.style.display = 'none';
@@ -859,7 +848,6 @@ export class VocabMainView {
       this.activeSegment = 'capture';
       if (tabCapture) { tabCapture.classList.add('is-active'); tabCapture.setAttribute('aria-selected', 'true'); }
       if (tabInventory) { tabInventory.classList.remove('is-active'); tabInventory.setAttribute('aria-selected', 'false'); }
-      if (tabMined) { tabMined.classList.remove('is-active'); tabMined.setAttribute('aria-selected', 'false'); }
       if (workspace) workspace.style.display = '';
       if (searchSection) searchSection.style.display = '';
       if (btnQuickAdd) btnQuickAdd.style.display = '';

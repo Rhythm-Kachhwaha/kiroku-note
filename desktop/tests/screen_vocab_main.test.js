@@ -259,12 +259,13 @@ test('Vocab Main: Zero emojis across code, templates, and styles', () => {
   }
 });
 
-test('Vocab Main: Segments (Capture | Inventory | Mined Cards) and 3 token states', () => {
+test('Vocab Main: Segments (Capture | Inventory) and 3 token states', () => {
   const content = fs.readFileSync(vocabMainPath, 'utf8');
 
   // Segments
+  assert.ok(content.includes('id="vocab-tab-capture"'), 'Must render Capture segment tab');
   assert.ok(content.includes('id="vocab-tab-inventory"'), 'Must render Inventory segment tab');
-  assert.ok(content.includes('id="vocab-tab-mined"'), 'Must render Mined Cards segment tab');
+  assert.ok(!content.includes('id="vocab-tab-mined"'), 'Mined Cards button must be removed from Vocab');
   assert.ok(content.includes('id="vocab-inventory-mount"'), 'Must render Inventory mount container');
 
   // Read a passage full section
