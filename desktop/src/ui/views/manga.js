@@ -134,6 +134,13 @@ export class MangaView {
     this.detectedBubbles = [];
     this.activeCropDataUrl = null;
 
+    // Study Inspector State (Migaku-Style)
+    this.inspectorMode = 'sidebar'; // 'sidebar' | 'popover'
+    this.sidebarVisible = false;
+    this.recognizedTokens = [];
+    this.activeToken = null;
+    this.activeCaptureData = null;
+
     // Floating Popover State
     this.popoverVisible = false;
     this.popoverAnchor = { x: 0, y: 0 };
@@ -808,26 +815,115 @@ export class MangaView {
           </div>
 
           <div class="manga-topbar-right">
+            <!-- Study Sidebar Toggle Button -->
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-toggle-study-sidebar" title="Toggle Study Inspector Sidebar">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H14V5h5v14z"/></svg>
+              <span>Study Sidebar</span>
+            </button>
             <span class="manga-reader-hint text-xs text-muted">A / Left = Next | D / Right = Prev</span>
           </div>
         </header>
 
-        <!-- Canvas Stage -->
-        <div class="manga-stage-card" id="manga-stage-card">
-          <div class="manga-canvas-wrapper" id="manga-canvas-wrapper">
-            <canvas class="manga-canvas" id="manga-canvas"></canvas>
-            <div class="manga-bubble-overlay-layer" id="manga-bubble-overlay-layer"></div>
-            <div class="manga-selection-box" id="manga-selection-box" style="display: none;"></div>
+        <!-- Reader Workspace (Canvas Stage + Study Inspector Sidebar) -->
+        <div class="manga-reader-workspace" id="manga-reader-workspace">
+          <!-- Canvas Stage -->
+          <div class="manga-stage-card" id="manga-stage-card">
+            <div class="manga-canvas-wrapper" id="manga-canvas-wrapper">
+              <canvas class="manga-canvas" id="manga-canvas"></canvas>
+              <div class="manga-bubble-overlay-layer" id="manga-bubble-overlay-layer"></div>
+              <div class="manga-selection-box" id="manga-selection-box" style="display: none;"></div>
+            </div>
           </div>
+
+          <!-- Tactile Study Inspector Sidebar (Migaku-Style) -->
+          <aside class="manga-study-sidebar" id="manga-study-sidebar" style="${this.sidebarVisible ? '' : 'display: none;'}">
+            <div class="manga-sidebar-header">
+              <div class="flex items-center gap-2">
+                <span class="manga-sidebar-badge font-mono text-gold">STUDY INSPECTOR</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <button type="button" class="manga-sidebar-tool-btn" id="btn-switch-inspector-mode" title="Switch between Sidebar and Floating Popover">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/></svg>
+                </button>
+                <button type="button" class="manga-sidebar-tool-btn" id="btn-close-study-sidebar" title="Close Sidebar">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Cropped Manga Area Preview -->
+            <div class="manga-sidebar-crop-wrap" id="manga-sidebar-crop-wrap" style="${this.activeCropDataUrl ? '' : 'display: none;'}">
+              <img src="${this.activeCropDataUrl || ''}" alt="Manga Crop" class="manga-sidebar-crop-img" id="manga-sidebar-crop-img" />
+            </div>
+
+            <div class="manga-sidebar-body">
+              <!-- Sentence & Word Chips -->
+              <div class="manga-sidebar-section">
+                <div class="manga-section-subhead">
+                  <span>Context Sentence</span>
+                  <button type="button" class="manga-tool-btn" id="btn-copy-sentence" title="Copy Japanese Sentence">
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="manga-sentence-tokens-container" id="manga-sentence-tokens-container">
+                  <span class="text-xs text-muted">Select text on page or detect bubbles to inspect words</span>
+                </div>
+              </div>
+
+              <!-- Inspected Word Card -->
+              <div class="manga-sidebar-section" id="manga-word-section" style="display: none;">
+                <div class="manga-target-word-header">
+                  <div class="manga-target-meta-left">
+                    <span class="manga-target-expression" id="manga-target-expression">—</span>
+                    <span class="manga-target-reading" id="manga-target-reading"></span>
+                  </div>
+                  <div class="manga-target-meta-right">
+                    <span class="manga-jlpt-badge" id="manga-target-jlpt" style="display: none;">N5</span>
+                    <button type="button" class="manga-audio-btn" id="btn-speak-word" title="Pronounce Word">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 1-Click Mine Flashcard Button -->
+                <button type="button" class="tactile-btn tactile-btn-gold w-full manga-mine-btn" id="btn-sidebar-mine-card">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                  <span id="label-sidebar-mine-card">Mine Flashcard</span>
+                </button>
+              </div>
+
+              <!-- Definitions / Glosses -->
+              <div class="manga-sidebar-section" id="manga-definitions-section" style="display: none;">
+                <div class="manga-section-subhead">
+                  <span>Definitions</span>
+                </div>
+                <div class="manga-definitions-list" id="manga-definitions-list"></div>
+              </div>
+
+              <!-- Kanji Breakdown -->
+              <div class="manga-sidebar-section" id="manga-kanji-section" style="display: none;">
+                <div class="manga-section-subhead">
+                  <span>Kanji Breakdown</span>
+                </div>
+                <div class="manga-kanji-cards-grid" id="manga-kanji-cards-grid"></div>
+              </div>
+            </div>
+          </aside>
         </div>
 
-        <!-- Floating Yomitan Popover (Migaku-style) -->
+        <!-- Floating Tactile Popover (Solid Card, Zero Glassy Blur) -->
         <div class="manga-floating-popover" id="manga-floating-popover" style="display: none;">
           <div class="manga-popover-header">
-            <span class="manga-popover-badge font-mono text-gold">OCR Recognition</span>
-            <button type="button" class="manga-popover-close-btn" id="btn-close-popover" aria-label="Close Popover">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-            </button>
+            <span class="manga-popover-badge font-mono text-gold">INSPECTOR</span>
+            <div class="flex items-center gap-1">
+              <button type="button" class="manga-sidebar-tool-btn" id="btn-switch-popover-mode" title="Switch to Docked Sidebar">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H14V5h5v14z"/></svg>
+              </button>
+              <button type="button" class="manga-popover-close-btn" id="btn-close-popover" aria-label="Close Popover">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            </div>
           </div>
           <div class="manga-popover-sentence" id="manga-popover-sentence">
             <span class="text-xs text-muted">Running OCR...</span>
@@ -879,6 +975,7 @@ export class MangaView {
     const btnBackLib = this.container.querySelector('#btn-reader-back-library');
     btnBackLib?.addEventListener('click', () => {
       this.closePopover();
+      this.closeSidebar();
       this.activeMode = 'library';
       this.render();
     });
@@ -922,8 +1019,29 @@ export class MangaView {
     const btnClear = this.container.querySelector('#btn-clear-bubbles');
     btnClear?.addEventListener('click', () => this.clearBubbleOverlays());
 
+    const btnToggleSidebar = this.container.querySelector('#btn-toggle-study-sidebar');
+    btnToggleSidebar?.addEventListener('click', () => this.toggleSidebar());
+
+    const btnCloseSidebar = this.container.querySelector('#btn-close-study-sidebar');
+    btnCloseSidebar?.addEventListener('click', () => this.closeSidebar());
+
+    const btnSwitchInspector = this.container.querySelector('#btn-switch-inspector-mode');
+    btnSwitchInspector?.addEventListener('click', () => this.switchInspectorMode());
+
+    const btnSwitchPopover = this.container.querySelector('#btn-switch-popover-mode');
+    btnSwitchPopover?.addEventListener('click', () => this.switchInspectorMode());
+
     const btnClosePop = this.container.querySelector('#btn-close-popover');
     btnClosePop?.addEventListener('click', () => this.closePopover());
+
+    const btnCopySentence = this.container.querySelector('#btn-copy-sentence');
+    btnCopySentence?.addEventListener('click', () => this.copySentence());
+
+    const btnSpeakWord = this.container.querySelector('#btn-speak-word');
+    btnSpeakWord?.addEventListener('click', () => this.speakWord());
+
+    const btnMineCard = this.container.querySelector('#btn-sidebar-mine-card');
+    btnMineCard?.addEventListener('click', () => this.mineActiveWord());
 
     const wrapper = this.container.querySelector('#manga-canvas-wrapper');
     wrapper?.addEventListener('mousedown', (e) => this.handleMouseDown(e));
@@ -1443,6 +1561,7 @@ export class MangaView {
    * ------------------------------------------------------------------------- */
   async performOcrBoxSelection(startX, startY, endX, endY, anchor) {
     this.ocrBoxSelection = { startX, startY, endX, endY };
+    this.lastAnchor = anchor;
     const canvas = this.container?.querySelector('#manga-canvas');
     if (!canvas) return;
 
@@ -1458,11 +1577,26 @@ export class MangaView {
     this.activeCropDataUrl = cropCanvas.toDataURL('image/png');
     const base64Data = this.activeCropDataUrl.split(',')[1];
 
-    this.openPopover(anchor);
+    // Update crop preview in Sidebar
+    const cropWrap = this.container?.querySelector('#manga-sidebar-crop-wrap');
+    const cropImg = this.container?.querySelector('#manga-sidebar-crop-img');
+    if (cropWrap && cropImg) {
+      cropWrap.style.display = 'flex';
+      cropImg.src = this.activeCropDataUrl;
+    }
 
-    const sentenceEl = this.container?.querySelector('#manga-popover-sentence');
-    if (sentenceEl) {
-      sentenceEl.innerHTML = `<span class="text-xs text-muted">Running MangaOCR...</span>`;
+    if (this.inspectorMode === 'sidebar') {
+      this.openSidebar();
+      const tokenContainer = this.container?.querySelector('#manga-sentence-tokens-container');
+      if (tokenContainer) {
+        tokenContainer.innerHTML = `<span class="text-xs text-muted">Running MangaOCR recognition...</span>`;
+      }
+    } else {
+      this.openPopover(anchor);
+      const sentenceEl = this.container?.querySelector('#manga-popover-sentence');
+      if (sentenceEl) {
+        sentenceEl.innerHTML = `<span class="text-xs text-muted">Running MangaOCR recognition...</span>`;
+      }
     }
 
     try {
@@ -1474,17 +1608,384 @@ export class MangaView {
 
       if (res && res.text) {
         this.recognizedText = res.text.trim();
-        if (sentenceEl) {
-          sentenceEl.innerHTML = `<div class="manga-sentence-text">${escapeHtml(this.recognizedText)}</div>`;
-        }
-        await this.lookupDictionary(this.recognizedText);
+        await this.processRecognizedSentence(this.recognizedText, anchor);
       } else {
-        if (sentenceEl) sentenceEl.innerHTML = `<span class="text-xs text-muted">No text detected</span>`;
+        this.renderOcrError('No text detected in selected region');
       }
     } catch (err) {
       console.warn('[MangaView] OCR recognition failed:', err);
-      if (sentenceEl) sentenceEl.innerHTML = `<span class="text-xs text-danger">OCR Error</span>`;
+      this.renderOcrError('OCR recognition failed');
     }
+  }
+
+  async processRecognizedSentence(sentence, anchor) {
+    if (!sentence) return;
+
+    // Update Popover sentence display
+    const popSentenceEl = this.container?.querySelector('#manga-popover-sentence');
+    if (popSentenceEl) {
+      popSentenceEl.innerHTML = `<div class="manga-sentence-text">${escapeHtml(sentence)}</div>`;
+    }
+
+    // Tokenize sentence using Subtitle Annotator API (Sudachi / MeCab / OpenJLPT)
+    let tokens = [];
+    try {
+      const annotateRes = await this.apiClient.annotateText(sentence);
+      if (annotateRes && annotateRes.cues && annotateRes.cues[0] && Array.isArray(annotateRes.cues[0].tokens)) {
+        tokens = annotateRes.cues[0].tokens;
+      }
+    } catch (err) {
+      console.debug('[MangaView] annotateText fallback to regex:', err);
+    }
+
+    // Fallback: if backend annotation is empty or fails, use regex tokenizer
+    if (!tokens || tokens.length === 0) {
+      const matches = sentence.match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+|[^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\s]+/g) || [sentence];
+      tokens = matches.map(word => ({
+        surface: word,
+        lemma: word,
+        reading: '',
+        pos: ''
+      }));
+    }
+
+    this.recognizedTokens = tokens;
+    this.renderSentenceTokens(tokens);
+
+    // Auto-inspect primary word: prefer first token with kanji or length > 1, otherwise tokens[0]
+    let primaryToken = tokens.find(t => {
+      const surface = t.surface || t.text || '';
+      return /[\u4e00-\u9faf]/.test(surface) && surface.length > 0;
+    }) || tokens.find(t => {
+      const surface = t.surface || t.text || '';
+      return surface.trim().length > 1;
+    }) || tokens[0];
+
+    if (primaryToken) {
+      await this.inspectToken(primaryToken);
+    }
+  }
+
+  renderSentenceTokens(tokens) {
+    const container = this.container?.querySelector('#manga-sentence-tokens-container');
+    if (!container) return;
+
+    container.innerHTML = '';
+    tokens.forEach((token, index) => {
+      const surface = token.surface || token.text || '';
+      const reading = token.reading || '';
+      if (!surface.trim()) return;
+
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'manga-token-chip';
+      chip.dataset.index = index;
+
+      chip.innerHTML = `
+        ${reading ? `<span class="manga-token-reading">${escapeHtml(reading)}</span>` : ''}
+        <span class="manga-token-surface">${escapeHtml(surface)}</span>
+      `;
+
+      chip.addEventListener('click', () => {
+        this.inspectToken(token, chip);
+      });
+
+      container.appendChild(chip);
+    });
+  }
+
+  async inspectToken(token, chipEl = null) {
+    if (!token) return;
+    this.activeToken = token;
+
+    const targetWord = (token.lemma || token.surface || token.text || '').trim();
+    if (!targetWord) return;
+
+    // Highlight chip
+    const container = this.container?.querySelector('#manga-sentence-tokens-container');
+    if (container) {
+      container.querySelectorAll('.manga-token-chip').forEach(c => c.classList.remove('is-active'));
+      if (chipEl) {
+        chipEl.classList.add('is-active');
+      } else {
+        const found = Array.from(container.querySelectorAll('.manga-token-chip')).find(
+          c => c.querySelector('.manga-token-surface')?.textContent === (token.surface || token.text)
+        );
+        found?.classList.add('is-active');
+      }
+    }
+
+    // Show Word and Definitions sections in Sidebar
+    const wordSection = this.container?.querySelector('#manga-word-section');
+    const defSection = this.container?.querySelector('#manga-definitions-section');
+    const kanjiSection = this.container?.querySelector('#manga-kanji-section');
+    const expEl = this.container?.querySelector('#manga-target-expression');
+    const readEl = this.container?.querySelector('#manga-target-reading');
+    const jlptEl = this.container?.querySelector('#manga-target-jlpt');
+    const defsList = this.container?.querySelector('#manga-definitions-list');
+    const kanjiGrid = this.container?.querySelector('#manga-kanji-cards-grid');
+    const mineBtn = this.container?.querySelector('#btn-sidebar-mine-card');
+    const mineLabel = this.container?.querySelector('#label-sidebar-mine-card');
+
+    if (wordSection) wordSection.style.display = 'flex';
+    if (defSection) defSection.style.display = 'flex';
+    if (expEl) expEl.textContent = targetWord;
+    if (readEl) readEl.textContent = token.reading || '';
+    if (jlptEl) {
+      if (token.jlpt_level) {
+        jlptEl.textContent = token.jlpt_level;
+        jlptEl.style.display = 'inline-block';
+      } else {
+        jlptEl.style.display = 'none';
+      }
+    }
+
+    if (mineBtn) {
+      mineBtn.classList.remove('is-mined');
+      mineBtn.disabled = false;
+      if (mineLabel) mineLabel.textContent = `Mine Flashcard`;
+    }
+
+    if (defsList) {
+      defsList.innerHTML = `<span class="text-xs text-muted">Looking up dictionary senses...</span>`;
+    }
+    if (kanjiGrid && kanjiSection) {
+      kanjiSection.style.display = 'none';
+      kanjiGrid.innerHTML = '';
+    }
+
+    // Also update popover if in popover mode
+    const popoverLookup = this.container?.querySelector('#manga-popover-lookup');
+    if (popoverLookup) {
+      popoverLookup.innerHTML = `<span class="text-xs text-muted">Looking up ${escapeHtml(targetWord)}...</span>`;
+    }
+
+    try {
+      const captureData = await this.apiClient.captureText(targetWord);
+      this.activeCaptureData = captureData;
+
+      const reading = captureData.reading || token.reading || '';
+      const meaning = captureData.meaning || '';
+      const jlpt = captureData.jlpt_level || token.jlpt_level;
+
+      if (readEl && reading) readEl.textContent = reading;
+      if (jlptEl && jlpt) {
+        jlptEl.textContent = jlpt;
+        jlptEl.style.display = 'inline-block';
+      }
+
+      // Render definitions in Sidebar
+      if (defsList) {
+        if (captureData.entries && captureData.entries.length > 0) {
+          const renderedSenses = [];
+          captureData.entries.slice(0, 4).forEach((entry) => {
+            (entry.senses || []).forEach((s, sIdx) => {
+              const glosses = (s.glosses || []).join('; ');
+              const pos = (s.parts_of_speech || []).join(', ');
+              renderedSenses.push(`
+                <div class="manga-definition-row">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-mono text-gold font-bold">${sIdx + 1}.</span>
+                    ${pos ? `<span class="text-xs text-muted">(${escapeHtml(pos)})</span>` : ''}
+                  </div>
+                  <div class="manga-def-text">${escapeHtml(glosses)}</div>
+                </div>
+              `);
+            });
+          });
+
+          defsList.innerHTML = renderedSenses.length > 0
+            ? renderedSenses.join('')
+            : `<div class="text-xs text-muted">${escapeHtml(meaning || 'No definitions found')}</div>`;
+        } else if (meaning) {
+          defsList.innerHTML = `
+            <div class="manga-definition-row">
+              <div class="manga-def-text">${escapeHtml(meaning)}</div>
+            </div>
+          `;
+        } else {
+          defsList.innerHTML = `<span class="text-xs text-muted">No dictionary definitions found for "${escapeHtml(targetWord)}"</span>`;
+        }
+      }
+
+      // Render Kanji Breakdown in Sidebar
+      if (kanjiGrid && kanjiSection && captureData.kanji_entries && captureData.kanji_entries.length > 0) {
+        kanjiSection.style.display = 'flex';
+        kanjiGrid.innerHTML = captureData.kanji_entries.map(k => `
+          <div class="manga-kanji-card">
+            <div class="manga-kanji-char">${escapeHtml(k.character)}</div>
+            <div class="manga-kanji-meaning">${escapeHtml((k.meanings || []).slice(0, 3).join(', '))}</div>
+            <div class="manga-kanji-readings">${escapeHtml([...(k.onyomi || []), ...(k.kunyomi || [])].slice(0, 3).join(' • '))}</div>
+          </div>
+        `).join('');
+      }
+
+      // Render into floating popover
+      if (popoverLookup) {
+        popoverLookup.innerHTML = `
+          <div class="manga-dict-entry">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-accent">${escapeHtml(targetWord)}</span>
+              <button type="button" 
+                class="tactile-btn tactile-btn-primary tactile-btn-sm btn-manga-mine-word" 
+                data-word="${escapeHtml(targetWord)}" 
+                data-reading="${escapeHtml(reading)}" 
+                data-meaning="${escapeHtml(meaning)}">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                <span>Mine</span>
+              </button>
+            </div>
+            ${reading ? `<div class="text-xs text-muted">${escapeHtml(reading)}</div>` : ''}
+            <div class="text-xs mt-1">${escapeHtml(meaning || 'No definitions found')}</div>
+          </div>
+        `;
+      }
+    } catch (err) {
+      console.warn('[MangaView] captureText error:', err);
+      if (defsList) {
+        defsList.innerHTML = `<span class="text-xs text-muted">Definitions unavailable</span>`;
+      }
+      if (popoverLookup) {
+        popoverLookup.innerHTML = `<span class="text-xs text-muted">Dictionary lookup unavailable</span>`;
+      }
+    }
+  }
+
+  async mineActiveWord() {
+    if (!this.activeToken) return;
+    const word = (this.activeToken.lemma || this.activeToken.surface || this.activeToken.text || '').trim();
+    if (!word) return;
+
+    const reading = this.activeCaptureData?.reading || this.activeToken.reading || '';
+    const meaning = this.activeCaptureData?.meaning || '';
+    const sentence = this.recognizedText || '';
+
+    const mineBtn = this.container?.querySelector('#btn-sidebar-mine-card');
+    const mineLabel = this.container?.querySelector('#label-sidebar-mine-card');
+    if (mineBtn) {
+      mineBtn.disabled = true;
+      if (mineLabel) mineLabel.textContent = 'Mining to Cards...';
+    }
+
+    const cardPayload = {
+      expression: word,
+      reading: reading || word,
+      meaning: meaning,
+      example_sentence: sentence,
+      sentence: sentence,
+      image_url: this.activeCropDataUrl || '',
+      image_data: this.activeCropDataUrl || '',
+      source: 'manga',
+      source_type: 'manga',
+      source_title: this.currentBook?.title || 'Manga',
+      deck_name: 'Default',
+      tags: 'kiroku,manga'
+    };
+
+    try {
+      if (typeof this.apiClient.saveCard === 'function') {
+        await this.apiClient.saveCard(cardPayload);
+      } else {
+        await this.apiClient.request('/api/cards/save', {
+          method: 'POST',
+          body: cardPayload
+        });
+      }
+
+      // Mark word as known in background
+      try {
+        if (typeof this.apiClient.markKnownWord === 'function') {
+          await this.apiClient.markKnownWord(word);
+        }
+      } catch (err) {
+        console.debug('[MangaView] Mark known fallback:', err);
+      }
+
+      if (mineBtn) {
+        mineBtn.classList.add('is-mined');
+        mineBtn.disabled = true;
+        if (mineLabel) mineLabel.textContent = '✓ Mined to Flashcards!';
+      }
+      this.lastMinedWord = word;
+    } catch (err) {
+      console.warn('[MangaView] Mining failed:', err);
+      if (mineBtn) {
+        mineBtn.disabled = false;
+        if (mineLabel) mineLabel.textContent = 'Retry Mining';
+      }
+    }
+  }
+
+  speakWord(text = null) {
+    const word = text || (this.activeToken?.lemma || this.activeToken?.surface || this.activeToken?.text || '');
+    if (!word || typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(word);
+      utterance.lang = 'ja-JP';
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.debug('[MangaView] Speech synthesis error:', err);
+    }
+  }
+
+  async copySentence() {
+    const text = this.recognizedText;
+    if (!text) return;
+    const btn = this.container?.querySelector('#btn-copy-sentence');
+    try {
+      await navigator.clipboard.writeText(text);
+      if (btn) {
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<span>Copied!</span>`;
+        setTimeout(() => { btn.innerHTML = originalText; }, 1500);
+      }
+    } catch (err) {
+      console.debug('[MangaView] Clipboard error:', err);
+    }
+  }
+
+  openSidebar() {
+    this.sidebarVisible = true;
+    const sidebar = this.container?.querySelector('#manga-study-sidebar');
+    if (sidebar) sidebar.style.display = 'flex';
+  }
+
+  closeSidebar() {
+    this.sidebarVisible = false;
+    const sidebar = this.container?.querySelector('#manga-study-sidebar');
+    if (sidebar) sidebar.style.display = 'none';
+  }
+
+  toggleSidebar() {
+    if (this.sidebarVisible) {
+      this.closeSidebar();
+    } else {
+      this.openSidebar();
+    }
+  }
+
+  switchInspectorMode() {
+    if (this.inspectorMode === 'sidebar') {
+      this.inspectorMode = 'popover';
+      this.closeSidebar();
+      if (this.lastAnchor) {
+        this.openPopover(this.lastAnchor);
+      }
+    } else {
+      this.inspectorMode = 'sidebar';
+      this.closePopover();
+      this.openSidebar();
+    }
+  }
+
+  renderOcrError(msg) {
+    const sentenceEl = this.container?.querySelector('#manga-popover-sentence');
+    if (sentenceEl) sentenceEl.innerHTML = `<span class="text-xs text-danger">${escapeHtml(msg)}</span>`;
+    const tokenContainer = this.container?.querySelector('#manga-sentence-tokens-container');
+    if (tokenContainer) tokenContainer.innerHTML = `<span class="text-xs text-danger">${escapeHtml(msg)}</span>`;
   }
 
   /* -------------------------------------------------------------------------
@@ -1575,10 +2076,10 @@ export class MangaView {
     this.popoverVisible = true;
     popover.style.display = 'block';
 
-    const popWidth = 320;
+    const popWidth = 340;
     const popHeight = 240;
-    let posX = Math.max(16, Math.min(window.innerWidth - popWidth - 16, anchor.x));
-    let posY = Math.max(50, Math.min(window.innerHeight - popHeight - 60, anchor.y));
+    let posX = Math.max(16, Math.min(window.innerWidth - popWidth - 16, anchor ? anchor.x : 50));
+    let posY = Math.max(50, Math.min(window.innerHeight - popHeight - 60, anchor ? anchor.y : 100));
 
     popover.style.left = `${posX}px`;
     popover.style.top = `${posY}px`;
@@ -1595,31 +2096,29 @@ export class MangaView {
     if (!lookupEl || !text) return;
 
     try {
-      const res = await this.apiClient.request(`/api/dictionary/lookup?term=${encodeURIComponent(text)}`);
-      if (res && Array.isArray(res.entries) && res.entries.length > 0) {
-        lookupEl.innerHTML = res.entries.slice(0, 3).map((entry) => {
-          const word = entry.expression || entry.kanji || text;
-          const reading = entry.reading || '';
-          const glossary = (entry.glossary || []).join('; ');
+      const res = await this.apiClient.captureText(text);
+      if (res && res.meaning) {
+        const word = res.expression || text;
+        const reading = res.reading || '';
+        const glossary = res.meaning;
 
-          return `
-            <div class="manga-dict-entry mb-2">
-              <div class="flex items-center justify-between">
-                <span class="font-bold text-accent">${escapeHtml(word)}</span>
-                <button type="button" 
-                  class="tactile-btn tactile-btn-primary tactile-btn-sm btn-manga-mine-word" 
-                  data-word="${escapeHtml(word)}" 
-                  data-reading="${escapeHtml(reading)}" 
-                  data-meaning="${escapeHtml(glossary)}">
-                  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                  <span>Mine</span>
-                </button>
-              </div>
-              <div class="text-xs text-muted">${escapeHtml(reading)}</div>
-              <div class="text-xs">${escapeHtml(glossary)}</div>
+        lookupEl.innerHTML = `
+          <div class="manga-dict-entry mb-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-accent">${escapeHtml(word)}</span>
+              <button type="button" 
+                class="tactile-btn tactile-btn-primary tactile-btn-sm btn-manga-mine-word" 
+                data-word="${escapeHtml(word)}" 
+                data-reading="${escapeHtml(reading)}" 
+                data-meaning="${escapeHtml(glossary)}">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                <span>Mine</span>
+              </button>
             </div>
-          `;
-        }).join('');
+            ${reading ? `<div class="text-xs text-muted">${escapeHtml(reading)}</div>` : ''}
+            <div class="text-xs mt-1">${escapeHtml(glossary)}</div>
+          </div>
+        `;
       } else {
         lookupEl.innerHTML = `<span class="text-xs text-muted">No dictionary entries found for "${escapeHtml(text)}"</span>`;
       }
@@ -1639,19 +2138,38 @@ export class MangaView {
     }
 
     try {
-      await this.apiClient.request('/api/cards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          expression: word,
-          reading: reading,
-          meaning: meaning,
-          sentence: this.recognizedText,
-          image_url: this.activeCropDataUrl || '',
-          source: 'manga',
-          source_title: this.currentBook?.title || 'Manga'
-        })
-      });
+      const cardPayload = {
+        expression: word,
+        reading: reading || word,
+        meaning: meaning,
+        example_sentence: this.recognizedText,
+        sentence: this.recognizedText,
+        image_url: this.activeCropDataUrl || '',
+        image_data: this.activeCropDataUrl || '',
+        source: 'manga',
+        source_type: 'manga',
+        source_title: this.currentBook?.title || 'Manga',
+        deck_name: 'Default',
+        tags: 'kiroku,manga'
+      };
+
+      if (typeof this.apiClient.saveCard === 'function') {
+        await this.apiClient.saveCard(cardPayload);
+      } else {
+        await this.apiClient.request('/api/cards/save', {
+          method: 'POST',
+          body: cardPayload
+        });
+      }
+
+      try {
+        if (typeof this.apiClient.markKnownWord === 'function') {
+          await this.apiClient.markKnownWord(word);
+        }
+      } catch (err) {
+        console.debug('[MangaView] Mark known fallback:', err);
+      }
+
       this.lastMinedWord = word;
     } catch (err) {
       console.warn('[MangaView] Mine word failed:', err);
