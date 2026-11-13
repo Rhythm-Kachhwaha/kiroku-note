@@ -1,14 +1,17 @@
 /**
  * Kiroku Note Desktop — Manga Reader View
- * Bookshelf Library + Full-Screen Immersion Reader.
- * Client-side PDF (pdf.js) & CBZ (jszip) rendering, automatic speech bubble detection,
- * dual-page spread (book style), interactive floating popovers, and rich Migaku-style card mining.
+ * Bookshelf Library with custom folders + Full-Screen Immersion Reader.
+ * Client-side PDF (pdf.js) & CBZ (jszip) rendering with IndexedDB persistence,
+ * automatic speech bubble detection, dual-page spread (book style),
+ * tactile modals for folders & actions, and rich Migaku-style card mining.
  */
 
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
+import { storeBookFile, getBookFileBuffer, deleteBookFile } from '../services/manga_storage.js';
 
 const STORAGE_KEY_LIBRARY = 'kiroku.manga.library';
+const STORAGE_KEY_FOLDERS = 'kiroku.manga.folders';
 const STORAGE_KEY_SPREAD = 'kiroku.manga.spread_mode';
 
 export class MangaView {
@@ -24,8 +27,14 @@ export class MangaView {
     // View state: 'library' or 'reader'
     this.activeMode = 'library';
 
-    // Library State
+    // Library & Folders State
     this.books = this.loadLibrary();
+    this.folders = this.loadFolders();
+    this.activeFolderId = 'all';
+
+    // Modal State
+    this.activeModal = null; // 'create_folder' | 'rename_folder' | 'delete_folder' | 'book_menu'
+    this.modalContext = null;
 
     // Spread mode: 'single' or 'double' (like actual manga books)
     this.spreadMode = localStorage.getItem(STORAGE_KEY_SPREAD) === 'double' ? 'double' : 'single';
@@ -72,6 +81,7 @@ export class MangaView {
         id: b.id,
         title: b.title,
         type: b.type,
+        folderId: b.folderId || 'default',
         pageCount: b.pageCount,
         currentPage: b.currentPage || 1,
         coverUrl: b.coverUrl || '',
@@ -83,6 +93,28 @@ export class MangaView {
     }
   }
 
+  loadFolders() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_FOLDERS);
+      if (raw) return JSON.parse(raw);
+    } catch {
+      // ignore
+    }
+    return [
+      { id: 'default', name: 'Textbooks' },
+      { id: 'manga', name: 'Manga & Comics' },
+      { id: 'stories', name: 'Short Stories' }
+    ];
+  }
+
+  saveFolders() {
+    try {
+      localStorage.setItem(STORAGE_KEY_FOLDERS, JSON.stringify(this.folders));
+    } catch (e) {
+      console.warn('[MangaView] Failed to save folders:', e);
+    }
+  }
+
   async mount(container) {
     this.container = container;
     this.render();
@@ -91,6 +123,7 @@ export class MangaView {
 
   onHide() {
     this.closePopover();
+    this.closeModal();
   }
 
   unmount() {
@@ -111,10 +144,37 @@ export class MangaView {
   }
 
   /* -------------------------------------------------------------------------
-   * Library / Bookshelf View
+   * Library / Bookshelf View with Folders & Management
    * ------------------------------------------------------------------------- */
   renderLibraryView() {
-    const bookCards = this.books.map(b => {
+    const activeBooks = this.activeFolderId === 'all'
+      ? this.books
+      : this.books.filter(b => (b.folderId || 'default') === this.activeFolderId);
+
+    const allCount = this.books.length;
+    const folderPills = [
+      { id: 'all', name: 'All Books', count: allCount },
+      ...this.folders.map(f => ({
+        id: f.id,
+        name: f.name,
+        count: this.books.filter(b => (b.folderId || 'default') === f.id).length
+      }))
+    ].map(f => `
+      <div class="manga-folder-pill ${this.activeFolderId === f.id ? 'is-active' : ''}" data-folder-id="${escapeHtml(f.id)}">
+        <span class="manga-folder-name">${escapeHtml(f.name)}</span>
+        <span class="manga-folder-count">(${f.count})</span>
+        ${f.id !== 'all' ? `
+          <button type="button" class="manga-folder-action-btn btn-folder-rename" data-folder-id="${escapeHtml(f.id)}" title="Rename Folder">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          </button>
+          <button type="button" class="manga-folder-action-btn btn-folder-delete" data-folder-id="${escapeHtml(f.id)}" title="Delete Folder">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        ` : ''}
+      </div>
+    `).join('');
+
+    const bookCards = activeBooks.map(b => {
       const percent = b.pageCount > 0 ? Math.round((b.currentPage / b.pageCount) * 100) : 0;
       return `
         <div class="manga-book-card" data-book-id="${escapeHtml(b.id)}">
@@ -125,12 +185,31 @@ export class MangaView {
             <div class="manga-book-progress-badge">${percent}%</div>
           </div>
           <div class="manga-book-info">
-            <div class="manga-book-title" title="${escapeHtml(b.title)}">${escapeHtml(b.title)}</div>
+            <div class="manga-book-title-row">
+              <div class="manga-book-title" title="${escapeHtml(b.title)}">${escapeHtml(b.title)}</div>
+              <button type="button" class="manga-book-more-btn" data-book-id="${escapeHtml(b.id)}" title="Book Options">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+              </button>
+            </div>
             <div class="manga-book-meta">Page ${b.currentPage || 1} of ${b.pageCount || '?'}</div>
           </div>
         </div>
       `;
     }).join('');
+
+    // Dropzone card inside grid
+    const dropzoneCard = `
+      <div class="manga-library-dropzone-card" id="manga-library-dropzone">
+        <label for="manga-library-file-input" class="manga-dropzone-label cursor-pointer">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" class="manga-dropzone-icon">
+            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+          </svg>
+          <div class="text-xs font-bold mt-2 text-center text-warm-paper">Drop Manga Here</div>
+          <div class="text-xs text-muted text-center mt-1">PDF, CBZ or Image</div>
+        </label>
+        <input type="file" id="manga-library-file-input" accept=".pdf,.cbz,.zip,image/*" style="display: none;" />
+      </div>
+    `;
 
     this.container.innerHTML = `
       <div class="manga-viewer-container">
@@ -144,33 +223,38 @@ export class MangaView {
             </span>
           </div>
           <div class="manga-toolbar">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-add-folder" title="Create New Folder">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10zm-7-1h2v-3h3v-2h-3V9h-2v3h-3v2h3z"/></svg>
+              <span>New Folder</span>
+            </button>
             <label class="tactile-btn tactile-btn-primary tactile-btn-sm cursor-pointer manga-add-btn" for="manga-library-file-input">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
               <span>Add Manga</span>
             </label>
-            <input type="file" id="manga-library-file-input" accept=".pdf,.cbz,.zip,image/*" style="display: none;" />
           </div>
         </div>
 
         <div class="manga-library-stage">
-          <div class="manga-library-dropzone" id="manga-library-dropzone">
-            <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor" class="manga-dropzone-icon">
-              <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
-            </svg>
-            <div class="text-sm font-bold mt-2">Drag and drop manga PDF, CBZ or image volume here</div>
-            <div class="text-xs text-muted mt-1">Or click 'Add Manga' to choose from disk</div>
+          <!-- Folder Filter Strip -->
+          <div class="manga-folders-strip" id="manga-folders-strip">
+            ${folderPills}
           </div>
 
-          <div class="manga-bookshelf-section mt-4">
+          <!-- Bookshelf Grid: Real Books + Compact Dropzone on the Right -->
+          <div class="manga-bookshelf-section mt-2">
             <div class="manga-section-title">
-              <span>Your Bookshelf</span>
-              <span class="manga-book-count">(${this.books.length})</span>
+              <span>Books</span>
+              <span class="manga-book-count">(${activeBooks.length})</span>
             </div>
             <div class="manga-bookshelf-grid">
-              ${bookCards || `<div class="manga-empty-bookshelf">No manga in your library yet. Open a PDF or CBZ file to start reading.</div>`}
+              ${bookCards}
+              ${dropzoneCard}
             </div>
           </div>
         </div>
+
+        <!-- Custom Tactile Modal Host -->
+        <div id="manga-modal-host" style="display: none;"></div>
       </div>
     `;
 
@@ -199,25 +283,248 @@ export class MangaView {
       if (file) this.openFile(file);
     });
 
-    const grid = this.container.querySelector('.manga-bookshelf-grid');
-    grid?.addEventListener('click', (e) => {
-      const card = e.target.closest('.manga-book-card');
-      if (card && card.dataset.bookId) {
-        const book = this.books.find(b => b.id === card.dataset.bookId);
-        if (book) {
-          if (book.file) {
-            this.currentBook = book;
-            this.currentPage = book.currentPage || 1;
-            this.pageCount = book.pageCount || 1;
-            this.activeMode = 'reader';
-            this.render();
-          } else {
-            // Browser dropped pointer after app restart: prompt user to pick file again
-            fileInput?.click();
-          }
-        }
+    // Folder navigation & actions
+    const foldersStrip = this.container.querySelector('#manga-folders-strip');
+    foldersStrip?.addEventListener('click', (e) => {
+      const renameBtn = e.target.closest('.btn-folder-rename');
+      if (renameBtn && renameBtn.dataset.folderId) {
+        e.stopPropagation();
+        this.openRenameFolderModal(renameBtn.dataset.folderId);
+        return;
+      }
+
+      const deleteBtn = e.target.closest('.btn-folder-delete');
+      if (deleteBtn && deleteBtn.dataset.folderId) {
+        e.stopPropagation();
+        this.handleDeleteFolder(deleteBtn.dataset.folderId);
+        return;
+      }
+
+      const pill = e.target.closest('.manga-folder-pill');
+      if (pill && pill.dataset.folderId) {
+        this.activeFolderId = pill.dataset.folderId;
+        this.render();
       }
     });
+
+    // Create New Folder
+    const btnAddFolder = this.container.querySelector('#btn-add-folder');
+    btnAddFolder?.addEventListener('click', () => {
+      this.openCreateFolderModal();
+    });
+
+    // Bookshelf card clicks and book options
+    const grid = this.container.querySelector('.manga-bookshelf-grid');
+    grid?.addEventListener('click', async (e) => {
+      const moreBtn = e.target.closest('.manga-book-more-btn');
+      if (moreBtn && moreBtn.dataset.bookId) {
+        e.stopPropagation();
+        this.openBookMenuModal(moreBtn.dataset.bookId);
+        return;
+      }
+
+      const card = e.target.closest('.manga-book-card');
+      if (card && card.dataset.bookId) {
+        await this.loadAndOpenBook(card.dataset.bookId);
+      }
+    });
+  }
+
+  /* -------------------------------------------------------------------------
+   * Tactile Modal Dialogs (Pure DOM, zero window.prompt issues)
+   * ------------------------------------------------------------------------- */
+  openCreateFolderModal() {
+    this.showModal(`
+      <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+        <div class="tactile-modal-card">
+          <h3 class="text-base font-bold text-warm-paper">New Study Folder</h3>
+          <p class="text-xs text-muted mt-1">Organize your textbooks, manga series, and readers.</p>
+          <div class="mt-3">
+            <input type="text" id="modal-folder-name" class="tactile-input-text w-full" placeholder="e.g. Genki Study, JLPT N3, Shonen Jump" autofocus />
+          </div>
+          <div class="modal-actions-row mt-4">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
+            <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-modal-save">Create</button>
+          </div>
+        </div>
+      </div>
+    `, () => {
+      const saveBtn = this.container.querySelector('#btn-modal-save');
+      const input = this.container.querySelector('#modal-folder-name');
+      const doSave = () => {
+        const name = input?.value?.trim();
+        if (name) {
+          const newFolder = { id: 'folder_' + Date.now(), name };
+          this.folders.push(newFolder);
+          this.saveFolders();
+          this.activeFolderId = newFolder.id;
+          this.closeModal();
+          this.render();
+        }
+      };
+      saveBtn?.addEventListener('click', doSave);
+      input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSave(); });
+    });
+  }
+
+  openRenameFolderModal(folderId) {
+    const folder = this.folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    this.showModal(`
+      <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+        <div class="tactile-modal-card">
+          <h3 class="text-base font-bold text-warm-paper">Rename Folder</h3>
+          <div class="mt-3">
+            <input type="text" id="modal-rename-input" class="tactile-input-text w-full" value="${escapeHtml(folder.name)}" autofocus />
+          </div>
+          <div class="modal-actions-row mt-4">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
+            <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-modal-save">Rename</button>
+          </div>
+        </div>
+      </div>
+    `, () => {
+      const saveBtn = this.container.querySelector('#btn-modal-save');
+      const input = this.container.querySelector('#modal-rename-input');
+      const doSave = () => {
+        const name = input?.value?.trim();
+        if (name) {
+          folder.name = name;
+          this.saveFolders();
+          this.closeModal();
+          this.render();
+        }
+      };
+      saveBtn?.addEventListener('click', doSave);
+      input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSave(); });
+    });
+  }
+
+  handleDeleteFolder(folderId) {
+    const folder = this.folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    const booksInFolder = this.books.filter(b => (b.folderId || 'default') === folderId);
+
+    // If folder has books, confirm with user
+    if (booksInFolder.length > 0) {
+      this.showModal(`
+        <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+          <div class="tactile-modal-card">
+            <h3 class="text-base font-bold text-warm-paper">Delete "${escapeHtml(folder.name)}"?</h3>
+            <p class="text-xs text-muted mt-2">
+              This folder contains <strong>${booksInFolder.length}</strong> book(s). Deleting the folder will move them to All Books.
+            </p>
+            <div class="modal-actions-row mt-4">
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
+              <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-modal-confirm-delete">Delete Folder</button>
+            </div>
+          </div>
+        </div>
+      `, () => {
+        this.container.querySelector('#btn-modal-confirm-delete')?.addEventListener('click', () => {
+          booksInFolder.forEach(b => { b.folderId = 'default'; });
+          this.folders = this.folders.filter(f => f.id !== folderId);
+          this.saveFolders();
+          this.saveLibrary();
+          if (this.activeFolderId === folderId) this.activeFolderId = 'all';
+          this.closeModal();
+          this.render();
+        });
+      });
+    } else {
+      // Empty folder: instant 1-click delete
+      this.folders = this.folders.filter(f => f.id !== folderId);
+      this.saveFolders();
+      if (this.activeFolderId === folderId) this.activeFolderId = 'all';
+      this.render();
+    }
+  }
+
+  openBookMenuModal(bookId) {
+    const book = this.books.find(b => b.id === bookId);
+    if (!book) return;
+
+    const folderOptions = this.folders.map(f => `
+      <option value="${escapeHtml(f.id)}" ${(book.folderId || 'default') === f.id ? 'selected' : ''}>
+        ${escapeHtml(f.name)}
+      </option>
+    `).join('');
+
+    this.showModal(`
+      <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+        <div class="tactile-modal-card">
+          <h3 class="text-base font-bold text-warm-paper">Book Options</h3>
+          <div class="mt-3 flex flex-col gap-3">
+            <div>
+              <label class="text-xs text-muted font-bold block mb-1">Title</label>
+              <input type="text" id="modal-book-title" class="tactile-input-text w-full" value="${escapeHtml(book.title)}" />
+            </div>
+            <div>
+              <label class="text-xs text-muted font-bold block mb-1">Move to Folder</label>
+              <select id="modal-book-folder" class="tactile-select w-full">
+                ${folderOptions}
+              </select>
+            </div>
+          </div>
+          <div class="modal-actions-row mt-4 justify-between">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-red" id="btn-modal-delete-book">Remove Book</button>
+            <div class="flex items-center gap-2">
+              <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
+              <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-modal-save-book">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `, () => {
+      this.container.querySelector('#btn-modal-save-book')?.addEventListener('click', () => {
+        const titleInput = this.container.querySelector('#modal-book-title');
+        const folderSelect = this.container.querySelector('#modal-book-folder');
+        if (titleInput?.value?.trim()) {
+          book.title = titleInput.value.trim();
+        }
+        if (folderSelect) {
+          book.folderId = folderSelect.value;
+        }
+        this.saveLibrary();
+        this.closeModal();
+        this.render();
+      });
+
+      this.container.querySelector('#btn-modal-delete-book')?.addEventListener('click', async () => {
+        this.books = this.books.filter(b => b.id !== bookId);
+        await deleteBookFile(bookId);
+        this.saveLibrary();
+        this.closeModal();
+        this.render();
+      });
+    });
+  }
+
+  showModal(html, onMount) {
+    const host = this.container?.querySelector('#manga-modal-host');
+    if (!host) return;
+    host.innerHTML = html;
+    host.style.display = 'block';
+
+    const cancelBtn = host.querySelector('#btn-modal-cancel');
+    cancelBtn?.addEventListener('click', () => this.closeModal());
+
+    const backdrop = host.querySelector('#manga-modal-backdrop');
+    backdrop?.addEventListener('click', (e) => {
+      if (e.target === backdrop) this.closeModal();
+    });
+
+    onMount?.();
+  }
+
+  closeModal() {
+    const host = this.container?.querySelector('#manga-modal-host');
+    if (host) {
+      host.innerHTML = '';
+      host.style.display = 'none';
+    }
   }
 
   /* -------------------------------------------------------------------------
@@ -297,7 +604,7 @@ export class MangaView {
           </div>
         </div>
 
-        <!-- Floating Reader Bottom Navigation Bar (Elevated above dock with high contrast) -->
+        <!-- Floating Reader Bottom Navigation Bar -->
         <footer class="manga-reader-bottombar">
           <div class="manga-nav-pill-container">
             <button type="button" class="manga-nav-btn" id="btn-reader-prev" title="Previous Page (D / ArrowRight)">
@@ -345,7 +652,6 @@ export class MangaView {
       }
     });
 
-    // Spread Mode Toggles
     const btnSingle = this.container.querySelector('#btn-spread-single');
     const btnDouble = this.container.querySelector('#btn-spread-double');
 
@@ -374,13 +680,11 @@ export class MangaView {
     const btnClosePop = this.container.querySelector('#btn-close-popover');
     btnClosePop?.addEventListener('click', () => this.closePopover());
 
-    // Canvas Selection events attached directly to canvas-wrapper
     const wrapper = this.container.querySelector('#manga-canvas-wrapper');
     wrapper?.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     wrapper?.addEventListener('mousemove', (e) => this.handleMouseMove(e));
     wrapper?.addEventListener('mouseup', (e) => this.handleMouseUp(e));
 
-    // Drag-and-drop on stage
     wrapper?.addEventListener('dragover', (e) => e.preventDefault());
     wrapper?.addEventListener('drop', (e) => {
       e.preventDefault();
@@ -388,7 +692,6 @@ export class MangaView {
       if (file) this.openFile(file);
     });
 
-    // Mining button delegate on popover
     const popoverLookup = this.container.querySelector('#manga-popover-lookup');
     popoverLookup?.addEventListener('click', (e) => {
       const btn = e.target.closest('.btn-manga-mine-word');
@@ -399,7 +702,7 @@ export class MangaView {
   }
 
   /* -------------------------------------------------------------------------
-   * File Loading (PDF, CBZ, Image)
+   * File Loading & IndexedDB Persistence
    * ------------------------------------------------------------------------- */
   async openFile(file) {
     if (!file) return;
@@ -412,21 +715,26 @@ export class MangaView {
     if (extension === 'pdf') type = 'pdf';
     else if (extension === 'cbz' || extension === 'zip') type = 'cbz';
 
+    // Store raw bytes in IndexedDB so the file reopens forever
+    await storeBookFile(bookId, file);
+
     const newBook = {
       id: bookId,
       title,
       type,
-      file,
+      folderId: this.activeFolderId === 'all' ? 'default' : this.activeFolderId,
       pageCount: 1,
       currentPage: 1,
       coverUrl: '',
       updatedAt: Date.now()
     };
 
+    const arrayBuffer = await file.arrayBuffer();
+
     if (type === 'pdf') {
-      await this.initPdfDocument(newBook, file);
+      await this.initPdfFromBuffer(newBook, arrayBuffer);
     } else if (type === 'cbz') {
-      await this.initCbzDocument(newBook, file);
+      await this.initCbzFromBuffer(newBook, arrayBuffer);
     } else {
       newBook.pageCount = 1;
       newBook.currentPage = 1;
@@ -434,8 +742,9 @@ export class MangaView {
 
     const existingIdx = this.books.findIndex(b => b.title === title);
     if (existingIdx >= 0) {
+      newBook.id = this.books[existingIdx].id;
       newBook.currentPage = this.books[existingIdx].currentPage || 1;
-      newBook.coverUrl = this.books[existingIdx].coverUrl || '';
+      newBook.folderId = this.books[existingIdx].folderId || newBook.folderId;
       this.books[existingIdx] = newBook;
     } else {
       this.books.unshift(newBook);
@@ -445,20 +754,49 @@ export class MangaView {
     this.currentPage = newBook.currentPage || 1;
     this.pageCount = newBook.pageCount || 1;
 
-    // Generate crisp cover thumbnail in background if missing
-    this.generateCrispCover(newBook);
+    // Immediately generate high-res 480px cover
+    await this.generateCrispCover(newBook);
 
     this.activeMode = 'reader';
     this.render();
   }
 
-  async initPdfDocument(book, file) {
+  async loadAndOpenBook(bookId) {
+    const book = this.books.find(b => b.id === bookId);
+    if (!book) return;
+
+    const buffer = await getBookFileBuffer(bookId);
+    if (!buffer) {
+      // Prompt user to pick file if IndexedDB has no copy
+      const fileInput = this.container?.querySelector('#manga-library-file-input');
+      fileInput?.click();
+      return;
+    }
+
+    if (book.type === 'pdf') {
+      await this.initPdfFromBuffer(book, buffer);
+    } else if (book.type === 'cbz') {
+      await this.initCbzFromBuffer(book, buffer);
+    }
+
+    // Refresh cover thumbnail if missing or low quality
+    if (!book.coverUrl || book.coverUrl.length < 5000) {
+      await this.generateCrispCover(book);
+    }
+
+    this.currentBook = book;
+    this.currentPage = book.currentPage || 1;
+    this.pageCount = book.pageCount || 1;
+    this.activeMode = 'reader';
+    this.render();
+  }
+
+  async initPdfFromBuffer(book, arrayBuffer) {
     if (typeof window.pdfjsLib === 'undefined') {
       console.warn('[MangaView] pdf.js not loaded on window.');
       return;
     }
     try {
-      const arrayBuffer = await file.arrayBuffer();
       const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
       this.pdfDoc = await loadingTask.promise;
       book.pageCount = this.pdfDoc.numPages;
@@ -467,14 +805,14 @@ export class MangaView {
     }
   }
 
-  async initCbzDocument(book, file) {
+  async initCbzFromBuffer(book, arrayBuffer) {
     if (typeof window.JSZip === 'undefined') {
       console.warn('[MangaView] JSZip not loaded on window.');
       return;
     }
     try {
       const zip = new window.JSZip();
-      this.cbzZip = await zip.loadAsync(file);
+      this.cbzZip = await zip.loadAsync(arrayBuffer);
 
       const validExts = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif'];
       const imageEntries = [];
@@ -498,20 +836,21 @@ export class MangaView {
 
   async generateCrispCover(book) {
     try {
-      if (book.coverUrl) return;
-
       const thumbCanvas = document.createElement('canvas');
-      thumbCanvas.width = 300; // Crisp high-DPI width
+      const targetWidth = 480; // High-resolution retina thumbnail width
 
       if (book.type === 'pdf' && this.pdfDoc) {
         const page1 = await this.pdfDoc.getPage(1);
         const vp = page1.getViewport({ scale: 1.0 });
-        const scale = 300 / vp.width;
+        const scale = targetWidth / vp.width;
         const scaledVp = page1.getViewport({ scale });
+        thumbCanvas.width = targetWidth;
         thumbCanvas.height = Math.round(scaledVp.height);
         const ctx = thumbCanvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         await page1.render({ canvasContext: ctx, viewport: scaledVp }).promise;
-        book.coverUrl = thumbCanvas.toDataURL('image/jpeg', 0.85);
+        book.coverUrl = thumbCanvas.toDataURL('image/jpeg', 0.90);
         this.saveLibrary();
       } else if (book.type === 'cbz' && this.cbzImageEntries.length > 0) {
         const entry = this.cbzImageEntries[0];
@@ -519,10 +858,13 @@ export class MangaView {
         const url = URL.createObjectURL(blob);
         const img = new Image();
         img.onload = () => {
-          thumbCanvas.height = Math.round((300 / img.width) * img.height);
+          thumbCanvas.width = targetWidth;
+          thumbCanvas.height = Math.round((targetWidth / img.width) * img.height);
           const ctx = thumbCanvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, thumbCanvas.width, thumbCanvas.height);
-          book.coverUrl = thumbCanvas.toDataURL('image/jpeg', 0.85);
+          book.coverUrl = thumbCanvas.toDataURL('image/jpeg', 0.90);
           URL.revokeObjectURL(url);
           this.saveLibrary();
         };
@@ -598,7 +940,6 @@ export class MangaView {
         await page.render({ canvasContext: ctx, viewport }).promise;
         this.currentImage = canvas;
       } else {
-        // Japanese manga right-to-left layout: Right page is earlier (pageNumber), Left page is next (pageNumber + 1)
         const rightPage = await this.pdfDoc.getPage(pageNumber);
         const leftPage = await this.pdfDoc.getPage(pageNumber + 1);
 
@@ -613,7 +954,6 @@ export class MangaView {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Render Left page first on x=0
         const offCanvasL = document.createElement('canvas');
         offCanvasL.width = vpL.width;
         offCanvasL.height = vpL.height;
@@ -621,7 +961,6 @@ export class MangaView {
         await leftPage.render({ canvasContext: offCtxL, viewport: vpL }).promise;
         ctx.drawImage(offCanvasL, 0, 0);
 
-        // Render Right page on x = vpL.width
         const offCanvasR = document.createElement('canvas');
         offCanvasR.width = vpR.width;
         offCanvasR.height = vpR.height;
@@ -712,6 +1051,7 @@ export class MangaView {
       this.prevPage();
     } else if (e.key === 'Escape') {
       this.closePopover();
+      this.closeModal();
     }
   }
 
@@ -772,7 +1112,6 @@ export class MangaView {
     const endClientX = e.clientX;
     const endClientY = e.clientY;
 
-    // Convert client coords strictly relative to canvas internal pixels
     const scaleX = canvas.width / canvasRect.width;
     const scaleY = canvas.height / canvasRect.height;
 

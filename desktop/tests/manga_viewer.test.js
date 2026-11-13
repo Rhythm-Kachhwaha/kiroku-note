@@ -11,8 +11,8 @@ test('manga_viewer: manga.js supports library, reader, bubble detection and rich
   assert.ok(content.includes('class MangaView'), 'must define MangaView');
   assert.ok(content.includes('renderLibraryView'), 'must support library bookshelf');
   assert.ok(content.includes('renderReaderView'), 'must support full-screen immersion reader');
-  assert.ok(content.includes('initPdfDocument'), 'must support PDF document loading');
-  assert.ok(content.includes('initCbzDocument'), 'must support CBZ document loading');
+  assert.ok(content.includes('initPdfFromBuffer'), 'must support PDF document loading');
+  assert.ok(content.includes('initCbzFromBuffer'), 'must support CBZ document loading');
   assert.ok(content.includes('detectBubblesOnCurrentPage'), 'must support bubble detection');
   assert.ok(content.includes('manga-bubble-overlay-layer'), 'must render bubble overlay layer');
   assert.ok(content.includes('openPopover'), 'must support floating popover');
