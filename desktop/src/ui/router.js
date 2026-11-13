@@ -230,13 +230,18 @@ export class AppRouter {
       if (view.keepAlive) view.onShow?.();
       this.updateListenerDebugCounter();
 
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
         window.dispatchEvent(new CustomEvent('kiroku:section-changed', {
           detail: { section: tabId, tab: tabId }
         }));
       }
 
-      window.scrollTo(0, 0);
+      if (this.viewContainer) {
+        this.viewContainer.scrollTop = 0;
+      }
+      if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+        window.scrollTo(0, 0);
+      }
     };
 
     let domUpdated = false;

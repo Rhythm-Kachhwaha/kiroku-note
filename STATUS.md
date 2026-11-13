@@ -1,5 +1,5 @@
 # Status
-Completed extension & Anime Mode audit on fix/extension-anime-audit.
-Fixed Shadow DOM detach, fullscreen mounting, and native keybindings.
-Fixed Japanese title parsing, transcript filter, and message routing.
-Verified 33 unit/integration tests and backend regression tests pass.
+Completed desktop shell layout fix (Area 1 of Fix Report).
+Unified safe area and scroll containment in #view-container.
+Removed per-view padding hacks and constrained modals/drawers below header.
+Added shell_view_containment.test.js; all 20 desktop tests pass.

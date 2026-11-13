@@ -97,9 +97,11 @@ body {
 
 /* Base View Container with Mandatory Safe-Area Padding */
 #view-container {
-  min-height: 100vh;
-  padding-top: 0;
-  padding-bottom: var(--content-padding-bottom);
+  height: 100vh;
+  padding-top: var(--chrome-top-height, 48px);
+  padding-bottom: var(--content-padding-bottom, 96px);
+  overflow-y: auto;
+  overflow-x: hidden;
   box-sizing: border-box;
   background-color: var(--pure-black);
 }
@@ -166,7 +168,7 @@ body {
   clip-path: inset(
     var(--chrome-top-height, 48px)
     0
-    max(0px, calc(100% - 100vh + var(--content-padding-bottom, 96px)))
+    var(--content-padding-bottom, 96px)
     0
   );
 }
@@ -442,7 +444,7 @@ html:active-view-transition-type(backward)::view-transition-new(view-content) {
 /* Slide-Over Drawer Backdrop */
 .drawer-backdrop {
   position: fixed;
-  top: 0;
+  top: var(--chrome-top-height, 48px);
   left: 0;
   right: 0;
   bottom: 0;

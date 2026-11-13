@@ -50,6 +50,7 @@
 }
 
 /* Fast Boot Splash Overlay (Allows background app to pre-render completely) */
+/* lint-ignore: full-viewport */
 .app-loading-splash {
   position: fixed;
   inset: 0;
