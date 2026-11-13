@@ -1,6 +1,5 @@
 # Status
-Optimized curated shelves initial load time with progressive streaming.
-Fixed JLPT gap category filter event handler and visual pill states.
-Enhanced POS heuristic with canonical adverbs and onomatopoeia tags.
-Added test_curated_shelf_tags verifying tag accuracy across all levels.
-All 39 desktop tests and 21 backend tests passing with 100% token checks.
+Overhauled Study & Bank with 5-step wizard and resilient SessionStore.
+Added Ghost drill flagging with hotkeys (1-4, Enter, Space, G, R).
+Enhanced Study Import with AI prompt builder, validation, and quarantine.
+All 41 study unit tests and FINAL lock suites passing with 100% tokens.

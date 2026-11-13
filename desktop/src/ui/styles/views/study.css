@@ -214,6 +214,67 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Progress Bar */
+.study-session-progress-container {
+  width: 100%;
+  height: 6px;
+  background-color: var(--surface-container-high);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--tactile-stroke);
+}
+
+.study-session-progress-fill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: var(--radius-sm);
+  transition: width 240ms var(--ease-out-quad);
+}
+
+/* Ghost / Drill Mode Toggle */
+.btn-ghost-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  transition: background-color var(--duration-fast) var(--spring-snappy),
+              border-color var(--duration-fast) var(--spring-snappy),
+              color var(--duration-fast) var(--spring-snappy);
+}
+
+.btn-ghost-toggle.is-ghost-active {
+  background-color: rgba(200, 169, 74, 0.25) !important;
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+}
+
+/* 5-Step Wizard Progress */
+.study-wizard-steps {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+@media (max-width: 599px) {
+  .study-view-wrapper {
+    padding: 0.5rem 0.75rem 2rem 0.75rem;
+  }
+
+  .study-header-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .study-choices-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Study section segmented control */
