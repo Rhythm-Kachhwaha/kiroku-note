@@ -1,6 +1,6 @@
 # Status
-Manga reader inspector cleaned up with hero word typography and Save action.
-Clickable kanji breakdown cards route directly into Kanji tab.
-Manga reader remains alive across tab transitions via keepAlive.
-Floating popover styled with solid ink surface, drag handle, and clean sizing.
-All 18 targeted desktop tests passing with final_lock and zero raw hex.
+In-page hover popover upgraded with Sumi & Washi tokens and Migaku actions.
+Furigana reading, Mochiy Pop One JLPT badge, and context explainer wired.
+Planetoño vermilion stamp button and tactile toast notification integrated.
+Interactive review sandbox created at extension/sandbox/sample_text_page.html.
+All 11 targeted extension tests passing with zero emojis.

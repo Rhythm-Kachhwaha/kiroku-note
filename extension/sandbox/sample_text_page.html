@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kiroku Note — In-Page Hover & Selection Review Sandbox</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink-black: #141311;
+      --pure-black: #000000;
+      --warm-paper: #F5F1E8;
+      --paper-muted: rgba(245, 241, 232, 0.70);
+      --paper-subtle: rgba(245, 241, 232, 0.45);
+      --paper-faint: rgba(245, 241, 232, 0.12);
+      --vermilion: #D94B38;
+      --vermilion-hover: #C53E2D;
+      --vermilion-active: #B33424;
+      --ink-surface: #1C1B19;
+      --elevated-surface: #2A2926;
+      --tactile-stroke: #151413;
+      --subtle-border: rgba(245, 241, 232, 0.12);
+      --alpine-berry: #F7E0BA;
+      --jade: #4EBB7B;
+      --amber: #F59E0B;
+      --heat-marker: #F39120;
+      --industrial-aqua: #4FBBBC;
+      --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-japanese: "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-kanji: "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-badge: "Mochiy Pop One", "Mochiy Pop P One", "Zen Kaku Gothic New", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--ink-black);
+      color: var(--warm-paper);
+      font-family: var(--font-japanese);
+      line-height: 1.7;
+      min-height: 100vh;
+      padding-bottom: 120px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* --- Top Immersion Header (Migaku Reference) --- */
+    .top-comprehension-bar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(28, 27, 25, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--subtle-border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .comp-left-strip {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+    }
+
+    .comp-status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--jade);
+      box-shadow: 0 0 8px rgba(78, 187, 123, 0.5);
+    }
+
+    .comp-pill-count {
+      font-weight: 700;
+      color: var(--warm-paper);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .comp-pill-stat {
+      padding: 3px 9px;
+      border-radius: 6px;
+      background: rgba(78, 187, 123, 0.15);
+      border: 1px solid rgba(78, 187, 123, 0.35);
+      color: var(--jade);
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 140ms ease;
+    }
+
+    .comp-pill-stat:hover {
+      background: rgba(78, 187, 123, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .comp-sep {
+      color: var(--paper-subtle);
+    }
+
+    .comp-right-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hotkey-badge {
+      font-family: var(--font-sans);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--elevated-surface);
+      border: 1px solid var(--subtle-border);
+      color: var(--paper-muted);
+    }
+
+    /* --- Comprehension Breakdown Dropdown Card --- */
+    .comp-dropdown-card {
+      position: absolute;
+      top: 52px;
+      left: 24px;
+      width: 320px;
+      background: var(--ink-surface);
+      border: 1px solid var(--subtle-border);
+      border-radius: 10px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 2px 2px 0 var(--tactile-stroke);
+      padding: 16px;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 1001;
+      font-family: var(--font-sans);
+    }
+
+    .comp-dropdown-card.is-open {
+      display: flex;
+    }
+
+    .comp-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .comp-rating-tag {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--jade);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .comp-stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      background: rgba(245, 241, 232, 0.03);
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid var(--subtle-border);
+    }
+
+    .comp-stat-item-label {
+      font-size: 11px;
+      color: var(--paper-muted);
+    }
+
+    .comp-stat-item-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--warm-paper);
+    }
+
+    .comp-breakdown-bar {
+      display: flex;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 4px;
+      border: 1px solid var(--tactile-stroke);
+    }
+
+    .bar-known { background: var(--jade); width: 80%; }
+    .bar-unknown { background: var(--heat-marker); width: 14%; }
+    .bar-ignored { background: #555; width: 6%; }
+
+    .comp-legend {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--paper-muted);
+      margin-top: 4px;
+    }
+
+    /* --- Page Container --- */
+    .sandbox-container {
+      max-width: 900px;
+      margin: 32px auto;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .hero-banner {
+      background: var(--ink-surface);
+      border: 1px solid var(--subtle-border);
+      border-radius: 12px;
+      padding: 24px 28px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .hero-banner h1 {
+      font-family: var(--font-kanji);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--warm-paper);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hero-badge {
+      font-family: var(--font-badge);
+      font-size: 12px;
+      background: var(--alpine-berry);
+      color: var(--ink-black);
+      padding: 3px 8px;
+      border-radius: 5px;
+      box-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+    }
+
+    .instructions-card {
+      background: rgba(245, 241, 232, 0.04);
+      border-left: 3px solid var(--vermilion);
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      font-size: 13px;
+      color: var(--paper-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .instructions-card code {
+      font-family: var(--font-sans);
+      background: var(--elevated-surface);
+      color: var(--alpine-berry);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    /* --- Demo Quick Chips --- */
+    .quick-chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .demo-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      background: var(--elevated-surface);
+      border: 1px solid var(--subtle-border);
+      color: var(--warm-paper);
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+      transform: translate(-1px, -1px);
+      box-shadow: 2px 2px 0 var(--tactile-stroke);
+      transition: all 140ms ease;
+    }
+
+    .demo-chip:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 3px 3px 0 var(--tactile-stroke);
+      background: rgba(245, 241, 232, 0.12);
+      border-color: rgba(245, 241, 232, 0.25);
+    }
+
+    .demo-chip:active {
+      transform: translate(0, 0);
+      box-shadow: 0 0 0 transparent;
+    }
+
+    /* --- Content Sections --- */
+    .content-section {
+      background: var(--ink-surface);
+      border: 1px solid var(--subtle-border);
+      border-radius: 12px;
+      padding: 24px 28px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .section-title {
+      font-family: var(--font-kanji);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--warm-paper);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--subtle-border);
+      padding-bottom: 10px;
+    }
+
+    .section-tag {
+      font-family: var(--font-badge);
+      font-size: 11px;
+      background: rgba(245, 241, 232, 0.10);
+      color: var(--paper-muted);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .japanese-text-body {
+      font-size: 16px;
+      line-height: 2.1;
+      color: var(--warm-paper);
+      user-select: text;
+    }
+
+    /* Japanese ruby styling */
+    ruby {
+      ruby-position: over;
+      cursor: pointer;
+    }
+
+    rt {
+      font-size: 11px;
+      color: var(--paper-muted);
+      user-select: none;
+    }
+
+    /* Highlighted target word styling */
+    .target-highlight {
+      padding: 2px 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 140ms ease, box-shadow 140ms ease;
+    }
+
+    .target-highlight.sample-target {
+      background: rgba(79, 187, 188, 0.15);
+      border-bottom: 2px solid var(--industrial-aqua);
+    }
+
+    .target-highlight.known {
+      background: rgba(78, 187, 123, 0.15);
+      border-bottom: 2px solid var(--jade);
+    }
+
+    .target-highlight.unknown {
+      background: rgba(243, 145, 32, 0.15);
+      border-bottom: 2px solid var(--heat-marker);
+    }
+
+    .target-highlight.mined {
+      color: var(--vermilion);
+      text-decoration: underline;
+      text-decoration-color: var(--vermilion);
+    }
+
+    .target-highlight:hover {
+      background: rgba(245, 241, 232, 0.22);
+    }
+
+    /* Video Subtitle Mock Frame (Migaku Netflix Reference) */
+    .video-mock-frame {
+      position: relative;
+      width: 100%;
+      height: 280px;
+      background: radial-gradient(circle at center, #242428 0%, #111113 100%);
+      border-radius: 8px;
+      border: 1px solid var(--subtle-border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      padding-bottom: 36px;
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
+    }
+
+    .mock-video-overlay-title {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      color: var(--paper-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .subtitle-display-bubble {
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(8px);
+      padding: 10px 24px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+      font-size: 20px;
+      font-weight: 500;
+      color: #FFFFFF;
+      letter-spacing: 0.04em;
+    }
+
+    .subtitle-display-bubble .target-highlight {
+      color: #F7E0BA;
+      font-weight: 700;
+      border-bottom: 2px solid #F7E0BA;
+    }
+
+    /* SVGs and Icons */
+    .icon-svg {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+      vertical-align: middle;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      stroke: currentColor;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Top Comprehension Immersion Bar (Migaku Screenshot 3 Reference) -->
+  <header class="top-comprehension-bar">
+    <div class="comp-left-strip">
+      <div class="comp-status-dot" title="Kiroku Active"></div>
+      <div class="comp-pill-count">
+        <span>1,186</span>
+        <span class="comp-sep">/</span>
+        <span style="color:var(--paper-muted);">Known Words</span>
+      </div>
+      <button type="button" class="comp-pill-stat" id="compStatsBtn" title="View Comprehension Details">
+        <svg class="icon-svg" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span>Excellent</span>
+        <span style="font-weight:400; opacity:0.85;">81% Comprehension</span>
+      </button>
+      <span class="hotkey-badge">3 Recommended 1T Sentences</span>
+    </div>
+
+    <div class="comp-right-actions">
+      <span class="hotkey-badge">Shift + Hover Word</span>
+      <span class="hotkey-badge">Select Text</span>
+      <span class="hotkey-badge" style="background:var(--vermilion); color:#FFF; font-weight:700;">Alt + M: Mine</span>
+    </div>
+
+    <!-- Dropdown Comprehension Card -->
+    <div class="comp-dropdown-card" id="compDropdownCard">
+      <div class="comp-card-header">
+        <div class="comp-rating-tag">
+          <svg class="icon-svg" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span>Excellent</span>
+        </div>
+        <span style="font-size:12px; color:var(--paper-muted);">Page Analysis</span>
+      </div>
+
+      <div class="comp-stat-grid">
+        <div>
+          <div class="comp-stat-item-label">General Comprehension</div>
+          <div class="comp-stat-item-value" style="color:var(--jade);">81%</div>
+        </div>
+        <div>
+          <div class="comp-stat-item-label">Recommended 1T</div>
+          <div class="comp-stat-item-value" style="color:var(--alpine-berry);">3 Sentences</div>
+        </div>
+        <div>
+          <div class="comp-stat-item-label">Unique Known</div>
+          <div class="comp-stat-item-value">447 words</div>
+        </div>
+        <div>
+          <div class="comp-stat-item-label">Target Unknown</div>
+          <div class="comp-stat-item-value" style="color:var(--heat-marker);">112 words</div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:11px; color:var(--paper-muted); margin-bottom:4px;">Word Distribution:</div>
+        <div class="comp-breakdown-bar">
+          <div class="bar-known" title="Known: 447"></div>
+          <div class="bar-unknown" title="Unknown: 112"></div>
+          <div class="bar-ignored" title="Ignored: 0"></div>
+        </div>
+        <div class="comp-legend">
+          <span style="color:var(--jade);">80% Known</span>
+          <span style="color:var(--heat-marker);">14% Unknown</span>
+          <span>6% Ignored</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 2. Main Page Content -->
+  <main class="sandbox-container">
+
+    <!-- Hero Guidance Box -->
+    <div class="hero-banner">
+      <h1>
+        <span>Kiroku Note — In-Page Immersion Testbed</span>
+        <span class="hero-badge">Phase 1 Sandbox</span>
+      </h1>
+      <p style="font-size:14px; color:var(--paper-muted);">
+        Interactive visual inspection sandbox for the Sumi &amp; Washi Neo-Tactile in-page popover engine.
+        Styled with tactile Planetoño physics, Mochiy Pop One JLPT badges, and the 4 Migaku immersion actions.
+      </p>
+
+      <div class="instructions-card">
+        <div><strong>How to test:</strong></div>
+        <div>1. <strong>Shift + Hover</strong>: Hold the <code>Shift</code> key and hover your cursor over any Japanese word below.</div>
+        <div>2. <strong>Text Selection</strong>: Highlight any word or sentence fragment with your mouse cursor.</div>
+        <div>3. <strong>Instant Demo Chips</strong>: Click any quick button below to test specific vocabulary and grammar patterns instantly.</div>
+      </div>
+
+      <div class="quick-chips-row">
+        <span style="font-size:12px; color:var(--paper-subtle); align-self:center;">Instant Test Words:</span>
+        <button type="button" class="demo-chip" data-word="位置" data-sentence="そこにあるマークの位置に立て" data-reading="いち" data-jlpt="N3">
+          <span>位置</span> <span style="font-size:11px; color:var(--alpine-berry);">[いち N3]</span>
+        </button>
+        <button type="button" class="demo-chip" data-word="勉強" data-sentence="毎日日本語を熱心に勉強しています。" data-reading="べんきょう" data-jlpt="N5">
+          <span>勉強</span> <span style="font-size:11px; color:var(--alpine-berry);">[べんきょう N5]</span>
+        </button>
+        <button type="button" class="demo-chip" data-word="人工知能" data-sentence="次世代の人工知能モデルが急速に進化しています。" data-reading="じんこうちのう" data-jlpt="N1">
+          <span>人工知能</span> <span style="font-size:11px; color:var(--alpine-berry);">[じんこうちのう N1]</span>
+        </button>
+        <button type="button" class="demo-chip" data-word="開発" data-sentence="最新のオープンソースツールを開発する。" data-reading="かいはつ" data-jlpt="N2">
+          <span>開発</span> <span style="font-size:11px; color:var(--alpine-berry);">[かいはつ N2]</span>
+        </button>
+        <button type="button" class="demo-chip" data-word="猫" data-sentence="吾輩は猫である。名前はまだ無い。" data-reading="ねこ" data-jlpt="N5">
+          <span>猫</span> <span style="font-size:11px; color:var(--alpine-berry);">[ねこ N5]</span>
+        </button>
+        <button type="button" class="demo-chip" data-grammar="〜てたまらない" data-sentence="日本の夏は暑くてたまらない。" data-level="N3">
+          <span style="color:var(--industrial-aqua);">〜てたまらない</span> <span style="font-size:11px; color:var(--industrial-aqua);">[Grammar N3]</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Section 1: Video Subtitle Immersion (Migaku Screenshot 1 Reference) -->
+    <section class="content-section">
+      <div class="section-title">
+        <span>1. Video Subtitle Scene (Netflix Reference)</span>
+        <span class="section-tag">Anime &amp; Video HUD</span>
+      </div>
+
+      <div class="video-mock-frame">
+        <div class="mock-video-overlay-title">
+          <svg class="icon-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>Netflix Streaming Simulation &bull; Ep 12 (12:29)</span>
+        </div>
+        <div class="subtitle-display-bubble" id="mockSubtitleBubble">
+          そこにあるマークの<ruby class="target-highlight sample-target" id="mockWordIchi" data-word="位置" data-reading="いち" data-sentence="そこにあるマークの位置に立て"><span class="kanji-span">位置</span><rt>いち</rt></ruby>に立て
+        </div>
+      </div>
+      <p style="font-size:13px; color:var(--paper-muted); text-align:center;">
+        Click or Shift+Hover the word <strong style="color:#F7E0BA;">「位置」</strong> above to trigger the exact Migaku-style popover card.
+      </p>
+    </section>
+
+    <!-- Section 2: Japanese Editorial & Technology Article (N1 / N2 Vocabulary) -->
+    <section class="content-section">
+      <div class="section-title">
+        <span>2. Technology News Article</span>
+        <span class="section-tag">N1 / N2 Advanced</span>
+      </div>
+
+      <article class="japanese-text-body">
+        <p>
+          近年、<span class="target-highlight sample-target" data-word="人工知能" data-reading="じんこうちのう" data-jlpt="N1">人工知能</span>技術の発展は目覚ましく、自然言語処理や機械翻訳の分野において革新的なブレイクスルーがもたらされています。
+          特に深層学習に基づく大規模言語モデルは、文脈に応じた適切な語彙選択やニュアンスの解釈において人間の翻訳者に迫る精度を達成しています。
+        </p>
+        <p style="margin-top:12px;">
+          研究者たちは自律型エージェントの<span class="target-highlight sample-target" data-word="開発" data-reading="かいはつ" data-jlpt="N2">開発</span>を進めており、未知の領域に対する<span class="target-highlight sample-target" data-word="探索" data-reading="たんさく" data-jlpt="N1">探索</span>と知識獲得を自動化する実験が活発に行われています。
+          技術の進化を前にして、我々はその倫理的な影響を慎重に見極める必要があります。
+        </p>
+      </article>
+    </section>
+
+    <!-- Section 3: Daily Conversation & Dialogue (N3 - N5 Intermediate / Beginner) -->
+    <section class="content-section">
+      <div class="section-title">
+        <span>3. Everyday Dialogue &amp; Grammar Nuance</span>
+        <span class="section-tag">N3 / N4 / N5 Dialogue</span>
+      </div>
+
+      <article class="japanese-text-body">
+        <p>
+          A: 「最近、毎朝カフェで温かい<span class="target-highlight sample-target" data-word="珈琲" data-reading="コーヒー" data-jlpt="N4">珈琲</span>を飲みながら日本語を<span class="target-highlight sample-target" data-word="勉強" data-reading="べんきょう" data-jlpt="N5">勉強</span>しています。」
+        </p>
+        <p style="margin-top:8px;">
+          B: 「それは素晴らしい習慣ですね！昨日は東京の夏特有の湿気で、暑く<span class="target-highlight sample-target" data-grammar="〜てたまらない" data-level="N3" style="color:var(--industrial-aqua); border-color:var(--industrial-aqua);">てたまらなかった</span>ですが、今日は涼しくて過ごしやすいです。」
+        </p>
+        <p style="margin-top:8px;">
+          A: 「ええ、窓の外を見ると<span class="target-highlight sample-target" data-word="猫" data-reading="ねこ" data-jlpt="N5">猫</span>が日向ぼっこをしていて、とても癒やされます。今夜は<span class="target-highlight sample-target" data-word="月" data-reading="つき" data-jlpt="N5">月</span>が<span class="target-highlight sample-target" data-word="綺麗" data-reading="きれい" data-jlpt="N5">綺麗</span>に見えそうですね。」
+        </p>
+      </article>
+    </section>
+
+  </main>
+
+  <!-- Standalone Mock Runtime & Popup Engine Integration -->
+  <script src="../content/capture-utils.js"></script>
+  <script src="../content/hud/hud-popup.js"></script>
+  <script src="../content/toast.js"></script>
+
+  <script>
+    // --- Mock Dictionary Database for Instant Sandbox Responses ---
+    const SANDBOX_MOCK_DICTIONARY = {
+      "位置": {
+        glossary: ["place, situation, position, location"],
+        reading: "いち",
+        jlpt_level: "N3",
+        context_meaning: "The term \"位置\" is used here to indicate a precise, designated marker or spot in physical space. It implies distinct coordinates where one should position themselves."
+      },
+      "勉強": {
+        glossary: ["study, diligence", "discount, price reduction (merchant dialect)"],
+        reading: "べんきょう",
+        jlpt_level: "N5",
+        context_meaning: "Used in its primary meaning of diligent daily learning and practicing a foreign language."
+      },
+      "人工知能": {
+        glossary: ["artificial intelligence, AI"],
+        reading: "じんこうちのう",
+        jlpt_level: "N1",
+        context_meaning: "Refers specifically to modern machine learning, deep neural networks, and generative cognitive systems."
+      },
+      "開発": {
+        glossary: ["development, exploitation, evolution"],
+        reading: "かいはつ",
+        jlpt_level: "N2",
+        context_meaning: "Engineering and software implementation progress of autonomous systems."
+      },
+      "探索": {
+        glossary: ["search, lookup, hunt, exploration, investigation"],
+        reading: "たんさく",
+        jlpt_level: "N1",
+        context_meaning: "Formal algorithmic or cognitive search through unknown solution spaces."
+      },
+      "猫": {
+        glossary: ["cat, feline (Felis catus)"],
+        reading: "ねこ",
+        jlpt_level: "N5",
+        context_meaning: "Literal pet domestic cat relaxing in the sunlight."
+      },
+      "珈琲": {
+        glossary: ["coffee"],
+        reading: "コーヒー",
+        jlpt_level: "N4",
+        context_meaning: "Hot brewed morning coffee."
+      },
+      "月": {
+        glossary: ["moon", "month"],
+        reading: "つき",
+        jlpt_level: "N5",
+        context_meaning: "The astronomical moon shining clearly in the night sky."
+      },
+      "綺麗": {
+        glossary: ["pretty, lovely, beautiful", "clean, clear, pure, tidy"],
+        reading: "きれい",
+        jlpt_level: "N5",
+        context_meaning: "Aesthetic beauty of the moonlit evening sky."
+      }
+    };
+
+    const SANDBOX_MOCK_GRAMMAR = {
+      "〜てたまらない": {
+        patterns: [{
+          pattern: "〜てたまらない",
+          display: "〜てたまらない",
+          level: "N3",
+          meaning: "Cannot help but; so ... that one cannot bear it; dying to (indicates irresistible emotion or physical sensation)."
+        }]
+      }
+    };
+
+    // --- Mock chrome.runtime.sendMessage for Sandbox Testing ---
+    if (typeof window.chrome === "undefined") {
+      window.chrome = {};
+    }
+    if (!window.chrome.runtime) {
+      window.chrome.runtime = {};
+    }
+
+    const mockMinedSet = new Set();
+    const mockStatusMap = new Map();
+
+    window.chrome.runtime.sendMessage = async function(msg) {
+      if (msg.type === "HUD_LOOKUP") {
+        const term = msg.text;
+        const entry = SANDBOX_MOCK_DICTIONARY[term] || {
+          glossary: ["definition for " + term],
+          reading: term,
+          jlpt_level: "N3",
+          context_meaning: "Context analysis for " + term
+        };
+        return { ok: true, data: entry };
+      }
+
+      if (msg.type === "GRAMMAR_ANALYZE") {
+        for (const key in SANDBOX_MOCK_GRAMMAR) {
+          if (msg.sentence && msg.sentence.includes(key.replace("〜", ""))) {
+            return { ok: true, data: SANDBOX_MOCK_GRAMMAR[key] };
+          }
+        }
+        return {
+          ok: true,
+          data: {
+            patterns: [{
+              pattern: "文法構造",
+              display: "文法構造 (General Structure)",
+              level: "N3",
+              meaning: "Standard Japanese polite sentence ending with copula / particle cohesion."
+            }]
+          }
+        };
+      }
+
+      if (msg.type === "HUD_MINE") {
+        mockMinedSet.add(msg.card.expression);
+        return { ok: true, card_id: "card_" + Date.now() };
+      }
+
+      if (msg.type === "GRAMMAR_MINE") {
+        return { ok: true, card_id: "grammar_" + Date.now() };
+      }
+
+      if (msg.type === "SET_WORD_STATUS") {
+        mockStatusMap.set(msg.word, msg.status);
+        return { ok: true };
+      }
+
+      if (msg.type === "DELETE_CARD") {
+        return { ok: true };
+      }
+
+      return { ok: true };
+    };
+
+    // --- Initialize Sandbox Popup Controller ---
+    document.addEventListener("DOMContentLoaded", () => {
+      const popup = new HudPopup(null, null);
+
+      // 1. Wire Top Comprehension Dropdown
+      const statsBtn = document.getElementById("compStatsBtn");
+      const dropdown = document.getElementById("compDropdownCard");
+      statsBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle("is-open");
+      });
+      document.addEventListener("click", (e) => {
+        if (!dropdown.contains(e.target) && e.target !== statsBtn) {
+          dropdown.classList.remove("is-open");
+        }
+      });
+
+      // 2. Wire Instant Demo Chips
+      document.querySelectorAll(".demo-chip").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const rect = btn.getBoundingClientRect();
+          const word = btn.dataset.word;
+          const grammar = btn.dataset.grammar;
+          const reading = btn.dataset.reading || word || "";
+          const jlpt = btn.dataset.jlpt || "N3";
+          const sentence = btn.dataset.sentence || "";
+
+          if (grammar) {
+            popup.showAtPoint(rect.left + rect.width / 2, rect.top, {
+              surface: grammar,
+              lemma: grammar,
+              text: grammar,
+              jlpt_level: btn.dataset.level || "N3",
+              status: "unstyled"
+            }, sentence);
+            popup.switchTab("grammar");
+          } else if (word) {
+            popup.showAtPoint(rect.left + rect.width / 2, rect.top, {
+              surface: word,
+              lemma: word,
+              text: word,
+              reading: reading,
+              jlpt_level: jlpt,
+              status: mockMinedSet.has(word) ? "mined" : "unstyled"
+            }, sentence);
+          }
+        });
+      });
+
+      // 3. Wire In-Page Target Word Clicks
+      document.querySelectorAll(".target-highlight").forEach((el) => {
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const word = el.dataset.word || el.innerText.trim();
+          const reading = el.dataset.reading || "";
+          const jlpt = el.dataset.jlpt || "N3";
+          const sentence = el.dataset.sentence || el.closest("p")?.innerText || "";
+          const grammar = el.dataset.grammar;
+
+          if (grammar) {
+            popup.showForToken({
+              surface: grammar,
+              lemma: grammar,
+              text: grammar,
+              jlpt_level: el.dataset.level || "N3"
+            }, el, null, sentence);
+            popup.switchTab("grammar");
+          } else {
+            popup.showForToken({
+              surface: word,
+              lemma: word,
+              text: word,
+              reading: reading,
+              jlpt_level: jlpt,
+              status: mockMinedSet.has(word) ? "mined" : "unstyled"
+            }, el, null, sentence);
+          }
+        });
+      });
+
+      // 4. Wire Shift + Hover Scanner in Sandbox
+      let lastHoverTime = 0;
+      document.addEventListener("mousemove", (e) => {
+        if (!e.shiftKey) return;
+        const now = Date.now();
+        if (now - lastHoverTime < 140) return;
+        lastHoverTime = now;
+
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const target = el?.closest?.(".target-highlight");
+        if (target) {
+          const word = target.dataset.word || target.innerText.trim();
+          const reading = target.dataset.reading || "";
+          const jlpt = target.dataset.jlpt || "N3";
+          const sentence = target.dataset.sentence || target.closest("p")?.innerText || "";
+          popup.showForToken({
+            surface: word,
+            lemma: word,
+            text: word,
+            reading: reading,
+            jlpt_level: jlpt,
+            status: mockMinedSet.has(word) ? "mined" : "unstyled"
+          }, target, null, sentence);
+        }
+      });
+
+      // 5. Wire Selection Trigger
+      document.addEventListener("mouseup", () => {
+        setTimeout(() => {
+          const sel = window.getSelection();
+          const text = sel ? sel.toString().trim() : "";
+          if (!text) return;
+          if (popup.popupEl && popup.popupEl.contains(sel.anchorNode)) return;
+
+          const JAPANESE = /[\u3005\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]/u;
+          if (!JAPANESE.test(text)) return;
+
+          try {
+            const range = sel.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            if (rect && rect.width > 0) {
+              popup.showAtPoint(rect.left + rect.width / 2, rect.top, {
+                surface: text,
+                lemma: text,
+                text: text,
+                reading: "",
+                jlpt_level: "N3",
+                status: mockMinedSet.has(text) ? "mined" : "unstyled"
+              }, text);
+            }
+          } catch (_) {}
+        }, 20);
+      });
+    });
+  </script>
+</body>
+</html>

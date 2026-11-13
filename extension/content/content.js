@@ -50,7 +50,7 @@
   }
 
   // --- 1. Selection-based In-Page Trigger ---
-  function handleTextSelection() {
+  function captureSelection() {
     const selection = window.getSelection();
     const text = selection ? selection.toString().trim() : "";
     if (!text) return;
@@ -152,12 +152,12 @@
   }
 
   document.addEventListener("mouseup", () => {
-    setTimeout(handleTextSelection, 10);
+    setTimeout(() => captureSelection(), 10);
   }, true);
 
   document.addEventListener("keyup", (event) => {
     if (event.key === "Shift" || event.key.startsWith("Arrow")) {
-      handleTextSelection();
+      captureSelection();
     }
   }, true);
 
