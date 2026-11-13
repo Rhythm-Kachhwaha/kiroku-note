@@ -26,6 +26,16 @@ loadStoredSectionOrder().then(order => {
 }).catch(() => {});
 if (typeof updateCardPreview === "function") updateCardPreview();
 initQuickAdd();
+const initialHeroExpr = document.querySelector("#expression");
+const initialHeroCard = document.querySelector("#captured-word-section");
+if (initialHeroCard && (!initialHeroExpr || initialHeroExpr.textContent.trim() === "—" || initialHeroExpr.textContent.trim() === "")) {
+  initialHeroCard.classList.add("is-empty");
+}
+if (typeof loadTabPreference === "function") loadTabPreference().catch(() => {});
+if (typeof loadNavCollapsePreference === "function") loadNavCollapsePreference().catch(() => {});
+if (typeof loadAutoPausePreference === "function") loadAutoPausePreference().catch(() => {});
+if (typeof loadSubtitlesDisplayPreference === "function") loadSubtitlesDisplayPreference().catch(() => {});
+if (typeof loadSubtitleOffsetPreference === "function") loadSubtitleOffsetPreference().catch(() => {});
 
 // Group 5: Initialize Anime Transcript, Episode Map, and Session Logger
 let animeTranscriptInstance = null;
@@ -35,6 +45,8 @@ let animeSessionLoggerInstance = null;
 try {
   const transcriptHost = document.querySelector("#anime-transcript-container");
   if (transcriptHost && typeof AnimeTranscript !== "undefined") {
+    const legacySearch = document.querySelector("#subtitle-search-section");
+    if (legacySearch) legacySearch.style.display = "none";
     animeTranscriptInstance = new AnimeTranscript({
       container: transcriptHost,
       cues: typeof loadedSubtitleCues !== "undefined" ? loadedSubtitleCues : [],

@@ -304,6 +304,10 @@
 }
 
 /* Subtitle In-Track Search / Jump (T4-B) */
+.unified-subtitles-stream:has(#anime-transcript-container) #subtitle-search-section {
+  display: none !important;
+}
+
 .subtitle-search-section {
   display: flex;
   flex-direction: column;

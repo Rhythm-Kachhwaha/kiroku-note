@@ -1379,20 +1379,32 @@ if (typeof window !== "undefined" && typeof window.addEventListener === "functio
   });
 }
 
-// Initialization
-loadFontPreference().catch(() => {});
-loadStoredHistorySort().catch(() => {});
-loadDecks().catch(() => {});
-startAnkiStatusPolling();
-checkClipboardForJapanese().catch(() => {});
-loadModels().catch(() => {});
-loadHistory().catch(() => {});
-loadTabPreference().catch(() => {});
-loadNavCollapsePreference().catch(() => {});
-loadAutoPausePreference().catch(() => {});
-loadSubtitlesDisplayPreference().catch(() => {});
-loadSubtitleOffsetPreference().catch(() => {});
-loadJimakuApiKey().catch(() => {});
-loadActiveSubtitleCuesFromStorage().catch(() => {});
-loadActiveSubSizeFromStorage().catch(() => {});
+// Safe Initialization
+function initHistoryPreferences() {
+  if (typeof loadFontPreference === "function") loadFontPreference().catch(() => {});
+  if (typeof loadStoredHistorySort === "function") loadStoredHistorySort().catch(() => {});
+  if (typeof loadDecks === "function") loadDecks().catch(() => {});
+  if (typeof startAnkiStatusPolling === "function") startAnkiStatusPolling();
+  if (typeof checkClipboardForJapanese === "function") checkClipboardForJapanese().catch(() => {});
+  if (typeof loadModels === "function") loadModels().catch(() => {});
+  if (typeof loadHistory === "function") loadHistory().catch(() => {});
+  if (typeof loadTabPreference === "function") loadTabPreference().catch(() => {});
+  if (typeof loadNavCollapsePreference === "function") loadNavCollapsePreference().catch(() => {});
+  if (typeof loadAutoPausePreference === "function") loadAutoPausePreference().catch(() => {});
+  if (typeof loadSubtitlesDisplayPreference === "function") loadSubtitlesDisplayPreference().catch(() => {});
+  if (typeof loadSubtitleOffsetPreference === "function") loadSubtitleOffsetPreference().catch(() => {});
+  if (typeof loadJimakuApiKey === "function") loadJimakuApiKey().catch(() => {});
+  if (typeof loadActiveSubtitleCuesFromStorage === "function") loadActiveSubtitleCuesFromStorage().catch(() => {});
+  if (typeof loadActiveSubSizeFromStorage === "function") loadActiveSubSizeFromStorage().catch(() => {});
+}
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initHistoryPreferences);
+  } else {
+    initHistoryPreferences();
+  }
+} else {
+  initHistoryPreferences();
+}
 

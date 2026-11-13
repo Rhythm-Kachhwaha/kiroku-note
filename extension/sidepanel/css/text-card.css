@@ -12,6 +12,30 @@
   display: none !important;
 }
 
+.word-showcase-card.is-empty {
+  padding: 16px 14px;
+  background: var(--bg-surface-secondary, rgba(255, 255, 255, 0.02));
+  border: 1px dashed var(--border-subtle, rgba(255, 255, 255, 0.12));
+}
+
+.word-showcase-card.is-empty .hero-expression {
+  font-size: 0;
+  margin: 0;
+}
+
+.word-showcase-card.is-empty .hero-expression::before {
+  content: "Select Japanese text or hover with Shift to inspect";
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted, #71717a);
+  letter-spacing: 0;
+  font-family: var(--font-sans, -apple-system, sans-serif);
+}
+
+.word-showcase-card.is-empty #front-toggle-row {
+  display: none !important;
+}
+
 .word-display-card {
   background: transparent;
   border: none;

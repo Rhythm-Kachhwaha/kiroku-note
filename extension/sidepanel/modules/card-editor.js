@@ -1668,6 +1668,8 @@ async function identify(text) {
   setStatus("Identifying selection…");
   setIndicatorStatus(indicatorYomitan, "checking", "Yomitan: Identifying…");
   setSaveBadge("", "badge", false);
+  const heroCard = document.querySelector("#captured-word-section");
+  if (heroCard) heroCard.classList.add("is-empty");
   expression.textContent = "—";
   updateHeroReading("", "");
   if (wordMeaningsSummary) {
@@ -1729,6 +1731,7 @@ async function identify(text) {
     const activeReading = isKanaFront ? (kanaForm || body.reading || "") : (body.reading || "");
 
     // Populate prominent hero elements
+    if (heroCard) heroCard.classList.remove("is-empty");
     expression.textContent = activeFront;
     updateHeroReading(activeReading, activeFront);
     if (body.jlpt_level) {

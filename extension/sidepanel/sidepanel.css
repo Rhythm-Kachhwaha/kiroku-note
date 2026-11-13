@@ -1077,6 +1077,10 @@ body {
 }
 
 /* Subtitle In-Track Search / Jump (T4-B) */
+.unified-subtitles-stream:has(#anime-transcript-container) #subtitle-search-section {
+  display: none !important;
+}
+
 .subtitle-search-section {
   display: flex;
   flex-direction: column;
@@ -1828,6 +1832,30 @@ body {
 
 .captured-word-hero[hidden],
 #captured-word-section[hidden] {
+  display: none !important;
+}
+
+.word-showcase-card.is-empty {
+  padding: 16px 14px;
+  background: var(--bg-surface-secondary, rgba(255, 255, 255, 0.02));
+  border: 1px dashed var(--border-subtle, rgba(255, 255, 255, 0.12));
+}
+
+.word-showcase-card.is-empty .hero-expression {
+  font-size: 0;
+  margin: 0;
+}
+
+.word-showcase-card.is-empty .hero-expression::before {
+  content: "Select Japanese text or hover with Shift to inspect";
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted, #71717a);
+  letter-spacing: 0;
+  font-family: var(--font-sans, -apple-system, sans-serif);
+}
+
+.word-showcase-card.is-empty #front-toggle-row {
   display: none !important;
 }
 
@@ -9361,6 +9389,10 @@ div[data-content="example"],
 }
 
 /* 1-Click Card Front Toggle (Kanji vs. Kana) */
+.front-toggle-row[hidden] {
+  display: none !important;
+}
+
 .front-toggle-row {
   display: flex;
   align-items: center;

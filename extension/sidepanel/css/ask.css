@@ -863,6 +863,10 @@
 }
 
 /* 1-Click Card Front Toggle (Kanji vs. Kana) */
+.front-toggle-row[hidden] {
+  display: none !important;
+}
+
 .front-toggle-row {
   display: flex;
   align-items: center;
