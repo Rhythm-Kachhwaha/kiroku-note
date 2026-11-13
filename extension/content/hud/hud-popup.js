@@ -3,7 +3,7 @@
  *
  * Responsibilities:
  * - Isolated Shadow-DOM floating card for Web Text, Video Subtitles, and OCR
- * - Dual tabs: Word (definitions, reading, audio, status) & Grammar (pattern breakdown, rules)
+ * - Dual tabs: Word (definitions, reading, status) & Grammar (pattern breakdown, rules)
  * - 1-Click Mine Word / Mine Grammar triggering HUD_MINE with KirokuToast feedback
  * - Planetoño tactile button physics (mechanical depression translate(2px, 2px))
  * - LRU lookup cache for instant dictionary responses
@@ -250,16 +250,6 @@
           background: var(--accent-primary-hover);
         }
 
-        .hud-popup-audio-btn {
-          background: #27272a;
-          color: #f4f4f5;
-          padding: 5px 9px;
-        }
-
-        .hud-popup-audio-btn:hover {
-          background: #3f3f46;
-        }
-
         .hud-status-pill {
           padding: 2px 6px;
           font-size: 10px;
@@ -425,12 +415,6 @@
               ">
                 ${status === "mined" ? "Already Mined" : "Mine Word"}
               </button>
-              <button type="button" tabindex="-1" class="tactile-btn hud-popup-audio-btn" title="Play pronunciation" style="
-                display:inline-flex; align-items:center; padding:5px 8px; background:#27272a; color:#f4f4f5;
-                border:1px solid rgba(255,255,255,0.15); border-radius:6px; font-size:11px; cursor:pointer;
-              ">
-                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
-              </button>
             </div>
             <div class="hud-status-group" style="display:flex; gap:3px;">
               <button type="button" class="hud-status-pill" data-status="known" style="padding:2px 6px; font-size:10px; border-radius:4px; border:1px solid rgba(255,255,255,0.15); background:#18181b; color:#a1a1aa; cursor:pointer;">Known</button>
@@ -489,9 +473,6 @@
       if (grammarMineBtn) {
         grammarMineBtn.addEventListener("click", () => this.mineCurrentGrammar());
       }
-
-      // Wire audio button
-      this.popupEl.querySelector?.(".hud-popup-audio-btn")?.addEventListener("click", () => this.playPronunciation());
 
       // Wire status pills
       if (typeof this.popupEl.querySelectorAll === "function") {
@@ -767,17 +748,6 @@
       } finally {
         this.isMining = false;
       }
-    }
-
-    async playPronunciation() {
-      const surface = this.currentTargetToken?.lemma || this.currentTargetToken?.surface || "";
-      if (!surface) return;
-      try {
-        const u = new SpeechSynthesisUtterance(surface);
-        u.lang = "ja-JP";
-        u.rate = 0.9;
-        window.speechSynthesis?.speak(u);
-      } catch (_) {}
     }
 
     async setWordStatus(word, status) {
