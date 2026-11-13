@@ -1,6 +1,6 @@
 # Status
-In-page immersion text & video mining without opening sidepanel.
-Shadow-DOM isolated HUD popup with Planetoño tactile physics and JLPT badges.
-Video subtitle HUD with rAF sync, 4 playback modes, and mechanical hotkeys.
-Background OCR cropping directly displaying in-page popup at crop location.
-All 25+ extension immersion, HUD, and video mining tests passing with zero emojis.
+Manga reader inspector cleaned up with hero word typography and Save action.
+Clickable kanji breakdown cards route directly into Kanji tab.
+Manga reader remains alive across tab transitions via keepAlive.
+Floating popover styled with solid ink surface, drag handle, and clean sizing.
+All 18 targeted desktop tests passing with final_lock and zero raw hex.

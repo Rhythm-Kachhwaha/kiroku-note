@@ -207,6 +207,14 @@ export class MangaView {
     window.addEventListener('keydown', this.boundKeyHandler);
   }
 
+  onShow() {
+    window.removeEventListener('keydown', this.boundKeyHandler);
+    window.addEventListener('keydown', this.boundKeyHandler);
+    if (this.activeMode === 'reader' && this.currentBook) {
+      this.renderCurrentPage();
+    }
+  }
+
   onHide() {
     this.closePopover();
     this.closeModal();
@@ -851,10 +859,20 @@ export class MangaView {
               </div>
             </div>
 
-            <!-- Cropped Manga Area Preview -->
-            <div class="manga-sidebar-crop-wrap" id="manga-sidebar-crop-wrap" style="${this.activeCropDataUrl ? '' : 'display: none;'}">
-              <img src="${this.activeCropDataUrl || ''}" alt="Manga Crop" class="manga-sidebar-crop-img" id="manga-sidebar-crop-img" />
+            <!-- Hero Target Word Card (Shows Word instead of OCR image) -->
+            <div class="manga-sidebar-hero-word-wrap" id="manga-sidebar-hero-word-wrap">
+              <span class="manga-hero-word-reading font-japanese" id="manga-target-reading"></span>
+              <span class="manga-hero-word-expression font-japanese" id="manga-target-expression">—</span>
+              <div class="manga-hero-word-meta">
+                <span class="manga-jlpt-badge" id="manga-target-jlpt" style="display: none;">N5</span>
+              </div>
             </div>
+
+            <!-- 1-Click Save Flashcard Button -->
+            <button type="button" class="tactile-btn tactile-btn-gold w-full manga-mine-btn" id="btn-sidebar-mine-card">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              <span id="label-sidebar-mine-card">Save</span>
+            </button>
 
             <div class="manga-sidebar-body">
               <!-- Sentence & Word Chips -->
@@ -869,28 +887,6 @@ export class MangaView {
                 <div class="manga-sentence-tokens-container" id="manga-sentence-tokens-container">
                   <span class="text-xs text-muted">Select text on page or detect bubbles to inspect words</span>
                 </div>
-              </div>
-
-              <!-- Inspected Word Card -->
-              <div class="manga-sidebar-section" id="manga-word-section" style="display: none;">
-                <div class="manga-target-word-header">
-                  <div class="manga-target-meta-left">
-                    <span class="manga-target-expression" id="manga-target-expression">—</span>
-                    <span class="manga-target-reading" id="manga-target-reading"></span>
-                  </div>
-                  <div class="manga-target-meta-right">
-                    <span class="manga-jlpt-badge" id="manga-target-jlpt" style="display: none;">N5</span>
-                    <button type="button" class="manga-audio-btn" id="btn-speak-word" title="Pronounce Word">
-                      <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- 1-Click Mine Flashcard Button -->
-                <button type="button" class="tactile-btn tactile-btn-gold w-full manga-mine-btn" id="btn-sidebar-mine-card">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                  <span id="label-sidebar-mine-card">Mine Flashcard</span>
-                </button>
               </div>
 
               <!-- Definitions / Glosses -->
@@ -912,10 +908,13 @@ export class MangaView {
           </aside>
         </div>
 
-        <!-- Floating Tactile Popover (Solid Card, Zero Glassy Blur) -->
+        <!-- Floating Tactile Popover (Solid Ink Surface, Draggable) -->
         <div class="manga-floating-popover" id="manga-floating-popover" style="display: none;">
-          <div class="manga-popover-header">
-            <span class="manga-popover-badge font-mono text-gold">INSPECTOR</span>
+          <div class="manga-popover-header" id="manga-popover-header" title="Drag to move popover">
+            <div class="manga-popover-drag-title">
+              <svg class="manga-popover-drag-icon" viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M9 3H7v2h2V3zm4 0h-2v2h2V3zm4 0h-2v2h2V3zM9 7H7v2h2V7zm4 0h-2v2h2V7zm4 0h-2v2h2V7zM9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
+              <span class="manga-popover-badge font-mono text-gold">INSPECTOR</span>
+            </div>
             <div class="flex items-center gap-1">
               <button type="button" class="manga-sidebar-tool-btn" id="btn-switch-popover-mode" title="Switch to Docked Sidebar">
                 <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H14V5h5v14z"/></svg>
@@ -1037,11 +1036,18 @@ export class MangaView {
     const btnCopySentence = this.container.querySelector('#btn-copy-sentence');
     btnCopySentence?.addEventListener('click', () => this.copySentence());
 
-    const btnSpeakWord = this.container.querySelector('#btn-speak-word');
-    btnSpeakWord?.addEventListener('click', () => this.speakWord());
-
     const btnMineCard = this.container.querySelector('#btn-sidebar-mine-card');
     btnMineCard?.addEventListener('click', () => this.mineActiveWord());
+
+    const kanjiGrid = this.container.querySelector('#manga-kanji-cards-grid');
+    kanjiGrid?.addEventListener('click', (e) => {
+      const card = e.target.closest('.manga-kanji-card');
+      if (card && card.dataset.character) {
+        this.openKanjiInTab(card.dataset.character);
+      }
+    });
+
+    this.setupPopoverDrag();
 
     const wrapper = this.container.querySelector('#manga-canvas-wrapper');
     wrapper?.addEventListener('mousedown', (e) => this.handleMouseDown(e));
@@ -1577,16 +1583,10 @@ export class MangaView {
     this.activeCropDataUrl = cropCanvas.toDataURL('image/png');
     const base64Data = this.activeCropDataUrl.split(',')[1];
 
-    // Update crop preview in Sidebar
-    const cropWrap = this.container?.querySelector('#manga-sidebar-crop-wrap');
-    const cropImg = this.container?.querySelector('#manga-sidebar-crop-img');
-    if (cropWrap && cropImg) {
-      cropWrap.style.display = 'flex';
-      cropImg.src = this.activeCropDataUrl;
-    }
-
     if (this.inspectorMode === 'sidebar') {
       this.openSidebar();
+      const expEl = this.container?.querySelector('#manga-target-expression');
+      if (expEl) expEl.textContent = '...';
       const tokenContainer = this.container?.querySelector('#manga-sentence-tokens-container');
       if (tokenContainer) {
         tokenContainer.innerHTML = `<span class="text-xs text-muted">Running MangaOCR recognition...</span>`;
@@ -1743,7 +1743,7 @@ export class MangaView {
     if (mineBtn) {
       mineBtn.classList.remove('is-mined');
       mineBtn.disabled = false;
-      if (mineLabel) mineLabel.textContent = `Mine Flashcard`;
+      if (mineLabel) mineLabel.textContent = `Save`;
     }
 
     if (defsList) {
@@ -1808,15 +1808,15 @@ export class MangaView {
         }
       }
 
-      // Render Kanji Breakdown in Sidebar
+      // Render Kanji Breakdown in Sidebar (Clickable to open Kanji tab without closing reader)
       if (kanjiGrid && kanjiSection && captureData.kanji_entries && captureData.kanji_entries.length > 0) {
         kanjiSection.style.display = 'flex';
         kanjiGrid.innerHTML = captureData.kanji_entries.map(k => `
-          <div class="manga-kanji-card">
-            <div class="manga-kanji-char">${escapeHtml(k.character)}</div>
+          <button type="button" class="manga-kanji-card" data-character="${escapeHtml(k.character)}" title="Open ${escapeHtml(k.character)} in Kanji Tab">
+            <div class="manga-kanji-char font-japanese">${escapeHtml(k.character)}</div>
             <div class="manga-kanji-meaning">${escapeHtml((k.meanings || []).slice(0, 3).join(', '))}</div>
-            <div class="manga-kanji-readings">${escapeHtml([...(k.onyomi || []), ...(k.kunyomi || [])].slice(0, 3).join(' • '))}</div>
-          </div>
+            <div class="manga-kanji-readings font-japanese">${escapeHtml([...(k.onyomi || []), ...(k.kunyomi || [])].slice(0, 3).join(' • '))}</div>
+          </button>
         `).join('');
       }
 
@@ -1825,18 +1825,20 @@ export class MangaView {
         popoverLookup.innerHTML = `
           <div class="manga-dict-entry">
             <div class="flex items-center justify-between">
-              <span class="font-bold text-accent">${escapeHtml(targetWord)}</span>
+              <div class="flex flex-col">
+                <span class="text-xs text-gold font-japanese">${escapeHtml(reading)}</span>
+                <span class="font-bold text-accent text-base font-japanese">${escapeHtml(targetWord)}</span>
+              </div>
               <button type="button" 
-                class="tactile-btn tactile-btn-primary tactile-btn-sm btn-manga-mine-word" 
+                class="tactile-btn tactile-btn-gold tactile-btn-sm btn-manga-mine-word" 
                 data-word="${escapeHtml(targetWord)}" 
                 data-reading="${escapeHtml(reading)}" 
                 data-meaning="${escapeHtml(meaning)}">
                 <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                <span>Mine</span>
+                <span>Save</span>
               </button>
             </div>
-            ${reading ? `<div class="text-xs text-muted">${escapeHtml(reading)}</div>` : ''}
-            <div class="text-xs mt-1">${escapeHtml(meaning || 'No definitions found')}</div>
+            <div class="text-xs mt-2 line-height-relaxed">${escapeHtml(meaning || 'No definitions found')}</div>
           </div>
         `;
       }
@@ -1864,7 +1866,7 @@ export class MangaView {
     const mineLabel = this.container?.querySelector('#label-sidebar-mine-card');
     if (mineBtn) {
       mineBtn.disabled = true;
-      if (mineLabel) mineLabel.textContent = 'Mining to Cards...';
+      if (mineLabel) mineLabel.textContent = 'Saving...';
     }
 
     const cardPayload = {
@@ -1904,14 +1906,14 @@ export class MangaView {
       if (mineBtn) {
         mineBtn.classList.add('is-mined');
         mineBtn.disabled = true;
-        if (mineLabel) mineLabel.textContent = '✓ Mined to Flashcards!';
+        if (mineLabel) mineLabel.textContent = '✓ Saved';
       }
       this.lastMinedWord = word;
     } catch (err) {
       console.warn('[MangaView] Mining failed:', err);
       if (mineBtn) {
         mineBtn.disabled = false;
-        if (mineLabel) mineLabel.textContent = 'Retry Mining';
+        if (mineLabel) mineLabel.textContent = 'Retry Save';
       }
     }
   }
@@ -2074,10 +2076,10 @@ export class MangaView {
     if (!popover) return;
 
     this.popoverVisible = true;
-    popover.style.display = 'block';
+    popover.style.display = 'flex';
 
-    const popWidth = 340;
-    const popHeight = 240;
+    const popWidth = 390;
+    const popHeight = 300;
     let posX = Math.max(16, Math.min(window.innerWidth - popWidth - 16, anchor ? anchor.x : 50));
     let posY = Math.max(50, Math.min(window.innerHeight - popHeight - 60, anchor ? anchor.y : 100));
 
@@ -2089,6 +2091,71 @@ export class MangaView {
     this.popoverVisible = false;
     const popover = this.container?.querySelector('#manga-floating-popover');
     if (popover) popover.style.display = 'none';
+  }
+
+  setupPopoverDrag() {
+    const popover = this.container?.querySelector('#manga-floating-popover');
+    const header = this.container?.querySelector('#manga-popover-header');
+    if (!popover || !header) return;
+
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let initialLeft = 0;
+    let initialTop = 0;
+
+    const onMouseDown = (e) => {
+      if (e.target.closest('button')) return;
+      isDragging = true;
+      header.style.cursor = 'grabbing';
+      startX = e.clientX;
+      startY = e.clientY;
+      initialLeft = popover.offsetLeft;
+      initialTop = popover.offsetTop;
+
+      const onMouseMove = (ev) => {
+        if (!isDragging) return;
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+
+        const maxLeft = Math.max(10, window.innerWidth - popover.offsetWidth - 10);
+        const maxTop = Math.max(10, window.innerHeight - popover.offsetHeight - 10);
+
+        const newLeft = Math.max(10, Math.min(maxLeft, initialLeft + dx));
+        const newTop = Math.max(10, Math.min(maxTop, initialTop + dy));
+
+        popover.style.left = `${newLeft}px`;
+        popover.style.top = `${newTop}px`;
+      };
+
+      const onMouseUp = () => {
+        isDragging = false;
+        header.style.cursor = 'grab';
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      e.preventDefault();
+    };
+
+    header.addEventListener('mousedown', onMouseDown);
+  }
+
+  async openKanjiInTab(char) {
+    if (!char) return;
+    const cleanChar = char.trim()[0];
+    if (!cleanChar) return;
+
+    const router = this.router || (typeof window !== 'undefined' && (window.router || window.__desktopApp?.router));
+    if (router && typeof router.navigateToTab === 'function') {
+      await router.navigateToTab('kanji');
+      const kanjiView = router.viewInstances?.get('kanji');
+      if (kanjiView && typeof kanjiView.loadKanji === 'function') {
+        kanjiView.loadKanji(cleanChar);
+      }
+    }
   }
 
   async lookupDictionary(text) {
@@ -2105,18 +2172,20 @@ export class MangaView {
         lookupEl.innerHTML = `
           <div class="manga-dict-entry mb-2">
             <div class="flex items-center justify-between">
-              <span class="font-bold text-accent">${escapeHtml(word)}</span>
+              <div class="flex flex-col">
+                <span class="text-xs text-gold font-japanese">${escapeHtml(reading)}</span>
+                <span class="font-bold text-accent font-japanese">${escapeHtml(word)}</span>
+              </div>
               <button type="button" 
-                class="tactile-btn tactile-btn-primary tactile-btn-sm btn-manga-mine-word" 
+                class="tactile-btn tactile-btn-gold tactile-btn-sm btn-manga-mine-word" 
                 data-word="${escapeHtml(word)}" 
                 data-reading="${escapeHtml(reading)}" 
                 data-meaning="${escapeHtml(glossary)}">
                 <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                <span>Mine</span>
+                <span>Save</span>
               </button>
             </div>
-            ${reading ? `<div class="text-xs text-muted">${escapeHtml(reading)}</div>` : ''}
-            <div class="text-xs mt-1">${escapeHtml(glossary)}</div>
+            <div class="text-xs mt-1 line-height-relaxed">${escapeHtml(glossary)}</div>
           </div>
         `;
       } else {
@@ -2134,7 +2203,7 @@ export class MangaView {
     if (!word) return;
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg><span>Mined</span>`;
+      btn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg><span>Saved</span>`;
     }
 
     try {
@@ -2175,7 +2244,7 @@ export class MangaView {
       console.warn('[MangaView] Mine word failed:', err);
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = `<span>Retry</span>`;
+        btn.innerHTML = `<span>Retry Save</span>`;
       }
     }
   }
