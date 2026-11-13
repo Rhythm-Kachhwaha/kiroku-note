@@ -172,3 +172,84 @@ test('Kanji View: Accordion dropdown with view limit selector and view all optio
     'KanjiView must collapse kanji mastery grid by default'
   );
 });
+
+test('Kanji View: Segmented view toggle between Grid and List modes', () => {
+  const content = fs.readFileSync(kanjiViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('kanji-view-toggle'),
+    'KanjiView must include .kanji-view-toggle segmented control'
+  );
+  assert.ok(
+    content.includes('btn-view-grid') && content.includes('btn-view-list'),
+    'KanjiView must include buttons for Grid and List views'
+  );
+  assert.ok(
+    content.includes('setViewMode('),
+    'KanjiView must implement setViewMode handler'
+  );
+});
+
+test('Kanji View: Full-screen Textbook List View with real-time filter and infinite scroll', () => {
+  const content = fs.readFileSync(kanjiViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('kanji-textbook-list'),
+    'KanjiView must render #kanji-textbook-list container'
+  );
+  assert.ok(
+    content.includes('apiClient.getKanjiStudyList('),
+    'KanjiView must call apiClient.getKanjiStudyList for textbook data'
+  );
+  assert.ok(
+    content.includes('kanji-list-search-input'),
+    'KanjiView must include subtle real-time filter input'
+  );
+  assert.ok(
+    content.includes('filterList('),
+    'KanjiView must implement filterList method'
+  );
+  assert.ok(
+    content.includes('renderListRow('),
+    'KanjiView must implement renderListRow method'
+  );
+});
+
+test('Kanji View: Blur Cover Mode for non-distracting self-testing', () => {
+  const content = fs.readFileSync(kanjiViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('btn-toggle-cover-mode'),
+    'KanjiView must include Cover Mode toggle button'
+  );
+  assert.ok(
+    content.includes('toggleCoverMode('),
+    'KanjiView must implement toggleCoverMode method'
+  );
+  assert.ok(
+    content.includes('kanji-reading-blur'),
+    'KanjiView must apply .kanji-reading-blur class in cover mode'
+  );
+});
+
+test('Kanji View: Right-side Card Inspector and custom compound addition', () => {
+  const content = fs.readFileSync(kanjiViewPath, 'utf8');
+
+  assert.ok(
+    content.includes('kanji-card-inspector'),
+    'KanjiView must include #kanji-card-inspector slide-over drawer'
+  );
+  assert.ok(
+    content.includes('openCardInspector('),
+    'KanjiView must implement openCardInspector method'
+  );
+  assert.ok(
+    content.includes('kanji-add-popover'),
+    'KanjiView must include inline #kanji-add-popover for custom compounds'
+  );
+  assert.ok(
+    content.includes('apiClient.addCustomCompound('),
+    'KanjiView must persist custom compounds via apiClient.addCustomCompound'
+  );
+});
+

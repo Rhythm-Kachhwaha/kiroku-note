@@ -1,6 +1,6 @@
 # Status
-Completed Grammar Roadmap overhaul (Area 3 of Fix Report).
-Normalized roadmap keys to canonical reference patterns; validated on backend.
-Added optimistic 1-click status cycling on chips with zero roadmap reloading.
-Built full-screen continuous Tofugu editorial breakdown reader with ESC return.
-Added Continue button in toolbar navigating to next unfinished point.
+Completed Kanji Studio & Textbook Study List overhaul per plan.
+Fixed SVG stroke order animation engine, last-stroke vanish, and loading safety.
+Implemented full-screen Textbook List View with infinite scroll and real-time search.
+Added Cover Mode blur testing, right-side Card Inspector, and custom compounds.
+Locked contracts, hashes, design tokens, and tests 100% verified.

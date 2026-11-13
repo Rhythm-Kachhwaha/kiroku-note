@@ -1,6 +1,7 @@
 """Kanji query and compound mining service for Kiroku Note."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import functools
 import json
 import logging
@@ -151,15 +152,87 @@ class KanjiService:
         self,
         jlpt_db_path: Path | str | None = None,
         dict_db_path: Path | str | None = None,
+        user_db_path: Path | str | None = None,
     ):
         self.jlpt_db_path = Path(jlpt_db_path) if jlpt_db_path else JLPT_REF_PATH
         self.dict_db_path = Path(dict_db_path) if dict_db_path else resolve_kanji_dict_path()
+        self.user_db_path = Path(user_db_path) if user_db_path else None
 
     def _get_jlpt_conn(self) -> sqlite3.Connection | None:
         return _get_reusable_connection(self.jlpt_db_path)
 
     def _get_dict_conn(self) -> sqlite3.Connection | None:
         return _get_reusable_connection(self.dict_db_path)
+
+    def _get_user_db_path(self) -> Path:
+        if self.user_db_path:
+            return self.user_db_path
+        from app.config import get_db_path
+        return get_db_path()
+
+    def _get_user_conn(self) -> sqlite3.Connection:
+        from app.db.connection import get_db_connection, ensure_user_kanji_compounds_table
+        conn = get_db_connection(self._get_user_db_path())
+        ensure_user_kanji_compounds_table(conn)
+        return conn
+
+    def add_user_compound(self, character: str, term: str, reading: str, meaning: str = "") -> dict[str, Any]:
+        """Add a custom user compound for a kanji character to SQLite."""
+        if not character or not term or not reading:
+            raise ValueError("character, term, and reading are required")
+        clean_char = str(character).strip()[0]
+        clean_term = str(term).strip()
+        clean_reading = str(reading).strip()
+        clean_meaning = str(meaning or "").strip()
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        conn = self._get_user_conn()
+        try:
+            cur = conn.execute(
+                """INSERT INTO user_kanji_compounds (character, term, reading, meaning, created_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (clean_char, clean_term, clean_reading, clean_meaning, now_iso),
+            )
+            conn.commit()
+            compound_id = cur.lastrowid
+            return {
+                "id": compound_id,
+                "character": clean_char,
+                "term": clean_term,
+                "reading": clean_reading,
+                "meaning": clean_meaning,
+                "created_at": now_iso,
+            }
+        finally:
+            conn.close()
+
+    def get_user_compounds(self, character: str | None = None) -> list[dict[str, Any]]:
+        """Return custom compounds created by user, optionally filtered by character."""
+        conn = self._get_user_conn()
+        try:
+            if character:
+                clean_char = str(character).strip()[0]
+                rows = conn.execute(
+                    "SELECT id, character, term, reading, meaning, created_at FROM user_kanji_compounds WHERE character = ? ORDER BY id DESC",
+                    (clean_char,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT id, character, term, reading, meaning, created_at FROM user_kanji_compounds ORDER BY id DESC"
+                ).fetchall()
+            return [dict(r) for r in rows]
+        finally:
+            conn.close()
+
+    def delete_user_compound(self, compound_id: int) -> bool:
+        """Delete a custom compound by ID."""
+        conn = self._get_user_conn()
+        try:
+            cur = conn.execute("DELETE FROM user_kanji_compounds WHERE id = ?", (int(compound_id),))
+            conn.commit()
+            return cur.rowcount > 0
+        finally:
+            conn.close()
 
     def get_details(self, char: str) -> dict[str, Any] | None:
         """Fetch readings, JLPT level, stroke count, grade and meanings for a kanji."""
@@ -324,3 +397,95 @@ class KanjiService:
         except Exception as exc:
             record_operational_failure("kanji.browse", exc)
             return {"level": target_level, "kanji": [], "total": 0, "error": str(exc)}
+
+    def get_study_list(self, level: str = "N5", limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Fetch high-density study list per JLPT level with stroke count, On/Kun readings, custom compounds, and dictionary compounds."""
+        if not self.jlpt_db_path.is_file():
+            err_msg = f"JLPT reference database missing: {self.jlpt_db_path}"
+            record_operational_failure("kanji.study_list.missing_db", FileNotFoundError(err_msg))
+            return {"level": level, "items": [], "total": 0, "offset": offset, "limit": limit, "error": err_msg}
+
+        target_level = level.upper() if level else "N5"
+        limit = max(1, min(int(limit), 200))
+        offset = max(0, int(offset))
+
+        try:
+            conn = self._get_jlpt_conn()
+            if conn is None:
+                err_msg = f"Could not connect to JLPT database: {self.jlpt_db_path}"
+                record_operational_failure("kanji.study_list.connection", RuntimeError(err_msg))
+                return {"level": target_level, "items": [], "total": 0, "offset": offset, "limit": limit, "error": err_msg}
+
+            if target_level == "JOYO":
+                count_row = conn.execute("SELECT count(*) FROM kanji WHERE grade IS NOT NULL").fetchone()
+                total = count_row[0] if count_row else 0
+                rows = conn.execute(
+                    "SELECT character, level, strokes, grade, freq, meanings, onyomi, kunyomi FROM kanji WHERE grade IS NOT NULL ORDER BY grade ASC, freq ASC LIMIT ? OFFSET ?",
+                    (limit, offset),
+                ).fetchall()
+            else:
+                count_row = conn.execute("SELECT count(*) FROM kanji WHERE level = ?", (target_level,)).fetchone()
+                total = count_row[0] if count_row else 0
+                rows = conn.execute(
+                    "SELECT character, level, strokes, grade, freq, meanings, onyomi, kunyomi FROM kanji WHERE level = ? ORDER BY freq ASC, strokes ASC LIMIT ? OFFSET ?",
+                    (target_level, limit, offset),
+                ).fetchall()
+
+            characters = [r["character"] for r in rows]
+
+            # Fetch user custom compounds for all characters in one query
+            user_compounds_by_char: dict[str, list[dict[str, Any]]] = {}
+            if characters:
+                try:
+                    u_conn = self._get_user_conn()
+                    try:
+                        q_marks = ",".join("?" for _ in characters)
+                        u_rows = u_conn.execute(
+                            f"SELECT id, character, term, reading, meaning, created_at FROM user_kanji_compounds WHERE character IN ({q_marks}) ORDER BY id ASC",
+                            characters,
+                        ).fetchall()
+                        for ur in u_rows:
+                            ch = ur["character"]
+                            if ch not in user_compounds_by_char:
+                                user_compounds_by_char[ch] = []
+                            user_compounds_by_char[ch].append(dict(ur))
+                    finally:
+                        u_conn.close()
+                except Exception as exc:
+                    record_operational_failure("kanji.study_list.user_compounds", exc, level=logging.DEBUG)
+
+            items = []
+            for i, r in enumerate(rows):
+                ch = r["character"]
+                meanings = json.loads(r["meanings"]) if r["meanings"] else []
+                onyomi = json.loads(r["onyomi"]) if r["onyomi"] else []
+                kunyomi = json.loads(r["kunyomi"]) if r["kunyomi"] else []
+                dict_compounds = self.get_compounds(ch, limit=4)
+                custom_compounds = user_compounds_by_char.get(ch, [])
+
+                items.append({
+                    "index": offset + i + 1,
+                    "character": ch,
+                    "level": r["level"],
+                    "strokes": r["strokes"],
+                    "grade": r["grade"],
+                    "freq": r["freq"],
+                    "meanings": meanings,
+                    "onyomi": onyomi,
+                    "kunyomi": kunyomi,
+                    "compounds": dict_compounds,
+                    "custom_compounds": custom_compounds,
+                })
+
+            return {
+                "level": target_level,
+                "items": items,
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "error": None,
+            }
+        except Exception as exc:
+            record_operational_failure("kanji.study_list", exc)
+            return {"level": target_level, "items": [], "total": 0, "offset": offset, "limit": limit, "error": str(exc)}
+

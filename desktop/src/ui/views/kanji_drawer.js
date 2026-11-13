@@ -68,8 +68,12 @@ class KanjiDrawerController {
           <div class="kanji-drawer-stroke-controls">
             <span class="text-xs text-muted font-mono" id="drawer-stroke-progress">Stroke 0 of 0</span>
             <div style="display: flex; gap: 0.35rem;">
-              <button type="button" class="tactile-btn tactile-btn-sm" id="btn-drawer-stroke-replay">Replay</button>
-              <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-drawer-stroke-play">Play</button>
+              <button type="button" class="tactile-btn tactile-btn-sm" id="btn-drawer-stroke-replay" title="Replay from start" aria-label="Replay stroke order">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+              </button>
+              <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-drawer-stroke-play" title="Play animation" aria-label="Play stroke order" disabled>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              </button>
             </div>
           </div>
         </div>
@@ -194,6 +198,8 @@ class KanjiDrawerController {
 
   async loadStrokes(char) {
     const canvas = document.getElementById('drawer-canvas');
+    const playBtn = document.getElementById('btn-drawer-stroke-play');
+    if (playBtn) playBtn.disabled = true;
     if (!canvas) return;
 
     canvas.innerHTML = '<span class="text-xs text-muted">Loading vector...</span>';
@@ -201,6 +207,7 @@ class KanjiDrawerController {
       const svgText = await apiClient.getKanjiStrokes(char);
       if (!svgText || typeof svgText !== 'string' || !svgText.includes('<svg')) {
         canvas.innerHTML = `<span class="font-display text-4xl text-warm-paper">${escapeHtml(char)}</span>`;
+        if (playBtn) playBtn.disabled = true;
         return;
       }
 
@@ -223,8 +230,27 @@ class KanjiDrawerController {
       });
 
       this.renderStrokeStep(0);
+      if (playBtn && this.strokePaths.length > 0) {
+        playBtn.disabled = false;
+        this.updatePlayButton();
+      }
     } catch (err) {
       canvas.innerHTML = `<span class="font-display text-4xl text-warm-paper">${escapeHtml(char)}</span>`;
+      if (playBtn) playBtn.disabled = true;
+    }
+  }
+
+  updatePlayButton() {
+    const btn = document.getElementById('btn-drawer-stroke-play');
+    if (!btn) return;
+    if (this.isPlaying) {
+      btn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+      btn.setAttribute('aria-label', 'Pause stroke animation');
+      btn.setAttribute('title', 'Pause animation');
+    } else {
+      btn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+      btn.setAttribute('aria-label', 'Play stroke animation');
+      btn.setAttribute('title', 'Play animation');
     }
   }
 
@@ -274,36 +300,49 @@ class KanjiDrawerController {
 
   startStrokePlay() {
     if (!this.strokePaths.length) return;
-    this.cancelStrokeAnimations();
     this.isPlaying = true;
-    const btn = document.getElementById('btn-drawer-stroke-play');
-    if (btn) btn.textContent = 'Pause';
+    this.updatePlayButton();
 
     if (this.currentStrokeIndex >= this.strokePaths.length - 1) {
+      this.cancelStrokeAnimations();
       this.currentStrokeIndex = 0;
       this.renderStrokeStep(0);
+      this.animateCurrentStroke(this.strokePlayToken);
+    } else if (this.activeAnimations && this.activeAnimations.size > 0) {
+      this.activeAnimations.forEach((a) => {
+        try { a.play(); } catch (e) {}
+      });
+    } else {
+      this.animateCurrentStroke(this.strokePlayToken);
     }
-
-    this.animateCurrentStroke(this.strokePlayToken);
   }
 
   pauseStrokes() {
     this.isPlaying = false;
-    this.cancelStrokeAnimations();
-    const btn = document.getElementById('btn-drawer-stroke-play');
-    if (btn) btn.textContent = 'Play';
+    this.updatePlayButton();
+    if (this.activeAnimations) {
+      this.activeAnimations.forEach((a) => {
+        try { a.pause(); } catch (e) {}
+      });
+    }
   }
 
   replayStrokes() {
-    this.pauseStrokes();
+    this.cancelStrokeAnimations();
+    this.isPlaying = false;
+    this.currentStrokeIndex = 0;
     this.renderStrokeStep(0);
     this.startStrokePlay();
   }
 
   cancelStrokeAnimations() {
     this.strokePlayToken += 1;
-    this.strokeAnimations.forEach((a) => a.cancel?.());
-    this.strokeAnimations.clear();
+    if (this.activeAnimations) {
+      this.activeAnimations.forEach((a) => {
+        try { a.cancel(); } catch (e) {}
+      });
+      this.activeAnimations.clear();
+    }
   }
 
   animateCurrentStroke(playToken) {
@@ -317,35 +356,52 @@ class KanjiDrawerController {
     const length = path.getTotalLength ? path.getTotalLength() : 100;
     path.style.strokeDasharray = `${length}px ${length}px`;
     path.style.strokeDashoffset = `${length}px`;
+    path.style.stroke = 'var(--accent-gold)';
+    path.style.strokeWidth = '4.5';
+    path.style.opacity = '1';
+    path.style.fill = 'none';
 
+    const duration = Math.max(160, Math.min(Math.round(length * 1.4), 480));
     const easing = typeof document !== 'undefined'
       ? getComputedStyle(document.documentElement).getPropertyValue('--ease-out').trim() || 'ease-out'
       : 'ease-out';
 
+    if (!this.activeAnimations) {
+      this.activeAnimations = new Set();
+    }
+
     if (path.animate) {
       const anim = path.animate(
         [{ strokeDashoffset: `${length}px` }, { strokeDashoffset: '0px' }],
-        { duration: 260, easing, fill: 'forwards' }
+        { duration, easing, fill: 'forwards' }
       );
-      this.strokeAnimations.add(anim);
+      this.activeAnimations.add(anim);
       anim.onfinish = () => {
-        this.strokeAnimations.delete(anim);
+        this.activeAnimations.delete(anim);
+        path.style.strokeDashoffset = '0px';
+        path.style.fill = 'none';
         if (this.currentStrokeIndex < this.strokePaths.length - 1) {
           this.renderStrokeStep(this.currentStrokeIndex + 1);
           this.animateCurrentStroke(playToken);
         } else {
-          this.pauseStrokes();
+          this.isPlaying = false;
+          this.updatePlayButton();
+          path.style.stroke = 'var(--warm-paper)';
+          path.style.strokeWidth = '3';
         }
       };
       anim.oncancel = () => {
-        this.strokeAnimations.delete(anim);
+        this.activeAnimations.delete(anim);
       };
     } else {
       path.style.strokeDashoffset = '0px';
+      path.style.fill = 'none';
       if (this.currentStrokeIndex < this.strokePaths.length - 1) {
         this.renderStrokeStep(this.currentStrokeIndex + 1);
+        this.animateCurrentStroke(playToken);
       } else {
-        this.pauseStrokes();
+        this.isPlaying = false;
+        this.updatePlayButton();
       }
     }
   }

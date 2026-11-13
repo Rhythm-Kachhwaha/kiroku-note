@@ -317,6 +317,23 @@ export class ApiClient {
     return this.request('/api/kanji/browse', { query: params });
   }
 
+  async getKanjiStudyList(params = {}) {
+    return this.request('/api/kanji/study-list', { query: params });
+  }
+
+  async addCustomCompound(payload) {
+    return this.request('/api/kanji/compounds/custom', {
+      method: 'POST',
+      body: payload
+    });
+  }
+
+  async deleteCustomCompound(compoundId) {
+    return this.request(`/api/kanji/compounds/custom/${encodeURIComponent(compoundId)}`, {
+      method: 'DELETE'
+    });
+  }
+
   // LLM
   async getLlmConfig() {
     return this.request('/api/llm/config');

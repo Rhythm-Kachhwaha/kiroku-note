@@ -241,6 +241,16 @@ CREATE INDEX IF NOT EXISTS idx_study_burst_sessions_completed
     ON study_burst_sessions (status, completed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_study_burst_attempts_session
     ON study_burst_attempts (session_id, item_index ASC);
+CREATE TABLE IF NOT EXISTS user_kanji_compounds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    character TEXT NOT NULL,
+    term TEXT NOT NULL,
+    reading TEXT NOT NULL,
+    meaning TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_user_kanji_compounds_char
+    ON user_kanji_compounds (character, created_at DESC);
 """
 
 
@@ -465,6 +475,8 @@ def init_db(db_path: Path | str | None = None) -> None:
         for col_name, col_def in gp_new_cols:
             if col_name not in gp_columns:
                 conn.execute(f"ALTER TABLE grammar_points ADD COLUMN {col_name} {col_def}")
+
+        ensure_user_kanji_compounds_table(conn)
 
         conn.commit()
 
@@ -842,3 +854,23 @@ def list_unresolved_tokens(
         ensure_unresolved_tokens_table(session_conn)
         rows = session_conn.execute(sql, (limit,)).fetchall()
         return [dict(row) for row in rows]
+
+
+_USER_KANJI_COMPOUNDS_DDL = """
+CREATE TABLE IF NOT EXISTS user_kanji_compounds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    character TEXT NOT NULL,
+    term TEXT NOT NULL,
+    reading TEXT NOT NULL,
+    meaning TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_user_kanji_compounds_char
+    ON user_kanji_compounds (character, created_at DESC);
+"""
+
+
+def ensure_user_kanji_compounds_table(conn: sqlite3.Connection) -> None:
+    """Safely ensure the user_kanji_compounds table and index exist on an open connection."""
+    conn.executescript(_USER_KANJI_COMPOUNDS_DDL)
+

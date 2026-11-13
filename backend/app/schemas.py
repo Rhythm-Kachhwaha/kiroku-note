@@ -740,6 +740,13 @@ class KanjiSeenResponse(BaseModel):
     total_seen: int = 0
 
 
+class CreateCustomCompoundRequest(BaseModel):
+    character: str
+    term: str
+    reading: str
+    meaning: str = ""
+
+
 class DailyWordResponse(BaseModel):
     word: str
     reading: str = ""

@@ -63,6 +63,7 @@ from app.schemas import (
     VocabGapItem,
     KanjiSeenResponse,
     DailyWordResponse,
+    CreateCustomCompoundRequest,
 )
 from app.config import (
     APP_VERSION,
@@ -782,6 +783,36 @@ def get_kanji_compounds(character: str, limit: int = 15):
 def browse_kanji(level: str = "N3", limit: int = 50, offset: int = 0):
     """Browse kanji by JLPT level or Joyo status."""
     return _kanji_service.browse(level=level, limit=limit, offset=offset)
+
+
+@app.get("/api/kanji/study-list")
+def get_kanji_study_list(level: str = "N5", limit: int = 50, offset: int = 0):
+    """Fetch high-density study list per JLPT level with stroke count, On/Kun readings, and compounds."""
+    return _kanji_service.get_study_list(level=level, limit=limit, offset=offset)
+
+
+@app.post("/api/kanji/compounds/custom")
+def add_custom_compound(request: CreateCustomCompoundRequest):
+    """Persist a custom compound created by user."""
+    try:
+        return _kanji_service.add_user_compound(
+            character=request.character,
+            term=request.term,
+            reading=request.reading,
+            meaning=request.meaning,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.delete("/api/kanji/compounds/custom/{compound_id}")
+def delete_custom_compound(compound_id: int):
+    """Remove a custom compound created by user."""
+    success = _kanji_service.delete_user_compound(compound_id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compound not found")
+    return {"success": True, "deleted_id": compound_id}
+
 
 
 @app.post("/api/jlpt/batch")

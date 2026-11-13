@@ -477,3 +477,425 @@
   margin-left: 0.75rem;
 }
 
+/* ==========================================================================
+   Kanji View Toggle & Full-Screen Textbook List View
+   ========================================================================== */
+.kanji-header-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.kanji-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 4px;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.kanji-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+.kanji-toggle-btn:hover {
+  color: var(--warm-paper);
+}
+
+.kanji-toggle-btn.is-active {
+  background-color: var(--surface-container-high);
+  border-color: var(--tactile-stroke);
+  color: var(--warm-paper);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+/* Textbook List View Toolbar */
+.kanji-list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.kanji-list-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.kanji-list-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 240px;
+}
+
+.kanji-list-search-wrap svg {
+  position: absolute;
+  left: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.kanji-list-search-input {
+  padding-left: 2rem !important;
+  height: 32px;
+  font-size: 0.8rem;
+}
+
+.kanji-cover-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+.kanji-cover-toggle.is-active {
+  background-color: var(--alpine-berry) !important;
+  color: var(--tactile-stroke) !important;
+}
+
+/* Textbook Study List Container & Rows */
+.kanji-textbook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 3rem;
+}
+
+.kanji-list-row {
+  display: grid;
+  grid-template-columns: 44px 68px 56px 200px 1fr;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  transition: transform var(--duration-fast) var(--spring-snappy),
+              box-shadow var(--duration-fast) var(--spring-snappy);
+}
+
+.kanji-list-row:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+}
+
+.kanji-list-index {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.kanji-list-char {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display), var(--font-japanese);
+  font-size: 2.75rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--spring-snappy);
+}
+
+.kanji-list-char:hover {
+  color: var(--gold-eye);
+  transform: scale(1.08);
+}
+
+.kanji-list-strokes {
+  font-family: var(--font-japanese), var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.kanji-list-readings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  min-width: 0;
+}
+
+.kanji-onyomi-line {
+  color: var(--gold-eye);
+  font-family: var(--font-japanese);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanji-kunyomi-line {
+  color: var(--warm-paper);
+  font-family: var(--font-japanese);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanji-meaning-line {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Blur Cover Mode */
+.kanji-cover-active .kanji-reading-blur {
+  filter: blur(5px);
+  transition: filter 180ms var(--ease-out);
+  user-select: none;
+  cursor: pointer;
+}
+
+.kanji-cover-active .kanji-reading-blur:hover,
+.kanji-cover-active .kanji-reading-blur:active,
+.kanji-cover-active .kanji-reading-blur.is-unblurred {
+  filter: blur(0px);
+  user-select: auto;
+}
+
+/* Compounds Horizontal Tray */
+.kanji-list-compounds {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.kanji-compound-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0.35rem 0.65rem;
+  background-color: var(--surface-container);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  cursor: pointer;
+  text-align: left;
+  transition: transform var(--duration-fast) var(--spring-snappy),
+              box-shadow var(--duration-fast) var(--spring-snappy),
+              background-color var(--duration-fast) var(--ease-out);
+}
+
+.kanji-compound-chip:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  background-color: var(--surface-container-high);
+}
+
+.kanji-compound-chip:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.kanji-compound-chip-custom {
+  border-color: var(--gold-eye);
+}
+
+.kanji-chip-head {
+  font-family: var(--font-japanese);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  line-height: 1.2;
+}
+
+.kanji-chip-head ruby rt {
+  font-size: 0.65rem;
+  color: var(--gold-eye);
+  font-weight: 500;
+}
+
+.kanji-chip-gloss {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanji-compound-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--tactile-stroke);
+  background-color: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--spring-snappy);
+}
+
+.kanji-compound-add-btn:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  transform: scale(1.1);
+}
+
+/* Card Inspector Drawer */
+.kanji-inspector-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.65);
+  z-index: 1000;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.kanji-inspector-drawer {
+  position: fixed;
+  top: var(--chrome-top-height, 48px);
+  right: 0;
+  width: 380px;
+  max-width: 90vw;
+  height: calc(100vh - var(--chrome-top-height, 48px));
+  background-color: var(--surface-container-low);
+  border-left: 2px solid var(--tactile-stroke);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 0 var(--tactile-stroke);
+  transform: translateX(100%);
+  transition: transform var(--duration-fast) var(--spring-snappy);
+}
+
+.kanji-inspector-drawer.is-open {
+  transform: translateX(0);
+}
+
+.kanji-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--ink-border);
+}
+
+.kanji-inspector-title {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.kanji-inspector-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.kanji-inspector-close-btn:hover {
+  color: var(--warm-paper);
+}
+
+.kanji-inspector-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.kanji-inspector-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.kanji-inspector-label {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Compact Add Compound Popover */
+.kanji-add-popover {
+  position: fixed;
+  z-index: 1050;
+  background-color: var(--surface-container-low);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  padding: 1rem;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.kanji-add-popover-title {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.kanji-add-popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+

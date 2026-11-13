@@ -114,3 +114,60 @@ def test_kanji_service_no_cwd_dict_fallback(monkeypatch, tmp_path):
     resolved = resolve_kanji_dict_path()
     assert resolved.parent != tmp_path
 
+
+def test_get_kanji_study_list_endpoint():
+    response = client.get("/api/kanji/study-list?level=N5&limit=5&offset=0")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["level"] == "N5"
+    assert "items" in data
+    assert len(data["items"]) == 5
+    first = data["items"][0]
+    assert first["index"] == 1
+    assert "character" in first
+    assert "strokes" in first
+    assert "onyomi" in first
+    assert "kunyomi" in first
+    assert "compounds" in first
+    assert "custom_compounds" in first
+    assert isinstance(first["compounds"], list)
+    assert isinstance(first["custom_compounds"], list)
+
+
+def test_custom_compounds_crud_endpoints():
+    # 1. Add custom compound
+    payload = {
+        "character": "語",
+        "term": "言語学",
+        "reading": "げんごがく",
+        "meaning": "linguistics",
+    }
+    create_res = client.post("/api/kanji/compounds/custom", json=payload)
+    assert create_res.status_code == 200
+    created = create_res.json()
+    assert created["id"] > 0
+    assert created["character"] == "語"
+    assert created["term"] == "言語学"
+    assert created["reading"] == "げんごがく"
+    assert created["meaning"] == "linguistics"
+    compound_id = created["id"]
+
+    # 2. Verify appears in study list
+    study_res = client.get("/api/kanji/study-list?level=N5&limit=100")
+    assert study_res.status_code == 200
+    items = study_res.json()["items"]
+    go_item = next((it for it in items if it["character"] == "語"), None)
+    if go_item:
+        custom_terms = [c["term"] for c in go_item["custom_compounds"]]
+        assert "言語学" in custom_terms
+
+    # 3. Delete custom compound
+    del_res = client.delete(f"/api/kanji/compounds/custom/{compound_id}")
+    assert del_res.status_code == 200
+    assert del_res.json()["success"] is True
+
+    # 4. Verify 404 on deleting non-existent compound
+    del_res_again = client.delete(f"/api/kanji/compounds/custom/{compound_id}")
+    assert del_res_again.status_code == 404
+
+
