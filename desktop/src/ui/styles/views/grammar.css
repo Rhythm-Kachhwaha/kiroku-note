@@ -1640,7 +1640,7 @@
    ========================================================================== */
 .grammar-full-breakdown-view {
   width: 100%;
-  min-height: 100vh;
+  min-height: calc(100vh - var(--chrome-top-height, 48px));
   background: var(--pure-black);
   padding: 1.5rem 1rem 5rem 1rem;
 }

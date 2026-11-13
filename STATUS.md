@@ -1,5 +1,5 @@
 # Status
-Kanji stroke player controls converted to pure SVG icons.
-Stroke animation bypass fixed and last stroke visibility ensured.
-Study list view limit expanded to 2500 for full level scrolling.
-Removed "画" stroke count from textbook list rows.
+Fixed counter_bundle.js missing ES module exports.
+Resolved desktop boot deadlock on loading splash screen.
+Fixed shell top chrome clearance on kanji backdrop and reader.
+App verified booting and dismissing splash cleanly.
