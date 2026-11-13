@@ -2,14 +2,14 @@
  * Kiroku Note Desktop — Manga Reader View
  * Bookshelf Library + Full-Screen Immersion Reader.
  * Client-side PDF (pdf.js) & CBZ (jszip) rendering, automatic speech bubble detection,
- * interactive floating popovers, and rich Migaku-style card mining with speech bubble screenshots.
+ * dual-page spread (book style), interactive floating popovers, and rich Migaku-style card mining.
  */
 
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 
 const STORAGE_KEY_LIBRARY = 'kiroku.manga.library';
-const STORAGE_KEY_PREFS = 'kiroku.manga.prefs';
+const STORAGE_KEY_SPREAD = 'kiroku.manga.spread_mode';
 
 export class MangaView {
   constructor(router, options = {}) {
@@ -24,8 +24,11 @@ export class MangaView {
     // Library State
     this.books = this.loadLibrary();
 
+    // Spread mode: 'single' or 'double' (like actual manga books)
+    this.spreadMode = localStorage.getItem(STORAGE_KEY_SPREAD) === 'double' ? 'double' : 'single';
+
     // Current Book State
-    this.currentBook = null; // { id, title, type, file, data, pageCount, currentPage, coverUrl }
+    this.currentBook = null;
     this.currentPage = 1;
     this.pageCount = 1;
     this.pdfDoc = null;
@@ -33,12 +36,12 @@ export class MangaView {
     this.cbzImageEntries = [];
 
     // Canvas & Stage State
-    this.currentImage = null; // Image or Canvas for the current rendered page
+    this.currentImage = null; // Composite canvas for the current rendered page(s)
     this.ocrBoxSelection = null;
     this.isSelecting = false;
     this.selectionStart = null;
     this.isAutoDetecting = false;
-    this.detectedBubbles = []; // [{ box: [x1, y1, x2, y2], score, type }]
+    this.detectedBubbles = [];
     this.activeCropDataUrl = null;
 
     // Floating Popover State
@@ -62,7 +65,6 @@ export class MangaView {
 
   saveLibrary() {
     try {
-      // Don't serialize file buffers to localStorage, only metadata & thumbnail
       const meta = this.books.map(b => ({
         id: b.id,
         title: b.title,
@@ -139,13 +141,9 @@ export class MangaView {
             </span>
           </div>
           <div class="manga-toolbar">
-            <button type="button" class="anime-control-btn btn-sm" id="btn-manga-back-anime" aria-label="Back to Anime">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-              <span>Back to Anime</span>
-            </button>
-            <label class="anime-control-btn btn-sm cursor-pointer" for="manga-library-file-input">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-              <span>Add Manga (PDF, CBZ, Image)</span>
+            <label class="tactile-btn tactile-btn-primary tactile-btn-sm cursor-pointer manga-add-btn" for="manga-library-file-input">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              <span>Add Manga</span>
             </label>
             <input type="file" id="manga-library-file-input" accept=".pdf,.cbz,.zip,image/*" style="display: none;" />
           </div>
@@ -177,11 +175,6 @@ export class MangaView {
   }
 
   setupLibraryEvents() {
-    const btnBackAnime = this.container.querySelector('#btn-manga-back-anime');
-    btnBackAnime?.addEventListener('click', () => {
-      this.router?.navigateToTab?.('anime');
-    });
-
     const fileInput = this.container.querySelector('#manga-library-file-input');
     fileInput?.addEventListener('change', (e) => {
       const file = e.target.files?.[0];
@@ -214,7 +207,6 @@ export class MangaView {
             this.activeMode = 'reader';
             this.render();
           } else {
-            // Need user to re-select file if browser dropped reference
             fileInput?.click();
           }
         }
@@ -227,12 +219,14 @@ export class MangaView {
    * ------------------------------------------------------------------------- */
   renderReaderView() {
     const bookTitle = this.currentBook?.title || 'Manga Reader';
+    const isDouble = this.spreadMode === 'double';
+
     this.container.innerHTML = `
       <div class="manga-immersion-reader" id="manga-immersion-reader">
-        <!-- Floating Reader Top Bar -->
+        <!-- Reader Navigation Top Bar -->
         <header class="manga-reader-topbar">
           <div class="manga-topbar-left">
-            <button type="button" class="anime-control-btn btn-sm" id="btn-reader-back-library" title="Back to Bookshelf">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-reader-back-library" title="Back to Bookshelf">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
               <span>Bookshelf</span>
             </button>
@@ -240,12 +234,28 @@ export class MangaView {
           </div>
 
           <div class="manga-topbar-center">
-            <button type="button" class="anime-control-btn btn-sm" id="btn-detect-bubbles" title="Detect Speech Bubbles via AI">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+            <!-- Spread Mode Toggle (Single vs Double Book View) -->
+            <div class="manga-spread-toggle-group">
+              <button type="button" class="manga-spread-btn ${!isDouble ? 'is-active' : ''}" id="btn-spread-single" title="Single Page View">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/></svg>
+                <span>Single</span>
+              </button>
+              <button type="button" class="manga-spread-btn ${isDouble ? 'is-active' : ''}" id="btn-spread-double" title="2-Page Book Spread View">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm-1 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"/></svg>
+                <span>2-Page Book</span>
+              </button>
+            </div>
+
+            <div class="manga-topbar-divider"></div>
+
+            <!-- Tactile Bubble Detection Controls -->
+            <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-detect-bubbles" title="Detect Speech Bubbles via AI">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
               <span id="label-detect-bubbles">Detect Bubbles (AI)</span>
             </button>
-            <button type="button" class="anime-control-btn btn-sm" id="btn-clear-bubbles" title="Clear Bubble Overlays">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-clear-bubbles" title="Clear Bubble Overlays">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
               <span>Clear</span>
             </button>
           </div>
@@ -283,20 +293,22 @@ export class MangaView {
 
         <!-- Floating Reader Bottom Navigation Bar -->
         <footer class="manga-reader-bottombar">
-          <button type="button" class="anime-control-btn btn-sm" id="btn-reader-prev" title="Previous Page (D / ArrowRight)">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-            <span>Prev</span>
-          </button>
+          <div class="manga-nav-pill-container">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm manga-nav-btn" id="btn-reader-prev" title="Previous Page (D / ArrowRight)">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+              <span>Prev</span>
+            </button>
 
-          <div class="manga-page-stepper">
-            <input type="number" id="manga-page-input" class="manga-page-input" min="1" max="${this.pageCount}" value="${this.currentPage}">
-            <span class="text-muted text-xs font-mono">/ ${this.pageCount}</span>
+            <div class="manga-page-stepper">
+              <input type="number" id="manga-page-input" class="manga-page-input" min="1" max="${this.pageCount}" value="${this.currentPage}">
+              <span class="text-muted text-xs font-mono">/ ${this.pageCount}</span>
+            </div>
+
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm manga-nav-btn" id="btn-reader-next" title="Next Page (A / ArrowLeft)">
+              <span>Next</span>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </button>
           </div>
-
-          <button type="button" class="anime-control-btn btn-sm" id="btn-reader-next" title="Next Page (A / ArrowLeft)">
-            <span>Next</span>
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-          </button>
         </footer>
       </div>
     `;
@@ -324,6 +336,26 @@ export class MangaView {
       const pageNum = parseInt(e.target.value, 10);
       if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= this.pageCount) {
         this.goToPage(pageNum);
+      }
+    });
+
+    // Spread Mode Toggles
+    const btnSingle = this.container.querySelector('#btn-spread-single');
+    const btnDouble = this.container.querySelector('#btn-spread-double');
+
+    btnSingle?.addEventListener('click', () => {
+      if (this.spreadMode !== 'single') {
+        this.spreadMode = 'single';
+        localStorage.setItem(STORAGE_KEY_SPREAD, 'single');
+        this.render();
+      }
+    });
+
+    btnDouble?.addEventListener('click', () => {
+      if (this.spreadMode !== 'double') {
+        this.spreadMode = 'double';
+        localStorage.setItem(STORAGE_KEY_SPREAD, 'double');
+        this.render();
       }
     });
 
@@ -394,7 +426,6 @@ export class MangaView {
       newBook.currentPage = 1;
     }
 
-    // Add or update book in library
     const existingIdx = this.books.findIndex(b => b.title === title);
     if (existingIdx >= 0) {
       newBook.currentPage = this.books[existingIdx].currentPage || 1;
@@ -435,7 +466,6 @@ export class MangaView {
       const zip = new window.JSZip();
       this.cbzZip = await zip.loadAsync(file);
 
-      // Collect image files inside ZIP
       const validExts = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif'];
       const imageEntries = [];
 
@@ -448,7 +478,6 @@ export class MangaView {
         }
       });
 
-      // Natural sort by filename
       imageEntries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
       this.cbzImageEntries = imageEntries;
       book.pageCount = Math.max(1, imageEntries.length);
@@ -458,17 +487,23 @@ export class MangaView {
   }
 
   /* -------------------------------------------------------------------------
-   * Page Navigation & Rendering
+   * Page Navigation & Rendering (Supporting 2-Page Book Spreads)
    * ------------------------------------------------------------------------- */
   nextPage() {
-    if (this.currentPage < this.pageCount) {
-      this.goToPage(this.currentPage + 1);
+    const step = this.spreadMode === 'double' ? 2 : 1;
+    if (this.currentPage + step <= this.pageCount) {
+      this.goToPage(this.currentPage + step);
+    } else if (this.currentPage < this.pageCount) {
+      this.goToPage(this.pageCount);
     }
   }
 
   prevPage() {
-    if (this.currentPage > 1) {
-      this.goToPage(this.currentPage - 1);
+    const step = this.spreadMode === 'double' ? 2 : 1;
+    if (this.currentPage - step >= 1) {
+      this.goToPage(this.currentPage - step);
+    } else if (this.currentPage > 1) {
+      this.goToPage(1);
     }
   }
 
@@ -492,69 +527,128 @@ export class MangaView {
     if (!canvas) return;
 
     if (this.currentBook?.type === 'pdf' && this.pdfDoc) {
-      await this.renderPdfPage(this.currentPage, canvas);
+      await this.renderPdfPages(this.currentPage, canvas);
     } else if (this.currentBook?.type === 'cbz' && this.cbzImageEntries.length > 0) {
-      await this.renderCbzPage(this.currentPage, canvas);
+      await this.renderCbzPages(this.currentPage, canvas);
     } else if (this.currentBook?.file) {
-      await this.renderImageFile(this.currentBook.file, canvas);
+      await this.renderSingleImageFile(this.currentBook.file, canvas);
     }
   }
 
-  async renderPdfPage(pageNumber, canvas) {
+  /* PDF Rendering (Single or 2-Page Book Spread) */
+  async renderPdfPages(pageNumber, canvas) {
+    const isDouble = this.spreadMode === 'double' && pageNumber < this.pageCount;
+
     try {
-      const page = await this.pdfDoc.getPage(pageNumber);
-      const viewport = page.getViewport({ scale: 2.0 }); // High-DPI rasterization
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+      if (!isDouble) {
+        // Single Page
+        const page = await this.pdfDoc.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 2.0 });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        this.currentImage = canvas;
 
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (pageNumber === 1 && this.currentBook && !this.currentBook.coverUrl) {
+          this.cacheCoverThumbnail(canvas);
+        }
+      } else {
+        // Japanese manga right-to-left layout: Right page is earlier (pageNumber), Left page is next (pageNumber + 1)
+        const rightPage = await this.pdfDoc.getPage(pageNumber);
+        const leftPage = await this.pdfDoc.getPage(pageNumber + 1);
 
-      const renderContext = {
-        canvasContext: ctx,
-        viewport: viewport
-      };
-      await page.render(renderContext).promise;
-      this.currentImage = canvas;
+        const vpR = rightPage.getViewport({ scale: 2.0 });
+        const vpL = leftPage.getViewport({ scale: 2.0 });
 
-      // Cache cover thumbnail from page 1 if not set
-      if (pageNumber === 1 && this.currentBook && !this.currentBook.coverUrl) {
-        this.cacheCoverThumbnail(canvas);
+        const totalWidth = vpR.width + vpL.width;
+        const maxHeight = Math.max(vpR.height, vpL.height);
+
+        canvas.width = totalWidth;
+        canvas.height = maxHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Render Left page first on x=0
+        const offCanvasL = document.createElement('canvas');
+        offCanvasL.width = vpL.width;
+        offCanvasL.height = vpL.height;
+        const offCtxL = offCanvasL.getContext('2d');
+        await leftPage.render({ canvasContext: offCtxL, viewport: vpL }).promise;
+        ctx.drawImage(offCanvasL, 0, 0);
+
+        // Render Right page on x = vpL.width
+        const offCanvasR = document.createElement('canvas');
+        offCanvasR.width = vpR.width;
+        offCanvasR.height = vpR.height;
+        const offCtxR = offCanvasR.getContext('2d');
+        await rightPage.render({ canvasContext: offCtxR, viewport: vpR }).promise;
+        ctx.drawImage(offCanvasR, vpL.width, 0);
+
+        this.currentImage = canvas;
       }
     } catch (err) {
-      console.error('[MangaView] Failed to render PDF page:', err);
+      console.error('[MangaView] Failed to render PDF spread:', err);
     }
   }
 
-  async renderCbzPage(pageNumber, canvas) {
-    const entry = this.cbzImageEntries[pageNumber - 1];
-    if (!entry) return;
+  /* CBZ Rendering (Single or 2-Page Book Spread) */
+  async renderCbzPages(pageNumber, canvas) {
+    const isDouble = this.spreadMode === 'double' && pageNumber < this.cbzImageEntries.length;
 
     try {
-      const blob = await entry.async('blob');
-      const img = new Image();
-      const url = URL.createObjectURL(blob);
+      const loadImgFromEntry = async (entry) => {
+        const blob = await entry.async('blob');
+        const url = URL.createObjectURL(blob);
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            URL.revokeObjectURL(url);
+            resolve(img);
+          };
+          img.onerror = reject;
+          img.src = url;
+        });
+      };
 
-      img.onload = () => {
+      if (!isDouble) {
+        const img = await loadImgFromEntry(this.cbzImageEntries[pageNumber - 1]);
         canvas.width = img.width;
         canvas.height = img.height;
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
         this.currentImage = img;
-        URL.revokeObjectURL(url);
 
         if (pageNumber === 1 && this.currentBook && !this.currentBook.coverUrl) {
           this.cacheCoverThumbnail(canvas);
         }
-      };
-      img.src = url;
+      } else {
+        // 2-Page Spread
+        const imgRight = await loadImgFromEntry(this.cbzImageEntries[pageNumber - 1]);
+        const imgLeft = await loadImgFromEntry(this.cbzImageEntries[pageNumber]);
+
+        const totalWidth = imgLeft.width + imgRight.width;
+        const maxHeight = Math.max(imgLeft.height, imgRight.height);
+
+        canvas.width = totalWidth;
+        canvas.height = maxHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Left page then Right page (Japanese manga spread)
+        ctx.drawImage(imgLeft, 0, 0);
+        ctx.drawImage(imgRight, imgLeft.width, 0);
+
+        this.currentImage = canvas;
+      }
     } catch (err) {
-      console.error('[MangaView] Failed to render CBZ page:', err);
+      console.error('[MangaView] Failed to render CBZ spread:', err);
     }
   }
 
-  async renderImageFile(file, canvas) {
+  async renderSingleImageFile(file, canvas) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
@@ -596,7 +690,6 @@ export class MangaView {
     if (this.activeMode !== 'reader') return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-    // Japanese manga reading order: Left / A turns next page, Right / D turns prev page
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
       this.nextPage();
     } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
@@ -811,7 +904,6 @@ export class MangaView {
     this.popoverVisible = true;
     popover.style.display = 'block';
 
-    // Clamp coordinates to viewport
     const popWidth = 320;
     const popHeight = 240;
     let posX = Math.max(16, Math.min(window.innerWidth - popWidth - 16, anchor.x));
@@ -844,7 +936,7 @@ export class MangaView {
               <div class="flex items-center justify-between">
                 <span class="font-bold text-accent">${escapeHtml(word)}</span>
                 <button type="button" 
-                  class="anime-control-btn btn-sm btn-manga-mine-word" 
+                  class="tactile-btn tactile-btn-primary tactile-btn-sm btn-manga-mine-word" 
                   data-word="${escapeHtml(word)}" 
                   data-reading="${escapeHtml(reading)}" 
                   data-meaning="${escapeHtml(glossary)}">
