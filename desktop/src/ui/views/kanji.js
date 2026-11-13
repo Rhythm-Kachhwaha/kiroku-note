@@ -34,7 +34,7 @@ export class KanjiView {
     this.listItems = [];
     this.listTotalCount = 0;
     this.listOffset = 0;
-    this.listLimit = 40;
+    this.listLimit = 2500;
     this.isLoadingList = false;
     this.listSearchQuery = '';
     this.activeInspectorCompound = null;
@@ -206,8 +206,16 @@ export class KanjiView {
 
                 <!-- Stroke Player Controls Bar -->
                 <div class="stroke-controls-bar">
-                  <button class="tactile-btn tactile-btn-sm" id="btn-stroke-replay" title="Replay from start">Replay</button>
-                  <button class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-stroke-play" title="Play animation">Play</button>
+                  <button type="button" class="tactile-btn tactile-btn-sm" id="btn-stroke-replay" title="Replay from start" aria-label="Replay stroke order">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+                    </svg>
+                  </button>
+                  <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-stroke-play" title="Play animation" aria-label="Play stroke order">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M8 5v14l11-7z"/>
+                    </svg>
+                  </button>
                   <input type="range" id="stroke-slider" min="1" max="1" value="1" class="stroke-scrubber" />
                 </div>
               </div>
@@ -585,11 +593,23 @@ export class KanjiView {
       if (this.viewMode !== 'list' || this.isLoadingList) return;
       if (this.listItems.length >= this.listTotalCount) return;
 
-      const scrollRemaining = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
-      if (scrollRemaining < 450) {
-        this.loadStudyList(this.listLevel, this.listOffset + this.listLimit, true);
+      const viewEl = document.getElementById('view-container');
+      if (viewEl) {
+        const scrollRemaining = viewEl.scrollHeight - viewEl.clientHeight - viewEl.scrollTop;
+        if (scrollRemaining < 450) {
+          this.loadStudyList(this.listLevel, this.listOffset + this.listLimit, true);
+        }
+      } else {
+        const scrollRemaining = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+        if (scrollRemaining < 450) {
+          this.loadStudyList(this.listLevel, this.listOffset + this.listLimit, true);
+        }
       }
     };
+    const viewContainer = document.getElementById('view-container');
+    if (viewContainer) {
+      viewContainer.addEventListener('scroll', this._scrollListener, { passive: true });
+    }
     window.addEventListener('scroll', this._scrollListener, { passive: true });
 
     // Card Inspector Drawer Events
@@ -752,7 +772,7 @@ export class KanjiView {
     this.strokeNumbers.forEach((t) => {
       t.style.fontFamily = 'var(--font-mono)';
       t.style.fontSize = '10px';
-      t.style.fill = '#A8A29E';
+      t.style.fill = 'var(--text-muted)';
       t.style.userSelect = 'none';
     });
 
@@ -763,31 +783,53 @@ export class KanjiView {
       slider.value = '1';
     }
 
-    this.renderStrokeStep(0);
+    const playBtn = document.getElementById('btn-stroke-play');
+    if (playBtn) {
+      playBtn.disabled = this.strokePaths.length === 0;
+      this.updateHeroPlayButton();
+    }
+
+    this.renderStrokeStep(0, false);
   }
 
-  renderStrokeStep(index) {
+  updateHeroPlayButton() {
+    const btn = document.getElementById('btn-stroke-play');
+    if (!btn) return;
+    if (this.isPlaying) {
+      btn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+      btn.setAttribute('aria-label', 'Pause stroke animation');
+      btn.setAttribute('title', 'Pause animation');
+    } else {
+      btn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+      btn.setAttribute('aria-label', 'Play stroke animation');
+      btn.setAttribute('title', 'Play animation');
+    }
+  }
+
+  renderStrokeStep(index, isAnimating = false) {
+    if (!this.strokePaths || this.strokePaths.length === 0) return;
     this.currentStrokeIndex = Math.max(0, Math.min(index, this.strokePaths.length - 1));
 
     this.strokePaths.forEach((path, i) => {
-      const length = path.getTotalLength();
+      const length = (typeof path.getTotalLength === 'function') ? path.getTotalLength() : 100;
       path.style.strokeDasharray = `${length}px ${length}px`;
       path.style.fill = 'none';
+
       if (i < this.currentStrokeIndex) {
-        path.style.stroke = '#F5F1E8'; // Warm paper
+        path.style.stroke = 'var(--warm-paper)';
         path.style.opacity = '1';
         path.style.strokeWidth = '3';
         path.style.strokeDashoffset = '0px';
       } else if (i === this.currentStrokeIndex) {
-        path.style.stroke = '#F7E0BA'; // Planetoño gold accent for active stroke
+        path.style.stroke = 'var(--accent-gold)';
         path.style.opacity = '1';
         path.style.strokeWidth = '4.5';
-        path.style.strokeDashoffset = `${length}px`;
+        path.style.strokeDashoffset = isAnimating ? `${length}px` : '0px';
       } else {
-        path.style.stroke = '#444444';
+        path.style.stroke = 'var(--tactile-stroke)';
         path.style.opacity = '0.2';
         path.style.strokeWidth = '2';
-        path.style.strokeDashoffset = `${length}px`;
+        path.style.strokeDashoffset = '0px';
       }
     });
 
@@ -795,7 +837,7 @@ export class KanjiView {
     this.strokeNumbers.forEach((numEl, i) => {
       if (i <= this.currentStrokeIndex) {
         numEl.style.display = 'block';
-        numEl.style.fill = (i === this.currentStrokeIndex) ? '#F7E0BA' : '#A8A29E';
+        numEl.style.fill = (i === this.currentStrokeIndex) ? 'var(--accent-gold)' : 'var(--text-muted)';
         numEl.style.fontWeight = (i === this.currentStrokeIndex) ? '700' : '400';
       } else {
         numEl.style.display = 'none';
@@ -804,7 +846,7 @@ export class KanjiView {
 
     const counter = document.getElementById('stroke-counter');
     if (counter) {
-      counter.textContent = `Stroke ${this.currentStrokeIndex + 1} of ${this.currentStrokes}`;
+      counter.textContent = `Stroke ${this.currentStrokeIndex + 1} of ${this.currentStrokes || this.strokePaths.length}`;
     }
 
     const slider = document.getElementById('stroke-slider');
@@ -825,12 +867,13 @@ export class KanjiView {
     if (this.strokePaths.length === 0) return;
     this.cancelStrokeAnimations();
     this.isPlaying = true;
-    const btn = document.getElementById('btn-stroke-play');
-    if (btn) btn.textContent = 'Pause';
+    this.updateHeroPlayButton();
 
     if (this.currentStrokeIndex >= this.strokePaths.length - 1) {
       this.currentStrokeIndex = 0;
-      this.renderStrokeStep(0);
+      this.renderStrokeStep(0, true);
+    } else {
+      this.renderStrokeStep(this.currentStrokeIndex, true);
     }
 
     this.animateCurrentStroke(this.strokePlayToken);
@@ -839,21 +882,25 @@ export class KanjiView {
   pauseStrokes() {
     this.isPlaying = false;
     this.cancelStrokeAnimations();
-    const currentPath = this.strokePaths[this.currentStrokeIndex];
-    if (currentPath) currentPath.style.strokeDashoffset = '0px';
-    const btn = document.getElementById('btn-stroke-play');
-    if (btn) btn.textContent = 'Play';
+    this.updateHeroPlayButton();
+    this.renderStrokeStep(this.currentStrokeIndex, false);
   }
 
   replayStrokes() {
-    this.pauseStrokes();
-    this.renderStrokeStep(0);
+    this.cancelStrokeAnimations();
+    this.isPlaying = false;
+    this.currentStrokeIndex = 0;
+    this.renderStrokeStep(0, false);
     this.startStrokePlay();
   }
 
   cancelStrokeAnimations() {
     this.strokePlayToken += 1;
-    this.strokeAnimations.forEach((animation) => animation.cancel());
+    this.strokeAnimations.forEach((animation) => {
+      try {
+        animation.cancel();
+      } catch (e) {}
+    });
     this.strokeAnimations.clear();
   }
 
@@ -866,53 +913,57 @@ export class KanjiView {
       return;
     }
 
-    const length = path.getTotalLength();
+    const length = (typeof path.getTotalLength === 'function') ? path.getTotalLength() : 100;
     path.style.strokeDasharray = `${length}px ${length}px`;
     path.style.strokeDashoffset = `${length}px`;
-
-    const reducedMotion = typeof window !== 'undefined'
-      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reducedMotion) {
-      path.style.strokeDashoffset = '0px';
-      this.advanceStroke(playToken);
-      return;
-    }
+    path.style.stroke = 'var(--accent-gold)';
+    path.style.strokeWidth = '4.5';
+    path.style.opacity = '1';
+    path.style.fill = 'none';
 
     const duration = Math.max(160, Math.min(Math.round(length * 1.4), 480));
     const easing = typeof document !== 'undefined'
       ? getComputedStyle(document.documentElement).getPropertyValue('--ease-out').trim() || 'ease-out'
       : 'ease-out';
-    const animation = path.animate(
-      [{ strokeDashoffset: `${length}px` }, { strokeDashoffset: '0px' }],
-      { duration, easing, fill: 'forwards' },
-    );
-    this.strokeAnimations.add(animation);
-    animation.onfinish = () => {
-      this.strokeAnimations.delete(animation);
+
+    if (typeof path.animate === 'function') {
+      const animation = path.animate(
+        [{ strokeDashoffset: `${length}px` }, { strokeDashoffset: '0px' }],
+        { duration, easing, fill: 'forwards' },
+      );
+      this.strokeAnimations.add(animation);
+      animation.onfinish = () => {
+        this.strokeAnimations.delete(animation);
+        path.style.strokeDashoffset = '0px';
+        path.style.fill = 'none';
+        this.advanceStroke(playToken);
+      };
+      animation.oncancel = () => {
+        this.strokeAnimations.delete(animation);
+      };
+    } else {
       path.style.strokeDashoffset = '0px';
       path.style.fill = 'none';
       this.advanceStroke(playToken);
-    };
-    animation.oncancel = () => {
-      this.strokeAnimations.delete(animation);
-    };
-    animation.play();
+    }
   }
 
   advanceStroke(playToken) {
     if (!this.isPlaying || playToken !== this.strokePlayToken) return;
     if (this.currentStrokeIndex < this.strokePaths.length - 1) {
-      this.renderStrokeStep(this.currentStrokeIndex + 1);
+      this.renderStrokeStep(this.currentStrokeIndex + 1, true);
       this.animateCurrentStroke(playToken);
     } else {
-      const path = this.strokePaths[this.currentStrokeIndex];
-      if (path) {
-        path.style.strokeDashoffset = '0px';
-        path.style.fill = 'none';
-      }
       this.isPlaying = false;
-      const btn = document.getElementById('btn-stroke-play');
-      if (btn) btn.textContent = 'Play';
+      this.updateHeroPlayButton();
+      this.renderStrokeStep(this.strokePaths.length - 1, false);
+      const lastPath = this.strokePaths[this.strokePaths.length - 1];
+      if (lastPath) {
+        lastPath.style.stroke = 'var(--warm-paper)';
+        lastPath.style.strokeWidth = '3';
+        lastPath.style.strokeDashoffset = '0px';
+        lastPath.style.fill = 'none';
+      }
     }
   }
 
@@ -1249,7 +1300,6 @@ export class KanjiView {
         <span class="kanji-list-char font-display" role="button" tabindex="0" title="Inspect ${escapeHtml(item.character)} strokes" data-char="${escapeHtml(item.character)}">
           ${escapeHtml(item.character)}
         </span>
-        <span class="kanji-list-strokes font-mono">${item.strokes ? `${item.strokes} 画` : '-- 画'}</span>
         <div class="kanji-list-readings ${this.isCoverMode ? 'kanji-reading-blur' : ''}">
           <div class="kanji-onyomi-line text-xs font-japanese" title="On'yomi (Katakana)">${escapeHtml(onyomiStr)}</div>
           <div class="kanji-kunyomi-line text-xs font-japanese" title="Kun'yomi (Hiragana)">${escapeHtml(kunyomiStr)}</div>
@@ -1487,6 +1537,10 @@ export class KanjiView {
   unmount() {
     this.pauseStrokes();
     if (this._scrollListener) {
+      const viewContainer = document.getElementById('view-container');
+      if (viewContainer) {
+        viewContainer.removeEventListener('scroll', this._scrollListener);
+      }
       window.removeEventListener('scroll', this._scrollListener);
       this._scrollListener = null;
     }

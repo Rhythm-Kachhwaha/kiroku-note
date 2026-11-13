@@ -406,7 +406,7 @@ class KanjiService:
             return {"level": level, "items": [], "total": 0, "offset": offset, "limit": limit, "error": err_msg}
 
         target_level = level.upper() if level else "N5"
-        limit = max(1, min(int(limit), 200))
+        limit = max(1, min(int(limit), 2500))
         offset = max(0, int(offset))
 
         try:

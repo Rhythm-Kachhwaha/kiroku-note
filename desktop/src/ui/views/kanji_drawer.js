@@ -254,7 +254,7 @@ class KanjiDrawerController {
     }
   }
 
-  renderStrokeStep(index) {
+  renderStrokeStep(index, isAnimating = false) {
     this.currentStrokeIndex = Math.max(0, Math.min(index, this.strokePaths.length - 1));
 
     this.strokePaths.forEach((path, i) => {
@@ -271,12 +271,12 @@ class KanjiDrawerController {
         path.style.stroke = 'var(--accent-gold)';
         path.style.opacity = '1';
         path.style.strokeWidth = '4.5';
-        path.style.strokeDashoffset = `${length}px`;
+        path.style.strokeDashoffset = isAnimating ? `${length}px` : '0px';
       } else {
         path.style.stroke = 'var(--tactile-stroke)';
         path.style.opacity = '0.3';
         path.style.strokeWidth = '2';
-        path.style.strokeDashoffset = `${length}px`;
+        path.style.strokeDashoffset = '0px';
       }
     });
 
@@ -306,13 +306,14 @@ class KanjiDrawerController {
     if (this.currentStrokeIndex >= this.strokePaths.length - 1) {
       this.cancelStrokeAnimations();
       this.currentStrokeIndex = 0;
-      this.renderStrokeStep(0);
+      this.renderStrokeStep(0, true);
       this.animateCurrentStroke(this.strokePlayToken);
     } else if (this.activeAnimations && this.activeAnimations.size > 0) {
       this.activeAnimations.forEach((a) => {
         try { a.play(); } catch (e) {}
       });
     } else {
+      this.renderStrokeStep(this.currentStrokeIndex, true);
       this.animateCurrentStroke(this.strokePlayToken);
     }
   }
@@ -325,6 +326,7 @@ class KanjiDrawerController {
         try { a.pause(); } catch (e) {}
       });
     }
+    this.renderStrokeStep(this.currentStrokeIndex, false);
   }
 
   replayStrokes() {
@@ -381,11 +383,12 @@ class KanjiDrawerController {
         path.style.strokeDashoffset = '0px';
         path.style.fill = 'none';
         if (this.currentStrokeIndex < this.strokePaths.length - 1) {
-          this.renderStrokeStep(this.currentStrokeIndex + 1);
+          this.renderStrokeStep(this.currentStrokeIndex + 1, true);
           this.animateCurrentStroke(playToken);
         } else {
           this.isPlaying = false;
           this.updatePlayButton();
+          this.renderStrokeStep(this.strokePaths.length - 1, false);
           path.style.stroke = 'var(--warm-paper)';
           path.style.strokeWidth = '3';
         }
@@ -397,11 +400,12 @@ class KanjiDrawerController {
       path.style.strokeDashoffset = '0px';
       path.style.fill = 'none';
       if (this.currentStrokeIndex < this.strokePaths.length - 1) {
-        this.renderStrokeStep(this.currentStrokeIndex + 1);
+        this.renderStrokeStep(this.currentStrokeIndex + 1, true);
         this.animateCurrentStroke(playToken);
       } else {
         this.isPlaying = false;
         this.updatePlayButton();
+        this.renderStrokeStep(this.strokePaths.length - 1, false);
       }
     }
   }

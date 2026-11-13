@@ -1,5 +1,5 @@
 # Status
-Decoupled History view and anchored Vocab segment bar above search.
-Created transitive verb pair mapping service, endpoints, and POS filters.
-Built interactive Vocab Shelves view with spring-animated metrics pods.
-Added Transitive Hub, Adverbs, Adjectives, and categorized JLPT Gaps.
+Kanji stroke player controls converted to pure SVG icons.
+Stroke animation bypass fixed and last stroke visibility ensured.
+Study list view limit expanded to 2500 for full level scrolling.
+Removed "画" stroke count from textbook list rows.
