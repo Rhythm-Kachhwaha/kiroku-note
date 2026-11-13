@@ -25,6 +25,11 @@ export class GrammarView {
     this.currentSyllabusLevel = 'N4';
     this.currentSyllabusSearch = '';
     this.activeSegment = 'analyze';
+    this.activeRoadmapMode = 'flow';
+    this.roadmapFlowData = null;
+    this.roadmapHubsData = null;
+    this.roadmapLoading = false;
+    this.activeRoadmapKey = null;
   }
 
   async mount(container) {
@@ -82,10 +87,11 @@ export class GrammarView {
             </button>
           </div>
 
-          <!-- Segments: Analyze | Syllabus | Seen -->
+          <!-- Segments: Analyze | Roadmap | Syllabus | Seen -->
           <div class="grammar-top-controls">
             <div class="grammar-segments" role="tablist" aria-label="Grammar sections">
               <button type="button" class="grammar-segment-tab is-active" id="grammar-tab-analyze" data-segment="analyze" role="tab" aria-selected="true">Analyze</button>
+              <button type="button" class="grammar-segment-tab" id="grammar-tab-roadmap" data-segment="roadmap" role="tab" aria-selected="false">Roadmap</button>
               <button type="button" class="grammar-segment-tab" id="grammar-tab-syllabus" data-segment="syllabus" role="tab" aria-selected="false">Syllabus</button>
               <button type="button" class="grammar-segment-tab" id="grammar-tab-seen" data-segment="seen" role="tab" aria-selected="false">Seen</button>
             </div>
@@ -189,6 +195,26 @@ export class GrammarView {
                 </div>
                 <div class="syllabus-list" id="syllabus-list">
                   <div class="syllabus-empty-state text-sm text-muted py-4 text-center">Loading syllabus points...</div>
+                </div>
+              </div>
+
+              <!-- Grammar Roadmap Segment Card -->
+              <div class="grammar-roadmap-card tactile-card" id="grammar-roadmap-card" style="display: none;">
+                <div class="visualizer-header-row">
+                  <div class="visualizer-header-left">
+                    <span class="visualizer-title">Grammar Roadmap</span>
+                  </div>
+                  <span class="text-xs text-muted font-mono" id="roadmap-summary-label">Loading roadmap...</span>
+                </div>
+                <div class="roadmap-controls-row">
+                  <div class="roadmap-mode-pills" id="roadmap-mode-pills" role="tablist" aria-label="Roadmap view mode">
+                    <button type="button" class="roadmap-mode-pill is-active" data-roadmap-mode="flow" role="tab" aria-selected="true">Chapter Flow</button>
+                    <button type="button" class="roadmap-mode-pill" data-roadmap-mode="hubs" role="tab" aria-selected="false">Conceptual Hubs</button>
+                  </div>
+                  <span class="text-xs text-muted font-sans">Tofugu-enriched progression &amp; functional clusters</span>
+                </div>
+                <div class="roadmap-content" id="roadmap-content">
+                  <div class="syllabus-empty-state text-sm text-muted py-6 text-center">Loading grammar roadmap...</div>
                 </div>
               </div>
 
@@ -510,11 +536,32 @@ export class GrammarView {
 
           masteryPills.forEach((p) => p.classList.toggle('is-active', p.dataset.status === newStatus));
           this.updateSyllabusItemStatus(this.activeGrammarPoint.pattern_key, newStatus);
+          this.roadmapFlowData = null;
+          this.roadmapHubsData = null;
+          if (this.activeSegment === 'roadmap') {
+            this.loadRoadmap(true);
+          }
           this.loadInitialGrammarStats();
         } catch (err) {
           console.error('[Grammar] Update mastery failed:', err);
           this.showError('Failed to update status: ' + (err.message || 'Network error'));
         }
+      });
+    });
+
+    // Roadmap mode toggle pills (Chapter Flow / Conceptual Hubs)
+    const roadmapModePills = this.container.querySelectorAll('#roadmap-mode-pills .roadmap-mode-pill');
+    roadmapModePills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        const mode = pill.dataset.roadmapMode;
+        if (!mode || mode === this.activeRoadmapMode) return;
+        this.activeRoadmapMode = mode;
+        roadmapModePills.forEach((p) => {
+          const isActive = p.dataset.roadmapMode === mode;
+          p.classList.toggle('is-active', isActive);
+          p.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+        this.renderRoadmap();
       });
     });
 
@@ -603,14 +650,16 @@ export class GrammarView {
   selectSegment(segment) {
     this.activeSegment = segment;
     const tabAnalyze = document.getElementById('grammar-tab-analyze');
+    const tabRoadmap = document.getElementById('grammar-tab-roadmap');
     const tabSyllabus = document.getElementById('grammar-tab-syllabus');
     const tabSeen = document.getElementById('grammar-tab-seen');
     const analyzerCard = this.container?.querySelector('.grammar-analyzer-card');
     const visualizerCard = this.container?.querySelector('.grammar-visualizer-card');
+    const roadmapCard = document.getElementById('grammar-roadmap-card');
     const syllabusCard = this.container?.querySelector('.grammar-syllabus-card');
     const seenCard = document.getElementById('grammar-seen-card');
 
-    [tabAnalyze, tabSyllabus, tabSeen].forEach((tab) => {
+    [tabAnalyze, tabRoadmap, tabSyllabus, tabSeen].forEach((tab) => {
       if (tab) {
         const isActive = tab.dataset.segment === segment;
         tab.classList.toggle('is-active', isActive);
@@ -621,16 +670,26 @@ export class GrammarView {
     if (segment === 'analyze') {
       if (analyzerCard) analyzerCard.style.display = '';
       if (visualizerCard) visualizerCard.style.display = '';
+      if (roadmapCard) roadmapCard.style.display = 'none';
       if (syllabusCard) syllabusCard.style.display = 'none';
       if (seenCard) seenCard.style.display = 'none';
+    } else if (segment === 'roadmap') {
+      if (analyzerCard) analyzerCard.style.display = 'none';
+      if (visualizerCard) visualizerCard.style.display = 'none';
+      if (roadmapCard) roadmapCard.style.display = '';
+      if (syllabusCard) syllabusCard.style.display = 'none';
+      if (seenCard) seenCard.style.display = 'none';
+      this.loadRoadmap();
     } else if (segment === 'syllabus') {
       if (analyzerCard) analyzerCard.style.display = 'none';
       if (visualizerCard) visualizerCard.style.display = 'none';
+      if (roadmapCard) roadmapCard.style.display = 'none';
       if (syllabusCard) syllabusCard.style.display = '';
       if (seenCard) seenCard.style.display = 'none';
     } else if (segment === 'seen') {
       if (analyzerCard) analyzerCard.style.display = 'none';
       if (visualizerCard) visualizerCard.style.display = 'none';
+      if (roadmapCard) roadmapCard.style.display = 'none';
       if (syllabusCard) syllabusCard.style.display = 'none';
       if (seenCard) seenCard.style.display = '';
       this.loadSeenEncounters();
@@ -1210,6 +1269,147 @@ export class GrammarView {
         pill.className = `tactile-pill text-xs syllabus-status-pill ${newStatus === 'known' ? 'tactile-pill-jade' : (newStatus === 'learning' ? 'tactile-pill-vermilion' : '')}`;
       }
     }
+  }
+
+  async loadRoadmap(forceRefresh = false) {
+    const contentEl = document.getElementById('roadmap-content');
+    const summaryEl = document.getElementById('roadmap-summary-label');
+    if (!contentEl) return;
+
+    if (!forceRefresh && this.roadmapFlowData && this.roadmapHubsData) {
+      this.renderRoadmap();
+      return;
+    }
+
+    if (this.roadmapLoading) return;
+    this.roadmapLoading = true;
+    contentEl.innerHTML = '<div class="syllabus-empty-state text-sm text-muted py-6 text-center">Loading grammar roadmap...</div>';
+
+    try {
+      const [flowData, hubsData] = await Promise.all([
+        apiClient.getGrammarRoadmapFlow(),
+        apiClient.getGrammarConceptualHubs()
+      ]);
+      this.roadmapFlowData = flowData || { chapters: [] };
+      this.roadmapHubsData = hubsData || { hubs: [] };
+      this.renderRoadmap();
+    } catch (err) {
+      console.error('[Grammar] Load roadmap failed:', err);
+      if (summaryEl) summaryEl.textContent = 'Unavailable';
+      contentEl.innerHTML = '<div class="syllabus-empty-state text-sm text-error py-6 text-center">Failed to load grammar roadmap.</div>';
+      this.showError('Roadmap error: ' + (err.message || 'Network error'));
+    } finally {
+      this.roadmapLoading = false;
+    }
+  }
+
+  renderRoadmap() {
+    const contentEl = document.getElementById('roadmap-content');
+    const summaryEl = document.getElementById('roadmap-summary-label');
+    if (!contentEl) return;
+
+    const isFlow = this.activeRoadmapMode === 'flow';
+    const groups = isFlow
+      ? (this.roadmapFlowData?.chapters || [])
+      : (this.roadmapHubsData?.hubs || []);
+
+    if (groups.length === 0) {
+      if (summaryEl) summaryEl.textContent = '0 items';
+      contentEl.innerHTML = '<div class="syllabus-empty-state text-sm text-muted py-6 text-center">No roadmap data available yet.</div>';
+      return;
+    }
+
+    const totalPoints = groups.reduce((acc, g) => acc + (g.stats?.total_points || g.points?.length || 0), 0);
+    const masteredPoints = groups.reduce((acc, g) => acc + (g.stats?.mastered_points || 0), 0);
+    const encounteredPoints = groups.reduce((acc, g) => acc + (g.stats?.encountered_points || 0), 0);
+    if (summaryEl) {
+      summaryEl.textContent = `${groups.length} ${isFlow ? 'stages' : 'hubs'} · ${encounteredPoints}/${totalPoints} seen · ${masteredPoints} mastered`;
+    }
+
+    const pointMap = new Map();
+    const cardsHtml = groups.map((group, idx) => {
+      const stats = group.stats || {};
+      const pts = group.points || [];
+      const total = stats.total_points ?? pts.length;
+      const encountered = stats.encountered_points ?? 0;
+      const mastered = stats.mastered_points ?? 0;
+      const avgMastery = Math.min(100, Math.max(0, Math.round(stats.average_mastery || 0)));
+      const badgeLabel = isFlow
+        ? `${String(group.order || idx + 1).padStart(2, '0')} · ${group.level_bracket || 'N5'}`
+        : (group.icon ? String(group.icon).toUpperCase() : `HUB ${idx + 1}`);
+      const descText = isFlow ? (group.subtitle || '') : (group.description || '');
+
+      const chipsHtml = pts.map((pt) => {
+        pointMap.set(pt.pattern_key, pt);
+        const isMastered = pt.pipeline_status === 'mastered';
+        const isEncountered = !isMastered && ((pt.seen_count || 0) > 0 || (pt.drill_count || 0) > 0);
+        const stateClass = isMastered ? 'is-mastered' : (isEncountered ? 'is-encountered' : '');
+        const selectedClass = this.activeRoadmapKey === pt.pattern_key ? 'is-selected' : '';
+        const metaText = isMastered
+          ? `${pt.mastery_pct ?? 100}%`
+          : ((pt.seen_count || 0) > 0 ? `${pt.seen_count}x` : (pt.level || ''));
+
+        return `
+          <button
+            type="button"
+            class="roadmap-point-chip ${stateClass} ${selectedClass}"
+            data-pattern-key="${escapeHtml(pt.pattern_key)}"
+            title="${escapeHtml(pt.meaning_short || pt.display || pt.pattern_key)}"
+          >
+            <span class="roadmap-chip-dot" aria-hidden="true"></span>
+            <span class="roadmap-chip-label font-japanese">${escapeHtml(pt.display || pt.pattern_key)}</span>
+            ${metaText ? `<span class="roadmap-chip-meta font-mono">${escapeHtml(metaText)}</span>` : ''}
+          </button>
+        `;
+      }).join('');
+
+      return `
+        <div class="roadmap-stage-card">
+          <div class="roadmap-stage-header">
+            <div class="roadmap-stage-title-group">
+              <span class="tactile-pill text-xs font-mono roadmap-stage-badge">${escapeHtml(badgeLabel)}</span>
+              <h3 class="roadmap-stage-title">${escapeHtml(group.title || '')}</h3>
+            </div>
+            <span class="roadmap-stage-metrics font-mono text-xs">${encountered}/${total} seen · ${mastered} mastered · ${avgMastery}%</span>
+          </div>
+          ${descText ? `<p class="roadmap-stage-desc">${escapeHtml(descText)}</p>` : ''}
+          <div class="roadmap-progress-bar" aria-hidden="true">
+            <div class="roadmap-progress-fill" style="width: ${avgMastery}%"></div>
+          </div>
+          <div class="roadmap-chips-grid">
+            ${chipsHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    contentEl.innerHTML = `<div class="roadmap-stages-list">${cardsHtml}</div>`;
+
+    contentEl.querySelectorAll('.roadmap-point-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const key = chip.dataset.patternKey;
+        const pt = pointMap.get(key);
+        if (!pt) return;
+
+        this.activeRoadmapKey = key;
+        contentEl.querySelectorAll('.roadmap-point-chip').forEach((c) => {
+          c.classList.toggle('is-selected', c.dataset.patternKey === key);
+        });
+
+        const mappedStatus = pt.pipeline_status === 'mastered'
+          ? 'known'
+          : ((pt.seen_count || 0) > 0 || (pt.drill_count || 0) > 0 ? 'learning' : 'new');
+
+        this.displayGrammarDetail({
+          pattern_key: pt.pattern_key,
+          pattern_display: pt.display || pt.pattern_key,
+          level: pt.level || 'N5',
+          meaning_short: pt.meaning_short || '',
+          seen_count: pt.seen_count || 0,
+          status: mappedStatus
+        });
+      });
+    });
   }
 
   async loadInitialGrammarStats() {

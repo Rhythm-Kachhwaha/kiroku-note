@@ -1394,3 +1394,202 @@
 .seen-list-item:hover {
   transform: translate(-1px, -1px);
 }
+
+/* ==========================================================================
+   Grammar Roadmap (Chapter Flow & Conceptual Hubs)
+   ========================================================================== */
+.grammar-roadmap-card {
+  padding: 1.25rem;
+}
+
+.roadmap-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.roadmap-mode-pills {
+  display: inline-flex;
+  gap: 0.35rem;
+  background: var(--iron-core);
+  padding: 0.25rem;
+  border-radius: 6px;
+  border: 1.5px solid var(--tactile-stroke);
+}
+
+.roadmap-mode-pill {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  padding: 0.35rem 0.85rem;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all var(--duration-fast) var(--spring-snappy);
+}
+
+.roadmap-mode-pill:hover {
+  color: var(--warm-paper);
+}
+
+.roadmap-mode-pill.is-active {
+  background: var(--vermilion);
+  color: var(--warm-paper);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.roadmap-stages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.roadmap-stage-card {
+  background: var(--elevated-surface);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.roadmap-stage-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.35rem;
+}
+
+.roadmap-stage-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.roadmap-stage-badge {
+  background: var(--iron-core);
+  color: var(--alpine-berry);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.roadmap-stage-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.roadmap-stage-metrics {
+  color: var(--text-muted);
+}
+
+.roadmap-stage-desc {
+  margin: 0 0 0.65rem 0;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.roadmap-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--iron-core-dark);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.8rem;
+}
+
+.roadmap-progress-fill {
+  height: 100%;
+  background: var(--jade);
+  border-radius: 999px;
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.roadmap-chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.roadmap-point-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.7rem;
+  background: var(--ink-surface);
+  color: var(--warm-paper);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: 6px;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: transform var(--duration-fast) var(--spring-snappy),
+              box-shadow var(--duration-fast) var(--spring-snappy),
+              border-color var(--duration-fast) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-out);
+}
+
+.roadmap-point-chip:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  background: var(--ink-surface-hover);
+}
+
+.roadmap-point-chip:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.roadmap-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--slate-border);
+  flex-shrink: 0;
+}
+
+.roadmap-point-chip.is-encountered .roadmap-chip-dot {
+  background: var(--industrial-aqua);
+}
+
+.roadmap-point-chip.is-mastered {
+  border-color: var(--jade);
+}
+
+.roadmap-point-chip.is-mastered .roadmap-chip-dot {
+  background: var(--jade);
+}
+
+.roadmap-point-chip.is-selected {
+  background: var(--iron-core);
+  border-color: var(--vermilion);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.roadmap-chip-label {
+  font-weight: 600;
+}
+
+.roadmap-chip-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.roadmap-point-chip.is-mastered .roadmap-chip-meta {
+  color: var(--jade);
+}
+
+.roadmap-point-chip.is-encountered .roadmap-chip-meta {
+  color: var(--industrial-aqua);
+}
