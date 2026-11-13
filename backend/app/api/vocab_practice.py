@@ -397,3 +397,21 @@ def get_gap_breakdown(
 
     return get_gap_breakdown_by_category(level=level, limit_per_category=limit_per_category)
 
+
+@router.get("/api/vocab-practice/keigo")
+def list_keigo_entries(
+    level: Optional[str] = Query(default=None),
+    keigo_type: Optional[str] = Query(default=None),
+) -> dict[str, Any]:
+    """Return canonical Japanese Keigo (Sonkeigo, Kenjougo, Teineigo) expressions with learner mastery."""
+    from app.services.vocab_practice.keigo import get_keigo_entries, get_keigo_summary
+
+    entries = get_keigo_entries(level=level, keigo_type=keigo_type)
+    summary = get_keigo_summary()
+    return {
+        "items": [e.model_dump() for e in entries],
+        "total": len(entries),
+        "summary": summary.model_dump(),
+    }
+
+

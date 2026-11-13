@@ -15,6 +15,7 @@ import { getUniversalJlptLevel } from '../../utils/learner.js';
 import { mountCounter } from '../../vendor/counter_bundle.js';
 
 const INVENTORY_SUBVIEW_KEY = 'kiroku:vocab-inventory-subview';
+const INVENTORY_OPENED_SHELVES_KEY = 'kiroku:vocab-opened-shelves';
 
 export class VocabInventoryComponent {
   constructor(router) {
@@ -28,13 +29,28 @@ export class VocabInventoryComponent {
     this.activeItem = null;
 
     // Shelves State
+    this.openedShelves = new Set(); // Collapsed by default per user preference
+    this.shelfLimits = {
+      transitive: 30,
+      adverbs: 40,
+      onomatopoeia: 40,
+      adjectives: 40,
+      keigo: 30,
+      gaps: 40,
+    };
+
     this.transitivePairs = [];
     this.transitiveSummary = null;
     this.transitiveLevelFilter = 'all';
     this.transitiveMasteryFilter = 'all';
 
     this.adverbNuanceFilter = 'all';
+    this.onomatopoeiaNuanceFilter = 'all';
     this.adjectivesTab = 'all'; // 'all' | 'i' | 'na'
+
+    this.keigoItems = [];
+    this.keigoSummary = null;
+    this.keigoTypeFilter = 'all';
 
     this.gapBreakdown = null;
     this.gapCategoryFilter = 'all';
@@ -57,6 +73,7 @@ export class VocabInventoryComponent {
     this._levelListener = null;
 
     this.restoreSubViewPreference();
+    this.restoreOpenedShelvesPreference();
   }
 
   restoreSubViewPreference() {
@@ -81,6 +98,77 @@ export class VocabInventoryComponent {
         console.debug('[VocabInventory] Failed to save subview preference:', err);
       }
     }
+  }
+
+  restoreOpenedShelvesPreference() {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(INVENTORY_OPENED_SHELVES_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            this.openedShelves = new Set(parsed);
+          }
+        }
+      } catch (err) {
+        console.debug('[VocabInventory] Failed to read opened shelves:', err);
+      }
+    }
+  }
+
+  saveOpenedShelvesPreference() {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(
+          INVENTORY_OPENED_SHELVES_KEY,
+          JSON.stringify(Array.from(this.openedShelves))
+        );
+      } catch (err) {
+        console.debug('[VocabInventory] Failed to save opened shelves:', err);
+      }
+    }
+  }
+
+  isShelfOpen(shelfId) {
+    return this.openedShelves.has(shelfId);
+  }
+
+  toggleShelf(shelfId) {
+    if (this.openedShelves.has(shelfId)) {
+      this.openedShelves.delete(shelfId);
+    } else {
+      this.openedShelves.add(shelfId);
+    }
+    this.saveOpenedShelvesPreference();
+    this.applyShelfState(shelfId);
+  }
+
+  applyShelfState(shelfId) {
+    const card = document.getElementById(`shelf-${shelfId}`);
+    if (!card) return;
+    const isOpen = this.openedShelves.has(shelfId);
+    card.classList.toggle('is-open', isOpen);
+    card.classList.toggle('is-collapsed', !isOpen);
+    const content = card.querySelector('.shelf-content-collapsible');
+    if (content) content.style.display = isOpen ? '' : 'none';
+    const toggle = card.querySelector('.shelf-accordion-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  expandAllShelves() {
+    ['transitive-pairs', 'adverbs', 'onomatopoeia', 'adjectives', 'keigo', 'jlpt-gaps'].forEach((id) => {
+      this.openedShelves.add(id);
+      this.applyShelfState(id);
+    });
+    this.saveOpenedShelvesPreference();
+  }
+
+  collapseAllShelves() {
+    this.openedShelves.clear();
+    ['transitive-pairs', 'adverbs', 'onomatopoeia', 'adjectives', 'keigo', 'jlpt-gaps'].forEach((id) => {
+      this.applyShelfState(id);
+    });
+    this.saveOpenedShelvesPreference();
   }
 
   async mount(container) {
@@ -156,19 +244,39 @@ export class VocabInventoryComponent {
         <!-- VIEW MODE 1: CURATED SHELVES CONTAINER -->
         <div class="inv-shelves-container" id="inv-shelves-container" style="${this.activeSubView === 'shelves' ? '' : 'display: none;'}">
           
+          <!-- Shelves Toolbar: Expand / Collapse All -->
+          <div class="shelves-toolbar-row">
+            <span class="text-xs text-muted font-sans">Click any shelf to open or close. Multiple shelves can stay open.</span>
+            <div class="shelves-toolbar-actions">
+              <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-shelves-expand-all" title="Expand all shelves">
+                Expand all
+              </button>
+              <button type="button" class="tactile-btn tactile-btn-sm font-sans" id="btn-shelves-collapse-all" title="Collapse all shelves">
+                Collapse all
+              </button>
+            </div>
+          </div>
+
           <!-- 1. Transitive <-> Intransitive Hub -->
-          <section class="vocab-shelf-card tactile-card" id="shelf-transitive-pairs">
-            <div class="shelf-header">
+          <section class="vocab-shelf-card tactile-card ${this.isShelfOpen('transitive-pairs') ? 'is-open' : 'is-collapsed'}" id="shelf-transitive-pairs" data-shelf="transitive-pairs">
+            <div class="shelf-header shelf-accordion-toggle" role="button" tabindex="0" aria-expanded="${this.isShelfOpen('transitive-pairs')}">
               <div class="shelf-title-group">
                 <div class="shelf-title-row">
-                  <h2 class="shelf-title font-sans font-bold">Transitive & Intransitive Verb Pairs</h2>
+                  <div class="shelf-title-with-chevron">
+                    <svg class="shelf-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                    </svg>
+                    <h2 class="shelf-title font-sans font-bold">Transitive & Intransitive Verb Pairs</h2>
+                  </div>
                   <span class="shelf-badge font-mono" id="transitive-pairs-count">0 pairs</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
                   Learn paired verbs side by side. Transitive verbs act upon a direct object (<span class="font-japanese text-gold">を</span>), while intransitive verbs describe actions that occur independently (<span class="font-japanese text-green">が</span>).
                 </p>
               </div>
+            </div>
 
+            <div class="shelf-content-collapsible" style="${this.isShelfOpen('transitive-pairs') ? '' : 'display: none;'}">
               <!-- Filter Pills for Transitive Hub -->
               <div class="shelf-filters-row">
                 <div class="shelf-filter-group" data-filter="level" role="radiogroup" aria-label="Transitive Level Filter">
@@ -189,55 +297,108 @@ export class VocabInventoryComponent {
                   <button type="button" class="filter-pill filter-pair-mastery" data-mastery="unseen">Unseen</button>
                 </div>
               </div>
-            </div>
 
-            <div class="transitive-pairs-grid" id="transitive-pairs-grid">
-              <span class="text-xs text-muted py-4 font-sans">Loading transitive and intransitive verb pairs...</span>
+              <div class="transitive-pairs-grid" id="transitive-pairs-grid">
+                <span class="text-xs text-muted py-4 font-sans">Loading transitive and intransitive verb pairs...</span>
+              </div>
+              <div class="shelf-pagination-footer" id="transitive-pagination" style="display: none;"></div>
             </div>
           </section>
 
-          <!-- 2. Adverbs & Mimetics Shelf -->
-          <section class="vocab-shelf-card tactile-card" id="shelf-adverbs-mimetics">
-            <div class="shelf-header">
+          <!-- 2. Adverbs Shelf (Separated from Onomatopoeia) -->
+          <section class="vocab-shelf-card tactile-card ${this.isShelfOpen('adverbs') ? 'is-open' : 'is-collapsed'}" id="shelf-adverbs" data-shelf="adverbs">
+            <div class="shelf-header shelf-accordion-toggle" role="button" tabindex="0" aria-expanded="${this.isShelfOpen('adverbs')}">
               <div class="shelf-title-group">
                 <div class="shelf-title-row">
-                  <h2 class="shelf-title font-sans font-bold">Adverbs & Mimetics (Onomatopoeia)</h2>
+                  <div class="shelf-title-with-chevron">
+                    <svg class="shelf-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                    </svg>
+                    <h2 class="shelf-title font-sans font-bold">Adverbs Shelf (副詞)</h2>
+                  </div>
                   <span class="shelf-badge font-mono" id="adverbs-count">0 words</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
-                  Nuanced expressions classified by texture: Sound effects (擬音語), Human/animal voices (擬声語), Manner & states (擬態語), and Emotional sensations (心理・感覚).
+                  Standard Japanese adverbs: Degree (程度: とても, かなり), Time (時間: やっと, すぐに), Frequency (頻度: いつも, ときどき), and Manner (様態: しっかり, はっきり).
                 </p>
-              </div>
-
-              <div class="shelf-filters-row">
-                <div class="shelf-filter-group" role="radiogroup" aria-label="Mimetic Nuance">
-                  <button type="button" class="filter-pill filter-adverb-tab is-active" data-nuance="all">All Nuances</button>
-                  <button type="button" class="filter-pill filter-adverb-tab" data-nuance="giongo">Sounds (擬音語)</button>
-                  <button type="button" class="filter-pill filter-adverb-tab" data-nuance="giseigo">Voices (擬声語)</button>
-                  <button type="button" class="filter-pill filter-adverb-tab" data-nuance="gitaigo">Manner (擬態語)</button>
-                  <button type="button" class="filter-pill filter-adverb-tab" data-nuance="emotion">Emotions (感情)</button>
-                </div>
               </div>
             </div>
 
-            <div class="adverbs-shelf-grid" id="adverbs-shelf-grid">
-              <span class="text-xs text-muted py-4 font-sans">Loading adverbs and mimetic expressions...</span>
+            <div class="shelf-content-collapsible" style="${this.isShelfOpen('adverbs') ? '' : 'display: none;'}">
+              <div class="shelf-filters-row">
+                <div class="shelf-filter-group" role="radiogroup" aria-label="Adverb Nuance">
+                  <button type="button" class="filter-pill filter-adverb-tab is-active" data-type="all">All Adverbs</button>
+                  <button type="button" class="filter-pill filter-adverb-tab" data-type="degree">Degree (程度)</button>
+                  <button type="button" class="filter-pill filter-adverb-tab" data-type="time">Time (時間)</button>
+                  <button type="button" class="filter-pill filter-adverb-tab" data-type="frequency">Frequency (頻度)</button>
+                  <button type="button" class="filter-pill filter-adverb-tab" data-type="manner">Manner (様態)</button>
+                </div>
+              </div>
+
+              <div class="adverbs-shelf-grid" id="adverbs-shelf-grid">
+                <span class="text-xs text-muted py-4 font-sans">Loading adverbs...</span>
+              </div>
+              <div class="shelf-pagination-footer" id="adverbs-pagination" style="display: none;"></div>
             </div>
           </section>
 
-          <!-- 3. Adjectives Shelf -->
-          <section class="vocab-shelf-card tactile-card" id="shelf-adjectives">
-            <div class="shelf-header">
+          <!-- 3. Onomatopoeia & Mimetics Shelf (Separated) -->
+          <section class="vocab-shelf-card tactile-card ${this.isShelfOpen('onomatopoeia') ? 'is-open' : 'is-collapsed'}" id="shelf-onomatopoeia" data-shelf="onomatopoeia">
+            <div class="shelf-header shelf-accordion-toggle" role="button" tabindex="0" aria-expanded="${this.isShelfOpen('onomatopoeia')}">
               <div class="shelf-title-group">
                 <div class="shelf-title-row">
-                  <h2 class="shelf-title font-sans font-bold">Adjectives Showcase</h2>
+                  <div class="shelf-title-with-chevron">
+                    <svg class="shelf-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                    </svg>
+                    <h2 class="shelf-title font-sans font-bold">Onomatopoeia & Mimetics (オノマトペ)</h2>
+                  </div>
+                  <span class="shelf-badge font-mono" id="onomatopoeia-count">0 words</span>
+                </div>
+                <p class="shelf-sub text-xs text-muted font-sans">
+                  Sound symbolism and evocative Japanese texture: Sound effects (擬音語: ざあざあ, ごろごろ), Voices (擬声語: わんわん, にゃあにゃあ), Manner & states (擬態語: ふわふわ, ぴかぴか), and Emotions (心理感覚: わくわく, どきどき).
+                </p>
+              </div>
+            </div>
+
+            <div class="shelf-content-collapsible" style="${this.isShelfOpen('onomatopoeia') ? '' : 'display: none;'}">
+              <div class="shelf-filters-row">
+                <div class="shelf-filter-group" role="radiogroup" aria-label="Mimetic Nuance">
+                  <button type="button" class="filter-pill filter-onomatopoeia-tab is-active" data-nuance="all">All Nuances</button>
+                  <button type="button" class="filter-pill filter-onomatopoeia-tab" data-nuance="giongo">Sounds (擬音語)</button>
+                  <button type="button" class="filter-pill filter-onomatopoeia-tab" data-nuance="giseigo">Voices (擬声語)</button>
+                  <button type="button" class="filter-pill filter-onomatopoeia-tab" data-nuance="gitaigo">Manner (擬態語)</button>
+                  <button type="button" class="filter-pill filter-onomatopoeia-tab" data-nuance="emotion">Emotions (感情)</button>
+                </div>
+              </div>
+
+              <div class="onomatopoeia-shelf-grid" id="onomatopoeia-shelf-grid">
+                <span class="text-xs text-muted py-4 font-sans">Loading onomatopoeic and mimetic expressions...</span>
+              </div>
+              <div class="shelf-pagination-footer" id="onomatopoeia-pagination" style="display: none;"></div>
+            </div>
+          </section>
+
+          <!-- 4. Adjectives Shelf -->
+          <section class="vocab-shelf-card tactile-card ${this.isShelfOpen('adjectives') ? 'is-open' : 'is-collapsed'}" id="shelf-adjectives" data-shelf="adjectives">
+            <div class="shelf-header shelf-accordion-toggle" role="button" tabindex="0" aria-expanded="${this.isShelfOpen('adjectives')}">
+              <div class="shelf-title-group">
+                <div class="shelf-title-row">
+                  <div class="shelf-title-with-chevron">
+                    <svg class="shelf-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                    </svg>
+                    <h2 class="shelf-title font-sans font-bold">Adjectives Showcase (形容詞)</h2>
+                  </div>
                   <span class="shelf-badge font-mono" id="adjectives-count">0 words</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
                   Essential descriptive Japanese: Inflecting <span class="font-japanese text-gold">い-形容詞</span> and nominal <span class="font-japanese text-green">な-形容詞</span> with connection patterns.
                 </p>
               </div>
+            </div>
 
+            <div class="shelf-content-collapsible" style="${this.isShelfOpen('adjectives') ? '' : 'display: none;'}">
               <div class="shelf-filters-row">
                 <div class="shelf-filter-group" role="radiogroup" aria-label="Adjective Type">
                   <button type="button" class="filter-pill filter-adj-tab is-active" data-tab="all">All Adjectives</button>
@@ -245,26 +406,69 @@ export class VocabInventoryComponent {
                   <button type="button" class="filter-pill filter-adj-tab" data-tab="na">na-Adjectives (~な)</button>
                 </div>
               </div>
-            </div>
 
-            <div class="adjectives-shelf-grid" id="adjectives-shelf-grid">
-              <span class="text-xs text-muted py-4 font-sans">Loading adjectives...</span>
+              <div class="adjectives-shelf-grid" id="adjectives-shelf-grid">
+                <span class="text-xs text-muted py-4 font-sans">Loading adjectives...</span>
+              </div>
+              <div class="shelf-pagination-footer" id="adjectives-pagination" style="display: none;"></div>
             </div>
           </section>
 
-          <!-- 4. JLPT Gaps Shelf -->
-          <section class="vocab-shelf-card tactile-card" id="shelf-jlpt-gaps">
-            <div class="shelf-header">
+          <!-- 5. Keigo (Honorifics) Hub -->
+          <section class="vocab-shelf-card tactile-card ${this.isShelfOpen('keigo') ? 'is-open' : 'is-collapsed'}" id="shelf-keigo" data-shelf="keigo">
+            <div class="shelf-header shelf-accordion-toggle" role="button" tabindex="0" aria-expanded="${this.isShelfOpen('keigo')}">
               <div class="shelf-title-group">
                 <div class="shelf-title-row">
-                  <h2 class="shelf-title font-sans font-bold">JLPT Level Gaps (${this.learnerLevel})</h2>
+                  <div class="shelf-title-with-chevron">
+                    <svg class="shelf-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                    </svg>
+                    <h2 class="shelf-title font-sans font-bold">Keigo Honorifics Hub (敬語)</h2>
+                  </div>
+                  <span class="shelf-badge font-mono" id="keigo-count">0 forms</span>
+                </div>
+                <p class="shelf-sub text-xs text-muted font-sans">
+                  Polite business Japanese mapped side-by-side: Respectful <span class="font-japanese text-gold">尊敬語</span> (elevates listener's actions), Humble <span class="font-japanese text-green">謙譲語</span> (lowers speaker's actions), and Polite <span class="font-mono text-muted">丁寧語</span>.
+                </p>
+              </div>
+            </div>
+
+            <div class="shelf-content-collapsible" style="${this.isShelfOpen('keigo') ? '' : 'display: none;'}">
+              <div class="shelf-filters-row">
+                <div class="shelf-filter-group" role="radiogroup" aria-label="Keigo Filter">
+                  <button type="button" class="filter-pill filter-keigo-tab is-active" data-type="all">All Forms</button>
+                  <button type="button" class="filter-pill filter-keigo-tab" data-type="sonkeigo">Respectful (尊敬語)</button>
+                  <button type="button" class="filter-pill filter-keigo-tab" data-type="kenjougo">Humble (謙譲語)</button>
+                </div>
+              </div>
+
+              <div class="keigo-shelf-grid" id="keigo-shelf-grid">
+                <span class="text-xs text-muted py-4 font-sans">Loading honorific expressions...</span>
+              </div>
+              <div class="shelf-pagination-footer" id="keigo-pagination" style="display: none;"></div>
+            </div>
+          </section>
+
+          <!-- 6. JLPT Gaps Shelf -->
+          <section class="vocab-shelf-card tactile-card ${this.isShelfOpen('jlpt-gaps') ? 'is-open' : 'is-collapsed'}" id="shelf-jlpt-gaps" data-shelf="jlpt-gaps">
+            <div class="shelf-header shelf-accordion-toggle" role="button" tabindex="0" aria-expanded="${this.isShelfOpen('jlpt-gaps')}">
+              <div class="shelf-title-group">
+                <div class="shelf-title-row">
+                  <div class="shelf-title-with-chevron">
+                    <svg class="shelf-chevron" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                    </svg>
+                    <h2 class="shelf-title font-sans font-bold">JLPT Level Gaps (${this.learnerLevel})</h2>
+                  </div>
                   <span class="shelf-badge font-mono" id="gaps-breakdown-count">0 gaps</span>
                 </div>
                 <p class="shelf-sub text-xs text-muted font-sans">
                   Targeted vocabulary at or below your target level (<span class="font-mono text-gold">${this.learnerLevel}</span>) not yet in your inventory. Add to cards with one click.
                 </p>
               </div>
+            </div>
 
+            <div class="shelf-content-collapsible" style="${this.isShelfOpen('jlpt-gaps') ? '' : 'display: none;'}">
               <div class="shelf-filters-row">
                 <div class="shelf-filter-group" role="radiogroup" aria-label="Gap Categories">
                   <button type="button" class="filter-pill filter-gap-cat is-active" data-cat="all">All Categories</button>
@@ -279,10 +483,11 @@ export class VocabInventoryComponent {
                   Drill in Study
                 </button>
               </div>
-            </div>
 
-            <div class="gaps-shelf-grid" id="gaps-shelf-grid">
-              <span class="text-xs text-muted py-4 font-sans">Loading categorized level gaps...</span>
+              <div class="gaps-shelf-grid" id="gaps-shelf-grid">
+                <span class="text-xs text-muted py-4 font-sans">Loading categorized level gaps...</span>
+              </div>
+              <div class="shelf-pagination-footer" id="gaps-pagination" style="display: none;"></div>
             </div>
           </section>
         </div>
@@ -455,6 +660,38 @@ export class VocabInventoryComponent {
     if (tabShelves) tabShelves.addEventListener('click', () => switchSubView('shelves'));
     if (tabTable) tabTable.addEventListener('click', () => switchSubView('table'));
 
+    // Shelves: Accordion header click to toggle open/close
+    const accordionToggles = this.container.querySelectorAll('.shelf-accordion-toggle');
+    accordionToggles.forEach((toggle) => {
+      toggle.addEventListener('click', () => {
+        const card = toggle.closest('.vocab-shelf-card');
+        const shelfId = card?.dataset.shelf;
+        if (shelfId) {
+          this.toggleShelf(shelfId);
+        }
+      });
+      toggle.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const card = toggle.closest('.vocab-shelf-card');
+          const shelfId = card?.dataset.shelf;
+          if (shelfId) {
+            this.toggleShelf(shelfId);
+          }
+        }
+      });
+    });
+
+    // Shelves Toolbar: Expand / Collapse All
+    const btnExpandAll = document.getElementById('btn-shelves-expand-all');
+    const btnCollapseAll = document.getElementById('btn-shelves-collapse-all');
+    if (btnExpandAll) {
+      btnExpandAll.addEventListener('click', () => this.expandAllShelves());
+    }
+    if (btnCollapseAll) {
+      btnCollapseAll.addEventListener('click', () => this.collapseAllShelves());
+    }
+
     // Shelves: Transitive Level Pills
     const pairLevelPills = this.container.querySelectorAll('.filter-pair-level');
     pairLevelPills.forEach((pill) => {
@@ -462,6 +699,7 @@ export class VocabInventoryComponent {
         pairLevelPills.forEach((p) => p.classList.remove('is-active'));
         pill.classList.add('is-active');
         this.transitiveLevelFilter = pill.dataset.level || 'all';
+        this.shelfLimits.transitive = 30;
         await this.refreshTransitivePairs();
       });
     });
@@ -473,18 +711,44 @@ export class VocabInventoryComponent {
         pairMasteryPills.forEach((p) => p.classList.remove('is-active'));
         pill.classList.add('is-active');
         this.transitiveMasteryFilter = pill.dataset.mastery || 'all';
+        this.shelfLimits.transitive = 30;
         await this.refreshTransitivePairs();
       });
     });
 
-    // Shelves: Adverb Nuance Tabs
+    // Shelves: Adverb Type Tabs (Degree, Time, Frequency, Manner)
     const adverbTabs = this.container.querySelectorAll('.filter-adverb-tab');
     adverbTabs.forEach((tab) => {
       tab.addEventListener('click', () => {
         adverbTabs.forEach((t) => t.classList.remove('is-active'));
         tab.classList.add('is-active');
-        this.adverbNuanceFilter = tab.dataset.nuance || 'all';
+        this.adverbNuanceFilter = tab.dataset.type || 'all';
+        this.shelfLimits.adverbs = 40;
         this.renderAdverbsShelf();
+      });
+    });
+
+    // Shelves: Onomatopoeia Nuance Tabs (Sounds, Voices, Manner, Emotions)
+    const onomTabs = this.container.querySelectorAll('.filter-onomatopoeia-tab');
+    onomTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        onomTabs.forEach((t) => t.classList.remove('is-active'));
+        tab.classList.add('is-active');
+        this.onomatopoeiaNuanceFilter = tab.dataset.nuance || 'all';
+        this.shelfLimits.onomatopoeia = 40;
+        this.renderOnomatopoeiaShelf();
+      });
+    });
+
+    // Shelves: Keigo Filter Tabs (All, Sonkeigo, Kenjougo)
+    const keigoTabs = this.container.querySelectorAll('.filter-keigo-tab');
+    keigoTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        keigoTabs.forEach((t) => t.classList.remove('is-active'));
+        tab.classList.add('is-active');
+        this.keigoTypeFilter = tab.dataset.type || 'all';
+        this.shelfLimits.keigo = 30;
+        this.renderKeigoShelf();
       });
     });
 
@@ -495,6 +759,7 @@ export class VocabInventoryComponent {
         adjTabs.forEach((t) => t.classList.remove('is-active'));
         tab.classList.add('is-active');
         this.adjectivesTab = tab.dataset.tab || 'all';
+        this.shelfLimits.adjectives = 40;
         this.renderAdjectivesShelf();
       });
     });
@@ -502,13 +767,40 @@ export class VocabInventoryComponent {
     // Shelves: Gap Category Pills
     const gapCatPills = this.container.querySelectorAll('.filter-gap-cat');
     gapCatPills.forEach((pill) => {
+      tab = pill;
       pill.addEventListener('click', () => {
         gapCatPills.forEach((p) => p.classList.remove('is-active'));
         pill.classList.add('is-active');
         this.gapCategoryFilter = pill.dataset.cat || 'all';
+        this.shelfLimits.gaps = 40;
         this.renderGapsShelf();
       });
     });
+
+    // Shelves Pagination Delegated Click Handler ("Show more" / "Show all")
+    if (shelvesContainer) {
+      shelvesContainer.addEventListener('click', (e) => {
+        const moreBtn = e.target.closest('.btn-shelf-show-more');
+        if (moreBtn) {
+          const shelf = moreBtn.dataset.shelf;
+          if (shelf && this.shelfLimits[shelf] !== undefined) {
+            this.shelfLimits[shelf] += 30;
+            this.reRenderShelf(shelf);
+          }
+          return;
+        }
+
+        const allBtn = e.target.closest('.btn-shelf-show-all');
+        if (allBtn) {
+          const shelf = allBtn.dataset.shelf;
+          const total = parseInt(allBtn.dataset.total, 10);
+          if (shelf && total) {
+            this.shelfLimits[shelf] = Math.max(total, 500);
+            this.reRenderShelf(shelf);
+          }
+        }
+      });
+    }
 
     // Shelves: Drill in Study button
     const btnDrillGaps = document.getElementById('btn-drill-shelf-gaps');
@@ -1033,14 +1325,16 @@ export class VocabInventoryComponent {
 
   async loadShelvesData() {
     try {
-      const [pairsRes, gapsRes, adverbsRes, adjectivesRes] = await Promise.allSettled([
+      const [pairsRes, gapsRes, adverbsRes, onomatopoeiaRes, adjectivesRes, keigoRes] = await Promise.allSettled([
         apiClient.getTransitivePairs({
           level: this.transitiveLevelFilter !== 'all' ? this.transitiveLevelFilter : undefined,
           mastery: this.transitiveMasteryFilter !== 'all' ? this.transitiveMasteryFilter : undefined,
         }),
-        apiClient.getGapBreakdown(this.learnerLevel),
-        apiClient.getVocabInventory({ category: 'adverb', limit: 30, include_reference: true }),
-        apiClient.getVocabInventory({ category: 'adjective', limit: 30, include_reference: true }),
+        apiClient.getGapBreakdown(this.learnerLevel, 100),
+        apiClient.getVocabInventory({ category: 'adverb', limit: 150, include_reference: true }),
+        apiClient.getVocabInventory({ category: 'onomatopoeia', limit: 150, include_reference: true }),
+        apiClient.getVocabInventory({ category: 'adjective', limit: 150, include_reference: true }),
+        apiClient.getKeigo(),
       ]);
 
       if (pairsRes.status === 'fulfilled' && pairsRes.value) {
@@ -1058,12 +1352,71 @@ export class VocabInventoryComponent {
       this._cachedAdverbs = advItems;
       this.renderAdverbsShelf(advItems);
 
+      const onomItems = onomatopoeiaRes.status === 'fulfilled' && onomatopoeiaRes.value ? (onomatopoeiaRes.value.items || []) : [];
+      this._cachedOnomatopoeia = onomItems;
+      this.renderOnomatopoeiaShelf(onomItems);
+
       const adjItems = adjectivesRes.status === 'fulfilled' && adjectivesRes.value ? (adjectivesRes.value.items || []) : [];
       this._cachedAdjectives = adjItems;
       this.renderAdjectivesShelf(adjItems);
+
+      if (keigoRes.status === 'fulfilled' && keigoRes.value) {
+        this.keigoItems = keigoRes.value.items || [];
+        this.keigoSummary = keigoRes.value.summary || null;
+        this.renderKeigoShelf();
+      }
     } catch (err) {
       console.debug('[VocabInventory] loadShelvesData error:', err);
     }
+  }
+
+  reRenderShelf(shelfKey) {
+    switch (shelfKey) {
+      case 'transitive':
+        this.renderTransitivePairsHub();
+        break;
+      case 'adverbs':
+        this.renderAdverbsShelf();
+        break;
+      case 'onomatopoeia':
+        this.renderOnomatopoeiaShelf();
+        break;
+      case 'adjectives':
+        this.renderAdjectivesShelf();
+        break;
+      case 'keigo':
+        this.renderKeigoShelf();
+        break;
+      case 'gaps':
+        this.renderGapsShelf();
+        break;
+    }
+  }
+
+  updateShelfPagination(footerId, shelfKey, currentLimit, totalCount) {
+    const footer = document.getElementById(footerId);
+    if (!footer) return;
+    if (totalCount <= currentLimit) {
+      footer.style.display = 'none';
+      footer.innerHTML = '';
+      return;
+    }
+    footer.style.display = 'flex';
+    footer.innerHTML = `
+      <div class="shelf-pagination-controls">
+        <span class="text-xs text-muted font-sans">
+          Showing <span class="font-mono text-warm font-bold">${Math.min(currentLimit, totalCount)}</span> of <span class="font-mono text-warm font-bold">${totalCount}</span>
+        </span>
+        <div class="shelf-pagination-actions">
+          <button type="button" class="tactile-btn tactile-btn-sm btn-shelf-show-more font-sans" data-shelf="${shelfKey}">
+            Show +30 more
+          </button>
+          <button type="button" class="tactile-btn tactile-btn-sm btn-shelf-show-all font-sans" data-shelf="${shelfKey}" data-total="${totalCount}">
+            Show all (${totalCount})
+          </button>
+        </div>
+      </div>
+    `;
   }
 
   async refreshTransitivePairs() {
@@ -1087,21 +1440,25 @@ export class VocabInventoryComponent {
     const badge = document.getElementById('transitive-pairs-count');
     if (!grid) return;
 
+    const total = this.transitivePairs.length;
     if (badge) {
-      const total = this.transitivePairs.length;
       badge.textContent = `${total} pair${total === 1 ? '' : 's'}`;
     }
 
-    if (this.transitivePairs.length === 0) {
+    if (total === 0) {
       grid.innerHTML = `
         <div class="shelf-empty-state text-muted py-6 font-sans">
           <span>No transitive verb pairs match the selected level and mastery filters.</span>
         </div>
       `;
+      this.updateShelfPagination('transitive-pagination', 'transitive', this.shelfLimits.transitive, 0);
       return;
     }
 
-    grid.innerHTML = this.transitivePairs.map((pair) => {
+    const limit = this.shelfLimits.transitive;
+    const slice = this.transitivePairs.slice(0, limit);
+
+    grid.innerHTML = slice.map((pair) => {
       const vt = pair.transitive;
       const vi = pair.intransitive;
       const masteryLabel = pair.pair_mastery === 'both_known'
@@ -1185,6 +1542,8 @@ export class VocabInventoryComponent {
         this.openDrawer(item);
       });
     });
+
+    this.updateShelfPagination('transitive-pagination', 'transitive', limit, total);
   }
 
   renderAdverbsShelf(cachedItems = null) {
@@ -1193,29 +1552,61 @@ export class VocabInventoryComponent {
     if (!grid) return;
 
     const source = cachedItems || this._cachedAdverbs || [];
-    let filtered = source;
-    if (this.adverbNuanceFilter !== 'all') {
-      const nuance = this.adverbNuanceFilter;
-      filtered = source.filter((it) => {
-        return (it.categories || []).some((c) => c.toLowerCase().includes(nuance)) ||
-               (it.meaning || '').toLowerCase().includes(nuance);
+
+    // Filter out pure onomatopoeia/mimetics to keep standard grammatical adverbs pure
+    const standardAdverbs = source.filter((it) => {
+      const cats = it.categories || [];
+      const hasOnom = cats.some((c) => c.includes('onomatopoeia') || c.includes('mimetic') || c.includes('giongo') || c.includes('gitaigo'));
+      return !hasOnom;
+    });
+
+    const DEGREE_KEYWORDS = ['degree', 'very', 'quite', 'rather', 'extremely', 'pretty', 'too', 'almost', 'mostly', '程度', 'とても', 'かなり', 'ちょっと', '少し', '非常に', '随分', 'もっと', 'ずっと', 'ほぼ', '大体', 'ほとんど', '結構'];
+    const TIME_KEYWORDS = ['time', 'soon', 'already', 'recently', 'finally', 'eventually', 'before', 'ago', 'now', '時間', 'やっと', 'すぐに', 'もうすぐ', 'そろそろ', 'まもなく', 'いつか', '既に', '以前', '最近', 'この頃', '今後'];
+    const FREQ_KEYWORDS = ['frequency', 'always', 'often', 'sometimes', 'seldom', 'never', 'usually', 'frequently', '頻度', 'いつも', 'たいてい', 'よく', 'ときどき', 'たまに', 'めったに', '決して', '常に', 'しばしば'];
+    const MANNER_KEYWORDS = ['manner', 'clearly', 'firmly', 'slowly', 'properly', 'quietly', 'suddenly', '様態', 'しっかり', 'はっきり', 'ゆっくり', 'ちゃんと', 'じっくり', 'ぴったり', 'そっと', 'ぎゅっと', 'いきなり'];
+
+    let filtered = standardAdverbs;
+    if (this.adverbNuanceFilter === 'degree') {
+      filtered = standardAdverbs.filter((it) => {
+        const text = `${it.expression} ${it.reading} ${it.meaning} ${(it.categories || []).join(' ')}`.toLowerCase();
+        return DEGREE_KEYWORDS.some((kw) => text.includes(kw.toLowerCase()));
+      });
+    } else if (this.adverbNuanceFilter === 'time') {
+      filtered = standardAdverbs.filter((it) => {
+        const text = `${it.expression} ${it.reading} ${it.meaning} ${(it.categories || []).join(' ')}`.toLowerCase();
+        return TIME_KEYWORDS.some((kw) => text.includes(kw.toLowerCase()));
+      });
+    } else if (this.adverbNuanceFilter === 'frequency') {
+      filtered = standardAdverbs.filter((it) => {
+        const text = `${it.expression} ${it.reading} ${it.meaning} ${(it.categories || []).join(' ')}`.toLowerCase();
+        return FREQ_KEYWORDS.some((kw) => text.includes(kw.toLowerCase()));
+      });
+    } else if (this.adverbNuanceFilter === 'manner') {
+      filtered = standardAdverbs.filter((it) => {
+        const text = `${it.expression} ${it.reading} ${it.meaning} ${(it.categories || []).join(' ')}`.toLowerCase();
+        return MANNER_KEYWORDS.some((kw) => text.includes(kw.toLowerCase()));
       });
     }
 
+    const total = filtered.length;
     if (badge) {
-      badge.textContent = `${filtered.length} word${filtered.length === 1 ? '' : 's'}`;
+      badge.textContent = `${total} word${total === 1 ? '' : 's'}`;
     }
 
-    if (filtered.length === 0) {
+    if (total === 0) {
       grid.innerHTML = `
         <div class="shelf-empty-state text-muted py-6 font-sans">
-          <span>No adverbs or mimetics found for nuance "${escapeHtml(this.adverbNuanceFilter)}".</span>
+          <span>No standard adverbs found for type "${escapeHtml(this.adverbNuanceFilter)}".</span>
         </div>
       `;
+      this.updateShelfPagination('adverbs-pagination', 'adverbs', this.shelfLimits.adverbs, 0);
       return;
     }
 
-    grid.innerHTML = filtered.slice(0, 24).map((it) => {
+    const limit = this.shelfLimits.adverbs;
+    const slice = filtered.slice(0, limit);
+
+    grid.innerHTML = slice.map((it) => {
       const stateClass = `state-pill-${it.state || 'unseen'}`;
       return `
         <div class="adverb-shelf-card tactile-card" data-expression="${escapeHtml(it.expression)}">
@@ -1229,7 +1620,7 @@ export class VocabInventoryComponent {
           <p class="adverb-card-meaning font-sans text-secondary">${escapeHtml(it.meaning || '—')}</p>
           <div class="adverb-card-footer">
             <span class="adverb-level font-mono">${escapeHtml(it.jlpt_level || 'N/A')}</span>
-            <span class="adverb-chip font-mono">adv / on-mim</span>
+            <span class="adverb-chip font-mono">副詞 (adverb)</span>
           </div>
         </div>
       `;
@@ -1242,6 +1633,92 @@ export class VocabInventoryComponent {
         if (item) this.openDrawer(item);
       });
     });
+
+    this.updateShelfPagination('adverbs-pagination', 'adverbs', limit, total);
+  }
+
+  renderOnomatopoeiaShelf(cachedItems = null) {
+    const grid = document.getElementById('onomatopoeia-shelf-grid');
+    const badge = document.getElementById('onomatopoeia-count');
+    if (!grid) return;
+
+    const source = cachedItems || this._cachedOnomatopoeia || [];
+
+    const GIONGO_KW = ['sound', 'noise', 'clatter', 'bang', 'crash', 'rumble', 'drip', 'splash', '擬音', 'ざあざあ', 'ごろごろ', 'ばたん', 'がらがら', 'どかん', 'かちかち', 'どんどん', 'ガタガタ'];
+    const GISEIGO_KW = ['voice', 'animal', 'bark', 'meow', 'laugh', 'cry', 'whisper', '擬声', 'わんわん', 'にゃあにゃあ', 'げらげら', 'くすくす', 'めそめそ', 'ぺちゃくちゃ', 'ペラペラ'];
+    const GITAIGO_KW = ['state', 'condition', 'texture', 'manner', 'appearance', 'smooth', 'fluffy', 'shiny', 'sticky', '擬態', 'ふわふわ', 'ぴかぴか', 'ぎゅうぎゅう', 'べたべた', 'つるつる', 'さらさら', 'ぐっすり'];
+    const EMOTION_KW = ['emotion', 'feeling', 'heart', 'nervous', 'excited', 'irritated', 'thrill', 'psychological', '感情', 'わくわく', 'どきどき', 'いらいら', 'うきうき', 'はらはら', 'ぞくぞく', 'そわそわ'];
+
+    let filtered = source;
+    if (this.onomatopoeiaNuanceFilter === 'giongo') {
+      filtered = source.filter((it) => {
+        const text = `${it.expression} ${it.reading} ${it.meaning} ${(it.categories || []).join(' ')}`.toLowerCase();
+        return GIONGO_KW.some((kw) => text.includes(kw.toLowerCase()));
+      });
+    } else if (this.onomatopoeiaNuanceFilter === 'giseigo') {
+      filtered = source.filter((it) => {
+        const text = `${it.expression} ${it.reading} ${it.meaning} ${(it.categories || []).join(' ')}`.toLowerCase();
+        return GISEIGO_KW.some((kw) => text.includes(kw.toLowerCase()));
+      });
+    } else if (this.onomatopoeiaNuanceFilter === 'gitaigo') {
+      filtered = source.filter((it) => {
+        const text = `${it.expression} ${it.reading} ${it.meaning} ${(it.categories || []).join(' ')}`.toLowerCase();
+        return GITAIGO_KW.some((kw) => text.includes(kw.toLowerCase()));
+      });
+    } else if (this.onomatopoeiaNuanceFilter === 'emotion') {
+      filtered = source.filter((it) => {
+        const text = `${it.expression} ${it.reading} ${it.meaning} ${(it.categories || []).join(' ')}`.toLowerCase();
+        return EMOTION_KW.some((kw) => text.includes(kw.toLowerCase()));
+      });
+    }
+
+    const total = filtered.length;
+    if (badge) {
+      badge.textContent = `${total} word${total === 1 ? '' : 's'}`;
+    }
+
+    if (total === 0) {
+      grid.innerHTML = `
+        <div class="shelf-empty-state text-muted py-6 font-sans">
+          <span>No onomatopoeic expressions found for nuance "${escapeHtml(this.onomatopoeiaNuanceFilter)}".</span>
+        </div>
+      `;
+      this.updateShelfPagination('onomatopoeia-pagination', 'onomatopoeia', this.shelfLimits.onomatopoeia, 0);
+      return;
+    }
+
+    const limit = this.shelfLimits.onomatopoeia;
+    const slice = filtered.slice(0, limit);
+
+    grid.innerHTML = slice.map((it) => {
+      const stateClass = `state-pill-${it.state || 'unseen'}`;
+      return `
+        <div class="onomatopoeia-shelf-card tactile-card" data-expression="${escapeHtml(it.expression)}">
+          <div class="adverb-card-header">
+            <ruby class="adverb-ruby font-japanese">
+              ${escapeHtml(it.expression)}
+              <rt class="font-japanese text-muted">${escapeHtml(it.reading || '')}</rt>
+            </ruby>
+            <span class="adverb-state-pill ${stateClass} font-mono">${escapeHtml(it.state || 'unseen')}</span>
+          </div>
+          <p class="adverb-card-meaning font-sans text-secondary">${escapeHtml(it.meaning || '—')}</p>
+          <div class="adverb-card-footer">
+            <span class="adverb-level font-mono">${escapeHtml(it.jlpt_level || 'N/A')}</span>
+            <span class="adverb-chip font-mono">オノマトペ</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    grid.querySelectorAll('.onomatopoeia-shelf-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const expr = card.dataset.expression;
+        const item = filtered.find((x) => x.expression === expr);
+        if (item) this.openDrawer(item);
+      });
+    });
+
+    this.updateShelfPagination('onomatopoeia-pagination', 'onomatopoeia', limit, total);
   }
 
   renderAdjectivesShelf(cachedItems = null) {
@@ -1258,20 +1735,25 @@ export class VocabInventoryComponent {
       filtered = source.filter((it) => !it.expression.endsWith('い') || (it.categories || []).some((c) => c.includes('adj-na') || c.includes('adjective_na')));
     }
 
+    const total = filtered.length;
     if (badge) {
-      badge.textContent = `${filtered.length} word${filtered.length === 1 ? '' : 's'}`;
+      badge.textContent = `${total} word${total === 1 ? '' : 's'}`;
     }
 
-    if (filtered.length === 0) {
+    if (total === 0) {
       grid.innerHTML = `
         <div class="shelf-empty-state text-muted py-6 font-sans">
           <span>No adjectives found matching tab "${escapeHtml(this.adjectivesTab)}".</span>
         </div>
       `;
+      this.updateShelfPagination('adjectives-pagination', 'adjectives', this.shelfLimits.adjectives, 0);
       return;
     }
 
-    grid.innerHTML = filtered.slice(0, 24).map((it) => {
+    const limit = this.shelfLimits.adjectives;
+    const slice = filtered.slice(0, limit);
+
+    grid.innerHTML = slice.map((it) => {
       const isIAdj = it.expression.endsWith('い');
       const adjTypeBadge = isIAdj ? 'i-adjective (~い)' : 'na-adjective (~な)';
       const adjTypeClass = isIAdj ? 'adj-type-i' : 'adj-type-na';
@@ -1301,6 +1783,129 @@ export class VocabInventoryComponent {
         if (item) this.openDrawer(item);
       });
     });
+
+    this.updateShelfPagination('adjectives-pagination', 'adjectives', limit, total);
+  }
+
+  renderKeigoShelf() {
+    const grid = document.getElementById('keigo-shelf-grid');
+    const badge = document.getElementById('keigo-count');
+    if (!grid) return;
+
+    let items = this.keigoItems || [];
+    if (this.keigoTypeFilter === 'sonkeigo') {
+      items = (this.keigoItems || []).filter((it) => it.sonkeigo && it.sonkeigo.expression);
+    } else if (this.keigoTypeFilter === 'kenjougo') {
+      items = (this.keigoItems || []).filter((it) => it.kenjougo && it.kenjougo.expression);
+    }
+
+    const total = items.length;
+    if (badge) {
+      badge.textContent = `${total} form${total === 1 ? '' : 's'}`;
+    }
+
+    if (total === 0) {
+      grid.innerHTML = `
+        <div class="shelf-empty-state text-muted py-6 font-sans">
+          <span>No Keigo honorific expressions found for filter "${escapeHtml(this.keigoTypeFilter)}".</span>
+        </div>
+      `;
+      this.updateShelfPagination('keigo-pagination', 'keigo', this.shelfLimits.keigo, 0);
+      return;
+    }
+
+    const limit = this.shelfLimits.keigo;
+    const slice = items.slice(0, limit);
+
+    grid.innerHTML = slice.map((trio) => {
+      const son = trio.sonkeigo;
+      const ken = trio.kenjougo;
+      const tei = trio.teineigo;
+      const masteryLabel = trio.mastery_status === 'mastered'
+        ? 'Mastered'
+        : trio.mastery_status === 'learning'
+        ? 'Learning'
+        : 'Unseen';
+      const masteryBadgeClass = `mastery-badge-${trio.mastery_status || 'unseen'}`;
+
+      return `
+        <div class="keigo-trio-card tactile-card" data-keigo-id="${escapeHtml(trio.id)}">
+          <div class="keigo-trio-header">
+            <div class="keigo-trio-base-group">
+              <span class="keigo-concept-title font-sans font-bold">${escapeHtml(trio.english_concept || 'Concept')}</span>
+              <span class="keigo-base-verb font-japanese text-gold">[Plain: ${escapeHtml(trio.base_verb)} (${escapeHtml(trio.base_reading)})]</span>
+            </div>
+            <div class="keigo-header-tags">
+              <span class="keigo-level-badge font-mono">${escapeHtml(trio.level || 'N4')}</span>
+              <span class="keigo-mastery-chip font-sans ${masteryBadgeClass}">${escapeHtml(masteryLabel)}</span>
+            </div>
+          </div>
+
+          <div class="keigo-forms-grid">
+            <!-- Sonkeigo (Respectful) -->
+            <div class="keigo-form-box keigo-sonkeigo-box" data-expression="${escapeHtml(son.expression)}" title="Click to inspect respectful form">
+              <div class="keigo-form-top">
+                <span class="keigo-type-badge keigo-badge-sonkeigo font-japanese font-bold">尊敬語 (Respectful)</span>
+                <span class="keigo-state-pill state-pill-${son.state || 'unseen'} font-mono">${escapeHtml(son.state || 'unseen')}</span>
+              </div>
+              <div class="keigo-expression-row">
+                <ruby class="keigo-expression-ruby font-japanese">
+                  ${escapeHtml(son.expression)}
+                  <rt class="font-japanese text-muted">${escapeHtml(son.reading || '')}</rt>
+                </ruby>
+              </div>
+              <p class="keigo-meaning-text font-sans text-secondary">${escapeHtml(son.meaning || '')}</p>
+              ${son.nuance ? `<div class="keigo-nuance-hint font-sans text-xs text-muted">${escapeHtml(son.nuance)}</div>` : ''}
+              ${son.example_sentence ? `<div class="keigo-example-text font-japanese text-xs mt-1"><span class="text-gold font-bold">例:</span> ${escapeHtml(son.example_sentence)}</div>` : ''}
+            </div>
+
+            <!-- Kenjougo (Humble) -->
+            <div class="keigo-form-box keigo-kenjougo-box" data-expression="${escapeHtml(ken.expression)}" title="Click to inspect humble form">
+              <div class="keigo-form-top">
+                <span class="keigo-type-badge keigo-badge-kenjougo font-japanese font-bold">謙譲語 (Humble)</span>
+                <span class="keigo-state-pill state-pill-${ken.state || 'unseen'} font-mono">${escapeHtml(ken.state || 'unseen')}</span>
+              </div>
+              <div class="keigo-expression-row">
+                <ruby class="keigo-expression-ruby font-japanese">
+                  ${escapeHtml(ken.expression)}
+                  <rt class="font-japanese text-muted">${escapeHtml(ken.reading || '')}</rt>
+                </ruby>
+              </div>
+              <p class="keigo-meaning-text font-sans text-secondary">${escapeHtml(ken.meaning || '')}</p>
+              ${ken.nuance ? `<div class="keigo-nuance-hint font-sans text-xs text-muted">${escapeHtml(ken.nuance)}</div>` : ''}
+              ${ken.example_sentence ? `<div class="keigo-example-text font-japanese text-xs mt-1"><span class="text-green font-bold">例:</span> ${escapeHtml(ken.example_sentence)}</div>` : ''}
+            </div>
+          </div>
+
+          ${tei ? `
+            <div class="keigo-teineigo-bar">
+              <span class="keigo-type-badge keigo-badge-teineigo font-japanese">丁寧語 (Polite):</span>
+              <span class="font-japanese text-warm font-bold">${escapeHtml(tei.expression)}</span>
+              <span class="text-xs text-muted font-sans">— ${escapeHtml(tei.meaning || '')}</span>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    // Attach click events on Keigo form boxes
+    grid.querySelectorAll('.keigo-form-box').forEach((box) => {
+      box.addEventListener('click', () => {
+        const expr = box.dataset.expression;
+        if (!expr) return;
+        const item = this.items.find((x) => x.expression === expr) || {
+          expression: expr,
+          reading: box.querySelector('rt')?.textContent?.trim() || '',
+          meaning: box.querySelector('.keigo-meaning-text')?.textContent?.trim() || '',
+          state: box.querySelector('.keigo-state-pill')?.textContent?.trim() || 'unseen',
+          categories: ['keigo', 'verb'],
+          encounters_count: 0
+        };
+        this.openDrawer(item);
+      });
+    });
+
+    this.updateShelfPagination('keigo-pagination', 'keigo', limit, total);
   }
 
   getVisibleGapWords() {
@@ -1328,21 +1933,25 @@ export class VocabInventoryComponent {
       items = breakdown[this.gapCategoryFilter] || [];
     }
 
+    const total = items.length;
     if (badge) {
-      const total = items.length;
       badge.textContent = `${total} gap${total === 1 ? '' : 's'}`;
     }
 
-    if (items.length === 0) {
+    if (total === 0) {
       grid.innerHTML = `
         <div class="shelf-empty-state text-muted py-6 font-sans">
           <span>No unseen vocabulary gaps found for category "${escapeHtml(this.gapCategoryFilter)}". Great progress!</span>
         </div>
       `;
+      this.updateShelfPagination('gaps-pagination', 'gaps', this.shelfLimits.gaps, 0);
       return;
     }
 
-    grid.innerHTML = items.slice(0, 30).map((gap) => {
+    const limit = this.shelfLimits.gaps;
+    const slice = items.slice(0, limit);
+
+    grid.innerHTML = slice.map((gap) => {
       const isMining = this.miningGaps.has(gap.expression);
       return `
         <div class="gap-shelf-card tactile-card" data-expression="${escapeHtml(gap.expression)}">
@@ -1393,6 +2002,8 @@ export class VocabInventoryComponent {
         }
       });
     });
+
+    this.updateShelfPagination('gaps-pagination', 'gaps', limit, total);
   }
 
   async handleMineGapWord(expression, reading, meaning, btnEl) {

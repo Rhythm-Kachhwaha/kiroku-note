@@ -403,6 +403,10 @@ export class ApiClient {
     });
   }
 
+  async getKeigo(params = {}) {
+    return this.request('/api/vocab-practice/keigo', { query: params });
+  }
+
   async getDailyWord(params = {}) {
     return this.request('/api/vocab/daily-word', { query: params });
   }

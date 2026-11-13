@@ -1327,9 +1327,9 @@ export class KanjiView {
           ${escapeHtml(item.character)}
         </span>
         <div class="kanji-list-readings ${this.isCoverMode ? 'kanji-reading-blur' : ''}">
-          <div class="kanji-onyomi-line text-xs font-japanese" title="On'yomi (Katakana)">${escapeHtml(onyomiStr)}</div>
-          <div class="kanji-kunyomi-line text-xs font-japanese" title="Kun'yomi (Hiragana)">${escapeHtml(kunyomiStr)}</div>
-          ${meaningsStr ? `<div class="kanji-meaning-line text-xs text-muted" title="${escapeHtml(meaningsStr)}">${escapeHtml(meaningsStr)}</div>` : ''}
+          <div class="kanji-onyomi-line font-japanese" title="On'yomi (Katakana)">${escapeHtml(onyomiStr)}</div>
+          <div class="kanji-kunyomi-line font-japanese" title="Kun'yomi (Hiragana)">${escapeHtml(kunyomiStr)}</div>
+          ${meaningsStr ? `<div class="kanji-meaning-line text-muted" title="${escapeHtml(meaningsStr)}">${escapeHtml(meaningsStr)}</div>` : ''}
         </div>
         <div class="kanji-list-compounds">
           ${compoundsHtml}
@@ -1340,7 +1340,7 @@ export class KanjiView {
             title="Add custom compound for ${escapeHtml(item.character)}"
             aria-label="Add custom compound"
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
             </svg>
           </button>

@@ -592,10 +592,10 @@
 
 .kanji-list-row {
   display: grid;
-  grid-template-columns: 44px 72px 200px 1fr;
+  grid-template-columns: 48px 84px 250px 1fr;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
+  gap: 1.25rem;
+  padding: 0.9rem 1.25rem;
   background-color: var(--surface-container-low);
   border: 1px solid var(--tactile-stroke);
   border-radius: var(--radius-md);
@@ -611,7 +611,7 @@
 
 .kanji-list-index {
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--text-muted);
   text-align: center;
@@ -622,7 +622,7 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-display), var(--font-japanese);
-  font-size: 2.75rem;
+  font-size: 3rem;
   font-weight: 700;
   color: var(--warm-paper);
   line-height: 1;
@@ -648,14 +648,14 @@
 .kanji-list-readings {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  font-size: 0.8rem;
+  gap: 0.35rem;
   min-width: 0;
 }
 
 .kanji-onyomi-line {
   color: var(--gold-eye);
   font-family: var(--font-japanese);
+  font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   overflow: hidden;
@@ -666,6 +666,7 @@
 .kanji-kunyomi-line {
   color: var(--warm-paper);
   font-family: var(--font-japanese);
+  font-size: 1.05rem;
   font-weight: 500;
   letter-spacing: 0.04em;
   overflow: hidden;
@@ -676,7 +677,7 @@
 .kanji-meaning-line {
   color: var(--text-muted);
   font-family: var(--font-sans);
-  font-size: 0.72rem;
+  font-size: 0.88rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -701,7 +702,7 @@
 .kanji-list-compounds {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
   position: relative;
 }
@@ -710,7 +711,7 @@
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 0.35rem 0.65rem;
+  padding: 0.5rem 0.85rem;
   background-color: var(--surface-container);
   border: 1px solid var(--tactile-stroke);
   border-radius: var(--radius-sm);
@@ -739,23 +740,23 @@
 
 .kanji-chip-head {
   font-family: var(--font-japanese);
-  font-size: 0.95rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--warm-paper);
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .kanji-chip-head ruby rt {
-  font-size: 0.65rem;
+  font-size: 0.82rem;
   color: var(--gold-eye);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .kanji-chip-gloss {
   font-family: var(--font-sans);
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
-  max-width: 140px;
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -765,8 +766,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border-radius: var(--radius-sm);
   border: 1px dashed var(--tactile-stroke);
