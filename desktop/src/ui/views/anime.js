@@ -192,7 +192,7 @@ export class AnimeView {
       return `
         <div class="anime-empty-state">
           <div class="anime-empty-illustration">
-            <object type="image/svg+xml" data="../../assets/dekstop/ghibli/Gibli Tribute.svg" class="anime-ghibli-svg" aria-label="Ghibli Tribute animation"></object>
+            <img src="./ui/assets/ghibli/Gibli Tribute.svg" class="anime-ghibli-svg" alt="Ghibli Tribute animation" />
           </div>
           <h2 class="anime-empty-title">Nothing to show yet</h2>
           <p class="anime-empty-desc">No watch history yet. Start watching anime, YouTube, or Netflix with the Kiroku extension to track series, mined words, and comprehension.</p>
@@ -269,8 +269,10 @@ export class AnimeView {
           <div class="poster-meta">
             <h3 class="poster-title" title="${seriesTitle}">${seriesTitle}</h3>
             <div class="poster-subtext">
-              <span>${epCount} ${epCount === 1 ? 'Episode' : 'Episodes'}</span>
-              ${eps.map(e => `<span class="poster-ep-item">${escapeHtml(e.title || '')} (${Math.round(e.known_pct || 0)}% known)</span>`).join('')}
+              <span class="poster-count-badge">${epCount} ${epCount === 1 ? 'Episode' : 'Episodes'}</span>
+              <div class="sr-only" style="display:none;">
+                ${eps.map(e => `<span>${escapeHtml(e.title || '')} (${Math.round(e.known_pct || 0)}% known)</span>`).join('')}
+              </div>
             </div>
           </div>
         </div>
