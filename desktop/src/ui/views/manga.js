@@ -1,10 +1,15 @@
 /**
  * Kiroku Note Desktop — Manga Reader View
- * Drag-and-drop manga page viewer with local MangaOCR box selection and instant Yomitan dictionary lookups.
+ * Bookshelf Library + Full-Screen Immersion Reader.
+ * Client-side PDF (pdf.js) & CBZ (jszip) rendering, automatic speech bubble detection,
+ * interactive floating popovers, and rich Migaku-style card mining with speech bubble screenshots.
  */
 
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
+
+const STORAGE_KEY_LIBRARY = 'kiroku.manga.library';
+const STORAGE_KEY_PREFS = 'kiroku.manga.prefs';
 
 export class MangaView {
   constructor(router, options = {}) {
@@ -12,21 +17,115 @@ export class MangaView {
     this.options = options;
     this.apiClient = options.apiClient || apiClient;
     this.container = null;
-    this.currentImage = null;
+
+    // View state: 'library' or 'reader'
+    this.activeMode = 'library';
+
+    // Library State
+    this.books = this.loadLibrary();
+
+    // Current Book State
+    this.currentBook = null; // { id, title, type, file, data, pageCount, currentPage, coverUrl }
+    this.currentPage = 1;
+    this.pageCount = 1;
+    this.pdfDoc = null;
+    this.cbzZip = null;
+    this.cbzImageEntries = [];
+
+    // Canvas & Stage State
+    this.currentImage = null; // Image or Canvas for the current rendered page
     this.ocrBoxSelection = null;
     this.isSelecting = false;
     this.selectionStart = null;
+    this.isAutoDetecting = false;
+    this.detectedBubbles = []; // [{ box: [x1, y1, x2, y2], score, type }]
+    this.activeCropDataUrl = null;
+
+    // Floating Popover State
+    this.popoverVisible = false;
+    this.popoverAnchor = { x: 0, y: 0 };
     this.recognizedText = '';
+    this.lastMinedWord = null;
+
+    // Keydown handler bind
+    this.boundKeyHandler = (e) => this.handleKeyDown(e);
+  }
+
+  loadLibrary() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_LIBRARY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  saveLibrary() {
+    try {
+      // Don't serialize file buffers to localStorage, only metadata & thumbnail
+      const meta = this.books.map(b => ({
+        id: b.id,
+        title: b.title,
+        type: b.type,
+        pageCount: b.pageCount,
+        currentPage: b.currentPage || 1,
+        coverUrl: b.coverUrl || '',
+        updatedAt: b.updatedAt || Date.now()
+      }));
+      localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(meta));
+    } catch (e) {
+      console.warn('[MangaView] Failed to save library to storage:', e);
+    }
   }
 
   async mount(container) {
     this.container = container;
     this.render();
-    this.setupEvents();
+    window.addEventListener('keydown', this.boundKeyHandler);
+  }
+
+  unmount() {
+    window.removeEventListener('keydown', this.boundKeyHandler);
+    this.currentImage = null;
+    this.pdfDoc = null;
+    this.cbzZip = null;
+    this.cbzImageEntries = [];
+    if (this.container) {
+      this.container.innerHTML = '';
+      this.container = null;
+    }
   }
 
   render() {
     if (!this.container) return;
+    if (this.activeMode === 'library') {
+      this.renderLibraryView();
+    } else {
+      this.renderReaderView();
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+   * Library / Bookshelf View
+   * ------------------------------------------------------------------------- */
+  renderLibraryView() {
+    const bookCards = this.books.map(b => {
+      const percent = b.pageCount > 0 ? Math.round((b.currentPage / b.pageCount) * 100) : 0;
+      return `
+        <div class="manga-book-card" data-book-id="${escapeHtml(b.id)}">
+          <div class="manga-book-cover-wrap">
+            ${b.coverUrl
+              ? `<img src="${b.coverUrl}" class="manga-book-cover-img" alt="${escapeHtml(b.title)}">`
+              : `<div class="manga-book-cover-placeholder"><span>${escapeHtml(b.title.slice(0, 2).toUpperCase())}</span></div>`}
+            <div class="manga-book-progress-badge">${percent}%</div>
+          </div>
+          <div class="manga-book-info">
+            <div class="manga-book-title" title="${escapeHtml(b.title)}">${escapeHtml(b.title)}</div>
+            <div class="manga-book-meta">Page ${b.currentPage || 1} of ${b.pageCount || '?'}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
 
     this.container.innerHTML = `
       <div class="manga-viewer-container">
@@ -44,104 +143,472 @@ export class MangaView {
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
               <span>Back to Anime</span>
             </button>
-            <label class="anime-control-btn btn-sm cursor-pointer" for="manga-file-input">
+            <label class="anime-control-btn btn-sm cursor-pointer" for="manga-library-file-input">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-              <span>Open Page</span>
+              <span>Add Manga (PDF, CBZ, Image)</span>
             </label>
-            <input type="file" id="manga-file-input" accept="image/*,.cbz" style="display: none;" />
+            <input type="file" id="manga-library-file-input" accept=".pdf,.cbz,.zip,image/*" style="display: none;" />
           </div>
         </div>
 
-        <div class="manga-viewer-layout">
-          <div class="manga-stage-card" id="manga-stage-card">
-            <div class="manga-canvas-wrapper" id="manga-canvas-wrapper">
-              <canvas class="manga-canvas" id="manga-canvas"></canvas>
-              <div class="manga-selection-box" id="manga-selection-box" style="display: none;"></div>
-            </div>
+        <div class="manga-library-stage">
+          <div class="manga-library-dropzone" id="manga-library-dropzone">
+            <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor" class="manga-dropzone-icon">
+              <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+            </svg>
+            <div class="text-sm font-bold mt-2">Drag and drop manga PDF, CBZ or image volume here</div>
+            <div class="text-xs text-muted mt-1">Or click 'Add Manga' to choose from disk</div>
           </div>
 
-          <div class="manga-side-panel">
-            <div class="text-xs font-mono text-gold">OCR Recognition</div>
-            <div class="manga-ocr-result-card" id="manga-ocr-result-card">
-              <div class="manga-ocr-text" id="manga-ocr-text">
-                <span class="manga-ocr-empty">Drag a rectangle over speech bubbles to recognize Japanese text</span>
-              </div>
+          <div class="manga-bookshelf-section mt-4">
+            <div class="manga-section-title">
+              <span>Your Bookshelf</span>
+              <span class="manga-book-count">(${this.books.length})</span>
             </div>
-
-            <div class="text-xs font-mono text-gold mt-2">Dictionary Inspection</div>
-            <div class="manga-inspector-lookup" id="manga-inspector-lookup">
-              <span class="text-xs text-muted">Select text to look up definitions</span>
+            <div class="manga-bookshelf-grid">
+              ${bookCards || `<div class="manga-empty-bookshelf">No manga in your library yet. Open a PDF or CBZ file to start reading.</div>`}
             </div>
           </div>
         </div>
       </div>
     `;
+
+    this.setupLibraryEvents();
   }
 
-  setupEvents() {
-    if (!this.container) return;
-
+  setupLibraryEvents() {
     const btnBackAnime = this.container.querySelector('#btn-manga-back-anime');
     btnBackAnime?.addEventListener('click', () => {
       this.router?.navigateToTab?.('anime');
     });
 
-    const fileInput = this.container.querySelector('#manga-file-input');
+    const fileInput = this.container.querySelector('#manga-library-file-input');
     fileInput?.addEventListener('change', (e) => {
       const file = e.target.files?.[0];
-      if (file) {
-        this.loadImageFile(file);
+      if (file) this.openFile(file);
+    });
+
+    const dropzone = this.container.querySelector('#manga-library-dropzone');
+    dropzone?.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('is-dragover');
+    });
+    dropzone?.addEventListener('dragleave', () => {
+      dropzone.classList.remove('is-dragover');
+    });
+    dropzone?.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('is-dragover');
+      const file = e.dataTransfer?.files?.[0];
+      if (file) this.openFile(file);
+    });
+
+    const grid = this.container.querySelector('.manga-bookshelf-grid');
+    grid?.addEventListener('click', (e) => {
+      const card = e.target.closest('.manga-book-card');
+      if (card && card.dataset.bookId) {
+        const book = this.books.find(b => b.id === card.dataset.bookId);
+        if (book) {
+          if (book.file) {
+            this.currentBook = book;
+            this.activeMode = 'reader';
+            this.render();
+          } else {
+            // Need user to re-select file if browser dropped reference
+            fileInput?.click();
+          }
+        }
+      }
+    });
+  }
+
+  /* -------------------------------------------------------------------------
+   * Full-Screen Immersion Reader View
+   * ------------------------------------------------------------------------- */
+  renderReaderView() {
+    const bookTitle = this.currentBook?.title || 'Manga Reader';
+    this.container.innerHTML = `
+      <div class="manga-immersion-reader" id="manga-immersion-reader">
+        <!-- Floating Reader Top Bar -->
+        <header class="manga-reader-topbar">
+          <div class="manga-topbar-left">
+            <button type="button" class="anime-control-btn btn-sm" id="btn-reader-back-library" title="Back to Bookshelf">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+              <span>Bookshelf</span>
+            </button>
+            <div class="manga-reader-book-title" title="${escapeHtml(bookTitle)}">${escapeHtml(bookTitle)}</div>
+          </div>
+
+          <div class="manga-topbar-center">
+            <button type="button" class="anime-control-btn btn-sm" id="btn-detect-bubbles" title="Detect Speech Bubbles via AI">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+              <span id="label-detect-bubbles">Detect Bubbles (AI)</span>
+            </button>
+            <button type="button" class="anime-control-btn btn-sm" id="btn-clear-bubbles" title="Clear Bubble Overlays">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              <span>Clear</span>
+            </button>
+          </div>
+
+          <div class="manga-topbar-right">
+            <span class="manga-reader-hint text-xs text-muted">A / Left = Next | D / Right = Prev</span>
+          </div>
+        </header>
+
+        <!-- Canvas Stage -->
+        <div class="manga-stage-card" id="manga-stage-card">
+          <div class="manga-canvas-wrapper" id="manga-canvas-wrapper">
+            <canvas class="manga-canvas" id="manga-canvas"></canvas>
+            <div class="manga-bubble-overlay-layer" id="manga-bubble-overlay-layer"></div>
+            <div class="manga-selection-box" id="manga-selection-box" style="display: none;"></div>
+          </div>
+        </div>
+
+        <!-- Floating Yomitan Popover (Migaku-style) -->
+        <div class="manga-floating-popover" id="manga-floating-popover" style="display: none;">
+          <div class="manga-popover-header">
+            <span class="manga-popover-badge font-mono text-gold">OCR Recognition</span>
+            <button type="button" class="manga-popover-close-btn" id="btn-close-popover" aria-label="Close Popover">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+          </div>
+          <div class="manga-popover-sentence" id="manga-popover-sentence">
+            <span class="text-xs text-muted">Running OCR...</span>
+          </div>
+          <div class="manga-popover-divider"></div>
+          <div class="manga-popover-lookup" id="manga-popover-lookup">
+            <span class="text-xs text-muted">Looking up dictionary...</span>
+          </div>
+        </div>
+
+        <!-- Floating Reader Bottom Navigation Bar -->
+        <footer class="manga-reader-bottombar">
+          <button type="button" class="anime-control-btn btn-sm" id="btn-reader-prev" title="Previous Page (D / ArrowRight)">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+            <span>Prev</span>
+          </button>
+
+          <div class="manga-page-stepper">
+            <input type="number" id="manga-page-input" class="manga-page-input" min="1" max="${this.pageCount}" value="${this.currentPage}">
+            <span class="text-muted text-xs font-mono">/ ${this.pageCount}</span>
+          </div>
+
+          <button type="button" class="anime-control-btn btn-sm" id="btn-reader-next" title="Next Page (A / ArrowLeft)">
+            <span>Next</span>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+          </button>
+        </footer>
+      </div>
+    `;
+
+    this.setupReaderEvents();
+    this.renderCurrentPage();
+  }
+
+  setupReaderEvents() {
+    const btnBackLib = this.container.querySelector('#btn-reader-back-library');
+    btnBackLib?.addEventListener('click', () => {
+      this.closePopover();
+      this.activeMode = 'library';
+      this.render();
+    });
+
+    const btnNext = this.container.querySelector('#btn-reader-next');
+    btnNext?.addEventListener('click', () => this.nextPage());
+
+    const btnPrev = this.container.querySelector('#btn-reader-prev');
+    btnPrev?.addEventListener('click', () => this.prevPage());
+
+    const pageInput = this.container.querySelector('#manga-page-input');
+    pageInput?.addEventListener('change', (e) => {
+      const pageNum = parseInt(e.target.value, 10);
+      if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= this.pageCount) {
+        this.goToPage(pageNum);
       }
     });
 
+    const btnDetect = this.container.querySelector('#btn-detect-bubbles');
+    btnDetect?.addEventListener('click', () => this.detectBubblesOnCurrentPage());
+
+    const btnClear = this.container.querySelector('#btn-clear-bubbles');
+    btnClear?.addEventListener('click', () => this.clearBubbleOverlays());
+
+    const btnClosePop = this.container.querySelector('#btn-close-popover');
+    btnClosePop?.addEventListener('click', () => this.closePopover());
+
+    // Canvas Selection events
     const wrapper = this.container.querySelector('#manga-canvas-wrapper');
     wrapper?.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     wrapper?.addEventListener('mousemove', (e) => this.handleMouseMove(e));
     wrapper?.addEventListener('mouseup', (e) => this.handleMouseUp(e));
 
-    // Drag and drop image files directly onto stage
-    wrapper?.addEventListener('dragover', (e) => {
-      e.preventDefault();
-    });
+    // Drag-and-drop on stage
+    wrapper?.addEventListener('dragover', (e) => e.preventDefault());
     wrapper?.addEventListener('drop', (e) => {
       e.preventDefault();
       const file = e.dataTransfer?.files?.[0];
-      if (file) {
-        this.loadImageFile(file);
-      }
+      if (file) this.openFile(file);
     });
 
-    const lookupPanel = this.container.querySelector('#manga-inspector-lookup');
-    lookupPanel?.addEventListener('click', (e) => {
+    // Mining button delegate on popover
+    const popoverLookup = this.container.querySelector('#manga-popover-lookup');
+    popoverLookup?.addEventListener('click', (e) => {
       const btn = e.target.closest('.btn-manga-mine-word');
       if (btn && btn.dataset.word) {
-        this.mineWord(btn.dataset.word, btn);
+        this.mineWord(btn.dataset.word, btn.dataset.reading, btn.dataset.meaning, btn);
       }
     });
   }
 
-  loadImageFile(file) {
+  /* -------------------------------------------------------------------------
+   * File Loading (PDF, CBZ, Image)
+   * ------------------------------------------------------------------------- */
+  async openFile(file) {
+    if (!file) return;
+
+    const bookId = 'book_' + Date.now();
+    const title = file.name.replace(/\.[^/.]+$/, '');
+    const extension = file.name.split('.').pop()?.toLowerCase();
+
+    let type = 'image';
+    if (extension === 'pdf') type = 'pdf';
+    else if (extension === 'cbz' || extension === 'zip') type = 'cbz';
+
+    const newBook = {
+      id: bookId,
+      title,
+      type,
+      file,
+      pageCount: 1,
+      currentPage: 1,
+      coverUrl: '',
+      updatedAt: Date.now()
+    };
+
+    if (type === 'pdf') {
+      await this.initPdfDocument(newBook, file);
+    } else if (type === 'cbz') {
+      await this.initCbzDocument(newBook, file);
+    } else {
+      newBook.pageCount = 1;
+      newBook.currentPage = 1;
+    }
+
+    // Add or update book in library
+    const existingIdx = this.books.findIndex(b => b.title === title);
+    if (existingIdx >= 0) {
+      newBook.currentPage = this.books[existingIdx].currentPage || 1;
+      this.books[existingIdx] = newBook;
+    } else {
+      this.books.unshift(newBook);
+    }
+
+    this.currentBook = newBook;
+    this.currentPage = newBook.currentPage || 1;
+    this.pageCount = newBook.pageCount || 1;
+
+    this.activeMode = 'reader';
+    this.render();
+  }
+
+  async initPdfDocument(book, file) {
+    if (typeof window.pdfjsLib === 'undefined') {
+      console.warn('[MangaView] pdf.js not loaded on window.');
+      return;
+    }
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
+      this.pdfDoc = await loadingTask.promise;
+      book.pageCount = this.pdfDoc.numPages;
+    } catch (err) {
+      console.error('[MangaView] Failed to load PDF:', err);
+    }
+  }
+
+  async initCbzDocument(book, file) {
+    if (typeof window.JSZip === 'undefined') {
+      console.warn('[MangaView] JSZip not loaded on window.');
+      return;
+    }
+    try {
+      const zip = new window.JSZip();
+      this.cbzZip = await zip.loadAsync(file);
+
+      // Collect image files inside ZIP
+      const validExts = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif'];
+      const imageEntries = [];
+
+      this.cbzZip.forEach((relativePath, zipEntry) => {
+        if (!zipEntry.dir) {
+          const lower = relativePath.toLowerCase();
+          if (validExts.some(ext => lower.endsWith(ext))) {
+            imageEntries.push(zipEntry);
+          }
+        }
+      });
+
+      // Natural sort by filename
+      imageEntries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+      this.cbzImageEntries = imageEntries;
+      book.pageCount = Math.max(1, imageEntries.length);
+    } catch (err) {
+      console.error('[MangaView] Failed to load CBZ:', err);
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+   * Page Navigation & Rendering
+   * ------------------------------------------------------------------------- */
+  nextPage() {
+    if (this.currentPage < this.pageCount) {
+      this.goToPage(this.currentPage + 1);
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage > 1) {
+      this.goToPage(this.currentPage - 1);
+    }
+  }
+
+  goToPage(pageNum) {
+    this.currentPage = Math.max(1, Math.min(this.pageCount, pageNum));
+    if (this.currentBook) {
+      this.currentBook.currentPage = this.currentPage;
+      this.saveLibrary();
+    }
+    this.clearBubbleOverlays();
+    this.closePopover();
+
+    const pageInput = this.container?.querySelector('#manga-page-input');
+    if (pageInput) pageInput.value = this.currentPage;
+
+    this.renderCurrentPage();
+  }
+
+  async renderCurrentPage() {
+    const canvas = this.container?.querySelector('#manga-canvas');
+    if (!canvas) return;
+
+    if (this.currentBook?.type === 'pdf' && this.pdfDoc) {
+      await this.renderPdfPage(this.currentPage, canvas);
+    } else if (this.currentBook?.type === 'cbz' && this.cbzImageEntries.length > 0) {
+      await this.renderCbzPage(this.currentPage, canvas);
+    } else if (this.currentBook?.file) {
+      await this.renderImageFile(this.currentBook.file, canvas);
+    }
+  }
+
+  async renderPdfPage(pageNumber, canvas) {
+    try {
+      const page = await this.pdfDoc.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 2.0 }); // High-DPI rasterization
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const renderContext = {
+        canvasContext: ctx,
+        viewport: viewport
+      };
+      await page.render(renderContext).promise;
+      this.currentImage = canvas;
+
+      // Cache cover thumbnail from page 1 if not set
+      if (pageNumber === 1 && this.currentBook && !this.currentBook.coverUrl) {
+        this.cacheCoverThumbnail(canvas);
+      }
+    } catch (err) {
+      console.error('[MangaView] Failed to render PDF page:', err);
+    }
+  }
+
+  async renderCbzPage(pageNumber, canvas) {
+    const entry = this.cbzImageEntries[pageNumber - 1];
+    if (!entry) return;
+
+    try {
+      const blob = await entry.async('blob');
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        this.currentImage = img;
+        URL.revokeObjectURL(url);
+
+        if (pageNumber === 1 && this.currentBook && !this.currentBook.coverUrl) {
+          this.cacheCoverThumbnail(canvas);
+        }
+      };
+      img.src = url;
+    } catch (err) {
+      console.error('[MangaView] Failed to render CBZ page:', err);
+    }
+  }
+
+  async renderImageFile(file, canvas) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
         this.currentImage = img;
-        this.drawCanvasImage(img);
+
+        if (this.currentBook && !this.currentBook.coverUrl) {
+          this.cacheCoverThumbnail(canvas);
+        }
       };
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   }
 
-  drawCanvasImage(img) {
-    const canvas = this.container?.querySelector('#manga-canvas');
-    if (!canvas) return;
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
+  cacheCoverThumbnail(canvas) {
+    try {
+      const thumbCanvas = document.createElement('canvas');
+      thumbCanvas.width = 120;
+      thumbCanvas.height = Math.round((120 / canvas.width) * canvas.height);
+      const tctx = thumbCanvas.getContext('2d');
+      tctx.drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+      const dataUrl = thumbCanvas.toDataURL('image/jpeg', 0.8);
+      if (this.currentBook) {
+        this.currentBook.coverUrl = dataUrl;
+        this.saveLibrary();
+      }
+    } catch (e) {
+      console.debug('[MangaView] Cover cache error:', e);
+    }
   }
 
+  handleKeyDown(e) {
+    if (this.activeMode !== 'reader') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    // Japanese manga reading order: Left / A turns next page, Right / D turns prev page
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+      this.nextPage();
+    } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+      this.prevPage();
+    } else if (e.key === 'Escape') {
+      this.closePopover();
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+   * Marquee Manual Box Selection
+   * ------------------------------------------------------------------------- */
   handleMouseDown(e) {
     if (!this.currentImage) return;
     const canvas = this.container?.querySelector('#manga-canvas');
@@ -199,11 +666,18 @@ export class MangaView {
     const endY = Math.max(this.selectionStart.y, curY) * scaleY;
 
     if (endX - startX > 10 && endY - startY > 10) {
-      await this.performOcrBoxSelection(startX, startY, endX, endY);
+      const anchor = {
+        x: (Math.min(this.selectionStart.x, curX) + rect.left),
+        y: (Math.max(this.selectionStart.y, curY) + rect.top + 8)
+      };
+      await this.performOcrBoxSelection(startX, startY, endX, endY, anchor);
     }
   }
 
-  async performOcrBoxSelection(startX, startY, endX, endY) {
+  /* -------------------------------------------------------------------------
+   * OCR Box Crop & Recognition
+   * ------------------------------------------------------------------------- */
+  async performOcrBoxSelection(startX, startY, endX, endY, anchor) {
     this.ocrBoxSelection = { startX, startY, endX, endY };
     const canvas = this.container?.querySelector('#manga-canvas');
     if (!canvas) return;
@@ -217,54 +691,172 @@ export class MangaView {
     const cropCtx = cropCanvas.getContext('2d');
     cropCtx.drawImage(canvas, startX, startY, width, height, 0, 0, width, height);
 
-    const base64Data = cropCanvas.toDataURL('image/png').split(',')[1];
-    const textEl = this.container?.querySelector('#manga-ocr-text');
-    if (textEl) {
-      textEl.innerHTML = `<span class="text-xs text-muted">Running MangaOCR...</span>`;
+    this.activeCropDataUrl = cropCanvas.toDataURL('image/png');
+    const base64Data = this.activeCropDataUrl.split(',')[1];
+
+    this.openPopover(anchor);
+
+    const sentenceEl = this.container?.querySelector('#manga-popover-sentence');
+    if (sentenceEl) {
+      sentenceEl.innerHTML = `<span class="text-xs text-muted">Running MangaOCR...</span>`;
     }
 
     try {
       const res = await this.apiClient.request('/api/ocr/recognize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_b64: base64Data })
+        body: JSON.stringify({ image: base64Data })
       });
 
       if (res && res.text) {
         this.recognizedText = res.text.trim();
-        if (textEl) {
-          textEl.innerHTML = escapeHtml(this.recognizedText);
+        if (sentenceEl) {
+          sentenceEl.innerHTML = `<div class="manga-sentence-text">${escapeHtml(this.recognizedText)}</div>`;
         }
         await this.lookupDictionary(this.recognizedText);
       } else {
-        if (textEl) textEl.innerHTML = `<span class="text-xs text-muted">No text detected</span>`;
+        if (sentenceEl) sentenceEl.innerHTML = `<span class="text-xs text-muted">No text detected</span>`;
       }
     } catch (err) {
       console.warn('[MangaView] OCR recognition failed:', err);
-      if (textEl) textEl.innerHTML = `<span class="text-xs text-danger">OCR Error</span>`;
+      if (sentenceEl) sentenceEl.innerHTML = `<span class="text-xs text-danger">OCR Error</span>`;
     }
   }
 
+  /* -------------------------------------------------------------------------
+   * Automatic Speech Bubble Detection (AI)
+   * ------------------------------------------------------------------------- */
+  async detectBubblesOnCurrentPage() {
+    const canvas = this.container?.querySelector('#manga-canvas');
+    const btn = this.container?.querySelector('#btn-detect-bubbles');
+    const label = this.container?.querySelector('#label-detect-bubbles');
+    if (!canvas || this.isAutoDetecting) return;
+
+    this.isAutoDetecting = true;
+    if (label) label.textContent = 'Detecting...';
+    if (btn) btn.disabled = true;
+
+    try {
+      const fullPageB64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+      const res = await this.apiClient.request('/api/ocr/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: fullPageB64, conf_threshold: 0.35 })
+      });
+
+      if (res && Array.isArray(res.boxes)) {
+        this.detectedBubbles = res.boxes;
+        this.renderBubbleOverlays();
+      }
+    } catch (err) {
+      console.warn('[MangaView] Bubble detection failed:', err);
+    } finally {
+      this.isAutoDetecting = false;
+      if (label) label.textContent = 'Detect Bubbles (AI)';
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  renderBubbleOverlays() {
+    const overlayLayer = this.container?.querySelector('#manga-bubble-overlay-layer');
+    const canvas = this.container?.querySelector('#manga-canvas');
+    if (!overlayLayer || !canvas) return;
+
+    overlayLayer.innerHTML = '';
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width / canvas.width;
+    const scaleY = rect.height / canvas.height;
+
+    this.detectedBubbles.forEach((bubble, idx) => {
+      const [x1, y1, x2, y2] = bubble.box;
+      const left = x1 * scaleX;
+      const top = y1 * scaleY;
+      const width = (x2 - x1) * scaleX;
+      const height = (y2 - y1) * scaleY;
+
+      const bubbleEl = document.createElement('div');
+      bubbleEl.className = 'manga-bubble-hitbox';
+      bubbleEl.style.left = `${left}px`;
+      bubbleEl.style.top = `${top}px`;
+      bubbleEl.style.width = `${width}px`;
+      bubbleEl.style.height = `${height}px`;
+      bubbleEl.title = `Bubble ${idx + 1} (${Math.round(bubble.score * 100)}%) — Click to OCR`;
+
+      bubbleEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const anchor = {
+          x: left + rect.left,
+          y: top + height + rect.top + 8
+        };
+        this.performOcrBoxSelection(x1, y1, x2, y2, anchor);
+      });
+
+      overlayLayer.appendChild(bubbleEl);
+    });
+  }
+
+  clearBubbleOverlays() {
+    this.detectedBubbles = [];
+    const overlayLayer = this.container?.querySelector('#manga-bubble-overlay-layer');
+    if (overlayLayer) overlayLayer.innerHTML = '';
+  }
+
+  /* -------------------------------------------------------------------------
+   * Floating Popover & Yomitan Dictionary Lookup
+   * ------------------------------------------------------------------------- */
+  openPopover(anchor) {
+    const popover = this.container?.querySelector('#manga-floating-popover');
+    if (!popover) return;
+
+    this.popoverVisible = true;
+    popover.style.display = 'block';
+
+    // Clamp coordinates to viewport
+    const popWidth = 320;
+    const popHeight = 240;
+    let posX = Math.max(16, Math.min(window.innerWidth - popWidth - 16, anchor.x));
+    let posY = Math.max(50, Math.min(window.innerHeight - popHeight - 60, anchor.y));
+
+    popover.style.left = `${posX}px`;
+    popover.style.top = `${posY}px`;
+  }
+
+  closePopover() {
+    this.popoverVisible = false;
+    const popover = this.container?.querySelector('#manga-floating-popover');
+    if (popover) popover.style.display = 'none';
+  }
+
   async lookupDictionary(text) {
-    const lookupEl = this.container?.querySelector('#manga-inspector-lookup');
+    const lookupEl = this.container?.querySelector('#manga-popover-lookup');
     if (!lookupEl || !text) return;
 
     try {
       const res = await this.apiClient.request(`/api/dictionary/lookup?term=${encodeURIComponent(text)}`);
       if (res && Array.isArray(res.entries) && res.entries.length > 0) {
-        lookupEl.innerHTML = res.entries.slice(0, 3).map((entry) => `
-          <div class="manga-dict-entry mb-2">
-            <div class="flex items-center justify-between">
-              <span class="font-bold text-accent">${escapeHtml(entry.expression || entry.kanji || text)}</span>
-              <button type="button" class="anime-control-btn btn-sm btn-manga-mine-word" data-word="${escapeHtml(entry.expression || entry.kanji || text)}">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                <span>Mine</span>
-              </button>
+        lookupEl.innerHTML = res.entries.slice(0, 3).map((entry) => {
+          const word = entry.expression || entry.kanji || text;
+          const reading = entry.reading || '';
+          const glossary = (entry.glossary || []).join('; ');
+
+          return `
+            <div class="manga-dict-entry mb-2">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-accent">${escapeHtml(word)}</span>
+                <button type="button" 
+                  class="anime-control-btn btn-sm btn-manga-mine-word" 
+                  data-word="${escapeHtml(word)}" 
+                  data-reading="${escapeHtml(reading)}" 
+                  data-meaning="${escapeHtml(glossary)}">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                  <span>Mine</span>
+                </button>
+              </div>
+              <div class="text-xs text-muted">${escapeHtml(reading)}</div>
+              <div class="text-xs">${escapeHtml(glossary)}</div>
             </div>
-            <div class="text-xs text-muted">${escapeHtml(entry.reading || '')}</div>
-            <div class="text-xs">${escapeHtml((entry.glossary || []).join('; '))}</div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       } else {
         lookupEl.innerHTML = `<span class="text-xs text-muted">No dictionary entries found for "${escapeHtml(text)}"</span>`;
       }
@@ -273,34 +865,37 @@ export class MangaView {
     }
   }
 
-  async mineWord(word, btn = null) {
+  /* -------------------------------------------------------------------------
+   * Rich Card Mining (Migaku-Style with Cropped Bubble Image)
+   * ------------------------------------------------------------------------- */
+  async mineWord(word, reading = '', meaning = '', btn = null) {
     if (!word) return;
     if (btn) {
       btn.disabled = true;
       btn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg><span>Mined</span>`;
     }
+
     try {
       await this.apiClient.request('/api/cards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           expression: word,
-          reading: '',
-          meaning: '',
-          source: 'manga'
+          reading: reading,
+          meaning: meaning,
+          sentence: this.recognizedText,
+          image_url: this.activeCropDataUrl || '',
+          source: 'manga',
+          source_title: this.currentBook?.title || 'Manga'
         })
       });
+      this.lastMinedWord = word;
     } catch (err) {
       console.warn('[MangaView] Mine word failed:', err);
-    }
-  }
-
-  unmount() {
-    this.currentImage = null;
-    this.ocrBoxSelection = null;
-    if (this.container) {
-      this.container.innerHTML = '';
-      this.container = null;
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Retry</span>`;
+      }
     }
   }
 }

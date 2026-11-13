@@ -443,6 +443,7 @@ class OcrStatusResponse(BaseModel):
     engine: str = "manga-ocr"
     device: str = "cpu"
     model_loaded: bool = False
+    detector_available: bool = False
     error: Optional[str] = None
 
 
@@ -462,6 +463,28 @@ class OcrRecognizeResponse(BaseModel):
     text: str = ""
     engine: str = "manga-ocr"
     device: str = "cpu"
+    duration_ms: float = 0.0
+    error: Optional[str] = None
+
+
+class OcrDetectRequest(BaseModel):
+    image: str = Field(max_length=20_000_000, description="Base64 encoded full page image")
+    conf_threshold: float = Field(0.35, ge=0.05, le=0.95, description="Confidence threshold")
+
+    @field_validator("image")
+    @classmethod
+    def image_must_not_be_blank(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Image data must not be empty.")
+        return normalized
+
+
+class OcrDetectResponse(BaseModel):
+    boxes: list[dict[str, Any]] = Field(default_factory=list)
+    count: int = 0
+    width: int = 0
+    height: int = 0
     duration_ms: float = 0.0
     error: Optional[str] = None
 

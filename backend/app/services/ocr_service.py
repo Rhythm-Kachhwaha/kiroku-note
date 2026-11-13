@@ -1,12 +1,12 @@
 """The sole boundary for the standalone OCR HTTP daemon."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import logging
 import os
 import socket
-from typing import Any
+from typing import Any, List
 import urllib.error
 import urllib.request
 
@@ -42,6 +42,7 @@ class OcrStatus:
     engine: str = "manga-ocr"
     device: str = "cpu"
     model_loaded: bool = False
+    detector_available: bool = False
     error: str | None = None
 
 
@@ -50,6 +51,16 @@ class OcrResult:
     text: str
     engine: str = "manga-ocr"
     device: str = "cpu"
+    duration_ms: float = 0.0
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class OcrDetectResult:
+    boxes: list[dict[str, Any]] = field(default_factory=list)
+    count: int = 0
+    width: int = 0
+    height: int = 0
     duration_ms: float = 0.0
     error: str | None = None
 
@@ -116,6 +127,7 @@ class OcrService:
                     engine=str(payload.get("engine", "manga-ocr")),
                     device=str(payload.get("device", "cpu")),
                     model_loaded=bool(payload.get("model_loaded", False)),
+                    detector_available=bool(payload.get("detector_available", False)),
                     error=payload.get("error"),
                 )
         except (urllib.error.URLError, TimeoutError, socket.timeout, ConnectionRefusedError, OSError) as exc:
@@ -131,16 +143,56 @@ class OcrService:
                 error=f"OCR daemon returned unparseable health response: {exc}",
             )
 
+    def detect_bubbles(self, image_bytes: bytes, conf_threshold: float = 0.35) -> OcrDetectResult:
+        """Send raw full-page image bytes to OCR daemon for speech bubble detection."""
+        if not image_bytes:
+            raise ValueError("Image bytes must not be empty.")
+
+        pm = self._get_process_manager()
+        if not self.is_available() and pm.is_installed() and not pm.is_in_cooldown():
+            pm.start(wait_for_health=True, timeout_seconds=5.0)
+
+        request = urllib.request.Request(
+            f"{self._endpoint}/detect",
+            data=image_bytes,
+            headers={"Content-Type": "application/octet-stream"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as error:
+            try:
+                err_body = error.read().decode("utf-8")
+                err_json = json.loads(err_body)
+                err_msg = err_json.get("error") or err_json.get("detail") or f"HTTP {error.code}"
+            except Exception:
+                err_msg = f"HTTP {error.code}"
+            raise OcrResponseError(f"OCR daemon error: {error.code} - {err_msg}") from error
+        except (TimeoutError, socket.timeout) as error:
+            raise OcrTimeoutError("Bubble detection request timed out.") from error
+        except (urllib.error.URLError, ConnectionRefusedError, OSError) as error:
+            raise OcrUnavailableError("OCR service is unavailable.") from error
+        except (json.JSONDecodeError, UnicodeDecodeError) as error:
+            raise OcrResponseError("OCR daemon returned an invalid response.") from error
+
+        if not isinstance(payload, dict):
+            raise OcrResponseError("OCR daemon returned an invalid response.")
+
+        return OcrDetectResult(
+            boxes=list(payload.get("boxes", [])),
+            count=int(payload.get("count", 0)),
+            width=int(payload.get("width", 0)),
+            height=int(payload.get("height", 0)),
+            duration_ms=float(payload.get("duration_ms", 0.0)),
+            error=None,
+        )
+
     def recognize(self, image_bytes: bytes) -> OcrResult:
         """
         Send raw image bytes to the OCR daemon for recognition.
         If the daemon is not running but installed, triggers a single bounded startup attempt.
-
-        Raises:
-            ValueError: If image_bytes is empty.
-            OcrUnavailableError: If OCR daemon is down / unreachable.
-            OcrTimeoutError: If OCR request times out.
-            OcrResponseError: If OCR daemon returns an error or malformed payload.
         """
         if not image_bytes:
             raise ValueError("Image bytes must not be empty.")

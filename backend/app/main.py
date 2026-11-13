@@ -47,6 +47,8 @@ from app.schemas import (
     LLMStatusResponse,
     LLMTestRequest,
     LLMTestResponse,
+    OcrDetectRequest,
+    OcrDetectResponse,
     OcrRecognizeRequest,
     OcrRecognizeResponse,
     OcrStatusResponse,
@@ -644,6 +646,7 @@ def get_ocr_status() -> OcrStatusResponse:
         engine=status_obj.engine,
         device=status_obj.device,
         model_loaded=status_obj.model_loaded,
+        detector_available=status_obj.detector_available,
         error=status_obj.error,
     )
 
@@ -665,6 +668,7 @@ def start_ocr_engine() -> OcrStatusResponse:
         engine=status_obj.engine,
         device=status_obj.device,
         model_loaded=status_obj.model_loaded,
+        detector_available=status_obj.detector_available,
         error=status_obj.error,
     )
 
@@ -737,6 +741,61 @@ def recognize_image(request: OcrRecognizeRequest) -> OcrRecognizeResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"OCR recognition error: {error}",
+        ) from error
+
+
+@app.post("/api/ocr/detect", response_model=OcrDetectResponse)
+def detect_bubbles(request: OcrDetectRequest) -> OcrDetectResponse:
+    raw_image = request.image.strip()
+    if "," in raw_image and raw_image.startswith("data:"):
+        _, b64_part = raw_image.split(",", 1)
+    else:
+        b64_part = raw_image
+
+    try:
+        image_bytes = base64.b64decode(b64_part, validate=True)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid base64 image data: {exc}",
+        ) from exc
+
+    if not image_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Decoded image data is empty.",
+        )
+
+    service = OcrService()
+    try:
+        result = service.detect_bubbles(image_bytes, conf_threshold=request.conf_threshold)
+        return OcrDetectResponse(
+            boxes=result.boxes,
+            count=result.count,
+            width=result.width,
+            height=result.height,
+            duration_ms=result.duration_ms,
+            error=result.error,
+        )
+    except OcrUnavailableError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
+    except OcrTimeoutError as error:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=str(error),
+        ) from error
+    except OcrResponseError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(error),
+        ) from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Bubble detection error: {error}",
         ) from error
 
 
