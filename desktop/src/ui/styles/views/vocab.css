@@ -1666,7 +1666,37 @@
 .inv-filter-select {
   font-family: var(--font-sans);
   font-size: 0.8rem;
-  padding: 0.25rem 0.5rem;
+  font-weight: 500;
+  padding: 0.35rem 1.8rem 0.35rem 0.75rem;
+  background-color: var(--surface-container-lowest);
+  color: var(--architectural-cream);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 16px;
+  transition: transform var(--duration-fast, 180ms) ease, box-shadow var(--duration-fast, 180ms) ease;
+}
+
+.inv-filter-select:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.inv-filter-select:focus {
+  border-color: var(--rust-signal);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.inv-filter-select option {
+  background-color: var(--surface-container-lowest);
+  color: var(--architectural-cream);
 }
 
 .inv-bulk-bar {

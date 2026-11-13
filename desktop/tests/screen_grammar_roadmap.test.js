@@ -125,3 +125,4 @@ test('Roadmap: Zero emojis across implementation files', () => {
   assert.ok(!emojiRegex.test(jsContent), 'Found emoji in grammar.js');
   assert.ok(!emojiRegex.test(cssContent), 'Found emoji in grammar.css');
 });
+

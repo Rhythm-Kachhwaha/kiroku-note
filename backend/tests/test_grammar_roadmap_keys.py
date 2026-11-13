@@ -33,3 +33,4 @@ def test_tracker_accepts_valid_canonical_key(tmp_path):
     assert result["pattern_key"] == "だ"
     assert result["status"] == "known"
     assert result["level"] == "N5"
+
