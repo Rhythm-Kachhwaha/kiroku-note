@@ -21,9 +21,16 @@ function openDB() {
   });
 }
 
-export async function storeBookFile(bookId, file) {
+export async function storeBookFile(bookId, fileOrBuffer) {
   try {
-    const buffer = await file.arrayBuffer();
+    let buffer;
+    if (fileOrBuffer instanceof ArrayBuffer) {
+      buffer = fileOrBuffer;
+    } else if (fileOrBuffer && typeof fileOrBuffer.arrayBuffer === 'function') {
+      buffer = await fileOrBuffer.arrayBuffer();
+    } else {
+      buffer = fileOrBuffer;
+    }
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');

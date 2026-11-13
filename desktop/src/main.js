@@ -376,7 +376,9 @@ function createMainWindow() {
   // Security: Deny window.open and restrict navigation to local origins
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
-    if (!navigationUrl.startsWith('file:') && !navigationUrl.startsWith(`http://${processManager.host}:`)) {
+    const isAppIndex = navigationUrl.startsWith('file:') && navigationUrl.includes('index.html');
+    const isBackendHost = navigationUrl.startsWith(`http://${processManager.host}:`);
+    if (!isAppIndex && !isBackendHost) {
       event.preventDefault();
     }
   });

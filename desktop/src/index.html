@@ -200,6 +200,10 @@
       monitorAppReadiness();
     }
 
+    // Global drop guard: prevent Chromium from navigating away when files are dragged into window
+    window.addEventListener('dragover', (e) => e.preventDefault(), false);
+    window.addEventListener('drop', (e) => e.preventDefault(), false);
+
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', bootstrap);
     } else {

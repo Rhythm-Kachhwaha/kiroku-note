@@ -17,6 +17,9 @@ test('manga_viewer: manga.js supports library, reader, bubble detection and rich
   assert.ok(content.includes('manga-bubble-overlay-layer'), 'must render bubble overlay layer');
   assert.ok(content.includes('openPopover'), 'must support floating popover');
   assert.ok(content.includes('image_url: this.activeCropDataUrl'), 'must send cropped image screenshot with mined card');
+  assert.ok(content.includes('pacman3351'), 'must include animated pacman loading SVG');
+  assert.ok(content.includes('showLoading'), 'must support in-view loading overlay');
+  assert.ok(content.includes('refreshLibraryCoversIfNeeded'), 'must automatically upgrade blurry covers in background');
 });
 
 test('manga_viewer: manga.css uses design tokens with zero raw hex or emoji', () => {
@@ -25,6 +28,8 @@ test('manga_viewer: manga.css uses design tokens with zero raw hex or emoji', ()
   assert.ok(css.includes('.manga-immersion-reader'), 'must style immersion reader');
   assert.ok(css.includes('.manga-bubble-hitbox'), 'must style bubble hitboxes');
   assert.ok(css.includes('.manga-floating-popover'), 'must style floating popover');
+  assert.ok(css.includes('.manga-loading-overlay'), 'must style loading overlay');
+  assert.ok(css.includes('.manga-loading-pacman-wrap'), 'must style pacman wrapper');
   assert.equal(/#[0-9a-fA-F]{3,6}/.test(css), false, 'no raw hex');
   assert.equal(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/u.test(css), false, 'no emoji');
 });

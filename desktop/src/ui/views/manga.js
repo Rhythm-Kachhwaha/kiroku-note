@@ -14,6 +14,84 @@ const STORAGE_KEY_LIBRARY = 'kiroku.manga.library';
 const STORAGE_KEY_FOLDERS = 'kiroku.manga.folders';
 const STORAGE_KEY_SPREAD = 'kiroku.manga.spread_mode';
 
+function ensurePdfWorker() {
+  if (typeof window !== 'undefined' && window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions) {
+    if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = './ui/vendor/pdf.worker.min.js';
+    }
+  }
+}
+
+const PACMAN_LOADING_SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" class="pacman3351" viewBox="50 0 500 300">
+  <style>
+    .pacman3351-dot {
+      fill: currentColor;
+    }
+    .pacman3351-open,
+    .pacman3351-mouth-top,
+    .pacman3351-mouth-bottom {
+      fill: currentColor;
+    }
+    .pacman3351-mouth-top,
+    .pacman3351-mouth-bottom {
+      animation-duration: 175ms;
+      animation-timing-function: linear;
+      animation-direction: alternate;
+      animation-iteration-count: infinite;
+      transform-origin: calc(300px/2) 150px;
+    }
+    .pacman3351-mouth-top {
+      animation-name: rotate3351-counterclockwise;
+    }
+    .pacman3351-mouth-bottom {
+      animation-name: rotate3351-clockwise;
+    }
+    @keyframes rotate3351-counterclockwise {
+      100% {
+        transform: rotate(-30deg);
+      }
+    }
+    @keyframes rotate3351-clockwise {
+      100% {
+        transform: rotate(30deg);
+      }
+    }
+    .pacman3351-dot {
+      animation-name: dot3351-motion;
+      animation-duration: 600ms;
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+    }
+    @keyframes dot3351-motion {
+      100% {
+        transform: translateX(-100px);
+      }
+    }
+  </style>
+  <circle class="pacman3351-dot" cx="250" cy="50%" r="10"/>
+  <circle class="pacman3351-dot" cx="350" cy="50%" r="10"/>
+  <circle class="pacman3351-dot" cx="450" cy="50%" r="10"/>
+  <circle class="pacman3351-dot" cx="550" cy="50%" r="10"/>
+  <circle class="pacman3351-dot" cx="650" cy="50%" r="10"/>
+  <path class="pacman3351-mouth-bottom" d="
+    M 150,150
+    L 220.4,221.0
+    A 100 100 0 0 0 250,150
+    Z"/>
+  <path class="pacman3351-mouth-top" d="
+    M 150,150 
+    L 220.4,79.0
+    A 100 100 0 0 1 250,150
+    Z"/>
+  <path class="pacman3351-open" d="
+    M 150,150
+    L 236.6,100
+    A 100 100 0 1 0 236.6,200
+    Z"/>
+</svg>
+`;
+
 export class MangaView {
   constructor(router, options = {}) {
     this.router = router;
@@ -85,6 +163,7 @@ export class MangaView {
         pageCount: b.pageCount,
         currentPage: b.currentPage || 1,
         coverUrl: b.coverUrl || '',
+        coverVersion: b.coverVersion || 1,
         updatedAt: b.updatedAt || Date.now()
       }));
       localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(meta));
@@ -255,17 +334,32 @@ export class MangaView {
 
         <!-- Custom Tactile Modal Host -->
         <div id="manga-modal-host" style="display: none;"></div>
+
+        <!-- Pacman Loading Overlay -->
+        <div class="manga-loading-overlay" id="manga-loading-overlay" style="display: none;">
+          <div class="manga-loading-card">
+            <div class="manga-loading-pacman-wrap">
+              ${PACMAN_LOADING_SVG}
+            </div>
+            <div class="manga-loading-text" id="manga-loading-status-text">Loading manga volume...</div>
+            <div class="manga-loading-subtext" id="manga-loading-subtext">Reading pages into memory</div>
+          </div>
+        </div>
       </div>
     `;
 
     this.setupLibraryEvents();
+    this.refreshLibraryCoversIfNeeded();
   }
 
   setupLibraryEvents() {
     const fileInput = this.container.querySelector('#manga-library-file-input');
     fileInput?.addEventListener('change', (e) => {
       const file = e.target.files?.[0];
-      if (file) this.openFile(file);
+      if (file) {
+        this.openFile(file);
+        fileInput.value = '';
+      }
     });
 
     const dropzone = this.container.querySelector('#manga-library-dropzone');
@@ -278,7 +372,19 @@ export class MangaView {
     });
     dropzone?.addEventListener('drop', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       dropzone.classList.remove('is-dragover');
+      const file = e.dataTransfer?.files?.[0];
+      if (file) this.openFile(file);
+    });
+
+    // Whole view drop listener: dropping anywhere in Manga view opens the file safely
+    this.container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+    this.container.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const file = e.dataTransfer?.files?.[0];
       if (file) this.openFile(file);
     });
@@ -527,6 +633,134 @@ export class MangaView {
     }
   }
 
+  showLoading(title = 'Loading volume...', subtext = 'Please wait a moment') {
+    const overlay = this.container?.querySelector('#manga-loading-overlay');
+    if (!overlay) return;
+    const titleEl = overlay.querySelector('#manga-loading-status-text');
+    const subtextEl = overlay.querySelector('#manga-loading-subtext');
+    if (titleEl) titleEl.textContent = title;
+    if (subtextEl) subtextEl.textContent = subtext;
+    overlay.style.display = 'flex';
+  }
+
+  updateLoadingStatus(title, subtext) {
+    const overlay = this.container?.querySelector('#manga-loading-overlay');
+    if (!overlay) return;
+    const titleEl = overlay.querySelector('#manga-loading-status-text');
+    const subtextEl = overlay.querySelector('#manga-loading-subtext');
+    if (titleEl && title) titleEl.textContent = title;
+    if (subtextEl && subtext !== undefined) subtextEl.textContent = subtext;
+  }
+
+  hideLoading() {
+    const overlay = this.container?.querySelector('#manga-loading-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  async refreshLibraryCoversIfNeeded() {
+    const outdatedBooks = this.books.filter(b => !b.coverUrl || b.coverVersion !== 2);
+    if (outdatedBooks.length === 0) return;
+
+    for (const book of outdatedBooks) {
+      try {
+        const buffer = await getBookFileBuffer(book.id);
+        if (!buffer) continue;
+
+        if (book.type === 'pdf') {
+          ensurePdfWorker();
+          if (typeof window.pdfjsLib === 'undefined') continue;
+          const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
+          const doc = await loadingTask.promise;
+          const page1 = await doc.getPage(1);
+          const vp = page1.getViewport({ scale: 1.0 });
+          const targetWidth = 720;
+          const scale = Math.max(1.5, targetWidth / vp.width);
+          const scaledVp = page1.getViewport({ scale });
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(scaledVp.width);
+          canvas.height = Math.round(scaledVp.height);
+          const ctx = canvas.getContext('2d', { alpha: false });
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          await page1.render({ canvasContext: ctx, viewport: scaledVp }).promise;
+
+          let dataUrl = '';
+          try {
+            dataUrl = canvas.toDataURL('image/webp', 0.92);
+            if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
+              dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+            }
+          } catch {
+            dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          }
+
+          book.coverUrl = dataUrl;
+          book.coverVersion = 2;
+          this.saveLibrary();
+        } else if (book.type === 'cbz') {
+          if (typeof window.JSZip === 'undefined') continue;
+          const zip = new window.JSZip();
+          const cbzZip = await zip.loadAsync(buffer);
+          const validExts = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif'];
+          const imageEntries = [];
+          cbzZip.forEach((relPath, entry) => {
+            if (!entry.dir && validExts.some(ext => relPath.toLowerCase().endsWith(ext))) {
+              imageEntries.push(entry);
+            }
+          });
+          imageEntries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+          if (imageEntries.length > 0) {
+            const blob = await imageEntries[0].async('blob');
+            const url = URL.createObjectURL(blob);
+            await new Promise((resolve) => {
+              const img = new Image();
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const targetWidth = 720;
+                const scale = Math.max(1.0, targetWidth / img.width);
+                canvas.width = Math.round(img.width * scale);
+                canvas.height = Math.round(img.height * scale);
+                const ctx = canvas.getContext('2d', { alpha: false });
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                let dataUrl = '';
+                try {
+                  dataUrl = canvas.toDataURL('image/webp', 0.92);
+                  if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
+                    dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+                  }
+                } catch {
+                  dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+                }
+
+                book.coverUrl = dataUrl;
+                book.coverVersion = 2;
+                URL.revokeObjectURL(url);
+                this.saveLibrary();
+                resolve();
+              };
+              img.onerror = () => {
+                URL.revokeObjectURL(url);
+                resolve();
+              };
+              img.src = url;
+            });
+          }
+        }
+
+        // Live update thumbnail in DOM if visible
+        const cardImg = this.container?.querySelector(`.manga-book-card[data-book-id="${book.id}"] .manga-book-cover-img`);
+        if (cardImg && book.coverUrl) {
+          cardImg.src = book.coverUrl;
+        }
+      } catch (err) {
+        console.warn('[MangaView] Cover background upgrade error:', book.title, err);
+      }
+    }
+  }
+
   /* -------------------------------------------------------------------------
    * Full-Screen Immersion Reader View
    * ------------------------------------------------------------------------- */
@@ -623,6 +857,17 @@ export class MangaView {
             </button>
           </div>
         </footer>
+
+        <!-- Pacman Loading Overlay -->
+        <div class="manga-loading-overlay" id="manga-loading-overlay" style="display: none;">
+          <div class="manga-loading-card">
+            <div class="manga-loading-pacman-wrap">
+              ${PACMAN_LOADING_SVG}
+            </div>
+            <div class="manga-loading-text" id="manga-loading-status-text">Loading volume...</div>
+            <div class="manga-loading-subtext" id="manga-loading-subtext">Reading pages into memory</div>
+          </div>
+        </div>
       </div>
     `;
 
@@ -707,88 +952,111 @@ export class MangaView {
   async openFile(file) {
     if (!file) return;
 
-    const bookId = 'book_' + Date.now();
-    const title = file.name.replace(/\.[^/.]+$/, '');
-    const extension = file.name.split('.').pop()?.toLowerCase();
+    this.showLoading('Adding Manga to Library...', file.name);
 
-    let type = 'image';
-    if (extension === 'pdf') type = 'pdf';
-    else if (extension === 'cbz' || extension === 'zip') type = 'cbz';
+    try {
+      const bookId = 'book_' + Date.now();
+      const title = file.name.replace(/\.[^/.]+$/, '');
+      const extension = file.name.split('.').pop()?.toLowerCase();
 
-    // Store raw bytes in IndexedDB so the file reopens forever
-    await storeBookFile(bookId, file);
+      let type = 'image';
+      if (extension === 'pdf') type = 'pdf';
+      else if (extension === 'cbz' || extension === 'zip') type = 'cbz';
 
-    const newBook = {
-      id: bookId,
-      title,
-      type,
-      folderId: this.activeFolderId === 'all' ? 'default' : this.activeFolderId,
-      pageCount: 1,
-      currentPage: 1,
-      coverUrl: '',
-      updatedAt: Date.now()
-    };
+      this.updateLoadingStatus('Reading file bytes...', file.name);
+      const arrayBuffer = await file.arrayBuffer();
 
-    const arrayBuffer = await file.arrayBuffer();
+      this.updateLoadingStatus('Saving to offline storage...', 'Storing in IndexedDB');
+      await storeBookFile(bookId, arrayBuffer);
 
-    if (type === 'pdf') {
-      await this.initPdfFromBuffer(newBook, arrayBuffer);
-    } else if (type === 'cbz') {
-      await this.initCbzFromBuffer(newBook, arrayBuffer);
-    } else {
-      newBook.pageCount = 1;
-      newBook.currentPage = 1;
+      const newBook = {
+        id: bookId,
+        title,
+        type,
+        folderId: this.activeFolderId === 'all' ? 'default' : this.activeFolderId,
+        pageCount: 1,
+        currentPage: 1,
+        coverUrl: '',
+        coverVersion: 2,
+        updatedAt: Date.now()
+      };
+
+      this.updateLoadingStatus('Preparing pages...', 'Reading document structure');
+      if (type === 'pdf') {
+        await this.initPdfFromBuffer(newBook, arrayBuffer);
+      } else if (type === 'cbz') {
+        await this.initCbzFromBuffer(newBook, arrayBuffer);
+      } else {
+        newBook.pageCount = 1;
+        newBook.currentPage = 1;
+      }
+
+      const existingIdx = this.books.findIndex(b => b.title === title);
+      if (existingIdx >= 0) {
+        newBook.id = this.books[existingIdx].id;
+        newBook.currentPage = this.books[existingIdx].currentPage || 1;
+        newBook.folderId = this.books[existingIdx].folderId || newBook.folderId;
+        this.books[existingIdx] = newBook;
+      } else {
+        this.books.unshift(newBook);
+      }
+
+      this.currentBook = newBook;
+      this.currentPage = newBook.currentPage || 1;
+      this.pageCount = newBook.pageCount || 1;
+
+      this.updateLoadingStatus('Generating crisp cover...', 'Rendering high-resolution thumbnail');
+      await this.generateCrispCover(newBook, true);
+
+      this.saveLibrary();
+      this.activeMode = 'reader';
+      this.render();
+    } catch (err) {
+      console.error('[MangaView] Failed to open file:', err);
+    } finally {
+      this.hideLoading();
     }
-
-    const existingIdx = this.books.findIndex(b => b.title === title);
-    if (existingIdx >= 0) {
-      newBook.id = this.books[existingIdx].id;
-      newBook.currentPage = this.books[existingIdx].currentPage || 1;
-      newBook.folderId = this.books[existingIdx].folderId || newBook.folderId;
-      this.books[existingIdx] = newBook;
-    } else {
-      this.books.unshift(newBook);
-    }
-
-    this.currentBook = newBook;
-    this.currentPage = newBook.currentPage || 1;
-    this.pageCount = newBook.pageCount || 1;
-
-    // Immediately generate high-res 480px cover
-    await this.generateCrispCover(newBook);
-
-    this.activeMode = 'reader';
-    this.render();
   }
 
   async loadAndOpenBook(bookId) {
     const book = this.books.find(b => b.id === bookId);
     if (!book) return;
 
-    const buffer = await getBookFileBuffer(bookId);
-    if (!buffer) {
-      // Prompt user to pick file if IndexedDB has no copy
-      const fileInput = this.container?.querySelector('#manga-library-file-input');
-      fileInput?.click();
-      return;
-    }
+    this.showLoading('Opening Volume...', book.title);
 
-    if (book.type === 'pdf') {
-      await this.initPdfFromBuffer(book, buffer);
-    } else if (book.type === 'cbz') {
-      await this.initCbzFromBuffer(book, buffer);
-    }
+    try {
+      this.updateLoadingStatus('Retrieving from storage...', book.title);
+      const buffer = await getBookFileBuffer(bookId);
+      if (!buffer) {
+        this.hideLoading();
+        const fileInput = this.container?.querySelector('#manga-library-file-input');
+        fileInput?.click();
+        return;
+      }
 
-    // Refresh cover thumbnail if missing or low quality
-    if (!book.coverUrl || book.coverUrl.length < 5000) {
-      await this.generateCrispCover(book);
-    }
+      this.updateLoadingStatus('Initializing pages...', 'Parsing volume contents');
+      if (book.type === 'pdf') {
+        await this.initPdfFromBuffer(book, buffer);
+      } else if (book.type === 'cbz') {
+        await this.initCbzFromBuffer(book, buffer);
+      }
 
-    this.currentBook = book;
-    this.currentPage = book.currentPage || 1;
-    this.pageCount = book.pageCount || 1;
-    this.activeMode = 'reader';
-    this.render();
+      // Upgrade cover thumbnail if missing or older low-res version
+      if (!book.coverUrl || book.coverVersion !== 2) {
+        this.updateLoadingStatus('Rendering crisp cover...', 'Updating thumbnail');
+        await this.generateCrispCover(book, true);
+      }
+
+      this.currentBook = book;
+      this.currentPage = book.currentPage || 1;
+      this.pageCount = book.pageCount || 1;
+      this.activeMode = 'reader';
+      this.render();
+    } catch (err) {
+      console.error('[MangaView] Failed to load book:', err);
+    } finally {
+      this.hideLoading();
+    }
   }
 
   async initPdfFromBuffer(book, arrayBuffer) {
@@ -796,6 +1064,7 @@ export class MangaView {
       console.warn('[MangaView] pdf.js not loaded on window.');
       return;
     }
+    ensurePdfWorker();
     try {
       const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
       this.pdfDoc = await loadingTask.promise;
@@ -834,41 +1103,76 @@ export class MangaView {
     }
   }
 
-  async generateCrispCover(book) {
+  async generateCrispCover(book, force = false) {
+    if (!force && book.coverUrl && book.coverVersion === 2) return;
+    ensurePdfWorker();
+
     try {
       const thumbCanvas = document.createElement('canvas');
-      const targetWidth = 480; // High-resolution retina thumbnail width
+      const targetWidth = 720; // High-resolution retina thumbnail width
 
       if (book.type === 'pdf' && this.pdfDoc) {
         const page1 = await this.pdfDoc.getPage(1);
         const vp = page1.getViewport({ scale: 1.0 });
-        const scale = targetWidth / vp.width;
+        const scale = Math.max(1.5, targetWidth / vp.width);
         const scaledVp = page1.getViewport({ scale });
-        thumbCanvas.width = targetWidth;
+        thumbCanvas.width = Math.round(scaledVp.width);
         thumbCanvas.height = Math.round(scaledVp.height);
-        const ctx = thumbCanvas.getContext('2d');
+        const ctx = thumbCanvas.getContext('2d', { alpha: false });
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         await page1.render({ canvasContext: ctx, viewport: scaledVp }).promise;
-        book.coverUrl = thumbCanvas.toDataURL('image/jpeg', 0.90);
+
+        let dataUrl = '';
+        try {
+          dataUrl = thumbCanvas.toDataURL('image/webp', 0.92);
+          if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
+            dataUrl = thumbCanvas.toDataURL('image/jpeg', 0.92);
+          }
+        } catch {
+          dataUrl = thumbCanvas.toDataURL('image/jpeg', 0.92);
+        }
+
+        book.coverUrl = dataUrl;
+        book.coverVersion = 2;
         this.saveLibrary();
       } else if (book.type === 'cbz' && this.cbzImageEntries.length > 0) {
         const entry = this.cbzImageEntries[0];
         const blob = await entry.async('blob');
         const url = URL.createObjectURL(blob);
-        const img = new Image();
-        img.onload = () => {
-          thumbCanvas.width = targetWidth;
-          thumbCanvas.height = Math.round((targetWidth / img.width) * img.height);
-          const ctx = thumbCanvas.getContext('2d');
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, thumbCanvas.width, thumbCanvas.height);
-          book.coverUrl = thumbCanvas.toDataURL('image/jpeg', 0.90);
-          URL.revokeObjectURL(url);
-          this.saveLibrary();
-        };
-        img.src = url;
+        await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const scale = Math.max(1.0, targetWidth / img.width);
+            thumbCanvas.width = Math.round(img.width * scale);
+            thumbCanvas.height = Math.round(img.height * scale);
+            const ctx = thumbCanvas.getContext('2d', { alpha: false });
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, thumbCanvas.width, thumbCanvas.height);
+
+            let dataUrl = '';
+            try {
+              dataUrl = thumbCanvas.toDataURL('image/webp', 0.92);
+              if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
+                dataUrl = thumbCanvas.toDataURL('image/jpeg', 0.92);
+              }
+            } catch {
+              dataUrl = thumbCanvas.toDataURL('image/jpeg', 0.92);
+            }
+
+            book.coverUrl = dataUrl;
+            book.coverVersion = 2;
+            URL.revokeObjectURL(url);
+            this.saveLibrary();
+            resolve();
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(url);
+            resolve();
+          };
+          img.src = url;
+        });
       }
     } catch (e) {
       console.warn('[MangaView] Crisp cover generation error:', e);
