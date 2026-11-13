@@ -429,7 +429,7 @@
                 display:inline-flex; align-items:center; padding:5px 8px; background:#27272a; color:#f4f4f5;
                 border:1px solid rgba(255,255,255,0.15); border-radius:6px; font-size:11px; cursor:pointer;
               ">
-                ▶
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
               </button>
             </div>
             <div class="hud-status-group" style="display:flex; gap:3px;">
