@@ -69,7 +69,7 @@ export class AppRouter {
 
     idleFn(async () => {
       // Pre-warm keepAlive views in background (especially vocab) so subsequent clicks are 0ms
-      const warmTargets = ['vocab', 'grammar', 'kanji', 'test', 'study'];
+      const warmTargets = ['vocab', 'grammar', 'kanji', 'test', 'study', 'manga'];
       for (const tabId of warmTargets) {
         if (this.viewInstances.has(tabId) || !this.routes[tabId] || this.currentTab === tabId) {
           continue;

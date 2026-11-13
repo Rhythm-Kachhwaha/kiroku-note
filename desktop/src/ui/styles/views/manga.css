@@ -140,6 +140,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  image-rendering: high-quality;
 }
 
 .manga-book-cover-placeholder {
@@ -284,6 +285,8 @@
   justify-content: center;
   position: relative;
   overflow: auto;
+  padding-bottom: 5.5rem; /* Ensure bottom canvas area clears the floating nav dock */
+  box-sizing: border-box;
 }
 
 .manga-canvas-wrapper {
@@ -294,7 +297,7 @@
 
 .manga-canvas {
   max-width: 100%;
-  max-height: calc(100vh - 150px);
+  max-height: calc(100vh - 180px);
   object-fit: contain;
   display: block;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
@@ -425,7 +428,7 @@
   padding: 0.75rem 1rem;
   background: transparent;
   position: absolute;
-  bottom: 0;
+  bottom: 0.75rem;
   left: 0;
   right: 0;
   pointer-events: none;
@@ -439,41 +442,65 @@
   background: var(--surface-card);
   border: 1.5px solid var(--tactile-stroke);
   border-radius: var(--radius-full, 9999px);
-  padding: 0.35rem 0.85rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7), 2px 2px 0 var(--tactile-stroke);
+  padding: 0.4rem 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.85), 3px 3px 0 var(--tactile-stroke);
   pointer-events: auto;
 }
 
 .manga-nav-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
+  background: var(--pure-black);
+  border: 1px solid var(--tactile-stroke);
   border-radius: var(--radius-full, 9999px);
+  color: var(--architectural-cream);
   font-family: var(--font-sans);
+  font-size: 0.8rem;
   font-weight: 700;
+  padding: 0.35rem 0.85rem;
+  cursor: pointer;
+  transition: all var(--duration-fast, 150ms) var(--ease-out, ease-out);
+}
+
+.manga-nav-btn:hover {
+  background: var(--surface-elevated, var(--surface-card));
+  color: var(--gold);
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+
+.manga-nav-btn:active {
+  transform: translateY(0);
 }
 
 .manga-page-stepper {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0 0.4rem;
+  gap: 0.45rem;
+  padding: 0 0.5rem;
   border-left: 1px solid var(--tactile-stroke);
   border-right: 1px solid var(--tactile-stroke);
 }
 
 .manga-page-input {
-  width: 50px;
+  width: 52px;
   text-align: center;
   background: var(--pure-black);
   border: 1px solid var(--tactile-stroke);
   color: var(--gold);
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 0.85rem;
-  padding: 0.2rem 0.25rem;
+  font-size: 0.9rem;
+  padding: 0.25rem 0.3rem;
   border-radius: var(--radius-sm);
   -moz-appearance: textfield;
+}
+
+.manga-page-total {
+  font-size: 0.85rem;
+  color: var(--architectural-cream);
+  font-weight: 600;
 }
 
 .manga-page-input::-webkit-outer-spin-button,

@@ -18,6 +18,9 @@ export class MangaView {
     this.apiClient = options.apiClient || apiClient;
     this.container = null;
 
+    // keepAlive flag so switching tabs does not destroy memory / active open books
+    this.keepAlive = true;
+
     // View state: 'library' or 'reader'
     this.activeMode = 'library';
 
@@ -36,7 +39,7 @@ export class MangaView {
     this.cbzImageEntries = [];
 
     // Canvas & Stage State
-    this.currentImage = null; // Composite canvas for the current rendered page(s)
+    this.currentImage = null;
     this.ocrBoxSelection = null;
     this.isSelecting = false;
     this.selectionStart = null;
@@ -86,12 +89,12 @@ export class MangaView {
     window.addEventListener('keydown', this.boundKeyHandler);
   }
 
+  onHide() {
+    this.closePopover();
+  }
+
   unmount() {
     window.removeEventListener('keydown', this.boundKeyHandler);
-    this.currentImage = null;
-    this.pdfDoc = null;
-    this.cbzZip = null;
-    this.cbzImageEntries = [];
     if (this.container) {
       this.container.innerHTML = '';
       this.container = null;
@@ -204,9 +207,12 @@ export class MangaView {
         if (book) {
           if (book.file) {
             this.currentBook = book;
+            this.currentPage = book.currentPage || 1;
+            this.pageCount = book.pageCount || 1;
             this.activeMode = 'reader';
             this.render();
           } else {
+            // Browser dropped pointer after app restart: prompt user to pick file again
             fileInput?.click();
           }
         }
@@ -291,22 +297,22 @@ export class MangaView {
           </div>
         </div>
 
-        <!-- Floating Reader Bottom Navigation Bar -->
+        <!-- Floating Reader Bottom Navigation Bar (Elevated above dock with high contrast) -->
         <footer class="manga-reader-bottombar">
           <div class="manga-nav-pill-container">
-            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm manga-nav-btn" id="btn-reader-prev" title="Previous Page (D / ArrowRight)">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+            <button type="button" class="manga-nav-btn" id="btn-reader-prev" title="Previous Page (D / ArrowRight)">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
               <span>Prev</span>
             </button>
 
             <div class="manga-page-stepper">
               <input type="number" id="manga-page-input" class="manga-page-input" min="1" max="${this.pageCount}" value="${this.currentPage}">
-              <span class="text-muted text-xs font-mono">/ ${this.pageCount}</span>
+              <span class="manga-page-total font-mono">/ ${this.pageCount}</span>
             </div>
 
-            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm manga-nav-btn" id="btn-reader-next" title="Next Page (A / ArrowLeft)">
+            <button type="button" class="manga-nav-btn" id="btn-reader-next" title="Next Page (A / ArrowLeft)">
               <span>Next</span>
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
             </button>
           </div>
         </footer>
@@ -368,7 +374,7 @@ export class MangaView {
     const btnClosePop = this.container.querySelector('#btn-close-popover');
     btnClosePop?.addEventListener('click', () => this.closePopover());
 
-    // Canvas Selection events
+    // Canvas Selection events attached directly to canvas-wrapper
     const wrapper = this.container.querySelector('#manga-canvas-wrapper');
     wrapper?.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     wrapper?.addEventListener('mousemove', (e) => this.handleMouseMove(e));
@@ -429,6 +435,7 @@ export class MangaView {
     const existingIdx = this.books.findIndex(b => b.title === title);
     if (existingIdx >= 0) {
       newBook.currentPage = this.books[existingIdx].currentPage || 1;
+      newBook.coverUrl = this.books[existingIdx].coverUrl || '';
       this.books[existingIdx] = newBook;
     } else {
       this.books.unshift(newBook);
@@ -437,6 +444,9 @@ export class MangaView {
     this.currentBook = newBook;
     this.currentPage = newBook.currentPage || 1;
     this.pageCount = newBook.pageCount || 1;
+
+    // Generate crisp cover thumbnail in background if missing
+    this.generateCrispCover(newBook);
 
     this.activeMode = 'reader';
     this.render();
@@ -483,6 +493,43 @@ export class MangaView {
       book.pageCount = Math.max(1, imageEntries.length);
     } catch (err) {
       console.error('[MangaView] Failed to load CBZ:', err);
+    }
+  }
+
+  async generateCrispCover(book) {
+    try {
+      if (book.coverUrl) return;
+
+      const thumbCanvas = document.createElement('canvas');
+      thumbCanvas.width = 300; // Crisp high-DPI width
+
+      if (book.type === 'pdf' && this.pdfDoc) {
+        const page1 = await this.pdfDoc.getPage(1);
+        const vp = page1.getViewport({ scale: 1.0 });
+        const scale = 300 / vp.width;
+        const scaledVp = page1.getViewport({ scale });
+        thumbCanvas.height = Math.round(scaledVp.height);
+        const ctx = thumbCanvas.getContext('2d');
+        await page1.render({ canvasContext: ctx, viewport: scaledVp }).promise;
+        book.coverUrl = thumbCanvas.toDataURL('image/jpeg', 0.85);
+        this.saveLibrary();
+      } else if (book.type === 'cbz' && this.cbzImageEntries.length > 0) {
+        const entry = this.cbzImageEntries[0];
+        const blob = await entry.async('blob');
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          thumbCanvas.height = Math.round((300 / img.width) * img.height);
+          const ctx = thumbCanvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, thumbCanvas.width, thumbCanvas.height);
+          book.coverUrl = thumbCanvas.toDataURL('image/jpeg', 0.85);
+          URL.revokeObjectURL(url);
+          this.saveLibrary();
+        };
+        img.src = url;
+      }
+    } catch (e) {
+      console.warn('[MangaView] Crisp cover generation error:', e);
     }
   }
 
@@ -550,10 +597,6 @@ export class MangaView {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         await page.render({ canvasContext: ctx, viewport }).promise;
         this.currentImage = canvas;
-
-        if (pageNumber === 1 && this.currentBook && !this.currentBook.coverUrl) {
-          this.cacheCoverThumbnail(canvas);
-        }
       } else {
         // Japanese manga right-to-left layout: Right page is earlier (pageNumber), Left page is next (pageNumber + 1)
         const rightPage = await this.pdfDoc.getPage(pageNumber);
@@ -620,12 +663,7 @@ export class MangaView {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
         this.currentImage = img;
-
-        if (pageNumber === 1 && this.currentBook && !this.currentBook.coverUrl) {
-          this.cacheCoverThumbnail(canvas);
-        }
       } else {
-        // 2-Page Spread
         const imgRight = await loadImgFromEntry(this.cbzImageEntries[pageNumber - 1]);
         const imgLeft = await loadImgFromEntry(this.cbzImageEntries[pageNumber]);
 
@@ -637,7 +675,6 @@ export class MangaView {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Draw Left page then Right page (Japanese manga spread)
         ctx.drawImage(imgLeft, 0, 0);
         ctx.drawImage(imgRight, imgLeft.width, 0);
 
@@ -659,31 +696,10 @@ export class MangaView {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
         this.currentImage = img;
-
-        if (this.currentBook && !this.currentBook.coverUrl) {
-          this.cacheCoverThumbnail(canvas);
-        }
       };
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
-  }
-
-  cacheCoverThumbnail(canvas) {
-    try {
-      const thumbCanvas = document.createElement('canvas');
-      thumbCanvas.width = 120;
-      thumbCanvas.height = Math.round((120 / canvas.width) * canvas.height);
-      const tctx = thumbCanvas.getContext('2d');
-      tctx.drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
-      const dataUrl = thumbCanvas.toDataURL('image/jpeg', 0.8);
-      if (this.currentBook) {
-        this.currentBook.coverUrl = dataUrl;
-        this.saveLibrary();
-      }
-    } catch (e) {
-      console.debug('[MangaView] Cover cache error:', e);
-    }
   }
 
   handleKeyDown(e) {
@@ -701,29 +717,30 @@ export class MangaView {
 
   /* -------------------------------------------------------------------------
    * Marquee Manual Box Selection
+   * Relative strictly to the <div id="manga-canvas-wrapper">
    * ------------------------------------------------------------------------- */
   handleMouseDown(e) {
     if (!this.currentImage) return;
-    const canvas = this.container?.querySelector('#manga-canvas');
-    if (!canvas) return;
+    const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
+    if (!wrapper) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const wrapRect = wrapper.getBoundingClientRect();
+    const x = e.clientX - wrapRect.left;
+    const y = e.clientY - wrapRect.top;
 
     this.isSelecting = true;
-    this.selectionStart = { x, y };
+    this.selectionStart = { x, y, clientX: e.clientX, clientY: e.clientY };
   }
 
   handleMouseMove(e) {
     if (!this.isSelecting || !this.selectionStart) return;
-    const canvas = this.container?.querySelector('#manga-canvas');
+    const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
     const box = this.container?.querySelector('#manga-selection-box');
-    if (!canvas || !box) return;
+    if (!wrapper || !box) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const curX = e.clientX - rect.left;
-    const curY = e.clientY - rect.top;
+    const wrapRect = wrapper.getBoundingClientRect();
+    const curX = e.clientX - wrapRect.left;
+    const curY = e.clientY - wrapRect.top;
 
     const left = Math.min(this.selectionStart.x, curX);
     const top = Math.min(this.selectionStart.y, curY);
@@ -731,8 +748,8 @@ export class MangaView {
     const height = Math.abs(curY - this.selectionStart.y);
 
     box.style.display = 'block';
-    box.style.left = `${left + rect.left}px`;
-    box.style.top = `${top + rect.top}px`;
+    box.style.left = `${left}px`;
+    box.style.top = `${top}px`;
     box.style.width = `${width}px`;
     box.style.height = `${height}px`;
   }
@@ -742,26 +759,37 @@ export class MangaView {
     this.isSelecting = false;
 
     const canvas = this.container?.querySelector('#manga-canvas');
+    const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
     const box = this.container?.querySelector('#manga-selection-box');
     if (box) box.style.display = 'none';
-    if (!canvas) return;
+    if (!canvas || !wrapper) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const curX = e.clientX - rect.left;
-    const curY = e.clientY - rect.top;
+    const wrapRect = wrapper.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
 
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const startClientX = this.selectionStart.clientX;
+    const startClientY = this.selectionStart.clientY;
+    const endClientX = e.clientX;
+    const endClientY = e.clientY;
 
-    const startX = Math.min(this.selectionStart.x, curX) * scaleX;
-    const startY = Math.min(this.selectionStart.y, curY) * scaleY;
-    const endX = Math.max(this.selectionStart.x, curX) * scaleX;
-    const endY = Math.max(this.selectionStart.y, curY) * scaleY;
+    // Convert client coords strictly relative to canvas internal pixels
+    const scaleX = canvas.width / canvasRect.width;
+    const scaleY = canvas.height / canvasRect.height;
+
+    const relStartX = Math.min(startClientX, endClientX) - canvasRect.left;
+    const relStartY = Math.min(startClientY, endClientY) - canvasRect.top;
+    const relEndX = Math.max(startClientX, endClientX) - canvasRect.left;
+    const relEndY = Math.max(startClientY, endClientY) - canvasRect.top;
+
+    const startX = Math.max(0, Math.min(canvas.width, relStartX * scaleX));
+    const startY = Math.max(0, Math.min(canvas.height, relStartY * scaleY));
+    const endX = Math.max(0, Math.min(canvas.width, relEndX * scaleX));
+    const endY = Math.max(0, Math.min(canvas.height, relEndY * scaleY));
 
     if (endX - startX > 10 && endY - startY > 10) {
       const anchor = {
-        x: (Math.min(this.selectionStart.x, curX) + rect.left),
-        y: (Math.max(this.selectionStart.y, curY) + rect.top + 8)
+        x: Math.max(startClientX, endClientX),
+        y: Math.max(startClientY, endClientY) + 8
       };
       await this.performOcrBoxSelection(startX, startY, endX, endY, anchor);
     }
