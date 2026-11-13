@@ -1217,7 +1217,33 @@ export class KanjiView {
           if (items.length === 0) {
             listEl.innerHTML = '<div class="text-xs text-muted py-8 text-center font-mono">No kanji found for this level.</div>';
           } else {
-            listEl.innerHTML = items.map((it) => this.renderListRow(it)).join('');
+            // Render first 50 items immediately for sub-16ms initial paint
+            const firstBatch = items.slice(0, 50);
+            listEl.innerHTML = firstBatch.map((it) => this.renderListRow(it)).join('');
+
+            // Progressively append remaining items via requestAnimationFrame
+            if (items.length > 50) {
+              const remaining = items.slice(50);
+              const chunkSize = 100;
+              let currentIdx = 0;
+
+              const renderNextChunk = () => {
+                if (currentIdx >= remaining.length || this.listLevel !== level || this.viewMode !== 'list') return;
+                const chunk = remaining.slice(currentIdx, currentIdx + chunkSize);
+                currentIdx += chunkSize;
+                const fragment = document.createRange().createContextualFragment(
+                  chunk.map((it) => this.renderListRow(it)).join('')
+                );
+                listEl.appendChild(fragment);
+                if (this.listSearchQuery) {
+                  this.filterList(this.listSearchQuery);
+                }
+                if (currentIdx < remaining.length) {
+                  requestAnimationFrame(renderNextChunk);
+                }
+              };
+              requestAnimationFrame(renderNextChunk);
+            }
           }
         }
       } else {

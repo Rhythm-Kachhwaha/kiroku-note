@@ -73,6 +73,57 @@ def close_kanji_connections() -> None:
         _local_storage.connections.clear()
 
 
+_vocab_compounds_cache: dict[str, list[dict[str, Any]]] | None = None
+_vocab_compounds_lock = threading.Lock()
+
+
+def _get_vocab_compounds_index(jlpt_conn: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]:
+    """Build and cache an in-memory index of JLPT vocabulary words mapped by kanji character."""
+    global _vocab_compounds_cache
+    if _vocab_compounds_cache is not None:
+        return _vocab_compounds_cache
+
+    with _vocab_compounds_lock:
+        if _vocab_compounds_cache is not None:
+            return _vocab_compounds_cache
+
+        index: dict[str, list[dict[str, Any]]] = {}
+        try:
+            rows = jlpt_conn.execute("SELECT word, reading, meanings FROM vocab").fetchall()
+            for r in rows:
+                word = r["word"]
+                reading = r["reading"] or ""
+                meanings_raw = r["meanings"]
+                meaning_str = ""
+                if meanings_raw:
+                    try:
+                        m_list = json.loads(meanings_raw) if isinstance(meanings_raw, str) else meanings_raw
+                        if isinstance(m_list, list):
+                            meaning_str = ", ".join(m_list[:2])
+                        elif isinstance(m_list, str):
+                            meaning_str = meanings_raw
+                    except Exception:
+                        meaning_str = str(meanings_raw)
+
+                comp_entry = {
+                    "term": word,
+                    "reading": reading,
+                    "meaning": meaning_str,
+                }
+
+                # Associate this compound with each kanji character it contains
+                for ch in set(word):
+                    if "\u4e00" <= ch <= "\u9faf":
+                        comp_list = index.setdefault(ch, [])
+                        if len(comp_list) < 8:
+                            comp_list.append(comp_entry)
+        except Exception as exc:
+            record_operational_failure("kanji.vocab_compounds_index", exc, level=logging.DEBUG)
+
+        _vocab_compounds_cache = index
+        return index
+
+
 def _extract_gloss_from_content(content: Any) -> str:
     """Extract English gloss string from Yomitan structured-content JSON blob."""
     if isinstance(content, str):
@@ -454,13 +505,19 @@ class KanjiService:
                 except Exception as exc:
                     record_operational_failure("kanji.study_list.user_compounds", exc, level=logging.DEBUG)
 
+            vocab_index = _get_vocab_compounds_index(conn)
+
             items = []
             for i, r in enumerate(rows):
                 ch = r["character"]
                 meanings = json.loads(r["meanings"]) if r["meanings"] else []
                 onyomi = json.loads(r["onyomi"]) if r["onyomi"] else []
                 kunyomi = json.loads(r["kunyomi"]) if r["kunyomi"] else []
-                dict_compounds = self.get_compounds(ch, limit=4)
+
+                dict_compounds = vocab_index.get(ch, [])[:4]
+                if not dict_compounds and limit <= 10:
+                    dict_compounds = self.get_compounds(ch, limit=4)
+
                 custom_compounds = user_compounds_by_char.get(ch, [])
 
                 items.append({
