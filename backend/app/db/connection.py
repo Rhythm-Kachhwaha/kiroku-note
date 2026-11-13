@@ -4,6 +4,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+import json
 import sqlite3
 from typing import Any, Iterator, Sequence
 
@@ -39,6 +40,7 @@ CREATE TABLE IF NOT EXISTS cards (
     source_type TEXT NOT NULL DEFAULT '',
     source_url TEXT NOT NULL DEFAULT '',
     card_kind TEXT NOT NULL DEFAULT 'vocab',
+    jlpt_level TEXT DEFAULT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     UNIQUE(normalized_expression, normalized_reading, normalized_deck_name)
@@ -349,6 +351,67 @@ def migrate_canonical_grammar_keys(conn: sqlite3.Connection) -> int:
     return migrated_count
 
 
+def backfill_cards_jlpt_level(conn: sqlite3.Connection) -> None:
+    """Backfill jlpt_level on cards from meanings_json or JlptReferenceService."""
+    try:
+        rows = conn.execute(
+            "SELECT id, expression, meanings_json FROM cards WHERE jlpt_level IS NULL OR jlpt_level = ''"
+        ).fetchall()
+        if not rows:
+            return
+        ref = None
+        try:
+            from app.services.jlpt_reference import JlptReferenceService
+            ref = JlptReferenceService()
+        except Exception:
+            ref = None
+
+        updates = []
+        for row in rows:
+            card_id = row["id"]
+            expr = row["expression"]
+            meanings_raw = row["meanings_json"]
+            lvl = None
+            if meanings_raw:
+                try:
+                    parsed = json.loads(meanings_raw)
+                    if isinstance(parsed, dict):
+                        lvl = parsed.get("jlpt_level")
+                        if not lvl and "entries" in parsed:
+                            for e in parsed.get("entries", []):
+                                for t in (e.get("tags") or []):
+                                    t_str = str(t)
+                                    if t_str.lower().startswith("jlpt-n") and len(t_str) == 7:
+                                        lvl = t_str[5:].upper()
+                                        break
+                                    elif t_str.lower().startswith("n") and len(t_str) == 2 and t_str[1].isdigit():
+                                        lvl = t_str.upper()
+                                        break
+                                if lvl:
+                                    break
+                        if not lvl and "kanji_entries" in parsed:
+                            for k in parsed.get("kanji_entries", []):
+                                stats = k.get("stats") or {}
+                                if stats.get("jlpt") and str(stats.get("jlpt")).upper().startswith("N"):
+                                    lvl = str(stats.get("jlpt")).upper()
+                                    break
+                except Exception:
+                    pass
+            if not lvl and ref and expr:
+                try:
+                    lvl = ref.lookup_word_with_kanji_fallback(expr)
+                except Exception:
+                    lvl = None
+            if lvl:
+                updates.append((str(lvl).upper(), card_id))
+
+        if updates:
+            conn.executemany("UPDATE cards SET jlpt_level = ? WHERE id = ?", updates)
+            conn.commit()
+    except Exception:
+        pass
+
+
 def init_db(db_path: Path | str | None = None) -> None:
     """Initialize the SQLite database schema, run migrations, and recover interrupted syncs."""
     with db_session(db_path) as conn:
@@ -371,6 +434,7 @@ def init_db(db_path: Path | str | None = None) -> None:
             ("source_type", "TEXT NOT NULL DEFAULT ''"),
             ("source_url", "TEXT NOT NULL DEFAULT ''"),
             ("card_kind", "TEXT NOT NULL DEFAULT 'vocab'"),
+            ("jlpt_level", "TEXT DEFAULT NULL"),
         ]
         for col_name, col_def in new_cols:
             if col_name not in columns:
@@ -379,6 +443,11 @@ def init_db(db_path: Path | str | None = None) -> None:
             "CREATE INDEX IF NOT EXISTS idx_cards_grammar_identity "
             "ON cards (expression, deck_name) WHERE card_kind = 'grammar'"
         )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cards_jlpt_level "
+            "ON cards (jlpt_level)"
+        )
+        backfill_cards_jlpt_level(conn)
 
         # Recover cards left stuck in 'syncing' state from a previously interrupted process
         conn.execute("UPDATE cards SET sync_status = 'pending' WHERE sync_status = 'syncing'")

@@ -198,7 +198,7 @@ test('Vocab History: Slice 19 filters row and drill gaps button', () => {
   const content = fs.readFileSync(vocabHistoryPath, 'utf8');
 
   // Segments
-  assert.ok(content.includes('id="vocab-tab-watch"'), 'Must render Watch segment tab');
+  assert.ok(content.includes('id="vocab-tab-mined"'), 'Must render Mined Cards segment tab');
 
   // Drill gaps
   assert.ok(content.includes('id="btn-drill-gaps"'), 'Must render Drill these button on gaps shelf');

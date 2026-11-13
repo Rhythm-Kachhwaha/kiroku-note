@@ -11,7 +11,7 @@ import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import * as wanakana from '../lib/wanakana.js';
 import { getUniversalJlptLevel } from '../utils/learner.js';
-import './vocab_watch.js';
+import { VocabInventoryComponent } from './vocab/vocab_inventory.js';
 
 const DRAFT_STORAGE_KEY = 'kiroku:vocab-mining-draft';
 const ANNOTATED_STORAGE_KEY = 'kiroku:vocab-annotated-state';
@@ -19,6 +19,7 @@ const ANNOTATED_STORAGE_KEY = 'kiroku:vocab-annotated-state';
 export class VocabMainView {
   constructor(router) {
     this.router = router;
+    this.inventoryComponent = new VocabInventoryComponent(router);
     this.keepAlive = true;
     this.activeListenerCount = 0;
     this.container = null;
@@ -164,12 +165,12 @@ export class VocabMainView {
             <div class="candidate-dropdown" id="candidate-dropdown" style="display: none;" role="listbox"></div>
           </div>
 
-          <!-- Capture | Inventory segments; Quick Add is the first capture panel -->
+          <!-- Capture | Inventory | Mined Cards segments -->
           <div class="vocab-top-controls">
             <div class="vocab-segments" role="tablist" aria-label="Vocabulary sections">
               <button type="button" class="vocab-segment-tab is-active" id="vocab-tab-capture" data-segment="capture" role="tab" aria-selected="true">Capture</button>
               <button type="button" class="vocab-segment-tab" id="vocab-tab-inventory" data-segment="inventory" role="tab" aria-selected="false">Inventory</button>
-              <button type="button" class="vocab-segment-tab" id="vocab-tab-watch" data-segment="watch" role="tab" aria-selected="false">Watch</button>
+              <button type="button" class="vocab-segment-tab" id="vocab-tab-mined" data-segment="mined" role="tab" aria-selected="false">Mined Cards</button>
             </div>
 
             <button type="button" class="vocab-quick-add-toggle-btn is-open" id="btn-toggle-quick-add" title="Toggle Quick Add side panel">
@@ -409,14 +410,8 @@ export class VocabMainView {
             </aside>
           </div>
 
-          <!-- Watch empty state card (Slice 19 placeholder, content in 39) -->
-          <div id="vocab-watch-container" class="vocab-watch-container tactile-card" style="display: none;">
-            <div class="empty-state-card">
-              <h2 class="text-xl font-bold font-display text-warm-paper mb-2">Watch</h2>
-              <p class="text-secondary font-sans mb-4">Link not connected</p>
-              <p class="text-xs text-muted font-sans">Connect Kiroku Link or the browser extension to stream vocabulary from video playback.</p>
-            </div>
-          </div>
+          <!-- Real Inventory Container -->
+          <div id="vocab-inventory-mount" class="vocab-inventory-mount" style="display: none;"></div>
         </div>
       </div>
     `;
@@ -615,18 +610,18 @@ export class VocabMainView {
   }
 
   setupEvents() {
-    // Capture | Inventory segments (Inventory is the existing history route)
+    // Capture | Inventory | Mined Cards segments
     const tabCapture = document.getElementById('vocab-tab-capture');
     const tabInventory = document.getElementById('vocab-tab-inventory');
+    const tabMined = document.getElementById('vocab-tab-mined');
     if (tabCapture) {
       tabCapture.addEventListener('click', () => this.handleSegmentSelect('capture'));
     }
     if (tabInventory) {
       tabInventory.addEventListener('click', () => this.handleSegmentSelect('inventory'));
     }
-    const tabWatch = document.getElementById('vocab-tab-watch');
-    if (tabWatch) {
-      tabWatch.addEventListener('click', () => this.handleSegmentSelect('watch'));
+    if (tabMined) {
+      tabMined.addEventListener('click', () => this.handleSegmentSelect('mined'));
     }
 
     // Quick Add side panel toggle
@@ -831,34 +826,44 @@ export class VocabMainView {
     };
   }
 
-  handleSegmentSelect(segment) {
-    if (segment === 'inventory') {
+  async handleSegmentSelect(segment) {
+    if (segment === 'mined') {
       this.router.navigateToTab('vocab-history');
       return;
     }
     const tabCapture = document.getElementById('vocab-tab-capture');
     const tabInventory = document.getElementById('vocab-tab-inventory');
-    const tabWatch = document.getElementById('vocab-tab-watch');
+    const tabMined = document.getElementById('vocab-tab-mined');
     const workspace = this.container?.querySelector('.vocab-workspace-split');
     const searchSection = this.container?.querySelector('.vocab-search-section');
-    const watchContainer = document.getElementById('vocab-watch-container');
+    const invMount = document.getElementById('vocab-inventory-mount');
+    const btnQuickAdd = document.getElementById('btn-toggle-quick-add');
 
-    if (segment === 'watch') {
-      this.activeSegment = 'watch';
+    if (segment === 'inventory') {
+      this.activeSegment = 'inventory';
       if (tabCapture) { tabCapture.classList.remove('is-active'); tabCapture.setAttribute('aria-selected', 'false'); }
-      if (tabInventory) { tabInventory.classList.remove('is-active'); tabInventory.setAttribute('aria-selected', 'false'); }
-      if (tabWatch) { tabWatch.classList.add('is-active'); tabWatch.setAttribute('aria-selected', 'true'); }
+      if (tabInventory) { tabInventory.classList.add('is-active'); tabInventory.setAttribute('aria-selected', 'true'); }
+      if (tabMined) { tabMined.classList.remove('is-active'); tabMined.setAttribute('aria-selected', 'false'); }
       if (workspace) workspace.style.display = 'none';
       if (searchSection) searchSection.style.display = 'none';
-      if (watchContainer) watchContainer.style.display = 'block';
+      if (btnQuickAdd) btnQuickAdd.style.display = 'none';
+      if (invMount) {
+        invMount.style.display = 'block';
+        if (!invMount.hasChildNodes()) {
+          await this.inventoryComponent.mount(invMount);
+        } else {
+          await this.inventoryComponent.loadData();
+        }
+      }
     } else {
       this.activeSegment = 'capture';
       if (tabCapture) { tabCapture.classList.add('is-active'); tabCapture.setAttribute('aria-selected', 'true'); }
       if (tabInventory) { tabInventory.classList.remove('is-active'); tabInventory.setAttribute('aria-selected', 'false'); }
-      if (tabWatch) { tabWatch.classList.remove('is-active'); tabWatch.setAttribute('aria-selected', 'false'); }
+      if (tabMined) { tabMined.classList.remove('is-active'); tabMined.setAttribute('aria-selected', 'false'); }
       if (workspace) workspace.style.display = '';
       if (searchSection) searchSection.style.display = '';
-      if (watchContainer) watchContainer.style.display = 'none';
+      if (btnQuickAdd) btnQuickAdd.style.display = '';
+      if (invMount) invMount.style.display = 'none';
     }
   }
 

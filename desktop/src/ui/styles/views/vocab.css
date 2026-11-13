@@ -1615,3 +1615,214 @@
   text-align: center;
   margin-top: 1.5rem;
 }
+
+/* ==========================================================================
+   Vocab Inventory View Styles (True Knowledge Base)
+   ========================================================================== */
+.vocab-inventory-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.vocab-inventory-toolbar {
+  padding: 0.85rem 1.25rem;
+}
+
+.inv-toolbar-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.inv-search-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inv-search-input {
+  padding-left: 2.3rem !important;
+  width: 100%;
+}
+
+.inv-toolbar-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.inv-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.inv-filter-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.inv-filter-select {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.inv-bulk-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--accent-gold);
+}
+
+.inv-bulk-bar .bulk-actions-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.inv-table-container {
+  overflow-x: auto;
+  padding: 0 !important;
+}
+
+.inv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.inv-table th {
+  padding: 0.65rem 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--ink-border);
+}
+
+.inv-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--ink-border);
+  vertical-align: middle;
+}
+
+.inv-table-row {
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.inv-table-row:hover {
+  background-color: var(--surface-container-low);
+}
+
+.inv-table-row.is-selected {
+  background-color: var(--surface-container);
+}
+
+.inv-ruby {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--warm-paper);
+}
+
+.inv-ruby rt {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.inv-level-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 3px;
+  border: 1px solid var(--ink-border);
+  color: var(--text-secondary);
+}
+
+.inv-cat-chip {
+  display: inline-block;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.65rem;
+  background-color: var(--surface-container-high);
+  color: var(--text-muted);
+  border-radius: 2px;
+}
+
+.inv-state-pill-btn {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  border: 1px solid var(--ink-border);
+  cursor: pointer;
+  background-color: var(--surface-container);
+  color: var(--text-primary);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.inv-state-pill-btn:hover {
+  transform: translate(-1px, -1px);
+}
+
+.inv-state-pill-btn.state-pill-known {
+  color: var(--accent-green);
+  border-color: var(--accent-green);
+}
+
+.inv-state-pill-btn.state-pill-learning {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+}
+
+.inv-state-pill-btn.state-pill-unseen {
+  color: var(--accent-red);
+  border-color: var(--accent-red);
+}
+
+.inv-state-pill-btn.state-pill-ignored {
+  color: var(--text-muted);
+  border-color: var(--ink-border);
+}
+
+.inv-pagination-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--ink-border);
+}
+
+.inv-drawer-hero {
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.inv-drawer-expression {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.inv-drawer-badges {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.inv-drawer-status-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+

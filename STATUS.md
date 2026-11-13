@@ -1,5 +1,5 @@
 # Status
-Completed desktop shell layout fix (Area 1 of Fix Report).
-Unified safe area and scroll containment in #view-container.
-Removed per-view padding hacks and constrained modals/drawers below header.
-Added shell_view_containment.test.js; all 20 desktop tests pass.
+Completed Vocab overhaul (Area 2 of Fix Report).
+Added cards jlpt_level index and /api/cards level/source filters.
+Added /api/vocab/inventory, bulk updates, and Mistake Notebook logging.
+Built true Inventory view with drawer; 30 backend & 43 desktop tests pass.

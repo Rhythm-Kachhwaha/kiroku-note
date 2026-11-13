@@ -882,6 +882,8 @@ class CardService:
         search: str | None = None,
         deck_name: str | None = None,
         sync_status: str | None = None,
+        jlpt_level: str | None = None,
+        source_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> CardListResponse:
@@ -890,6 +892,8 @@ class CardService:
             search=search,
             deck_name=deck_name,
             sync_status=sync_status,
+            jlpt_level=jlpt_level,
+            source_type=source_type,
             limit=limit,
             offset=offset,
         )
@@ -897,6 +901,8 @@ class CardService:
             search=search,
             deck_name=deck_name,
             sync_status=sync_status,
+            jlpt_level=jlpt_level,
+            source_type=source_type,
         )
         if sync_status and sync_status.strip().lower() == "synced":
             synced_total = total
@@ -907,6 +913,8 @@ class CardService:
                 search=search,
                 deck_name=deck_name,
                 sync_status="synced",
+                jlpt_level=jlpt_level,
+                source_type=source_type,
             )
         cards = [
             CardSummary(

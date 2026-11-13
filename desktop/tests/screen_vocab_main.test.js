@@ -259,13 +259,13 @@ test('Vocab Main: Zero emojis across code, templates, and styles', () => {
   }
 });
 
-test('Vocab Main: Slice 19 segments (Capture | Inventory | Watch) and 3 token states', () => {
+test('Vocab Main: Segments (Capture | Inventory | Mined Cards) and 3 token states', () => {
   const content = fs.readFileSync(vocabMainPath, 'utf8');
 
   // Segments
-  assert.ok(content.includes('id="vocab-tab-watch"'), 'Must render Watch segment tab');
-  assert.ok(content.includes('id="vocab-watch-container"'), 'Must render Watch container');
-  assert.ok(content.includes('Link not connected'), 'Must show Link not connected empty state');
+  assert.ok(content.includes('id="vocab-tab-inventory"'), 'Must render Inventory segment tab');
+  assert.ok(content.includes('id="vocab-tab-mined"'), 'Must render Mined Cards segment tab');
+  assert.ok(content.includes('id="vocab-inventory-mount"'), 'Must render Inventory mount container');
 
   // Read a passage full section
   assert.ok(content.includes('Read a passage'), 'Annotator must have Read a passage section');

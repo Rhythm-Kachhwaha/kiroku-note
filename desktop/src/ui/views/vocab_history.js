@@ -55,12 +55,12 @@ export class VocabHistoryView {
     this.container.innerHTML = `
       <div class="history-view-wrapper">
         <div class="history-view-container">
-          <!-- Capture | Inventory segments; Capture returns to the vocab route -->
+          <!-- Capture | Inventory | Mined Cards segments -->
           <div class="vocab-top-controls">
             <div class="vocab-segments" role="tablist" aria-label="Vocabulary sections">
               <button type="button" class="vocab-segment-tab" id="vocab-tab-capture" data-segment="capture" role="tab" aria-selected="false">Capture</button>
-              <button type="button" class="vocab-segment-tab is-active" id="vocab-tab-inventory" data-segment="inventory" role="tab" aria-selected="true">Inventory</button>
-              <button type="button" class="vocab-segment-tab" id="vocab-tab-watch" data-segment="watch" role="tab" aria-selected="false">Watch</button>
+              <button type="button" class="vocab-segment-tab" id="vocab-tab-inventory" data-segment="inventory" role="tab" aria-selected="false">Inventory</button>
+              <button type="button" class="vocab-segment-tab is-active" id="vocab-tab-mined" data-segment="mined" role="tab" aria-selected="true">Mined Cards</button>
             </div>
           </div>
 
@@ -68,7 +68,7 @@ export class VocabHistoryView {
           <div class="history-header-section">
             <div class="history-title-row">
               <div class="history-title-group">
-                <h1 class="history-page-title">Mined cards and inventory</h1>
+                <h1 class="history-page-title">Mined cards and Anki sync</h1>
                 <p class="history-page-sub">Local cards stored in SQLite with background AnkiConnect synchronization.</p>
               </div>
               <div class="history-header-actions">
@@ -257,12 +257,11 @@ export class VocabHistoryView {
   setupEvents() {
     const tabCapture = document.getElementById('vocab-tab-capture');
     const tabInventory = document.getElementById('vocab-tab-inventory');
-    const tabWatch = document.getElementById('vocab-tab-watch');
     if (tabCapture) {
       tabCapture.addEventListener('click', () => this.router.navigateToTab('vocab'));
     }
-    if (tabWatch) {
-      tabWatch.addEventListener('click', () => this.router.navigateToTab('vocab', { segment: 'watch' }));
+    if (tabInventory) {
+      tabInventory.addEventListener('click', () => this.router.navigateToTab('vocab', { segment: 'inventory' }));
     }
 
     const btnDrillGaps = document.getElementById('btn-drill-gaps');

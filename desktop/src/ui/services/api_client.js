@@ -226,6 +226,25 @@ export class ApiClient {
     });
   }
 
+  // Vocab Inventory
+  async getVocabInventory(params = {}) {
+    return this.request('/api/vocab/inventory', { query: params });
+  }
+
+  async bulkSetWordStates(expressions, state) {
+    return this.request('/api/vocab/inventory/bulk-state', {
+      method: 'POST',
+      body: { expressions, state }
+    });
+  }
+
+  async createWordSet(payload) {
+    return this.request('/api/vocab-practice/word-sets', {
+      method: 'POST',
+      body: payload
+    });
+  }
+
   // Grammar Studio
   async analyzeGrammar(sentence) {
     return this.request('/api/grammar/analyze', {

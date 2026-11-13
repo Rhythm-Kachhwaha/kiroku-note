@@ -491,6 +491,8 @@ def list_cards(
     deck: str | None = None,
     deck_name: str | None = None,
     sync_status: str | None = None,
+    jlpt_level: str | None = None,
+    source_type: str | None = None,
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> CardListResponse:
@@ -500,6 +502,8 @@ def list_cards(
         search=search,
         deck_name=target_deck,
         sync_status=sync_status,
+        jlpt_level=jlpt_level,
+        source_type=source_type,
         limit=limit,
         offset=offset,
     )
@@ -512,6 +516,8 @@ def export_cards_csv(
     filter_status: str | None = Query(default=None, alias="status"),
     sync_status: str | None = None,
     search: str | None = None,
+    jlpt_level: str | None = None,
+    source_type: str | None = None,
 ) -> Response:
     service = CardService()
     target_deck = deck or deck_name
@@ -520,6 +526,8 @@ def export_cards_csv(
         search=search,
         deck_name=target_deck,
         sync_status=target_status,
+        jlpt_level=jlpt_level,
+        source_type=source_type,
         limit=100000,
         offset=0,
     )

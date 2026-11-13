@@ -177,8 +177,8 @@ def _row_to_record(row: sqlite3.Row) -> CardRecord:
     except Exception:
         examples = []
 
-    jlpt_level = None
-    if isinstance(parsed_meanings, dict):
+    jlpt_level = row["jlpt_level"] if "jlpt_level" in row.keys() and row["jlpt_level"] else None
+    if not jlpt_level and isinstance(parsed_meanings, dict):
         jlpt_level = parsed_meanings.get("jlpt_level")
 
     if not jlpt_level and entries:
@@ -339,7 +339,7 @@ class CardRepository:
                        image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
                        normalized_expression, normalized_reading, normalized_deck_name,
                        meanings_json, examples_json, status, created_at, updated_at,
-                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url, card_kind
+                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url, card_kind, jlpt_level
                 FROM cards
                 WHERE normalized_expression = ? AND normalized_deck_name = ?
                   AND (? = 'grammar' AND card_kind = 'grammar' OR ? != 'grammar' AND normalized_reading = ?)
@@ -359,7 +359,7 @@ class CardRepository:
                        image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
                        normalized_expression, normalized_reading, normalized_deck_name,
                        meanings_json, examples_json, status, created_at, updated_at,
-                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url, card_kind
+                       sync_status, anki_note_id, sync_error, synced_at, source_type, source_url, card_kind, jlpt_level
                 FROM cards
                 WHERE id = ?
                 """,
@@ -383,7 +383,39 @@ class CardRepository:
         """
         norm_expr, norm_read, norm_deck = get_duplicate_identity(draft.expression, draft.reading, draft.deck_name)
         now_utc = datetime.now(timezone.utc).isoformat()
-        meanings_json = _serialize_meanings(draft.entries, draft.kanji_entries, draft.card_settings, draft.jlpt_level, getattr(draft, "verb_metadata", None))
+
+        card_jlpt_level = draft.jlpt_level
+        if not card_jlpt_level and draft.entries:
+            for e in draft.entries:
+                e_dict = e if isinstance(e, dict) else (asdict(e) if is_dataclass(e) else {})
+                for t in (e_dict.get("tags") or []):
+                    t_str = str(t)
+                    if t_str.lower().startswith("jlpt-n") and len(t_str) == 7:
+                        card_jlpt_level = t_str[5:].upper()
+                        break
+                    elif t_str.lower().startswith("n") and len(t_str) == 2 and t_str[1].isdigit():
+                        card_jlpt_level = t_str.upper()
+                        break
+                if card_jlpt_level:
+                    break
+        if not card_jlpt_level and draft.kanji_entries:
+            for k in draft.kanji_entries:
+                k_dict = k if isinstance(k, dict) else (asdict(k) if is_dataclass(k) else {})
+                stats = k_dict.get("stats") or {}
+                if stats.get("jlpt") and str(stats.get("jlpt")).upper().startswith("N"):
+                    card_jlpt_level = str(stats.get("jlpt")).upper()
+                    break
+        if not card_jlpt_level and draft.expression:
+            ref = _get_jlpt_reference()
+            if ref and hasattr(ref, "lookup_word_with_kanji_fallback"):
+                try:
+                    card_jlpt_level = ref.lookup_word_with_kanji_fallback(draft.expression)
+                except Exception:
+                    pass
+        if card_jlpt_level:
+            card_jlpt_level = str(card_jlpt_level).upper()
+
+        meanings_json = _serialize_meanings(draft.entries, draft.kanji_entries, draft.card_settings, card_jlpt_level, getattr(draft, "verb_metadata", None))
         examples_json = _serialize_to_json(draft.examples)
 
         with db_session(self._db_path) as conn:
@@ -433,6 +465,7 @@ class CardRepository:
                             meanings_json = ?,
                             examples_json = ?,
                             card_kind = ?,
+                            jlpt_level = COALESCE(?, jlpt_level),
                             updated_at = ?
                         WHERE id = ?
                         """,
@@ -459,6 +492,7 @@ class CardRepository:
                             meanings_json_to_save,
                             examples_json_to_save,
                             draft.card_kind or "vocab",
+                            card_jlpt_level,
                             now_utc,
                             draft.id,
                         ),
@@ -483,8 +517,8 @@ class CardRepository:
                         image, audio, tags, notes, source_text, deinflected_text, source_type, source_url,
                         deck_name, model_name, normalized_expression, normalized_reading, normalized_deck_name,
                         meanings_json, examples_json, status, sync_status, anki_note_id,
-                        sync_error, synced_at, created_at, updated_at, card_kind
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        sync_error, synced_at, created_at, updated_at, card_kind, jlpt_level
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         draft.expression,
@@ -516,6 +550,7 @@ class CardRepository:
                         now_utc,
                         now_utc,
                         draft.card_kind or "vocab",
+                        card_jlpt_level,
                     ),
                 )
                 conn.commit()
@@ -673,6 +708,8 @@ class CardRepository:
         search: str | None = None,
         deck_name: str | None = None,
         sync_status: str | None = None,
+        jlpt_level: str | None = None,
+        source_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[CardRecord]:
@@ -685,7 +722,7 @@ class CardRepository:
                    image, audio, tags, notes, source_text, deinflected_text, deck_name, model_name,
                    normalized_expression, normalized_reading, normalized_deck_name,
                    meanings_json, examples_json, status, created_at, updated_at,
-                   sync_status, anki_note_id, sync_error, synced_at, source_type, source_url
+                   sync_status, anki_note_id, sync_error, synced_at, source_type, source_url, card_kind, jlpt_level
             FROM cards
         """
         conditions = []
@@ -706,6 +743,14 @@ class CardRepository:
             conditions.append("sync_status = ?")
             params.append(sync_status.strip().lower())
 
+        if jlpt_level and jlpt_level.strip() and jlpt_level.strip().lower() != "all":
+            conditions.append("UPPER(jlpt_level) = ?")
+            params.append(jlpt_level.strip().upper())
+
+        if source_type and source_type.strip() and source_type.strip().lower() != "all":
+            conditions.append("source_type = ?")
+            params.append(source_type.strip())
+
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
@@ -721,6 +766,8 @@ class CardRepository:
         search: str | None = None,
         deck_name: str | None = None,
         sync_status: str | None = None,
+        jlpt_level: str | None = None,
+        source_type: str | None = None,
     ) -> int:
         """Count cards matching optional search query and filters."""
         query = "SELECT COUNT(*) AS total FROM cards"
@@ -741,6 +788,14 @@ class CardRepository:
         if sync_status and sync_status.strip() and sync_status.strip().lower() != "all":
             conditions.append("sync_status = ?")
             params.append(sync_status.strip().lower())
+
+        if jlpt_level and jlpt_level.strip() and jlpt_level.strip().lower() != "all":
+            conditions.append("UPPER(jlpt_level) = ?")
+            params.append(jlpt_level.strip().upper())
+
+        if source_type and source_type.strip() and source_type.strip().lower() != "all":
+            conditions.append("source_type = ?")
+            params.append(source_type.strip())
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)

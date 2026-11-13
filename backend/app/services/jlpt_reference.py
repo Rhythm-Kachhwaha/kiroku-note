@@ -321,6 +321,39 @@ class JlptReferenceService:
             logger.debug("search_english failed for '%s': %s", clean_query, err)
             return []
 
+    def get_words_by_level(self, level: str, limit: int = 500) -> list[dict]:
+        """Fetch dictionary words for a target JLPT level ('N5'..'N1')."""
+        conn = self._get_connection()
+        if conn is None:
+            return []
+        lvl = _normalize_level(level)
+        if not lvl:
+            return []
+        try:
+            cursor = conn.cursor()
+            rows = cursor.execute(
+                "SELECT word, reading, meanings, level FROM vocab WHERE level = ? LIMIT ?",
+                (lvl, limit),
+            ).fetchall()
+            results = []
+            for w, r, m_raw, l in rows:
+                m_list = []
+                if m_raw:
+                    try:
+                        m_list = json.loads(m_raw) if isinstance(m_raw, str) else []
+                    except Exception:
+                        m_list = [str(m_raw)]
+                results.append({
+                    "expression": w,
+                    "reading": r or "",
+                    "meaning": "; ".join(m_list[:3]) if m_list else "",
+                    "jlpt_level": l,
+                })
+            return results
+        except Exception as err:
+            logger.debug("get_words_by_level failed for '%s': %s", level, err)
+            return []
+
     def close(self) -> None:
         """Close cached SQLite connection handle if active."""
         if self._conn is not None:

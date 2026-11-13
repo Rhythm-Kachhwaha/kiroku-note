@@ -172,11 +172,12 @@ class VocabPracticeService:
     ) -> PracticeResult:
         gen = self.get_generator(question.question_type)
         result = gen.grade(question, answer)
-        if persist and question.expected_sequence_id:
+        if persist:
+            seq_id = question.expected_sequence_id or question.target.sequence_id or 0
             primary_cat = question.target.categories[0] if question.target.categories else ""
             record_practice_result(
-                sequence_id=question.expected_sequence_id,
-                reading=question.target.reading,
+                sequence_id=seq_id,
+                reading=question.target.reading or question.expected_reading,
                 expression=question.target.expression,
                 question_type=question.question_type,
                 category=primary_cat,

@@ -246,11 +246,52 @@ def get_incorrect_questions_history(
         rows = conn.execute(query_sql, tuple(params + [limit, offset])).fetchall()
         items = [dict(r, prompt_html=render_markup_html(r["prompt_markup"])) for r in rows]
 
+        # Query vocab practice mistakes from main database
+        vocab_items = []
+        try:
+            from app.db.connection import db_session, get_db_path
+            main_db = get_db_path()
+            with db_session(main_db) as mconn:
+                v_rows = mconn.execute(
+                    "SELECT id, sequence_id, reading, expression, question_type, category, user_answer, expected_answer, response_time_ms, created_at "
+                    "FROM vocab_practice_results WHERE is_correct = 0 ORDER BY created_at DESC LIMIT 50"
+                ).fetchall()
+                for vr in v_rows:
+                    expr = vr["expression"] or ""
+                    reading = vr["reading"] or ""
+                    stem = f"{expr} ({reading})" if reading else expr
+                    vocab_items.append({
+                        "question_id": f"vocab_{vr['id']}",
+                        "external_id": f"vocab:{vr['sequence_id']}:{expr}",
+                        "level": level or "N4",
+                        "category": vr["category"] or "vocab",
+                        "format_code": vr["question_type"],
+                        "prompt_markup": stem,
+                        "prompt_html": f"<strong>{stem}</strong>",
+                        "first_incorrect_at": vr["created_at"],
+                        "last_incorrect_at": vr["created_at"],
+                        "incorrect_count": 1,
+                        "total_attempts": 1,
+                        "total_correct": 0,
+                        "is_resolved": 0,
+                        "improvement_status": "needs_review",
+                        "last_attempted_at": vr["created_at"],
+                        "your_answer": vr["user_answer"],
+                        "correct_answer": vr["expected_answer"],
+                        "explanation_markup": f"Expected: {vr['expected_answer']}",
+                        "time_spent_ms": vr["response_time_ms"] or 0,
+                    })
+        except Exception:
+            pass
+
+        all_items = items + vocab_items
+        total_combined = total + len(vocab_items)
+
         return PaginatedResponse(
-            total=total,
+            total=total_combined,
             limit=limit,
             offset=offset,
-            items=items,
+            items=all_items,
         )
     except Exception as exc:
         raise map_domain_exception(exc)
@@ -264,6 +305,53 @@ def get_incorrect_question_detail(
     """
     Retrieve full attempt history and improvement timeline for a specific incorrect question.
     """
+    if str(question_id).startswith("vocab_"):
+        v_id = str(question_id).replace("vocab_", "")
+        try:
+            from app.db.connection import db_session, get_db_path
+            main_db = get_db_path()
+            with db_session(main_db) as mconn:
+                vr = mconn.execute(
+                    "SELECT id, sequence_id, reading, expression, question_type, category, user_answer, expected_answer, response_time_ms, created_at "
+                    "FROM vocab_practice_results WHERE id = ?",
+                    (int(v_id),),
+                ).fetchone()
+                if vr:
+                    expr = vr["expression"] or ""
+                    reading = vr["reading"] or ""
+                    stem = f"{expr} ({reading})" if reading else expr
+                    return {
+                        "question": {
+                            "id": f"vocab_{vr['id']}",
+                            "external_id": f"vocab:{vr['sequence_id']}:{expr}",
+                            "level": "N4",
+                            "category": vr["category"] or "vocab",
+                            "format_code": vr["question_type"],
+                            "stem_markup": stem,
+                            "payload_json": "{}",
+                        },
+                        "timeline": [
+                            {
+                                "session_id": 0,
+                                "session_external_id": "vocab_practice",
+                                "session_type": "practice",
+                                "position": 1,
+                                "is_correct": 0,
+                                "selected_choice_id": None,
+                                "selected_choice_key": vr["user_answer"],
+                                "canonical_choice_id": None,
+                                "canonical_choice_key": vr["expected_answer"],
+                                "time_spent_ms": vr["response_time_ms"] or 0,
+                                "difficulty_rating": 3,
+                                "answered_at": vr["created_at"],
+                                "explanation_markup": f"Expected: {vr['expected_answer']}",
+                            }
+                        ],
+                    }
+        except Exception:
+            pass
+        raise StudyNotFoundError(f"Question {question_id} not found.", code="QUESTION_NOT_FOUND")
+
     try:
         q_id = _resolve_question_pk(conn, question_id)
         q_row = conn.execute(
