@@ -10,16 +10,16 @@ const sharedCssPath = path.join(viewsStylesDir, 'shared.css');
 test('Shell View Containment: shared.css establishes centralized safe-area bounds on #view-container', () => {
   const sharedCss = fs.readFileSync(sharedCssPath, 'utf8');
 
-  // #view-container must bound height, safe-area padding, and internal scrolling
+  // #view-container must bound height, top clearance, and internal scrolling
   assert.match(
     sharedCss,
-    /#view-container\s*\{[^}]*height:\s*100vh;/s,
-    '#view-container must have height: 100vh'
+    /#view-container\s*\{[^}]*margin-top:\s*var\(--chrome-top-height[^}]*height:\s*calc\(100vh\s*-\s*var\(--chrome-top-height[^}]*\);/s,
+    '#view-container must start below top chrome and bound height'
   );
   assert.match(
     sharedCss,
-    /#view-container\s*\{[^}]*padding-top:\s*var\(--chrome-top-height[^}]*padding-bottom:\s*var\(--content-padding-bottom/s,
-    '#view-container must reserve safe areas for both top chrome and bottom dock'
+    /#view-container\s*\{[^}]*padding-bottom:\s*var\(--content-padding-bottom/s,
+    '#view-container must reserve safe area for bottom dock'
   );
   assert.match(
     sharedCss,
@@ -27,11 +27,27 @@ test('Shell View Containment: shared.css establishes centralized safe-area bound
     '#view-container must own vertical scrolling'
   );
 
-  // Transition clip path must inset for both top chrome and bottom dock
+  // Transition clip path must inset for bottom dock
   assert.match(
     sharedCss,
-    /::view-transition-group\(view-content\)\s*\{[^}]*clip-path:\s*inset\(\s*var\(--chrome-top-height[^)]*\)\s+0\s+var\(--content-padding-bottom[^)]*\)\s+0\s*\);/s,
-    'view-transition-group clip-path must cleanly inset for top chrome and bottom dock'
+    /::view-transition-group\(view-content\)\s*\{[^}]*clip-path:\s*inset\(\s*0\s+0\s+var\(--content-padding-bottom[^)]*\)\s+0\s*\);/s,
+    'view-transition-group clip-path must cleanly inset for bottom dock'
+  );
+});
+
+test('Shell View Containment: shell-extras.css provides solid opaque background for top chrome', () => {
+  const shellExtrasPath = path.join(viewsStylesDir, 'shell-extras.css');
+  const shellExtras = fs.readFileSync(shellExtrasPath, 'utf8');
+
+  assert.match(
+    shellExtras,
+    /\.top-chrome\s*\{[^}]*background-color:\s*var\(--pure-black\)/s,
+    '.top-chrome must have solid background-color'
+  );
+  assert.doesNotMatch(
+    shellExtras,
+    /\.top-chrome\s*\{[^}]*background:\s*transparent/s,
+    '.top-chrome must not be transparent'
   );
 });
 

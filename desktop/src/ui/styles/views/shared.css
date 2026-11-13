@@ -95,10 +95,11 @@ body {
   background: var(--text-muted);
 }
 
-/* Base View Container with Mandatory Safe-Area Padding */
+/* Base View Container with Mandatory Safe-Area Containment */
 #view-container {
-  height: 100vh;
-  padding-top: var(--chrome-top-height, 48px);
+  margin-top: var(--chrome-top-height, 48px);
+  height: calc(100vh - var(--chrome-top-height, 48px));
+  padding-top: 0;
   padding-bottom: var(--content-padding-bottom, 96px);
   overflow-y: auto;
   overflow-x: hidden;
@@ -166,7 +167,7 @@ body {
 ::view-transition-group(view-content) {
   animation-duration: 0.25s;
   clip-path: inset(
-    var(--chrome-top-height, 48px)
+    0
     0
     var(--content-padding-bottom, 96px)
     0
