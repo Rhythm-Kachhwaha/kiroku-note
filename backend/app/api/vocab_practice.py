@@ -390,7 +390,7 @@ def list_transitive_pairs(
 @router.get("/api/vocab-practice/gap-breakdown")
 def get_gap_breakdown(
     level: str = Query(default="N4"),
-    limit_per_category: int = Query(default=40, ge=1, le=200),
+    limit_per_category: int = Query(default=150, ge=1, le=1000),
 ) -> dict[str, Any]:
     """Return unseen JLPT gap words categorized into adverbs, nouns, katakana loanwords, verbs, adjectives."""
     from app.services.vocab_practice.categories import get_gap_breakdown_by_category

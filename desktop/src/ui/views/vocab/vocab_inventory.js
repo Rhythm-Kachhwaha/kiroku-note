@@ -190,9 +190,23 @@ export class VocabInventoryComponent {
     window.addEventListener('kiroku:learner-level-changed', this._levelListener);
 
     if (this.activeSubView === 'shelves') {
-      await Promise.all([this.loadData(), this.loadShelvesData()]);
+      await this.loadShelvesData();
+      this.fetchMetricsOnly();
     } else {
       await this.loadData();
+    }
+  }
+
+  async fetchMetricsOnly() {
+    try {
+      const res = await apiClient.getVocabInventory({ limit: 1, offset: 0, include_reference: false });
+      if (res) {
+        this.countsByState = res.counts_by_state || { total: 0, known: 0, learning: 0, unseen: 0, ignored: 0 };
+        this.totalItems = typeof res.total === 'number' ? res.total : 0;
+        this.updateMetrics();
+      }
+    } catch (err) {
+      console.debug('[VocabInventory] fetchMetricsOnly error:', err);
     }
   }
 
@@ -767,7 +781,6 @@ export class VocabInventoryComponent {
     // Shelves: Gap Category Pills
     const gapCatPills = this.container.querySelectorAll('.filter-gap-cat');
     gapCatPills.forEach((pill) => {
-      tab = pill;
       pill.addEventListener('click', () => {
         gapCatPills.forEach((p) => p.classList.remove('is-active'));
         pill.classList.add('is-active');
@@ -1324,47 +1337,58 @@ export class VocabInventoryComponent {
   // =========================================================================
 
   async loadShelvesData() {
+    // Progressive / streaming shelf loader:
+    // Render fast in-memory and lightweight hubs immediately as they resolve,
+    // so user does not wait for all 6 network queries before seeing content.
     try {
-      const [pairsRes, gapsRes, adverbsRes, onomatopoeiaRes, adjectivesRes, keigoRes] = await Promise.allSettled([
-        apiClient.getTransitivePairs({
-          level: this.transitiveLevelFilter !== 'all' ? this.transitiveLevelFilter : undefined,
-          mastery: this.transitiveMasteryFilter !== 'all' ? this.transitiveMasteryFilter : undefined,
-        }),
-        apiClient.getGapBreakdown(this.learnerLevel, 100),
-        apiClient.getVocabInventory({ category: 'adverb', limit: 150, include_reference: true }),
-        apiClient.getVocabInventory({ category: 'onomatopoeia', limit: 150, include_reference: true }),
-        apiClient.getVocabInventory({ category: 'adjective', limit: 150, include_reference: true }),
-        apiClient.getKeigo(),
-      ]);
+      // 1. Fast hubs: Transitive Pairs, Keigo Hub, Gap Breakdown
+      const pTransitive = apiClient.getTransitivePairs({
+        level: this.transitiveLevelFilter !== 'all' ? this.transitiveLevelFilter : undefined,
+        mastery: this.transitiveMasteryFilter !== 'all' ? this.transitiveMasteryFilter : undefined,
+      }).then((res) => {
+        if (res) {
+          this.transitivePairs = res.pairs || [];
+          this.transitiveSummary = res.summary || null;
+          this.renderTransitivePairsHub();
+        }
+      }).catch((err) => console.debug('[VocabInventory] load transitive error:', err));
 
-      if (pairsRes.status === 'fulfilled' && pairsRes.value) {
-        this.transitivePairs = pairsRes.value.pairs || [];
-        this.transitiveSummary = pairsRes.value.summary || null;
-        this.renderTransitivePairsHub();
-      }
+      const pKeigo = apiClient.getKeigo().then((res) => {
+        if (res) {
+          this.keigoItems = res.items || [];
+          this.keigoSummary = res.summary || null;
+          this.renderKeigoShelf();
+        }
+      }).catch((err) => console.debug('[VocabInventory] load keigo error:', err));
 
-      if (gapsRes.status === 'fulfilled' && gapsRes.value) {
-        this.gapBreakdown = gapsRes.value;
-        this.renderGapsShelf();
-      }
+      const pGaps = apiClient.getGapBreakdown(this.learnerLevel, 150).then((res) => {
+        if (res) {
+          this.gapBreakdown = res;
+          this.renderGapsShelf();
+        }
+      }).catch((err) => console.debug('[VocabInventory] load gaps error:', err));
 
-      const advItems = adverbsRes.status === 'fulfilled' && adverbsRes.value ? (adverbsRes.value.items || []) : [];
-      this._cachedAdverbs = advItems;
-      this.renderAdverbsShelf(advItems);
+      // 2. Lexical shelves: Adverbs, Onomatopoeia, Adjectives
+      const pAdverbs = apiClient.getVocabInventory({ category: 'adverb', limit: 150, include_reference: true }).then((res) => {
+        const advItems = res?.items || [];
+        this._cachedAdverbs = advItems;
+        this.renderAdverbsShelf(advItems);
+      }).catch((err) => console.debug('[VocabInventory] load adverbs error:', err));
 
-      const onomItems = onomatopoeiaRes.status === 'fulfilled' && onomatopoeiaRes.value ? (onomatopoeiaRes.value.items || []) : [];
-      this._cachedOnomatopoeia = onomItems;
-      this.renderOnomatopoeiaShelf(onomItems);
+      const pOnom = apiClient.getVocabInventory({ category: 'onomatopoeia', limit: 150, include_reference: true }).then((res) => {
+        const onomItems = res?.items || [];
+        this._cachedOnomatopoeia = onomItems;
+        this.renderOnomatopoeiaShelf(onomItems);
+      }).catch((err) => console.debug('[VocabInventory] load onomatopoeia error:', err));
 
-      const adjItems = adjectivesRes.status === 'fulfilled' && adjectivesRes.value ? (adjectivesRes.value.items || []) : [];
-      this._cachedAdjectives = adjItems;
-      this.renderAdjectivesShelf(adjItems);
+      const pAdj = apiClient.getVocabInventory({ category: 'adjective', limit: 150, include_reference: true }).then((res) => {
+        const adjItems = res?.items || [];
+        this._cachedAdjectives = adjItems;
+        this.renderAdjectivesShelf(adjItems);
+      }).catch((err) => console.debug('[VocabInventory] load adjectives error:', err));
 
-      if (keigoRes.status === 'fulfilled' && keigoRes.value) {
-        this.keigoItems = keigoRes.value.items || [];
-        this.keigoSummary = keigoRes.value.summary || null;
-        this.renderKeigoShelf();
-      }
+      // Wait for all in background without blocking incremental UI rendering
+      await Promise.allSettled([pTransitive, pKeigo, pGaps, pAdverbs, pOnom, pAdj]);
     } catch (err) {
       console.debug('[VocabInventory] loadShelvesData error:', err);
     }
@@ -1924,6 +1948,14 @@ export class VocabInventoryComponent {
     const grid = document.getElementById('gaps-shelf-grid');
     const badge = document.getElementById('gaps-breakdown-count');
     if (!grid || !this.gapBreakdown) return;
+
+    // Sync filter pills visual active state
+    const gapCatPills = this.container?.querySelectorAll('.filter-gap-cat');
+    if (gapCatPills) {
+      gapCatPills.forEach((p) => {
+        p.classList.toggle('is-active', (p.dataset.cat || 'all') === this.gapCategoryFilter);
+      });
+    }
 
     const breakdown = this.gapBreakdown.breakdown || {};
     let items = [];

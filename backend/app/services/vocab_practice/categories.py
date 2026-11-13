@@ -151,6 +151,48 @@ BUILTIN_TAG_SETS: tuple[tuple[str, str, str, str, str], ...] = (
 )
 
 
+# Canonical Japanese Adverb Lexicon (N5 to N1)
+CANONICAL_ADVERB_SET: set[str] = {
+    # N5
+    "いつも", "あまり", "とても", "たいへん", "大変", "ちょっと", "すぐ", "直ぐ", "たくさん",
+    "もっと", "ずっと", "だんだん", "ゆっくり", "しっかり", "はっきり", "ちょうど", "たぶん",
+    "まっすぐ", "ぜんぜん", "全然", "ほぼ", "大体", "だいたい", "初めて", "はじめて", "また",
+    "まだ", "もう", "いっしょに", "一緒に", "どう", "そう", "こう", "ああ", "よく", "いちばん",
+    "一番", "少し", "すこし", "大抵", "たいてい",
+    # N4
+    "すっかり", "ずいぶん", "随分", "急に", "きゅうに", "確かに", "たしかに", "特に", "とくに",
+    "なるべく", "なるほど", "ほとんど", "別に", "べつに", "まず", "もし", "やっと", "やはり",
+    "やっぱり", "急いで", "いそいで", "決して", "けっして", "絶対に", "ぜったいに", "たまに",
+    "必ず", "かならず", "非常に", "ひじょうに", "普通", "ふつう",
+    # N3-N1
+    "あらかじめ", "改めて", "いかに", "いずれ", "今に", "今にも", "思い切り", "およそ",
+    "かつて", "必ずしも", "極めて", "近年", "げんに", "現に", "再三", "幸い",
+    "直ちに", "たちまち", "単に", "常に", "どうせ", "滅多に", "めったに", "ろくに", "割に",
+    "割合に", "徐々に", "じょじょに", "次第に", "しだいに", "いっそ", "いっそう", "一層",
+    "概して", "果して", "果たして", "恐らく", "おそらく", "大して", "たいして", "大層",
+    "とっくに", "ともかく", "何しろ", "なにしろ", "なんと", "何と", "何とか", "なんとなく",
+    "一応", "いちおう", "一段と", "いちだんと", "一向に", "いっこうに", "一体", "いったい",
+    "どうにか", "どうやら", "どうせ", "とうとう", "ますます", "益々", "めいめい",
+}
+
+CANONICAL_NA_ADJECTIVES: set[str] = {
+    "便利", "べんり", "親切", "しんせつ", "静か", "しずか", "有名", "ゆうめい", "元気", "げんき",
+    "簡単", "かんたん", "必要", "ひつよう", "安全", "あんぜん", "危険", "きけん", "大切", "たいせつ",
+    "大事", "だいじ", "自由", "じゆう", "複雑", "ふくざつ", "特別", "とくべつ", "適当", "てきとう",
+    "真面目", "まじめ", "盛ん", "さかん", "暇", "ひま", "素敵", "すてき", "立派", "りっぱ",
+    "下手", "へた", "上手", "じょうず", "嫌い", "きらい", "好き", "すき", "綺麗", "きれい",
+    "丁寧", "ていねい", "変", "へん", "楽", "らく", "嫌", "いや", "無理", "むり", "十分", "じゅうぶん",
+}
+
+_ADVERB_GLOSS_HINTS = (
+    "always", "very", "quite", "slowly", "immediately", "soon", "often", "sometimes",
+    "usually", "scarcely", "hardly", "already", "not very", "a lot", "gradually",
+    "firmly", "clearly", "suddenly", "perhaps", "maybe", "at all", "at once",
+    "together", "more and more", "at first", "finally", "especially", "actually",
+    "certainly", "absolutely", "definitely", "approximately", "nearly", "mostly",
+)
+
+
 def classify_pos_heuristic(expression: str, reading: str = "", meaning: str = "") -> str:
     """Heuristic part-of-speech classification when sequence_id or JMdict tags are absent."""
     expr = (expression or "").strip()
@@ -160,43 +202,56 @@ def classify_pos_heuristic(expression: str, reading: str = "", meaning: str = ""
     if not expr:
         return CAT_NOUN
 
-    # Katakana loanword
+    # 1. Canonical Adverbs (checked first to distinguish adverbs like だんだん)
+    if expr in CANONICAL_ADVERB_SET or read in CANONICAL_ADVERB_SET:
+        return CAT_ADVERB
+
+    # 2. Onomatopoeia / Mimetics (giongo, giseigo, gitaigo, emotion)
+    # Checked before Katakana loanwords so expressions like ペラペラ and ドキドキ are classified correctly
+    if expr in ON_MIM_SUBTYPES or read in ON_MIM_SUBTYPES:
+        return CAT_ONOMATOPOEIA
+    if "onomatopoeia" in mean or "mimetic" in mean or "on-mim" in mean:
+        return CAT_ONOMATOPOEIA
+    if (len(expr) == 4 and expr[0:2] == expr[2:4]) or (len(read) == 4 and read[0:2] == read[2:4]):
+        return CAT_ONOMATOPOEIA
+
+    # 3. Katakana loanword
     if re.fullmatch(r"^[ァ-ヴー・\s]+$", expr):
         return "katakana_loanword"
 
-    # Onomatopoeia / Mimetics
-    if expr in ON_MIM_SUBTYPES or read in ON_MIM_SUBTYPES:
+    # 4. Gloss-based Adverbs
+    if "adverb" in mean or "(adv" in mean or mean.startswith("adv"):
+        return CAT_ADVERB
+    if any(h in mean for h in _ADVERB_GLOSS_HINTS) and not mean.startswith(("to ", "to be", "to have", "to do", "a ", "the ")):
+        return CAT_ADVERB
+    if expr.endswith("り") and len(expr) >= 3 and (expr[0] == expr[1] or "っ" in expr or "ん" in expr):
         return CAT_ADVERB
 
-    # Meaning indicators
-    if mean.startswith("to ") or " verb" in mean:
-        return "verb"
-    if "adverb" in mean or "adv" in mean:
-        return CAT_ADVERB
-    if "adjective" in mean or "adj" in mean:
+    # 5. Adjectives (na and i)
+    if expr in CANONICAL_NA_ADJECTIVES or read in CANONICAL_NA_ADJECTIVES:
+        return CAT_ADJECTIVE_NA
+    if "adjective" in mean or "(adj" in mean:
         return CAT_ADJECTIVE_I if expr.endswith("い") else CAT_ADJECTIVE_NA
-
-    # Adjective heuristics
-    if expr.endswith("い") and len(expr) > 1:
+    if expr.endswith("い") and len(expr) > 1 and not mean.startswith("to "):
         return CAT_ADJECTIVE_I
     if expr.endswith("な") and len(expr) > 2:
         return CAT_ADJECTIVE_NA
 
-    # Verb heuristics
-    verb_endings = ("う", "く", "す", "つ", "ぬ", "ふ", "む", "る", "ぐ", "ず", "づ", "ぶ", "ぷ")
-    if expr.endswith(verb_endings) and len(expr) > 1:
+    # 6. Verbs
+    if mean.startswith(("to ", "to be ", "to have ", "to do ")) or " verb" in mean or "(v1)" in mean or "(v5" in mean or "(vi)" in mean or "(vt)" in mean:
         return "verb"
 
-    # Adverb heuristics
-    if expr.endswith("り") and len(expr) > 2 and (expr[0] == expr[1] or "っ" in expr):
-        return CAT_ADVERB
+    # 7. Verb inflection ending fallback (when not matching adverb or adjective)
+    verb_endings = ("う", "く", "す", "つ", "ぬ", "ふ", "む", "る", "ぐ", "ず", "づ", "ぶ", "ぷ")
+    if expr.endswith(verb_endings) and len(expr) > 1 and (mean.startswith("to") or not mean):
+        return "verb"
 
     return CAT_NOUN
 
 
 def get_gap_breakdown_by_category(
     level: str = "N4",
-    limit_per_category: int = 50,
+    limit_per_category: int = 150,
     db_path: Any = None,
 ) -> dict[str, Any]:
     """Breakdown unseen JLPT gap words by category (adverb, noun, katakana_loanword, verb, adjective)."""
@@ -230,7 +285,7 @@ def get_gap_breakdown_by_category(
 
     raw_gaps = []
     for lvl in eligible_levels:
-        words = ref_service.get_words_by_level(lvl, limit=400)
+        words = ref_service.get_words_by_level(lvl, limit=5000)
         for w in words:
             expr = w["expression"].strip()
             if expr and expr not in excluded:
