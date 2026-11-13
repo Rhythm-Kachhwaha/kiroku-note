@@ -883,9 +883,9 @@
           "  background: transparent !important;",
           "  margin: 0 !important;",
           "  padding: 0 !important;",
-          "  cursor: text !important;",
-          "  user-select: text !important;",
-          "  -webkit-user-select: text !important;",
+          "  cursor: pointer !important;",
+          "  user-select: none !important;",
+          "  -webkit-user-select: none !important;",
           "  transition: color 0.15s ease, text-decoration-color 0.15s ease !important;",
           "}",
           ".video-sub-token.mined {",
@@ -1029,7 +1029,7 @@
           "user-select: text !important",
           "-webkit-user-select: text !important",
           "pointer-events: auto !important",
-          "cursor: text !important",
+          "cursor: pointer !important",
           "color: #ffffff !important",
           "background: transparent !important",
           "border: none !important",
@@ -1348,9 +1348,9 @@
         setStyleProperty(span, "background", "transparent", "important");
         setStyleProperty(span, "margin", "0", "important");
         setStyleProperty(span, "padding", "0", "important");
-        setStyleProperty(span, "cursor", "text", "important");
-        setStyleProperty(span, "user-select", "text", "important");
-        setStyleProperty(span, "-webkit-user-select", "text", "important");
+        setStyleProperty(span, "cursor", "pointer", "important");
+        setStyleProperty(span, "user-select", "none", "important");
+        setStyleProperty(span, "-webkit-user-select", "none", "important");
 
         if (normalizedStatus === "mined") {
           setStyleProperty(span, "color", "#d4884f", "important");

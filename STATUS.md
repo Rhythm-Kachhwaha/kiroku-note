@@ -1,6 +1,6 @@
 # Status
-Hidden weekly consistency bar and added drill Exit button with Esc key.
-Formatted question types into human-readable labels across wizard and bank.
-Fixed Bank tab button contrast and detail view with close trigger.
-Resolved Mistakes Notebook 422 query param errors and enhanced card readability.
-All 35 desktop and 25 backend study tests passing with 100% token compliance.
+In-page immersion text & video mining without opening sidepanel.
+Shadow-DOM isolated HUD popup with Planetoño tactile physics and JLPT badges.
+Video subtitle HUD with rAF sync, 4 playback modes, and mechanical hotkeys.
+Background OCR cropping directly displaying in-page popup at crop location.
+All 25+ extension immersion, HUD, and video mining tests passing with zero emojis.

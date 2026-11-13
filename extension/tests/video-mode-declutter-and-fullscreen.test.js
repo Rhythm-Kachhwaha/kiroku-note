@@ -7,6 +7,7 @@ const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const { getSidepanelCss, getSidepanelSource } = require("./helpers/source.js");
 
 const manifestPath = path.join(__dirname, "../manifest.json");
 const hookPath = path.join(__dirname, "../content/fullscreen-hook.js");

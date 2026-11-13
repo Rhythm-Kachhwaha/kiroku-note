@@ -388,7 +388,7 @@
         <div id="hud-no-subs-chip" class="hud-no-subs-chip hidden">
           <span>No subtitles</span>
           <button id="hud-chip-select-btn" class="chip-action">Select</button>
-          <button id="hud-chip-close-btn" class="chip-close" aria-label="Dismiss">✕</button>
+          <button id="hud-chip-close-btn" class="chip-close" aria-label="Dismiss"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg></button>
         </div>
 
         <!-- Menu Panel -->
@@ -451,10 +451,9 @@
               <button id="hud-toggle-visibility" class="hud-mini-btn" style="grid-column: span 2;">Subtitles: Visible</button>
               <button id="hud-toggle-pos" class="hud-mini-btn">Position: Bottom</button>
               <button id="hud-toggle-size" class="hud-mini-btn">Font Size: 24px</button>
-              <button id="hud-toggle-blur" class="hud-mini-btn">Blur: On</button>
-              <button id="hud-toggle-furigana" class="hud-mini-btn">Furigana: On</button>
-              <button id="hud-toggle-native" class="hud-mini-btn">Native Subs: Off</button>
-              <button id="hud-toggle-learning" class="hud-mini-btn">Learning Mode: Off</button>
+              <button id="hud-toggle-blur" class="hud-mini-btn">Blur: Off</button>
+              <button id="hud-toggle-furigana" class="hud-mini-btn">Furigana: Hover</button>
+              <button id="hud-toggle-mode" class="hud-mini-btn" style="grid-column: span 2;">Mode: Always Show</button>
               <button id="hud-btn-open-panel" class="hud-mini-btn" style="grid-column: span 2; background: rgba(212,136,79,0.2); color: #d4884f;">Open Kiroku Panel</button>
             </div>
           </div>
@@ -608,26 +607,42 @@
       getEl("hud-toggle-blur")?.addEventListener("click", () => {
         this.displayPrefs.blur = !this.displayPrefs.blur;
         getEl("hud-toggle-blur").textContent = `Blur: ${this.displayPrefs.blur ? "On" : "Off"}`;
-        if (this.coordinator?.renderer?.boxEl) {
-          this.coordinator.renderer.boxEl.style.backdropFilter = this.displayPrefs.blur ? "blur(8px)" : "none";
+        const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
+        if (host) {
+          host.setPlaybackMode(this.displayPrefs.blur ? "blur_hover" : "always");
         }
       });
 
       getEl("hud-toggle-furigana")?.addEventListener("click", () => {
-        this.displayPrefs.furigana = !this.displayPrefs.furigana;
-        getEl("hud-toggle-furigana").textContent = `Furigana: ${this.displayPrefs.furigana ? "On" : "Off"}`;
+        const modes = ["hover", "always", "hidden"];
+        const current = this.displayPrefs.furiganaMode || "hover";
+        const next = modes[(modes.indexOf(current) + 1) % modes.length];
+        this.displayPrefs.furiganaMode = next;
+        const labels = { hover: "Furigana: Hover", always: "Furigana: Always", hidden: "Furigana: Off" };
+        getEl("hud-toggle-furigana").textContent = labels[next] || "Furigana: Hover";
+        const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
+        if (host) {
+          host.setFuriganaMode(next);
+        }
         this._saveStoredPrefs();
       });
 
-      getEl("hud-toggle-native")?.addEventListener("click", () => {
-        this.displayPrefs.showNative = !this.displayPrefs.showNative;
-        getEl("hud-toggle-native").textContent = `Native Subs: ${this.displayPrefs.showNative ? "On" : "Off"}`;
-        this._saveStoredPrefs();
-      });
-
-      getEl("hud-toggle-learning")?.addEventListener("click", () => {
-        this.displayPrefs.learningMode = !this.displayPrefs.learningMode;
-        getEl("hud-toggle-learning").textContent = `Learning Mode: ${this.displayPrefs.learningMode ? "On" : "Off"}`;
+      getEl("hud-toggle-mode")?.addEventListener("click", () => {
+        const modes = [
+          { key: "always", label: "Mode: Always Show" },
+          { key: "unknown_only", label: "Mode: Only Unknown" },
+          { key: "blur_hover", label: "Mode: Blur Until Hover" },
+          { key: "autopause", label: "Mode: Auto-Pause" }
+        ];
+        const currentMode = this.displayPrefs.playbackMode || "always";
+        const currentIndex = modes.findIndex((m) => m.key === currentMode);
+        const nextObj = modes[(currentIndex + 1) % modes.length];
+        this.displayPrefs.playbackMode = nextObj.key;
+        getEl("hud-toggle-mode").textContent = nextObj.label;
+        const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
+        if (host) {
+          host.setPlaybackMode(nextObj.key);
+        }
         this._saveStoredPrefs();
       });
 
@@ -992,16 +1007,16 @@
         const cues = typeof parser.normalizeCues === "function" ? parser.normalizeCues(parsed) : parsed;
 
         if (cues && cues.length > 0) {
+          const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
+          if (host) {
+            host.setCues(cues);
+          }
           if (this.coordinator?.handleDroppedFile) {
             await this.coordinator.handleDroppedFile(file);
           } else if (this.coordinator?.handleCuesLoaded) {
             this.coordinator.handleCuesLoaded(cues, file.name);
           } else if (this.coordinator?.syncEngine) {
             this.coordinator.syncEngine.setCues(cues);
-            if (this.coordinator.renderer) {
-              this.coordinator.renderer.ensureMounted();
-              this.coordinator.renderer.updatePosition();
-            }
           }
           if (this.coordinator?.setSubtitlesDisplay) {
             this.coordinator.setSubtitlesDisplay(true);

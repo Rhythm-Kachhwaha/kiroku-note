@@ -13,7 +13,12 @@ async function ensureContentScript(tabId) {
   } catch {
     await chrome.scripting.executeScript({
       target: {tabId},
-      files: ["content/capture-utils.js", "content/content.js"]
+      files: [
+        "content/capture-utils.js",
+        "content/hud/hud-popup.js",
+        "content/toast.js",
+        "content/content.js"
+      ]
     });
   }
 }
@@ -418,27 +423,89 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message?.type === "OCR_REGION_SELECTED") {
-    const windowId = sender?.tab?.windowId;
-    const capturePromise = (typeof windowId === "number")
-      ? chrome.tabs.captureVisibleTab(windowId, { format: "png" })
-      : chrome.tabs.captureVisibleTab({ format: "png" });
+    (async () => {
+      try {
+        const windowId = sender?.tab?.windowId;
+        const capturePromise = (typeof windowId === "number")
+          ? chrome.tabs.captureVisibleTab(windowId, { format: "png" })
+          : chrome.tabs.captureVisibleTab({ format: "png" });
 
-    capturePromise
-      .then(async (dataUrl) => {
-        const payload = {
+        const dataUrl = await capturePromise;
+
+        // Crop image using OffscreenCanvas
+        let croppedDataUrl = null;
+        try {
+          const resp = await fetch(dataUrl);
+          const blob = await resp.blob();
+          const bitmap = await createImageBitmap(blob);
+
+          const scaleX = bitmap.width / (message.viewport?.innerWidth || 1);
+          const scaleY = bitmap.height / (message.viewport?.innerHeight || 1);
+
+          const cropX = Math.max(0, Math.round((message.rect.left ?? message.rect.x ?? 0) * scaleX));
+          const cropY = Math.max(0, Math.round((message.rect.top ?? message.rect.y ?? 0) * scaleY));
+          const cropW = Math.min(bitmap.width - cropX, Math.round((message.rect.width || 10) * scaleX));
+          const cropH = Math.min(bitmap.height - cropY, Math.round((message.rect.height || 10) * scaleY));
+
+          if (cropW > 0 && cropH > 0) {
+            const canvas = new OffscreenCanvas(cropW, cropH);
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(bitmap, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+            const croppedBlob = await canvas.convertToBlob({ type: "image/png" });
+            const buffer = await croppedBlob.arrayBuffer();
+            let binary = "";
+            const bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.byteLength; i++) {
+              binary += String.fromCharCode(bytes[i]);
+            }
+            croppedDataUrl = "data:image/png;base64," + btoa(binary);
+          }
+        } catch (cropErr) {
+          console.warn("[Background] Offscreen crop failed, using full frame:", cropErr);
+          croppedDataUrl = dataUrl;
+        }
+
+        // Call OCR Backend
+        const ocrResp = await fetch("http://127.0.0.1:21828/api/ocr/recognize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: croppedDataUrl })
+        });
+
+        if (!ocrResp.ok) {
+          const errData = await ocrResp.json().catch(() => ({}));
+          sendResponse({ ok: false, error: errData.detail || "OCR recognition failed" });
+          return;
+        }
+
+        const ocrResult = await ocrResp.json();
+        const recognizedText = (ocrResult.text || "").trim();
+
+        // Deliver recognized text to in-page content script so popup appears directly on the image/bubble!
+        if (sender?.tab?.id) {
+          chrome.tabs.sendMessage(sender.tab.id, {
+            type: "OCR_RECOGNITION_COMPLETE",
+            text: recognizedText,
+            rect: message.rect,
+            croppedImage: croppedDataUrl
+          }).catch(() => {});
+        }
+
+        // Also broadcast to sidepanel if open
+        chrome.runtime.sendMessage({
           type: "PROCESS_OCR_CROP",
           dataUrl,
           rect: message.rect,
           viewport: message.viewport,
-          devicePixelRatio: message.devicePixelRatio || 1
-        };
-        chrome.runtime.sendMessage(payload).catch(() => {});
-        sendResponse({ ok: true });
-      })
-      .catch((err) => {
-        console.error("[AnkiMiner Background] OCR captureVisibleTab failed:", err);
-        sendResponse({ ok: false, error: err?.message || "Failed to capture screenshot for OCR" });
-      });
+          recognizedText
+        }).catch(() => {});
+
+        sendResponse({ ok: true, text: recognizedText });
+      } catch (err) {
+        console.error("[AnkiMiner Background] OCR error:", err);
+        sendResponse({ ok: false, error: err?.message || "OCR failed" });
+      }
+    })();
     return true;
   }
   if (message?.type === "OCR_SELECTION_CANCELLED") {
@@ -448,6 +515,95 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).catch(() => {});
     sendResponse({ ok: true });
     return;
+  }
+  if (message?.type === "GRAMMAR_ANALYZE") {
+    (async () => {
+      try {
+        const sentence = String(message.sentence || "").trim();
+        const resp = await fetch("http://127.0.0.1:21828/api/grammar/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sentence })
+        });
+        if (!resp.ok) {
+          sendResponse({ ok: false, error: "Grammar analysis failed" });
+          return;
+        }
+        const data = await resp.json();
+        sendResponse({ ok: true, data });
+      } catch (_) {
+        sendResponse({ ok: false, error: "Backend offline" });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "GRAMMAR_MINE") {
+    (async () => {
+      try {
+        const grammar = message.grammar || {};
+        const payload = {
+          expression: grammar.pattern || "Grammar",
+          reading: grammar.level || "",
+          meaning: grammar.meaning || "",
+          example_sentence: grammar.sentence || "",
+          deck_name: "Default",
+          source_type: "grammar"
+        };
+        const resp = await fetch("http://127.0.0.1:21828/api/cards/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) {
+          sendResponse({ ok: false, error: "Failed to save grammar card" });
+          return;
+        }
+        const data = await resp.json();
+        sendResponse({ ok: true, data, card_id: data.card_id || data.id });
+      } catch (_) {
+        sendResponse({ ok: false, error: "Backend offline" });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "DELETE_CARD") {
+    (async () => {
+      try {
+        const cardId = message.cardId;
+        if (!cardId) {
+          sendResponse({ ok: false });
+          return;
+        }
+        await fetch(`http://127.0.0.1:21828/api/cards/${cardId}`, {
+          method: "DELETE"
+        });
+        sendResponse({ ok: true });
+      } catch (_) {
+        sendResponse({ ok: false });
+      }
+    })();
+    return true;
+  }
+  if (message?.type === "SET_WORD_STATUS") {
+    (async () => {
+      try {
+        const { word, status } = message;
+        if (!word) {
+          sendResponse({ ok: false });
+          return;
+        }
+        const resp = await fetch("http://127.0.0.1:21828/api/word-states/set", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ word, status })
+        });
+        const data = await resp.json().catch(() => ({}));
+        sendResponse({ ok: resp.ok, data });
+      } catch (_) {
+        sendResponse({ ok: false });
+      }
+    })();
+    return true;
   }
   if (message?.type === "HUD_LOOKUP") {
     (async () => {

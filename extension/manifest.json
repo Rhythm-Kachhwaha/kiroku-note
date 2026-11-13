@@ -15,7 +15,8 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     },
-    "default_title": "Open Kiroku Note"
+    "default_title": "Open Kiroku Note",
+    "default_popup": "action/popup.html"
   },
   "permissions": [
     "sidePanel",
@@ -54,6 +55,8 @@
       ],
       "js": [
         "content/capture-utils.js",
+        "content/hud/hud-popup.js",
+        "content/toast.js",
         "content/content.js",
         "content/reader/page_parser.js"
       ],

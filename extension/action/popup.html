@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Kiroku Note</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 270px;
+      padding: 14px;
+      background: #09090B;
+      color: #F4F4F5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #F4F4F5;
+    }
+
+    .brand-badge {
+      font-size: 10px;
+      font-weight: 700;
+      color: #D4884F;
+      background: rgba(212, 136, 79, 0.18);
+      border: 1px solid rgba(212, 136, 79, 0.35);
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: #A1A1AA;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #71717A;
+    }
+
+    .status-dot.online {
+      background: #4EBB7B;
+      box-shadow: 0 0 6px rgba(78, 187, 123, 0.6);
+    }
+
+    .section {
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: #18181B;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+    }
+
+    .toggle-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #E4E4E7;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #27272A;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      transition: background-color 160ms ease;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background: #F4F4F5;
+      border-radius: 50%;
+      transition: transform 160ms ease;
+    }
+
+    input:checked + .slider {
+      background: #D4884F;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(16px);
+      background: #18181B;
+    }
+
+    .stats-card {
+      display: flex;
+      justify-content: space-around;
+      padding: 8px;
+      background: #18181B;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat-val {
+      font-size: 15px;
+      font-weight: 700;
+      color: #F4F4F5;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: #A1A1AA;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .hotkey-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 8px 10px;
+      background: #18181B;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      font-size: 11px;
+    }
+
+    .hotkey-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #A1A1AA;
+    }
+
+    .kbd {
+      padding: 1px 5px;
+      background: #27272A;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      font-family: ui-monospace, monospace;
+      font-size: 10px;
+      font-weight: 600;
+      color: #F4F4F5;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .tactile-btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 10px;
+      background: #27272A;
+      color: #F4F4F5;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 6px;
+      box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+      cursor: pointer;
+      transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 140ms ease;
+    }
+
+    .tactile-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.6);
+      background: #3F3F46;
+    }
+
+    .tactile-btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 0 0 0 transparent;
+    }
+
+    .tactile-btn.primary {
+      background: #D4884F;
+      color: #18181B;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .tactile-btn.primary:hover {
+      background: #E0945B;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <span class="brand-title">Kiroku Note</span>
+      <span class="brand-badge">Area 9</span>
+    </div>
+    <div class="status-pill">
+      <span id="backend-dot" class="status-dot"></span>
+      <span id="backend-status">Checking…</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="toggle-row">
+      <span class="toggle-label">Extension Mining</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-mining" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="toggle-row">
+      <span class="toggle-label">Enable on This Site</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-site" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="stats-card">
+      <div class="stat-item">
+        <span id="stat-known" class="stat-val">-</span>
+        <span class="stat-label">Known Words</span>
+      </div>
+      <div class="stat-item" style="border-left: 1px solid rgba(255,255,255,0.08); padding-left: 12px;">
+        <span id="stat-mined" class="stat-val">-</span>
+        <span class="stat-label">Mined Cards</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="hotkey-list">
+      <div class="hotkey-row">
+        <span>Scan text</span>
+        <span class="kbd">Shift + Hover</span>
+      </div>
+      <div class="hotkey-row">
+        <span>Quick mine</span>
+        <span class="kbd">Alt + M</span>
+      </div>
+      <div class="hotkey-row">
+        <span>Screen OCR</span>
+        <span class="kbd">Alt + O</span>
+      </div>
+      <div class="hotkey-row">
+        <span>Subtitles prev / next</span>
+        <span class="kbd">A / D</span>
+      </div>
+      <div class="hotkey-row">
+        <span>Replay line</span>
+        <span class="kbd">R</span>
+      </div>
+      <div class="hotkey-row">
+        <span>Toggle blur</span>
+        <span class="kbd">B</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button type="button" id="btn-sidepanel" class="tactile-btn">Side Panel</button>
+    <button type="button" id="btn-app" class="tactile-btn primary">Open App</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
