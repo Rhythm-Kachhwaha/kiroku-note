@@ -335,6 +335,37 @@
 
 .bank-list-row .bank-list-item {
   flex: 1;
+  background-color: var(--ink-surface) !important;
+  color: var(--warm-paper) !important;
+  border: 1.5px solid var(--tactile-stroke) !important;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+  padding: 0.85rem 1.15rem;
+  transition: border-color var(--duration-fast, 120ms) var(--ease-out, ease-out),
+              background-color var(--duration-fast, 120ms) var(--ease-out, ease-out);
+}
+
+.bank-list-row .bank-list-item:hover,
+.bank-list-row .bank-list-item:focus-visible {
+  background-color: var(--elevated-surface) !important;
+  border-color: var(--gold) !important;
+}
+
+.bank-list-row .bank-row-report {
+  align-self: center;
+}
+
+.mistake-item-card {
+  background-color: var(--ink-surface);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  color: var(--warm-paper);
+  transition: border-color var(--duration-fast, 120ms) var(--ease-out, ease-out);
+}
+
+.mistake-item-card:hover {
+  border-color: var(--gold);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -456,10 +487,11 @@
 
 .study-prompt-text {
   font-family: var(--font-japanese);
-  font-size: 1.35rem;
+  font-size: 1.45rem;
   font-weight: 500;
-  line-height: 2;
+  line-height: 1.85;
   color: var(--warm-paper);
+  word-break: break-word;
 }
 
 .study-prompt-text ruby rt {

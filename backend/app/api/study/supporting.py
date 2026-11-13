@@ -153,7 +153,7 @@ def get_trouble_questions(
 
 @supporting_router.get("/history/incorrect", response_model=PaginatedResponse)
 def get_incorrect_questions_history(
-    level: Optional[str] = Query(default=None, pattern=r"^N[1-5]$"),
+    level: Optional[str] = Query(default=None, pattern=r"^(N[1-5])?$"),
     format_code: Optional[str] = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -163,6 +163,8 @@ def get_incorrect_questions_history(
     Retrieve history of questions answered incorrectly for focused review drills.
     """
     try:
+        level = level if level else None
+        format_code = format_code if format_code else None
         where_clauses = ["r.is_correct = 0"]
         params: List[Any] = []
         if level:

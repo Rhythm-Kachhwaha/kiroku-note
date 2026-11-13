@@ -141,3 +141,14 @@ test('Study Import: PDF drop zone, page list with route labels, and commit flow'
   assert.ok(content.includes('studyClient.previewPdfImport('), 'Must call previewPdfImport');
   assert.ok(content.includes('studyClient.commitImport('), 'Must call commitImport');
 });
+
+test('Study View: Question readability and Exit button during practice', async () => {
+  const content = fs.readFileSync(studyViewPath, 'utf8');
+  assert.ok(content.includes('id="btn-exit-drill"'), 'Must render Exit button in drill session header bar');
+  assert.ok(content.includes('formatQuestionType'), 'Must use formatQuestionType for human-readable labels');
+
+  const { formatQuestionType } = await import('../src/ui/views/study.js');
+  assert.strictEqual(formatQuestionType('contextual_expressions'), 'Contextual Expressions');
+  assert.strictEqual(formatQuestionType('short_passage'), 'Short Passage Reading');
+  assert.strictEqual(formatQuestionType('sentence_scramble'), 'Sentence Scramble');
+});

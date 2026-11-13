@@ -11,3 +11,10 @@ def test_incorrect_history_supports_level_and_format_filters(study_test_env):
 
     assert response.status_code == 200
     assert response.json()["items"] == []
+
+    # Verify empty string filter does not trigger 422 Unprocessable Entity
+    resp_empty = client.get(
+        "/api/study/v1/history/incorrect",
+        params={"level": "", "format_code": "", "limit": 10},
+    )
+    assert resp_empty.status_code == 200

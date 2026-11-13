@@ -45,6 +45,43 @@ export const STUDY_SEGMENTS = [
   { id: 'progress', label: 'Progress' }
 ];
 
+export function formatQuestionType(code) {
+  if (!code) return 'Objective';
+  const MAP = {
+    kanji_reading: 'Kanji Reading',
+    orthography_writing: 'Orthography (Writing)',
+    word_formation: 'Word Formation',
+    context_defined_expressions: 'Context Defined Expressions',
+    contextual_expressions: 'Contextual Expressions',
+    paraphrase_expressions: 'Paraphrase Expressions',
+    usage_in_context: 'Usage in Context',
+    grammar_sentence_form: 'Sentence Grammar',
+    sentence_composition_star: 'Sentence Composition (Star)',
+    sentence_composition: 'Sentence Composition',
+    text_grammar: 'Text Grammar',
+    short_passage: 'Short Passage Reading',
+    medium_passage: 'Medium Passage Reading',
+    integrated_comprehension: 'Integrated Comprehension',
+    thematic_comprehension: 'Thematic Comprehension',
+    information_retrieval: 'Information Retrieval',
+    task_based_comprehension: 'Task-Based Comprehension',
+    key_point_comprehension: 'Key Point Comprehension',
+    summary_comprehension: 'Summary Comprehension',
+    quick_response: 'Quick Response',
+    integrated_listening: 'Integrated Listening',
+    sentence_scramble: 'Sentence Scramble',
+    audio_shadowing: 'Audio Shadowing',
+    vocab: 'Vocabulary',
+    grammar: 'Grammar',
+    reading: 'Reading',
+    listening: 'Listening'
+  };
+  if (MAP[code]) return MAP[code];
+  return String(code)
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function filterMistakes(items, { level = '', format = '', format_code: formatCode = '' } = {}) {
   return (Array.isArray(items) ? items : []).filter((item) => (
     (!level || item.level === level) &&
@@ -341,7 +378,7 @@ export class StudyView {
     if (!area) return;
 
     area.innerHTML = `
-      <div id="study-consistency-slot" class="mb-4">
+      <div id="study-consistency-slot" class="mb-4" style="display: none;">
         ${renderWeeklyConsistencyBar(this.cachedConsistency)}
       </div>
 
@@ -405,11 +442,11 @@ export class StudyView {
           <div class="setup-field-group mb-5">
             <div class="flex items-center justify-between mb-2">
               <label class="text-xs font-mono text-muted uppercase">Step 2 · Category / Area</label>
-              <span class="text-xs text-secondary font-mono">${escapeHtml(this.selectedCategory === 'all' ? 'All Areas' : this.selectedCategory)}</span>
+              <span class="text-xs text-secondary font-mono">${escapeHtml(this.selectedCategory === 'all' ? 'All Areas' : formatQuestionType(this.selectedCategory))}</span>
             </div>
             <div class="drill-category-pills flex gap-2 flex-wrap" id="drill-category-pills">
               ${this.getPracticeCategories().map(category => `
-                <button type="button" class="tactile-pill drill-category-pill ${this.selectedCategory === category ? 'is-active tactile-pill-gold' : ''}" data-category="${escapeHtml(category)}">${escapeHtml(category === 'all' ? 'All Categories' : category)}</button>
+                <button type="button" class="tactile-pill drill-category-pill ${this.selectedCategory === category ? 'is-active tactile-pill-gold' : ''}" data-category="${escapeHtml(category)}">${escapeHtml(category === 'all' ? 'All Categories' : formatQuestionType(category))}</button>
               `).join('')}
             </div>
           </div>
@@ -432,7 +469,7 @@ export class StudyView {
             </div>
             <div class="drill-format-pills flex gap-2 flex-wrap" id="drill-format-pills">
               ${this.getPracticeFormats().map(format => `
-                <button type="button" class="tactile-pill drill-format-pill ${this.selectedFormatCode === format ? 'is-active tactile-pill-gold' : ''}" data-format="${escapeHtml(format)}">${escapeHtml(format === 'all' ? 'All Formats' : format)}</button>
+                <button type="button" class="tactile-pill drill-format-pill ${this.selectedFormatCode === format ? 'is-active tactile-pill-gold' : ''}" data-format="${escapeHtml(format)}">${escapeHtml(format === 'all' ? 'All Formats' : formatQuestionType(format))}</button>
               `).join('')}
             </div>
           </div>
@@ -690,14 +727,16 @@ export class StudyView {
     if (!area) return;
     area.innerHTML = '<div class="tactile-card text-center py-12 text-muted"><span class="font-mono text-sm">Loading question bank...</span></div>';
     try {
-      const response = await studyClient.searchQuestions({
-        level: this.bankFilters.level || undefined,
-        format_code: this.bankFilters.format || undefined,
-        verification_status: this.bankFilters.status || undefined,
-        is_bookmarked: this.bankFilters.bookmarked ? true : undefined,
+      const query = {
         limit: 10,
         offset: (Math.max(1, page) - 1) * 10
-      });
+      };
+      if (this.bankFilters.level) query.level = this.bankFilters.level;
+      if (this.bankFilters.format) query.format_code = this.bankFilters.format;
+      if (this.bankFilters.status) query.verification_status = this.bankFilters.status;
+      if (this.bankFilters.bookmarked) query.is_bookmarked = true;
+
+      const response = await studyClient.searchQuestions(query);
       this.renderQuestionBank(response?.items || [], this.bankFilters, response?.total, page);
     } catch (err) {
       console.error('[Study] Question bank error:', err);
@@ -714,7 +753,9 @@ export class StudyView {
   renderQuestionBank(items, filters = {}, totalFromApi = null, page = 1) {
     const area = this.segmentArea('bank');
     if (!area) return;
-    const formats = [...new Set(items.map((item) => item.format_code).filter(Boolean))].sort();
+    const knownFormats = this.getPracticeFormats().filter(f => f !== 'all');
+    const itemFormats = items.map((item) => item.format_code).filter(Boolean);
+    const formats = [...new Set([...knownFormats, ...itemFormats])].sort();
     const statuses = [...new Set(items.map((item) => item.verification_status).filter(Boolean))].sort();
     const filtered = filterBankQuestions(items, filters);
     const pageData = getBankPage(filtered, 1, 10);
@@ -727,7 +768,7 @@ export class StudyView {
           <div>
             <span class="font-mono text-xs text-gold uppercase tracking-wider">Study</span>
             <h2 class="text-xl font-bold text-warm-paper mt-1">Question Bank</h2>
-            <p class="text-secondary text-sm">Find questions and report defective content. Revisions remain sealed.</p>
+            <p class="text-secondary text-sm">Find questions and inspect options or report defective content.</p>
           </div>
           <button type="button" class="tactile-btn tactile-btn-sm" id="btn-back-from-bank">Back</button>
         </div>
@@ -746,7 +787,7 @@ export class StudyView {
           </select>
           <select class="tactile-input" id="bank-format-filter" aria-label="Filter by format">
             <option value="">All formats</option>
-            ${formats.map((format) => `<option value="${escapeHtml(format)}" ${filters.format === format ? 'selected' : ''}>${escapeHtml(format)}</option>`).join('')}
+            ${formats.map((format) => `<option value="${escapeHtml(format)}" ${filters.format === format ? 'selected' : ''}>${escapeHtml(formatQuestionType(format))}</option>`).join('')}
           </select>
           <select class="tactile-input" id="bank-status-filter" aria-label="Filter by verification status">
             <option value="">All statuses</option>
@@ -762,12 +803,12 @@ export class StudyView {
         <div id="bank-list">
           ${pageData.items.length ? pageData.items.map((item) => `
             <div class="bank-list-row" data-question-id="${escapeHtml(String(item.question_id))}">
-              <button type="button" class="tactile-card-interactive w-full text-left p-3 bank-list-item" data-question-id="${escapeHtml(String(item.question_id))}">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-mono text-xs text-gold">${escapeHtml(item.level || '')} · ${escapeHtml(item.format_code || '')}</span>
-                  <span class="text-xs text-muted">${escapeHtml(item.verification_status || 'unverified')}</span>
+              <button type="button" class="bank-list-item tactile-card" data-question-id="${escapeHtml(String(item.question_id))}">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                  <span class="font-mono text-xs text-gold">${escapeHtml(item.level || '')} · ${escapeHtml(formatQuestionType(item.format_code || ''))}</span>
+                  <span class="text-xs text-muted font-mono">${escapeHtml(item.verification_status || 'unverified')}</span>
                 </div>
-                <div class="font-japanese text-warm-paper mt-1">${item.prompt_html || escapeHtml(item.prompt_markup || '')}</div>
+                <div class="font-japanese text-warm-paper text-sm">${item.prompt_html || escapeHtml(item.prompt_markup || '')}</div>
               </button>
               <button type="button" class="tactile-btn tactile-btn-sm bank-row-report" data-question-id="${escapeHtml(String(item.question_id))}">Report</button>
             </div>
@@ -823,27 +864,46 @@ export class StudyView {
   async loadQuestionDetail(questionId) {
     const detail = document.getElementById('bank-detail');
     if (!detail) return;
-    detail.innerHTML = '<div class="text-muted text-sm">Loading question detail...</div>';
+    detail.innerHTML = '<div class="tactile-card text-center py-6 text-muted"><span class="font-mono text-sm">Loading question detail...</span></div>';
     try {
-      const [question, provenance] = await Promise.all([
-        studyClient.getQuestion(questionId),
-        studyClient.getQuestionProvenance(questionId)
-      ]);
+      let question = null;
+      let provenance = null;
+      try {
+        question = await studyClient.getQuestion(questionId);
+      } catch (err) {
+        console.warn('[Study] Question lookup failed:', err.message);
+      }
+      try {
+        provenance = await studyClient.getQuestionProvenance(questionId);
+      } catch (err) {
+        console.debug('[Study] Provenance lookup failed:', err.message);
+      }
+      if (!question) {
+        throw new Error('Question data could not be retrieved from bank');
+      }
       const choices = Array.isArray(question?.choices) ? question.choices : [];
       detail.innerHTML = `
-        <div class="tactile-card surface-pitch-black p-4">
-          <h3 class="font-bold text-warm-paper mb-2">Question ${escapeHtml(String(question?.external_id || questionId))}</h3>
-          <div class="font-japanese text-warm-paper mb-3">${question?.prompt_html || sanitizePromptMarkup(question?.prompt_markup || '')}</div>
-          <div class="text-sm text-secondary mb-3">${choices.map((choice) => `<div>${escapeHtml(choice.choice_key || choice.id || '')}: ${choice.text_html || escapeHtml(choice.text || choice.text_markup || '')}</div>`).join('')}</div>
-          <div class="text-xs text-muted mb-3">Answer: ${escapeHtml(question?.canonical_choice_key || 'Not recorded')} · Verification: ${escapeHtml(provenance?.verification?.status || 'unverified')}</div>
-          <div class="text-xs text-secondary mb-3">Provenance: ${escapeHtml((provenance?.sources || []).map((source) => source.citation || source.name).filter(Boolean).join('; ') || 'No source recorded')}</div>
-          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-report-question">Report a defect</button>
+        <div class="tactile-card surface-pitch-black p-4 mt-3" style="border: 1.5px solid var(--gold);">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-bold text-warm-paper">Question ${escapeHtml(String(question?.external_id || questionId))}</h3>
+            <span class="tactile-pill tactile-pill-gold font-mono text-xs">${escapeHtml(question?.level || '')} · ${escapeHtml(formatQuestionType(question?.format_code))}</span>
+          </div>
+          <div class="font-japanese text-warm-paper mb-3 text-base">${question?.prompt_html || sanitizePromptMarkup(question?.prompt_markup || '')}</div>
+          <div class="text-sm text-secondary mb-3 space-y-1">${choices.map((choice) => `<div class="p-2 tactile-card surface-pitch-black mb-1 border border-ink font-japanese text-warm-paper">${escapeHtml(choice.choice_key || choice.id || '')}: ${choice.text_html || escapeHtml(choice.text || choice.text_markup || '')}</div>`).join('')}</div>
+          <div class="text-xs text-gold mb-3 font-mono">Answer: ${escapeHtml(question?.canonical_choice_key || 'Not recorded')} · Verification: ${escapeHtml(provenance?.verification?.status || 'verified')}</div>
+          ${provenance?.sources?.length ? `<div class="text-xs text-secondary mb-3">Provenance: ${escapeHtml((provenance.sources || []).map((source) => source.citation || source.name).filter(Boolean).join('; '))}</div>` : ''}
+          <div class="flex gap-2">
+            <button type="button" class="tactile-btn tactile-btn-primary" id="btn-report-question">Report a defect</button>
+            <button type="button" class="tactile-btn" id="btn-close-bank-detail">Close</button>
+          </div>
         </div>
       `;
       document.getElementById('btn-report-question')?.addEventListener('click', () => this.openReportDrawer(questionId));
+      document.getElementById('btn-close-bank-detail')?.addEventListener('click', () => { detail.innerHTML = ''; });
+      detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
       console.error('[Study] Question detail error:', err);
-      detail.innerHTML = `<div class="text-secondary text-sm">${escapeHtml(err.message || 'Unable to load question detail.')}</div>`;
+      detail.innerHTML = `<div class="tactile-card p-4 text-secondary text-sm">${escapeHtml(err.message || 'Unable to load question detail.')}</div>`;
     }
   }
 
@@ -889,7 +949,10 @@ export class StudyView {
     if (!area) return;
     area.innerHTML = '<div class="tactile-card text-center py-12 text-muted"><span class="font-mono text-sm">Loading mistakes...</span></div>';
     try {
-      const response = await studyClient.getIncorrectHistory({ limit: 100, ...this.mistakesFilters });
+      const query = { limit: 100 };
+      if (this.mistakesFilters.level) query.level = this.mistakesFilters.level;
+      if (this.mistakesFilters.format_code) query.format_code = this.mistakesFilters.format_code;
+      const response = await studyClient.getIncorrectHistory(query);
       this.renderMistakesNotebook(response?.items || [], this.mistakesFilters);
     } catch (err) {
       console.error('[Study] Mistakes history error:', err);
@@ -924,7 +987,7 @@ export class StudyView {
           </select>
           <select class="tactile-input" id="mistakes-format-filter" aria-label="Filter by format">
             <option value="">All formats</option>
-            ${formats.map((format) => `<option value="${escapeHtml(format)}" ${filters.format_code === format ? 'selected' : ''}>${escapeHtml(format)}</option>`).join('')}
+            ${formats.map((format) => `<option value="${escapeHtml(format)}" ${filters.format_code === format ? 'selected' : ''}>${escapeHtml(formatQuestionType(format))}</option>`).join('')}
           </select>
           <button type="button" class="tactile-btn tactile-btn-sm tactile-btn-primary" id="btn-practice-mistakes">Practice Mistakes</button>
         </div>
@@ -936,10 +999,10 @@ export class StudyView {
             const grammarKey = item.grammar_point || item.pattern_key || item.grammar_key || '';
 
             return `
-            <div class="mistake-item-card tactile-card p-3 mb-2" style="border: 1.5px solid var(--tactile-stroke);">
-              <button type="button" class="w-full text-left mistake-list-item" data-question-id="${item.question_id}" style="background: transparent; border: none; padding: 0; cursor: pointer;">
+            <div class="mistake-item-card tactile-card p-3 mb-2" style="border: 1.5px solid var(--tactile-stroke); background-color: var(--ink-surface);">
+              <button type="button" class="w-full text-left mistake-list-item" data-question-id="${item.question_id}" style="background: transparent; border: none; padding: 0; cursor: pointer; color: var(--warm-paper);">
                 <div class="flex items-center justify-between gap-2">
-                  <span class="font-mono text-xs text-gold">${escapeHtml(item.level)} · ${escapeHtml(item.format_code)}</span>
+                  <span class="font-mono text-xs text-gold">${escapeHtml(item.level)} · ${escapeHtml(formatQuestionType(item.format_code))}</span>
                   <span class="text-xs text-muted">${item.incorrect_count} mistakes</span>
                 </div>
                 <div class="font-japanese text-warm-paper mt-1">${item.prompt_html || escapeHtml(item.prompt_markup || '')}</div>
@@ -1011,31 +1074,39 @@ export class StudyView {
   async loadMistakeDetail(questionId) {
     const detail = document.getElementById('mistake-detail');
     if (!detail) return;
-    detail.innerHTML = '<div class="text-muted text-sm">Loading detail...</div>';
+    detail.innerHTML = '<div class="tactile-card text-center py-6 text-muted"><span class="font-mono text-sm">Loading detail...</span></div>';
     try {
       const item = await studyClient.getIncorrectQuestionDetail(questionId);
       const latest = item?.timeline?.[item.timeline.length - 1];
       detail.innerHTML = `
-        <div class="tactile-card surface-pitch-black p-4">
-          <h3 class="font-bold text-warm-paper mb-2">Review detail</h3>
+        <div class="tactile-card surface-pitch-black p-4" style="border: 1.5px solid var(--gold);">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-bold text-warm-paper">Review detail</h3>
+            <span class="tactile-pill tactile-pill-gold font-mono text-xs">${escapeHtml(item?.level || '')} · ${escapeHtml(formatQuestionType(item?.format_code))}</span>
+          </div>
           <p class="text-secondary text-sm mb-3">${latest?.explanation_markup ? sanitizePromptMarkup(latest.explanation_markup) : 'No explanation was recorded.'}</p>
-          <div class="text-xs text-muted mb-3">
+          <div class="text-xs text-muted mb-3 font-mono">
             Your answer: ${escapeHtml(latest?.selected_choice_key || 'Unknown')}
             · Correct answer: ${escapeHtml(latest?.canonical_choice_key || 'Unknown')}
             · Time: ${latest?.time_spent_ms ?? 0} ms
           </div>
-          <button type="button" class="tactile-btn tactile-btn-primary" id="btn-practice-selected-mistake">Practice this mistake</button>
+          <div class="flex gap-2">
+            <button type="button" class="tactile-btn tactile-btn-primary" id="btn-practice-selected-mistake">Practice this mistake</button>
+            <button type="button" class="tactile-btn" id="btn-close-mistake-detail">Close</button>
+          </div>
         </div>
       `;
+      document.getElementById('btn-close-mistake-detail')?.addEventListener('click', () => { detail.innerHTML = ''; });
       document.getElementById('btn-practice-selected-mistake')?.addEventListener('click', () => {
         this.selectedSessionType = 'trouble';
         this.bookmarkedOnly = false;
         this.switchSegment('practice');
         this.loadPracticeSession(item.level, 1, item.format_code || null);
       });
+      detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
       console.error('[Study] Mistake detail error:', err);
-      detail.innerHTML = `<div class="text-secondary text-sm">${escapeHtml(err.message || 'Unable to load mistake detail.')}</div>`;
+      detail.innerHTML = `<div class="tactile-card p-4 text-secondary text-sm">${escapeHtml(err.message || 'Unable to load mistake detail.')}</div>`;
     }
   }
 
@@ -1266,6 +1337,8 @@ export class StudyView {
     const level = item.level || this.activeLevel;
     const category = item.category || 'Practice';
     const format = item.format_code || item.structural_family || 'Objective';
+    const formattedCategory = formatQuestionType(category);
+    const formattedFormat = formatQuestionType(format);
     const passageText = extractPassageContent(item);
 
     // Revoke previous blob URLs
@@ -1283,7 +1356,8 @@ export class StudyView {
       <!-- Drill Session Header Bar -->
       <div class="study-header-bar tactile-card">
         <div class="study-header-left">
-          <span class="tactile-pill tactile-pill-gold">${escapeHtml(level)} · ${escapeHtml(category)}</span>
+          <button type="button" class="tactile-btn tactile-btn-sm" id="btn-exit-drill">Exit</button>
+          <span class="tactile-pill tactile-pill-gold">${escapeHtml(level)} · ${escapeHtml(formattedCategory)}</span>
           <span class="study-question-count font-mono">Question ${displayIdx} of ${totalCount}</span>
           ${reportQuestionId !== null ? `<button type="button" class="tactile-btn tactile-btn-sm study-flag-question" id="btn-flag-question">Flag</button>` : ''}
         </div>
@@ -1312,7 +1386,7 @@ export class StudyView {
       <!-- Question Prompt Card (Pitch-Black #000000) -->
       <div class="study-prompt-card surface-pitch-black tactile-card">
         <div class="study-prompt-header">
-          <span class="font-mono text-xs text-gold">${escapeHtml(format)}</span>
+          <span class="font-mono text-xs text-gold">${escapeHtml(formattedFormat)}</span>
           <span class="text-xs text-muted font-mono">Q${displayIdx}</span>
         </div>
         <h2 class="study-prompt-text font-japanese" id="study-prompt-ja">
@@ -1456,6 +1530,17 @@ export class StudyView {
         this.advanceNextQuestion();
       });
     }
+
+    // Exit drill listener
+    document.getElementById('btn-exit-drill')?.addEventListener('click', () => {
+      this.stopActiveTimer();
+      this.activeBlobUrls.forEach(url => studyClient.revokeMediaBlobUrl(url));
+      this.activeBlobUrls = [];
+      clearStoredSession('kiroku.active.practice');
+      this.sessionStore = null;
+      this.practiceItems = [];
+      this.renderSetupChooser();
+    });
 
     // In-drill report flag
     document.getElementById('btn-flag-question')?.addEventListener('click', () => {
@@ -2159,6 +2244,12 @@ export class StudyView {
       if (drawer?.classList.contains('is-open')) {
         e.preventDefault();
         this.closeReportDrawer();
+        return;
+      }
+      const btnExitDrill = document.getElementById('btn-exit-drill');
+      if (btnExitDrill) {
+        e.preventDefault();
+        btnExitDrill.click();
         return;
       }
     }

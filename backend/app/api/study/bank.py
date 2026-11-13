@@ -254,12 +254,12 @@ def get_exam_blueprint(
 
 @bank_router.get("/bank/questions", response_model=PaginatedResponse)
 def search_bank_questions(
-    level: Optional[str] = Query(default=None, pattern=r"^N[1-5]$"),
+    level: Optional[str] = Query(default=None, pattern=r"^(N[1-5])?$"),
     format_code: Optional[str] = Query(default=None),
     category: Optional[str] = Query(default=None),
     source: Optional[str] = Query(default=None),
     is_bookmarked: Optional[bool] = Query(default=None),
-    history_status: Optional[str] = Query(default=None, pattern=r"^(unattempted|correct|incorrect)$"),
+    history_status: Optional[str] = Query(default=None, pattern=r"^(unattempted|correct|incorrect)?$"),
     verification_status: Optional[str] = Query(default=None),
     search_query: Optional[str] = Query(default=None),
     eligible_only: bool = Query(default=False),
@@ -272,6 +272,11 @@ def search_bank_questions(
     bookmark status, and attempt history.
     """
     try:
+        level = level if level else None
+        format_code = format_code if format_code else None
+        category = category if category else None
+        history_status = history_status if history_status else None
+        verification_status = verification_status if verification_status else None
         where_clauses = ["q.status = 'active'"]
         params: List[Any] = []
 
