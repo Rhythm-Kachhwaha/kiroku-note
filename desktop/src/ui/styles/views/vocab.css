@@ -1852,3 +1852,403 @@
   gap: 0.4rem;
 }
 
+/* ==========================================================================
+   Vocab Shelves & Interactive Hubs
+   ========================================================================== */
+
+.inv-header-controls {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.inv-sub-segments {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background-color: var(--surface-dark);
+  border: 1px solid var(--ink-border);
+  border-radius: 6px;
+}
+
+.inv-sub-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--spring-snappy);
+}
+
+.inv-sub-tab:hover {
+  color: var(--warm-paper);
+}
+
+.inv-sub-tab.is-active {
+  background-color: var(--pure-black);
+  border-color: var(--ink-border);
+  color: var(--accent-gold);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.inv-shelves-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.vocab-shelf-card {
+  padding: 1.25rem;
+  background-color: var(--surface-dark);
+  border: 1px solid var(--ink-border);
+  border-radius: 8px;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.shelf-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--ink-border);
+}
+
+.shelf-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.shelf-title {
+  font-size: 1.15rem;
+  color: var(--warm-paper);
+  margin: 0;
+}
+
+.shelf-badge {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  color: var(--accent-gold);
+  background-color: var(--pure-black);
+  border: 1px solid var(--accent-gold);
+  border-radius: 12px;
+}
+
+.shelf-sub {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.shelf-filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.shelf-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Transitive Hub Grid */
+.transitive-pairs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 1rem;
+}
+
+.transitive-pair-card {
+  padding: 1rem;
+  background-color: var(--pure-black);
+  border: 1px solid var(--ink-border);
+  border-radius: 6px;
+  transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast) var(--spring-snappy);
+}
+
+.transitive-pair-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+}
+
+.pair-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--ink-border);
+}
+
+.pair-concept-label {
+  font-size: 0.95rem;
+  color: var(--warm-paper);
+  text-transform: capitalize;
+}
+
+.pair-pattern-chip {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: 0.35rem;
+}
+
+.pair-header-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pair-level-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background-color: var(--surface-dark);
+  color: var(--warm-paper);
+  border: 1px solid var(--ink-border);
+}
+
+.pair-mastery-chip {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.mastery-badge-both_known {
+  background-color: var(--surface-dark);
+  color: var(--accent-green);
+  border: 1px solid var(--accent-green);
+}
+
+.mastery-badge-half_known {
+  background-color: var(--surface-dark);
+  color: var(--accent-amber);
+  border: 1px solid var(--accent-amber);
+}
+
+.mastery-badge-learning {
+  background-color: var(--surface-dark);
+  color: var(--accent-gold);
+  border: 1px solid var(--accent-gold);
+}
+
+.mastery-badge-unseen {
+  background-color: var(--surface-dark);
+  color: var(--text-muted);
+  border: 1px solid var(--ink-border);
+}
+
+.pair-split-columns {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.pair-half-card {
+  padding: 0.75rem;
+  background-color: var(--surface-dark);
+  border: 1px solid var(--ink-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--spring-snappy), border-color var(--duration-fast);
+}
+
+.pair-half-card:hover {
+  transform: translate(-1px, -1px);
+  border-color: var(--accent-gold);
+}
+
+.pair-particle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.particle-badge {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.particle-transitive {
+  color: var(--accent-gold);
+  background-color: var(--pure-black);
+  border: 1px solid var(--accent-gold);
+}
+
+.particle-intransitive {
+  color: var(--accent-green);
+  background-color: var(--pure-black);
+  border: 1px solid var(--accent-green);
+}
+
+.half-state-pill {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.pair-word-row {
+  margin: 0.25rem 0;
+}
+
+.pair-ruby {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.pair-meaning-text {
+  font-size: 0.8rem;
+  margin: 0.25rem 0 0.4rem 0;
+  line-height: 1.3;
+}
+
+.pair-example-hint {
+  padding: 0.35rem 0.5rem;
+  background-color: var(--pure-black);
+  border-left: 2px solid var(--accent-gold);
+  border-radius: 2px;
+  margin-top: 0.4rem;
+}
+
+.pair-divider-vertical {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+/* Adverbs & Mimetics Shelf Grid */
+.adverbs-shelf-grid,
+.adjectives-shelf-grid,
+.gaps-shelf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.85rem;
+}
+
+.adverb-shelf-card,
+.adjective-shelf-card,
+.gap-shelf-card {
+  padding: 0.85rem;
+  background-color: var(--pure-black);
+  border: 1px solid var(--ink-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--spring-snappy), box-shadow var(--duration-fast) var(--spring-snappy), border-color var(--duration-fast);
+}
+
+.adverb-shelf-card:hover,
+.adjective-shelf-card:hover,
+.gap-shelf-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  border-color: var(--accent-gold);
+}
+
+.adverb-card-header,
+.adj-card-header,
+.gap-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.adverb-ruby,
+.adj-ruby,
+.gap-ruby {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.adverb-state-pill,
+.adj-state {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.adverb-card-meaning,
+.adj-card-meaning,
+.gap-card-meaning {
+  font-size: 0.8rem;
+  margin: 0.25rem 0 0.5rem 0;
+  line-height: 1.3;
+}
+
+.adverb-card-footer,
+.adj-card-footer,
+.gap-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  border-top: 1px solid var(--ink-border);
+  padding-top: 0.4rem;
+}
+
+.adverb-level,
+.adj-level,
+.gap-level-chip {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.adverb-chip,
+.gap-category-chip {
+  font-size: 0.72rem;
+  color: var(--accent-gold);
+  background-color: var(--surface-dark);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.adj-type-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.adj-type-i {
+  color: var(--accent-gold);
+  border: 1px solid var(--accent-gold);
+}
+
+.adj-type-na {
+  color: var(--accent-green);
+  border: 1px solid var(--accent-green);
+}
+
+.btn-mine-gap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.55rem !important;
+  font-size: 0.75rem !important;
+}
+
+

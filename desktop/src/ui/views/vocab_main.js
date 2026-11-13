@@ -131,6 +131,21 @@ export class VocabMainView {
             </div>
           </div>
 
+          <!-- Capture | Inventory segments -->
+          <div class="vocab-top-controls">
+            <div class="vocab-segments" role="tablist" aria-label="Vocabulary sections">
+              <button type="button" class="vocab-segment-tab is-active" id="vocab-tab-capture" data-segment="capture" role="tab" aria-selected="true">Capture</button>
+              <button type="button" class="vocab-segment-tab" id="vocab-tab-inventory" data-segment="inventory" role="tab" aria-selected="false">Inventory</button>
+            </div>
+
+            <button type="button" class="vocab-quick-add-toggle-btn is-open" id="btn-toggle-quick-add" title="Toggle Quick Add side panel">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              <span>Quick Add</span>
+            </button>
+          </div>
+
           <!-- Top Bar: Search & IME Mode Pills -->
           <div class="vocab-search-section">
             <div class="vocab-search-bar-row">
@@ -163,21 +178,6 @@ export class VocabMainView {
 
             <!-- Candidate Autocomplete Dropdown -->
             <div class="candidate-dropdown" id="candidate-dropdown" style="display: none;" role="listbox"></div>
-          </div>
-
-          <!-- Capture | Inventory segments -->
-          <div class="vocab-top-controls">
-            <div class="vocab-segments" role="tablist" aria-label="Vocabulary sections">
-              <button type="button" class="vocab-segment-tab is-active" id="vocab-tab-capture" data-segment="capture" role="tab" aria-selected="true">Capture</button>
-              <button type="button" class="vocab-segment-tab" id="vocab-tab-inventory" data-segment="inventory" role="tab" aria-selected="false">Inventory</button>
-            </div>
-
-            <button type="button" class="vocab-quick-add-toggle-btn is-open" id="btn-toggle-quick-add" title="Toggle Quick Add side panel">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-              <span>Quick Add</span>
-            </button>
           </div>
 
           <!-- Two-Column Workspace Split: Word Desk on left, Quick Add dock on right -->

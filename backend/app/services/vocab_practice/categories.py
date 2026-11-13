@@ -11,6 +11,7 @@ from app.db.connection import (
     db_session,
     ensure_vocab_practice_tables,
     ensure_vocab_state_tables,
+    get_db_path,
 )
 from app.repositories.word_state_repository import (
     normalize_word_expression,
@@ -148,6 +149,136 @@ BUILTIN_TAG_SETS: tuple[tuple[str, str, str, str, str], ...] = (
     ("cat-nouns", "Nouns", "Nouns (n)", CAT_NOUN, ""),
     ("cat-expressions", "Expressions", "Idiomatic expressions and phrases (exp)", CAT_EXPRESSION, ""),
 )
+
+
+def classify_pos_heuristic(expression: str, reading: str = "", meaning: str = "") -> str:
+    """Heuristic part-of-speech classification when sequence_id or JMdict tags are absent."""
+    expr = (expression or "").strip()
+    read = (reading or "").strip()
+    mean = (meaning or "").strip().lower()
+
+    if not expr:
+        return CAT_NOUN
+
+    # Katakana loanword
+    if re.fullmatch(r"^[ァ-ヴー・\s]+$", expr):
+        return "katakana_loanword"
+
+    # Onomatopoeia / Mimetics
+    if expr in ON_MIM_SUBTYPES or read in ON_MIM_SUBTYPES:
+        return CAT_ADVERB
+
+    # Meaning indicators
+    if mean.startswith("to ") or " verb" in mean:
+        return "verb"
+    if "adverb" in mean or "adv" in mean:
+        return CAT_ADVERB
+    if "adjective" in mean or "adj" in mean:
+        return CAT_ADJECTIVE_I if expr.endswith("い") else CAT_ADJECTIVE_NA
+
+    # Adjective heuristics
+    if expr.endswith("い") and len(expr) > 1:
+        return CAT_ADJECTIVE_I
+    if expr.endswith("な") and len(expr) > 2:
+        return CAT_ADJECTIVE_NA
+
+    # Verb heuristics
+    verb_endings = ("う", "く", "す", "つ", "ぬ", "ふ", "む", "る", "ぐ", "ず", "づ", "ぶ", "ぷ")
+    if expr.endswith(verb_endings) and len(expr) > 1:
+        return "verb"
+
+    # Adverb heuristics
+    if expr.endswith("り") and len(expr) > 2 and (expr[0] == expr[1] or "っ" in expr):
+        return CAT_ADVERB
+
+    return CAT_NOUN
+
+
+def get_gap_breakdown_by_category(
+    level: str = "N4",
+    limit_per_category: int = 50,
+    db_path: Any = None,
+) -> dict[str, Any]:
+    """Breakdown unseen JLPT gap words by category (adverb, noun, katakana_loanword, verb, adjective)."""
+    from app.services.jlpt_reference import JlptReferenceService
+
+    ref_service = JlptReferenceService()
+    actual_db = db_path or get_db_path()
+
+    excluded: set[str] = set()
+    try:
+        with db_session(actual_db) as conn:
+            for r in conn.execute("SELECT expression FROM cards").fetchall():
+                if r["expression"]:
+                    excluded.add(str(r["expression"]).strip())
+            for r in conn.execute("SELECT word FROM known_words").fetchall():
+                if r["word"]:
+                    excluded.add(str(r["word"]).strip())
+            for r in conn.execute("SELECT expression FROM word_states WHERE state = 'known'").fetchall():
+                if r["expression"]:
+                    excluded.add(str(r["expression"]).strip())
+    except Exception:
+        pass
+
+    target_lvl = level.strip().upper() if level else "N4"
+    if target_lvl not in ("N5", "N4", "N3", "N2", "N1"):
+        target_lvl = "N4"
+
+    level_order = ["N5", "N4", "N3", "N2", "N1"]
+    target_idx = level_order.index(target_lvl)
+    eligible_levels = level_order[: target_idx + 1]
+
+    raw_gaps = []
+    for lvl in eligible_levels:
+        words = ref_service.get_words_by_level(lvl, limit=400)
+        for w in words:
+            expr = w["expression"].strip()
+            if expr and expr not in excluded:
+                raw_gaps.append(w)
+
+    categories_map: dict[str, list[dict[str, Any]]] = {
+        "adverb": [],
+        "noun": [],
+        "katakana_loanword": [],
+        "verb": [],
+        "adjective": [],
+    }
+
+    for gap in raw_gaps:
+        expr = gap["expression"]
+        read = gap.get("reading", "")
+        mean = gap.get("meaning", "")
+
+        cat = classify_pos_heuristic(expr, read, mean)
+        if cat in ("adjective_i", "adjective_na"):
+            cat = "adjective"
+        elif cat in (CAT_VERB_TRANSITIVE, CAT_VERB_INTRANSITIVE, CAT_VERB_ICHIDAN, CAT_VERB_GODAN, CAT_SURU_VERB):
+            cat = "verb"
+        elif cat in (CAT_ADVERB, CAT_ONOMATOPOEIA):
+            cat = "adverb"
+
+        if cat not in categories_map:
+            cat = "noun"
+
+        if len(categories_map[cat]) < limit_per_category:
+            categories_map[cat].append({
+                "expression": expr,
+                "reading": read,
+                "meaning": mean,
+                "jlpt_level": gap.get("jlpt_level", target_lvl),
+                "category": cat,
+            })
+
+    counts = {k: len(v) for k, v in categories_map.items()}
+    total_gaps = sum(counts.values())
+
+    return {
+        "level": target_lvl,
+        "total_gaps": total_gaps,
+        "counts": counts,
+        "breakdown": categories_map,
+    }
+
 
 _POS_TEXT_ALIASES: dict[str, str] = {
     "adverb": "adv",

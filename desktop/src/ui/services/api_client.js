@@ -393,6 +393,16 @@ export class ApiClient {
     return this.request('/api/vocab/gaps', { query });
   }
 
+  async getTransitivePairs(params = {}) {
+    return this.request('/api/vocab-practice/transitive-pairs', { query: params });
+  }
+
+  async getGapBreakdown(level = 'N4', limitPerCategory = 40) {
+    return this.request('/api/vocab-practice/gap-breakdown', {
+      query: { level, limit_per_category: limitPerCategory }
+    });
+  }
+
   async getDailyWord(params = {}) {
     return this.request('/api/vocab/daily-word', { query: params });
   }

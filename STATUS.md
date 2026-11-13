@@ -1,6 +1,5 @@
 # Status
-Completed Kanji Studio & Textbook Study List overhaul per plan.
-Fixed SVG stroke order animation engine, last-stroke vanish, and loading safety.
-Implemented full-screen Textbook List View with infinite scroll and real-time search.
-Added Cover Mode blur testing, right-side Card Inspector, and custom compounds.
-Locked contracts, hashes, design tokens, and tests 100% verified.
+Decoupled History view and anchored Vocab segment bar above search.
+Created transitive verb pair mapping service, endpoints, and POS filters.
+Built interactive Vocab Shelves view with spring-animated metrics pods.
+Added Transitive Hub, Adverbs, Adjectives, and categorized JLPT Gaps.

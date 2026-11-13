@@ -360,3 +360,40 @@ def compute_sentence_usage_tags(request: UsageTagsRequest) -> dict[str, Any]:
     service = VocabPracticeService()
     tags = analyze_sentence_usage_tags(request.sentence, dict_engine=service.dict_engine)
     return {"sentence": request.sentence, "usage_tags": tags}
+
+
+@router.get("/api/vocab-practice/transitive-pairs")
+def list_transitive_pairs(
+    level: Optional[str] = Query(default=None),
+    pattern: Optional[str] = Query(default=None),
+    mastery: Optional[str] = Query(default=None),
+) -> dict[str, Any]:
+    """Return curated transitive <-> intransitive verb pairs with learner mastery and usage hints."""
+    from app.services.vocab_practice.transitive_pairs import (
+        get_transitive_pairs,
+        get_transitive_pairs_summary,
+    )
+
+    pairs = get_transitive_pairs(
+        level=level,
+        pattern=pattern,
+        mastery_filter=mastery,
+    )
+    summary = get_transitive_pairs_summary()
+    return {
+        "pairs": [p.model_dump() for p in pairs],
+        "total": len(pairs),
+        "summary": summary.model_dump(),
+    }
+
+
+@router.get("/api/vocab-practice/gap-breakdown")
+def get_gap_breakdown(
+    level: str = Query(default="N4"),
+    limit_per_category: int = Query(default=40, ge=1, le=200),
+) -> dict[str, Any]:
+    """Return unseen JLPT gap words categorized into adverbs, nouns, katakana loanwords, verbs, adjectives."""
+    from app.services.vocab_practice.categories import get_gap_breakdown_by_category
+
+    return get_gap_breakdown_by_category(level=level, limit_per_category=limit_per_category)
+

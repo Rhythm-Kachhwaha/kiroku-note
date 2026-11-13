@@ -55,15 +55,6 @@ export class VocabHistoryView {
     this.container.innerHTML = `
       <div class="history-view-wrapper">
         <div class="history-view-container">
-          <!-- Capture | Inventory | Mined Cards segments -->
-          <div class="vocab-top-controls">
-            <div class="vocab-segments" role="tablist" aria-label="Vocabulary sections">
-              <button type="button" class="vocab-segment-tab" id="vocab-tab-capture" data-segment="capture" role="tab" aria-selected="false">Capture</button>
-              <button type="button" class="vocab-segment-tab" id="vocab-tab-inventory" data-segment="inventory" role="tab" aria-selected="false">Inventory</button>
-              <button type="button" class="vocab-segment-tab is-active" id="vocab-tab-mined" data-segment="mined" role="tab" aria-selected="true">Mined Cards</button>
-            </div>
-          </div>
-
           <!-- Page Header & Metrics Row -->
           <div class="history-header-section">
             <div class="history-title-row">
@@ -255,15 +246,6 @@ export class VocabHistoryView {
   }
 
   setupEvents() {
-    const tabCapture = document.getElementById('vocab-tab-capture');
-    const tabInventory = document.getElementById('vocab-tab-inventory');
-    if (tabCapture) {
-      tabCapture.addEventListener('click', () => this.router.navigateToTab('vocab'));
-    }
-    if (tabInventory) {
-      tabInventory.addEventListener('click', () => this.router.navigateToTab('vocab', { segment: 'inventory' }));
-    }
-
     const btnDrillGaps = document.getElementById('btn-drill-gaps');
     if (btnDrillGaps) {
       btnDrillGaps.addEventListener('click', () => {
@@ -273,9 +255,6 @@ export class VocabHistoryView {
         const query = words.length ? `words=${encodeURIComponent(words.join(','))}` : '';
         this.router.navigateToTab('study', { query });
       });
-    }
-    if (tabInventory) {
-      tabInventory.addEventListener('click', () => this.loadGapsShelf());
     }
 
     const btnRefreshGaps = document.getElementById('btn-refresh-gaps');

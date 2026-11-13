@@ -21,6 +21,7 @@ from app.repositories.word_state_repository import (
 )
 from app.services.jlpt_reference import JlptReferenceService
 from app.services.subtitle_annotator import get_subtitle_annotator_service
+from app.services.vocab_practice.categories import classify_pos_heuristic
 from app.services.word_state_service import WordStateService
 
 router = APIRouter(tags=["vocab-inventory"])
@@ -165,7 +166,11 @@ def get_vocab_inventory(
                 if searched:
                     meaning = ""
 
-            cats = categories_by_seq.get(seq_id, []) if seq_id else []
+            cats = list(categories_by_seq.get(seq_id, [])) if seq_id else []
+            if not cats and expr:
+                pos_guess = classify_pos_heuristic(expr, read, meaning)
+                if pos_guess:
+                    cats.append(pos_guess)
 
             tracked_items.append(
                 VocabInventoryItem(
@@ -197,15 +202,19 @@ def get_vocab_inventory(
                 continue
             seen_expressions.add(expr)
             lvl = cr["jlpt_level"] or (ref_service.lookup_word_with_kanji_fallback(expr) if expr else None)
+            c_read = str(cr["reading"] or "")
+            c_mean = str(cr["meaning"] or "")
+            pos_guess = classify_pos_heuristic(expr, c_read, c_mean)
+            c_cats = [pos_guess] if pos_guess else []
             tracked_items.append(
                 VocabInventoryItem(
                     id=None,
                     expression=expr,
-                    reading=str(cr["reading"] or ""),
-                    meaning=str(cr["meaning"] or ""),
+                    reading=c_read,
+                    meaning=c_mean,
                     jlpt_level=lvl.upper() if lvl else None,
                     state="learning",
-                    categories=[],
+                    categories=c_cats,
                     encounters_count=1,
                     last_seen_at=cr["created_at"],
                     is_mined=True,
@@ -221,15 +230,19 @@ def get_vocab_inventory(
                 expr = rw["expression"]
                 if expr not in seen_expressions:
                     seen_expressions.add(expr)
+                    rw_read = rw["reading"]
+                    rw_mean = rw["meaning"]
+                    rw_pos = classify_pos_heuristic(expr, rw_read, rw_mean)
+                    rw_cats = [rw_pos] if rw_pos else []
                     tracked_items.append(
                         VocabInventoryItem(
                             id=None,
                             expression=expr,
-                            reading=rw["reading"],
-                            meaning=rw["meaning"],
+                            reading=rw_read,
+                            meaning=rw_mean,
                             jlpt_level=rw["jlpt_level"],
                             state="unseen",
-                            categories=[],
+                            categories=rw_cats,
                             encounters_count=0,
                             last_seen_at=None,
                             is_mined=False,
@@ -260,10 +273,42 @@ def get_vocab_inventory(
 
     if category and category.strip().lower() != "all":
         target_cat = category.strip().lower()
-        filtered = [
-            it for it in filtered
-            if any(target_cat in c.lower() for c in it.categories)
-        ]
+        EXACT_CATEGORY_MAP: dict[str, set[str]] = {
+            "verb_transitive": {"verb_transitive", "vt"},
+            "vt": {"verb_transitive", "vt"},
+            "verb_intransitive": {"verb_intransitive", "vi"},
+            "vi": {"verb_intransitive", "vi"},
+            "suru_verb": {"suru_verb", "vs", "vs-i", "vs-s"},
+            "vs": {"suru_verb", "vs", "vs-i", "vs-s"},
+            "verb": {"verb", "verb_transitive", "verb_intransitive", "verb_ichidan", "verb_godan", "verb_kuru", "suru_verb", "vt", "vi", "v1", "v5", "vs"},
+            "adjective_i": {"adjective_i", "adj-i"},
+            "adj-i": {"adjective_i", "adj-i"},
+            "adjective_na": {"adjective_na", "adj-na"},
+            "adj-na": {"adjective_na", "adj-na"},
+            "adjective": {"adjective", "adjective_i", "adjective_na", "adj-i", "adj-na"},
+            "adverb": {"adverb", "adv", "adv-to"},
+            "adv": {"adverb", "adv", "adv-to"},
+            "onomatopoeia": {"onomatopoeia", "on-mim", "giongo", "giseigo", "gitaigo", "emotion"},
+            "on-mim": {"onomatopoeia", "on-mim", "giongo", "giseigo", "gitaigo", "emotion"},
+            "noun": {"noun", "n"},
+            "n": {"noun", "n"},
+            "expression": {"expression", "exp"},
+            "exp": {"expression", "exp"},
+        }
+        allowed_tags = EXACT_CATEGORY_MAP.get(target_cat, {target_cat})
+
+        def _item_matches_category(item: VocabInventoryItem) -> bool:
+            for c in item.categories:
+                c_low = c.lower().strip()
+                clean_c = c_low.split(":")[0].strip()
+                subtype = c_low.split(":")[1].strip() if ":" in c_low else ""
+                if c_low in allowed_tags or clean_c in allowed_tags:
+                    return True
+                if subtype and subtype in allowed_tags:
+                    return True
+            return False
+
+        filtered = [it for it in filtered if _item_matches_category(it)]
 
     # Compute state counts over filtered level/search
     counts = {

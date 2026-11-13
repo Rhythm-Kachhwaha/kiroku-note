@@ -143,19 +143,19 @@ test('Vocab History: Wires bulk selection and floating bulk actions bar', () => 
   );
 });
 
-test('Vocab History: Inventory segment tops with Gaps for your level and mines once', () => {
+test('Vocab History: Decoupled independent view does not render vocab segment tab bar', () => {
   const content = fs.readFileSync(vocabHistoryPath, 'utf8');
 
-  assert.ok(content.includes('class="vocab-segments"'), 'Inventory must render Capture | Inventory segments');
-  assert.ok(content.includes('id="vocab-tab-capture"'), 'Inventory must offer a Capture segment');
-  assert.ok(
-    content.includes("this.router.navigateToTab('vocab')"),
-    'Capture segment must return to the existing vocab route'
-  );
+  // Must NOT render obsolete vocab segment bar
+  assert.ok(!content.includes('class="vocab-top-controls"'), 'History must decouple from vocab-top-controls');
+  assert.ok(!content.includes('id="vocab-tab-capture"'), 'History must not render Capture segment');
+  assert.ok(!content.includes('id="vocab-tab-mined"'), 'History must not render Mined Cards tab bar');
+
+  // Gaps shelf and actions
   assert.ok(content.includes('Gaps for your level'), 'Gaps shelf must use the Gaps for your level heading');
-  assert.ok(content.includes('id="vocab-gaps-shelf"'), 'Inventory must render the gaps shelf');
-  assert.ok(content.includes('id="btn-refresh-gaps"'), 'Inventory must render the refresh gaps button');
-  assert.ok(content.includes('apiClient.getVocabGaps('), 'Inventory must load gaps from the backend');
+  assert.ok(content.includes('id="vocab-gaps-shelf"'), 'History must render the gaps shelf');
+  assert.ok(content.includes('id="btn-refresh-gaps"'), 'History must render the refresh gaps button');
+  assert.ok(content.includes('apiClient.getVocabGaps('), 'History must load gaps from the backend');
   assert.ok(content.includes('mineGap('), 'Gap rows must expose a mine action');
   assert.ok(content.includes('apiClient.saveCard('), 'Mining a gap must save exactly one card');
   assert.ok(
@@ -193,12 +193,12 @@ test('Vocab History: Slide-out inspector drawer with accessible escape key and f
   );
 });
 
-
-test('Vocab History: Slice 19 filters row and drill gaps button', () => {
+test('Vocab History: Filters row, sync actions, and drill gaps button', () => {
   const content = fs.readFileSync(vocabHistoryPath, 'utf8');
 
-  // Segments
-  assert.ok(content.includes('id="vocab-tab-mined"'), 'Must render Mined Cards segment tab');
+  // Header & sync actions
+  assert.ok(content.includes('id="btn-sync-all-pending"'), 'Must render sync all pending button');
+  assert.ok(content.includes('id="btn-export-csv"'), 'Must render export CSV button');
 
   // Drill gaps
   assert.ok(content.includes('id="btn-drill-gaps"'), 'Must render Drill these button on gaps shelf');
