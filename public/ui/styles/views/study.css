@@ -1,0 +1,1060 @@
+/* ==========================================================================
+   Study Screen Styles
+   ========================================================================== */
+.study-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1.25rem !important;
+}
+
+.study-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.study-prompt-card {
+  margin-bottom: 1.25rem;
+}
+
+.study-prompt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.study-prompt-text {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--warm-paper);
+  line-height: 1.6;
+}
+
+.study-choices-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+@media (min-width: 600px) {
+  .study-choices-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.study-choice-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.85rem;
+  padding: 1rem 1.25rem !important;
+  text-align: left;
+}
+
+.choice-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--tactile-stroke);
+  background-color: var(--surface-container-high);
+  color: var(--warm-paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+.choice-text {
+  font-size: 1.1rem;
+}
+
+.study-choice-btn.is-choice-correct {
+  background-color: rgba(78, 187, 123, 0.2) !important;
+  border-color: var(--status-green) !important;
+  color: var(--status-green) !important;
+}
+
+.study-choice-btn.is-choice-incorrect {
+  background-color: rgba(217, 75, 56, 0.2) !important;
+  border-color: var(--vermilion) !important;
+  color: var(--vermilion) !important;
+}
+
+/* Feedback Banner */
+.grading-feedback-banner {
+  padding: 0.85rem 1.25rem !important;
+  margin-bottom: 1.25rem;
+  animation: pop-bounce 0.25s var(--spring-snappy);
+}
+
+@keyframes pop-bounce {
+  0% {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.banner-correct {
+  background-color: rgba(78, 187, 123, 0.15) !important;
+  border-color: var(--status-green) !important;
+  color: var(--status-green);
+}
+
+.banner-incorrect {
+  background-color: rgba(217, 75, 56, 0.15) !important;
+  border-color: var(--vermilion) !important;
+  color: var(--vermilion);
+}
+
+.grading-feedback-content {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.grading-status-icon {
+  font-size: 1.6rem;
+  font-weight: 900;
+}
+
+.grading-verdict {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.pedagogical-explanation-card {
+  margin-bottom: 1.25rem;
+}
+
+.explanation-text {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--warm-paper);
+  margin-top: 0.5rem;
+}
+
+.adaptive-rating-section {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--ink-border);
+}
+
+.rating-buttons-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.btn-rate-difficulty.is-selected-rating {
+  border-color: var(--gold-eye) !important;
+  box-shadow: 0 0 8px rgba(200, 169, 74, 0.4) !important;
+}
+
+
+.study-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background-color: rgba(217, 75, 56, 0.15);
+  border: 1px solid var(--vermilion);
+  border-radius: var(--radius-sm);
+  color: var(--vermilion);
+  font-size: 0.85rem;
+}
+
+.study-empty-state,
+.study-complete-card {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.study-empty-title,
+.study-complete-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  margin-bottom: 0.5rem;
+}
+
+.study-level-picker {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+
+/* ==========================================================================
+   Study Practice Screen Styles — Planetoño Tactile Physics
+   ========================================================================== */
+.study-view-wrapper {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0.75rem 2rem 2.5rem 2rem;
+  box-sizing: border-box;
+}
+
+.study-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Progress Bar */
+.study-session-progress-container {
+  width: 100%;
+  height: 6px;
+  background-color: var(--surface-container-high);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--tactile-stroke);
+}
+
+.study-session-progress-fill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: var(--radius-sm);
+  transition: width 240ms var(--ease-out-quad);
+}
+
+/* Ghost / Drill Mode Toggle */
+.btn-ghost-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  transition: background-color var(--duration-fast) var(--spring-snappy),
+              border-color var(--duration-fast) var(--spring-snappy),
+              color var(--duration-fast) var(--spring-snappy);
+}
+
+.btn-ghost-toggle.is-ghost-active {
+  background-color: rgba(200, 169, 74, 0.25) !important;
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+}
+
+/* 5-Step Wizard Progress */
+.study-wizard-steps {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+@media (max-width: 599px) {
+  .study-view-wrapper {
+    padding: 0.5rem 0.75rem 2rem 0.75rem;
+  }
+
+  .study-header-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .study-choices-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Study section segmented control */
+.study-segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 3px;
+  background-color: var(--surface-container);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.study-segment-tab {
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+
+.study-segment-tab.is-active {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+}
+
+.study-segment-tab:focus-visible {
+  outline: 2px solid var(--warm-paper);
+  outline-offset: 2px;
+}
+
+.study-segment-pane[hidden] {
+  display: none;
+}
+
+.study-filter-chip {
+  min-height: 32px;
+}
+
+.study-flag-question {
+  margin-left: 0.25rem;
+}
+
+.bank-list-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.bank-list-row .bank-list-item {
+  flex: 1;
+  background-color: var(--ink-surface) !important;
+  color: var(--warm-paper) !important;
+  border: 1.5px solid var(--tactile-stroke) !important;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+  padding: 0.85rem 1.15rem;
+  transition: border-color var(--duration-fast, 120ms) var(--ease-out, ease-out),
+              background-color var(--duration-fast, 120ms) var(--ease-out, ease-out);
+}
+
+.bank-list-row .bank-list-item:hover,
+.bank-list-row .bank-list-item:focus-visible {
+  background-color: var(--elevated-surface) !important;
+  border-color: var(--gold) !important;
+}
+
+.bank-list-row .bank-row-report {
+  align-self: center;
+}
+
+.mistake-item-card {
+  background-color: var(--ink-surface);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  color: var(--warm-paper);
+  transition: border-color var(--duration-fast, 120ms) var(--ease-out, ease-out);
+}
+
+.mistake-item-card:hover {
+  border-color: var(--gold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .study-segment-tab,
+  #study-report-drawer {
+    transition: none;
+  }
+}
+
+.study-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: rgba(217, 75, 56, 0.15);
+  border: 2px solid var(--vermilion);
+  border-radius: var(--radius-md);
+  color: var(--warm-paper);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.btn-dismiss-error {
+  background: transparent;
+  border: none;
+  color: var(--warm-paper);
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+
+.btn-dismiss-error:hover {
+  opacity: 1;
+}
+
+/* Study Setup Card */
+.study-setup-card {
+  padding: 1.75rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.study-bank-info {
+  background-color: var(--pure-black);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.drill-mode-pills,
+.drill-count-pills {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Drill Header Bar */
+.study-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.study-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.study-question-count {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.study-timer {
+  display: flex;
+  align-items: center;
+  color: var(--gold);
+  font-weight: 600;
+}
+
+/* Study Reading Passage */
+.study-passage-pane {
+  background-color: var(--pure-black);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+/* Study Prompt Card (Pitch-Black var(--pure-black)) */
+.study-prompt-card {
+  background-color: var(--pure-black);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 1.5rem;
+}
+
+.study-prompt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.study-prompt-text {
+  font-family: var(--font-japanese);
+  font-size: 1.45rem;
+  font-weight: 500;
+  line-height: 1.85;
+  color: var(--warm-paper);
+  word-break: break-word;
+}
+
+.study-prompt-text ruby rt {
+  font-size: 0.55em;
+  color: var(--gold);
+  user-select: none;
+  line-height: 1;
+}
+
+/* Interactive Choices Grid */
+.study-choices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.study-choice-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 1rem 1.25rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  color: var(--warm-paper);
+  cursor: pointer;
+  outline: none;
+  text-align: left;
+  transition: transform var(--duration-instant) ease-out,
+    box-shadow var(--duration-instant) ease-out,
+    background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+}
+
+.study-choice-btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  background-color: var(--surface-container-high);
+}
+
+.study-choice-btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.study-choice-btn .choice-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--tactile-stroke);
+  background: var(--surface-container-high);
+  color: var(--warm-paper);
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-right: 0.85rem;
+  flex-shrink: 0;
+}
+
+.study-choice-btn .choice-text {
+  font-family: var(--font-japanese);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--warm-paper);
+}
+
+.study-choice-btn .choice-text ruby rt {
+  font-size: 0.55em;
+  color: var(--gold);
+  line-height: 1;
+}
+
+/* Choice Correct / Incorrect States */
+.study-choice-btn.is-choice-correct {
+  background-color: var(--jade) !important;
+  color: var(--pure-black) !important;
+  border-color: var(--tactile-stroke) !important;
+  font-weight: 600;
+}
+
+.study-choice-btn.is-choice-correct .choice-num {
+  background-color: var(--pure-black);
+  color: var(--jade);
+  border-color: var(--pure-black);
+}
+
+.study-choice-btn.is-choice-correct .choice-text {
+  color: var(--pure-black) !important;
+}
+
+.study-choice-btn.is-choice-incorrect {
+  background-color: var(--vermilion) !important;
+  color: var(--warm-paper) !important;
+  border-color: var(--tactile-stroke) !important;
+}
+
+.study-choice-btn.is-choice-incorrect .choice-num {
+  background-color: var(--pure-black);
+  color: var(--vermilion);
+  border-color: var(--pure-black);
+}
+
+/* Grading Feedback Banner */
+.grading-feedback-banner {
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--tactile-stroke);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  transition: background-color 0.2s ease, border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.grading-feedback-banner.banner-correct {
+  background-color: rgba(78, 187, 123, 0.15);
+  border-color: var(--jade);
+  color: var(--jade);
+}
+
+.grading-feedback-banner.banner-incorrect {
+  background-color: rgba(217, 75, 56, 0.15);
+  border-color: var(--vermilion);
+  color: var(--vermilion);
+}
+
+.grading-feedback-content {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.grading-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grading-text-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.grading-verdict {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: var(--font-sans);
+}
+
+.grading-points {
+  color: var(--text-secondary);
+}
+
+/* Pedagogical Explanation Card */
+.pedagogical-explanation-card {
+  padding: 1.5rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.explanation-title {
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.btn-rate-difficulty.is-selected-rating {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 0 2px var(--gold-glow), 3px 3px 0 var(--tactile-stroke) !important;
+  color: var(--gold) !important;
+}
+
+/* Study Complete Card */
+.study-complete-card {
+  padding: 2rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.study-complete-title {
+  color: var(--warm-paper);
+}
+
+/* Study Empty State */
+.study-empty-state {
+  padding: 2.5rem 1.5rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.study-empty-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  margin-bottom: 0.5rem;
+}
+
+.study-level-picker {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+
+/* ==========================================================================
+   Study Import & PDF Ingestion Styles (Slice 22)
+   ========================================================================== */
+.study-import-panel {
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  background-color: var(--surface-container-low);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+}
+
+.study-import-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.import-mode-pills {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.import-mode-pill.is-active {
+  background-color: var(--warm-paper);
+  color: var(--pure-black);
+}
+
+.import-drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  border: 2px dashed var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-container);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--spring-snappy);
+}
+
+.import-drop-zone:hover,
+.import-drop-zone.is-dragover {
+  border-color: var(--accent-gold);
+  background-color: var(--surface-container-high);
+  transform: translate(-1px, -1px);
+}
+
+.pdf-pages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.5rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.pdf-page-chip {
+  background-color: var(--surface-container);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast) var(--spring-snappy);
+}
+
+.pdf-page-chip.is-selected {
+  border-color: var(--accent-gold);
+  background-color: var(--surface-container-high);
+}
+
+.pdf-page-chip.is-disabled {
+  opacity: 0.5;
+}
+
+.import-preview-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ============================================
+   Phase 5: Burst Study Modes & Consistency
+   ============================================ */
+
+.study-consistency-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  margin-bottom: 1rem;
+  border: 1.5px solid var(--tactile-stroke);
+}
+
+.study-consistency-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.study-consistency-summary {
+  margin-top: 0.2rem;
+}
+
+.study-consistency-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.study-consistency-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.25rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--ink-surface);
+  border: 1px solid var(--tactile-stroke);
+  opacity: 0.72;
+  transition: transform var(--duration-fast) var(--spring-snappy),
+              border-color var(--duration-fast) var(--spring-snappy),
+              opacity var(--duration-fast) var(--spring-snappy);
+}
+
+.study-consistency-day.is-active {
+  opacity: 1;
+  border-color: var(--jade);
+  background-color: color-mix(in srgb, var(--jade) 14%, var(--ink-surface));
+}
+
+.consistency-day-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background-color: var(--tactile-stroke);
+}
+
+.study-consistency-day.is-active .consistency-day-dot {
+  background-color: var(--jade);
+}
+
+.consistency-day-label {
+  font-size: 0.7rem;
+  color: var(--warm-paper);
+}
+
+.study-modes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1.15rem;
+}
+
+.study-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1.1rem;
+  border: 1.5px solid var(--tactile-stroke);
+  background-color: var(--surface-container);
+  transition: transform var(--duration-fast) var(--spring-snappy),
+              border-color var(--duration-fast) var(--spring-snappy);
+}
+
+.study-mode-card.is-selected {
+  border-color: var(--gold);
+  background-color: var(--surface-container-high);
+}
+
+.study-mode-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.study-mode-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.study-mode-desc {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.study-burst-size-row {
+  display: flex;
+  gap: 0.45rem;
+  margin-top: auto;
+}
+
+.burst-size-pill {
+  cursor: pointer;
+}
+
+.study-mode-spacer {
+  flex: 1 1 auto;
+}
+
+.scramble-answer-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem;
+  margin-top: 0.85rem;
+}
+
+.scramble-tray-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.scramble-answer-tray {
+  min-height: 3.1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1.5px dashed var(--tactile-stroke);
+  background-color: var(--ink-black);
+}
+
+.scramble-placed-chip {
+  padding: 0.35rem 0.7rem;
+  border-color: var(--gold);
+}
+
+.scramble-tile-bank {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+
+.scramble-tile-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 0.75rem 0.85rem;
+  transition: transform var(--duration-fast) var(--spring-snappy),
+              border-color var(--duration-fast) var(--spring-snappy),
+              opacity var(--duration-fast) var(--spring-snappy);
+}
+
+.scramble-tile-btn.is-particle-tile {
+  border-color: var(--industrial-aqua);
+}
+
+.scramble-tile-btn.is-used {
+  opacity: 0.38;
+}
+
+.scramble-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.scramble-tile-surface {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.scramble-tile-hint {
+  margin-left: auto;
+  color: var(--industrial-aqua);
+}
+
+.scramble-diff-row {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+}
+
+.scramble-diff-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.scramble-diff-chip {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--tactile-stroke);
+  background-color: var(--ink-surface);
+}
+
+.scramble-diff-chip.is-match {
+  border-color: var(--jade);
+  background-color: color-mix(in srgb, var(--jade) 14%, var(--ink-surface));
+}
+
+.scramble-diff-chip.is-mismatch {
+  border-color: var(--vermilion);
+  background-color: color-mix(in srgb, var(--vermilion) 14%, var(--ink-surface));
+}
+
+.shadowing-audio-panel,
+.shadowing-no-audio {
+  margin-top: 0.75rem;
+}
+
+.shadowing-concealed-card,
+.shadowing-revealed-card {
+  margin-top: 0.85rem;
+  padding: 1.15rem;
+}
+
+.shadowing-transcript {
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.shadowing-kanji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+
+.shadowing-kanji-chip {
+  padding: 0.65rem 0.75rem;
+}
+
+.shadowing-grade-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .study-consistency-day,
+  .study-mode-card,
+  .scramble-tile-btn {
+    transition: none;
+  }
+}

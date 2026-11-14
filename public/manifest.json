@@ -1,0 +1,16 @@
+{
+  "name": "Kiroku Note",
+  "short_name": "Kiroku",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "description": "Local-First Japanese Mining Companion & Study System",
+  "icons": [
+    {
+      "src": "/ui/assets/mascot/rainbowcat_svg.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

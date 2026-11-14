@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*; font-src 'self';">
+  <title>Kiroku Note</title>
+
+  <!-- Early Preload for Rive WebAssembly Runtime -->
+  <link rel="preload" href="./ui/vendor/rive.wasm" as="fetch" type="application/wasm" crossorigin>
+
+  <!-- Local Offline CSS Bundles (Zero Runtime CDNs) -->
+  <link rel="stylesheet" href="./ui/styles/tokens.css">
+  <link rel="stylesheet" href="./ui/styles/fonts.css">
+  <link rel="stylesheet" href="./ui/styles/tactile.css">
+  <link rel="stylesheet" href="./ui/shell/shell.css">
+  <link rel="stylesheet" href="./ui/styles/bundle.css">
+
+  <!-- PWA Metadata -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0f1115">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script type="module" src="./platform/web.js"></script>
+
+</head>
+
+<body>
+  <!-- Integrated Fast Boot Splash Overlay (Allows background app to pre-render completely) -->
+  <div id="app-loading-splash" class="app-loading-splash">
+    <div class="splash-container">
+      <div class="brand-title" aria-label="Kiroku Note">
+        <span class="word-kiroku">
+          <span class="letter" style="--delay: 0.00s;">K</span>
+          <span class="letter" style="--delay: 0.08s;">i</span>
+          <span class="letter" style="--delay: 0.16s;">r</span>
+          <span class="letter" style="--delay: 0.24s;">o</span>
+          <span class="letter" style="--delay: 0.32s;">k</span>
+          <span class="letter" style="--delay: 0.40s;">u</span>
+        </span>
+        <span class="word-space"></span>
+        <span class="word-note">
+          <span class="letter" style="--delay: 0.48s;">N</span>
+          <span class="letter" style="--delay: 0.56s;">o</span>
+          <span class="letter" style="--delay: 0.64s;">t</span>
+          <span class="letter" style="--delay: 0.72s;">e</span>
+        </span>
+      </div>
+      <div class="status-badge" role="status">
+        <div class="status-indicator"></div>
+        <span class="status-text" id="status-text">Loading workspace...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fixed Top Chrome Window Header -->
+  <div id="top-chrome-container"></div>
+
+  <!-- Dynamic Tab View Container -->
+  <main id="view-container" role="main"></main>
+
+  <!-- Floating Tactile Bottom Navigation Dock -->
+  <div id="bottom-dock-container"></div>
+  <div id="mascot-host-stash" hidden></div>
+
+  <!-- Vendored CSP-Safe Lottie SVG Player Runtime -->
+  <script src="./ui/vendor/lottie.min.js"></script>
+  <!-- Vendored Rive Canvas Runtime for local companion animations -->
+  <script src="./ui/vendor/rive.js"></script>
+  <!-- Vendored PDF.js & JSZip for local Manga Reader -->
+  <script src="./ui/vendor/pdf.min.js"></script>
+  <script src="./ui/vendor/jszip.min.js"></script>
+
+  <!-- Application Bootstrap Script (Vanilla ES6 Modules) -->
+  <script type="module">
+    if (window.__KIROKU_PERF_DEBUG__) performance.mark('app:start');
+    import { prefetchRiveAssets } from './ui/rive_mascot.js';
+    import { scheduleMascotHostCreation } from './ui/shell/mascot_host.js';
+    // Warm Rive runtime and companion asset bytes immediately at boot
+    prefetchRiveAssets();
+
+    import { TopChrome } from './ui/shell/top_chrome.js';
+    import { BottomDock } from './ui/shell/bottom_dock.js';
+    import { AppRouter } from './ui/router.js';
+    import { getSharedLink } from './ui/views/anime.js';
+
+    function bootstrap() {
+      let router = null;
+
+      // Eagerly connect LinkClient companion WebSocket in background
+      try {
+        getSharedLink();
+      } catch (err) {
+        console.warn('[Bootstrap] Link initialization error:', err);
+      }
+
+      // 1. Initialize Floating Bottom Dock
+      const bottomDock = new BottomDock({
+        container: document.getElementById('bottom-dock-container'),
+        onTabChange: (tabId) => {
+          if (router) {
+            router.navigateToTab(tabId, true);
+          }
+        }
+      });
+      bottomDock.init();
+
+      // 2. Initialize App Router
+      router = new AppRouter({
+        viewContainer: document.getElementById('view-container'),
+        bottomDock: bottomDock
+      });
+      window.router = router;
+
+      // 3. Initialize Shared Top Chrome
+      const topChrome = new TopChrome({
+        container: document.getElementById('top-chrome-container'),
+        onNavigate: (destination) => {
+          if (router) {
+            router.navigateToTab(destination, true);
+          }
+        }
+      });
+      topChrome.init();
+
+      // 4. Start Router
+      router.init();
+      scheduleMascotHostCreation();
+
+      // Fast boot readiness: ensure typography and initial view mount cleanly, then reveal immediately
+      const splash = document.getElementById('app-loading-splash');
+      const statusText = document.getElementById('status-text');
+
+      const dismissSplash = () => {
+        if (splash && !splash.__dismissed) {
+          splash.__dismissed = true;
+          if (statusText) statusText.textContent = 'Ready';
+          setTimeout(() => {
+            splash.classList.add('hidden-splash');
+            setTimeout(() => {
+              if (splash.parentNode) splash.parentNode.removeChild(splash);
+            }, 300);
+          }, 80);
+        }
+      };
+
+      async function monitorAppReadiness() {
+        let isReady = false;
+        const hasDesktopBridge = Boolean(window.desktopAPI?.onBackendReady);
+        let backendReady = !hasDesktopBridge;
+        let uiReady = false;
+
+        const markReady = () => {
+          if (isReady) return;
+          isReady = true;
+          dismissSplash();
+        };
+
+        const tryMarkReady = () => {
+          if (backendReady && uiReady) {
+            markReady();
+          }
+        };
+
+        if (hasDesktopBridge) {
+          window.desktopAPI.onBackendReady(() => {
+            backendReady = true;
+            tryMarkReady();
+          });
+
+          // Fast probe: check if backend is already listening
+          fetch('http://127.0.0.1:21828/api/health', {
+            headers: { 'Accept': 'application/json' }
+          }).then((res) => {
+            if (res && res.ok) {
+              backendReady = true;
+              tryMarkReady();
+            }
+          }).catch(() => {});
+
+          setTimeout(() => {
+            if (!isReady && !backendReady && statusText) {
+              statusText.textContent = 'Starting local backend...';
+            }
+          }, 900);
+        }
+
+        // Wait for initial route and fonts to settle
+        try {
+          if (document.fonts?.ready) {
+            await document.fonts.ready;
+          }
+        } catch (_) {}
+
+        router.navigationQueue.then(() => {
+          requestAnimationFrame(() => {
+            uiReady = true;
+            tryMarkReady();
+          });
+        });
+
+        // Safety fallback: never hold the splash indefinitely
+        setTimeout(markReady, hasDesktopBridge ? 15000 : 800);
+      }
+
+      monitorAppReadiness();
+    }
+
+    // Global drop guard: prevent Chromium from navigating away when files are dragged into window
+    window.addEventListener('dragover', (e) => e.preventDefault(), false);
+    window.addEventListener('drop', (e) => e.preventDefault(), false);
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootstrap);
+    } else {
+      bootstrap();
+    }
+  </script>
+
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+          console.warn('[PWA] ServiceWorker registration failed:', err);
+        });
+      });
+    }
+  </script>
+</body>
+
+</html>

@@ -156,8 +156,12 @@ body {
 }
 
 ::view-transition {
-  background-color: transparent;
+  background-color: var(--pure-black);
   pointer-events: none;
+}
+
+::view-transition-group(root) {
+  animation: none;
 }
 
 ::view-transition-image-pair(view-content) {

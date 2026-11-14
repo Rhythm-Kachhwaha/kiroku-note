@@ -1,6 +1,5 @@
 # Status
-ZIP upload bundle detection added: auto-creates folder with all mangas inside.
-Supports nested PDFs, CBZs, and multi-chapter image subdirectories.
-Auto-folder ZIPs toggle added to Bookshelf toolbar with persistent state.
-Retina cover generation and page indexing for each extracted volume.
-All 21 targeted desktop tests passing with final_lock and zero raw hex.
+Scaffolded Cloudflare Worker API facade and PWA static assets bundle in public/.
+Implemented Service Worker pre-caching offline fonts and shell with Cache-First strategy.
+Added web platform shim for window.desktopAPI supporting pure browser environments.
+Verified with Wrangler dry-run and all desktop security and FINAL lock tests passing.

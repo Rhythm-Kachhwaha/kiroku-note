@@ -1,0 +1,475 @@
+/**
+ * Kiroku Note Desktop — Shared Application Shell Styles
+ * Fixed Top Chrome Header and Floating Tactile Bottom Navigation Dock.
+ */
+
+/* ==========================================================================
+   Top Chrome Header
+   ========================================================================== */
+.top-chrome {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--chrome-top-height, 48px);
+  background-color: var(--pure-black);
+  border-bottom: 1px solid var(--subtle-border, rgba(245, 241, 232, 0.12));
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.85rem;
+  user-select: none;
+  width: 100%;
+  box-sizing: border-box;
+  -webkit-app-region: drag;
+}
+
+.top-chrome-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  z-index: 2;
+  -webkit-app-region: no-drag;
+}
+
+/* Brand Wordmark & Letter Lift */
+.brand-wordmark-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.brand-wordmark {
+  font-family: var(--font-wordmark, "Zen Old Mincho", Georgia, serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--architectural-cream);
+  display: inline-flex;
+}
+
+.brand-letter {
+  display: inline-block;
+  transition: transform 120ms ease-out;
+}
+
+.brand-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  background-color: var(--gold);
+  color: var(--tactile-stroke);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--tactile-stroke);
+  transition: transform var(--duration-fast) var(--spring-snappy);
+}
+
+.brand-wordmark-container:hover .brand-badge {
+  transform: translateY(-2px);
+}
+
+/* Section Indicator */
+.top-chrome-section-container {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: var(--paper-muted, rgba(245, 241, 232, 0.70));
+}
+
+.top-chrome-section-divider {
+  color: var(--paper-subtle, rgba(245, 241, 232, 0.45));
+  font-weight: 300;
+}
+
+.top-chrome-section-indicator {
+  font-family: var(--font-display, "Zen Old Mincho", serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  letter-spacing: 0.05em;
+}
+
+.top-chrome-section-kanji {
+  font-family: var(--font-japanese);
+  font-size: 0.85rem;
+  color: var(--rust-signal);
+  letter-spacing: 0.04em;
+}
+
+/* Right Section: Telemetry, Universal Level, Actions, Window Controls */
+.top-chrome-right {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  z-index: 2;
+  -webkit-app-region: no-drag;
+}
+
+/* Live Telemetry Chips */
+.telemetry-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: 0.25rem;
+}
+
+.telemetry-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.45rem;
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--subtle-border, rgba(245, 241, 232, 0.12));
+  border-radius: var(--radius-sm, 8px);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--paper-muted, rgba(245, 241, 232, 0.70));
+  transition: background-color var(--duration-fast) ease, border-color var(--duration-fast) ease;
+  user-select: none;
+}
+
+.telemetry-chip:hover {
+  background-color: var(--surface-container-high);
+  border-color: var(--gold);
+}
+
+.telemetry-pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--status-inactive);
+  transition: background-color var(--duration-normal) ease, box-shadow var(--duration-normal) ease;
+  flex-shrink: 0;
+}
+
+.telemetry-pip.is-online {
+  background-color: var(--jade);
+  box-shadow: 0 0 6px rgba(78, 187, 123, 0.6);
+}
+
+.telemetry-pip.is-checking {
+  background-color: var(--amber);
+  box-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
+}
+
+.telemetry-pip.is-offline {
+  background-color: var(--vermilion);
+}
+
+.telemetry-label {
+  display: inline-block;
+}
+
+/* Universal JLPT Level Badge in Top Chrome */
+.top-chrome-learner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  background-color: var(--surface-container-high);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform var(--duration-instant) ease, background-color var(--duration-fast) ease;
+}
+
+.top-chrome-learner-badge:hover {
+  transform: translateY(-1px);
+  background-color: var(--surface-container-highest);
+}
+
+/* Utility Action Buttons (History & Settings) */
+.chrome-action-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--tactile-stroke);
+  color: var(--warm-paper);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition: transform var(--duration-instant) ease-out,
+              background-color var(--duration-fast) ease,
+              box-shadow var(--duration-instant) ease-out;
+}
+
+.chrome-action-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.chrome-action-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-md);
+  background-color: var(--surface-container-high);
+}
+
+.chrome-action-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: var(--shadow-pressed);
+}
+
+.chrome-action-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  transition: transform var(--duration-normal) var(--spring-snappy);
+}
+
+.chrome-action-btn-settings:hover svg {
+  transform: rotate(45deg);
+}
+
+/* Windows Frameless Window Controls */
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 0.25rem;
+  -webkit-app-region: no-drag;
+}
+
+.window-control-btn {
+  width: 32px;
+  height: 28px;
+  min-width: 32px;
+  min-height: 28px;
+  border-radius: var(--radius-xs, 4px);
+  background: transparent;
+  border: none;
+  color: var(--paper-muted, rgba(245, 241, 232, 0.70));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
+  padding: 0;
+}
+
+.window-control-btn svg {
+  width: 10px;
+  height: 10px;
+  display: block;
+}
+
+.window-control-btn:hover {
+  background-color: var(--surface-container-high);
+  color: var(--warm-paper);
+}
+
+.window-control-btn:active {
+  background-color: var(--surface-container-highest);
+}
+
+.window-control-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.window-control-btn.window-control-close:hover {
+  background-color: var(--vermilion);
+  color: var(--pure-white);
+}
+
+.window-control-btn.window-control-close:active {
+  background-color: var(--vermilion-active);
+}
+
+/* FINAL:BOTTOM-DOCK START */
+/* ==========================================================================
+   Floating Tactile Bottom Navigation Dock
+   ========================================================================== */
+.bottom-dock-wrapper {
+  position: fixed;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1000;
+  padding: 0 1rem;
+}
+
+.bottom-dock {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 5px;
+  background-color: var(--warm-paper, #F5F1E8);
+  color: var(--ink-black, #141311);
+  border: 1.5px solid var(--tactile-stroke, #151413);
+  border-radius: var(--radius-full);
+  box-shadow: 3px 3px 0px #151413;
+  user-select: none;
+  max-width: calc(100vw - 2rem);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.bottom-dock:hover {
+  transform: translateY(-2px);
+  box-shadow: 4px 4px 0px #151413;
+}
+
+/* Flowing Liquid Spring Sliding Pill */
+.nav-spring-pill,
+#nav-pill-indicator {
+  position: absolute;
+  left: 0;
+  top: 5px;
+  bottom: 5px;
+  border-radius: var(--radius-full);
+  background-color: var(--vermilion, #D94B38);
+  box-shadow: 1.5px 1.5px 0px #151413;
+  pointer-events: none;
+  z-index: 1;
+  will-change: transform, width;
+  transition: transform 190ms cubic-bezier(0.2, 0.9, 0.25, 1.15), width 210ms cubic-bezier(0.2, 0.9, 0.25, 1.15);
+}
+
+/* Navigation Tab Item */
+.nav-tab-item {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--radius-full);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-surface, #1C1B19);
+  text-decoration: none;
+  cursor: pointer;
+  outline: none;
+  transition: color 140ms ease, transform var(--duration-instant) ease-out;
+}
+
+.nav-tab-item:hover {
+  color: var(--ink-black, #141311);
+  transform: translateY(-1px);
+}
+
+.nav-tab-item:active {
+  transform: translate(1px, 1px) scale(0.97);
+}
+
+.nav-tab-item.is-active {
+  color: var(--warm-paper, #F5F1E8) !important;
+}
+
+.nav-tab-item svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+  flex-shrink: 0;
+  transition: transform 200ms ease;
+}
+
+.nav-tab-item:hover svg {
+  transform: scale(1.1);
+}
+
+.nav-tab-item:focus-visible {
+  outline: 2px solid var(--gold, #C8A94A);
+  outline-offset: 2px;
+}
+/* FINAL:BOTTOM-DOCK END */
+
+/* ==========================================================================
+   Responsive Adaptations
+   ========================================================================== */
+@media (max-width: 680px) {
+  .top-chrome-section-container {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .telemetry-label {
+    display: none;
+  }
+  .telemetry-chip {
+    padding: 0.2rem 0.35rem;
+  }
+  .brand-badge {
+    display: none;
+  }
+}
+
+@media (max-width: 540px) {
+  .nav-tab-label {
+    display: none;
+  }
+  .nav-tab-item {
+    padding: 0.45rem 0.65rem;
+  }
+  .top-chrome-learner-badge {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.68rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-letter,
+  .chrome-action-btn-settings:hover svg,
+  .nav-tab-item,
+  .nav-spring-pill,
+  #nav-pill-indicator {
+    transition: none !important;
+  }
+}
+
+/* Keep top chrome rock-solid during view transitions */
+::view-transition-group(top-chrome) {
+  animation: none;
+  z-index: 9999;
+}
+
+
+
+/* Mascot Slots and Lit Moon Stage */
+.mascot-slot {
+  display: none !important;
+}
+
+.mascot-lit-stage {
+  display: none !important;
+}
+
+.mascot-svg-img {
+  display: none !important;
+}
+
+.grammar-mascot-box {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.settings-mascot-box {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}

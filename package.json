@@ -8,7 +8,10 @@
     "test:backend": "python -m pytest -c backend/pytest.ini backend/tests -m \"not network and not perf\" -q",
     "test:ext": "node --test extension/tests/*.test.js",
     "test:desktop": "node --test --test-concurrency=1 desktop/tests/*.test.js desktop/tests/smoke_test.js",
-    "dev:desktop": "npm.cmd --prefix desktop run dev"
+    "dev:desktop": "npm.cmd --prefix desktop run dev",
+    "build:pwa": "node tools/build_pwa.js"
+  },
+  "dependencies": {
+    "hono": "^4.13.18"
   }
 }
-

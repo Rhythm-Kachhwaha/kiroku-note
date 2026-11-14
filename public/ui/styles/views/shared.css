@@ -1,0 +1,462 @@
+@font-face {
+  font-family: 'Noto Sans JP';
+  src: url('../../assets/fonts/noto-sans-jp-vf.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lilita One';
+  src: url('../../assets/fonts/lilita-one.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Hina Mincho';
+  src: url('../../assets/fonts/hina-mincho.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Mochiy Pop One';
+  src: url('../../assets/fonts/mochiy-pop-one-japanese-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Mochiy Pop P One';
+  src: url('../../assets/fonts/mochiy-pop-one-japanese-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Ranchers';
+  src: url('../../assets/fonts/ranchers-latin-400-normal.woff2') format('woff2'),
+       url('../../assets/fonts/ranchers.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/**
+ * Kiroku Note Desktop — Aggregated View Styles & Layout
+ * Complete styling for Home, Vocab, Grammar, Kanji, Test, Study, and Settings views.
+ */
+
+/* ==========================================================================
+   Base Foundations & Reset
+   ========================================================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  background-color: var(--pure-black) !important;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom minimal scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-container-high);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Base View Container with Mandatory Safe-Area Containment */
+#view-container {
+  margin-top: var(--chrome-top-height, 48px);
+  height: calc(100vh - var(--chrome-top-height, 48px));
+  padding-top: 0;
+  padding-bottom: var(--content-padding-bottom, 96px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  background-color: var(--pure-black);
+}
+
+/* View Transitions Directional Slides */
+@keyframes slide-to-left {
+  to {
+    transform: translateX(-24px);
+    opacity: 0;
+  }
+}
+
+@keyframes slide-from-right {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+@keyframes slide-to-right {
+  to {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+@keyframes slide-from-left {
+  from {
+    transform: translateX(-24px);
+    opacity: 0;
+  }
+}
+
+/* Keep Top Chrome and Bottom Navigation Dock rock-solid and live DOM during view transitions */
+#top-chrome-container {
+  view-transition-name: none;
+  position: relative;
+  z-index: 9999;
+}
+
+#bottom-dock-container {
+  view-transition-name: none;
+}
+
+:root {
+  view-transition-name: none;
+}
+
+#view-container {
+  view-transition-name: view-content;
+}
+
+::view-transition {
+  background-color: var(--pure-black);
+  pointer-events: none;
+}
+
+::view-transition-group(root) {
+  animation: none;
+}
+
+::view-transition-image-pair(view-content) {
+  isolation: isolate;
+}
+
+::view-transition-group(view-content) {
+  animation-duration: 0.25s;
+  clip-path: inset(
+    0
+    0
+    var(--content-padding-bottom, 96px)
+    0
+  );
+}
+
+::view-transition-old(view-content),
+::view-transition-new(view-content) {
+  background-color: var(--pure-black);
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  background-color: var(--pure-black);
+  mix-blend-mode: normal;
+}
+
+html:active-view-transition-type(forward)::view-transition-old(root),
+html:active-view-transition-type(forward)::view-transition-old(view-content) {
+  animation: slide-to-left 0.22s var(--spring-smooth) both;
+}
+
+html:active-view-transition-type(forward)::view-transition-new(root),
+html:active-view-transition-type(forward)::view-transition-new(view-content) {
+  animation: slide-from-right 0.25s var(--spring-smooth) both;
+}
+
+html:active-view-transition-type(backward)::view-transition-old(root),
+html:active-view-transition-type(backward)::view-transition-old(view-content) {
+  animation: slide-to-right 0.22s var(--spring-smooth) both;
+}
+
+html:active-view-transition-type(backward)::view-transition-new(root),
+html:active-view-transition-type(backward)::view-transition-new(view-content) {
+  animation: slide-from-left 0.25s var(--spring-smooth) both;
+}
+
+/* Utility classes */
+.font-japanese {
+  font-family: var(--font-japanese);
+}
+
+.font-wordmark {
+  font-family: var(--font-wordmark);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.text-gold {
+  color: var(--gold-eye);
+}
+
+.text-green {
+  color: var(--status-green);
+}
+
+.text-amber {
+  color: var(--status-amber);
+}
+
+.text-red {
+  color: var(--status-red);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+
+/* ==========================================================================
+   UTILITIES
+   ========================================================================== */
+/* ==========================================================================
+   Tactile & View Utility Classes (Layout, Spacing, Typography & Helpers)
+   ========================================================================== */
+.flex {
+  display: flex;
+}
+
+.inline-flex {
+  display: inline-flex;
+}
+
+.block {
+  display: block;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.items-baseline {
+  align-items: baseline;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.gap-1 {
+  gap: 0.25rem;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
+.gap-3 {
+  gap: 0.75rem;
+}
+
+.gap-4 {
+  gap: 1rem;
+}
+
+.gap-6 {
+  gap: 1.5rem;
+}
+
+.mt-1 {
+  margin-top: 0.25rem;
+}
+
+.mt-2 {
+  margin-top: 0.5rem;
+}
+
+.mt-3 {
+  margin-top: 0.75rem;
+}
+
+.mt-4 {
+  margin-top: 1rem;
+}
+
+.mb-1 {
+  margin-bottom: 0.25rem;
+}
+
+.mb-2 {
+  margin-bottom: 0.5rem;
+}
+
+.mb-4 {
+  margin-bottom: 1rem;
+}
+
+.mb-6 {
+  margin-bottom: 1.5rem;
+}
+
+.my-4 {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.my-6 {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.mx-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.py-2 {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.py-4 {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.py-6 {
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+
+.py-10 {
+  padding-top: 2.5rem;
+  padding-bottom: 2.5rem;
+}
+
+.py-12 {
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}
+
+.p-4 {
+  padding: 1rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+.text-sm {
+  font-size: 0.85rem;
+}
+
+.text-base {
+  font-size: 1rem;
+}
+
+.text-lg {
+  font-size: 1.125rem;
+}
+
+.text-xl {
+  font-size: 1.25rem;
+}
+
+.text-2xl {
+  font-size: 1.5rem;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+.uppercase {
+  text-transform: uppercase;
+}
+
+.tracking-widest {
+  letter-spacing: 0.1em;
+}
+
+.max-w-md {
+  max-width: 28rem;
+}
+
+.w-2\.5 {
+  width: 10px;
+}
+
+.h-2\.5 {
+  height: 10px;
+}
+
+.rounded-full {
+  border-radius: 9999px;
+}
+
+.bg-gold-eye {
+  background-color: var(--gold-eye);
+}
+
+.text-warm-paper {
+  color: var(--warm-paper);
+}
+
+/* Slide-Over Drawer Backdrop */
+.drawer-backdrop {
+  position: fixed;
+  top: var(--chrome-top-height, 48px);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(18, 17, 16, 0.65);
+  backdrop-filter: blur(2px);
+  z-index: 999;
+  transition: opacity var(--duration-fast) ease;
+}
+
+

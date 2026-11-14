@@ -554,11 +554,17 @@ async function startBackendAndLoadUI() {
           }, 150);
         };
 
+        const isDevSourceCode = (file) => {
+          if (!file) return false;
+          if (file.includes('.git') || file.includes('node_modules')) return false;
+          return /\.(js|css|html|json)$/i.test(file);
+        };
+
         watchDirs.forEach(dirPath => {
           if (fs.existsSync(dirPath)) {
             try {
               fs.watch(dirPath, { recursive: true }, (eventType, filename) => {
-                if (filename && !filename.includes('.git') && !filename.includes('node_modules')) {
+                if (isDevSourceCode(filename)) {
                   triggerReload(filename);
                 }
               });

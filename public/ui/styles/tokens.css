@@ -1,0 +1,169 @@
+/**
+ * Kiroku Note Desktop — Design Tokens
+ * Source of Truth: Sumi & Washi Neo-Tactile Design System
+ */
+
+:root {
+  /* ==========================================================================
+     Official Palette: Core Foundations
+     ========================================================================== */
+  --ink-black: #141311;         /* Deepest ink black - app ground */
+  --warm-paper: #F5F1E8;        /* Warm paper cream - primary text & light surfaces */
+  --vermilion: #D94B38;         /* Energetic vermilion stamp - primary action */
+  --ink-surface: #1C1B19;       /* Quiet card and container background */
+  --elevated-surface: #2A2926;  /* Elevated pods, hover states, modals */
+  --tactile-stroke: #151413;    /* Crisp tactile borders and 0-blur drop shadows */
+  --pure-black: #000000;        /* Pitch black reading surfaces (JMdict, stroke player, study) */
+
+  /* Supporting Accent & Feedback Palette */
+  --alpine-berry: #F7E0BA;      /* Soft warm chamois - tactile badges & pills */
+  --organza-peach: #FBEEDA;     /* Delicate organza peach - subtle paper highlights & tints */
+  --gold: var(--vermilion);     /* Replaced gold with energetic vermilion across Kiroku */
+  --gold-source: #C8A94A;       /* Source reference for automated integrity checks */
+  --jade: #4EBB7B;              /* Mastered, known, correct feedback */
+  --kanji-known-green: #13e872; /* Crisp light green for marked known kanji in list view */
+  --amber: #F59E0B;             /* Warning, intermediate state, pending */
+
+  /* Industrial Tactile Palette */
+  --iron-core: #222A2A;         /* Dense cool industrial slate */
+  --industrial-aqua: #4FBBBC;   /* Structural syntax, clause & particle cyan */
+  --rust-signal: #EC4624;       /* High-energy industrial action & error stamp */
+  --heat-marker: #F39120;       /* High-visibility active level & difficulty orange */
+  --architectural-cream: #E2DAC2; /* Heavy structural limestone washi cream */
+  --pure-white: #FFFFFF;
+  --iron-core-dark: #161818;
+  --iron-core-black: #101212;
+  --iron-core-light: #2E3636;
+  --iron-core-surface: #2D3535;
+  --rust-signal-dark: #D83D1D;
+  --grammar-green: #88C570;
+  --architectural-cream-light: #EDE7D4;
+  --slate-stroke: #4A473F;
+  --slate-border: #5A574F;
+  --forest-green: #1B5E20;
+  --vermilion-soft: #E06852;
+
+  /* Alpha Tints & States */
+  --subtle-border: rgba(245, 241, 232, 0.12);
+  --ink-border: var(--subtle-border);
+  --ink-surface-hover: #262522;
+
+  --vermilion-glow: rgba(217, 75, 56, 0.20);
+  --vermilion-hover: #C53E2D;
+  --vermilion-active: #B33424;
+
+  --gold-glow: var(--vermilion-glow);
+  --gold-hover: var(--vermilion-hover);
+  --gold-glow-source: rgba(200, 169, 74, 0.16);
+  --gold-hover-source: #B89938;
+
+  --paper-dim: #E8E3D8;
+  --paper-muted: rgba(245, 241, 232, 0.70);
+  --paper-subtle: rgba(245, 241, 232, 0.45);
+  --paper-faint: rgba(245, 241, 232, 0.12);
+
+  /* ==========================================================================
+     Semantic Mapping Aliases
+     ========================================================================== */
+  --color-bg: var(--pure-black, #000000);
+  --color-surface: var(--ink-surface);
+  --color-surface-elevated: var(--elevated-surface);
+  --color-primary: var(--vermilion);
+  --color-text: var(--warm-paper);
+  --color-text-secondary: var(--paper-muted);
+  --color-text-muted: var(--paper-subtle);
+  --color-border: var(--subtle-border);
+  --color-stroke: var(--tactile-stroke);
+
+  /* Surface Container Scale */
+  --background: var(--pure-black, #000000);
+  --surface: var(--ink-surface);
+  --surface-container-lowest: #0F0E0C;
+  --surface-container-low: var(--ink-black);
+  --surface-container: var(--ink-surface);
+  --surface-container-high: var(--elevated-surface);
+  --surface-container-highest: #363532;
+  --surface-pitch-black: var(--pure-black);
+
+  /* Primary Typography Text Tokens */
+  --text-primary: var(--warm-paper);
+  --text-secondary: var(--paper-muted);
+  --text-muted: var(--paper-subtle);
+
+  /* Status & Diagnostics */
+  --status-green: var(--jade);
+  --status-amber: var(--amber);
+  --status-red: var(--vermilion);
+  --status-inactive: #595855;
+
+  /* Backward Compatibility Aliases */
+  --soot: var(--pure-black);
+  --truffle: var(--ink-black);
+  --milk: var(--warm-paper);
+  --marmalade: var(--vermilion);
+  --cat-eye: var(--gold);
+  --gold-eye: var(--gold);
+  --matcha: var(--jade);
+  --cherry: var(--vermilion);
+
+  /* ==========================================================================
+     Spacing Scale
+     ========================================================================== */
+  --space-xs: 0.25rem;   /* 4px */
+  --space-sm: 0.5rem;    /* 8px */
+  --space-md: 1rem;      /* 16px */
+  --space-lg: 1.5rem;    /* 24px */
+  --space-xl: 2.5rem;    /* 40px */
+  --space-2xl: 3.5rem;   /* 56px */
+  --gutter: 1.5rem;
+  --gutter-sm: 1rem;
+  --margin: 2rem;
+  --margin-sm: 1rem;
+
+  /* Safe Areas (top chrome + bottom dock clearance) */
+  --chrome-top-height: 48px;
+  --dock-bottom-height: 64px;
+  --content-padding-top: 56px;
+  --content-padding-bottom: 96px;
+
+  /* Corner Radii */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* ==========================================================================
+     Planetoño-Inspired Zero-Blur Offset Shadows
+     ========================================================================== */
+  --shadow-sm: 2px 2px 0 var(--tactile-stroke);
+  --shadow-md: 3px 3px 0 var(--tactile-stroke);
+  --shadow-lg: 4px 4px 0 var(--tactile-stroke);
+  --shadow-pressed: 1px 1px 0 var(--tactile-stroke);
+  --shadow-tactile: 3px 3px 0 var(--tactile-stroke);
+  --shadow-tactile-hover: 4px 4px 0 var(--tactile-stroke);
+  --shadow-tactile-active: 1px 1px 0 var(--tactile-stroke);
+
+  /* ==========================================================================
+     Typography Stacks
+     - Noto Sans JP: Bold display headings, headword kanji display
+     - Zen Kaku Gothic New: Japanese UI, body, and reading text
+     - Inter: English UI, labels, counters, and timers
+     ========================================================================== */
+  --font-display: "Noto Sans JP", "Zen Old Mincho", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-wordmark: "Noto Sans JP", "Zen Old Mincho", Georgia, serif;
+  --font-japanese: "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Cascadia Code", "Liberation Mono", Menlo, monospace;
+
+  /* Spring Physics & Motion Easing */
+  --spring-snappy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-slow: cubic-bezier(.405, 0, .025, 1);
+  --ease-minor-spring: cubic-bezier(0.18, 0.89, 0.82, 1.04);
+  --spring-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-instant: 90ms;
+  --duration-fast: 160ms;
+  --duration-normal: 280ms;
+  --duration-slow: 480ms;
+}

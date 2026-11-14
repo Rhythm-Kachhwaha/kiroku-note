@@ -1,0 +1,728 @@
+/* ==========================================================================
+   Test Screen Styles
+   ========================================================================== */
+.test-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1.25rem !important;
+}
+
+.test-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.test-section-name {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.test-timer-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.test-timer-group.is-urgent-pulse {
+  border-color: var(--vermilion);
+  animation: timer-pulse 1s infinite alternate;
+}
+
+@keyframes timer-pulse {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.5;
+  }
+}
+
+.timer-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.timer-countdown {
+  font-size: 1.2rem;
+  color: var(--vermilion);
+}
+
+.passage-header-row,
+.prompt-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.passage-paragraph {
+  font-family: var(--font-japanese);
+  font-size: 0.95rem;
+  line-height: 1.9;
+  color: var(--warm-paper);
+  margin-bottom: 1rem;
+}
+
+.prompt-text-content {
+  font-family: var(--font-japanese);
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--warm-paper);
+}
+
+.test-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.test-option-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.15rem !important;
+  cursor: pointer;
+}
+
+.test-option-card.is-selected {
+  border-color: var(--vermilion) !important;
+  background-color: var(--surface-container-high) !important;
+  box-shadow: 0 0 10px rgba(217, 75, 56, 0.3) !important;
+}
+
+.option-shortcut {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--tactile-stroke);
+  background-color: var(--surface-container);
+  color: var(--warm-paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.test-option-card.is-selected .option-shortcut {
+  background-color: var(--vermilion);
+  color: var(--pure-white);
+}
+
+.option-text {
+  font-family: var(--font-japanese);
+  font-size: 0.95rem;
+  color: var(--warm-paper);
+}
+
+/* Palette Bar */
+.test-palette-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.25rem;
+  padding: 0.65rem 1rem !important;
+  gap: 1rem;
+}
+
+.palette-scroll-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 2px;
+}
+
+.palette-item {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--tactile-stroke);
+  background-color: var(--surface-container-low);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.palette-item.is-answered {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+}
+
+.palette-item.is-current {
+  border: 2px solid var(--gold-eye);
+}
+
+.palette-item.is-flagged::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--tactile-stroke);
+  background-color: var(--gold-eye);
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 8px;
+  color: var(--gold-eye);
+}
+
+
+.test-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background-color: rgba(217, 75, 56, 0.15);
+  border: 1px solid var(--vermilion);
+  border-radius: var(--radius-sm);
+  color: var(--vermilion);
+  font-size: 0.85rem;
+}
+
+.test-empty-state,
+.test-result-card {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.test-empty-title,
+.test-result-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--warm-paper);
+  margin-bottom: 0.5rem;
+}
+
+.test-single-pane {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+
+/* ==========================================================================
+   JLPT Exam Simulation Styles — Serious, Distraction-Free (Strictly No Mascot)
+   ========================================================================== */
+.test-view-wrapper {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0.75rem 2rem 2.5rem 2rem;
+  box-sizing: border-box;
+}
+
+.test-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.test-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: rgba(217, 75, 56, 0.15);
+  border: 2px solid var(--vermilion);
+  border-radius: var(--radius-md);
+  color: var(--warm-paper);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+/* Test Setup Card */
+.test-setup-card {
+  padding: 1.75rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.test-info-box {
+  background-color: var(--pure-black);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.exam-scope-pills,
+.exam-format-pills {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Exam Header Strip */
+.test-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.test-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.test-section-name {
+  color: var(--warm-paper);
+}
+
+/* Countdown Timer in Inter Font */
+.test-timer-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-sans);
+  padding: 0.35rem 0.75rem;
+  background-color: var(--pure-black);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.timer-label {
+  color: var(--text-muted);
+}
+
+.timer-countdown {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.05em;
+}
+
+/* Urgent Pulse when < 5 mins remaining */
+.test-timer-group.is-urgent-pulse {
+  border-color: var(--vermilion);
+  animation: timer-pulse 1s ease-in-out infinite alternate;
+}
+
+.test-timer-group.is-urgent-pulse .timer-countdown {
+  color: var(--vermilion);
+}
+
+@keyframes timer-pulse {
+  from {
+    box-shadow: 2px 2px 0 var(--tactile-stroke);
+  }
+
+  to {
+    box-shadow: 0 0 10px rgba(217, 75, 56, 0.4), 2px 2px 0 var(--tactile-stroke);
+  }
+}
+
+/* Exam Stage Layouts */
+.test-stage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 840px) {
+  .test-stage-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.test-passage-pane {
+  background-color: var(--pure-black);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 1.5rem;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.test-single-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.test-question-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Exam Prompt Card (Pitch-Black var(--pure-black)) */
+.test-prompt-card {
+  background-color: var(--pure-black);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  padding: 1.5rem;
+}
+
+.test-prompt-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.btn-flag-review {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--tactile-stroke);
+  background-color: var(--surface-container);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  transition: background-color 0.15s ease, color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.btn-flag-review:hover {
+  background-color: var(--surface-container-high);
+  color: var(--warm-paper);
+}
+
+.btn-flag-review.is-flagged {
+  background-color: var(--gold);
+  color: var(--pure-black);
+  border-color: var(--tactile-stroke);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  font-weight: 700;
+}
+
+.test-prompt-body {
+  font-family: var(--font-japanese);
+  font-size: 1.3rem;
+  font-weight: 500;
+  line-height: 2;
+  color: var(--warm-paper);
+}
+
+.test-prompt-body ruby rt {
+  font-size: 0.55em;
+  color: var(--gold);
+  line-height: 1;
+}
+
+/* Exam Choice Cards */
+.test-choices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
+.test-choice-card {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 1rem 1.25rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  color: var(--warm-paper);
+  cursor: pointer;
+  outline: none;
+  text-align: left;
+  transition: transform var(--duration-instant) ease-out,
+    box-shadow var(--duration-instant) ease-out,
+    background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+}
+
+.test-choice-card:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  background-color: var(--surface-container-high);
+}
+
+.test-choice-card:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.test-choice-card .choice-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--tactile-stroke);
+  background: var(--surface-container-high);
+  color: var(--warm-paper);
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-right: 0.85rem;
+  flex-shrink: 0;
+}
+
+.test-choice-card .choice-text {
+  font-family: var(--font-japanese);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--warm-paper);
+}
+
+.test-choice-card .choice-text ruby rt {
+  font-size: 0.55em;
+  color: var(--gold);
+  line-height: 1;
+}
+
+/* Server-rendered study markup targets */
+.study-target-blank {
+  display: inline-flex;
+  min-width: 4.5em;
+  justify-content: center;
+  border-bottom: 2px solid currentColor;
+  white-space: nowrap;
+}
+
+.study-target-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4em;
+  min-height: 1.4em;
+  border: 1px solid currentColor;
+  line-height: 1;
+}
+
+.study-target-underline {
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.12em;
+}
+
+.study-prompt-text ruby rt,
+.test-prompt-body ruby rt,
+.choice-text ruby rt,
+.passage-body-content ruby rt {
+  font-size: 0.55em;
+  line-height: 1;
+}
+
+.test-choice-card.is-selected-choice {
+  background-color: var(--surface-container-high);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold-glow), 3px 3px 0 var(--tactile-stroke);
+}
+
+.test-choice-card.is-selected-choice .choice-num {
+  background-color: var(--gold);
+  color: var(--pure-black);
+  border-color: var(--tactile-stroke);
+}
+
+/* Question Palette Bar */
+.test-palette-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+  overflow: hidden;
+}
+
+.palette-scroll-wrap {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  max-width: calc(100% - 200px);
+}
+
+.palette-item {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--tactile-stroke);
+  background-color: var(--surface-container);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+  flex-shrink: 0;
+  outline: none;
+  transition: transform 0.12s ease;
+}
+
+.palette-item:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+/* Palette item states */
+.palette-item.is-answered {
+  background-color: var(--warm-paper);
+  color: var(--ink-black);
+  font-weight: 700;
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.palette-item.is-flagged {
+  background-color: var(--gold);
+  color: var(--pure-black);
+  font-weight: 700;
+  border-color: var(--tactile-stroke);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.palette-item.is-current {
+  outline: 2px solid var(--vermilion);
+  outline-offset: 2px;
+}
+
+.palette-actions {
+  flex-shrink: 0;
+}
+
+/* Diagnostic Score Report Card */
+.test-result-card {
+  padding: 2.25rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.test-result-title {
+  color: var(--warm-paper);
+}
+
+.tactile-pill-jade {
+  background-color: rgba(78, 187, 123, 0.2);
+  border: 1.5px solid var(--jade);
+  color: var(--jade);
+  font-weight: 700;
+}
+
+.test-empty-state {
+  padding: 2.5rem 1.5rem;
+  background-color: var(--surface-container);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: 3px 3px 0 var(--tactile-stroke);
+}
+
+.test-empty-title {
+  color: var(--warm-paper);
+}
+
+/* Exam feedback and notice helper classes */
+.is-correct,
+.exam-section-status.is-correct {
+  background-color: var(--jade);
+  color: var(--ink-black);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.is-wrong,
+.exam-section-status.is-wrong {
+  background-color: var(--vermilion);
+  color: var(--warm-paper);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.test-notice-toast {
+  position: fixed;
+  bottom: 80px;
+  right: 24px;
+  z-index: 9999;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: 0.85rem;
+  max-width: 380px;
+  transition: opacity 0.25s ease;
+  background-color: var(--surface-container-high);
+  color: var(--warm-paper);
+  border: 1.5px solid var(--gold);
+}
+
+.notice-gold,
+.test-notice-toast.notice-gold {
+  background-color: var(--surface-container-high);
+  color: var(--warm-paper);
+  border: 1.5px solid var(--gold);
+}
+
+
+/* Slice 23 History & Readiness */
+.exam-readiness-banner {
+  border: 1.5px solid var(--tactile-stroke);
+  background-color: var(--surface-container-low);
+  border-radius: var(--radius-md);
+}
+
+.exam-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.exam-history-card {
+  padding: 0.75rem 1rem;
+  background-color: var(--surface-container);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.badge-complete {
+  background-color: var(--jade);
+  color: var(--ink-black);
+  border: 1px solid var(--tactile-stroke);
+}
+
+.badge-short {
+  background-color: var(--vermilion);
+  color: var(--pure-white);
+  border: 1px solid var(--rust-signal);
+}
