@@ -105,6 +105,7 @@ contextBridge.exposeInMainWorld('desktopAPI', {
     }
   },
   getRiveAssetUrl: (assetName) => ipcRenderer.invoke('runtime:get-rive-asset-url', assetName),
+  getRiveAssetBuffer: (assetName) => ipcRenderer.invoke('runtime:get-rive-asset-buffer', assetName),
   getServicesStatus: () => ipcRenderer.invoke('backend:services-status'),
   toggleOcr: () => ipcRenderer.invoke('ocr:toggle'),
   journeyApi: {

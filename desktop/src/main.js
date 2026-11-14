@@ -713,15 +713,50 @@ function setupIpcHandlers() {
       throw new Error('Invalid Rive asset name');
     }
 
-    const assetsRoot = app.isPackaged
-      ? path.join(process.resourcesPath, 'app', 'assets', 'dekstop', 'riv')
-      : path.join(repoRoot, 'assets', 'dekstop', 'riv');
-    const assetPath = path.join(assetsRoot, assetName);
+    const possibleRoots = [
+      app.isPackaged ? path.join(process.resourcesPath, 'app', 'assets', 'dekstop', 'riv') : path.join(repoRoot, 'assets', 'dekstop', 'riv'),
+      app.isPackaged ? path.join(process.resourcesPath, 'app', 'desktop', 'src', 'ui', 'assets', 'riv') : path.join(repoRoot, 'desktop', 'src', 'ui', 'assets', 'riv')
+    ];
 
-    if (!fs.existsSync(assetPath)) {
+    let assetPath = null;
+    for (const root of possibleRoots) {
+      const candidate = path.join(root, assetName);
+      if (fs.existsSync(candidate)) {
+        assetPath = candidate;
+        break;
+      }
+    }
+
+    if (!assetPath) {
       throw new Error('Rive asset is unavailable');
     }
     return pathToFileURL(assetPath).href;
+  });
+
+  ipcMain.handle('runtime:get-rive-asset-buffer', (_event, assetName) => {
+    if (typeof assetName !== 'string' || !/^[a-z0-9][a-z0-9._-]*\.riv$/i.test(assetName)) {
+      throw new Error('Invalid Rive asset name');
+    }
+
+    const possibleRoots = [
+      app.isPackaged ? path.join(process.resourcesPath, 'app', 'assets', 'dekstop', 'riv') : path.join(repoRoot, 'assets', 'dekstop', 'riv'),
+      app.isPackaged ? path.join(process.resourcesPath, 'app', 'desktop', 'src', 'ui', 'assets', 'riv') : path.join(repoRoot, 'desktop', 'src', 'ui', 'assets', 'riv')
+    ];
+
+    let assetPath = null;
+    for (const root of possibleRoots) {
+      const candidate = path.join(root, assetName);
+      if (fs.existsSync(candidate)) {
+        assetPath = candidate;
+        break;
+      }
+    }
+
+    if (!assetPath) {
+      throw new Error('Rive asset is unavailable');
+    }
+    const buf = fs.readFileSync(assetPath);
+    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
   });
 
   // Window controls

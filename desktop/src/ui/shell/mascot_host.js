@@ -88,7 +88,10 @@ export class MascotHost {
         try {
           this.resize();
           this.instance.play(STATE_MACHINE_NAME);
-          this.instance.setupRiveListeners?.();
+          if (!this._riveListenersSetup) {
+            this.instance.setupRiveListeners?.();
+            this._riveListenersSetup = true;
+          }
         } catch (error) {
           console.warn('[Home] Could not setup Rive listeners:', error);
         }
@@ -163,8 +166,13 @@ export class MascotHost {
   }
 
   resume() {
-    if (!this.reducedMotion) {
-      this.instance?.play?.(STATE_MACHINE_NAME);
+    if (!this.reducedMotion && this.instance) {
+      try {
+        this.instance.play(STATE_MACHINE_NAME);
+        this.instance.startRendering?.();
+      } catch (e) {
+        console.debug('[MascotHost] resume play error:', e);
+      }
     }
   }
 
@@ -175,15 +183,19 @@ export class MascotHost {
       : (callback) => setTimeout(callback, 0);
     this.resizeFrame = requestFrame(() => {
       this.resizeFrame = null;
-      const width = this.canvas?.clientWidth ?? this.canvas?.width ?? null;
-      const height = this.canvas?.clientHeight ?? this.canvas?.height ?? null;
+      const width = this.canvas?.clientWidth ?? this.canvas?.width ?? 0;
+      const height = this.canvas?.clientHeight ?? this.canvas?.height ?? 0;
+      if (width <= 0 || height <= 0) return;
+
       const pixelRatio = window.devicePixelRatio || 1;
-      const surfaceSize = width === null || height === null
-        ? null
-        : `${Math.round(width * pixelRatio)}x${Math.round(height * pixelRatio)}`;
+      const surfaceSize = `${Math.round(width * pixelRatio)}x${Math.round(height * pixelRatio)}`;
       if (surfaceSize === this.lastSurfaceSize && this.lastSurfaceSize !== null) return;
       this.lastSurfaceSize = surfaceSize;
-      this.instance?.resizeDrawingSurfaceToCanvas?.();
+      try {
+        this.instance?.resizeDrawingSurfaceToCanvas?.();
+      } catch (e) {
+        console.debug('[MascotHost] resizeDrawingSurface error:', e);
+      }
     });
   }
 

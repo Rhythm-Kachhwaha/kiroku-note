@@ -31,6 +31,29 @@ test('manga_viewer: manga.js supports zip bundle auto-folder detection and extra
   assert.ok(content.includes('openFiles'), 'must support multi-file uploads');
 });
 
+test('manga_viewer: manga.js supports bookmarks, furigana toggle, and background pre-OCR', () => {
+  const content = fs.readFileSync(mangaJsPath, 'utf8');
+  assert.ok(content.includes('manga-card-bookmark-btn'), 'must support bookshelf card bookmark button');
+  assert.ok(content.includes('manga-bookmark-svg'), 'must support animated SVG bookmark ribbon');
+  assert.ok(content.includes('manga-bookmark-drawer'), 'must provide in-reader bookmarks drawer');
+  assert.ok(content.includes('toggleBookmarkCurrentPage'), 'must toggle current page bookmark');
+  assert.ok(content.includes('renderBookmarksList'), 'must render bookmark jump list');
+  assert.ok(content.includes('btn-toggle-furigana'), 'must support Furigana reading toggle');
+  assert.ok(content.includes('manga-ruby'), 'must support ruby/furigana markup');
+  assert.ok(content.includes('scheduleNextPagePrefetch'), 'must support next-page background OCR prefetch');
+  assert.ok(content.includes('prefetchOcrCache'), 'must maintain in-memory prefetch cache');
+});
+
+test('manga_viewer: manga.js supports drag-pan move tool and smooth wheel navigation', () => {
+  const content = fs.readFileSync(mangaJsPath, 'utf8');
+  assert.ok(content.includes('btn-tool-move'), 'must provide Move / Pan tool button');
+  assert.ok(content.includes('btn-tool-select'), 'must provide Select Text tool button');
+  assert.ok(content.includes('setActiveTool'), 'must support switching active tool');
+  assert.ok(content.includes('isPanning'), 'must track panning state');
+  assert.ok(content.includes('isSpacePressed'), 'must support Spacebar panning shortcut');
+  assert.ok(content.includes('updateCursorState'), 'must update cursor between grab and crosshair');
+});
+
 test('manga_viewer: manga.css uses design tokens with zero raw hex or emoji', () => {
   const css = fs.readFileSync(mangaCssPath, 'utf8');
   assert.ok(css.includes('.manga-viewer-container'), 'must style container');
@@ -39,6 +62,12 @@ test('manga_viewer: manga.css uses design tokens with zero raw hex or emoji', ()
   assert.ok(css.includes('.manga-floating-popover'), 'must style floating popover');
   assert.ok(css.includes('.manga-loading-overlay'), 'must style loading overlay');
   assert.ok(css.includes('.manga-loading-pacman-wrap'), 'must style pacman wrapper');
+  assert.ok(css.includes('.manga-card-bookmark-btn'), 'must style bookmark button');
+  assert.ok(css.includes('.manga-bookmark-drawer'), 'must style bookmark drawer');
+  assert.ok(css.includes('.manga-ruby'), 'must style furigana ruby');
+  assert.ok(css.includes('mangaBookmarkBounce'), 'must include bookmark animation');
+  assert.ok(css.includes('.manga-tool-toggle-group'), 'must style tool toggle group');
+  assert.ok(css.includes('.manga-tool-toggle-btn'), 'must style tool toggle buttons');
   assert.equal(/#[0-9a-fA-F]{3,6}/.test(css), false, 'no raw hex');
   assert.equal(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/u.test(css), false, 'no emoji');
 });

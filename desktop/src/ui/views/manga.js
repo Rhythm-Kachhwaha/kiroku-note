@@ -94,6 +94,11 @@ const PACMAN_LOADING_SVG = `
 </svg>
 `;
 
+function katakanaToHiragana(str) {
+  if (!str) return '';
+  return str.replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+}
+
 export class MangaView {
   constructor(router, options = {}) {
     this.router = router;
@@ -157,14 +162,43 @@ export class MangaView {
     this.zoomMode = 'fit'; // 'fit' | 'width' | 'custom'
     this.selectedBubbleIndex = -1;
 
-    // Keydown handler bind
+    // Bookmarks & Drawer State
+    this.bookmarkDrawerOpen = false;
+
+    // Furigana reading toggle (persisted)
+    this.furiganaEnabled = localStorage.getItem('manga_furigana_enabled') !== 'false';
+
+    // Auto-OCR Next-Page Pre-fetching Cache & State
+    this.prefetchOcrCache = new Map(); // key: `${bookId}_${pageNum}_${spreadMode}` -> boxes
+    this.prefetchTimeout = null;
+    this.isPrefetching = false;
+
+    // Active Interaction Tool: 'move' (pan) | 'select' (OCR box)
+    this.activeTool = 'move';
+    this.isPanning = false;
+    this.panStartX = 0;
+    this.panStartY = 0;
+    this.panStartScrollLeft = 0;
+    this.panStartScrollTop = 0;
+    this.isSpacePressed = false;
+    this.lastWheelPageTurnTime = 0;
+    this.lastWheelZoomTime = 0;
+
+    // Key & Mouse event bindings
     this.boundKeyHandler = (e) => this.handleKeyDown(e);
+    this.boundKeyUpHandler = (e) => this.handleKeyUp(e);
+    this.boundMouseMoveHandler = (e) => this.handleMouseMove(e);
+    this.boundMouseUpHandler = (e) => this.handleMouseUp(e);
   }
 
   loadLibrary() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY_LIBRARY);
-      return raw ? JSON.parse(raw) : [];
+      const list = raw ? JSON.parse(raw) : [];
+      return list.map(b => ({
+        ...b,
+        bookmarks: Array.isArray(b.bookmarks) ? b.bookmarks : []
+      }));
     } catch {
       return [];
     }
@@ -181,6 +215,7 @@ export class MangaView {
         currentPage: b.currentPage || 1,
         coverUrl: b.coverUrl || '',
         coverVersion: b.coverVersion || 1,
+        bookmarks: Array.isArray(b.bookmarks) ? b.bookmarks : [],
         updatedAt: b.updatedAt || Date.now()
       }));
       localStorage.setItem(STORAGE_KEY_LIBRARY, JSON.stringify(meta));
@@ -215,11 +250,21 @@ export class MangaView {
     this.container = container;
     this.render();
     window.addEventListener('keydown', this.boundKeyHandler);
+    window.addEventListener('keyup', this.boundKeyUpHandler);
+    window.addEventListener('mousemove', this.boundMouseMoveHandler);
+    window.addEventListener('mouseup', this.boundMouseUpHandler);
   }
 
   onShow() {
     window.removeEventListener('keydown', this.boundKeyHandler);
+    window.removeEventListener('keyup', this.boundKeyUpHandler);
+    window.removeEventListener('mousemove', this.boundMouseMoveHandler);
+    window.removeEventListener('mouseup', this.boundMouseUpHandler);
+
     window.addEventListener('keydown', this.boundKeyHandler);
+    window.addEventListener('keyup', this.boundKeyUpHandler);
+    window.addEventListener('mousemove', this.boundMouseMoveHandler);
+    window.addEventListener('mouseup', this.boundMouseUpHandler);
     if (this.activeMode === 'reader' && this.currentBook) {
       this.renderCurrentPage();
     }
@@ -232,6 +277,9 @@ export class MangaView {
 
   unmount() {
     window.removeEventListener('keydown', this.boundKeyHandler);
+    window.removeEventListener('keyup', this.boundKeyUpHandler);
+    window.removeEventListener('mousemove', this.boundMouseMoveHandler);
+    window.removeEventListener('mouseup', this.boundMouseUpHandler);
     if (this.container) {
       this.container.innerHTML = '';
       this.container = null;
@@ -280,12 +328,19 @@ export class MangaView {
 
     const bookCards = activeBooks.map(b => {
       const percent = b.pageCount > 0 ? Math.round((b.currentPage / b.pageCount) * 100) : 0;
+      const bookmarks = Array.isArray(b.bookmarks) ? b.bookmarks : [];
+      const latestBookmark = bookmarks.length > 0 ? bookmarks[bookmarks.length - 1] : null;
       return `
         <div class="manga-book-card" data-book-id="${escapeHtml(b.id)}">
           <div class="manga-book-cover-wrap">
             ${b.coverUrl
               ? `<img src="${b.coverUrl}" class="manga-book-cover-img" alt="${escapeHtml(b.title)}">`
               : `<div class="manga-book-cover-placeholder"><span>${escapeHtml(b.title.slice(0, 2).toUpperCase())}</span></div>`}
+            <button type="button" class="manga-card-bookmark-btn ${latestBookmark ? 'has-bookmark is-active' : ''}" data-book-id="${escapeHtml(b.id)}" title="${latestBookmark ? `Jump to Bookmark (Page ${latestBookmark.page})` : `Resume from Page ${b.currentPage || 1}`}">
+              <svg class="manga-bookmark-svg" viewBox="0 0 24 24" width="15" height="15">
+                <path class="manga-bookmark-ribbon" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+            </button>
             <div class="manga-book-progress-badge">${percent}%</div>
           </div>
           <div class="manga-book-info">
@@ -472,6 +527,19 @@ export class MangaView {
     // Bookshelf card clicks and book options
     const grid = this.container.querySelector('.manga-bookshelf-grid');
     grid?.addEventListener('click', async (e) => {
+      const bookmarkBtn = e.target.closest('.manga-card-bookmark-btn');
+      if (bookmarkBtn && bookmarkBtn.dataset.bookId) {
+        e.stopPropagation();
+        const bookId = bookmarkBtn.dataset.bookId;
+        const book = this.books.find(b => b.id === bookId);
+        const bookmarks = Array.isArray(book?.bookmarks) ? book.bookmarks : [];
+        const targetPage = bookmarks.length > 0
+          ? bookmarks[bookmarks.length - 1].page
+          : (book?.currentPage || 1);
+        await this.loadAndOpenBook(bookId, targetPage);
+        return;
+      }
+
       const moreBtn = e.target.closest('.manga-book-more-btn');
       if (moreBtn && moreBtn.dataset.bookId) {
         e.stopPropagation();
@@ -1020,6 +1088,9 @@ export class MangaView {
   renderReaderView() {
     const bookTitle = this.currentBook?.title || 'Manga Reader';
     const isDouble = this.spreadMode === 'double';
+    const bookmarks = Array.isArray(this.currentBook?.bookmarks) ? this.currentBook.bookmarks : [];
+    const isCurrentPageBookmarked = bookmarks.some(b => b.page === this.currentPage);
+    const bookmarksCount = bookmarks.length;
 
     this.container.innerHTML = `
       <div class="manga-immersion-reader" id="manga-immersion-reader">
@@ -1066,6 +1137,20 @@ export class MangaView {
 
             <div class="manga-topbar-divider"></div>
 
+            <!-- Interaction Tool Toggle Group (Move/Pan vs Select/OCR) -->
+            <div class="manga-tool-toggle-group">
+              <button type="button" class="manga-tool-toggle-btn ${this.activeTool === 'move' ? 'is-active' : ''}" id="btn-tool-move" title="Pan / Move Tool (Hold Space or press H)">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
+                <span>Move</span>
+              </button>
+              <button type="button" class="manga-tool-toggle-btn ${this.activeTool === 'select' ? 'is-active' : ''}" id="btn-tool-select" title="OCR Box Selection Tool (Press S / Shift+Drag)">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/></svg>
+                <span>Select Text</span>
+              </button>
+            </div>
+
+            <div class="manga-topbar-divider"></div>
+
             <!-- Tactile Bubble Detection Controls -->
             <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-detect-bubbles" title="Detect Speech Bubbles via AI">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
@@ -1079,6 +1164,14 @@ export class MangaView {
           </div>
 
           <div class="manga-topbar-right">
+            <!-- Bookmarks Drawer Toggle Button -->
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm manga-reader-bookmark-btn ${isCurrentPageBookmarked ? 'is-active' : ''}" id="btn-reader-bookmarks" title="Bookmarks & Page Notes">
+              <svg class="manga-bookmark-svg ${isCurrentPageBookmarked ? 'is-active' : ''}" viewBox="0 0 24 24" width="14" height="14">
+                <path class="manga-bookmark-ribbon" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span id="label-bookmarks-count">${bookmarksCount > 0 ? `Bookmarks (${bookmarksCount})` : 'Bookmarks'}</span>
+            </button>
+
             <!-- Study Sidebar Toggle Button -->
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-toggle-study-sidebar" title="Toggle Study Inspector Sidebar">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H14V5h5v14z"/></svg>
@@ -1088,11 +1181,37 @@ export class MangaView {
           </div>
         </header>
 
+        <!-- Bookmark Slide-out Drawer -->
+        <div class="manga-bookmark-drawer" id="manga-bookmark-drawer" style="display: ${this.bookmarkDrawerOpen ? 'flex' : 'none'};">
+          <div class="manga-bookmark-drawer-header">
+            <div class="flex items-center gap-2">
+              <svg class="manga-bookmark-svg is-active" viewBox="0 0 24 24" width="14" height="14">
+                <path class="manga-bookmark-ribbon" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span class="text-xs font-bold text-warm-paper">Bookmarks (${bookmarksCount})</span>
+            </div>
+            <button type="button" class="manga-drawer-close-btn" id="btn-close-bookmark-drawer" title="Close Drawer">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+          </div>
+          <div class="manga-bookmark-drawer-actions">
+            <button type="button" class="tactile-btn tactile-btn-sm w-full ${isCurrentPageBookmarked ? 'tactile-btn-gold is-active' : 'tactile-btn-primary'}" id="btn-toggle-bookmark-page">
+              <svg class="manga-bookmark-svg ${isCurrentPageBookmarked ? 'is-active' : ''}" viewBox="0 0 24 24" width="13" height="13">
+                <path class="manga-bookmark-ribbon" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span id="label-toggle-bookmark">${isCurrentPageBookmarked ? `Remove Bookmark (Page ${this.currentPage})` : `Bookmark Page ${this.currentPage}`}</span>
+            </button>
+          </div>
+          <div class="manga-bookmarks-list" id="manga-bookmarks-list">
+            <!-- Rendered by renderBookmarksList() -->
+          </div>
+        </div>
+
         <!-- Reader Workspace (Canvas Stage + Study Inspector Sidebar) -->
         <div class="manga-reader-workspace" id="manga-reader-workspace">
           <!-- Canvas Stage -->
           <div class="manga-stage-card" id="manga-stage-card">
-            <div class="manga-canvas-wrapper" id="manga-canvas-wrapper">
+            <div class="manga-canvas-wrapper ${this.activeTool === 'select' ? 'is-selecting-mode' : ''}" id="manga-canvas-wrapper">
               <canvas class="manga-canvas" id="manga-canvas"></canvas>
               <div class="manga-bubble-overlay-layer" id="manga-bubble-overlay-layer"></div>
               <div class="manga-selection-box" id="manga-selection-box" style="display: none;"></div>
@@ -1120,6 +1239,10 @@ export class MangaView {
               <div class="manga-sidebar-sentence-header">
                 <span class="text-xs text-gold font-bold">Bubble Dialogue</span>
                 <div class="flex items-center gap-1">
+                  <button type="button" class="manga-tool-btn ${this.furiganaEnabled ? 'is-active' : ''}" id="btn-toggle-furigana" title="Toggle Furigana Readings">
+                    <span>振仮名</span>
+                    <span class="manga-furigana-state text-gold">${this.furiganaEnabled ? 'ON' : 'OFF'}</span>
+                  </button>
                   <button type="button" class="manga-tool-btn" id="btn-edit-sentence" title="Edit Japanese text if OCR misread a character">
                     <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                     <span>Edit</span>
@@ -1130,7 +1253,7 @@ export class MangaView {
                   </button>
                 </div>
               </div>
-              <div class="manga-sentence-words-flow font-japanese" id="manga-sidebar-sentence-text">
+              <div class="manga-sentence-words-flow font-japanese ${!this.furiganaEnabled ? 'hide-furigana' : ''}" id="manga-sidebar-sentence-text">
                 <span class="text-xs text-muted">Click any speech bubble or drag-select on manga to inspect</span>
               </div>
             </div>
@@ -1186,7 +1309,7 @@ export class MangaView {
               </button>
             </div>
           </div>
-          <div class="manga-popover-sentence" id="manga-popover-sentence">
+          <div class="manga-popover-sentence ${!this.furiganaEnabled ? 'hide-furigana' : ''}" id="manga-popover-sentence">
             <span class="text-xs text-muted">Running OCR...</span>
           </div>
           <div class="manga-popover-divider"></div>
@@ -1239,6 +1362,9 @@ export class MangaView {
       this.closeSidebar();
       this.clearBubbleOverlays();
       this.resetZoom();
+      this.bookmarkDrawerOpen = false;
+      clearTimeout(this.prefetchTimeout);
+      this.prefetchOcrCache.clear();
       this.activeMode = 'library';
       this.render();
     });
@@ -1264,6 +1390,39 @@ export class MangaView {
           pageInput.blur();
         }
       }
+    });
+
+    // Bookmarks Drawer & Toggle
+    const btnBookmarks = this.container.querySelector('#btn-reader-bookmarks');
+    btnBookmarks?.addEventListener('click', () => {
+      this.bookmarkDrawerOpen = !this.bookmarkDrawerOpen;
+      const drawer = this.container.querySelector('#manga-bookmark-drawer');
+      if (drawer) {
+        drawer.style.display = this.bookmarkDrawerOpen ? 'flex' : 'none';
+        if (this.bookmarkDrawerOpen) {
+          this.renderBookmarksList();
+        }
+      }
+    });
+
+    const btnCloseDrawer = this.container.querySelector('#btn-close-bookmark-drawer');
+    btnCloseDrawer?.addEventListener('click', () => {
+      this.bookmarkDrawerOpen = false;
+      const drawer = this.container.querySelector('#manga-bookmark-drawer');
+      if (drawer) drawer.style.display = 'none';
+    });
+
+    const btnToggleBmPage = this.container.querySelector('#btn-toggle-bookmark-page');
+    btnToggleBmPage?.addEventListener('click', () => {
+      this.toggleBookmarkCurrentPage();
+    });
+
+    // Furigana Readings Toggle
+    const btnFurigana = this.container.querySelector('#btn-toggle-furigana');
+    btnFurigana?.addEventListener('click', () => {
+      this.furiganaEnabled = !this.furiganaEnabled;
+      localStorage.setItem('manga_furigana_enabled', this.furiganaEnabled ? 'true' : 'false');
+      this.updateFuriganaUI();
     });
 
     const btnSingle = this.container.querySelector('#btn-spread-single');
@@ -1297,17 +1456,72 @@ export class MangaView {
     const btnZoomFitWidth = this.container.querySelector('#btn-zoom-fit-width');
     btnZoomFitWidth?.addEventListener('click', () => this.fitWidth());
 
+    // Move vs Select Interaction Tools
+    const btnToolMove = this.container.querySelector('#btn-tool-move');
+    btnToolMove?.addEventListener('click', () => this.setActiveTool('move'));
+
+    const btnToolSelect = this.container.querySelector('#btn-tool-select');
+    btnToolSelect?.addEventListener('click', () => this.setActiveTool('select'));
+
     const stageCard = this.container.querySelector('#manga-stage-card');
     stageCard?.addEventListener('wheel', (e) => {
+      // 1. Ctrl / Meta + Wheel: Zooming with smooth throttle
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        if (e.deltaY < 0) {
-          this.zoomIn();
-        } else {
-          this.zoomOut();
+        const now = Date.now();
+        if (now - this.lastWheelZoomTime > 50) {
+          this.lastWheelZoomTime = now;
+          if (e.deltaY < 0) {
+            this.zoomIn();
+          } else {
+            this.zoomOut();
+          }
+        }
+        return;
+      }
+
+      // 2. Normal Wheel Scrolling
+      const canScrollVertically = stageCard.scrollHeight > stageCard.clientHeight + 4;
+      const canScrollHorizontally = stageCard.scrollWidth > stageCard.clientWidth + 4;
+
+      if (canScrollVertically || canScrollHorizontally) {
+        // Content overflows: allow natural smooth scroll.
+        // Also detect if user is at edge flicking wheel past bounds
+        const isAtBottom = (stageCard.scrollTop + stageCard.clientHeight) >= (stageCard.scrollHeight - 6);
+        const isAtTop = stageCard.scrollTop <= 6;
+
+        if (isAtBottom && e.deltaY > 60) {
+          const now = Date.now();
+          if (now - this.lastWheelPageTurnTime > 400) {
+            this.lastWheelPageTurnTime = now;
+            this.nextPage();
+          }
+        } else if (isAtTop && e.deltaY < -60) {
+          const now = Date.now();
+          if (now - this.lastWheelPageTurnTime > 400) {
+            this.lastWheelPageTurnTime = now;
+            this.prevPage();
+          }
+        }
+      } else {
+        // Page fits in window: wheel down = Next Page, wheel up = Prev Page
+        if (Math.abs(e.deltaY) > 25) {
+          e.preventDefault();
+          const now = Date.now();
+          if (now - this.lastWheelPageTurnTime > 350) {
+            this.lastWheelPageTurnTime = now;
+            if (e.deltaY > 0) {
+              this.nextPage();
+            } else {
+              this.prevPage();
+            }
+          }
         }
       }
     }, { passive: false });
+
+    // Drag-to-Pan & OCR Selection Mousedown
+    stageCard?.addEventListener('mousedown', (e) => this.handleMouseDown(e));
 
     const btnEditSentence = this.container.querySelector('#btn-edit-sentence');
     btnEditSentence?.addEventListener('click', () => this.openEditSentenceModal());
@@ -1350,10 +1564,6 @@ export class MangaView {
     this.setupPopoverDrag();
 
     const wrapper = this.container.querySelector('#manga-canvas-wrapper');
-    wrapper?.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-    wrapper?.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-    wrapper?.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-
     wrapper?.addEventListener('dragover', (e) => e.preventDefault());
     wrapper?.addEventListener('drop', async (e) => {
       e.preventDefault();
@@ -1368,6 +1578,8 @@ export class MangaView {
         this.mineWord(btn.dataset.word, btn.dataset.reading, btn.dataset.meaning, btn);
       }
     });
+
+    this.updateCursorState();
   }
 
   /* -------------------------------------------------------------------------
@@ -1753,7 +1965,7 @@ export class MangaView {
     }
   }
 
-  async loadAndOpenBook(bookId) {
+  async loadAndOpenBook(bookId, initialPage = null) {
     const book = this.books.find(b => b.id === bookId);
     if (!book) return;
 
@@ -1783,7 +1995,10 @@ export class MangaView {
       }
 
       this.currentBook = book;
-      this.currentPage = book.currentPage || 1;
+      if (!Array.isArray(this.currentBook.bookmarks)) {
+        this.currentBook.bookmarks = [];
+      }
+      this.currentPage = (initialPage !== null && !isNaN(initialPage)) ? initialPage : (book.currentPage || 1);
       this.pageCount = book.pageCount || 1;
       this.activeMode = 'reader';
       this.render();
@@ -1947,7 +2162,14 @@ export class MangaView {
     const pageInput = this.container?.querySelector('#manga-page-input');
     if (pageInput) pageInput.value = this.currentPage;
 
+    // Check prefetch cache for instant hit
+    const cacheKey = this.currentBook ? `${this.currentBook.id}_${this.currentPage}_${this.spreadMode}` : null;
+    if (cacheKey && this.prefetchOcrCache.has(cacheKey)) {
+      this.detectedBubbles = this.prefetchOcrCache.get(cacheKey) || [];
+    }
+
     this.renderCurrentPage();
+    this.updateBookmarkButtonState();
   }
 
   async renderCurrentPage() {
@@ -1962,29 +2184,39 @@ export class MangaView {
       await this.renderSingleImageFile(this.currentBook.file, canvas);
     }
     this.applyZoom();
+
+    if (this.detectedBubbles && this.detectedBubbles.length > 0) {
+      this.renderBubbleOverlays();
+    }
+
+    this.scheduleNextPagePrefetch();
   }
 
   zoomIn() {
     this.zoomMode = 'custom';
     this.zoomScale = Math.min(3.0, Math.round((this.zoomScale + 0.15) * 100) / 100);
     this.applyZoom();
+    this.updateCursorState();
   }
 
   zoomOut() {
     this.zoomMode = 'custom';
     this.zoomScale = Math.max(0.4, Math.round((this.zoomScale - 0.15) * 100) / 100);
     this.applyZoom();
+    this.updateCursorState();
   }
 
   resetZoom() {
     this.zoomMode = 'fit';
     this.zoomScale = 1.0;
     this.applyZoom();
+    this.updateCursorState();
   }
 
   fitWidth() {
     this.zoomMode = 'width';
     this.applyZoom();
+    this.updateCursorState();
   }
 
   applyZoom() {
@@ -2142,7 +2374,18 @@ export class MangaView {
     if (this.activeMode !== 'reader') return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+    if (e.code === 'Space' && !this.isSpacePressed) {
+      this.isSpacePressed = true;
+      this.updateCursorState();
+      e.preventDefault();
+      return;
+    }
+
+    if (e.key === 'h' || e.key === 'H' || e.key === 'm' || e.key === 'M') {
+      this.setActiveTool('move');
+    } else if (e.key === 's' || e.key === 'S' || e.key === 'o' || e.key === 'O') {
+      this.setActiveTool('select');
+    } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
       this.nextPage();
     } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
       this.prevPage();
@@ -2158,15 +2401,59 @@ export class MangaView {
     }
   }
 
+  handleKeyUp(e) {
+    if (e.code === 'Space') {
+      this.isSpacePressed = false;
+      this.updateCursorState();
+    }
+  }
+
+  setActiveTool(tool) {
+    this.activeTool = tool;
+    const btnMove = this.container?.querySelector('#btn-tool-move');
+    const btnSelect = this.container?.querySelector('#btn-tool-select');
+    if (btnMove) btnMove.classList.toggle('is-active', tool === 'move');
+    if (btnSelect) btnSelect.classList.toggle('is-active', tool === 'select');
+    this.updateCursorState();
+  }
+
+  updateCursorState() {
+    const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
+    if (!wrapper) return;
+    const isMove = this.isSpacePressed || this.activeTool === 'move';
+    wrapper.classList.toggle('is-selecting-mode', !isMove);
+    wrapper.style.cursor = isMove ? (this.isPanning ? 'grabbing' : 'grab') : 'crosshair';
+  }
+
   /* -------------------------------------------------------------------------
-   * Marquee Manual Box Selection
-   * Relative strictly to the <div id="manga-canvas-wrapper">
+   * Mouse Interaction: Smooth Canvas Drag-Pan & Marquee Box Selection
    * ------------------------------------------------------------------------- */
   handleMouseDown(e) {
     if (!this.currentImage) return;
+    const stage = this.container?.querySelector('#manga-stage-card');
     const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
-    if (!wrapper) return;
+    if (!stage || !wrapper) return;
 
+    if (e.target.closest('.manga-bubble-hitbox') || e.target.closest('button') || e.target.closest('input')) {
+      return;
+    }
+
+    const clickedOnCanvas = e.target.closest('#manga-canvas-wrapper');
+    const shouldPan = e.button === 1 || this.isSpacePressed || (this.activeTool === 'move' && !e.shiftKey) || !clickedOnCanvas;
+
+    if (shouldPan) {
+      this.isPanning = true;
+      this.panStartX = e.clientX;
+      this.panStartY = e.clientY;
+      this.panStartScrollLeft = stage.scrollLeft;
+      this.panStartScrollTop = stage.scrollTop;
+      wrapper.classList.add('is-grabbing');
+      document.body.style.cursor = 'grabbing';
+      e.preventDefault();
+      return;
+    }
+
+    // OCR Marquee Selection (in 'select' tool or Shift+Drag)
     const wrapRect = wrapper.getBoundingClientRect();
     const x = e.clientX - wrapRect.left;
     const y = e.clientY - wrapRect.top;
@@ -2176,6 +2463,17 @@ export class MangaView {
   }
 
   handleMouseMove(e) {
+    if (this.isPanning) {
+      const stage = this.container?.querySelector('#manga-stage-card');
+      if (stage) {
+        const dx = e.clientX - this.panStartX;
+        const dy = e.clientY - this.panStartY;
+        stage.scrollLeft = this.panStartScrollLeft - dx;
+        stage.scrollTop = this.panStartScrollTop - dy;
+      }
+      return;
+    }
+
     if (!this.isSelecting || !this.selectionStart) return;
     const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
     const box = this.container?.querySelector('#manga-selection-box');
@@ -2198,6 +2496,15 @@ export class MangaView {
   }
 
   async handleMouseUp(e) {
+    if (this.isPanning) {
+      this.isPanning = false;
+      const wrapper = this.container?.querySelector('#manga-canvas-wrapper');
+      wrapper?.classList.remove('is-grabbing');
+      document.body.style.cursor = '';
+      this.updateCursorState();
+      return;
+    }
+
     if (!this.isSelecting || !this.selectionStart) return;
     this.isSelecting = false;
 
@@ -2207,7 +2514,6 @@ export class MangaView {
     if (box) box.style.display = 'none';
     if (!canvas || !wrapper) return;
 
-    const wrapRect = wrapper.getBoundingClientRect();
     const canvasRect = canvas.getBoundingClientRect();
 
     const startClientX = this.selectionStart.clientX;
@@ -2392,9 +2698,18 @@ export class MangaView {
 
         const span = document.createElement('span');
         span.className = 'manga-clickable-word';
-        span.textContent = surface;
         span.dataset.tokenIndex = idx;
         span.title = `Click to inspect "${surface}"`;
+
+        const hasKanji = /[\u4e00-\u9faf]/.test(surface);
+        const rawReading = token.reading || '';
+        const hiraganaReading = rawReading ? katakanaToHiragana(rawReading) : '';
+
+        if (hasKanji && hiraganaReading && hiraganaReading !== surface) {
+          span.innerHTML = `<ruby class="manga-ruby">${escapeHtml(surface)}<rt class="manga-ruby-rt">${escapeHtml(hiraganaReading)}</rt></ruby>`;
+        } else {
+          span.textContent = surface;
+        }
 
         span.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -2407,6 +2722,7 @@ export class MangaView {
 
     renderTo(sidebarSentenceEl);
     renderTo(popSentenceEl);
+    this.updateFuriganaUI();
   }
 
   openEditSentenceModal() {
@@ -3025,6 +3341,202 @@ export class MangaView {
         btn.disabled = false;
         btn.innerHTML = `<span>Retry Save</span>`;
       }
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+   * Bookmark Management & Drawer Interactions
+   * ------------------------------------------------------------------------- */
+  toggleBookmarkCurrentPage() {
+    if (!this.currentBook) return;
+    if (!Array.isArray(this.currentBook.bookmarks)) {
+      this.currentBook.bookmarks = [];
+    }
+
+    const existingIdx = this.currentBook.bookmarks.findIndex(b => b.page === this.currentPage);
+    if (existingIdx >= 0) {
+      this.currentBook.bookmarks.splice(existingIdx, 1);
+    } else {
+      this.currentBook.bookmarks.push({
+        id: 'bm_' + Date.now(),
+        page: this.currentPage,
+        createdAt: Date.now()
+      });
+      this.currentBook.bookmarks.sort((a, b) => a.page - b.page);
+    }
+
+    this.saveLibrary();
+    this.updateBookmarkButtonState();
+    this.renderBookmarksList();
+  }
+
+  updateBookmarkButtonState() {
+    const bookmarks = Array.isArray(this.currentBook?.bookmarks) ? this.currentBook.bookmarks : [];
+    const isBookmarked = bookmarks.some(b => b.page === this.currentPage);
+    const count = bookmarks.length;
+
+    const topBtn = this.container?.querySelector('#btn-reader-bookmarks');
+    const labelCount = this.container?.querySelector('#label-bookmarks-count');
+    if (topBtn) {
+      topBtn.classList.toggle('is-active', isBookmarked);
+      const svg = topBtn.querySelector('.manga-bookmark-svg');
+      if (svg) svg.classList.toggle('is-active', isBookmarked);
+    }
+    if (labelCount) {
+      labelCount.textContent = count > 0 ? `Bookmarks (${count})` : 'Bookmarks';
+    }
+
+    const drawerBtn = this.container?.querySelector('#btn-toggle-bookmark-page');
+    const drawerLabel = this.container?.querySelector('#label-toggle-bookmark');
+    if (drawerBtn) {
+      drawerBtn.className = `tactile-btn tactile-btn-sm w-full ${isBookmarked ? 'tactile-btn-gold is-active' : 'tactile-btn-primary'}`;
+      const svg = drawerBtn.querySelector('.manga-bookmark-svg');
+      if (svg) svg.classList.toggle('is-active', isBookmarked);
+    }
+    if (drawerLabel) {
+      drawerLabel.textContent = isBookmarked ? `Remove Bookmark (Page ${this.currentPage})` : `Bookmark Page ${this.currentPage}`;
+    }
+  }
+
+  renderBookmarksList() {
+    const listEl = this.container?.querySelector('#manga-bookmarks-list');
+    if (!listEl) return;
+
+    const bookmarks = Array.isArray(this.currentBook?.bookmarks) ? this.currentBook.bookmarks : [];
+    if (bookmarks.length === 0) {
+      listEl.innerHTML = `<div class="manga-bookmarks-empty text-xs text-muted text-center py-4">No bookmarks saved yet.<br>Click above to bookmark Page ${this.currentPage}.</div>`;
+      return;
+    }
+
+    listEl.innerHTML = bookmarks.map(bm => `
+      <div class="manga-bookmark-item ${bm.page === this.currentPage ? 'is-current-page' : ''}" data-bookmark-id="${escapeHtml(bm.id)}" data-page="${bm.page}">
+        <div class="flex items-center gap-2">
+          <svg class="manga-bookmark-svg is-active" viewBox="0 0 24 24" width="12" height="12">
+            <path class="manga-bookmark-ribbon" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span class="manga-bookmark-page-label">Page ${bm.page}</span>
+          ${bm.page === this.currentPage ? '<span class="manga-bookmark-current-tag">Current</span>' : ''}
+        </div>
+        <div class="flex items-center gap-1">
+          <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-xs btn-jump-bookmark" data-page="${bm.page}" title="Jump to Page ${bm.page}">
+            <span>Jump</span>
+          </button>
+          <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-xs text-red btn-delete-bookmark" data-bookmark-id="${escapeHtml(bm.id)}" title="Delete Bookmark">
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.btn-jump-bookmark').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const p = parseInt(btn.dataset.page, 10);
+        if (!isNaN(p)) {
+          this.goToPage(p);
+          this.updateBookmarkButtonState();
+          this.renderBookmarksList();
+        }
+      });
+    });
+
+    listEl.querySelectorAll('.btn-delete-bookmark').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const bmId = btn.dataset.bookmarkId;
+        if (this.currentBook && Array.isArray(this.currentBook.bookmarks)) {
+          this.currentBook.bookmarks = this.currentBook.bookmarks.filter(b => b.id !== bmId);
+          this.saveLibrary();
+          this.updateBookmarkButtonState();
+          this.renderBookmarksList();
+        }
+      });
+    });
+  }
+
+  /* -------------------------------------------------------------------------
+   * Furigana Visibility Controls
+   * ------------------------------------------------------------------------- */
+  updateFuriganaUI() {
+    const btn = this.container?.querySelector('#btn-toggle-furigana');
+    const stateEl = btn?.querySelector('.manga-furigana-state');
+    if (btn) btn.classList.toggle('is-active', this.furiganaEnabled);
+    if (stateEl) stateEl.textContent = this.furiganaEnabled ? 'ON' : 'OFF';
+
+    const sidebarFlow = this.container?.querySelector('#manga-sidebar-sentence-text');
+    const popFlow = this.container?.querySelector('#manga-popover-sentence');
+    sidebarFlow?.classList.toggle('hide-furigana', !this.furiganaEnabled);
+    popFlow?.classList.toggle('hide-furigana', !this.furiganaEnabled);
+  }
+
+  /* -------------------------------------------------------------------------
+   * Next-Page Auto-OCR Pre-fetching Engine
+   * ------------------------------------------------------------------------- */
+  scheduleNextPagePrefetch() {
+    if (!this.currentBook || this.isPrefetching) return;
+    const step = this.spreadMode === 'double' ? 2 : 1;
+    const targetPage = this.currentPage + step;
+    if (targetPage > this.pageCount) return;
+
+    const cacheKey = `${this.currentBook.id}_${targetPage}_${this.spreadMode}`;
+    if (this.prefetchOcrCache.has(cacheKey)) return;
+
+    clearTimeout(this.prefetchTimeout);
+    this.prefetchTimeout = setTimeout(() => {
+      this.runNextPagePrefetch(targetPage, cacheKey);
+    }, 600);
+  }
+
+  async runNextPagePrefetch(targetPage, cacheKey) {
+    if (this.isPrefetching || !this.currentBook) return;
+    this.isPrefetching = true;
+
+    try {
+      const offscreenCanvas = document.createElement('canvas');
+      if (this.currentBook.type === 'pdf' && this.pdfDoc) {
+        await this.renderPdfPages(targetPage, offscreenCanvas);
+      } else if (this.currentBook.type === 'cbz' && this.cbzImageEntries.length > 0) {
+        await this.renderCbzPages(targetPage, offscreenCanvas);
+      } else {
+        return;
+      }
+
+      if (!offscreenCanvas.width || !offscreenCanvas.height) return;
+      const fullPageB64 = offscreenCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+      if (!fullPageB64) return;
+
+      let res = null;
+      if (window.desktopAPI?.ocr?.detect) {
+        try {
+          const onDevice = await window.desktopAPI.ocr.detect({ image: fullPageB64, conf_threshold: 0.35 });
+          if (onDevice && !onDevice.fallback && Array.isArray(onDevice.bubbles)) {
+            res = { boxes: onDevice.bubbles };
+          }
+        } catch {
+          // fallback to server
+        }
+      }
+
+      if (!res) {
+        res = await this.apiClient.request('/api/ocr/detect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: fullPageB64, conf_threshold: 0.35 })
+        });
+      }
+
+      if (res && Array.isArray(res.boxes)) {
+        this.prefetchOcrCache.set(cacheKey, res.boxes);
+        // If the user arrived at targetPage while prefetch was in-flight, display immediately!
+        if (this.currentPage === targetPage && this.detectedBubbles.length === 0) {
+          this.detectedBubbles = res.boxes;
+          this.renderBubbleOverlays();
+        }
+      }
+    } catch (err) {
+      console.debug('[MangaView] Next-page background prefetch skipped:', err);
+    } finally {
+      this.isPrefetching = false;
     }
   }
 }
