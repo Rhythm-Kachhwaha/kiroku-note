@@ -43,6 +43,7 @@ export class KanjiView {
     this.availableDecks = ['Default'];
     this._scrollListener = null;
     this._keydownListener = null;
+    this._scrollTicking = false;
   }
 
   async loadAvailableDecks() {
@@ -707,23 +708,31 @@ export class KanjiView {
       });
     }
 
-    // Infinite scroll for List View
+    // Infinite scroll for List View (rAF throttled to prevent touch/scroll jank)
     this._scrollListener = () => {
       if (this.viewMode !== 'list' || this.isLoadingList) return;
       if (this.listItems.length >= this.listTotalCount) return;
+      if (this._scrollTicking) return;
 
-      const viewEl = document.getElementById('view-container');
-      if (viewEl) {
-        const scrollRemaining = viewEl.scrollHeight - viewEl.clientHeight - viewEl.scrollTop;
-        if (scrollRemaining < 450) {
-          this.loadStudyList(this.listLevel, this.listOffset + this.listLimit, true);
+      this._scrollTicking = true;
+      requestAnimationFrame(() => {
+        this._scrollTicking = false;
+        if (this.viewMode !== 'list' || this.isLoadingList) return;
+        if (this.listItems.length >= this.listTotalCount) return;
+
+        const viewEl = document.getElementById('view-container');
+        if (viewEl) {
+          const scrollRemaining = viewEl.scrollHeight - viewEl.clientHeight - viewEl.scrollTop;
+          if (scrollRemaining < 450) {
+            this.loadStudyList(this.listLevel, this.listOffset + this.listLimit, true);
+          }
+        } else {
+          const scrollRemaining = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+          if (scrollRemaining < 450) {
+            this.loadStudyList(this.listLevel, this.listOffset + this.listLimit, true);
+          }
         }
-      } else {
-        const scrollRemaining = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
-        if (scrollRemaining < 450) {
-          this.loadStudyList(this.listLevel, this.listOffset + this.listLimit, true);
-        }
-      }
+      });
     };
     const viewContainer = document.getElementById('view-container');
     if (viewContainer) {
@@ -1755,6 +1764,29 @@ export class KanjiView {
 
   onHide() {
     this.pauseStrokes();
+    if (this._scrollListener) {
+      const viewContainer = document.getElementById('view-container');
+      if (viewContainer) {
+        viewContainer.removeEventListener('scroll', this._scrollListener);
+      }
+      window.removeEventListener('scroll', this._scrollListener);
+    }
+    if (this._keydownListener) {
+      window.removeEventListener('keydown', this._keydownListener);
+    }
+  }
+
+  onShow() {
+    if (this._scrollListener) {
+      const viewContainer = document.getElementById('view-container');
+      if (viewContainer) {
+        viewContainer.addEventListener('scroll', this._scrollListener, { passive: true });
+      }
+      window.addEventListener('scroll', this._scrollListener, { passive: true });
+    }
+    if (this._keydownListener) {
+      window.addEventListener('keydown', this._keydownListener);
+    }
   }
 }
 

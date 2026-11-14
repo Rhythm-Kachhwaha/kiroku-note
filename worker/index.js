@@ -1,8 +1,12 @@
 import { Hono } from 'hono';
+import { authApp, authenticateRequest } from './auth.js';
 
 const app = new Hono();
 
-// Health check endpoint
+// Mount OAuth & auth routes (/auth/*)
+app.route('/', authApp);
+
+// Health check endpoint (Public)
 app.get('/api/health', async (c) => {
   const backendUrl = c.env?.BACKEND_URL || 'http://localhost:8000';
   try {
@@ -20,11 +24,28 @@ app.get('/api/health', async (c) => {
   }
 });
 
-// Explicit placeholder endpoints for Step 1.5 (will connect directly to Turso/FastAPI)
-app.post('/api/auth', async (c) => {
-  return c.json({ status: 'ok', authenticated: true, user: 'anonymous' }, 200);
+// Guard protected /api/* endpoints
+app.use('/api/*', async (c, next) => {
+  if (c.req.path === '/api/health') {
+    return await next();
+  }
+
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    // In local development or when secrets are unconfigured, permit development requests
+    const isDev = (c.env?.ENVIRONMENT === 'development') || !c.env?.CLOUD_QUEUE_API_KEY;
+    if (isDev) {
+      c.set('user', { sub: 'dev_user', role: 'developer' });
+      return await next();
+    }
+    return c.json({ error: 'Unauthorized', message: 'Valid session cookie or Bearer token required' }, 401);
+  }
+
+  c.set('user', auth.user);
+  return await next();
 });
 
+// Op-log & Mirror endpoints (proxying to backend / Turso)
 app.post('/api/oplog/write', async (c) => {
   const backendUrl = c.env?.BACKEND_URL || 'http://localhost:8000';
   const target = `${backendUrl}/api/oplog/write`;

@@ -59,6 +59,12 @@ function build() {
     copyDirRecursive(path.join(DESKTOP_SRC, 'ocr'), path.join(PUBLIC_DIR, 'ocr'));
   }
 
+  // 3c. Copy login.html if present
+  const loginSrc = path.join(DESKTOP_SRC, 'login.html');
+  if (fs.existsSync(loginSrc)) {
+    fs.copyFileSync(loginSrc, path.join(PUBLIC_DIR, 'login.html'));
+  }
+
   // 4. Adapt desktop/src/index.html into public/index.html
   console.log('[build-pwa] Generating public/index.html...');
   const srcHtmlPath = path.join(DESKTOP_SRC, 'index.html');

@@ -1,5 +1,5 @@
 # Status
-Implemented OPFS streaming storage for manga PDFs with IndexedDB metadata index.
-Added zero-copy getBookFile and deleteBookFile routines with graceful IDB fallback.
-Updated PWA build pipeline with refreshed manga storage and asset synchronization.
-All 12 targeted desktop security, manga viewer, and FINAL locks pass 100%.
+Added OAuth 2.0 (Google, GitHub) routes and Web Crypto HS256 JWT auth module.
+Configured HttpOnly SameSite=Lax session cookies with dual Bearer token fallback.
+Generated tactile login.html and mounted auth guards in Cloudflare Worker.
+All targeted desktop tests and Wrangler edge bundle dry-runs pass cleanly.
