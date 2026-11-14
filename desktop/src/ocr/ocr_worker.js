@@ -95,3 +95,4 @@ self.onmessage = async (event) => {
     return;
   }
 };
+

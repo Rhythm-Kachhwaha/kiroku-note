@@ -280,3 +280,4 @@ authApp.post('/auth/logout', async (c) => {
   c.header('Set-Cookie', 'session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
   return c.json({ status: 'ok', logged_out: true });
 });
+
