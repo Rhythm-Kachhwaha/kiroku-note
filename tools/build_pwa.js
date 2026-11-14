@@ -52,6 +52,13 @@ function build() {
     path.join(PUBLIC_DIR, 'platform', 'web.js')
   );
 
+  // 3b. Copy OCR worker to public/ocr/
+  console.log('[build-pwa] Copying OCR worker...');
+  fs.mkdirSync(path.join(PUBLIC_DIR, 'ocr'), { recursive: true });
+  if (fs.existsSync(path.join(DESKTOP_SRC, 'ocr'))) {
+    copyDirRecursive(path.join(DESKTOP_SRC, 'ocr'), path.join(PUBLIC_DIR, 'ocr'));
+  }
+
   // 4. Adapt desktop/src/index.html into public/index.html
   console.log('[build-pwa] Generating public/index.html...');
   const srcHtmlPath = path.join(DESKTOP_SRC, 'index.html');

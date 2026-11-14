@@ -105,6 +105,8 @@ body {
   overflow-x: hidden;
   box-sizing: border-box;
   background-color: var(--pure-black);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 /* View Transitions Directional Slides */

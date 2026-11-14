@@ -2031,12 +2031,27 @@ export class GrammarView {
     // Distribution stats card removed
   }
 
-  unmount() {
-    this.analyzedSpans = [];
+  onHide() {
     if (this.escListener) {
       window.removeEventListener('keydown', this.escListener);
       this.escListener = null;
     }
+  }
+
+  onShow() {
+    if (!this.escListener) {
+      this.escListener = (e) => {
+        if (e.key === 'Escape' && this.isBreakdownOpen) {
+          this.closeFullBreakdown();
+        }
+      };
+      window.addEventListener('keydown', this.escListener);
+    }
+  }
+
+  unmount() {
+    this.onHide();
+    this.analyzedSpans = [];
     this.isBreakdownOpen = false;
     if (this.container) {
       this.container.innerHTML = '';

@@ -1916,11 +1916,25 @@ export class MangaView {
     }
 
     try {
-      const res = await this.apiClient.request('/api/ocr/recognize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Data })
-      });
+      let res = null;
+      if (window.desktopAPI?.ocr?.recognize) {
+        try {
+          const onDevice = await window.desktopAPI.ocr.recognize({ image: base64Data });
+          if (onDevice && !onDevice.fallback && onDevice.text) {
+            res = { text: onDevice.text };
+          }
+        } catch (onDevErr) {
+          console.info('[MangaView] On-device OCR skipped, falling back to server:', onDevErr);
+        }
+      }
+
+      if (!res) {
+        res = await this.apiClient.request('/api/ocr/recognize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64Data })
+        });
+      }
 
       if (res && res.text) {
         this.recognizedText = res.text.trim();
@@ -2321,11 +2335,25 @@ export class MangaView {
 
     try {
       const fullPageB64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
-      const res = await this.apiClient.request('/api/ocr/detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: fullPageB64, conf_threshold: 0.35 })
-      });
+      let res = null;
+      if (window.desktopAPI?.ocr?.detect) {
+        try {
+          const onDevice = await window.desktopAPI.ocr.detect({ image: fullPageB64, conf_threshold: 0.35 });
+          if (onDevice && !onDevice.fallback && Array.isArray(onDevice.bubbles)) {
+            res = { boxes: onDevice.bubbles };
+          }
+        } catch (onDevErr) {
+          console.info('[MangaView] On-device bubble detection skipped, falling back to server:', onDevErr);
+        }
+      }
+
+      if (!res) {
+        res = await this.apiClient.request('/api/ocr/detect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: fullPageB64, conf_threshold: 0.35 })
+        });
+      }
 
       if (res && Array.isArray(res.boxes)) {
         this.detectedBubbles = res.boxes;

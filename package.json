@@ -12,6 +12,7 @@
     "build:pwa": "node tools/build_pwa.js"
   },
   "dependencies": {
-    "hono": "^4.13.18"
+    "hono": "^4.13.18",
+    "onnxruntime-web": "^1.31.1"
   }
 }
