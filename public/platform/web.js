@@ -302,8 +302,123 @@ export const webAPI = {
   ocr: {
     detect: (imageData) => ocrBridge.detect(imageData),
     recognize: (imageData) => ocrBridge.recognize(imageData)
+  },
+
+  haptic: {
+    tap: () => {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        try { navigator.vibrate(15); } catch {}
+      }
+    },
+    notification: () => {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        try { navigator.vibrate([25, 20, 25]); } catch {}
+      }
+    }
+  },
+
+  pwa: {
+    isInstallable: () => !!deferredInstallPrompt,
+    promptInstall: async () => {
+      if (!deferredInstallPrompt) return { outcome: 'unavailable' };
+      try {
+        deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        return choice;
+      } catch (err) {
+        console.warn('[PWA] Prompt install error:', err);
+        return { outcome: 'dismissed', error: String(err) };
+      }
+    }
   }
 };
+
+let deferredInstallPrompt = null;
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    window.dispatchEvent(new CustomEvent('pwa-installable', { detail: { prompt: e } }));
+  });
+
+  const initSwipeToDismiss = () => {
+    if (typeof document === 'undefined') return;
+    let startX = 0;
+    let startY = 0;
+    let currentTarget = null;
+
+    document.addEventListener('touchstart', (e) => {
+      if (!e.touches || e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      const dismissable = touch.target.closest(
+        '.toast, .toast-pill, .settings-error-banner, [class*="error-banner"], .grading-feedback-banner, .notification'
+      );
+      if (!dismissable) {
+        currentTarget = null;
+        return;
+      }
+      currentTarget = dismissable;
+      startX = touch.clientX;
+      startY = touch.clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!currentTarget || !e.touches || e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+        currentTarget.style.transform = `translateX(${dx}px)`;
+        currentTarget.style.opacity = `${Math.max(0.2, 1 - Math.abs(dx) / 200)}`;
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      if (!currentTarget) return;
+      const touch = e.changedTouches ? e.changedTouches[0] : null;
+      if (!touch) {
+        currentTarget.style.transform = '';
+        currentTarget.style.opacity = '';
+        currentTarget = null;
+        return;
+      }
+      const dx = touch.clientX - startX;
+      if (Math.abs(dx) > 75) {
+        const dir = dx > 0 ? '120%' : '-120%';
+        currentTarget.style.transition = 'transform 200ms ease, opacity 200ms ease';
+        currentTarget.style.transform = `translateX(${dir})`;
+        currentTarget.style.opacity = '0';
+        const el = currentTarget;
+        setTimeout(() => {
+          if (el && el.parentNode) {
+            if (el.id === 'settings-error-banner' || el.style.display !== undefined) {
+              el.style.display = 'none';
+              el.style.transform = '';
+              el.style.opacity = '';
+            } else {
+              el.remove();
+            }
+          }
+        }, 200);
+        webAPI.haptic.tap();
+      } else {
+        currentTarget.style.transition = 'transform 150ms ease, opacity 150ms ease';
+        currentTarget.style.transform = '';
+        currentTarget.style.opacity = '';
+      }
+      currentTarget = null;
+    }, { passive: true });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSwipeToDismiss);
+  } else {
+    initSwipeToDismiss();
+  }
+}
+
 
 // Expose globally on window if not already defined (i.e. web / PWA runtime)
 if (typeof window !== 'undefined' && !window.desktopAPI) {

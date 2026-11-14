@@ -1,0 +1,81 @@
+/**
+ * Kiroku Note — Responsive & Mobile Ergonomics
+ * Fluid typography, safe-area viewport insets, and minimum touch target contracts.
+ */
+
+:root {
+  /* Fluid typography scaling */
+  --font-size-xs: clamp(0.7rem, 0.65rem + 0.25vw, 0.8rem);
+  --font-size-sm: clamp(0.8rem, 0.75rem + 0.3vw, 0.95rem);
+  --font-size-base: clamp(0.9rem, 0.85rem + 0.35vw, 1.05rem);
+  --font-size-lg: clamp(1.1rem, 1.0rem + 0.5vw, 1.3rem);
+  --font-size-xl: clamp(1.35rem, 1.2rem + 0.75vw, 1.7rem);
+  --font-size-2xl: clamp(1.6rem, 1.4rem + 1vw, 2.2rem);
+}
+
+/* Mobile safe area insets */
+@supports (padding-top: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+}
+
+/* Touch ergonomics & minimum tap targets */
+@media (pointer: coarse), (max-width: 768px) {
+  button,
+  .btn,
+  .tactile-button,
+  .tactile-pill,
+  .tab-btn,
+  a.settings-rail-link {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .interactive-target {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  input[type="checkbox"].tactile-checkbox {
+    min-height: 24px;
+    min-width: 24px;
+    cursor: pointer;
+  }
+}
+
+/* Mobile responsive layout helpers */
+@media (max-width: 768px) {
+  .settings-layout {
+    flex-direction: column;
+  }
+
+  .settings-rail {
+    width: 100%;
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--space-2);
+  }
+
+  .settings-content-pane {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .settings-cards-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .queue-stats-grid,
+  .anki-metrics-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}

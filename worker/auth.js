@@ -143,10 +143,31 @@ export async function authenticateRequest(c) {
   return { authenticated: false };
 }
 
+export function isAllowedOrigin(origin, env) {
+  if (!origin) return false;
+  try {
+    const parsed = new URL(origin);
+    const host = parsed.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') return true;
+    if (host.endsWith('.workers.dev')) return true;
+    if (env?.ALLOWED_ORIGINS) {
+      const allowed = env.ALLOWED_ORIGINS.split(',').map(s => s.trim().toLowerCase());
+      if (allowed.includes(host.toLowerCase()) || allowed.includes(origin.toLowerCase())) return true;
+    }
+    if (host.endsWith('kiroku.app') || host.endsWith('kirokunote.pages.dev')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 // Routes
 authApp.get('/auth/google', async (c) => {
   const clientId = c.env?.GOOGLE_CLIENT_ID || '';
   const url = new URL(c.req.url);
+  if (!isAllowedOrigin(url.origin, c.env)) {
+    return c.text('Forbidden: Untrusted OAuth origin', 403);
+  }
   const redirectUri = `${url.origin}/auth/callback/google`;
 
   if (!clientId) {
@@ -163,6 +184,9 @@ authApp.get('/auth/google', async (c) => {
 authApp.get('/auth/github', async (c) => {
   const clientId = c.env?.GITHUB_CLIENT_ID || '';
   const url = new URL(c.req.url);
+  if (!isAllowedOrigin(url.origin, c.env)) {
+    return c.text('Forbidden: Untrusted OAuth origin', 403);
+  }
   const redirectUri = `${url.origin}/auth/callback/github`;
 
   if (!clientId) {
@@ -182,6 +206,9 @@ authApp.get('/auth/callback/google', async (c) => {
   const clientId = c.env?.GOOGLE_CLIENT_ID || '';
   const clientSecret = c.env?.GOOGLE_CLIENT_SECRET || '';
   const url = new URL(c.req.url);
+  if (!isAllowedOrigin(url.origin, c.env)) {
+    return c.text('Forbidden: Untrusted OAuth origin', 403);
+  }
   const redirectUri = `${url.origin}/auth/callback/google`;
 
   try {
@@ -224,6 +251,11 @@ authApp.get('/auth/callback/google', async (c) => {
 authApp.get('/auth/callback/github', async (c) => {
   const code = c.req.query('code');
   if (!code) return c.text('Missing authorization code', 400);
+
+  const url = new URL(c.req.url);
+  if (!isAllowedOrigin(url.origin, c.env)) {
+    return c.text('Forbidden: Untrusted OAuth origin', 403);
+  }
 
   const clientId = c.env?.GITHUB_CLIENT_ID || '';
   const clientSecret = c.env?.GITHUB_CLIENT_SECRET || '';

@@ -300,6 +300,93 @@
   font-family: var(--font-mono);
 }
 
+/* Queue Inspector & Anki Mirror Styles */
+.queue-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+}
+
+.queue-stat-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-container-low);
+  box-shadow: 2px 2px 0 var(--tactile-stroke);
+}
+
+.queue-stat-badge .stat-number {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--warm-paper);
+}
+
+.queue-stat-badge .stat-label {
+  font-size: var(--font-size-xs);
+  color: var(--paper-muted);
+  font-family: var(--font-sans);
+}
+
+.queue-stat-badge.stat-pending .stat-number {
+  color: var(--gold);
+}
+
+.queue-stat-badge.stat-leased .stat-number {
+  color: var(--industrial-aqua);
+}
+
+.queue-stat-badge.stat-acked .stat-number {
+  color: var(--jade);
+}
+
+.queue-stat-badge.stat-failed .stat-number {
+  color: var(--rust-signal);
+}
+
+.oplog-table-wrapper {
+  max-height: 180px;
+  overflow-y: auto;
+  background-color: var(--surface-container-lowest);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+}
+
+.anki-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+}
+
+.anki-metric-item {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+}
+
+.heatmap-container {
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+}
+
+.heatmap-svg-wrapper {
+  background-color: var(--surface-container-lowest);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+}
+
+.btn-oplog-retry:hover {
+  color: var(--warm-paper);
+}
+
 @media (max-width: 768px) {
   .settings-layout {
     flex-direction: column;

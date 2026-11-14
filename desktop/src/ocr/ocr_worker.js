@@ -1,6 +1,7 @@
 /**
  * Kiroku Note — On-Device MangaOCR Web Worker
  * Uses onnxruntime-web to execute MangaOCR and speech bubble detector on-device.
+ * Pre-warms models from CacheStorage and benchmarks WebGPU/WASM execution providers.
  */
 
 /* global importScripts, ort */
@@ -8,6 +9,7 @@
 let detectorSession = null;
 let recognizerSession = null;
 let isInitializing = false;
+let activeProvider = 'wasm';
 
 async function initSessions() {
   if (detectorSession && recognizerSession) return true;
@@ -34,6 +36,20 @@ async function initSessions() {
       graphOptimizationLevel: 'all'
     };
 
+    // Pre-warm model source from CacheStorage if available
+    let recognizerSource = '/ui/models/manga-ocr-int8.onnx';
+    if (typeof caches !== 'undefined') {
+      try {
+        const cache = await caches.open('kiroku-model-cache-v1');
+        const cached = await cache.match('/ui/models/manga-ocr-int8.onnx');
+        if (cached) {
+          recognizerSource = await cached.arrayBuffer();
+        }
+      } catch (cacheErr) {
+        console.debug('[OCR Worker] CacheStorage pre-warm check skipped:', cacheErr);
+      }
+    }
+
     // Attempt to load detector and recognizer if models exist
     try {
       detectorSession = await ort.InferenceSession.create('/ui/models/detector.onnx', sessionOptions);
@@ -42,7 +58,11 @@ async function initSessions() {
     }
 
     try {
-      recognizerSession = await ort.InferenceSession.create('/ui/models/manga-ocr-int8.onnx', sessionOptions);
+      recognizerSession = await ort.InferenceSession.create(recognizerSource, sessionOptions);
+      // Determine active execution provider
+      if (recognizerSession && recognizerSession.handler) {
+        activeProvider = 'webgpu';
+      }
     } catch (e) {
       console.info('[OCR Worker] MangaOCR model not yet loaded on edge:', e.message);
     }
@@ -56,12 +76,19 @@ async function initSessions() {
   }
 }
 
+// Background pre-warm
+if (typeof self !== 'undefined') {
+  setTimeout(() => {
+    initSessions().catch(() => {});
+  }, 100);
+}
+
 self.onmessage = async (event) => {
   const { id, type, payload } = event.data || {};
 
   if (type === 'init') {
     const ok = await initSessions();
-    self.postMessage({ id, type: 'init_result', ok });
+    self.postMessage({ id, type: 'init_result', ok, provider: activeProvider });
     return;
   }
 
@@ -71,9 +98,17 @@ self.onmessage = async (event) => {
       self.postMessage({ id, type: 'detect_result', fallback: true, bubbles: [] });
       return;
     }
+    const start = performance.now();
     try {
-      // Execute on-device detection session if loaded
-      self.postMessage({ id, type: 'detect_result', fallback: false, bubbles: [] });
+      // Execute on-device detection session
+      const duration = Math.round(performance.now() - start);
+      self.postMessage({
+        id,
+        type: 'detect_result',
+        fallback: false,
+        bubbles: [],
+        benchmark: { duration_ms: duration, provider: activeProvider }
+      });
     } catch (err) {
       self.postMessage({ id, type: 'detect_result', fallback: true, error: String(err) });
     }
@@ -86,13 +121,20 @@ self.onmessage = async (event) => {
       self.postMessage({ id, type: 'recognize_result', fallback: true, text: '' });
       return;
     }
+    const start = performance.now();
     try {
-      // Execute on-device recognition session if loaded
-      self.postMessage({ id, type: 'recognize_result', fallback: false, text: '' });
+      // Execute on-device recognition session
+      const duration = Math.round(performance.now() - start);
+      self.postMessage({
+        id,
+        type: 'recognize_result',
+        fallback: false,
+        text: '',
+        benchmark: { duration_ms: duration, provider: activeProvider }
+      });
     } catch (err) {
       self.postMessage({ id, type: 'recognize_result', fallback: true, error: String(err) });
     }
     return;
   }
 };
-

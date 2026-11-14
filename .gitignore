@@ -132,6 +132,10 @@ docs/*
 !docs/REPOSITORY_AUDIT_2026-10-29.md
 !docs/study_http_api_reference.md
 !docs/link-protocol.md
+!docs/pwa_getting_started.md
+!docs/render_retirement_guide.md
+!docs/architecture/
+!docs/architecture/**
 !docs/study-bank/
 !docs/study-bank/*
 superpowers/plans/

@@ -1,5 +1,6 @@
 @import './views/shared.css';
 @import './views/shell-extras.css';
+@import './responsive.css';
 @import './views/home.css';
 @import './views/vocab.css';
 @import './views/grammar.css';
@@ -9,3 +10,4 @@
 @import './views/study.css';
 @import './views/manga.css';
 @import './views/settings.css';
+

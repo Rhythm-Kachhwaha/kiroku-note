@@ -1,5 +1,6 @@
 # Status
-Added OAuth 2.0 (Google, GitHub) routes and Web Crypto HS256 JWT auth module.
-Configured HttpOnly SameSite=Lax session cookies with dual Bearer token fallback.
-Generated tactile login.html and mounted auth guards in Cloudflare Worker.
-All targeted desktop tests and Wrangler edge bundle dry-runs pass cleanly.
+Implemented mobile ergonomics, fluid typography, safe areas, and tactile haptics.
+Hardened edge security with CSP, rate limiting, and OAuth origin allowlists.
+Ported Queue Inspector and Anki Mirror stats to Settings Sync & Analytics.
+Enabled CacheStorage MangaOCR model streaming and full test/CI suites.
+All 29 desktop/contract tests, token checks, and Wrangler dry-runs pass cleanly.

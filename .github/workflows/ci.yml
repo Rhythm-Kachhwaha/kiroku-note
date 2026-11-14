@@ -1,0 +1,71 @@
+name: Kiroku Note CI & Quality Guard
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Verify Quality & Contracts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          npm ci || npm install
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pytest httpx libsql-client
+
+      - name: Design Tokens Compliance Check
+        shell: bash
+        run: |
+          python tools/check_tokens.py
+
+      - name: Run Cloud Queue & Turso Worker Tests
+        shell: bash
+        run: |
+          export PYTHONPATH=".:backend:kiroku_cloud_queue"
+          python -m pytest kiroku_cloud_queue/tests/test_turso_worker.py -q
+
+      - name: Run Desktop & Contract Guard Tests
+        shell: bash
+        run: |
+          node --test desktop/tests/final_lock.test.js
+          node --test desktop/tests/final_contract_guard.test.js
+          node --test desktop/tests/design_tokens.test.js
+          node --test desktop/tests/security_and_preload.test.js
+          node --test desktop/tests/pwa.e2e.test.js
+
+      - name: Build PWA Bundle
+        shell: bash
+        run: |
+          npm run build:pwa
+
+      - name: Cloudflare Wrangler Deployment Validation
+        shell: bash
+        run: |
+          npx wrangler deploy --dry-run
