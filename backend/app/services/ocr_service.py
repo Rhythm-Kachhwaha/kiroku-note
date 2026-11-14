@@ -143,6 +143,39 @@ class OcrService:
                 error=f"OCR daemon returned unparseable health response: {exc}",
             )
 
+    def _detect_locally(self, image_bytes: bytes, conf_threshold: float = 0.35) -> OcrDetectResult | None:
+        """Fallback to in-process ComicTextDetector ONNX inference if daemon does not support /detect."""
+        try:
+            try:
+                from ocr_server.detector import ComicTextDetector
+            except ImportError:
+                from detector import ComicTextDetector  # type: ignore
+
+            detector = ComicTextDetector()
+            if not detector.is_available():
+                return None
+
+            from io import BytesIO
+            import time
+            from PIL import Image
+
+            img = Image.open(BytesIO(image_bytes))
+            start_time = time.perf_counter()
+            boxes = detector.detect(img, conf_threshold=conf_threshold)
+            duration_ms = (time.perf_counter() - start_time) * 1000.0
+
+            return OcrDetectResult(
+                boxes=boxes,
+                count=len(boxes),
+                width=img.width,
+                height=img.height,
+                duration_ms=round(duration_ms, 2),
+                error=None,
+            )
+        except Exception as exc:
+            logger.warning("Local comic bubble detection fallback failed: %s", exc)
+            return None
+
     def detect_bubbles(self, image_bytes: bytes, conf_threshold: float = 0.35) -> OcrDetectResult:
         """Send raw full-page image bytes to OCR daemon for speech bubble detection."""
         if not image_bytes:
@@ -163,6 +196,10 @@ class OcrService:
             with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as error:
+            if error.code == 404:
+                local_res = self._detect_locally(image_bytes, conf_threshold=conf_threshold)
+                if local_res is not None:
+                    return local_res
             try:
                 err_body = error.read().decode("utf-8")
                 err_json = json.loads(err_body)
@@ -171,8 +208,14 @@ class OcrService:
                 err_msg = f"HTTP {error.code}"
             raise OcrResponseError(f"OCR daemon error: {error.code} - {err_msg}") from error
         except (TimeoutError, socket.timeout) as error:
+            local_res = self._detect_locally(image_bytes, conf_threshold=conf_threshold)
+            if local_res is not None:
+                return local_res
             raise OcrTimeoutError("Bubble detection request timed out.") from error
         except (urllib.error.URLError, ConnectionRefusedError, OSError) as error:
+            local_res = self._detect_locally(image_bytes, conf_threshold=conf_threshold)
+            if local_res is not None:
+                return local_res
             raise OcrUnavailableError("OCR service is unavailable.") from error
         except (json.JSONDecodeError, UnicodeDecodeError) as error:
             raise OcrResponseError("OCR daemon returned an invalid response.") from error

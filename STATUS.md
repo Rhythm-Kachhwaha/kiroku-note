@@ -1,6 +1,6 @@
 # Status
-Implemented mobile ergonomics, fluid typography, safe areas, and tactile haptics.
-Hardened edge security with CSP, rate limiting, and OAuth origin allowlists.
-Ported Queue Inspector and Anki Mirror stats to Settings Sync & Analytics.
-Enabled CacheStorage MangaOCR model streaming and full test/CI suites.
-All 29 desktop/contract tests, token checks, and Wrangler dry-runs pass cleanly.
+Fixed AI speech bubble detection model coordinate conversion and backend local fallback.
+Eliminated Pacman loader lag and flashing with GPU compositing and render micro-yields.
+Added interactive detection feedback in manga reader with auto-restoring button state.
+Optimized batch archive importing with asynchronous chunking and non-blocking covers.
+All 21 desktop lock tests, OCR integration tests, and token checks pass cleanly.

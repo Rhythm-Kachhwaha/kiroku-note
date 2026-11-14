@@ -105,7 +105,14 @@ class ComicTextDetector:
             if score < conf_threshold:
                 continue
 
-            bx1, by1, bx2, by2 = float(item[0]), float(item[1]), float(item[2]), float(item[3])
+            # comic-text-detector ONNX output format is [cx, cy, w, h, score, ...]
+            cx, cy = float(item[0]), float(item[1])
+            bw, bh = float(item[2]), float(item[3])
+
+            bx1 = cx - bw / 2.0
+            by1 = cy - bh / 2.0
+            bx2 = cx + bw / 2.0
+            by2 = cy + bh / 2.0
 
             # Un-pad and un-scale back to original image
             bx1 = (bx1 - pad_x) / scale

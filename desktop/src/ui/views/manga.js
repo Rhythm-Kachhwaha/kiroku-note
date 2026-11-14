@@ -1093,7 +1093,7 @@ export class MangaView {
   async openFiles(files) {
     if (!files || files.length === 0) return;
     if (files.length === 1) {
-      await this.openFile(files[0], true);
+      await this.openFile(files[0], true, true);
       return;
     }
 
@@ -1101,7 +1101,8 @@ export class MangaView {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       this.updateLoadingStatus(`Processing ${file.name}...`, `Volume ${i + 1} of ${files.length}`);
-      await this.openFile(file, false);
+      await new Promise(r => setTimeout(r, 25));
+      await this.openFile(file, false, false);
     }
     this.hideLoading();
     this.activeMode = 'library';
@@ -1256,6 +1257,7 @@ export class MangaView {
           `Extracting ${item.title}...`,
           `Volume ${i + 1} of ${totalItems}`
         );
+        await new Promise(r => setTimeout(r, 25));
 
         let itemBuffer;
         if (item.isNestedFile) {
@@ -1293,6 +1295,7 @@ export class MangaView {
         }
 
         await this.generateCrispCover(newBook, true);
+        await new Promise(r => setTimeout(r, 20));
 
         const existingIdx = this.books.findIndex(b => b.title === newBook.title && b.folderId === targetFolderId);
         if (existingIdx >= 0) {
@@ -1363,7 +1366,7 @@ export class MangaView {
     });
   }
 
-  async openFile(file, autoOpen = true) {
+  async openFile(file, autoOpen = true, shouldRender = true) {
     if (!file) return;
 
     const extension = file.name.split('.').pop()?.toLowerCase();
@@ -1388,7 +1391,9 @@ export class MangaView {
       }
     }
 
-    this.showLoading('Adding Manga to Library...', file.name);
+    if (shouldRender) {
+      this.showLoading('Adding Manga to Library...', file.name);
+    }
 
     try {
       const bookId = 'book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
@@ -1399,6 +1404,7 @@ export class MangaView {
       else if (extension === 'cbz' || extension === 'zip') type = 'cbz';
 
       this.updateLoadingStatus('Reading file bytes...', file.name);
+      await new Promise(r => setTimeout(r, 20));
       const arrayBuffer = await file.arrayBuffer();
 
       this.updateLoadingStatus('Saving to offline storage...', 'Storing in IndexedDB');
@@ -1417,6 +1423,7 @@ export class MangaView {
       };
 
       this.updateLoadingStatus('Preparing pages...', 'Reading document structure');
+      await new Promise(r => setTimeout(r, 20));
       if (type === 'pdf') {
         await this.initPdfFromBuffer(newBook, arrayBuffer);
       } else if (type === 'cbz') {
@@ -1441,20 +1448,25 @@ export class MangaView {
       this.pageCount = newBook.pageCount || 1;
 
       this.updateLoadingStatus('Generating crisp cover...', 'Rendering high-resolution thumbnail');
+      await new Promise(r => setTimeout(r, 20));
       await this.generateCrispCover(newBook, true);
 
       this.saveLibrary();
 
-      if (autoOpen) {
-        this.activeMode = 'reader';
-      } else {
-        this.activeMode = 'library';
+      if (shouldRender) {
+        if (autoOpen) {
+          this.activeMode = 'reader';
+        } else {
+          this.activeMode = 'library';
+        }
+        this.render();
       }
-      this.render();
     } catch (err) {
       console.error('[MangaView] Failed to open file:', err);
     } finally {
-      this.hideLoading();
+      if (shouldRender) {
+        this.hideLoading();
+      }
     }
   }
 
@@ -2358,13 +2370,23 @@ export class MangaView {
       if (res && Array.isArray(res.boxes)) {
         this.detectedBubbles = res.boxes;
         this.renderBubbleOverlays();
+        if (label) {
+          label.textContent = res.boxes.length > 0 ? `${res.boxes.length} Bubbles Found` : 'No Bubbles Found';
+        }
+      } else {
+        if (label) label.textContent = 'No Bubbles Found';
       }
     } catch (err) {
       console.warn('[MangaView] Bubble detection failed:', err);
+      if (label) label.textContent = 'Detection Failed';
     } finally {
       this.isAutoDetecting = false;
-      if (label) label.textContent = 'Detect Bubbles (AI)';
       if (btn) btn.disabled = false;
+      setTimeout(() => {
+        if (label && !this.isAutoDetecting) {
+          label.textContent = 'Detect Bubbles (AI)';
+        }
+      }, 3000);
     }
   }
 
