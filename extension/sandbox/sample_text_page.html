@@ -454,38 +454,29 @@
       box-shadow: none;
     }
 
-    /* Subtitle Menu Panel in Sandbox (SS3 Redesign) */
+    /* Subtitle Menu Panel in Sandbox (Modern Sleek Dropdown) */
     .mock-hud-menu-panel {
       position: absolute;
-      top: 54px;
+      top: 50px;
       right: 18px;
-      width: 320px;
-      max-height: calc(100% - 70px);
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(245, 241, 232, 0.2) transparent;
-      background: #1C1B19;
+      width: 264px;
+      background: rgba(28, 27, 25, 0.98);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(245, 241, 232, 0.14);
-      border-radius: 12px;
-      padding: 14px;
+      border-radius: 10px;
+      padding: 12px;
       display: none;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75), 1.5px 1.5px 0 #11100E;
       z-index: 30;
       text-align: left;
+      box-sizing: border-box;
+      user-select: none;
     }
     .mock-hud-menu-panel.is-open {
       display: flex;
-    }
-    .mock-hud-menu-panel::-webkit-scrollbar {
-      width: 5px;
-    }
-    .mock-hud-menu-panel::-webkit-scrollbar-thumb {
-      background: rgba(245, 241, 232, 0.18);
-      border-radius: 9999px;
     }
 
     /* Subtitle Display Bubble */
@@ -726,55 +717,48 @@
           <span>Subs</span>
         </button>
 
-        <!-- Kiroku Subtitles Overlay Menu Panel (SS3 Redesign) -->
+        <!-- Kiroku Subtitles Overlay Menu Panel (Modern Sleek Dropdown) -->
         <div class="mock-hud-menu-panel" id="mockHudMenuPanel">
-          <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(245,241,232,0.1); padding-bottom:8px;">
-            <div style="font-size:13px; font-weight:600; color:#F5F1E8;">Kiroku Subtitles</div>
-            <div style="display:flex; align-items:center; gap:5px; font-size:10px; padding:3px 8px; border-radius:9999px; background:rgba(245,241,232,0.06); border:1px solid rgba(245,241,232,0.12); color:rgba(245,241,232,0.75);">
-              <span style="width:6px; height:6px; border-radius:50%; background:#4EBB7B; box-shadow:0 0 6px rgba(78,187,123,0.5);"></span>
-              <span>Ready</span>
+          <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(245,241,232,0.1); padding-bottom:6px;">
+            <div style="font-size:13px; font-weight:700; color:#F5F1E8; display:flex; align-items:center; gap:6px;">
+              <span>Subtitles</span>
+              <span style="font-size:10px; font-weight:600; color:rgba(245,241,232,0.65); background:rgba(245,241,232,0.08); padding:1px 6px; border-radius:4px;">397 cues</span>
             </div>
+            <button type="button" id="mockMenuCloseBtn" style="background:transparent; border:none; color:rgba(245,241,232,0.6); cursor:pointer; padding:2px; display:inline-flex; align-items:center; justify-content:center;" aria-label="Close">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg>
+            </button>
           </div>
 
-          <div style="background:rgba(245,241,232,0.05); border:1px solid rgba(245,241,232,0.09); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:4px;">
-            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:rgba(245,241,232,0.5); font-weight:600;">Active Subtitle</span>
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-              <span style="font-size:12px; font-weight:600; color:#F5F1E8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">KirokuSubtitles_[Frained] けいおん! 01...</span>
-              <span style="font-size:10px; padding:2px 7px; border-radius:4px; background:#2A2926; border:1px solid rgba(245,241,232,0.12); color:rgba(245,241,232,0.85); font-weight:500;">File</span>
-            </div>
-            <span style="font-size:11px; color:rgba(245,241,232,0.5);">397 cues</span>
+          <!-- Active Subtitle Track Info -->
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; background:rgba(245,241,232,0.04); border:1px solid rgba(245,241,232,0.08); border-radius:6px; padding:6px 8px;">
+            <span style="font-size:11px; font-weight:600; color:#F5F1E8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:170px;">けいおん! 01 - KirokuSubtitles</span>
+            <span style="font-size:9px; padding:1px 5px; border-radius:4px; background:#2A2926; border:1px solid rgba(245,241,232,0.12); color:rgba(245,241,232,0.85); font-weight:500;">File</span>
           </div>
 
+          <!-- Sourcing Actions -->
           <div style="display:flex; gap:6px;">
-            <button type="button" class="mock-sent-btn btn-save" style="flex:1; justify-content:center; padding:7px 10px;" id="mockBtnAutodetect">Auto-detect</button>
-            <button type="button" class="mock-sent-btn" style="flex:1; justify-content:center; padding:7px 10px;" id="mockBtnJimaku">Search Jimaku</button>
+            <button type="button" class="mock-sent-btn btn-save" style="flex:1; justify-content:center; padding:6px 8px; font-size:11px;" id="mockBtnAutodetect">Auto-detect</button>
+            <button type="button" class="mock-sent-btn" style="flex:1; justify-content:center; padding:6px 8px; font-size:11px;" id="mockBtnJimaku">Jimaku</button>
+            <button type="button" class="mock-sent-btn" style="flex:1; justify-content:center; padding:6px 8px; font-size:11px;" id="mockBtnUpload">Upload</button>
           </div>
 
-          <div style="border:1px dashed rgba(245,241,232,0.22); border-radius:8px; padding:12px; text-align:center; background:rgba(245,241,232,0.02); cursor:pointer;" id="mockDropzone">
-            <span style="font-size:11px; color:rgba(245,241,232,0.6);">Drop SRT, ASS, VTT or Browse</span>
-          </div>
-
-          <div style="display:flex; flex-direction:column; gap:4px;">
-            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:rgba(245,241,232,0.5); font-weight:600;">Timing Offset</span>
-            <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(245,241,232,0.03); border:1px solid rgba(245,241,232,0.07); border-radius:6px; padding:4px; gap:4px;">
-              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="-1000">-1s</button>
-              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="-100">-100ms</button>
-              <span id="mockOffsetVal" style="font-family:monospace; font-size:12px; font-weight:700; color:#F5F1E8; min-width:54px; text-align:center;">+0ms</span>
-              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="100">+100ms</button>
-              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="1000">+1s</button>
-              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="0">Reset</button>
+          <!-- Timing Offset Section -->
+          <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(245,241,232,0.03); border:1px solid rgba(245,241,232,0.08); border-radius:6px; padding:4px 6px;">
+            <span style="font-size:10px; font-weight:700; color:rgba(245,241,232,0.55); text-transform:uppercase;">Sync</span>
+            <div style="display:flex; align-items:center; gap:4px;">
+              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="-200" style="padding:3px 6px; font-size:11px;">-200ms</button>
+              <span id="mockOffsetVal" style="font-family:monospace; font-size:11px; font-weight:700; color:#F5F1E8; min-width:48px; text-align:center;">+0ms</span>
+              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="200" style="padding:3px 6px; font-size:11px;">+200ms</button>
+              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="0" style="padding:3px 6px; font-size:11px;">Reset</button>
             </div>
           </div>
 
-          <div style="display:flex; flex-direction:column; gap:4px;">
-            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:rgba(245,241,232,0.5); font-weight:600;">Display Controls</span>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-              <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockToggleVis" style="grid-column:span 2; justify-content:center;">Subtitles: Visible</button>
-              <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockTogglePos" style="justify-content:center;">Position: Bottom</button>
-              <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockToggleSize" style="justify-content:center;">Font Size: 20px</button>
-              <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockToggleBlur" style="justify-content:center;">Blur: Off</button>
-              <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockToggleFuri" style="justify-content:center;">Furigana: Hover</button>
-            </div>
+          <!-- Display Controls -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+            <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockToggleVis" style="justify-content:center; font-size:11px;">Subtitles: Visible</button>
+            <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockTogglePos" style="justify-content:center; font-size:11px;">Position: Bottom</button>
+            <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockToggleSize" style="justify-content:center; font-size:11px;">Font: 24px</button>
+            <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockToggleBlur" style="justify-content:center; font-size:11px;">Blur: Off</button>
           </div>
         </div>
 
@@ -1136,12 +1120,23 @@
         }, 20);
       });
 
-      // 6. Wire Video Subtitle HUD Menu (SS3 Redesign)
+      // 6. Wire Video Subtitle HUD Menu (Modern Sleek Dropdown)
       const subsToggleBtn = document.getElementById("mockSubsToggleBtn");
       const subsMenuPanel = document.getElementById("mockHudMenuPanel");
       subsToggleBtn?.addEventListener("click", (e) => {
         e.stopPropagation();
         subsMenuPanel?.classList.toggle("is-open");
+      });
+
+      document.getElementById("mockMenuCloseBtn")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        subsMenuPanel?.classList.remove("is-open");
+      });
+
+      document.getElementById("mockBtnUpload")?.addEventListener("click", () => {
+        if (typeof KirokuToast !== "undefined") {
+          KirokuToast.show({ term: "Subtitles", message: "Ready to load .srt, .ass, or .vtt" });
+        }
       });
 
       // Close menu on outer click

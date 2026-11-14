@@ -64,6 +64,16 @@
       this.activeTab = "word"; // 'word' | 'grammar'
       this.grammarData = null;
 
+      this._userDragged = false;
+      this._isDragging = false;
+      this._dragStartX = 0;
+      this._dragStartY = 0;
+      this._dragStartLeft = 0;
+      this._dragStartTop = 0;
+      this._boundDragStart = this._onDragStart.bind(this);
+      this._boundDragMove = this._onDragMove.bind(this);
+      this._boundDragEnd = this._onDragEnd.bind(this);
+
       this._boundDocKeyDown = this._onDocKeyDown.bind(this);
       this._boundDocClick = this._onDocClick.bind(this);
       this._boundReposition = this.reposition.bind(this);
@@ -76,6 +86,13 @@
 
       if (this.hudHost?.contentContainer) {
         // Mounted inside video HUD host
+        const existingStyle = this.hudHost.contentContainer.querySelector?.("#kiroku-hud-popup-styles");
+        if (!existingStyle) {
+          const style = document.createElement("style");
+          style.id = "kiroku-hud-popup-styles";
+          style.textContent = this._getStyleSheet();
+          this.hudHost.contentContainer.appendChild(style);
+        }
         this.popupEl = document.createElement("div");
         this.popupEl.className = "kiroku-hud-popup";
         this.hudHost.contentContainer.appendChild(this.popupEl);
@@ -187,12 +204,28 @@
           user-select: text;
         }
 
+        .kiroku-hud-popup button,
+        .kiroku-hud-popup .hud-tab-btn,
+        .kiroku-hud-popup .tactile-btn,
+        .kiroku-hud-popup .hud-status-pill,
+        .kiroku-hud-popup .hud-action-icon-btn {
+          all: unset;
+          box-sizing: border-box;
+          font-family: inherit;
+        }
+
         .hud-popup-tabs {
           display: flex;
           align-items: center;
           justify-content: space-between;
           border-bottom: 1px solid rgba(245, 241, 232, 0.10);
           padding-bottom: 6px;
+          cursor: grab;
+          user-select: none;
+        }
+
+        .hud-popup-tabs:active {
+          cursor: grabbing;
         }
 
         .hud-tab-btn {
@@ -413,6 +446,7 @@
 
     async showForToken(token, targetSpan, cue = null, contextSentence = "") {
       if (!token) return;
+      this._userDragged = false;
       this.currentTargetToken = token;
       this.currentTargetSpan = targetSpan || null;
       this.fixedAnchorPoint = null;
@@ -426,6 +460,7 @@
 
     async showAtPoint(x, y, token, contextSentence = "") {
       if (!token) return;
+      this._userDragged = false;
       this.currentTargetToken = token;
       this.currentTargetSpan = null;
       this.fixedAnchorPoint = { x, y };
@@ -509,6 +544,12 @@
       `;
 
       this.popupEl.style.display = "flex";
+
+      // Attach drag handle
+      const tabsBar = this.popupEl.querySelector?.(".hud-popup-tabs");
+      if (tabsBar) {
+        tabsBar.addEventListener("pointerdown", this._boundDragStart);
+      }
 
       // Attach tab events
       if (typeof this.popupEl.querySelectorAll === "function") {
@@ -877,7 +918,7 @@
     }
 
     reposition() {
-      if (!this.isOpen || !this.popupEl) return;
+      if (!this.isOpen || !this.popupEl || this._userDragged) return;
       try {
         const popupWidth = this.popupEl.offsetWidth || 280;
         const popupHeight = this.popupEl.offsetHeight || 160;
@@ -915,6 +956,61 @@
       } catch (_) {}
     }
 
+    _onDragStart(e) {
+      if (!e) return;
+      if (e.target?.closest?.("button") || e.target?.closest?.("a") || e.target?.closest?.("input")) return;
+      this._isDragging = true;
+      this._dragStartX = e.clientX;
+      this._dragStartY = e.clientY;
+      const rect = this.popupEl.getBoundingClientRect();
+      this._dragStartLeft = rect.left;
+      this._dragStartTop = rect.top;
+      if (this.popupEl) {
+        this.popupEl.style.cursor = "grabbing";
+      }
+      if (typeof document !== "undefined") {
+        document.addEventListener("pointermove", this._boundDragMove, true);
+        document.addEventListener("pointerup", this._boundDragEnd, true);
+      }
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    _onDragMove(e) {
+      if (!this._isDragging || !this.popupEl || !e) return;
+      const dx = e.clientX - this._dragStartX;
+      const dy = e.clientY - this._dragStartY;
+      const popupWidth = this.popupEl.offsetWidth || 300;
+      const popupHeight = this.popupEl.offsetHeight || 180;
+      let nextLeft = this._dragStartLeft + dx;
+      let nextTop = this._dragStartTop + dy;
+      const maxLeft = Math.max(10, (typeof window !== "undefined" ? window.innerWidth : 1000) - popupWidth - 10);
+      const maxTop = Math.max(10, (typeof window !== "undefined" ? window.innerHeight : 800) - popupHeight - 10);
+      nextLeft = Math.max(10, Math.min(maxLeft, nextLeft));
+      nextTop = Math.max(10, Math.min(maxTop, nextTop));
+      this.popupEl.style.left = `${Math.round(nextLeft)}px`;
+      this.popupEl.style.top = `${Math.round(nextTop)}px`;
+      this._userDragged = true;
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    _onDragEnd(e) {
+      if (!this._isDragging) return;
+      this._isDragging = false;
+      if (this.popupEl) {
+        this.popupEl.style.cursor = "";
+      }
+      if (typeof document !== "undefined") {
+        document.removeEventListener("pointermove", this._boundDragMove, true);
+        document.removeEventListener("pointerup", this._boundDragEnd, true);
+      }
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+
     close() {
       if (!this.isOpen) return;
       this.isOpen = false;
@@ -935,6 +1031,8 @@
       if (typeof document !== "undefined") {
         document.removeEventListener("keydown", this._boundDocKeyDown, true);
         document.removeEventListener("pointerdown", this._boundDocClick, true);
+        document.removeEventListener("pointermove", this._boundDragMove, true);
+        document.removeEventListener("pointerup", this._boundDragEnd, true);
       }
       if (typeof window !== "undefined") {
         window.removeEventListener("resize", this._boundReposition);

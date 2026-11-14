@@ -143,19 +143,26 @@
 
         /* Interactive Subtitle Tokens */
         .hud-token {
-          display: inline-block;
-          padding: 1px 3px;
-          margin: 0 1px;
-          border-radius: 4px;
+          display: inline;
+          padding: 0;
+          margin: 0;
+          border-radius: 3px;
           cursor: pointer !important;
           user-select: none;
           -webkit-user-select: none;
-          transition: background-color 140ms ease, transform 140ms ease;
+          transition: background-color 140ms ease;
         }
 
         .hud-token:hover {
           background-color: rgba(255, 255, 255, 0.22);
-          transform: translateY(-1px);
+        }
+
+        .hud-symbol {
+          display: inline;
+          padding: 0;
+          margin: 0;
+          cursor: default !important;
+          user-select: none;
         }
 
         .hud-token.mined {
@@ -538,16 +545,23 @@
         ? cue.tokens
         : [{ surface: cue.text, lemma: cue.text, text: cue.text }];
 
+      const symbolRegex = /^[\sー〜～、。！？!?…・…\-,.:;()「」『』【】〔〕]+$/;
       for (const tok of tokens) {
+        const text = tok.surface || tok.text || "";
         const span = document.createElement("span");
-        span.className = `hud-token ${tok.status || ""}`;
-        span.textContent = tok.surface || tok.text || "";
-        span.addEventListener("click", (e) => {
-          e.stopPropagation();
-          if (this.popup) {
-            this.popup.showForToken(tok, span, cue, cue.text);
-          }
-        });
+        if (symbolRegex.test(text)) {
+          span.className = "hud-symbol";
+          span.textContent = text;
+        } else {
+          span.className = `hud-token ${tok.status || ""}`.trim();
+          span.textContent = text;
+          span.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (this.popup) {
+              this.popup.showForToken(tok, span, cue, cue.text);
+            }
+          });
+        }
         this.primaryCueEl.appendChild(span);
       }
 

@@ -22,6 +22,7 @@ _LIGHT_COMPOUND_BLOCKLIST = frozenset({"する", "いたす", "なさる", "く�
 _PREFIXES = frozenset({"お", "ご", "御"})
 _SUFFIXES = frozenset({"さん", "ちゃん", "くん", "たち", "達", "的", "化", "中", "語", "さま", "様"})
 _PERSON_PLURAL_SUFFIXES = frozenset({"さん", "ちゃん", "くん", "たち", "達", "さま", "様"})
+_PROLONGED_MARKS = frozenset({"ー", "〜", "～", "―", "‐", "–", "—"})
 
 _vocab_set: set[str] | None = None
 
@@ -282,7 +283,59 @@ def merge_morphemes(
             if recovered:
                 continue
 
-        # 3. Known compound expressions in vocab (e.g. これ + から -> これから)
+        # 3. Prolonged sound mark / casual elongated speech merging (e.g. ありがと + ー + う -> ありがとーう)
+        if (
+            index + 1 < len(morphemes)
+            and not _is_separated(head)
+            and (
+                morphemes[index + 1].surface in _PROLONGED_MARKS
+                or (bool(morphemes[index + 1].pos) and morphemes[index + 1].pos[0] in {"補助記号", "記号"} and morphemes[index + 1].surface in _PROLONGED_MARKS)
+            )
+        ):
+            end = index + 1
+            while end < len(morphemes) and (
+                morphemes[end].surface in _PROLONGED_MARKS
+                or (bool(morphemes[end].pos) and morphemes[end].pos[0] in {"補助記号", "記号"} and morphemes[end].surface in _PROLONGED_MARKS)
+            ):
+                end += 1
+            if end < len(morphemes) and morphemes[end].surface in {"あ", "い", "う", "え", "お", "ア", "イ", "ウ", "エ", "オ", "ぁ", "ぃ", "ぅ", "ぇ", "ぉ"}:
+                end += 1
+
+            tail = morphemes[index + 1 : end]
+            cand_surface = head.surface + "".join(m.surface for m in tail)
+            norm_surface = cand_surface.replace("ー", "").replace("〜", "").replace("～", "").replace("―", "").replace("‐", "")
+            lemma = None
+            if cand_surface in vocab:
+                lemma = cand_surface
+            elif norm_surface in vocab:
+                lemma = norm_surface
+            elif (head.surface + "う") in vocab:
+                lemma = head.surface + "う"
+            elif (head.surface + "い") in vocab:
+                lemma = head.surface + "い"
+            elif head.lemma in vocab:
+                lemma = head.lemma
+            else:
+                lemma = head.lemma or cand_surface
+
+            result.append(_merged(head, tail, lemma=lemma))
+            index = end
+            continue
+
+        # 4. Known compound expressions in vocab (e.g. これ + から -> これから, up to 3 tokens)
+        if (
+            index + 2 < len(morphemes)
+            and not _is_separated(head)
+            and not _is_separated(morphemes[index + 1])
+            and not _is_separated(morphemes[index + 2])
+        ):
+            cand_triple = head.surface + morphemes[index + 1].surface + morphemes[index + 2].surface
+            if cand_triple in vocab:
+                tail = [morphemes[index + 1], morphemes[index + 2]]
+                result.append(_merged(head, tail, lemma=cand_triple))
+                index += 3
+                continue
+
         if (
             index + 1 < len(morphemes)
             and not _is_separated(head)

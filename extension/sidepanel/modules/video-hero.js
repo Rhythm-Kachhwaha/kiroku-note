@@ -686,6 +686,9 @@ async function loadRecentSubsPreferences() {
     renderRecentCuesList();
   } catch (_) {}
 }
+if (typeof window !== "undefined") {
+  window.loadRecentSubsPreferences = loadRecentSubsPreferences;
+}
 
 function setRecentSubsPreference(key, val) {
   try {

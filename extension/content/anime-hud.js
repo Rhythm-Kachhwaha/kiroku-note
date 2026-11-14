@@ -194,42 +194,27 @@
           padding: 0 2px;
         }
 
-        /* Menu Panel - Sumi & Washi with Custom Sleek Scrollbar */
+        /* Menu Panel - Sleek Floating Player Dropdown */
         .hud-menu-panel {
           pointer-events: auto;
           position: absolute;
-          top: 52px;
+          top: 48px;
           right: 14px;
-          width: 320px;
-          max-height: calc(100% - 70px);
-          overflow-y: auto;
-          scrollbar-width: thin;
-          scrollbar-color: rgba(245, 241, 232, 0.2) transparent;
-          background: #1C1B19;
+          width: 264px;
+          background: rgba(28, 27, 25, 0.98);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
           border: 1px solid rgba(245, 241, 232, 0.14);
-          border-radius: 12px;
-          padding: 14px;
+          border-radius: 10px;
+          padding: 12px;
           display: flex;
           flex-direction: column;
-          gap: 12px;
-          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 1.5px 1.5px 0 #11100E;
+          gap: 10px;
+          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75), 1.5px 1.5px 0 #11100E;
           transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
           z-index: 20;
-        }
-        .hud-menu-panel::-webkit-scrollbar {
-          width: 5px;
-        }
-        .hud-menu-panel::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .hud-menu-panel::-webkit-scrollbar-thumb {
-          background: rgba(245, 241, 232, 0.18);
-          border-radius: 9999px;
-        }
-        .hud-menu-panel::-webkit-scrollbar-thumb:hover {
-          background: rgba(245, 241, 232, 0.32);
+          box-sizing: border-box;
+          user-select: none;
         }
         .hud-menu-panel.hidden {
           opacity: 0;
@@ -243,11 +228,41 @@
           align-items: center;
           justify-content: space-between;
           border-bottom: 1px solid rgba(245, 241, 232, 0.1);
-          padding-bottom: 8px;
+          padding-bottom: 6px;
         }
         .hud-title {
           font-size: 13px;
+          font-weight: 700;
+          color: #F5F1E8;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .hud-badge-cues {
+          font-size: 10px;
           font-weight: 600;
+          color: rgba(245, 241, 232, 0.65);
+          background: rgba(245, 241, 232, 0.08);
+          padding: 1px 6px;
+          border-radius: 4px;
+        }
+        .hud-close-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 20px;
+          height: 20px;
+          border: none;
+          background: transparent;
+          color: rgba(245, 241, 232, 0.6);
+          cursor: pointer;
+          border-radius: 4px;
+          transition: color 120ms ease, background 120ms ease;
+        }
+        .hud-close-icon:hover {
+          color: #F5F1E8;
+          background: rgba(245, 241, 232, 0.1);
+        }
           color: #F5F1E8;
           display: flex;
           align-items: center;
@@ -448,67 +463,45 @@
         <div id="hud-menu-panel" class="hud-menu-panel hidden">
           <div class="hud-header">
             <div class="hud-title">
-              <span>Kiroku Subtitles</span>
+              <span>Subtitles</span>
+              <span id="hud-track-stats" class="hud-badge-cues">0 cues</span>
             </div>
-            <div id="hud-link-indicator" class="hud-link-pill">
-              <span id="hud-link-dot" class="hud-link-dot ready"></span>
-              <span id="hud-link-text">Ready</span>
-            </div>
+            <button type="button" id="hud-menu-close-btn" class="hud-close-icon" aria-label="Close">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg>
+            </button>
           </div>
 
-          <!-- Current Active Track -->
-          <div class="hud-card">
-            <span class="hud-label">Active Subtitle</span>
-            <div class="hud-track-row">
-              <span id="hud-track-name" class="hud-track-name">No subtitles loaded</span>
-              <span id="hud-source-badge" class="hud-source-badge">none</span>
-            </div>
-            <span id="hud-track-stats" style="font-size: 11px; color: rgba(245, 241, 232, 0.5);">0 cues</span>
-          </div>
-
-          <!-- Available Tracks List -->
-          <div id="hud-tracks-section" style="display: none; flex-direction: column; gap: 4px;">
-            <span class="hud-label">Available Tracks</span>
-            <div id="hud-tracks-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 100px; overflow-y: auto;"></div>
+          <!-- Active Subtitle Track Info -->
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background: rgba(245, 241, 232, 0.04); border: 1px solid rgba(245, 241, 232, 0.08); border-radius: 6px; padding: 6px 8px;">
+            <span id="hud-track-name" style="font-size: 11px; font-weight: 600; color: #F5F1E8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;">No subtitles loaded</span>
+            <span id="hud-source-badge" class="hud-source-badge" style="font-size: 9px; padding: 1px 5px;">none</span>
           </div>
 
           <!-- Sourcing Actions -->
           <div class="hud-btn-group">
-            <button id="hud-btn-autodetect" class="hud-btn primary">Auto-detect</button>
-            <button id="hud-btn-jimaku" class="hud-btn">Search Jimaku</button>
-          </div>
-
-          <!-- Subtitle File Dropzone -->
-          <div id="hud-file-dropzone" class="hud-dropzone">
-            <span class="hud-dropzone-text">Drop SRT, ASS, VTT or Browse</span>
+            <button id="hud-btn-autodetect" class="hud-btn primary" title="Auto-detect tracks from video">Auto-detect</button>
+            <button id="hud-btn-jimaku" class="hud-btn" title="Search Jimaku subtitles">Jimaku</button>
+            <button id="hud-btn-upload-trigger" class="hud-btn" title="Upload subtitle file">Upload</button>
             <input type="file" id="hud-file-input" accept=".srt,.ass,.vtt,.txt" style="display: none;">
           </div>
 
-          <!-- Subtitle Offset Section -->
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <span class="hud-label">Timing Offset</span>
-            <div class="hud-offset-row">
-              <button id="hud-off-sub-1000" class="hud-mini-btn">-1s</button>
-              <button id="hud-off-sub-100" class="hud-mini-btn">-100ms</button>
-              <span id="hud-offset-val" class="hud-offset-val">+0ms</span>
-              <button id="hud-off-add-100" class="hud-mini-btn">+100ms</button>
-              <button id="hud-off-add-1000" class="hud-mini-btn">+1s</button>
-              <button id="hud-off-reset" class="hud-mini-btn">Reset</button>
+          <!-- Timing Offset Section -->
+          <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(245, 241, 232, 0.03); border: 1px solid rgba(245, 241, 232, 0.08); border-radius: 6px; padding: 4px 6px;">
+            <span style="font-size: 10px; font-weight: 700; color: rgba(245, 241, 232, 0.55); text-transform: uppercase;">Sync</span>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <button id="hud-off-sub-200" class="hud-mini-btn" style="padding: 3px 6px;">-200ms</button>
+              <span id="hud-offset-val" class="hud-offset-val" style="min-width: 48px; font-size: 11px;">+0ms</span>
+              <button id="hud-off-add-200" class="hud-mini-btn" style="padding: 3px 6px;">+200ms</button>
+              <button id="hud-off-reset" class="hud-mini-btn" style="padding: 3px 6px;">Reset</button>
             </div>
           </div>
 
-          <!-- Display Toggles -->
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <span class="hud-label">Display Controls</span>
-            <div class="hud-toggle-grid">
-              <button id="hud-toggle-visibility" class="hud-mini-btn" style="grid-column: span 2;">Subtitles: Visible</button>
-              <button id="hud-toggle-pos" class="hud-mini-btn">Position: Bottom</button>
-              <button id="hud-toggle-size" class="hud-mini-btn">Font Size: 24px</button>
-              <button id="hud-toggle-blur" class="hud-mini-btn">Blur: Off</button>
-              <button id="hud-toggle-furigana" class="hud-mini-btn">Furigana: Hover</button>
-              <button id="hud-toggle-mode" class="hud-mini-btn" style="grid-column: span 2;">Mode: Always Show</button>
-              <button id="hud-btn-open-panel" class="hud-mini-btn" style="grid-column: span 2; background: rgba(217, 75, 56, 0.15); color: #D94B38; border-color: rgba(217, 75, 56, 0.3);">Open Kiroku Panel</button>
-            </div>
+          <!-- Display Controls -->
+          <div class="hud-toggle-grid">
+            <button id="hud-toggle-visibility" class="hud-mini-btn">Subtitles: Visible</button>
+            <button id="hud-toggle-pos" class="hud-mini-btn">Position: Bottom</button>
+            <button id="hud-toggle-size" class="hud-mini-btn">Font: 24px</button>
+            <button id="hud-toggle-blur" class="hud-mini-btn">Blur: Off</button>
           </div>
         </div>
       `;
@@ -551,38 +544,48 @@
         this.hideNoSubsChip();
       });
 
-      // Dropzone & File Input
-      const dropzone = getEl("hud-file-dropzone");
+      // File upload trigger
       const fileInput = getEl("hud-file-input");
-
-      dropzone?.addEventListener("click", () => fileInput?.click());
+      getEl("hud-btn-upload-trigger")?.addEventListener("click", () => fileInput?.click());
       fileInput?.addEventListener("change", (e) => {
         const file = e.target.files?.[0];
         if (file) this.handleDroppedFile(file);
       });
 
-      dropzone?.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        dropzone.classList.add("dragover");
-      });
-      dropzone?.addEventListener("dragleave", () => {
-        dropzone.classList.remove("dragover");
-      });
-      dropzone?.addEventListener("drop", (e) => {
-        e.preventDefault();
-        dropzone.classList.remove("dragover");
-        const file = e.dataTransfer?.files?.[0];
-        if (file) this.handleDroppedFile(file);
+      getEl("hud-menu-close-btn")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.closeMenu();
       });
 
       // Sourcing Actions
       getEl("hud-btn-autodetect")?.addEventListener("click", () => {
+        let foundJa = false;
+        if (this.video && this.video.textTracks) {
+          for (let i = 0; i < this.video.textTracks.length; i++) {
+            const tr = this.video.textTracks[i];
+            const lang = (tr.language || "").toLowerCase();
+            const label = (tr.label || "").toLowerCase();
+            if (lang.startsWith("ja") || label.includes("japanese") || label.includes("日本語")) {
+              tr.mode = "showing";
+              foundJa = true;
+              this.updateTrackStatus({
+                source: "embedded",
+                name: tr.label || "Japanese Track",
+                count: tr.cues?.length || 0
+              });
+              break;
+            }
+          }
+        }
         if (this.coordinator?.triggerAutoDetect) {
           this.coordinator.triggerAutoDetect();
         } else if (typeof window !== "undefined" && window.__kirokuAutoDetect) {
           window.__kirokuAutoDetect();
+        } else if (!foundJa) {
+          this.triggerJimakuSearch();
         }
       });
+
       getEl("hud-btn-jimaku")?.addEventListener("click", () => {
         if (this.coordinator?.triggerJimakuSearch) {
           this.coordinator.triggerJimakuSearch();
@@ -590,6 +593,21 @@
           this.triggerJimakuSearch();
         }
       });
+
+      // Helper to query all active subtitle elements across hosts and document
+      const getActiveSubEls = () => {
+        const els = [];
+        if (this.coordinator?.renderer?.subtitleEl) els.push(this.coordinator.renderer.subtitleEl);
+        if (this.coordinator?.renderer?.container) els.push(this.coordinator.renderer.container);
+        const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
+        if (host?.primaryCueEl) els.push(host.primaryCueEl);
+        if (typeof document !== "undefined") {
+          document.querySelectorAll(".subtitle-display-bubble, .hud-primary-cue").forEach((el) => {
+            if (!els.includes(el)) els.push(el);
+          });
+        }
+        return els;
+      };
 
       // Offset Controls
       let offsetDebounceTimer = null;
@@ -602,6 +620,10 @@
           offsetValEl.textContent = `${next >= 0 ? "+" : ""}${next}ms`;
         }
 
+        const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
+        if (host?.setOffsetMs) {
+          host.setOffsetMs(next);
+        }
         if (this.coordinator?.syncEngine?.setOffsetMs) {
           this.coordinator.syncEngine.setOffsetMs(next);
         }
@@ -609,7 +631,6 @@
           this.coordinator.persistOffset(next);
         }
 
-        // Debounced persistent save to EpisodeStore
         clearTimeout(offsetDebounceTimer);
         offsetDebounceTimer = setTimeout(() => {
           this.saveEpisodeState({ offsetMs: next });
@@ -618,52 +639,78 @@
         this._notifySubStatus();
       };
 
-      getEl("hud-off-sub-1000")?.addEventListener("click", () => adjustOffset(-1000));
-      getEl("hud-off-sub-100")?.addEventListener("click", () => adjustOffset(-100));
-      getEl("hud-off-add-100")?.addEventListener("click", () => adjustOffset(100));
-      getEl("hud-off-add-1000")?.addEventListener("click", () => adjustOffset(1000));
+      getEl("hud-off-sub-200")?.addEventListener("click", () => adjustOffset(-200));
+      getEl("hud-off-add-200")?.addEventListener("click", () => adjustOffset(200));
       getEl("hud-off-reset")?.addEventListener("click", () => adjustOffset(0));
 
       // Display Toggles
       getEl("hud-toggle-visibility")?.addEventListener("click", () => {
-        const isCurrentlyVisible = this.coordinator?.renderer?.displayEnabled !== false;
+        const isCurrentlyVisible = this.displayPrefs.showJa !== false;
         const next = !isCurrentlyVisible;
+        this.displayPrefs.showJa = next;
         if (this.coordinator?.setSubtitlesDisplay) {
           this.coordinator.setSubtitlesDisplay(next);
         } else if (this.coordinator?.renderer?.setDisplayEnabled) {
           this.coordinator.renderer.setDisplayEnabled(next);
         }
-        getEl("hud-toggle-visibility").textContent = `Subtitles: ${next ? "Visible" : "Hidden"}`;
+        getActiveSubEls().forEach((el) => {
+          el.style.display = next ? "" : "none";
+        });
+        const btn = getEl("hud-toggle-visibility");
+        if (btn) btn.textContent = `Subtitles: ${next ? "Visible" : "Hidden"}`;
       });
 
       getEl("hud-toggle-pos")?.addEventListener("click", () => {
-        this.displayPrefs.position = this.displayPrefs.position === "bottom" ? "top" : "bottom";
-        getEl("hud-toggle-pos").textContent = `Position: ${this.displayPrefs.position === "bottom" ? "Bottom" : "Top"}`;
+        const next = this.displayPrefs.position === "bottom" ? "top" : "bottom";
+        this.displayPrefs.position = next;
         if (this.coordinator?.renderer?.setPosition) {
           this.coordinator.renderer.setPosition({
             relX: 0.5,
-            relY: this.displayPrefs.position === "bottom" ? 0.8 : 0.15
+            relY: next === "bottom" ? 0.82 : 0.12
           });
         }
+        getActiveSubEls().forEach((el) => {
+          if (next === "top") {
+            el.style.top = "40px";
+            el.style.bottom = "auto";
+          } else {
+            el.style.top = "auto";
+            el.style.bottom = "58px";
+          }
+        });
+        const btn = getEl("hud-toggle-pos");
+        if (btn) btn.textContent = `Position: ${next === "bottom" ? "Bottom" : "Top"}`;
       });
 
       getEl("hud-toggle-size")?.addEventListener("click", () => {
-        const sizes = [18, 24, 30, 36];
+        const sizes = [18, 22, 26, 32];
         const next = sizes[(sizes.indexOf(this.displayPrefs.fontSize) + 1) % sizes.length];
         this.displayPrefs.fontSize = next;
-        getEl("hud-toggle-size").textContent = `Font Size: ${next}px`;
-        if (this.coordinator?.renderer?.boxEl) {
-          this.coordinator.renderer.boxEl.style.fontSize = `${next}px`;
-        }
+        getActiveSubEls().forEach((el) => {
+          el.style.fontSize = `${next}px`;
+        });
+        const btn = getEl("hud-toggle-size");
+        if (btn) btn.textContent = `Font: ${next}px`;
       });
 
       getEl("hud-toggle-blur")?.addEventListener("click", () => {
         this.displayPrefs.blur = !this.displayPrefs.blur;
-        getEl("hud-toggle-blur").textContent = `Blur: ${this.displayPrefs.blur ? "On" : "Off"}`;
+        const isBlurred = this.displayPrefs.blur;
+        getActiveSubEls().forEach((el) => {
+          if (isBlurred) {
+            el.classList.add("is-blurred");
+            el.style.filter = "blur(6px)";
+          } else {
+            el.classList.remove("is-blurred");
+            el.style.filter = "none";
+          }
+        });
         const host = typeof getHudHostForVideo === "function" ? getHudHostForVideo(this.video) : null;
         if (host) {
-          host.setPlaybackMode(this.displayPrefs.blur ? "blur_hover" : "always");
+          host.setPlaybackMode(isBlurred ? "blur_hover" : "always");
         }
+        const btn = getEl("hud-toggle-blur");
+        if (btn) btn.textContent = `Blur: ${isBlurred ? "On" : "Off"}`;
       });
 
       getEl("hud-toggle-furigana")?.addEventListener("click", () => {

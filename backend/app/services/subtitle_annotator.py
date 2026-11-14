@@ -88,7 +88,8 @@ get_tokenizer_status = get_active_tokenizer_status
 
 
 PARTICLES: frozenset[str] = frozenset([
-    "は", "が", "を", "に", "へ", "で", "と", "の", "も", "から", "まで", "より", "か", "よ", "ね", "わ"
+    "は", "が", "を", "に", "へ", "で", "と", "の", "も", "から", "まで", "より", "か", "よ", "ね", "わ",
+    "ば", "て", "たら", "たり", "なら", "だけ", "ほど", "ばかり", "など", "な", "さ", "ぞ", "ぜ", "かしら", "のに", "ので"
 ])
 
 COPULAS: frozenset[str] = frozenset([
@@ -1110,27 +1111,34 @@ class SubtitleAnnotatorService:
                 jlpt_lvl, rdg = norm_hits[0][1], norm_hits[0][2]
                 level_source = "vocab"
             elif not _contains_kanji(m.surface):
-                rdg_key = _to_hiragana(m.reading or m.surface)
-                hits = self._vocab_reading_cache.get(rdg_key, [])
-                if hits:
-                    if len(hits) == 1:
-                        jlpt_lvl = hits[0][1]
-                        rdg = rdg_key
-                        level_source = "vocab"
-                        resolved_lemma = hits[0][0]
-                    else:
-                        unique_levels = {h[1] for h in hits}
-                        if len(unique_levels) == 1:
+                pos0 = m.pos[0] if m.pos else ""
+                is_function_or_symbol = (
+                    pos0 in ("助詞", "助動詞", "補助記号", "記号")
+                    or m.surface in FUNCTION_WORDS
+                    or m.surface in PARTICLES
+                )
+                if not is_function_or_symbol:
+                    rdg_key = _to_hiragana(m.reading or m.surface)
+                    hits = self._vocab_reading_cache.get(rdg_key, [])
+                    if hits:
+                        if len(hits) == 1:
                             jlpt_lvl = hits[0][1]
                             rdg = rdg_key
                             level_source = "vocab"
                             resolved_lemma = hits[0][0]
                         else:
-                            best_hit = max(hits, key=lambda h: _LEVEL_PRIORITY.get(h[1], 0))
-                            jlpt_lvl = best_hit[1]
-                            rdg = rdg_key
-                            level_source = "vocab"
-                            resolved_lemma = best_hit[0]
+                            unique_levels = {h[1] for h in hits}
+                            if len(unique_levels) == 1:
+                                jlpt_lvl = hits[0][1]
+                                rdg = rdg_key
+                                level_source = "vocab"
+                                resolved_lemma = hits[0][0]
+                            else:
+                                best_hit = max(hits, key=lambda h: _LEVEL_PRIORITY.get(h[1], 0))
+                                jlpt_lvl = best_hit[1]
+                                rdg = rdg_key
+                                level_source = "vocab"
+                                resolved_lemma = best_hit[0]
 
             if level_source != "vocab":
                 if _contains_kanji(m.surface) or _contains_kanji(m.lemma):
@@ -1173,14 +1181,21 @@ class SubtitleAnnotatorService:
                 effective_known_words=known_set,
             )
 
+            pos0 = m.pos[0] if m.pos else ""
+            is_func = (
+                pos0 in ("助詞", "助動詞", "補助記号", "記号")
+                or m.surface in FUNCTION_WORDS
+                or resolved_lemma in FUNCTION_WORDS
+                or m.surface in PARTICLES
+            )
+
             if word_state in ("ignored", "blacklisted"):
                 status = "unstyled"
-            elif level_source == "vocab" and jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level):
-                if ignore_function_words and (m.surface in FUNCTION_WORDS or resolved_lemma in FUNCTION_WORDS):
-                    status = "unstyled"
-                else:
-                    status = "should_know"
-            elif is_mined:
+            elif ignore_function_words and is_func:
+                status = "unstyled"
+            elif level_source == "vocab" and jlpt_lvl and is_within_learner_level(jlpt_lvl, learner_level) and not is_func:
+                status = "should_know"
+            elif is_mined and not is_func:
                 status = "mined"
             else:
                 status = "unstyled"
