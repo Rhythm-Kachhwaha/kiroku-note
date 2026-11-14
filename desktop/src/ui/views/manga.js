@@ -13,6 +13,7 @@ import { storeBookFile, getBookFileBuffer, deleteBookFile } from '../services/ma
 const STORAGE_KEY_LIBRARY = 'kiroku.manga.library';
 const STORAGE_KEY_FOLDERS = 'kiroku.manga.folders';
 const STORAGE_KEY_SPREAD = 'kiroku.manga.spread_mode';
+const STORAGE_KEY_AUTO_FOLDER_ZIP = 'kiroku.manga.auto_folder_zip';
 
 function ensurePdfWorker() {
   if (typeof window !== 'undefined' && window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions) {
@@ -116,6 +117,9 @@ export class MangaView {
 
     // Spread mode: 'single' or 'double' (like actual manga books)
     this.spreadMode = localStorage.getItem(STORAGE_KEY_SPREAD) === 'double' ? 'double' : 'single';
+
+    // Auto-folder on ZIP upload: auto creates a folder named after the zip and unpacks all volumes inside it
+    this.autoFolderZip = localStorage.getItem(STORAGE_KEY_AUTO_FOLDER_ZIP) !== 'false'; // default true
 
     // Current Book State
     this.currentBook = null;
@@ -299,9 +303,9 @@ export class MangaView {
             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
           </svg>
           <div class="text-xs font-bold mt-2 text-center text-warm-paper">Drop Manga Here</div>
-          <div class="text-xs text-muted text-center mt-1">PDF, CBZ or Image</div>
+          <div class="text-xs text-muted text-center mt-1">PDF, CBZ or ZIP bundle</div>
         </label>
-        <input type="file" id="manga-library-file-input" accept=".pdf,.cbz,.zip,image/*" style="display: none;" />
+        <input type="file" id="manga-library-file-input" accept=".pdf,.cbz,.zip,image/*" multiple style="display: none;" />
       </div>
     `;
 
@@ -317,6 +321,12 @@ export class MangaView {
             </span>
           </div>
           <div class="manga-toolbar">
+            <button type="button" class="tactile-btn ${this.autoFolderZip ? 'tactile-btn-gold' : 'tactile-btn-ghost'} tactile-btn-sm" id="btn-toggle-auto-folder-zip" title="Auto-create folder for ZIP archives containing multiple volumes">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+              </svg>
+              <span id="label-toggle-auto-folder-zip">Auto-folder ZIPs: ${this.autoFolderZip ? 'ON' : 'OFF'}</span>
+            </button>
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-add-folder" title="Create New Folder">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10zm-7-1h2v-3h3v-2h-3V9h-2v3h-3v2h3z"/></svg>
               <span>New Folder</span>
@@ -368,11 +378,18 @@ export class MangaView {
   }
 
   setupLibraryEvents() {
+    const btnToggleZip = this.container.querySelector('#btn-toggle-auto-folder-zip');
+    btnToggleZip?.addEventListener('click', () => {
+      this.autoFolderZip = !this.autoFolderZip;
+      localStorage.setItem(STORAGE_KEY_AUTO_FOLDER_ZIP, this.autoFolderZip ? 'true' : 'false');
+      this.render();
+    });
+
     const fileInput = this.container.querySelector('#manga-library-file-input');
-    fileInput?.addEventListener('change', (e) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        this.openFile(file);
+    fileInput?.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length > 0) {
+        await this.openFiles(files);
         fileInput.value = '';
       }
     });
@@ -385,23 +402,23 @@ export class MangaView {
     dropzone?.addEventListener('dragleave', () => {
       dropzone.classList.remove('is-dragover');
     });
-    dropzone?.addEventListener('drop', (e) => {
+    dropzone?.addEventListener('drop', async (e) => {
       e.preventDefault();
       e.stopPropagation();
       dropzone.classList.remove('is-dragover');
-      const file = e.dataTransfer?.files?.[0];
-      if (file) this.openFile(file);
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (files.length > 0) await this.openFiles(files);
     });
 
     // Whole view drop listener: dropping anywhere in Manga view opens the file safely
     this.container.addEventListener('dragover', (e) => {
       e.preventDefault();
     });
-    this.container.addEventListener('drop', (e) => {
+    this.container.addEventListener('drop', async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const file = e.dataTransfer?.files?.[0];
-      if (file) this.openFile(file);
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (files.length > 0) await this.openFiles(files);
     });
 
     // Folder navigation & actions
@@ -1055,10 +1072,10 @@ export class MangaView {
     wrapper?.addEventListener('mouseup', (e) => this.handleMouseUp(e));
 
     wrapper?.addEventListener('dragover', (e) => e.preventDefault());
-    wrapper?.addEventListener('drop', (e) => {
+    wrapper?.addEventListener('drop', async (e) => {
       e.preventDefault();
-      const file = e.dataTransfer?.files?.[0];
-      if (file) this.openFile(file);
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (files.length > 0) await this.openFiles(files);
     });
 
     const popoverLookup = this.container.querySelector('#manga-popover-lookup');
@@ -1073,15 +1090,309 @@ export class MangaView {
   /* -------------------------------------------------------------------------
    * File Loading & IndexedDB Persistence
    * ------------------------------------------------------------------------- */
-  async openFile(file) {
+  async openFiles(files) {
+    if (!files || files.length === 0) return;
+    if (files.length === 1) {
+      await this.openFile(files[0], true);
+      return;
+    }
+
+    this.showLoading('Adding Manga to Library...', `${files.length} volumes selected`);
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      this.updateLoadingStatus(`Processing ${file.name}...`, `Volume ${i + 1} of ${files.length}`);
+      await this.openFile(file, false);
+    }
+    this.hideLoading();
+    this.activeMode = 'library';
+    this.render();
+  }
+
+  /**
+   * Inspect a ZIP archive to detect whether it contains multiple manga volumes
+   * (nested PDFs, CBZs, or chapter/volume image directories).
+   */
+  async analyzeZipContents(arrayBuffer) {
+    if (typeof window.JSZip === 'undefined') {
+      return { isBundle: false, isMultiVolume: false, items: [] };
+    }
+
+    try {
+      const zip = new window.JSZip();
+      const loadedZip = await zip.loadAsync(arrayBuffer);
+
+      const validMangaExts = ['.pdf', '.cbz', '.cbr', '.zip'];
+      const validImgExts = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif'];
+
+      const nestedMangaFiles = [];
+      const imageEntries = [];
+
+      loadedZip.forEach((relPath, entry) => {
+        if (entry.dir) return;
+        // Skip Mac metadata and hidden dot-files
+        if (relPath.startsWith('__MACOSX/') || relPath.includes('/.') || relPath.startsWith('.')) return;
+
+        const lower = relPath.toLowerCase();
+        if (validMangaExts.some(ext => lower.endsWith(ext))) {
+          nestedMangaFiles.push({ relPath, entry });
+        } else if (validImgExts.some(ext => lower.endsWith(ext))) {
+          imageEntries.push({ relPath, entry });
+        }
+      });
+
+      // 1. If the ZIP contains nested manga documents (.pdf, .cbz, .zip)
+      if (nestedMangaFiles.length > 0) {
+        nestedMangaFiles.sort((a, b) => a.relPath.localeCompare(b.relPath, undefined, { numeric: true, sensitivity: 'base' }));
+        const items = nestedMangaFiles.map(f => {
+          const parts = f.relPath.split('/');
+          const filename = parts[parts.length - 1];
+          const title = filename.replace(/\.[^/.]+$/, '').trim();
+          const ext = filename.split('.').pop()?.toLowerCase();
+          return {
+            type: ext === 'pdf' ? 'pdf' : 'cbz',
+            title,
+            entry: f.entry,
+            isNestedFile: true
+          };
+        });
+
+        return {
+          isBundle: true,
+          isMultiVolume: items.length > 1,
+          items
+        };
+      }
+
+      // 2. If the ZIP contains images, check if they are organized into multiple subdirectories
+      if (imageEntries.length > 0) {
+        const pathPartsList = imageEntries.map(e => e.relPath.split('/'));
+        let commonPrefixLength = 0;
+        if (pathPartsList.length > 0 && pathPartsList[0].length > 2) {
+          const firstParts = pathPartsList[0];
+          for (let i = 0; i < firstParts.length - 1; i++) {
+            const seg = firstParts[i];
+            if (pathPartsList.every(parts => parts.length > i + 1 && parts[i] === seg)) {
+              commonPrefixLength = i + 1;
+            } else {
+              break;
+            }
+          }
+        }
+
+        const volumeMap = new Map();
+        for (const img of imageEntries) {
+          const parts = img.relPath.split('/');
+          const relativeParts = parts.slice(commonPrefixLength);
+          let volName = 'Root';
+          if (relativeParts.length > 1) {
+            volName = relativeParts[0].trim();
+          }
+
+          if (!volumeMap.has(volName)) {
+            volumeMap.set(volName, []);
+          }
+          volumeMap.get(volName).push({
+            relPath: img.relPath,
+            entry: img.entry,
+            localName: relativeParts.slice(1).join('/') || parts[parts.length - 1]
+          });
+        }
+
+        const volumeNames = Array.from(volumeMap.keys()).filter(k => k !== 'Root' || volumeMap.size === 1);
+        if (volumeMap.size > 1 && !volumeMap.has('Root')) {
+          const items = [];
+          volumeNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+          for (const volName of volumeNames) {
+            const imgs = volumeMap.get(volName) || [];
+            imgs.sort((a, b) => a.localName.localeCompare(b.localName, undefined, { numeric: true, sensitivity: 'base' }));
+            items.push({
+              type: 'cbz_folder',
+              title: volName,
+              images: imgs,
+              isNestedFile: false
+            });
+          }
+
+          return {
+            isBundle: true,
+            isMultiVolume: true,
+            items
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('[MangaView] Error during zip analysis:', err);
+    }
+
+    return { isBundle: false, isMultiVolume: false, items: [] };
+  }
+
+  async importZipBundle(file, arrayBuffer, analysis, createFolder = true) {
+    const rawName = file.name.replace(/\.[^/.]+$/, '').trim();
+    const folderName = rawName || 'Manga Bundle';
+
+    let targetFolderId = this.activeFolderId === 'all' ? 'default' : this.activeFolderId;
+
+    if (createFolder) {
+      let targetFolder = this.folders.find(f => f.name.toLowerCase() === folderName.toLowerCase());
+      if (!targetFolder) {
+        targetFolder = {
+          id: 'folder_' + Date.now(),
+          name: folderName
+        };
+        this.folders.push(targetFolder);
+        this.saveFolders();
+      }
+      targetFolderId = targetFolder.id;
+    }
+
+    const totalItems = analysis.items.length;
+    this.showLoading(`Unpacking ${escapeHtml(folderName)}...`, `Found ${totalItems} manga volumes`);
+
+    try {
+      for (let i = 0; i < totalItems; i++) {
+        const item = analysis.items[i];
+        this.updateLoadingStatus(
+          `Extracting ${item.title}...`,
+          `Volume ${i + 1} of ${totalItems}`
+        );
+
+        let itemBuffer;
+        if (item.isNestedFile) {
+          itemBuffer = await item.entry.async('arraybuffer');
+        } else if (item.type === 'cbz_folder') {
+          const volZip = new window.JSZip();
+          for (const img of item.images) {
+            const bytes = await img.entry.async('uint8array');
+            volZip.file(img.localName, bytes);
+          }
+          itemBuffer = await volZip.generateAsync({ type: 'arraybuffer' });
+        }
+
+        if (!itemBuffer) continue;
+
+        const bookId = 'book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        await storeBookFile(bookId, itemBuffer);
+
+        const newBook = {
+          id: bookId,
+          title: item.title,
+          type: item.type === 'pdf' ? 'pdf' : 'cbz',
+          folderId: targetFolderId,
+          pageCount: 1,
+          currentPage: 1,
+          coverUrl: '',
+          coverVersion: 2,
+          updatedAt: Date.now() + (totalItems - i) * 1000
+        };
+
+        if (newBook.type === 'pdf') {
+          await this.initPdfFromBuffer(newBook, itemBuffer);
+        } else {
+          await this.initCbzFromBuffer(newBook, itemBuffer);
+        }
+
+        await this.generateCrispCover(newBook, true);
+
+        const existingIdx = this.books.findIndex(b => b.title === newBook.title && b.folderId === targetFolderId);
+        if (existingIdx >= 0) {
+          newBook.id = this.books[existingIdx].id;
+          newBook.currentPage = this.books[existingIdx].currentPage || 1;
+          this.books[existingIdx] = newBook;
+        } else {
+          this.books.push(newBook);
+        }
+      }
+
+      this.books.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      this.saveLibrary();
+
+      // Free parsing memory so unread volumes are not held in RAM
+      this.pdfDoc = null;
+      this.cbzZip = null;
+      this.cbzImageEntries = [];
+
+      if (createFolder) {
+        this.activeFolderId = targetFolderId;
+      }
+      this.activeMode = 'library';
+      this.render();
+    } catch (err) {
+      console.error('[MangaView] Failed to import zip bundle:', err);
+    } finally {
+      this.pdfDoc = null;
+      this.cbzZip = null;
+      this.cbzImageEntries = [];
+      this.hideLoading();
+    }
+  }
+
+  showZipImportModal(file, arrayBuffer, analysis) {
+    const rawName = file.name.replace(/\.[^/.]+$/, '').trim();
+    const folderName = rawName || 'Manga Bundle';
+
+    this.showModal(`
+      <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+        <div class="tactile-modal-card">
+          <h3 class="text-base font-bold text-warm-paper">ZIP Bundle Detected</h3>
+          <p class="text-xs text-muted mt-2">
+            "<strong>${escapeHtml(file.name)}</strong>" contains <strong>${analysis.items.length}</strong> manga volume(s).
+          </p>
+          <p class="text-xs text-muted mt-1">
+            Would you like to auto-create folder "<strong>${escapeHtml(folderName)}</strong>" with all volumes inside?
+          </p>
+          <div class="modal-actions-row mt-4">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-import-current">Import to Current Folder</button>
+            <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-modal-create-folder">Create Folder & Import All</button>
+          </div>
+        </div>
+      </div>
+    `, () => {
+      const btnCreate = this.container.querySelector('#btn-modal-create-folder');
+      const btnCurrent = this.container.querySelector('#btn-modal-import-current');
+
+      btnCreate?.addEventListener('click', () => {
+        this.closeModal();
+        this.importZipBundle(file, arrayBuffer, analysis, true);
+      });
+
+      btnCurrent?.addEventListener('click', () => {
+        this.closeModal();
+        this.importZipBundle(file, arrayBuffer, analysis, false);
+      });
+    });
+  }
+
+  async openFile(file, autoOpen = true) {
     if (!file) return;
+
+    const extension = file.name.split('.').pop()?.toLowerCase();
+
+    // Check if uploaded file is a ZIP bundle containing multiple mangas or manga files
+    if (extension === 'zip') {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const analysis = await this.analyzeZipContents(arrayBuffer);
+
+        if (analysis.isBundle) {
+          if (this.autoFolderZip) {
+            await this.importZipBundle(file, arrayBuffer, analysis, true);
+            return;
+          } else {
+            this.showZipImportModal(file, arrayBuffer, analysis);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[MangaView] ZIP bundle analysis fallback to normal:', err);
+      }
+    }
 
     this.showLoading('Adding Manga to Library...', file.name);
 
     try {
-      const bookId = 'book_' + Date.now();
+      const bookId = 'book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
       const title = file.name.replace(/\.[^/.]+$/, '');
-      const extension = file.name.split('.').pop()?.toLowerCase();
 
       let type = 'image';
       if (extension === 'pdf') type = 'pdf';
@@ -1115,7 +1426,7 @@ export class MangaView {
         newBook.currentPage = 1;
       }
 
-      const existingIdx = this.books.findIndex(b => b.title === title);
+      const existingIdx = this.books.findIndex(b => b.title === title && b.folderId === newBook.folderId);
       if (existingIdx >= 0) {
         newBook.id = this.books[existingIdx].id;
         newBook.currentPage = this.books[existingIdx].currentPage || 1;
@@ -1133,7 +1444,12 @@ export class MangaView {
       await this.generateCrispCover(newBook, true);
 
       this.saveLibrary();
-      this.activeMode = 'reader';
+
+      if (autoOpen) {
+        this.activeMode = 'reader';
+      } else {
+        this.activeMode = 'library';
+      }
       this.render();
     } catch (err) {
       console.error('[MangaView] Failed to open file:', err);

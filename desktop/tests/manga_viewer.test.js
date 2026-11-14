@@ -22,6 +22,15 @@ test('manga_viewer: manga.js supports library, reader, bubble detection and rich
   assert.ok(content.includes('refreshLibraryCoversIfNeeded'), 'must automatically upgrade blurry covers in background');
 });
 
+test('manga_viewer: manga.js supports zip bundle auto-folder detection and extraction', () => {
+  const content = fs.readFileSync(mangaJsPath, 'utf8');
+  assert.ok(content.includes('analyzeZipContents'), 'must analyze zip contents for nested volumes');
+  assert.ok(content.includes('importZipBundle'), 'must import zip bundle into a dedicated folder');
+  assert.ok(content.includes('STORAGE_KEY_AUTO_FOLDER_ZIP'), 'must support auto_folder_zip storage key');
+  assert.ok(content.includes('btn-toggle-auto-folder-zip'), 'must provide UI toggle for auto-folder on zip');
+  assert.ok(content.includes('openFiles'), 'must support multi-file uploads');
+});
+
 test('manga_viewer: manga.css uses design tokens with zero raw hex or emoji', () => {
   const css = fs.readFileSync(mangaCssPath, 'utf8');
   assert.ok(css.includes('.manga-viewer-container'), 'must style container');
