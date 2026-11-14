@@ -586,16 +586,16 @@
 .kanji-textbook-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1.25rem;
   padding-bottom: 3rem;
 }
 
 .kanji-list-row {
   display: grid;
-  grid-template-columns: 48px 84px 250px 1fr;
+  grid-template-columns: 48px 104px minmax(300px, 360px) 1fr;
   align-items: center;
-  gap: 1.25rem;
-  padding: 0.9rem 1.25rem;
+  gap: 1.5rem;
+  padding: 1.35rem 1.6rem;
   background-color: var(--surface-container-low);
   border: 1px solid var(--tactile-stroke);
   border-radius: var(--radius-md);
@@ -622,7 +622,7 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-display), var(--font-japanese);
-  font-size: 3rem;
+  font-size: 3.6rem;
   font-weight: 700;
   color: var(--warm-paper);
   line-height: 1;
@@ -632,8 +632,12 @@
               transform var(--duration-fast) var(--spring-snappy);
 }
 
+.kanji-list-char.is-known {
+  color: var(--alpine-berry);
+}
+
 .kanji-list-char:hover {
-  color: var(--gold-eye);
+  color: var(--gold-eye) !important;
   transform: scale(1.08);
 }
 
@@ -648,39 +652,39 @@
 .kanji-list-readings {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.45rem;
   min-width: 0;
 }
 
 .kanji-onyomi-line {
   color: var(--gold-eye);
   font-family: var(--font-japanese);
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .kanji-kunyomi-line {
   color: var(--warm-paper);
   font-family: var(--font-japanese);
-  font-size: 1.05rem;
-  font-weight: 500;
+  font-size: 1.15rem;
+  font-weight: 600;
   letter-spacing: 0.04em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .kanji-meaning-line {
   color: var(--text-muted);
   font-family: var(--font-sans);
-  font-size: 0.88rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
 }
 
 /* Blur Cover Mode */
@@ -702,7 +706,7 @@
 .kanji-list-compounds {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
   flex-wrap: wrap;
   position: relative;
 }
@@ -711,7 +715,8 @@
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 0.5rem 0.85rem;
+  padding: 0.75rem 1.15rem;
+  min-width: 130px;
   background-color: var(--surface-container);
   border: 1px solid var(--tactile-stroke);
   border-radius: var(--radius-sm);
@@ -740,34 +745,34 @@
 
 .kanji-chip-head {
   font-family: var(--font-japanese);
-  font-size: 1.25rem;
+  font-size: 1.55rem;
   font-weight: 700;
   color: var(--warm-paper);
-  line-height: 1.25;
+  line-height: 1.3;
 }
 
 .kanji-chip-head ruby rt {
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   color: var(--gold-eye);
   font-weight: 600;
 }
 
 .kanji-chip-gloss {
   font-family: var(--font-sans);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   color: var(--text-secondary);
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 320px;
+  line-height: 1.3;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .kanji-compound-add-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   border-radius: var(--radius-sm);
   border: 1px dashed var(--tactile-stroke);

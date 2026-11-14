@@ -27,6 +27,15 @@ def test_get_kanji_details_success():
     assert data["strokes"] == 14
     assert "セイ" in data["onyomi"] or "ジョウ" in data["onyomi"]
     assert "quiet" in data["meanings"]
+    assert data.get("radical") is not None
+    assert "あお" in data["radical"]
+
+    # Also verify radical for 長
+    res_naga = client.get("/api/kanji/details/長")
+    assert res_naga.status_code == 200
+    data_naga = res_naga.json()
+    assert data_naga.get("radical") is not None
+    assert "ながい" in data_naga["radical"]
 
 
 def test_get_kanji_details_not_found():

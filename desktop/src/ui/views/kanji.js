@@ -37,6 +37,7 @@ export class KanjiView {
     this.listLimit = 2500;
     this.isLoadingList = false;
     this.listSearchQuery = '';
+    this.knownWordsSet = new Set();
     this.activeInspectorCompound = null;
     this.activePopoverKanji = null;
     this.availableDecks = ['Default'];
@@ -259,11 +260,10 @@ export class KanjiView {
                 </div>
               </div>
 
-              <!-- High-Frequency Compounds Table with 1-Click Mine Stamp -->
+              <!-- High-Frequency Compounds Table -->
               <div class="compounds-card tactile-card">
                 <div class="compounds-header-row">
                   <span class="compounds-title">Common Compounds</span>
-                  <span class="text-xs text-muted">1-Click Mine to Local &amp; Anki</span>
                 </div>
                 <div class="compounds-list" id="compounds-list">
                   <div class="text-muted text-sm py-4 text-center">Loading compounds...</div>
@@ -553,11 +553,38 @@ export class KanjiView {
     const textbookList = document.getElementById('kanji-textbook-list');
     if (textbookList) {
       textbookList.addEventListener('click', (e) => {
-        // 1. Click large kanji glyph -> inspect in slide-out Kanji Drawer
+        // 1. Click large kanji glyph -> toggle known status
         const charEl = e.target.closest('.kanji-list-char');
         if (charEl && charEl.dataset.char) {
-          window.kirokuUi?.openKanji?.(charEl.dataset.char);
+          const char = charEl.dataset.char;
+          const isCurrentlyKnown = this.knownWordsSet.has(char);
+          if (isCurrentlyKnown) {
+            this.knownWordsSet.delete(char);
+            charEl.classList.remove('is-known');
+            charEl.title = `${char} (Click to mark known)`;
+            apiClient.unmarkKnownWord(char).catch((err) => {
+              console.error('[Kanji] Failed to unmark known kanji:', err);
+            });
+          } else {
+            this.knownWordsSet.add(char);
+            charEl.classList.add('is-known');
+            charEl.title = `${char} (Marked known · Click to unmark)`;
+            apiClient.markKnownWord(char).catch((err) => {
+              console.error('[Kanji] Failed to mark known kanji:', err);
+            });
+          }
           return;
+        }
+
+        // 1b. Click list index -> inspect in slide-out Kanji Drawer
+        const indexEl = e.target.closest('.kanji-list-index');
+        if (indexEl) {
+          const row = indexEl.closest('.kanji-list-row');
+          const char = row?.dataset?.char;
+          if (char) {
+            window.kirokuUi?.openKanji?.(char);
+            return;
+          }
         }
 
         // 2. Click compound chip -> open right-side Card Inspector
@@ -1201,12 +1228,21 @@ export class KanjiView {
     if (loadingEl) loadingEl.style.display = 'block';
 
     try {
-      const res = await apiClient.getKanjiStudyList({
-        level: level,
-        limit: this.listLimit,
-        offset: offset,
-      });
+      const [studyRes, knownRes] = await Promise.allSettled([
+        apiClient.getKanjiStudyList({
+          level: level,
+          limit: this.listLimit,
+          offset: offset,
+        }),
+        apiClient.getKnownWords(),
+      ]);
 
+      if (knownRes.status === 'fulfilled' && knownRes.value) {
+        const words = Array.isArray(knownRes.value.words) ? knownRes.value.words : (Array.isArray(knownRes.value) ? knownRes.value : []);
+        this.knownWordsSet = new Set(words);
+      }
+
+      const res = studyRes.status === 'fulfilled' ? studyRes.value : null;
       const items = res?.items || [];
       this.listTotalCount = res?.total || 0;
       this.listOffset = offset;
@@ -1275,6 +1311,7 @@ export class KanjiView {
   }
 
   renderListRow(item) {
+    const isKnown = Boolean(this.knownWordsSet?.has(item.character));
     const onyomiStr = Array.isArray(item.onyomi) && item.onyomi.length > 0
       ? item.onyomi.join('、 ')
       : '―';
@@ -1322,8 +1359,14 @@ export class KanjiView {
 
     return `
       <div class="kanji-list-row tactile-card" data-char="${escapeHtml(item.character)}" data-search="${escapeHtml(searchHaystack)}">
-        <span class="kanji-list-index">${item.index}</span>
-        <span class="kanji-list-char font-display" role="button" tabindex="0" title="Inspect ${escapeHtml(item.character)} strokes" data-char="${escapeHtml(item.character)}">
+        <span class="kanji-list-index" role="button" tabindex="0" title="Inspect ${escapeHtml(item.character)} in drawer" data-char="${escapeHtml(item.character)}">${item.index}</span>
+        <span
+          class="kanji-list-char font-display ${isKnown ? 'is-known' : ''}"
+          role="button"
+          tabindex="0"
+          title="${isKnown ? `${item.character} (Marked known · Click to unmark)` : `${item.character} (Click to mark known)`}"
+          data-char="${escapeHtml(item.character)}"
+        >
           ${escapeHtml(item.character)}
         </span>
         <div class="kanji-list-readings ${this.isCoverMode ? 'kanji-reading-blur' : ''}">

@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const kanjiViewPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'views', 'kanji.js');
+const kanjiCssPath = path.join(repoRoot, 'desktop', 'src', 'ui', 'styles', 'views', 'kanji.css');
 
 test('Kanji View: No hardcoded mock data or fake paths in production templates', () => {
   const content = fs.readFileSync(kanjiViewPath, 'utf8');
@@ -250,6 +251,31 @@ test('Kanji View: Right-side Card Inspector and custom compound addition', () =>
   assert.ok(
     content.includes('apiClient.addCustomCompound('),
     'KanjiView must persist custom compounds via apiClient.addCustomCompound'
+  );
+});
+
+test('Kanji View: List view allows clicking kanji to mark known and removed 1-Click Mine text', () => {
+  const jsContent = fs.readFileSync(kanjiViewPath, 'utf8');
+  const cssContent = fs.readFileSync(kanjiCssPath, 'utf8');
+
+  assert.ok(
+    !jsContent.includes('1-Click Mine to Local &amp; Anki') && !jsContent.includes('1-Click Mine to Local & Anki'),
+    'KanjiView must remove 1-Click Mine to Local & Anki text'
+  );
+
+  assert.ok(
+    jsContent.includes('markKnownWord') && jsContent.includes('unmarkKnownWord'),
+    'KanjiView must toggle known kanji via markKnownWord/unmarkKnownWord on click'
+  );
+
+  assert.ok(
+    cssContent.includes('.kanji-list-char.is-known'),
+    'kanji.css must style .kanji-list-char.is-known'
+  );
+
+  assert.ok(
+    cssContent.includes('--alpine-berry'),
+    'kanji.css must style known kanji using cream/gold --alpine-berry'
   );
 });
 

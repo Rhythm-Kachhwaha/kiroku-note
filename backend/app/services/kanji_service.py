@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 import re
 import sqlite3
+import sys
 import threading
 from typing import Any
 
@@ -18,6 +19,38 @@ from app.services.operational_diagnostics import record_operational_failure
 logger = logging.getLogger(__name__)
 
 JLPT_REF_PATH = Path(__file__).resolve().parent.parent / "data" / "jlpt_reference.sqlite"
+
+
+def resolve_kanji_radicals_path() -> Path:
+    """Resolve the location of kanji_radicals.json."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        meipass_data = Path(sys._MEIPASS) / "app" / "data" / "kanji_radicals.json"
+        if meipass_data.exists():
+            return meipass_data
+    return Path(__file__).resolve().parent.parent / "data" / "kanji_radicals.json"
+
+
+_radicals_cache: dict[str, str] | None = None
+_radicals_lock = threading.Lock()
+
+
+def _get_radical_for_char(char: str) -> str | None:
+    """Return formatted radical string (e.g. '長 (ながい · long)') for a kanji character."""
+    global _radicals_cache
+    if _radicals_cache is None:
+        with _radicals_lock:
+            if _radicals_cache is None:
+                rad_path = resolve_kanji_radicals_path()
+                if rad_path.is_file():
+                    try:
+                        with open(rad_path, "r", encoding="utf-8") as f:
+                            _radicals_cache = json.load(f)
+                    except Exception as exc:
+                        logger.warning("Failed to load kanji_radicals.json: %s", exc)
+                        _radicals_cache = {}
+                else:
+                    _radicals_cache = {}
+    return _radicals_cache.get(char)
 
 
 def resolve_kanji_dict_path() -> Path:
@@ -306,6 +339,7 @@ class KanjiService:
                         "strokes": int(row["strokes"]) if row["strokes"] else None,
                         "grade": int(row["grade"]) if row["grade"] else None,
                         "freq": int(row["freq"]) if row["freq"] else None,
+                        "radical": _get_radical_for_char(clean_char),
                         "onyomi": onyomi,
                         "kunyomi": kunyomi,
                         "meanings": meanings,
@@ -331,6 +365,7 @@ class KanjiService:
                         "strokes": int(stats["strokes"]) if stats.get("strokes") else None,
                         "grade": int(stats["grade"]) if stats.get("grade") else None,
                         "freq": int(stats["freq"]) if stats.get("freq") else None,
+                        "radical": _get_radical_for_char(clean_char),
                         "onyomi": onyomi,
                         "kunyomi": kunyomi,
                         "meanings": meanings,
@@ -377,6 +412,7 @@ class KanjiService:
                         "strokes": int(row["strokes"]) if row["strokes"] else None,
                         "grade": int(row["grade"]) if row["grade"] else None,
                         "freq": int(row["freq"]) if row["freq"] else None,
+                        "radical": _get_radical_for_char(ch),
                         "onyomi": onyomi,
                         "kunyomi": kunyomi,
                         "meanings": meanings,
