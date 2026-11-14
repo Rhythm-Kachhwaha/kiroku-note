@@ -73,3 +73,4 @@ def test_tokenize_all_required_keys_present():
         assert required_keys.issubset(token.keys())
         assert isinstance(token["part_of_speech"], list)
         assert isinstance(token["surface"], str)
+

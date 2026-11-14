@@ -121,3 +121,4 @@ test('Shortcut Token: Hono endpoints /api/user/token and /api/user/token/regener
   assert.notEqual(dataRegen.token, dataGet.token);
   assert.equal(dataRegen.regenerated, true);
 });
+

@@ -83,3 +83,4 @@ test('manga_stream: transfer ticket format and expiry constraints', () => {
   const segments = parsed.pathname.split('/').filter(Boolean);
   assert.equal(segments[segments.length - 1], 'sample_book');
 });
+

@@ -71,3 +71,4 @@ def test_manga_ticket_and_streaming():
 def test_manga_ticket_missing_book():
     res = client.post("/api/manga/ticket", json={"book_id": "nonexistent_book_999"})
     assert res.status_code == 404
+

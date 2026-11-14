@@ -95,3 +95,4 @@ export function generateFallbackQrSvg(text, options = {}) {
     </svg>
   `.trim();
 }
+
