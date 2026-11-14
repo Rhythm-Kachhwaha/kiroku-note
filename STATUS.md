@@ -1,6 +1,6 @@
 # Status
-Enabled direct manga and PDF uploads in mobile PWA and browser views.
-Added PWA Web Share Target and File Handling API integration for system file opening.
-Optimized touch file picker triggers and expanded mobile MIME acceptance.
-Rebuilt PWA assets into public/ with full responsive ergonomics.
-All 21 targeted tests and final design locks pass cleanly.
+Connected Cloudflare Worker and local queue to Turso libSQL database.
+Added direct edge writing to op_log with fallback proxying.
+Configured Cloudflare encrypted secrets and git-ignored local credentials.
+Worker live at https://kiroku-note.rhythmkach.workers.dev.
+Targeted Turso worker and desktop tests pass cleanly.
