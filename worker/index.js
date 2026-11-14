@@ -69,6 +69,16 @@ app.use('/api/oplog/write', async (c, next) => {
   return await next();
 });
 
+app.use('/api/tokenize', async (c, next) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
+  const { allowed, retryAfter } = checkRateLimit(ip);
+  if (!allowed) {
+    c.header('Retry-After', String(retryAfter));
+    return c.json({ error: 'Rate limit exceeded', retry_after: retryAfter }, 429);
+  }
+  return await next();
+});
+
 // Mount OAuth & auth routes (/auth/*)
 app.route('/', authApp);
 
@@ -309,6 +319,70 @@ app.post('/api/mirror/write', async (c) => {
   } catch (err) {
     return c.json({ error: 'Proxy error', details: String(err) }, 502);
   }
+});
+
+// Tokenize endpoint with proxying, rate-limiting & in-memory caching
+const tokenizeMemoryCache = new Map();
+
+app.post('/api/tokenize', async (c) => {
+  const backendUrl = c.env?.BACKEND_URL || 'http://localhost:8000';
+  let bodyJson = null;
+  try {
+    bodyJson = await c.req.json();
+  } catch {
+    bodyJson = { text: '', mode: 'C' };
+  }
+
+  const text = (bodyJson?.text || '').trim();
+  const mode = bodyJson?.mode || 'C';
+  const cacheKey = `${mode}:${text}`;
+
+  // 1. Check worker in-memory cache
+  if (tokenizeMemoryCache.has(cacheKey)) {
+    return c.json(tokenizeMemoryCache.get(cacheKey));
+  }
+
+  // 2. Proxy to backend
+  const target = `${backendUrl}/api/tokenize`;
+  try {
+    const resp = await fetch(target, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ text, mode })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && Array.isArray(data.tokens)) {
+        if (tokenizeMemoryCache.size > 1000) {
+          const firstKey = tokenizeMemoryCache.keys().next().value;
+          tokenizeMemoryCache.delete(firstKey);
+        }
+        tokenizeMemoryCache.set(cacheKey, data);
+      }
+      return c.json(data, resp.status);
+    }
+  } catch (err) {
+    console.warn('[Worker] Backend tokenize unreachable:', err.message);
+  }
+
+  // 3. Fallback when upstream is disconnected
+  if (!text) {
+    return c.json({ tokens: [] });
+  }
+
+  const matches = text.match(/[\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]+|[^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\s]+/g) || [text];
+  const fallbackTokens = matches.map(word => ({
+    surface: word,
+    normalized: word,
+    dictionary_form: word,
+    reading: '',
+    part_of_speech: ['名詞', '普通名詞', '*', '*'],
+    inflection_type: '*',
+    inflection_form: '*'
+  }));
+  return c.json({ tokens: fallbackTokens, source: 'fallback_offline' });
 });
 
 // General /api/* proxy to existing backend

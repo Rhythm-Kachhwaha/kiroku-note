@@ -9,6 +9,84 @@ export const authApp = new Hono();
 
 const DEFAULT_JWT_SECRET = 'kiroku-edge-development-secret-change-in-production';
 
+// In-memory token stores (persisted to KV if USER_TOKENS_KV is bound in Cloudflare Worker)
+const userTokens = new Map(); // userId -> { token, createdAt }
+const tokenToUser = new Map(); // token -> { sub, role }
+
+export function generateCryptoToken() {
+  const bytes = new Uint8Array(24);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 24; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0');
+  }
+  return `krk_live_${hex}`;
+}
+
+export async function getUserToken(userId, env) {
+  if (!userId) return null;
+  if (env?.USER_TOKENS_KV) {
+    const existing = await env.USER_TOKENS_KV.get(`user:${userId}`);
+    if (existing) return existing;
+    const newToken = generateCryptoToken();
+    await env.USER_TOKENS_KV.put(`user:${userId}`, newToken);
+    await env.USER_TOKENS_KV.put(`token:${newToken}`, userId);
+    return newToken;
+  }
+  let record = userTokens.get(userId);
+  if (!record) {
+    const token = generateCryptoToken();
+    record = { token, createdAt: Date.now() };
+    userTokens.set(userId, record);
+    tokenToUser.set(token, { sub: userId, role: 'shortcut_user' });
+  }
+  return record.token;
+}
+
+export async function regenerateUserToken(userId, env) {
+  if (!userId) return null;
+  const newToken = generateCryptoToken();
+  if (env?.USER_TOKENS_KV) {
+    const oldToken = await env.USER_TOKENS_KV.get(`user:${userId}`);
+    if (oldToken) {
+      await env.USER_TOKENS_KV.delete(`token:${oldToken}`);
+    }
+    await env.USER_TOKENS_KV.put(`user:${userId}`, newToken);
+    await env.USER_TOKENS_KV.put(`token:${newToken}`, userId);
+    return newToken;
+  }
+  const oldRecord = userTokens.get(userId);
+  if (oldRecord) {
+    tokenToUser.delete(oldRecord.token);
+  }
+  userTokens.set(userId, { token: newToken, createdAt: Date.now() });
+  tokenToUser.set(newToken, { sub: userId, role: 'shortcut_user' });
+  return newToken;
+}
+
+export async function verifyUserToken(token, env) {
+  if (!token || typeof token !== 'string' || !token.startsWith('krk_live_')) return null;
+  if (env?.USER_TOKENS_KV) {
+    const userId = await env.USER_TOKENS_KV.get(`token:${token}`);
+    if (userId) {
+      return { sub: userId, role: 'shortcut_user' };
+    }
+    return null;
+  }
+  return tokenToUser.get(token) || null;
+}
+
+export function _resetTokensForTest() {
+  userTokens.clear();
+  tokenToUser.clear();
+}
+
 function base64UrlEncode(str) {
   const bytes = new TextEncoder().encode(str);
   let binary = '';
@@ -132,6 +210,14 @@ export async function authenticateRequest(c) {
     // Check static API key for worker / shortcut compatibility
     if (apiKey && token === apiKey) {
       return { authenticated: true, user: { sub: 'api-client', role: 'worker' }, source: 'api_key' };
+    }
+    // Check personalized user token krk_live_*
+    if (token.startsWith('krk_live_')) {
+      const user = await verifyUserToken(token, c.env);
+      if (user) {
+        return { authenticated: true, user, source: 'shortcut_token' };
+      }
+      return { authenticated: false };
     }
     // Check JWT
     const verified = await verifyJwt(token, secret);
@@ -306,6 +392,26 @@ authApp.get('/auth/me', async (c) => {
     return c.json({ authenticated: false, user: null }, 401);
   }
   return c.json({ authenticated: true, user: auth.user, source: auth.source });
+});
+
+authApp.get('/api/user/token', async (c) => {
+  const auth = await authenticateRequest(c);
+  const user = auth.authenticated ? auth.user : (c.get('user') || (c.env?.ENVIRONMENT === 'development' ? { sub: 'dev_user' } : null));
+  if (!user || !user.sub) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+  const token = await getUserToken(user.sub, c.env);
+  return c.json({ token, user_id: user.sub, created_at: Date.now() });
+});
+
+authApp.post('/api/user/token/regenerate', async (c) => {
+  const auth = await authenticateRequest(c);
+  const user = auth.authenticated ? auth.user : (c.get('user') || (c.env?.ENVIRONMENT === 'development' ? { sub: 'dev_user' } : null));
+  if (!user || !user.sub) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
+  }
+  const token = await regenerateUserToken(user.sub, c.env);
+  return c.json({ token, user_id: user.sub, regenerated: true, created_at: Date.now() });
 });
 
 authApp.post('/auth/logout', async (c) => {

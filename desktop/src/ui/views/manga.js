@@ -9,6 +9,7 @@
 import { apiClient } from '../services/api_client.js';
 import { escapeHtml } from '../utils/sanitizer.js';
 import { storeBookFile, getBookFileBuffer, deleteBookFile } from '../services/manga_storage.js';
+import { fetchOrGenerateQrSvg } from '../utils/qr.js';
 
 const STORAGE_KEY_LIBRARY = 'kiroku.manga.library';
 const STORAGE_KEY_FOLDERS = 'kiroku.manga.folders';
@@ -150,6 +151,11 @@ export class MangaView {
     this.popoverAnchor = { x: 0, y: 0 };
     this.recognizedText = '';
     this.lastMinedWord = null;
+
+    // Zoom & Inspection State
+    this.zoomScale = 1.0;
+    this.zoomMode = 'fit'; // 'fit' | 'width' | 'custom'
+    this.selectedBubbleIndex = -1;
 
     // Keydown handler bind
     this.boundKeyHandler = (e) => this.handleKeyDown(e);
@@ -331,6 +337,12 @@ export class MangaView {
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10zm-7-1h2v-3h3v-2h-3V9h-2v3h-3v2h3z"/></svg>
               <span>New Folder</span>
             </button>
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-receive-from-pc" title="Receive Manga from PC over local Wi-Fi">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
+              </svg>
+              <span>Receive from PC</span>
+            </button>
             <label class="tactile-btn tactile-btn-primary tactile-btn-sm cursor-pointer manga-add-btn" for="manga-library-file-input">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
               <span>Add Manga</span>
@@ -449,6 +461,12 @@ export class MangaView {
     const btnAddFolder = this.container.querySelector('#btn-add-folder');
     btnAddFolder?.addEventListener('click', () => {
       this.openCreateFolderModal();
+    });
+
+    // Receive from PC over Wi-Fi
+    const btnReceiveFromPc = this.container.querySelector('#btn-receive-from-pc');
+    btnReceiveFromPc?.addEventListener('click', () => {
+      this.openReceiveFromPcModal();
     });
 
     // Bookshelf card clicks and book options
@@ -609,6 +627,7 @@ export class MangaView {
           <div class="modal-actions-row mt-4 justify-between">
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm text-red" id="btn-modal-delete-book">Remove Book</button>
             <div class="flex items-center gap-2">
+              <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-modal-send-to-phone">Send to Phone</button>
               <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
               <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-modal-save-book">Save</button>
             </div>
@@ -616,6 +635,11 @@ export class MangaView {
         </div>
       </div>
     `, () => {
+      this.container.querySelector('#btn-modal-send-to-phone')?.addEventListener('click', () => {
+        this.closeModal();
+        this.openSendToPhoneModal(bookId);
+      });
+
       this.container.querySelector('#btn-modal-save-book')?.addEventListener('click', () => {
         const titleInput = this.container.querySelector('#modal-book-title');
         const folderSelect = this.container.querySelector('#modal-book-folder');
@@ -663,6 +687,203 @@ export class MangaView {
       host.innerHTML = '';
       host.style.display = 'none';
     }
+  }
+
+  async openSendToPhoneModal(bookId) {
+    const book = this.books.find(b => b.id === bookId);
+    if (!book) return;
+
+    this.showModal(`
+      <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+        <div class="tactile-modal-card text-center" style="max-width: 360px;">
+          <h3 class="text-base font-bold text-warm-paper">Send to Phone</h3>
+          <p class="text-xs text-muted mt-1">Generating direct Wi-Fi transfer ticket for <strong>${escapeHtml(book.title)}</strong>...</p>
+          <div class="manga-qr-container my-3 p-3 bg-surface-lowest border border-tactile rounded flex justify-center items-center" id="manga-qr-target" style="min-height: 220px;">
+            <span class="text-xs text-muted font-mono">Generating QR code...</span>
+          </div>
+          <div class="modal-actions-row mt-4 justify-end">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+    `, async () => {
+      try {
+        let streamUrl = '';
+        let ticket = '';
+        try {
+          const res = await this.apiClient.request('/api/manga/ticket', {
+            method: 'POST',
+            body: { book_id: bookId }
+          });
+          ticket = res?.data?.ticket || res?.ticket || '';
+          streamUrl = res?.data?.stream_url || res?.stream_url || '';
+        } catch (ticketErr) {
+          console.warn('[Manga] Could not issue companion ticket:', ticketErr);
+        }
+
+        if (!streamUrl) {
+          const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'http://127.0.0.1:8000';
+          streamUrl = `${origin}/api/manga/stream/${encodeURIComponent(bookId)}?ticket=${ticket || 'preview_ticket'}`;
+        }
+
+        const qrSvg = await fetchOrGenerateQrSvg(streamUrl);
+        const qrTarget = this.container?.querySelector('#manga-qr-target');
+        if (qrTarget) {
+          qrTarget.innerHTML = qrSvg;
+        }
+
+        const modalDesc = this.container?.querySelector('.tactile-modal-card p');
+        if (modalDesc) {
+          modalDesc.innerHTML = `Scan with your phone camera or inside Kiroku PWA to download <strong>${escapeHtml(book.title)}</strong> directly over local Wi-Fi.`;
+        }
+
+        const actionsRow = this.container?.querySelector('.modal-actions-row');
+        if (actionsRow) {
+          actionsRow.innerHTML = `
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-copy-stream-url">Copy Link</button>
+            <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-modal-done">Done</button>
+          `;
+          actionsRow.querySelector('#btn-copy-stream-url')?.addEventListener('click', async (e) => {
+            const btn = e.target;
+            try {
+              if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(streamUrl);
+              }
+              const prev = btn.textContent;
+              btn.textContent = 'Copied!';
+              setTimeout(() => { btn.textContent = prev; }, 1500);
+            } catch (err) {
+              console.warn('[Manga] Copy link failed:', err);
+            }
+          });
+          actionsRow.querySelector('#btn-modal-done')?.addEventListener('click', () => {
+            this.closeModal();
+          });
+        }
+      } catch (err) {
+        console.warn('[Manga] Send to phone error:', err);
+      }
+    });
+  }
+
+  openReceiveFromPcModal() {
+    this.showModal(`
+      <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+        <div class="tactile-modal-card" style="max-width: 420px;">
+          <h3 class="text-base font-bold text-warm-paper">Receive Manga from PC</h3>
+          <p class="text-xs text-muted mt-1">Paste the transfer URL from your desktop companion to stream directly into phone storage (OPFS).</p>
+          <div class="mt-3">
+            <label class="text-xs text-muted block mb-1">Transfer URL</label>
+            <input type="text" id="manga-receive-url-input" class="tactile-input-text font-mono text-xs w-full" placeholder="http://192.168.1.X:8000/api/manga/stream/... ?ticket=..." autofocus />
+          </div>
+          <div class="mt-3" id="manga-receive-progress-container" style="display: none;">
+            <div class="flex items-center justify-between text-xs mb-1">
+              <span class="text-muted" id="manga-receive-status-label">Downloading stream...</span>
+              <span class="font-mono text-gold" id="manga-receive-percent-label">0%</span>
+            </div>
+            <div class="w-full bg-surface-lowest border border-tactile rounded h-2 overflow-hidden">
+              <div class="bg-gold h-full transition-all" id="manga-receive-progress-bar" style="width: 0%;"></div>
+            </div>
+          </div>
+          <div class="modal-actions-row mt-4 justify-between">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
+            <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-start-receive">Download to OPFS</button>
+          </div>
+        </div>
+      </div>
+    `, () => {
+      const startBtn = this.container?.querySelector('#btn-start-receive');
+      const input = this.container?.querySelector('#manga-receive-url-input');
+      const progressContainer = this.container?.querySelector('#manga-receive-progress-container');
+      const progressBar = this.container?.querySelector('#manga-receive-progress-bar');
+      const percentLabel = this.container?.querySelector('#manga-receive-percent-label');
+      const statusLabel = this.container?.querySelector('#manga-receive-status-label');
+
+      startBtn?.addEventListener('click', async () => {
+        const rawUrl = input?.value?.trim();
+        if (!rawUrl) return;
+
+        startBtn.disabled = true;
+        startBtn.textContent = 'Connecting...';
+        if (progressContainer) progressContainer.style.display = 'block';
+
+        try {
+          const resp = await fetch(rawUrl);
+          if (!resp.ok) {
+            throw new Error(`Transfer failed: HTTP ${resp.status}`);
+          }
+
+          const contentLength = Number(resp.headers.get('content-length') || 0);
+          const reader = resp.body?.getReader();
+          const chunks = [];
+          let received = 0;
+
+          if (reader) {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              chunks.push(value);
+              received += value.length;
+              if (contentLength > 0 && progressBar && percentLabel) {
+                const pct = Math.min(100, Math.round((received / contentLength) * 100));
+                progressBar.style.width = `${pct}%`;
+                percentLabel.textContent = `${pct}%`;
+              }
+            }
+          } else {
+            const buf = await resp.arrayBuffer();
+            chunks.push(new Uint8Array(buf));
+            received = buf.byteLength;
+          }
+
+          if (statusLabel) statusLabel.textContent = 'Saving to OPFS storage...';
+
+          let bookId = 'stream_' + Date.now();
+          let title = 'Streamed Manga';
+          try {
+            const parsed = new URL(rawUrl);
+            const segments = parsed.pathname.split('/').filter(Boolean);
+            const lastSeg = segments[segments.length - 1];
+            if (lastSeg) {
+              bookId = decodeURIComponent(lastSeg);
+              title = bookId.replace(/\.(pdf|cbz|zip)$/i, '');
+            }
+          } catch {}
+
+          const blob = new Blob(chunks, { type: 'application/octet-stream' });
+          const isPdf = rawUrl.toLowerCase().includes('.pdf') || (resp.headers.get('content-type') || '').includes('pdf');
+          const bookType = isPdf ? 'pdf' : 'cbz';
+
+          await storeBookFile(bookId, blob, { title, type: bookType });
+
+          const existing = this.books.find(b => b.id === bookId);
+          if (existing) {
+            existing.updatedAt = Date.now();
+          } else {
+            this.books.push({
+              id: bookId,
+              title: title,
+              type: bookType,
+              folderId: this.activeFolderId === 'all' ? 'default' : this.activeFolderId,
+              pageCount: 1,
+              currentPage: 1,
+              coverUrl: '',
+              coverVersion: 1,
+              updatedAt: Date.now()
+            });
+          }
+          this.saveLibrary();
+
+          this.closeModal();
+          this.render();
+        } catch (err) {
+          console.warn('[Manga] Receive stream error:', err);
+          if (statusLabel) statusLabel.textContent = `Error: ${err.message}`;
+          startBtn.disabled = false;
+          startBtn.textContent = 'Retry';
+        }
+      });
+    });
   }
 
   showLoading(title = 'Loading volume...', subtext = 'Please wait a moment') {
@@ -827,6 +1048,24 @@ export class MangaView {
 
             <div class="manga-topbar-divider"></div>
 
+            <!-- Zoom Controls Group -->
+            <div class="manga-zoom-controls">
+              <button type="button" class="manga-zoom-btn" id="btn-zoom-out" title="Zoom Out (-)">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg>
+              </button>
+              <button type="button" class="manga-zoom-btn manga-zoom-val" id="btn-zoom-reset" title="Reset Zoom (0)">
+                <span id="label-zoom-percent">100%</span>
+              </button>
+              <button type="button" class="manga-zoom-btn" id="btn-zoom-in" title="Zoom In (+)">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              </button>
+              <button type="button" class="manga-zoom-btn" id="btn-zoom-fit-width" title="Fit to Width">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
+              </button>
+            </div>
+
+            <div class="manga-topbar-divider"></div>
+
             <!-- Tactile Bubble Detection Controls -->
             <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-detect-bubbles" title="Detect Speech Bubbles via AI">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
@@ -876,6 +1115,26 @@ export class MangaView {
               </div>
             </div>
 
+            <!-- Plain Bubble Dialogue Card (Interactive Words, Matches Popover SS2) -->
+            <div class="manga-sidebar-sentence-card" id="manga-sidebar-sentence-card">
+              <div class="manga-sidebar-sentence-header">
+                <span class="text-xs text-gold font-bold">Bubble Dialogue</span>
+                <div class="flex items-center gap-1">
+                  <button type="button" class="manga-tool-btn" id="btn-edit-sentence" title="Edit Japanese text if OCR misread a character">
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                    <span>Edit</span>
+                  </button>
+                  <button type="button" class="manga-tool-btn" id="btn-copy-sentence" title="Copy Japanese Sentence">
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    <span>Copy</span>
+                  </button>
+                </div>
+              </div>
+              <div class="manga-sentence-words-flow font-japanese" id="manga-sidebar-sentence-text">
+                <span class="text-xs text-muted">Click any speech bubble or drag-select on manga to inspect</span>
+              </div>
+            </div>
+
             <!-- Hero Target Word Card (Shows Word instead of OCR image) -->
             <div class="manga-sidebar-hero-word-wrap" id="manga-sidebar-hero-word-wrap">
               <span class="manga-hero-word-reading font-japanese" id="manga-target-reading"></span>
@@ -892,20 +1151,6 @@ export class MangaView {
             </button>
 
             <div class="manga-sidebar-body">
-              <!-- Sentence & Word Chips -->
-              <div class="manga-sidebar-section">
-                <div class="manga-section-subhead">
-                  <span>Context Sentence</span>
-                  <button type="button" class="manga-tool-btn" id="btn-copy-sentence" title="Copy Japanese Sentence">
-                    <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                    <span>Copy</span>
-                  </button>
-                </div>
-                <div class="manga-sentence-tokens-container" id="manga-sentence-tokens-container">
-                  <span class="text-xs text-muted">Select text on page or detect bubbles to inspect words</span>
-                </div>
-              </div>
-
               <!-- Definitions / Glosses -->
               <div class="manga-sidebar-section" id="manga-definitions-section" style="display: none;">
                 <div class="manga-section-subhead">
@@ -992,6 +1237,8 @@ export class MangaView {
     btnBackLib?.addEventListener('click', () => {
       this.closePopover();
       this.closeSidebar();
+      this.clearBubbleOverlays();
+      this.resetZoom();
       this.activeMode = 'library';
       this.render();
     });
@@ -1007,6 +1254,15 @@ export class MangaView {
       const pageNum = parseInt(e.target.value, 10);
       if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= this.pageCount) {
         this.goToPage(pageNum);
+      }
+    });
+    pageInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const pageNum = parseInt(e.target.value, 10);
+        if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= this.pageCount) {
+          this.goToPage(pageNum);
+          pageInput.blur();
+        }
       }
     });
 
@@ -1028,6 +1284,33 @@ export class MangaView {
         this.render();
       }
     });
+
+    const btnZoomIn = this.container.querySelector('#btn-zoom-in');
+    btnZoomIn?.addEventListener('click', () => this.zoomIn());
+
+    const btnZoomOut = this.container.querySelector('#btn-zoom-out');
+    btnZoomOut?.addEventListener('click', () => this.zoomOut());
+
+    const btnZoomReset = this.container.querySelector('#btn-zoom-reset');
+    btnZoomReset?.addEventListener('click', () => this.resetZoom());
+
+    const btnZoomFitWidth = this.container.querySelector('#btn-zoom-fit-width');
+    btnZoomFitWidth?.addEventListener('click', () => this.fitWidth());
+
+    const stageCard = this.container.querySelector('#manga-stage-card');
+    stageCard?.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+          this.zoomIn();
+        } else {
+          this.zoomOut();
+        }
+      }
+    }, { passive: false });
+
+    const btnEditSentence = this.container.querySelector('#btn-edit-sentence');
+    btnEditSentence?.addEventListener('click', () => this.openEditSentenceModal());
 
     const btnDetect = this.container.querySelector('#btn-detect-bubbles');
     btnDetect?.addEventListener('click', () => this.detectBubblesOnCurrentPage());
@@ -1678,6 +1961,64 @@ export class MangaView {
     } else if (this.currentBook?.file) {
       await this.renderSingleImageFile(this.currentBook.file, canvas);
     }
+    this.applyZoom();
+  }
+
+  zoomIn() {
+    this.zoomMode = 'custom';
+    this.zoomScale = Math.min(3.0, Math.round((this.zoomScale + 0.15) * 100) / 100);
+    this.applyZoom();
+  }
+
+  zoomOut() {
+    this.zoomMode = 'custom';
+    this.zoomScale = Math.max(0.4, Math.round((this.zoomScale - 0.15) * 100) / 100);
+    this.applyZoom();
+  }
+
+  resetZoom() {
+    this.zoomMode = 'fit';
+    this.zoomScale = 1.0;
+    this.applyZoom();
+  }
+
+  fitWidth() {
+    this.zoomMode = 'width';
+    this.applyZoom();
+  }
+
+  applyZoom() {
+    const canvas = this.container?.querySelector('#manga-canvas');
+    const label = this.container?.querySelector('#label-zoom-percent');
+    if (!canvas) return;
+
+    if (this.zoomMode === 'width') {
+      const stage = this.container?.querySelector('#manga-stage-card');
+      const availWidth = stage ? (stage.clientWidth - 48) : window.innerWidth;
+      canvas.style.width = `${Math.max(300, availWidth)}px`;
+      canvas.style.height = 'auto';
+      canvas.style.maxWidth = 'none';
+      canvas.style.maxHeight = 'none';
+      if (label) label.textContent = 'Width';
+    } else if (this.zoomMode === 'fit' && this.zoomScale === 1.0) {
+      canvas.style.width = 'auto';
+      canvas.style.height = 'auto';
+      canvas.style.maxWidth = '100%';
+      canvas.style.maxHeight = 'calc(100vh - 180px)';
+      if (label) label.textContent = '100%';
+    } else {
+      const stage = this.container?.querySelector('#manga-stage-card');
+      const stageH = stage ? (stage.clientHeight - 80) : (window.innerHeight - 180);
+      const baseH = Math.max(300, stageH);
+      const targetH = Math.round(baseH * this.zoomScale);
+      canvas.style.height = `${targetH}px`;
+      canvas.style.width = 'auto';
+      canvas.style.maxWidth = 'none';
+      canvas.style.maxHeight = 'none';
+      if (label) label.textContent = `${Math.round(this.zoomScale * 100)}%`;
+    }
+
+    this.renderBubbleOverlays();
   }
 
   /* PDF Rendering (Single or 2-Page Book Spread) */
@@ -1805,6 +2146,12 @@ export class MangaView {
       this.nextPage();
     } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
       this.prevPage();
+    } else if (e.key === '+' || e.key === '=') {
+      this.zoomIn();
+    } else if (e.key === '-' || e.key === '_') {
+      this.zoomOut();
+    } else if (e.key === '0') {
+      this.resetZoom();
     } else if (e.key === 'Escape') {
       this.closePopover();
       this.closeModal();
@@ -1899,14 +2246,38 @@ export class MangaView {
     const canvas = this.container?.querySelector('#manga-canvas');
     if (!canvas) return;
 
-    const width = Math.round(endX - startX);
-    const height = Math.round(endY - startY);
+    // Add 8% adaptive padding around crop (clamped to 10-14px) for clean OCR margins
+    const rawW = Math.round(endX - startX);
+    const rawH = Math.round(endY - startY);
+    const padX = Math.round(Math.min(rawW * 0.08, 14));
+    const padY = Math.round(Math.min(rawH * 0.08, 14));
+
+    const cropX1 = Math.max(0, startX - padX);
+    const cropY1 = Math.max(0, startY - padY);
+    const cropX2 = Math.min(canvas.width, endX + padX);
+    const cropY2 = Math.min(canvas.height, endY + padY);
+
+    const width = Math.round(cropX2 - cropX1);
+    const height = Math.round(cropY2 - cropY1);
+
+    // Upscale small crops so MangaOCR receives crisp, readable strokes
+    const minDim = Math.min(width, height);
+    let scale = 1.0;
+    if (minDim < 140) {
+      scale = Math.min(3.0, 180 / Math.max(1, minDim));
+    }
+    const targetW = Math.round(width * scale);
+    const targetH = Math.round(height * scale);
 
     const cropCanvas = document.createElement('canvas');
-    cropCanvas.width = width;
-    cropCanvas.height = height;
+    cropCanvas.width = targetW;
+    cropCanvas.height = targetH;
     const cropCtx = cropCanvas.getContext('2d');
-    cropCtx.drawImage(canvas, startX, startY, width, height, 0, 0, width, height);
+    cropCtx.fillStyle = '#FFFFFF';
+    cropCtx.fillRect(0, 0, targetW, targetH);
+    cropCtx.imageSmoothingEnabled = true;
+    cropCtx.imageSmoothingQuality = 'high';
+    cropCtx.drawImage(canvas, cropX1, cropY1, width, height, 0, 0, targetW, targetH);
 
     this.activeCropDataUrl = cropCanvas.toDataURL('image/png');
     const base64Data = this.activeCropDataUrl.split(',')[1];
@@ -1915,15 +2286,15 @@ export class MangaView {
       this.openSidebar();
       const expEl = this.container?.querySelector('#manga-target-expression');
       if (expEl) expEl.textContent = '...';
-      const tokenContainer = this.container?.querySelector('#manga-sentence-tokens-container');
-      if (tokenContainer) {
-        tokenContainer.innerHTML = `<span class="text-xs text-muted">Running MangaOCR recognition...</span>`;
+      const sidebarSentenceEl = this.container?.querySelector('#manga-sidebar-sentence-text');
+      if (sidebarSentenceEl) {
+        sidebarSentenceEl.innerHTML = `<span class="text-xs text-muted">Running OCR recognition...</span>`;
       }
     } else {
       this.openPopover(anchor);
       const sentenceEl = this.container?.querySelector('#manga-popover-sentence');
       if (sentenceEl) {
-        sentenceEl.innerHTML = `<span class="text-xs text-muted">Running MangaOCR recognition...</span>`;
+        sentenceEl.innerHTML = `<span class="text-xs text-muted">Running OCR recognition...</span>`;
       }
     }
 
@@ -1962,12 +2333,7 @@ export class MangaView {
 
   async processRecognizedSentence(sentence, anchor) {
     if (!sentence) return;
-
-    // Update Popover sentence display
-    const popSentenceEl = this.container?.querySelector('#manga-popover-sentence');
-    if (popSentenceEl) {
-      popSentenceEl.innerHTML = `<div class="manga-sentence-text">${escapeHtml(sentence)}</div>`;
-    }
+    this.recognizedText = sentence;
 
     // Tokenize sentence using Subtitle Annotator API (Sudachi / MeCab / OpenJLPT)
     let tokens = [];
@@ -1992,7 +2358,7 @@ export class MangaView {
     }
 
     this.recognizedTokens = tokens;
-    this.renderSentenceTokens(tokens);
+    this.renderSentenceWords(tokens, sentence);
 
     // Auto-inspect primary word: prefer first token with kanji or length > 1, otherwise tokens[0]
     let primaryToken = tokens.find(t => {
@@ -2008,31 +2374,75 @@ export class MangaView {
     }
   }
 
-  renderSentenceTokens(tokens) {
-    const container = this.container?.querySelector('#manga-sentence-tokens-container');
-    if (!container) return;
+  renderSentenceWords(tokens, fullSentence) {
+    const sidebarSentenceEl = this.container?.querySelector('#manga-sidebar-sentence-text');
+    const popSentenceEl = this.container?.querySelector('#manga-popover-sentence');
 
-    container.innerHTML = '';
-    tokens.forEach((token, index) => {
-      const surface = token.surface || token.text || '';
-      const reading = token.reading || '';
-      if (!surface.trim()) return;
+    const renderTo = (container) => {
+      if (!container) return;
+      container.innerHTML = '';
+      if (!tokens || tokens.length === 0) {
+        container.textContent = fullSentence;
+        return;
+      }
 
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'manga-token-chip';
-      chip.dataset.index = index;
+      tokens.forEach((token, idx) => {
+        const surface = (token.surface || token.text || '').trim();
+        if (!surface) return;
 
-      chip.innerHTML = `
-        ${reading ? `<span class="manga-token-reading">${escapeHtml(reading)}</span>` : ''}
-        <span class="manga-token-surface">${escapeHtml(surface)}</span>
-      `;
+        const span = document.createElement('span');
+        span.className = 'manga-clickable-word';
+        span.textContent = surface;
+        span.dataset.tokenIndex = idx;
+        span.title = `Click to inspect "${surface}"`;
 
-      chip.addEventListener('click', () => {
-        this.inspectToken(token, chip);
+        span.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.inspectToken(token, span);
+        });
+
+        container.appendChild(span);
       });
+    };
 
-      container.appendChild(chip);
+    renderTo(sidebarSentenceEl);
+    renderTo(popSentenceEl);
+  }
+
+  openEditSentenceModal() {
+    if (!this.recognizedText) return;
+
+    this.showModal(`
+      <div class="tactile-modal-backdrop" id="manga-modal-backdrop">
+        <div class="tactile-modal-card">
+          <h3 class="text-base font-bold text-warm-paper">Edit Bubble Text</h3>
+          <p class="text-xs text-muted mt-1">
+            Fix any OCR character misrecognitions or customize the sentence:
+          </p>
+          <div class="mt-3">
+            <textarea id="modal-sentence-input" class="tactile-input-text w-full font-japanese" rows="3" autofocus>${escapeHtml(this.recognizedText)}</textarea>
+          </div>
+          <div class="modal-actions-row mt-4 justify-between">
+            <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-modal-cancel">Cancel</button>
+            <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-modal-save-sentence">Update Text</button>
+          </div>
+        </div>
+      </div>
+    `, () => {
+      const saveBtn = this.container.querySelector('#btn-modal-save-sentence');
+      const input = this.container.querySelector('#modal-sentence-input');
+      const doSave = async () => {
+        const text = input?.value?.trim();
+        if (text) {
+          this.recognizedText = text;
+          this.closeModal();
+          await this.processRecognizedSentence(this.recognizedText, this.lastAnchor);
+        }
+      };
+      saveBtn?.addEventListener('click', doSave);
+      input?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) doSave();
+      });
     });
   }
 
@@ -2043,19 +2453,12 @@ export class MangaView {
     const targetWord = (token.lemma || token.surface || token.text || '').trim();
     if (!targetWord) return;
 
-    // Highlight chip
-    const container = this.container?.querySelector('#manga-sentence-tokens-container');
-    if (container) {
-      container.querySelectorAll('.manga-token-chip').forEach(c => c.classList.remove('is-active'));
-      if (chipEl) {
-        chipEl.classList.add('is-active');
-      } else {
-        const found = Array.from(container.querySelectorAll('.manga-token-chip')).find(
-          c => c.querySelector('.manga-token-surface')?.textContent === (token.surface || token.text)
-        );
-        found?.classList.add('is-active');
-      }
-    }
+    // Highlight all matching clickable word spans in both sidebar and popover
+    const allWords = this.container?.querySelectorAll('.manga-clickable-word') || [];
+    allWords.forEach(w => {
+      const isMatch = w.textContent.trim() === (token.surface || token.text || '').trim();
+      w.classList.toggle('is-active', isMatch);
+    });
 
     // Show Word and Definitions sections in Sidebar
     const wordSection = this.container?.querySelector('#manga-word-section');
@@ -2409,14 +2812,23 @@ export class MangaView {
 
       const bubbleEl = document.createElement('div');
       bubbleEl.className = 'manga-bubble-hitbox';
+      if (this.selectedBubbleIndex === idx) {
+        bubbleEl.classList.add('is-selected');
+      }
       bubbleEl.style.left = `${left}px`;
       bubbleEl.style.top = `${top}px`;
       bubbleEl.style.width = `${width}px`;
       bubbleEl.style.height = `${height}px`;
       bubbleEl.title = `Bubble ${idx + 1} (${Math.round(bubble.score * 100)}%) — Click to OCR`;
 
+      bubbleEl.innerHTML = `<span class="manga-bubble-tag">${idx + 1}</span>`;
+
       bubbleEl.addEventListener('click', (e) => {
         e.stopPropagation();
+        this.selectedBubbleIndex = idx;
+        overlayLayer.querySelectorAll('.manga-bubble-hitbox').forEach(b => b.classList.remove('is-selected'));
+        bubbleEl.classList.add('is-selected');
+
         const anchor = {
           x: left + rect.left,
           y: top + height + rect.top + 8
@@ -2430,6 +2842,7 @@ export class MangaView {
 
   clearBubbleOverlays() {
     this.detectedBubbles = [];
+    this.selectedBubbleIndex = -1;
     const overlayLayer = this.container?.querySelector('#manga-bubble-overlay-layer');
     if (overlayLayer) overlayLayer.innerHTML = '';
   }

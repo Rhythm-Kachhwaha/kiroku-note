@@ -499,7 +499,49 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Bubble Hitbox Overlays
+ * Zoom Controls Group
+ * --------------------------------------------------------------------------- */
+.manga-zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  background: var(--pure-black);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.5);
+  gap: 2px;
+}
+
+.manga-zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  padding: 0.25rem 0.5rem;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--duration-fast, 150ms) var(--ease-out, ease-out);
+}
+
+.manga-zoom-btn:hover {
+  color: var(--architectural-cream);
+  background: var(--tactile-stroke);
+}
+
+.manga-zoom-btn.manga-zoom-val {
+  min-width: 44px;
+  color: var(--gold);
+  font-family: var(--font-mono);
+}
+
+/* ---------------------------------------------------------------------------
+ * Bubble Hitbox Overlays (Vibrant, Tactile, High-Contrast)
  * --------------------------------------------------------------------------- */
 .manga-bubble-overlay-layer {
   position: absolute;
@@ -513,19 +555,102 @@
 
 .manga-bubble-hitbox {
   position: absolute;
-  border: 1.5px solid var(--gold);
-  background: rgba(226, 218, 194, 0.12);
+  border: 2px solid var(--gold);
+  background: rgba(226, 218, 194, 0.18);
   border-radius: var(--radius-sm);
   pointer-events: auto;
   cursor: pointer;
-  transition: background var(--duration-fast, 150ms) var(--ease-out, ease-out),
-              border-color var(--duration-fast, 150ms) var(--ease-out, ease-out);
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.75), inset 0 0 0 1px rgba(226, 218, 194, 0.4);
+  transition: all var(--duration-fast, 150ms) var(--ease-out, ease-out);
 }
 
 .manga-bubble-hitbox:hover {
-  background: rgba(226, 218, 194, 0.28);
+  background: rgba(226, 218, 194, 0.38);
   border-color: var(--architectural-cream);
-  box-shadow: 0 0 8px rgba(226, 218, 194, 0.4);
+  box-shadow: 0 0 12px rgba(226, 218, 194, 0.75), inset 0 0 0 1.5px var(--gold);
+  transform: scale(1.015);
+  z-index: 20;
+}
+
+.manga-bubble-hitbox.is-selected {
+  border-color: var(--architectural-cream);
+  background: rgba(226, 218, 194, 0.45);
+  box-shadow: 0 0 16px rgba(226, 218, 194, 0.85), inset 0 0 0 2px var(--gold);
+  z-index: 22;
+}
+
+.manga-bubble-tag {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  background: var(--pure-black);
+  border: 1.5px solid var(--gold);
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  line-height: 1;
+}
+
+/* ---------------------------------------------------------------------------
+ * Plain Bubble Sentence Card (Sidebar & Popover)
+ * --------------------------------------------------------------------------- */
+.manga-sidebar-sentence-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--pure-black);
+  border: 1.5px solid var(--tactile-stroke);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.85rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+  gap: 0.5rem;
+}
+
+.manga-sidebar-sentence-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.manga-sentence-words-flow {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--architectural-cream);
+  word-break: break-word;
+  min-height: 2.2rem;
+}
+
+.manga-clickable-word {
+  display: inline;
+  padding: 2px 4px;
+  margin: 0 1px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--duration-fast, 150ms) var(--ease-out, ease-out);
+  color: var(--architectural-cream);
+  border-bottom: 2px solid transparent;
+}
+
+.manga-clickable-word:hover {
+  background: rgba(226, 218, 194, 0.22);
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+
+.manga-clickable-word.is-active {
+  background: var(--gold);
+  color: var(--pure-black);
+  font-weight: 700;
+  border-bottom-color: transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 /* ---------------------------------------------------------------------------

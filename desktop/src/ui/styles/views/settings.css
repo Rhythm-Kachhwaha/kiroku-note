@@ -387,6 +387,38 @@
   color: var(--warm-paper);
 }
 
+/* iOS Shortcut & External Capture Token Card */
+.shortcut-token-field-wrapper {
+  background-color: var(--surface-container-low);
+  border: 1px solid var(--tactile-stroke);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+}
+
+.shortcut-token-input-row {
+  position: relative;
+}
+
+.btn-toggle-shortcut-visibility {
+  position: absolute;
+  right: var(--space-2);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.btn-toggle-shortcut-visibility:hover {
+  color: var(--warm-paper);
+}
+
+.shortcut-install-row {
+  border-top: 1px solid var(--tactile-stroke);
+}
+
 @media (max-width: 768px) {
   .settings-layout {
     flex-direction: column;

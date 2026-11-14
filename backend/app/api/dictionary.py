@@ -2,10 +2,17 @@
 from __future__ import annotations
 
 import logging
+from threading import Lock
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
+
+try:
+    from sudachipy import Dictionary, SplitMode
+except ImportError:
+    Dictionary = None  # type: ignore[assignment,misc]
+    SplitMode = None  # type: ignore[assignment,misc]
 
 from app.config import (
     get_dictionary_backend,
@@ -20,6 +27,38 @@ from kiroku_dictionary.provision import get_provision_status, start_provisioning
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["dictionary"])
+
+_sudachi_lock = Lock()
+_sudachi_dict = None
+
+
+def _get_sudachi_tokenizer():
+    global _sudachi_dict
+    if Dictionary is None:
+        return None
+    with _sudachi_lock:
+        if _sudachi_dict is None:
+            _sudachi_dict = Dictionary()
+        return _sudachi_dict.tokenizer()
+
+
+class TokenInfo(BaseModel):
+    surface: str
+    normalized: str
+    dictionary_form: str
+    reading: str
+    part_of_speech: list[str]
+    inflection_type: str
+    inflection_form: str
+
+
+class TokenizeRequest(BaseModel):
+    text: str
+    mode: str = "C"
+
+
+class TokenizeResponse(BaseModel):
+    tokens: list[TokenInfo]
 
 
 class DictionarySettingsRequest(BaseModel):
@@ -137,4 +176,52 @@ def update_dictionary_settings(
         yomitan_secondary=is_yomitan_secondary_enabled(),
         backend=get_dictionary_backend(),
     )
+
+
+@router.post("/api/tokenize", response_model=TokenizeResponse)
+def tokenize_text(payload: TokenizeRequest) -> TokenizeResponse:
+    """Analyze sentence text with Sudachi morphological analyzer."""
+    if not payload.text or not payload.text.strip():
+        return TokenizeResponse(tokens=[])
+
+    tokenizer = _get_sudachi_tokenizer()
+    if tokenizer is None or SplitMode is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="SudachiPy tokenizer is not installed or available.",
+        )
+
+    mode_str = (payload.mode or "C").upper().strip()
+    if mode_str == "A":
+        split_mode = SplitMode.A
+    elif mode_str == "B":
+        split_mode = SplitMode.B
+    else:
+        split_mode = SplitMode.C
+
+    try:
+        morphemes = tokenizer.tokenize(payload.text, split_mode)
+    except Exception as exc:
+        logger.warning("Sudachi tokenization error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Tokenization failed: {exc}",
+        )
+
+    tokens: list[TokenInfo] = []
+    for m in morphemes:
+        pos = m.part_of_speech()
+        tokens.append(
+            TokenInfo(
+                surface=m.surface(),
+                normalized=m.normalized_form(),
+                dictionary_form=m.dictionary_form(),
+                reading=m.reading_form() or "",
+                part_of_speech=list(pos[:4]) if len(pos) >= 4 else list(pos),
+                inflection_type=pos[4] if len(pos) > 4 else "*",
+                inflection_form=pos[5] if len(pos) > 5 else "*",
+            )
+        )
+
+    return TokenizeResponse(tokens=tokens)
 
