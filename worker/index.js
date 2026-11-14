@@ -69,6 +69,46 @@ app.use('/api/oplog/write', async (c, next) => {
   return await next();
 });
 
+app.use('/submit', async (c, next) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
+  const { allowed, retryAfter } = checkRateLimit(ip);
+  if (!allowed) {
+    c.header('Retry-After', String(retryAfter));
+    return c.json({ error: 'Rate limit exceeded', retry_after: retryAfter }, 429);
+  }
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    const isDev = (c.env?.ENVIRONMENT === 'development') || (!c.env?.CLOUD_QUEUE_API_KEY && !c.env?.SUBMIT_TOKEN);
+    if (isDev) {
+      c.set('user', { sub: 'dev_user', role: 'developer' });
+      return await next();
+    }
+    return c.json({ error: 'Unauthorized', message: 'Valid session cookie or Bearer token required' }, 401);
+  }
+  c.set('user', auth.user);
+  return await next();
+});
+
+app.use('/enqueue', async (c, next) => {
+  const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
+  const { allowed, retryAfter } = checkRateLimit(ip);
+  if (!allowed) {
+    c.header('Retry-After', String(retryAfter));
+    return c.json({ error: 'Rate limit exceeded', retry_after: retryAfter }, 429);
+  }
+  const auth = await authenticateRequest(c);
+  if (!auth.authenticated) {
+    const isDev = (c.env?.ENVIRONMENT === 'development') || (!c.env?.CLOUD_QUEUE_API_KEY && !c.env?.SUBMIT_TOKEN);
+    if (isDev) {
+      c.set('user', { sub: 'dev_user', role: 'developer' });
+      return await next();
+    }
+    return c.json({ error: 'Unauthorized', message: 'Valid session cookie or Bearer token required' }, 401);
+  }
+  c.set('user', auth.user);
+  return await next();
+});
+
 app.use('/api/tokenize', async (c, next) => {
   const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
   const { allowed, retryAfter } = checkRateLimit(ip);
@@ -177,11 +217,11 @@ app.get('/api/metrics', async (c) => {
       const tursoHttpUrl = c.env.TURSO_DATABASE_URL.replace('libsql://', 'https://') + '/v2/pipeline';
       const sqlQuery = {
         requests: [
-          { type: 'execute', stmt: { sql: 'SELECT count(*) as count FROM op_log WHERE ack = 0 AND (lease_expires_at IS NULL OR lease_expires_at < datetime("now"))' } },
-          { type: 'execute', stmt: { sql: 'SELECT count(*) as count FROM op_log WHERE ack = 0 AND lease_expires_at >= datetime("now")' } },
-          { type: 'execute', stmt: { sql: 'SELECT count(*) as count FROM op_log WHERE ack = 1' } },
-          { type: 'execute', stmt: { sql: 'SELECT count(*) as count FROM op_log WHERE error != ""' } },
-          { type: 'execute', stmt: { sql: 'SELECT id, payload, attempts, created_at, ack, error FROM op_log ORDER BY created_at DESC LIMIT 10' } }
+          { type: 'execute', stmt: { sql: "SELECT count(*) as count FROM op_log WHERE ack = 0 AND (lease_expires_at IS NULL OR lease_expires_at < datetime('now'))" } },
+          { type: 'execute', stmt: { sql: "SELECT count(*) as count FROM op_log WHERE ack = 0 AND lease_expires_at >= datetime('now')" } },
+          { type: 'execute', stmt: { sql: "SELECT count(*) as count FROM op_log WHERE ack = 1" } },
+          { type: 'execute', stmt: { sql: "SELECT count(*) as count FROM op_log WHERE error != ''" } },
+          { type: 'execute', stmt: { sql: "SELECT id, payload, attempts, created_at, ack, error FROM op_log ORDER BY created_at DESC LIMIT 10" } }
         ]
       };
       const res = await fetch(tursoHttpUrl, {
@@ -268,8 +308,70 @@ app.get('/api/metrics', async (c) => {
   });
 });
 
-// Op-log & Mirror endpoints (proxying to backend / Turso)
-app.post('/api/oplog/write', async (c) => {
+// Op-log & Mirror endpoints (Direct Turso edge write + upstream fallback)
+async function handleOplogWrite(c) {
+  // 1. Direct Turso edge write if secrets are configured
+  if (c.env?.TURSO_DATABASE_URL && c.env?.TURSO_AUTH_TOKEN) {
+    try {
+      let body = {};
+      try {
+        body = await c.req.json();
+      } catch {
+        const text = await c.req.text();
+        try {
+          body = JSON.parse(text);
+        } catch {
+          body = { expression: text };
+        }
+      }
+
+      const itemId = body.id || `op_${crypto.randomUUID().slice(0, 12)}`;
+      let payloadStr = '';
+      if (typeof body.payload === 'string') {
+        payloadStr = body.payload;
+      } else if (body.payload && typeof body.payload === 'object') {
+        payloadStr = JSON.stringify(body.payload);
+      } else {
+        payloadStr = JSON.stringify(body);
+      }
+
+      const nowIso = new Date().toISOString();
+      const tursoHttpUrl = c.env.TURSO_DATABASE_URL.replace('libsql://', 'https://').replace(/\/$/, '') + '/v2/pipeline';
+
+      const res = await fetch(tursoHttpUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${c.env.TURSO_AUTH_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              type: 'execute',
+              stmt: {
+                sql: 'INSERT INTO op_log (id, payload, created_at) VALUES (?, ?, ?)',
+                args: [
+                  { type: 'text', value: itemId },
+                  { type: 'text', value: payloadStr },
+                  { type: 'text', value: nowIso }
+                ]
+              }
+            }
+          ]
+        })
+      });
+
+      if (res.ok) {
+        return c.json({ status: 'ok', id: itemId, source: 'turso_edge' }, 201);
+      }
+      const errText = await res.text();
+      console.warn('[Oplog] Turso pipeline insert error:', res.status, errText);
+    } catch (tursoErr) {
+      console.warn('[Oplog] Direct Turso write failed, falling back to proxy:', tursoErr.message);
+    }
+  }
+
+  // 2. Upstream backend proxy fallback
   const backendUrl = c.env?.BACKEND_URL || 'http://localhost:8000';
   const target = `${backendUrl}/api/oplog/write`;
   try {
@@ -282,7 +384,11 @@ app.post('/api/oplog/write', async (c) => {
   } catch (err) {
     return c.json({ error: 'Proxy error', details: String(err) }, 502);
   }
-});
+}
+
+app.post('/api/oplog/write', handleOplogWrite);
+app.post('/submit', handleOplogWrite);
+app.post('/enqueue', handleOplogWrite);
 
 app.get('/api/oplog/lease', async (c) => {
   const backendUrl = c.env?.BACKEND_URL || 'http://localhost:8000';

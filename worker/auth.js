@@ -191,7 +191,7 @@ export function parseCookies(cookieHeader) {
 
 export async function authenticateRequest(c) {
   const secret = c.env?.JWT_SECRET || DEFAULT_JWT_SECRET;
-  const apiKey = c.env?.CLOUD_QUEUE_API_KEY || '';
+  const apiKey = c.env?.CLOUD_QUEUE_API_KEY || c.env?.SUBMIT_TOKEN || c.env?.PHONE_SECRET || '';
 
   // 1. Check HttpOnly cookie
   const cookieHeader = c.req.header('Cookie') || '';

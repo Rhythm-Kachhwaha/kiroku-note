@@ -52,6 +52,8 @@ class TursoQueueAdapter(QueueAdapter):
         lease_duration: int = 60,
     ):
         self.db_url = (db_url or os.getenv("TURSO_DATABASE_URL", "")).strip()
+        if self.db_url.startswith("libsql://"):
+            self.db_url = "https://" + self.db_url[9:]
         self.auth_token = (auth_token or os.getenv("TURSO_AUTH_TOKEN", "")).strip()
         self.lease_duration = lease_duration
         self._schema_initialized = False
