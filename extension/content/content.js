@@ -151,7 +151,14 @@
     }
   }
 
-  document.addEventListener("mouseup", () => {
+  document.addEventListener("mouseup", (event) => {
+    const popup = getPopup();
+    if (popup && popup.hostEl && typeof event.composedPath === "function") {
+      const path = event.composedPath();
+      if (path.includes(popup.hostEl) || (popup.popupEl && path.includes(popup.popupEl))) {
+        return;
+      }
+    }
     setTimeout(() => captureSelection(), 10);
   }, true);
 

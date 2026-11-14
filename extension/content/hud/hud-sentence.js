@@ -50,20 +50,32 @@
       this.toolbarEl.style.display = "none";
       this.toolbarEl.style.cssText = `
         position: absolute;
-        bottom: 12px;
+        bottom: 14px;
         left: 50%;
         transform: translateX(-50%);
         display: none;
         align-items: center;
         gap: 6px;
-        padding: 4px 8px;
-        background: rgba(24, 24, 27, 0.9);
-        backdrop-filter: blur(8px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 8px;
+        padding: 5px 10px;
+        background: rgba(28, 27, 25, 0.94);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(245, 241, 232, 0.16);
+        border-radius: 9999px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 1.5px 1.5px 0 #11100E;
         z-index: 2147483646;
         pointer-events: auto;
+        opacity: 0.92;
+        transition: opacity 140ms ease, transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       `;
+
+      this.toolbarEl.addEventListener("mouseenter", () => {
+        this.toolbarEl.style.opacity = "1";
+      });
+      this.toolbarEl.addEventListener("mouseleave", () => {
+        this.toolbarEl.style.opacity = "0.92";
+      });
 
       // Prevent video player play/pause toggle when interacting with sentence action bar
       const stopEvent = (e) => {
@@ -76,31 +88,75 @@
       this.toolbarEl.addEventListener("click", stopEvent);
 
       this.toolbarEl.innerHTML = `
-        <button type="button" tabindex="-1" class="hud-sent-btn btn-merge-prev" title="Merge with previous cue (←+)" style="
-          padding: 4px 7px; font-size: 11px; font-weight: 500; border: none; border-radius: 4px;
-          background: rgba(255,255,255,0.12); color: #f4f4f5; cursor: pointer;
-        ">←+</button>
-        <button type="button" tabindex="-1" class="hud-sent-btn btn-merge-next" title="Merge with next cue (+→)" style="
-          padding: 4px 7px; font-size: 11px; font-weight: 500; border: none; border-radius: 4px;
-          background: rgba(255,255,255,0.12); color: #f4f4f5; cursor: pointer;
-        ">+→</button>
+        <button type="button" tabindex="-1" class="hud-sent-btn btn-merge-prev" title="Merge with previous line" style="
+          display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; font-weight: 500;
+          border: 1px solid rgba(245, 241, 232, 0.14); border-radius: 6px;
+          background: rgba(245, 241, 232, 0.08); color: #F5F1E8; cursor: pointer;
+          box-shadow: 1px 1px 0 #11100E; transition: all 120ms ease;
+        ">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;">
+            <line x1="14" y1="8" x2="4" y2="8"></line>
+            <polyline points="8 4 4 8 8 12"></polyline>
+            <line x1="2" y1="3" x2="2" y2="13"></line>
+          </svg>
+          <span>Prev</span>
+        </button>
+        <button type="button" tabindex="-1" class="hud-sent-btn btn-merge-next" title="Merge with next line" style="
+          display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; font-weight: 500;
+          border: 1px solid rgba(245, 241, 232, 0.14); border-radius: 6px;
+          background: rgba(245, 241, 232, 0.08); color: #F5F1E8; cursor: pointer;
+          box-shadow: 1px 1px 0 #11100E; transition: all 120ms ease;
+        ">
+          <span>Next</span>
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;">
+            <line x1="2" y1="8" x2="12" y2="8"></line>
+            <polyline points="8 4 12 8 8 12"></polyline>
+            <line x1="14" y1="3" x2="14" y2="13"></line>
+          </svg>
+        </button>
         <button type="button" tabindex="-1" class="hud-sent-btn btn-unmerge" title="Reset / Unmerge cue" style="
-          display: none; padding: 4px 7px; font-size: 11px; font-weight: 500; border: none; border-radius: 4px;
-          background: rgba(255,255,255,0.18); color: #f4f4f5; cursor: pointer;
+          display: none; padding: 4px 8px; font-size: 11px; font-weight: 500;
+          border: 1px solid rgba(245, 241, 232, 0.2); border-radius: 6px;
+          background: rgba(245, 241, 232, 0.14); color: #F5F1E8; cursor: pointer;
+          box-shadow: 1px 1px 0 #11100E; transition: all 120ms ease;
         ">Reset</button>
-        <button type="button" tabindex="-1" class="hud-sent-btn btn-mine-sentence" title="Mine whole sentence" style="
-          padding: 4px 8px; font-size: 11px; font-weight: 500; border: none; border-radius: 4px;
-          background: #d4884f; color: #18181b; cursor: pointer;
-        ">Mine Sentence</button>
+        <button type="button" tabindex="-1" class="hud-sent-btn btn-mine-sentence" title="Save sentence to Kiroku" style="
+          display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 11px; font-weight: 600;
+          border: 1px solid rgba(245, 241, 232, 0.25); border-radius: 6px;
+          background: #D94B38; color: #FAF8F5; cursor: pointer;
+          box-shadow: 1.5px 1.5px 0 #11100E; transition: all 120ms ease;
+        ">Save Sentence</button>
         <button type="button" tabindex="-1" class="hud-sent-btn btn-grammar" title="Look up sentence grammar" style="
-          padding: 4px 8px; font-size: 11px; font-weight: 500; border: none; border-radius: 4px;
-          background: rgba(255,255,255,0.12); color: #f4f4f5; cursor: pointer;
+          display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; font-weight: 500;
+          border: 1px solid rgba(245, 241, 232, 0.14); border-radius: 6px;
+          background: rgba(245, 241, 232, 0.08); color: #F5F1E8; cursor: pointer;
+          box-shadow: 1px 1px 0 #11100E; transition: all 120ms ease;
         ">Grammar</button>
         <button type="button" tabindex="-1" class="hud-sent-btn btn-transcript" title="Jump to transcript" style="
-          padding: 4px 8px; font-size: 11px; font-weight: 500; border: none; border-radius: 4px;
-          background: rgba(255,255,255,0.12); color: #f4f4f5; cursor: pointer;
+          display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 11px; font-weight: 500;
+          border: 1px solid rgba(245, 241, 232, 0.14); border-radius: 6px;
+          background: rgba(245, 241, 232, 0.08); color: #F5F1E8; cursor: pointer;
+          box-shadow: 1px 1px 0 #11100E; transition: all 120ms ease;
         ">Transcript</button>
       `;
+
+      // Attach tactile press listeners to buttons
+      if (typeof this.toolbarEl.querySelectorAll === "function") {
+        const btns = this.toolbarEl.querySelectorAll(".hud-sent-btn");
+        btns.forEach((btn) => {
+          btn.addEventListener("pointerdown", () => {
+            btn.style.transform = "translate(1px, 1px)";
+            btn.style.boxShadow = "none";
+          });
+          const resetBtnState = () => {
+            btn.style.transform = "none";
+            btn.style.boxShadow = btn.classList?.contains?.("btn-mine-sentence") ? "1.5px 1.5px 0 #11100E" : "1px 1px 0 #11100E";
+          };
+          btn.addEventListener("pointerup", resetBtnState);
+          btn.addEventListener("pointercancel", resetBtnState);
+          btn.addEventListener("mouseleave", resetBtnState);
+        });
+      }
 
       this.badgeEl = document.createElement("span");
       this.badgeEl.className = "hud-1t-badge";
@@ -328,7 +384,7 @@
       const mineBtn = this.toolbarEl?.querySelector(".btn-mine-sentence");
       if (mineBtn) {
         mineBtn.disabled = true;
-        mineBtn.textContent = "Mining…";
+        mineBtn.textContent = "Saving…";
       }
 
       try {
@@ -360,18 +416,18 @@
           }
         }
         if (mineBtn) {
-          mineBtn.textContent = "Mined!";
+          mineBtn.textContent = "Saved";
           setTimeout(() => {
             if (mineBtn) {
               mineBtn.disabled = false;
-              mineBtn.textContent = "Mine Sentence";
+              mineBtn.textContent = "Save Sentence";
             }
           }, 2000);
         }
       } catch (err) {
         if (mineBtn) {
           mineBtn.disabled = false;
-          mineBtn.textContent = "Mine Sentence";
+          mineBtn.textContent = "Save Sentence";
         }
       }
     }
@@ -385,6 +441,26 @@
             type: "SP_OPEN_GRAMMAR",
             text: sentence
           });
+        }
+      } catch (_) {}
+
+      // If in-page standalone popup engine is active, open it on Grammar tab!
+      try {
+        if (typeof window !== "undefined") {
+          const popup = window.__kirokuHudPopup || (typeof getPopup === "function" ? getPopup() : null);
+          if (popup && typeof popup.showAtPoint === "function") {
+            const rect = this.toolbarEl ? this.toolbarEl.getBoundingClientRect() : null;
+            const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+            const y = rect ? rect.top - 10 : window.innerHeight / 2;
+            popup.showAtPoint(x, y, {
+              surface: sentence,
+              lemma: sentence,
+              text: sentence,
+              reading: "",
+              jlpt_level: "Grammar"
+            }, sentence);
+            popup.switchTab("grammar");
+          }
         }
       } catch (_) {}
     }

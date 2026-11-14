@@ -392,38 +392,107 @@
       background: rgba(245, 241, 232, 0.22);
     }
 
-    /* Video Subtitle Mock Frame (Migaku Netflix Reference) */
+    /* Video Subtitle Mock Frame (Migaku & Anime HUD Reference) */
     .video-mock-frame {
       position: relative;
       width: 100%;
-      height: 280px;
+      min-height: 420px;
       background: radial-gradient(circle at center, #242428 0%, #111113 100%);
-      border-radius: 8px;
+      border-radius: 12px;
       border: 1px solid var(--subtle-border);
       overflow: hidden;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
       align-items: center;
-      padding-bottom: 36px;
-      box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
+      padding-bottom: 28px;
+      box-shadow: inset 0 0 50px rgba(0,0,0,0.85);
     }
 
     .mock-video-overlay-title {
       position: absolute;
-      top: 14px;
-      left: 16px;
+      top: 16px;
+      left: 18px;
       font-family: var(--font-sans);
       font-size: 12px;
       color: var(--paper-muted);
       display: flex;
       align-items: center;
       gap: 6px;
+      z-index: 5;
     }
 
+    /* Subtitle Overlay Trigger Button (SS3) */
+    .mock-hud-trigger-btn {
+      position: absolute;
+      top: 14px;
+      right: 18px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: rgba(28, 27, 25, 0.90);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(245, 241, 232, 0.18);
+      border-radius: 9999px;
+      color: #F5F1E8;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 1.5px 1.5px 0 #11100E;
+      transition: background 0.15s ease, transform 0.1s ease;
+      z-index: 25;
+    }
+    .mock-hud-trigger-btn:hover {
+      background: rgba(42, 41, 38, 0.96);
+      transform: translateY(-1px);
+    }
+    .mock-hud-trigger-btn:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
+    /* Subtitle Menu Panel in Sandbox (SS3 Redesign) */
+    .mock-hud-menu-panel {
+      position: absolute;
+      top: 54px;
+      right: 18px;
+      width: 320px;
+      max-height: calc(100% - 70px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(245, 241, 232, 0.2) transparent;
+      background: #1C1B19;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(245, 241, 232, 0.14);
+      border-radius: 12px;
+      padding: 14px;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75), 1.5px 1.5px 0 #11100E;
+      z-index: 30;
+      text-align: left;
+    }
+    .mock-hud-menu-panel.is-open {
+      display: flex;
+    }
+    .mock-hud-menu-panel::-webkit-scrollbar {
+      width: 5px;
+    }
+    .mock-hud-menu-panel::-webkit-scrollbar-thumb {
+      background: rgba(245, 241, 232, 0.18);
+      border-radius: 9999px;
+    }
+
+    /* Subtitle Display Bubble */
     .subtitle-display-bubble {
       background: rgba(0, 0, 0, 0.82);
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       padding: 10px 24px;
       border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.12);
@@ -432,12 +501,82 @@
       font-weight: 500;
       color: #FFFFFF;
       letter-spacing: 0.04em;
+      margin-bottom: 12px;
+      z-index: 5;
     }
 
     .subtitle-display-bubble .target-highlight {
       color: #F7E0BA;
       font-weight: 700;
       border-bottom: 2px solid #F7E0BA;
+    }
+
+    /* Subtitle Action Bar (SS4 Redesign) */
+    .mock-hud-sentence-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      background: rgba(28, 27, 25, 0.94);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(245, 241, 232, 0.16);
+      border-radius: 9999px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 1.5px 1.5px 0 #11100E;
+      z-index: 10;
+      opacity: 0.95;
+      transition: opacity 140ms ease, transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+      font-family: var(--font-sans);
+    }
+    .mock-hud-sentence-bar:hover {
+      opacity: 1;
+    }
+
+    .mock-sent-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid rgba(245, 241, 232, 0.14);
+      border-radius: 6px;
+      background: rgba(245, 241, 232, 0.08);
+      color: #F5F1E8;
+      cursor: pointer;
+      box-shadow: 1px 1px 0 #11100E;
+      transition: all 120ms ease;
+    }
+    .mock-sent-btn:hover {
+      background: rgba(245, 241, 232, 0.14);
+    }
+    .mock-sent-btn:active {
+      transform: translate(1px, 1px);
+      box-shadow: none;
+    }
+    .mock-sent-btn.btn-save {
+      background: #D94B38;
+      border-color: rgba(245, 241, 232, 0.25);
+      color: #FAF8F5;
+      font-weight: 600;
+      padding: 4px 10px;
+      box-shadow: 1.5px 1.5px 0 #11100E;
+    }
+    .mock-sent-btn.btn-save:hover {
+      background: #C53E2D;
+    }
+    .mock-sent-btn.btn-save:active {
+      transform: translate(1px, 1px);
+      box-shadow: none;
+    }
+    .mock-1t-badge {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4EBB7B;
+      box-shadow: 0 0 6px rgba(78, 187, 123, 0.5);
+      margin-left: 2px;
     }
 
     /* SVGs and Icons */
@@ -568,24 +707,109 @@
       </div>
     </div>
 
-    <!-- Section 1: Video Subtitle Immersion (Migaku Screenshot 1 Reference) -->
+    <!-- Section 1: Video Subtitle Immersion (Netflix Reference with Subtitle HUD & Bar) -->
     <section class="content-section">
       <div class="section-title">
-        <span>1. Video Subtitle Scene (Netflix Reference)</span>
-        <span class="section-tag">Anime &amp; Video HUD</span>
+        <span>1. Video Subtitle Scene (Netflix Simulation)</span>
+        <span class="section-tag">Anime HUD &amp; Sentence Bar</span>
       </div>
 
-      <div class="video-mock-frame">
+      <div class="video-mock-frame" id="mockVideoFrame">
         <div class="mock-video-overlay-title">
           <svg class="icon-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span>Netflix Streaming Simulation &bull; Ep 12 (12:29)</span>
         </div>
+
+        <!-- Top Right Subtitle HUD Menu Trigger (SS3) -->
+        <button type="button" class="mock-hud-trigger-btn" id="mockSubsToggleBtn" aria-label="Toggle Kiroku Subtitles Menu">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h8v2H6zm10 0h2v2h-2zm-6-4h8v2h-8z"/></svg>
+          <span>Subs</span>
+        </button>
+
+        <!-- Kiroku Subtitles Overlay Menu Panel (SS3 Redesign) -->
+        <div class="mock-hud-menu-panel" id="mockHudMenuPanel">
+          <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(245,241,232,0.1); padding-bottom:8px;">
+            <div style="font-size:13px; font-weight:600; color:#F5F1E8;">Kiroku Subtitles</div>
+            <div style="display:flex; align-items:center; gap:5px; font-size:10px; padding:3px 8px; border-radius:9999px; background:rgba(245,241,232,0.06); border:1px solid rgba(245,241,232,0.12); color:rgba(245,241,232,0.75);">
+              <span style="width:6px; height:6px; border-radius:50%; background:#4EBB7B; box-shadow:0 0 6px rgba(78,187,123,0.5);"></span>
+              <span>Ready</span>
+            </div>
+          </div>
+
+          <div style="background:rgba(245,241,232,0.05); border:1px solid rgba(245,241,232,0.09); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:4px;">
+            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:rgba(245,241,232,0.5); font-weight:600;">Active Subtitle</span>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+              <span style="font-size:12px; font-weight:600; color:#F5F1E8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">KirokuSubtitles_[Frained] けいおん! 01...</span>
+              <span style="font-size:10px; padding:2px 7px; border-radius:4px; background:#2A2926; border:1px solid rgba(245,241,232,0.12); color:rgba(245,241,232,0.85); font-weight:500;">File</span>
+            </div>
+            <span style="font-size:11px; color:rgba(245,241,232,0.5);">397 cues</span>
+          </div>
+
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="mock-sent-btn btn-save" style="flex:1; justify-content:center; padding:7px 10px;" id="mockBtnAutodetect">Auto-detect</button>
+            <button type="button" class="mock-sent-btn" style="flex:1; justify-content:center; padding:7px 10px;" id="mockBtnJimaku">Search Jimaku</button>
+          </div>
+
+          <div style="border:1px dashed rgba(245,241,232,0.22); border-radius:8px; padding:12px; text-align:center; background:rgba(245,241,232,0.02); cursor:pointer;" id="mockDropzone">
+            <span style="font-size:11px; color:rgba(245,241,232,0.6);">Drop SRT, ASS, VTT or Browse</span>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:rgba(245,241,232,0.5); font-weight:600;">Timing Offset</span>
+            <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(245,241,232,0.03); border:1px solid rgba(245,241,232,0.07); border-radius:6px; padding:4px; gap:4px;">
+              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="-1000">-1s</button>
+              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="-100">-100ms</button>
+              <span id="mockOffsetVal" style="font-family:monospace; font-size:12px; font-weight:700; color:#F5F1E8; min-width:54px; text-align:center;">+0ms</span>
+              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="100">+100ms</button>
+              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="1000">+1s</button>
+              <button type="button" class="mock-sent-btn mock-off-btn" data-delta="0">Reset</button>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:rgba(245,241,232,0.5); font-weight:600;">Display Controls</span>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+              <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockToggleVis" style="grid-column:span 2; justify-content:center;">Subtitles: Visible</button>
+              <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockTogglePos" style="justify-content:center;">Position: Bottom</button>
+              <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockToggleSize" style="justify-content:center;">Font Size: 20px</button>
+              <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockToggleBlur" style="justify-content:center;">Blur: Off</button>
+              <button type="button" class="mock-sent-btn mock-toggle-btn" id="mockToggleFuri" style="justify-content:center;">Furigana: Hover</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Subtitle Bubble -->
         <div class="subtitle-display-bubble" id="mockSubtitleBubble">
           そこにあるマークの<ruby class="target-highlight sample-target" id="mockWordIchi" data-word="位置" data-reading="いち" data-sentence="そこにあるマークの位置に立て"><span class="kanji-span">位置</span><rt>いち</rt></ruby>に立て
         </div>
+
+        <!-- Subtitle Action Toolbar (SS4 Redesign) -->
+        <div class="mock-hud-sentence-bar" id="mockSentenceBar">
+          <button type="button" class="mock-sent-btn btn-merge-prev" id="mockMergePrev" title="Merge with previous line">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="14" y1="8" x2="4" y2="8"></line>
+              <polyline points="8 4 4 8 8 12"></polyline>
+              <line x1="2" y1="3" x2="2" y2="13"></line>
+            </svg>
+            <span>Prev</span>
+          </button>
+          <button type="button" class="mock-sent-btn btn-merge-next" id="mockMergeNext" title="Merge with next line">
+            <span>Next</span>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="2" y1="8" x2="12" y2="8"></line>
+              <polyline points="8 4 12 8 8 12"></polyline>
+              <line x1="14" y1="3" x2="14" y2="13"></line>
+            </svg>
+          </button>
+          <button type="button" class="mock-sent-btn" id="mockBtnResetMerge" style="display:none;" title="Reset merge">Reset</button>
+          <button type="button" class="mock-sent-btn btn-save" id="mockSaveSentenceBtn" title="Save sentence to Kiroku">Save Sentence</button>
+          <button type="button" class="mock-sent-btn" id="mockGrammarSentenceBtn" title="Look up sentence grammar">Grammar</button>
+          <button type="button" class="mock-sent-btn" id="mockTranscriptBtn" title="Jump to transcript">Transcript</button>
+          <span class="mock-1t-badge" title="1-Target (i+1) Sentence"></span>
+        </div>
       </div>
-      <p style="font-size:13px; color:var(--paper-muted); text-align:center;">
-        Click or Shift+Hover the word <strong style="color:#F7E0BA;">「位置」</strong> above to trigger the exact Migaku-style popover card.
+      <p style="font-size:13px; color:var(--paper-muted); text-align:center; margin-top:10px;">
+        Click word <strong style="color:#F7E0BA;">「位置」</strong> for compact word popover. Click <strong style="color:#F5F1E8;">[Subs]</strong> top-right for Subtitle HUD (SS3). Use the bar below (SS4) to Save Sentence or analyze Grammar.
       </p>
     </section>
 
@@ -875,7 +1099,17 @@
       });
 
       // 5. Wire Selection Trigger
-      document.addEventListener("mouseup", () => {
+      document.addEventListener("mouseup", (e) => {
+        if (popup && popup.hostEl && typeof e.composedPath === "function") {
+          const path = e.composedPath();
+          if (path.includes(popup.hostEl) || (popup.popupEl && path.includes(popup.popupEl))) {
+            return;
+          }
+        }
+        if (e.target?.closest?.(".mock-hud-sentence-bar") || e.target?.closest?.(".mock-hud-menu-panel")) {
+          return;
+        }
+
         setTimeout(() => {
           const sel = window.getSelection();
           const text = sel ? sel.toString().trim() : "";
@@ -900,6 +1134,173 @@
             }
           } catch (_) {}
         }, 20);
+      });
+
+      // 6. Wire Video Subtitle HUD Menu (SS3 Redesign)
+      const subsToggleBtn = document.getElementById("mockSubsToggleBtn");
+      const subsMenuPanel = document.getElementById("mockHudMenuPanel");
+      subsToggleBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        subsMenuPanel?.classList.toggle("is-open");
+      });
+
+      // Close menu on outer click
+      document.addEventListener("click", (e) => {
+        if (subsMenuPanel?.classList.contains("is-open")) {
+          if (!subsMenuPanel.contains(e.target) && e.target !== subsToggleBtn) {
+            subsMenuPanel.classList.remove("is-open");
+          }
+        }
+      });
+
+      // Timing Offset Controls in Subtitle HUD
+      let currentOffset = 0;
+      const offsetValEl = document.getElementById("mockOffsetVal");
+      document.querySelectorAll(".mock-off-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const delta = parseInt(btn.dataset.delta, 10);
+          if (delta === 0) {
+            currentOffset = 0;
+          } else {
+            currentOffset += delta;
+          }
+          if (offsetValEl) {
+            offsetValEl.textContent = `${currentOffset >= 0 ? "+" : ""}${currentOffset}ms`;
+          }
+        });
+      });
+
+      // Display Control Toggles in Subtitle HUD
+      let isVisible = true;
+      let isBottom = true;
+      let fontSizeIdx = 0;
+      const fontSizes = [20, 24, 28];
+      let blurOn = false;
+      let furiIdx = 0;
+      const furiModes = ["Hover", "Always", "Off"];
+
+      const toggleVisBtn = document.getElementById("mockToggleVis");
+      const togglePosBtn = document.getElementById("mockTogglePos");
+      const toggleSizeBtn = document.getElementById("mockToggleSize");
+      const toggleBlurBtn = document.getElementById("mockToggleBlur");
+      const toggleFuriBtn = document.getElementById("mockToggleFuri");
+      const subBubble = document.getElementById("mockSubtitleBubble");
+
+      toggleVisBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        isVisible = !isVisible;
+        toggleVisBtn.textContent = `Subtitles: ${isVisible ? "Visible" : "Hidden"}`;
+        if (subBubble) subBubble.style.opacity = isVisible ? "1" : "0";
+      });
+
+      togglePosBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        isBottom = !isBottom;
+        togglePosBtn.textContent = `Position: ${isBottom ? "Bottom" : "Top"}`;
+        const frame = document.getElementById("mockVideoFrame");
+        if (frame) {
+          frame.style.justifyContent = isBottom ? "flex-end" : "flex-start";
+          frame.style.paddingTop = isBottom ? "0" : "60px";
+        }
+      });
+
+      toggleSizeBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        fontSizeIdx = (fontSizeIdx + 1) % fontSizes.length;
+        const s = fontSizes[fontSizeIdx];
+        toggleSizeBtn.textContent = `Font Size: ${s}px`;
+        if (subBubble) subBubble.style.fontSize = `${s}px`;
+      });
+
+      toggleBlurBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        blurOn = !blurOn;
+        toggleBlurBtn.textContent = `Blur: ${blurOn ? "On" : "Off"}`;
+        if (subBubble) {
+          subBubble.style.filter = blurOn ? "blur(5px)" : "none";
+          subBubble.style.transition = "filter 200ms ease";
+        }
+      });
+
+      toggleFuriBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        furiIdx = (furiIdx + 1) % furiModes.length;
+        toggleFuriBtn.textContent = `Furigana: ${furiModes[furiIdx]}`;
+        const rt = subBubble?.querySelector("rt");
+        if (rt) {
+          rt.style.opacity = furiModes[furiIdx] === "Off" ? "0" : "1";
+        }
+      });
+
+      // 7. Wire Subtitle Sentence Toolbar (SS4 Redesign)
+      const saveSentBtn = document.getElementById("mockSaveSentenceBtn");
+      const grammarSentBtn = document.getElementById("mockGrammarSentenceBtn");
+      const transcriptBtn = document.getElementById("mockTranscriptBtn");
+      const mergePrevBtn = document.getElementById("mockMergePrev");
+      const mergeNextBtn = document.getElementById("mockMergeNext");
+      const resetMergeBtn = document.getElementById("mockBtnResetMerge");
+
+      const originalSentence = 'そこにあるマークの<ruby class="target-highlight sample-target" id="mockWordIchi" data-word="位置" data-reading="いち" data-sentence="そこにあるマークの位置に立て"><span class="kanji-span">位置</span><rt>いち</rt></ruby>に立て';
+
+      saveSentBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        saveSentBtn.disabled = true;
+        saveSentBtn.textContent = "Saving…";
+        setTimeout(() => {
+          saveSentBtn.textContent = "Saved";
+          if (typeof window.showToast === "function") {
+            window.showToast("Saved sentence to Kiroku Note!", "success");
+          }
+          setTimeout(() => {
+            saveSentBtn.disabled = false;
+            saveSentBtn.textContent = "Save Sentence";
+          }, 1800);
+        }, 500);
+      });
+
+      grammarSentBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const rect = grammarSentBtn.getBoundingClientRect();
+        popup.showAtPoint(rect.left + rect.width / 2, rect.top - 10, {
+          surface: "そこにあるマークの位置に立て",
+          lemma: "そこにあるマークの位置に立て",
+          text: "そこにあるマークの位置に立て",
+          reading: "",
+          jlpt_level: "Grammar"
+        }, "そこにあるマークの位置に立て");
+        popup.switchTab("grammar");
+      });
+
+      transcriptBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (typeof window.showToast === "function") {
+          window.showToast("Jumped to Sidepanel Transcript cue #12", "info");
+        }
+      });
+
+      mergePrevBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (subBubble) {
+          subBubble.innerHTML = `（前の台詞）${originalSentence}`;
+        }
+        if (resetMergeBtn) resetMergeBtn.style.display = "inline-flex";
+      });
+
+      mergeNextBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (subBubble) {
+          subBubble.innerHTML = `${originalSentence}（次の台詞）`;
+        }
+        if (resetMergeBtn) resetMergeBtn.style.display = "inline-flex";
+      });
+
+      resetMergeBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (subBubble) {
+          subBubble.innerHTML = originalSentence;
+        }
+        if (resetMergeBtn) resetMergeBtn.style.display = "none";
       });
     });
   </script>

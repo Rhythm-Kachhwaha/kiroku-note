@@ -122,7 +122,7 @@
       this.popupEl.addEventListener("dblclick", stopEvent);
 
       document.addEventListener("keydown", this._boundDocKeyDown, true);
-      document.addEventListener("pointerdown", this._boundDocClick, true);
+      document.addEventListener("pointerdown", this._boundDocClick);
       window.addEventListener("resize", this._boundReposition);
 
       if (this.hudState && typeof this.hudState.subscribe === "function") {
@@ -196,80 +196,58 @@
         }
 
         .hud-tab-btn {
-          background: none;
-          border: none;
-          padding: 3px 10px;
-          border-radius: 4px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(245, 241, 232, 0.05);
+          border: 1px solid var(--subtle-border);
+          padding: 3px 12px;
+          border-radius: 5px;
           font-size: 12px;
           font-weight: 600;
-          color: rgba(245, 241, 232, 0.60);
+          color: rgba(245, 241, 232, 0.65);
           cursor: pointer;
-          transition: background-color 140ms ease, color 140ms ease;
+          transform: translate(-1px, -1px);
+          box-shadow: 1px 1px 0 var(--tactile-stroke);
+          transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease;
         }
 
         .hud-tab-btn.is-active {
-          background: rgba(245, 241, 232, 0.14);
+          background: rgba(245, 241, 232, 0.16);
+          border-color: rgba(245, 241, 232, 0.25);
           color: var(--warm-paper);
+          font-weight: 700;
         }
 
         .hud-tab-btn:hover:not(.is-active) {
+          transform: translate(-1.5px, -1.5px);
+          box-shadow: 1.5px 1.5px 0 var(--tactile-stroke);
           color: var(--warm-paper);
+          background: rgba(245, 241, 232, 0.10);
         }
 
-        .hud-action-row {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 2px 0;
+        .hud-tab-btn:active {
+          transform: translate(0, 0);
+          box-shadow: 0 0 0 transparent;
         }
 
         .hud-action-icon-btn {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 28px;
-          height: 28px;
-          border-radius: 6px;
-          background: rgba(245, 241, 232, 0.06);
-          border: 1px solid var(--subtle-border);
-          color: rgba(245, 241, 232, 0.70);
+          width: 24px;
+          height: 24px;
+          border-radius: 4px;
+          background: none;
+          border: none;
+          color: rgba(245, 241, 232, 0.60);
           cursor: pointer;
           user-select: none;
-          transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+          transition: color 120ms ease;
         }
 
         .hud-action-icon-btn:hover {
-          background: rgba(245, 241, 232, 0.14);
           color: var(--warm-paper);
-          transform: translateY(-1px);
-        }
-
-        .hud-action-icon-btn:active {
-          transform: translateY(1px);
-        }
-
-        .hud-context-card {
-          display: none;
-          background: rgba(245, 241, 232, 0.04);
-          border: 1px solid var(--subtle-border);
-          border-radius: 6px;
-          padding: 7px 9px;
-          font-size: 11.5px;
-          line-height: 1.45;
-        }
-
-        .hud-context-card-title {
-          font-weight: 700;
-          color: var(--alpine-berry);
-          font-size: 11px;
-          margin-bottom: 3px;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .hud-context-explanation-body {
-          color: rgba(245, 241, 232, 0.80);
         }
 
         .tactile-btn {
@@ -277,7 +255,7 @@
           align-items: center;
           justify-content: center;
           gap: 6px;
-          padding: 6px 14px;
+          padding: 6px 16px;
           font-size: 12px;
           font-weight: 700;
           border-radius: 6px;
@@ -310,32 +288,44 @@
         }
 
         .hud-status-pill {
-          padding: 3px 8px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 5px 11px;
           font-size: 11px;
           font-weight: 600;
-          border-radius: 4px;
+          border-radius: 5px;
           border: 1px solid var(--subtle-border);
-          background: rgba(245, 241, 232, 0.05);
+          background: var(--ink-surface);
           color: rgba(245, 241, 232, 0.70);
           cursor: pointer;
-          transition: all 140ms ease;
+          transform: translate(-1.5px, -1.5px);
+          box-shadow: 1.5px 1.5px 0 var(--tactile-stroke);
+          transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease;
         }
 
         .hud-status-pill:hover {
-          background: rgba(245, 241, 232, 0.12);
+          transform: translate(-2px, -2px);
+          box-shadow: 2px 2px 0 var(--tactile-stroke);
           color: var(--warm-paper);
+          background: rgba(245, 241, 232, 0.10);
+        }
+
+        .hud-status-pill:active {
+          transform: translate(0, 0);
+          box-shadow: 0 0 0 transparent;
         }
 
         .hud-status-pill.is-active-known {
-          background: rgba(78, 187, 123, 0.2);
-          color: #4ebb7b;
-          border-color: rgba(78, 187, 123, 0.45);
+          background: rgba(78, 187, 123, 0.22);
+          color: var(--jade);
+          border-color: rgba(78, 187, 123, 0.55);
         }
 
         .hud-status-pill.is-active-unknown {
-          background: rgba(243, 145, 32, 0.2);
-          color: #f39120;
-          border-color: rgba(243, 145, 32, 0.45);
+          background: rgba(243, 145, 32, 0.22);
+          color: var(--heat-marker);
+          border-color: rgba(243, 145, 32, 0.55);
         }
 
         .hud-badge-jlpt {
@@ -413,7 +403,10 @@
 
     _onDocClick(e) {
       if (!this.isOpen || !this.popupEl) return;
-      if (this.currentTargetSpan && this.currentTargetSpan.contains(e.target)) return;
+      const path = typeof e.composedPath === "function" ? e.composedPath() : [];
+      if (path.includes(this.popupEl) || path.includes(this.hostEl)) return;
+      if (this.hostEl && (this.hostEl === e.target || this.hostEl.contains(e.target))) return;
+      if (this.currentTargetSpan && (this.currentTargetSpan.contains(e.target) || path.includes(this.currentTargetSpan))) return;
       if (this.popupEl.contains(e.target)) return;
       this.close();
     }
@@ -455,16 +448,16 @@
       const sentence = this.activeContextSentence || this.activeCue?.text || "";
 
       this.popupEl.innerHTML = `
-        <div class="hud-popup-tabs" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(245,241,232,0.10); padding-bottom:6px;">
+        <div class="hud-popup-tabs">
           <div style="display:flex; gap:6px;">
-            <button type="button" class="hud-tab-btn ${this.activeTab === "word" ? "is-active" : ""}" data-tab="word" style="background:${this.activeTab === "word" ? "rgba(245,241,232,0.14)" : "none"}; border:none; color:${this.activeTab === "word" ? "#F5F1E8" : "rgba(245,241,232,0.60)"}; font-size:12px; font-weight:600; padding:3px 10px; border-radius:4px; cursor:pointer;">Word</button>
-            <button type="button" class="hud-tab-btn ${this.activeTab === "grammar" ? "is-active" : ""}" data-tab="grammar" style="background:${this.activeTab === "grammar" ? "rgba(245,241,232,0.14)" : "none"}; border:none; color:${this.activeTab === "grammar" ? "#F5F1E8" : "rgba(245,241,232,0.60)"}; font-size:12px; font-weight:600; padding:3px 10px; border-radius:4px; cursor:pointer;">Grammar</button>
+            <button type="button" class="hud-tab-btn ${this.activeTab === "word" ? "is-active" : ""}" data-tab="word">Word</button>
+            <button type="button" class="hud-tab-btn ${this.activeTab === "grammar" ? "is-active" : ""}" data-tab="grammar">Grammar</button>
           </div>
           <div style="display:flex; align-items:center; gap:4px;">
-            <button type="button" class="hud-action-icon-btn hud-popup-dict-btn" style="width:24px; height:24px; background:none; border:none; color:rgba(245,241,232,0.60); cursor:pointer; padding:2px; display:inline-flex; align-items:center; justify-content:center;" title="Search Dictionary" aria-label="Search Dictionary">
+            <button type="button" class="hud-action-icon-btn hud-popup-dict-btn" title="Search Dictionary" aria-label="Search Dictionary">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
             </button>
-            <button type="button" class="hud-popup-close-btn" style="width:24px; height:24px; background:none; border:none; color:rgba(245,241,232,0.50); cursor:pointer; padding:2px; display:inline-flex; align-items:center; justify-content:center;" title="Close" aria-label="Close">
+            <button type="button" class="hud-action-icon-btn hud-popup-close-btn" title="Close" aria-label="Close">
               <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg>
             </button>
           </div>
@@ -476,56 +469,25 @@
               ${reading && reading !== surface ? `<div class="hud-reading-furigana" style="font-size:12px; color:rgba(245,241,232,0.70); font-family:'Zen Kaku Gothic New', sans-serif; letter-spacing:0.04em;">${escapeHtml(reading)}</div>` : ""}
               <div class="hud-headword-kanji" style="font-size:18px; font-weight:700; color:#F5F1E8; font-family:'Noto Sans JP', sans-serif; line-height:1.2;">${escapeHtml(surface)}</div>
             </div>
-            <span class="hud-badge-jlpt ${status === "mined" ? "is-mined" : ""}" style="font-size:11px; padding:2px 7px; border-radius:4px; border:1px solid rgba(0,0,0,0.25); background:${status === "mined" ? "#D94B38" : "#F7E0BA"}; color:${status === "mined" ? "#F5F1E8" : "#141311"}; font-family:'Mochiy Pop One','Mochiy Pop P One',sans-serif; font-weight:700; letter-spacing:0.02em; flex-shrink:0;">
-              ${status === "mined" ? "Mined" : escapeHtml(jlptLevel)}
+            <span class="hud-badge-jlpt ${status === "mined" ? "is-mined" : ""}">
+              ${status === "mined" ? "Saved" : escapeHtml(jlptLevel)}
             </span>
           </div>
 
-          <div class="hud-popup-meaning" style="font-size:12.5px; line-height:1.45; color:rgba(245,241,232,0.88); max-height:85px; overflow-y:auto; padding-right:4px;">
+          <div class="hud-popup-meaning" style="font-size:12.5px; line-height:1.45; color:rgba(245,241,232,0.88); max-height:100px; overflow-y:auto; padding-right:4px;">
             Looking up…
           </div>
 
-          <div class="hud-action-row" style="display:flex; align-items:center; gap:6px; margin:2px 0;">
-            <button type="button" class="hud-action-icon-btn hud-btn-audio" title="Pronounce" aria-label="Pronounce">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
-            </button>
-            <button type="button" class="hud-action-icon-btn hud-btn-snapshot" title="Snapshot Frame" aria-label="Snapshot Frame">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-            </button>
-            <button type="button" class="hud-action-icon-btn hud-btn-copy" title="Copy Sentence" aria-label="Copy Sentence">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            </button>
-            <button type="button" class="hud-action-icon-btn hud-btn-ai-context" title="Context Explanation" aria-label="Context Explanation">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg>
-            </button>
-          </div>
-
-          <div class="hud-context-card" style="display:none; background:rgba(245,241,232,0.04); border:1px solid rgba(245,241,232,0.12); border-radius:6px; padding:7px 9px; font-size:11.5px; line-height:1.45;">
-            <div class="hud-context-card-title" style="font-weight:700; color:#F7E0BA; font-size:11px; margin-bottom:3px; display:flex; align-items:center; gap:4px;">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
-              What does this word mean in context?
-            </div>
-            <div class="hud-context-explanation-body" style="color:rgba(245,241,232,0.80);">
-              Analyzing context nuance…
-            </div>
-          </div>
-
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px; gap:6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; gap:8px;">
             <div style="display:flex; align-items:center; gap:6px;">
-              <button type="button" tabindex="-1" class="tactile-btn hud-popup-mine-btn" style="
-                display:inline-flex; align-items:center; gap:6px;
-                padding:6px 14px; background:#D94B38; color:#F5F1E8;
-                border:1px solid rgba(255,255,255,0.2); border-radius:6px; font-size:12px; font-weight:700;
-                cursor:pointer; transform:translate(-2px, -2px); box-shadow:2px 2px 0 #151413;
-                user-select:none;
-              ">
+              <button type="button" tabindex="-1" class="tactile-btn hud-popup-mine-btn hud-btn-mine">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                <span>${status === "mined" ? "Already Mined" : "Mine Word"}</span>
+                <span>${status === "mined" ? "Saved" : "Save"}</span>
               </button>
             </div>
-            <div class="hud-status-group" style="display:flex; gap:4px; align-items:center;">
-              <button type="button" class="hud-status-pill" data-status="known" style="padding:3px 8px; font-size:11px; border-radius:4px; border:1px solid rgba(245,241,232,0.12); background:#1C1B19; color:rgba(245,241,232,0.70); cursor:pointer;">Known</button>
-              <button type="button" class="hud-status-pill" data-status="unknown" style="padding:3px 8px; font-size:11px; border-radius:4px; border:1px solid rgba(245,241,232,0.12); background:#1C1B19; color:rgba(245,241,232,0.70); cursor:pointer;">Unknown</button>
+            <div class="hud-status-group" style="display:flex; gap:6px; align-items:center;">
+              <button type="button" class="hud-status-pill hud-btn-known ${status === "known" ? "is-active-known" : ""}" data-status="known">Known</button>
+              <button type="button" class="hud-status-pill hud-btn-unknown ${status === "unknown" ? "is-active-unknown" : ""}" data-status="unknown">Unknown</button>
             </div>
           </div>
         </div>
@@ -534,17 +496,11 @@
           <div style="font-size:12px; color:rgba(245,241,232,0.70); border-bottom:1px solid rgba(245,241,232,0.08); padding-bottom:4px;">
             Sentence Grammar Analysis
           </div>
-          <div class="hud-grammar-content" style="font-size:12px; line-height:1.45; color:rgba(245,241,232,0.85); max-height:120px; overflow-y:auto;">
+          <div class="hud-grammar-content" style="font-size:12px; line-height:1.45; color:rgba(245,241,232,0.85); max-height:130px; overflow-y:auto;">
             Analyzing sentence…
           </div>
           <div style="display:flex; justify-content:flex-end; margin-top:2px;">
-            <button type="button" class="tactile-btn hud-grammar-mine-btn" style="
-              display:inline-flex; align-items:center; gap:6px;
-              padding:6px 14px; background:#4FBBBC; color:#141311;
-              border:1px solid rgba(255,255,255,0.2); border-radius:6px; font-size:12px; font-weight:700;
-              cursor:pointer; transform:translate(-2px, -2px); box-shadow:2px 2px 0 #151413;
-              user-select:none;
-            ">
+            <button type="button" class="tactile-btn hud-grammar-mine-btn" style="background:#4FBBBC; color:#141311;">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               <span>Mine Grammar</span>
             </button>
@@ -557,92 +513,57 @@
       // Attach tab events
       if (typeof this.popupEl.querySelectorAll === "function") {
         this.popupEl.querySelectorAll(".hud-tab-btn").forEach((btn) => {
-          btn.addEventListener("click", () => {
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
             const tab = btn.dataset.tab;
             if (tab) this.switchTab(tab);
           });
         });
       }
 
-      this.popupEl.querySelector?.(".hud-popup-close-btn")?.addEventListener("click", () => this.close());
-
-      // Wire action buttons
-      const audioBtn = this.popupEl.querySelector?.(".hud-btn-audio");
-      if (audioBtn) {
-        audioBtn.addEventListener("click", () => {
-          if (typeof speechSynthesis !== "undefined" && typeof SpeechSynthesisUtterance !== "undefined") {
-            const utter = new SpeechSynthesisUtterance(reading || surface);
-            utter.lang = "ja-JP";
-            speechSynthesis.speak(utter);
-          }
-        });
-      }
-
-      const snapshotBtn = this.popupEl.querySelector?.(".hud-btn-snapshot");
-      if (snapshotBtn) {
-        snapshotBtn.addEventListener("click", () => {
-          if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-            chrome.runtime.sendMessage({ type: "CAPTURE_VISIBLE_FRAME" }).catch(() => {});
-          }
-        });
-      }
-
-      const copyBtn = this.popupEl.querySelector?.(".hud-btn-copy");
-      if (copyBtn) {
-        copyBtn.addEventListener("click", async () => {
-          const textToCopy = `${surface}${reading && reading !== surface ? ` (${reading})` : ""}: ${sentence || surface}`;
-          try {
-            if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-              await navigator.clipboard.writeText(textToCopy);
-              copyBtn.style.color = "#4EBB7B";
-              setTimeout(() => { if (copyBtn) copyBtn.style.color = ""; }, 1200);
-            }
-          } catch (_) {}
-        });
-      }
-
-      const aiBtn = this.popupEl.querySelector?.(".hud-btn-ai-context");
-      if (aiBtn) {
-        aiBtn.addEventListener("click", () => {
-          const card = this.popupEl.querySelector?.(".hud-context-card");
-          if (card) {
-            const isVisible = card.style.display !== "none";
-            card.style.display = isVisible ? "none" : "block";
-            this.reposition();
-          }
-        });
-      }
+      this.popupEl.querySelector?.(".hud-popup-close-btn")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.close();
+      });
 
       const dictBtn = this.popupEl.querySelector?.(".hud-popup-dict-btn");
       if (dictBtn) {
-        dictBtn.addEventListener("click", () => {
+        dictBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
           if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
             chrome.runtime.sendMessage({ type: "OPEN_DICTIONARY", term: lemma || surface }).catch(() => {});
           }
         });
       }
 
-      // Wire mine button
+      // Wire save button
       const mineBtn = this.popupEl.querySelector?.(".hud-popup-mine-btn");
       if (mineBtn) {
         if (status === "mined") {
           mineBtn.disabled = true;
           mineBtn.style.opacity = "0.7";
         } else {
-          mineBtn.addEventListener("click", () => this.mineCurrentWord());
+          mineBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.mineCurrentWord();
+          });
         }
       }
 
       // Wire grammar mine button
       const grammarMineBtn = this.popupEl.querySelector?.(".hud-grammar-mine-btn");
       if (grammarMineBtn) {
-        grammarMineBtn.addEventListener("click", () => this.mineCurrentGrammar());
+        grammarMineBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.mineCurrentGrammar();
+        });
       }
 
       // Wire status pills
       if (typeof this.popupEl.querySelectorAll === "function") {
         this.popupEl.querySelectorAll(".hud-status-pill").forEach((pill) => {
           pill.addEventListener("click", (e) => {
+            e.stopPropagation();
             const st = e.currentTarget?.dataset?.status;
             if (st) this.setWordStatus(lemma || surface, st);
           });
@@ -671,11 +592,9 @@
 
       tabBtns?.forEach((b) => {
         if (b.dataset.tab === tab) {
-          b.style.background = "rgba(245, 241, 232, 0.14)";
-          b.style.color = "#F5F1E8";
+          b.classList.add("is-active");
         } else {
-          b.style.background = "none";
-          b.style.color = "rgba(245, 241, 232, 0.60)";
+          b.classList.remove("is-active");
         }
       });
 
@@ -762,18 +681,6 @@
         gloss = "No definition found.";
       }
       meaningEl.innerHTML = gloss;
-
-      // Update contextual AI explanation if present
-      const contextEl = this.popupEl.querySelector(".hud-context-explanation-body");
-      const contextCard = this.popupEl.querySelector(".hud-context-card");
-      if (contextEl && contextCard) {
-        const contextText = data.context_meaning || data.explanation || data.nuance || "";
-        if (contextText) {
-          contextEl.textContent = contextText;
-          contextCard.style.display = "block";
-        }
-      }
-
       this.reposition();
     }
 
@@ -820,7 +727,7 @@
       const mineBtn = this.popupEl?.querySelector(".hud-popup-mine-btn");
       if (mineBtn) {
         mineBtn.disabled = true;
-        mineBtn.textContent = "Mining…";
+        mineBtn.textContent = "Saving…";
       }
       this.isMining = true;
 
@@ -848,8 +755,8 @@
 
         if (resp && resp.ok) {
           if (mineBtn) {
-            mineBtn.textContent = "Mined!";
-            mineBtn.style.background = "#22c55e";
+            mineBtn.textContent = "Saved";
+            mineBtn.style.background = "#4EBB7B";
           }
           this.currentTargetToken.status = "mined";
 
@@ -871,13 +778,13 @@
         } else {
           if (mineBtn) {
             mineBtn.disabled = false;
-            mineBtn.textContent = "Mine Word";
+            mineBtn.textContent = "Save";
           }
         }
       } catch (_) {
         if (mineBtn) {
           mineBtn.disabled = false;
-          mineBtn.textContent = "Mine Word";
+          mineBtn.textContent = "Save";
         }
       } finally {
         this.isMining = false;
@@ -889,7 +796,7 @@
       const grammarBtn = this.popupEl?.querySelector(".hud-grammar-mine-btn");
       if (grammarBtn) {
         grammarBtn.disabled = true;
-        grammarBtn.textContent = "Mining…";
+        grammarBtn.textContent = "Saving…";
       }
       this.isMining = true;
 
@@ -912,8 +819,8 @@
 
         if (resp && resp.ok) {
           if (grammarBtn) {
-            grammarBtn.textContent = "Mined!";
-            grammarBtn.style.background = "#22c55e";
+            grammarBtn.textContent = "Saved";
+            grammarBtn.style.background = "#4EBB7B";
           }
           if (typeof KirokuToast !== "undefined" && KirokuToast.show) {
             KirokuToast.show({
@@ -947,18 +854,26 @@
             word,
             status
           });
-          const pills = this.popupEl?.querySelectorAll(".hud-status-pill");
-          pills?.forEach((p) => {
-            if (p.dataset.status === status) {
-              p.style.background = status === "known" ? "rgba(78, 187, 123, 0.2)" : "rgba(243, 145, 32, 0.2)";
-              p.style.color = status === "known" ? "#4ebb7b" : "#f39120";
-            } else {
-              p.style.background = "#18181b";
-              p.style.color = "#a1a1aa";
-            }
-          });
         }
       } catch (_) {}
+      if (this.currentTargetToken) {
+        this.currentTargetToken.status = status;
+      }
+      const pills = this.popupEl?.querySelectorAll(".hud-status-pill");
+      pills?.forEach((p) => {
+        if (p.dataset.status === status) {
+          p.classList.add(status === "known" ? "is-active-known" : "is-active-unknown");
+          p.classList.remove(status === "known" ? "is-active-unknown" : "is-active-known");
+          p.style.background = status === "known" ? "rgba(78, 187, 123, 0.22)" : "rgba(243, 145, 32, 0.22)";
+          p.style.color = status === "known" ? "#4EBB7B" : "#F39120";
+          p.style.borderColor = status === "known" ? "rgba(78, 187, 123, 0.55)" : "rgba(243, 145, 32, 0.55)";
+        } else {
+          p.classList.remove("is-active-known", "is-active-unknown");
+          p.style.background = "#1C1B19";
+          p.style.color = "rgba(245, 241, 232, 0.70)";
+          p.style.borderColor = "rgba(245, 241, 232, 0.12)";
+        }
+      });
     }
 
     reposition() {

@@ -413,6 +413,8 @@ if (typeof window !== "undefined") {
   };
   window.setRecentSubtitleCues = (cues) => { recentSubtitleCues = cues; };
   window.setRecentSubsEnabled = (enabled) => { isRecentSubsEnabled = enabled; };
-  window.loadRecentSubsPreferences = loadRecentSubsPreferences;
+  if (typeof loadRecentSubsPreferences === "function") {
+    window.loadRecentSubsPreferences = loadRecentSubsPreferences;
+  }
 }
 

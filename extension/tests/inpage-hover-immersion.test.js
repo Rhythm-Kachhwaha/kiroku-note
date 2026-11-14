@@ -103,7 +103,7 @@ global.chrome = {
 
 const { HudPopup } = require("../content/hud/hud-popup.js");
 
-test("HudPopup renders Migaku-inspired header with reading, headword, and JLPT badge", async () => {
+test("HudPopup renders compact header with reading, headword, JLPT badge, Save button, and tactile Known/Unknown buttons", async () => {
   const mockHudHost = {
     contentContainer: createMockElement("div"),
     registerCleanup: () => {}
@@ -126,15 +126,21 @@ test("HudPopup renders Migaku-inspired header with reading, headword, and JLPT b
   assert.ok(html.includes("位置"), "Must contain headword kanji");
   assert.ok(html.includes("いち"), "Must contain reading furigana");
   assert.ok(html.includes("N3"), "Must contain JLPT N3 badge");
-  assert.ok(html.includes("hud-btn-audio"), "Must render audio pronounce button");
-  assert.ok(html.includes("hud-btn-snapshot"), "Must render snapshot button");
-  assert.ok(html.includes("hud-btn-copy"), "Must render copy sentence button");
-  assert.ok(html.includes("hud-btn-ai-context"), "Must render AI context explainer button");
+  assert.ok(html.includes("hud-btn-mine"), "Must render save button");
+  assert.ok(html.includes("Save"), "Button text must be Save");
+  assert.ok(html.includes("hud-btn-known"), "Must render Known status button");
+  assert.ok(html.includes("hud-btn-unknown"), "Must render Unknown status button");
+
+  // Verify removed bloat rows are NOT present (per user instructions)
+  assert.equal(html.includes("hud-btn-audio"), false, "Audio pronounce button must be removed");
+  assert.equal(html.includes("hud-btn-snapshot"), false, "Snapshot button must be removed");
+  assert.equal(html.includes("hud-btn-copy"), false, "Copy button must be removed");
+  assert.equal(html.includes("hud-context-card"), false, "Context card must be removed");
 
   popup.close();
 });
 
-test("HudPopup renders contextual explanation when provided in lookup response", async () => {
+test("HudPopup renders compact glossary meaning without redundant context card", async () => {
   const mockHudHost = {
     contentContainer: createMockElement("div"),
     registerCleanup: () => {}
@@ -154,8 +160,8 @@ test("HudPopup renders contextual explanation when provided in lookup response",
   const meaningEl = popup.popupEl.querySelector(".hud-popup-meaning");
   assert.ok(meaningEl.innerHTML.includes("place, situation, position, location"));
 
-  const contextEl = popup.popupEl.querySelector(".hud-context-explanation-body");
-  assert.ok(contextEl.textContent.includes("The term indicates a precise marker"));
+  const contextEl = popup.popupEl.querySelector(".hud-context-card");
+  assert.equal(contextEl, null, "Context explanation card must be removed from UI");
 
   popup.close();
 });
@@ -168,6 +174,8 @@ test("Interactive sandbox file exists with full sections and zero emojis", () =>
   assert.ok(content.includes("そこにあるマークの位置に立て"), "Must include Netflix subtitle quote");
   assert.ok(content.includes("人工知能"), "Must include N1/N2 tech news article");
   assert.ok(content.includes("top-comprehension-bar"), "Must include Migaku-style top comprehension bar");
+  assert.ok(content.includes("mock-hud-menu-panel"), "Must include redesigned Subtitle Menu Panel");
+  assert.ok(content.includes("mock-hud-sentence-bar"), "Must include redesigned Subtitle Action Bar");
   assert.ok(content.includes("SANDBOX_MOCK_DICTIONARY"), "Must include mock dictionary for instant sandbox testing");
 
   // Zero emojis verification

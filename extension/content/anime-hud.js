@@ -36,7 +36,7 @@
         count: 0,
         offsetMs: 0
       };
-      this.linkStatus = "disconnected"; // 'disconnected' | 'connecting' | 'connected' | 'unauthorized'
+      this.linkStatus = "ready"; // 'ready' | 'connected' | 'connecting' | 'offline' | 'unauthorized'
       this.tracks = [];
       this.displayPrefs = {
         fontSize: 24,
@@ -62,6 +62,15 @@
             this.setLinkStatus(msg.status === "ok" || msg.status === "connected" ? "connected" : msg.status);
           }
         });
+      }
+
+      // Query initial status gracefully
+      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({ type: "GET_LINK_STATUS" }).then((res) => {
+          if (res && res.status) {
+            this.setLinkStatus(res.status === "ok" || res.status === "connected" ? "connected" : res.status);
+          }
+        }).catch(() => {});
       }
 
       if (typeof document !== "undefined") {
@@ -93,10 +102,10 @@
       style.textContent = `
         :host {
           all: initial;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          font-family: "Noto Sans JP", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           font-size: 13px;
           line-height: 1.4;
-          color: #f4f4f5;
+          color: #F5F1E8;
         }
         * {
           box-sizing: border-box;
@@ -112,26 +121,28 @@
           display: flex;
           align-items: center;
           gap: 6px;
-          padding: 6px 10px;
-          background: rgba(24, 24, 27, 0.85);
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          border-radius: 20px;
-          color: #f4f4f5;
+          padding: 6px 12px;
+          background: rgba(28, 27, 25, 0.90);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid rgba(245, 241, 232, 0.18);
+          border-radius: 9999px;
+          color: #F5F1E8;
           cursor: pointer;
           font-size: 12px;
-          font-weight: 500;
+          font-weight: 600;
           transition: background 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 1.5px 1.5px 0 #11100E;
           z-index: 10;
         }
         .hud-trigger-btn:hover {
-          background: rgba(39, 39, 42, 0.95);
-          border-color: rgba(255, 255, 255, 0.3);
+          background: rgba(42, 41, 38, 0.96);
+          border-color: rgba(245, 241, 232, 0.3);
           transform: translateY(-1px);
         }
         .hud-trigger-btn:active {
           transform: translateY(0);
+          box-shadow: 0 0 0;
         }
         .hud-trigger-btn svg {
           width: 14px;
@@ -149,13 +160,13 @@
           align-items: center;
           gap: 8px;
           padding: 6px 12px;
-          background: rgba(24, 24, 27, 0.9);
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(245, 158, 11, 0.4);
+          background: rgba(28, 27, 25, 0.94);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(245, 158, 11, 0.5);
           border-radius: 8px;
-          color: #fbbf24;
+          color: #F59E0B;
           font-size: 12px;
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 1.5px 1.5px 0 #11100E;
           transition: opacity 0.3s ease, transform 0.3s ease;
           z-index: 9;
         }
@@ -165,8 +176,8 @@
           transform: translateY(-6px);
         }
         .hud-no-subs-chip button.chip-action {
-          background: #f59e0b;
-          color: #18181b;
+          background: #F59E0B;
+          color: #141311;
           border: none;
           border-radius: 4px;
           padding: 2px 8px;
@@ -177,32 +188,48 @@
         .hud-no-subs-chip button.chip-close {
           background: transparent;
           border: none;
-          color: #a1a1aa;
+          color: rgba(245, 241, 232, 0.6);
           cursor: pointer;
           font-size: 14px;
           padding: 0 2px;
         }
 
-        /* Menu Panel */
+        /* Menu Panel - Sumi & Washi with Custom Sleek Scrollbar */
         .hud-menu-panel {
           pointer-events: auto;
           position: absolute;
-          top: 54px;
+          top: 52px;
           right: 14px;
           width: 320px;
           max-height: calc(100% - 70px);
           overflow-y: auto;
-          background: rgba(18, 18, 20, 0.96);
+          scrollbar-width: thin;
+          scrollbar-color: rgba(245, 241, 232, 0.2) transparent;
+          background: #1C1B19;
           backdrop-filter: blur(16px);
-          border: 1px solid rgba(255, 255, 255, 0.12);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(245, 241, 232, 0.14);
           border-radius: 12px;
           padding: 14px;
           display: flex;
           flex-direction: column;
           gap: 12px;
-          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
-          transition: opacity 0.15s ease, transform 0.15s ease;
+          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 1.5px 1.5px 0 #11100E;
+          transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
           z-index: 20;
+        }
+        .hud-menu-panel::-webkit-scrollbar {
+          width: 5px;
+        }
+        .hud-menu-panel::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .hud-menu-panel::-webkit-scrollbar-thumb {
+          background: rgba(245, 241, 232, 0.18);
+          border-radius: 9999px;
+        }
+        .hud-menu-panel::-webkit-scrollbar-thumb:hover {
+          background: rgba(245, 241, 232, 0.32);
         }
         .hud-menu-panel.hidden {
           opacity: 0;
@@ -215,13 +242,13 @@
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          border-bottom: 1px solid rgba(245, 241, 232, 0.1);
           padding-bottom: 8px;
         }
         .hud-title {
           font-size: 13px;
           font-weight: 600;
-          color: #fafafa;
+          color: #F5F1E8;
           display: flex;
           align-items: center;
           gap: 6px;
@@ -231,25 +258,30 @@
           align-items: center;
           gap: 5px;
           font-size: 10px;
-          padding: 2px 7px;
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.06);
-          color: #a1a1aa;
+          padding: 3px 8px;
+          border-radius: 9999px;
+          background: rgba(245, 241, 232, 0.06);
+          border: 1px solid rgba(245, 241, 232, 0.12);
+          color: rgba(245, 241, 232, 0.75);
+          font-weight: 500;
         }
         .hud-link-dot {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #ef4444; /* red default */
+          background: #4EBB7B;
+          box-shadow: 0 0 6px rgba(78, 187, 123, 0.4);
         }
-        .hud-link-dot.connected { background: #22c55e; }
-        .hud-link-dot.connecting { background: #f59e0b; }
-        .hud-link-dot.unauthorized { background: #ef4444; }
+        .hud-link-dot.connected { background: #4EBB7B; box-shadow: 0 0 6px rgba(78, 187, 123, 0.6); }
+        .hud-link-dot.ready { background: #4EBB7B; box-shadow: 0 0 6px rgba(78, 187, 123, 0.4); }
+        .hud-link-dot.connecting { background: #F59E0B; box-shadow: 0 0 6px rgba(245, 158, 11, 0.4); }
+        .hud-link-dot.offline { background: rgba(245, 241, 232, 0.4); box-shadow: none; }
+        .hud-link-dot.unauthorized { background: #D94B38; box-shadow: 0 0 6px rgba(217, 75, 56, 0.4); }
 
         /* Current Track Card */
         .hud-card {
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: rgba(245, 241, 232, 0.05);
+          border: 1px solid rgba(245, 241, 232, 0.09);
           border-radius: 8px;
           padding: 10px;
           display: flex;
@@ -260,7 +292,8 @@
           font-size: 10px;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: #71717a;
+          color: rgba(245, 241, 232, 0.5);
+          font-weight: 600;
         }
         .hud-track-row {
           display: flex;
@@ -270,22 +303,24 @@
         }
         .hud-track-name {
           font-size: 12px;
-          font-weight: 500;
-          color: #e4e4e7;
+          font-weight: 600;
+          color: #F5F1E8;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .hud-source-badge {
           font-size: 10px;
-          padding: 1px 6px;
+          padding: 2px 7px;
           border-radius: 4px;
-          background: #3f3f46;
-          color: #d4d4d8;
+          background: #2A2926;
+          border: 1px solid rgba(245, 241, 232, 0.12);
+          color: rgba(245, 241, 232, 0.85);
           text-transform: capitalize;
+          font-weight: 500;
         }
 
-        /* Buttons & Controls */
+        /* Buttons & Controls - Planetoño Tactile */
         .hud-btn-group {
           display: flex;
           gap: 6px;
@@ -296,44 +331,55 @@
           align-items: center;
           justify-content: center;
           gap: 4px;
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(245, 241, 232, 0.08);
+          border: 1px solid rgba(245, 241, 232, 0.14);
           border-radius: 6px;
-          color: #e4e4e7;
+          color: #F5F1E8;
           padding: 6px 10px;
           font-size: 11px;
-          font-weight: 500;
+          font-weight: 600;
           cursor: pointer;
-          transition: background 0.12s ease;
+          box-shadow: 1.5px 1.5px 0 #11100E;
+          transition: transform 100ms ease, box-shadow 100ms ease, background 120ms ease;
         }
         .hud-btn:hover {
-          background: rgba(255, 255, 255, 0.15);
+          background: rgba(245, 241, 232, 0.14);
+        }
+        .hud-btn:active {
+          transform: translate(1px, 1px);
+          box-shadow: 0 0 0;
         }
         .hud-btn.primary {
-          background: #2563eb;
-          border-color: #3b82f6;
-          color: #ffffff;
+          background: #D94B38;
+          border-color: rgba(245, 241, 232, 0.2);
+          color: #FAF8F5;
+          box-shadow: 1.5px 1.5px 0 #11100E;
         }
         .hud-btn.primary:hover {
-          background: #1d4ed8;
+          background: #C53E2D;
+        }
+        .hud-btn.primary:active {
+          transform: translate(1px, 1px);
+          box-shadow: 0 0 0;
         }
 
         /* File Dropzone */
         .hud-dropzone {
-          border: 1px dashed rgba(255, 255, 255, 0.2);
+          border: 1px dashed rgba(245, 241, 232, 0.22);
           border-radius: 8px;
           padding: 12px;
           text-align: center;
           cursor: pointer;
+          background: rgba(245, 241, 232, 0.02);
           transition: border-color 0.15s ease, background 0.15s ease;
         }
         .hud-dropzone:hover, .hud-dropzone.dragover {
-          border-color: #3b82f6;
-          background: rgba(59, 130, 246, 0.08);
+          border-color: #D94B38;
+          background: rgba(217, 75, 56, 0.06);
         }
         .hud-dropzone-text {
           font-size: 11px;
-          color: #a1a1aa;
+          color: rgba(245, 241, 232, 0.6);
         }
 
         /* Offset Controls */
@@ -341,7 +387,8 @@
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: rgba(255, 255, 255, 0.03);
+          background: rgba(245, 241, 232, 0.03);
+          border: 1px solid rgba(245, 241, 232, 0.07);
           border-radius: 6px;
           padding: 4px;
           gap: 4px;
@@ -349,23 +396,29 @@
         .hud-offset-val {
           font-family: monospace;
           font-size: 12px;
-          font-weight: 600;
-          color: #f4f4f5;
-          min-width: 60px;
+          font-weight: 700;
+          color: #F5F1E8;
+          min-width: 58px;
           text-align: center;
         }
         .hud-mini-btn {
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 4px;
-          color: #e4e4e7;
-          font-size: 10px;
+          background: rgba(245, 241, 232, 0.08);
+          border: 1px solid rgba(245, 241, 232, 0.12);
+          border-radius: 5px;
+          color: #F5F1E8;
+          font-size: 11px;
           font-weight: 500;
-          padding: 4px 6px;
+          padding: 5px 7px;
           cursor: pointer;
+          box-shadow: 1px 1px 0 #11100E;
+          transition: transform 100ms ease, box-shadow 100ms ease, background 120ms ease;
         }
         .hud-mini-btn:hover {
-          background: rgba(255, 255, 255, 0.16);
+          background: rgba(245, 241, 232, 0.15);
+        }
+        .hud-mini-btn:active {
+          transform: translate(1px, 1px);
+          box-shadow: 0 0 0;
         }
 
         /* Display Toggles */
@@ -398,8 +451,8 @@
               <span>Kiroku Subtitles</span>
             </div>
             <div id="hud-link-indicator" class="hud-link-pill">
-              <span id="hud-link-dot" class="hud-link-dot"></span>
-              <span id="hud-link-text">Offline</span>
+              <span id="hud-link-dot" class="hud-link-dot ready"></span>
+              <span id="hud-link-text">Ready</span>
             </div>
           </div>
 
@@ -410,7 +463,7 @@
               <span id="hud-track-name" class="hud-track-name">No subtitles loaded</span>
               <span id="hud-source-badge" class="hud-source-badge">none</span>
             </div>
-            <span id="hud-track-stats" style="font-size: 11px; color: #71717a;">0 cues</span>
+            <span id="hud-track-stats" style="font-size: 11px; color: rgba(245, 241, 232, 0.5);">0 cues</span>
           </div>
 
           <!-- Available Tracks List -->
@@ -454,7 +507,7 @@
               <button id="hud-toggle-blur" class="hud-mini-btn">Blur: Off</button>
               <button id="hud-toggle-furigana" class="hud-mini-btn">Furigana: Hover</button>
               <button id="hud-toggle-mode" class="hud-mini-btn" style="grid-column: span 2;">Mode: Always Show</button>
-              <button id="hud-btn-open-panel" class="hud-mini-btn" style="grid-column: span 2; background: rgba(212,136,79,0.2); color: #d4884f;">Open Kiroku Panel</button>
+              <button id="hud-btn-open-panel" class="hud-mini-btn" style="grid-column: span 2; background: rgba(217, 75, 56, 0.15); color: #D94B38; border-color: rgba(217, 75, 56, 0.3);">Open Kiroku Panel</button>
             </div>
           </div>
         </div>
@@ -946,8 +999,12 @@
       } else if (status === "unauthorized") {
         dot.classList.add("unauthorized");
         txt.textContent = "Unauthorized";
-      } else {
+      } else if (status === "offline" || status === "disconnected") {
+        dot.classList.add("offline");
         txt.textContent = "Offline";
+      } else {
+        dot.classList.add("ready");
+        txt.textContent = "Ready";
       }
     }
 
