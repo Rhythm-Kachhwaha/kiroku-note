@@ -339,18 +339,18 @@ export class KanjiView {
             </button>
           </div>
           <div class="kanji-inspector-body" id="kanji-inspector-body">
-            <div class="kanji-inspector-field">
-              <label class="kanji-inspector-label" for="kanji-insp-term">Expression / Term</label>
-              <input type="text" id="kanji-insp-term" class="tactile-input font-japanese font-bold text-lg" />
+            <!-- Hero Card Showcase View -->
+            <div class="kanji-insp-hero-card">
+              <div class="kanji-insp-hero-reading font-japanese" id="kanji-insp-hero-reading">—</div>
+              <h2 class="kanji-insp-hero-expression font-japanese" id="kanji-insp-hero-expression">—</h2>
+              <div class="kanji-insp-hero-meaning text-secondary" id="kanji-insp-hero-meaning"></div>
             </div>
-            <div class="kanji-inspector-field">
-              <label class="kanji-inspector-label" for="kanji-insp-reading">Reading (Kana)</label>
-              <input type="text" id="kanji-insp-reading" class="tactile-input font-japanese text-sm" />
-            </div>
-            <div class="kanji-inspector-field">
-              <label class="kanji-inspector-label" for="kanji-insp-meaning">Meaning &amp; Gloss</label>
-              <textarea id="kanji-insp-meaning" class="tactile-input text-sm" rows="3"></textarea>
-            </div>
+
+            <!-- Hidden Inputs for form data preservation -->
+            <input type="hidden" id="kanji-insp-term" />
+            <input type="hidden" id="kanji-insp-reading" />
+            <input type="hidden" id="kanji-insp-meaning" />
+
             <div class="kanji-inspector-field">
               <label class="kanji-inspector-label" for="kanji-insp-tags">Tags</label>
               <input type="text" id="kanji-insp-tags" class="tactile-input font-mono text-xs" />
@@ -367,7 +367,7 @@ export class KanjiView {
             </div>
             <div class="kanji-inspector-actions mt-2">
               <button type="button" class="tactile-btn tactile-btn-primary w-full" id="btn-kanji-insp-mine">
-                Mine to Kiroku &amp; Anki
+                Save
               </button>
             </div>
             <div class="kanji-insp-feedback text-xs text-center font-mono mt-1" id="kanji-insp-feedback" style="display: none;"></div>
@@ -1422,6 +1422,9 @@ export class KanjiView {
     const backdrop = document.getElementById('kanji-inspector-backdrop');
     if (!drawer || !backdrop) return;
 
+    const heroReading = document.getElementById('kanji-insp-hero-reading');
+    const heroExpr = document.getElementById('kanji-insp-hero-expression');
+    const heroMeaning = document.getElementById('kanji-insp-hero-meaning');
     const termInput = document.getElementById('kanji-insp-term');
     const readingInput = document.getElementById('kanji-insp-reading');
     const meaningInput = document.getElementById('kanji-insp-meaning');
@@ -1429,9 +1432,23 @@ export class KanjiView {
     const notesInput = document.getElementById('kanji-insp-notes');
     const feedback = document.getElementById('kanji-insp-feedback');
 
-    if (termInput) termInput.value = data.term || '';
-    if (readingInput) readingInput.value = data.reading || '';
-    if (meaningInput) meaningInput.value = data.meaning || '';
+    const term = data.term || '';
+    const reading = data.reading || '';
+    const meaning = data.meaning || '';
+
+    if (heroExpr) heroExpr.textContent = term || '—';
+    if (heroReading) {
+      heroReading.textContent = reading && reading !== term ? reading : '';
+      heroReading.style.display = (reading && reading !== term) ? 'block' : 'none';
+    }
+    if (heroMeaning) {
+      heroMeaning.textContent = meaning;
+      heroMeaning.style.display = meaning ? 'block' : 'none';
+    }
+
+    if (termInput) termInput.value = term;
+    if (readingInput) readingInput.value = reading;
+    if (meaningInput) meaningInput.value = meaning;
     if (tagsInput) tagsInput.value = `kanji, ${this.listLevel || 'N?'}, ${data.char || ''}`;
     if (notesInput) notesInput.value = '';
     if (feedback) feedback.style.display = 'none';
@@ -1475,7 +1492,7 @@ export class KanjiView {
     if (feedback) {
       feedback.style.display = 'block';
       feedback.style.color = 'var(--text-muted)';
-      feedback.textContent = 'Mining card...';
+      feedback.textContent = 'Saving card...';
     }
 
     try {

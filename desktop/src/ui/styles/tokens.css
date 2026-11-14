@@ -21,6 +21,7 @@
   --gold: var(--vermilion);     /* Replaced gold with energetic vermilion across Kiroku */
   --gold-source: #C8A94A;       /* Source reference for automated integrity checks */
   --jade: #4EBB7B;              /* Mastered, known, correct feedback */
+  --kanji-known-green: #13e872; /* Crisp light green for marked known kanji in list view */
   --amber: #F59E0B;             /* Warning, intermediate state, pending */
 
   /* Industrial Tactile Palette */

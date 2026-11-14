@@ -254,7 +254,7 @@ test('Kanji View: Right-side Card Inspector and custom compound addition', () =>
   );
 });
 
-test('Kanji View: List view allows clicking kanji to mark known and removed 1-Click Mine text', () => {
+test('Kanji View: List view allows clicking kanji to mark known with green and removed 1-Click Mine text', () => {
   const jsContent = fs.readFileSync(kanjiViewPath, 'utf8');
   const cssContent = fs.readFileSync(kanjiCssPath, 'utf8');
 
@@ -274,8 +274,38 @@ test('Kanji View: List view allows clicking kanji to mark known and removed 1-Cl
   );
 
   assert.ok(
-    cssContent.includes('--alpine-berry'),
-    'kanji.css must style known kanji using cream/gold --alpine-berry'
+    cssContent.includes('--kanji-known-green'),
+    'kanji.css must style known kanji using light green --kanji-known-green'
+  );
+});
+
+test('Kanji View: Card Inspector uses hero card layout with Save button', () => {
+  const jsContent = fs.readFileSync(kanjiViewPath, 'utf8');
+  const cssContent = fs.readFileSync(kanjiCssPath, 'utf8');
+
+  assert.ok(
+    jsContent.includes('kanji-insp-hero-expression'),
+    'KanjiView must include hero expression element in Card Inspector'
+  );
+
+  assert.ok(
+    jsContent.includes('kanji-insp-hero-reading'),
+    'KanjiView must include hero reading element in Card Inspector'
+  );
+
+  assert.ok(
+    jsContent.includes('kanji-insp-hero-meaning'),
+    'KanjiView must include hero meaning element in Card Inspector'
+  );
+
+  assert.ok(
+    cssContent.includes('.kanji-insp-hero-card'),
+    'kanji.css must style .kanji-insp-hero-card'
+  );
+
+  assert.ok(
+    /Save\s*<\/button>/i.test(jsContent),
+    'KanjiView Card Inspector action button must be labeled "Save"'
   );
 });
 
