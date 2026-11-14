@@ -103,3 +103,4 @@ sequenceDiagram
         PC->>Turso: UPDATE op_log SET ack=1, acked_at=now WHERE id=... AND lease_id=...
     end
 ```
+

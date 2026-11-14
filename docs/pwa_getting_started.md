@@ -65,3 +65,4 @@ The local Python worker drains vocabulary mining operations from the edge queue 
 3. The file is streamed into the browser's high-speed Origin Private File System (OPFS) for instant zero-copy paging.
 4. When selecting a dialogue bubble, speech recognition runs on-device via WebGPU/WASM using MangaOCR, caching inference assets permanently in CacheStorage.
 5. Create flashcards with a single tap, queuing them for instant synchronization with your desktop Anki deck.
+

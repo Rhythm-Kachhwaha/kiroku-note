@@ -64,3 +64,4 @@ Before deleting resources in the Render dashboard:
 
 ### Windows Desktop Companion
 - The Windows desktop app connects locally to `http://127.0.0.1:8000` (FastAPI) and AnkiConnect (`http://127.0.0.1:8765`), operating independently of Render.
+

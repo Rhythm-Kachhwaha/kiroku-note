@@ -39,3 +39,4 @@ All notable changes to Kiroku Note Desktop, PWA, and Cloud Infrastructure are do
 
 ### Deprecated
 - **Render Dashboard**: Decommissioned legacy Render web service and PostgreSQL database in favor of Turso libSQL and Cloudflare Workers edge architecture.
+
