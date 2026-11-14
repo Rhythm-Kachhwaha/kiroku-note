@@ -29,6 +29,7 @@ export class VocabHistoryView {
     this.gaps = [];
     this.miningWords = new Set();
     this._levelListener = null;
+    this._escapeListener = null;
   }
 
   async mount(container) {
@@ -469,7 +470,10 @@ export class VocabHistoryView {
       backdrop.addEventListener('click', () => this.closeInspector());
     }
 
-    window.addEventListener('keydown', (e) => {
+    if (this._escapeListener) {
+      window.removeEventListener('keydown', this._escapeListener);
+    }
+    this._escapeListener = (e) => {
       if (e.key === 'Escape') {
         if (modalBulkDelete && modalBulkDelete.style.display !== 'none') {
           modalBulkDelete.style.display = 'none';
@@ -477,7 +481,8 @@ export class VocabHistoryView {
           this.closeInspector();
         }
       }
-    });
+    };
+    window.addEventListener('keydown', this._escapeListener);
   }
 
   showError(message) {
@@ -944,6 +949,10 @@ export class VocabHistoryView {
   }
 
   unmount() {
+    if (this._escapeListener) {
+      window.removeEventListener('keydown', this._escapeListener);
+      this._escapeListener = null;
+    }
     if (this._levelListener) {
       window.removeEventListener('kiroku:learner-level-changed', this._levelListener);
       this._levelListener = null;
