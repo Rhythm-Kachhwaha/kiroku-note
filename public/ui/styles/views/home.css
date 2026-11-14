@@ -24,20 +24,12 @@
 }
 
 .home-hero-header {
+  flex: 0 0 auto;
   width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 1.5rem 0 1rem 0;
-  margin-bottom: 0.25rem;
-}
-
-.home-hero-header {
-  flex: 0 0 auto;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 0 0 clamp(0.4rem, 1vh, 0.85rem) 0;
+  margin: clamp(0.25rem, 0.8vh, 0.5rem) 0 clamp(1.4rem, 2.8vh, 2.2rem) 0;
   padding: 0;
 }
 
@@ -136,7 +128,7 @@
   margin: 0 auto;
   height: 100%;
   min-height: 100%;
-  padding: clamp(0.5rem, 1.5vh, 1rem) clamp(1.5rem, 3vw, 2.5rem) 0;
+  padding: clamp(0.75rem, 1.8vh, 1.5rem) clamp(1.5rem, 3vw, 2.5rem) 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -516,12 +508,134 @@
 .wotd-card-inner {
   display: flex;
   flex-direction: column;
-  gap: clamp(0.25rem, 0.6vh, 0.45rem);
-  padding: clamp(0.6rem, 1.2vh, 0.85rem) clamp(0.85rem, 1.5vw, 1.15rem);
   gap: clamp(0.2rem, 0.5vh, 0.4rem);
   padding: clamp(0.5rem, 1vh, 0.85rem) clamp(0.85rem, 1.5vw, 1.15rem);
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Word of the Day: Square Stamp Zone & Layout */
+.home-wotd-zone {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  width: 100%;
+  margin-top: clamp(0.6rem, 1.4vh, 1.15rem);
+}
+
+.wotd-square-stamp {
+  width: clamp(230px, 20vw, 260px);
+  min-height: 230px;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
+  background-color: var(--architectural-cream);
+  border: 2px solid var(--tactile-stroke);
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 var(--tactile-stroke);
+  outline: none;
+  color: var(--ink-black);
+  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 180ms cubic-bezier(0.23, 1, 0.32, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.wotd-square-stamp:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--tactile-stroke);
+}
+
+.wotd-square-stamp:focus-visible {
+  outline: 2px solid var(--vermilion);
+  outline-offset: 3px;
+}
+
+.wotd-square-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0.85rem;
+  box-sizing: border-box;
+  gap: 0.35rem;
+}
+
+.wotd-square-inner .wotd-main-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.wotd-square-inner .wotd-word-surface {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.wotd-square-inner .wotd-word-text {
+  font-family: var(--font-japanese);
+  font-size: clamp(2rem, 3.2vw, 2.5rem);
+  line-height: 1.1;
+  font-weight: 700;
+  color: var(--vermilion) !important;
+  letter-spacing: 0.02em;
+  filter: drop-shadow(0 2px 4px rgba(217, 75, 56, 0.25));
+}
+
+.wotd-square-inner .wotd-stroke-char {
+  width: 42px;
+  height: 42px;
+}
+
+.wotd-square-inner .wotd-stroke-svg {
+  width: 42px;
+  height: 42px;
+}
+
+.wotd-square-inner .wotd-details-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.wotd-square-inner .wotd-reading-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.wotd-square-inner .wotd-reading {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--vermilion);
+}
+
+.wotd-square-inner .wotd-romaji {
+  font-size: 0.72rem;
+  color: var(--slate-stroke);
+  letter-spacing: 0.04em;
+}
+
+.wotd-square-inner .wotd-meaning-text {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-black);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wotd-square-inner .wotd-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 0.2rem;
 }
 
 /* Header Row: Badges & Interactive Controls */
@@ -951,7 +1065,8 @@
 }
 
 /* Minimal Launcher Cards Zone (Vocab & Kanji) */
-.home-launcher-zone {
+.home-launcher-zone,
+.home-right-zone {
   flex: 1 1 58%;
   width: 58%;
   min-width: 0;
@@ -959,18 +1074,254 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: clamp(0.85rem, 1.8vh, 1.35rem);
-  gap: clamp(0.6rem, 1.4vh, 1.25rem);
+  gap: clamp(0.6rem, 1.4vh, 1.15rem);
   padding: 0;
   box-sizing: border-box;
 }
 
 .home-launcher-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: clamp(0.75rem, 1.5vw, 1.25rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.6rem, 1.2vh, 0.95rem);
   width: 100%;
   align-items: stretch;
+}
+
+.home-bento-hero-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(0.6rem, 1.2vw, 0.95rem);
+  width: 100%;
+  align-items: stretch;
+}
+
+.home-bento-hero-row .home-launcher-card {
+  min-height: clamp(86px, 11vh, 108px);
+  padding: clamp(0.65rem, 1.2vh, 0.95rem) clamp(0.75rem, 1.2vw, 1.05rem);
+}
+
+.home-bento-hero-row .launcher-glyph-side {
+  width: clamp(48px, 5vw, 62px);
+  height: clamp(48px, 5vw, 62px);
+}
+
+.home-bento-hero-row .launcher-title {
+  font-size: clamp(1.25rem, 1.6vw, 1.5rem);
+}
+
+.home-bento-sub-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(0.6rem, 1.2vw, 0.95rem);
+  width: 100%;
+  align-items: stretch;
+}
+
+/* Grammar Bento Card */
+.bento-card-grammar {
+  padding: clamp(0.65rem, 1.2vh, 0.95rem) clamp(0.75rem, 1.2vw, 1.05rem);
+}
+
+.bento-grammar-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  gap: 0.35rem;
+}
+
+.bento-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.bento-grammar-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  background: rgba(243, 145, 32, 0.12);
+  border: 1.5px solid var(--heat-marker);
+  border-radius: 6px;
+  color: var(--heat-marker);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 1px 1px 0 var(--tactile-stroke);
+}
+
+.bento-grammar-action {
+  width: 100%;
+  margin-top: auto;
+}
+
+.bento-resume-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.35rem 0.55rem;
+  background: var(--elevated-surface);
+  border: 1.5px solid var(--subtle-border);
+  border-radius: 8px;
+  color: var(--warm-paper);
+  font-size: 0.72rem;
+  cursor: pointer;
+  outline: none;
+  transition: background-color var(--duration-fast, 180ms) ease,
+              border-color var(--duration-fast, 180ms) ease,
+              transform var(--duration-fast, 180ms) ease;
+}
+
+.bento-resume-btn:hover,
+.bento-resume-btn:focus-visible {
+  background: var(--ink-surface-hover);
+  border-color: var(--heat-marker);
+  color: var(--pure-white);
+  transform: translateY(-1px);
+}
+
+.bento-resume-btn .resume-label {
+  color: var(--paper-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bento-resume-btn .resume-point {
+  color: var(--heat-marker);
+  font-weight: 700;
+  max-width: 105px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bento-resume-btn .resume-arrow {
+  color: var(--paper-muted);
+  transition: transform var(--duration-fast, 180ms) ease;
+}
+
+.bento-resume-btn:hover .resume-arrow {
+  color: var(--heat-marker);
+  transform: translateX(3px);
+}
+
+/* Sub-Row Bento Cards (Study Drills, Anime, Manga) */
+.bento-sub-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(0.65rem, 1.2vh, 0.95rem) clamp(0.75rem, 1.2vw, 1.05rem);
+  min-height: clamp(86px, 11vh, 108px);
+  background-color: var(--ink-surface);
+  border: 1.5px solid var(--subtle-border);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  transition: transform var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1),
+              background-color var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1),
+              border-color var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow var(--duration-fast, 180ms) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bento-sub-card:hover,
+.bento-sub-card:focus-visible {
+  transform: translateY(-3px) scale(1.01);
+  background-color: var(--ink-card) !important;
+  border-color: var(--gold) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), 0 0 18px rgba(217, 75, 56, 0.18) !important;
+}
+
+.bento-sub-card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.bento-sub-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.4rem;
+}
+
+.bento-sub-badge-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.bento-sub-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--warm-paper);
+  transition: color var(--duration-fast, 180ms) ease;
+}
+
+.bento-sub-card:hover .bento-sub-icon-wrap {
+  color: var(--gold);
+}
+
+.bento-media-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border-radius: 5px;
+  background: var(--elevated-surface);
+  border: 1px solid var(--subtle-border);
+  color: var(--paper-muted);
+  transition: color var(--duration-fast, 180ms) ease,
+              border-color var(--duration-fast, 180ms) ease;
+}
+
+.bento-sub-card:hover .bento-media-pill {
+  border-color: var(--gold);
+  color: var(--warm-paper);
+}
+
+.bento-due-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  border-radius: 5px;
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid var(--amber);
+  color: var(--amber);
+}
+
+.bento-due-pill.is-caught-up {
+  background: rgba(78, 187, 123, 0.16);
+  border-color: var(--jade);
+  color: var(--jade);
+}
+
+.bento-sub-card .launcher-arrow {
+  color: var(--text-muted);
+  font-size: 1.15rem;
+  transition: transform var(--duration-fast, 180ms) cubic-bezier(0.34, 1.56, 0.64, 1),
+              color var(--duration-fast, 180ms) ease;
+}
+
+.bento-sub-card:hover .launcher-arrow {
+  color: var(--gold);
+  transform: translateX(4px);
 }
 
 .home-launcher-card {
@@ -1292,6 +1643,14 @@
   }
 
   .home-launcher-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .home-bento-hero-row,
+  .home-bento-sub-row,
+  .home-bento-wide-row {
     grid-template-columns: 1fr;
     gap: 0.65rem;
   }

@@ -367,6 +367,25 @@ export const webAPI = {
 let deferredInstallPrompt = null;
 
 if (typeof window !== 'undefined') {
+  // PWA File Handling API (launchQueue for mobile & modern browsers)
+  if ('launchQueue' in window && typeof window.launchQueue.setConsumer === 'function') {
+    window.launchQueue.setConsumer(async (launchParams) => {
+      if (!launchParams || !launchParams.files || !launchParams.files.length) return;
+      try {
+        const files = [];
+        for (const handle of launchParams.files) {
+          const file = await handle.getFile();
+          files.push(file);
+        }
+        if (files.length > 0) {
+          window.dispatchEvent(new CustomEvent('kiroku:pwa-manga-import', { detail: { files } }));
+        }
+      } catch (err) {
+        console.warn('[PWA] launchQueue file import error:', err);
+      }
+    });
+  }
+
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;

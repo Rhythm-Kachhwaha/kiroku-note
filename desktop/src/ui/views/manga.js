@@ -189,6 +189,13 @@ export class MangaView {
     this.boundKeyUpHandler = (e) => this.handleKeyUp(e);
     this.boundMouseMoveHandler = (e) => this.handleMouseMove(e);
     this.boundMouseUpHandler = (e) => this.handleMouseUp(e);
+
+    // PWA manga import event listener (File Handling API & Web Share Target)
+    this.boundPwaMangaHandler = async (e) => {
+      if (e?.detail?.files?.length) {
+        await this.openFiles(e.detail.files);
+      }
+    };
   }
 
   loadLibrary() {
@@ -253,6 +260,8 @@ export class MangaView {
     window.addEventListener('keyup', this.boundKeyUpHandler);
     window.addEventListener('mousemove', this.boundMouseMoveHandler);
     window.addEventListener('mouseup', this.boundMouseUpHandler);
+    window.addEventListener('kiroku:pwa-manga-import', this.boundPwaMangaHandler);
+    this.checkSharedMangaPayload();
   }
 
   onShow() {
@@ -265,6 +274,7 @@ export class MangaView {
     window.addEventListener('keyup', this.boundKeyUpHandler);
     window.addEventListener('mousemove', this.boundMouseMoveHandler);
     window.addEventListener('mouseup', this.boundMouseUpHandler);
+    this.checkSharedMangaPayload();
     if (this.activeMode === 'reader' && this.currentBook) {
       this.renderCurrentPage();
     }
@@ -273,6 +283,10 @@ export class MangaView {
   onHide() {
     this.closePopover();
     this.closeModal();
+    const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
+    if (viewContainer) {
+      viewContainer.classList.remove('manga-reader-active');
+    }
   }
 
   unmount() {
@@ -280,9 +294,45 @@ export class MangaView {
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('mousemove', this.boundMouseMoveHandler);
     window.removeEventListener('mouseup', this.boundMouseUpHandler);
+    window.removeEventListener('kiroku:pwa-manga-import', this.boundPwaMangaHandler);
+    const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
+    if (viewContainer) {
+      viewContainer.classList.remove('manga-reader-active');
+    }
     if (this.container) {
       this.container.innerHTML = '';
       this.container = null;
+    }
+  }
+
+  /**
+   * Check for manga files received via PWA Web Share Target (POST /?action=share-target)
+   * which are cached in CacheStorage by service-worker.js.
+   */
+  async checkSharedMangaPayload() {
+    if (typeof window === 'undefined' || !('caches' in window)) return;
+    try {
+      const cache = await caches.open('kiroku-shared-manga');
+      const match = await cache.match('/_shared_manga_payload');
+      if (match) {
+        await cache.delete('/_shared_manga_payload');
+        const blob = await match.blob();
+        const rawFilename = match.headers.get('X-Manga-Filename');
+        const filename = rawFilename ? decodeURIComponent(rawFilename) : 'shared_manga.pdf';
+        let file;
+        if (typeof File !== 'undefined') {
+          file = new File([blob], filename, { type: blob.type || 'application/pdf' });
+        } else {
+          file = blob;
+          file.name = filename;
+        }
+        if (window.location.hash === '#manga-shared') {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+        await this.openFiles([file]);
+      }
+    } catch (err) {
+      console.warn('[MangaView] checkSharedMangaPayload error:', err);
     }
   }
 
@@ -299,6 +349,11 @@ export class MangaView {
    * Library / Bookshelf View with Folders & Management
    * ------------------------------------------------------------------------- */
   renderLibraryView() {
+    const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
+    if (viewContainer) {
+      viewContainer.classList.remove('manga-reader-active');
+    }
+
     const activeBooks = this.activeFolderId === 'all'
       ? this.books
       : this.books.filter(b => (b.folderId || 'default') === this.activeFolderId);
@@ -358,15 +413,15 @@ export class MangaView {
 
     // Dropzone card inside grid
     const dropzoneCard = `
-      <div class="manga-library-dropzone-card" id="manga-library-dropzone">
-        <label for="manga-library-file-input" class="manga-dropzone-label cursor-pointer">
+      <div class="manga-library-dropzone-card" id="manga-library-dropzone" role="button" tabindex="0" title="Tap to select from device or drop files">
+        <div class="manga-dropzone-label cursor-pointer">
           <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor" class="manga-dropzone-icon">
             <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
           </svg>
-          <div class="text-xs font-bold mt-2 text-center text-warm-paper">Drop Manga Here</div>
-          <div class="text-xs text-muted text-center mt-1">PDF, CBZ or ZIP bundle</div>
-        </label>
-        <input type="file" id="manga-library-file-input" accept=".pdf,.cbz,.zip,image/*" multiple style="display: none;" />
+          <div class="text-xs font-bold mt-2 text-center text-warm-paper">Upload Manga / PDF</div>
+          <div class="text-xs text-muted text-center mt-1">Tap to select or drop files (PDF, CBZ, ZIP)</div>
+        </div>
+        <input type="file" id="manga-library-file-input" class="manga-file-input-hidden" accept=".pdf,.cbz,.zip,.cbr,application/pdf,application/zip,application/x-zip-compressed,application/x-cbz,application/x-cbr,application/octet-stream,image/*" multiple />
       </div>
     `;
 
@@ -398,10 +453,10 @@ export class MangaView {
               </svg>
               <span>Receive from PC</span>
             </button>
-            <label class="tactile-btn tactile-btn-primary tactile-btn-sm cursor-pointer manga-add-btn" for="manga-library-file-input">
+            <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm cursor-pointer manga-add-btn" id="btn-add-manga" title="Upload manga or PDF from this device">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-              <span>Add Manga</span>
-            </label>
+              <span>Upload Manga</span>
+            </button>
           </div>
         </div>
 
@@ -461,7 +516,24 @@ export class MangaView {
       }
     });
 
+    const btnAddManga = this.container.querySelector('#btn-add-manga');
+    btnAddManga?.addEventListener('click', (e) => {
+      e.preventDefault();
+      fileInput?.click();
+    });
+
     const dropzone = this.container.querySelector('#manga-library-dropzone');
+    dropzone?.addEventListener('click', (e) => {
+      if (e.target !== fileInput) {
+        fileInput?.click();
+      }
+    });
+    dropzone?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fileInput?.click();
+      }
+    });
     dropzone?.addEventListener('dragover', (e) => {
       e.preventDefault();
       dropzone.classList.add('is-dragover');
@@ -1092,6 +1164,12 @@ export class MangaView {
     const isCurrentPageBookmarked = bookmarks.some(b => b.page === this.currentPage);
     const bookmarksCount = bookmarks.length;
 
+    const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
+    if (viewContainer) {
+      viewContainer.scrollTop = 0;
+      viewContainer.classList.add('manga-reader-active');
+    }
+
     this.container.innerHTML = `
       <div class="manga-immersion-reader" id="manga-immersion-reader">
         <!-- Reader Navigation Top Bar -->
@@ -1148,9 +1226,9 @@ export class MangaView {
                 <span>Select Text</span>
               </button>
             </div>
+          </div>
 
-            <div class="manga-topbar-divider"></div>
-
+          <div class="manga-topbar-right">
             <!-- Tactile Bubble Detection Controls -->
             <button type="button" class="tactile-btn tactile-btn-gold tactile-btn-sm" id="btn-detect-bubbles" title="Detect Speech Bubbles via AI">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
@@ -1161,9 +1239,9 @@ export class MangaView {
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
               <span>Clear</span>
             </button>
-          </div>
 
-          <div class="manga-topbar-right">
+            <div class="manga-topbar-divider"></div>
+
             <!-- Bookmarks Drawer Toggle Button -->
             <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm manga-reader-bookmark-btn ${isCurrentPageBookmarked ? 'is-active' : ''}" id="btn-reader-bookmarks" title="Bookmarks & Page Notes">
               <svg class="manga-bookmark-svg ${isCurrentPageBookmarked ? 'is-active' : ''}" viewBox="0 0 24 24" width="14" height="14">
@@ -1177,7 +1255,8 @@ export class MangaView {
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H14V5h5v14z"/></svg>
               <span>Study Sidebar</span>
             </button>
-            <span class="manga-reader-hint text-xs text-muted">A / Left = Next | D / Right = Prev</span>
+
+            <span class="manga-reader-hint" title="Page turning: A / Left = Next | D / Right = Prev">A / D Flip</span>
           </div>
         </header>
 
@@ -1216,6 +1295,8 @@ export class MangaView {
               <div class="manga-bubble-overlay-layer" id="manga-bubble-overlay-layer"></div>
               <div class="manga-selection-box" id="manga-selection-box" style="display: none;"></div>
             </div>
+            <div class="manga-stage-scroll-spacer" aria-hidden="true"></div>
+          </div>
           </div>
 
           <!-- Tactile Study Inspector Sidebar (Migaku-Style) -->
@@ -1324,6 +1405,7 @@ export class MangaView {
             <button type="button" class="manga-nav-btn" id="btn-reader-prev" title="Previous Page (D / ArrowRight)">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
               <span>Prev</span>
+              <span class="manga-btn-subkey">D</span>
             </button>
 
             <div class="manga-page-stepper">
@@ -1332,6 +1414,7 @@ export class MangaView {
             </div>
 
             <button type="button" class="manga-nav-btn" id="btn-reader-next" title="Next Page (A / ArrowLeft)">
+              <span class="manga-btn-subkey">A</span>
               <span>Next</span>
               <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
             </button>
@@ -1358,6 +1441,10 @@ export class MangaView {
   setupReaderEvents() {
     const btnBackLib = this.container.querySelector('#btn-reader-back-library');
     btnBackLib?.addEventListener('click', () => {
+      const viewContainer = this.container?.closest('#view-container') || document.getElementById('view-container');
+      if (viewContainer) {
+        viewContainer.classList.remove('manga-reader-active');
+      }
       this.closePopover();
       this.closeSidebar();
       this.clearBubbleOverlays();
@@ -1481,40 +1568,25 @@ export class MangaView {
       }
 
       // 2. Normal Wheel Scrolling
-      const canScrollVertically = stageCard.scrollHeight > stageCard.clientHeight + 4;
-      const canScrollHorizontally = stageCard.scrollWidth > stageCard.clientWidth + 4;
+      const canScrollVertically = stageCard.scrollHeight > stageCard.clientHeight + 10;
+      const canScrollHorizontally = stageCard.scrollWidth > stageCard.clientWidth + 10;
 
       if (canScrollVertically || canScrollHorizontally) {
-        // Content overflows: allow natural smooth scroll.
-        // Also detect if user is at edge flicking wheel past bounds
-        const isAtBottom = (stageCard.scrollTop + stageCard.clientHeight) >= (stageCard.scrollHeight - 6);
-        const isAtTop = stageCard.scrollTop <= 6;
+        // Content overflows: allow natural smooth scroll throughout the page without interruption!
+        // Never hijack scrolling to prematurely turn the page while reading!
+        return;
+      }
 
-        if (isAtBottom && e.deltaY > 60) {
-          const now = Date.now();
-          if (now - this.lastWheelPageTurnTime > 400) {
-            this.lastWheelPageTurnTime = now;
+      // 3. Page fits in window (no scrollbars): wheel down = Next Page, wheel up = Prev Page
+      if (Math.abs(e.deltaY) > 25) {
+        e.preventDefault();
+        const now = Date.now();
+        if (now - this.lastWheelPageTurnTime > 350) {
+          this.lastWheelPageTurnTime = now;
+          if (e.deltaY > 0) {
             this.nextPage();
-          }
-        } else if (isAtTop && e.deltaY < -60) {
-          const now = Date.now();
-          if (now - this.lastWheelPageTurnTime > 400) {
-            this.lastWheelPageTurnTime = now;
+          } else {
             this.prevPage();
-          }
-        }
-      } else {
-        // Page fits in window: wheel down = Next Page, wheel up = Prev Page
-        if (Math.abs(e.deltaY) > 25) {
-          e.preventDefault();
-          const now = Date.now();
-          if (now - this.lastWheelPageTurnTime > 350) {
-            this.lastWheelPageTurnTime = now;
-            if (e.deltaY > 0) {
-              this.nextPage();
-            } else {
-              this.prevPage();
-            }
           }
         }
       }

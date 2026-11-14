@@ -72,6 +72,29 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
+  // Handle PWA Web Share Target for direct mobile manga/PDF sharing
+  if (request.method === 'POST' && url.searchParams.get('action') === 'share-target') {
+    event.respondWith((async () => {
+      try {
+        const formData = await request.formData();
+        const mangaFile = formData.get('manga_file');
+        if (mangaFile) {
+          const cache = await caches.open('kiroku-shared-manga');
+          await cache.put('/_shared_manga_payload', new Response(mangaFile, {
+            headers: {
+              'Content-Type': mangaFile.type || 'application/octet-stream',
+              'X-Manga-Filename': encodeURIComponent(mangaFile.name || 'shared_manga.pdf')
+            }
+          }));
+        }
+      } catch (err) {
+        console.warn('[SW] Share target processing error:', err);
+      }
+      return Response.redirect('/#manga-shared', 303);
+    })());
+    return;
+  }
+
   // Bypass service worker for API calls and non-GET requests
   if (request.method !== 'GET' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
     return;

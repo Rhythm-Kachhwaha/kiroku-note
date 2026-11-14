@@ -563,18 +563,9 @@ export class HomeView {
             </div>
           </div>
 
-          <!-- Right Zone: Compact Word of the Day Stamp & 5-Card Bento Grid -->
+          <!-- Right Zone: 6-Card Hub Grid & Square Word of the Day Stamp -->
           <div class="home-launcher-zone home-right-zone" id="home-launcher-zone">
-            <!-- Compact Word of the Day Stamp in Top Corner -->
-            <div class="home-daily-word daily-vocab-stamp tactile-card wotd-corner-stamp"
-                 id="daily-word-stamp"
-                 role="region"
-                 tabindex="0"
-                 aria-label="Word of the day: ${this.currentDailyWord.word} (${this.currentDailyWord.reading}) - ${this.currentDailyWord.meaning}">
-              ${this.renderWordOfTheDayCard(this.currentDailyWord)}
-            </div>
-
-            <!-- 5-Card Asymmetric Bento Hub Grid -->
+            <!-- 6-Card Destination Bento Hub Grid (Row 1: Study Pillars, Row 2: Immersion & Practice) -->
             <div class="home-launcher-grid" role="region" aria-label="Study Destinations">
               <!-- Top Row: Hero Cards (Vocab, Kanji, Grammar) -->
               <div class="home-bento-hero-row">
@@ -589,15 +580,7 @@ export class HomeView {
                      aria-label="Grammar: JLPT syntax patterns and rules">
                   <div class="bento-grammar-content">
                     <div class="bento-card-header">
-                      <div class="bento-icon-pill" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                          <line x1="6" y1="3" x2="6" y2="15"></line>
-                          <circle cx="18" cy="6" r="3"></circle>
-                          <circle cx="6" cy="18" r="3"></circle>
-                          <path d="M18 9a9 9 0 0 1-9 9"></path>
-                        </svg>
-                        <span class="font-mono text-xs">文法</span>
-                      </div>
+                      <span class="bento-grammar-pill font-japanese">文法</span>
                       <span class="launcher-arrow font-mono" aria-hidden="true">&rarr;</span>
                     </div>
                     <div class="launcher-text-group">
@@ -615,58 +598,95 @@ export class HomeView {
                 </div>
               </div>
 
-              <!-- Bottom Row: Wide Launch Bars (Study Drills & Immersion Hub) -->
-              <div class="home-bento-wide-row">
-                <!-- Bar 1: Study Drills with Pending Reviews Badge -->
-                <div class="home-launcher-card tactile-card tactile-card-interactive bento-wide-bar bento-bar-study"
+              <!-- Bottom Row: Sub-Cards (Study Drills, Anime, Manga) -->
+              <div class="home-bento-sub-row">
+                <!-- Card 1: Study Drills with Pending Reviews Badge -->
+                <div class="home-launcher-card bento-sub-card tactile-card tactile-card-interactive"
                      id="launcher-card-study"
                      data-tab="study"
                      role="button"
                      tabindex="0"
                      aria-label="Study Drills: Adaptive repetition and practice">
-                  <div class="bento-wide-icon-wrap" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <polyline points="12 6 12 12 16 14"></polyline>
-                    </svg>
-                  </div>
-                  <div class="bento-wide-info">
-                    <div class="bento-wide-title-row">
-                      <h3 class="bento-wide-title font-display">Study Drills</h3>
+                  <div class="bento-sub-card-header">
+                    <div class="bento-sub-badge-group">
+                      <div class="bento-sub-icon-wrap" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                      </div>
                       <span class="bento-due-pill font-mono" id="home-study-due-badge">PRACTICE</span>
                     </div>
-                    <p class="bento-wide-desc font-sans">SRS reviews, quick bursts & grading</p>
+                    <span class="launcher-arrow font-mono" aria-hidden="true">&rarr;</span>
                   </div>
-                  <div class="bento-wide-arrow font-mono" aria-hidden="true">&rarr;</div>
+                  <div class="launcher-text-group">
+                    <h3 class="launcher-title font-display">Study Drills</h3>
+                    <p class="launcher-desc font-sans">SRS reviews & bursts</p>
+                  </div>
                 </div>
 
-                <!-- Bar 2: Immersion Hub (Anime & Manga) -->
-                <div class="home-launcher-card tactile-card tactile-card-interactive bento-wide-bar bento-bar-immersion"
-                     id="launcher-card-immersion"
+                <!-- Card 2: Anime Theater -->
+                <div class="home-launcher-card bento-sub-card tactile-card tactile-card-interactive"
+                     id="launcher-card-anime"
                      data-tab="anime"
                      role="button"
                      tabindex="0"
-                     aria-label="Immersion Hub: Anime subtitle player and Manga OCR reader">
-                  <div class="bento-wide-icon-wrap" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-                      <line x1="7" y1="2" x2="7" y2="22"></line>
-                      <line x1="17" y1="2" x2="17" y2="22"></line>
-                      <line x1="2" y1="12" x2="22" y2="12"></line>
-                    </svg>
-                  </div>
-                  <div class="bento-wide-info">
-                    <div class="bento-wide-title-row">
-                      <h3 class="bento-wide-title font-display">Immersion Hub</h3>
-                      <span class="bento-immersion-pills font-mono">
-                        <span class="immersion-tag">ANIME</span>
-                        <span class="immersion-tag">MANGA</span>
-                      </span>
+                     aria-label="Anime: Subtitle sync and video immersion">
+                  <div class="bento-sub-card-header">
+                    <div class="bento-sub-badge-group">
+                      <div class="bento-sub-icon-wrap" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                          <line x1="7" y1="2" x2="7" y2="22"></line>
+                          <line x1="17" y1="2" x2="17" y2="22"></line>
+                          <line x1="2" y1="12" x2="22" y2="12"></line>
+                        </svg>
+                      </div>
+                      <span class="bento-media-pill font-mono">ANIME</span>
                     </div>
-                    <p class="bento-wide-desc font-sans">Anime subtitle theater & Manga OCR</p>
+                    <span class="launcher-arrow font-mono" aria-hidden="true">&rarr;</span>
                   </div>
-                  <div class="bento-wide-arrow font-mono" aria-hidden="true">&rarr;</div>
+                  <div class="launcher-text-group">
+                    <h3 class="launcher-title font-display">Anime</h3>
+                    <p class="launcher-desc font-sans">Subtitle theater & player</p>
+                  </div>
                 </div>
+
+                <!-- Card 3: Manga Reader -->
+                <div class="home-launcher-card bento-sub-card tactile-card tactile-card-interactive"
+                     id="launcher-card-manga"
+                     data-tab="manga"
+                     role="button"
+                     tabindex="0"
+                     aria-label="Manga: Reader and OCR bubble capture">
+                  <div class="bento-sub-card-header">
+                    <div class="bento-sub-badge-group">
+                      <div class="bento-sub-icon-wrap" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                        </svg>
+                      </div>
+                      <span class="bento-media-pill font-mono">MANGA</span>
+                    </div>
+                    <span class="launcher-arrow font-mono" aria-hidden="true">&rarr;</span>
+                  </div>
+                  <div class="launcher-text-group">
+                    <h3 class="launcher-title font-display">Manga</h3>
+                    <p class="launcher-desc font-sans">Reader & OCR mining</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Square Word of the Day Stamp (Placed Below All Destination Cards) -->
+            <div class="home-wotd-zone">
+              <div class="home-daily-word daily-vocab-stamp tactile-card wotd-square-stamp"
+                   id="daily-word-stamp"
+                   role="region"
+                   tabindex="0"
+                   aria-label="Word of the day: ${this.currentDailyWord.word} (${this.currentDailyWord.reading}) - ${this.currentDailyWord.meaning}">
+                ${this.renderWordOfTheDayCard(this.currentDailyWord)}
               </div>
             </div>
           </div>
@@ -693,7 +713,7 @@ export class HomeView {
     const isSaved = Boolean(data.is_saved);
 
     return `
-      <div class="wotd-card-inner wotd-compact-inner">
+      <div class="wotd-card-inner wotd-square-inner">
         <!-- Top Meta & Controls Header -->
         <div class="wotd-header-row">
           <div class="wotd-badge-group">
@@ -987,12 +1007,13 @@ export class HomeView {
         window.matchMedia &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      // In normal mode, ensure animations are unpaused and play their natural loops!
+      // In normal mode, ensure animations are unpaused and start from stroke 1
       try {
         if (reducedMotion) {
           if (svgEl?.pauseAnimations) svgEl.pauseAnimations();
           if (svgEl?.setCurrentTime) svgEl.setCurrentTime(config.restTime);
         } else {
+          if (svgEl?.setCurrentTime) svgEl.setCurrentTime(0);
           if (svgEl?.animationsPaused?.()) {
             svgEl.unpauseAnimations();
           }
@@ -1016,7 +1037,7 @@ export class HomeView {
           const glyphWrap = ctrl.cardEl?.querySelector?.('.launcher-glyph-wrap');
           if (glyphWrap) glyphWrap.classList.remove('is-easing-out');
 
-          if (reducedMotion || document.hidden === true || !ctrl.inViewport) {
+          if (reducedMotion || document.hidden === true) {
             try {
               ctrl.svg?.pauseAnimations?.();
               ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
@@ -1027,8 +1048,13 @@ export class HomeView {
           }
 
           try {
-            if (ctrl.svg?.animationsPaused?.()) {
-              ctrl.svg.unpauseAnimations();
+            if (ctrl.svg) {
+              if (typeof ctrl.svg.setCurrentTime === 'function') {
+                ctrl.svg.setCurrentTime(0);
+              }
+              if (typeof ctrl.svg.unpauseAnimations === 'function' && ctrl.svg.animationsPaused?.()) {
+                ctrl.svg.unpauseAnimations();
+              }
             }
             ctrl.isAnimating = true;
           } catch (e) {
@@ -1040,6 +1066,14 @@ export class HomeView {
             clearTimeout(ctrl.leaveTimer);
             ctrl.leaveTimer = null;
           }
+          if (reducedMotion) {
+            try {
+              ctrl.svg?.pauseAnimations?.();
+              ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
+            } catch (e) {
+              console.debug('[Home] SVG stop notice:', e);
+            }
+          }
         },
         resetToRest: () => {
           if (ctrl.leaveTimer) {
@@ -1050,19 +1084,6 @@ export class HomeView {
       };
 
       this.cardControllers.set(config.id, ctrl);
-      if (cardEl && typeof IntersectionObserver === 'function') {
-        if (!this.cardIntersectionObserver) {
-          this.cardIntersectionObserver = new IntersectionObserver((entries) => {
-            for (const entry of entries) {
-              const observedCtrl = this.cardControllers.get(entry.target.dataset?.cardId);
-              if (!observedCtrl) continue;
-              observedCtrl.inViewport = entry.isIntersecting;
-            }
-          });
-        }
-        cardEl.dataset.cardId = config.id;
-        this.cardIntersectionObserver.observe(cardEl);
-      }
 
       if (cardEl && typeof cardEl.addEventListener === 'function') {
         cardEl.addEventListener('pointerenter', () => {
@@ -1128,7 +1149,7 @@ export class HomeView {
       });
     }
 
-    // Study Drills Bar
+    // Study Drills Card
     const cardStudy = this.container ? this.container.querySelector('#launcher-card-study') : null;
     if (cardStudy) {
       cardStudy.addEventListener('click', (e) => {
@@ -1143,17 +1164,32 @@ export class HomeView {
       });
     }
 
-    // Immersion Hub Bar
-    const cardImmersion = this.container ? this.container.querySelector('#launcher-card-immersion') : null;
-    if (cardImmersion) {
-      cardImmersion.addEventListener('click', (e) => {
+    // Anime Theater Card
+    const cardAnime = this.container ? this.container.querySelector('#launcher-card-anime') : null;
+    if (cardAnime) {
+      cardAnime.addEventListener('click', (e) => {
         e.preventDefault();
         this.router.navigateToTab('anime');
       });
-      cardImmersion.addEventListener('keydown', (e) => {
+      cardAnime.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           this.router.navigateToTab('anime');
+        }
+      });
+    }
+
+    // Manga Reader Card
+    const cardManga = this.container ? this.container.querySelector('#launcher-card-manga') : null;
+    if (cardManga) {
+      cardManga.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.router.navigateToTab('manga');
+      });
+      cardManga.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.router.navigateToTab('manga');
         }
       });
     }
@@ -1182,6 +1218,27 @@ export class HomeView {
       this.hydrateDailyWord();
       this.fetchStudySummary();
     }
+    // Resume and rewind stroke animations on view activation
+    const reducedMotion = typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reducedMotion) {
+      for (const ctrl of this.cardControllers.values()) {
+        ctrl.inViewport = true;
+        try {
+          if (ctrl.svg) {
+            if (typeof ctrl.svg.setCurrentTime === 'function') {
+              ctrl.svg.setCurrentTime(0);
+            }
+            if (typeof ctrl.svg.unpauseAnimations === 'function' && ctrl.svg.animationsPaused?.()) {
+              ctrl.svg.unpauseAnimations();
+            }
+          }
+        } catch (e) {
+          console.debug('[Home] SVG onShow resume warning:', e);
+        }
+      }
+    }
     if (this.riveMascot) {
       this.riveMascot.lastSurfaceSize = null;
       this.riveMascot.resume();
@@ -1198,6 +1255,15 @@ export class HomeView {
   onHide() {
     if (this.visibilityHandler) {
       document.removeEventListener('visibilitychange', this.visibilityHandler);
+    }
+    for (const ctrl of this.cardControllers.values()) {
+      try {
+        if (ctrl.svg && typeof ctrl.svg.pauseAnimations === 'function') {
+          ctrl.svg.pauseAnimations();
+        }
+      } catch (e) {
+        console.debug('[Home] SVG hide notice:', e);
+      }
     }
     this.stopTiltTracking();
     this.riveMascot?.pause?.();

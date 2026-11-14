@@ -6,6 +6,52 @@
   "background_color": "#0f1115",
   "theme_color": "#0f1115",
   "description": "Local-First Japanese Mining Companion & Study System",
+  "share_target": {
+    "action": "/?action=share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "manga_file",
+          "accept": [
+            ".pdf",
+            ".cbz",
+            ".zip",
+            ".cbr",
+            "application/pdf",
+            "application/zip",
+            "application/x-zip-compressed",
+            "application/x-cbz",
+            "application/octet-stream",
+            "image/*"
+          ]
+        }
+      ]
+    }
+  },
+  "file_handlers": [
+    {
+      "action": "/#manga",
+      "name": "Manga Document",
+      "icons": [
+        {
+          "src": "/ui/assets/mascot/rainbowcat_svg.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ],
+      "accept": {
+        "application/pdf": [".pdf"],
+        "application/zip": [".zip", ".cbz", ".cbr"],
+        "application/x-zip-compressed": [".zip", ".cbz"],
+        "application/x-cbz": [".cbz"]
+      }
+    }
+  ],
   "icons": [
     {
       "src": "/ui/assets/mascot/rainbowcat_svg.svg",

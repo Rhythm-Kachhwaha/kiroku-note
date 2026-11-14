@@ -53,6 +53,19 @@ export function prefetchRiveAssets() {
   if (!rivBufferPromise) {
     rivBufferPromise = (async () => {
       try {
+        markPerf('getRiveAssetBuffer:start');
+        if (window.desktopAPI?.getRiveAssetBuffer) {
+          try {
+            const buf = await window.desktopAPI.getRiveAssetBuffer(PRIMARY_COMPANION_ASSET);
+            if (buf && (buf.byteLength > 0 || buf.length > 0)) {
+              markPerf('riv:buffer_received_ipc');
+              return buf instanceof ArrayBuffer ? buf : buf.buffer || buf;
+            }
+          } catch (e) {
+            console.debug('[Mascot] desktopAPI.getRiveAssetBuffer fallback:', e);
+          }
+        }
+
         markPerf('getRiveAssetUrl:start');
         let src;
         if (window.desktopAPI?.getRiveAssetUrl) {

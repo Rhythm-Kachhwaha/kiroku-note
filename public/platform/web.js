@@ -242,9 +242,39 @@ class OcrWorkerBridge {
 
 const ocrBridge = new OcrWorkerBridge();
 
+const sessionTokenizeCache = new Map();
+
 export const webAPI = {
   isDesktop: false,
   isPWA: true,
+  tokenize: async (text, mode = 'C') => {
+    if (!text || typeof text !== 'string') return { tokens: [] };
+    const trimmed = text.trim();
+    if (!trimmed) return { tokens: [] };
+    const cacheKey = `${mode}:${trimmed}`;
+    if (sessionTokenizeCache.has(cacheKey)) {
+      return sessionTokenizeCache.get(cacheKey);
+    }
+    try {
+      const res = await dispatchFetch('/api/tokenize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: { text: trimmed, mode }
+      });
+      if (res && Array.isArray(res.tokens)) {
+        if (sessionTokenizeCache.size > 500) {
+          const firstKey = sessionTokenizeCache.keys().next().value;
+          sessionTokenizeCache.delete(firstKey);
+        }
+        sessionTokenizeCache.set(cacheKey, res);
+        return res;
+      }
+      return res || { tokens: [] };
+    } catch (err) {
+      console.warn('[WebAPI] Tokenize request failed:', err);
+      return { tokens: [] };
+    }
+  },
   minimize: () => Promise.resolve(),
   toggleMaximize: () => Promise.resolve(),
   close: () => Promise.resolve(),
@@ -337,6 +367,25 @@ export const webAPI = {
 let deferredInstallPrompt = null;
 
 if (typeof window !== 'undefined') {
+  // PWA File Handling API (launchQueue for mobile & modern browsers)
+  if ('launchQueue' in window && typeof window.launchQueue.setConsumer === 'function') {
+    window.launchQueue.setConsumer(async (launchParams) => {
+      if (!launchParams || !launchParams.files || !launchParams.files.length) return;
+      try {
+        const files = [];
+        for (const handle of launchParams.files) {
+          const file = await handle.getFile();
+          files.push(file);
+        }
+        if (files.length > 0) {
+          window.dispatchEvent(new CustomEvent('kiroku:pwa-manga-import', { detail: { files } }));
+        }
+      } catch (err) {
+        console.warn('[PWA] launchQueue file import error:', err);
+      }
+    });
+  }
+
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;

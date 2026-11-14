@@ -52,12 +52,20 @@ test('manga_viewer: manga.js supports drag-pan move tool and smooth wheel naviga
   assert.ok(content.includes('isPanning'), 'must track panning state');
   assert.ok(content.includes('isSpacePressed'), 'must support Spacebar panning shortcut');
   assert.ok(content.includes('updateCursorState'), 'must update cursor between grab and crosshair');
+  assert.ok(content.includes('manga-stage-scroll-spacer'), 'must include bottom clearance scroll spacer');
+  assert.ok(content.includes('manga-reader-active'), 'must manage active reader class on viewport');
 });
 
 test('manga_viewer: manga.css uses design tokens with zero raw hex or emoji', () => {
   const css = fs.readFileSync(mangaCssPath, 'utf8');
   assert.ok(css.includes('.manga-viewer-container'), 'must style container');
   assert.ok(css.includes('.manga-immersion-reader'), 'must style immersion reader');
+  assert.ok(css.includes('.manga-reader-topbar'), 'must style topbar');
+  assert.ok(css.includes('.manga-topbar-left'), 'must style topbar left');
+  assert.ok(css.includes('.manga-topbar-center'), 'must style topbar center');
+  assert.ok(css.includes('.manga-topbar-right'), 'must style topbar right');
+  assert.ok(css.includes('.manga-reader-hint'), 'must style keyboard hotkey hint badge');
+  assert.ok(css.includes('.manga-stage-scroll-spacer'), 'must style bottom stage clearance spacer');
   assert.ok(css.includes('.manga-bubble-hitbox'), 'must style bubble hitboxes');
   assert.ok(css.includes('.manga-floating-popover'), 'must style floating popover');
   assert.ok(css.includes('.manga-loading-overlay'), 'must style loading overlay');
@@ -70,4 +78,26 @@ test('manga_viewer: manga.css uses design tokens with zero raw hex or emoji', ()
   assert.ok(css.includes('.manga-tool-toggle-btn'), 'must style tool toggle buttons');
   assert.equal(/#[0-9a-fA-F]{3,6}/.test(css), false, 'no raw hex');
   assert.equal(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/u.test(css), false, 'no emoji');
+});
+
+test('manga_viewer: manga.js supports direct mobile uploads and PWA share target / launch queue', () => {
+  const content = fs.readFileSync(mangaJsPath, 'utf8');
+  assert.ok(content.includes('btn-add-manga'), 'must have explicit button trigger for mobile file picker');
+  assert.ok(content.includes('checkSharedMangaPayload'), 'must check for Web Share Target manga payload');
+  assert.ok(content.includes('kiroku:pwa-manga-import'), 'must handle launchQueue file handling events');
+  assert.ok(content.includes('manga-file-input-hidden'), 'must use off-screen input instead of display:none');
+  assert.ok(content.includes('application/x-zip-compressed'), 'must support expanded mobile MIME types');
+
+  const css = fs.readFileSync(mangaCssPath, 'utf8');
+  assert.ok(css.includes('.manga-file-input-hidden'), 'must style off-screen input');
+  assert.ok(css.includes('@media (max-width: 768px)'), 'must include mobile responsive rules');
+
+  const manifestPath = path.join(__dirname, '..', '..', 'public', 'manifest.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  assert.ok(manifest.share_target, 'manifest must define share_target');
+  assert.ok(Array.isArray(manifest.file_handlers), 'manifest must define file_handlers');
+
+  const swPath = path.join(__dirname, '..', '..', 'public', 'service-worker.js');
+  const swContent = fs.readFileSync(swPath, 'utf8');
+  assert.ok(swContent.includes('kiroku-shared-manga'), 'service worker must handle shared manga cache');
 });

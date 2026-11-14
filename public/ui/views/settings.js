@@ -514,6 +514,47 @@ export class SettingsView {
                       </div>
                     </div>
                   </div>
+
+                  <!-- iOS Shortcut & External Capture Card -->
+                  <div class="settings-card tactile-card" id="settings-shortcut-token-card">
+                    <div class="card-header-row">
+                      <div class="flex items-center gap-2">
+                        <h3 class="card-title">iOS Shortcut &amp; External Capture</h3>
+                        <span class="tactile-pill text-xs font-mono px-2 py-0.5 text-gold" id="shortcut-token-status-badge">Ready</span>
+                      </div>
+                    </div>
+                    <p class="card-desc">
+                      Capture Japanese text directly from iOS Safari, Books, or YouTube via Apple Shortcuts. Requests are authenticated with your personal Bearer token.
+                    </p>
+
+                    <div class="shortcut-token-field-wrapper mt-3">
+                      <label for="shortcut-token-input" class="text-xs text-muted block mb-1">Personal Secret Token</label>
+                      <div class="shortcut-token-input-row flex items-center gap-2">
+                        <div class="relative flex-1 flex items-center">
+                          <input type="password" id="shortcut-token-input" class="tactile-input font-mono text-xs w-full" readonly value="krk_live_••••••••••••••••••••" />
+                          <button type="button" class="btn-toggle-shortcut-visibility" id="btn-toggle-shortcut-token" title="Toggle visibility" aria-label="Toggle token visibility">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                              <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                            </svg>
+                          </button>
+                        </div>
+                        <button type="button" class="tactile-btn tactile-btn-sm" id="btn-copy-shortcut-token">Copy Token</button>
+                        <button type="button" class="tactile-btn tactile-btn-ghost tactile-btn-sm" id="btn-regenerate-shortcut-token" title="Invalidate and regenerate token">Regenerate</button>
+                      </div>
+                    </div>
+
+                    <div class="shortcut-install-row mt-3 pt-3 border-t border-tactile flex items-center justify-between">
+                      <div class="text-xs text-muted">
+                        Install the pre-configured mining shortcut on iPhone or iPad:
+                      </div>
+                      <button type="button" class="tactile-btn tactile-btn-primary tactile-btn-sm" id="btn-install-ios-shortcut">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                          <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                        </svg>
+                        <span>Install iOS Shortcut</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </section>
 
@@ -1124,6 +1165,79 @@ export class SettingsView {
         }
       });
     }
+
+    // Shortcut token visibility toggle
+    const btnToggleShortcut = document.getElementById('btn-toggle-shortcut-token');
+    if (btnToggleShortcut) {
+      btnToggleShortcut.addEventListener('click', () => {
+        const input = document.getElementById('shortcut-token-input');
+        if (!input) return;
+        input.type = input.type === 'password' ? 'text' : 'password';
+      });
+    }
+
+    // Copy Shortcut token with tactile feedback
+    const btnCopyShortcut = document.getElementById('btn-copy-shortcut-token');
+    if (btnCopyShortcut) {
+      btnCopyShortcut.addEventListener('click', async () => {
+        const input = document.getElementById('shortcut-token-input');
+        if (!input || !input.value) return;
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(input.value);
+          } else {
+            input.select();
+            document.execCommand('copy');
+          }
+          const prev = btnCopyShortcut.textContent;
+          btnCopyShortcut.textContent = 'Copied!';
+          setTimeout(() => { btnCopyShortcut.textContent = prev; }, 1500);
+        } catch (err) {
+          console.warn('[Settings] Failed to copy token:', err);
+        }
+      });
+    }
+
+    // Regenerate Shortcut token
+    const btnRegenShortcut = document.getElementById('btn-regenerate-shortcut-token');
+    if (btnRegenShortcut) {
+      btnRegenShortcut.addEventListener('click', async () => {
+        if (!confirm('Regenerate your secret token? Existing iOS Shortcuts and external capture scripts will need to be updated with the new token.')) {
+          return;
+        }
+        btnRegenShortcut.disabled = true;
+        btnRegenShortcut.textContent = 'Regenerating...';
+        try {
+          const res = await apiClient.request('/api/user/token/regenerate', { method: 'POST' });
+          const token = res?.data?.token || res?.token;
+          if (token) {
+            const input = document.getElementById('shortcut-token-input');
+            if (input) input.value = token;
+            const badge = document.getElementById('shortcut-token-status-badge');
+            if (badge) badge.textContent = 'Updated';
+          }
+        } catch (err) {
+          console.warn('[Settings] Token regeneration failed:', err);
+        } finally {
+          btnRegenShortcut.disabled = false;
+          btnRegenShortcut.textContent = 'Regenerate';
+        }
+      });
+    }
+
+    // Install iOS Shortcut button
+    const btnInstallShortcut = document.getElementById('btn-install-ios-shortcut');
+    if (btnInstallShortcut) {
+      btnInstallShortcut.addEventListener('click', () => {
+        const workerHost = (typeof window !== 'undefined' && window.location)
+          ? window.location.origin
+          : 'https://kiroku.app';
+        const shortcutUrl = `https://www.icloud.com/shortcuts/kiroku_capture?host=${encodeURIComponent(workerHost)}`;
+        if (typeof window !== 'undefined') {
+          window.open(shortcutUrl, '_blank');
+        }
+      });
+    }
   }
 
   async loadInitialSettings() {
@@ -1360,6 +1474,18 @@ export class SettingsView {
       }
       if (elStreak && a.daily_streak !== undefined) {
         elStreak.textContent = `${a.daily_streak} Day Streak`;
+      }
+
+      // Fetch or restore shortcut secret token
+      try {
+        const tokenRes = await apiClient.request('/api/user/token');
+        const tokenVal = tokenRes?.data?.token || tokenRes?.token;
+        if (tokenVal) {
+          const tokenInput = document.getElementById('shortcut-token-input');
+          if (tokenInput) tokenInput.value = tokenVal;
+        }
+      } catch (err) {
+        console.debug('[Settings] Fetching /api/user/token fallback:', err);
       }
 
       this.renderHeatmap();

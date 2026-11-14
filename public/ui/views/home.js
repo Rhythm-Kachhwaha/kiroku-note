@@ -48,6 +48,7 @@ const TIME_BASED_GREETINGS = [
 ];
 
 export const CURATED_DAILY_WORDS = [
+  // Preserved Editorial Words (N1 / N2 / N3) for test contract & rich literature
   {
     kanji: '木漏れ日',
     reading: 'こもれび',
@@ -131,6 +132,108 @@ export const CURATED_DAILY_WORDS = [
     exampleSentence: '旅先で地元の人々から受けた心づくしのもてなしに深く感謝した。',
     exampleFurigana: '<ruby>旅先<rt>たびさき</rt></ruby>で<ruby>地元<rt>じもと</rt></ruby>の<ruby>人々<rt>ひとびと</rt></ruby>から<ruby>受<rt>う</rt></ruby>けた<ruby>心<rt>こころ</rt></ruby>づくしのもてなしに<ruby>深<rt>ふか</rt></ruby>く<ruby>感謝<rt>かんしゃ</rt></ruby>した。',
     exampleTranslation: 'I was deeply grateful for the heartfelt hospitality received from local people during my travels.'
+  },
+
+  // Practical Core N4 Vocabulary (Everyday conversational essentials)
+  {
+    kanji: '約束',
+    reading: 'やくそく',
+    romaji: 'yakusoku',
+    meaning: 'Promise, agreement, arrangement',
+    jlpt: 'N4',
+    category: 'Social & Daily',
+    partOfSpeech: 'Noun / Suru verb',
+    exampleSentence: '友達と週末に映画を見る約束をしました。',
+    exampleFurigana: '<ruby>友達<rt>ともだち</rt></ruby>と<ruby>週末<rt>しゅうまつ</rt></ruby>に<ruby>映画<rt>えいが</rt></ruby>を<ruby>見<rt>み</rt></ruby>る<ruby>約束<rt>やくそく</rt></ruby>をしました。',
+    exampleTranslation: 'I made a promise with my friend to see a movie this weekend.'
+  },
+  {
+    kanji: '準備',
+    reading: 'じゅんび',
+    romaji: 'junbi',
+    meaning: 'Preparation, arrangements, getting ready',
+    jlpt: 'N4',
+    category: 'Daily Life',
+    partOfSpeech: 'Noun / Suru verb',
+    exampleSentence: '明日の旅行の準備はもう終わりましたか。',
+    exampleFurigana: '<ruby>明日<rt>あした</rt></ruby>の<ruby>旅行<rt>りょこう</rt></ruby>の<ruby>準備<rt>じゅんび</rt></ruby>はもう<ruby>終<rt>お</rt></ruby>わりましたか。',
+    exampleTranslation: 'Have you finished preparing for tomorrow\'s trip yet?'
+  },
+  {
+    kanji: '連絡',
+    reading: 'れんらく',
+    romaji: 'renraku',
+    meaning: 'Contact, communication, getting in touch',
+    jlpt: 'N4',
+    category: 'Communication',
+    partOfSpeech: 'Noun / Suru verb',
+    exampleSentence: '駅に着いたらすぐに連絡してください。',
+    exampleFurigana: '<ruby>駅<rt>えき</rt></ruby>に<ruby>着<rt>つ</rt></ruby>いたらすぐに<ruby>連絡<rt>れんらく</rt></ruby>してください。',
+    exampleTranslation: 'Please contact me as soon as you arrive at the station.'
+  },
+  {
+    kanji: '案内',
+    reading: 'あんない',
+    romaji: 'annai',
+    meaning: 'Guidance, showing around, information',
+    jlpt: 'N4',
+    category: 'Navigation',
+    partOfSpeech: 'Noun / Suru verb',
+    exampleSentence: '東京の街を親切に案内してくれました。',
+    exampleFurigana: '<ruby>東京<rt>とうきょう</rt></ruby>の<ruby>街<rt>まち</rt></ruby>を<ruby>親切<rt>しんせつ</rt></ruby>に<ruby>案内<rt>あんない</rt></ruby>してくれました。',
+    exampleTranslation: 'They kindly showed me around the city of Tokyo.'
+  },
+
+  // Practical Core N5 Vocabulary
+  {
+    kanji: '時間',
+    reading: 'じかん',
+    romaji: 'jikan',
+    meaning: 'Time, hours',
+    jlpt: 'N5',
+    category: 'Basics',
+    partOfSpeech: 'Noun',
+    exampleSentence: '日本語を勉強する時間を毎日作っています。',
+    exampleFurigana: '<ruby>日本語<rt>にほんご</rt></ruby>を<ruby>勉強<rt>べんきょう</rt></ruby>する<ruby>時間<rt>じかん</rt></ruby>を<ruby>毎日<rt>まいにち</rt></ruby><ruby>作<rt>つく</rt></ruby>っています。',
+    exampleTranslation: 'I make time to study Japanese every day.'
+  },
+  {
+    kanji: '食事',
+    reading: 'しょくじ',
+    romaji: 'shokuji',
+    meaning: 'Meal, dining',
+    jlpt: 'N5',
+    category: 'Daily Life',
+    partOfSpeech: 'Noun / Suru verb',
+    exampleSentence: '家族と一緒に楽しい食事の時間を過ごした。',
+    exampleFurigana: '<ruby>家族<rt>かぞく</rt></ruby>と<ruby>一緒<rt>いっしょ</rt></ruby>に<ruby>楽<rt>たの</rt></ruby>しい<ruby>食事<rt>しょくじ</rt></ruby>の<ruby>時間<rt>じかん</rt></ruby>を<ruby>過<rt>す</rt></ruby>ごした。',
+    exampleTranslation: 'I spent a wonderful mealtime together with my family.'
+  },
+
+  // Practical Core N3 Vocabulary
+  {
+    kanji: '遠慮',
+    reading: 'えんりょ',
+    romaji: 'enryo',
+    meaning: 'Restraint, hesitation, holding back',
+    jlpt: 'N3',
+    category: 'Social Etiquette',
+    partOfSpeech: 'Noun / Suru verb',
+    exampleSentence: 'どうぞ遠慮しないでたくさん召し上がってください。',
+    exampleFurigana: 'どうぞ<ruby>遠慮<rt>えんりょ</rt></ruby>しないでたくさん<ruby>召<rt>め</rt></ruby>し<ruby>上<rt>あ</rt></ruby>がってください。',
+    exampleTranslation: 'Please do not hesitate and eat as much as you like.'
+  },
+  {
+    kanji: '経験',
+    reading: 'けいけん',
+    romaji: 'keiken',
+    meaning: 'Experience, practical knowledge',
+    jlpt: 'N3',
+    category: 'Growth',
+    partOfSpeech: 'Noun / Suru verb',
+    exampleSentence: '日本での生活はとても貴重な経験になりました。',
+    exampleFurigana: '<ruby>日本<rt>にほん</rt></ruby>での<ruby>生活<rt>せいかつ</rt></ruby>はとても<ruby>貴重<rt>きちょう</rt></ruby>な<ruby>経験<rt>けいけん</rt></ruby>になりました。',
+    exampleTranslation: 'Living in Japan became an invaluable experience.'
   }
 ];
 
@@ -227,6 +330,11 @@ export class HomeView {
     this.riveMascot = null;
     this.cardControllers = new Map();
     this.currentDailyWord = null;
+    this.dueReviewsCount = null;
+    this.dailyStreak = null;
+    this.currentLearnerLevel = 'N4';
+    this.speechClickCycle = 0;
+    this.lastGrammarPoint = null;
   }
 
   getDefaultGreetingIndex(hour = new Date().getHours()) {
@@ -250,12 +358,16 @@ export class HomeView {
     return matches[Math.abs(hourSeed) % matches.length];
   }
 
-  getDailyWord(date = new Date()) {
+  getDailyWord(date = new Date(), level = null) {
     const d = new Date(date);
     const dayTimestamp = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
     const dayIndex = Math.floor(dayTimestamp / 86400000);
-    const index = Math.abs(dayIndex) % CURATED_DAILY_WORDS.length;
-    return CURATED_DAILY_WORDS[index];
+    const pool = (level && typeof level === 'string')
+      ? CURATED_DAILY_WORDS.filter((w) => w.jlpt?.toLowerCase() === level.toLowerCase())
+      : null;
+    const candidates = (pool && pool.length > 0) ? pool : CURATED_DAILY_WORDS;
+    const index = Math.abs(dayIndex) % candidates.length;
+    return candidates[index];
   }
 
   formatDateIso(date = new Date()) {
@@ -276,10 +388,91 @@ export class HomeView {
     }
   }
 
+  async fetchStudySummary() {
+    try {
+      const proxy = await this.getBackendProxy();
+      if (proxy && typeof proxy.request === 'function') {
+        const stats = await proxy.request('/api/cards/stats');
+        if (stats && typeof stats.due_cards === 'number') {
+          this.dueReviewsCount = stats.due_cards;
+          this.dailyStreak = stats.streak || 0;
+          this.updateSpeechBubble();
+          this.updateStudyDueBadge();
+        }
+      }
+    } catch (e) {
+      console.debug('[Home] Study summary load notice:', e);
+    }
+  }
+
+  updateSpeechBubble() {
+    const speechEl = this.container ? this.container.querySelector('#speech-bubble') : null;
+    if (!speechEl) return;
+    const jaSpan = speechEl.querySelector('.speech-greeting-ja');
+    const enP = speechEl.querySelector('.speech-subtitle-en');
+    const greeting = this.getAdaptiveGreeting();
+    if (jaSpan) jaSpan.textContent = greeting.ja;
+    if (enP) enP.textContent = greeting.en;
+  }
+
+  updateStudyDueBadge() {
+    const badge = this.container ? this.container.querySelector('#home-study-due-badge') : null;
+    if (!badge) return;
+    if (this.dueReviewsCount !== null && this.dueReviewsCount > 0) {
+      badge.textContent = `${this.dueReviewsCount} DUE`;
+      badge.classList.remove('is-caught-up');
+    } else if (this.dueReviewsCount === 0) {
+      badge.textContent = 'CAUGHT UP';
+      badge.classList.add('is-caught-up');
+    }
+  }
+
+  getAdaptiveGreeting() {
+    const base = this.getGreeting();
+    if (this.speechClickCycle === 1) {
+      return {
+        ja: '一歩一歩進もう！毎日の積み重ねが力になるよ。',
+        en: 'One step at a time! Daily consistency builds mastery.'
+      };
+    }
+    if (this.speechClickCycle === 2) {
+      return {
+        ja: '今夜も勉強？無理せず自分のペースでいこう！',
+        en: 'Studying tonight too? Take it at your own comfortable pace!'
+      };
+    }
+    if (this.dueReviewsCount !== null) {
+      if (this.dueReviewsCount > 0) {
+        return {
+          ja: `${base.ja} 今日の復習は${this.dueReviewsCount}件あるよ！`,
+          en: `${base.en} — ${this.dueReviewsCount} reviews due today!`
+        };
+      } else {
+        return {
+          ja: `${base.ja} 今日の復習はバッチリ完了！えらい！`,
+          en: `${base.en} — All caught up for today! Great work!`
+        };
+      }
+    }
+    return base;
+  }
+
   async mount(container) {
     this.container = container;
-    const greeting = this.getGreeting();
-    const fallbackWord = this.getDailyWord();
+    this.currentLearnerLevel = 'N4';
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const lvl = localStorage.getItem('learner_jlpt_level') || localStorage.getItem('learner.jlptLevel');
+        if (lvl) this.currentLearnerLevel = lvl;
+        const lastPt = localStorage.getItem('kiroku.last_grammar_point') || localStorage.getItem('grammar.lastPoint');
+        if (lastPt) this.lastGrammarPoint = lastPt;
+      } catch (e) {
+        console.debug('[Home] LocalStorage read notice:', e);
+      }
+    }
+
+    const greeting = this.getAdaptiveGreeting();
+    const fallbackWord = this.getDailyWord(new Date(), this.currentLearnerLevel);
     this.currentDailyWord = {
       word: fallbackWord.kanji,
       reading: fallbackWord.reading,
@@ -296,9 +489,9 @@ export class HomeView {
       date: this.formatDateIso()
     };
 
-    // Render Home Shell (Full-Width Responsive Grid)
+    // Render Home Shell (Asymmetric Bento Grid)
     const launcherCardsHtml = LAUNCHER_CARDS.map((card) => `
-      <div class="home-launcher-card tactile-card tactile-card-interactive"
+      <div class="home-launcher-card tactile-card tactile-card-interactive bento-card bento-card-${card.id}"
            id="launcher-card-${card.id}"
            data-tab="${card.tab}"
            role="button"
@@ -320,6 +513,8 @@ export class HomeView {
         </div>
       </div>
     `).join('');
+
+    const grammarPointLabel = this.lastGrammarPoint || `${this.currentLearnerLevel} Syllabus`;
 
     this.container.innerHTML = `
       <div class="home-view-wrapper">
@@ -343,7 +538,7 @@ export class HomeView {
         </header>
 
         <div class="home-view-container">
-          <!-- Left Zone: Companion Mascot Stage & Word of the Day Anchor -->
+          <!-- Left Zone: Companion Mascot Stage & Adaptive Speech Bubble -->
           <div class="home-left-zone">
             <!-- Manga Speech Burst Dialogue (Anchored to Companion Cat) -->
             <div class="comic-speech-bubble" id="speech-bubble" aria-label="Mascot greeting" style="opacity: 0; transform: translateY(-4px); transition: opacity 200ms ease, transform 200ms ease;">
@@ -368,19 +563,131 @@ export class HomeView {
             </div>
           </div>
 
-          <!-- Center/Right Zone: Animated Stroke Launcher Cards & Word of the Day -->
-          <div class="home-launcher-zone" id="home-launcher-zone">
+          <!-- Right Zone: 6-Card Hub Grid & Square Word of the Day Stamp -->
+          <div class="home-launcher-zone home-right-zone" id="home-launcher-zone">
+            <!-- 6-Card Destination Bento Hub Grid (Row 1: Study Pillars, Row 2: Immersion & Practice) -->
             <div class="home-launcher-grid" role="region" aria-label="Study Destinations">
-              ${launcherCardsHtml}
+              <!-- Top Row: Hero Cards (Vocab, Kanji, Grammar) -->
+              <div class="home-bento-hero-row">
+                ${launcherCardsHtml}
+
+                <!-- Grammar Studio Bento Card with Continue Option -->
+                <div class="home-launcher-card tactile-card tactile-card-interactive bento-card bento-card-grammar"
+                     id="launcher-card-grammar"
+                     data-tab="grammar"
+                     role="button"
+                     tabindex="0"
+                     aria-label="Grammar: JLPT syntax patterns and rules">
+                  <div class="bento-grammar-content">
+                    <div class="bento-card-header">
+                      <span class="bento-grammar-pill font-japanese">文法</span>
+                      <span class="launcher-arrow font-mono" aria-hidden="true">&rarr;</span>
+                    </div>
+                    <div class="launcher-text-group">
+                      <h3 class="launcher-title font-display">Grammar</h3>
+                      <p class="launcher-desc font-sans">JLPT syntax patterns</p>
+                    </div>
+                    <div class="bento-grammar-action">
+                      <button type="button" class="bento-resume-btn font-mono" id="btn-grammar-continue" title="Resume grammar study">
+                        <span class="resume-label">Continue:</span>
+                        <span class="resume-point font-japanese">${grammarPointLabel}</span>
+                        <span class="resume-arrow font-mono" aria-hidden="true">&rarr;</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bottom Row: Sub-Cards (Study Drills, Anime, Manga) -->
+              <div class="home-bento-sub-row">
+                <!-- Card 1: Study Drills with Pending Reviews Badge -->
+                <div class="home-launcher-card bento-sub-card tactile-card tactile-card-interactive"
+                     id="launcher-card-study"
+                     data-tab="study"
+                     role="button"
+                     tabindex="0"
+                     aria-label="Study Drills: Adaptive repetition and practice">
+                  <div class="bento-sub-card-header">
+                    <div class="bento-sub-badge-group">
+                      <div class="bento-sub-icon-wrap" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                      </div>
+                      <span class="bento-due-pill font-mono" id="home-study-due-badge">PRACTICE</span>
+                    </div>
+                    <span class="launcher-arrow font-mono" aria-hidden="true">&rarr;</span>
+                  </div>
+                  <div class="launcher-text-group">
+                    <h3 class="launcher-title font-display">Study Drills</h3>
+                    <p class="launcher-desc font-sans">SRS reviews & bursts</p>
+                  </div>
+                </div>
+
+                <!-- Card 2: Anime Theater -->
+                <div class="home-launcher-card bento-sub-card tactile-card tactile-card-interactive"
+                     id="launcher-card-anime"
+                     data-tab="anime"
+                     role="button"
+                     tabindex="0"
+                     aria-label="Anime: Subtitle sync and video immersion">
+                  <div class="bento-sub-card-header">
+                    <div class="bento-sub-badge-group">
+                      <div class="bento-sub-icon-wrap" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                          <line x1="7" y1="2" x2="7" y2="22"></line>
+                          <line x1="17" y1="2" x2="17" y2="22"></line>
+                          <line x1="2" y1="12" x2="22" y2="12"></line>
+                        </svg>
+                      </div>
+                      <span class="bento-media-pill font-mono">ANIME</span>
+                    </div>
+                    <span class="launcher-arrow font-mono" aria-hidden="true">&rarr;</span>
+                  </div>
+                  <div class="launcher-text-group">
+                    <h3 class="launcher-title font-display">Anime</h3>
+                    <p class="launcher-desc font-sans">Subtitle theater & player</p>
+                  </div>
+                </div>
+
+                <!-- Card 3: Manga Reader -->
+                <div class="home-launcher-card bento-sub-card tactile-card tactile-card-interactive"
+                     id="launcher-card-manga"
+                     data-tab="manga"
+                     role="button"
+                     tabindex="0"
+                     aria-label="Manga: Reader and OCR bubble capture">
+                  <div class="bento-sub-card-header">
+                    <div class="bento-sub-badge-group">
+                      <div class="bento-sub-icon-wrap" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                        </svg>
+                      </div>
+                      <span class="bento-media-pill font-mono">MANGA</span>
+                    </div>
+                    <span class="launcher-arrow font-mono" aria-hidden="true">&rarr;</span>
+                  </div>
+                  <div class="launcher-text-group">
+                    <h3 class="launcher-title font-display">Manga</h3>
+                    <p class="launcher-desc font-sans">Reader & OCR mining</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <!-- Deterministic Word of the Day Card Anchor (Under Launcher Cards) -->
-            <div class="home-daily-word daily-vocab-stamp tactile-card"
-                 id="daily-word-stamp"
-                 role="region"
-                 tabindex="0"
-                 aria-label="Word of the day: ${this.currentDailyWord.word} (${this.currentDailyWord.reading}) - ${this.currentDailyWord.meaning}">
-              ${this.renderWordOfTheDayCard(this.currentDailyWord)}
+            <!-- Square Word of the Day Stamp (Placed Below All Destination Cards) -->
+            <div class="home-wotd-zone">
+              <div class="home-daily-word daily-vocab-stamp tactile-card wotd-square-stamp"
+                   id="daily-word-stamp"
+                   role="region"
+                   tabindex="0"
+                   aria-label="Word of the day: ${this.currentDailyWord.word} (${this.currentDailyWord.reading}) - ${this.currentDailyWord.meaning}">
+                ${this.renderWordOfTheDayCard(this.currentDailyWord)}
+              </div>
             </div>
           </div>
         </div>
@@ -398,6 +705,7 @@ export class HomeView {
     // Hydrate Word of the Day dynamically from backend in background
     this._lastRefreshAt = Date.now();
     this.hydrateDailyWord();
+    this.fetchStudySummary();
   }
 
   renderWordOfTheDayCard(data) {
@@ -405,12 +713,12 @@ export class HomeView {
     const isSaved = Boolean(data.is_saved);
 
     return `
-      <div class="wotd-card-inner">
+      <div class="wotd-card-inner wotd-square-inner">
         <!-- Top Meta & Controls Header -->
         <div class="wotd-header-row">
           <div class="wotd-badge-group">
             <span class="wotd-section-tag font-mono">WORD OF THE DAY</span>
-            <span class="wotd-jlpt-pill font-mono">${data.jlpt_level || 'N3'}</span>
+            <span class="wotd-jlpt-pill font-mono">${data.jlpt_level || 'N4'}</span>
             ${data.category ? `<span class="wotd-category-pill font-mono">${data.category}</span>` : ''}
           </div>
           <div class="wotd-actions-row">
@@ -453,6 +761,14 @@ export class HomeView {
           </div>
         </div>
 
+        <!-- Footer Link to Vocab Desk -->
+        <div class="wotd-footer-row">
+          <a href="#vocab" class="wotd-link-vocab font-mono" id="btn-daily-word-open" title="Open in Vocabulary Desk">
+            <span>Open in Vocab Desk</span>
+            <span class="wotd-arrow font-mono" aria-hidden="true">&rarr;</span>
+          </a>
+        </div>
+
         <!-- Collapsible Drawer Container (Reveals on Hover, Focus, or Tap) -->
         <div class="wotd-collapsible-wrapper" id="wotd-collapsible-wrapper">
           <div class="wotd-collapsible-inner">
@@ -463,14 +779,6 @@ export class HomeView {
                 <p class="wotd-example-ja font-japanese">${data.example_sentence || ''}</p>
                 ${data.example_translation ? `<p class="wotd-example-en font-sans">${data.example_translation}</p>` : ''}
               </div>
-            </div>
-
-            <!-- Footer Link to Vocab Desk -->
-            <div class="wotd-footer-row">
-              <a href="#vocab" class="wotd-link-vocab font-mono" id="btn-daily-word-open" title="Open in Vocabulary Desk">
-                <span>Open in Vocab Desk</span>
-                <span class="wotd-arrow font-mono" aria-hidden="true">&rarr;</span>
-              </a>
             </div>
           </div>
         </div>
@@ -695,12 +1003,23 @@ export class HomeView {
         ? cardEl.querySelector('svg')
         : null;
 
-      // Ensure resting frame is rendered immediately
+      const reducedMotion = typeof window !== 'undefined' &&
+        window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // In normal mode, ensure animations are unpaused and start from stroke 1
       try {
-        if (svgEl?.pauseAnimations) svgEl.pauseAnimations();
-        if (svgEl?.setCurrentTime) svgEl.setCurrentTime(config.restTime);
+        if (reducedMotion) {
+          if (svgEl?.pauseAnimations) svgEl.pauseAnimations();
+          if (svgEl?.setCurrentTime) svgEl.setCurrentTime(config.restTime);
+        } else {
+          if (svgEl?.setCurrentTime) svgEl.setCurrentTime(0);
+          if (svgEl?.animationsPaused?.()) {
+            svgEl.unpauseAnimations();
+          }
+        }
       } catch (e) {
-        console.debug('[Home] SVG animation resting init warning:', e);
+        console.debug('[Home] SVG animation init warning:', e);
       }
 
       const ctrl = {
@@ -708,7 +1027,7 @@ export class HomeView {
         cardEl,
         svg: svgEl,
         leaveTimer: null,
-        isAnimating: false,
+        isAnimating: true,
         inViewport: true,
         play: () => {
           if (ctrl.leaveTimer) {
@@ -718,11 +1037,7 @@ export class HomeView {
           const glyphWrap = ctrl.cardEl?.querySelector?.('.launcher-glyph-wrap');
           if (glyphWrap) glyphWrap.classList.remove('is-easing-out');
 
-          const reducedMotion = typeof window !== 'undefined' &&
-            window.matchMedia &&
-            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-          if (reducedMotion || document.hidden === true || !ctrl.inViewport) {
+          if (reducedMotion || document.hidden === true) {
             try {
               ctrl.svg?.pauseAnimations?.();
               ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
@@ -733,8 +1048,14 @@ export class HomeView {
           }
 
           try {
-            ctrl.svg?.setCurrentTime?.(0);
-            ctrl.svg?.unpauseAnimations?.();
+            if (ctrl.svg) {
+              if (typeof ctrl.svg.setCurrentTime === 'function') {
+                ctrl.svg.setCurrentTime(0);
+              }
+              if (typeof ctrl.svg.unpauseAnimations === 'function' && ctrl.svg.animationsPaused?.()) {
+                ctrl.svg.unpauseAnimations();
+              }
+            }
             ctrl.isAnimating = true;
           } catch (e) {
             console.debug('[Home] SVG play warning:', e);
@@ -745,92 +1066,32 @@ export class HomeView {
             clearTimeout(ctrl.leaveTimer);
             ctrl.leaveTimer = null;
           }
-
-          const reducedMotion = typeof window !== 'undefined' &&
-            window.matchMedia &&
-            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-          if (reducedMotion || !ctrl.isAnimating) {
+          if (reducedMotion) {
             try {
               ctrl.svg?.pauseAnimations?.();
               ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
             } catch (e) {
-              console.debug('[Home] SVG pause error:', e);
+              console.debug('[Home] SVG stop notice:', e);
             }
-            ctrl.isAnimating = false;
-            return;
           }
-
-          const glyphWrap = ctrl.cardEl?.querySelector?.('.launcher-glyph-wrap');
-          glyphWrap?.classList?.add?.('is-easing-out');
-
-          ctrl.leaveTimer = setTimeout(() => {
-            try {
-              ctrl.svg?.pauseAnimations?.();
-              ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
-            } catch (e) {
-              console.debug('[Home] SVG pause error:', e);
-            }
-            ctrl.isAnimating = false;
-            glyphWrap?.classList?.remove?.('is-easing-out');
-            ctrl.leaveTimer = null;
-          }, 180);
         },
         resetToRest: () => {
           if (ctrl.leaveTimer) {
             clearTimeout(ctrl.leaveTimer);
             ctrl.leaveTimer = null;
           }
-          const glyphWrap = ctrl.cardEl?.querySelector?.('.launcher-glyph-wrap');
-          glyphWrap?.classList?.remove?.('is-easing-out');
-
-          try {
-            ctrl.svg?.pauseAnimations?.();
-            ctrl.svg?.setCurrentTime?.(ctrl.config.restTime);
-          } catch (e) {
-            console.debug('[Home] SVG reset error:', e);
-          }
-          ctrl.isAnimating = false;
         }
       };
 
       this.cardControllers.set(config.id, ctrl);
-      if (cardEl && typeof IntersectionObserver === 'function') {
-        if (!this.cardIntersectionObserver) {
-          this.cardIntersectionObserver = new IntersectionObserver((entries) => {
-            for (const entry of entries) {
-              const observedCtrl = this.cardControllers.get(entry.target.dataset?.cardId);
-              if (!observedCtrl) continue;
-              observedCtrl.inViewport = entry.isIntersecting;
-              if (!entry.isIntersecting) observedCtrl.stop();
-            }
-          });
-        }
-        cardEl.dataset.cardId = config.id;
-        this.cardIntersectionObserver.observe(cardEl);
-      }
 
       if (cardEl && typeof cardEl.addEventListener === 'function') {
         cardEl.addEventListener('pointerenter', () => {
-          for (const [id, otherCtrl] of this.cardControllers) {
-            if (id !== config.id) otherCtrl.stop();
-          }
           ctrl.play();
-        });
-
-        cardEl.addEventListener('pointerleave', () => {
-          ctrl.stop();
         });
 
         cardEl.addEventListener('focus', () => {
-          for (const [id, otherCtrl] of this.cardControllers) {
-            if (id !== config.id) otherCtrl.stop();
-          }
           ctrl.play();
-        });
-
-        cardEl.addEventListener('blur', () => {
-          ctrl.stop();
         });
 
         cardEl.addEventListener('click', (e) => {
@@ -855,6 +1116,84 @@ export class HomeView {
     this.setupWordCardEvents();
     this.setupLauncherNavigation();
 
+    // Click on speech bubble cycles through study status & greetings
+    const speechBubble = this.container ? this.container.querySelector('#speech-bubble') : null;
+    if (speechBubble) {
+      speechBubble.style.cursor = 'pointer';
+      speechBubble.addEventListener('click', () => {
+        this.speechClickCycle = (this.speechClickCycle + 1) % 3;
+        this.updateSpeechBubble();
+      });
+    }
+
+    // Grammar Bento Card & Continue button
+    const cardGrammar = this.container ? this.container.querySelector('#launcher-card-grammar') : null;
+    if (cardGrammar) {
+      cardGrammar.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.router.navigateToTab('grammar');
+      });
+      cardGrammar.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.router.navigateToTab('grammar');
+        }
+      });
+    }
+    const btnGrammarContinue = this.container ? this.container.querySelector('#btn-grammar-continue') : null;
+    if (btnGrammarContinue) {
+      btnGrammarContinue.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.router.navigateToTab('grammar');
+      });
+    }
+
+    // Study Drills Card
+    const cardStudy = this.container ? this.container.querySelector('#launcher-card-study') : null;
+    if (cardStudy) {
+      cardStudy.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.router.navigateToTab('study');
+      });
+      cardStudy.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.router.navigateToTab('study');
+        }
+      });
+    }
+
+    // Anime Theater Card
+    const cardAnime = this.container ? this.container.querySelector('#launcher-card-anime') : null;
+    if (cardAnime) {
+      cardAnime.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.router.navigateToTab('anime');
+      });
+      cardAnime.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.router.navigateToTab('anime');
+        }
+      });
+    }
+
+    // Manga Reader Card
+    const cardManga = this.container ? this.container.querySelector('#launcher-card-manga') : null;
+    if (cardManga) {
+      cardManga.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.router.navigateToTab('manga');
+      });
+      cardManga.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.router.navigateToTab('manga');
+        }
+      });
+    }
+
     // Pause looping SVGs when document is hidden (minimize to tray)
     this.visibilityHandler = () => {
       if (document.hidden) {
@@ -877,16 +1216,38 @@ export class HomeView {
     if (Date.now() - this._lastRefreshAt > 30000) {
       this._lastRefreshAt = Date.now();
       this.hydrateDailyWord();
+      this.fetchStudySummary();
+    }
+    // Resume and rewind stroke animations on view activation
+    const reducedMotion = typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reducedMotion) {
+      for (const ctrl of this.cardControllers.values()) {
+        ctrl.inViewport = true;
+        try {
+          if (ctrl.svg) {
+            if (typeof ctrl.svg.setCurrentTime === 'function') {
+              ctrl.svg.setCurrentTime(0);
+            }
+            if (typeof ctrl.svg.unpauseAnimations === 'function' && ctrl.svg.animationsPaused?.()) {
+              ctrl.svg.unpauseAnimations();
+            }
+          }
+        } catch (e) {
+          console.debug('[Home] SVG onShow resume warning:', e);
+        }
+      }
     }
     if (this.riveMascot) {
       this.riveMascot.lastSurfaceSize = null;
       this.riveMascot.resume();
-      this.riveMascot.resize();
-      try {
-        this.riveMascot.instance?.setupRiveListeners?.();
-      } catch (e) {
-        console.debug('[Home] setupRiveListeners onShow error:', e);
-      }
+      requestAnimationFrame(() => {
+        this.riveMascot?.resize?.();
+        requestAnimationFrame(() => {
+          this.riveMascot?.resize?.();
+        });
+      });
     }
     this.scheduleTiltReset();
   }
@@ -894,6 +1255,15 @@ export class HomeView {
   onHide() {
     if (this.visibilityHandler) {
       document.removeEventListener('visibilitychange', this.visibilityHandler);
+    }
+    for (const ctrl of this.cardControllers.values()) {
+      try {
+        if (ctrl.svg && typeof ctrl.svg.pauseAnimations === 'function') {
+          ctrl.svg.pauseAnimations();
+        }
+      } catch (e) {
+        console.debug('[Home] SVG hide notice:', e);
+      }
     }
     this.stopTiltTracking();
     this.riveMascot?.pause?.();
