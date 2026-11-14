@@ -45,23 +45,113 @@ export class KanjiView {
     this._keydownListener = null;
   }
 
-  async getTargetDeck() {
-    let targetDeck = 'Default';
+  async loadAvailableDecks() {
+    const decks = new Set(['Default']);
+
+    // 1. Restore cached decks from localStorage
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('kiroku:cached-anki-decks');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((d) => d && decks.add(d));
+          }
+        }
+      } catch (err) {
+        console.debug('[Kanji] Error reading cached decks from localStorage:', err);
+      }
+    }
+
+    // 2. Fetch live AnkiConnect decks unioned with saved SQLite decks from backend
+    try {
+      const res = await apiClient.getAnkiDecks();
+      const fetched = Array.isArray(res) ? res : (res?.decks || []);
+      if (Array.isArray(fetched) && fetched.length > 0) {
+        fetched.forEach((d) => d && decks.add(d));
+      }
+    } catch (err) {
+      console.debug('[Kanji] Failed to fetch live Anki decks (offline):', err);
+    }
+
+    // 3. Check chrome.storage.local for stored user preferences
+    let preferredDeck = null;
     if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
       try {
         const stored = await new Promise((res) => {
-          window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck'], res);
+          window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck', 'last_used_deck'], res);
         });
         if (stored?.['anki_deck']) {
-          targetDeck = stored['anki_deck'];
+          preferredDeck = stored['anki_deck'];
+          decks.add(preferredDeck);
         } else if (stored?.['vocab.selectedDeck']) {
-          targetDeck = stored['vocab.selectedDeck'];
+          preferredDeck = stored['vocab.selectedDeck'];
+          decks.add(preferredDeck);
+        } else if (stored?.['last_used_deck']) {
+          preferredDeck = stored['last_used_deck'];
+          decks.add(preferredDeck);
         }
       } catch (err) {
-        console.debug('[Kanji] Target deck preference restore error:', err);
+        console.debug('[Kanji] Error checking chrome storage for preferred deck:', err);
       }
     }
-    return targetDeck;
+
+    // 4. Also check localStorage for last selected deck
+    if (!preferredDeck && typeof localStorage !== 'undefined') {
+      try {
+        const lastSelected = localStorage.getItem('kiroku:selected-deck') || localStorage.getItem('last_used_deck');
+        if (lastSelected) {
+          preferredDeck = lastSelected;
+          decks.add(preferredDeck);
+        }
+      } catch (err) {
+        console.debug('[Kanji] Error reading kiroku:selected-deck:', err);
+      }
+    }
+
+    this.availableDecks = Array.from(decks);
+
+    // Persist all known decks in localStorage so they survive restarts and offline mode
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('kiroku:cached-anki-decks', JSON.stringify(this.availableDecks));
+      } catch (err) {
+        console.debug('[Kanji] Error saving cached decks to localStorage:', err);
+      }
+    }
+
+    return {
+      decks: this.availableDecks,
+      preferredDeck: preferredDeck || (this.availableDecks.find((d) => d !== 'Default') || 'Default')
+    };
+  }
+
+  async persistSelectedDeck(deckName) {
+    if (!deckName) return;
+    if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+      try {
+        await window.chrome.storage.local.set({
+          anki_deck: deckName,
+          'vocab.selectedDeck': deckName,
+          last_used_deck: deckName
+        });
+      } catch (err) {
+        console.debug('[Kanji] Error persisting selected deck to chrome.storage:', err);
+      }
+    }
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('kiroku:selected-deck', deckName);
+        localStorage.setItem('last_used_deck', deckName);
+      } catch (err) {
+        console.debug('[Kanji] Error persisting kiroku:selected-deck:', err);
+      }
+    }
+  }
+
+  async getTargetDeck() {
+    const { preferredDeck } = await this.loadAvailableDecks();
+    return preferredDeck || 'Default';
   }
 
   async mount(container) {
@@ -74,6 +164,8 @@ export class KanjiView {
     } catch (err) {
       console.debug('[Kanji] Resolve universal level error:', err);
     }
+
+    await this.loadAvailableDecks();
 
     this.render();
     this.setupEvents();
@@ -643,6 +735,7 @@ export class KanjiView {
     const btnCloseInsp = document.getElementById('btn-close-kanji-inspector');
     const backdropInsp = document.getElementById('kanji-inspector-backdrop');
     const btnMineInsp = document.getElementById('btn-kanji-insp-mine');
+    const deckSelectInsp = document.getElementById('kanji-insp-deck');
 
     if (btnCloseInsp) {
       btnCloseInsp.addEventListener('click', () => this.closeCardInspector());
@@ -652,6 +745,11 @@ export class KanjiView {
     }
     if (btnMineInsp) {
       btnMineInsp.addEventListener('click', () => this.mineCurrentCard());
+    }
+    if (deckSelectInsp) {
+      deckSelectInsp.addEventListener('change', (e) => {
+        this.persistSelectedDeck(e.target.value);
+      });
     }
 
     // Add Compound Popover Events
@@ -1453,6 +1551,18 @@ export class KanjiView {
     if (notesInput) notesInput.value = '';
     if (feedback) feedback.style.display = 'none';
 
+    const deckSelect = document.getElementById('kanji-insp-deck');
+    if (deckSelect) {
+      this.loadAvailableDecks().then(({ decks, preferredDeck }) => {
+        deckSelect.innerHTML = decks.map((d) => `
+          <option value="${escapeHtml(d)}" ${d === preferredDeck ? 'selected' : ''}>${escapeHtml(d)}</option>
+        `).join('');
+        deckSelect.value = preferredDeck;
+      }).catch((err) => {
+        console.debug('[Kanji] Error refreshing deck select in inspector:', err);
+      });
+    }
+
     backdrop.style.display = 'block';
     drawer.classList.add('is-open');
     drawer.setAttribute('aria-hidden', 'false');
@@ -1487,6 +1597,10 @@ export class KanjiView {
     const deck = deckSelect?.value || 'Default';
 
     if (!term) return;
+
+    if (deck) {
+      this.persistSelectedDeck(deck);
+    }
 
     if (btnMine) btnMine.disabled = true;
     if (feedback) {

@@ -636,11 +636,22 @@ export class SettingsView {
     if (selectDeck) {
       selectDeck.addEventListener('change', (e) => {
         const val = e.target.value;
-        if (val && typeof window !== 'undefined' && window.chrome?.storage?.local) {
-          window.chrome.storage.local.set({
-            anki_deck: val,
-            'vocab.selectedDeck': val
-          });
+        if (val) {
+          if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
+            window.chrome.storage.local.set({
+              anki_deck: val,
+              'vocab.selectedDeck': val,
+              last_used_deck: val
+            });
+          }
+          if (typeof localStorage !== 'undefined') {
+            try {
+              localStorage.setItem('kiroku:selected-deck', val);
+              localStorage.setItem('last_used_deck', val);
+            } catch (err) {
+              console.debug('[Settings] Set selected deck error:', err);
+            }
+          }
         }
       });
     }
@@ -1283,17 +1294,44 @@ export class SettingsView {
 
     try {
       const res = await apiClient.getAnkiDecks();
-      const decks = Array.isArray(res) ? res : (res?.decks || []);
+      const rawDecks = Array.isArray(res) ? res : (res?.decks || []);
+
+      let cachedDecks = [];
+      if (typeof localStorage !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('kiroku:cached-anki-decks');
+          if (raw) cachedDecks = JSON.parse(raw);
+        } catch (err) {
+          console.debug('[Settings] Read cached decks error:', err);
+        }
+      }
+
+      const decks = Array.from(new Set(['Default', ...cachedDecks, ...rawDecks]));
+      if (decks.length > 0 && typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem('kiroku:cached-anki-decks', JSON.stringify(decks));
+        } catch (err) {
+          console.debug('[Settings] Write cached decks error:', err);
+        }
+      }
 
       let currentDeck = savedDeck;
       if (!currentDeck && typeof window !== 'undefined' && window.chrome?.storage?.local) {
         try {
           const stored = await new Promise((resolve) => {
-            window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck'], resolve);
+            window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck', 'last_used_deck'], resolve);
           });
-          currentDeck = stored?.['anki_deck'] || stored?.['vocab.selectedDeck'] || '';
+          currentDeck = stored?.['anki_deck'] || stored?.['vocab.selectedDeck'] || stored?.['last_used_deck'] || '';
         } catch (err) {
           console.debug('[Settings] Restore stored deck error:', err);
+        }
+      }
+
+      if (!currentDeck && typeof localStorage !== 'undefined') {
+        try {
+          currentDeck = localStorage.getItem('kiroku:selected-deck') || localStorage.getItem('last_used_deck') || '';
+        } catch (err) {
+          console.debug('[Settings] Restore selected deck error:', err);
         }
       }
 

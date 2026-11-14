@@ -1,5 +1,5 @@
 # Status
-Kanji list view: marked-known kanji styled in crisp light green #13e872.
-Card Inspector: Expression/reading in hero showcase view, Save button.
-Backend restarted: canonical radicals now served live for all kanji.
-All final lock, tokens, backend and desktop tests pass.
+Deck persistence: cached decks and selected deck persist offline.
+Kanji list view: marked-known styled in green, hero inspector saved.
+All target deck dropdowns sync across kanji, vocab, and settings.
+Final lock, design tokens, and desktop/backend tests all pass.

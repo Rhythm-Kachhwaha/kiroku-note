@@ -542,8 +542,23 @@ export class VocabMainView {
         apiClient.getKnownWords()
       ]);
 
-      if (decksRes.status === 'fulfilled' && Array.isArray(decksRes.value)) {
-        this.ankiDecks = decksRes.value.length > 0 ? decksRes.value : ['Default'];
+      const fetchedDecks = decksRes.status === 'fulfilled'
+        ? (Array.isArray(decksRes.value) ? decksRes.value : (decksRes.value?.decks || []))
+        : [];
+
+      let cachedDecks = [];
+      if (typeof localStorage !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('kiroku:cached-anki-decks');
+          if (raw) cachedDecks = JSON.parse(raw);
+        } catch (err) {
+          console.debug('[VocabMain] Read cached decks error:', err);
+        }
+      }
+
+      const combinedDecks = Array.from(new Set(['Default', ...cachedDecks, ...fetchedDecks]));
+      if (combinedDecks.length > 0) {
+        this.ankiDecks = combinedDecks;
         if (typeof localStorage !== 'undefined') {
           try {
             localStorage.setItem('kiroku:cached-anki-decks', JSON.stringify(this.ankiDecks));
@@ -562,9 +577,18 @@ export class VocabMainView {
               const multiStored = await window.chrome.storage.local.get(['anki_deck', 'vocab.selectedDeck']);
               // Keep explicit call to satisfy test assertion in remediation_fixes.test.js
               const singleStored = await window.chrome.storage.local.get('vocab.selectedDeck');
-              preferredDeck = multiStored?.['vocab.selectedDeck'] || multiStored?.['anki_deck'] || singleStored?.['vocab.selectedDeck'];
+              const lastUsedStored = await window.chrome.storage.local.get('last_used_deck');
+              preferredDeck = multiStored?.['vocab.selectedDeck'] || multiStored?.['anki_deck'] || lastUsedStored?.['last_used_deck'] || singleStored?.['vocab.selectedDeck'];
             } catch (err) {
               console.debug('[VocabMain] Failed to restore deck preference:', err);
+            }
+          }
+
+          if (!preferredDeck && typeof localStorage !== 'undefined') {
+            try {
+              preferredDeck = localStorage.getItem('kiroku:selected-deck') || localStorage.getItem('last_used_deck');
+            } catch (err) {
+              console.debug('[VocabMain] Read selected deck error:', err);
             }
           }
 
@@ -572,6 +596,8 @@ export class VocabMainView {
             select.value = previousValue;
           } else if (preferredDeck && this.ankiDecks.includes(preferredDeck)) {
             select.value = preferredDeck;
+          } else if (this.ankiDecks.some(d => d !== 'Default')) {
+            select.value = this.ankiDecks.find(d => d !== 'Default');
           }
         }
       }
@@ -730,7 +756,15 @@ export class VocabMainView {
         this.setDirty(true);
         this.saveDraft();
         if (typeof window !== 'undefined' && window.chrome?.storage?.local) {
-          window.chrome.storage.local.set({ 'vocab.selectedDeck': selectDeckEl.value });
+          window.chrome.storage.local.set({ 'vocab.selectedDeck': selectDeckEl.value, 'anki_deck': selectDeckEl.value, last_used_deck: selectDeckEl.value });
+        }
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('kiroku:selected-deck', selectDeckEl.value);
+            localStorage.setItem('last_used_deck', selectDeckEl.value);
+          } catch (err) {
+            console.debug('[VocabMain] Set selected deck error:', err);
+          }
         }
       });
     }
