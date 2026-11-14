@@ -657,10 +657,19 @@ def get_queue_adapter(
     Factory to obtain the configured queue adapter.
 
     Backend selection:
-      - QUEUE_BACKEND="cloud": Returns CloudQueueAdapter
+      - QUEUE_BACKEND="turso": Returns TursoQueueAdapter (direct libSQL edge)
+      - QUEUE_BACKEND="cloud": Returns TursoQueueAdapter if TURSO_DATABASE_URL is set and
+                               KIROKU_USE_HTTP_QUEUE is false; otherwise CloudQueueAdapter
       - QUEUE_BACKEND="local" (default): Returns LocalDevQueueAdapter
     """
     selected = (backend or os.getenv("QUEUE_BACKEND", "local")).strip().lower()
+    use_http_queue = os.getenv("KIROKU_USE_HTTP_QUEUE", "false").strip().lower() in ("true", "1", "yes")
+    turso_url = os.getenv("TURSO_DATABASE_URL", "").strip()
+
+    if (selected == "turso") or (selected == "cloud" and not use_http_queue and turso_url):
+        from turso_adapter import TursoQueueAdapter
+        return TursoQueueAdapter()
+
     if selected == "cloud":
         return CloudQueueAdapter()
     return LocalDevQueueAdapter(db_path=db_path)
