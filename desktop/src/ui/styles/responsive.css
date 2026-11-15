@@ -21,11 +21,18 @@
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
   }
+  .top-chrome {
+    padding-top: env(safe-area-inset-top, 0px);
+    height: calc(var(--chrome-top-height, 48px) + env(safe-area-inset-top, 0px));
+  }
+  .bottom-dock-wrapper {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* Touch ergonomics & minimum tap targets */
 @media (pointer: coarse), (max-width: 768px) {
-  button,
+  button:not(.top-chrome button):not(.chrome-action-btn):not(.top-chrome-auth-btn),
   .btn,
   .tactile-button,
   .tactile-pill,
