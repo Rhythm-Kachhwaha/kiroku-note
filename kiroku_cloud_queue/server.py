@@ -1904,6 +1904,83 @@ async def mcp_endpoint(request: Request) -> JSONResponse:
 
 
 # ---------------------------------------------------------------------------
+# Sudachi Tokenizer Endpoint
+# ---------------------------------------------------------------------------
+_sudachi_dict = None
+_sudachi_lock = None
+
+
+def _get_sudachi_tokenizer():
+    global _sudachi_dict, _sudachi_lock
+    if _sudachi_lock is None:
+        import threading
+        _sudachi_lock = threading.Lock()
+    with _sudachi_lock:
+        if _sudachi_dict is None:
+            try:
+                from sudachipy import Dictionary
+                _sudachi_dict = Dictionary()
+            except Exception as exc:
+                log.warning("Sudachi initialization failed: %s", exc)
+                return None
+        try:
+            return _sudachi_dict.tokenizer()
+        except Exception:
+            return None
+
+
+@app.post("/api/tokenize")
+async def tokenize(request: Request) -> JSONResponse:
+    """Analyze sentence text with Sudachi morphological analyzer."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    text = (body.get("text") or "").strip()
+    mode = (body.get("mode") or "C").upper().strip()
+    if not text:
+        return JSONResponse({"tokens": []})
+
+    tokenizer = _get_sudachi_tokenizer()
+    if tokenizer is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="SudachiPy tokenizer is not installed or available.",
+        )
+
+    from sudachipy import SplitMode
+    split_mode = SplitMode.C
+    if mode == "A":
+        split_mode = SplitMode.A
+    elif mode == "B":
+        split_mode = SplitMode.B
+
+    try:
+        morphemes = tokenizer.tokenize(text, split_mode)
+    except Exception as exc:
+        log.warning("Sudachi tokenization error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Tokenization failed: {exc}",
+        )
+
+    tokens = []
+    for m in morphemes:
+        pos = m.part_of_speech()
+        tokens.append({
+            "surface": m.surface(),
+            "normalized": m.normalized_form(),
+            "dictionary_form": m.dictionary_form(),
+            "reading": m.reading_form() or "",
+            "part_of_speech": list(pos[:4]) if len(pos) >= 4 else list(pos),
+            "inflection_type": pos[4] if len(pos) > 4 else "*",
+            "inflection_form": pos[5] if len(pos) > 5 else "*",
+        })
+
+    return JSONResponse({"tokens": tokens})
+
+
+# ---------------------------------------------------------------------------
 # Health Endpoint
 # ---------------------------------------------------------------------------
 
